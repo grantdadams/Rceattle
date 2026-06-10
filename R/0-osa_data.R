@@ -84,6 +84,20 @@ build_osa_data <- function(data_list) {
     pos
   }
 
+  # Append one composition row (comp or caal): its bin counts =
+  # (proportion + 1e-5) * Neff, one decomposition group, final bin flagged.
+  # Returns the obsvec start position of the row's first bin.
+  append_composition <- function(type, obs_row, n_bins, Neff, fleet, sp, sex, yr,
+                                 data_row, comp_type = NA_integer_,
+                                 length = NA_integer_) {
+    counts <- (as.numeric(obs_row[seq_len(n_bins)]) + 0.00001) * Neff
+    append_obs(value = counts, type = type, data_row = data_row,
+               fleet_code = fleet, species = sp, sex = sex, year = yr,
+               age_or_length = seq_len(n_bins), length = length,
+               bin_index = seq_len(n_bins) - 1L, comp_type = comp_type,
+               is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE)[1]
+  }
+
   # ---- Index (survey) observations: lognormal, stored as log(obs) ----
   # TMB guard: Year in (0, endyr], fleet on (flt_type > 0), observation > 0.
   index_ctl <- data_list$index_ctl
@@ -130,15 +144,11 @@ build_osa_data <- function(data_list) {
       fleet     <- comp_ctl[r, 1]; sp <- comp_ctl[r, 2]; sex <- comp_ctl[r, 3]
       comp_type <- comp_ctl[r, 4]; yr <- comp_ctl[r, 5]; Neff <- comp_n[r, 2]
       if (!(yr > 0 && yr <= endyr && flt_type[fleet] > 0 && Neff > 0)) next
-      joint_adjust <- if (sex == 3) 2L else 1L
+      joint_adjust <- if (sex == 3) 2L else 1L          # joint-sex doubles the bins
       n_comp <- (if (comp_type == 0) nages[sp] else nlengths[sp]) * joint_adjust
-      counts <- (as.numeric(comp_obs[r, seq_len(n_comp)]) + 0.00001) * Neff
-      comp_obsvec_idx[r] <- append_obs(
-        value = counts, type = "comp", data_row = r,
-        fleet_code = fleet, species = sp, sex = sex, year = yr,
-        age_or_length = seq_len(n_comp), bin_index = seq_len(n_comp) - 1L,
-        comp_type = comp_type, is_last_bin = seq_len(n_comp) == n_comp,
-        one_group = TRUE)[1]
+      comp_obsvec_idx[r] <- append_composition(
+        "comp", comp_obs[r, ], n_comp, Neff, fleet, sp, sex, yr, r,
+        comp_type = comp_type)
     }
   }
 
@@ -153,14 +163,9 @@ build_osa_data <- function(data_list) {
       fleet <- caal_ctl[r, 1]; sp <- caal_ctl[r, 2]; sex <- caal_ctl[r, 3]
       yr    <- caal_ctl[r, 4]; len_bin <- caal_ctl[r, 5]; Neff <- caal_n[r, 1]
       if (!(yr > 0 && yr <= endyr && flt_type[fleet] > 0 && Neff > 0)) next
-      n_caal <- nages[sp]
-      counts <- (as.numeric(caal_obs[r, seq_len(n_caal)]) + 0.00001) * Neff
-      caal_obsvec_idx[r] <- append_obs(
-        value = counts, type = "caal", data_row = r,
-        fleet_code = fleet, species = sp, sex = sex, year = yr,
-        age_or_length = seq_len(n_caal), length = len_bin,
-        bin_index = seq_len(n_caal) - 1L, comp_type = 0L,
-        is_last_bin = seq_len(n_caal) == n_caal, one_group = TRUE)[1]
+      caal_obsvec_idx[r] <- append_composition(
+        "caal", caal_obs[r, ], nages[sp], Neff, fleet, sp, sex, yr, r,
+        comp_type = 0L, length = len_bin)            # age bins conditioned on length
     }
   }
 

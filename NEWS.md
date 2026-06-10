@@ -13,10 +13,38 @@
   directly to re-run it on any fit.
 * Added a model-diagnostics vignette section and accompanying unit tests for
   the new framework.
+* Added one-step-ahead (OSA) residuals for model validation via the new
+  exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
+  Unlike Pearson residuals, OSA residuals are iid standard normal under a
+  correctly specified model even for correlated composition data. All fitted
+  observation types are supported: survey indices, fishery catch, age/length
+  composition, conditional age-at-length, and predator diet (stomach-content)
+  composition. Composition data are residualized with the conditional binomial
+  / beta-binomial decomposition (multinomial / Dirichlet-multinomial), and the
+  `MultinomialAFSC` likelihood is residualized under the full multinomial. The
+  fitted objective is unchanged: a new `obsvec`/`keep`/`osa_mode` machinery
+  feeds `TMB::oneStepPredict()` while leaving normal fitting bit-for-bit
+  identical.
+* Added `osa_diagnostics()` for the Stewart and Monnahan (2025) statistical
+  diagnostics -- the standard deviation of the normalized residuals (SDNR) and
+  the lower/upper tail statistics, each with its standard-normal null interval
+  -- and a `plot()` method for `rceattle_osa` objects (Q-Q plot with SDNR/tail
+  annotation, signed composition bubbles, and residual-by-year), styled after
+  the NOAA-AFSC `afscOSA` package.
+* Added `process_residuals()` for SAM-style process residuals on the model's
+  random-effect deviations (recruitment, initial abundance, and catchability),
+  validating the process model as a complement to the observation residuals.
+* `residuals()` gains `type = "osa"` and `type = "process"`; `plot_comp()` and
+  `plot_indexresidual()` gain a `residual_type = "osa"` option that draws the
+  OSA diagnostics through the familiar plotting functions.
 
 ## Bug fixes
 
 * Fixed a parameters-on-bounds misalignment in the convergence diagnostics.
+* Fixed the unweighted conditional-age-at-length (CAAL) log-likelihood being
+  recorded in the composition slot of `unweighted_jnll_comp` instead of the
+  CAAL slot. This affects the reported diagnostic matrix only; the fitted
+  objective was unaffected.
 * The joint negative log-likelihood (jnll) is now taken from the optimizer
   objective for consistency.
 

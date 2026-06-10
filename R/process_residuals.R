@@ -151,13 +151,18 @@ process_residuals <- function(fit,
   obj  <- fit$obj
   full <- obj$env$parList()[[par_name]]          # full parameter array
   mapf <- fit$map$mapFactor[[par_name]]
-  est  <- if (is.null(mapf)) seq_along(full) else which(!is.na(as.integer(mapf)))
+  # Estimated (non-fixed) elements, in column-major order -- the same order as
+  # the covariance matrix rows. If this does not match the covariance dimension
+  # the element-to-(species/year/age) mapping would be guesswork, so error
+  # rather than mislabel.
+  est <- if (is.null(mapf)) seq_along(full) else which(!is.na(as.integer(mapf)))
   if (length(est) != n) {
-    # Fall back to the first n (e.g. when projection columns are simply absent
-    # from the estimated set in a consistent leading block).
-    est <- seq_len(n)
+    stop("Could not map the ", n, " estimated '", par_name, "' deviations to ",
+         "model elements (found ", length(est), " estimated positions). ",
+         "Process residuals are not supported for this parameter's ",
+         "configuration.")
   }
-  ai   <- arrayInd(est, dim(full))               # one row per estimated element
+  ai <- arrayInd(est, dim(full))                 # one row per estimated element
   styr <- d$styr
 
   if (process %in% c("recruitment", "initial")) {

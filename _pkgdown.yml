@@ -170,9 +170,12 @@ reference:
   - sample_rec
 
 - title: "Diagnostics and simulation"
-  desc: Retrospective analysis, jitter testing, and simulation.
+  desc: Retrospective analysis, jitter testing, residual diagnostics, and simulation.
   contents:
   - convergence_diagnostics
+  - osa_residuals
+  - osa_diagnostics
+  - process_residuals
   - retrospective
   - jitter
   - profile.Rceattle
@@ -208,6 +211,7 @@ reference:
   - plot_logindex
   - plot_indexresidual
   - plot_comp
+  - plot.rceattle_osa
   - plot_data
   - plot_form
 

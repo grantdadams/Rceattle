@@ -128,6 +128,82 @@ plot_indexresidual(model_1)
 plot_catch(model_1)
 ```
 
+## One-step-ahead (OSA) residuals
+
+Pearson residuals on composition data are *not* standard normal even when the
+model is correct, because the age/length bins are correlated (more fish in one
+bin means fewer in another) and because random effects induce correlation across
+years. One-step-ahead (OSA) residuals fix this: each observation is residualized
+conditional on the previously-added observations, integrating out the random
+effects, so the residuals are iid standard normal under a correctly specified
+model (Thygesen et al. 2017; Trijoulet et al. 2023). They therefore support
+objective goodness-of-fit testing.
+
+`osa_residuals()` computes them *post hoc* for any combination of the fitted data
+types -- survey indices, fishery catch, age/length composition (`"comp"`),
+conditional age-at-length (`"caal"`), and predator diet (`"diet"`). Composition
+data are residualized with the conditional binomial / beta-binomial
+decomposition. OSA re-optimizes the random effects per observation, so it is
+expensive; run it on a converged fit (`estimateMode < 3`).
+
+```{r osa, eval = FALSE}
+# Aggregate (catch + index) residuals -- fast
+osa <- osa_residuals(model_1, types = c("index", "catch"))
+head(osa)
+
+# Statistical diagnostics (Stewart & Monnahan 2025): SDNR and lower/upper tail
+# statistics, each with the interval expected under the standard-normal null.
+osa_diagnostics(osa)
+
+# Q-Q plot (with SDNR / tail annotation) + residual-by-year
+plot(osa)
+
+# Composition residuals (slower) and the same plots through the familiar
+# composition plotter:
+plot_comp(model_1, residual_type = "osa")
+
+# residuals() also exposes them in the common residual schema:
+residuals(model_1, type = "osa")
+```
+
+Following Stewart and Monnahan (2025), a practical workflow is:
+
+1. **Inspect the aggregate fit** across years (`plot_comp(model_1)`): systematic
+   lack of fit here points to structural misspecification (e.g. the wrong
+   selectivity shape).
+2. **Compare the SDNR** to its null interval (from `osa_diagnostics()`): a value
+   outside the interval flags over- or under-dispersion, often a data-weighting
+   or effective-sample-size issue.
+3. **Compare the lower/upper tail statistics** to their null intervals: these
+   localize departures to the tails of the residual distribution.
+4. **Inspect Pearson bubble plots** (`plot_comp(model_1)`, the default): patterns
+   in the sign of residuals across age/year can identify *where* lack of fit
+   occurs -- Stewart and Monnahan recommend keeping these alongside OSA
+   residuals.
+5. **Revise the model or data weighting** where misspecification is found, using
+   this together with the other diagnostics rather than as an accept/reject test.
+
+Because OSA residuals for discrete composition data are randomized quantile
+residuals, they are stochastic; `osa_residuals()` takes a `seed` for
+reproducibility.
+
+### Process residuals
+
+`process_residuals()` is the complementary check on the *process* model: it
+standardizes the model's random-effect deviations (recruitment, initial
+abundance, catchability) against their process prior, drawing once from the
+joint posterior (SAM's `procres`; Nielsen and Berg 2014). Under a correct
+process model these are also approximately iid standard normal.
+
+```{r procres, eval = FALSE}
+pr <- process_residuals(model_1, process = "recruitment")
+osa_diagnostics(pr)
+plot(pr)
+
+# residuals() exposes them too:
+residuals(model_1, type = "process")
+```
+
 ## Retrospective analysis
 
 A retrospective analysis systematically removes the most recent years of data one peel at a time and re-fits the model. Bias in the final estimates relative to earlier peels is summarised by Mohn's rho: values outside ±0.2 (for SSB) generally indicate a problem worth investigating.
