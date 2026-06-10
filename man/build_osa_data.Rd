@@ -7,8 +7,8 @@
 build_osa_data(data_list)
 }
 \arguments{
-\item{data_list}{A \code{data_list} whose \verb{*_ctl}/\verb{*_obs} matrices have already
-been built by \code{\link[=rearrange_data]{rearrange_data()}}.}
+\item{data_list}{A \code{data_list} whose \verb{*_ctl}/\verb{*_obs}/\verb{*_n} matrices have
+already been built (and coerced to matrices) by \code{\link[=rearrange_data]{rearrange_data()}}.}
 }
 \value{
 The input \code{data_list} with \code{obsvec}, \code{obs_ctl}, \code{osa_mode}, and the
@@ -21,27 +21,28 @@ template needs to compute one-step-ahead (OSA) residuals via
 
 OSA residuals require every observation that enters the likelihood to live in
 a single flat vector (\code{obsvec}) with a companion \code{keep} indicator. This
-function walks the already-built control/observation matrices (\code{index_ctl} /
-\code{index_obs}, \code{catch_ctl} / \code{catch_obs}, ...) and produces:
+function walks the already-built control/observation matrices and produces:
 
 \itemize{
 \item \code{obsvec} -- the flat vector of observations. Aggregate (catch and
-index) observations are stored on the log scale because their likelihood
-is lognormal, matching what the TMB template reads.
+index) observations are stored as log(observation) because their
+likelihood is lognormal; composition (comp) and conditional-age-at-length
+(caal) observations are stored as bin counts, \code{(proportion + 1e-5) * N},
+matching exactly what the TMB likelihood forms during fitting.
 \item \code{obs_ctl} -- a data frame with one row per element of \code{obsvec},
-mapping each position back to its data type, fleet, species, year, etc.,
-so residuals stay interpretable. This is R-side metadata only and is
-removed before the data list is passed to TMB.
-\item \verb{*_obsvec_idx} -- for each observation type, an integer vector giving
-the 0-based position of each \verb{*_obs} row within \code{obsvec}, or \code{-1} when the
-row is excluded from the likelihood (projection years, non-positive
-observations). The TMB template reads these to map each observation to its
-\code{obsvec} element.
+mapping each position back to its data type, fleet, species, year,
+age/length bin, etc., so residuals stay interpretable. R-side metadata
+only; removed before the data list is passed to TMB.
+\item \verb{*_obsvec_idx} -- per observation-row index vectors. For aggregate
+series this is the 0-based \code{obsvec} position of each row; for composition
+and caal it is the 0-based \code{obsvec} position of the row's FIRST bin (the
+template reads the row's bins as \code{obsvec.segment(start, n_bins)}). \code{-1}
+marks rows excluded from the likelihood.
 }
 
-The inclusion rules below must match the guards in the TMB template exactly,
-so that every observation the template evaluates has a valid \code{obsvec}
-position. Phase 1 covers the aggregate catch and index series; composition,
-CAAL, and diet observations are added in later development phases.
+The inclusion rules and per-row bin counts below must match the guards in the
+TMB template exactly, so that every observation the template evaluates has a
+valid \code{obsvec} position. Phases: catch + index (aggregate) and comp + caal
+(composition); diet is added in a later phase.
 }
 \keyword{internal}

@@ -19,6 +19,7 @@
 #endif
 
 #include "helper_functions.hpp"
+#include "comp_osa.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"
 #include "recruitment.hpp"
@@ -259,7 +260,9 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
   DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)
   DATA_IVECTOR( index_obsvec_idx );         // obsvec position for each index_obs row (-1 = excluded)
-  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (later phases)
+  DATA_IVECTOR( comp_obsvec_idx );          // obsvec start position for each comp_obs row's bins (-1 = excluded)
+  DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
+  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
 
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
@@ -2477,27 +2480,44 @@ Type objective_function<Type>::operator() () {
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (comp_n(comp_ind, 1) > 0)){
 
-      switch(comp_ll_type(flt)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from comp_obs (unchanged) ----
+        switch(comp_ll_type(flt)){
 
-      case -1:
-        for(ln = 0; ln < n_comp; ln++) {
-          // Martin's
-          jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-          unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+        case -1:
+          for(ln = 0; ln < n_comp; ln++) {
+            // Martin's
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
+            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+          }
+          break;
+
+        case 0:  // Full multinomial
+          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
+          unweighted_jnll_comp(2, flt) -= dmultinom(comp_obs_tmp, comp_hat_tmp, true);
+          break;
+
+        case 1:  // Dirichlet-multinomial
+          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
+          break;
+        default:
+          error("Invalid 'comp_ll_type'");
         }
-        break;
-
-      case 0:  // Full multinomial
-        jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-        unweighted_jnll_comp(2, flt) -= dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-        break;
-
-      case 1:  // Dirichlet-multinomial
-        jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-        unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
-        break;
-      default:
-        error("Invalid 'comp_ll_type'");
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec so oneStepPredict() can residualize each bin. The AFSC
+        // pseudo-likelihood (-1) has no proper density, so it is residualized
+        // under the full multinomial. ----
+        int start = comp_obsvec_idx(comp_ind);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_comp);
+          if(comp_ll_type(flt) == 1){     // Dirichlet-multinomial (uses fitted DM par)
+            jnll_comp(2, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
+          } else {                        // multinomial (cases 0 and -1)
+            jnll_comp(2, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
+          }
+        }
       }
     }
   }
@@ -2537,19 +2557,36 @@ Type objective_function<Type>::operator() () {
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (caal_n(caal_ind, 0) > 0)){
 
-      switch(caal_ll_type(flt)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from caal_obs (unchanged) ----
+        // NOTE: the unweighted bookkeeping below previously wrote to slot 2
+        // (the comp slot) instead of slot 3; corrected here to slot 3.
+        switch(caal_ll_type(flt)){
 
-      case 0:  // Full multinomial
-        jnll_comp(3, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
-        unweighted_jnll_comp(2, flt) -= dmultinom(caal_obs_tmp, caal_hat_tmp, true);
-        break;
+        case 0:  // Full multinomial
+          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
+          unweighted_jnll_comp(3, flt) -= dmultinom(caal_obs_tmp, caal_hat_tmp, true);
+          break;
 
-      case 1:  // Dirichlet-multinomial
-        jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
-        unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
-        break;
-      default:
-        error("Invalid 'caal_ll_type'");
+        case 1:  // Dirichlet-multinomial
+          jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
+          break;
+        default:
+          error("Invalid 'caal_ll_type'");
+        }
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec (alpha total uses the fixed caal_obs counts, not obsvec). ----
+        int start = caal_obsvec_idx(caal_ind);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_caal);
+          if(caal_ll_type(flt) == 1){     // Dirichlet-multinomial
+            jnll_comp(3, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
+          } else {                        // multinomial
+            jnll_comp(3, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
+          }
+        }
       }
     }
   }

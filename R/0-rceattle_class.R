@@ -239,7 +239,7 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
       Species      = osa$species,
       Sex          = osa$sex,
       Year         = osa$year,
-      Length       = rep(NA_real_, nrow(osa)),
+      Length       = osa$length,
       Bin          = osa$age_or_length,
       Age0_Length1 = ifelse(osa$index_label == "length", 1L,
                             ifelse(osa$index_label == "age", 0L, NA_integer_)),

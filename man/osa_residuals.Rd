@@ -6,7 +6,7 @@
 \usage{
 osa_residuals(
   fit,
-  types = c("index", "catch"),
+  types = c("index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   seed = 123,
@@ -17,8 +17,9 @@ osa_residuals(
 \arguments{
 \item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
-\item{types}{Character vector of observation types to residualize. Currently
-one or both of \code{"index"} and \code{"catch"}.}
+\item{types}{Character vector of observation types to residualize: any of
+\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}. Defaults to all four; types with
+no observations in the model are silently skipped.}
 
 \item{method}{Passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}. Defaults to
 \code{"oneStepGaussianOffMode"} (the WHAM/SAM default), appropriate for the
@@ -38,11 +39,12 @@ of randomized-quantile residuals. Default \code{123}.}
 \value{
 A data frame of class \code{rceattle_osa} with one row per residualized
 observation and columns \code{type}, \code{fleet}, \code{species}, \code{sex}, \code{year},
-\code{age_or_length}, \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
+\code{age_or_length}, \code{length} (the conditioning length bin for caal; \code{NA}
+otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
 \code{predicted}, \code{sd}, and \code{residual}. For aggregate series \code{observed} and
-\code{predicted} are on the model (log) scale. Carries \code{method} and \code{seed}
-attributes. Summarize it with \code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with
-\code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
+\code{predicted} are on the model (log) scale; for compositions they are bin
+counts. Carries \code{method} and \code{seed} attributes. Summarize it with
+\code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
 }
 \description{
 Computes one-step-ahead (OSA) residuals -- also called forecast or quantile
@@ -62,9 +64,17 @@ OSA residuals are computed \emph{post hoc} and are expensive (TMB re-optimizes t
 random effects as each observation is added), so they are not produced during
 \code{\link[=fit_mod]{fit_mod()}}. The model must have been optimized with \code{estimateMode < 3}.
 
-This is a staged feature. Phase 1 supports the aggregate \code{"catch"} and
-\code{"index"} series; composition (\code{"comp"}, \code{"caal"}) and \code{"diet"} are added in
-later phases.
+This is a staged feature. It currently supports the aggregate \code{"catch"} and
+\code{"index"} series and the \code{"comp"} (age/length composition) and \code{"caal"}
+(conditional age-at-length) compositions; \code{"diet"} is added in a later phase.
+
+For composition data the multivariate multinomial / Dirichlet-multinomial is
+decomposed into a sequence of univariate conditional residuals (binomial /
+beta-binomial; Trijoulet et al. 2023). The final bin of each composition is
+fixed by the sum-to-N constraint and so has no residual (returned as \code{NA}).
+Composition OSA uses an internal model rebuild with unweighted, proper
+densities (the \code{osa_mode} switch); fleets fit with the AFSC \code{MultinomialAFSC}
+pseudo-likelihood are residualized under the full multinomial.
 }
 \references{
 Thygesen, U.H., et al. 2017. Validation of ecological state space models using

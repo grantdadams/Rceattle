@@ -18,13 +18,22 @@
 #' random effects as each observation is added), so they are not produced during
 #' [fit_mod()]. The model must have been optimized with `estimateMode < 3`.
 #'
-#' This is a staged feature. Phase 1 supports the aggregate `"catch"` and
-#' `"index"` series; composition (`"comp"`, `"caal"`) and `"diet"` are added in
-#' later phases.
+#' This is a staged feature. It currently supports the aggregate `"catch"` and
+#' `"index"` series and the `"comp"` (age/length composition) and `"caal"`
+#' (conditional age-at-length) compositions; `"diet"` is added in a later phase.
+#'
+#' For composition data the multivariate multinomial / Dirichlet-multinomial is
+#' decomposed into a sequence of univariate conditional residuals (binomial /
+#' beta-binomial; Trijoulet et al. 2023). The final bin of each composition is
+#' fixed by the sum-to-N constraint and so has no residual (returned as `NA`).
+#' Composition OSA uses an internal model rebuild with unweighted, proper
+#' densities (the `osa_mode` switch); fleets fit with the AFSC `MultinomialAFSC`
+#' pseudo-likelihood are residualized under the full multinomial.
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
-#' @param types Character vector of observation types to residualize. Currently
-#'   one or both of `"index"` and `"catch"`.
+#' @param types Character vector of observation types to residualize: any of
+#'   `"index"`, `"catch"`, `"comp"`, `"caal"`. Defaults to all four; types with
+#'   no observations in the model are silently skipped.
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
 #'   `"oneStepGaussianOffMode"` (the WHAM/SAM default), appropriate for the
 #'   lognormal aggregate series.
@@ -38,11 +47,12 @@
 #'
 #' @return A data frame of class `rceattle_osa` with one row per residualized
 #'   observation and columns `type`, `fleet`, `species`, `sex`, `year`,
-#'   `age_or_length`, `index_label` (`"age"`/`"length"`/`NA`), `observed`,
+#'   `age_or_length`, `length` (the conditioning length bin for caal; `NA`
+#'   otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
-#'   `predicted` are on the model (log) scale. Carries `method` and `seed`
-#'   attributes. Summarize it with [osa_diagnostics()] and plot it with
-#'   [plot.rceattle_osa()].
+#'   `predicted` are on the model (log) scale; for compositions they are bin
+#'   counts. Carries `method` and `seed` attributes. Summarize it with
+#'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references
 #' Thygesen, U.H., et al. 2017. Validation of ecological state space models using
@@ -58,7 +68,7 @@
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
 #' @export
 osa_residuals <- function(fit,
-                          types   = c("index", "catch"),
+                          types   = c("index", "catch", "comp", "caal"),
                           method  = "oneStepGaussianOffMode",
                           discrete = FALSE,
                           seed    = 123,
@@ -88,7 +98,7 @@ osa_residuals <- function(fit,
          "a converged fit.")
   }
 
-  valid_types <- c("index", "catch")
+  valid_types <- c("index", "catch", "comp", "caal")
   types <- match.arg(types, choices = valid_types, several.ok = TRUE)
 
   # ---- Select the obsvec positions to residualize ----
@@ -110,9 +120,16 @@ osa_residuals <- function(fit,
   # the 0-based TMB position.
   subset_pos <- sel$obs_pos + 1L
 
+  # Rebuild the model in OSA mode (osa_mode = 1) at the fitted parameters. This
+  # is required so the composition (comp/caal) likelihoods read their counts
+  # from obsvec and use the unweighted, proper density that oneStepPredict needs.
+  # It leaves the aggregate catch/index likelihood unchanged, so the same
+  # rebuilt object serves all observation types.
+  obj_osa <- .osa_build_obj(fit)
+
   # ---- Compute the OSA residuals ----
   osa <- TMB::oneStepPredict(
-    obj                 = fit$obj,
+    obj                 = obj_osa,
     observation.name    = "obsvec",
     data.term.indicator = "keep",
     method              = method,
@@ -137,6 +154,7 @@ osa_residuals <- function(fit,
     sex           = sel$sex,
     year          = sel$year,
     age_or_length = sel$age_or_length,
+    length        = sel$length,
     index_label   = index_label,
     observed      = get_col(osa, "observation"),
     predicted     = get_col(osa, "mean"),
@@ -148,7 +166,58 @@ osa_residuals <- function(fit,
   class(out) <- c("rceattle_osa", "data.frame")
   attr(out, "method") <- method
   attr(out, "seed")   <- seed
+
+  n_bad <- sum(!is.finite(out$residual))
+  if (n_bad > 0) {
+    warning(n_bad, " of ", nrow(out), " OSA residual(s) are non-finite. This ",
+            "usually indicates a poorly converged fit or very sparse / ",
+            "degenerate compositions (common for conditional age-at-length); ",
+            "check model convergence before interpreting the residuals.")
+  }
   out
+}
+
+
+#' Rebuild a fitted Rceattle TMB object in OSA mode at the fitted parameters
+#'
+#' @description
+#' Returns a TMB ADFun object equivalent to `fit$obj` but with `osa_mode = 1`,
+#' built at the fitted parameter values and the same map / random-effect
+#' structure, ready for [TMB::oneStepPredict()]. In OSA mode the composition
+#' likelihoods read their counts from `obsvec` and use unweighted proper
+#' densities; the aggregate catch/index likelihood is identical in both modes,
+#' so this single object serves every observation type.
+#'
+#' @param fit A fitted `Rceattle` object.
+#' @return A TMB ADFun object with `osa_mode = 1`.
+#' @keywords internal
+.osa_build_obj <- function(fit) {
+  obj <- fit$obj
+  if (!is.null(obj$env$data$osa_mode) && obj$env$data$osa_mode == 1L) {
+    return(obj)
+  }
+  data2 <- obj$env$data
+  # obj$env$data is already sanitized (stored as double with a 'check.passed'
+  # attribute). Overwrite osa_mode as a double (DATA_INTEGER reads it via
+  # CppAD::Integer) and drop 'check.passed' so MakeADFun re-sanitizes cleanly.
+  data2$osa_mode <- 1
+  attr(data2, "check.passed") <- NULL
+  random_names <- if (length(obj$env$random)) {
+    unique(names(obj$env$par)[obj$env$random])
+  } else {
+    NULL
+  }
+  # parList() returns the current (fitted) parameters as a list structured to
+  # match the map, which is the reliable way to rebuild at the fitted values.
+  obj2 <- TMB::MakeADFun(
+    data       = data2,
+    parameters = obj$env$parList(),
+    map        = obj$env$map,
+    random     = random_names,
+    DLL        = fit$TMBfilename,
+    silent     = TRUE)
+  obj2$fn(obj2$par)   # evaluate once so last.par is populated
+  obj2
 }
 
 

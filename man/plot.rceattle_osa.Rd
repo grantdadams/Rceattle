@@ -4,13 +4,14 @@
 \alias{plot.rceattle_osa}
 \title{Plot one-step-ahead (OSA) residual diagnostics}
 \usage{
-\method{plot}{rceattle_osa}(x, which = c("qq", "resid_year"), ...)
+\method{plot}{rceattle_osa}(x, which = NULL, ...)
 }
 \arguments{
 \item{x}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}}.}
 
-\item{which}{Which panels to draw: any of \code{"qq"} and \code{"resid_year"}.
-Default both.}
+\item{which}{Which panels to draw: any of \code{"qq"}, \code{"bubble"}, and
+\code{"resid_year"}. Defaults to the Q-Q panel plus a bubble panel when
+composition residuals are present, or a residual-vs-year panel otherwise.}
 
 \item{...}{Unused.}
 }

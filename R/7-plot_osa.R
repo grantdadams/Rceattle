@@ -14,8 +14,9 @@
 #' phase.)
 #'
 #' @param x An `rceattle_osa` object from [osa_residuals()].
-#' @param which Which panels to draw: any of `"qq"` and `"resid_year"`.
-#'   Default both.
+#' @param which Which panels to draw: any of `"qq"`, `"bubble"`, and
+#'   `"resid_year"`. Defaults to the Q-Q panel plus a bubble panel when
+#'   composition residuals are present, or a residual-vs-year panel otherwise.
 #' @param ... Unused.
 #'
 #' @return Invisibly, the assembled `ggplot`/`cowplot` object. Called for its
@@ -25,17 +26,20 @@
 #'   82:1-13.
 #' @seealso [osa_residuals()], [osa_diagnostics()]
 #' @export
-plot.rceattle_osa <- function(x, which = c("qq", "resid_year"), ...) {
+plot.rceattle_osa <- function(x, which = NULL, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 is required to plot OSA residuals.")
   }
-  which <- match.arg(which, c("qq", "resid_year"), several.ok = TRUE)
-
   x <- x[is.finite(x$residual), , drop = FALSE]
   x$source <- .osa_source_label(x)
 
+  has_comp <- any(x$type %in% c("comp", "caal"))
+  if (is.null(which)) which <- c("qq", if (has_comp) "bubble" else "resid_year")
+  which <- match.arg(which, c("qq", "bubble", "resid_year"), several.ok = TRUE)
+
   panels <- list()
   if ("qq" %in% which)         panels$qq <- .osa_qqplot(x)
+  if ("bubble" %in% which)     panels$bubble <- .osa_bubble_plot(x)
   if ("resid_year" %in% which) panels$resid_year <- .osa_resid_year_plot(x)
 
   if (length(panels) == 1L) {
@@ -105,12 +109,42 @@ plot.rceattle_osa <- function(x, which = c("qq", "resid_year"), ...) {
     ggplot2::geom_hline(yintercept = c(-2, 2), colour = "grey80",
                         linetype = "dashed") +
     ggplot2::geom_point(ggplot2::aes(colour = .data$sign), alpha = 0.8) +
-    ggplot2::scale_colour_manual(values = c(positive = "#2c7fb8",
-                                            negative = "#d7301f"),
+    ggplot2::scale_colour_manual(values = c(positive = "#d7301f",
+                                            negative = "#2c7fb8"),
                                  guide = "none") +
     ggplot2::facet_wrap(~ source, nrow = 1L) +
     ggplot2::labs(x = "Year", y = "OSA residual",
                   title = "OSA residual by year") +
+    ggplot2::theme_bw(base_size = 10)
+}
+
+
+#' Bubble plot of composition OSA residuals (afscOSA styling)
+#'
+#' @param osa An `rceattle_osa` data frame with a `source` column. Bubbles are
+#'   placed at (year, age/length bin); red = positive, blue = negative; size and
+#'   transparency scale with the absolute residual; outliers (`|resid| > 3`) are
+#'   drawn as triangles. Mirrors the NOAA-AFSC `afscOSA` package.
+#' @return A `ggplot` object.
+#' @keywords internal
+.osa_bubble_plot <- function(osa) {
+  osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
+  osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
+  ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$age_or_length)) +
+    ggplot2::geom_point(ggplot2::aes(size = abs(.data$residual),
+                                     alpha = abs(.data$residual),
+                                     colour = .data$sign,
+                                     shape = .data$shape)) +
+    ggplot2::scale_colour_manual(values = c(positive = "#d7301f",
+                                            negative = "#2c7fb8"),
+                                 guide = "none") +
+    ggplot2::scale_shape_manual(values = c(normal = 16L, outlier = 17L),
+                                guide = "none") +
+    ggplot2::scale_size_continuous(range = c(0.5, 5), guide = "none") +
+    ggplot2::scale_alpha_continuous(range = c(0.3, 0.9), guide = "none") +
+    ggplot2::facet_wrap(~ source, nrow = 1L) +
+    ggplot2::labs(x = "Year", y = "Age / length bin",
+                  title = "OSA residual bubbles") +
     ggplot2::theme_bw(base_size = 10)
 }
 
