@@ -217,10 +217,34 @@ logLik.Rceattle <- function(object, ...) {
 #'   `NA` where they do not apply (e.g. for index/catch rows).
 #' @export
 residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
-  valid <- c("index", "catch", "comp", "caal", "osa", "all")
+  valid <- c("index", "catch", "comp", "caal", "osa", "process", "all")
   type  <- match.arg(type, valid, several.ok = TRUE)
   if ("all" %in% type) type <- c("index", "catch", "comp", "caal")
   scale <- match.arg(scale, c("log", "natural"))
+
+  # Process residuals (recruitment / random-effect deviations) are computed
+  # separately and returned on their own, reshaped into the common schema.
+  if ("process" %in% type) {
+    if (length(type) > 1L) {
+      warning("type = 'process' is returned on its own; ignoring other types.")
+    }
+    pr <- process_residuals(object, ...)
+    return(data.frame(
+      Source       = pr$type,
+      Fleet_code   = NA_integer_,
+      Fleet_name   = NA_character_,
+      Species      = pr$species,
+      Sex          = pr$sex,
+      Year         = pr$year,
+      Length       = rep(NA_real_, nrow(pr)),
+      Bin          = pr$age_or_length,
+      Age0_Length1 = rep(NA_integer_, nrow(pr)),
+      Sample_size  = rep(NA_real_, nrow(pr)),
+      Observed     = pr$observed,
+      Fitted       = pr$predicted,
+      Residual     = pr$residual,
+      stringsAsFactors = FALSE))
+  }
 
   # One-step-ahead residuals are computed separately (oneStepPredict) and
   # returned on their own, reshaped into the common residual schema. They are

@@ -44,7 +44,8 @@ Imports:
     rlang,
     plyr,
     tidyselect,
-    magrittr
+    magrittr,
+    Matrix
 LinkingTo:
     TMB,
     RcppEigen

@@ -152,6 +152,40 @@ testthat::test_that("obsvec/keep refactor leaves the fitted objective finite", {
 })
 
 
+testthat::test_that("process_residuals() runs on a converging model", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("GOApollock", package = "Rceattle")
+  fit <- Rceattle::fit_mod(
+    data_list = GOApollock, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(verbose = 0, phase = TRUE, getsd = TRUE))
+
+  pr <- process_residuals(fit, process = "recruitment")
+  testthat::expect_s3_class(pr, "rceattle_osa")
+  testthat::expect_equal(unique(pr$type), "recruitment")
+  testthat::expect_true(all(is.finite(pr$residual)))
+  # One recruitment residual per hindcast year.
+  testthat::expect_equal(nrow(pr), length(GOApollock$styr:GOApollock$endyr))
+  testthat::expect_setequal(range(pr$year), c(GOApollock$styr, GOApollock$endyr))
+
+  # Deterministic with a fixed seed.
+  pr2 <- process_residuals(fit, process = "recruitment")
+  testthat::expect_equal(pr$residual, pr2$residual)
+
+  # process = "all" returns every supported process present, all finite.
+  pr_all <- process_residuals(fit, process = "all")
+  testthat::expect_true("recruitment" %in% pr_all$type)
+  testthat::expect_true(all(is.finite(pr_all$residual)))
+
+  # residuals(type = "process") reshapes into the common residual schema.
+  r <- residuals(fit, type = "process")
+  testthat::expect_true(all(c("Source", "Species", "Year", "Residual") %in% names(r)))
+})
+
+
 testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
