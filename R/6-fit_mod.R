@@ -576,6 +576,11 @@ fit_mod <-
         control      = control
       )
 
+      # Pull the per-phase convergence log (attached by TMBphase) for the
+      # phasing diagnostic, then strip it so it doesn't ride along in start_par.
+      mod_objects$.conv_phase <- attr(phase_pars, "phase_log")
+      attr(phase_pars, "phase_log") <- NULL
+
       mod_objects$phase_params <- phase_pars
       start_par <- phase_pars
 
@@ -660,6 +665,14 @@ fit_mod <-
           }
           mod_objects$identified <- identified
         }
+      }
+
+      # Capture the hindcast optimizer convergence snapshot now, before any
+      # projection re-optimization overwrites `opt` (see R/0-convergence.R).
+      if (estimateMode %in% c(0, 1)) {
+        mod_objects$.conv_hindcast <- .capture_opt_convergence(
+          opt, obj, bounds = bounds, mapFactor = map$mapFactor,
+          random_vars = random_vars, getsd = getsd)
       }
     }
 
@@ -839,6 +852,29 @@ fit_mod <-
     }
 
     class(mod_objects) <- "Rceattle"
+
+    # Convergence diagnostics (R/0-convergence.R): attach the structured object
+    # and surface non-OK checks via message(). message() + tryCatch so a
+    # non-converged fit is never turned into an error and is always returned.
+    if (estimateMode %in% c(0, 1)) {
+      mod_objects$convergence <- tryCatch(
+        convergence_diagnostics(mod_objects),
+        error = function(e) NULL
+      )
+      tryCatch({
+        if (!is.null(mod_objects$convergence) &&
+            mod_objects$convergence$status %in% c("WARN", "FAIL")) {
+          message("Convergence diagnostics flagged (status: ",
+                  mod_objects$convergence$status,
+                  "); inspect fit$convergence.")
+          for (ch in mod_objects$convergence$checks) {
+            if (ch$severity %in% c("WARN", "FAIL")) {
+              message(sprintf("  [%s] %s: %s", ch$severity, ch$id, ch$message))
+            }
+          }
+        }
+      }, error = function(e) NULL)
+    }
 
     if (!is.null(file)) {
       save(mod_objects, file = paste0(file, ".Rdata"))
