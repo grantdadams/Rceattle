@@ -4,11 +4,19 @@
 \alias{build_osa_data}
 \title{Build the flat observation vector and metadata for OSA residuals}
 \usage{
-build_osa_data(data_list)
+build_osa_data(data_list, build_osa = FALSE)
 }
 \arguments{
 \item{data_list}{A \code{data_list} whose \verb{*_ctl}/\verb{*_obs}/\verb{*_n} matrices have
 already been built (and coerced to matrices) by \code{\link[=rearrange_data]{rearrange_data()}}.}
+
+\item{build_osa}{Logical. When \code{TRUE}, build the full OSA observation data
+for every type (aggregate, composition, caal, and diet) so
+\code{\link[=osa_residuals]{osa_residuals()}} can be computed. When \code{FALSE} (the default), only the
+aggregate index/catch entries the TMB template always reads are built and
+the (much larger) composition/caal/diet metadata is skipped -- this is the
+fast path for simulation testing (e.g. \code{\link[=run_mse]{run_mse()}}), where the fitted
+objective is identical but OSA composition residuals are not produced.}
 }
 \value{
 The input \code{data_list} with \code{obsvec}, \code{obs_ctl}, \code{osa_mode}, and the

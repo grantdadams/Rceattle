@@ -11,7 +11,7 @@ testthat::test_that("build_osa_data lays observations into obsvec correctly", {
   testthat::skip_if_not_installed("Rceattle")
 
   dat <- make_test_data(nyrs = 8, nages = 5, seed = 123)
-  dl  <- Rceattle::rearrange_data(dat)
+  dl  <- Rceattle::rearrange_data(dat, build_osa = TRUE)
 
   # obs_ctl must be a DATA FRAME (regression guard: rearrange_data's
   # data.frame->matrix coercion must not sweep it up).
@@ -66,13 +66,39 @@ testthat::test_that("build_osa_data lays observations into obsvec correctly", {
 })
 
 
+testthat::test_that("default fit skips composition OSA data (fast path)", {
+  testthat::skip_if_not_installed("Rceattle")
+
+  dat  <- make_test_data(nyrs = 8, nages = 5, seed = 123)
+  fast <- Rceattle::rearrange_data(dat)                    # build_osa = FALSE (default)
+  full <- Rceattle::rearrange_data(dat, build_osa = TRUE)
+
+  # Fast path: aggregate index/catch entries are still built (the template
+  # always reads them), but no composition / caal / diet metadata.
+  testthat::expect_true(all(fast$comp_obsvec_idx < 0))
+  testthat::expect_true(all(fast$caal_obsvec_idx < 0))
+  testthat::expect_false(any(fast$obs_ctl$type %in% c("comp", "caal", "diet")))
+
+  # Aggregate obsvec entries are identical between the fast and full builds, so
+  # the fitted objective is unaffected by the toggle.
+  ii <- fast$index_obsvec_idx[fast$index_obsvec_idx >= 0] + 1L
+  testthat::expect_equal(fast$obsvec[ii], full$obsvec[ii])
+
+  # The full build does produce composition entries when comp data are present.
+  if (nrow(full$comp_obs) > 0) {
+    testthat::expect_true(any(full$comp_obsvec_idx >= 0))
+    testthat::expect_true(any(full$obs_ctl$type == "comp"))
+  }
+})
+
+
 testthat::test_that("build_osa_data lays CAAL observations into obsvec correctly", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Parametric growth populates conditional age-at-length (CAAL) data.
   dat <- make_test_data(nyrs = 8, nages = 5, seed = 123,
                         growth = "vonBertalanffy")
-  dl  <- Rceattle::rearrange_data(dat)
+  dl  <- Rceattle::rearrange_data(dat, build_osa = TRUE)
   testthat::skip_if(nrow(dl$caal_obs) == 0, "no CAAL data in fixture")
 
   testthat::expect_true("length" %in% names(dl$obs_ctl))
@@ -114,7 +140,7 @@ testthat::test_that("build_osa_data lays diet observations into obsvec correctly
     diet_obs = matrix(c(50, 0.6, 50, 0.3, 40, 0.7), nrow = 3, byrow = TRUE),
     suitMode = c(2L, 0L))
 
-  dl <- Rceattle:::build_osa_data(dl)
+  dl <- Rceattle:::build_osa_data(dl, build_osa = TRUE)
 
   testthat::expect_length(dl$diet_obsvec_idx, 2L)
   testthat::expect_true(all(dl$diet_obsvec_idx >= 0))
@@ -175,14 +201,24 @@ testthat::test_that("process_residuals() runs on a converging model", {
   pr2 <- process_residuals(fit, process = "recruitment")
   testthat::expect_equal(pr$residual, pr2$residual)
 
-  # process = "all" returns every supported process present, all finite.
-  pr_all <- process_residuals(fit, process = "all")
+  # process = "all" returns every supported process present, all finite. On
+  # GOApollock the catchability deviates use a random-walk prior, so the
+  # marginal-SD standardization is approximate and emits a warning.
+  testthat::expect_warning(pr_all <- process_residuals(fit, process = "all"),
+                           "approximate")
   testthat::expect_true("recruitment" %in% pr_all$type)
   testthat::expect_true(all(is.finite(pr_all$residual)))
+
+  # Recruitment-only residuals use an exact iid prior -> no approximation warning.
+  testthat::expect_no_warning(process_residuals(fit, process = "recruitment"))
 
   # residuals(type = "process") reshapes into the common residual schema.
   r <- residuals(fit, type = "process")
   testthat::expect_true(all(c("Source", "Species", "Year", "Residual") %in% names(r)))
+
+  # This fit used the default osa = FALSE, so composition OSA data was not built;
+  # osa_residuals() for composition must fail with an actionable message.
+  testthat::expect_error(osa_residuals(fit, types = "comp"), "osa = TRUE")
 })
 
 
@@ -195,7 +231,7 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   fit <- Rceattle::fit_mod(
     data_list = GOApollock, inits = NULL, file = NULL,
     estimateMode = 1, random_rec = FALSE, msmMode = 0,
-    fit_control = fit_control(verbose = 0, phase = TRUE))
+    fit_control = fit_control(verbose = 0, phase = TRUE, osa = TRUE))
 
   osa <- osa_residuals(fit, types = c("index", "catch", "comp"))
 
@@ -228,11 +264,23 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_true(all(c("sdnr", "sdnr_lo", "sdnr_hi") %in% names(diag)))
   testthat::expect_true(is.finite(diag$sdnr[diag$source == "all"]))
 
-  # residuals(type = "osa") reshapes into the common residual schema (aggregate
-  # subset to keep the test cheap).
-  r <- residuals(fit, type = "osa", types = c("index", "catch"))
+  # residuals(type = "osa") reshapes into the common residual schema; `source`
+  # selects the data source(s) (aggregate subset to keep the test cheap).
+  r <- residuals(fit, type = "osa", source = c("index", "catch"))
   testthat::expect_true(all(c("Source", "Fleet_code", "Year", "Residual") %in% names(r)))
   testthat::expect_equal(nrow(r), sum(fit$obs_ctl$type %in% c("index", "catch")))
+
+  # glm-style residual kinds: response / pearson cover all sources by default.
+  rr <- residuals(fit, type = "response")
+  testthat::expect_true(all(c("index", "catch", "comp") %in% rr$Source))
+  testthat::expect_true(all(is.finite(rr$Residual)))
+  rp <- residuals(fit, type = "pearson", source = "index")
+  testthat::expect_setequal(unique(rp$Source), "index")
+  testthat::expect_true(all(is.finite(rp$Residual)))
+
+  # Legacy type = <source> still works with a deprecation warning.
+  testthat::expect_warning(rl <- residuals(fit, type = "index"), "source")
+  testthat::expect_setequal(unique(rl$Source), "index")
 
   # OSA must refuse a debug (estimateMode >= 3) fit.
   fit_dbg <- Rceattle::fit_mod(data_list = GOApollock, inits = NULL,

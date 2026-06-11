@@ -107,6 +107,20 @@ osa_residuals <- function(fit,
   valid_types <- c("index", "catch", "comp", "caal", "diet")
   types <- match.arg(types, choices = valid_types, several.ok = TRUE)
 
+  # Composition OSA data (comp / caal / diet) is only assembled when the model
+  # was fit with fit_control(osa = TRUE); the default fast path builds just the
+  # aggregate index/catch entries (see build_osa_data()). Give a clear message
+  # rather than silently returning fewer residuals than requested.
+  comp_types <- intersect(types, c("comp", "caal", "diet"))
+  if (!isTRUE(fit$osa) && length(comp_types) > 0) {
+    msg <- paste0(
+      "OSA residuals for type(s) ", paste(comp_types, collapse = ", "),
+      " require fitting with fit_control(osa = TRUE); this model was fit with ",
+      "osa = FALSE (the fast default used for simulation testing). Refit with ",
+      "fit_mod(..., fit_control = fit_control(osa = TRUE)) to enable them.")
+    if (all(types %in% comp_types)) stop(msg) else warning(msg)
+  }
+
   # ---- Select the obsvec positions to residualize ----
   obs_ctl <- fit$obs_ctl
   sel <- obs_ctl[obs_ctl$type %in% types & !obs_ctl$is_last_bin, , drop = FALSE]

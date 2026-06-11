@@ -32,6 +32,14 @@
 #'   parameter uncertainty in projections when using an HCR (refits with all
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
+#' @param osa logical. If `TRUE`, assemble the full one-step-ahead (OSA)
+#'   observation data during the fit so [osa_residuals()] can be computed for
+#'   composition / caal / diet as well as the index/catch series. Default `FALSE`:
+#'   the fitted objective is identical either way, but skipping the (sizeable)
+#'   composition OSA metadata keeps fits fast -- important for
+#'   simulation testing such as [run_mse()], [self_test()], [jitter()], and
+#'   [retrospective()]. Set `TRUE` when you intend to call [osa_residuals()] on
+#'   composition data. 
 #' @param use_gradient logical. Use the analytic gradient during
 #'   phasing. Default `TRUE`.
 #' @param rel_tol Numeric tolerance used to flag discontinuous
@@ -71,6 +79,7 @@ fit_control <- function(
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  osa                 = FALSE,
   use_gradient        = TRUE,
   rel_tol             = 1,
   loopnum             = 5,
@@ -86,6 +95,7 @@ fit_control <- function(
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
     projection_uncertainty = projection_uncertainty,
+    osa                 = osa,
     use_gradient        = use_gradient,
     rel_tol             = rel_tol,
     loopnum             = loopnum,

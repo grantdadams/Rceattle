@@ -50,8 +50,11 @@ Supported processes and their deviations:
 }
 \code{"all"} returns every supported process present in the fit. Selectivity and
 natural-mortality deviations (which use random-walk / 2D-AR1 priors) are not
-yet supported. For processes with iid priors the standardization is exact; for
-AR1-configured catchability it standardizes by the marginal SD.
+yet supported. Recruitment and initial-abundance residuals are exact (their
+priors are iid). Catchability residuals are exact only for the iid deviate
+prior (\code{Time_varying_q = 1} or \code{2}); for a random-walk or AR1 catchability
+prior the marginal-SD standardization ignores the prior correlation, so those
+residuals are approximate and a warning is emitted.
 }
 \references{
 Nielsen, A., and Berg, C.W. 2014. Estimation of time-varying selectivity in

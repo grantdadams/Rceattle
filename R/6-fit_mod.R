@@ -170,6 +170,7 @@ fit_mod <-
     getJointPrecision   <- fit_control$getJointPrecision
     getReportCovariance <- fit_control$getReportCovariance
     projection_uncertainty <- fit_control$projection_uncertainty
+    osa                 <- isTRUE(fit_control$osa)
     use_gradient        <- fit_control$use_gradient
     rel_tol             <- fit_control$rel_tol
     loopnum             <- fit_control$loopnum
@@ -430,7 +431,7 @@ fit_mod <-
     }
 
     # Reorganize data for .cpp file
-    data_list_reorganized <- Rceattle::rearrange_data(data_list)
+    data_list_reorganized <- Rceattle::rearrange_data(data_list, build_osa = osa)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
@@ -851,8 +852,11 @@ fit_mod <-
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
     # OSA residual metadata (maps obsvec positions to fleet/species/year/age),
-    # used by osa_residuals() to interpret oneStepPredict() output.
+    # used by osa_residuals() to interpret oneStepPredict() output. `osa` records
+    # whether the full composition OSA data was built (fit_control(osa = TRUE));
+    # osa_residuals() uses it to give a clear message when it was not.
     mod_objects$obs_ctl <- .obs_ctl
+    mod_objects$osa <- osa
 
     mod_objects$run_time <- (Sys.time() - start_time)
 

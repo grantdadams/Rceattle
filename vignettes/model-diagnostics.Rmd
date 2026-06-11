@@ -57,7 +57,8 @@ coef(model_1)                 # estimated fixed-effect parameters
 logLik(model_1)               # logLik with df attribute (AIC works)
 AIC(model_1)
 vcov(model_1)                 # fixed-effect covariance fro
-residuals(model_1)            # data.frame of residuals
+residuals(model_1)                    # response residuals, all data sources
+residuals(model_1, type = "pearson")  # Pearson residuals (glm-style `type`)
 as.data.frame(model_1)
 ```
 
@@ -146,8 +147,15 @@ data are residualized with the conditional binomial / beta-binomial
 decomposition. OSA re-optimizes the random effects per observation, so it is
 expensive; run it on a converged fit (`estimateMode < 3`).
 
+Computing OSA residuals for *composition* data (`"comp"`/`"caal"`/`"diet"`)
+requires building extra observation data during the fit. That is opt-in for
+speed -- it is skipped by default so repeated refits (simulation testing,
+`run_mse()`) stay fast -- so fit with `fit_control(osa = TRUE)` when you intend
+to use them. The aggregate index/catch OSA residuals and `process_residuals()`
+work for any fit.
+
 ```{r osa, eval = FALSE}
-# Aggregate (catch + index) residuals -- fast
+# Aggregate (catch + index) residuals -- fast, available for any fit
 osa <- osa_residuals(model_1, types = c("index", "catch"))
 head(osa)
 
@@ -158,12 +166,16 @@ osa_diagnostics(osa)
 # Q-Q plot (with SDNR / tail annotation) + residual-by-year
 plot(osa)
 
-# Composition residuals (slower) and the same plots through the familiar
-# composition plotter:
-plot_comp(model_1, residual_type = "osa")
+# residuals() also exposes them in the common residual schema (`source` selects
+# the data, like `type` in stats::residuals.glm()):
+residuals(model_1, type = "osa", source = c("index", "catch"))
 
-# residuals() also exposes them in the common residual schema:
-residuals(model_1, type = "osa")
+# Composition OSA residuals require the OSA data to be built at fit time:
+model_1_osa <- Rceattle::fit_mod(
+  data_list = nrdata, estimateMode = 0, initMode = 1,
+  fit_control = fit_control(phase = TRUE, verbose = 0, osa = TRUE))
+plot_comp(model_1_osa, residual_type = "osa")          # Q-Q + signed bubbles
+residuals(model_1_osa, type = "osa", source = "comp")
 ```
 
 Following Stewart and Monnahan (2025), a practical workflow is:

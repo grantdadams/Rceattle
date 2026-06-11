@@ -24,8 +24,11 @@
 #' }
 #' `"all"` returns every supported process present in the fit. Selectivity and
 #' natural-mortality deviations (which use random-walk / 2D-AR1 priors) are not
-#' yet supported. For processes with iid priors the standardization is exact; for
-#' AR1-configured catchability it standardizes by the marginal SD.
+#' yet supported. Recruitment and initial-abundance residuals are exact (their
+#' priors are iid). Catchability residuals are exact only for the iid deviate
+#' prior (`Time_varying_q = 1` or `2`); for a random-walk or AR1 catchability
+#' prior the marginal-SD standardization ignores the prior correlation, so those
+#' residuals are approximate and a warning is emitted.
 #'
 #' @param fit A fitted `Rceattle` model. The targeted deviations must be
 #'   estimated -- as random effects (e.g. `random_rec = TRUE`) or as penalized
@@ -175,6 +178,25 @@ process_residuals <- function(fit,
   } else if (process == "catchability") {
     q_sd <- exp(as.numeric(obj$env$parList()$index_q_dev_log_sd))  # per fleet
     flt  <- ai[, 1]
+    # The (mean 0, marginal SD) standardization below is exact only for the iid
+    # catchability deviate prior (Time_varying_q = 1 or 2). Warn when an involved
+    # fleet uses a correlated prior -- random walk (index_varying_q == 4) or AR1
+    # (est_index_q == 6) -- because ignoring the prior correlation makes those
+    # residuals approximate.
+    ivq  <- obj$env$data$index_varying_q
+    eqd  <- obj$env$data$est_index_q
+    uflt <- unique(flt)
+    corr <- rep(FALSE, length(uflt))
+    if (!is.null(ivq)) corr <- corr | (ivq[uflt] %in% 4L)
+    if (!is.null(eqd)) corr <- corr | (eqd[uflt] %in% 6L)
+    if (any(corr, na.rm = TRUE)) {
+      warning("process = 'catchability': index fleet(s) ",
+              paste(uflt[which(corr)], collapse = ", "),
+              " use a correlated catchability deviate prior (random walk or AR1); ",
+              "their residuals standardize by the marginal SD and are therefore ",
+              "approximate. They are exact only for the iid prior ",
+              "(Time_varying_q = 1 or 2).", call. = FALSE)
+    }
     list(species = NA_integer_, fleet = flt,
          year = styr + ai[, 2] - 1L, age = NA_integer_,
          mean = rep(0, n), sd = q_sd[flt])

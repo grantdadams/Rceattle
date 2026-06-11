@@ -26,6 +26,13 @@
 * `residuals()` gains `type = "osa"` and `type = "process"`; `plot_comp()` and
   `plot_indexresidual()` gain a `residual_type = "osa"` option that draws the
   OSA diagnostics through the familiar plotting functions.
+* Computing OSA residuals for composition / caal / diet data is opt-in via
+  `fit_control(osa = TRUE)`. By default (`osa = FALSE`) a fit skips assembling
+  the (sizeable) composition OSA observation data, so repeated refits stay fast
+  -- important for simulation testing (`run_mse()`, `self_test()`, `jitter()`,
+  `retrospective()`). The fitted objective is identical either way; only whether
+  the composition OSA data is built differs. Aggregate index/catch OSA residuals
+  and `process_residuals()` are available regardless of the setting.
 
 ## Bug fixes
 
@@ -42,6 +49,14 @@
   forwards the value into `fit_control()` -- the same backward-compatible path
   used by the other former `fit_mod()` control arguments (`phase`, `getsd`,
   ...).
+* `residuals()` now follows the `stats::residuals.glm()` convention: `type`
+  selects the residual *kind* -- `"response"` (default), `"pearson"`, `"osa"`,
+  or `"process"` -- and a new `source` argument selects the data source(s)
+  (`"index"`, `"catch"`, `"comp"`, `"caal"`, or `"all"`, the default), so by
+  default residuals for every applicable source are returned. Pearson residuals
+  are now available for the aggregate index/catch series (standardized by the
+  realized observation log-SD). Passing a data source through the old `type =`
+  argument still works with a one-time deprecation warning.
 
 # Rceattle 4.5.0
 

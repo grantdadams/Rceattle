@@ -33,27 +33,35 @@
 #'
 #' @param data_list A `data_list` whose `*_ctl`/`*_obs`/`*_n` matrices have
 #'   already been built (and coerced to matrices) by [rearrange_data()].
+#' @param build_osa Logical. When `TRUE`, build the full OSA observation data
+#'   for every type (aggregate, composition, caal, and diet) so
+#'   [osa_residuals()] can be computed. When `FALSE` (the default), only the
+#'   aggregate index/catch entries the TMB template always reads are built and
+#'   the (much larger) composition/caal/diet metadata is skipped -- this is the
+#'   fast path for simulation testing (e.g. [run_mse()]), where the fitted
+#'   objective is identical but OSA composition residuals are not produced.
 #'
 #' @return The input `data_list` with `obsvec`, `obs_ctl`, `osa_mode`, and the
 #'   per-type `*_obsvec_idx` vectors added.
 #'
 #' @keywords internal
-build_osa_data <- function(data_list) {
+build_osa_data <- function(data_list, build_osa = FALSE) {
 
   endyr    <- data_list$endyr
   flt_type <- data_list$flt_type   # indexed by Fleet_code, matching the TMB cpp
   nages    <- data_list$nages
   nlengths <- data_list$nlengths
 
-  obsvec   <- numeric(0)
-  obs_ctl  <- .new_obs_ctl()
-  next_pos <- 0L                   # 0-based position counter (TMB convention)
+  obsvec_parts <- list()           # numeric blocks; concatenated once at the end
+  ctl_parts    <- list()           # obs_ctl row blocks; rbind'd once at the end
+  next_pos     <- 0L               # 0-based position counter (TMB convention)
 
   # Append a block of observations to `obsvec`/`obs_ctl` and return their
   # 0-based positions. `value` is what the likelihood reads. When
   # `one_group = TRUE` all elements share a single group id (one decomposition
   # unit, e.g. the bins of one composition); otherwise each element is its own
-  # group (e.g. one aggregate observation). Uses `<<-` to update running state.
+  # group (e.g. one aggregate observation). Blocks are accumulated via `<<-` and
+  # joined once after the loops (see the assembly step at the end).
   append_obs <- function(value, type, data_row, fleet_code, species, year,
                          sex = NA_integer_, age_or_length = NA_integer_,
                          length = NA_integer_, bin_index = NA_integer_,
@@ -63,8 +71,9 @@ build_osa_data <- function(data_list) {
     if (n == 0) return(integer(0))
     pos      <- next_pos + seq_len(n) - 1L
     group_id <- if (one_group) rep(pos[1], n) else pos
-    obsvec  <<- c(obsvec, as.numeric(value))
-    obs_ctl <<- rbind(obs_ctl, data.frame(
+    k <- length(obsvec_parts) + 1L
+    obsvec_parts[[k]] <<- as.numeric(value)
+    ctl_parts[[k]]    <<- data.frame(
       obs_pos       = as.integer(pos),
       type          = type,
       data_row      = as.integer(data_row),
@@ -79,7 +88,7 @@ build_osa_data <- function(data_list) {
       is_last_bin   = as.logical(is_last_bin),
       stomach_id    = as.integer(stomach_id),
       group_id      = as.integer(group_id),
-      stringsAsFactors = FALSE))
+      stringsAsFactors = FALSE)
     next_pos <<- next_pos + n
     pos
   }
@@ -139,7 +148,7 @@ build_osa_data <- function(data_list) {
   comp_obs <- data_list$comp_obs
   comp_n   <- data_list$comp_n
   comp_obsvec_idx <- rep(-1L, nrow(comp_obs))
-  if (nrow(comp_obs) > 0) {
+  if (build_osa && nrow(comp_obs) > 0) {
     for (r in seq_len(nrow(comp_obs))) {
       fleet     <- comp_ctl[r, 1]; sp <- comp_ctl[r, 2]; sex <- comp_ctl[r, 3]
       comp_type <- comp_ctl[r, 4]; yr <- comp_ctl[r, 5]; Neff <- comp_n[r, 2]
@@ -158,7 +167,7 @@ build_osa_data <- function(data_list) {
   caal_obs <- data_list$caal_obs
   caal_n   <- data_list$caal_n
   caal_obsvec_idx <- rep(-1L, nrow(caal_obs))
-  if (nrow(caal_obs) > 0) {
+  if (build_osa && nrow(caal_obs) > 0) {
     for (r in seq_len(nrow(caal_obs))) {
       fleet <- caal_ctl[r, 1]; sp <- caal_ctl[r, 2]; sex <- caal_ctl[r, 3]
       yr    <- caal_ctl[r, 4]; len_bin <- caal_ctl[r, 5]; Neff <- caal_n[r, 1]
@@ -177,8 +186,8 @@ build_osa_data <- function(data_list) {
   # is indexed by 0-based stomach id, so it has length n_stomach_obs.
   n_stomach <- data_list$n_stomach_obs
   diet_obsvec_idx <- if (is.null(n_stomach)) integer(0) else rep(-1L, n_stomach)
-  if (!is.null(n_stomach) && n_stomach > 0 && !is.null(data_list$diet_ctl) &&
-      nrow(data_list$diet_ctl) > 0) {
+  if (build_osa && !is.null(n_stomach) && n_stomach > 0 &&
+      !is.null(data_list$diet_ctl) && nrow(data_list$diet_ctl) > 0) {
     diet_ctl   <- data_list$diet_ctl
     diet_obs   <- data_list$diet_obs
     stomach_id <- data_list$stomach_id
@@ -206,6 +215,13 @@ build_osa_data <- function(data_list) {
         stomach_id    = i, one_group = TRUE)[1]
     }
   }
+
+  # Assemble the flat vector and metadata in a single pass from the blocks
+  # accumulated above, instead of growing them with c() / rbind() inside the
+  # loops (which is quadratic and runs on every fit_mod() call).
+  obsvec  <- if (length(obsvec_parts)) unlist(obsvec_parts, use.names = FALSE) else numeric(0)
+  obs_ctl <- if (length(ctl_parts)) do.call(rbind, ctl_parts) else .new_obs_ctl()
+  rownames(obs_ctl) <- NULL
 
   # TMB needs a non-empty DATA_VECTOR; use a length-1 sentinel when no
   # observations are included (the *_obsvec_idx vectors are then all -1 and the
