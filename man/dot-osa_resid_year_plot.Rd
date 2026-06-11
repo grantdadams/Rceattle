@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_osa.R
 \name{.osa_resid_year_plot}
 \alias{.osa_resid_year_plot}
-\title{Residual-versus-year plot for OSA residuals}
+\title{Residual-versus-year plot for OSA / process residuals}
 \usage{
 .osa_resid_year_plot(osa)
 }
@@ -13,6 +13,6 @@
 A \code{ggplot} object.
 }
 \description{
-Residual-versus-year plot for OSA residuals
+Residual-versus-year plot for OSA / process residuals
 }
 \keyword{internal}

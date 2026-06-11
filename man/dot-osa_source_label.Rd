@@ -2,17 +2,21 @@
 % Please edit documentation in R/7-plot_osa.R
 \name{.osa_source_label}
 \alias{.osa_source_label}
-\title{Build a human-readable data-source label for OSA residual rows}
+\title{Build a two-row data-source label for residual panel headers}
 \usage{
 .osa_source_label(osa)
 }
 \arguments{
-\item{osa}{An \code{rceattle_osa} data frame.}
+\item{osa}{A data frame with \code{type}, \code{fleet}, and (optionally) \code{fleet_name}
+and \code{index_label} columns.}
 }
 \value{
 Character vector of labels (one per row).
 }
 \description{
-Build a human-readable data-source label for OSA residual rows
+The first row is the fleet name from \code{fleet_control} (falling back to the
+fleet code); the second row is the data type, tagged with whether composition
+bins are ages or lengths. The two rows are separated by a newline so they
+render as a two-line facet strip.
 }
 \keyword{internal}

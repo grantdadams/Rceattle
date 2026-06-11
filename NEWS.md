@@ -17,9 +17,15 @@
 * Added `osa_diagnostics()` for the Stewart and Monnahan (2025) statistical
   diagnostics -- the standard deviation of the normalized residuals (SDNR) and
   the lower/upper tail statistics, each with its standard-normal null interval
-  -- and a `plot()` method for `rceattle_osa` objects (Q-Q plot with SDNR/tail
-  annotation, signed composition bubbles, and residual-by-year), styled after
-  the NOAA-AFSC `afscOSA` package.
+  -- and a `plot()` method for `rceattle_osa` objects, styled after the
+  NOAA-AFSC `afscOSA` package. The plot draws up to two figures: an *aggregate*
+  Q-Q figure for the index/catch series (which have no age/length bin, so no
+  bubbles), and a *composition* figure pairing the Q-Q plot with signed
+  OSA-residual and Pearson-residual bubble plots, with age-based bins (age
+  composition and conditional age-at-length) in the left column and length-based
+  bins in the right column, each on its own bin axis. Panel headers use the
+  fleet name from `fleet_control`. `osa_residuals()` now also carries a
+  `fleet_name` column and (for composition) the matching Pearson residuals.
 * Added `process_residuals()` for SAM-style process residuals on the model's
   random-effect deviations (recruitment, initial abundance, and catchability),
   validating the process model as a complement to the observation residuals.

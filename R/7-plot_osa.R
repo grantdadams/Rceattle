@@ -5,64 +5,168 @@
 #' following the recommendations of Stewart and Monnahan (2025) and the styling
 #' of the NOAA-AFSC `afscOSA` package. Under a correctly specified model OSA
 #' residuals are iid standard normal, so the headline diagnostic is statistical
-#' (the Q-Q plot with its standard-normal null envelope and annotated SDNR /
-#' tail statistics) rather than the residual values themselves.
+#' (the Q-Q plot with its annotated SDNR / tail statistics).
 #'
-#' The panels drawn adapt to the residual types present, all faceted by data
-#' source: a Q-Q panel is always produced; composition residuals (comp / caal)
-#' add a signed-bubble panel by year and bin, while aggregate (catch / index)
-#' residuals add a residual-versus-year panel.
+#' Up to two separate figures are drawn, depending on which data are present:
+#' \enumerate{
+#'   \item **Aggregate** (`index` / `catch`): a Q-Q panel faceted by data source.
+#'     These series have no age/length bin, so no bubble plots are drawn.
+#'   \item **Composition** (`comp` / `caal`): a Q-Q panel, a signed OSA-residual
+#'     bubble panel, and a signed Pearson-residual bubble panel (the Pearson
+#'     residuals carried on the `rceattle_osa` object). Age-based bins (age
+#'     composition and conditional age-at-length) are shown in the left column
+#'     and length-based bins in the right column, each with its own bin axis.
+#' }
+#' Panel headers use the fleet name from `fleet_control`. Process residuals
+#' (from [process_residuals()]) are drawn as a Q-Q panel plus a
+#' residual-by-year panel.
 #'
-#' @param x An `rceattle_osa` object from [osa_residuals()].
-#' @param which Which panels to draw: any of `"qq"`, `"bubble"`, and
-#'   `"resid_year"`. Defaults to the Q-Q panel plus a bubble panel when
-#'   composition residuals are present, or a residual-vs-year panel otherwise.
+#' @param x An `rceattle_osa` object from [osa_residuals()] or
+#'   [process_residuals()].
 #' @param ... Unused.
 #'
-#' @return Invisibly, the assembled `ggplot`/`cowplot` object. Called for its
-#'   side effect of drawing the plot.
+#' @return Invisibly, a named list of the assembled `ggplot` / `cowplot`
+#'   objects (`aggregate`, `composition`, and/or `process`). Called for its side
+#'   effect of drawing the plot(s).
 #'
 #' @references Stewart, I.J., and Monnahan, C.C. 2025. Can. J. Fish. Aquat. Sci.
 #'   82:1-13.
 #' @seealso [osa_residuals()], [osa_diagnostics()]
 #' @export
-plot.rceattle_osa <- function(x, which = NULL, ...) {
+plot.rceattle_osa <- function(x, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 is required to plot OSA residuals.")
   }
+  pearson <- attr(x, "pearson")
   x <- x[is.finite(x$residual), , drop = FALSE]
-  x$source <- .osa_source_label(x)
-
-  has_comp <- any(x$type %in% c("comp", "caal"))
-  if (is.null(which)) which <- c("qq", if (has_comp) "bubble" else "resid_year")
-  which <- match.arg(which, c("qq", "bubble", "resid_year"), several.ok = TRUE)
-
-  panels <- list()
-  if ("qq" %in% which)         panels$qq <- .osa_qqplot(x)
-  if ("bubble" %in% which)     panels$bubble <- .osa_bubble_plot(x)
-  if ("resid_year" %in% which) panels$resid_year <- .osa_resid_year_plot(x)
-
-  if (length(panels) == 1L) {
-    print(panels[[1]])
-    return(invisible(panels[[1]]))
+  if (nrow(x) == 0) {
+    warning("No finite residuals to plot.")
+    return(invisible(NULL))
   }
 
-  if (requireNamespace("cowplot", quietly = TRUE)) {
-    g <- cowplot::plot_grid(plotlist = panels, ncol = 1L,
-                            align = "v", axis = "lr")
+  agg  <- x[x$type %in% c("index", "catch"), , drop = FALSE]
+  comp <- x[x$type %in% c("comp", "caal", "diet"), , drop = FALSE]
+  proc <- x[!x$type %in% c("index", "catch", "comp", "caal", "diet"), ,
+            drop = FALSE]
+
+  plots <- list()
+
+  # 1. Aggregate (index / catch): Q-Q only -- no age/length bin to bubble.
+  if (nrow(agg) > 0) {
+    agg$source <- .osa_source_label(agg)
+    plots$aggregate <- .osa_qqplot(agg)
+    print(plots$aggregate)
+  }
+
+  # 2. Composition (comp / caal): Q-Q + OSA bubbles + Pearson bubbles, with
+  #    age bins on the left and length bins on the right.
+  if (nrow(comp) > 0) {
+    plots$composition <- .osa_composition_figure(comp, pearson)
+    print(plots$composition)
+  }
+
+  # 3. Process residuals: Q-Q + residual-by-year.
+  if (nrow(proc) > 0) {
+    proc$source <- paste0(proc$type,
+                          ifelse(is.na(proc$species), "",
+                                 paste0(" - sp ", proc$species)))
+    g <- .osa_stack(list(.osa_qqplot(proc), .osa_resid_year_plot(proc)))
+    plots$process <- g
     print(g)
-    invisible(g)
+  }
+
+  invisible(plots)
+}
+
+
+#' Composition OSA figure: Q-Q + OSA bubbles + Pearson bubbles (age | length)
+#'
+#' @param comp The composition rows of an `rceattle_osa` object.
+#' @param pearson Matching Pearson residuals (the `"pearson"` attribute of the
+#'   `rceattle_osa` object), or `NULL`.
+#' @return A `cowplot`/`ggplot` object: age-based bins in the left column,
+#'   length-based bins in the right column.
+#' @keywords internal
+.osa_composition_figure <- function(comp, pearson = NULL) {
+  comp$source <- .osa_source_label(comp)
+  comp$.side  <- .osa_bin_side(comp$index_label)
+
+  # Reshape the attached Pearson residuals (common residual schema from
+  # residuals(type = "pearson")) into the OSA bubble columns.
+  pear <- NULL
+  if (!is.null(pearson) && nrow(pearson) > 0) {
+    idx_lab <- ifelse(pearson$Source == "caal", "age",
+                      ifelse(!is.na(pearson$Age0_Length1) &
+                               pearson$Age0_Length1 == 1, "length", "age"))
+    pear <- data.frame(
+      type          = pearson$Source,
+      fleet         = pearson$Fleet_code,
+      fleet_name    = pearson$Fleet_name,
+      year          = pearson$Year,
+      age_or_length = pearson$Bin,
+      index_label   = idx_lab,
+      residual      = pearson$Residual,
+      stringsAsFactors = FALSE)
+    pear <- pear[is.finite(pear$residual), , drop = FALSE]
+    pear$source <- .osa_source_label(pear)
+    pear$.side  <- .osa_bin_side(pear$index_label)
+  }
+
+  build_side <- function(s) {
+    cs <- comp[comp$.side == s, , drop = FALSE]
+    if (nrow(cs) == 0) return(NULL)
+    ylab   <- if (s == "age") "Age bin" else "Length bin"
+    panels <- list(
+      .osa_qqplot(cs),
+      .osa_bubble_plot(cs, ylab = ylab, title = "OSA residuals"))
+    if (!is.null(pear)) {
+      ps <- pear[pear$.side == s, , drop = FALSE]
+      if (nrow(ps) > 0) {
+        panels[[length(panels) + 1L]] <-
+          .osa_bubble_plot(ps, ylab = ylab, title = "Pearson residuals")
+      }
+    }
+    .osa_stack(panels)
+  }
+
+  cols <- Filter(Negate(is.null), list(age = build_side("age"),
+                                       length = build_side("length")))
+  if (length(cols) == 1L) return(cols[[1]])
+  if (requireNamespace("cowplot", quietly = TRUE)) {
+    cowplot::plot_grid(plotlist = cols, ncol = length(cols))
+  } else {
+    cols   # cowplot unavailable: return the per-side columns
+  }
+}
+
+
+#' Stack ggplot panels vertically (cowplot if available)
+#' @param panels A list of ggplot objects.
+#' @keywords internal
+.osa_stack <- function(panels) {
+  panels <- Filter(Negate(is.null), panels)
+  if (length(panels) == 1L) return(panels[[1]])
+  if (requireNamespace("cowplot", quietly = TRUE)) {
+    cowplot::plot_grid(plotlist = panels, ncol = 1L, align = "v", axis = "lr")
   } else {
     for (p in panels) print(p)
-    invisible(panels)
+    panels[[1]]
   }
+}
+
+
+#' Map an `index_label` to the bin side ("age" left, "length" right)
+#' @param index_label Character vector (`"age"`, `"length"`, or `NA`).
+#' @keywords internal
+.osa_bin_side <- function(index_label) {
+  ifelse(!is.na(index_label) & index_label == "length", "length", "age")
 }
 
 
 #' Q-Q plot of OSA residuals with standard-normal null envelope
 #'
 #' @param osa An `rceattle_osa` data frame with a `source` column.
-#' @param nsim,seed Passed to the null-envelope / tail-statistic simulation.
+#' @param nsim,seed Passed to the SDNR / tail-statistic annotation.
 #' @return A `ggplot` object.
 #' @keywords internal
 .osa_qqplot <- function(osa, nsim = 10000, seed = 123) {
@@ -97,7 +201,7 @@ plot.rceattle_osa <- function(x, which = NULL, ...) {
 }
 
 
-#' Residual-versus-year plot for OSA residuals
+#' Residual-versus-year plot for OSA / process residuals
 #'
 #' @param osa An `rceattle_osa` data frame with a `source` column.
 #' @return A `ggplot` object.
@@ -113,21 +217,23 @@ plot.rceattle_osa <- function(x, which = NULL, ...) {
                                             negative = "#2c7fb8"),
                                  guide = "none") +
     ggplot2::facet_wrap(~ source, nrow = 1L) +
-    ggplot2::labs(x = "Year", y = "OSA residual",
-                  title = "OSA residual by year") +
+    ggplot2::labs(x = "Year", y = "Residual",
+                  title = "Residual by year") +
     ggplot2::theme_bw(base_size = 10)
 }
 
 
-#' Bubble plot of composition OSA residuals (afscOSA styling)
+#' Bubble plot of composition residuals (afscOSA styling)
 #'
-#' @param osa An `rceattle_osa` data frame with a `source` column. Bubbles are
-#'   placed at (year, age/length bin); red = positive, blue = negative; size and
-#'   transparency scale with the absolute residual; outliers (`|resid| > 3`) are
-#'   drawn as triangles. Mirrors the NOAA-AFSC `afscOSA` package.
+#' @param osa A data frame with `source`, `year`, `age_or_length`, and
+#'   `residual` columns. Bubbles are placed at (year, age/length bin); red =
+#'   positive, blue = negative; size and transparency scale with the absolute
+#'   residual; outliers (`|resid| > 3`) are drawn as triangles.
+#' @param ylab Y-axis label (e.g. `"Age bin"` or `"Length bin"`).
+#' @param title Panel title.
 #' @return A `ggplot` object.
 #' @keywords internal
-.osa_bubble_plot <- function(osa) {
+.osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals") {
   osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
   osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
   ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$age_or_length)) +
@@ -143,19 +249,32 @@ plot.rceattle_osa <- function(x, which = NULL, ...) {
     ggplot2::scale_size_continuous(range = c(0.5, 5), guide = "none") +
     ggplot2::scale_alpha_continuous(range = c(0.3, 0.9), guide = "none") +
     ggplot2::facet_wrap(~ source, nrow = 1L) +
-    ggplot2::labs(x = "Year", y = "Age / length bin",
-                  title = "OSA residual bubbles") +
+    ggplot2::labs(x = "Year", y = ylab, title = title) +
     ggplot2::theme_bw(base_size = 10)
 }
 
 
-#' Build a human-readable data-source label for OSA residual rows
-#' @param osa An `rceattle_osa` data frame.
+#' Build a two-row data-source label for residual panel headers
+#'
+#' The first row is the fleet name from `fleet_control` (falling back to the
+#' fleet code); the second row is the data type, tagged with whether composition
+#' bins are ages or lengths. The two rows are separated by a newline so they
+#' render as a two-line facet strip.
+#' @param osa A data frame with `type`, `fleet`, and (optionally) `fleet_name`
+#'   and `index_label` columns.
 #' @return Character vector of labels (one per row).
 #' @keywords internal
 .osa_source_label <- function(osa) {
-  lab <- ifelse(is.na(osa$index_label) | osa$index_label == "",
-                osa$type,
-                paste0(osa$type, " (", osa$index_label, ")"))
-  paste0(lab, " - fleet ", osa$fleet)
+  flt <- if (!is.null(osa$fleet_name)) {
+    ifelse(is.na(osa$fleet_name), paste("fleet", osa$fleet), osa$fleet_name)
+  } else {
+    paste("fleet", osa$fleet)
+  }
+  lab <- if (!is.null(osa$index_label)) {
+    ifelse(is.na(osa$index_label) | osa$index_label == "",
+           osa$type, paste0(osa$type, " (", osa$index_label, ")"))
+  } else {
+    osa$type
+  }
+  paste0(flt, "\n", lab)   # row 1: fleet name, row 2: data type
 }

@@ -50,12 +50,14 @@
 #' @param ... Further arguments passed to [TMB::oneStepPredict()].
 #'
 #' @return A data frame of class `rceattle_osa` with one row per residualized
-#'   observation and columns `type`, `fleet`, `species`, `sex`, `year`,
-#'   `age_or_length`, `length` (the conditioning length bin for caal; `NA`
-#'   otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
+#'   observation and columns `type`, `fleet`, `fleet_name`, `species`, `sex`,
+#'   `year`, `age_or_length`, `length` (the conditioning length bin for caal;
+#'   `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
 #'   `predicted` are on the model (log) scale; for compositions they are bin
-#'   counts. Carries `method` and `seed` attributes. Summarize it with
+#'   counts. Carries `method` and `seed` attributes, and (when composition types
+#'   are present) a `"pearson"` attribute holding the matching Pearson residuals
+#'   so [plot.rceattle_osa()] can show both. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references
@@ -166,10 +168,15 @@ osa_residuals <- function(fit,
     if (!is.null(df[[nm]])) df[[nm]] else rep(NA_real_, nrow(df))
   }
   index_label <- c("age", "length")[sel$comp_type + 1L]   # NA for aggregates
+  fc <- fit$data_list$fleet_control                        # fleet code -> name
+  fleet_name <- if (!is.null(fc)) {
+    fc$Fleet_name[match(sel$fleet_code, fc$Fleet_code)]
+  } else NA_character_
 
   out <- data.frame(
     type          = sel$type,
     fleet         = sel$fleet_code,
+    fleet_name    = fleet_name,
     species       = sel$species,
     sex           = sel$sex,
     year          = sel$year,
@@ -186,6 +193,15 @@ osa_residuals <- function(fit,
   class(out) <- c("rceattle_osa", "data.frame")
   attr(out, "method") <- method
   attr(out, "seed")   <- seed
+
+  # Attach the matching Pearson residuals for composition sources so the
+  # plot() method can show OSA and Pearson bubbles side by side.
+  comp_types <- intersect(unique(out$type), c("comp", "caal"))
+  if (length(comp_types) > 0) {
+    attr(out, "pearson") <- tryCatch(
+      stats::residuals(fit, type = "pearson", source = comp_types),
+      error = function(e) NULL)
+  }
 
   n_bad <- sum(!is.finite(out$residual))
   if (n_bad > 0) {

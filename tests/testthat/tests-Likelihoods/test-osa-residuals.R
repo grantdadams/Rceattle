@@ -282,6 +282,18 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_warning(rl <- residuals(fit, type = "index"), "source")
   testthat::expect_setequal(unique(rl$Source), "index")
 
+  # plot() builds a separate aggregate (Q-Q only) and composition (Q-Q + OSA and
+  # Pearson bubbles) figure. The osa object carries fleet_name and the Pearson
+  # residuals needed for the composition bubbles.
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    testthat::expect_true("fleet_name" %in% names(osa))
+    testthat::expect_false(is.null(attr(osa, "pearson")))
+    pf <- tempfile(fileext = ".pdf"); grDevices::pdf(pf)
+    pl <- plot(osa)
+    grDevices::dev.off()
+    testthat::expect_true(all(c("aggregate", "composition") %in% names(pl)))
+  }
+
   # OSA must refuse a debug (estimateMode >= 3) fit.
   fit_dbg <- Rceattle::fit_mod(data_list = GOApollock, inits = NULL,
                                estimateMode = 3,

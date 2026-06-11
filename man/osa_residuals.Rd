@@ -39,12 +39,14 @@ of randomized-quantile residuals. Default \code{123}.}
 }
 \value{
 A data frame of class \code{rceattle_osa} with one row per residualized
-observation and columns \code{type}, \code{fleet}, \code{species}, \code{sex}, \code{year},
-\code{age_or_length}, \code{length} (the conditioning length bin for caal; \code{NA}
-otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
+observation and columns \code{type}, \code{fleet}, \code{fleet_name}, \code{species}, \code{sex},
+\code{year}, \code{age_or_length}, \code{length} (the conditioning length bin for caal;
+\code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
 \code{predicted}, \code{sd}, and \code{residual}. For aggregate series \code{observed} and
 \code{predicted} are on the model (log) scale; for compositions they are bin
-counts. Carries \code{method} and \code{seed} attributes. Summarize it with
+counts. Carries \code{method} and \code{seed} attributes, and (when composition types
+are present) a \code{"pearson"} attribute holding the matching Pearson residuals
+so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. Summarize it with
 \code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
 }
 \description{

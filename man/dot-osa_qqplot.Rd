@@ -9,7 +9,7 @@
 \arguments{
 \item{osa}{An \code{rceattle_osa} data frame with a \code{source} column.}
 
-\item{nsim, seed}{Passed to the null-envelope / tail-statistic simulation.}
+\item{nsim, seed}{Passed to the SDNR / tail-statistic annotation.}
 }
 \value{
 A \code{ggplot} object.

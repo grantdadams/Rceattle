@@ -4,33 +4,39 @@
 \alias{plot.rceattle_osa}
 \title{Plot one-step-ahead (OSA) residual diagnostics}
 \usage{
-\method{plot}{rceattle_osa}(x, which = NULL, ...)
+\method{plot}{rceattle_osa}(x, ...)
 }
 \arguments{
-\item{x}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}}.}
-
-\item{which}{Which panels to draw: any of \code{"qq"}, \code{"bubble"}, and
-\code{"resid_year"}. Defaults to the Q-Q panel plus a bubble panel when
-composition residuals are present, or a residual-vs-year panel otherwise.}
+\item{x}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}} or
+\code{\link[=process_residuals]{process_residuals()}}.}
 
 \item{...}{Unused.}
 }
 \value{
-Invisibly, the assembled \code{ggplot}/\code{cowplot} object. Called for its
-side effect of drawing the plot.
+Invisibly, a named list of the assembled \code{ggplot} / \code{cowplot}
+objects (\code{aggregate}, \code{composition}, and/or \code{process}). Called for its side
+effect of drawing the plot(s).
 }
 \description{
 Diagnostic plots for an \code{rceattle_osa} object (from \code{\link[=osa_residuals]{osa_residuals()}}),
 following the recommendations of Stewart and Monnahan (2025) and the styling
 of the NOAA-AFSC \code{afscOSA} package. Under a correctly specified model OSA
 residuals are iid standard normal, so the headline diagnostic is statistical
-(the Q-Q plot with its standard-normal null envelope and annotated SDNR /
-tail statistics) rather than the residual values themselves.
+(the Q-Q plot with its annotated SDNR / tail statistics).
 
-The panels drawn adapt to the residual types present, all faceted by data
-source: a Q-Q panel is always produced; composition residuals (comp / caal)
-add a signed-bubble panel by year and bin, while aggregate (catch / index)
-residuals add a residual-versus-year panel.
+Up to two separate figures are drawn, depending on which data are present:
+\enumerate{
+\item \strong{Aggregate} (\code{index} / \code{catch}): a Q-Q panel faceted by data source.
+These series have no age/length bin, so no bubble plots are drawn.
+\item \strong{Composition} (\code{comp} / \code{caal}): a Q-Q panel, a signed OSA-residual
+bubble panel, and a signed Pearson-residual bubble panel (the Pearson
+residuals carried on the \code{rceattle_osa} object). Age-based bins (age
+composition and conditional age-at-length) are shown in the left column
+and length-based bins in the right column, each with its own bin axis.
+}
+Panel headers use the fleet name from \code{fleet_control}. Process residuals
+(from \code{\link[=process_residuals]{process_residuals()}}) are drawn as a Q-Q panel plus a
+residual-by-year panel.
 }
 \references{
 Stewart, I.J., and Monnahan, C.C. 2025. Can. J. Fish. Aquat. Sci.

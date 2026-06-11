@@ -2,20 +2,24 @@
 % Please edit documentation in R/7-plot_osa.R
 \name{.osa_bubble_plot}
 \alias{.osa_bubble_plot}
-\title{Bubble plot of composition OSA residuals (afscOSA styling)}
+\title{Bubble plot of composition residuals (afscOSA styling)}
 \usage{
-.osa_bubble_plot(osa)
+.osa_bubble_plot(osa, ylab = "Bin", title = "OSA residuals")
 }
 \arguments{
-\item{osa}{An \code{rceattle_osa} data frame with a \code{source} column. Bubbles are
-placed at (year, age/length bin); red = positive, blue = negative; size and
-transparency scale with the absolute residual; outliers (\verb{|resid| > 3}) are
-drawn as triangles. Mirrors the NOAA-AFSC \code{afscOSA} package.}
+\item{osa}{A data frame with \code{source}, \code{year}, \code{age_or_length}, and
+\code{residual} columns. Bubbles are placed at (year, age/length bin); red =
+positive, blue = negative; size and transparency scale with the absolute
+residual; outliers (\verb{|resid| > 3}) are drawn as triangles.}
+
+\item{ylab}{Y-axis label (e.g. \code{"Age bin"} or \code{"Length bin"}).}
+
+\item{title}{Panel title.}
 }
 \value{
 A \code{ggplot} object.
 }
 \description{
-Bubble plot of composition OSA residuals (afscOSA styling)
+Bubble plot of composition residuals (afscOSA styling)
 }
 \keyword{internal}
