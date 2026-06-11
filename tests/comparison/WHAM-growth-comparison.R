@@ -1,6 +1,6 @@
 # Comparison of Rceattle and WHAM fit to conditional age-at-length (CAAL) data
 # Modified from https://giancarlomcorrea.netlify.app/labs/OFI_WK_2023/examples/case3.R
-
+# Note that the plus group in year 1 is wrong on WHAM line 1720 of the cpp and needs adjustment
 
 # remotes::install_github(repo = 'GiancarloMCorrea/wham', ref='growth', INSTALL_opts = c("--no-docs", "--no-multiarch", "--no-demo"))
 library(readxl)
@@ -555,7 +555,7 @@ ss_osa <- Rceattle::fit_mod(data_list = simData, inits = NULL,
                             growthFun = build_growth(fun = "vonBertalanffy"),
                             random_rec = FALSE, msmMode = 0,
                             initMode = "NonEquilibrium",
-                            fit_control = fit_control(phase = FALSE, verbose = 0,
+                            fit_control = fit_control(phase = TRUE, verbose = 0,
                                                       osa = TRUE))
 rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
 
