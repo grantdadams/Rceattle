@@ -13,7 +13,11 @@
   `MultinomialAFSC` likelihood is residualized under the full multinomial. The
   fitted objective is unchanged: a new `obsvec`/`keep`/`osa_mode` machinery
   feeds `TMB::oneStepPredict()` while leaving normal fitting bit-for-bit
-  identical.
+  identical. The `oneStepPredict()` call is split by observation type so the
+  continuous (lognormal) index/catch series and the composition series can be
+  residualized with the correct settings; `discrete = TRUE` treats composition
+  as discrete (randomized quantile residuals; Dunn and Smyth 1996) while the
+  aggregate series stay continuous.
 * Added `osa_diagnostics()` for the Stewart and Monnahan (2025) statistical
   diagnostics -- the standard deviation of the normalized residuals (SDNR) and
   the lower/upper tail statistics, each with its standard-normal null interval
@@ -35,6 +39,13 @@
 * `residuals()` gains `type = "osa"` and `type = "process"`; `plot_comp()` and
   `plot_indexresidual()` gain a `residual_type = "osa"` option that draws the
   OSA diagnostics through the familiar plotting functions.
+* `plot_comp()` was re-implemented in ggplot2 for a consistent look with the OSA
+  plots: composition Pearson-residual bubbles plus observed-vs-fitted annual and
+  aggregated composition figures. The observed area and fitted line now span only
+  the observed bins (they no longer extend past the first / last bin), zero
+  observed proportions are retained (only `NA` is dropped), joint-sex (Sex == 3)
+  data are drawn on a single age/length axis with females above and males below
+  zero, and a `species` argument subsets the species shown.
 * Computing OSA residuals for composition / caal / diet data is opt-in via
   `fit_control(osa = TRUE)`. By default (`osa = FALSE`) a fit skips assembling
   the (sizeable) composition OSA observation data, so repeated refits stay fast
@@ -65,8 +76,10 @@
   default residuals for every applicable source are returned. A `species`
   argument subsets to particular species. Pearson residuals are now available
   for the aggregate index/catch series (standardized by the realized observation
-  log-SD). Passing a data source through the old `type =` argument still works
-  with a one-time deprecation warning.
+  log-SD) and for predator diet via `source = "diet"` (returned on its own in a
+  predator/prey schema); `plot_diet_comp()` now draws its diet residuals from
+  this single `residuals()` path. Passing a data source through the old
+  `type =` argument still works with a one-time deprecation warning.
 * The `source` argument is shared across `residuals()`, `osa_residuals()`, and
   `plot()` (it replaces the earlier `types` argument of `osa_residuals()`),
   accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so

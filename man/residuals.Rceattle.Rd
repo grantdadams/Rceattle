@@ -20,7 +20,10 @@
 \code{"osa"}, or \code{"process"}.}
 
 \item{source}{Data source(s) to include: any of \code{"index"}, \code{"catch"},
-\code{"comp"}, \code{"caal"}, or \code{"all"} (default). Ignored when \code{type = "process"}.}
+\code{"comp"}, \code{"caal"}, or \code{"all"} (default). \code{"diet"} (predator
+stomach-content composition) is also accepted but, because it uses a
+predator/prey schema rather than the fleet/bin layout, must be requested on
+its own. Ignored when \code{type = "process"}.}
 
 \item{scale}{\code{"log"} (default) or \code{"natural"}. Only affects \code{"response"}
 residuals for \code{index} / \code{catch}.}

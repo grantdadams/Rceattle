@@ -215,7 +215,10 @@ logLik.Rceattle <- function(object, ...) {
 #' @param type Residual kind: one of `"response"` (default), `"pearson"`,
 #'   `"osa"`, or `"process"`.
 #' @param source Data source(s) to include: any of `"index"`, `"catch"`,
-#'   `"comp"`, `"caal"`, or `"all"` (default). Ignored when `type = "process"`.
+#'   `"comp"`, `"caal"`, or `"all"` (default). `"diet"` (predator
+#'   stomach-content composition) is also accepted but, because it uses a
+#'   predator/prey schema rather than the fleet/bin layout, must be requested on
+#'   its own. Ignored when `type = "process"`.
 #' @param scale `"log"` (default) or `"natural"`. Only affects `"response"`
 #'   residuals for `index` / `catch`.
 #' @param species Optional species code(s) to include (matched against the
@@ -246,7 +249,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     if (length(type) == 0L) type <- "response"
   }
   type   <- match.arg(type, c("response", "pearson", "osa", "process"))
-  source <- match.arg(source, c("all", "index", "catch", "comp", "caal"),
+  source <- match.arg(source, c("all", "index", "catch", "comp", "caal", "diet"),
                       several.ok = TRUE)
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
   scale  <- match.arg(scale, c("log", "natural"))
@@ -254,6 +257,29 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   # Optional species filter, applied to whichever data frame is returned.
   .sp_filter <- function(df) {
     if (is.null(species)) df else df[df$Species %in% species, , drop = FALSE]
+  }
+
+  # Diet (predator stomach-content) composition uses a predator/prey schema that
+  # does not fit the fleet/bin layout of the other sources, so it is returned on
+  # its own. (For type = "osa" it flows through to osa_residuals() below.)
+  if ("diet" %in% source && type %in% c("response", "pearson")) {
+    if (!all(source == "diet")) {
+      stop("source = 'diet' uses a predator/prey schema and must be requested ",
+           "on its own (not combined with index/catch/comp/caal).")
+    }
+    dd <- object$data_list$diet_data
+    if (is.null(dd) || nrow(dd) == 0 || is.null(object$quantities$diet_hat)) {
+      stop("This model has no fitted diet composition (need msmMode > 0 with ",
+           "diet_data).")
+    }
+    obs <- dd$Stomach_proportion_by_weight
+    hat <- object$quantities$diet_hat[, 2]
+    res <- if (type == "pearson") .pearson_proportion(obs, hat, dd$Sample_size) else obs - hat
+    return(.sp_filter(data.frame(
+      Source = "diet", Species = dd$Pred, Pred_sex = dd$Pred_sex,
+      Prey = dd$Prey, Prey_sex = dd$Prey_sex, Pred_age = dd$Pred_age,
+      Prey_age = dd$Prey_age, Year = dd$Year, Sample_size = dd$Sample_size,
+      Observed = obs, Fitted = hat, Residual = res, stringsAsFactors = FALSE)))
   }
 
   # Process residuals (recruitment / random-effect deviations) are computed
@@ -407,8 +433,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Observed     <- as.numeric(obs_prop)
     df$Fitted       <- as.numeric(hat_prop)
     df$Residual     <- if (type == "pearson")
-      (df$Observed - df$Fitted) /
-        sqrt(df$Fitted * (1 - df$Fitted) / df$Sample_size)
+      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
     out$comp <- df
@@ -444,8 +469,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Observed    <- as.numeric(obs_prop)
     df$Fitted      <- as.numeric(hat_prop)
     df$Residual    <- if (type == "pearson")
-      (df$Observed - df$Fitted) /
-        sqrt(df$Fitted * (1 - df$Fitted) / df$Sample_size)
+      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
     out$caal <- df
@@ -453,6 +477,19 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
   if (length(out) == 0) return(empty_row(0))
   .sp_filter(do.call(rbind, out))
+}
+
+
+#' Pearson residual for an observed proportion
+#'
+#' \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}} -- the multinomial-bin Pearson
+#' residual shared by the composition, conditional-age-at-length, and diet
+#' branches of [residuals.Rceattle()].
+#' @param observed,fitted Observed and fitted proportions.
+#' @param n Input sample size.
+#' @keywords internal
+.pearson_proportion <- function(observed, fitted, n) {
+  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
 }
 
 

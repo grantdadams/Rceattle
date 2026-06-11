@@ -297,12 +297,16 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
     p_idx <- plot(osa, source = "index")                # source filter
     p_sep <- plot(osa, source = "comp", combine = FALSE) # split age/length
     p_sp  <- plot(osa, species = 1)                     # species filter
+    pc    <- plot_comp(fit)                             # ggplot2 comp figures
     grDevices::dev.off()
     testthat::expect_true(all(c("aggregate", "composition") %in% names(pl)))
     testthat::expect_equal(names(p_idx), "aggregate")
     testthat::expect_true("composition_age" %in% names(p_sep))
     testthat::expect_false("composition" %in% names(p_sep))
     testthat::expect_true(length(p_sp) >= 1L)
+    testthat::expect_true("pearson" %in% names(pc))
+    testthat::expect_true(any(grepl("^annual", names(pc))))
+    testthat::expect_true(any(grepl("^aggregated", names(pc))))
   }
 
   # OSA must refuse a debug (estimateMode >= 3) fit.
@@ -310,4 +314,75 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
                                estimateMode = 3,
                                fit_control = fit_control(phase = FALSE, verbose = 0))
   testthat::expect_error(osa_residuals(fit_dbg), "estimateMode")
+})
+
+
+testthat::test_that("residuals(source = 'diet') computes diet Pearson residuals", {
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Minimal fitted-model stand-in carrying just the diet pieces residuals() uses.
+  dd <- data.frame(Pred = c(1L, 1L, 2L), Pred_sex = 0L, Prey = c(1L, 2L, 1L),
+                   Prey_sex = 0L, Pred_age = c(3L, 3L, 4L), Prey_age = c(1L, 2L, 1L),
+                   Year = c(2000L, 2000L, 2001L),
+                   Stomach_proportion_by_weight = c(0.6, 0.3, 0.5),
+                   Sample_size = c(50, 50, 40))
+  fit <- structure(list(
+    data_list  = list(diet_data = dd, spnames = c("A", "B")),
+    quantities = list(diet_hat = cbind(NA_real_, c(0.55, 0.35, 0.45)))),
+    class = "Rceattle")
+
+  r <- residuals(fit, type = "pearson", source = "diet")
+  testthat::expect_setequal(unique(r$Source), "diet")
+  testthat::expect_true(all(c("Pred_sex", "Prey", "Prey_sex", "Pred_age", "Prey_age",
+                              "Observed", "Fitted", "Residual") %in% names(r)))
+  hat <- fit$quantities$diet_hat[, 2]
+  testthat::expect_equal(r$Residual, (dd$Stomach_proportion_by_weight - hat) /
+                           sqrt(hat * (1 - hat) / dd$Sample_size))
+  testthat::expect_equal(residuals(fit, type = "response", source = "diet")$Residual,
+                         dd$Stomach_proportion_by_weight - hat)
+  # diet uses a predator/prey schema, so it must be requested on its own.
+  testthat::expect_error(residuals(fit, source = c("diet", "comp")), "on its own")
+  # species filter acts on the predator species.
+  testthat::expect_setequal(unique(residuals(fit, source = "diet", species = 1)$Species),
+                            1L)
+})
+
+
+testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet model", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Small multispecies model with diet (same fixture as test-diet-likelihood.R);
+  # estimateMode = 3 builds the report (diet_hat) without optimizing.
+  nyrs <- 10L; nspp <- 2L
+  Fmort  <- c(seq(0.02, 0.3, length.out = nyrs / 2), seq(0.3, 0.05, length.out = nyrs / 2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  sim <- make_msm_test_data(
+    years = seq_len(nyrs),
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+    gam_a = c(1, 0.1), gam_b = rep(0.15, nspp),
+    log_phi = matrix(c(-5, 0.5, -10, -2), nspp, nspp, byrow = TRUE))
+  fit <- Rceattle::fit_mod(sim$data_list, estimateMode = 3, msmMode = 1,
+                           suitMode = 4, niter = 5, initMode = "NonEquilibrium",
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+
+  testthat::expect_false(is.null(fit$quantities$diet_hat))
+  r <- residuals(fit, type = "pearson", source = "diet")
+  testthat::expect_setequal(unique(r$Source), "diet")
+  testthat::expect_equal(nrow(r), nrow(fit$data_list$diet_data))
+  # The diet Pearson matches the proportion formula (finite rows).
+  dd  <- fit$data_list$diet_data
+  hat <- fit$quantities$diet_hat[, 2]
+  fin <- is.finite(r$Residual)
+  testthat::expect_equal(r$Residual[fin],
+    ((dd$Stomach_proportion_by_weight - hat) /
+       sqrt(hat * (1 - hat) / dd$Sample_size))[fin])
+
+  # plot_diet_comp() now sources its residuals from residuals(source = "diet").
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    pf <- tempfile(fileext = ".pdf"); grDevices::pdf(pf)
+    testthat::expect_error(plot_diet_comp(fit), NA)
+    grDevices::dev.off()
+  }
 })

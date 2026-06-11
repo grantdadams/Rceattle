@@ -28,9 +28,15 @@ Sources with no observations in the model are silently skipped. Mirrors the
 \code{"oneStepGaussianOffMode"} (the WHAM/SAM default), appropriate for the
 lognormal aggregate series.}
 
-\item{discrete}{Logical, passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}. Default \code{FALSE}.
-Discrete-distribution OSA residuals are randomized quantile residuals
-(Dunn and Smyth 1996) and so are stochastic; set \code{seed} for reproducibility.}
+\item{discrete}{Logical; whether to treat \emph{composition} (comp / caal / diet)
+observations as discrete. Default \code{FALSE} (continuous, matching how CEATTLE
+fits the composition likelihood with effective-sample-size-scaled counts).
+When \code{TRUE}, composition residuals are randomized quantile residuals (Dunn
+and Smyth 1996) and so are stochastic; set \code{seed} for reproducibility. The
+aggregate index/catch series are always continuous (lognormal); the
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call is split by observation type so \code{discrete} is
+applied correctly per type (the discrete group uses the generic CDF-based
+method rather than \code{method}).}
 
 \item{seed}{Random seed passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} for reproducibility
 of randomized-quantile residuals. Default \code{123}.}

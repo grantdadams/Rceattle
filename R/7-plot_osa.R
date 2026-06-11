@@ -50,7 +50,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 is required to plot OSA residuals.")
   }
-  pearson <- attr(x, "pearson")
+  pearson  <- attr(x, "pearson")
+  nages    <- attr(x, "nages")      # per-species, for joint-sex bin rebasing
+  nlengths <- attr(x, "nlengths")
 
   # ---- Subset by data source and species (like residuals.Rceattle()) ----
   valid_src  <- c("index", "catch", "comp", "caal", "diet")
@@ -86,7 +88,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   # Composition (comp / caal): Q-Q + OSA bubbles + Pearson bubbles. One combined
   # figure (age | length columns) by default, or separate figures per bin type.
   if (nrow(comp) > 0) {
-    plots <- c(plots, .osa_composition_figures(comp, pearson, combine = combine))
+    plots <- c(plots, .osa_composition_figures(comp, pearson, combine = combine,
+                                               nages = nages, nlengths = nlengths))
   }
 
   # Process residuals: Q-Q + residual-by-year.
@@ -111,11 +114,16 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param combine When `TRUE`, return a single `composition` figure with age
 #'   bins in the left column and length bins in the right; when `FALSE`, return
 #'   separate `composition_age` and `composition_length` figures.
+#' @param nages,nlengths Per-species bin counts (the `rceattle_osa` `"nages"` /
+#'   `"nlengths"` attributes), used to split joint-sex (Sex == 3) bins onto a
+#'   single age/length axis, matching [plot_comp()].
 #' @return A named list of `cowplot`/`ggplot` objects.
 #' @keywords internal
-.osa_composition_figures <- function(comp, pearson = NULL, combine = TRUE) {
+.osa_composition_figures <- function(comp, pearson = NULL, combine = TRUE,
+                                     nages = NULL, nlengths = NULL) {
   comp$source <- .osa_source_label(comp)
   comp$.side  <- .osa_bin_side(comp$index_label)
+  comp        <- .osa_jointsex(comp, nages, nlengths)
 
   # Reshape the attached Pearson residuals (common residual schema from
   # residuals(type = "pearson")) into the OSA bubble columns.
@@ -128,6 +136,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
       type          = pearson$Source,
       fleet         = pearson$Fleet_code,
       fleet_name    = pearson$Fleet_name,
+      species       = pearson$Species,
+      sex           = pearson$Sex,
       year          = pearson$Year,
       age_or_length = pearson$Bin,
       index_label   = idx_lab,
@@ -136,6 +146,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     pear <- pear[is.finite(pear$residual), , drop = FALSE]
     pear$source <- .osa_source_label(pear)
     pear$.side  <- .osa_bin_side(pear$index_label)
+    pear        <- .osa_jointsex(pear, nages, nlengths)
   }
 
   age_fig <- .osa_comp_side(comp, pear, "age")
@@ -206,6 +217,33 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @keywords internal
 .osa_bin_side <- function(index_label) {
   ifelse(!is.na(index_label) & index_label == "length", "length", "age")
+}
+
+
+#' Split joint-sex (Sex == 3) composition bins onto a single age/length axis
+#'
+#' Joint-sex compositions stack females in bins `1..nbin` and males in bins
+#' `nbin+1..2*nbin` (where `nbin` is `nages` or `nlengths` for the species).
+#' This re-bases the male bins to `1..nbin` and tags the source label by sex so
+#' males and females face the same bin axis -- matching [plot_comp()]. Rows with
+#' Sex != 3 (single-sex or combined) are returned unchanged.
+#' @param df A data frame with `species`, `sex`, `index_label`, `age_or_length`,
+#'   and `source` columns.
+#' @param nages,nlengths Per-species bin counts (or `NULL` to skip the split).
+#' @keywords internal
+.osa_jointsex <- function(df, nages, nlengths) {
+  if (is.null(df) || nrow(df) == 0 || is.null(nages) ||
+      is.null(df$sex) || is.null(df$species)) {
+    return(df)
+  }
+  bins_per_sex <- ifelse(!is.na(df$index_label) & df$index_label == "length",
+                         nlengths[df$species], nages[df$species])
+  joint <- !is.na(df$sex) & df$sex == 3 & !is.na(bins_per_sex)
+  male  <- joint & df$age_or_length > bins_per_sex
+  df$age_or_length[male] <- df$age_or_length[male] - bins_per_sex[male]
+  df$source <- paste0(df$source,
+                      ifelse(joint, ifelse(male, " - male", " - female"), ""))
+  df
 }
 
 

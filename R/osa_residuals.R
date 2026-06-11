@@ -43,9 +43,15 @@
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
 #'   `"oneStepGaussianOffMode"` (the WHAM/SAM default), appropriate for the
 #'   lognormal aggregate series.
-#' @param discrete Logical, passed to [TMB::oneStepPredict()]. Default `FALSE`.
-#'   Discrete-distribution OSA residuals are randomized quantile residuals
-#'   (Dunn and Smyth 1996) and so are stochastic; set `seed` for reproducibility.
+#' @param discrete Logical; whether to treat *composition* (comp / caal / diet)
+#'   observations as discrete. Default `FALSE` (continuous, matching how CEATTLE
+#'   fits the composition likelihood with effective-sample-size-scaled counts).
+#'   When `TRUE`, composition residuals are randomized quantile residuals (Dunn
+#'   and Smyth 1996) and so are stochastic; set `seed` for reproducibility. The
+#'   aggregate index/catch series are always continuous (lognormal); the
+#'   [TMB::oneStepPredict()] call is split by observation type so `discrete` is
+#'   applied correctly per type (the discrete group uses the generic CDF-based
+#'   method rather than `method`).
 #' @param seed Random seed passed to [TMB::oneStepPredict()] for reproducibility
 #'   of randomized-quantile residuals. Default `123`.
 #' @param trace Logical; print [TMB::oneStepPredict()] progress. Default `FALSE`.
@@ -142,10 +148,6 @@ osa_residuals <- function(fit,
   sel <- sel[order(sel$year, match(sel$type, source), sel$bin_index,
                    na.last = TRUE), , drop = FALSE]
 
-  # oneStepPredict()'s 'subset' uses 1-based R indices into obsvec; obs_pos is
-  # the 0-based TMB position.
-  subset_pos <- sel$obs_pos + 1L
-
   # Rebuild the model in OSA mode (osa_mode = 1) at the fitted parameters. This
   # is required so the composition (comp/caal) likelihoods read their counts
   # from obsvec and use the unweighted, proper density that oneStepPredict needs.
@@ -154,23 +156,39 @@ osa_residuals <- function(fit,
   obj_osa <- .osa_build_obj(fit)
 
   # ---- Compute the OSA residuals ----
-  osa <- TMB::oneStepPredict(
-    obj                 = obj_osa,
-    observation.name    = "obsvec",
-    data.term.indicator = "keep",
-    method              = method,
-    subset              = subset_pos,
-    discrete            = discrete,
-    seed                = seed,
-    trace               = trace,
-    ...)
-
-  # oneStepPredict returns rows in 'subset' order (see SAM::residuals.sam), so
-  # they align with the rows of 'sel'. The 'residual' column is always present;
-  # 'observation'/'mean'/'sd' depend on the method, so pull them defensively.
+  # oneStepPredict() applies a single `discrete` setting per call, but the
+  # observation types differ: the aggregate index/catch series are continuous
+  # (lognormal), while composition (comp/caal/diet) residuals can be treated as
+  # discrete -- randomized quantile residuals (Dunn and Smyth 1996) -- via
+  # `discrete = TRUE`. Residualize each discrete group in its own call so the
+  # setting is correct per type; with the default `discrete = FALSE` every type
+  # is continuous and this is a single call. `subset` uses 1-based indices into
+  # obsvec (obs_pos is 0-based); '.row' maps each result back to its 'sel' row.
   get_col <- function(df, nm) {
     if (!is.null(df[[nm]])) df[[nm]] else rep(NA_real_, nrow(df))
   }
+  is_comp      <- sel$type %in% c("comp", "caal", "diet")
+  sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
+  .run_osp <- function(rows, dsc) {
+    # The Gaussian methods are continuous-only, so discrete groups use the
+    # generic (CDF-based) method, which supports randomized quantile residuals.
+    res <- TMB::oneStepPredict(
+      obj                 = obj_osa,
+      observation.name    = "obsvec",
+      data.term.indicator = "keep",
+      method              = if (dsc) "oneStepGeneric" else method,
+      subset              = sel$obs_pos[rows] + 1L,
+      discrete            = dsc,
+      seed                = seed,
+      trace               = trace,
+      ...)
+    data.frame(.row = rows, observed = get_col(res, "observation"),
+               predicted = get_col(res, "mean"), sd = get_col(res, "sd"),
+               residual = res$residual)
+  }
+  osa <- do.call(rbind, lapply(unique(sel_discrete),
+                  function(dsc) .run_osp(which(sel_discrete == dsc), dsc)))
+  osa <- osa[order(osa$.row), , drop = FALSE]   # restore chronological 'sel' order
   index_label <- c("age", "length")[sel$comp_type + 1L]   # NA for aggregates
   fc <- fit$data_list$fleet_control                        # fleet code -> name
   fleet_name <- if (!is.null(fc)) {
@@ -187,9 +205,9 @@ osa_residuals <- function(fit,
     age_or_length = sel$age_or_length,
     length        = sel$length,
     index_label   = index_label,
-    observed      = get_col(osa, "observation"),
-    predicted     = get_col(osa, "mean"),
-    sd            = get_col(osa, "sd"),
+    observed      = osa$observed,
+    predicted     = osa$predicted,
+    sd            = osa$sd,
     residual      = osa$residual,
     stringsAsFactors = FALSE)
 
@@ -197,6 +215,10 @@ osa_residuals <- function(fit,
   class(out) <- c("rceattle_osa", "data.frame")
   attr(out, "method") <- method
   attr(out, "seed")   <- seed
+  # Per-species bin counts, so plot() can split joint-sex (Sex == 3) composition
+  # bins onto a single age/length axis (males are stored as bins nbin+1 .. 2*nbin).
+  attr(out, "nages")    <- fit$data_list$nages
+  attr(out, "nlengths") <- fit$data_list$nlengths
 
   # Attach the matching Pearson residuals for composition sources so the
   # plot() method can show OSA and Pearson bubbles side by side.
