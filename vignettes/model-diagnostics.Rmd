@@ -107,7 +107,10 @@ condition number and loadings for `hessian_conditioning`).
 
 ### Composition data
 
-`plot_comp()` overlays observed (bars) and predicted (line) age or length compositions for every fleet.
+`plot_comp()` draws composition Pearson-residual bubbles and overlays the
+observed (shaded area) and predicted (line) age or length compositions for every
+fleet, both annually and aggregated across years. Joint-sex data are drawn on a
+single bin axis with females above and males below zero.
 
 ```{r}
 plot_comp(model_1)
