@@ -178,6 +178,25 @@ testthat::test_that("obsvec/keep refactor leaves the fitted objective finite", {
 })
 
 
+testthat::test_that("fitted objective is unchanged (golden jnll on BS2017SS)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Total negative log-likelihood at the initial parameters of a fixed bundled
+  # model. This guards that the fitted objective is unchanged -- in particular
+  # that the OSA obsvec/keep machinery leaves normal fitting bit-for-bit
+  # identical. estimateMode = 3 builds the model and reports jnll_comp without
+  # optimizing, so the value is deterministic. Update the golden value ONLY when
+  # the likelihood is intentionally changed.
+  data("BS2017SS", package = "Rceattle")
+  fit <- Rceattle::fit_mod(BS2017SS, estimateMode = 3, msmMode = 0,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  jc <- fit$obj$report(fit$obj$par)$jnll_comp
+  testthat::expect_equal(sum(jc[is.finite(jc)]), 1537029.3826176885,
+                         tolerance = 1e-6)
+})
+
+
 testthat::test_that("process_residuals() runs on a converging model", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
