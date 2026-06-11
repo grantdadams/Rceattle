@@ -218,7 +218,7 @@ testthat::test_that("process_residuals() runs on a converging model", {
 
   # This fit used the default osa = FALSE, so composition OSA data was not built;
   # osa_residuals() for composition must fail with an actionable message.
-  testthat::expect_error(osa_residuals(fit, types = "comp"), "osa = TRUE")
+  testthat::expect_error(osa_residuals(fit, source = "comp"), "osa = TRUE")
 })
 
 
@@ -233,7 +233,7 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
     estimateMode = 1, random_rec = FALSE, msmMode = 0,
     fit_control = fit_control(verbose = 0, phase = TRUE, osa = TRUE))
 
-  osa <- osa_residuals(fit, types = c("index", "catch", "comp"))
+  osa <- osa_residuals(fit, source = c("index", "catch", "comp"))
 
   testthat::expect_s3_class(osa, "rceattle_osa")
   testthat::expect_true(all(c("type", "fleet", "year", "residual") %in% names(osa)))
@@ -253,8 +253,8 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_true(all(is.finite(osa$residual[osa$type == "comp"])))
 
   # Deterministic with a fixed seed (cheap aggregate path).
-  a1 <- osa_residuals(fit, types = "catch")
-  a2 <- osa_residuals(fit, types = "catch")
+  a1 <- osa_residuals(fit, source = "catch")
+  a2 <- osa_residuals(fit, source = "catch")
   testthat::expect_equal(a1$residual, a2$residual)
 
   # Diagnostics return one row per source plus an overall row, with the null
@@ -282,6 +282,10 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_warning(rl <- residuals(fit, type = "index"), "source")
   testthat::expect_setequal(unique(rl$Source), "index")
 
+  # species filter (GOApollock is a single-species model -> species 1).
+  testthat::expect_setequal(unique(residuals(fit, species = 1)$Species), 1)
+  testthat::expect_equal(nrow(residuals(fit, species = 999)), 0L)
+
   # plot() builds a separate aggregate (Q-Q only) and composition (Q-Q + OSA and
   # Pearson bubbles) figure. The osa object carries fleet_name and the Pearson
   # residuals needed for the composition bubbles.
@@ -289,9 +293,16 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
     testthat::expect_true("fleet_name" %in% names(osa))
     testthat::expect_false(is.null(attr(osa, "pearson")))
     pf <- tempfile(fileext = ".pdf"); grDevices::pdf(pf)
-    pl <- plot(osa)
+    pl    <- plot(osa)
+    p_idx <- plot(osa, source = "index")                # source filter
+    p_sep <- plot(osa, source = "comp", combine = FALSE) # split age/length
+    p_sp  <- plot(osa, species = 1)                     # species filter
     grDevices::dev.off()
     testthat::expect_true(all(c("aggregate", "composition") %in% names(pl)))
+    testthat::expect_equal(names(p_idx), "aggregate")
+    testthat::expect_true("composition_age" %in% names(p_sep))
+    testthat::expect_false("composition" %in% names(p_sep))
+    testthat::expect_true(length(p_sp) >= 1L)
   }
 
   # OSA must refuse a debug (estimateMode >= 3) fit.

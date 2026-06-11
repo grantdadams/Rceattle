@@ -34,10 +34,12 @@
 #' pseudo-likelihood are residualized under the full multinomial.
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
-#' @param types Character vector of observation types to residualize: any of
-#'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`. Defaults to the first
-#'   four (diet is opt-in); types with no observations in the model are silently
-#'   skipped.
+#' @param source Character vector of observation sources to residualize: any of
+#'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`. Defaults to
+#'   the four non-diet sources (`diet` is opt-in because it applies only to
+#'   multispecies models and can be expensive); pass `"all"` to include `diet`.
+#'   Sources with no observations in the model are silently skipped. Mirrors the
+#'   `source` argument of [residuals.Rceattle()] and [plot.rceattle_osa()].
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
 #'   `"oneStepGaussianOffMode"` (the WHAM/SAM default), appropriate for the
 #'   lognormal aggregate series.
@@ -74,7 +76,7 @@
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
 #' @export
 osa_residuals <- function(fit,
-                          types   = c("index", "catch", "comp", "caal"),
+                          source  = c("index", "catch", "comp", "caal"),
                           method  = "oneStepGaussianOffMode",
                           discrete = FALSE,
                           seed    = 123,
@@ -106,36 +108,38 @@ osa_residuals <- function(fit,
 
   # "diet" is supported but opt-in: it applies only to multispecies models with
   # estimated suitability and can be expensive, so it is not in the default set.
-  valid_types <- c("index", "catch", "comp", "caal", "diet")
-  types <- match.arg(types, choices = valid_types, several.ok = TRUE)
+  # "all" is a synonym for every source including diet.
+  valid_sources <- c("index", "catch", "comp", "caal", "diet", "all")
+  source <- match.arg(source, choices = valid_sources, several.ok = TRUE)
+  if ("all" %in% source) source <- c("index", "catch", "comp", "caal", "diet")
 
   # Composition OSA data (comp / caal / diet) is only assembled when the model
   # was fit with fit_control(osa = TRUE); the default fast path builds just the
   # aggregate index/catch entries (see build_osa_data()). Give a clear message
   # rather than silently returning fewer residuals than requested.
-  comp_types <- intersect(types, c("comp", "caal", "diet"))
-  if (!isTRUE(fit$osa) && length(comp_types) > 0) {
+  comp_sources <- intersect(source, c("comp", "caal", "diet"))
+  if (!isTRUE(fit$osa) && length(comp_sources) > 0) {
     msg <- paste0(
-      "OSA residuals for type(s) ", paste(comp_types, collapse = ", "),
+      "OSA residuals for source(s) ", paste(comp_sources, collapse = ", "),
       " require fitting with fit_control(osa = TRUE); this model was fit with ",
       "osa = FALSE (the fast default used for simulation testing). Refit with ",
       "fit_mod(..., fit_control = fit_control(osa = TRUE)) to enable them.")
-    if (all(types %in% comp_types)) stop(msg) else warning(msg)
+    if (all(source %in% comp_sources)) stop(msg) else warning(msg)
   }
 
   # ---- Select the obsvec positions to residualize ----
   obs_ctl <- fit$obs_ctl
-  sel <- obs_ctl[obs_ctl$type %in% types & !obs_ctl$is_last_bin, , drop = FALSE]
+  sel <- obs_ctl[obs_ctl$type %in% source & !obs_ctl$is_last_bin, , drop = FALSE]
   if (nrow(sel) == 0) {
-    stop("No observations of type(s) ", paste(types, collapse = ", "),
+    stop("No observations of source(s) ", paste(source, collapse = ", "),
          " are available for OSA residuals in this model.")
   }
 
-  # Order observations chronologically (then by type and bin) so the conditional
-  # 'one-step-ahead' sequence is in time order, as recommended by Stewart and
-  # Monnahan (2025). The obsvec storage order is independent of this; subset
-  # defines the conditioning order.
-  sel <- sel[order(sel$year, match(sel$type, types), sel$bin_index,
+  # Order observations chronologically (then by source and bin) so the
+  # conditional 'one-step-ahead' sequence is in time order, as recommended by
+  # Stewart and Monnahan (2025). The obsvec storage order is independent of this;
+  # subset defines the conditioning order.
+  sel <- sel[order(sel$year, match(sel$type, source), sel$bin_index,
                    na.last = TRUE), , drop = FALSE]
 
   # oneStepPredict()'s 'subset' uses 1-based R indices into obsvec; obs_pos is

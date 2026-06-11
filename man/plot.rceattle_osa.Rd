@@ -4,18 +4,31 @@
 \alias{plot.rceattle_osa}
 \title{Plot one-step-ahead (OSA) residual diagnostics}
 \usage{
-\method{plot}{rceattle_osa}(x, ...)
+\method{plot}{rceattle_osa}(x, source = "all", species = NULL, combine = TRUE, ...)
 }
 \arguments{
 \item{x}{An \code{rceattle_osa} object from \code{\link[=osa_residuals]{osa_residuals()}} or
 \code{\link[=process_residuals]{process_residuals()}}.}
 
+\item{source}{Data source(s) to plot: any of \code{"index"}, \code{"catch"}, \code{"comp"},
+\code{"caal"}, \code{"diet"}, or \code{"all"} (default). Mirrors the \code{source} argument of
+\code{\link[=residuals.Rceattle]{residuals.Rceattle()}}; filters which figures are produced.}
+
+\item{species}{Optional species code(s) to include (matched against the
+\code{species} column). Default \code{NULL} keeps all species.}
+
+\item{combine}{Logical. When \code{TRUE} (default), age and length composition
+share one figure (age in the left column, length in the right). When
+\code{FALSE}, they are drawn as separate \code{composition_age} / \code{composition_length}
+figures.}
+
 \item{...}{Unused.}
 }
 \value{
 Invisibly, a named list of the assembled \code{ggplot} / \code{cowplot}
-objects (\code{aggregate}, \code{composition}, and/or \code{process}). Called for its side
-effect of drawing the plot(s).
+objects (some of \code{aggregate}, \code{composition} / \code{composition_age} /
+\code{composition_length}, and \code{process}). Called for its side effect of drawing
+the plot(s).
 }
 \description{
 Diagnostic plots for an \code{rceattle_osa} object (from \code{\link[=osa_residuals]{osa_residuals()}}),
@@ -30,9 +43,11 @@ Up to two separate figures are drawn, depending on which data are present:
 These series have no age/length bin, so no bubble plots are drawn.
 \item \strong{Composition} (\code{comp} / \code{caal}): a Q-Q panel, a signed OSA-residual
 bubble panel, and a signed Pearson-residual bubble panel (the Pearson
-residuals carried on the \code{rceattle_osa} object). Age-based bins (age
-composition and conditional age-at-length) are shown in the left column
-and length-based bins in the right column, each with its own bin axis.
+residuals carried on the \code{rceattle_osa} object). By default age-based bins
+(age composition and conditional age-at-length) are shown in the left
+column and length-based bins in the right column, each with its own bin
+axis; set \code{combine = FALSE} to draw the age and length composition as two
+separate figures instead (useful when a model has many fleets/species).
 }
 Panel headers use the fleet name from \code{fleet_control}. Process residuals
 (from \code{\link[=process_residuals]{process_residuals()}}) are drawn as a Q-Q panel plus a

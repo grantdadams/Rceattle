@@ -4,7 +4,14 @@
 \alias{residuals.Rceattle}
 \title{Residuals from an Rceattle fit}
 \usage{
-\method{residuals}{Rceattle}(object, type = "response", source = "all", scale = "log", ...)
+\method{residuals}{Rceattle}(
+  object,
+  type = "response",
+  source = "all",
+  scale = "log",
+  species = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
@@ -17,6 +24,10 @@
 
 \item{scale}{\code{"log"} (default) or \code{"natural"}. Only affects \code{"response"}
 residuals for \code{index} / \code{catch}.}
+
+\item{species}{Optional species code(s) to include (matched against the
+\code{Species} column). Default \code{NULL} keeps all species. Mirrors the \code{species}
+argument of \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 
 \item{...}{Passed to \code{\link[=osa_residuals]{osa_residuals()}} (e.g. \code{method}, \code{seed}) when
 \code{type = "osa"}, or to \code{\link[=process_residuals]{process_residuals()}} when \code{type = "process"}.}

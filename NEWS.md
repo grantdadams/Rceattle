@@ -24,8 +24,11 @@
   OSA-residual and Pearson-residual bubble plots, with age-based bins (age
   composition and conditional age-at-length) in the left column and length-based
   bins in the right column, each on its own bin axis. Panel headers use the
-  fleet name from `fleet_control`. `osa_residuals()` now also carries a
-  `fleet_name` column and (for composition) the matching Pearson residuals.
+  fleet name from `fleet_control`. The `plot()` method takes `source` and
+  `species` arguments to subset the data shown (mirroring `residuals()`), and
+  `combine = FALSE` to draw the age and length composition as separate figures.
+  `osa_residuals()` now also carries a `fleet_name` column and (for composition)
+  the matching Pearson residuals.
 * Added `process_residuals()` for SAM-style process residuals on the model's
   random-effect deviations (recruitment, initial abundance, and catchability),
   validating the process model as a complement to the observation residuals.
@@ -57,12 +60,17 @@
   ...).
 * `residuals()` now follows the `stats::residuals.glm()` convention: `type`
   selects the residual *kind* -- `"response"` (default), `"pearson"`, `"osa"`,
-  or `"process"` -- and a new `source` argument selects the data source(s)
+  or `"process"` -- and a `source` argument selects the data source(s)
   (`"index"`, `"catch"`, `"comp"`, `"caal"`, or `"all"`, the default), so by
-  default residuals for every applicable source are returned. Pearson residuals
-  are now available for the aggregate index/catch series (standardized by the
-  realized observation log-SD). Passing a data source through the old `type =`
-  argument still works with a one-time deprecation warning.
+  default residuals for every applicable source are returned. A `species`
+  argument subsets to particular species. Pearson residuals are now available
+  for the aggregate index/catch series (standardized by the realized observation
+  log-SD). Passing a data source through the old `type =` argument still works
+  with a one-time deprecation warning.
+* The `source` argument is shared across `residuals()`, `osa_residuals()`, and
+  `plot()` (it replaces the earlier `types` argument of `osa_residuals()`),
+  accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so
+  the three entry points select data sources with one consistent vocabulary.
 
 # Rceattle 4.5.0
 

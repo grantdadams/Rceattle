@@ -6,7 +6,7 @@
 \usage{
 osa_residuals(
   fit,
-  types = c("index", "catch", "comp", "caal"),
+  source = c("index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   seed = 123,
@@ -17,10 +17,12 @@ osa_residuals(
 \arguments{
 \item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
-\item{types}{Character vector of observation types to residualize: any of
-\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}. Defaults to the first
-four (diet is opt-in); types with no observations in the model are silently
-skipped.}
+\item{source}{Character vector of observation sources to residualize: any of
+\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}, or \code{"all"}. Defaults to
+the four non-diet sources (\code{diet} is opt-in because it applies only to
+multispecies models and can be expensive); pass \code{"all"} to include \code{diet}.
+Sources with no observations in the model are silently skipped. Mirrors the
+\code{source} argument of \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 
 \item{method}{Passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}. Defaults to
 \code{"oneStepGaussianOffMode"} (the WHAM/SAM default), appropriate for the

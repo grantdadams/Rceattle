@@ -85,7 +85,7 @@ if (file.exists(file.path("src", "TMB", "ceattle_base.cpp"))) {
 cat("\n== 3. osa_residuals() smoke ==\n")
 fit_opt <- Rceattle::fit_mod(data_list = dat, inits = NULL, estimateMode = 1,
                              fit_control = fit_control(phase = FALSE, verbose = 0))
-osa <- tryCatch(osa_residuals(fit_opt, types = c("index", "catch")),
+osa <- tryCatch(osa_residuals(fit_opt, source = c("index", "catch")),
                 error = function(e) { cat("   ERROR:", conditionMessage(e), "\n"); NULL })
 if (!is.null(osa)) {
   check("osa: one residual per included aggregate obs",

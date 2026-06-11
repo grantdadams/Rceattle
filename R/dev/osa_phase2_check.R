@@ -46,7 +46,7 @@ fit <- Rceattle::fit_mod(GOApollock, inits = NULL, file = NULL, estimateMode = 1
                          fit_control = fit_control(verbose = 0, phase = TRUE))
 cat("   obs_ctl types:\n"); print(table(fit$obs_ctl$type))
 
-osa <- osa_residuals(fit, types = c("index", "catch", "comp"))
+osa <- osa_residuals(fit, source = c("index", "catch", "comp"))
 cat("   total residuals:", nrow(osa),
     " comp residuals:", sum(osa$type == "comp"), "\n")
 check("comp residuals present", sum(osa$type == "comp") > 0)
@@ -54,7 +54,7 @@ check("comp residuals finite", all(is.finite(osa$residual[osa$type == "comp"])))
 check("aggregate residuals still finite",
       all(is.finite(osa$residual[osa$type %in% c("index", "catch")])))
 
-osa2 <- osa_residuals(fit, types = c("index", "catch", "comp"))
+osa2 <- osa_residuals(fit, source = c("index", "catch", "comp"))
 check("deterministic re-run", isTRUE(all.equal(osa$residual, osa2$residual)))
 
 cat("   diagnostics (head):\n")

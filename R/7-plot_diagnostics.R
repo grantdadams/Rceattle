@@ -906,7 +906,7 @@ plot_indexresidual <- function(Rceattle,
   residual_type <- match.arg(residual_type)
   if (residual_type == "osa") {
     fit <- if (inherits(Rceattle, "Rceattle")) Rceattle else Rceattle[[1]]
-    osa <- osa_residuals(fit, types = c("index", "catch"))
+    osa <- osa_residuals(fit, source = c("index", "catch"))
     return(invisible(plot(osa)))
   }
 

@@ -218,6 +218,9 @@ logLik.Rceattle <- function(object, ...) {
 #'   `"comp"`, `"caal"`, or `"all"` (default). Ignored when `type = "process"`.
 #' @param scale `"log"` (default) or `"natural"`. Only affects `"response"`
 #'   residuals for `index` / `catch`.
+#' @param species Optional species code(s) to include (matched against the
+#'   `Species` column). Default `NULL` keeps all species. Mirrors the `species`
+#'   argument of [plot.rceattle_osa()].
 #' @param ... Passed to [osa_residuals()] (e.g. `method`, `seed`) when
 #'   `type = "osa"`, or to [process_residuals()] when `type = "process"`.
 #'
@@ -226,7 +229,7 @@ logLik.Rceattle <- function(object, ...) {
 #'   `Observed`, `Fitted`, `Residual`. Columns are `NA` where they do not apply.
 #' @export
 residuals.Rceattle <- function(object, type = "response", source = "all",
-                               scale = "log", ...) {
+                               scale = "log", species = NULL, ...) {
   # Back-compat: earlier versions used `type` to pick the data source
   # ("index"/"catch"/"comp"/"caal"/"all"). Following stats::residuals.glm(),
   # `type` now selects the residual *kind* and `source` the data source(s);
@@ -248,11 +251,16 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
   scale  <- match.arg(scale, c("log", "natural"))
 
+  # Optional species filter, applied to whichever data frame is returned.
+  .sp_filter <- function(df) {
+    if (is.null(species)) df else df[df$Species %in% species, , drop = FALSE]
+  }
+
   # Process residuals (recruitment / random-effect deviations) are computed
   # separately and reshaped into the common schema; `source` does not apply.
   if (type == "process") {
     pr <- process_residuals(object, ...)
-    return(data.frame(
+    return(.sp_filter(data.frame(
       Source       = pr$type,
       Fleet_code   = NA_integer_,
       Fleet_name   = NA_character_,
@@ -266,19 +274,17 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Observed     = pr$observed,
       Fitted       = pr$predicted,
       Residual     = pr$residual,
-      stringsAsFactors = FALSE))
+      stringsAsFactors = FALSE)))
   }
 
   # One-step-ahead residuals are computed separately (oneStepPredict) and
   # reshaped into the common schema. They are standard-normal, so `scale` does
-  # not apply. `source` selects the observation types; extra args (method, seed)
-  # flow through `...` to osa_residuals() (a legacy `types =` alias is accepted).
+  # not apply. `source` selects the observation sources; extra args (method,
+  # seed) flow through `...` to osa_residuals().
   if (type == "osa") {
-    dots <- list(...)
-    if (!is.null(dots$types)) { source <- dots$types; dots$types <- NULL }
-    osa <- do.call(osa_residuals, c(list(object, types = source), dots))
+    osa <- osa_residuals(object, source = source, ...)
     fc  <- object$data_list$fleet_control
-    return(data.frame(
+    return(.sp_filter(data.frame(
       Source       = osa$type,
       Fleet_code   = osa$fleet,
       Fleet_name   = fc$Fleet_name[match(osa$fleet, fc$Fleet_code)],
@@ -293,7 +299,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Observed     = osa$observed,
       Fitted       = osa$predicted,
       Residual     = osa$residual,
-      stringsAsFactors = FALSE))
+      stringsAsFactors = FALSE)))
   }
 
   q <- object$quantities
@@ -446,7 +452,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   }
 
   if (length(out) == 0) return(empty_row(0))
-  do.call(rbind, out)
+  .sp_filter(do.call(rbind, out))
 }
 
 

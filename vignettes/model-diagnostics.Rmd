@@ -156,7 +156,7 @@ work for any fit.
 
 ```{r osa, eval = FALSE}
 # Aggregate (catch + index) residuals -- fast, available for any fit
-osa <- osa_residuals(model_1, types = c("index", "catch"))
+osa <- osa_residuals(model_1, source = c("index", "catch"))
 head(osa)
 
 # Statistical diagnostics (Stewart & Monnahan 2025): SDNR and lower/upper tail

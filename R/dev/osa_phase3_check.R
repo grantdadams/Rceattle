@@ -84,11 +84,11 @@ cat("   obj:", fit$opt$objective, " maxgrad:", mg, "\n")
 cat("   obs_ctl types:\n"); print(table(fit$obs_ctl$type))
 check("diet positions exist", sum(fit$obs_ctl$type == "diet") > 0)
 
-osa <- suppressWarnings(osa_residuals(fit, types = "diet"))
+osa <- suppressWarnings(osa_residuals(fit, source = "diet"))
 cat("   diet residuals:", nrow(osa),
     " non-finite:", sum(!is.finite(osa$residual)), "\n")
 check("diet residuals present", nrow(osa) > 0)
-osa2 <- suppressWarnings(osa_residuals(fit, types = "diet"))
+osa2 <- suppressWarnings(osa_residuals(fit, source = "diet"))
 check("deterministic", isTRUE(all.equal(osa$residual, osa2$residual)))
 if (isTRUE(mg < 0.1)) check("diet residuals finite (converged)",
                             all(is.finite(osa$residual)))

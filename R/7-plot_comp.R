@@ -41,7 +41,7 @@ plot_comp <-
     # retaining Pearson bubbles alongside OSA residuals).
     residual_type <- match.arg(residual_type)
     if (residual_type == "osa") {
-      osa <- osa_residuals(Rceattle, types = "comp")
+      osa <- osa_residuals(Rceattle, source = "comp")
       return(invisible(plot(osa)))
     }
 

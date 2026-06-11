@@ -18,7 +18,7 @@ fit <- Rceattle::fit_mod(
   random_rec = FALSE, msmMode = 0,
   fit_control = fit_control(verbose = 0, phase = TRUE, getsd = TRUE))
 
-try_plot("plot(osa aggregate)", plot(osa_residuals(fit, types = c("index", "catch"))))
+try_plot("plot(osa aggregate)", plot(osa_residuals(fit, source = c("index", "catch"))))
 try_plot("plot_indexresidual(residual_type='osa')",
          plot_indexresidual(fit, residual_type = "osa"))
 try_plot("plot_comp(residual_type='osa')", plot_comp(fit, residual_type = "osa"))

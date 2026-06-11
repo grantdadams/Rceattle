@@ -13,9 +13,11 @@
 #'     These series have no age/length bin, so no bubble plots are drawn.
 #'   \item **Composition** (`comp` / `caal`): a Q-Q panel, a signed OSA-residual
 #'     bubble panel, and a signed Pearson-residual bubble panel (the Pearson
-#'     residuals carried on the `rceattle_osa` object). Age-based bins (age
-#'     composition and conditional age-at-length) are shown in the left column
-#'     and length-based bins in the right column, each with its own bin axis.
+#'     residuals carried on the `rceattle_osa` object). By default age-based bins
+#'     (age composition and conditional age-at-length) are shown in the left
+#'     column and length-based bins in the right column, each with its own bin
+#'     axis; set `combine = FALSE` to draw the age and length composition as two
+#'     separate figures instead (useful when a model has many fleets/species).
 #' }
 #' Panel headers use the fleet name from `fleet_control`. Process residuals
 #' (from [process_residuals()]) are drawn as a Q-Q panel plus a
@@ -23,71 +25,95 @@
 #'
 #' @param x An `rceattle_osa` object from [osa_residuals()] or
 #'   [process_residuals()].
+#' @param source Data source(s) to plot: any of `"index"`, `"catch"`, `"comp"`,
+#'   `"caal"`, `"diet"`, or `"all"` (default). Mirrors the `source` argument of
+#'   [residuals.Rceattle()]; filters which figures are produced.
+#' @param species Optional species code(s) to include (matched against the
+#'   `species` column). Default `NULL` keeps all species.
+#' @param combine Logical. When `TRUE` (default), age and length composition
+#'   share one figure (age in the left column, length in the right). When
+#'   `FALSE`, they are drawn as separate `composition_age` / `composition_length`
+#'   figures.
 #' @param ... Unused.
 #'
 #' @return Invisibly, a named list of the assembled `ggplot` / `cowplot`
-#'   objects (`aggregate`, `composition`, and/or `process`). Called for its side
-#'   effect of drawing the plot(s).
+#'   objects (some of `aggregate`, `composition` / `composition_age` /
+#'   `composition_length`, and `process`). Called for its side effect of drawing
+#'   the plot(s).
 #'
 #' @references Stewart, I.J., and Monnahan, C.C. 2025. Can. J. Fish. Aquat. Sci.
 #'   82:1-13.
 #' @seealso [osa_residuals()], [osa_diagnostics()]
 #' @export
-plot.rceattle_osa <- function(x, ...) {
+plot.rceattle_osa <- function(x, source = "all", species = NULL,
+                              combine = TRUE, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("ggplot2 is required to plot OSA residuals.")
   }
   pearson <- attr(x, "pearson")
+
+  # ---- Subset by data source and species (like residuals.Rceattle()) ----
+  valid_src  <- c("index", "catch", "comp", "caal", "diet")
+  keep_types <- if (identical(source, "all")) unique(x$type) else
+    match.arg(source, valid_src, several.ok = TRUE)
+  x <- x[x$type %in% keep_types, , drop = FALSE]
+  if (!is.null(species)) x <- x[x$species %in% species, , drop = FALSE]
+  if (!is.null(pearson)) {
+    pearson <- pearson[pearson$Source %in% keep_types, , drop = FALSE]
+    if (!is.null(species)) {
+      pearson <- pearson[pearson$Species %in% species, , drop = FALSE]
+    }
+  }
+
   x <- x[is.finite(x$residual), , drop = FALSE]
   if (nrow(x) == 0) {
-    warning("No finite residuals to plot.")
+    warning("No finite residuals to plot for the requested source / species.")
     return(invisible(NULL))
   }
 
   agg  <- x[x$type %in% c("index", "catch"), , drop = FALSE]
   comp <- x[x$type %in% c("comp", "caal", "diet"), , drop = FALSE]
-  proc <- x[!x$type %in% c("index", "catch", "comp", "caal", "diet"), ,
-            drop = FALSE]
+  proc <- x[!x$type %in% valid_src, , drop = FALSE]
 
   plots <- list()
 
-  # 1. Aggregate (index / catch): Q-Q only -- no age/length bin to bubble.
+  # Aggregate (index / catch): Q-Q only -- no age/length bin to bubble.
   if (nrow(agg) > 0) {
     agg$source <- .osa_source_label(agg)
     plots$aggregate <- .osa_qqplot(agg)
-    print(plots$aggregate)
   }
 
-  # 2. Composition (comp / caal): Q-Q + OSA bubbles + Pearson bubbles, with
-  #    age bins on the left and length bins on the right.
+  # Composition (comp / caal): Q-Q + OSA bubbles + Pearson bubbles. One combined
+  # figure (age | length columns) by default, or separate figures per bin type.
   if (nrow(comp) > 0) {
-    plots$composition <- .osa_composition_figure(comp, pearson)
-    print(plots$composition)
+    plots <- c(plots, .osa_composition_figures(comp, pearson, combine = combine))
   }
 
-  # 3. Process residuals: Q-Q + residual-by-year.
+  # Process residuals: Q-Q + residual-by-year.
   if (nrow(proc) > 0) {
     proc$source <- paste0(proc$type,
                           ifelse(is.na(proc$species), "",
                                  paste0(" - sp ", proc$species)))
-    g <- .osa_stack(list(.osa_qqplot(proc), .osa_resid_year_plot(proc)))
-    plots$process <- g
-    print(g)
+    plots$process <- .osa_stack(list(.osa_qqplot(proc),
+                                     .osa_resid_year_plot(proc)))
   }
 
+  for (g in plots) print(g)
   invisible(plots)
 }
 
 
-#' Composition OSA figure: Q-Q + OSA bubbles + Pearson bubbles (age | length)
+#' Composition OSA figure(s): Q-Q + OSA bubbles + Pearson bubbles (age / length)
 #'
 #' @param comp The composition rows of an `rceattle_osa` object.
 #' @param pearson Matching Pearson residuals (the `"pearson"` attribute of the
 #'   `rceattle_osa` object), or `NULL`.
-#' @return A `cowplot`/`ggplot` object: age-based bins in the left column,
-#'   length-based bins in the right column.
+#' @param combine When `TRUE`, return a single `composition` figure with age
+#'   bins in the left column and length bins in the right; when `FALSE`, return
+#'   separate `composition_age` and `composition_length` figures.
+#' @return A named list of `cowplot`/`ggplot` objects.
 #' @keywords internal
-.osa_composition_figure <- function(comp, pearson = NULL) {
+.osa_composition_figures <- function(comp, pearson = NULL, combine = TRUE) {
   comp$source <- .osa_source_label(comp)
   comp$.side  <- .osa_bin_side(comp$index_label)
 
@@ -112,31 +138,51 @@ plot.rceattle_osa <- function(x, ...) {
     pear$.side  <- .osa_bin_side(pear$index_label)
   }
 
-  build_side <- function(s) {
-    cs <- comp[comp$.side == s, , drop = FALSE]
-    if (nrow(cs) == 0) return(NULL)
-    ylab   <- if (s == "age") "Age bin" else "Length bin"
-    panels <- list(
-      .osa_qqplot(cs),
-      .osa_bubble_plot(cs, ylab = ylab, title = "OSA residuals"))
-    if (!is.null(pear)) {
-      ps <- pear[pear$.side == s, , drop = FALSE]
-      if (nrow(ps) > 0) {
-        panels[[length(panels) + 1L]] <-
-          .osa_bubble_plot(ps, ylab = ylab, title = "Pearson residuals")
-      }
-    }
-    .osa_stack(panels)
+  age_fig <- .osa_comp_side(comp, pear, "age")
+  len_fig <- .osa_comp_side(comp, pear, "length")
+
+  if (!combine) {
+    out <- list()
+    if (!is.null(age_fig)) out$composition_age    <- age_fig
+    if (!is.null(len_fig)) out$composition_length <- len_fig
+    return(out)
   }
 
-  cols <- Filter(Negate(is.null), list(age = build_side("age"),
-                                       length = build_side("length")))
-  if (length(cols) == 1L) return(cols[[1]])
-  if (requireNamespace("cowplot", quietly = TRUE)) {
+  cols <- Filter(Negate(is.null), list(age_fig, len_fig))
+  if (length(cols) == 0L) return(list())
+  fig <- if (length(cols) == 1L) {
+    cols[[1]]
+  } else if (requireNamespace("cowplot", quietly = TRUE)) {
     cowplot::plot_grid(plotlist = cols, ncol = length(cols))
   } else {
-    cols   # cowplot unavailable: return the per-side columns
+    cols[[1]]   # cowplot unavailable: fall back to the first column
   }
+  list(composition = fig)
+}
+
+
+#' One bin-side (age or length) composition column: Q-Q + OSA + Pearson bubbles
+#'
+#' @param comp Composition rows with `source` and `.side` columns.
+#' @param pear Reshaped Pearson rows with `source` and `.side` columns, or `NULL`.
+#' @param side `"age"` or `"length"`.
+#' @return A stacked `cowplot`/`ggplot` object, or `NULL` if no rows on that side.
+#' @keywords internal
+.osa_comp_side <- function(comp, pear, side) {
+  cs <- comp[comp$.side == side, , drop = FALSE]
+  if (nrow(cs) == 0) return(NULL)
+  ylab   <- if (side == "age") "Age bin" else "Length bin"
+  panels <- list(
+    .osa_qqplot(cs),
+    .osa_bubble_plot(cs, ylab = ylab, title = "OSA residuals"))
+  if (!is.null(pear)) {
+    ps <- pear[pear$.side == side, , drop = FALSE]
+    if (nrow(ps) > 0) {
+      panels[[length(panels) + 1L]] <-
+        .osa_bubble_plot(ps, ylab = ylab, title = "Pearson residuals")
+    }
+  }
+  .osa_stack(panels)
 }
 
 
