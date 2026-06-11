@@ -34,6 +34,15 @@
   CAAL slot. This affects the reported diagnostic matrix only; the fitted
   objective was unaffected.
 
+## API
+
+* `projection_uncertainty` moved from `fit_mod()` into `fit_control()`,
+  consolidating it with the other optimizer / reporting controls. Passing it
+  directly to `fit_mod()` still works but emits a deprecation warning and
+  forwards the value into `fit_control()` -- the same backward-compatible path
+  used by the other former `fit_mod()` control arguments (`phase`, `getsd`,
+  ...).
+
 # Rceattle 4.5.0
 
 ## New features

@@ -11,7 +11,6 @@
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
-#' @param projection_uncertainty logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the laplace approximation.The default is FALSE.
 #' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the laplace approximation.The default is FALSE.
@@ -92,7 +91,6 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
-    projection_uncertainty = FALSE,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -126,7 +124,8 @@ fit_mod <-
     .deprecated_ctl_args <- c(
       "phase", "getsd", "bias.correct", "use_gradient", "rel_tol",
       "control", "getJointPrecision", "getReportCovariance",
-      "loopnum", "newtonsteps", "verbose", "TMBfilename"
+      "loopnum", "newtonsteps", "verbose", "TMBfilename",
+      "projection_uncertainty"
     )
     .extra  <- list(...)
     .legacy <- intersect(names(.extra), .deprecated_ctl_args)
@@ -170,6 +169,7 @@ fit_mod <-
     getsd               <- fit_control$getsd
     getJointPrecision   <- fit_control$getJointPrecision
     getReportCovariance <- fit_control$getReportCovariance
+    projection_uncertainty <- fit_control$projection_uncertainty
     use_gradient        <- fit_control$use_gradient
     rel_tol             <- fit_control$rel_tol
     loopnum             <- fit_control$loopnum

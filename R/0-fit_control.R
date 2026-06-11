@@ -28,6 +28,10 @@
 #'   and random effects. Default `TRUE` (matches `fit_mod()` default).
 #' @param getReportCovariance logical. Return the variance-covariance
 #'   of `ADREPORT` variables. Default `FALSE`.
+#' @param projection_uncertainty logical. If `TRUE`, accounts for hindcast
+#'   parameter uncertainty in projections when using an HCR (refits with all
+#'   hindcast and biological-reference-point parameters turned on). Default
+#'   `FALSE` for speed.
 #' @param use_gradient logical. Use the analytic gradient during
 #'   phasing. Default `TRUE`.
 #' @param rel_tol Numeric tolerance used to flag discontinuous
@@ -66,6 +70,7 @@ fit_control <- function(
   getsd               = TRUE,
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
+  projection_uncertainty = FALSE,
   use_gradient        = TRUE,
   rel_tol             = 1,
   loopnum             = 5,
@@ -80,6 +85,7 @@ fit_control <- function(
     getsd               = getsd,
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
+    projection_uncertainty = projection_uncertainty,
     use_gradient        = use_gradient,
     rel_tol             = rel_tol,
     loopnum             = loopnum,

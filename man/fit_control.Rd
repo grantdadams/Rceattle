@@ -9,6 +9,7 @@ fit_control(
   getsd = TRUE,
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
+  projection_uncertainty = FALSE,
   use_gradient = TRUE,
   rel_tol = 1,
   loopnum = 5,
@@ -31,6 +32,11 @@ and random effects. Default \code{TRUE} (matches \code{fit_mod()} default).}
 
 \item{getReportCovariance}{logical. Return the variance-covariance
 of \code{ADREPORT} variables. Default \code{FALSE}.}
+
+\item{projection_uncertainty}{logical. If \code{TRUE}, accounts for hindcast
+parameter uncertainty in projections when using an HCR (refits with all
+hindcast and biological-reference-point parameters turned on). Default
+\code{FALSE} for speed.}
 
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}
