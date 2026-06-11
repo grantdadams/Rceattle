@@ -1,18 +1,7 @@
-# Rceattle 4.5.0
+# Rceattle 4.6.0
 
 ## New features
 
-* Added a general post-fit convergence diagnostics framework via the new
-  exported `convergence_diagnostics()` function. It runs a battery of checks
-  covering the optimizer gradient, Hessian positive-definiteness and
-  conditioning, parameters on bounds, phasing, and parameter estimability, and
-  returns a structured `"Rceattle_convergence"` object whose `status` reflects
-  the worst severity found (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`).
-* `fit_mod()` now runs the convergence battery automatically and attaches the
-  result as `fit$convergence`; `convergence_diagnostics()` can also be called
-  directly to re-run it on any fit.
-* Added a model-diagnostics vignette section and accompanying unit tests for
-  the new framework.
 * Added one-step-ahead (OSA) residuals for model validation via the new
   exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
   Unlike Pearson residuals, OSA residuals are iid standard normal under a
@@ -40,11 +29,30 @@
 
 ## Bug fixes
 
-* Fixed a parameters-on-bounds misalignment in the convergence diagnostics.
 * Fixed the unweighted conditional-age-at-length (CAAL) log-likelihood being
   recorded in the composition slot of `unweighted_jnll_comp` instead of the
   CAAL slot. This affects the reported diagnostic matrix only; the fitted
   objective was unaffected.
+
+# Rceattle 4.5.0
+
+## New features
+
+* Added a general post-fit convergence diagnostics framework via the new
+  exported `convergence_diagnostics()` function. It runs a battery of checks
+  covering the optimizer gradient, Hessian positive-definiteness and
+  conditioning, parameters on bounds, phasing, and parameter estimability, and
+  returns a structured `"Rceattle_convergence"` object whose `status` reflects
+  the worst severity found (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`).
+* `fit_mod()` now runs the convergence battery automatically and attaches the
+  result as `fit$convergence`; `convergence_diagnostics()` can also be called
+  directly to re-run it on any fit.
+* Added a model-diagnostics vignette section and accompanying unit tests for
+  the new framework.
+
+## Bug fixes
+
+* Fixed a parameters-on-bounds misalignment in the convergence diagnostics.
 * The joint negative log-likelihood (jnll) is now taken from the optimizer
   objective for consistency.
 

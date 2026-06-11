@@ -28,8 +28,8 @@
 #'
 #' The inclusion rules and per-row bin counts below must match the guards in the
 #' TMB template exactly, so that every observation the template evaluates has a
-#' valid `obsvec` position. Phases: catch + index (aggregate) and comp + caal
-#' (composition); diet is added in a later phase.
+#' valid `obsvec` position. All fitted observation types are handled: aggregate
+#' catch and index, comp and caal composition, and predator diet composition.
 #'
 #' @param data_list A `data_list` whose `*_ctl`/`*_obs`/`*_n` matrices have
 #'   already been built (and coerced to matrices) by [rearrange_data()].

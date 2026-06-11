@@ -42,7 +42,7 @@ marks rows excluded from the likelihood.
 
 The inclusion rules and per-row bin counts below must match the guards in the
 TMB template exactly, so that every observation the template evaluates has a
-valid \code{obsvec} position. Phases: catch + index (aggregate) and comp + caal
-(composition); diet is added in a later phase.
+valid \code{obsvec} position. All fitted observation types are handled: aggregate
+catch and index, comp and caal composition, and predator diet composition.
 }
 \keyword{internal}

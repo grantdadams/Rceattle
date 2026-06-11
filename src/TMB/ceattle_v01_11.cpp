@@ -244,18 +244,20 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.4.2b One-step-ahead (OSA) residual support
   // `obsvec` is a flat vector holding every observation that enters the
-  // likelihood (log catch, then log index for now; composition and diet are
-  // added in later development phases). `keep` is the companion indicator used
-  // by TMB::oneStepPredict(): during normal model fitting it defaults to all
-  // ones, so the likelihood is numerically unchanged; oneStepPredict() toggles
-  // individual elements to compute one-step-ahead residuals. The `*_obsvec_idx`
-  // vectors give, for each row of the corresponding `*_obs` matrix, that
-  // observation's 0-based position in `obsvec` (or -1 when the row is excluded
-  // from the likelihood, e.g. projection years or non-positive observations).
-  // `osa_mode` (0 = normal fitting, the default) is reserved for later phases
-  // where it switches composition/diet branches to a proper, unweighted density
-  // suitable for OSA residuals; it does not alter the aggregate (catch/index)
-  // likelihood and is unused in this phase.
+  // likelihood: log catch and log index (aggregate series), the bin counts of
+  // each comp / caal composition, and each stomach's diet composition. `keep`
+  // is the companion indicator used by TMB::oneStepPredict(): during normal
+  // model fitting it defaults to all ones, so the likelihood is numerically
+  // unchanged; oneStepPredict() toggles individual elements to compute
+  // one-step-ahead residuals. The `*_obsvec_idx` vectors give, for each row of
+  // the corresponding `*_obs` matrix, that observation's 0-based position in
+  // `obsvec` (for compositions, the start position of the row's bins), or -1
+  // when the row is excluded from the likelihood (e.g. projection years or
+  // non-positive observations).
+  // `osa_mode` (0 = normal fitting, the default) switches the composition /
+  // caal / diet branches to a proper, unweighted, keep-gated density suitable
+  // for OSA residuals; it does not alter the aggregate (catch/index) likelihood,
+  // which reads from `obsvec` identically in both modes.
   DATA_VECTOR( obsvec );                    // Flat observations for OSA residuals
   DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
   DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)

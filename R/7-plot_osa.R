@@ -8,10 +8,10 @@
 #' (the Q-Q plot with its standard-normal null envelope and annotated SDNR /
 #' tail statistics) rather than the residual values themselves.
 #'
-#' For the aggregate catch and index series this produces a Q-Q panel and a
-#' residual-versus-year panel, faceted by data source. (Composition bubble and
-#' aggregate-fit panels are produced by the upgraded [plot_comp()] in a later
-#' phase.)
+#' The panels drawn adapt to the residual types present, all faceted by data
+#' source: a Q-Q panel is always produced; composition residuals (comp / caal)
+#' add a signed-bubble panel by year and bin, while aggregate (catch / index)
+#' residuals add a residual-versus-year panel.
 #'
 #' @param x An `rceattle_osa` object from [osa_residuals()].
 #' @param which Which panels to draw: any of `"qq"`, `"bubble"`, and
