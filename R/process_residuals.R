@@ -39,8 +39,8 @@
 #'
 #' @return A data frame of class `rceattle_osa` (so it can be passed to
 #'   [osa_diagnostics()] and [plot.rceattle_osa()]) with one row per deviation:
-#'   columns `type` (the process), `fleet`, `species`, `year`, `age_or_length`,
-#'   and `residual`.
+#'   columns `source` (the process), `fleet`, `species`, `year`,
+#'   `age_length_bin`, and `residual`.
 #'
 #' @references
 #' Nielsen, A., and Berg, C.W. 2014. Estimation of time-varying selectivity in
@@ -127,14 +127,14 @@ process_residuals <- function(fit,
   resid <- (draw - spec$mean) / spec$sd
 
   data.frame(
-    type          = process,
-    fleet         = spec$fleet,
-    species       = spec$species,
-    sex           = NA_integer_,
-    year          = spec$year,
-    age_or_length = spec$age,
-    length        = NA_integer_,
-    index_label   = NA_character_,
+    source         = process,
+    fleet          = spec$fleet,
+    species        = spec$species,
+    sex            = NA_integer_,
+    year           = spec$year,
+    age_length_bin = spec$age,
+    length         = NA_integer_,
+    index_label    = NA_character_,
     observed      = NA_real_,
     predicted     = NA_real_,
     sd            = NA_real_,

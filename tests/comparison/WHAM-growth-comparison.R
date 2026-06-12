@@ -454,7 +454,7 @@ wham_model$rep$nll_NAA # Uses lognormal bias correction
 # Estimate Rceattle ----
 #FIXME: Finit for initmode 3 and 4
 ss_est <- Rceattle::fit_mod(data_list = simData,
-                            inits = NULL, # Initial parameters = 0
+                            inits = inits, # Initial parameters = 0
                             estimateMode = 0, # estimate
                             growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
@@ -523,63 +523,3 @@ plot_ssb(list(ss_est, ss_inits, wham_ests), model_names = c("Rceattle", "Rceattl
 # t(pred_CAAL)
 # t(wham_model$rep$pred_CAAL[yr,1,,]) - ss_inits$quantities$pred_CAAL[2,1,,,yr]
 #
-
-
-# OSA residuals: Rceattle vs WHAM --------------------------------------------
-# Cross-check Rceattle's one-step-ahead (OSA) residuals against WHAM's (the
-# reference implementation that Rceattle's composition decomposition was ported
-# from). Both packages are fit to the same GOAcod + whamGrowthData; with the
-# fits matched (above), the aggregate index/catch OSA residuals (lognormal) and
-# the composition residuals should fall on the 1:1 line. Conditioning order can
-# differ slightly between packages, so expect a tight correlation rather than an
-# exact equality.
-#
-# NOTE: manual comparison using the WHAM growth fork installed at the top of this
-# script (GiancarloMCorrea/wham, ref = 'growth'). Its OSA residuals come from
-# make_osa_residuals(), and its composition decomposition (src/age_comp_osa.hpp)
-# is the same conditional binomial / beta-binomial that Rceattle ported into
-# comp_osa.hpp -- so the residuals should agree (up to conditioning order).
-
-# WHAM OSA residuals on the existing fit. Growth-fork `$osa` type labels:
-# "logcatch"/"logindex" (aggregate), "catchpal"/"indexpal" (length comp),
-# "catchcaal"/"indexcaal" (conditional age-at-length).
-wham_osa_fit <- wham::make_osa_residuals(
-  wham_model, osa.opts = list(method = "oneStepGaussianOffMode", parallel = TRUE))
-wham_osa <- wham_osa_fit$osa            # = input$data$obs + a `residual` column
-print(unique(wham_osa$type))            # confirm the labels for your WHAM version
-
-# Rceattle OSA residuals: estimateMode = 1 (objective differentiable, hindcast
-# only) and fit_control(osa = TRUE) so the composition OSA data is built.
-ss_osa <- Rceattle::fit_mod(data_list = simData, inits = NULL,
-                            estimateMode = 1,
-                            growthFun = build_growth(fun = "vonBertalanffy"),
-                            random_rec = FALSE, msmMode = 0,
-                            initMode = "NonEquilibrium",
-                            fit_control = fit_control(phase = TRUE, verbose = 0,
-                                                      osa = TRUE))
-rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
-
-# --- Aggregate index & catch (one lognormal residual per year) ---
-wham_agg_type <- c(catch = "logcatch", index = "logindex")
-par(mfrow = c(1, 2))
-for (src in c("index", "catch")) {
-  rce <- rce_osa[rce_osa$type == src, c("year", "residual")]
-  wh  <- wham_osa[wham_osa$type == wham_agg_type[[src]], c("year", "residual")]
-  m   <- merge(rce, wh, by = "year", suffixes = c(".rce", ".wham"))
-  if (nrow(m) == 0) next
-  plot(m$residual.wham, m$residual.rce,
-       xlab = paste("WHAM", src, "OSA residual"),
-       ylab = paste("Rceattle", src, "OSA residual"),
-       main = sprintf("%s OSA  (r = %.3f)", src,
-                      stats::cor(m$residual.wham, m$residual.rce)))
-  abline(0, 1)
-}
-
-# --- Composition: this is a length/growth model, so Rceattle "comp" is length
-# composition (WHAM "indexpal"/"catchpal") and "caal" is conditional
-# age-at-length (WHAM "indexcaal"/"catchcaal"). WHAM stores the bin in its `age`
-# column; match by (year, bin) -- check colnames(wham_osa) for your version:
-#   rce <- rce_osa[rce_osa$type == "comp", c("year", "age_or_length", "residual")]
-#   wh  <- wham_osa[wham_osa$type == "indexpal", c("year", "age", "residual")]
-#   m   <- merge(rce, wh, by.x = c("year", "age_or_length"), by.y = c("year", "age"))
-#   plot(m$residual.y, m$residual.x); abline(0, 1)   # WHAM (x) vs Rceattle (y)

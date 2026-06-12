@@ -7,7 +7,7 @@
 .osa_jointsex(df, nages, nlengths)
 }
 \arguments{
-\item{df}{A data frame with \code{species}, \code{sex}, \code{index_label}, \code{age_or_length},
+\item{df}{A data frame with \code{species}, \code{sex}, \code{index_label}, \code{age_length_bin},
 and \code{source} columns.}
 
 \item{nages, nlengths}{Per-species bin counts (or \code{NULL} to skip the split).}

@@ -16,7 +16,7 @@ testthat::test_that("build_osa_data lays observations into obsvec correctly", {
   # obs_ctl must be a DATA FRAME (regression guard: rearrange_data's
   # data.frame->matrix coercion must not sweep it up).
   testthat::expect_s3_class(dl$obs_ctl, "data.frame")
-  testthat::expect_true(all(c("obs_pos", "type", "data_row", "fleet_code",
+  testthat::expect_true(all(c("obs_pos", "source", "data_row", "fleet_code",
                               "year", "is_last_bin") %in% names(dl$obs_ctl)))
 
   # Defaults and types.
@@ -43,7 +43,7 @@ testthat::test_that("build_osa_data lays observations into obsvec correctly", {
                          log(dl$catch_obs[inc_c, 1]))
 
   # One obs_ctl row per included aggregate observation.
-  testthat::expect_equal(sum(dl$obs_ctl$type %in% c("index", "catch")),
+  testthat::expect_equal(sum(dl$obs_ctl$source %in% c("index", "catch")),
                          length(inc_i) + length(inc_c))
 
   # Composition: bin counts = (proportion + 1e-5) * Sample_size, with one
@@ -57,7 +57,7 @@ testthat::test_that("build_osa_data lays observations into obsvec correctly", {
       dl$comp_n[r1, 2]
     testthat::expect_equal(dl$obsvec[start + seq_len(n_comp)], expected)
 
-    comp_ctl_rows <- dl$obs_ctl[dl$obs_ctl$type == "comp", ]
+    comp_ctl_rows <- dl$obs_ctl[dl$obs_ctl$source == "comp", ]
     testthat::expect_true("length" %in% names(dl$obs_ctl))
     # exactly one last-bin (dropped) per composition group
     testthat::expect_equal(sum(comp_ctl_rows$is_last_bin),
@@ -77,7 +77,7 @@ testthat::test_that("default fit skips composition OSA data (fast path)", {
   # always reads them), but no composition / caal / diet metadata.
   testthat::expect_true(all(fast$comp_obsvec_idx < 0))
   testthat::expect_true(all(fast$caal_obsvec_idx < 0))
-  testthat::expect_false(any(fast$obs_ctl$type %in% c("comp", "caal", "diet")))
+  testthat::expect_false(any(fast$obs_ctl$source %in% c("comp", "caal", "diet")))
 
   # Aggregate obsvec entries are identical between the fast and full builds, so
   # the fitted objective is unaffected by the toggle.
@@ -87,7 +87,7 @@ testthat::test_that("default fit skips composition OSA data (fast path)", {
   # The full build does produce composition entries when comp data are present.
   if (nrow(full$comp_obs) > 0) {
     testthat::expect_true(any(full$comp_obsvec_idx >= 0))
-    testthat::expect_true(any(full$obs_ctl$type == "comp"))
+    testthat::expect_true(any(full$obs_ctl$source == "comp"))
   }
 })
 
@@ -111,11 +111,11 @@ testthat::test_that("build_osa_data lays CAAL observations into obsvec correctly
     dl$caal_n[r1, 1]
   testthat::expect_equal(dl$obsvec[start + seq_len(n_caal)], expected)
 
-  caal_rows <- dl$obs_ctl[dl$obs_ctl$type == "caal", ]
+  caal_rows <- dl$obs_ctl[dl$obs_ctl$source == "caal", ]
   testthat::expect_equal(sum(caal_rows$is_last_bin),
                          length(unique(caal_rows$group_id)))
   testthat::expect_true(all(!is.na(caal_rows$length)))           # conditioning length
-  testthat::expect_true(all(!is.na(caal_rows$age_or_length)))    # age bin
+  testthat::expect_true(all(!is.na(caal_rows$age_length_bin)))    # age bin
 })
 
 
@@ -145,7 +145,7 @@ testthat::test_that("build_osa_data lays diet observations into obsvec correctly
   testthat::expect_length(dl$diet_obsvec_idx, 2L)
   testthat::expect_true(all(dl$diet_obsvec_idx >= 0))
 
-  diet_rows <- dl$obs_ctl[dl$obs_ctl$type == "diet", ]
+  diet_rows <- dl$obs_ctl[dl$obs_ctl$source == "diet", ]
   # stomach 0: 2 prey + other = 3 bins; stomach 1: 1 prey + other = 2 bins.
   testthat::expect_equal(nrow(diet_rows), 5L)
   testthat::expect_equal(sum(diet_rows$is_last_bin), 2L)   # one "other prey" per stomach
@@ -210,7 +210,7 @@ testthat::test_that("process_residuals() runs on a converging model", {
 
   pr <- process_residuals(fit, process = "recruitment")
   testthat::expect_s3_class(pr, "rceattle_osa")
-  testthat::expect_equal(unique(pr$type), "recruitment")
+  testthat::expect_equal(unique(pr$source), "recruitment")
   testthat::expect_true(all(is.finite(pr$residual)))
   # One recruitment residual per hindcast year.
   testthat::expect_equal(nrow(pr), length(GOApollock$styr:GOApollock$endyr))
@@ -225,7 +225,7 @@ testthat::test_that("process_residuals() runs on a converging model", {
   # marginal-SD standardization is approximate and emits a warning.
   testthat::expect_warning(pr_all <- process_residuals(fit, process = "all"),
                            "approximate")
-  testthat::expect_true("recruitment" %in% pr_all$type)
+  testthat::expect_true("recruitment" %in% pr_all$source)
   testthat::expect_true(all(is.finite(pr_all$residual)))
 
   # Recruitment-only residuals use an exact iid prior -> no approximation warning.
@@ -255,21 +255,21 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   osa <- osa_residuals(fit, source = c("index", "catch", "comp"))
 
   testthat::expect_s3_class(osa, "rceattle_osa")
-  testthat::expect_true(all(c("type", "fleet", "year", "residual") %in% names(osa)))
+  testthat::expect_true(all(c("source", "fleet", "year", "residual") %in% names(osa)))
   testthat::expect_true(all(is.finite(osa$residual)))
-  testthat::expect_setequal(unique(osa$type), c("index", "catch", "comp"))
+  testthat::expect_setequal(unique(osa$source), c("index", "catch", "comp"))
 
   # Aggregate: one residual per included catch/index observation.
-  agg <- osa[osa$type %in% c("index", "catch"), ]
+  agg <- osa[osa$source %in% c("index", "catch"), ]
   testthat::expect_equal(nrow(agg),
-                         sum(fit$obs_ctl$type %in% c("index", "catch")))
+                         sum(fit$obs_ctl$source %in% c("index", "catch")))
 
   # Composition: each composition drops its sum-to-N last bin, so there is one
   # fewer residual than bins per composition (here per fleet x year group).
-  n_comp_bins   <- sum(fit$obs_ctl$type == "comp")
-  n_comp_groups <- length(unique(fit$obs_ctl$group_id[fit$obs_ctl$type == "comp"]))
-  testthat::expect_equal(sum(osa$type == "comp"), n_comp_bins - n_comp_groups)
-  testthat::expect_true(all(is.finite(osa$residual[osa$type == "comp"])))
+  n_comp_bins   <- sum(fit$obs_ctl$source == "comp")
+  n_comp_groups <- length(unique(fit$obs_ctl$group_id[fit$obs_ctl$source == "comp"]))
+  testthat::expect_equal(sum(osa$source == "comp"), n_comp_bins - n_comp_groups)
+  testthat::expect_true(all(is.finite(osa$residual[osa$source == "comp"])))
 
   # Deterministic with a fixed seed (cheap aggregate path).
   a1 <- osa_residuals(fit, source = "catch")
@@ -281,13 +281,13 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   diag <- osa_diagnostics(osa)
   testthat::expect_true(nrow(diag) >= 2)
   testthat::expect_true(all(c("sdnr", "sdnr_lo", "sdnr_hi") %in% names(diag)))
-  testthat::expect_true(is.finite(diag$sdnr[diag$source == "all"]))
+  testthat::expect_true(is.finite(diag$sdnr[diag$group == "all"]))
 
   # residuals(type = "osa") reshapes into the common residual schema; `source`
   # selects the data source(s) (aggregate subset to keep the test cheap).
   r <- residuals(fit, type = "osa", source = c("index", "catch"))
   testthat::expect_true(all(c("Source", "Fleet_code", "Year", "Residual") %in% names(r)))
-  testthat::expect_equal(nrow(r), sum(fit$obs_ctl$type %in% c("index", "catch")))
+  testthat::expect_equal(nrow(r), sum(fit$obs_ctl$source %in% c("index", "catch")))
 
   # glm-style residual kinds: response / pearson cover all sources by default.
   rr <- residuals(fit, type = "response")

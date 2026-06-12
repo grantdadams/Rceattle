@@ -56,9 +56,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
   # ---- Subset by data source and species (like residuals.Rceattle()) ----
   valid_src  <- c("index", "catch", "comp", "caal", "diet")
-  keep_types <- if (identical(source, "all")) unique(x$type) else
+  keep_types <- if (identical(source, "all")) unique(x$source) else
     match.arg(source, valid_src, several.ok = TRUE)
-  x <- x[x$type %in% keep_types, , drop = FALSE]
+  x <- x[x$source %in% keep_types, , drop = FALSE]
   if (!is.null(species)) x <- x[x$species %in% species, , drop = FALSE]
   if (!is.null(pearson)) {
     pearson <- pearson[pearson$Source %in% keep_types, , drop = FALSE]
@@ -73,9 +73,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     return(invisible(NULL))
   }
 
-  agg  <- x[x$type %in% c("index", "catch"), , drop = FALSE]
-  comp <- x[x$type %in% c("comp", "caal", "diet"), , drop = FALSE]
-  proc <- x[!x$type %in% valid_src, , drop = FALSE]
+  agg  <- x[x$source %in% c("index", "catch"), , drop = FALSE]
+  comp <- x[x$source %in% c("comp", "caal", "diet"), , drop = FALSE]
+  proc <- x[!x$source %in% valid_src, , drop = FALSE]
 
   plots <- list()
 
@@ -94,7 +94,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
   # Process residuals: Q-Q + residual-by-year.
   if (nrow(proc) > 0) {
-    proc$source <- paste0(proc$type,
+    proc$source <- paste0(proc$source,
                           ifelse(is.na(proc$species), "",
                                  paste0(" - sp ", proc$species)))
     plots$process <- .osa_stack(list(.osa_qqplot(proc),
@@ -133,15 +133,15 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
                       ifelse(!is.na(pearson$Age0_Length1) &
                                pearson$Age0_Length1 == 1, "length", "age"))
     pear <- data.frame(
-      type          = pearson$Source,
-      fleet         = pearson$Fleet_code,
-      fleet_name    = pearson$Fleet_name,
-      species       = pearson$Species,
-      sex           = pearson$Sex,
-      year          = pearson$Year,
-      age_or_length = pearson$Bin,
-      index_label   = idx_lab,
-      residual      = pearson$Residual,
+      source         = pearson$Source,
+      fleet          = pearson$Fleet_code,
+      fleet_name     = pearson$Fleet_name,
+      species        = pearson$Species,
+      sex            = pearson$Sex,
+      year           = pearson$Year,
+      age_length_bin = pearson$Bin,
+      index_label    = idx_lab,
+      residual       = pearson$Residual,
       stringsAsFactors = FALSE)
     pear <- pear[is.finite(pear$residual), , drop = FALSE]
     pear$source <- .osa_source_label(pear)
@@ -227,7 +227,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' This re-bases the male bins to `1..nbin` and tags the source label by sex so
 #' males and females face the same bin axis -- matching [plot_comp()]. Rows with
 #' Sex != 3 (single-sex or combined) are returned unchanged.
-#' @param df A data frame with `species`, `sex`, `index_label`, `age_or_length`,
+#' @param df A data frame with `species`, `sex`, `index_label`, `age_length_bin`,
 #'   and `source` columns.
 #' @param nages,nlengths Per-species bin counts (or `NULL` to skip the split).
 #' @keywords internal
@@ -239,8 +239,8 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   bins_per_sex <- ifelse(!is.na(df$index_label) & df$index_label == "length",
                          nlengths[df$species], nages[df$species])
   joint <- !is.na(df$sex) & df$sex == 3 & !is.na(bins_per_sex)
-  male  <- joint & df$age_or_length > bins_per_sex
-  df$age_or_length[male] <- df$age_or_length[male] - bins_per_sex[male]
+  male  <- joint & df$age_length_bin > bins_per_sex
+  df$age_length_bin[male] <- df$age_length_bin[male] - bins_per_sex[male]
   df$source <- paste0(df$source,
                       ifelse(joint, ifelse(male, " - male", " - female"), ""))
   df
@@ -309,7 +309,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Bubble plot of composition residuals (afscOSA styling)
 #'
-#' @param osa A data frame with `source`, `year`, `age_or_length`, and
+#' @param osa A data frame with `source`, `year`, `age_length_bin`, and
 #'   `residual` columns. Bubbles are placed at (year, age/length bin); red =
 #'   positive, blue = negative; size and transparency scale with the absolute
 #'   residual; outliers (`|resid| > 3`) are drawn as triangles.
@@ -320,7 +320,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 .osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals") {
   osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
   osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
-  ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$age_or_length)) +
+  ggplot2::ggplot(osa, ggplot2::aes(x = .data$year, y = .data$age_length_bin)) +
     ggplot2::geom_point(ggplot2::aes(size = abs(.data$residual),
                                      alpha = abs(.data$residual),
                                      colour = .data$sign,
@@ -344,7 +344,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' fleet code); the second row is the data type, tagged with whether composition
 #' bins are ages or lengths. The two rows are separated by a newline so they
 #' render as a two-line facet strip.
-#' @param osa A data frame with `type`, `fleet`, and (optionally) `fleet_name`
+#' @param osa A data frame with `source`, `fleet`, and (optionally) `fleet_name`
 #'   and `index_label` columns.
 #' @return Character vector of labels (one per row).
 #' @keywords internal
@@ -356,9 +356,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   }
   lab <- if (!is.null(osa$index_label)) {
     ifelse(is.na(osa$index_label) | osa$index_label == "",
-           osa$type, paste0(osa$type, " (", osa$index_label, ")"))
+           osa$source, paste0(osa$source, " (", osa$index_label, ")"))
   } else {
-    osa$type
+    osa$source
   }
   paste0(flt, "\n", lab)   # row 1: fleet name, row 2: data type
 }

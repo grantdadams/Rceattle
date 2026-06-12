@@ -23,8 +23,8 @@ fixed effects -- with a usable covariance.}
 \value{
 A data frame of class \code{rceattle_osa} (so it can be passed to
 \code{\link[=osa_diagnostics]{osa_diagnostics()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}) with one row per deviation:
-columns \code{type} (the process), \code{fleet}, \code{species}, \code{year}, \code{age_or_length},
-and \code{residual}.
+columns \code{source} (the process), \code{fleet}, \code{species}, \code{year},
+\code{age_length_bin}, and \code{residual}.
 }
 \description{
 One-sample process residuals for the model's random-effect (or penalized)

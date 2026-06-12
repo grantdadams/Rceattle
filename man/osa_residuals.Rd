@@ -47,9 +47,10 @@ of randomized-quantile residuals. Default \code{123}.}
 }
 \value{
 A data frame of class \code{rceattle_osa} with one row per residualized
-observation and columns \code{type}, \code{fleet}, \code{fleet_name}, \code{species}, \code{sex},
-\code{year}, \code{age_or_length}, \code{length} (the conditioning length bin for caal;
-\code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
+observation and columns \code{source} (the data source: index/catch/comp/caal/
+diet), \code{fleet}, \code{fleet_name}, \code{species}, \code{sex}, \code{year}, \code{age_length_bin}
+(the age or length bin index), \code{length} (the conditioning length bin for
+caal; \code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
 \code{predicted}, \code{sd}, and \code{residual}. For aggregate series \code{observed} and
 \code{predicted} are on the model (log) scale; for compositions they are bin
 counts. Carries \code{method} and \code{seed} attributes, and (when composition types

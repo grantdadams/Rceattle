@@ -212,11 +212,11 @@ void estimate_growth(
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
-          // Previous (WHAM-style) parameterization, retained for reference:
+          // (WHAM-style) parameterization, retained for reference:
           // the plus group's SD was pinned at the upper anchor exp(sd1) instead
-          // of being interpolated by length. Restore by uncommenting:
-          // } else if(age == (nages(sp) - 1)) {
-          //   length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
+          // of being interpolated by length. SS3 comments out the next two lines
+          } else if(age == (nages(sp) - 1)) {
+             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
@@ -345,7 +345,7 @@ void estimate_growth_within_yr(
 
   // Calculate mean-length, SD, and growth matrix, for all years:
   // lengths is vector with lengths mm (2, 4, 6, 8, etc)
-  Type Fac1, Fac2, Slope, b_len, current_age;
+  Type Fac1, Fac2, Slope, b_len, current_age, last_linear;
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
@@ -390,17 +390,17 @@ void estimate_growth_within_yr(
           // so id_pop already carries the corrected Jan-1 length.
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          // Previous (WHAM-style) parameterization, retained for reference:
+          // WHAM-style parameterization:
           // ages between the anchor and the plus group blended the linear ramp
           // with the growth curve, and the plus group was *pinned* at its Jan-1
           // (id_pop) length rather than advanced by within-year growth. Restore
           // by uncommenting (re-declare `last_linear` at the top of the fn):
-          // }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
-          //   last_linear = Lmin_sp + b_len * age_L1;
-          //   length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
-          // }else if(age + 1.0 == nages(sp)) { // Plus group pinned at Jan-1
-          //   length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
-          }else { // Growth curve (incl. plus group)
+          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
+          }else if(age + 1.0 == nages(sp)) { // Plus group pinned at Jan-1. Comment out for SS3 style.
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          }else { // Growth curve (excl. plus group)
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
           }
           break;

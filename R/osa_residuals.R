@@ -58,9 +58,10 @@
 #' @param ... Further arguments passed to [TMB::oneStepPredict()].
 #'
 #' @return A data frame of class `rceattle_osa` with one row per residualized
-#'   observation and columns `type`, `fleet`, `fleet_name`, `species`, `sex`,
-#'   `year`, `age_or_length`, `length` (the conditioning length bin for caal;
-#'   `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
+#'   observation and columns `source` (the data source: index/catch/comp/caal/
+#'   diet), `fleet`, `fleet_name`, `species`, `sex`, `year`, `age_length_bin`
+#'   (the age or length bin index), `length` (the conditioning length bin for
+#'   caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
 #'   `predicted` are on the model (log) scale; for compositions they are bin
 #'   counts. Carries `method` and `seed` attributes, and (when composition types
@@ -135,7 +136,7 @@ osa_residuals <- function(fit,
 
   # ---- Select the obsvec positions to residualize ----
   obs_ctl <- fit$obs_ctl
-  sel <- obs_ctl[obs_ctl$type %in% source & !obs_ctl$is_last_bin, , drop = FALSE]
+  sel <- obs_ctl[obs_ctl$source %in% source & !obs_ctl$is_last_bin, , drop = FALSE]
   if (nrow(sel) == 0) {
     stop("No observations of source(s) ", paste(source, collapse = ", "),
          " are available for OSA residuals in this model.")
@@ -145,7 +146,7 @@ osa_residuals <- function(fit,
   # conditional 'one-step-ahead' sequence is in time order, as recommended by
   # Stewart and Monnahan (2025). The obsvec storage order is independent of this;
   # subset defines the conditioning order.
-  sel <- sel[order(sel$year, match(sel$type, source), sel$bin_index,
+  sel <- sel[order(sel$year, match(sel$source, source), sel$bin_index,
                    na.last = TRUE), , drop = FALSE]
 
   # Rebuild the model in OSA mode (osa_mode = 1) at the fitted parameters. This
@@ -167,7 +168,7 @@ osa_residuals <- function(fit,
   get_col <- function(df, nm) {
     if (!is.null(df[[nm]])) df[[nm]] else rep(NA_real_, nrow(df))
   }
-  is_comp      <- sel$type %in% c("comp", "caal", "diet")
+  is_comp      <- sel$source %in% c("comp", "caal", "diet")
   sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
   .run_osp <- function(rows, dsc) {
     # The Gaussian methods are continuous-only, so discrete groups use the
@@ -196,15 +197,15 @@ osa_residuals <- function(fit,
   } else NA_character_
 
   out <- data.frame(
-    type          = sel$type,
-    fleet         = sel$fleet_code,
-    fleet_name    = fleet_name,
-    species       = sel$species,
-    sex           = sel$sex,
-    year          = sel$year,
-    age_or_length = sel$age_or_length,
-    length        = sel$length,
-    index_label   = index_label,
+    source         = sel$source,
+    fleet          = sel$fleet_code,
+    fleet_name     = fleet_name,
+    species        = sel$species,
+    sex            = sel$sex,
+    year           = sel$year,
+    age_length_bin = sel$age_length_bin,
+    length         = sel$length,
+    index_label    = index_label,
     observed      = osa$observed,
     predicted     = osa$predicted,
     sd            = osa$sd,
@@ -222,7 +223,7 @@ osa_residuals <- function(fit,
 
   # Attach the matching Pearson residuals for composition sources so the
   # plot() method can show OSA and Pearson bubbles side by side.
-  comp_types <- intersect(unique(out$type), c("comp", "caal"))
+  comp_types <- intersect(unique(out$source), c("comp", "caal"))
   if (length(comp_types) > 0) {
     attr(out, "pearson") <- tryCatch(
       stats::residuals(fit, type = "pearson", source = comp_types),
@@ -327,9 +328,9 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
     stop("'osa' must have a 'residual' column (e.g. output of osa_residuals()).")
   }
 
-  has_groups <- !is.null(osa$type) && !is.null(osa$fleet)
+  has_groups <- !is.null(osa$source) && !is.null(osa$fleet)
   groups <- if (has_groups) {
-    split(osa, list(osa$type, osa$fleet), drop = TRUE)
+    split(osa, list(osa$source, osa$fleet), drop = TRUE)
   } else {
     list(all = osa)
   }
@@ -338,8 +339,8 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
     grp <- groups[[g]]
     stat <- .osa_sdnr_tails(grp$residual, nsim = nsim, probs = probs, seed = seed)
     data.frame(
-      source = if (has_groups) paste(grp$type[1], "fleet", grp$fleet[1]) else "all",
-      type   = if (has_groups) grp$type[1] else NA_character_,
+      group  = if (has_groups) paste(grp$source[1], "fleet", grp$fleet[1]) else "all",
+      source = if (has_groups) grp$source[1] else NA_character_,
       fleet  = if (has_groups) grp$fleet[1] else NA_integer_,
       stat,
       stringsAsFactors = FALSE)
@@ -349,7 +350,7 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
 
   # Overall row across all residuals.
   overall <- .osa_sdnr_tails(osa$residual, nsim = nsim, probs = probs, seed = seed)
-  out <- rbind(out, data.frame(source = "all", type = NA_character_,
+  out <- rbind(out, data.frame(group = "all", source = NA_character_,
                                fleet = NA_integer_, overall,
                                stringsAsFactors = FALSE))
   rownames(out) <- NULL
@@ -417,7 +418,7 @@ print.rceattle_osa <- function(x, ...) {
   cat("Rceattle one-step-ahead (OSA) residuals\n")
   cat("  method:", attr(x, "method"), " seed:", attr(x, "seed"), "\n")
   cat("  ", nrow(x), " residuals across ",
-      length(unique(paste(x$type, x$fleet))), " data source(s)\n", sep = "")
+      length(unique(paste(x$source, x$fleet))), " data source(s)\n", sep = "")
   print(utils::head(as.data.frame(x), ...))
   invisible(x)
 }

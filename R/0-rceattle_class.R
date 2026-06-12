@@ -287,14 +287,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   if (type == "process") {
     pr <- process_residuals(object, ...)
     return(.sp_filter(data.frame(
-      Source       = pr$type,
+      Source       = pr$source,
       Fleet_code   = NA_integer_,
       Fleet_name   = NA_character_,
       Species      = pr$species,
       Sex          = pr$sex,
       Year         = pr$year,
       Length       = rep(NA_real_, nrow(pr)),
-      Bin          = pr$age_or_length,
+      Bin          = pr$age_length_bin,
       Age0_Length1 = rep(NA_integer_, nrow(pr)),
       Sample_size  = rep(NA_real_, nrow(pr)),
       Observed     = pr$observed,
@@ -311,14 +311,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     osa <- osa_residuals(object, source = source, ...)
     fc  <- object$data_list$fleet_control
     return(.sp_filter(data.frame(
-      Source       = osa$type,
+      Source       = osa$source,
       Fleet_code   = osa$fleet,
       Fleet_name   = fc$Fleet_name[match(osa$fleet, fc$Fleet_code)],
       Species      = osa$species,
       Sex          = osa$sex,
       Year         = osa$year,
       Length       = osa$length,
-      Bin          = osa$age_or_length,
+      Bin          = osa$age_length_bin,
       Age0_Length1 = ifelse(osa$index_label == "length", 1L,
                             ifelse(osa$index_label == "age", 0L, NA_integer_)),
       Sample_size  = rep(NA_real_, nrow(osa)),

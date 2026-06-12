@@ -7,7 +7,7 @@
 .osa_source_label(osa)
 }
 \arguments{
-\item{osa}{A data frame with \code{type}, \code{fleet}, and (optionally) \code{fleet_name}
+\item{osa}{A data frame with \code{source}, \code{fleet}, and (optionally) \code{fleet_name}
 and \code{index_label} columns.}
 }
 \value{

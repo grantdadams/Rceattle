@@ -62,8 +62,8 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # unit, e.g. the bins of one composition); otherwise each element is its own
   # group (e.g. one aggregate observation). Blocks are accumulated via `<<-` and
   # joined once after the loops (see the assembly step at the end).
-  append_obs <- function(value, type, data_row, fleet_code, species, year,
-                         sex = NA_integer_, age_or_length = NA_integer_,
+  append_obs <- function(value, source, data_row, fleet_code, species, year,
+                         sex = NA_integer_, age_length_bin = NA_integer_,
                          length = NA_integer_, bin_index = NA_integer_,
                          comp_type = NA_integer_, is_last_bin = FALSE,
                          stomach_id = NA_integer_, one_group = FALSE) {
@@ -74,15 +74,15 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     k <- length(obsvec_parts) + 1L
     obsvec_parts[[k]] <<- as.numeric(value)
     ctl_parts[[k]]    <<- data.frame(
-      obs_pos       = as.integer(pos),
-      type          = type,
-      data_row      = as.integer(data_row),
-      fleet_code    = as.integer(fleet_code),
-      species       = as.integer(species),
-      sex           = as.integer(sex),
-      year          = as.integer(year),
-      age_or_length = as.integer(age_or_length),
-      length        = as.integer(length),
+      obs_pos        = as.integer(pos),
+      source         = source,
+      data_row       = as.integer(data_row),
+      fleet_code     = as.integer(fleet_code),
+      species        = as.integer(species),
+      sex            = as.integer(sex),
+      year           = as.integer(year),
+      age_length_bin = as.integer(age_length_bin),
+      length         = as.integer(length),
       bin_index     = as.integer(bin_index),
       comp_type     = as.integer(comp_type),
       is_last_bin   = as.logical(is_last_bin),
@@ -96,13 +96,13 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # Append one composition row (comp or caal): its bin counts =
   # (proportion + 1e-5) * Neff, one decomposition group, final bin flagged.
   # Returns the obsvec start position of the row's first bin.
-  append_composition <- function(type, obs_row, n_bins, Neff, fleet, sp, sex, yr,
-                                 data_row, comp_type = NA_integer_,
+  append_composition <- function(source, obs_row, n_bins, Neff, fleet, sp, sex,
+                                 yr, data_row, comp_type = NA_integer_,
                                  length = NA_integer_) {
     counts <- (as.numeric(obs_row[seq_len(n_bins)]) + 0.00001) * Neff
-    append_obs(value = counts, type = type, data_row = data_row,
+    append_obs(value = counts, source = source, data_row = data_row,
                fleet_code = fleet, species = sp, sex = sex, year = yr,
-               age_or_length = seq_len(n_bins), length = length,
+               age_length_bin = seq_len(n_bins), length = length,
                bin_index = seq_len(n_bins) - 1L, comp_type = comp_type,
                is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE)[1]
   }
@@ -117,7 +117,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
                    flt_type[index_ctl[, 1]] > 0 & index_obs[, 1] > 0)
     if (length(inc) > 0) {
       index_obsvec_idx[inc] <- append_obs(
-        value = log(index_obs[inc, 1]), type = "index", data_row = inc,
+        value = log(index_obs[inc, 1]), source = "index", data_row = inc,
         fleet_code = index_ctl[inc, 1], species = index_ctl[inc, 2],
         year = index_ctl[inc, 3])
     }
@@ -133,7 +133,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
                    flt_type[catch_ctl[, 1]] == 1 & catch_obs[, 1] > 0)
     if (length(inc) > 0) {
       catch_obsvec_idx[inc] <- append_obs(
-        value = log(catch_obs[inc, 1]), type = "catch", data_row = inc,
+        value = log(catch_obs[inc, 1]), source = "catch", data_row = inc,
         fleet_code = catch_ctl[inc, 1], species = catch_ctl[inc, 2],
         year = catch_ctl[inc, 3])
     }
@@ -205,12 +205,12 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + 0.00001
       counts <- vec / sum(vec) * N_s
       diet_obsvec_idx[i + 1L] <- append_obs(
-        value         = counts, type = "diet",
-        data_row      = c(rows, NA_integer_),
-        fleet_code    = rsp, species = rsp,
-        year          = diet_ctl[rows[1], 7],
-        age_or_length = c(diet_ctl[rows, 2], NA_integer_),   # prey id; NA = other
-        bin_index     = seq_len(n_prey + 1L) - 1L,
+        value          = counts, source = "diet",
+        data_row       = c(rows, NA_integer_),
+        fleet_code     = rsp, species = rsp,
+        year           = diet_ctl[rows[1], 7],
+        age_length_bin = c(diet_ctl[rows, 2], NA_integer_),   # prey id; NA = other
+        bin_index      = seq_len(n_prey + 1L) - 1L,
         is_last_bin   = seq_len(n_prey + 1L) == (n_prey + 1L),
         stomach_id    = i, one_group = TRUE)[1]
     }
@@ -248,15 +248,15 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 #' @keywords internal
 .new_obs_ctl <- function() {
   data.frame(
-    obs_pos       = integer(0),
-    type          = character(0),
-    data_row      = integer(0),
-    fleet_code    = integer(0),
-    species       = integer(0),
-    sex           = integer(0),
-    year          = integer(0),
-    age_or_length = integer(0),
-    length        = integer(0),
+    obs_pos        = integer(0),
+    source         = character(0),
+    data_row       = integer(0),
+    fleet_code     = integer(0),
+    species        = integer(0),
+    sex            = integer(0),
+    year           = integer(0),
+    age_length_bin = integer(0),
+    length         = integer(0),
     bin_index     = integer(0),
     comp_type     = integer(0),
     is_last_bin   = logical(0),

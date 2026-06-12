@@ -7,7 +7,7 @@
 .osa_bubble_plot(osa, ylab = "Bin", title = "OSA residuals")
 }
 \arguments{
-\item{osa}{A data frame with \code{source}, \code{year}, \code{age_or_length}, and
+\item{osa}{A data frame with \code{source}, \code{year}, \code{age_length_bin}, and
 \code{residual} columns. Bubbles are placed at (year, age/length bin); red =
 positive, blue = negative; size and transparency scale with the absolute
 residual; outliers (\verb{|resid| > 3}) are drawn as triangles.}
