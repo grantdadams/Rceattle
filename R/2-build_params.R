@@ -319,6 +319,30 @@ build_params <- function(data_list) {
   param_list$sel_inf[1,,] <- 0
   param_list$sel_inf[2,,] <- 10
 
+  # For length-based selectivity the ascending parameter sel_inf[1] is an
+  # inflection *length*, so the age-scale default of 0 starts below the
+  # smallest length bin; from there the optimizer can wander to nonsensical
+  # (even negative) lengths. Start it near the middle of the species' length
+  # range instead. Age-based selectivity is left at 0 (unchanged). The length
+  # scale used here mirrors data_list$lengths as built in rearrange_data():
+  # physical bin centres from caal_data when present, else 1:nlengths indices.
+  sel_dim <- data_list$fleet_control$Selectivity_dimension
+  if (!is.null(sel_dim)) {
+    length_midpoint <- function(sp) {
+      cd <- data_list$caal_data
+      if (!is.null(cd) && nrow(cd) > 0 && all(c("Species", "Length") %in% names(cd))) {
+        len <- cd$Length[cd$Species == sp]
+        len <- len[is.finite(len)]
+        if (length(len) > 0) return(mean(range(len)))
+      }
+      nl <- data_list$nlengths[min(sp, length(data_list$nlengths))]
+      (1 + nl) / 2
+    }
+    for (flt in which(!is.na(sel_dim) & tolower(sel_dim) == "length")) {
+      param_list$sel_inf[1, flt, ] <- length_midpoint(data_list$fleet_control$Species[flt])
+    }
+  }
+
   # - Annual selectivity slope deviation for logistic
   param_list$log_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
                                     dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
