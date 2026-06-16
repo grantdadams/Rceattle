@@ -9,7 +9,7 @@ library(ggplot2)
 library(dplyr)
 source("tests/comparison/WHAM_growth_comparison/helper.R")
 dir.create("tests/comparison/WHAM_growth_comparison")
-runmodels = FALSE
+runmodels = TRUE
 
 # WHAM ------------------------------------------------------------------
 catch_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 1)
@@ -325,8 +325,8 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 # are log-SD endpoints, threaded onto growth_log_sd (= WHAM SDgrowth_par = log(c(1,9))).
 growthFun_vb <- build_growth(fun = "vonBertalanffy",
                              linkages = list(
-                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[1]), est_phase = 0L),
-                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[2]), est_phase = 0L)))
+                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = 1), est_phase = 0L),
+                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = 9), est_phase = 0L)))
 
 # * Null Rceattle ----
 ss_fix <- Rceattle::fit_mod(data_list = simData,
@@ -460,7 +460,7 @@ sum(wham_model$rep$nll_index_caal)
 wham_model$rep$nll_NAA # Uses lognormal bias correction
 
 
-# Estimate Rceattle ----
+# * Estimate Rceattle ----
 ss_est <- Rceattle::fit_mod(data_list = simData,
                             inits = inits, # Initial parameters = 0
                             estimateMode = 0, # estimate
@@ -471,6 +471,8 @@ ss_est <- Rceattle::fit_mod(data_list = simData,
                             # comp_offset = 0 -> WHAM-style multinomial (no proportion offset)
                             fit_control = fit_control(phase = TRUE, verbose = 0, comp_offset = 0))
 
+
+# Compare ----
 wham_ests <- ss_est
 wham_ests$quantities$ssb[1,1:nyrs] <- wham_model$rep$SSB/2
 

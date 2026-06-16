@@ -19,41 +19,19 @@
 
 # remotes::install_github(repo = 'GiancarloMCorrea/wham', ref='growth', INSTALL_opts = c("--no-docs", "--no-multiarch", "--no-demo"))
 library(readxl)
-library(wham)
 library(ggplot2)
 library(dplyr)
 source("tests/comparison/WHAM_growth_comparison/helper.R")
 dir.create("tests/comparison/WHAM_growth_comparison")
 runmodels = FALSE
 
-# WHAM ------------------------------------------------------------------
+# Data ------------------------------------------------------------------
 catch_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 1)
 index_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 2)
 fsh_lcomp_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 3)
 index_lcomp_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 4)
 caal_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 5)
 maturity_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 6)
-
-
-# * Load model ----
-wham_model <- readRDS(file = "tests/comparison/WHAM_growth_comparison/wham_model.RDS")
-
-
-# WHAM OSA residuals on the existing fit. Growth-fork `$osa` type labels:
-# "logcatch"/"logindex" (aggregate), "catchpal"/"indexpal" (length comp),
-# "catchcaal"/"indexcaal" (conditional age-at-length).
-# Cache the (slow) composition OSAs to a gitignored RDS; delete it (or set
-# runmodels = TRUE) to recompute after the model changes.
-wham_osa_cache <- "tests/comparison/WHAM_growth_comparison/wham_osa.RDS"
-if (!runmodels && file.exists(wham_osa_cache)) {
-  wham_osa <- readRDS(wham_osa_cache)
-} else {
-  wham_osa_fit <- wham::make_osa_residuals(
-    wham_model, osa.opts = list(method = "oneStepGaussianOffMode", parallel = TRUE))
-  wham_osa <- wham_osa_fit$osa          # = input$data$obs + a `residual` column
-  saveRDS(wham_osa, wham_osa_cache)
-}
-print(unique(wham_osa$type))            # confirm the labels for your WHAM version
 
 
 # Rceattle -------------------------------------------------------------
@@ -247,54 +225,10 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 # are log-SD endpoints, threaded onto growth_log_sd (= WHAM SDgrowth_par = log(c(1,9))).
 growthFun_vb <- build_growth(fun = "vonBertalanffy",
                              linkages = list(
-                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[1]), est_phase = 0L),
-                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[2]), est_phase = 0L)))
+                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = 1), est_phase = 0L),
+                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = 9), est_phase = 0L)))
 
-# * Null Rceattle ----
-ss_fix <- Rceattle::fit_mod(data_list = simData,
-                            inits = NULL, # Initial parameters = 0
-                            estimateMode = 3, # Don't estimate
-                            growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            phase = FALSE,
-                            verbose = 1)
-
-
-# * Fix-parameters and check derived quantities ----
-inits <- ss_fix$estimated_params # get paramter object from NULL model
-names(wham_model)
-names(wham_model$parList)
-
-# - Rec
-inits$rec_pars[1,1] <- wham_model$parList$mean_rec_pars
-inits$rec_dev[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
-inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
-inits$init_dev[1,] <- 0 # equilibrium initial age structure (ages 2+ at R0); year-1 recruitment enters via rec_dev[1,1]. Matches WHAM N1_model=1 (equilibrium-at-mean-rec) with penalized year-1 recruitment.
-inits$R_log_sd <- wham_model$parList$log_NAA_sigma
-
-# - F (random walk in WHAM)
-inits$log_F[2,1]  <- wham_model$parList$log_F1
-for(y in 2:nyrs){
-  inits$log_F[2,y] <- inits$log_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
-}
-inits$log_Finit[1] <- -Inf
-
-# - Selectivity
-selpars <-  wham_model$env$data$selpars_lower + ( wham_model$env$data$selpars_upper -  wham_model$env$data$selpars_lower) / (1.0 + exp(-(wham_model$parList$logit_selpars)))
-inits$log_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
-inits$sel_inf[1,,1] <- rev(selpars[,23])
-
-# - Q
-inits$index_log_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
-
-# - Growth
-inits$log_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
-inits$growth_log_sd[1,1,] <- wham_model$parList$SDgrowth_par
-
-
-
-# Estimate Rceattle ----
+# * Estimate Rceattle ----
 # Rceattle OSA residuals: estimateMode = 1 (objective differentiable, hindcast
 # only) and fit_control(osa = TRUE) so the composition OSA data is built.
 # Cache the Rceattle OSA (fit + one-step-ahead residuals) to a gitignored RDS;
@@ -303,7 +237,7 @@ rce_osa_cache <- "tests/comparison/WHAM_growth_comparison/rce_osa.RDS"
 if (!runmodels && file.exists(rce_osa_cache)) {
   rce_osa <- readRDS(rce_osa_cache)
 } else {
-  ss_osa <- Rceattle::fit_mod(data_list = simData, inits = inits,
+  ss_osa <- Rceattle::fit_mod(data_list = simData, inits = NULL,
                               estimateMode = 1,
                               growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
                               random_rec = TRUE, msmMode = 0,
@@ -315,6 +249,29 @@ if (!runmodels && file.exists(rce_osa_cache)) {
   rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
   saveRDS(rce_osa, rce_osa_cache)
 }
+
+
+# WHAM ----
+library(wham)
+# * Load model ----
+wham_model <- readRDS(file = "tests/comparison/WHAM_growth_comparison/wham_model.RDS")
+
+
+# WHAM OSA residuals on the existing fit. Growth-fork `$osa` type labels:
+# "logcatch"/"logindex" (aggregate), "catchpal"/"indexpal" (length comp),
+# "catchcaal"/"indexcaal" (conditional age-at-length).
+# Cache the (slow) composition OSAs to a gitignored RDS; delete it (or set
+# runmodels = TRUE) to recompute after the model changes.
+wham_osa_cache <- "tests/comparison/WHAM_growth_comparison/wham_osa.RDS"
+if (!runmodels && file.exists(wham_osa_cache)) {
+  wham_osa <- readRDS(wham_osa_cache)
+} else {
+  wham_osa_fit <- wham::make_osa_residuals(
+    wham_model, osa.opts = list(method = "oneStepGaussianOffMode", parallel = TRUE))
+  wham_osa <- wham_osa_fit$osa          # = input$data$obs + a `residual` column
+  saveRDS(wham_osa, wham_osa_cache)
+}
+print(unique(wham_osa$type))            # confirm the labels for your WHAM version
 
 
 # Compare ----
