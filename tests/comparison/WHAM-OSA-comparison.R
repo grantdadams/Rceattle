@@ -42,9 +42,17 @@ wham_model <- readRDS(file = "tests/comparison/WHAM_growth_comparison/wham_model
 # WHAM OSA residuals on the existing fit. Growth-fork `$osa` type labels:
 # "logcatch"/"logindex" (aggregate), "catchpal"/"indexpal" (length comp),
 # "catchcaal"/"indexcaal" (conditional age-at-length).
-wham_osa_fit <- wham::make_osa_residuals(
-  wham_model, osa.opts = list(method = "oneStepGaussianOffMode", parallel = TRUE))
-wham_osa <- wham_osa_fit$osa            # = input$data$obs + a `residual` column
+# Cache the (slow) composition OSAs to a gitignored RDS; delete it (or set
+# runmodels = TRUE) to recompute after the model changes.
+wham_osa_cache <- "tests/comparison/WHAM_growth_comparison/wham_osa.RDS"
+if (!runmodels && file.exists(wham_osa_cache)) {
+  wham_osa <- readRDS(wham_osa_cache)
+} else {
+  wham_osa_fit <- wham::make_osa_residuals(
+    wham_model, osa.opts = list(method = "oneStepGaussianOffMode", parallel = TRUE))
+  wham_osa <- wham_osa_fit$osa          # = input$data$obs + a `residual` column
+  saveRDS(wham_osa, wham_osa_cache)
+}
 print(unique(wham_osa$type))            # confirm the labels for your WHAM version
 
 
@@ -101,7 +109,7 @@ simData$index_data <- data.frame(Fleet_name = "Survey",
                                  Selectivity_block = 1,
                                  Q_block = 1,
                                  Observation = index_df$index,
-                                 Log_sd = index_df$cv)
+                                 Log_sd = sqrt(log(index_df$cv^2 + 1))) # WHAM converts CV -> sigma
 
 # * Catch data
 simData$catch_data <- data.frame(Fleet_name = "Fishery",
@@ -111,7 +119,7 @@ simData$catch_data <- data.frame(Fleet_name = "Fishery",
                                  Month = 0,
                                  Selectivity_block = 1,
                                  Catch = catch_df$catch,
-                                 Log_sd = catch_df$cv)
+                                 Log_sd = sqrt(log(catch_df$cv^2 + 1))) # WHAM converts CV -> sigma
 
 # * Comp data
 # - Index length comp
@@ -234,11 +242,19 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 )
 
 
+# Growth fn matched to WHAM: fix the growth SD (WHAM fixes SDgrowth_par) via the
+# sd_L1 / sd_Linf linkage endpoints with est_phase = 0 (fix at init).  Init values
+# are log-SD endpoints, threaded onto growth_log_sd (= WHAM SDgrowth_par = log(c(1,9))).
+growthFun_vb <- build_growth(fun = "vonBertalanffy",
+                             linkages = list(
+                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[1]), est_phase = 0L),
+                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = wham_model$parList$SDgrowth_par[2]), est_phase = 0L)))
+
 # * Null Rceattle ----
 ss_fix <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 3, # Don't estimate
-                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
+                            growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
@@ -254,7 +270,8 @@ names(wham_model$parList)
 inits$rec_pars[1,1] <- wham_model$parList$mean_rec_pars
 inits$rec_dev[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
 inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
-inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
+inits$init_dev[1,] <- 0 # equilibrium initial age structure (ages 2+ at R0); year-1 recruitment enters via rec_dev[1,1]. Matches WHAM N1_model=1 (equilibrium-at-mean-rec) with penalized year-1 recruitment.
+inits$R_log_sd <- wham_model$parList$log_NAA_sigma
 
 # - F (random walk in WHAM)
 inits$log_F[2,1]  <- wham_model$parList$log_F1
@@ -277,16 +294,27 @@ inits$growth_log_sd[1,1,] <- wham_model$parList$SDgrowth_par
 
 
 
+# Estimate Rceattle ----
 # Rceattle OSA residuals: estimateMode = 1 (objective differentiable, hindcast
 # only) and fit_control(osa = TRUE) so the composition OSA data is built.
-ss_osa <- Rceattle::fit_mod(data_list = simData, inits = inits,
-                            estimateMode = 1,
-                            growthFun = build_growth(fun = "vonBertalanffy"),
-                            random_rec = FALSE, msmMode = 0,
-                            initMode = "NonEquilibrium",
-                            fit_control = fit_control(phase = TRUE, verbose = 0,
-                                                      osa = TRUE))
-rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
+# Cache the Rceattle OSA (fit + one-step-ahead residuals) to a gitignored RDS;
+# delete it (or set runmodels = TRUE) to recompute after the model changes.
+rce_osa_cache <- "tests/comparison/WHAM_growth_comparison/rce_osa.RDS"
+if (!runmodels && file.exists(rce_osa_cache)) {
+  rce_osa <- readRDS(rce_osa_cache)
+} else {
+  ss_osa <- Rceattle::fit_mod(data_list = simData, inits = inits,
+                              estimateMode = 1,
+                              growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
+                              random_rec = TRUE, msmMode = 0,
+                              initMode = 1, # Equilibrium -- same matched config as ss_est (init_dev fixed at 0)
+                              # comp_offset = 0 -> WHAM-style multinomial (matches the fitting
+                              # AND the OSA obsvec to WHAM; default 1e-5 would not match exactly)
+                              fit_control = fit_control(phase = TRUE, verbose = 0,
+                                                        osa = TRUE, comp_offset = 0))
+  rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
+  saveRDS(rce_osa, rce_osa_cache)
+}
 
 
 # Compare ----
@@ -294,7 +322,7 @@ rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", 
 wham_agg_type <- c(catch = "logcatch", index = "logindex")
 par(mfrow = c(1, 2))
 for (src in c("index", "catch")) {
-  rce <- rce_osa[rce_osa$type == src, c("year", "residual")]
+  rce <- rce_osa[rce_osa$source == src, c("year", "residual")]
   wh  <- wham_osa[wham_osa$type == wham_agg_type[[src]], c("year", "residual")]
   wh$year <- wh$year + simData$styr - 1
   m   <- merge(rce, wh, by = "year", suffixes = c(".rce", ".wham"))
@@ -307,20 +335,52 @@ for (src in c("index", "catch")) {
   abline(0, 1)
 }
 
-# * Composition: ----
-# this is a length/growth model, so Rceattle "comp" is length
-# composition (WHAM "indexpal"/"catchpal") and "caal" is conditional
-# age-at-length (WHAM "indexcaal"/"catchcaal"). WHAM stores the bin in its `age`
-# column; match by (year, bin) -- check colnames(wham_osa) for your version:
-rce <- rce_osa[rce_osa$type == "comp", c("year", "age_or_length_bin", "residual")]
-wh  <- wham_osa[wham_osa$type == "indexpal", c("year", "bin", "residual") ]
+# * Length composition (by fleet) ----
+# This is a length/growth model, so Rceattle "comp" is length composition and
+# "caal" is conditional age-at-length. IMPORTANT pairing details:
+#   (a) Rceattle's single "comp" source contains BOTH fleets (fleet 1 = survey,
+#       fleet 2 = fishery); WHAM splits them into "indexpal" / "catchpal", so
+#       filter Rceattle by fleet before merging or the fleets get conflated.
+#   (b) WHAM stores the length BIN as its VALUE (2, 4, ..., 130); Rceattle stores
+#       the bin INDEX (1..65), so convert with bin_value = 2 * age_length_bin.
+par(mfrow = c(1, 2))
+comp_pairs <- list(survey = list(fleet = 1, type = "indexpal"),
+                   fishery = list(fleet = 2, type = "catchpal"))
+for (nm in names(comp_pairs)) {
+  p   <- comp_pairs[[nm]]
+  rce <- rce_osa[rce_osa$source == "comp" & rce_osa$fleet == p$fleet, ]
+  rce$bin <- 2 * rce$age_length_bin
+  wh  <- wham_osa[wham_osa$type == p$type, ]
+  wh$year <- wh$year + simData$styr - 1
+  wh$bin  <- as.numeric(wh$bin)
+  m <- merge(rce[, c("year", "bin", "residual")],
+             wh[,  c("year", "bin", "residual")],
+             by = c("year", "bin"), suffixes = c(".rce", ".wham"))
+  m <- m[is.finite(m$residual.rce) & is.finite(m$residual.wham), ]
+  plot(m$residual.wham, m$residual.rce,
+       xlab = paste("WHAM", nm, "lencomp OSA"), ylab = paste("Rceattle", nm, "lencomp OSA"),
+       main = sprintf("%s lencomp  (r = %.4f)", nm, stats::cor(m$residual.wham, m$residual.rce)))
+  abline(0, 1)
+}
+
+# * Conditional age-at-length (CAAL) ----
+# WHAM labels each CAAL bin "age_lengthvalue" (e.g. "1_8" = age 1 at length 8);
+# Rceattle stores age in `age_length_bin` and the conditioning length BIN INDEX in
+# `length`, so the WHAM length value = 2 * Rceattle `length`.
+par(mfrow = c(1, 1))
+rce <- rce_osa[rce_osa$source == "caal", ]
+rce$age <- rce$age_length_bin
+rce$lval <- 2 * rce$length                       # WHAM length value = 2 * bin index
+wh  <- wham_osa[wham_osa$type == "indexcaal", ]
 wh$year <- wh$year + simData$styr - 1
-
-# Convert Rceattle's bin index to the length value WHAM uses
-rce <- as.data.frame(rce)
-rce$bin <- 2 * rce$age_or_length_bin
-wh$bin  <- as.numeric(wh$bin)
-
-m <- merge(rce, wh, by = c("year", "bin"))
-plot(m$residual.y, m$residual.x); abline(0, 1)   # WHAM (x) vs Rceattle (y)
+sp  <- do.call(rbind, strsplit(as.character(wh$bin), "_"))
+wh$age  <- as.integer(sp[, 1]); wh$lval <- as.integer(sp[, 2])
+m <- merge(rce[, c("year", "age", "lval", "residual")],
+           wh[,  c("year", "age", "lval", "residual")],
+           by = c("year", "age", "lval"), suffixes = c(".rce", ".wham"))
+m <- m[is.finite(m$residual.rce) & is.finite(m$residual.wham), ]
+plot(m$residual.wham, m$residual.rce,
+     xlab = "WHAM CAAL OSA residual", ylab = "Rceattle CAAL OSA residual",
+     main = sprintf("survey CAAL  (r = %.4f)", stats::cor(m$residual.wham, m$residual.rce)))
+abline(0, 1)
 

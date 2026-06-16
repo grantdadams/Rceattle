@@ -41,11 +41,28 @@
 #'   fast path for simulation testing (e.g. [run_mse()]), where the fitted
 #'   objective is identical but OSA composition residuals are not produced.
 #'
-#' @return The input `data_list` with `obsvec`, `obs_ctl`, `osa_mode`, and the
-#'   per-type `*_obsvec_idx` vectors added.
+#' @details The composition proportion offset is read from `data_list$comp_offset`
+#'   (defaulting to `1e-5`), so the comp/caal bin counts are `(proportion +
+#'   comp_offset) * Neff` -- the same offset the TMB likelihood applies when
+#'   fitting. Set it via `fit_control(comp_offset = )` or on `data_list` directly.
+#'
+#' @return The input `data_list` with `obsvec`, `obs_ctl`, `osa_mode`,
+#'   `comp_offset`, and the per-type `*_obsvec_idx` vectors added.
 #'
 #' @keywords internal
 build_osa_data <- function(data_list, build_osa = FALSE) {
+
+  # Proportion offset added to comp/caal bins before the likelihood. It lives on
+  # data_list (filled by switch_check(), overridable via fit_control(comp_offset=))
+  # so fitting and the OSA obsvec use the same value and internal re-fits inherit
+  # it. Read it from data_list, defaulting to 1e-5, and keep it as a plain double
+  # for the TMB DATA_SCALAR.
+  comp_offset <- data_list$comp_offset
+  if (is.null(comp_offset)) comp_offset <- 1e-5
+  comp_offset <- as.numeric(comp_offset)[1]
+  if (!is.finite(comp_offset) || comp_offset < 0) {
+    stop("`comp_offset` must be a single non-negative number.")
+  }
 
   endyr    <- data_list$endyr
   flt_type <- data_list$flt_type   # indexed by Fleet_code, matching the TMB cpp
@@ -94,12 +111,12 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   }
 
   # Append one composition row (comp or caal): its bin counts =
-  # (proportion + 1e-5) * Neff, one decomposition group, final bin flagged.
-  # Returns the obsvec start position of the row's first bin.
+  # (proportion + comp_offset) * Neff, one decomposition group, final bin
+  # flagged. Returns the obsvec start position of the row's first bin.
   append_composition <- function(source, obs_row, n_bins, Neff, fleet, sp, sex,
                                  yr, data_row, comp_type = NA_integer_,
                                  length = NA_integer_) {
-    counts <- (as.numeric(obs_row[seq_len(n_bins)]) + 0.00001) * Neff
+    counts <- (as.numeric(obs_row[seq_len(n_bins)]) + comp_offset) * Neff
     append_obs(value = counts, source = source, data_row = data_row,
                fleet_code = fleet, species = sp, sex = sex, year = yr,
                age_length_bin = seq_len(n_bins), length = length,
@@ -236,6 +253,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$caal_obsvec_idx  <- as.integer(caal_obsvec_idx)
   data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
   data_list$osa_mode         <- 0L
+  data_list$comp_offset      <- comp_offset   # read by the TMB DATA_SCALAR
 
   data_list
 }

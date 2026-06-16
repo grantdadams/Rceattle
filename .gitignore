@@ -28,3 +28,10 @@ Rceattle_*.tar.gz
 
 # Test artifacts
 tests/comparison/WHAM_growth_comparison/wham_model.RDS
+tests/comparison/WHAM_growth_comparison/wham_osa.RDS
+tests/comparison/WHAM_growth_comparison/rce_osa.RDS
+
+# Scratch OSA comparison plot exports (saved to the working dir when running
+# the comparison scripts interactively)
+/Len_comp_OSA.png
+/wham_osa_plot.png

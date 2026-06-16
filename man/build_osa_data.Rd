@@ -19,8 +19,8 @@ fast path for simulation testing (e.g. \code{\link[=run_mse]{run_mse()}}), where
 objective is identical but OSA composition residuals are not produced.}
 }
 \value{
-The input \code{data_list} with \code{obsvec}, \code{obs_ctl}, \code{osa_mode}, and the
-per-type \verb{*_obsvec_idx} vectors added.
+The input \code{data_list} with \code{obsvec}, \code{obs_ctl}, \code{osa_mode},
+\code{comp_offset}, and the per-type \verb{*_obsvec_idx} vectors added.
 }
 \description{
 Internal helper used by \code{\link[=rearrange_data]{rearrange_data()}} to assemble the inputs the TMB
@@ -52,5 +52,10 @@ The inclusion rules and per-row bin counts below must match the guards in the
 TMB template exactly, so that every observation the template evaluates has a
 valid \code{obsvec} position. All fitted observation types are handled: aggregate
 catch and index, comp and caal composition, and predator diet composition.
+}
+\details{
+The composition proportion offset is read from \code{data_list$comp_offset}
+(defaulting to \code{1e-5}), so the comp/caal bin counts are \code{(proportion + comp_offset) * Neff} -- the same offset the TMB likelihood applies when
+fitting. Set it via \code{fit_control(comp_offset = )} or on \code{data_list} directly.
 }
 \keyword{internal}

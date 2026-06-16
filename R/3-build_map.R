@@ -1407,9 +1407,18 @@ map_linkage_adjuster <- function(map_list, data_list) {
   groups_with_intercept <- unique(keys[is_intercept])
 
   for (i in seq_len(nrow(tbl))) {
-    if (keys[i] %in% groups_with_intercept) next      # base stays estimable
-    if (is_intercept[i]) next                          # paranoia; covered above
     row <- tbl[i, , drop = FALSE]
+    if (is_intercept[i]) {
+      # The intercept row carries the base parameter's level. est_phase == 0
+      # means "fix at init" (the documented prior/fix/init contract), so the
+      # base parameter must be mapped out of estimation as well. With a
+      # nonzero phase the base stays estimable and holds the level.
+      if (as.integer(row$est_phase) != 0L) next
+    } else {
+      # Slope rows only mask the base in slope-only groups (no intercept);
+      # in intercept-bearing groups the intercept holds the level.
+      if (keys[i] %in% groups_with_intercept) next
+    }
     idx <- .linkage_row_indices(row, data_list)
     switch(row$process,
       growth = {

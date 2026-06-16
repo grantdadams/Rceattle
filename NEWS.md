@@ -18,6 +18,22 @@
   residualized with the correct settings; `discrete = TRUE` treats composition
   as discrete (randomized quantile residuals; Dunn and Smyth 1996) while the
   aggregate series stay continuous.
+* `fit_control()` gains `comp_offset`, the small proportion offset added to the
+  observed and predicted age/length composition and conditional-age-at-length
+  bins before the multinomial / Dirichlet-multinomial likelihood (and to the
+  matching OSA observation vector, so fitting and OSA residuals use the same
+  offset). It defaults to `1e-5` (the historical CEATTLE value, which avoids
+  `log(0)` for empty bins); set `comp_offset = 0` for a standard WHAM-style
+  multinomial. The value is stored on `data_list$comp_offset` (filled by
+  `switch_check()`), so internal re-fits (projections, `retrospective()`,
+  `jitter()`, `run_mse()`) inherit it; `fit_control(comp_offset = ...)` overrides
+  the stored value. Does not apply to diet (stomach-content) compositions.
+* `osa_residuals()` gains a `parallel` argument (default `TRUE`) that computes
+  the per-observation one-step-ahead loop with `parallel::mclapply()` -- a
+  near-linear speedup for models with random effects, where each observation
+  triggers a Laplace re-evaluation (set `options(mc.cores = )` to choose cores;
+  serial fallback on Windows). The discrete randomized-quantile path stays serial
+  so it remains reproducible given `seed`.
 * Added `osa_diagnostics()` for the Stewart and Monnahan (2025) statistical
   diagnostics -- the standard deviation of the normalized residuals (SDNR) and
   the lower/upper tail statistics, each with its standard-normal null interval

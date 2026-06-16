@@ -398,10 +398,15 @@ fit_mod <-
     # Turns on laplace approximation
     random_vars <- c()
     if (random_rec) {
-      if (initMode > 0) {
-        random_vars <- c(random_vars, "rec_dev", "init_dev")
-      } else {
-        random_vars <- c(random_vars, "rec_dev")
+      random_vars <- c(random_vars, "rec_dev")
+      # init_dev is a random effect only when it is actually estimated. For
+      # initMode = "Equilibrium" build_map() maps ALL of init_dev to NA (the
+      # initial age structure is the deterministic equilibrium, init_dev fixed at
+      # 0), so adding it to `random` would ask TMB to integrate a fully-mapped
+      # parameter -- producing an NA/NaN gradient. Only treat it as random when
+      # at least one element is free.
+      if (any(!is.na(map$init_dev))) {
+        random_vars <- c(random_vars, "init_dev")
       }
     }
     if (random_q) {
@@ -429,6 +434,13 @@ fit_mod <-
     if (is.null(TMBfilename)) {
       TMBfilename <- "ceattle_v01_11"
     }
+
+    # Composition proportion offset. It lives on `data_list` so that every
+    # internal re-fit (projections, retrospective, jitter, run_mse, ...) inherits
+    # the same value without threading it through each fit_mod() call. An explicit
+    # fit_control(comp_offset=) overrides. Defaults to 1e-5.
+    if (!is.null(fit_control$comp_offset)) data_list$comp_offset <- fit_control$comp_offset
+    if (is.null(data_list$comp_offset))    data_list$comp_offset <- 1e-5
 
     # Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_data(data_list, build_osa = osa)

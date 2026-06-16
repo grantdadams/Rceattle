@@ -168,10 +168,11 @@ hcr_map <- c(
 #'
 switch_check <- function(data_list){
 
-  # Helper to set defaults and notify
-  set_default <- function(val, default, msg) {
+  # Helper to set defaults and notify. Pass msg = NULL to fill the default
+  # silently (for low-level switches that should not add console noise).
+  set_default <- function(val, default, msg = NULL) {
     if(is.null(val)) {
-      message(msg)
+      if(!is.null(msg)) message(msg)
       return(default)
     }
     return(val)
@@ -194,6 +195,7 @@ switch_check <- function(data_list){
   data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
   data_list$initMode <- set_default(data_list$initMode, 2, "'initMode' is not in the data, setting to 2 (default)")
+  data_list$comp_offset <- set_default(data_list$comp_offset, 1e-5, NULL) # Composition proportion offset (added to comp/caal before the multinomial. Filled silently; fit_control(comp_offset=) can override at fit time.
 
   # Bioenergetics scalars: TMB declares them as DATA_VECTOR length-nspp, so
   # they must exist even when not used. In single-species mode (msmMode == 0)

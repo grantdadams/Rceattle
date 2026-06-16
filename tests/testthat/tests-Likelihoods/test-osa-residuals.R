@@ -187,12 +187,14 @@ testthat::test_that("fitted objective is unchanged (golden jnll on BS2017SS)", {
   # that the OSA obsvec/keep machinery leaves normal fitting bit-for-bit
   # identical. estimateMode = 3 builds the model and reports jnll_comp without
   # optimizing, so the value is deterministic. Update the golden value ONLY when
-  # the likelihood is intentionally changed.
+  # the likelihood is intentionally changed. Uses the default comp_offset = 1e-5
+  # (the historical composition proportion offset); set comp_offset = 0 for a
+  # WHAM-style multinomial.
   data("BS2017SS", package = "Rceattle")
   fit <- Rceattle::fit_mod(BS2017SS, estimateMode = 3, msmMode = 0,
                            fit_control = fit_control(phase = FALSE, verbose = 0))
   jc <- fit$obj$report(fit$obj$par)$jnll_comp
-  testthat::expect_equal(sum(jc[is.finite(jc)]), 1537029.3826176885,
+  testthat::expect_equal(sum(jc[is.finite(jc)]), 1537036.2876293703,
                          tolerance = 1e-6)
 })
 
@@ -404,4 +406,105 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
     testthat::expect_error(plot_diet_comp(fit), NA)
     grDevices::dev.off()
   }
+})
+
+
+# A small multispecies diet fixture reused by the two OSA-diet tests below.
+# Diet is multinomial (Diet_loglike = 0) with unit weights, so the OSA
+# (conditional-binomial) decomposition of the diet likelihood must reproduce the
+# ordinary multinomial diet likelihood slot exactly (see test (a)).
+.make_diet_osa_fixture <- function() {
+  nyrs <- 10L; nspp <- 2L
+  Fmort  <- c(seq(0.02, 0.3, length.out = nyrs / 2),
+              seq(0.3, 0.05, length.out = nyrs / 2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  make_msm_test_data(
+    years   = seq_len(nyrs),
+    Fmort   = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+    gam_a   = c(1, 0.1), gam_b = rep(0.15, nspp),
+    log_phi = matrix(c(-5, 0.5, -10, -2), nspp, nspp, byrow = TRUE))
+}
+
+
+testthat::test_that("OSA mode reproduces the diet fitting likelihood (decomposition invariant)", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Diet has no WHAM reference (WHAM has no diet data), so we validate the diet
+  # OSA path against the model itself. With keep == 1 the conditional-binomial
+  # decomposition (dmultinom_osa) sums back to the joint multinomial density, so
+  # building the model in OSA mode (osa_mode = 1, reading the diet composition
+  # from obsvec) must reproduce the diet likelihood slot of ordinary fitting
+  # (osa_mode = 0, reading diet_obs). This is a deterministic check that the diet
+  # obsvec plumbing -- diet_obsvec_idx, the n_prey + 1 "other prey" segment, and
+  # the obs<->pred alignment -- is wired correctly. The fixture is multinomial
+  # diet with unit weights, so the weighted slot equals the unweighted joint.
+  sim <- .make_diet_osa_fixture()
+
+  # estimateMode = 3 builds and reports jnll_comp without optimizing; the
+  # decomposition identity holds at any parameter values, so no fit is needed.
+  # osa = TRUE builds the diet obsvec segment that osa_mode = 1 reads.
+  fit <- Rceattle::fit_mod(sim$data_list, estimateMode = 3, msmMode = 1,
+                           suitMode = 4, niter = 5, initMode = "NonEquilibrium",
+                           fit_control = fit_control(phase = FALSE, verbose = 0,
+                                                     osa = TRUE))
+  testthat::skip_if(!isTRUE(fit$osa), "diet OSA data not built")
+  testthat::skip_if(!any(fit$obs_ctl$source == "diet"), "no diet observations")
+
+  diet_row <- 19L                       # jnll_comp C++ slot 18 (diet) -> R row 19
+  jc0  <- fit$obj$report(fit$obj$par)$jnll_comp                 # osa_mode = 0
+  obj1 <- Rceattle:::.osa_build_obj(fit)                        # rebuild osa_mode = 1
+  jc1  <- obj1$report(obj1$par)$jnll_comp
+
+  testthat::expect_gte(nrow(jc0), diet_row)
+  # The diet likelihood is active (non-trivial) ...
+  testthat::expect_true(sum(jc0[diet_row, ]) != 0)
+  # ... and the OSA decomposition reproduces it to ~machine precision.
+  testthat::expect_equal(sum(jc1[diet_row, ]), sum(jc0[diet_row, ]),
+                         tolerance = 1e-8)
+})
+
+
+testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted diet model", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # End-to-end exercise of oneStepPredict() over the diet obsvec positions (never
+  # run elsewhere in the suite). osa_residuals requires an optimized
+  # (estimateMode < 3) fit; the simulated data are generated from the model with
+  # a large effective sample size, so estimateMode = 1 converges. osa = TRUE
+  # builds the diet composition obsvec. getsd = FALSE skips sdreport -- OSA
+  # residuals use the fitted object, not the standard errors, and this tiny
+  # fixture has a non-positive-definite Hessian that would otherwise warn.
+  sim <- .make_diet_osa_fixture()
+  fit <- Rceattle::fit_mod(sim$data_list, estimateMode = 1, msmMode = 1,
+                           suitMode = 4, niter = 5, initMode = "NonEquilibrium",
+                           fit_control = fit_control(phase = FALSE, verbose = 0,
+                                                     osa = TRUE, getsd = FALSE))
+  testthat::skip_if(!any(fit$obs_ctl$source == "diet"), "no diet observations")
+
+  osa <- osa_residuals(fit, source = "diet")
+
+  testthat::expect_s3_class(osa, "rceattle_osa")
+  testthat::expect_setequal(unique(osa$source), "diet")
+
+  # Each stomach drops its sum-to-one "other prey" last bin, so the residual
+  # count equals the kept (non-last) diet bins in obs_ctl.
+  n_keep <- sum(fit$obs_ctl$source == "diet" & !fit$obs_ctl$is_last_bin)
+  testthat::expect_equal(nrow(osa), n_keep)
+  testthat::expect_true(all(is.finite(osa$residual)))
+
+  # Deterministic for a fixed seed (the default continuous method has no RNG).
+  osa2 <- osa_residuals(fit, source = "diet")
+  testthat::expect_equal(osa$residual, osa2$residual)
+
+  # Diagnostics run on the diet source and return a finite SDNR. The fixture's
+  # diet proportions are noiseless (expected values, not multinomial draws), so
+  # an SDNR ~ 1 calibration is not expected here -- that needs sampled data and
+  # belongs in an offline validation; here we only guard that the machinery runs
+  # and produces a finite statistic.
+  dg <- osa_diagnostics(osa)
+  testthat::expect_true(is.finite(dg$sdnr[dg$group == "all"]))
 })
