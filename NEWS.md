@@ -94,8 +94,8 @@
   for the aggregate index/catch series (standardized by the realized observation
   log-SD) and for predator diet via `source = "diet"` (returned on its own in a
   predator/prey schema); `plot_diet_comp()` now draws its diet residuals from
-  this single `residuals()` path. Passing a data source through the old
-  `type =` argument still works with a one-time deprecation warning.
+  this single `residuals()` path. `type` selects the residual kind only; data
+  sources are selected with `source`.
 * The `source` argument is shared across `residuals()`, `osa_residuals()`, and
   `plot()` (it replaces the earlier `types` argument of `osa_residuals()`),
   accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so

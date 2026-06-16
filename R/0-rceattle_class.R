@@ -233,21 +233,8 @@ logLik.Rceattle <- function(object, ...) {
 #' @export
 residuals.Rceattle <- function(object, type = "response", source = "all",
                                scale = "log", species = NULL, ...) {
-  # Back-compat: earlier versions used `type` to pick the data source
-  # ("index"/"catch"/"comp"/"caal"/"all"). Following stats::residuals.glm(),
-  # `type` now selects the residual *kind* and `source` the data source(s);
-  # reroute legacy source names passed via `type`.
-  legacy_sources <- c("index", "catch", "comp", "caal", "all")
-  if (any(type %in% legacy_sources)) {
-    moved <- intersect(type, legacy_sources)
-    warning("residuals(type = ) now selects the residual kind (\"response\", ",
-            "\"pearson\", \"osa\", \"process\"); pass data sources via `source`. ",
-            "Interpreting ", paste(sQuote(moved), collapse = ", "), " as `source`.",
-            call. = FALSE)
-    source <- moved
-    type   <- setdiff(type, legacy_sources)
-    if (length(type) == 0L) type <- "response"
-  }
+  # Following stats::residuals.glm(), `type` selects the residual *kind* and
+  # `source` the data source(s).
   type   <- match.arg(type, c("response", "pearson", "osa", "process"))
   source <- match.arg(source, c("all", "index", "catch", "comp", "caal", "diet"),
                       several.ok = TRUE)

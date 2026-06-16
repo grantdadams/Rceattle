@@ -299,9 +299,9 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_setequal(unique(rp$Source), "index")
   testthat::expect_true(all(is.finite(rp$Residual)))
 
-  # Legacy type = <source> still works with a deprecation warning.
-  testthat::expect_warning(rl <- residuals(fit, type = "index"), "source")
-  testthat::expect_setequal(unique(rl$Source), "index")
+  # `type` selects the residual kind only; passing a data-source name (use
+  # `source` for that) is an error.
+  testthat::expect_error(residuals(fit, type = "index"))
 
   # species filter (GOApollock is a single-species model -> species 1).
   testthat::expect_setequal(unique(residuals(fit, species = 1)$Species), 1)
