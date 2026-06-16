@@ -52,6 +52,14 @@
 #'   [TMB::oneStepPredict()] call is split by observation type so `discrete` is
 #'   applied correctly per type (the discrete group uses the generic CDF-based
 #'   method rather than `method`).
+#' @param parallel Logical; compute the per-observation OSA loop in parallel via
+#'   [parallel::mclapply()]. Default `TRUE`. This is the main speedup for models
+#'   with random effects, where each observation triggers a Laplace
+#'   re-evaluation -- it gives a near-linear speedup across cores (set
+#'   `options(mc.cores = )` to choose how many; forking falls back to serial on
+#'   Windows). Only the continuous group is parallelized; the discrete
+#'   (randomized-quantile) path always runs serially so it stays reproducible
+#'   given `seed`.
 #' @param seed Random seed passed to [TMB::oneStepPredict()] for reproducibility
 #'   of randomized-quantile residuals. Default `123`.
 #' @param trace Logical; print [TMB::oneStepPredict()] progress. Default `FALSE`.
@@ -83,11 +91,12 @@
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
 #' @export
 osa_residuals <- function(fit,
-                          source  = c("index", "catch", "comp", "caal"),
-                          method  = "oneStepGaussianOffMode",
+                          source   = c("index", "catch", "comp", "caal"),
+                          method   = "oneStepGaussianOffMode",
                           discrete = FALSE,
-                          seed    = 123,
-                          trace   = FALSE,
+                          parallel = TRUE,
+                          seed     = 123,
+                          trace    = FALSE,
                           ...) {
 
   # ---- Validate the fit ----
@@ -142,14 +151,29 @@ osa_residuals <- function(fit,
          " are available for OSA residuals in this model.")
   }
 
-  # Order observations chronologically (then by source and bin) so the
-  # conditional 'one-step-ahead' sequence is in time order, as recommended by
-  # Stewart and Monnahan (2025). The obsvec storage order is independent of this;
-  # subset defines the conditioning order.
-  sel <- sel[order(sel$year, match(sel$source, source), sel$bin_index,
-                   na.last = TRUE), , drop = FALSE]
+  # ---- CONDITIONING ORDER (this is the one-step-ahead sequence) ----------------
+  # `subset` order = the order in which oneStepPredict() conditions each
+  # observation on the previously-residualized ones. It does not change the joint
+  # likelihood, but for compositions it changes the per-bin residual values (the
+  # within-multinomial conditional binomials are sequenced in this order).
+  #
+  # NOTE: for a fixed-effects fit (random_rec = FALSE, no random effects) the
+  # observations are independent given the parameters, so the OSA residuals are
+  # invariant to this subset order
+  #
+  # Optional -- chronological: year first, then data source, then bin. Puts the
+  # conditional sequence in time order. 
+  # sel <- sel[order(sel$year, match(sel$source, source), sel$bin_index,
+  #                 na.last = TRUE), , drop = FALSE]
 
-  # Rebuild the model in OSA mode (osa_mode = 1) at the fitted parameters. This
+  # WHAM-style -- type-blocked: source first (aggregate index/catch, then comp,
+  # then caal), then year, then bin. This reproduces
+  # WHAM's make_osa_residuals() conditioning (aggregate -> comp -> CAAL,
+  # each conditional on the previous types).
+  sel <- sel[order(match(sel$source, source), sel$year, sel$bin_index,
+                    na.last = TRUE), , drop = FALSE]
+
+  # Rebuild the model in OSA mode (osa = TRUE) at the fitted parameters. This
   # is required so the composition (comp/caal) likelihoods read their counts
   # from obsvec and use the unweighted, proper density that oneStepPredict needs.
   # It leaves the aggregate catch/index likelihood unchanged, so the same
@@ -160,8 +184,8 @@ osa_residuals <- function(fit,
   # oneStepPredict() applies a single `discrete` setting per call, but the
   # observation types differ: the aggregate index/catch series are continuous
   # (lognormal), while composition (comp/caal/diet) residuals can be treated as
-  # discrete -- randomized quantile residuals (Dunn and Smyth 1996) -- via
-  # `discrete = TRUE`. Residualize each discrete group in its own call so the
+  # discrete via `discrete = TRUE`. Because composition data is normalized, default
+  # is continuous. Residualize each discrete group in its own call so the
   # setting is correct per type; with the default `discrete = FALSE` every type
   # is continuous and this is a single call. `subset` uses 1-based indices into
   # obsvec (obs_pos is 0-based); '.row' maps each result back to its 'sel' row.
@@ -170,9 +194,24 @@ osa_residuals <- function(fit,
   }
   is_comp      <- sel$source %in% c("comp", "caal", "diet")
   sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
+
+  # oneStepPredict(parallel = TRUE) calls TMB::openmp(), which can only resolve
+  # the active model when a single TMB DLL is loaded; with several loaded (e.g.
+  # Rceattle alongside WHAM, or the full test suite) it errors with "Multiple TMB
+  # models loaded". Probe openmp() once and silently fall back to serial when it
+  # is unavailable, so parallel = TRUE stays a safe default everywhere.
+  parallel_ok <- isTRUE(parallel) &&
+    !inherits(try(TMB::openmp(), silent = TRUE), "try-error")
+  if (isTRUE(parallel) && !parallel_ok) {
+    message("osa_residuals(): parallel unavailable (multiple TMB models loaded?); ",
+            "computing one-step-ahead residuals serially.")
+  }
+
   .run_osp <- function(rows, dsc) {
     # The Gaussian methods are continuous-only, so discrete groups use the
     # generic (CDF-based) method, which supports randomized quantile residuals.
+    # Parallelize only the continuous group; the discrete path uses the seeded
+    # RNG, so keep it serial to stay bit-reproducible across runs.
     res <- TMB::oneStepPredict(
       obj                 = obj_osa,
       observation.name    = "obsvec",
@@ -180,6 +219,7 @@ osa_residuals <- function(fit,
       method              = if (dsc) "oneStepGeneric" else method,
       subset              = sel$obs_pos[rows] + 1L,
       discrete            = dsc,
+      parallel            = parallel_ok && !dsc,
       seed                = seed,
       trace               = trace,
       ...)

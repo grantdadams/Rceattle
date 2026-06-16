@@ -266,6 +266,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
@@ -2443,6 +2444,11 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 2 -- Age/length composition
+  // Small proportion offset added to obs/pred comps before the multinomial to avoid log(0).
+  // Supplied as data (DATA_SCALAR comp_offset) so it is set from R via
+  // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
+  // offset, so fitting and OSA residuals stay consistent.
+  Type comp_prop_offset = comp_offset;
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -2472,8 +2478,8 @@ Type objective_function<Type>::operator() () {
     vector<Type> comp_hat_tmp = comp_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
 
     // Add offset (for some reason can't do above in single line....)
-    comp_obs_tmp += 0.00001;
-    comp_hat_tmp += 0.00001;
+    comp_obs_tmp += comp_prop_offset;
+    comp_hat_tmp += comp_prop_offset;
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
@@ -2495,10 +2501,12 @@ Type objective_function<Type>::operator() () {
           }
           break;
 
-        case 0:  // Full multinomial
-          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-          unweighted_jnll_comp(2, flt) -= dmultinom(comp_obs_tmp, comp_hat_tmp, true);
+        case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
+          data_indicator<vector<Type>, Type> keep_ones(comp_obs_tmp, true);
+          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(2, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
           break;
+        }
 
         case 1:  // Dirichlet-multinomial
           jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
@@ -2549,8 +2557,8 @@ Type objective_function<Type>::operator() () {
     vector<Type> caal_hat_tmp = caal_hat.row(caal_ind).segment(0, n_caal); // Expected proportion
 
     // Add offset (for some reason can't do above in single line....)
-    caal_obs_tmp += 0.00001;
-    caal_hat_tmp += 0.00001;
+    caal_obs_tmp += comp_prop_offset;
+    caal_hat_tmp += comp_prop_offset;
 
     // Convert observed prop to observed numbers
     caal_obs_tmp *= caal_n(caal_ind, 0);
@@ -2566,10 +2574,12 @@ Type objective_function<Type>::operator() () {
         // (the comp slot) instead of slot 3; corrected here to slot 3.
         switch(caal_ll_type(flt)){
 
-        case 0:  // Full multinomial
-          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
-          unweighted_jnll_comp(3, flt) -= dmultinom(caal_obs_tmp, caal_hat_tmp, true);
+        case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
+          data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);
+          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(3, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
           break;
+        }
 
         case 1:  // Dirichlet-multinomial
           jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
@@ -2860,15 +2870,17 @@ Type objective_function<Type>::operator() () {
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
+    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
     if(initMode > 1){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
+    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)

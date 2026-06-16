@@ -9,6 +9,7 @@ osa_residuals(
   source = c("index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
+  parallel = TRUE,
   seed = 123,
   trace = FALSE,
   ...
@@ -37,6 +38,15 @@ aggregate index/catch series are always continuous (lognormal); the
 \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call is split by observation type so \code{discrete} is
 applied correctly per type (the discrete group uses the generic CDF-based
 method rather than \code{method}).}
+
+\item{parallel}{Logical; compute the per-observation OSA loop in parallel via
+\code{\link[parallel:mclapply]{parallel::mclapply()}}. Default \code{TRUE}. This is the main speedup for models
+with random effects, where each observation triggers a Laplace
+re-evaluation -- it gives a near-linear speedup across cores (set
+\code{options(mc.cores = )} to choose how many; forking falls back to serial on
+Windows). Only the continuous group is parallelized; the discrete
+(randomized-quantile) path always runs serially so it stays reproducible
+given \code{seed}.}
 
 \item{seed}{Random seed passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} for reproducibility
 of randomized-quantile residuals. Default \code{123}.}

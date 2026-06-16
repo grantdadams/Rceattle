@@ -5,7 +5,9 @@
 #' @param data_list an Rceattle data_list
 #' @param build_osa Logical. Passed to [build_osa_data()]; when `TRUE` the full
 #'   one-step-ahead (OSA) observation data is assembled so [osa_residuals()] can
-#'   be computed. Default `FALSE` (the fast path used by simulation testing).
+#'   be computed. Default `FALSE` (the fast path used by simulation testing). The
+#'   composition proportion offset is read from `data_list$comp_offset` (default
+#'   `1e-5`).
 #'
 #' @export
 #' @importFrom magrittr %>%

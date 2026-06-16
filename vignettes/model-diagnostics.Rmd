@@ -157,6 +157,13 @@ speed -- it is skipped by default so repeated refits (simulation testing,
 to use them. The aggregate index/catch OSA residuals and `process_residuals()`
 work for any fit.
 
+The composition likelihood adds a small proportion offset to each bin before the
+multinomial / Dirichlet-multinomial -- both when fitting and when building the
+OSA observation vector, so the two stay consistent and empty bins do not produce
+`log(0)`. It defaults to `1e-5` when `fit_control(comp_offset = NULL)`. The value 
+is stored on `data_list$comp_offset`, so projections, `retrospective()`, and 
+`run_mse()` inherit it (it does not apply to diet compositions).
+
 ```{r osa, eval = FALSE}
 # Aggregate (catch + index) residuals -- fast, available for any fit
 osa <- osa_residuals(model_1, source = c("index", "catch"))

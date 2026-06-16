@@ -59,10 +59,13 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     # Expected proportions from TMB
     hat_prop <- mod_mn$quantities$comp_hat[i, 1:n_ages]
 
-    # C++ adds the 0.00001 offset but does NOT renormalize, and TMB's dmultinom
-    # does not renormalize p — so reproduce that here with unnormalized vectors.
+    # C++ adds the comp_offset (default 1e-5) to obs and pred, then the OSA
+    # conditional-binomial multinomial (dmultinom_osa) normalizes the predicted
+    # proportions to sum to 1 (matching WHAM). Reproduce that: offset both, then
+    # normalize the predicted proportions before the log term.
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
+    hat_prop_offset <- hat_prop_offset / sum(hat_prop_offset)
 
     obs_num <- obs_prop_offset * samp_size
 

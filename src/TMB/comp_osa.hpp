@@ -20,7 +20,7 @@
 // ddirmultinom() in helper_functions.hpp used during ordinary fitting.
 
 // Reorder categories so kept (keep > 0.5) entries come first, preserving the
-// original order within the kept and dropped groups. (Anders Nielsen.)
+// original order within the kept and dropped groups.
 template<class Type>
 vector<int> osa_order(vector<Type> k){
   int n = k.size();
@@ -37,12 +37,14 @@ vector<int> osa_order(vector<Type> k){
   return ord;
 }
 
-// Clamp a probability into (eps, 1 - eps) for numerical stability (maps the
-// closed [0, 1] interval onto the open interval). Mirrors WHAM's squeeze().
+// Map the closed [0, 1] interval onto the open interval for numerical stability.
+// Identical to TMB's convenience.hpp squeeze() (eps = machine epsilon), which is
+// what WHAM uses in its OSA composition likelihood, so the two implementations
+// agree to the last digit.
 template<class Type>
-Type osa_squeeze(Type p){
-  Type eps = Type(1.0e-10);
-  return p * (Type(1) - Type(2) * eps) + eps;
+Type osa_squeeze(Type u){
+  Type eps = std::numeric_limits<double>::epsilon();
+  return (Type(1.0) - eps) * (u - Type(0.5)) + Type(0.5);
 }
 
 // Keep-aware multinomial log-density via conditional binomials.
@@ -57,7 +59,12 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
                    int do_osa, int give_log)
 {
   Type logres = 0;
-  vector<Type> p_x = p / sum(p);          // normalize predicted proportions
+  // Normalize predicted proportions. Guard the denominator so a length/age bin
+  // with all-zero predicted mass (sum(p) == 0, e.g. a growth-transition row that
+  // is exactly zero in the tails) yields p_x == 0 rather than 0/0 = NaN; the
+  // conditional binomials below then read each squeezed-to-eps probability,
+  // matching WHAM's behaviour for vanishing predicted proportions.
+  vector<Type> p_x = p / (sum(p) + Type(1e-300));
 
   if(do_osa){
     vector<Type> k = keep;
@@ -78,6 +85,8 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
         logres += k(i) * dmultinom(x2, p2, true);
         nUnused -= x(i);
         pUsed   += p_x(i);
+        pUsed    = osa_squeeze(pUsed);  // keep pUsed in (eps, 1-eps) so 1 - pUsed
+                                        // never reaches 0/negative (matches WHAM).
       } else {
         logres += k(i) * Type(0);         // last bin: fixed by sum-to-N
       }
