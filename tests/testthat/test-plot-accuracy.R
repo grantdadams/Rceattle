@@ -18,7 +18,8 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
   ))
   sp1 <- ss$data_list$spnames[1]
   ad <- as.data.frame(ss, which = c("biomass", "ssb", "R",
-                                    "exploitable_biomass", "ssb_depletion"))
+                                    "exploitable_biomass", "ssb_depletion",
+                                    "F_spp"))
 
   # Compare a plotter's species-1 trajectory to the same quantity from
   # as.data.frame(), aligned on the years the plot actually shows. `scale` is
@@ -37,6 +38,7 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
   check(Rceattle::plot_recruitment(ss),         "R")
   check(Rceattle::plot_exploitable_biomass(ss), "exploitable_biomass")
   check(Rceattle::plot_ssb_depletion(ss),       "ssb_depletion")
+  check(Rceattle::plot_f(ss),                   "F_spp")  # wraps plot_timeseries
 })
 
 # --- fit diagnostics (index/catch) --------------------------------------------
