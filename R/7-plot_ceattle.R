@@ -78,8 +78,6 @@ plot_timeseries <- function(Rceattle,
                             reference = NULL,
                             mod_avg = rep(FALSE, length(Rceattle))) {
 
-  .save_par()  # snapshot graphics par() and restore on exit
-
   ## Model object manipulation ----
   # Convert mse object to Rceattle list
   if(mse){
@@ -264,137 +262,96 @@ plot_timeseries <- function(Rceattle,
   }
 
 
-  ## Plot limits ----
-  ymax <- c()
-  ymin <- c()
-  for (sp in 1:nspp) {
-    if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
-      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
-    } else{
-      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = TRUE)
-      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = TRUE)
-    }
-  }
-  ymax <- ymax * 1.2
-
-
-  ## Plot trajectory ----
-  loops <- ifelse(is.null(file), 1, 2)
-  for (i in 1:loops) {
-    if (i == 2) {
-      filename <- paste0(file, "_", output,"_trajectory", ".png")
-      png(
-        filename = filename ,
-        width = width,# 169 / 25.4,
-        height = height,# 150 / 25.4,
-        units = "in",
-        res = 300
+  ## Assemble tidy data ----
+  # Build one row per (species, year, model) holding exactly the quantities the
+  # base version plotted (same arrays, just reshaped) so the returned ggplot's
+  # `$data` can be tested against the model's source quantities.
+  model_names_use <- .model_labels(Rceattle, model_names)
+  df_list <- list()
+  for (k in seq_len(dim(quantity)[3])) {
+    yk  <- years[[k]]
+    nyk <- length(yk)
+    for (sp in spp) {
+      df_list[[length(df_list) + 1L]] <- data.frame(
+        Species = spnames[sp],
+        Year    = yk,
+        Model   = model_names_use[k],
+        value   = quantity[sp, seq_len(nyk), k],
+        lower95 = quantity_lower95[sp, seq_len(nyk), k],
+        upper95 = quantity_upper95[sp, seq_len(nyk), k],
+        lower50 = quantity_lower50[sp, seq_len(nyk), k],
+        upper50 = quantity_upper50[sp, seq_len(nyk), k],
+        show_ci = (estDynamics[sp] == 0),
+        stringsAsFactors = FALSE
       )
     }
+  }
+  plot_df <- do.call(rbind, df_list)
+  plot_df$Species <- factor(plot_df$Species, levels = spnames[spp])
+  plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
 
-    # * Plot configuration ----
-    layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
-    par(
-      mar = c(0, 3 , 0 , 1) ,
-      oma = c(0 , 0 , 0 , 0),
-      tcl = -0.35,
-      mgp = c(1.75, 0.5, 0)
-    )
-    plot.new()
+  ## Render ----
+  p <- ggplot2::ggplot(
+    plot_df,
+    ggplot2::aes(x = .data$Year, y = .data$value,
+                 colour = .data$Model, fill = .data$Model))
 
-    for (j in 1:length(spp)) {
-      plot(
-        y = NA,
-        x = NA,
-        ylim = c(ymin[spp[j]], ymax[spp[j]]),
-        xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
-        xlab = "Year",
-        ylab = NA,
-        xaxt = c(rep("n", length(spp) - 1), "s")[j]
-      )
-
-      # Ylab
-      if((j == 2 & length(species) > 1) | (j == 1 & length(species) == 1) ){
-        mtext(ylab, side = 2, line = 1.7, cex = 0.9)
+  # Credible-interval ribbons (only for estimated species)
+  if (add_ci) {
+    ci_df <- plot_df[plot_df$show_ci, , drop = FALSE]
+    if (nrow(ci_df) > 0) {
+      p <- p + ggplot2::geom_ribbon(
+        data = ci_df,
+        ggplot2::aes(ymin = .data$lower95, ymax = .data$upper95),
+        alpha = alpha / 2, colour = NA)
+      if (mse) {
+        p <- p + ggplot2::geom_ribbon(
+          data = ci_df,
+          ggplot2::aes(ymin = .data$lower50, ymax = .data$upper50),
+          alpha = alpha, colour = NA)
       }
-
-      # Horizontal line at end yr
-      if(incl_proj){
-        abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd = lwd[1], col = "grey", lty = 2)
-      }
-
-      # Species name legend
-      legend("topleft",
-             legend = spnames[spp[j]],
-             bty = "n",
-             cex = 1)
-
-      # Model name legend
-      if (spp[j] == 1) {
-        if(!is.null(model_names)){
-          legend(
-            legend.pos,
-            legend = model_names,
-            lty = lty,
-            lwd = lwd[1],
-            col = line_col,
-            bty = "n",
-            cex = mod_cex
-          )
-        }
-      }
-
-
-      # * Credible interval ----
-      if(estDynamics[spp[j]] == 0){
-        if (add_ci) {
-          for (k in 1:dim(quantity)[3]) {
-            # - 95% CI
-            polygon(
-              x = c(years[[k]], rev(years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
-              col = adjustcolor( line_col[k], alpha.f = alpha/2),
-              border = NA
-            )
-
-            # - 50% CI
-            if(mse){
-              polygon(
-                x = c(years[[k]], rev(years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
-                col = adjustcolor( line_col[k], alpha.f = alpha),
-                border = NA
-              )
-            }
-          }
-        }
-      }
-
-      # * Mean quantity ----
-      for (k in 1:dim(quantity)[3]) {
-        lines(
-          x = years[[k]],
-          y = quantity[spp[j], 1:length(years[[k]]), k],
-          lty = lty[k],
-          lwd = lwd[k],
-          col = line_col[k]
-        ) # Median
-      }
-
-
-      # Ptarget and plimit
-      if(output %in% c("ssb_depletion")){
-        abline(h= ptarget[spp[j]], lwd = lwd/2, col = "blue")
-        abline(h= plimit[spp[j]], lwd = lwd/2, col = "red")
-      }
-    }
-
-
-    if (i == 2) {
-      dev.off()
     }
   }
+
+  p <- p + ggplot2::geom_line(linewidth = 1)
+
+  # Projection divider at the terminal hindcast year
+  if (incl_proj) {
+    p <- p + ggplot2::geom_vline(
+      xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
+      linetype = 2, colour = "grey50")
+  }
+
+  # Depletion reference points (per species)
+  if (output %in% "ssb_depletion") {
+    ref_df <- data.frame(
+      Species = factor(spnames[spp], levels = spnames[spp]),
+      target  = ptarget[spp],
+      limit   = plimit[spp])
+    p <- p +
+      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+                          ggplot2::aes(yintercept = .data$target),
+                          colour = "blue", linetype = 2) +
+      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+                          ggplot2::aes(yintercept = .data$limit),
+                          colour = "red", linetype = 2)
+  }
+
+  p <- .rceattle_scale(
+    p +
+      ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
+                          strip.position = "top") +
+      ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
+      ggplot2::labs(x = "Year", y = ylab) +
+      .rceattle_theme())
+
+  # A single model needs no colour legend
+  if (nlevels(plot_df$Model) < 2L) {
+    p <- p + ggplot2::guides(colour = "none", fill = "none")
+  }
+
+  .save_ggplot(p, file = file, suffix = paste0(output, "_trajectory"),
+               width = width, height = height)
 }
 
 #' Plot biomass
