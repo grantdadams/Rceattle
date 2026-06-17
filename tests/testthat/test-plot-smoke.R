@@ -34,7 +34,9 @@ testthat::test_that("single-species plotters run on a fitted model", {
     testthat::expect_no_error(Rceattle::plot_depletion(ss))
     testthat::expect_no_error(Rceattle::plot_exploitable_biomass(ss))
     testthat::expect_no_error(Rceattle::plot_index(ss))
-    testthat::expect_no_error(Rceattle::plot_logindex(ss))
+    testthat::expect_no_error(Rceattle::plot_index(ss, log = TRUE))
+    # plot_logindex is deprecated and forwards to plot_index(log = TRUE)
+    testthat::expect_warning(Rceattle::plot_logindex(ss), "deprecated")
     testthat::expect_no_error(Rceattle::plot_catch(ss))
     testthat::expect_no_error(Rceattle::plot_f(ss))
 
