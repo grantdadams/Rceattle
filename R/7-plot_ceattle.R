@@ -1253,109 +1253,41 @@ plot_maturity <-
            height = 5.5,
            lwd = 3) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
-
-    # Convert single one into a list
-    if(inherits(Rceattle, "Rceattle")){
-      Rceattle <- list(Rceattle)
-    }
-
-    # Extract data objects
-    maturity <- list()
-    for(i in 1:length(Rceattle)){
-      maturity[[i]] <- Rceattle[[i]]$data_list$pmature[,-1] # Remove species column
-    }
-
-    nspp <- Rceattle[[1]]$data_list$nspp
+    Rceattle <- .as_model_list(Rceattle)
+    model_names_use <- .model_labels(Rceattle, model_names)
+    nspp  <- Rceattle[[1]]$data_list$nspp
     nages <- Rceattle[[1]]$data_list$nages
+    if (is.null(species)) species <- Rceattle[[1]]$data_list$spnames
 
-    # Line colors
-    if (is.null(line_col)) {
-      line_col <- oce::oce.colorsViridis(length(Rceattle))
-    }
-
-
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_maturity", ".png")
-        png(
-          filename = filename ,
-          width = width,
-          height = height,
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:((nspp + 2)), nrow = (nspp + 2), ncol = 1, byrow = FALSE), heights = c(0.2, rep(1, nspp), 0.3))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-
-      plot.new()
-
-      # Survey selectivity
-      for (j in 1:nspp) {
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(0, 1.1),
-          xlim = c(min(0), max(nages, na.rm = TRUE)),
-          xlab = "Age",
-          ylab = "Maturity",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
-        )
-
-        if(j == nspp){
-          mtext(side = 1, "Age", cex  = 0.75, line = 2)
-        }
-
-        # Mean maturity
-        for (k in 1:length(maturity)) {
-          lines(
-            x = 1:nages[j],
-            y = maturity[[k]][j, 1:nages[j]],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
-
-        # Species legends
-        legend("topleft", species[j], bty = "n", cex = 1)
-
-        # Model name legends
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "bottomright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = 0.72
-            )
-          }
-        }
-      }
-
-      if (i == 2) {
-        dev.off()
+    # Tidy maturity-at-age (data_list$maturity, species column dropped)
+    df_list <- list()
+    for (k in seq_along(Rceattle)) {
+      mat <- Rceattle[[k]]$data_list$maturity[, -1, drop = FALSE]
+      for (sp in seq_len(nspp)) {
+        df_list[[length(df_list) + 1L]] <- data.frame(
+          Model    = model_names_use[k],
+          Species  = species[sp],
+          Age      = seq_len(nages[sp]),
+          Maturity = as.numeric(mat[sp, seq_len(nages[sp])]),
+          stringsAsFactors = FALSE)
       }
     }
+    plot_df <- do.call(rbind, df_list)
+    plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
+    plot_df$Species <- factor(plot_df$Species, levels = species)
+
+    p <- ggplot2::ggplot(plot_df,
+                         ggplot2::aes(x = .data$Age, y = .data$Maturity,
+                                      colour = .data$Model)) +
+      ggplot2::geom_line(linewidth = 1) +
+      ggplot2::facet_wrap(~ Species, ncol = 1) +
+      ggplot2::coord_cartesian(ylim = c(0, 1.1)) +
+      ggplot2::labs(x = "Age", y = "Maturity")
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    if (nlevels(plot_df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
+
+    .save_ggplot(p, file = file, suffix = "maturity",
+                 width = width, height = height)
   }
 
 

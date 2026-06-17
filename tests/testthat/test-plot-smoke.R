@@ -42,6 +42,7 @@ testthat::test_that("single-species plotters run on a fitted model", {
 
     # structural / data plotters
     testthat::expect_no_error(Rceattle::plot_selectivity(ss))
+    testthat::expect_no_error(Rceattle::plot_maturity(ss))
     testthat::expect_no_error(Rceattle::plot_mortality(ss))
     testthat::expect_no_error(Rceattle::plot_data(ss))
     testthat::expect_no_error(Rceattle::plot_comp(ss))

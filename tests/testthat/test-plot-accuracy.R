@@ -73,3 +73,23 @@ testthat::test_that("index/catch fit plots plot the model's predictions", {
   srcc <- cat_d[order(cat_d$Fleet_code, abs(cat_d$Year)), ]
   testthat::expect_equal(pdc$Predicted, srcc$hat)
 })
+
+# --- maturity -----------------------------------------------------------------
+testthat::test_that("plot_maturity plots data_list$maturity at age", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  p <- Rceattle::plot_maturity(ss)
+  testthat::expect_s3_class(p, "ggplot")
+  mat <- ss$data_list$maturity[, -1]
+  sp1 <- ss$data_list$spnames[1]
+  d <- p$data[p$data$Species == sp1, ]
+  d <- d[order(d$Age), ]
+  src <- as.numeric(mat[1, seq_len(ss$data_list$nages[1])])
+  testthat::expect_equal(d$Maturity, src)
+})
