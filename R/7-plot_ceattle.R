@@ -1214,7 +1214,7 @@ plot_mortality <-
 
             # Plot as tiles
             if(type == 0){
-              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, size=1))
+              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
               if(!is.null(title)){
                 p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
               }
@@ -1229,12 +1229,12 @@ plot_mortality <-
 
             # Plot as contours
             if(type == 1){
-              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_fill_viridis_d("M1 + M2"))
+              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_contour(colour = 1, linewidth = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1)) + scale_fill_viridis_d("M1 + M2"))
             }
 
             # Plot as facets
             if(type == 2){
-              p = ggplot(data=data, aes(x=Year, y = M, colour = Age, group = Age)) + theme( panel.border = element_rect(colour = "black", fill=NA, size=1), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + geom_line(size = 2) + scale_color_viridis_c("Age")
+              p = ggplot(data=data, aes(x=Year, y = M, colour = Age, group = Age)) + theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + geom_line(linewidth = 2) + scale_color_viridis_c("Age")
               print(p)
             }
 
