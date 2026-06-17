@@ -51,6 +51,7 @@ LinkingTo:
     RcppEigen
 Suggests:
     testthat (>= 2.0.0),
+    covr,
     rmarkdown,
     knitr,
     mvtnorm,

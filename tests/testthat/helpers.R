@@ -1,6 +1,31 @@
 
 # Helpers for tests
-# Minimal test data factory and small utilities used by
+# Minimal test-data factories and small utilities used across the suite:
+#   - expect_all_true(): custom expectation (below)
+#   - make_test_data():  single-species data fixture (further below)
+#   - calc_*_nll():      independent R reference likelihoods for cross-checking
+#                        the TMB jnll_comp components
+
+# Custom expectation: every element of `object` must be TRUE; NA counts as a
+# failure. Used by the TMB map / quantity checks in the selectivity, growth,
+# and recruitment integration tests, where a whole sub-array of the parameter
+# map must be entirely (un)mapped. Reports how many elements failed so a
+# mismatch points straight at the offending sub-array. testthat auto-loads
+# this file, so test files call it unqualified (like the other helpers here).
+expect_all_true <- function(object) {
+  lab <- paste(deparse(substitute(object)), collapse = " ")
+  ok  <- !is.na(object) & object
+  testthat::expect(
+    all(ok),
+    sprintf("%s is not all TRUE: %d of %d element(s) are FALSE or NA.",
+            lab, sum(!ok), length(ok))
+  )
+  invisible(object)
+}
+
+# Reference NLL of a 1-D AR(1) deviation vector `x` with marginal SD `sd` and
+# lag-1 correlation `rho`, evaluated as a full multivariate normal. Used to
+# cross-check TMB's AR1() density (e.g. selectivity / recruitment deviations).
 calc_nll_ar1_1d <- function(x, sd, rho) {
   n <- length(x)
   Sigma_M <- sqrt(sd^2 / (1 - rho^2))
@@ -293,6 +318,9 @@ with_loaded_dll <- function(lib, code) {
 
 
 
+# Reference NLL of a 2-D separable AR(1) x AR(1) deviation field (age x year),
+# the R equivalent of TMB's SEPARABLE(AR1(age), AR1(yr)). Cross-checks the
+# 2-D random-effects densities (e.g. time- and age-varying selectivity).
 calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
   n_age <- nrow(x_matrix)
   n_yr  <- ncol(x_matrix)
@@ -325,6 +353,9 @@ calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
 }
 
 
+# Reference NLL of multinomial composition data: observed counts `obs_num`
+# against expected proportions `hat_prop`. Cross-checks the "Multinomial"
+# Comp_loglike branch of jnll_comp.
 calc_multinom_nll <- function(obs_num, hat_prop) {
   p <- hat_prop / sum(hat_prop)
   # TMB uses the continuous lgamma instead of factorial: x! = gamma(x+1)
@@ -332,6 +363,9 @@ calc_multinom_nll <- function(obs_num, hat_prop) {
   return(-ll)
 }
 
+# Reference NLL of Dirichlet-multinomial composition data: observed counts
+# `obs_num` with concentration parameters `alpha`. Cross-checks the
+# "Dirichlet-multinomial" Comp_loglike branch of jnll_comp.
 calc_dirmultinom_nll <- function(obs_num, alpha) {
   N <- sum(obs_num)
   sum_alpha <- sum(alpha)
