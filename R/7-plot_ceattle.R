@@ -753,170 +753,58 @@ plot_selectivity <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
-
-    # Convert single one into a list
-    if(inherits(Rceattle, "Rceattle")){
-      Rceattle <- list(Rceattle)
-    }
-
-    # Extract data objects
-    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    hindyears <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    nyrs <- max(sapply(years, length))
-    nyrshind <- max(sapply(hindyears, length))
-    maxyr <- max((sapply(years, max)))
-    minyr <- min((sapply(years, min)))
-
-    nspp <- Rceattle[[1]]$data_list$nspp
-    fleet_control <- Rceattle[[1]]$data_list$fleet_control
-    nflt <- nrow(Rceattle[[1]]$data_list$fleet_control)
-    nages <- Rceattle[[1]]$data_list$nages
+    Rceattle <- .as_model_list(Rceattle)
+    fc     <- Rceattle[[1]]$data_list$fleet_control
+    nflt   <- nrow(fc)
+    nages  <- Rceattle[[1]]$data_list$nages
     minage <- Rceattle[[1]]$data_list$minage
-    nsex <- Rceattle[[1]]$data_list$nsex
-    est_dynamics <- Rceattle[[1]]$data_list$estDynamics
+    nsex   <- Rceattle[[1]]$data_list$nsex
+    styr   <- Rceattle[[1]]$data_list$styr
+    endyr  <- Rceattle[[1]]$data_list$endyr
+    hindyears <- styr:endyr
 
-    # Get biomass
-    selectivity_array <-
-      array(NA, dim = c(nflt, max(nsex), max(nages), nyrs, length(Rceattle)))
-    for (i in 1:length(Rceattle)) {
-      selectivity_array[, , , years[[i]]-minyr+1,i] <- Rceattle[[i]]$quantities$sel_at_age[,,,]
-    }
+    # Selectivity-at-age over hindcast years for the first model:
+    # sel_at_age[fleet, sex, age, year] (year index 1 == styr).
+    sel <- Rceattle[[1]]$quantities$sel_at_age
 
-    # Plot limits
-    ymax_sel <- c()
-    ymin_sel <- c()
-    for (i in 1:dim(selectivity_array)[1]) {
-      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
-      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
-    }
-
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-    max_obj <- nflt
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-
-    #################################
-    # Selectivity time series
-    #################################
-    for(j in 1:nflt){
-      for (i in 1:loops) {
-        # Species
-        sp <- fleet_control$Species[which(fleet_control$Fleet_code == j)]
-
-        for(sex in 1:nsex[sp]){
-
-          # Get sex for legend
-          legend_sex = sex
-          legend_sex2 = ifelse(sex == 1, "Female", "Male")
-          if(nsex[sp] == 1){
-            legend_sex <- 0
-            legend_sex2 = "Combined"
-          }
-
-          if (i == 2) {
-            filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, ".png")
-            png(
-              filename = filename ,
-              width = width,
-              height = height,
-              units = "in",
-              res = 300
-            )
-          }
-          sel_subset <- selectivity_array[j, sex, 1:nages[sp], 1:nyrshind, 1]
-
-          par(
-            mar = c(3.2, 3.2 , 1 , 0.5) ,
-            oma = c(0 , 0 , 0 , 0),
-            tcl = -0.8,
-            mgp = c(10, 0.6, 0)
-          )
-          persp(y = hindyears[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA, zlim = c(ymin_sel[i], ymax_sel[j]))
-          mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 0.8, line = -.5)
-
-          if (i == 2) {
-            dev.off()
-          }
+    df_list <- list()
+    for (flt in seq_len(nflt)) {
+      sp <- fc$Species[fc$Fleet_code == flt]
+      if (length(sp) == 0) next
+      for (sex in seq_len(nsex[sp])) {
+        sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
+        for (yr in seq_along(hindyears)) {
+          df_list[[length(df_list) + 1L]] <- data.frame(
+            Fleet = as.character(fc$Fleet_name[fc$Fleet_code == flt]),
+            Sex   = sex_lab,
+            Age   = seq_len(nages[sp]) - 1 + minage[sp],
+            Year  = hindyears[yr],
+            Selectivity = as.numeric(sel[flt, sex, seq_len(nages[sp]), yr]),
+            stringsAsFactors = FALSE)
         }
       }
     }
+    plot_df <- do.call(rbind, df_list)
+    plot_df$Fleet <- factor(plot_df$Fleet, levels = unique(fc$Fleet_name))
 
-    #################################
-    # Terminal selectivity
-    #################################
-    for(sp in 1:nspp){
-      if(est_dynamics[sp] == 0){
-        for(sex in 1:nsex[sp]){
-
-          # Get sex for legend
-          legend_sex = sex
-          legend_sex2 = ifelse(sex == 1, "Female", "Male")
-          if(nsex[sp] == 1){
-            legend_sex <- 0
-            legend_sex2 = "Combined"
-          }
-
-          for (i in 1:loops) {
-            if (i == 2) {
-
-              filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
-              png(
-                filename = filename ,
-                width = width,
-                height = height,
-                units = "in",
-                res = 300
-              )
-            }
-
-            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp)]
-            flt_colors <- rich.colors.short(length(fleets))
-
-            # Plot configuration
-            par(
-              mar = c(3.2, 3.2 , 0.5 , 0.5) ,
-              oma = c(0 , 0 , 0 , 0),
-              tcl = -0.35,
-              mgp = c(1.75, 0.5, 0)
-            )
-
-            plot(
-              y = NA,
-              x = NA,
-              ylim = c(min(ymin_sel[fleets]), max(ymax_sel[fleets])),
-              xlim = c(min(0),  max(nages[sp], na.rm = TRUE)),
-              xlab = "Age",
-              ylab = "Terminal selectivity"
-            )
-
-            # Mean selectivity
-            for (flt in 1:length(fleets)) {
-              lines(
-                x = 1:nages[sp],
-                y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrshind, 1],
-                lty = 1,
-                lwd = lwd,
-                col = flt_colors[flt]
-              )
-            }
-
-            # Legends
-            legend("bottomright", paste(legend_sex2, as.character(fleet_control$Fleet_name[fleets])), col = flt_colors, bty = "n", lty = rep(1, length(fleets)), lwd = rep(2, length(fleets)), cex = 0.8)
-
-            # Save plot
-            if (i == 2) {
-              dev.off()
-            }
-          }
-        }
-      }
+    # Year-coloured selectivity-at-age curves, faceted by fleet. Time-varying
+    # selectivity shows as a colour fan; time-invariant collapses to one line.
+    p <- ggplot2::ggplot(
+      plot_df,
+      ggplot2::aes(x = .data$Age, y = .data$Selectivity,
+                   group = interaction(.data$Year, .data$Sex),
+                   colour = .data$Year, linetype = .data$Sex)) +
+      ggplot2::geom_line() +
+      ggplot2::facet_wrap(~ Fleet) +
+      ggplot2::scale_colour_viridis_c("Year") +
+      ggplot2::labs(x = "Age", y = "Selectivity") +
+      .rceattle_theme()
+    if (length(unique(plot_df$Sex)) < 2L) {
+      p <- p + ggplot2::guides(linetype = "none")
     }
+
+    .save_ggplot(p, file = file, suffix = "selectivity",
+                 width = width, height = height)
   }
 
 

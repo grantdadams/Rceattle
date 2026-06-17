@@ -93,3 +93,26 @@ testthat::test_that("plot_maturity plots data_list$maturity at age", {
   src <- as.numeric(mat[1, seq_len(ss$data_list$nages[1])])
   testthat::expect_equal(d$Maturity, src)
 })
+
+# --- selectivity --------------------------------------------------------------
+testthat::test_that("plot_selectivity plots sel_at_age", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  p <- Rceattle::plot_selectivity(ss)
+  testthat::expect_s3_class(p, "ggplot")
+
+  fc <- ss$data_list$fleet_control
+  nyrshind <- ss$data_list$endyr - ss$data_list$styr + 1L
+  nages1 <- ss$data_list$nages[fc$Species[fc$Fleet_code == 1]]
+  flt1 <- as.character(fc$Fleet_name[fc$Fleet_code == 1])
+  d <- p$data[p$data$Fleet == flt1 & p$data$Year == ss$data_list$endyr, ]
+  d <- d[order(d$Age), ]
+  src <- as.numeric(ss$quantities$sel_at_age[1, 1, seq_len(nages1), nyrshind])
+  testthat::expect_equal(d$Selectivity, src)
+})
