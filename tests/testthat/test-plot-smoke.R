@@ -73,6 +73,7 @@ testthat::test_that("multispecies predation plotters run on a fitted model", {
   with_null_device({
     testthat::expect_no_error(Rceattle::plot_b_eaten(ms))
     testthat::expect_no_error(Rceattle::plot_m_at_age(ms))
+    testthat::expect_no_error(Rceattle::plot_m2_at_age_prop(ms))
     testthat::expect_no_error(plot(ms, what = "mortality"))
   })
 })

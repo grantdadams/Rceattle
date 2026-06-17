@@ -137,4 +137,13 @@ testthat::test_that("plot_mortality plots M(1+2)-at-age", {
   d <- d[order(d$Age), ]
   src <- as.numeric(ms$quantities$M2_at_age[1, 1, seq_len(nages1), 1])
   testthat::expect_equal(d$M, src)
+
+  # plot_m_at_age: total M at a fixed age over time == M_at_age[sp, sex, age, ]
+  pa <- Rceattle::plot_m_at_age(ms, age = 1)
+  testthat::expect_s3_class(pa, "ggplot")
+  nyr <- ms$data_list$endyr - ms$data_list$styr + 1L
+  d2 <- pa$data[pa$data$Species == sp1, ]
+  d2 <- d2[order(d2$Year), ]
+  src2 <- as.numeric(ms$quantities$M_at_age[1, 1, 1, seq_len(nyr)])
+  testthat::expect_equal(d2$M[seq_len(nyr)], src2)
 })

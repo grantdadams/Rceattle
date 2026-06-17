@@ -1666,169 +1666,54 @@ plot_m_at_age <-
            incl_mean = FALSE,
            add_ci = FALSE) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
-
-    # Convert single one into a list
-    if(inherits(Rceattle, "Rceattle")){
-      Rceattle <- list(Rceattle)
-    }
-
-    # Species names
-    if(is.null(spnames)){
-      spnames =  Rceattle[[1]]$data_list$spnames
-    }
-
-
-    # Extract data objects
-    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    if(incl_proj){
-      years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    }
-
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(years, min)))}
-    nsex <- Rceattle[[1]]$data_list$nsex
+    Rceattle <- .as_model_list(Rceattle)
+    model_names_use <- .model_labels(Rceattle, model_names)
+    if (is.null(spnames)) spnames <- Rceattle[[1]]$data_list$spnames
     nspp <- Rceattle[[1]]$data_list$nspp
+    nsex <- Rceattle[[1]]$data_list$nsex
+    if (is.null(species)) species <- seq_len(nspp)
 
-    if(is.null(species)){
-      species <- 1:nspp
-    }
-
-    # Get M
-    m_at_age <-
-      array(NA, dim = c(nspp, max(nsex), nyrs, length(Rceattle)))
-    for (i in 1:length(Rceattle)) {
-      for(sp in 1:nspp){
-        for(yr in 1:nyrs_vec[i]){
-          m_at_age[sp, , yr, i] <- Rceattle[[i]]$quantities$M_at_age[sp,,age,yr]
+    # Total natural mortality (M1 + M2) at a single age, as a time series.
+    df_list <- list()
+    for (k in seq_along(Rceattle)) {
+      dl  <- Rceattle[[k]]$data_list
+      yrs <- dl$styr:(if (incl_proj) dl$projyr else dl$endyr)
+      Ma  <- Rceattle[[k]]$quantities$M_at_age
+      for (sp in species) {
+        for (sex in seq_len(nsex[sp])) {
+          sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
+          df_list[[length(df_list) + 1L]] <- data.frame(
+            Model   = model_names_use[k],
+            Species = spnames[sp],
+            Sex     = sex_lab,
+            Year    = yrs,
+            M       = as.numeric(Ma[sp, sex, age, seq_along(yrs)]),
+            stringsAsFactors = FALSE)
         }
       }
     }
+    plot_df <- do.call(rbind, df_list)
+    plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
+    plot_df$Species <- factor(plot_df$Species, levels = spnames[species])
 
-    # Plot limits
-    ymax <- matrix(0, nrow = nspp, ncol = 2)
-    ymin <- matrix(0, nrow = nspp, ncol = 2)
-    for (i in 1:nspp) {
-      for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(m_at_age[i,sex,, ],0), na.rm = TRUE)
-        ymin[i,sex] <- min(c(m_at_age[i,sex,, ]), na.rm = TRUE)
-      }
+    p <- ggplot2::ggplot(
+      plot_df,
+      ggplot2::aes(x = .data$Year, y = .data$M,
+                   colour = .data$Model, linetype = .data$Sex)) +
+      ggplot2::geom_line(linewidth = 1) +
+      ggplot2::facet_wrap(~ Species, scales = "free_y") +
+      ggplot2::labs(x = "Year", y = paste0("M at age ", age))
+    if (incl_proj) {
+      p <- p + ggplot2::geom_vline(
+        xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
+        linetype = 2, colour = "grey50")
     }
-    ymax <- ymax + 0.15 * ymax
-    ymin <- ymin - 0.15 * ymin
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    if (length(unique(plot_df$Sex)) < 2L) p <- p + ggplot2::guides(linetype = "none")
+    if (nlevels(plot_df$Model) < 2L)      p <- p + ggplot2::guides(colour = "none")
 
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-
-    if(length(lty) != length(Rceattle)){
-      lty = rep(lty, length(Rceattle))
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_m_at_age",age,"_trajectory", ".png")
-        png(
-          filename = filename ,
-          width = width,
-          height = height,
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:(sum(nsex[species]) + 2), nrow = (sum(nsex[species]) + 2)), heights = c(0.1, rep(1, sum(nsex[species])), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-      ind = 0
-
-      for (j in 1:length(species)) {
-
-        spp = species[j]
-
-        for(sex in 1:nsex[spp]){
-          ind = ind+1
-
-          # Get sex for legend
-          legend_sex = sex
-          legend_sex2 = ifelse(sex == 1, "female", "male")
-          if(nsex[spp] == 1){
-            legend_sex <- 0
-            legend_sex2 = "combined"
-          }
-
-          plot(
-            y = NA,
-            x = NA,
-            ylim = c(ymin[spp, sex], ymax[spp,sex]),
-            xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
-            xlab = "Year",
-            ylab = paste0("M-at-age-",age),
-            xaxt = c(rep("n", sum(nsex[species]) - 1), "s")[ind]
-          )
-
-
-          # Horizontal line
-          if(incl_proj){
-            abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd  = lwd, col = "grey", lty = 2)
-          }
-
-          # Species legends
-          legend("topleft", paste0(spnames[spp], " ", legend_sex2), bty = "n", cex = 1)
-
-          # Model names legends
-          if (ind == 1) {
-            if(!is.null(model_names)){
-              legend(
-                "topright",
-                legend = model_names,
-                lty = rep(1, length(line_col)),
-                lwd = lwd,
-                col = line_col,
-                bty = "n",
-                cex = 0.72
-              )
-            }
-          }
-
-          # M-at-age
-          for (k in 1:dim(m_at_age)[4]) {
-            lines(
-              x = years[[k]],
-              y = m_at_age[spp, sex, 1:length(years[[k]]), k],
-              lty = lty[k],
-              lwd = lwd,
-              col = line_col[k]
-            ) # Median
-          }
-
-
-          # Average across time
-          if(incl_mean){
-            abline(h = mean(m_at_age[spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
-          }
-        }
-      }
-
-
-      if (i == 2) {
-        dev.off()
-      }
-    }
+    .save_ggplot(p, file = file, suffix = paste0("m_at_age", age),
+                 width = width, height = height)
   }
 
 
@@ -1874,46 +1759,25 @@ plot_m2_at_age_prop <-
            incl_mean = FALSE,
            add_ci = FALSE) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
-
-    # Convert single one into a list
-    if(inherits(Rceattle, "Rceattle")){
-      Rceattle <- list(Rceattle)
-    }
-
-    # Species names
-    if(is.null(spnames)){
-      spnames =  Rceattle[[1]]$data_list$spnames
-    }
-
-
-    # Extract data objects
-    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Rceattle <- .as_model_list(Rceattle)
+    if (is.null(spnames)) spnames <- Rceattle[[1]]$data_list$spnames
+    model_names_use <- .model_labels(Rceattle, model_names)
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    if(incl_proj){
-      years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    }
-
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    if (incl_proj) years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     nyrs_vec <- sapply(years, length)
     nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(years, min)))}
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
+    if (is.null(species)) species <- 1:nspp
 
-    if(is.null(species)){
-      species <- 1:nspp
-    }
-
-    # Get B_eaten
-    m2_at_age_prop <-
-      array(NA, dim = c(nspp, nspp, 2, nyrs, length(Rceattle)))
+    # Proportion of M2 (predation mortality) on each prey age attributable to
+    # each predator species (kept verbatim from the original extraction).
+    m2_at_age_prop <- array(NA, dim = c(nspp, nspp, 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      for(ksp in 1:nspp){
-        for(k_sex in 1:nsex[ksp]){
-          for(rsp in 1:nspp){
-            for(yr in 1:nyrs_vec[i]){
+      for (ksp in 1:nspp) {
+        for (k_sex in 1:nsex[ksp]) {
+          for (rsp in 1:nspp) {
+            for (yr in 1:nyrs_vec[i]) {
               m2_at_age_prop[rsp, ksp, k_sex, yr, i] <- sum(Rceattle[[i]]$quantities$M2_prop[c(rsp, (rsp + nspp)*(max(nsex)-1)), ksp + (nspp*(k_sex-1)),,age,yr])
             }
           }
@@ -1921,134 +1785,46 @@ plot_m2_at_age_prop <-
       }
     }
 
-    # Plot limits
-    ymax <- matrix(0, nrow = nspp, ncol = 2)
-    ymin <- matrix(0, nrow = nspp, ncol = 2)
-    for (i in 1:nspp) {
-      for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = TRUE)
-        ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = TRUE)
-      }
-    }
-    ymax <- ymax + top_adj * ymax
-
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_m2_at_age_prop",age,"_trajectory", ".png")
-        png(
-          filename = filename ,
-          width = width,
-          height = height,
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:(sum(nsex[species]) + 2), nrow = (sum(nsex[species]) + 2)), heights = c(0.1, rep(1, sum(nsex[species])), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-      ind = 0
-
-      for (j in 1:length(species)) {
-
-        spp = species[j]
-
-        for(sex in 1:nsex[spp]){
-
-          ind = ind+1
-
-          # Get sex for legend
-          legend_sex = sex
-          legend_sex2 = ifelse(sex == 1, "Female", "Male")
-          if(nsex[spp] == 1){
-            legend_sex <- 0
-            legend_sex2 = "Combined"
-          }
-
-          plot(
-            y = NA,
-            x = NA,
-            ylim = c(ymin[spp,sex], ymax[spp,sex]),
-            xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
-            xlab = "Year",
-            ylab = paste0("M-at-age-",age),
-            xaxt = c(rep("n", sum(nsex[species]) - 1), "s")[ind]
-          )
-
-          # Horizontal line
-          if(incl_proj){
-            abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd  = lwd, col = "grey", lty = 2)
-          }
-
-          # Species legends
-          legend("topleft", paste0(spnames[spp], " ", legend_sex2), bty = "n", cex = 1)
-
-          # Model names legends
-          if (ind == 1) {
-            if(!is.null(model_names)){
-              legend(
-                "topright",
-                legend = model_names,
-                lty = rep(1, length(line_col)),
-                lwd = lwd,
-                col = line_col,
-                bty = "n",
-                cex = 0.72
-              )
-            }
-          }
-
-          # Predator legend
-          if (ind == 2 | length(species) == 1) {
-            legend(
-              "topright",
-              legend = c("Predator:", spnames),
-              lty = c(NA, 1:nspp),
-              lwd = lwd,
-              col = c(0, rep(1, nspp)),
-              bty = "n",
-              cex = 1
-            )
-          }
-
-          # M-at-age
-          for (k in 1:dim(m2_at_age_prop)[5]) {
-            for(rsp in 1:nspp){
-              lines(
-                x = years[[k]],
-                y = m2_at_age_prop[rsp, spp, sex, 1:length(years[[k]]), k],
-                lty = rsp,
-                lwd = lwd,
-                col = line_col[k]
-              ) # Median
-
-              # Average across time
-              if(incl_mean){
-                abline(h = mean(m2_at_age_prop[rsp, spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = rsp)
-              }
-            }
+    # Tidy: one row per (model, prey species/sex panel, predator, year)
+    df_list <- list()
+    for (k in seq_along(Rceattle)) {
+      yrs <- years[[k]]
+      for (ksp in species) {            # prey
+        for (sex in seq_len(nsex[ksp])) {
+          panel <- if (nsex[ksp] == 1) spnames[ksp]
+                   else paste(spnames[ksp], c("Female", "Male")[sex])
+          for (rsp in seq_len(nspp)) {  # predator
+            df_list[[length(df_list) + 1L]] <- data.frame(
+              Model     = model_names_use[k],
+              Prey      = panel,
+              Predator  = spnames[rsp],
+              Year      = yrs,
+              Proportion = as.numeric(m2_at_age_prop[rsp, ksp, sex, seq_along(yrs), k]),
+              stringsAsFactors = FALSE)
           }
         }
       }
-
-
-      if (i == 2) {
-        dev.off()
-      }
     }
+    plot_df <- do.call(rbind, df_list)
+    plot_df$Predator <- factor(plot_df$Predator, levels = spnames)
+
+    p <- ggplot2::ggplot(
+      plot_df,
+      ggplot2::aes(x = .data$Year, y = .data$Proportion,
+                   colour = .data$Predator, linetype = .data$Model)) +
+      ggplot2::geom_line(linewidth = 1) +
+      ggplot2::facet_wrap(~ Prey, scales = "free_y") +
+      ggplot2::labs(x = "Year", y = paste0("M2 proportion at age ", age))
+    if (incl_proj) {
+      p <- p + ggplot2::geom_vline(
+        xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
+        linetype = 2, colour = "grey50")
+    }
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
+
+    .save_ggplot(p, file = file, suffix = paste0("m2_at_age_prop", age),
+                 width = width, height = height)
   }
 
 
