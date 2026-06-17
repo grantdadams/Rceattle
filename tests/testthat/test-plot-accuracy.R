@@ -116,3 +116,23 @@ testthat::test_that("plot_selectivity plots sel_at_age", {
   src <- as.numeric(ss$quantities$sel_at_age[1, 1, seq_len(nages1), nyrshind])
   testthat::expect_equal(d$Selectivity, src)
 })
+
+# --- mortality-at-age ---------------------------------------------------------
+testthat::test_that("plot_mortality plots M(1+2)-at-age", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("BS2017MS")
+  ms <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017MS, estimateMode = 3, msmMode = 1,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  p <- Rceattle::plot_mortality(ms)  # default M2 = TRUE -> M2_at_age
+  testthat::expect_s3_class(p, "ggplot")
+  sp1 <- ms$data_list$spnames[1]
+  nages1 <- ms$data_list$nages[1]
+  d <- p$data[p$data$Species == sp1 & p$data$Year == ms$data_list$styr, ]
+  d <- d[order(d$Age), ]
+  src <- as.numeric(ms$quantities$M2_at_age[1, 1, seq_len(nages1), 1])
+  testthat::expect_equal(d$M, src)
+})

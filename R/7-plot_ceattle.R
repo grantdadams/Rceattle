@@ -922,7 +922,7 @@ plot_mortality <-
            file = NULL,
            incl_proj = FALSE,
            zlim = NULL,
-           type = 0,
+           type = "lines",
            width = 8,
            height = 5.5,
            title = NULL,
@@ -934,180 +934,81 @@ plot_mortality <-
            title_cex = 10,
            M2 = TRUE) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
+    Rceattle <- .as_model_list(Rceattle)
+    if (length(Rceattle) > 1) stop("Can only plot one model")
+    dl <- Rceattle[[1]]$data_list
 
-    # Convert single one into a list
-    if(inherits(Rceattle, "Rceattle")){
-      Rceattle <- list(Rceattle)
-    }
+    if (is.null(minyr)) minyr <- dl$styr
+    endyr <- if (incl_proj) dl$projyr else dl$endyr
+    years <- minyr:endyr
+    nyrs  <- length(years)
 
-    if(length(Rceattle) > 1){
-      stop("Can only plot one model")
-    }
+    nspp        <- dl$nspp
+    spnames     <- dl$spnames
+    estdynamics <- dl$estDynamics
+    nages       <- dl$nages
+    if (!is.null(maxage)) nages <- pmin(nages, maxage)
+    minage <- dl$minage
+    nsex   <- dl$nsex
+    if (is.null(species)) species <- seq_len(nspp)
+    spp <- intersect(species, seq_len(nspp))
 
-    # Extract data objects
-    if(is.null(minyr)){ minyr <- Rceattle[[1]]$data_list$styr}
+    # M-at-age over the selected years: M1 only (M2 = FALSE) or M1 + M2.
+    yr_idx <- seq_len(nyrs) + (minyr - dl$styr)
+    Msrc <- if (M2) Rceattle[[1]]$quantities$M2_at_age
+            else    Rceattle[[1]]$quantities$M1_at_age
 
-    years <- minyr:Rceattle[[1]]$data_list$endyr
-    if(incl_proj){
-      years <- minyr:Rceattle[[1]]$data_list$projyr
-    }
-    nyrs_vec <- length(years)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(years, max)))
-
-    nspp <- Rceattle[[1]]$data_list$nspp
-    spnames <- Rceattle[[1]]$data_list$spnames
-    estdynamics <- Rceattle[[1]]$data_list$estDynamics
-    nages <- Rceattle[[1]]$data_list$nages
-
-    if(!is.null(maxage)){
-      nages <- sapply(nages, function(x) ifelse(x > maxage, maxage, x))
-    }
-
-
-    minage <- Rceattle[[1]]$data_list$minage
-    nsex <- Rceattle[[1]]$data_list$nsex
-
-    # Get M
-    M_array <-
-      array(NA, dim = c(nspp, max(nsex), max(nages), nyrs, length(Rceattle)))
-    M1_array <-
-      array(NA, dim = c(nspp, max(nsex), max(nages), nyrs, length(Rceattle)))
-    for (i in 1:length(Rceattle)) {
-      M1_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
-      if(!M2){
-        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
-      } else {
-        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M2_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
-      }
-    }
-
-    if(log){
-      M1_array = log(M1_array)
-      M_array = log(M_array)
-    }
-
-    # Plot limits
-    zmax <- c()
-    zmin <- c()
-    for (i in 1:dim(M_array)[1]) {
-      zmax[i] <- max(c(M_array[i,,,,], 0), na.rm = TRUE)
-      zmin[i] <- min(c(M_array[i,,,,], 0), na.rm = TRUE)
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-
-    #################################
-    # Mortality time series
-    #################################
-    if(is.null(species)){
-      species <- 1:nspp
-    }
-    spp <- species
-
-
-    # Species
-    for(j in 1:nspp){
-      sp <- j
-
-      if(estdynamics[j] == 0 & sp %in% spp){
-
-        # Sexes
-        for(sex in 1:nsex[sp]){
-
-          # Get sex for legend
-          legend_sex = sex
-          legend_sex2 = ifelse(sex == 1, "Female", "Male")
-          if(nsex[sp] == 1){
-            legend_sex <- 0
-            legend_sex2 = "Combined"
-          }
-
-          # Save
-          for (i in 1:loops) {
-            if (i == 2) {
-              filename <- paste0(file, "predation_and_residual_mortality_spp_",sp,"_sex_",legend_sex2,".png")
-              png(
-                filename = filename ,
-                width = width,
-                height = height,
-                units = "in",
-                res = 300
-              )
-            }
-
-            # Subset mortality data
-            m_subset <- (M_array[j, sex, (1:nages[sp]), 1:nyrs, 1])
-
-            # Get ages
-            ages <- (1:(nages[sp])) - 1 + minage[sp]
-
-            # Rearrange data
-            data <- data.frame(Year = rep(years, each = length(ages)), Age = rep(ages, length(years)), M = c(m_subset))
-
-            # Resolve per-species plot limits without mutating the zlim parameter
-            zlim_sp <- if (is.null(zlim)) {
-              c(zmin[sp], zmax[sp])
-            } else if (is.character(zlim)) {
-              c(min(zmin), max(zmax))
-            } else {
-              zlim
-            }
-
-            # Plot as tiles
-            if(type == 0){
-              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
-              if(!is.null(title)){
-                p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
-              }
-              if(log){
-                p = p + scale_fill_viridis_c("log(M1 + M2)", limits = c(zlim_sp[1], zlim_sp[2]))
-              } else {
-                p = p + scale_fill_viridis_c("M1 + M2", limits = c(zlim_sp[1], zlim_sp[2]))
-              }
-              print(p)
-            }
-
-
-            # Plot as contours
-            if(type == 1){
-              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_contour(colour = 1, linewidth = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1)) + scale_fill_viridis_d("M1 + M2"))
-            }
-
-            # Plot as facets
-            if(type == 2){
-              p = ggplot(data=data, aes(x=Year, y = M, colour = Age, group = Age)) + theme( panel.border = element_rect(colour = "black", fill=NA, linewidth=1), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) + geom_line(linewidth = 2) + scale_color_viridis_c("Age")
-              print(p)
-            }
-
-            # Plot as persp
-            if(type == 3){
-              par( mar=c(1 , 2 , 1 , 1) , tcl=-.25 , mgp=c(2 ,  1 ,  0) ,  oma=c(0 , 2 , 0 , 0))
-              pmat = persp(y = years, x = ages, z = m_subset, zlab = NA, zlim = zlim_sp, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
-              mtext(ifelse(M2, "M2", "M"), side = 2, line = 0.5, at = 0)
-              if(M2){
-                text(-0.25,.15, labels = paste0("M1 = ",round((M1_array[j, sex, 1, 1, 1]), 3)))
-              }
-
-
-              if(nsex[sp] == 1){
-                mtext(paste0(title,": ",spnames[j]), side = 3, line = -2, at = 0)
-              }
-              if(nsex[sp] == 2){
-                mtext(paste0(title,": ",spnames[j], " ",legend_sex2), side = 3, line = -2, at = 0)
-              }
-            }
-
-            if (i == 2) {
-              dev.off()
-            }
-          }
+    df_list <- list()
+    for (sp in spp) {
+      if (estdynamics[sp] != 0) next
+      ages <- seq_len(nages[sp]) - 1 + minage[sp]
+      for (sex in seq_len(nsex[sp])) {
+        sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
+        for (yi in seq_along(years)) {
+          val <- as.numeric(Msrc[sp, sex, seq_len(nages[sp]), yr_idx[yi]])
+          df_list[[length(df_list) + 1L]] <- data.frame(
+            Species = spnames[sp], Sex = sex_lab,
+            Age = ages, Year = years[yi],
+            M = if (log) log(val) else val,
+            stringsAsFactors = FALSE)
         }
       }
     }
+    plot_df <- do.call(rbind, df_list)
+    plot_df$Species <- factor(plot_df$Species, levels = spnames[spp])
+    ylab <- if (M2) "M1 + M2" else "M1"
+    if (log) ylab <- paste0("log(", ylab, ")")
+
+    if (identical(type, "heatmap") || identical(type, 0)) {
+      # Age x year heatmap, faceted by species
+      p <- ggplot2::ggplot(plot_df,
+                           ggplot2::aes(x = .data$Year, y = .data$Age,
+                                        fill = .data$M)) +
+        ggplot2::geom_tile() +
+        ggplot2::facet_wrap(~ Species) +
+        ggplot2::scale_fill_viridis_c(ylab) +
+        ggplot2::labs(x = "Year", y = "Age") +
+        .rceattle_theme()
+    } else {
+      # Year-coloured M-at-age curves (standard), faceted by species
+      p <- ggplot2::ggplot(
+        plot_df,
+        ggplot2::aes(x = .data$Age, y = .data$M,
+                     group = interaction(.data$Year, .data$Sex),
+                     colour = .data$Year, linetype = .data$Sex)) +
+        ggplot2::geom_line() +
+        ggplot2::facet_wrap(~ Species, scales = "free_y") +
+        ggplot2::scale_colour_viridis_c("Year") +
+        ggplot2::labs(x = "Age", y = ylab) +
+        .rceattle_theme()
+      if (length(unique(plot_df$Sex)) < 2L) {
+        p <- p + ggplot2::guides(linetype = "none")
+      }
+    }
+    if (!is.null(title)) p <- p + ggplot2::ggtitle(title)
+
+    .save_ggplot(p, file = file, suffix = "mortality_at_age",
+                 width = width, height = height)
   }
 
 
