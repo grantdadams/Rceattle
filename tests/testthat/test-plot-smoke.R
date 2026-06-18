@@ -45,6 +45,7 @@ testthat::test_that("single-species plotters run on a fitted model", {
     testthat::expect_no_error(Rceattle::plot_selectivity_vs_maturity(ss))
     testthat::expect_no_error(Rceattle::plot_maturity(ss))
     testthat::expect_no_error(Rceattle::plot_mortality(ss))
+    testthat::expect_no_error(Rceattle::plot_stock_recruit(ss))
     testthat::expect_no_error(Rceattle::plot_data(ss))
     testthat::expect_no_error(Rceattle::plot_comp(ss))
 

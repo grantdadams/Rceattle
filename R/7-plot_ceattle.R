@@ -875,20 +875,32 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
     }
   }
 
-  response_reshape <- reshape2::melt(response, id.vars = c("Pred_r", "Prey_r"), measure.vars = "Response")
-  colnames(response_reshape) <- c("Pred_r", "Prey_r", "Response")
+  df <- reshape2::melt(response)
+  colnames(df) <- c("Pred_r", "Prey_r", "Response")
+  df$Pred_r <- as.numeric(as.character(df$Pred_r))
+  df$Prey_r <- as.numeric(as.character(df$Prey_r))
 
-  if(msmMode %in% c(2, 3, 4, 7)){
-    plot(x = response_reshape$Prey_r, y = response_reshape$Response, xlab = "Prey ratio", ylab = "Functional response", type = "l")
+  if (msmMode %in% c(2, 3, 4, 7)) {
+    # functional response depends on the prey ratio only
+    d <- stats::aggregate(Response ~ Prey_r, data = df, FUN = mean)
+    p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$Prey_r, y = .data$Response)) +
+      ggplot2::geom_line(linewidth = 1) +
+      ggplot2::labs(x = "Prey ratio", y = "Functional response")
+  } else if (msmMode == 8) {
+    d <- stats::aggregate(Response ~ Pred_r, data = df, FUN = mean)
+    p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$Pred_r, y = .data$Response)) +
+      ggplot2::geom_line(linewidth = 1) +
+      ggplot2::labs(x = "Predator ratio", y = "Functional response")
+  } else if (msmMode %in% c(5, 6)) {
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$Prey_r, y = .data$Pred_r,
+                                          fill = .data$Response)) +
+      ggplot2::geom_raster() +
+      ggplot2::scale_fill_viridis_c("Functional\nresponse") +
+      ggplot2::labs(x = "Prey ratio", y = "Predator ratio")
+  } else {
+    stop("msmMode not implemented: ", msmMode)
   }
-
-  if(msmMode %in% c(8)){
-    plot(x = response_reshape$Pred_r, y = response_reshape$Response, xlab = "Pred ratio", ylab = "Functional response", type = "l")
-  }
-
-  if(msmMode %in% c(5, 6)){
-    filled.contour(response, xlab = "Prey ratio", ylab = "Predator ratio", col = oce.colorsDensity(30))
-  }
+  p + .rceattle_theme()
 }
 
 

@@ -96,6 +96,27 @@ testthat::test_that("plot_maturity plots data_list$maturity at age", {
   testthat::expect_equal(d$Maturity, src)
 })
 
+# --- stock-recruit ------------------------------------------------------------
+testthat::test_that("plot_stock_recruit plots SSB vs recruitment", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  p <- Rceattle::plot_stock_recruit(ss)
+  testthat::expect_s3_class(p, "ggplot")
+  sp1 <- ss$data_list$spnames[1]
+  nyr <- ss$data_list$endyr - ss$data_list$styr + 1L
+  d <- p$data[p$data$Species == sp1, ]   # points layer data (SSB, R)
+  testthat::expect_equal(sort(d$SSB),
+                         sort(as.numeric(ss$quantities$ssb[1, seq_len(nyr)] / 1e6)))
+  testthat::expect_equal(sort(d$R),
+                         sort(as.numeric(ss$quantities$R[1, seq_len(nyr)] / 1e6)))
+})
+
 # --- selectivity --------------------------------------------------------------
 testthat::test_that("plot_selectivity plots sel_at_age", {
   testthat::skip_if_not_installed("TMB")
