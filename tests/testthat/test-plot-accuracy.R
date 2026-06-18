@@ -146,4 +146,13 @@ testthat::test_that("plot_mortality plots M(1+2)-at-age", {
   d2 <- d2[order(d2$Year), ]
   src2 <- as.numeric(ms$quantities$M_at_age[1, 1, 1, seq_len(nyr)])
   testthat::expect_equal(d2$M[seq_len(nyr)], src2)
+
+  # plot_b_eaten: total biomass eaten as prey == sum of B_eaten_as_prey
+  pb <- Rceattle::plot_b_eaten(ms)
+  testthat::expect_s3_class(pb, "ggplot")
+  be <- ms$quantities$B_eaten_as_prey
+  tot1 <- apply(be[, , , seq_len(nyr), drop = FALSE], c(1, 4), sum)[1, ]
+  db <- pb$data[pb$data$Species == sp1, ]
+  db <- db[order(db$Year), ]
+  testthat::expect_equal(db$value[seq_len(nyr)], as.numeric(tot1))
 })

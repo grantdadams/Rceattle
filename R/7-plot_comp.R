@@ -249,6 +249,7 @@ plot_diet_comp <-
 
     # Get colors
     colvec=c("red", "blue", "black")
+    plots <- list()  # collected per predator/prey/year cowplot grids
 
     # * Extract data objects ----
     # Diet observed proportions, fitted, and the Pearson residual all come from
@@ -329,6 +330,7 @@ plot_diet_comp <-
               ggplot2::theme(legend.position = c(0.25, 0.8))
 
             p1 <- cowplot::plot_grid(plot_obs, plot_est, plot_pear, nrow = 1)
+            plots[[length(plots) + 1L]] <- p1
             print(p1)
 
             if (!is.null(file)) {
@@ -339,4 +341,5 @@ plot_diet_comp <-
         }
       }
     }
+    invisible(plots)
   }
