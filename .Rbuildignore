@@ -2,6 +2,8 @@
 ^\.Rproj\.user$
 ^\.Rhistory$
 ^\.claude$
+^\.mcp\.json$
+^CLAUDE\.md$
 ^doc$
 ^Meta$
 ^examples$
