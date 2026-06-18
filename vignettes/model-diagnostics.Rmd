@@ -118,11 +118,11 @@ plot_comp(model_1)
 
 ### Survey indices
 
-`plot_index()` and `plot_logindex()` show observed vs. predicted survey biomass on the natural and log scales, respectively. `plot_indexresidual()` plots the log-scale residuals — a useful first check for time trends or heteroscedasticity.
+`plot_index()` shows observed vs. predicted survey biomass; pass `log = TRUE` for the log scale. `plot_indexresidual()` plots the log-scale residuals — a useful first check for time trends or heteroscedasticity. These return `ggplot` objects.
 
 ```{r}
 plot_index(model_1)
-plot_logindex(model_1)
+plot_index(model_1, log = TRUE)
 plot_indexresidual(model_1)
 ```
 

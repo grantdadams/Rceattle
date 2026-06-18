@@ -92,7 +92,7 @@
 #' @param incl_proj Include projection years.
 #' @param width,height Saved figure size (inches).
 #' @param error Draw observed points and error bars.
-#' @param log Plot on the log scale (replaces the former `plot_logindex()`).
+#' @param log Plot the index on the log scale.
 #' @param line_col,right_adj,top_adj,single.plots Deprecated base-graphics
 #'   arguments, retained for back-compatibility and ignored.
 #' @return A `ggplot` object.
@@ -202,18 +202,6 @@ plot_catch <- function(Rceattle,
                          single_model = nlevels(df$Model) < 2L)
   .save_ggplot(p, file = file, suffix = "fishery_catch",
                width = width, height = height)
-}
-
-
-#' log(survey index) fits (deprecated)
-#'
-#' Deprecated. Use `plot_index(..., log = TRUE)`.
-#' @inheritParams plot_index
-#' @return A `ggplot` object.
-#' @export
-plot_logindex <- function(Rceattle, ...) {
-  .Deprecated("plot_index(log = TRUE)")
-  plot_index(Rceattle, ..., log = TRUE)
 }
 
 

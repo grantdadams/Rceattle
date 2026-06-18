@@ -307,7 +307,7 @@ Pop / mortality / fit / predation / biology plots — all named after the
 quantity they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`,
 `plot_depletion`, `plot_depletionSSB`, `plot_exploitable_biomass`,
 `plot_catch`, `plot_f`, `plot_mortality`, `plot_m_at_age`,
-`plot_m2_at_age_prop`, `plot_index`, `plot_logindex`,
+`plot_m2_at_age_prop`, `plot_index`,
 `plot_indexresidual`, `plot_comp`, `plot_data`, `plot_form`,
 `plot_b_eaten`, `plot_b_eaten_prop`, `plot_diet_comp`, `plot_ration`,
 `plot_selectivity`, `plot_selectivity_vs_maturity`, `plot_maturity`,
