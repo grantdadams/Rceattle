@@ -33,7 +33,6 @@ Imports:
     TMB (>= 1.7.16),
     writexl,
     reshape2,
-    gplots,
     parallel,
     tidyr,
     R.utils,
