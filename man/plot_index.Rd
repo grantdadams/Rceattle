@@ -36,7 +36,7 @@ plot_index(
 
 \item{error}{Draw observed points and error bars.}
 
-\item{log}{Plot on the log scale (replaces the former \code{plot_logindex()}).}
+\item{log}{Plot the index on the log scale.}
 
 \item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
 arguments, retained for back-compatibility and ignored.}

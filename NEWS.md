@@ -1,3 +1,39 @@
+# Rceattle 4.7.0
+
+## New features
+
+* The plotting functions have been overhauled to **ggplot2**. Every exported
+  `plot_*()` function now builds its figure with ggplot2 (a colourblind-safe
+  viridis palette and `theme_classic`) and **returns the `ggplot` object**, so
+  plots print when called interactively and can be further customised
+  (`plot_biomass(fit) + ggplot2::ggtitle(...)`) or saved with `ggplot2::ggsave()`.
+  Pass `file = "stem"` to also write the figure to `stem_<plot>.png`. Plot
+  conventions follow r4ss / WHAM / SAM (line + 95% ribbon time series; observed
+  points + error bars + predicted line for index/catch fits; year-coloured
+  at-age curves for selectivity and mortality surfaces).
+* `plot_index()` gains a `log` argument for the log-scale survey-index fit.
+* `plot_stock_recruit()` adds a 95% data ellipse of the SSB–recruitment cloud
+  (`add_ci`, default `TRUE`).
+* The test suite is reorganised into a flat, navigable `tests/testthat/` (see
+  the new `tests/testthat/README.md`), runs fully under continuous integration,
+  and has automated code-coverage reporting.
+
+## Breaking changes
+
+* `plot_*()` functions now **return a `ggplot` object** instead of drawing as a
+  base-graphics side effect (returning `NULL`). Scripts that only called them
+  for the side effect still work (the object prints); scripts that depended on
+  the base-graphics device state or on a `NULL` return may need updating.
+* `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
+* The `gplots` dependency has been dropped (no longer used).
+
+## Bug fixes
+
+* `plot_maturity()` read a non-existent `pmature` field and errored on real
+  fits; it now reads `data_list$maturity`.
+* `plot_ration()` failed for single-sex models (a dropped array dimension); the
+  sex dimension is now indexed explicitly.
+
 # Rceattle 4.6.0
 
 ## New features
