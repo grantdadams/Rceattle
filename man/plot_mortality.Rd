@@ -9,7 +9,7 @@ plot_mortality(
   file = NULL,
   incl_proj = FALSE,
   zlim = NULL,
-  type = 0,
+  type = "lines",
   width = 8,
   height = 5.5,
   title = NULL,
