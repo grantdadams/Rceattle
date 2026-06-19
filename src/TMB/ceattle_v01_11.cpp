@@ -6,7 +6,20 @@
 #if defined(__clang__)
 # pragma clang diagnostic pop
 #endif
+
+// Suppress the spurious GCC/Eigen -Warray-bounds false positives emitted when
+// Eigen's vectorized reductions inline TMB's multi-dimensional array indexing
+// (e.g. the 5-D suitability(...) access in predation.hpp). The index math is
+// correct -- this is a well-known GCC/Eigen false positive, not a bug here. We
+// do this as a source pragma rather than a -Wno-array-bounds compiler flag so
+// CRAN's "checking compilation flags used" stays clean; real diagnostics (e.g.
+// -Wmaybe-uninitialized) still surface.
+#if defined(__GNUC__)
+# pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 #include "helper_functions.hpp"
+#include "comp_osa.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"
 #include "recruitment.hpp"
@@ -234,6 +247,32 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
+
+  // -- 2.4.2b One-step-ahead (OSA) residual support
+  // `obsvec` is a flat vector holding every observation that enters the
+  // likelihood: log catch and log index (aggregate series), the bin counts of
+  // each comp / caal composition, and each stomach's diet composition. `keep`
+  // is the companion indicator used by TMB::oneStepPredict(): during normal
+  // model fitting it defaults to all ones, so the likelihood is numerically
+  // unchanged; oneStepPredict() toggles individual elements to compute
+  // one-step-ahead residuals. The `*_obsvec_idx` vectors give, for each row of
+  // the corresponding `*_obs` matrix, that observation's 0-based position in
+  // `obsvec` (for compositions, the start position of the row's bins), or -1
+  // when the row is excluded from the likelihood (e.g. projection years or
+  // non-positive observations).
+  // `osa_mode` (0 = normal fitting, the default) switches the composition /
+  // caal / diet branches to a proper, unweighted, keep-gated density suitable
+  // for OSA residuals; it does not alter the aggregate (catch/index) likelihood,
+  // which reads from `obsvec` identically in both modes.
+  DATA_VECTOR( obsvec );                    // Flat observations for OSA residuals
+  DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
+  DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)
+  DATA_IVECTOR( index_obsvec_idx );         // obsvec position for each index_obs row (-1 = excluded)
+  DATA_IVECTOR( comp_obsvec_idx );          // obsvec start position for each comp_obs row's bins (-1 = excluded)
+  DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
+  DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
+  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
@@ -1944,14 +1983,14 @@ Type objective_function<Type>::operator() () {
 
             switch(flt_type(flt)){
             case 1: // - Fishery
-              if(flt_sel_type(flt) == 1){ // Length based
+              if(flt_sel_dim(flt) == 1){ // Length based
                 pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
 
 
             case 2: // - Survey
-              if(flt_sel_type(flt) == 1){ // Length based
+              if(flt_sel_dim(flt) == 1){ // Length based
                 pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
@@ -2225,14 +2264,14 @@ Type objective_function<Type>::operator() () {
 
       switch(flt_type(flt)){
       case 1: // - Fishery
-        if(flt_sel_type(flt) == 1){
+        if(flt_sel_dim(flt) == 1){
           pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
         }
         break;
 
 
       case 2: // - Survey
-        if(flt_sel_type(flt) == 1){
+        if(flt_sel_dim(flt) == 1){
           pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * growth_matrix(wtind,  sex, age, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) ;
         }
         break;
@@ -2362,7 +2401,12 @@ Type objective_function<Type>::operator() () {
     // Only include years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
       if(index_obs(index_ind) > 0){
-        jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+        // Read the (log) observation from obsvec and gate it with keep so that
+        // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
+        // fitting) and obsvec(pos) == log(index_obs) this equals the original
+        // lognormal likelihood exactly.
+        int pos = index_obsvec_idx(index_ind);
+        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -2394,7 +2438,11 @@ Type objective_function<Type>::operator() () {
     // Add only years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1)){
       if(catch_obs(fsh_ind, 0) > 0){
-        jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        // Read the (log) observation from obsvec and gate it with keep for OSA
+        // residuals (see the index slot above). With keep == 1 and
+        // obsvec(pos) == log(catch_obs) this equals the original likelihood.
+        int pos = catch_obsvec_idx(fsh_ind);
+        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
         // Martin's
         // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
@@ -2403,6 +2451,11 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 2 -- Age/length composition
+  // Small proportion offset added to obs/pred comps before the multinomial to avoid log(0).
+  // Supplied as data (DATA_SCALAR comp_offset) so it is set from R via
+  // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
+  // offset, so fitting and OSA residuals stay consistent.
+  Type comp_prop_offset = comp_offset;
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -2432,8 +2485,8 @@ Type objective_function<Type>::operator() () {
     vector<Type> comp_hat_tmp = comp_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
 
     // Add offset (for some reason can't do above in single line....)
-    comp_obs_tmp += 0.00001;
-    comp_hat_tmp += 0.00001;
+    comp_obs_tmp += comp_prop_offset;
+    comp_hat_tmp += comp_prop_offset;
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
@@ -2443,27 +2496,46 @@ Type objective_function<Type>::operator() () {
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (comp_n(comp_ind, 1) > 0)){
 
-      switch(comp_ll_type(flt)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from comp_obs (unchanged) ----
+        switch(comp_ll_type(flt)){
 
-      case -1:
-        for(ln = 0; ln < n_comp; ln++) {
-          // Martin's
-          jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-          unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+        case -1:
+          for(ln = 0; ln < n_comp; ln++) {
+            // Martin's
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
+            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+          }
+          break;
+
+        case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
+          data_indicator<vector<Type>, Type> keep_ones(comp_obs_tmp, true);
+          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(2, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          break;
         }
-        break;
 
-      case 0:  // Full multinomial
-        jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-        unweighted_jnll_comp(2, flt) -= dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-        break;
-
-      case 1:  // Dirichlet-multinomial
-        jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-        unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
-        break;
-      default:
-        error("Invalid 'comp_ll_type'");
+        case 1:  // Dirichlet-multinomial
+          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
+          break;
+        default:
+          error("Invalid 'comp_ll_type'");
+        }
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec so oneStepPredict() can residualize each bin. The AFSC
+        // pseudo-likelihood (-1) has no proper density, so it is residualized
+        // under the full multinomial. ----
+        int start = comp_obsvec_idx(comp_ind);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_comp);
+          if(comp_ll_type(flt) == 1){     // Dirichlet-multinomial (uses fitted DM par)
+            jnll_comp(2, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
+          } else {                        // multinomial (cases 0 and -1)
+            jnll_comp(2, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
+          }
+        }
       }
     }
   }
@@ -2492,8 +2564,8 @@ Type objective_function<Type>::operator() () {
     vector<Type> caal_hat_tmp = caal_hat.row(caal_ind).segment(0, n_caal); // Expected proportion
 
     // Add offset (for some reason can't do above in single line....)
-    caal_obs_tmp += 0.00001;
-    caal_hat_tmp += 0.00001;
+    caal_obs_tmp += comp_prop_offset;
+    caal_hat_tmp += comp_prop_offset;
 
     // Convert observed prop to observed numbers
     caal_obs_tmp *= caal_n(caal_ind, 0);
@@ -2503,19 +2575,38 @@ Type objective_function<Type>::operator() () {
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (caal_n(caal_ind, 0) > 0)){
 
-      switch(caal_ll_type(flt)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from caal_obs (unchanged) ----
+        // NOTE: the unweighted bookkeeping below previously wrote to slot 2
+        // (the comp slot) instead of slot 3; corrected here to slot 3.
+        switch(caal_ll_type(flt)){
 
-      case 0:  // Full multinomial
-        jnll_comp(3, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
-        unweighted_jnll_comp(2, flt) -= dmultinom(caal_obs_tmp, caal_hat_tmp, true);
-        break;
+        case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
+          data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);
+          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(3, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          break;
+        }
 
-      case 1:  // Dirichlet-multinomial
-        jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
-        unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
-        break;
-      default:
-        error("Invalid 'caal_ll_type'");
+        case 1:  // Dirichlet-multinomial
+          jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
+          break;
+        default:
+          error("Invalid 'caal_ll_type'");
+        }
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec (alpha total uses the fixed caal_obs counts, not obsvec). ----
+        int start = caal_obsvec_idx(caal_ind);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_caal);
+          if(caal_ll_type(flt) == 1){     // Dirichlet-multinomial
+            jnll_comp(3, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
+          } else {                        // multinomial
+            jnll_comp(3, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
+          }
+        }
       }
     }
   }
@@ -2895,15 +2986,17 @@ Type objective_function<Type>::operator() () {
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
+    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
     if(initMode > 1){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
+    // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
@@ -3269,25 +3362,42 @@ Type objective_function<Type>::operator() () {
       vector<Type> unweighted_diet_alphas = pred_diet_prop * N_s; // For "unweighted" likelihood (DM_diet_par = 1)
 
       // Likelihood
-      switch(diet_ll_type(rsp)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from diet_obs (unchanged) ----
+        switch(diet_ll_type(rsp)){
 
-      case 0:  // Full multinomial
-        stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+        case 0:  // Full multinomial
+          stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
 
-        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
-        break;
-      case 1:  // Dirichlet-multinomial
-        // Calculate the log-likelihood
-        stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
-        unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
+          unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
+          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+          break;
+        case 1:  // Dirichlet-multinomial
+          // Calculate the log-likelihood
+          stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
+          unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
 
-        unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
-        jnll_comp(18, rsp) -= stomach_log_likelihood;
-        break;
+          unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
+          jnll_comp(18, rsp) -= stomach_log_likelihood;
+          break;
 
-      default:
-        error("Invalid 'diet_ll_type'");
+        default:
+          error("Invalid 'diet_ll_type'");
+        }
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec. The diet composition for a stomach is its prey items plus an
+        // "other prey" category (the last bin, fixed by sum-to-1 and dropped).
+        // diet_obsvec_idx gives the obsvec start for this stomach. ----
+        int start = diet_obsvec_idx(i);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_prey + 1);
+          if(diet_ll_type(rsp) == 1){   // Dirichlet-multinomial (fitted DM par)
+            jnll_comp(18, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
+          } else {                      // multinomial
+            jnll_comp(18, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
+          }
+        }
       }
     }
   }

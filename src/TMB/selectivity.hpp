@@ -41,7 +41,9 @@ void normalize_and_project_selectivity(
     const vector<int>&  sel_norm_bin2,
     array<Type> &selectivity // Modified by reference
 ) {
-  Type max_sel; // Local declaration for safety
+  Type max_sel = 0; // Local declaration for safety (initialized to silence
+                    // -Wmaybe-uninitialized; always overwritten before use in
+                    // the normalization branches below)
 
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);

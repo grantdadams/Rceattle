@@ -659,7 +659,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
   mod_list <- mod_list[!sapply(mod_list, is.null)]
 
   # Plot ----
-  jnll <- sapply(mod_list, function(x) x$quantities$jnll)
+  jnll <- sapply(mod_list, function(x) x$opt$objective)
   # plot(x = 1:length(jnll), y = jnll)
   if (length(mod_list) > 0) {
     names(mod_list) <- paste0("Jitter_", seq_along(mod_list))
@@ -835,7 +835,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   mod_list <- mod_list[!sapply(mod_list, is.null)]
 
   # Plot ----
-  jnll <- sapply(mod_list, function(x) x$quantities$jnll)
+  jnll <- sapply(mod_list, function(x) x$opt$objective)
   # plot(x = 1:length(jnll), y = jnll)
   if (length(mod_list) > 0) {
     names(mod_list) <- paste0("Sim_", seq_along(mod_list))
@@ -910,6 +910,8 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param ... Unused; present for consistency with the \code{stats::profile}
+#'   generic.
 #'
 #' @return A list with elements:
 #'   \describe{
@@ -920,7 +922,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'       \code{transform}); one column per profiled cell, named
 #'       \code{slot_1}, \code{slot_2}, ...}
 #'     \item{nll}{numeric vector of joint negative log-likelihoods
-#'       (\code{quantities$jnll}); \code{NA} where the fit did not
+#'       (\code{opt$objective}); \code{NA} where the fit did not
 #'       converge.}
 #'     \item{param}{the profiled parameter name (echoed).}
 #'     \item{slots}{the slots list (echoed for downstream plotting).}
@@ -971,7 +973,8 @@ profile.Rceattle <- function(fitted = NULL,
                           slots = NULL,
                           values = NULL,
                           transform = "log",
-                          cores = NULL) {
+                          cores = NULL,
+                          ...) {
 
   # -- Input validation ----
   if (!inherits(fitted, "Rceattle")) {
@@ -1132,6 +1135,7 @@ profile.Rceattle <- function(fitted = NULL,
 
     inits     <- fitted$estimated_params
     data_list <- fitted$data_list
+    map_obj <- fitted$map
 
     # Substitute fixed values at each profiled cell
     for (k in seq_along(slots)) {
@@ -1140,13 +1144,7 @@ profile.Rceattle <- function(fitted = NULL,
                                   trans_fun(grid[i, k]))
     }
 
-    # Build the default map, then force profiled cells to NA
-    map_obj <- Rceattle::build_map(
-      data_list,
-      params     = inits,
-      debug      = FALSE,
-      random_rec = isTRUE(data_list$random_rec)
-    )
+    # Force profiled cells to NA
     for (k in seq_along(slots)) {
       map_obj$mapList[[param]] <- assign_at(map_obj$mapList[[param]],
                                             slots[[k]],
@@ -1246,7 +1244,7 @@ profile.Rceattle <- function(fitted = NULL,
 
   # NLL aligned with grid; NA for non-converged
   nll <- vapply(mod_list,
-                function(x) if (is.null(x)) NA_real_ else x$quantities$jnll,
+                function(x) if (is.null(x)) NA_real_ else x$opt$objective,
                 numeric(1))
 
   names(mod_list) <- paste0("Fit_", seq_len(ngrid))

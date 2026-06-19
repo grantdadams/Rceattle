@@ -1,3 +1,212 @@
+# Rceattle 4.7.0
+
+## New features
+
+* The plotting functions have been overhauled to **ggplot2**. Every exported
+  `plot_*()` function now builds its figure with ggplot2 (a colourblind-safe
+  viridis palette and `theme_classic`) and **returns the `ggplot` object**, so
+  plots print when called interactively and can be further customised
+  (`plot_biomass(fit) + ggplot2::ggtitle(...)`) or saved with `ggplot2::ggsave()`.
+  Pass `file = "stem"` to also write the figure to `stem_<plot>.png`. Plot
+  conventions follow r4ss / WHAM / SAM (line + 95% ribbon time series; observed
+  points + error bars + predicted line for index/catch fits; year-coloured
+  at-age curves for selectivity and mortality surfaces).
+* `plot_index()` gains a `log` argument for the log-scale survey-index fit.
+* `plot_stock_recruit()` adds a 95% data ellipse of the SSB–recruitment cloud
+  (`add_ci`, default `TRUE`).
+* The test suite is reorganised into a flat, navigable `tests/testthat/` (see
+  the new `tests/testthat/README.md`), runs fully under continuous integration,
+  and has automated code-coverage reporting.
+
+## Breaking changes
+
+* `plot_*()` functions now **return a `ggplot` object** instead of drawing as a
+  base-graphics side effect (returning `NULL`). Scripts that only called them
+  for the side effect still work (the object prints); scripts that depended on
+  the base-graphics device state or on a `NULL` return may need updating.
+* `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
+* The `gplots` dependency has been dropped (no longer used).
+
+## Bug fixes
+
+* `plot_maturity()` read a non-existent `pmature` field and errored on real
+  fits; it now reads `data_list$maturity`.
+* `plot_ration()` failed for single-sex models (a dropped array dimension); the
+  sex dimension is now indexed explicitly.
+
+# Rceattle 4.6.0
+
+## New features
+
+* Added one-step-ahead (OSA) residuals for model validation via the new
+  exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
+  Unlike Pearson residuals, OSA residuals are iid standard normal under a
+  correctly specified model even for correlated composition data. All fitted
+  observation types are supported: survey indices, fishery catch, age/length
+  composition, conditional age-at-length, and predator diet (stomach-content)
+  composition. Composition data are residualized with the conditional binomial
+  / beta-binomial decomposition (multinomial / Dirichlet-multinomial), and the
+  `MultinomialAFSC` likelihood is residualized under the full multinomial. The
+  fitted objective is unchanged: a new `obsvec`/`keep`/`osa_mode` machinery
+  feeds `TMB::oneStepPredict()` while leaving normal fitting bit-for-bit
+  identical. The `oneStepPredict()` call is split by observation type so the
+  continuous (lognormal) index/catch series and the composition series can be
+  residualized with the correct settings; `discrete = TRUE` treats composition
+  as discrete (randomized quantile residuals; Dunn and Smyth 1996) while the
+  aggregate series stay continuous.
+* `fit_control()` gains `comp_offset`, the small proportion offset added to the
+  observed and predicted age/length composition and conditional-age-at-length
+  bins before the multinomial / Dirichlet-multinomial likelihood (and to the
+  matching OSA observation vector, so fitting and OSA residuals use the same
+  offset). It defaults to `1e-5` (the historical CEATTLE value, which avoids
+  `log(0)` for empty bins); set `comp_offset = 0` for a standard WHAM-style
+  multinomial. The value is stored on `data_list$comp_offset` (filled by
+  `switch_check()`), so internal re-fits (projections, `retrospective()`,
+  `jitter()`, `run_mse()`) inherit it; `fit_control(comp_offset = ...)` overrides
+  the stored value. Does not apply to diet (stomach-content) compositions.
+* `osa_residuals()` gains a `parallel` argument (default `TRUE`) that computes
+  the per-observation one-step-ahead loop with `parallel::mclapply()` -- a
+  near-linear speedup for models with random effects, where each observation
+  triggers a Laplace re-evaluation (set `options(mc.cores = )` to choose cores;
+  serial fallback on Windows). The discrete randomized-quantile path stays serial
+  so it remains reproducible given `seed`.
+* Added `osa_diagnostics()` for the Stewart and Monnahan (2025) statistical
+  diagnostics -- the standard deviation of the normalized residuals (SDNR) and
+  the lower/upper tail statistics, each with its standard-normal null interval
+  -- and a `plot()` method for `rceattle_osa` objects, styled after the
+  NOAA-AFSC `afscOSA` package. The plot draws up to two figures: an *aggregate*
+  Q-Q figure for the index/catch series (which have no age/length bin, so no
+  bubbles), and a *composition* figure pairing the Q-Q plot with signed
+  OSA-residual and Pearson-residual bubble plots, with age-based bins (age
+  composition and conditional age-at-length) in the left column and length-based
+  bins in the right column, each on its own bin axis. Panel headers use the
+  fleet name from `fleet_control`. The `plot()` method takes `source` and
+  `species` arguments to subset the data shown (mirroring `residuals()`), and
+  `combine = FALSE` to draw the age and length composition as separate figures.
+  `osa_residuals()` now also carries a `fleet_name` column and (for composition)
+  the matching Pearson residuals.
+* Added `process_residuals()` for SAM-style process residuals on the model's
+  random-effect deviations (recruitment, initial abundance, and catchability),
+  validating the process model as a complement to the observation residuals.
+* `residuals()` gains `type = "osa"` and `type = "process"`; `plot_comp()` and
+  `plot_indexresidual()` gain a `residual_type = "osa"` option that draws the
+  OSA diagnostics through the familiar plotting functions.
+* `plot_comp()` was re-implemented in ggplot2 for a consistent look with the OSA
+  plots: composition Pearson-residual bubbles plus observed-vs-fitted annual and
+  aggregated composition figures. The observed area and fitted line now span only
+  the observed bins (they no longer extend past the first / last bin), zero
+  observed proportions are retained (only `NA` is dropped), joint-sex (Sex == 3)
+  data are drawn on a single age/length axis with females above and males below
+  zero, and a `species` argument subsets the species shown.
+* Computing OSA residuals for composition / caal / diet data is opt-in via
+  `fit_control(osa = TRUE)`. By default (`osa = FALSE`) a fit skips assembling
+  the (sizeable) composition OSA observation data, so repeated refits stay fast
+  -- important for simulation testing (`run_mse()`, `self_test()`, `jitter()`,
+  `retrospective()`). The fitted objective is identical either way; only whether
+  the composition OSA data is built differs. Aggregate index/catch OSA residuals
+  and `process_residuals()` are available regardless of the setting.
+
+## Bug fixes
+
+* Fixed the unweighted conditional-age-at-length (CAAL) log-likelihood being
+  recorded in the composition slot of `unweighted_jnll_comp` instead of the
+  CAAL slot. This affects the reported diagnostic matrix only; the fitted
+  objective was unaffected.
+
+## API
+
+* `projection_uncertainty` moved from `fit_mod()` into `fit_control()`,
+  consolidating it with the other optimizer / reporting controls. Passing it
+  directly to `fit_mod()` still works but emits a deprecation warning and
+  forwards the value into `fit_control()` -- the same backward-compatible path
+  used by the other former `fit_mod()` control arguments (`phase`, `getsd`,
+  ...).
+* `residuals()` now follows the `stats::residuals.glm()` convention: `type`
+  selects the residual *kind* -- `"response"` (default), `"pearson"`, `"osa"`,
+  or `"process"` -- and a `source` argument selects the data source(s)
+  (`"index"`, `"catch"`, `"comp"`, `"caal"`, or `"all"`, the default), so by
+  default residuals for every applicable source are returned. A `species`
+  argument subsets to particular species. Pearson residuals are now available
+  for the aggregate index/catch series (standardized by the realized observation
+  log-SD) and for predator diet via `source = "diet"` (returned on its own in a
+  predator/prey schema); `plot_diet_comp()` now draws its diet residuals from
+  this single `residuals()` path. `type` selects the residual kind only; data
+  sources are selected with `source`.
+* The `source` argument is shared across `residuals()`, `osa_residuals()`, and
+  `plot()` (it replaces the earlier `types` argument of `osa_residuals()`),
+  accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so
+  the three entry points select data sources with one consistent vocabulary.
+
+# Rceattle 4.5.0
+
+## New features
+
+* Added a general post-fit convergence diagnostics framework via the new
+  exported `convergence_diagnostics()` function. It runs a battery of checks
+  covering the optimizer gradient, Hessian positive-definiteness and
+  conditioning, parameters on bounds, phasing, and parameter estimability, and
+  returns a structured `"Rceattle_convergence"` object whose `status` reflects
+  the worst severity found (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`).
+* `fit_mod()` now runs the convergence battery automatically and attaches the
+  result as `fit$convergence`; `convergence_diagnostics()` can also be called
+  directly to re-run it on any fit.
+* Added a model-diagnostics vignette section and accompanying unit tests for
+  the new framework.
+
+## Bug fixes
+
+* Fixed a parameters-on-bounds misalignment in the convergence diagnostics.
+* The joint negative log-likelihood (jnll) is now taken from the optimizer
+  objective for consistency.
+
+## Internal / R CMD check
+
+* Moved the suppression of the spurious GCC/Eigen `-Warray-bounds` false
+  positive from a `-Wno-array-bounds` compiler flag to a source-level
+  `#pragma GCC diagnostic ignored "-Warray-bounds"`, so
+  `R CMD check --as-cran` no longer warns about non-portable,
+  warning-suppressing compilation flags. Real diagnostics still surface.
+* Additional C++ cleanup to remove compiler warnings.
+
+# Rceattle 4.4.2
+
+## Code organisation (no change to fitted results)
+
+The pre-fit pipeline files in `R/` were reorganised so they are easier to
+navigate. None of these changes alter model output.
+
+* **File prefixes now follow execution order.** `fit_mod()` runs its stages
+  as `clean_data()` -> `data_check()` -> `build_params()` -> `build_map()` ->
+  `build_bounds()` -> `rearrange_data()` -> fit -> `rename_output()`, so the
+  files were renumbered to match (`data_check` is now `1-`, `build_params`
+  `2-`, `build_map` `3-`, `build_parameter_bounds` `4-`). A pipeline map was
+  added to the top of `fit_mod()`.
+* **Switch lifecycle consolidated** into a single `R/0-switches.R`: the
+  string<->integer maps (formerly `0-constants.R`) plus `switch_check()`,
+  `revert_switches()`, `validate_switches()`, and `convert_switches()`, with a
+  header documenting the order in which they run.
+* **HCR helpers co-located.** `build_hcr_map()` moved into `R/0-build_hcr.R`
+  alongside `build_hcr()` (the separate `2-build_hcr_map.R` was removed).
+
+## Rename / deprecation
+
+* `rearrange_dat()` is renamed **`rearrange_data()`**. The old name still works
+  as a deprecated alias (emits a one-time `.Deprecated()` warning) and will be
+  removed in a future release.
+
+## Export hygiene
+
+* `check_composition_data()`, `check_caal_data()`, `calc_mcall_ianelli()`, and
+  `calc_mcall_ianelli_diet()` are no longer exported; they are internal
+  helpers called only from within the package.
+
+## Internal / R CMD check
+
+* Removed `Rceattle:::` self-references in `build_bounds()` (a package should
+  not use `:::` for its own objects).
+* `profile.Rceattle()` gained `...` for S3 consistency with the
+  `stats::profile` generic.
+
 # Rceattle 4.4.1
 
 ## Rename

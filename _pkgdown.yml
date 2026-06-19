@@ -116,7 +116,7 @@ reference:
   - write_data
   - clean_data
   - combine_data
-  - rearrange_dat
+  - rearrange_data
   - data_check
 
 - title: "Model setup"
@@ -170,22 +170,18 @@ reference:
   - sample_rec
 
 - title: "Diagnostics and simulation"
-  desc: Retrospective analysis, jitter testing, and simulation.
+  desc: Retrospective analysis, jitter testing, residual diagnostics, and simulation.
   contents:
+  - convergence_diagnostics
+  - osa_residuals
+  - osa_diagnostics
+  - process_residuals
   - retrospective
   - jitter
-  - profile
+  - profile.Rceattle
   - self_test
   - sim_mod
   - compare_sim
-
-- title: "Data weighting"
-  desc: Composition data reweighting methods.
-  contents:
-  - calc_mcall_ianelli
-  - calc_mcall_ianelli_diet
-  - check_composition_data
-  - check_caal_data
 
 - title: "Plotting — population dynamics"
   desc: Visualize biomass, recruitment, SSB, and depletion trajectories.
@@ -215,6 +211,7 @@ reference:
   - plot_logindex
   - plot_indexresidual
   - plot_comp
+  - plot.rceattle_osa
   - plot_data
   - plot_form
 
@@ -261,8 +258,6 @@ reference:
   - print.Rceattle
   - summary.Rceattle
   - switch_check
-  - convert_switches
-  - revert_switches
   - get_growth_matrix_r
   - get_weight_at_age_r
   - rich.colors.short
@@ -277,4 +272,3 @@ reference:
   - prior_gamma
   - prior_lognormal
   - prior_normal
-  - validate_switches

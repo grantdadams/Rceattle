@@ -1,6 +1,6 @@
 Package: Rceattle
 Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
-Version: 4.4.1
+Version: 4.7.0
 Authors@R:
     person(given = "Grant",
            family = "Adams",
@@ -33,7 +33,6 @@ Imports:
     TMB (>= 1.7.16),
     writexl,
     reshape2,
-    gplots,
     parallel,
     tidyr,
     R.utils,
@@ -44,12 +43,14 @@ Imports:
     rlang,
     plyr,
     tidyselect,
-    magrittr
+    magrittr,
+    Matrix
 LinkingTo:
     TMB,
     RcppEigen
 Suggests:
     testthat (>= 2.0.0),
+    covr,
     rmarkdown,
     knitr,
     mvtnorm,

@@ -46,6 +46,11 @@ print.Rceattle <- function(x, ...) {
   if (!is.null(x$run_time)) {
     cat("  Run time  :", format(x$run_time), "\n")
   }
+  if (!is.null(x$convergence)) {
+    cat("  Converged :", x$convergence$status,
+        if (x$convergence$status != "OK")
+          "(see fit$convergence)" else "", "\n")
+  }
   invisible(x)
 }
 
@@ -177,45 +182,138 @@ logLik.Rceattle <- function(object, ...) {
 }
 
 
-#' Observed-vs-fitted residuals from an Rceattle fit
+#' Residuals from an Rceattle fit
 #'
-#' Returns a long-format data frame of residuals across one or more of
-#' the four fitted data sources: `"index"` (survey indices),
-#' `"catch"` (fishery catches), `"comp"` (age- or length-composition
-#' proportions), and `"caal"` (conditional age-at-length proportions).
+#' Returns a long-format data frame of residuals, following the convention of
+#' [stats::residuals.glm()] where `type` selects the *kind* of residual. By
+#' default residuals are returned for every applicable data source -- survey
+#' indices, fishery catches, age/length composition (`comp`), and conditional
+#' age-at-length (`caal`); use `source` to restrict to particular ones.
 #'
-#' For `"index"` and `"catch"`, the `Residual` column is on the log
-#' scale by default (matching the lognormal observation likelihood) and
-#' can be switched to the natural scale via `scale = "natural"`. For
-#' `"comp"` and `"caal"`, residuals are Pearson residuals on the
-#' fitted proportions:
-#' \deqn{r = (p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}
-#' where N is the input sample size. Composition rows are returned in
-#' long form: one row per (observation, age/length bin).
+#' Residual kinds (`type`):
+#' \describe{
+#'   \item{`"response"`}{Observed minus fitted. For `index` / `catch` this is on
+#'     the log scale by default (matching the lognormal likelihood; set
+#'     `scale = "natural"` for the arithmetic difference); for `comp` / `caal`
+#'     it is the difference in proportions, observed minus fitted.}
+#'   \item{`"pearson"`}{Standardized residuals. For `index` / `catch`,
+#'     \eqn{(\log o - (\log\hat{o} - \sigma^2/2))/\sigma} using the model's
+#'     realized observation log-SD; for `comp` / `caal`,
+#'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
+#'     N.}
+#'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()]. Composition
+#'     sources require a fit made with `fit_control(osa = TRUE)`.}
+#'   \item{`"process"`}{Process residuals via [process_residuals()] for the
+#'     model's random-effect deviations; `source` does not apply.}
+#' }
 #'
-#' Composition rows carry the `Age0_Length1` flag from `comp_data`
-#' (`0` for age comps, `1` for length comps) so age and length comps
-#' can be filtered apart. CAAL rows carry both the conditioning
-#' `Length` and the age `Bin`.
+#' Composition rows are returned in long form (one row per observation x
+#' age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0` age,
+#' `1` length); CAAL rows carry both the conditioning `Length` and the age `Bin`.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
-#' @param type One or more of `"index"`, `"catch"`, `"comp"`, `"caal"`,
-#'   or `"all"` (default `"index"`).
-#' @param scale `"log"` (default) or `"natural"`. Only affects
-#'   `"index"` and `"catch"` residuals.
-#' @param ... Currently unused.
+#' @param type Residual kind: one of `"response"` (default), `"pearson"`,
+#'   `"osa"`, or `"process"`.
+#' @param source Data source(s) to include: any of `"index"`, `"catch"`,
+#'   `"comp"`, `"caal"`, or `"all"` (default). `"diet"` (predator
+#'   stomach-content composition) is also accepted but, because it uses a
+#'   predator/prey schema rather than the fleet/bin layout, must be requested on
+#'   its own. Ignored when `type = "process"`.
+#' @param scale `"log"` (default) or `"natural"`. Only affects `"response"`
+#'   residuals for `index` / `catch`.
+#' @param species Optional species code(s) to include (matched against the
+#'   `Species` column). Default `NULL` keeps all species. Mirrors the `species`
+#'   argument of [plot.rceattle_osa()].
+#' @param ... Passed to [osa_residuals()] (e.g. `method`, `seed`) when
+#'   `type = "osa"`, or to [process_residuals()] when `type = "process"`.
 #'
-#' @return A `data.frame` with columns `Source`, `Fleet_code`,
-#'   `Fleet_name`, `Species`, `Sex`, `Year`, `Length`, `Bin`,
-#'   `Age0_Length1`, `Sample_size`, `Observed`, `Fitted`, `Residual`.
-#'   `Sex`, `Length`, `Bin`, `Age0_Length1`, and `Sample_size` are
-#'   `NA` where they do not apply (e.g. for index/catch rows).
+#' @return A `data.frame` with columns `Source`, `Fleet_code`, `Fleet_name`,
+#'   `Species`, `Sex`, `Year`, `Length`, `Bin`, `Age0_Length1`, `Sample_size`,
+#'   `Observed`, `Fitted`, `Residual`. Columns are `NA` where they do not apply.
 #' @export
-residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
-  valid <- c("index", "catch", "comp", "caal", "all")
-  type  <- match.arg(type, valid, several.ok = TRUE)
-  if ("all" %in% type) type <- c("index", "catch", "comp", "caal")
-  scale <- match.arg(scale, c("log", "natural"))
+residuals.Rceattle <- function(object, type = "response", source = "all",
+                               scale = "log", species = NULL, ...) {
+  # Following stats::residuals.glm(), `type` selects the residual *kind* and
+  # `source` the data source(s).
+  type   <- match.arg(type, c("response", "pearson", "osa", "process"))
+  source <- match.arg(source, c("all", "index", "catch", "comp", "caal", "diet"),
+                      several.ok = TRUE)
+  if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
+  scale  <- match.arg(scale, c("log", "natural"))
+
+  # Optional species filter, applied to whichever data frame is returned.
+  .sp_filter <- function(df) {
+    if (is.null(species)) df else df[df$Species %in% species, , drop = FALSE]
+  }
+
+  # Diet (predator stomach-content) composition uses a predator/prey schema that
+  # does not fit the fleet/bin layout of the other sources, so it is returned on
+  # its own. (For type = "osa" it flows through to osa_residuals() below.)
+  if ("diet" %in% source && type %in% c("response", "pearson")) {
+    if (!all(source == "diet")) {
+      stop("source = 'diet' uses a predator/prey schema and must be requested ",
+           "on its own (not combined with index/catch/comp/caal).")
+    }
+    dd <- object$data_list$diet_data
+    if (is.null(dd) || nrow(dd) == 0 || is.null(object$quantities$diet_hat)) {
+      stop("This model has no fitted diet composition (need msmMode > 0 with ",
+           "diet_data).")
+    }
+    obs <- dd$Stomach_proportion_by_weight
+    hat <- object$quantities$diet_hat[, 2]
+    res <- if (type == "pearson") .pearson_proportion(obs, hat, dd$Sample_size) else obs - hat
+    return(.sp_filter(data.frame(
+      Source = "diet", Species = dd$Pred, Pred_sex = dd$Pred_sex,
+      Prey = dd$Prey, Prey_sex = dd$Prey_sex, Pred_age = dd$Pred_age,
+      Prey_age = dd$Prey_age, Year = dd$Year, Sample_size = dd$Sample_size,
+      Observed = obs, Fitted = hat, Residual = res, stringsAsFactors = FALSE)))
+  }
+
+  # Process residuals (recruitment / random-effect deviations) are computed
+  # separately and reshaped into the common schema; `source` does not apply.
+  if (type == "process") {
+    pr <- process_residuals(object, ...)
+    return(.sp_filter(data.frame(
+      Source       = pr$source,
+      Fleet_code   = NA_integer_,
+      Fleet_name   = NA_character_,
+      Species      = pr$species,
+      Sex          = pr$sex,
+      Year         = pr$year,
+      Length       = rep(NA_real_, nrow(pr)),
+      Bin          = pr$age_length_bin,
+      Age0_Length1 = rep(NA_integer_, nrow(pr)),
+      Sample_size  = rep(NA_real_, nrow(pr)),
+      Observed     = pr$observed,
+      Fitted       = pr$predicted,
+      Residual     = pr$residual,
+      stringsAsFactors = FALSE)))
+  }
+
+  # One-step-ahead residuals are computed separately (oneStepPredict) and
+  # reshaped into the common schema. They are standard-normal, so `scale` does
+  # not apply. `source` selects the observation sources; extra args (method,
+  # seed) flow through `...` to osa_residuals().
+  if (type == "osa") {
+    osa <- osa_residuals(object, source = source, ...)
+    fc  <- object$data_list$fleet_control
+    return(.sp_filter(data.frame(
+      Source       = osa$source,
+      Fleet_code   = osa$fleet,
+      Fleet_name   = fc$Fleet_name[match(osa$fleet, fc$Fleet_code)],
+      Species      = osa$species,
+      Sex          = osa$sex,
+      Year         = osa$year,
+      Length       = osa$length,
+      Bin          = osa$age_length_bin,
+      Age0_Length1 = ifelse(osa$index_label == "length", 1L,
+                            ifelse(osa$index_label == "age", 0L, NA_integer_)),
+      Sample_size  = rep(NA_real_, nrow(osa)),
+      Observed     = osa$observed,
+      Fitted       = osa$predicted,
+      Residual     = osa$residual,
+      stringsAsFactors = FALSE)))
+  }
 
   q <- object$quantities
   d <- object$data_list
@@ -241,12 +339,17 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
 
   out <- list()
 
-  if ("index" %in% type &&
+  if ("index" %in% source &&
       !is.null(d$index_data) && !is.null(q$index_hat)) {
     idx <- d$index_data
     obs <- idx$Observation
     hat <- as.numeric(q$index_hat)
-    res <- if (scale == "log") log(obs) - log(hat) else obs - hat
+    if (type == "pearson") {
+      sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
+      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+    } else {
+      res <- if (scale == "log") log(obs) - log(hat) else obs - hat
+    }
     df <- empty_row(nrow(idx))
     df$Source     <- "index"
     df$Fleet_code <- idx$Fleet_code
@@ -256,15 +359,24 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
     df$Observed   <- obs
     df$Fitted     <- hat
     df$Residual   <- res
+    # Keep only genuine observations: drop projection / NA rows and non-positive
+    # values, which carry no (lognormal) residual.
+    df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
+             df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$index <- df
   }
 
-  if ("catch" %in% type &&
+  if ("catch" %in% source &&
       !is.null(d$catch_data) && !is.null(q$catch_hat)) {
     ctc <- d$catch_data
     obs <- ctc$Catch
     hat <- as.numeric(q$catch_hat)
-    res <- if (scale == "log") log(obs) - log(hat) else obs - hat
+    if (type == "pearson") {
+      sigma <- if (!is.null(q$log_catch_sd)) as.numeric(q$log_catch_sd) else ctc$Log_sd
+      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+    } else {
+      res <- if (scale == "log") log(obs) - log(hat) else obs - hat
+    }
     df <- empty_row(nrow(ctc))
     df$Source     <- "catch"
     df$Fleet_code <- ctc$Fleet_code
@@ -274,10 +386,14 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
     df$Observed   <- obs
     df$Fitted     <- hat
     df$Residual   <- res
+    # Keep only genuine observations: drop projection / NA rows and non-positive
+    # values, which carry no (lognormal) residual.
+    df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
+             df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$catch <- df
   }
 
-  if ("comp" %in% type &&
+  if ("comp" %in% source &&
       !is.null(d$comp_data) && !is.null(q$comp_hat) &&
       nrow(d$comp_data) > 0) {
     cd <- d$comp_data
@@ -303,13 +419,14 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
     df$Sample_size  <- rep(cd$Sample_size, times = n_bin)
     df$Observed     <- as.numeric(obs_prop)
     df$Fitted       <- as.numeric(hat_prop)
-    df$Residual     <- (df$Observed - df$Fitted) /
-      sqrt(df$Fitted * (1 - df$Fitted) / df$Sample_size)
+    df$Residual     <- if (type == "pearson")
+      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
+    else df$Observed - df$Fitted
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
     out$comp <- df
   }
 
-  if ("caal" %in% type &&
+  if ("caal" %in% source &&
       !is.null(d$caal_data) && !is.null(q$caal_hat) &&
       nrow(d$caal_data) > 0) {
     cd <- d$caal_data
@@ -338,14 +455,28 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
     df$Sample_size <- rep(cd$Sample_size, times = n_bin)
     df$Observed    <- as.numeric(obs_prop)
     df$Fitted      <- as.numeric(hat_prop)
-    df$Residual    <- (df$Observed - df$Fitted) /
-      sqrt(df$Fitted * (1 - df$Fitted) / df$Sample_size)
+    df$Residual    <- if (type == "pearson")
+      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
+    else df$Observed - df$Fitted
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
     out$caal <- df
   }
 
   if (length(out) == 0) return(empty_row(0))
-  do.call(rbind, out)
+  .sp_filter(do.call(rbind, out))
+}
+
+
+#' Pearson residual for an observed proportion
+#'
+#' \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}} -- the multinomial-bin Pearson
+#' residual shared by the composition, conditional-age-at-length, and diet
+#' branches of [residuals.Rceattle()].
+#' @param observed,fitted Observed and fitted proportions.
+#' @param n Input sample size.
+#' @keywords internal
+.pearson_proportion <- function(observed, fitted, n) {
+  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
 }
 
 

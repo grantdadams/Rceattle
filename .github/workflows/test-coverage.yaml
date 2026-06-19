@@ -1,0 +1,85 @@
+# Code-coverage workflow (covr -> Codecov), mirroring NOAA
+# `ghactions4r::use_calc_coverage()` but inlined and patched for this TMB
+# package. Two patches are essential and cannot be passed to ghactions4r's
+# hosted reusable workflow:
+#   1. NOT_CRAN=true   -- so the fit_mod() integration tests (which carry
+#                         skip_on_cran()) actually RUN and count toward
+#                         coverage. Without it covr would measure only the
+#                         fast unit tests (the "skipped tests affect coverage"
+#                         problem from discussion #75).
+#   2. TMB system deps -- the same apt packages the R-CMD-check workflow
+#                         installs, so the package compiles on the runner.
+on:
+  push:
+    branches: [master, main, dev]
+  pull_request:
+    branches: [master, main, dev]
+  workflow_dispatch:
+
+name: test-coverage
+
+permissions: read-all
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      NOT_CRAN: "true"   # run the full suite (see header)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for TMB (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgsl-dev \
+            libblas-dev \
+            liblapack-dev \
+            gfortran \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            libxml2-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr, any::xml2
+          needs: coverage
+
+      - name: Test coverage
+        run: |
+          cov <- covr::package_coverage(
+            quiet = FALSE,
+            clean = FALSE,
+            install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
+          )
+          covr::to_cobertura(cov)
+        shell: Rscript {0}
+
+      - uses: codecov/codecov-action@v5
+        with:
+          # On pushes, fail loudly if the upload errors; on PRs from forks the
+          # token may be unavailable, so don't fail those.
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          files: ./cobertura.xml
+          plugins: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Show testthat output
+        if: always()
+        run: |
+          find '${{ runner.temp }}/package' -name 'testthat.Rout*' -exec cat '{}' \; || true
+        shell: bash
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-test-failures
+          path: ${{ runner.temp }}/package

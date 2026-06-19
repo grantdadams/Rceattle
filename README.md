@@ -1,5 +1,11 @@
 # Rceattle
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/grantdadams/Rceattle/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/grantdadams/Rceattle/actions/workflows/R-CMD-check.yaml)
+[![test-coverage](https://github.com/grantdadams/Rceattle/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/grantdadams/Rceattle/actions/workflows/test-coverage.yaml)
+[![Codecov test coverage](https://codecov.io/gh/grantdadams/Rceattle/graph/badge.svg)](https://app.codecov.io/gh/grantdadams/Rceattle)
+<!-- badges: end -->
+
 Rceattle: an R package for fitting climate-linked, single- and multi-species age-structured stock assessment models and testing via diagnostics, simulation, and management strategy evaluation.
 
 `Rceattle` implements models in R using Template Model Builder (`TMB`; Kristensen et al., 2015). Data can be supplied via the bundled Excel template or constructed programmatically as an R list (see *Building a data object without Excel* vignette). Capabilities include:
@@ -27,14 +33,14 @@ remotes::install_github("grantdadams/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
-# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+# remotes::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
 
 For operational / management use, pin a specific tagged release rather than
 tracking `main`, e.g.:
 
 ```r
-devtools::install_github("grantdadams/Rceattle@v4.3.0")
+remotes::install_github("grantdadams/Rceattle@4.3.0")
 ```
 
 The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
@@ -149,3 +155,9 @@ Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2016). A 
 Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H., & Bell, B. (2015). TMB: automatic differentiation and Laplace approximation. arXiv preprint arXiv:1509.00660.
 
 Wassermann, S. N., Adams, G. D., Haltuch, M. A., Kaplan, I. C., Marshall, K. N., & Punt, A. E. (2025). Even low levels of cannibalism can bias population estimates for Pacific hake. ICES Journal of Marine Science, 82(1), fsae064.
+
+## Disclaimer
+
+“This repository is a scientific product and is not official communication of the National Oceanic and Atmospheric Administration, or the United States Department of Commerce. All NOAA GitHub project code
+is provided on an ‘as is’ basis and the user assumes responsibility for its use. Any claims against the Department of Commerce or Department of Commerce bureaus stemming from the use of this GitHub project will be governed by all applicable Federal law. Any reference to specific commercial products, processes, or services by service mark, trademark, manufacturer, or otherwise, does not constitute or imply
+their endorsement, recommendation or favoring by the Department of Commerce. The Department of Commerce seal and logo, or the seal and logo of a DOC bureau, shall not be used in any manner to imply endorsement of any commercial product or activity by DOC or the United States Government.”

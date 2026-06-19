@@ -1,15 +1,20 @@
-#' Rearrange
+#' Rearrange a data_list for TMB
 #'
 #' @description Function to rearrange a \code{data_list} object to be read into TMB
 #'
 #' @param data_list an Rceattle data_list
+#' @param build_osa Logical. Passed to [build_osa_data()]; when `TRUE` the full
+#'   one-step-ahead (OSA) observation data is assembled so [osa_residuals()] can
+#'   be computed. Default `FALSE` (the fast path used by simulation testing). The
+#'   composition proportion offset is read from `data_list$comp_offset` (default
+#'   `1e-5`).
 #'
 #' @export
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
-rearrange_dat <- function(data_list){
+rearrange_data <- function(data_list, build_osa = FALSE){
 
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
@@ -565,6 +570,17 @@ rearrange_dat <- function(data_list){
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 
+  # 17 - One-step-ahead (OSA) residual vector ----
+  # Assemble the flat observation vector (obsvec), the position-map metadata
+  # (obs_ctl), and the per-type obsvec index vectors that the TMB template uses
+  # to compute OSA residuals (see build_osa_data()). Built from the *_ctl/*_obs
+  # matrices above. The aggregate index/catch entries are always built (the
+  # template reads them); the costly composition/caal/diet metadata is built
+  # only when build_osa = TRUE (off by default for fast simulation refits). This
+  # runs AFTER section 16 on purpose: obs_ctl is a mixed-type data frame (R-side
+  # metadata) and must not be swept into the data.frame->matrix coercion above.
+  data_list <- build_osa_data(data_list, build_osa = build_osa)
+
   return(data_list)
 }
 
@@ -594,7 +610,8 @@ rearrange_dat <- function(data_list){
 #' )
 #' cleaned_data_list <- check_composition_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_composition_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -653,7 +670,8 @@ check_composition_data <- function(data_list) {
 #' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
 #' cleaned_data_list <- check_caal_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_caal_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -692,45 +710,12 @@ check_caal_data <- function(data_list) {
   return(data_list)
 }
 
-#' Convert intuitive text strings to integer switches for TMB
-#'
-#' @param data_list Rceattle data list
-#'
-#' @importFrom rlang .data
-convert_switches <- function(data_list) {
 
-  # Helper: convert a single string value using a map, pass integers through unchanged
-  .conv_single <- function(x, map) {
-    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
-  }
-  .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
-
-  # Fleet controls ----
-  # If vector is a string that exists in our map, replace it with the integer.
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(
-      Fleet_type = .conv(.data$Fleet_type, fleet_map),
-      Selectivity = .conv(.data$Selectivity, sel_map),
-      Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
-      Catchability = .conv(.data$Catchability, q_map),
-      Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
-      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
-    ) %>%
-    # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
-    dplyr::mutate(
-      Fleet_type = as.integer(.data$Fleet_type),
-      Selectivity = as.integer(.data$Selectivity),
-      Time_varying_sel = as.integer(.data$Time_varying_sel),
-      Catchability = as.integer(.data$Catchability),
-      Time_varying_q = as.integer(.data$Time_varying_q),
-      Comp_loglike = as.integer(.data$Comp_loglike),
-      CAAL_loglike = as.integer(.data$CAAL_loglike)
-    )
-
-  # Pop dy controls ----
-  data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
-  data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
-
-  return(data_list)
+#' @rdname rearrange_data
+#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`
+#'   kept for backwards compatibility; please use `rearrange_data()`.
+#' @export
+rearrange_dat <- function(data_list){
+  .Deprecated("rearrange_data")
+  rearrange_data(data_list)
 }

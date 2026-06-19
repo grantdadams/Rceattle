@@ -11,7 +11,6 @@
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
-#' @param projection_uncertainty logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the laplace approximation.The default is FALSE.
 #' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the laplace approximation.The default is FALSE.
@@ -92,7 +91,6 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
-    projection_uncertainty = FALSE,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -126,7 +124,8 @@ fit_mod <-
     .deprecated_ctl_args <- c(
       "phase", "getsd", "bias.correct", "use_gradient", "rel_tol",
       "control", "getJointPrecision", "getReportCovariance",
-      "loopnum", "newtonsteps", "verbose", "TMBfilename"
+      "loopnum", "newtonsteps", "verbose", "TMBfilename",
+      "projection_uncertainty"
     )
     .extra  <- list(...)
     .legacy <- intersect(names(.extra), .deprecated_ctl_args)
@@ -170,6 +169,8 @@ fit_mod <-
     getsd               <- fit_control$getsd
     getJointPrecision   <- fit_control$getJointPrecision
     getReportCovariance <- fit_control$getReportCovariance
+    projection_uncertainty <- fit_control$projection_uncertainty
+    osa                 <- isTRUE(fit_control$osa)
     use_gradient        <- fit_control$use_gradient
     rel_tol             <- fit_control$rel_tol
     loopnum             <- fit_control$loopnum
@@ -178,6 +179,19 @@ fit_mod <-
     TMBfilename         <- fit_control$TMBfilename
     verbose             <- fit_control$verbose
     control             <- fit_control$nlminb_control
+
+    # ---------------------------------------------------------------------
+    # Pipeline overview (file prefixes match this execution order):
+    #   0-clean_data.R            clean_data() / 0-switches.R switch_check()
+    #   1-data_check.R            data_check()      validate inputs
+    #   2-build_params.R          build_params()    starting parameter list
+    #   3-build_map.R             build_map()       TMB map (fixed vs estimated)
+    #   4-build_parameter_bounds.R build_bounds()   lower/upper bounds
+    #   5-rearrange_data.R        rearrange_data()  reshape data for TMB
+    #   6-fit_mod.R               (this file)       MakeADFun + nlminb + sdreport
+    #   6-rename_output.R         rename_output()   label derived quantities
+    # HCR map (0-build_hcr.R build_hcr_map()) is applied during projection below.
+    # ---------------------------------------------------------------------
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
@@ -384,10 +398,15 @@ fit_mod <-
     # Turns on laplace approximation
     random_vars <- c()
     if (random_rec) {
-      if (initMode > 0) {
-        random_vars <- c(random_vars, "rec_dev", "init_dev")
-      } else {
-        random_vars <- c(random_vars, "rec_dev")
+      random_vars <- c(random_vars, "rec_dev")
+      # init_dev is a random effect only when it is actually estimated. For
+      # initMode = "Equilibrium" build_map() maps ALL of init_dev to NA (the
+      # initial age structure is the deterministic equilibrium, init_dev fixed at
+      # 0), so adding it to `random` would ask TMB to integrate a fully-mapped
+      # parameter -- producing an NA/NaN gradient. Only treat it as random when
+      # at least one element is free.
+      if (any(!is.na(map$init_dev))) {
+        random_vars <- c(random_vars, "init_dev")
       }
     }
     if (random_q) {
@@ -416,8 +435,15 @@ fit_mod <-
       TMBfilename <- "ceattle_v01_11"
     }
 
+    # Composition proportion offset. It lives on `data_list` so that every
+    # internal re-fit (projections, retrospective, jitter, run_mse, ...) inherits
+    # the same value without threading it through each fit_mod() call. An explicit
+    # fit_control(comp_offset=) overrides. Defaults to 1e-5.
+    if (!is.null(fit_control$comp_offset)) data_list$comp_offset <- fit_control$comp_offset
+    if (is.null(data_list$comp_offset))    data_list$comp_offset <- 1e-5
+
     # Reorganize data for .cpp file
-    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
+    data_list_reorganized <- Rceattle::rearrange_data(data_list, build_osa = osa)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
@@ -430,6 +456,14 @@ fit_mod <-
     data_list_reorganized$growth_fun      <- NULL
     data_list_reorganized$M1_linkages     <- NULL
     data_list_reorganized$srr_linkages    <- NULL
+
+    # OSA residual metadata: obs_ctl maps each obsvec element back to its
+    # fleet/species/year/age. It is an R-side data frame (TMB's dataSanitize
+    # cannot recurse into it), so stash it for the returned object and scrub it
+    # from the TMB data list. The numeric obsvec / *_obsvec_idx / osa_mode
+    # fields are TMB-friendly and stay.
+    .obs_ctl <- data_list_reorganized$obs_ctl
+    data_list_reorganized$obs_ctl <- NULL
 
     # * Inject linkage-table encoding into the TMB DATA ----
     # Empty when no build_*() supplied a `linkages` list. TMB's
@@ -563,6 +597,11 @@ fit_mod <-
         control      = control
       )
 
+      # Pull the per-phase convergence log (attached by TMBphase) for the
+      # phasing diagnostic, then strip it so it doesn't ride along in start_par.
+      mod_objects$.conv_phase <- attr(phase_pars, "phase_log")
+      attr(phase_pars, "phase_log") <- NULL
+
       mod_objects$phase_params <- phase_pars
       start_par <- phase_pars
 
@@ -647,6 +686,14 @@ fit_mod <-
           }
           mod_objects$identified <- identified
         }
+      }
+
+      # Capture the hindcast optimizer convergence snapshot now, before any
+      # projection re-optimization overwrites `opt` (see R/0-convergence.R).
+      if (estimateMode %in% c(0, 1)) {
+        mod_objects$.conv_hindcast <- .capture_opt_convergence(
+          opt, obj, bounds = bounds, mapFactor = map$mapFactor,
+          random_vars = random_vars, getsd = getsd)
       }
     }
 
@@ -813,8 +860,15 @@ fit_mod <-
 
     mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+
+    # OSA residual metadata (maps obsvec positions to fleet/species/year/age),
+    # used by osa_residuals() to interpret oneStepPredict() output. `osa` records
+    # whether the full composition OSA data was built (fit_control(osa = TRUE));
+    # osa_residuals() uses it to give a clear message when it was not.
+    mod_objects$obs_ctl <- .obs_ctl
+    mod_objects$osa <- osa
 
     mod_objects$run_time <- (Sys.time() - start_time)
 
@@ -826,6 +880,29 @@ fit_mod <-
     }
 
     class(mod_objects) <- "Rceattle"
+
+    # Convergence diagnostics (R/0-convergence.R): attach the structured object
+    # and surface non-OK checks via message(). message() + tryCatch so a
+    # non-converged fit is never turned into an error and is always returned.
+    if (estimateMode %in% c(0, 1)) {
+      mod_objects$convergence <- tryCatch(
+        convergence_diagnostics(mod_objects),
+        error = function(e) NULL
+      )
+      tryCatch({
+        if (!is.null(mod_objects$convergence) &&
+            mod_objects$convergence$status %in% c("WARN", "FAIL")) {
+          message("Convergence diagnostics flagged (status: ",
+                  mod_objects$convergence$status,
+                  "); inspect fit$convergence.")
+          for (ch in mod_objects$convergence$checks) {
+            if (ch$severity %in% c("WARN", "FAIL")) {
+              message(sprintf("  [%s] %s: %s", ch$severity, ch$id, ch$message))
+            }
+          }
+        }
+      }, error = function(e) NULL)
+    }
 
     if (!is.null(file)) {
       save(mod_objects, file = paste0(file, ".Rdata"))
