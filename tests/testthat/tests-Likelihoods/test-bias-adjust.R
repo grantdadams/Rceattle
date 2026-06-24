@@ -6,7 +6,7 @@ testthat::test_that("Bias adjustment of data and process likelihoods works", {
   nages = 5
   R0 = 3.5
   nyrs = 8
-  source(file.path("tests", "testthat", "helpers.R"))
+ # source(file.path("tests", "testthat", "helpers.R"))
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
   out <- list()
