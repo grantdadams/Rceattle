@@ -20,13 +20,7 @@ editor: visual
 
     -   If no start value is provided, those model terms are not estimated. CHANGE???
 
--   `family` distribution used for each variable (can be length 1)
-
--   `all_vars` include all variables from env_data in DSEM model likelihood (estimate observation error)
-
-    -   Allow model comparison across different SEM when TRUE.
-
-    -   Simplifies estimation when FALSE
+-   `family` measurement-error distribution for each env-data variable (can be length 1; default `"fixed"`). `recdevs<sp>` columns are always `fixed`. Requires `dsem` 3.0.0.
 
 -   `estimate_projection` latent variables for projection time period are turned off
 
@@ -93,7 +87,7 @@ sem_iid = "
 model2 <- Rceattle::fit_mod(data_list = GOApollock,
                             dsem = build_DSEM(
                               sem = sem_iid,
-                              family = "normal"
+                              family = "fixed"
                             ),
                             random_rec = TRUE, # Random recruitment
                             verbose = 0)

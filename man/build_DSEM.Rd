@@ -4,19 +4,27 @@
 \alias{build_DSEM}
 \title{Function to fit a dynamic structural equation model related to recruitment}
 \usage{
-build_DSEM(
-  sem = NULL,
-  family = "normal",
-  all_vars = FALSE,
-  estimate_projection = FALSE
-)
+build_DSEM(sem = NULL, family = "fixed", estimate_projection = FALSE)
 }
 \arguments{
 \item{sem}{Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.}
 
-\item{family}{Character or character-vector listing the distribution used for each column of \code{env_data} used in the \code{sem}, where each element must be fixed (default; for no measurement error/measured exactly), normal for normal measurement error using an identity link, gamma for a gamma measurement error using a fixed CV and log-link, bernoulli for a Bernoulli measurement error using a logit-link, or poisson for a Poisson measurement error using a log-link. Default is family family="normal".}
-
-\item{all_vars}{include all variables from env_data in DSEM model likelihood (estimate observation error) to allow model comparison across different SEM. Default = FALSE.}
+\item{family}{Distribution for the measurement error of each \code{env_data}
+variable used in the \code{sem}. The latent \code{recdevs<sp>} columns are
+never observed and are always treated as \code{fixed} (measured exactly), so
+\code{family} describes only the env-data variables retained in the
+\code{sem}. Supply a single string (recycled across all env variables) or a
+character vector with one element per env variable, each one of: \code{fixed}
+(default; no measurement error / identity link), \code{normal} (Gaussian,
+identity link), \code{gamma} (gamma, fixed CV and log link), \code{bernoulli}
+(logit link), \code{poisson} (log link), \code{lognormal} (log link), or
+\code{tweedie}. Translated internally to the named list of \code{family}
+objects that \code{dsem::dsem} (>= 3.0.0) expects. You may also pass
+\code{dsem} \code{family} objects directly (e.g.
+\code{dsem::gaussian_fixed_sd("identity", 0.1)} to fix an observation-error
+SD): a single object is recycled across env variables, and a vector or list
+mixing strings and objects is matched to env variables by name when named,
+otherwise by position.}
 
 \item{estimate_projection}{latent variables for projection time period are turned off. Default = FALSE.}
 }

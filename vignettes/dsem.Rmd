@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 
 `Rceattle` is integrated with the [`dsem`](https://CRAN.R-project.org/package=dsem) package via the `dsem` argument to `fit_mod()`. A dynamic structural equation model (DSEM) lets you place explicit structural relationships on recruitment deviations — including links to environmental covariates and cross-species linkages — instead of treating them as independent random effects.
 
-> **Requires `dsem` 2.0.1.** DSEM models call `dsem::dsem()` internally, and the bundled C++ (`src/TMB/dsem.hpp`) is matched to `dsem` version 2.0.1. Other versions emit an incompatible data layout, so `fit_mod()` stops with an error if a different `dsem` is installed. Install the matching version with `remotes::install_version("dsem", "2.0.1")`.
+> **Requires `dsem` 3.0.0.** DSEM models call `dsem::dsem()` internally, and the bundled C++ (`src/TMB/dsem.hpp`) is matched to `dsem` version 3.0.0. Other versions emit an incompatible data layout, so `fit_mod()` stops with an error if a different `dsem` is installed. Install the matching version with `remotes::install_version("dsem", "3.0.0")`.
 
 This vignette covers:
 
@@ -34,8 +34,7 @@ This vignette covers:
 `build_DSEM()` produces the list of DSEM settings consumed by `fit_mod()`. Its main arguments:
 
 - `sem` — text specification of the SEM. One row per link with the form `from -> to, lag, param_name, start_value` (or `<->` for a variance/covariance term). All variables must appear as columns in `data_list$env_data`, and recruitment deviations must be named `recdevs1`, `recdevs2`, … one per species. If no start value is given, that term is **not** estimated. The default (when `sem = NULL`) is IID recruitment deviates.
-- `family` — measurement-error family for each variable: `"fixed"`, `"normal"`, `"gamma"`, `"bernoulli"`, or `"poisson"`. A single string is recycled across all variables.
-- `all_vars` — if `TRUE`, all variables in `env_data` are included in the DSEM likelihood (with observation error). This enables model comparison across different SEM specifications. Default `FALSE`.
+- `family` — measurement-error family for each **env-data variable** in the SEM: `"fixed"` (default; measured exactly), `"normal"`, `"gamma"`, `"bernoulli"`, `"poisson"`, `"lognormal"`, or `"tweedie"`. A single string is recycled across the env variables. The latent `recdevs<sp>` columns are never observed, so they are always `fixed` regardless of this setting. Note that under `dsem` 3.0.0 a non-`"fixed"` family **estimates** that variable's observation-error SD; use `"fixed"` to treat a covariate as measured exactly.
 - `estimate_projection` — if `FALSE` (default), latent states for the projection period are turned off, simplifying estimation.
 
 See `?build_DSEM` and `dsem::make_dsem_ram` for full details on the SEM grammar.
@@ -97,7 +96,7 @@ model2 <- Rceattle::fit_mod(
   file         = NULL,
   estimateMode = 0,
   dsem         = build_DSEM(sem    = sem_iid,
-                            family = "normal"),
+                            family = "fixed"),
   random_rec   = TRUE,
   msmMode      = 0,
   phase        = TRUE,
@@ -179,7 +178,7 @@ model4 <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec   = TRUE,
   dsem         = build_DSEM(sem    = sem_3spp,
-                            family = "normal"),
+                            family = "fixed"),
   msmMode      = 0,
   phase        = TRUE,
   verbose      = 1)
@@ -201,5 +200,4 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 - **Phasing.** DSEM-linked models can be sensitive to starting values. Setting `phase = TRUE` fits the assessment in stages and typically reaches a better starting point before the SEM parameters are turned on.
 - **Estimating vs. fixing parameters.** Any SEM term written *without* a `start_value` is treated as fixed and is not estimated. Provide a start value to estimate the term.
-- **Comparing SEM specifications.** To compare alternative SEMs by likelihood, set `all_vars = TRUE` so every variable in `env_data` contributes to the DSEM likelihood under each specification.
 - **Projections.** Latent DSEM states are not estimated for projection years by default. Set `estimate_projection = TRUE` if you need them — this adds parameters and can complicate estimation.

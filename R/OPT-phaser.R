@@ -25,7 +25,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
 # Turn off parameters of random effects distribution
   map$beta_z <- factor(as.numeric(map$beta_z) * NA)
   map$mu_j <- factor(as.numeric(map$mu_j) * NA)
-  map$lnsigma_j <- factor(as.numeric(map$lnsigma_j) * NA)
+  map$lnsigma_z <- factor(as.numeric(map$lnsigma_z) * NA)
   map$sel_dev_log_sd <- factor(as.numeric(map$sel_dev_log_sd) * NA)
   map$index_q_dev_log_sd <- factor(as.numeric(map$index_q_dev_log_sd) * NA)
   map$index_q_rho <- factor(as.numeric(map$index_q_rho) * NA)
@@ -92,7 +92,7 @@ set_phases <- function(){
 
     # DSEM
     beta_z = 2,        # Variance for dsem
-    lnsigma_j = 2,     # dsem
+    lnsigma_z = 2,     # dsem
     mu_j = 2,          # dsem
     delta0_j = 2,      # dsem
     x_tj = 2,          # Annual dsem latent states

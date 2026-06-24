@@ -51,7 +51,7 @@ LinkingTo:
     TMB,
     RcppEigen
 Suggests:
-    dsem (>= 2.0.1),
+    dsem (== 3.0.0),
     testthat (>= 2.0.0),
     rmarkdown,
     knitr,

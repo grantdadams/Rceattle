@@ -1,6 +1,51 @@
 
 # Rceattle 4.5.0
 
+## DSEM updated to track dsem 3.0.0 (changes DSEM-model results)
+
+The recruitment DSEM integration now tracks `dsem` 3.0.0 (previously 2.0.1).
+
+* **Requires `dsem` 3.0.0.** `build_dsem_objects()` calls `dsem::dsem()` at
+  runtime and the bundled C++ (`src/TMB/dsem.hpp`) is matched to 3.0.0, so
+  `fit_mod()` errors unless exactly `dsem` 3.0.0 is installed
+  (`remotes::install_version("dsem", "3.0.0")`). `DESCRIPTION` pins
+  `dsem (== 3.0.0)`.
+* **Vendored C++ updated to dsem 3.0.0** (`src/TMB/dsem.hpp`,
+  `ceattle_v01_11.cpp`): new family codes (0–7, adding gaussian-fixed-SD,
+  lognormal, and tweedie), the per-variable `linkcode_j` / `sigmastart_j` /
+  `eps_tj` inputs, the `lnsigma_j` -> `lnsigma_z` parameter rename, and the 4th
+  `options` entry (moderator variance scale on the Gamma matrix).
+* **`family` now maps to dsem family objects.** `build_DSEM(family = ...)` still
+  takes strings (`"fixed"`, `"normal"`, `"gamma"`, `"bernoulli"`, `"poisson"`,
+  and now `"lognormal"` / `"tweedie"`), which are translated to the glm-style
+  `family` objects dsem 3.0.0 requires. The latent `recdevs<sp>` columns are
+  never observed and are always `fixed`; `family` applies only to the env-data
+  variables in the sem. **The default changed from `"normal"` to `"fixed"`.**
+  `family` may also be given as `dsem` `family` objects directly (e.g.
+  `dsem::gaussian_fixed_sd("identity", 0.1)` to fix an observation-error SD): a
+  single object is recycled across env variables, and a vector or list mixing
+  strings and objects is matched to env variables by name when named, otherwise
+  by position.
+* **Removed `build_DSEM(all_vars = ...)`.** The argument was a no-op (the
+  keep-only-sem-variables step in `build_dsem_objects()` superseded it), so it
+  has been dropped from `build_DSEM()` and from the internal `retrospective()` /
+  `jitter()` / `run_mse()` re-callers. No change to model behavior.
+* **Behavior change for env covariates.** dsem 3.0.0 leaves the
+  observation-error SD (`lnsigma_z`) free, so `family = "normal"` now *estimates*
+  measurement error for an env variable (Rceattle previously fixed all
+  observation SDs at 0.1 via an override that has been removed). Use
+  `family = "fixed"` to treat a covariate as measured exactly.
+* **Retired the vendored 2.0.1 RAM pipeline.** `R/0-dsem_ram.R`
+  (`make_dsem_ram()` / `build_dsem_inputs()` / `classify_variables()`) and its
+  cross-validation tests were removed; the live `dsem::dsem(run_model = FALSE)`
+  harvest is now the single source of DSEM TMB inputs (`parse_path()` is
+  retained, in `R/0-build_DSEM.R`, for sem-variable extraction). This supersedes
+  the staged vendored cut-over noted under 4.4.3.
+* **Result change:** recdevs-only / IID DSEM objectives are unchanged (the
+  GOApollock IID example still gives ~615.79); env-linked example objectives
+  shift slightly under the new measurement-error semantics. Non-DSEM fits are
+  unaffected.
+
 ## New features
 
 * Added a general post-fit convergence diagnostics framework via the new

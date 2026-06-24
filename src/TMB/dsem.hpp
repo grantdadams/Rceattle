@@ -3,9 +3,8 @@
 
 /** * @brief Dynamic Structural Equation Model (DSEM) Module
  *
- * Modified from the `dsem` package, version 2.0.1
- *   James-Thorson-NOAA/dsem, commit 81d3d817cc53284018ff6c3f620bd6d8bbe6ab6c
- *   src/dsem.cpp
+ * Modified from the `dsem` package, version 3.0.0 (2026-06-10)
+ *   James-Thorson-NOAA/dsem, src/dsem.cpp
  *   Thorson, J. T., Andrews, A. G., Essington, T., & Large, S. (2024). Dynamic
  *   structural equation models synthesize ecosystem dynamics constrained by
  *   ecological mechanisms. Methods in Ecology and Evolution 15(4): 744-755.
@@ -18,11 +17,13 @@
  *     and unobs_idx, which upstream reads via DATA_IVECTOR inside option blocks).
  *   - REPORT()/ADREPORT()/SIMULATE{} removed (they require `this`; unused here).
  *   - get_submatrix renamed dsem_get_submatrix to avoid symbol clashes.
- * The matched R-side input assembly lives in R/0-dsem_ram.R (build_dsem_inputs).
+ * The R-side input assembly is the live dsem::dsem(run_model = FALSE) harvest in
+ * R/0-build_DSEM.R (build_dsem_objects), pinned to dsem 3.0.0.
  *
  * options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional kriging (mvn_project);  3: gmrf_project
  * options(1) -> 0: constant conditional variance;  1: constant marginal variance;  2: diagonal
  * options(2) -> 0: use GMRF(Q);  1: use GMRF(Q + 1e-10 * I)  (stabilize_Q)
+ * options(3) -> moderator variance scale on Gamma: 0: natural;  1: log-space (exp)
  */
 
 // Get sparse submatrix, for use in dgmrf_conditional
@@ -85,13 +86,16 @@ void calculate_dsem(
     matrix<int> RAM,
     vector<Type> RAMstart,
     vector<int> familycode_j,
+    vector<int> linkcode_j,
+    vector<int> sigmastart_j,
+    array<Type> eps_tj,
     array<Type> y_tj,
     vector<int> obs_idx,           // Full-rank component
     vector<int> unobs_idx,          // Reduced-rank component ... projecting from obs_idx to unobs_idx
 
     // Parameters
     vector<Type> beta_z,
-    vector<Type> lnsigma_j,
+    vector<Type> lnsigma_z,
     vector<Type> mu_j,
     vector<Type> delta0_j,
     array<Type> x_tj
@@ -109,8 +113,7 @@ void calculate_dsem(
   Type jnll_gmrf = 0;
   matrix<Type> loglik_tj( n_t, n_j );
   loglik_tj.setZero();
-  vector<Type> sigma_j( n_j );
-  sigma_j = exp( lnsigma_j );
+  vector<Type> sigma_z = exp( lnsigma_z );
 
   // Assemble precision
   // SEM
@@ -128,14 +131,19 @@ void calculate_dsem(
     }else{
       tmp = RAMstart(r);
     }
-    if(RAM(r,0)==0){
-      Rho_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = x_tj( RAM(r,4)-1, RAM(r,5)-1 );
-    }
-    if(RAM(r,0)==1){
+    if(RAM(r,0) == 1){
       Rho_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = tmp;
     }
-    if(RAM(r,0)==2){
+    if(RAM(r,0) == 2){
       Gamma_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = tmp; // Cholesky of covariance, so -Inf to Inf;
+    }
+    if(RAM(r,0) == 3){
+      Rho_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = x_tj( RAM(r,4)-1, RAM(r,5)-1 );
+    }
+    if(RAM(r,0) == 4){
+      // Trying to decide whether to use log or natural-space
+      if( options(3) == 0) Gamma_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = x_tj( RAM(r,4)-1, RAM(r,5)-1 );
+      if( options(3) == 1) Gamma_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = exp(x_tj( RAM(r,4)-1, RAM(r,5)-1 ));
     }
   }
   Eigen::SparseMatrix<Type> IminusRho_kk = I_kk - Rho_kk;
@@ -212,8 +220,11 @@ void calculate_dsem(
     // SPARSE version
     // See C:\Users\James.Thorson\Desktop\Work files\AFSC\2023-06 -- Sparse inverse-product\Kasper example\lu.cpp
     matrix<Type> x = inverseIminusRho_kk.solve(delta0_k1);
+
+    //REPORT( delta0_k1 );
     delta_k = x.array();
   }
+  //REPORT( delta_k );
 
   // Format mu_j
   array<Type> xhat_tj( n_t, n_j );
@@ -224,6 +235,13 @@ void calculate_dsem(
       xhat_tj(t,j) = mu_j(j);
       delta_tj(t,j) = delta_k(k);
     }}
+  //matrix<Type> tmp_tj;
+  //vector<Type> ones_t( n_t );
+  //ones_t.setOnes();
+  //tmp_tj = (ones_t * mu_j.transpose());
+  //xhat_tj = tmp_tj.array();
+  //tmp_tj = delta_k.reshaped( n_t, n_j );
+  //delta_tj = tmp_tj.array();
 
   // Apply GMRF
   array<Type> z_tj( n_t, n_j );
@@ -239,29 +257,19 @@ void calculate_dsem(
     Eigen::SparseMatrix<Type> Vinv2_kk = asSparseMatrix( Vinv_kk );
     Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * Vinv2_kk * IminusRho_kk;
 
-    // Centered GMRF (gate to hindcast sub-field when proj_mean_rec == 0)
-    if( proj_mean_rec == 0 ){
-      vector<Type> dev_full = x_tj - xhat_tj - delta_tj;
-      vector<int> all_k( n_k ); for(int kk = 0; kk < n_k; kk++) all_k(kk) = kk;
-      vector<int> pos = dsem_hindcast_positions( all_k, n_t, nyrs_hind );
-      Eigen::SparseMatrix<Type> Q_hh = get_submatrix( Q_kk, pos, pos );
-      jnll_gmrf = GMRF( Q_hh )( dsem_subset_vec(dev_full, pos) );
-    } else {
-      jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
-    }
+    // Eigen::SimplicialLDLT not working for some reason ...
+    //Eigen::SimplicialLDLT< Eigen::SparseMatrix<Type> > inverseV_kk;
+    //inverseV_kk.compute(V_kk);
+    //Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * inverseV_kk.solve(IminusRho_kk);
+
+    // Centered GMRF
+    jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
     z_tj = x_tj;
+    //REPORT( Q_kk );
   }
   // Option-2:  Rank-deficient (projection) method
   if( options(0)==1 ){
-    if( proj_mean_rec == 0 ){
-      vector<Type> x_full = x_tj;
-      vector<int> all_k( n_k ); for(int kk = 0; kk < n_k; kk++) all_k(kk) = kk;
-      vector<int> pos = dsem_hindcast_positions( all_k, n_t, nyrs_hind );
-      Eigen::SparseMatrix<Type> I_hh( pos.size(), pos.size() ); I_hh.setIdentity();
-      jnll_gmrf = GMRF( I_hh )( dsem_subset_vec(x_full, pos) );
-    } else {
-      jnll_gmrf = GMRF(I_kk)( x_tj );
-    }
+    jnll_gmrf = GMRF(I_kk)( x_tj );
 
     // Forward-format matrix
     matrix<Type> z_k1 = x_tj.reshaped( n_k, 1 );
@@ -279,6 +287,8 @@ void calculate_dsem(
   // Option-3:  use variance for full-rank component and projects to reduced-rank component
   // ALlows family = "fixed" for some variables, and rank-deficiency for other variables (e.g., determinstic composite variables)
   if( options(0)==2 ){
+    //DATA_IVECTOR( obs_idx );    // Full-rank component
+    //DATA_IVECTOR( unobs_idx );  // Reduced-rank component ... projecting from obs_idx to unobs_idx
     //error("not implemented yet");
     Eigen::SparseMatrix<Type> I_uu( unobs_idx.size(), unobs_idx.size() );
     I_uu.setIdentity();
@@ -292,6 +302,7 @@ void calculate_dsem(
     Eigen::SparseMatrix<Type> Sigma_kk = inverseIminusRho_kk.solve( tmp2_kk );
     Eigen::SparseMatrix<Type> Sigma_oo = get_submatrix( Sigma_kk, obs_idx, obs_idx );
     matrix<Type> V_oo = matrix<Type>(Sigma_oo);
+    //REPORT( Sigma_kk );
 
     // Extract sub-vectors for observed and unobserved components
     vector<Type> x_k = x_tj;
@@ -338,6 +349,7 @@ void calculate_dsem(
       Eigen::SimplicialLLT< SparseMatrix<Type> > chol(Vprime_uu);
       SparseMatrix<Type> Lprime_uu = chol.matrixL();
       xprime_u1 = Lprime_uu * x_u1;
+      //REPORT( Lprime_uu );
     }
 
     // Add projected residuals + other comonents into linear predictor
@@ -355,24 +367,9 @@ void calculate_dsem(
         }}
     }
 
-    // Evaluate MVN density for full-rank component (gate to hindcast when
-    // proj_mean_rec == 0; for an MVN the sub-covariance IS the exact marginal).
-    if( proj_mean_rec == 0 ){
-      vector<int> pos_o = dsem_hindcast_positions( obs_idx, n_t, nyrs_hind );
-      matrix<Type> V_hh( pos_o.size(), pos_o.size() );
-      for(int a = 0; a < pos_o.size(); a++){
-        for(int b = 0; b < pos_o.size(); b++){
-          V_hh(a,b) = V_oo( pos_o(a), pos_o(b) );
-        }
-      }
-      jnll_gmrf = MVNORM( V_hh )( dsem_subset_vec(dev_o, pos_o) );
-      vector<int> pos_u = dsem_hindcast_positions( unobs_idx, n_t, nyrs_hind );
-      Eigen::SparseMatrix<Type> I_uu_h( pos_u.size(), pos_u.size() ); I_uu_h.setIdentity();
-      jnll_gmrf += GMRF( I_uu_h )( dsem_subset_vec(x_u, pos_u) );
-    } else {
-      jnll_gmrf = MVNORM(V_oo)( dev_o );
-      jnll_gmrf += GMRF(I_uu)( x_u );
-    }
+    // Evaluate MVN density for full-rank component
+    jnll_gmrf = MVNORM(V_oo)( dev_o );
+    jnll_gmrf += GMRF(I_uu)( x_u );
   }
 
   // Option-4:  use full rank (some of which are fixed),
@@ -419,6 +416,8 @@ void calculate_dsem(
   // so
   // Q_uu^-1 = 0 (because V_uu = 0)
   if( options(0)==3 ){
+    //DATA_IVECTOR( obs_idx );    // Full-rank component
+    //DATA_IVECTOR( unobs_idx );  // Zero-rank component ... projecting from obs_idx to unobs_idx
     Eigen::SparseMatrix<Type> Vtilda_oo;
     Eigen::SparseMatrix<Type> Mtilda_oo;
     vector<Type> dev_o( obs_idx.size() );
@@ -452,6 +451,7 @@ void calculate_dsem(
       Vtilda_oo = V_oo + Ct.transpose()*V_uo + V_ou*Ct;
       // Calculate devs
       matrix<Type> dev_u1 = -(inverseM_uu.solve(M_uo) * dev_o.matrix());
+      //REPORT( dev_u1 );
       // Add projected residuals + other comonents into linear predictor
       int u = 0;
       for(int j=0; j<n_j; j++){
@@ -484,16 +484,10 @@ void calculate_dsem(
     Eigen::SparseMatrix<Type> inverseVtilda2_oo = asSparseMatrix( inverseVtilda_oo );
     Eigen::SparseMatrix<Type> Q_oo = Mtilda_oo.transpose() * inverseVtilda2_oo * Mtilda_oo;
 
-    // Get GMRF for data (gate to hindcast sub-field when proj_mean_rec == 0).
-    // Projection x_tj are mapped out (fixed), so restricting the GMRF to the
-    // hindcast nodes (t = k % n_t < nyrs_hind) drops their contribution.
-    if( proj_mean_rec == 0 ){
-      vector<int> pos = dsem_hindcast_positions( obs_idx, n_t, nyrs_hind );
-      Eigen::SparseMatrix<Type> Q_hh = get_submatrix( Q_oo, pos, pos );
-      jnll_gmrf = GMRF( Q_hh )( dsem_subset_vec(dev_o, pos) );
-    } else {
-      jnll_gmrf = GMRF( Q_oo )( dev_o );
-    }
+    // Get GMRF for data
+    //REPORT( Q_oo );
+    //REPORT( dev_o );
+    jnll_gmrf = GMRF( Q_oo )( dev_o );
   }
 
   // Distribution for data
@@ -502,56 +496,104 @@ void calculate_dsem(
   array<Type> mu_tj( n_t, n_j );
   for(int t=0; t<n_t; t++){
     for(int j=0; j<n_j; j++){
-      // familycode = 0 :  don't include likelihood
-      if( familycode_j(j)==0 ){
+      // Link function
+      if( linkcode_j(j)==0 ){
+        // identity link
         mu_tj(t,j) = z_tj(t,j);
+      }
+      if( linkcode_j(j)==1 ){
+        // log link
+        mu_tj(t,j) = exp(z_tj(t,j));
+      }
+      if( linkcode_j(j)==2 ){
+        // logit link
+        mu_tj(t,j) = invlogit(z_tj(t,j));
+      }
+      if( linkcode_j(j)==3 ){
+        // cloglog link
+        mu_tj(t,j) = Type(1.0) - exp( -1.0 * exp(z_tj(t,j)) );
+      }
+
+      // Likelihood
+      if( familycode_j(j)==0 ){
+        // familycode = 0 :  don't include likelihood
+        // SIMULATE{
+        //   y_tj(t,j) = mu_tj(t,j);
+        // }
         devresid_tj(t,j) = 0;
       }
-      // familycode = 1 :  normal
       if( familycode_j(j)==1 ){
-        mu_tj(t,j) = z_tj(t,j);
+        // familycode = 1 :  normal
         if(R_FINITE(asDouble(y_tj(t,j)))){
-          loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), sigma_j(j), true );
+          loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), sigma_z(sigmastart_j(j)), true );
         }
+        // SIMULATE{
+        //   y_tj(t,j) = rnorm( mu_tj(t,j), sigma_z(sigmastart_j(j)) );
+        // }
         devresid_tj(t,j) = y_tj(t,j) - mu_tj(t,j);
       }
-      // familycode = 2 :  Bernoulli
       if( familycode_j(j)==2 ){
-        mu_tj(t,j) = invlogit(z_tj(t,j));
+        // familycode = 2 :  Bernoulli
         if(R_FINITE(asDouble(y_tj(t,j)))){
           loglik_tj(t,j) = dbinom( y_tj(t,j), Type(1.0), mu_tj(t,j), true );
         }
+        // SIMULATE{
+        //   y_tj(t,j) = rbinom( Type(1), mu_tj(t,j) );
+        // }
         devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(-2*(((1-y_tj(t,j))*log(1-mu_tj(t,j)) + y_tj(t,j)*log(mu_tj(t,j)))), 0.5);
       }
-      // familycode = 3 :  Poisson
       if( familycode_j(j)==3 ){
-        mu_tj(t,j) = exp(z_tj(t,j));
+        // familycode = 3 :  Poisson
         if(R_FINITE(asDouble(y_tj(t,j)))){
           loglik_tj(t,j) = dpois( y_tj(t,j), mu_tj(t,j), true );
         }
+        // SIMULATE{
+        //   y_tj(t,j) = rpois( mu_tj(t,j) );
+        // }
         devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2*(y_tj(t,j)*log((Type(1e-10) + y_tj(t,j))/mu_tj(t,j)) - (y_tj(t,j)-mu_tj(t,j))), 0.5);
       }
-      // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
       if( familycode_j(j)==4 ){
-        mu_tj(t,j) = exp(z_tj(t,j));
+        // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
         if(R_FINITE(asDouble(y_tj(t,j)))){
-          loglik_tj(t,j) = dgamma( y_tj(t,j), pow(sigma_j(j),-2), mu_tj(t,j)*pow(sigma_j(j),2), true );
+          loglik_tj(t,j) = dgamma( y_tj(t,j), pow(sigma_z(sigmastart_j(j)),-2), mu_tj(t,j)*pow(sigma_z(sigmastart_j(j)),2), true );
         }
+        // SIMULATE{
+        //   y_tj(t,j) = rgamma( pow(sigma_z(sigmastart_j(j)),-2), mu_tj(t,j)*pow(sigma_z(sigmastart_j(j)),2) );
+        // }
         devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2 * ( (y_tj(t,j)-mu_tj(t,j))/mu_tj(t,j) - log(y_tj(t,j)/mu_tj(t,j)) ), 0.5);
       }
-    }}
-  // Observation likelihood. When proj_mean_rec == 0 the projection years use
-  // mean recruitment, so drop their observation-likelihood contribution
-  // (years t >= nyrs_hind) to match the hindcast-only GMRF above.
-  if( proj_mean_rec == 0 ){
-    for( int t = 0; t < nyrs_hind; t++ ){
-      for( int j = 0; j < n_j; j++ ){
-        jnll -= loglik_tj(t,j);
+      if( familycode_j(j)==5 ){
+        // familycode = 5 :  normal with known standard deviation
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), eps_tj(t,j), true );
+        }
+        // SIMULATE{
+        //   y_tj(t,j) = rnorm( mu_tj(t,j), eps_tj(t,j) );
+        // }
+        devresid_tj(t,j) = NAN;
       }
-    }
-  } else {
-    jnll -= loglik_tj.sum();
-  }
+      if( familycode_j(j)==6 ){
+        // familycode = 6 :  lognormal
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dlnorm( y_tj(t,j), log(mu_tj(t,j)), sigma_z(sigmastart_j(j)), true );
+        }
+        // SIMULATE{
+        //   y_tj(t,j) = exp(rnorm( log(mu_tj(t,j)), sigma_z(sigmastart_j(j)) ));
+        // }
+        devresid_tj(t,j) = log(y_tj(t,j)) - log(mu_tj(t,j));
+      }
+      if( familycode_j(j)==7 ){
+        // familycode = 7 :  tweedie
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dtweedie( y_tj(t,j), mu_tj(t,j), exp(sigma_z(sigmastart_j(j))), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)), true );
+        }
+        // SIMULATE{
+        //   y_tj(t,j) = rtweedie( mu_tj(t,j), exp(sigma_z(sigmastart_j(j))), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
+        // }
+        devresid_tj(t,j) = devresid_tweedie( y_tj(t,j), mu_tj(t,j), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
+      }
+    }}
+  jnll -= loglik_tj.sum();
   jnll += jnll_gmrf;
 }
 

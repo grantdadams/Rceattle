@@ -219,3 +219,31 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
 
 } // end construct_Q function
 
+
+// Deviance for the Tweedie
+// https://en.wikipedia.org/wiki/Tweedie_distribution#Properties
+template<class Type>
+Type devresid_tweedie( Type y,
+                       Type mu,
+                       Type p ){
+
+  Type c1 = pow( y, 2.0-p ) / (1.0-p) / (2.0-p);
+  Type c2 = y * pow( mu, 1.0-p ) / (1.0-p);
+  Type c3 = pow( mu, 2.0-p ) / (2.0-p);
+  Type deviance = 2 * (c1 - c2 + c3 );
+  Type devresid = sign( y - mu ) * pow( deviance, 0.5 );
+  return devresid;
+}
+
+// dlnorm
+template<class Type>
+Type dlnorm( Type x,
+             Type meanlog,
+             Type sdlog,
+             int give_log=0){
+
+  //return 1/(sqrt(2*M_PI)*sd) * exp(-.5*pow((x-mean)/sd,2));
+  Type logres = dnorm( log(x), meanlog, sdlog, true) - log(x);
+  if(give_log) return logres; else return exp(logres);
+}
+

@@ -2,8 +2,30 @@
 #' Function to fit a dynamic structural equation model related to recruitment
 #'
 #' @param sem Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.
-#' @param family Character or character-vector listing the distribution used for each column of \code{env_data} used in the \code{sem}, where each element must be fixed (default; for no measurement error/measured exactly), normal for normal measurement error using an identity link, gamma for a gamma measurement error using a fixed CV and log-link, bernoulli for a Bernoulli measurement error using a logit-link, or poisson for a Poisson measurement error using a log-link. Default is family family="normal".
-#' @param all_vars include all variables from env_data in DSEM model likelihood (estimate observation error) to allow model comparison across different SEM. Default = FALSE.
+#' @param family Distribution for the measurement error of each \code{env_data}
+#'   variable used in the \code{sem}. The latent \code{recdevs<sp>} columns are
+#'   never observed and are always treated as \code{fixed} (measured exactly), so
+#'   \code{family} describes only the env-data variables retained in the
+#'   \code{sem}. Supply a single string (recycled across all env variables) or a
+#'   character vector with one element per env variable, each one of: \code{fixed}
+#'   (default; no measurement error / identity link), \code{normal} (Gaussian,
+#'   identity link), \code{gamma} (gamma, fixed CV and log link), \code{bernoulli}
+#'   (logit link), \code{poisson} (log link), \code{lognormal} (log link), or
+#'   \code{tweedie}. Translated internally to the named list of \code{family}
+#'   objects that \code{dsem::dsem} (>= 3.0.0) expects. You may also pass
+#'   \code{dsem} \code{family} objects directly (e.g.
+#'   \code{dsem::gaussian_fixed_sd("identity", 0.1)} to fix an observation-error
+#'   SD): a single object is recycled across env variables, and a vector or list
+#'   mixing strings and objects is matched to env variables by name when named,
+#'   otherwise by position.
+#' @param sigmaR_prior_sd Optional log-scale SD of a lognormal prior placed on
+#'   each species' estimated recruitment SD, centered at the assessment value
+#'   \code{data_list$sigma_rec_prior}. Default \code{NA} = no prior (recruitment
+#'   SD estimated freely). Supplying a finite value (e.g. 0.5--1) regularizes the
+#'   recruitment SD away from the \eqn{1/\sigma_R^2} collapse that occurs when
+#'   environmental covariates over-explain the recruitment deviations, while
+#'   still estimating it. The prior applies only where the SD is estimated (it is
+#'   ignored for species whose SD is fixed in the \code{sem}).
 #' @param estimate_projection latent variables for projection time period are turned off. Default = FALSE.
 #'
 #' @description
@@ -12,11 +34,68 @@
 #' @export
 #'
 build_DSEM <- function(sem = NULL,
-                       family = "normal",
-                       all_vars = FALSE,
+                       family = "fixed",
+                       sigmaR_prior_sd = NA,
                        estimate_projection = FALSE
 ){
-  return(list(sem = sem, family = family, all_vars = all_vars, estimate_projection = estimate_projection))
+  return(list(sem = sem, family = family, sigmaR_prior_sd = sigmaR_prior_sd,
+              estimate_projection = estimate_projection))
+}
+
+
+#' Parse a single SEM path specification
+#'
+#' Ported from \code{dsem::parse_path} (originally \code{sem::parse.path}). Used
+#' by \code{\link{build_dsem_objects}} to collect the variables referenced in a
+#' \code{sem}. dsem is distributed under GPL-3; \code{parse_path} originates from
+#' package \code{sem} (GPL >= 2, used with permission from John Fox).
+#'
+#' @param path text to parse
+#' @return tagged list with \code{first}, \code{second}, \code{direction}
+#' @keywords internal
+#' @noRd
+parse_path <- function( path ){
+  path.1 <- gsub("-", "", gsub(" ", "", path))
+  direction <- if(regexpr("<>", path.1) > 0){
+    2
+  }else if(regexpr("<", path.1) > 0){
+    -1
+  }else if(regexpr(">", path.1) > 0){
+    1
+  }else{
+    stop(paste("ill-formed path:", path))
+  }
+  path.1 <- strsplit(path.1, "[<>]")[[1]]
+  list(first = path.1[1], second = path.1[length(path.1)], direction = direction)
+}
+
+
+#' Map an Rceattle DSEM family string to a dsem 3.0.0 family object
+#'
+#' dsem >= 3.0.0 expects glm-style \code{family} objects rather than the
+#' character strings Rceattle's API uses. Returns the input unchanged if it is
+#' already a \code{family} object.
+#'
+#' @param fam a single family string (or a \code{family} object)
+#' @return a \code{family} object understood by \code{dsem::dsem}
+#' @keywords internal
+#' @noRd
+dsem_family_object <- function( fam ){
+  if(inherits(fam, "family")) return(fam)
+  switch(as.character(fam),
+         "fixed"     = dsem::fixed(),
+         "normal"    = stats::gaussian(),
+         "gaussian"  = stats::gaussian(),
+         "bernoulli" = stats::binomial(),
+         "binomial"  = stats::binomial(),
+         "poisson"   = stats::poisson(),
+         "gamma"     = stats::Gamma(link = "log"),
+         "Gamma"     = stats::Gamma(link = "log"),
+         "lognormal" = dsem::lognormal(),
+         "tweedie"   = dsem::tweedie(),
+         stop("Unsupported DSEM 'family': '", fam, "'. Use one of ",
+              "fixed, normal, gamma, bernoulli, poisson, lognormal, tweedie.",
+              call. = FALSE))
 }
 
 
@@ -80,58 +159,83 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     dplyr::select(dplyr::any_of(intersect(colnames(dsem_data), sem_vars)))
 
 
-  # DSEM family
-  if(length(dsem_settings$family) == 1){
-    dsem_settings$family <- rep(dsem_settings$family, ncol(dsem_data))
+  # DSEM family. dsem >= 3.0.0 wants a named list of `family` objects keyed by
+  # tsdata column. The latent recdevs<sp> columns are never observed, so they
+  # are always `fixed`; the user `family` applies only to the env-data variables
+  # retained in the sem. `family` may be:
+  #   * a single string or `family` object  -> recycled across all env variables
+  #   * a vector/list of strings and/or `family` objects, one per env variable,
+  #     matched to env columns by name when named, otherwise by position.
+  var_names <- colnames(dsem_data)
+  is_recdev <- grepl("^recdevs[0-9]+$", var_names)
+  env_names <- var_names[!is_recdev]
+
+  fam_in <- dsem_settings$family
+  # A bare `family` object is itself a list; wrap it so it counts as one entry.
+  if(inherits(fam_in, "family")) fam_in <- list(fam_in)
+  # Normalize so character vectors and lists share one code path.
+  fam_in  <- as.list(fam_in)
+  fam_nms <- names(fam_in)
+
+  if(length(fam_in) == 1L && is.null(fam_nms)){
+    # Single unnamed family -> recycle across every env variable.
+    env_family <- stats::setNames(rep(fam_in, length(env_names)), env_names)
+  } else if(!is.null(fam_nms) && all(nzchar(fam_nms))){
+    # Fully named -> match by env-column name (order-independent).
+    unknown <- setdiff(fam_nms, env_names)
+    if(length(unknown) > 0){
+      stop("'family' names are not env-data variables in the sem (",
+           paste(env_names, collapse = ", "), "): ",
+           paste(unknown, collapse = ", "), ".", call. = FALSE)
+    }
+    missing_fam <- setdiff(env_names, fam_nms)
+    if(length(missing_fam) > 0){
+      stop("'family' is missing an entry for env-data variable(s): ",
+           paste(missing_fam, collapse = ", "), ".", call. = FALSE)
+    }
+    env_family <- fam_in[env_names]
+  } else {
+    # Unnamed vector/list -> matched to env columns by position.
+    if(length(fam_in) != length(env_names)){
+      stop("Length of 'family' must be 1 or the number of env-data variables in ",
+           "the sem (", length(env_names), "), but got ", length(fam_in), ".",
+           call. = FALSE)
+    }
+    env_family <- stats::setNames(fam_in, env_names)
   }
 
-  if(length(dsem_settings$family) != ncol(dsem_data)){
-    stop("Length of 'family' in 'build_DSEM' does not equal 1 or `ncol(env_data) + nspp`")
-  }
+  dsem_family <- stats::setNames(vector("list", length(var_names)), var_names)
+  dsem_family[is_recdev] <- list(dsem::fixed())
+  dsem_family[env_names] <- lapply(env_family[env_names], dsem_family_object)
 
-  # Build DSEM TMB inputs via the vendored sem->inputs pipeline (R/0-dsem_ram.R),
-  # replacing the former dsem::dsem(run_model = FALSE) harvesting. This removes
-  # the runtime dependency on dsem internals; the pipeline is matched to
-  # src/TMB/dsem.hpp and validated byte-for-byte against dsem 2.0.1. Defaults
-  # mirror dsem 2.0.1 dsem_control() plus the controls Rceattle always set
-  # (use_REML = FALSE => Random = "x_tj"; gmrf_parameterization = "gmrf_project").
-  # fit_dsem = build_dsem_inputs(sem = dsem_settings$sem,
-  #                              tsdata = stats::ts(dsem_data),
-  #                              family = dsem_settings$family,
-  #                              use_REML = FALSE,
-  #                              quiet = TRUE)
-
-  # The compiled TMB model (src/TMB/dsem.hpp) and the vendored input pipeline are
-  # matched byte-for-byte to dsem 2.0.1. Other dsem versions can emit a different
+  # The compiled TMB model (src/TMB/dsem.hpp) are
+  # matched to dsem 3.0.0. Other dsem versions can emit a different
   # `tmb_inputs$data` layout (e.g. missing `obs_idx`/`unobs_idx` under the
   # gmrf_project parameterization), which surfaces downstream as the cryptic TMB
   # error "Error when reading the variable: 'obs_idx'". Fail fast instead.
   if (!requireNamespace("dsem", quietly = TRUE)) {
-    stop("The 'dsem' package (version 2.0.1) is required to build DSEM inputs. ",
+    stop("The 'dsem' package (version 3.0.0) is required to build DSEM inputs. ",
          "Install the matching version with:\n",
-         "  remotes::install_version(\"dsem\", version = \"2.0.1\")",
+         "  remotes::install_version(\"dsem\", version = \"3.0.0\")",
          call. = FALSE)
   }
-  if (utils::packageVersion("dsem") != "2.0.1") {
-    stop("Rceattle's DSEM module requires dsem 2.0.1 (the version src/TMB/dsem.hpp ",
+  if (utils::packageVersion("dsem") != "3.0.0") {
+    stop("Rceattle's DSEM module requires dsem 3.0.0 (the version src/TMB/dsem.hpp ",
          "is matched to), but dsem ", utils::packageVersion("dsem"),
          " is installed.\n",
          "Other versions can produce an incompatible data layout and a downstream ",
          "TMB error such as \"Error when reading the variable: 'obs_idx'\".\n",
          "Install the matching version with:\n",
-         "  remotes::install_version(\"dsem\", version = \"2.0.1\")",
+         "  remotes::install_version(\"dsem\", version = \"3.0.0\")",
          call. = FALSE)
   }
 
   fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
                          tsdata = stats::ts(dsem_data),
-                         family = dsem_settings$family,
+                         family = dsem_family,
                          control = dsem::dsem_control(use_REML = FALSE,
                                                  quiet = TRUE,
                                                  run_model = FALSE))
-
-  #fit_dsem$tmb_inputs$map$lnsigma_j <- factor(rep(NA, length=length(fit_dsem$tmb_inputs$map$lnsigma_j))) #FIXME: Not sure why we turn this off?
-  #fit_dsem$tmb_inputs$parameters$lnsigma_j <- rep(log(0.1), length=length(fit_dsem$tmb_inputs$parameters$lnsigma_j))
 
   # Extract dsem map and parameter objects
   # - Create mapList object
@@ -179,6 +283,19 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$rec_sd_idx   <- as.integer(rec_sd_idx)
   fit_dsem$tmb_inputs$data$rec_sd_fixed <- as.numeric(rec_sd_fixed)
 
+  # Optional lognormal prior on the estimated recruitment SD, centered at the
+  # assessment value (sigma_rec_prior). Regularizes R_sd away from the
+  # 1/R_sd^2 collapse when env covariates over-explain recruitment. Enabled per
+  # species only when the SD is estimated (rec_sd_idx >= 1) and a finite
+  # sigmaR_prior_sd is supplied via build_DSEM(); off (NA) by default.
+  prior_sd_in <- dsem_settings$sigmaR_prior_sd
+  if(is.null(prior_sd_in)) prior_sd_in <- NA
+  prior_sd <- rep_len(prior_sd_in, data_list$nspp)
+  rec_sd_use_prior <- as.integer((rec_sd_idx >= 1) & is.finite(prior_sd))
+  fit_dsem$tmb_inputs$data$rec_sd_prior     <- as.numeric(sigma_rec_prior)
+  fit_dsem$tmb_inputs$data$rec_sd_prior_sd  <- as.numeric(ifelse(is.finite(prior_sd), prior_sd, 0))
+  fit_dsem$tmb_inputs$data$rec_sd_use_prior <- as.integer(rec_sd_use_prior)
+
   # x_tj column of each species' recdevs (0-based for the cpp).
   rec_dev_col <- match(paste0("recdevs", seq_len(data_list$nspp)), colnames(dsem_data)) - 1L
   if(any(is.na(rec_dev_col))){
@@ -225,10 +342,11 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 # CEATTLE parameter list, map, random-effects vector, and data list at four
 # points in its pipeline. The contract of what DSEM contributes lives here so
 # those merges stay consistent:
-#   * parameters: beta_z, lnsigma_j, mu_j, delta0_j, x_tj
+#   * parameters: beta_z, lnsigma_z, mu_j, delta0_j, x_tj
 #   * map:        mapList + mapFactor entries for the above
 #   * random:     x_tj (when random_rec = TRUE)
-#   * data:       options, RAM, RAMstart, familycode_j, y_tj, obs_idx, unobs_idx
+#   * data:       options, RAM, RAMstart, familycode_j, linkcode_j, sigmastart_j,
+#                 eps_tj, y_tj, obs_idx, unobs_idx
 
 #' Names of the DSEM parameters contributed to the CEATTLE parameter list
 #' @param dsem object returned by \code{\link{build_dsem_objects}}

@@ -75,16 +75,23 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( RAM );               // Reticular Action Model matrix (heads,to,from,parameter,to_t,to_j)
   DATA_VECTOR( RAMstart );           // Starting/fixed values for RAM paths
   DATA_IVECTOR( familycode_j );      // Likelihood family per variable
+  DATA_IVECTOR( linkcode_j );
+  DATA_IVECTOR( sigmastart_j );
+  DATA_ARRAY( eps_tj );
+
   DATA_ARRAY( y_tj );                // Observed multivariate time-series data
   DATA_IVECTOR( obs_idx );           // Full-rank component indices (options 2,3); 0-based
   DATA_IVECTOR( unobs_idx );         // Reduced/zero-rank component indices (options 2,3); 0-based
   DATA_IVECTOR( rec_sd_idx );        // 1-based beta_z index of each species' recruitment SD; 0 if fixed in sem
   DATA_VECTOR( rec_sd_fixed );       // Recruitment SD used when rec_sd_idx == 0 (SD fixed in sem)
   DATA_IVECTOR( rec_dev_col );       // 0-based x_tj column of each species' recruitment devs
+  DATA_VECTOR( rec_sd_prior );       // Lognormal prior mean for R_sd (= sigma_rec_prior); used when rec_sd_use_prior==1
+  DATA_VECTOR( rec_sd_prior_sd );    // Lognormal prior SD (log scale) for R_sd
+  DATA_IVECTOR( rec_sd_use_prior );  // 1 = apply lognormal prior on R_sd (regularize off 0); 0 = off (default)
 
   // DSEM PARAMETERS
   PARAMETER_VECTOR( beta_z );        // Estimated path coefficients
-  PARAMETER_VECTOR( lnsigma_j );     // Log-SD for likelihood families
+  PARAMETER_VECTOR( lnsigma_z );     // Log-SD for likelihood families
   PARAMETER_VECTOR( mu_j );          // Mean offsets
   PARAMETER_VECTOR( delta0_j );      // Initial condition offsets
   PARAMETER_ARRAY( x_tj );           // Latent states (Random Effects)
@@ -758,11 +765,11 @@ Type objective_function<Type>::operator() () {
   for(sp = 0; sp < nspp; sp++){
     for(yr = 0; yr < nyrs; yr++){
       R0(sp, yr)    = exp(rec_pars(sp, 0) + recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr))
-                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_R0,    yr);
+      + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_R0,    yr);
       alpha(sp, yr) = exp(rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr))
-                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_ALPHA, yr);
+        + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_ALPHA, yr);
       Beta(sp, yr)  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr))
-                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_BETA,  yr);
+        + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_BETA,  yr);
     }
   }
 
@@ -864,13 +871,16 @@ Type objective_function<Type>::operator() () {
     RAM,
     RAMstart,
     familycode_j,
+    linkcode_j,
+    sigmastart_j,
+    eps_tj,
     y_tj,
     obs_idx,
     unobs_idx,
 
     // Parameters
     beta_z,
-    lnsigma_j,
+    lnsigma_z,
     mu_j,
     delta0_j,
     x_tj
@@ -1670,7 +1680,7 @@ Type objective_function<Type>::operator() () {
     const int first_yr = 0;
     if (R0.cols() != nyrs || alpha.cols() != nyrs || Beta.cols() != nyrs) {
       error("Section 6.9: R0/alpha/Beta column count does not equal nyrs; "
-            "recruitment-parameter matrices were sized inconsistently.");
+              "recruitment-parameter matrices were sized inconsistently.");
     }
     for(sp = 0; sp < nspp; sp++) {
 
@@ -2860,9 +2870,14 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
-    // NOW in DSEM
-    for(yr = 0; yr < nyrs_hind; yr++) {
-      // jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+    // NOW in DSEM (the recdev density comes from the DSEM GMRF). This slot is
+    // reused for an optional lognormal prior on the estimated recruitment SD,
+    // centered at the assessment value (sigma_rec_prior). It regularizes R_sd
+    // away from the 1/R_sd^2 collapse that occurs when environmental covariates
+    // over-explain the recruitment deviations, while still estimating it. Off
+    // (rec_sd_use_prior == 0) by default, so standard fits are unchanged.
+    if( rec_sd_use_prior(sp) == 1 ){
+      jnll_comp(10, sp) -= dnorm( log(R_sd(sp)), log(rec_sd_prior(sp)), rec_sd_prior_sd(sp), true );
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)

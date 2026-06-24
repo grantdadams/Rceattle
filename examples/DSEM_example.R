@@ -39,7 +39,7 @@ model2 <- Rceattle::fit_mod(data_list = GOApollock,
                             estimateMode = 0, # Estimate
                             dsem = build_DSEM(
                               sem = sem_iid,
-                              family = "normal"
+                              family = "fixed"
                             ),
                             random_rec = TRUE, # Random recruitment
                             msmMode = 0, # Single species mode
@@ -88,7 +88,7 @@ model4 <- Rceattle::fit_mod(data_list = BS2017SS,
                             random_rec = TRUE, # Random recruitment
                             dsem = build_DSEM(
                               sem = sem_3spp,
-                              family = "normal"
+                              family = "fixed"
                             ),
                             msmMode = 0, # Single species mode
                             phase = TRUE,

@@ -432,7 +432,7 @@ fit_mod <-
       }
     }
 
-    # Merge DSEM parameters (beta_z, lnsigma_j, mu_j, delta0_j, x_tj). Adds any
+    # Merge DSEM parameters (beta_z, lnsigma_z, mu_j, delta0_j, x_tj). Adds any
     # absent from start_par; a no-op when already present, so this works for both
     # a fresh build_params() list and a prior fit's estimated_params. See
     # merge_dsem_params() in R/0-build_DSEM.R.
