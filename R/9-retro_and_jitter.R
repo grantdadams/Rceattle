@@ -216,7 +216,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         avgnMode = data_list$avgnMode,
         suitMode = data_list$suitMode,
         suit_styr = data_list$suit_styr,
-        suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+        suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
         phase = TRUE, # Phasing or else the parameters dont wanna move
         loopnum = data_list$loopnum,
@@ -291,7 +291,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         avgnMode = data_list$avgnMode,
         suitMode = data_list$suitMode,
         suit_styr = data_list$suit_styr,
-        suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+        suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
         phase = TRUE, # Phasing or else the parameters dont wanna move
         loopnum = data_list$loopnum,
@@ -397,6 +397,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
   return(list(Rceattle_list = rev(mod_list), mohns = rbind(mohns, beta_mohns)))
 }
+
 
 
 

@@ -968,7 +968,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
 
         print(p)
         plot_list[[length(plot_list) + 1]] <- p
-        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_line_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 10, height = 7)
+        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_line_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 7, height = 5)
 
         # -----------------------------------------------------------------------
         # CASE 2: PREDATOR AGGREGATED (Prey Age on X-axis) <-- THIS IS THE NEW CASE
@@ -1008,7 +1008,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
 
         print(p)
         plot_list[[length(plot_list) + 1]] <- p
-        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_preyage_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 10, height = 7)
+        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_preyage_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 7, height = 5)
 
         # -----------------------------------------------------------------------
         # CASE 3: BOTH AGGREGATED (Bar plot)
@@ -1030,7 +1030,7 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
 
         print(p_fit)
         plot_list[[length(plot_list) + 1]] <- p_fit
-        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_barplot_Pred", pred_ind, ".png"), p_fit, width = 8, height = 5)
+        if(!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_barplot_Pred", pred_ind, ".png"), p_fit, width = 7, height = 5)
 
         # -----------------------------------------------------------------------
         # CASE 4: FULLY DISAGGREGATED (Bubble plot)
@@ -1061,12 +1061,12 @@ plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
             ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Pearson Residuals", size = "Abs(Resid)")
 
           p1 <- cowplot::plot_grid(p_obs, p_est, p_pear, nrow = 1)
-          p1 <- cowplot::ggdraw(p1) + cowplot::draw_label(title, x = 0.5, y = 0.98)
+          #p1 <- cowplot::ggdraw(p1) + cowplot::draw_label(title, x = 0.5, y = 0.99)
           print(p1)
           plot_list[[length(plot_list) + 1]] <- p1
 
           if (!is.null(file)) {
-            ggplot2::ggsave(paste0(file, "_diet_bubble_Pred", pred_ind, "_Prey", prey_ind, "_Yr", current_yr, ".png"), p1, width = 12, height = 4)
+            ggplot2::ggsave(paste0(file, "_diet_bubble_Pred", pred_ind, "_Prey", prey_ind, "_Yr", current_yr, ".png"), p1, width = 10, height = 6)
           }
         }
       }

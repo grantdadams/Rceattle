@@ -26,6 +26,7 @@ test_that("Simulated simple multi-species model the same" {
     Fmort = matrix(0.5, nspp, length(years)),
     srv_q = rep(1, nspp),
 
+
     # Multispecies bits
     niter = 10,
     gam_a = rep(0.1, nspp),
@@ -322,6 +323,8 @@ test_that("Simulated simple multi-species model the same" {
   simData$other_food <- rep(1e5, nspp)
   simData$sigma_rec_prior <- rep(0.707, nspp)
   simData$pop_age_transition_index <- rep(1, nspp)
+  simData$suit_styr <- rep(simData$styr, nspp)   # c(1, 1)
+  simData$suit_endyr <- rep(simData$endyr, nspp)  # c(30, 30)
 
   # * Fleet control ----
   simData$fleet_control <- simData$fleet_control[c(1,3,1,3),] # BT and Trawl Fishery are both simple logistic
@@ -589,6 +592,8 @@ test_that("Simulated simple multi-species model the same" {
   simData$Diet_comp_weights <- rep(1,nspp)
 
 
+
+
   # 3) Fit single-species -------------------------------------------------------------
   ss_run <- Rceattle::fit_mod(data_list = simData,
                               inits = NULL, # Initial parameters = 0
@@ -653,6 +658,8 @@ test_that("Simulated simple multi-species model the same" {
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
+                               suit_styr = c(1, 1),  # hake, ATF, sablefish
+                               suit_endyr = c(30, 30), # hake, ATF, sablefish
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
@@ -705,6 +712,8 @@ test_that("Simulated simple multi-species model the same" {
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
+                               suit_styr = c(1, 1),  # hake, ATF, sablefish
+                               suit_endyr = c(30, 30), # hake, ATF, sablefish
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
@@ -749,6 +758,8 @@ test_that("Simulated simple multi-species model the same" {
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
+                               suit_styr = c(1, 1),  # hake, ATF, sablefish
+                               suit_endyr = c(30, 30), # hake, ATF, sablefish
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
@@ -789,6 +800,8 @@ test_that("Simulated simple multi-species model the same" {
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
+                               suit_styr = c(1, 1),  # hake, ATF, sablefish
+                               suit_endyr = c(30, 30), # hake, ATF, sablefish
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,

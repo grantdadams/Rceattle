@@ -1,5 +1,5 @@
 # 1. SETUP & EXTRACTION
-mod      <- run_ms_CSL_Mest
+mod      <- run_ms_CSL_Mest_test_W
 nspp     <- mod$data_list$nspp
 nsex_vec <- mod$data_list$nsex          # per-species sex count, length = nspp
 sp_names <- mod$data_list$spnames
@@ -72,8 +72,8 @@ suit_df <- bind_rows(suit_list) %>%
   mutate(Sex = factor(Sex, levels = c("Female/Combined", "Male")))
 
 # 5. PLOT
-final_colors <- c("Hake" = "#7570B3", "ATF" = "#1B9E77",
-                  "Sablefish" = "#E7298A", "CSL" = "#D95F02")
+final_colors <- c("Hake" = "#D95F02", "ATF" = "#1B9E77",
+                  "Sablefish" = "#7570B3" )
 
 ggplot(suit_df %>% filter(Prey_Age <= 20),
        aes(x = Prey_Age, y = Suitability,
