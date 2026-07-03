@@ -114,7 +114,7 @@ articles:
 - title: Contributing
   desc: Extending and maintaining the package internals.
   contents:
-  - developer-guide
+  - articles/developer-guide
 
 reference:
 - title: "Data input / output"
