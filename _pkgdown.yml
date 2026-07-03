@@ -66,6 +66,9 @@ navbar:
         href: articles/model-parameterizations.html
       - text: "Converting from Stock Synthesis"
         href: articles/stock-synthesis-conversion.html
+      - text: "--- Contributing ---"
+      - text: "Developer guide"
+        href: articles/developer-guide.html
     github:
       icon: fab fa-github
       href: https://github.com/grantdadams/Rceattle
@@ -107,6 +110,11 @@ articles:
   contents:
   - model-parameterizations
   - environmental-linkages-and-priors
+
+- title: Contributing
+  desc: Extending and maintaining the package internals.
+  contents:
+  - developer-guide
 
 reference:
 - title: "Data input / output"

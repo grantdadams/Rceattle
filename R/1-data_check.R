@@ -31,7 +31,8 @@ data_check <- function(data_list) {
   }
 
   # suitMode: length-based modes are not yet implemented.
-  if(any(data_list$suitMode %in% c(1, 3))){
+  # 1 = GammaLength, 3 = LognormalLength, 5 = NormalLength.
+  if(any(data_list$suitMode %in% c(1, 3, 5))){
     errors <- c(errors, "Length based suitability not yet implemented")
   }
 

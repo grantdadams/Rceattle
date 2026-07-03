@@ -56,7 +56,7 @@ summary(model_1)              # same compact summary
 coef(model_1)                 # estimated fixed-effect parameters
 logLik(model_1)               # logLik with df attribute (AIC works)
 AIC(model_1)
-vcov(model_1)                 # fixed-effect covariance fro
+vcov(model_1)                 # fixed-effect covariance from sdreport
 residuals(model_1)                    # response residuals, all data sources
 residuals(model_1, type = "pearson")  # Pearson residuals (glm-style `type`)
 as.data.frame(model_1)
@@ -99,9 +99,6 @@ The checks cover:
 - **`phasing`** — phases that ended with a high gradient, localizing which
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.
-
-Each record carries a `data` element with the underlying numbers (e.g. the
-condition number and loadings for `hessian_conditioning`).
 
 ## Fit plots
 
@@ -150,19 +147,10 @@ data are residualized with the conditional binomial / beta-binomial
 decomposition. OSA re-optimizes the random effects per observation, so it is
 expensive; run it on a converged fit (`estimateMode < 3`).
 
-Computing OSA residuals for *composition* data (`"comp"`/`"caal"`/`"diet"`)
-requires building extra observation data during the fit. That is opt-in for
-speed -- it is skipped by default so repeated refits (simulation testing,
-`run_mse()`) stay fast -- so fit with `fit_control(osa = TRUE)` when you intend
-to use them. The aggregate index/catch OSA residuals and `process_residuals()`
-work for any fit.
-
-The composition likelihood adds a small proportion offset to each bin before the
-multinomial / Dirichlet-multinomial -- both when fitting and when building the
-OSA observation vector, so the two stay consistent and empty bins do not produce
-`log(0)`. It defaults to `1e-5` when `fit_control(comp_offset = NULL)`. The value 
-is stored on `data_list$comp_offset`, so projections, `retrospective()`, and 
-`run_mse()` inherit it (it does not apply to diet compositions).
+Composition-data OSA residuals (`"comp"`/`"caal"`/`"diet"`) require extra
+observations to be built during the fit, so set `fit_control(osa = TRUE)` when
+you want them. Aggregate index and catch OSA residuals, and
+`process_residuals()`, are available for any fit.
 
 ```{r osa, eval = FALSE}
 # Aggregate (catch + index) residuals -- fast, available for any fit
@@ -295,19 +283,14 @@ Each simulation uses `seed + i` as its RNG seed, so results are reproducible whe
 
 ## Likelihood profile
 
-`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
+`profile()` re-fits the model across a grid of fixed values for a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. It supports the recruitment standard deviation, the stock–recruit parameters, and natural mortality.
 
-Two ways to specify `param`:
-
-- **Natural-scale alias** (recommended for the three documented parameters). The alias implies `transform = "log"` so you pass natural-scale values like sigmaR or M directly. For the `rec_pars` aliases (`"R0"`, `"alpha"`, `"beta"`) the column is filled in from the alias name, so `slots` only needs the species index.
-  - `"sigmaR"` / `"R_sd"` &rarr; `R_log_sd`
-  - `"M1"` &rarr; `log_M1`
-  - `"R0"` &rarr; `rec_pars[, 1]`
-  - `"alpha"` &rarr; `rec_pars[, 2]`
-  - `"beta"` &rarr; `rec_pars[, 3]`
-- **Raw parameter slot**. Pass the storage name (`"R_log_sd"`, `"rec_pars"`, `"log_M1"`, etc.); `slots` must index the full array and `transform` controls the scale.
-
-`slots` is a list of integer index vectors — one entry per cell to hold fixed — and (under raw names) its entries must match the dimensionality of the parameter array (length 1 for vectors, length 2 for matrices, length 3 for 3-D arrays). `values` is a list of value grids parallel to `slots`; the full grid of fits is `expand.grid(values)`, so multiple slots produce an N-D cross-profile.
+Specify the parameter with a natural-scale alias: `"sigmaR"` (recruitment
+standard deviation), `"M1"` (natural mortality), or the stock–recruit parameters
+`"R0"`, `"alpha"`, and `"beta"`. Aliases take natural-scale values directly.
+`slots` gives the cell(s) to profile — usually just the species index — and
+`values` gives the grid of values for each. Supplying more than one slot
+profiles over the full grid of combinations.
 
 ```{r}
 # 1-D profile: sigmaR for species 1 (natural-scale alias)

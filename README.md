@@ -78,9 +78,9 @@ plot(fit, what = "recruitment")
 plot(fit, what = "index")
 
 # Residuals across data sources (long-format data frame)
-ix_resid   <- residuals(fit, type = "index")    # log-scale by default
-comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
-all_resid  <- residuals(fit, type = "all")
+ix_resid   <- residuals(fit, source = "index")                  # response (log-scale) index residuals
+comp_resid <- residuals(fit, type = "pearson", source = "comp") # Pearson composition residuals
+all_resid  <- residuals(fit)                                    # response residuals, all data sources
 ```
 
 *3-species model*
@@ -118,9 +118,9 @@ plot(fit, what = "recruitment")
 plot(fit, what = "index")
 
 # Residuals across data sources (long-format data frame)
-ix_resid   <- residuals(fit, type = "index")    # log-scale by default
-comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
-all_resid  <- residuals(fit, type = "all")
+ix_resid   <- residuals(fit, source = "index")                  # response (log-scale) index residuals
+comp_resid <- residuals(fit, type = "pearson", source = "comp") # Pearson composition residuals
+all_resid  <- residuals(fit)                                    # response residuals, all data sources
 ```
 
 For a multispecies model, set `msmMode = 1`. See the

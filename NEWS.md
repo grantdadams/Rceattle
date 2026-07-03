@@ -101,6 +101,29 @@
   accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so
   the three entry points select data sources with one consistent vocabulary.
 
+## Documentation
+
+* Reviewed and revised the user vignettes for accuracy, clarity, and
+  consistency, targeting assessment scientists rather than developers. Trimmed
+  developer-oriented internals and repetition, and corrected the option tables
+  so they match the code: `estimateMode`, `suitMode`, selectivity, catchability,
+  harvest-control-rule, `M1_model`, and bioenergetics (`Ceq`) codes now agree
+  across `model-options-and-functionality`, `single-vs-multispecies`,
+  `projections-and-reference-points`, `data-without-excel`, and
+  `model-parameterizations`.
+* Clarified that the length-based suitability modes (`suitMode = 1/3/5`) are not
+  yet enabled; use a weight-based mode (`2/4/6`) for parametric suitability.
+* Standardized data-structure terminology across vignettes: weight-at-age is in
+  kilograms, and the diet / stomach-content input is `diet_data` (removing the
+  legacy `UobsWtAge` / `UobsAgeWt` / `stom_prop_data` names).
+* Corrected the `residuals()` examples in the README to the `type` / `source`
+  convention (e.g. `residuals(fit, type = "pearson", source = "comp")`).
+* Added a website-only "Developer guide" article
+  (`vignettes/articles/developer-guide.Rmd`) documenting the fit pipeline, the
+  switch system, the TMB module layout, and recipes for adding parameters, data
+  inputs, switch options, and likelihood components. Consolidates and updates
+  the GitHub wiki developer notes.
+
 # Rceattle 4.5.0
 
 ## New features
