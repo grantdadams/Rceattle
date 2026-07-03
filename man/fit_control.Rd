@@ -10,7 +10,6 @@ fit_control(
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
-  osa = FALSE,
   comp_offset = NULL,
   use_gradient = TRUE,
   rel_tol = 1,
@@ -39,15 +38,6 @@ of \code{ADREPORT} variables. Default \code{FALSE}.}
 parameter uncertainty in projections when using an HCR (refits with all
 hindcast and biological-reference-point parameters turned on). Default
 \code{FALSE} for speed.}
-
-\item{osa}{logical. If \code{TRUE}, assemble the full one-step-ahead (OSA)
-observation data during the fit so \code{\link[=osa_residuals]{osa_residuals()}} can be computed for
-composition / caal / diet as well as the index/catch series. Default \code{FALSE}:
-the fitted objective is identical either way, but skipping the (sizeable)
-composition OSA metadata keeps fits fast -- important for
-simulation testing such as \code{\link[=run_mse]{run_mse()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=jitter]{jitter()}}, and
-\code{\link[=retrospective]{retrospective()}}. Set \code{TRUE} when you intend to call \code{\link[=osa_residuals]{osa_residuals()}} on
-composition data.}
 
 \item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
 observed and predicted age/length composition and conditional-age-at-length

@@ -2,6 +2,17 @@
 
 ## New features
 
+* `osa_residuals()` now builds the composition / conditional-age-at-length /
+  diet one-step-ahead observation data on demand, so OSA residuals can be
+  computed from any fit. Previously the composition OSA data had to be assembled
+  during the fit via `fit_control(osa = TRUE)`; that pre-build is no longer
+  required (the reconstruction reads only the `*_ctl` / `*_obs` arrays already
+  carried by the fitted object, and is identical to an `osa = TRUE` fit).
+  Aggregate index/catch OSA residuals are unaffected.
+* **Breaking:** the `osa` argument to `fit_control()` has been removed; it is no
+  longer needed (see above), and passing it now raises an "unused argument"
+  error. The `$osa` element is no longer stored on fitted `Rceattle` objects.
+
 * Added one-step-ahead (OSA) residuals for model validation via the new
   exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
   Unlike Pearson residuals, OSA residuals are iid standard normal under a

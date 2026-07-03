@@ -59,8 +59,8 @@ it is the difference in proportions, observed minus fitted.}
 realized observation log-SD; for \code{comp} / \code{caal},
 \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 N.}
-\item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}. Composition
-sources require a fit made with \code{fit_control(osa = TRUE)}.}
+\item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds
+the composition observation data on demand from any fit.}
 \item{\code{"process"}}{Process residuals via \code{\link[=process_residuals]{process_residuals()}} for the
 model's random-effect deviations; \code{source} does not apply.}
 }

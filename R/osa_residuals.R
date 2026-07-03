@@ -107,10 +107,6 @@ osa_residuals <- function(fit,
     stop("'fit' has no TMB object ($obj); OSA residuals require the fitted ",
          "model object.")
   }
-  if (is.null(fit$obs_ctl)) {
-    stop("'fit' has no OSA observation map ($obs_ctl). Re-fit with a current ",
-         "version of Rceattle that builds the OSA observation vector.")
-  }
   em <- fit$data_list$estimateMode
   if (!is.null(em) && em >= 3) {
     stop("OSA residuals require a model optimized with estimateMode < 3 ",
@@ -129,22 +125,15 @@ osa_residuals <- function(fit,
   source <- match.arg(source, choices = valid_sources, several.ok = TRUE)
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal", "diet")
 
-  # Composition OSA data (comp / caal / diet) is only assembled when the model
-  # was fit with fit_control(osa = TRUE); the default fast path builds just the
-  # aggregate index/catch entries (see build_osa_data()). Give a clear message
-  # rather than silently returning fewer residuals than requested.
-  comp_sources <- intersect(source, c("comp", "caal", "diet"))
-  if (!isTRUE(fit$osa) && length(comp_sources) > 0) {
-    msg <- paste0(
-      "OSA residuals for source(s) ", paste(comp_sources, collapse = ", "),
-      " require fitting with fit_control(osa = TRUE); this model was fit with ",
-      "osa = FALSE (the fast default used for simulation testing). Refit with ",
-      "fit_mod(..., fit_control = fit_control(osa = TRUE)) to enable them.")
-    if (all(source %in% comp_sources)) stop(msg) else warning(msg)
-  }
+  # Build the full OSA observation data (comp / caal / diet segments) on demand.
+  # This works from any fit and no longer requires fitting with
+  # fit_control(osa = TRUE): build_osa_data() reads only the *_ctl / *_obs
+  # arrays the template already carries, and `obs_ctl` maps each obsvec position
+  # back to its source. The same regenerated data is reused by .osa_build_obj().
+  osa_dat <- build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  obs_ctl <- osa_dat$obs_ctl
 
   # ---- Select the obsvec positions to residualize ----
-  obs_ctl <- fit$obs_ctl
   sel <- obs_ctl[obs_ctl$source %in% source & !obs_ctl$is_last_bin, , drop = FALSE]
   if (nrow(sel) == 0) {
     stop("No observations of source(s) ", paste(source, collapse = ", "),
@@ -178,7 +167,7 @@ osa_residuals <- function(fit,
   # from obsvec and use the unweighted, proper density that oneStepPredict needs.
   # It leaves the aggregate catch/index likelihood unchanged, so the same
   # rebuilt object serves all observation types.
-  obj_osa <- .osa_build_obj(fit)
+  obj_osa <- .osa_build_obj(fit, osa_dat)
 
   # ---- Compute the OSA residuals ----
   # oneStepPredict() applies a single `discrete` setting per call, but the
@@ -292,14 +281,23 @@ osa_residuals <- function(fit,
 #' so this single object serves every observation type.
 #'
 #' @param fit A fitted `Rceattle` object.
+#' @param osa_dat Optional pre-built OSA observation data (the list returned by
+#'   [build_osa_data()] with `build_osa = TRUE`) to reuse instead of rebuilding
+#'   it. `NULL` (the default) rebuilds it from `fit$obj$env$data`.
 #' @return A TMB ADFun object with `osa_mode = 1`.
 #' @keywords internal
-.osa_build_obj <- function(fit) {
+.osa_build_obj <- function(fit, osa_dat = NULL) {
   obj <- fit$obj
   if (!is.null(obj$env$data$osa_mode) && obj$env$data$osa_mode == 1L) {
     return(obj)
   }
-  data2 <- obj$env$data
+  # Regenerate the full OSA observation vector (comp / CAAL / diet segments) on
+  # demand, so residuals no longer require fitting with fit_control(osa = TRUE).
+  # build_osa_data() reads only the *_ctl / *_obs arrays the template already
+  # carries in obj$env$data, so the result is identical to an osa = TRUE fit.
+  # `osa_dat` lets the caller pass a pre-built copy to avoid recomputing it.
+  data2 <- if (is.null(osa_dat)) build_osa_data(obj$env$data, build_osa = TRUE) else osa_dat
+  data2$obs_ctl <- NULL   # R-side metadata table, not a TMB DATA input
   # obj$env$data is already sanitized (stored as double with a 'check.passed'
   # attribute). Overwrite osa_mode as a double (DATA_INTEGER reads it via
   # CppAD::Integer) and drop 'check.passed' so MakeADFun re-sanitizes cleanly.

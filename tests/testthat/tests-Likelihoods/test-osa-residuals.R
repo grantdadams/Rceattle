@@ -237,9 +237,11 @@ testthat::test_that("process_residuals() runs on a converging model", {
   r <- residuals(fit, type = "process")
   testthat::expect_true(all(c("Source", "Species", "Year", "Residual") %in% names(r)))
 
-  # This fit used the default osa = FALSE, so composition OSA data was not built;
-  # osa_residuals() for composition must fail with an actionable message.
-  testthat::expect_error(osa_residuals(fit, source = "comp"), "osa = TRUE")
+  # Composition OSA data is built on demand, so comp residuals work from any fit
+  # -- no fit_control(osa = TRUE) needed.
+  osa_comp <- osa_residuals(fit, source = "comp")
+  testthat::expect_s3_class(osa_comp, "rceattle_osa")
+  testthat::expect_true(all(is.finite(osa_comp$residual)))
 })
 
 
@@ -252,7 +254,7 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   fit <- Rceattle::fit_mod(
     data_list = GOApollock, inits = NULL, file = NULL,
     estimateMode = 1, random_rec = FALSE, msmMode = 0,
-    fit_control = fit_control(verbose = 0, phase = TRUE, osa = TRUE))
+    fit_control = fit_control(verbose = 0, phase = TRUE))
 
   osa <- osa_residuals(fit, source = c("index", "catch", "comp"))
 
@@ -261,15 +263,19 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   testthat::expect_true(all(is.finite(osa$residual)))
   testthat::expect_setequal(unique(osa$source), c("index", "catch", "comp"))
 
+  # Full observation map, regenerated on demand (as osa_residuals() does
+  # internally); the stored fit$obs_ctl carries only the aggregate series.
+  ctl <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+
   # Aggregate: one residual per included catch/index observation.
   agg <- osa[osa$source %in% c("index", "catch"), ]
   testthat::expect_equal(nrow(agg),
-                         sum(fit$obs_ctl$source %in% c("index", "catch")))
+                         sum(ctl$source %in% c("index", "catch")))
 
   # Composition: each composition drops its sum-to-N last bin, so there is one
   # fewer residual than bins per composition (here per fleet x year group).
-  n_comp_bins   <- sum(fit$obs_ctl$source == "comp")
-  n_comp_groups <- length(unique(fit$obs_ctl$group_id[fit$obs_ctl$source == "comp"]))
+  n_comp_bins   <- sum(ctl$source == "comp")
+  n_comp_groups <- length(unique(ctl$group_id[ctl$source == "comp"]))
   testthat::expect_equal(sum(osa$source == "comp"), n_comp_bins - n_comp_groups)
   testthat::expect_true(all(is.finite(osa$residual[osa$source == "comp"])))
 
@@ -289,7 +295,7 @@ testthat::test_that("osa_residuals() runs end-to-end on a converging model", {
   # selects the data source(s) (aggregate subset to keep the test cheap).
   r <- residuals(fit, type = "osa", source = c("index", "catch"))
   testthat::expect_true(all(c("Source", "Fleet_code", "Year", "Residual") %in% names(r)))
-  testthat::expect_equal(nrow(r), sum(fit$obs_ctl$source %in% c("index", "catch")))
+  testthat::expect_equal(nrow(r), sum(ctl$source %in% c("index", "catch")))
 
   # glm-style residual kinds: response / pearson cover all sources by default.
   rr <- residuals(fit, type = "response")
@@ -444,13 +450,12 @@ testthat::test_that("OSA mode reproduces the diet fitting likelihood (decomposit
 
   # estimateMode = 3 builds and reports jnll_comp without optimizing; the
   # decomposition identity holds at any parameter values, so no fit is needed.
-  # osa = TRUE builds the diet obsvec segment that osa_mode = 1 reads.
+  # The diet obsvec segment (read when osa_mode = 1) is rebuilt on demand.
   fit <- Rceattle::fit_mod(sim$data_list, estimateMode = 3, msmMode = 1,
                            suitMode = 4, niter = 5, initMode = "NonEquilibrium",
-                           fit_control = fit_control(phase = FALSE, verbose = 0,
-                                                     osa = TRUE))
-  testthat::skip_if(!isTRUE(fit$osa), "diet OSA data not built")
-  testthat::skip_if(!any(fit$obs_ctl$source == "diet"), "no diet observations")
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  ctl <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+  testthat::skip_if(!any(ctl$source == "diet"), "no diet observations")
 
   diet_row <- 19L                       # jnll_comp C++ slot 18 (diet) -> R row 19
   jc0  <- fit$obj$report(fit$obj$par)$jnll_comp                 # osa_mode = 0
@@ -474,16 +479,18 @@ testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted 
   # End-to-end exercise of oneStepPredict() over the diet obsvec positions (never
   # run elsewhere in the suite). osa_residuals requires an optimized
   # (estimateMode < 3) fit; the simulated data are generated from the model with
-  # a large effective sample size, so estimateMode = 1 converges. osa = TRUE
-  # builds the diet composition obsvec. getsd = FALSE skips sdreport -- OSA
-  # residuals use the fitted object, not the standard errors, and this tiny
-  # fixture has a non-positive-definite Hessian that would otherwise warn.
+  # a large effective sample size, so estimateMode = 1 converges. The diet
+  # composition obsvec is rebuilt on demand by osa_residuals(). getsd = FALSE
+  # skips sdreport -- OSA residuals use the fitted object, not the standard
+  # errors, and this tiny fixture has a non-positive-definite Hessian that would
+  # otherwise warn.
   sim <- .make_diet_osa_fixture()
   fit <- Rceattle::fit_mod(sim$data_list, estimateMode = 1, msmMode = 1,
                            suitMode = 4, niter = 5, initMode = "NonEquilibrium",
                            fit_control = fit_control(phase = FALSE, verbose = 0,
-                                                     osa = TRUE, getsd = FALSE))
-  testthat::skip_if(!any(fit$obs_ctl$source == "diet"), "no diet observations")
+                                                     getsd = FALSE))
+  ctl <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+  testthat::skip_if(!any(ctl$source == "diet"), "no diet observations")
 
   osa <- osa_residuals(fit, source = "diet")
 
@@ -492,7 +499,7 @@ testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted 
 
   # Each stomach drops its sum-to-one "other prey" last bin, so the residual
   # count equals the kept (non-last) diet bins in obs_ctl.
-  n_keep <- sum(fit$obs_ctl$source == "diet" & !fit$obs_ctl$is_last_bin)
+  n_keep <- sum(ctl$source == "diet" & !ctl$is_last_bin)
   testthat::expect_equal(nrow(osa), n_keep)
   testthat::expect_true(all(is.finite(osa$residual)))
 

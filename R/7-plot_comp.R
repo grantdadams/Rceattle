@@ -35,8 +35,8 @@
 #'   and composition-fit figures drawn here, or `"osa"` to instead draw the
 #'   one-step-ahead residual diagnostics via [osa_residuals()] and
 #'   [plot.rceattle_osa()] -- a Q-Q plot (with SDNR / tail annotation) alongside
-#'   signed OSA- and Pearson-residual bubbles. The `"osa"` path requires a model
-#'   fit with `fit_control(osa = TRUE)`.
+#'   signed OSA- and Pearson-residual bubbles. The `"osa"` path builds its
+#'   observation data on demand, so it works with any fit.
 #'
 #' @return Invisibly, a named list of the `ggplot` objects. Called for its side
 #'   effect of drawing (and optionally saving) the figures.

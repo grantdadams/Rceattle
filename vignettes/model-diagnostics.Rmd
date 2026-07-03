@@ -147,13 +147,12 @@ data are residualized with the conditional binomial / beta-binomial
 decomposition. OSA re-optimizes the random effects per observation, so it is
 expensive; run it on a converged fit (`estimateMode < 3`).
 
-Composition-data OSA residuals (`"comp"`/`"caal"`/`"diet"`) require extra
-observations to be built during the fit, so set `fit_control(osa = TRUE)` when
-you want them. Aggregate index and catch OSA residuals, and
-`process_residuals()`, are available for any fit.
+All OSA sources -- aggregate index/catch and composition
+(`"comp"`/`"caal"`/`"diet"`) -- are available from any fit; `osa_residuals()`
+builds the required observation data on demand.
 
 ```{r osa, eval = FALSE}
-# Aggregate (catch + index) residuals -- fast, available for any fit
+# Aggregate (catch + index) residuals
 osa <- osa_residuals(model_1, source = c("index", "catch"))
 head(osa)
 
@@ -168,12 +167,9 @@ plot(osa)
 # the data, like `type` in stats::residuals.glm()):
 residuals(model_1, type = "osa", source = c("index", "catch"))
 
-# Composition OSA residuals require the OSA data to be built at fit time:
-model_1_osa <- Rceattle::fit_mod(
-  data_list = nrdata, estimateMode = 0, initMode = 1,
-  fit_control = fit_control(phase = TRUE, verbose = 0, osa = TRUE))
-plot_comp(model_1_osa, residual_type = "osa")          # Q-Q + signed bubbles
-residuals(model_1_osa, type = "osa", source = "comp")
+# Composition OSA residuals -- no special fit required
+plot_comp(model_1, residual_type = "osa")              # Q-Q + signed bubbles
+residuals(model_1, type = "osa", source = "comp")
 ```
 
 Following Stewart and Monnahan (2025), a practical workflow is:

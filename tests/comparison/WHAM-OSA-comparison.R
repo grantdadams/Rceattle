@@ -230,7 +230,7 @@ growthFun_vb <- build_growth(fun = "vonBertalanffy",
 
 # * Estimate Rceattle ----
 # Rceattle OSA residuals: estimateMode = 1 (objective differentiable, hindcast
-# only) and fit_control(osa = TRUE) so the composition OSA data is built.
+# only). osa_residuals() builds the composition OSA data on demand.
 # Cache the Rceattle OSA (fit + one-step-ahead residuals) to a gitignored RDS;
 # delete it (or set runmodels = TRUE) to recompute after the model changes.
 rce_osa_cache <- "tests/comparison/WHAM_growth_comparison/rce_osa.RDS"
@@ -245,7 +245,7 @@ if (!runmodels && file.exists(rce_osa_cache)) {
                               # comp_offset = 0 -> WHAM-style multinomial (matches the fitting
                               # AND the OSA obsvec to WHAM; default 1e-5 would not match exactly)
                               fit_control = fit_control(phase = TRUE, verbose = 0,
-                                                        osa = TRUE, comp_offset = 0))
+                                                        comp_offset = 0))
   rce_osa <- Rceattle::osa_residuals(ss_osa, source = c("index", "catch", "comp", "caal"))
   saveRDS(rce_osa, rce_osa_cache)
 }
