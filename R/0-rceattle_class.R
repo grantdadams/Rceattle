@@ -243,9 +243,12 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
   scale  <- match.arg(scale, c("log", "natural"))
 
-  # Optional species filter, applied to whichever data frame is returned.
+  # Optional species filter, applied to whichever data frame is returned. Keep
+  # rows with NA species (e.g. catchability process residuals, which belong to a
+  # fleet, not a species) so a species filter does not silently drop them.
   .sp_filter <- function(df) {
-    if (is.null(species)) df else df[df$Species %in% species, , drop = FALSE]
+    if (is.null(species)) df
+    else df[df$Species %in% species | is.na(df$Species), , drop = FALSE]
   }
 
   # Diet (predator stomach-content) composition uses a predator/prey schema that
@@ -432,7 +435,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual     <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
-    df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
+    # Drop zero-padded phantom bins (ragged multispecies comps have
+    # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
+    df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
+             !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
     out$comp <- df
   }
 
@@ -468,7 +474,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual    <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
-    df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
+    # Drop zero-padded phantom bins (ragged multispecies comps have
+    # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
+    df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
+             !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
     out$caal <- df
   }
 
