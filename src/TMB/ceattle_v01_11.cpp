@@ -315,6 +315,8 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.3. Others
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population
   DATA_MATRIX( maturity );                // Proportion of mature females at age; [nspp, nages]
+  DATA_SCALAR(bias_adjust_obs);           // Whether to apply bias adjustment (-sigma^2/2) in index likelihoods
+  DATA_SCALAR(bias_adjust_proc);           // Whether to apply bias adjustment (-sigma^2/2) in process likelihoods
 
 
   /** ------------------------------------------------------------------------ //
@@ -2399,7 +2401,7 @@ Type objective_function<Type>::operator() () {
         // fitting) and obsvec(pos) == log(index_obs) this equals the original
         // lognormal likelihood exactly.
         int pos = index_obsvec_idx(index_ind);
-        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -2435,7 +2437,7 @@ Type objective_function<Type>::operator() () {
         // residuals (see the index slot above). With keep == 1 and
         // obsvec(pos) == log(catch_obs) this equals the original likelihood.
         int pos = catch_obsvec_idx(fsh_ind);
-        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
         // Martin's
         // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
@@ -2845,7 +2847,7 @@ Type objective_function<Type>::operator() () {
     // Slot 9 -- stock-recruit prior for Beverton
     // -- Lognormal
     if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
-      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) + bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
@@ -2873,14 +2875,14 @@ Type objective_function<Type>::operator() () {
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
     if(initMode > 1){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)

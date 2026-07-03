@@ -442,6 +442,10 @@ fit_mod <-
     if (!is.null(fit_control$comp_offset)) data_list$comp_offset <- fit_control$comp_offset
     if (is.null(data_list$comp_offset))    data_list$comp_offset <- 1e-5
 
+    data_list$bias_adjust_obs <- data_list$bias_adjust_proc <- 1
+    if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- fit_control$bias_adjust_obs
+    if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- fit_control$bias_adjust_proc
+
     # Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_data(data_list, build_osa = osa)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
