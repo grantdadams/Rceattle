@@ -18,8 +18,8 @@
 #'
 #' Supported processes and their deviations:
 #' \describe{
-#'   \item{`"recruitment"`}{`rec_dev`, prior `N(R_sd^2/2, R_sd^2)` per species.}
-#'   \item{`"initial"`}{`init_dev`, prior `N(R_sd^2/2, R_sd^2)` per species.}
+#'   \item{`"recruitment"`}{`rec_dev`, prior `N(-bias_adjust_proc * R_sd^2/2, R_sd^2)` per species.}
+#'   \item{`"initial"`}{`init_dev`, prior `N(-bias_adjust_proc * R_sd^2/2, R_sd^2)` per species.}
 #'   \item{`"catchability"`}{`index_q_dev`, prior `N(0, q_dev_sd^2)` per index.}
 #' }
 #' `"all"` returns every supported process present in the fit. Selectivity and
@@ -170,11 +170,15 @@ process_residuals <- function(fit,
 
   if (process %in% c("recruitment", "initial")) {
     R_sd <- exp(as.numeric(obj$env$parList()$R_log_sd))   # per species
+    # rec_dev / init_dev prior mean is the lognormal bias correction
+    # -bias_adjust_proc * sigma^2/2 (matches ceattle_v01_11.cpp slots 9 & 10).
+    ba   <- obj$env$data$bias_adjust_proc
+    if (is.null(ba)) ba <- 1
     sp   <- ai[, 1]
     list(species = sp, fleet = sp,
          year = if (process == "recruitment") styr + ai[, 2] - 1L else NA_integer_,
          age  = if (process == "initial") ai[, 2] + 1L else NA_integer_,
-         mean = R_sd[sp]^2 / 2, sd = R_sd[sp])
+         mean = -as.numeric(ba) * R_sd[sp]^2 / 2, sd = R_sd[sp])
   } else if (process == "catchability") {
     q_sd <- exp(as.numeric(obj$env$parList()$index_q_dev_log_sd))  # per fleet
     flt  <- ai[, 1]

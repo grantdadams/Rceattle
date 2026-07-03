@@ -55,8 +55,10 @@ the log scale by default (matching the lognormal likelihood; set
 \code{scale = "natural"} for the arithmetic difference); for \code{comp} / \code{caal}
 it is the difference in proportions, observed minus fitted.}
 \item{\code{"pearson"}}{Standardized residuals. For \code{index} / \code{catch},
-\eqn{(\log o - (\log\hat{o} - \sigma^2/2))/\sigma} using the model's
-realized observation log-SD; for \code{comp} / \code{caal},
+\eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
+realized observation log-SD \eqn{\sigma} and the observation
+bias-adjustment flag \eqn{b} (\code{bias_adjust_obs}, default 1); for
+\code{comp} / \code{caal},
 \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 N.}
 \item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds

@@ -81,6 +81,12 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
         x2(1) = nUnused - x(i);
         p2(0) = osa_squeeze(p_x(i)) / osa_squeeze(Type(1) - pUsed);
         p2(0) = osa_squeeze(p2(0));
+        // When one bin holds ~all remaining mass the separately-squeezed
+        // numerator/denominator can push the ratio marginally above 1; clamp so
+        // p2(1) = 1 - p2(0) stays non-negative (avoids dmultinom log(negative) =
+        // NaN). A no-op for well-behaved compositions.
+        Type eps_clamp = std::numeric_limits<double>::epsilon();
+        p2(0) = CppAD::CondExpGt(p2(0), Type(1) - eps_clamp, Type(1) - eps_clamp, p2(0));
         p2(1) = Type(1) - p2(0);
         logres += k(i) * dmultinom(x2, p2, true);
         nUnused -= x(i);

@@ -2845,9 +2845,10 @@ Type objective_function<Type>::operator() () {
   for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
     // Slot 9 -- stock-recruit prior for Beverton
-    // -- Lognormal
+    // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
+    //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
     if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
-      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) + bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta

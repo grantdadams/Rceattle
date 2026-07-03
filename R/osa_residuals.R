@@ -308,11 +308,13 @@ osa_residuals <- function(fit,
   } else {
     NULL
   }
-  # parList() returns the current (fitted) parameters as a list structured to
-  # match the map, which is the reliable way to rebuild at the fitted values.
+  # parList(last.par.best) returns the best (MLE) parameters as a list structured
+  # to match the map -- the reliable way to rebuild at the fitted values. Use
+  # last.par.best (not the parList() default last.par) so OSA residuals are
+  # computed at the optimum even when getsd = FALSE (no sdreport re-eval).
   obj2 <- TMB::MakeADFun(
     data       = data2,
-    parameters = obj$env$parList(),
+    parameters = obj$env$parList(par = obj$env$last.par.best),
     map        = obj$env$map,
     random     = random_names,
     DLL        = fit$TMBfilename,

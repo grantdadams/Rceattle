@@ -293,7 +293,8 @@ void estimate_growth(
  *   into the plus group is applied at every year boundary by `estimate_growth()`
  *   (month 0), so `id_pop` already carries the corrected Jan-1 length.
  * - **SD-at-Age**: Length-based linear interpolation between `SD(l1)` and
- *   `SD(linf)`, applied uniformly above `age_L1` (including the plus group).
+ *   `SD(linf)` above `age_L1`, with the plus group pinned to `SD(linf)` =
+ *   `exp(sd_Linf)` (matching WHAM and `estimate_growth()`).
  * - **Size Transition**: Converts mean length and SD into a probability matrix
  *   $P(\text{Length} | \text{Age})$ using a cumulative normal distribution (`pnorm`).
  *   The first length bin is a minus-group on length; the last is a plus-group.

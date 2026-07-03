@@ -197,8 +197,10 @@ logLik.Rceattle <- function(object, ...) {
 #'     `scale = "natural"` for the arithmetic difference); for `comp` / `caal`
 #'     it is the difference in proportions, observed minus fitted.}
 #'   \item{`"pearson"`}{Standardized residuals. For `index` / `catch`,
-#'     \eqn{(\log o - (\log\hat{o} - \sigma^2/2))/\sigma} using the model's
-#'     realized observation log-SD; for `comp` / `caal`,
+#'     \eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
+#'     realized observation log-SD \eqn{\sigma} and the observation
+#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1); for
+#'     `comp` / `caal`,
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
 #'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
@@ -337,6 +339,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     )
   }
 
+  # Observation bias-adjustment flag (default 1): the index/catch lognormal
+  # likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2, so the Pearson
+  # residual must subtract the same offset.
+  ba_obs <- d$bias_adjust_obs
+  if (is.null(ba_obs) && !is.null(object$obj)) ba_obs <- object$obj$env$data$bias_adjust_obs
+  if (is.null(ba_obs)) ba_obs <- 1
+  ba_obs <- as.numeric(ba_obs)[1]
+
   out <- list()
 
   if ("index" %in% source &&
@@ -346,7 +356,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     hat <- as.numeric(q$index_hat)
     if (type == "pearson") {
       sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
-      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
@@ -373,7 +383,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     hat <- as.numeric(q$catch_hat)
     if (type == "pearson") {
       sigma <- if (!is.null(q$log_catch_sd)) as.numeric(q$log_catch_sd) else ctc$Log_sd
-      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
