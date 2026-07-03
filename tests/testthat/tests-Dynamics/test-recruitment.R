@@ -208,3 +208,19 @@ testthat::test_that("ssb and ricker recruitment", {
 
 })
 
+testthat::test_that("debug mode (estimateMode >= 3) does not declare random effects", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Debug mode uses a placeholder objective (dummy^2) independent of the deviations,
+  # so declaring rec_dev random would give a singular Laplace inner Hessian and a
+  # NaN objective. fit_mod fits the deviations as fixed here; nll must stay finite.
+  dat <- make_test_data(nyrs = 8, nages = 5, seed = 1)
+  fit <- Rceattle::fit_mod(dat, estimateMode = 3, random_rec = TRUE,
+                           initMode = "NonEquilibrium",
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  rnd <- unique(names(fit$obj$env$par)[fit$obj$env$random])
+  testthat::expect_false("rec_dev" %in% rnd)
+  testthat::expect_true(is.finite(fit$obj$fn(fit$obj$par)))
+})
+
