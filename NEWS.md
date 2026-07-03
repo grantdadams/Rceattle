@@ -12,6 +12,13 @@
 * **Breaking:** the `osa` argument to `fit_control()` has been removed; it is no
   longer needed (see above), and passing it now raises an "unused argument"
   error. The `$osa` element is no longer stored on fitted `Rceattle` objects.
+* `fit_control()` gains `bias_adjust_obs` and `bias_adjust_proc` (both default
+  `TRUE`) to toggle the lognormal bias correction (`-sigma^2/2`) applied to the
+  observation (index / catch) and process (recruitment, initial abundance, and
+  the Beverton-Holt steepness prior) likelihoods, respectively. The defaults give
+  the standard mean-unbiased behaviour (`E[R] = R0`); set a flag to `FALSE` to
+  drop the correction for that likelihood group. The values are passed to the TMB
+  template as `DATA_SCALAR`s.
 
 * Added one-step-ahead (OSA) residuals for model validation via the new
   exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
