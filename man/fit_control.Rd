@@ -11,6 +11,8 @@ fit_control(
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
   comp_offset = NULL,
+  bias_adjust_obs = TRUE,
+  bias_adjust_proc = TRUE,
   use_gradient = TRUE,
   rel_tol = 1,
   loopnum = 5,
@@ -47,6 +49,14 @@ likelihood and the OSA observation vector use the same offset, and so
 internal re-fits inherit it. \code{NULL} (the default) inherits
 \code{data_list$comp_offset} if set, otherwise \code{1e-5}; a number overrides it.
 Does not apply to diet (stomach-content) compositions.}
+
+\item{bias_adjust_obs}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal data
+likelihoods}
+
+\item{bias_adjust_proc}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal process
+likelihoods}
 
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}

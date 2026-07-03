@@ -441,6 +441,12 @@ fit_mod <-
     if (!is.null(fit_control$comp_offset)) data_list$comp_offset <- fit_control$comp_offset
     if (is.null(data_list$comp_offset))    data_list$comp_offset <- 1e-5
 
+    # Bias-adjustment flags for lognormal likelihoods (default TRUE/1). Stored on
+    # data_list so the TMB template can toggle the -sigma^2/2 correction.
+    data_list$bias_adjust_obs <- data_list$bias_adjust_proc <- 1
+    if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- fit_control$bias_adjust_obs
+    if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- fit_control$bias_adjust_proc
+
     # Reorganize data for .cpp file. The OSA observation vector is built on
     # demand by osa_residuals(), so only the fast aggregate metadata is assembled
     # here (build_osa = FALSE, the rearrange_data() default).
