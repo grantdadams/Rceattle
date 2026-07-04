@@ -2400,6 +2400,11 @@ Type objective_function<Type>::operator() () {
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
         // fitting) and obsvec(pos) == log(index_obs) this equals the original
         // lognormal likelihood exactly.
+        // TODO(review): unlike comp/caal/diet (which guard `if(start >= 0)`),
+        // the index and catch OSA reads below have no `pos >= 0` guard. Safe
+        // today because the R build_osa_data() inclusion guard matches this
+        // branch exactly, but a future divergence would make obsvec(pos) an
+        // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
         int pos = index_obsvec_idx(index_ind);
         jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
       }
@@ -2451,6 +2456,12 @@ Type objective_function<Type>::operator() () {
   // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
   // offset, so fitting and OSA residuals stay consistent.
   Type comp_prop_offset = comp_offset;
+  // TODO(review): case 0 now routes fitting through dmultinom_osa(), which
+  // renormalizes p; the previous dmultinom() did not, so the *reported* case-0
+  // multinomial NLL shifts by a per-row constant Neff*log(1 + n_comp*offset).
+  // The gradient and MLE are unchanged, but wording that says this only "changes
+  // the decomposition, not the value" is imprecise -- the value shifts by that
+  // constant. Reword, or subtract the constant so the reported NLL is comparable.
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -3200,6 +3211,12 @@ Type objective_function<Type>::operator() () {
     for (int i = 0; i < n_stomach_obs; ++i) {
 
       // Find how many prey items for this predator without a full scan
+      // TODO(review): this contiguous scan assumes diet_ctl rows for one stomach
+      // are consecutive, but build_osa_data() counts prey with which(stomach_id
+      // == i) (order-independent). If stomach_id is ever non-contiguous the two
+      // disagree and the diet OSA "other prey" bin misaligns (the start >= 0
+      // guard prevents a crash, not a wrong residual). Validate contiguity or
+      // make this count order-independent.
       int start_j = current_j;
       while((current_j < diet_ctl.rows()) && (stomach_id(current_j) == i)) {
         current_j++;

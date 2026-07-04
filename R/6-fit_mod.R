@@ -445,6 +445,9 @@ fit_mod <-
     # data_list as numeric (0/1) so the DATA_SCALAR is a clean double, so the TMB
     # template can toggle the -sigma^2/2 correction.
     data_list$bias_adjust_obs <- data_list$bias_adjust_proc <- 1
+    # TODO(review): a user-supplied NA (e.g. fit_control(bias_adjust_obs = NA))
+    # becomes NaN via as.numeric() and propagates a NaN objective. Add a finite
+    # check to reject it with a clear error.
     if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
     if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
 

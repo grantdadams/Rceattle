@@ -54,6 +54,9 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 
   # Proportion offset added to comp/caal bins before the likelihood. It lives on
   # data_list (filled by switch_check(), overridable via fit_control(comp_offset=))
+  # TODO(review): on the exported rearrange_data() path switch_check() does not
+  # run -- comp_offset (and the bias_adjust_* scalars below) are actually filled
+  # here in build_osa_data(). Tidy this comment to say so.
   # so fitting and the OSA obsvec use the same value and internal re-fits inherit
   # it. Read it from data_list, defaulting to 1e-5, and keep it as a plain double
   # for the TMB DATA_SCALAR.
@@ -221,6 +224,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     stomach_id <- data_list$stomach_id
     suitMode   <- data_list$suitMode
     for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
+      # TODO(review): which() is order-independent, but the C++ diet likelihood
+      # counts prey via a contiguous scan of stomach_id; keep both consistent
+      # (see the matching TODO in ceattle_v01_11.cpp) or non-contiguous ids
+      # would misalign the diet OSA "other prey" bin.
       rows   <- which(stomach_id == i)
       n_prey <- length(rows)
       if (n_prey == 0) next

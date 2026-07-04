@@ -240,6 +240,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   type   <- match.arg(type, c("response", "pearson", "osa", "process"))
   source <- match.arg(source, c("all", "index", "catch", "comp", "caal", "diet"),
                       several.ok = TRUE)
+  # TODO(review): osa path -- osa_residuals("all") includes diet, but this "all"
+  # expansion (forwarded when type = "osa") omits it, and source = c("all",
+  # "diet") silently drops diet too. Add "diet" here or document the asymmetry.
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
   scale  <- match.arg(scale, c("log", "natural"))
 
@@ -374,6 +377,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual   <- res
     # Keep only genuine observations: drop projection / NA rows and non-positive
     # values, which carry no (lognormal) residual.
+    # TODO(review): held-out rows (Year <= 0) with a positive observation still
+    # pass this filter and appear with a negative Year, though the C++ likelihood
+    # excludes them (Year>0 & Year<=endyr & flt_type>0). Gate on that same rule;
+    # the "drop projection rows" comment above is not fully accurate for them.
     df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
              df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$index <- df
@@ -401,6 +408,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual   <- res
     # Keep only genuine observations: drop projection / NA rows and non-positive
     # values, which carry no (lognormal) residual.
+    # TODO(review): held-out rows (Year <= 0) with a positive observation still
+    # pass this filter and appear with a negative Year, though the C++ likelihood
+    # excludes them (Year>0 & Year<=endyr & flt_type>0). Gate on that same rule;
+    # the "drop projection rows" comment above is not fully accurate for them.
     df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
              df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$catch <- df
