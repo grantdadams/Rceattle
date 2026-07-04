@@ -52,7 +52,7 @@ and are controlled by `suitMode` defining the predator-prey preference
 (suitability/predator selectivity) and `msmMode` defining the functional
 response of predation. The data used to parameterize the predation model
 include the proportion of prey-at-age in the diet of a predator-at-age
-(`UobsAgeWt` in the data) and the ration/consumption data (defined
+(`diet_data` in the data) and the ration/consumption data (defined
 below).
 
 ### Suitability
@@ -64,12 +64,10 @@ such as spatial overlap in the distribution of predators and prey.
 
 Suitability is derived empirically from the ratio of mean proportion (by
 weight) of prey-at-age in the stomach of predators-at-age
-$`\bar{U}_{pbjisa}`$ (`UobsAgeWt` in the data). Magnusson (1995)
+$`\bar{U}_{pbjisa}`$ (`diet_data` in the data). Magnusson (1995)
 provides details on the derivation of suitability coefficients.
-Magnusson (1995) provides details on the derivation of suitability
-coefficients. `suitMode = 0` Predator-prey suitability for predators of
-species $`p`$, sex $`b`$, age $`j`$, and prey of species $`i`$, sex
-$`s`$ and age $`a`$
+`suitMode = 0` Predator-prey suitability for predators of species $`p`$,
+sex $`b`$, age $`j`$, and prey of species $`i`$, sex $`s`$ and age $`a`$
 ``` math
 \hat{S}_{pbjisa} = \frac{1}{n_y} \sum_y \left( \frac{ \frac{\bar{U}_{pbjisa}} {B_{isa,y}} } {\sum_{isa} \left( \frac{\bar{U}_{pbjisa}} {B_{isa,y}} \right) + \frac{1 + \sum_{isa} \bar{U}_{pbjisa}} {B_p^{other}} } \right)
 ```

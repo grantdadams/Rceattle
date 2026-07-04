@@ -97,17 +97,12 @@ accepts two seed arguments, both with default `seed = 666`:
   historical data. Set this separately if you want to vary past-data
   realizations while holding the projection draws fixed.
 
-The MSE uses a PSOCK cluster
-([`parallel::parLapply`](https://rdrr.io/r/parallel/clusterApply.html))
-by default, so worker processes are clean and only see the explicit
-objects shipped by `clusterExport()` — there is no leakage from the
-parent’s `.GlobalEnv` RNG state. As a result the seed plumbing above is
-the *only* thing that controls reproducibility: there is no need to call
+You do not need to call
 [`set.seed()`](https://rdrr.io/r/base/Random.html) before
 [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
-for the simulation results to be deterministic. (You may still want
-[`set.seed()`](https://rdrr.io/r/base/Random.html) for any plotting code
-that draws random colours or jitter.)
+— the `seed` arguments fully control reproducibility. (You may still
+want [`set.seed()`](https://rdrr.io/r/base/Random.html) for plotting
+code that draws random colours or jitter.)
 
 For management-facing runs, record `packageVersion("Rceattle")` and the
 `seed` alongside the saved `.rds` so a later reviewer can rerun the
@@ -172,8 +167,8 @@ em2 <- Rceattle::fit_mod(
     )
   ),
   HCR = build_hcr(HCR = "NPFMC", # Tier3 HCR
-                  Ftarget = 0.30,# F40%
-                  Flimit = 0.10, # F35%
+                  Ftarget = 0.30,# F30%
+                  Flimit = 0.10, # F10%
                   Plimit = 0,    # No limit
                   Alpha = 0.1),
   fit_control = fit_control(verbose = 1, phase = TRUE)

@@ -113,7 +113,7 @@ goa_ss_M <- fit_mod(
   inits        = goa_ss$estimated_params,
   file         = NULL,
   estimateMode = 0,
-  M1Fun        = build_M1(M1_model = c(1, 2, 1)),  # Estimate M for spp 1 & 3
+  M1Fun        = build_M1(M1_model = c(1, 2, 1)),  # Estimate M: single M for spp 1 & 3, sex-specific for spp 2
   random_rec   = FALSE,
   msmMode      = 0,
   fit_control = fit_control(

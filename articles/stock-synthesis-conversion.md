@@ -15,8 +15,8 @@ weight-at-age, or control file.
 
 > **Updated for Rceattle 4.0+ data structure.** Several `data_list`
 > columns and sheet names changed in 4.0.1 (`Pyrs` → `ration_data`,
-> `UobsWtAge` → `stom_prop_data`, `fsh_biom` → `catch_data`, `srv_biom`
-> → `index_data`, `Nselages` → `N_sel_bins`, `Age_first_selected` →
+> `UobsWtAge` → `diet_data`, `fsh_biom` → `catch_data`, `srv_biom` →
+> `index_data`, `Nselages` → `N_sel_bins`, `Age_first_selected` →
 > `Bin_first_selected`, `Age_max_selected` / `_upper` → `Sel_norm_bin1`
 > / `Sel_norm_bin2`). The instructions below use the current names. The
 > sheet `meta_data` inside the Rceattle Excel template is the
@@ -173,7 +173,7 @@ circular when ported to Rceattle.
 - `age_trans_matrix` sheet — converts age-at-length to length-at-age.
   Set every entry to `0` if the assessment has no length data; for
   models with length comps, fill from the SS age-length transition.
-- `ration_data` and `stom_prop_data` (multi-species only) — diet /
+- `ration_data` and `diet_data` (multi-species only) — diet /
   consumption inputs. SS does not provide these; derive externally if
   fitting a multi-species CEATTLE.
 

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -97,9 +99,8 @@ weight-at-age, or control file.</p>
 <p><strong>Updated for Rceattle 4.0+ data structure.</strong> Several
 <code>data_list</code> columns and sheet names changed in 4.0.1
 (<code>Pyrs</code> → <code>ration_data</code>, <code>UobsWtAge</code> →
-<code>stom_prop_data</code>, <code>fsh_biom</code> →
-<code>catch_data</code>, <code>srv_biom</code> →
-<code>index_data</code>, <code>Nselages</code> →
+<code>diet_data</code>, <code>fsh_biom</code> → <code>catch_data</code>,
+<code>srv_biom</code> → <code>index_data</code>, <code>Nselages</code> →
 <code>N_sel_bins</code>, <code>Age_first_selected</code> →
 <code>Bin_first_selected</code>, <code>Age_max_selected</code> /
 <code>_upper</code> → <code>Sel_norm_bin1</code> /
@@ -522,9 +523,9 @@ length-at-age. Set every entry to <code>0</code> if the assessment has
 no length data; for models with length comps, fill from the SS
 age-length transition.</li>
 <li>
-<code>ration_data</code> and <code>stom_prop_data</code>
-(multi-species only) — diet / consumption inputs. SS does not provide
-these; derive externally if fitting a multi-species CEATTLE.</li>
+<code>ration_data</code> and <code>diet_data</code> (multi-species
+only) — diet / consumption inputs. SS does not provide these; derive
+externally if fitting a multi-species CEATTLE.</li>
 </ul>
 </div>
 <div class="section level2">

@@ -17,7 +17,7 @@ to fit_mod() can stay focused on the model spec:'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,6 +44,8 @@ to fit_mod() can stay focused on the model spec:'></head><body>
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -79,6 +81,10 @@ to <code><a href="fit_mod.html">fit_mod()</a></code> can stay focused on the mod
 <span>  getsd <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  getJointPrecision <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  getReportCovariance <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  projection_uncertainty <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  comp_offset <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  bias_adjust_obs <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  bias_adjust_proc <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  use_gradient <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  rel_tol <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  loopnum <span class="op">=</span> <span class="fl">5</span>,</span>
@@ -112,6 +118,36 @@ and random effects. Default <code>TRUE</code> (matches <code><a href="fit_mod.ht
 <dt id="arg-getreportcovariance">getReportCovariance<a class="anchor" aria-label="anchor" href="#arg-getreportcovariance"></a></dt>
 <dd><p>logical. Return the variance-covariance
 of <code>ADREPORT</code> variables. Default <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-projection-uncertainty">projection_uncertainty<a class="anchor" aria-label="anchor" href="#arg-projection-uncertainty"></a></dt>
+<dd><p>logical. If <code>TRUE</code>, accounts for hindcast
+parameter uncertainty in projections when using an HCR (refits with all
+hindcast and biological-reference-point parameters turned on). Default
+<code>FALSE</code> for speed.</p></dd>
+
+
+<dt id="arg-comp-offset">comp_offset<a class="anchor" aria-label="anchor" href="#arg-comp-offset"></a></dt>
+<dd><p>Numeric or <code>NULL</code>. Small proportion offset added to the
+observed and predicted age/length composition and conditional-age-at-length
+(caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
+avoid <code>log(0)</code> for empty bins). Stored on <code>data_list</code> so the fitted
+likelihood and the OSA observation vector use the same offset, and so
+internal re-fits inherit it. <code>NULL</code> (the default) inherits
+<code>data_list$comp_offset</code> if set, otherwise <code>1e-5</code>; a number overrides it.
+Does not apply to diet (stomach-content) compositions.</p></dd>
+
+
+<dt id="arg-bias-adjust-obs">bias_adjust_obs<a class="anchor" aria-label="anchor" href="#arg-bias-adjust-obs"></a></dt>
+<dd><p>logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal data
+likelihoods</p></dd>
+
+
+<dt id="arg-bias-adjust-proc">bias_adjust_proc<a class="anchor" aria-label="anchor" href="#arg-bias-adjust-proc"></a></dt>
+<dd><p>logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal process
+likelihoods</p></dd>
 
 
 <dt id="arg-use-gradient">use_gradient<a class="anchor" aria-label="anchor" href="#arg-use-gradient"></a></dt>

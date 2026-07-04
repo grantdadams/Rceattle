@@ -13,7 +13,6 @@ fit_mod(
   bounds = NULL,
   file = NULL,
   estimateMode = 0,
-  projection_uncertainty = FALSE,
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
@@ -73,11 +72,6 @@ fit_mod(
   parameters in `inits`. 3 = debug mode 1: runs the model through
   MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and
   nlminb (will all parameters mapped out).
-
-- projection_uncertainty:
-
-  logical. If TRUE, accounts for hindcast parameter uncertainty in
-  projections when using an HCR. Default is FALSE for speed.
 
 - random_rec:
 

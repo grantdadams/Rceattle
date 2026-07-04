@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -128,7 +130,7 @@ Rceattle and are controlled by <code>suitMode</code> defining the
 predator-prey preference (suitability/predator selectivity) and
 <code>msmMode</code> defining the functional response of predation. The
 data used to parameterize the predation model include the proportion of
-prey-at-age in the diet of a predator-at-age (<code>UobsAgeWt</code> in
+prey-at-age in the diet of a predator-at-age (<code>diet_data</code> in
 the data) and the ration/consumption data (defined below).</p>
 <div class="section level3">
 <h3 id="suitability">Suitability<a class="anchor" aria-label="anchor" href="#suitability"></a>
@@ -142,11 +144,9 @@ prey.</p>
 <p>Suitability is derived empirically from the ratio of mean proportion
 (by weight) of prey-at-age in the stomach of predators-at-age
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>U</mi><mo accent="true">‾</mo></mover><mrow><mi>p</mi><mi>b</mi><mi>j</mi><mi>i</mi><mi>s</mi><mi>a</mi></mrow></msub><annotation encoding="application/x-tex">\bar{U}_{pbjisa}</annotation></semantics></math>
-(<code>UobsAgeWt</code> in the data). Magnusson (1995) provides details
-on the derivation of suitability coefficients. Magnusson (1995) provides
-details on the derivation of suitability coefficients.
-<code>suitMode = 0</code> Predator-prey suitability for predators of
-species
+(<code>diet_data</code> in the data). Magnusson (1995) provides details
+on the derivation of suitability coefficients. <code>suitMode = 0</code>
+Predator-prey suitability for predators of species
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>,
 sex
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math>,

@@ -16,7 +16,8 @@ plot_indexresidual(
   incl_proj = FALSE,
   single.plots = FALSE,
   width = NULL,
-  height = NULL
+  height = NULL,
+  residual_type = c("pearson", "osa")
 )
 ```
 
@@ -66,3 +67,13 @@ plot_indexresidual(
 - height:
 
   plot hight
+
+- residual_type:
+
+  `"pearson"` (default) for the legacy index/catch residual plots, or
+  `"osa"` to draw one-step-ahead residual diagnostics (Q-Q plot with
+  SDNR / tail annotation and residual-by-year) for a single fitted model
+  via
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  and
+  [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md).

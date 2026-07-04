@@ -23,9 +23,10 @@ or exported back to Excel with
 
 ### Required vs. optional fields
 
-The list are optional and only needed when a particular feature is
-turned on. `Rceattle` fills missing optional fields with safe defaults
-and stops model runs under the conditions that actually require them:
+The following fields are optional and only needed when a particular
+feature is turned on. `Rceattle` fills missing optional fields with safe
+defaults and stops model runs under the conditions that actually require
+them:
 
 | Field | Required when |
 |----|----|
@@ -134,9 +135,9 @@ fleets can target the same species.
 #   "NonParametric"      (2) -- freely estimated selectivity-at-age/length with smoothness penalty
 #   "DoubleLogistic"     (3) -- ascending + descending dome-shaped logistic
 #   "DescendingLogistic" (4) -- descending logistic only (dome-shaped for oldest ages)
-#   "Hake"               (5) -- age-specific logistic with spawning migration pattern
+#   "Hake"               (5) -- non-parametric selectivity à la Taylor et al. (Pacific hake)
 #   "2DAR1"              (6) -- 2D autoregressive random effects (age × year)
-#   "3DAR1"              (7) -- 3D autoregressive random effects (age × year × fleet)
+#   "3DAR1"              (7) -- 3D autoregressive random effects (age × year × cohort)
 #
 # Selectivity_dimension: "Age" or "Length"
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
@@ -389,10 +390,10 @@ simData$age_error <- do.call(rbind, age_error_list)
 
 ### Weight-at-age
 
-Mean weight (metric tonnes) at each age. Setting `Year = 0` applies the
-same schedule to all years (time-invariant). Providing multiple rows
-with different years enables time-varying weight-at-age, which is used
-in empirical weight-at-age models.
+Mean weight (kg) at each age. Setting `Year = 0` applies the same
+schedule to all years (time-invariant). Providing multiple rows with
+different years enables time-varying weight-at-age, which is used in
+empirical weight-at-age models.
 
 ``` r
 
@@ -496,32 +497,6 @@ M1 can also be estimated rather than fixed. See
 for options including estimating a single scalar, an age-specific
 vector, or a temperature-dependent function.
 
-### Weight-at-age
-
-Used for biomass calculations. Linked to species or fleets. Set Year = 0
-to apply the same weight-at-age to all years (time-invariant). Age_1 …
-Age_nages columns hold mean weight (usually kg) at each age.
-
-``` r
-
-weight_matrix <- matrix(
-  (1:nages / nages)^3 * 0.01,   # Simple power curve placeholder
-  nrow = nspp, ncol = nages, byrow = TRUE
-)
-colnames(weight_matrix) <- paste0("Age", 1:nages)
-
-simData$weight <- cbind(
-  data.frame(
-    Wt_name  = paste("Species", 1:nspp),
-    Wt_index = 1:nspp,
-    Species  = 1:nspp,
-    Sex      = 0,
-    Year     = 0    # Year = 0 applies to all years (time-invariant)
-  ),
-  weight_matrix
-)
-```
-
 ### Environmental covariate data (optional)
 
 An optional time series used in environment-recruitment, -M1,
@@ -548,11 +523,8 @@ simData$env_data <- data.frame(
 
 These parameters govern the Wisconsin bioenergetics model used to
 compute predation mortality (M2) in multi-species mode. They are unused
-in single-species mode and can be omitted entirely —
-[`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
-fills any missing scalars with safe sentinels (`Ceq = 1`, `Pvalue = 1`,
-`fday = 365`, others `0`) so TMB’s length-`nspp` `DATA_VECTOR`
-requirements are satisfied.
+in single-species mode and can be omitted entirely — Rceattle fills any
+missing scalars with safe defaults.
 
 In multi-species mode (`msmMode > 0`) **all** of `Ceq`, `Cindex`,
 `Pvalue`, `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4`
@@ -568,11 +540,11 @@ parameter.
 
 ``` r
 
-# Ceq: consumption equation form following Hanson et al. (1997)
-#   1 = Kitchell et al. (1977)
-#   2 = Stewart et al. (1983) -- most common for gadids
-#   3 = Kitchell et al. (1977) with temperature dependence on both limbs
-#   4 = Thornton and Lessman (1978)
+# Ceq: consumption (bioenergetics) equation form for each species:
+#   1 = Exponential (Stewart et al. 1983)
+#   2 = Warm-water temperature dependence (Kitchell et al. 1977)
+#   3 = Cool/cold-water temperature dependence (Thornton & Lessem 1979)
+#   4 = bypass bioenergetics; use ration_data directly (set CA = 1, fday = 1, CB = 0)
 simData$Ceq    <- rep(4,  nspp)
 
 simData$Cindex <- rep(1,  nspp)   # temperature index type

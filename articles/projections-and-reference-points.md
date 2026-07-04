@@ -142,9 +142,9 @@ ms_run_proj3 <- sample_rec(
 mod_list  <- list(ms_run, ms_run_proj, ms_run_proj2, ms_run_proj3)
 mod_names <- c(
   "No fishing",
-  "Mean historical F",
-  "Mean F + stochastic recruitment",
-  "Mean F + declining recruitment"
+  "Constant F",
+  "Stochastic recruitment",
+  "Declining recruitment"
 )
 
 plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
@@ -197,7 +197,7 @@ for full parameter details.
 | 2 | `"ConstantF"` | Constant F set at `Ftarget` for each species | Yes |
 | 3 | `"ConstantFSSB"` | F that achieves `Ftarget`% of SSB₀ at the end of the projection | Yes |
 | 4 | `"ConstantFSPR"` | Constant F_SPR set at `Ftarget`; can be scaled by `Fmult` (NEFSC convention) | No |
-| 5 | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Alpha`) | No |
+| 5 | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Plimit`, `Alpha`) | No |
 | 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
 | 7 | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
 

@@ -8,7 +8,7 @@ backwards compatibility; please use `rearrange_data()`.
 ## Usage
 
 ``` r
-rearrange_data(data_list)
+rearrange_data(data_list, build_osa = FALSE)
 
 rearrange_dat(data_list)
 ```
@@ -18,3 +18,14 @@ rearrange_dat(data_list)
 - data_list:
 
   an Rceattle data_list
+
+- build_osa:
+
+  Logical. Passed to
+  [`build_osa_data()`](https://grantdadams.github.io/Rceattle/reference/build_osa_data.md);
+  when `TRUE` the full one-step-ahead (OSA) observation data is
+  assembled so
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  can be computed. Default `FALSE` (the fast path used by simulation
+  testing). The composition proportion offset is read from
+  `data_list$comp_offset` (default `1e-5`).

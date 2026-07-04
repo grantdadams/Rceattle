@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -76,7 +78,7 @@
 
       <h1>4. Projections and reference points</h1>
             
-            <h4 data-toc-skip class="date">2026-06-10</h4>
+            <h4 data-toc-skip class="date">2026-07-04</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/projections-and-reference-points.Rmd" class="external-link"><code>vignettes/projections-and-reference-points.Rmd</code></a></small>
       <div class="d-none name"><code>projections-and-reference-points.Rmd</code></div>
@@ -222,9 +224,9 @@ by the end of the projection.</p>
 <code class="sourceCode R"><span><span class="va">mod_list</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">ms_run</span>, <span class="va">ms_run_proj</span>, <span class="va">ms_run_proj2</span>, <span class="va">ms_run_proj3</span><span class="op">)</span></span>
 <span><span class="va">mod_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"No fishing"</span>,</span>
-<span>  <span class="st">"Mean historical F"</span>,</span>
-<span>  <span class="st">"Mean F + stochastic recruitment"</span>,</span>
-<span>  <span class="st">"Mean F + declining recruitment"</span></span>
+<span>  <span class="st">"Constant F"</span>,</span>
+<span>  <span class="st">"Stochastic recruitment"</span>,</span>
+<span>  <span class="st">"Declining recruitment"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span>, incl_proj <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -314,7 +316,8 @@ projection</td>
 <td>5</td>
 <td><code>"NPFMC"</code></td>
 <td>NPFMC Tier 3 SPR-based HCR (<code>Ftarget</code>,
-<code>Flimit</code>, <code>Ptarget</code>, <code>Alpha</code>)</td>
+<code>Flimit</code>, <code>Ptarget</code>, <code>Plimit</code>,
+<code>Alpha</code>)</td>
 <td>No</td>
 </tr>
 <tr class="odd">

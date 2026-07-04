@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -253,8 +255,8 @@ in a loop) call the <code>prior_*</code> constructors directly:</p>
 <code class="sourceCode R"><span><span class="va">priors</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">species_specific_sds</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="fu"><a href="../reference/prior_normal.html">prior_normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">s</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">priors</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"temp"</span>, <span class="st">"PDO"</span>, <span class="st">"salinity"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span>formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span> <span class="op">+</span> <span class="va">PDO</span> <span class="op">+</span> <span class="va">salinity</span>, priors <span class="op">=</span> <span class="va">priors</span><span class="op">)</span></span></code></pre></div>
-<p>Each prior’s negative log-density contributes to slot 20 of the joint
-NLL (<code>fit$quantities$jnll_comp[20, ]</code> in R):</p>
+<p>Each prior’s negative log-density contributes to the
+<code>Linkage-table priors</code> row of the joint NLL:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">jnll_comp</span><span class="op">[</span><span class="st">"Linkage-table priors"</span>, <span class="op">]</span></span></code></pre></div>
 </div>
@@ -626,29 +628,15 @@ fail if you’ve built specs against different <code>env_data</code>
 frames.</p>
 </div>
 <div class="section level2">
-<h2 id="what-happens-internally">What happens internally<a class="anchor" aria-label="anchor" href="#what-happens-internally"></a>
+<h2 id="how-the-pieces-fit-together">How the pieces fit together<a class="anchor" aria-label="anchor" href="#how-the-pieces-fit-together"></a>
 </h2>
-<p><code><a href="../reference/fit_mod.html">fit_mod()</a></code> calls <code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> to
-materialise every spec against <code>data_list$env_data</code> and the
-species/sex/age strata, then unions the per-spec design columns into a
-single shared design matrix <code>X</code>. The encoded table (process /
-param / species / sex / age_bin / X_col / link codes, plus prior
-columns) and the shared <code>X</code> are stored on
-<code>data_list</code>. The TMB template iterates the table once per
-<code>MakeADFun</code> call and builds per-process offset tensors –
-<code>growth_linkage_offset</code>, <code>M_linkage_offset</code>,
-<code>recruitment_linkage_offset</code> – that are then combined with
-the base parameters at the consumer sites in
-<code>ceattle_v01_11.cpp</code>. With no linkages, the offsets stay at
-zero so existing fits are identical-by-construction.</p>
-<p>Priors and bounds flow through the same table:
-<code><a href="../reference/build_bounds.html">build_bounds()</a></code> reads each row’s
-<code>lower</code>/<code>upper</code> into
-<code>bounds$lower$beta_linkage</code> /
-<code>bounds$upper$beta_linkage</code>, and the cpp adds
-<code>-d&lt;family&gt;(b_nat, p1, p2, log = TRUE)</code> to slot 19 of
-the joint NLL for every row whose <code>prior_family</code> is not
-<code>"none"</code>.</p>
+<p>When you fit, <code><a href="../reference/fit_mod.html">fit_mod()</a></code> combines the linkages from every
+<code>build_*()</code> call into a single linkage table and a shared
+design matrix (both stored on <code>data_list</code>), then applies
+per-process offsets on top of the base parameters each year. With no
+linkages the offsets are zero, so a model without linkages fits exactly
+as before. Any priors and bounds you set on a linkage flow through the
+same table and add to the joint NLL.</p>
 </div>
 <div class="section level2">
 <h2 id="natural-mortality">Natural mortality<a class="anchor" aria-label="anchor" href="#natural-mortality"></a>
@@ -994,16 +982,6 @@ single-sex, some two-sex species) emit one sex level per species
 automatically – single-sex species get one row per parameter, two-sex
 species get two.</p>
 </div>
-<div class="section level3">
-<h3 id="pooling">Pooling<a class="anchor" aria-label="anchor" href="#pooling"></a>
-</h3>
-<p><code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> materialises each spec independently and
-concatenates the rows into a single table. The shared design matrix
-unions all RHS terms across specs by name – there’s no duplication when
-two specs use the same predictor, and per-species formulas can pull in
-extra columns (e.g. species 1 uses <code>poly(temp, 3)*</code> while
-species 2 uses only linear <code>temp</code>).</p>
-</div>
 </div>
 <div class="section level2">
 <h2 id="on-the-roadmap">On the roadmap<a class="anchor" aria-label="anchor" href="#on-the-roadmap"></a>
@@ -1026,11 +1004,10 @@ already reserves <code>process = "sel"</code> and
 <code>process = "q"</code> codes, but no cpp accumulator consumes them
 yet.</li>
 <li>
-<strong>Legacy retirement (v4.4.0)</strong> –
-<code>srr_indices</code>, <code>M1_indices</code>,
-<code>srr_fun in c(1, 3, 5)</code>, and <code>M1_model in c(4, 5)</code>
-retire in the next minor release; see <em>Scheduled removal
-(v4.4.0)</em> in <code>NEWS.md</code> for the migration table.</li>
+<strong>Legacy retirement</strong> – <code>srr_indices</code>,
+<code>M1_indices</code>, <code>srr_fun %in% c(1, 3, 5)</code>, and
+<code>M1_model %in% c(4, 5)</code> are deprecated; see the migration
+table in <code>NEWS.md</code>.</li>
 </ul>
 </div>
 <div class="section level2">

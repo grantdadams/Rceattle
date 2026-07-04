@@ -8,7 +8,7 @@ capabilities available in `Rceattle`. It complements:
   which walks through fitting a model end-to-end;
 - vignette 8, [Model
   parameterizations](https://grantdadams.github.io/Rceattle/articles/model-parameterizations.md),
-  which is the in progress equation-level reference; and
+  the equation-level reference (in progress); and
 - the per-topic vignettes 3 (diagnostics), 4 (projections / reference
   points), 5 (single- vs. multi-species), 6 (building a data object in
   R), and 7 (Stock Synthesis migration).
@@ -62,10 +62,10 @@ Codes (also accept the string aliases listed):
 | Value | Behavior |
 |:--:|----|
 | `0` | Estimate hindcast and projection parameters via `nlminb` / [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html) (default). |
-| `1` | Estimate only the hindcast parameters via `nlminb` / [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html).. |
+| `1` | Estimate only the hindcast parameters via `nlminb` / [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html). |
 | `2` | Hold the hindcast fixed and run only the projection under the supplied `HCR`. |
 | `3` | Evaluate the report once at `inits` (debug / mapping check). |
-| `4` | Run the TMB objects through MakeADFun with out estimation (debug / mapping check). |
+| `4` | Run through `MakeADFun` and `nlminb` with all parameters mapped out (debug / mapping check). |
 
 ### Random-effects toggles
 
@@ -165,9 +165,9 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 |  `3`  | `"Block"`      | Time block                    |
 |  `4`  | `"RandomWalk"` | Random walk                   |
 
-If `Selectivity` is `AR1` or `Environmental`, `Time_varying_q` can be a
-integer or character of integers specifying the environmental series in
-`env_data` to use (e.g. `Time_varying_q = 1` or
+If `Catchability` is `AR1` or `Environmental`, `Time_varying_q` can be
+an integer or character of integers specifying the environmental series
+in `env_data` to use (e.g. `Time_varying_q = 1` or
 `Time_varying_q = "1,2,3"`).
 
 ## 5. Composition likelihoods
@@ -235,9 +235,9 @@ for details.
 |      `6`      | `"ar1_age_year"` | 2D AR(1) over both year and age   |
 
 Variance and correlation parameters are species-specific but
-sex-invariant. `M2_use_prior = TRUE` extends adds a log-normal prior
-with mean `M_prior` and SD `M_prior_sd` on total M (M1 + M2) in
-multi-species mode.
+sex-invariant. `M2_use_prior = TRUE` adds a log-normal prior with mean
+`M_prior` and SD `M_prior_sd` on total M (M1 + M2) in multi-species
+mode.
 
 ## 8. Growth and weight-at-age (`growthFun = build_growth()`)
 
@@ -264,8 +264,10 @@ for details.
 | `0` (default) | No random effects       |
 |     `≥ 1`     | **Not yet implemented** |
 
-Length-based suitability (`suitMode = 1/2/3/4/5/6`) is wired through to
-the estimated growth model when `growth_model > 0`.
+The length-based suitability modes (`suitMode = 1/3/5`) are not yet
+enabled; use a weight-based mode (`2/4/6`) for parametric suitability.
+When the length-based modes are enabled, prey length-at-age is taken
+from the estimated growth model (`growth_model > 0`).
 
 ## 9. Harvest control rules (`HCR = build_hcr()`)
 

@@ -17,6 +17,10 @@ fit_control(
   getsd = TRUE,
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
+  projection_uncertainty = FALSE,
+  comp_offset = NULL,
+  bias_adjust_obs = TRUE,
+  bias_adjust_proc = TRUE,
   use_gradient = TRUE,
   rel_tol = 1,
   loopnum = 5,
@@ -53,6 +57,34 @@ fit_control(
 
   logical. Return the variance-covariance of `ADREPORT` variables.
   Default `FALSE`.
+
+- projection_uncertainty:
+
+  logical. If `TRUE`, accounts for hindcast parameter uncertainty in
+  projections when using an HCR (refits with all hindcast and
+  biological-reference-point parameters turned on). Default `FALSE` for
+  speed.
+
+- comp_offset:
+
+  Numeric or `NULL`. Small proportion offset added to the observed and
+  predicted age/length composition and conditional-age-at-length (caal)
+  bins before the multinomial / Dirichlet-multinomial likelihood (to
+  avoid `log(0)` for empty bins). Stored on `data_list` so the fitted
+  likelihood and the OSA observation vector use the same offset, and so
+  internal re-fits inherit it. `NULL` (the default) inherits
+  `data_list$comp_offset` if set, otherwise `1e-5`; a number overrides
+  it. Does not apply to diet (stomach-content) compositions.
+
+- bias_adjust_obs:
+
+  logical with default TRUE. Whether to apply a bias adjustment
+  (mean-sd^2/2) to lognormal data likelihoods
+
+- bias_adjust_proc:
+
+  logical with default TRUE. Whether to apply a bias adjustment
+  (mean-sd^2/2) to lognormal process likelihoods
 
 - use_gradient:
 

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -76,7 +78,7 @@
 
       <h1>5. Single- vs. multi-species models</h1>
             
-            <h4 data-toc-skip class="date">2026-06-10</h4>
+            <h4 data-toc-skip class="date">2026-07-04</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/single-vs-multispecies.Rmd" class="external-link"><code>vignettes/single-vs-multispecies.Rmd</code></a></small>
       <div class="d-none name"><code>single-vs-multispecies.Rmd</code></div>
@@ -207,7 +209,7 @@ The same dataset is used for both single- and multi-species runs.</p>
 <span>  inits        <span class="op">=</span> <span class="va">goa_ss</span><span class="op">$</span><span class="va">estimated_params</span>,</span>
 <span>  file         <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  estimateMode <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  M1Fun        <span class="op">=</span> <span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span>M1_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,  <span class="co"># Estimate M for spp 1 &amp; 3</span></span>
+<span>  M1Fun        <span class="op">=</span> <span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span>M1_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,  <span class="co"># Estimate M: single M for spp 1 &amp; 3, sex-specific for spp 2</span></span>
 <span>  random_rec   <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  msmMode      <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span></span>

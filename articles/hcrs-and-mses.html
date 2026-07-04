@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -179,15 +181,10 @@ re-fits the EM to OM-simulated historical data. Set this separately if
 you want to vary past-data realizations while holding the projection
 draws fixed.</li>
 </ul>
-<p>The MSE uses a PSOCK cluster (<code><a href="https://rdrr.io/r/parallel/clusterApply.html" class="external-link">parallel::parLapply</a></code>) by
-default, so worker processes are clean and only see the explicit objects
-shipped by <code>clusterExport()</code> — there is no leakage from the
-parent’s <code>.GlobalEnv</code> RNG state. As a result the seed
-plumbing above is the <em>only</em> thing that controls reproducibility:
-there is no need to call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> before
-<code><a href="../reference/run_mse.html">run_mse()</a></code> for the simulation results to be deterministic.
-(You may still want <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> for any plotting code that
-draws random colours or jitter.)</p>
+<p>You do not need to call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> before
+<code><a href="../reference/run_mse.html">run_mse()</a></code> — the <code>seed</code> arguments fully control
+reproducibility. (You may still want <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> for
+plotting code that draws random colours or jitter.)</p>
 <p>For management-facing runs, record
 <code>packageVersion("Rceattle")</code> and the <code>seed</code>
 alongside the saved <code>.rds</code> so a later reviewer can rerun the
@@ -245,8 +242,8 @@ exact same trajectories from the same package tag.</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  HCR <span class="op">=</span> <span class="fu"><a href="../reference/build_hcr.html">build_hcr</a></span><span class="op">(</span>HCR <span class="op">=</span> <span class="st">"NPFMC"</span>, <span class="co"># Tier3 HCR</span></span>
-<span>                  Ftarget <span class="op">=</span> <span class="fl">0.30</span>,<span class="co"># F40%</span></span>
-<span>                  Flimit <span class="op">=</span> <span class="fl">0.10</span>, <span class="co"># F35%</span></span>
+<span>                  Ftarget <span class="op">=</span> <span class="fl">0.30</span>,<span class="co"># F30%</span></span>
+<span>                  Flimit <span class="op">=</span> <span class="fl">0.10</span>, <span class="co"># F10%</span></span>
 <span>                  Plimit <span class="op">=</span> <span class="fl">0</span>,    <span class="co"># No limit</span></span>
 <span>                  Alpha <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
 <span>  fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="fl">1</span>, phase <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>

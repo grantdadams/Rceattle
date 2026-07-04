@@ -169,8 +169,8 @@ names(priors) <- c("temp", "PDO", "salinity")
 linkage_spec(formula = ~ temp + PDO + salinity, priors = priors)
 ```
 
-Each prior’s negative log-density contributes to slot 20 of the joint
-NLL (`fit$quantities$jnll_comp[20, ]` in R):
+Each prior’s negative log-density contributes to the
+`Linkage-table priors` row of the joint NLL:
 
 ``` r
 
@@ -604,29 +604,16 @@ across specs that use them. With deterministic formulas evaluated
 against the same `env_data` this is automatic; it can only fail if
 you’ve built specs against different `env_data` frames.
 
-## What happens internally
+## How the pieces fit together
 
+When you fit,
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
-calls
-[`pool_linkages()`](https://grantdadams.github.io/Rceattle/reference/pool_linkages.md)
-to materialise every spec against `data_list$env_data` and the
-species/sex/age strata, then unions the per-spec design columns into a
-single shared design matrix `X`. The encoded table (process / param /
-species / sex / age_bin / X_col / link codes, plus prior columns) and
-the shared `X` are stored on `data_list`. The TMB template iterates the
-table once per `MakeADFun` call and builds per-process offset tensors –
-`growth_linkage_offset`, `M_linkage_offset`,
-`recruitment_linkage_offset` – that are then combined with the base
-parameters at the consumer sites in `ceattle_v01_11.cpp`. With no
-linkages, the offsets stay at zero so existing fits are
-identical-by-construction.
-
-Priors and bounds flow through the same table:
-[`build_bounds()`](https://grantdadams.github.io/Rceattle/reference/build_bounds.md)
-reads each row’s `lower`/`upper` into `bounds$lower$beta_linkage` /
-`bounds$upper$beta_linkage`, and the cpp adds
-`-d<family>(b_nat, p1, p2, log = TRUE)` to slot 19 of the joint NLL for
-every row whose `prior_family` is not `"none"`.
+combines the linkages from every `build_*()` call into a single linkage
+table and a shared design matrix (both stored on `data_list`), then
+applies per-process offsets on top of the base parameters each year.
+With no linkages the offsets are zero, so a model without linkages fits
+exactly as before. Any priors and bounds you set on a linkage flow
+through the same table and add to the joint NLL.
 
 ## Natural mortality
 
@@ -963,15 +950,6 @@ level. The result is equivalent to `by = ~ species`. Models with mixed
 species automatically – single-sex species get one row per parameter,
 two-sex species get two.
 
-### Pooling
-
-[`pool_linkages()`](https://grantdadams.github.io/Rceattle/reference/pool_linkages.md)
-materialises each spec independently and concatenates the rows into a
-single table. The shared design matrix unions all RHS terms across specs
-by name – there’s no duplication when two specs use the same predictor,
-and per-species formulas can pull in extra columns (e.g. species 1 uses
-`poly(temp, 3)*` while species 2 uses only linear `temp`).
-
 ## On the roadmap
 
 - **Random-effects grouping** – the `re_group` column on the linkage
@@ -985,10 +963,9 @@ and per-species formulas can pull in extra columns (e.g. species 1 uses
 - **Selectivity / catchability linkages** – the encoder already reserves
   `process = "sel"` and `process = "q"` codes, but no cpp accumulator
   consumes them yet.
-- **Legacy retirement (v4.4.0)** – `srr_indices`, `M1_indices`,
-  `srr_fun in c(1, 3, 5)`, and `M1_model in c(4, 5)` retire in the next
-  minor release; see *Scheduled removal (v4.4.0)* in `NEWS.md` for the
-  migration table.
+- **Legacy retirement** – `srr_indices`, `M1_indices`,
+  `srr_fun %in% c(1, 3, 5)`, and `M1_model %in% c(4, 5)` are deprecated;
+  see the migration table in `NEWS.md`.
 
 ## See also
 

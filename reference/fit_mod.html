@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -66,7 +68,6 @@
 <span>  bounds <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  file <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  estimateMode <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  projection_uncertainty <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  random_rec <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  random_q <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  random_sel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -116,10 +117,6 @@ from scratch via <code><a href="build_params.html">build_params</a></code>.</p><
 
 <dt id="arg-estimatemode">estimateMode<a class="anchor" aria-label="anchor" href="#arg-estimatemode"></a></dt>
 <dd><p>0 = Fit the hindcast model and projection with HCR specified via <code>HCR</code>. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via <code>HCR</code> given the initial parameters in <code>inits</code>.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).</p></dd>
-
-
-<dt id="arg-projection-uncertainty">projection_uncertainty<a class="anchor" aria-label="anchor" href="#arg-projection-uncertainty"></a></dt>
-<dd><p>logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.</p></dd>
 
 
 <dt id="arg-random-rec">random_rec<a class="anchor" aria-label="anchor" href="#arg-random-rec"></a></dt>

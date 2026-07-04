@@ -11,7 +11,7 @@ kept for backwards compatibility; please use rearrange_data()."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,8 @@ kept for backwards compatibility; please use rearrange_data()."></head><body>
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -65,7 +67,7 @@ kept for backwards compatibility; please use <code>rearrange_data()</code>.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">rearrange_data</span><span class="op">(</span><span class="va">data_list</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">rearrange_data</span><span class="op">(</span><span class="va">data_list</span>, build_osa <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">rearrange_dat</span><span class="op">(</span><span class="va">data_list</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -76,6 +78,14 @@ kept for backwards compatibility; please use <code>rearrange_data()</code>.</p>
 
 <dl><dt id="arg-data-list">data_list<a class="anchor" aria-label="anchor" href="#arg-data-list"></a></dt>
 <dd><p>an Rceattle data_list</p></dd>
+
+
+<dt id="arg-build-osa">build_osa<a class="anchor" aria-label="anchor" href="#arg-build-osa"></a></dt>
+<dd><p>Logical. Passed to <code><a href="build_osa_data.html">build_osa_data()</a></code>; when <code>TRUE</code> the full
+one-step-ahead (OSA) observation data is assembled so <code><a href="osa_residuals.html">osa_residuals()</a></code> can
+be computed. Default <code>FALSE</code> (the fast path used by simulation testing). The
+composition proportion offset is read from <code>data_list$comp_offset</code> (default
+<code>1e-5</code>).</p></dd>
 
 </dl></div>
 

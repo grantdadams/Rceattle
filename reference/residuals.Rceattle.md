@@ -1,15 +1,25 @@
-# Observed-vs-fitted residuals from an Rceattle fit
+# Residuals from an Rceattle fit
 
-Returns a long-format data frame of residuals across one or more of the
-four fitted data sources: `"index"` (survey indices), `"catch"` (fishery
-catches), `"comp"` (age- or length-composition proportions), and
-`"caal"` (conditional age-at-length proportions).
+Returns a long-format data frame of residuals, following the convention
+of
+[`stats::residuals.glm()`](https://rdrr.io/r/stats/glm.summaries.html)
+where `type` selects the *kind* of residual. By default residuals are
+returned for every applicable data source – survey indices, fishery
+catches, age/length composition (`comp`), and conditional age-at-length
+(`caal`); use `source` to restrict to particular ones.
 
 ## Usage
 
 ``` r
 # S3 method for class 'Rceattle'
-residuals(object, type = "index", scale = "log", ...)
+residuals(
+  object,
+  type = "response",
+  source = "all",
+  scale = "log",
+  species = NULL,
+  ...
+)
 ```
 
 ## Arguments
@@ -21,36 +31,76 @@ residuals(object, type = "index", scale = "log", ...)
 
 - type:
 
-  One or more of `"index"`, `"catch"`, `"comp"`, `"caal"`, or `"all"`
-  (default `"index"`).
+  Residual kind: one of `"response"` (default), `"pearson"`, `"osa"`, or
+  `"process"`.
+
+- source:
+
+  Data source(s) to include: any of `"index"`, `"catch"`, `"comp"`,
+  `"caal"`, or `"all"` (default). `"diet"` (predator stomach-content
+  composition) is also accepted but, because it uses a predator/prey
+  schema rather than the fleet/bin layout, must be requested on its own.
+  Ignored when `type = "process"`.
 
 - scale:
 
-  `"log"` (default) or `"natural"`. Only affects `"index"` and `"catch"`
-  residuals.
+  `"log"` (default) or `"natural"`. Only affects `"response"` residuals
+  for `index` / `catch`.
+
+- species:
+
+  Optional species code(s) to include (matched against the `Species`
+  column). Default `NULL` keeps all species. Mirrors the `species`
+  argument of
+  [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md).
 
 - ...:
 
-  Currently unused.
+  Passed to
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  (e.g. `method`, `seed`) when `type = "osa"`, or to
+  [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
+  when `type = "process"`.
 
 ## Value
 
 A `data.frame` with columns `Source`, `Fleet_code`, `Fleet_name`,
 `Species`, `Sex`, `Year`, `Length`, `Bin`, `Age0_Length1`,
-`Sample_size`, `Observed`, `Fitted`, `Residual`. `Sex`, `Length`, `Bin`,
-`Age0_Length1`, and `Sample_size` are `NA` where they do not apply (e.g.
-for index/catch rows).
+`Sample_size`, `Observed`, `Fitted`, `Residual`. Columns are `NA` where
+they do not apply.
 
 ## Details
 
-For `"index"` and `"catch"`, the `Residual` column is on the log scale
-by default (matching the lognormal observation likelihood) and can be
-switched to the natural scale via `scale = "natural"`. For `"comp"` and
-`"caal"`, residuals are Pearson residuals on the fitted proportions:
-\$\$r = (p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}\$\$ where N is the
-input sample size. Composition rows are returned in long form: one row
-per (observation, age/length bin).
+Residual kinds (`type`):
 
-Composition rows carry the `Age0_Length1` flag from `comp_data` (`0` for
-age comps, `1` for length comps) so age and length comps can be filtered
-apart. CAAL rows carry both the conditioning `Length` and the age `Bin`.
+- `"response"`:
+
+  Observed minus fitted. For `index` / `catch` this is on the log scale
+  by default (matching the lognormal likelihood; set `scale = "natural"`
+  for the arithmetic difference); for `comp` / `caal` it is the
+  difference in proportions, observed minus fitted.
+
+- `"pearson"`:
+
+  Standardized residuals. For `index` / `catch`, \\(\log o -
+  (\log\hat{o} - b\\\sigma^2/2))/\sigma\\ using the model's realized
+  observation log-SD \\\sigma\\ and the observation bias-adjustment flag
+  \\b\\ (`bias_adjust_obs`, default 1); for `comp` / `caal`, \\(p -
+  \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}\\ with input sample size N.
+
+- `"osa"`:
+
+  One-step-ahead residuals via
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md),
+  which builds the composition observation data on demand from any fit.
+
+- `"process"`:
+
+  Process residuals via
+  [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
+  for the model's random-effect deviations; `source` does not apply.
+
+Composition rows are returned in long form (one row per observation x
+age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0`
+age, `1` length); CAAL rows carry both the conditioning `Length` and the
+age `Bin`.

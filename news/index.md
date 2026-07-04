@@ -1,5 +1,210 @@
 # Changelog
 
+## Rceattle 4.6.0
+
+### New features
+
+- [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now builds the composition / conditional-age-at-length / diet
+  one-step-ahead observation data on demand, so OSA residuals can be
+  computed from any fit. Previously the composition OSA data had to be
+  assembled during the fit via `fit_control(osa = TRUE)`; that pre-build
+  is no longer required (the reconstruction reads only the `*_ctl` /
+  `*_obs` arrays already carried by the fitted object, and is identical
+  to an `osa = TRUE` fit). Aggregate index/catch OSA residuals are
+  unaffected.
+
+- **Breaking:** the `osa` argument to
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  has been removed; it is no longer needed (see above), and passing it
+  now raises an “unused argument” error. The `$osa` element is no longer
+  stored on fitted `Rceattle` objects.
+
+- [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  gains `bias_adjust_obs` and `bias_adjust_proc` (both default `TRUE`)
+  to toggle the lognormal bias correction (`-sigma^2/2`) applied to the
+  observation (index / catch) and process (recruitment, initial
+  abundance, and the Beverton-Holt steepness prior) likelihoods,
+  respectively. The defaults give the standard mean-unbiased behaviour
+  (`E[R] = R0`); set a flag to `FALSE` to drop the correction for that
+  likelihood group. The values are passed to the TMB template as
+  `DATA_SCALAR`s.
+
+- Added one-step-ahead (OSA) residuals for model validation via the new
+  exported
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  (Thygesen et al. 2017; Trijoulet et al. 2023). Unlike Pearson
+  residuals, OSA residuals are iid standard normal under a correctly
+  specified model even for correlated composition data. All fitted
+  observation types are supported: survey indices, fishery catch,
+  age/length composition, conditional age-at-length, and predator diet
+  (stomach-content) composition. Composition data are residualized with
+  the conditional binomial / beta-binomial decomposition (multinomial /
+  Dirichlet-multinomial), and the `MultinomialAFSC` likelihood is
+  residualized under the full multinomial. The fitted objective is
+  unchanged: a new `obsvec`/`keep`/`osa_mode` machinery feeds
+  [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html)
+  while leaving normal fitting bit-for-bit identical. The
+  `oneStepPredict()` call is split by observation type so the continuous
+  (lognormal) index/catch series and the composition series can be
+  residualized with the correct settings; `discrete = TRUE` treats
+  composition as discrete (randomized quantile residuals; Dunn and
+  Smyth 1996) while the aggregate series stay continuous.
+
+- [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  gains `comp_offset`, the small proportion offset added to the observed
+  and predicted age/length composition, conditional-age-at-length, and
+  predator diet (stomach-content) bins before the multinomial /
+  Dirichlet-multinomial likelihood (and to the matching OSA observation
+  vector, so fitting and OSA residuals use the same offset). It applies
+  to every composition likelihood, including the “Martin’s”
+  (`comp_ll_type = -1`) form. It defaults to `1e-5` (the historical
+  CEATTLE value, which avoids `log(0)` for empty bins); set
+  `comp_offset = 0` for a standard WHAM-style multinomial. The value is
+  stored on `data_list$comp_offset` (filled by
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)),
+  so internal re-fits (projections,
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md))
+  inherit it; `fit_control(comp_offset = ...)` overrides the stored
+  value.
+
+- [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  gains a `parallel` argument (default `TRUE`) that computes the
+  per-observation one-step-ahead loop with
+  [`parallel::mclapply()`](https://rdrr.io/r/parallel/mclapply.html) – a
+  near-linear speedup for models with random effects, where each
+  observation triggers a Laplace re-evaluation (set
+  `options(mc.cores = )` to choose cores; serial fallback on Windows).
+  The discrete randomized-quantile path stays serial so it remains
+  reproducible given `seed`.
+
+- Added
+  [`osa_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/osa_diagnostics.md)
+  for the Stewart and Monnahan (2025) statistical diagnostics – the
+  standard deviation of the normalized residuals (SDNR) and the
+  lower/upper tail statistics, each with its standard-normal null
+  interval – and a
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method for
+  `rceattle_osa` objects, styled after the NOAA-AFSC `afscOSA` package.
+  The plot draws up to two figures: an *aggregate* Q-Q figure for the
+  index/catch series (which have no age/length bin, so no bubbles), and
+  a *composition* figure pairing the Q-Q plot with signed OSA-residual
+  and Pearson-residual bubble plots, with age-based bins (age
+  composition and conditional age-at-length) in the left column and
+  length-based bins in the right column, each on its own bin axis. Panel
+  headers use the fleet name from `fleet_control`. The
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method takes
+  `source` and `species` arguments to subset the data shown (mirroring
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html)), and
+  `combine = FALSE` to draw the age and length composition as separate
+  figures.
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now also carries a `fleet_name` column and (for composition) the
+  matching Pearson residuals.
+
+- Added
+  [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
+  for SAM-style process residuals on the model’s random-effect
+  deviations (recruitment, initial abundance, and catchability),
+  validating the process model as a complement to the observation
+  residuals.
+
+- [`residuals()`](https://rdrr.io/r/stats/residuals.html) gains
+  `type = "osa"` and `type = "process"`;
+  [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
+  and
+  [`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
+  gain a `residual_type = "osa"` option that draws the OSA diagnostics
+  through the familiar plotting functions.
+
+- [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
+  was re-implemented in ggplot2 for a consistent look with the OSA
+  plots: composition Pearson-residual bubbles plus observed-vs-fitted
+  annual and aggregated composition figures. The observed area and
+  fitted line now span only the observed bins (they no longer extend
+  past the first / last bin), zero observed proportions are retained
+  (only `NA` is dropped), joint-sex (Sex == 3) data are drawn on a
+  single age/length axis with females above and males below zero, and a
+  `species` argument subsets the species shown.
+
+### Bug fixes
+
+- Fixed the unweighted conditional-age-at-length (CAAL) log-likelihood
+  being recorded in the composition slot of `unweighted_jnll_comp`
+  instead of the CAAL slot. This affects the reported diagnostic matrix
+  only; the fitted objective was unaffected.
+
+### API
+
+- `projection_uncertainty` moved from
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  into
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md),
+  consolidating it with the other optimizer / reporting controls.
+  Passing it directly to
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  still works but emits a deprecation warning and forwards the value
+  into
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  – the same backward-compatible path used by the other former
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  control arguments (`phase`, `getsd`, …).
+- [`residuals()`](https://rdrr.io/r/stats/residuals.html) now follows
+  the
+  [`stats::residuals.glm()`](https://rdrr.io/r/stats/glm.summaries.html)
+  convention: `type` selects the residual *kind* – `"response"`
+  (default), `"pearson"`, `"osa"`, or `"process"` – and a `source`
+  argument selects the data source(s) (`"index"`, `"catch"`, `"comp"`,
+  `"caal"`, or `"all"`, the default), so by default residuals for every
+  applicable source are returned. A `species` argument subsets to
+  particular species. Pearson residuals are now available for the
+  aggregate index/catch series (standardized by the realized observation
+  log-SD) and for predator diet via `source = "diet"` (returned on its
+  own in a predator/prey schema);
+  [`plot_diet_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp.md)
+  now draws its diet residuals from this single
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) path. `type`
+  selects the residual kind only; data sources are selected with
+  `source`.
+- The `source` argument is shared across
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md),
+  and [`plot()`](https://rdrr.io/r/graphics/plot.default.html) (it
+  replaces the earlier `types` argument of
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)),
+  accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and
+  `"all"`, so the three entry points select data sources with one
+  consistent vocabulary.
+
+### Documentation
+
+- Reviewed and revised the user vignettes for accuracy, clarity, and
+  consistency, targeting assessment scientists rather than developers.
+  Trimmed developer-oriented internals and repetition, and corrected the
+  option tables so they match the code: `estimateMode`, `suitMode`,
+  selectivity, catchability, harvest-control-rule, `M1_model`, and
+  bioenergetics (`Ceq`) codes now agree across
+  `model-options-and-functionality`, `single-vs-multispecies`,
+  `projections-and-reference-points`, `data-without-excel`, and
+  `model-parameterizations`.
+- Clarified that the length-based suitability modes (`suitMode = 1/3/5`)
+  are not yet enabled; use a weight-based mode (`2/4/6`) for parametric
+  suitability.
+- Standardized data-structure terminology across vignettes:
+  weight-at-age is in kilograms, and the diet / stomach-content input is
+  `diet_data` (removing the legacy `UobsWtAge` / `UobsAgeWt` /
+  `stom_prop_data` names).
+- Corrected the [`residuals()`](https://rdrr.io/r/stats/residuals.html)
+  examples in the README to the `type` / `source` convention
+  (e.g. `residuals(fit, type = "pearson", source = "comp")`).
+- Added a website-only “Developer guide” article
+  (`vignettes/articles/developer-guide.Rmd`) documenting the fit
+  pipeline, the switch system, the TMB module layout, and recipes for
+  adding parameters, data inputs, switch options, and likelihood
+  components. Consolidates and updates the GitHub wiki developer notes.
+
 ## Rceattle 4.5.0
 
 ### New features
@@ -211,14 +416,14 @@ S3 class.
   midpoint for non-uniform length bins; for uniform bins (the common
   case) the two are algebraically identical, so existing fits are
   unchanged.
-- **Plus-group SD-at-age continuity**: `growth.hpp` no longer
-  special-cases the oldest age class when computing `length_sd`.
-  Previously the plus group used `exp(growth_log_sd(sp, sex, 1))`
-  directly (SD at `Linf`); it now uses the same length-based linear
-  interpolation between SD(`L1`) and SD(`Linf`) as all other ages above
-  `age_L1`. This restores continuity across the plus-group boundary;
-  users with archived fits whose plus group did not reach `Linf` should
-  expect small numerical drift in `length_sd` at the oldest age.
+- **Plus-group SD-at-age pinned to the upper anchor**: both growth
+  builders in `growth.hpp` now pin the oldest age class’s `length_sd` to
+  `exp(growth_log_sd(sp, sex, 1))` (SD at `Linf`), matching WHAM (`SDAA`
+  plus group `= SD_len(1)`), instead of the length-based interpolation
+  between SD(`L1`) and SD(`Linf`) used previously. This makes the
+  plus-group convention consistent across von Bertalanffy and Richards
+  growth and across both builders; expect a small numerical change in
+  `length_sd` at the oldest age relative to prior versions.
 - **[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
   bounds ordering**:
   [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)

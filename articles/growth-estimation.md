@@ -70,8 +70,8 @@ growth_spec <- build_growth(
 ### What this linkage does
 
 - `formula = ~ temp` fits an intercept and a temperature slope.
-- `by = ~ species + sex` gives each species/sex combination its own
-  intercept and slope.
+- `by = ~ species` gives each species its own intercept and slope (add
+  `+ sex` to further split by sex).
 - `link = "log"` (the default) keeps the underlying TMB parameter on the
   log scale, so the slope rows act multiplicatively on natural `Linf`.
 - `priors` attaches a Normal prior to both the intercept and the
@@ -140,7 +140,7 @@ richards_model <- Rceattle::fit_mod(
 plot_biomass(
   list(baseline_fit, richards_model, vbgf_prior_fit),
   species = 1,
-  model_names = c("Baseline VBGF", "Richards", "VBGF with K linkage and priors"),
+  model_names = c("Baseline VBGF", "Richards", "VBGF with Linf linkage and priors"),
   incl_proj = TRUE
 )
 
@@ -156,12 +156,10 @@ vbgf_prior_fit$opt$AIC
   that driver on the parameter.
 - The linkage table API supports all R-style formulas and per-species or
   per-sex stratification.
-- The SD endpoints `sd_L1` and `sd_Linf` (the length-at-age SDs anchored
-  at `L1` and `Linf`, stored internally on the log scale via
-  `growth_log_sd`) are linkage targets too – they thread `init` /
-  `bounds` / `priors` onto `growth_log_sd`. Only intercept-bearing
-  formulas (typically `~ 1`) are honored; the SDs do not vary by year in
-  `growth.hpp`, so slope rows have no effect and slope-only formulas
-  error. See the “Growth SD endpoints” section of
+- The length-at-age SD endpoints `sd_L1` and `sd_Linf` are also linkage
+  targets, so you can set `init` / `bounds` / `priors` on them. Only
+  intercept formulas (e.g. `~ 1`) are honored — the SDs do not vary by
+  year, so slope terms have no effect. See the “Growth SD endpoints”
+  section of
   [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
   for an example.

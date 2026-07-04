@@ -2,16 +2,11 @@
 
 ## Overview
 
-In this vignette we walk through fitting three models using the
-`Rceattle` package to run single- and multi-species stock assessment
-models. Rceattle is based on Holsman et al. (2016) and Adams et
-al. (2022) to fit single- and multi-species age structured models in
-TMB. The code base has been inspired by VAST, WHAM, and other TMB based
-packages and generalized for flexibly fitting models with a variable
-number of species, surveys, and fishing fleets. In this example we apply
-Rceattle to walleye pollock, arrowtooth flounder, and Pacific cod in the
-Gulf of Alaska and Eastern Bering Sea. All functions have associated
-helper text using the `?`. Here, we demonstrate the basic workflow:
+This vignette fits a sequence of five single- and multi-species models
+with `Rceattle`, applied to walleye pollock, arrowtooth flounder, and
+Pacific cod in the Gulf of Alaska and eastern Bering Sea. The model
+follows Holsman et al. (2016) and Adams et al. (2022). Every function
+has help available via `?`. The workflow is:
 
 1.  Install `Rceattle`
 
@@ -54,9 +49,9 @@ remotes::install_github("grantdadams/Rceattle")
 
 ## 2. Data
 
-To run `Rceattle` a data file must first be loaded. The data files from
-2018 Gulf of Alaska and 2017 Bering Sea single- and multi-species
-assessments is already loaded within the `Rceattle` package:
+To run `Rceattle` a data object must first be loaded. Data from the 2018
+Gulf of Alaska and 2017 eastern Bering Sea single- and multi-species
+assessments are bundled with the package:
 
 ``` r
 
@@ -88,11 +83,10 @@ sheet (`meta_data`) and the associated help function
 
 ## 3. Fit models
 
-Models can be fit using the `fit_mod` function. For the first model we
-use fit a single-species model with no stock-recruit to data on Gulf of
-Alaska pollock. The model has 8 fleets: 1 fishing fleet, 6 surveys, and
-1 fleet turned off and all data are excluded from the likelihood (see
-`model_1$fleet_control`).
+Models are fit with the `fit_mod` function. The first model is a
+single-species fit with no stock–recruit relationship to Gulf of Alaska
+pollock. It has 8 fleets: 1 fishery, 6 surveys, and 1 fleet turned off
+(its data excluded from the likelihood; see `model_1$fleet_control`).
 
 ``` r
 
@@ -106,12 +100,11 @@ model_1 <- Rceattle::fit_mod(data_list = GOApollock,
 summary(model_1)
 ```
 
-For the second model we use fit three single-species model jointly with
-no stock-recruit curve and natural mortality is fixed as the input
-values (`mydata$M1_base`). The model has 7 fleets: 3 fishing fleets that
-target each species individually and 4 surveys (see
-`mydata$fleet_control`). The single-species model can be fit by the
-default setting `msmMode = 0` using the `fit_mod` function:
+The second model fits three single-species models jointly, with no
+stock–recruit curve and natural mortality fixed at the input values
+(`mydata$M1_base`). It has 7 fleets: 3 fisheries (one per species) and 4
+surveys (see `mydata$fleet_control`). Single-species mode is the default
+(`msmMode = 0`):
 
 ``` r
 
@@ -119,17 +112,16 @@ model_2 <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Penalized likelihood
+                            msmMode = 0, # Single-species
                             fit_control = fit_control(
                               phase = TRUE,
                               verbose = 1))
 summary(model_2)
 ```
 
-Alternatively, we can estimate natural mortality using the `build_M1`
-function, where setting `M1_model = 1` estimates a single M for each
-species. Here, we also begin estimation at the maximum likelihood
-estimates from `model_1` using the `inits` argument:
+Alternatively, natural mortality can be estimated with the `build_M1`
+function; `M1_model = "sex_age_invariant"` estimates a single M per
+species, constant across sex and age:
 
 ``` r
 

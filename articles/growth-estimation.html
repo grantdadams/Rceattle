@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -151,8 +153,8 @@ scale), and it can also carry priors on the linked coefficients.</p>
 <code>formula = ~ temp</code> fits an intercept and a temperature
 slope.</li>
 <li>
-<code>by = ~ species + sex</code> gives each species/sex combination
-its own intercept and slope.</li>
+<code>by = ~ species</code> gives each species its own intercept and
+slope (add <code>+ sex</code> to further split by sex).</li>
 <li>
 <code>link = "log"</code> (the default) keeps the underlying TMB
 parameter on the log scale, so the slope rows act multiplicatively on
@@ -223,7 +225,7 @@ linkages replace the base parameter and carry its level.</p>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">baseline_fit</span>, <span class="va">richards_model</span>, <span class="va">vbgf_prior_fit</span><span class="op">)</span>,</span>
 <span>  species <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Baseline VBGF"</span>, <span class="st">"Richards"</span>, <span class="st">"VBGF with K linkage and priors"</span><span class="op">)</span>,</span>
+<span>  model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Baseline VBGF"</span>, <span class="st">"Richards"</span>, <span class="st">"VBGF with Linf linkage and priors"</span><span class="op">)</span>,</span>
 <span>  incl_proj <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -240,15 +242,12 @@ on the base growth parameter value itself.</li>
 the effect of that driver on the parameter.</li>
 <li>The linkage table API supports all R-style formulas and per-species
 or per-sex stratification.</li>
-<li>The SD endpoints <code>sd_L1</code> and <code>sd_Linf</code> (the
-length-at-age SDs anchored at <code>L1</code> and <code>Linf</code>,
-stored internally on the log scale via <code>growth_log_sd</code>) are
-linkage targets too – they thread <code>init</code> /
-<code>bounds</code> / <code>priors</code> onto
-<code>growth_log_sd</code>. Only intercept-bearing formulas (typically
-<code>~ 1</code>) are honored; the SDs do not vary by year in
-<code>growth.hpp</code>, so slope rows have no effect and slope-only
-formulas error. See the “Growth SD endpoints” section of
+<li>The length-at-age SD endpoints <code>sd_L1</code> and
+<code>sd_Linf</code> are also linkage targets, so you can set
+<code>init</code> / <code>bounds</code> / <code>priors</code> on them.
+Only intercept formulas (e.g. <code>~ 1</code>) are honored — the SDs do
+not vary by year, so slope terms have no effect. See the “Growth SD
+endpoints” section of
 <code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code> for an
 example.</li>
 </ul>

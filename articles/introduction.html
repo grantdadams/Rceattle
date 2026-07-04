@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,8 @@
     <li><h6 class="dropdown-header" data-toc-skip>--- Reference ---</h6></li>
     <li><a class="dropdown-item" href="../articles/model-parameterizations.html">Model parameterizations</a></li>
     <li><a class="dropdown-item" href="../articles/stock-synthesis-conversion.html">Converting from Stock Synthesis</a></li>
+    <li><h6 class="dropdown-header" data-toc-skip>--- Contributing ---</h6></li>
+    <li><a class="dropdown-item" href="../articles/developer-guide.html">Developer guide</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -86,17 +88,12 @@
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>In this vignette we walk through fitting three models using the
-<code>Rceattle</code> package to run single- and multi-species stock
-assessment models. Rceattle is based on Holsman et al. (2016) and Adams
-et al. (2022) to fit single- and multi-species age structured models in
-TMB. The code base has been inspired by VAST, WHAM, and other TMB based
-packages and generalized for flexibly fitting models with a variable
-number of species, surveys, and fishing fleets. In this example we apply
-Rceattle to walleye pollock, arrowtooth flounder, and Pacific cod in the
-Gulf of Alaska and Eastern Bering Sea. All functions have associated
-helper text using the <code>?</code>. Here, we demonstrate the basic
-workflow:</p>
+<p>This vignette fits a sequence of five single- and multi-species
+models with <code>Rceattle</code>, applied to walleye pollock,
+arrowtooth flounder, and Pacific cod in the Gulf of Alaska and eastern
+Bering Sea. The model follows Holsman et al. (2016) and Adams et
+al. (2022). Every function has help available via <code>?</code>. The
+workflow is:</p>
 <ol style="list-style-type: decimal">
 <li><p>Install <code>Rceattle</code></p></li>
 <li><p>Load <code>Rceattle</code> and associated excel data</p></li>
@@ -137,10 +134,9 @@ installed as follows:</p>
 <div class="section level2">
 <h2 id="data">2. Data<a class="anchor" aria-label="anchor" href="#data"></a>
 </h2>
-<p>To run <code>Rceattle</code> a data file must first be loaded. The
-data files from 2018 Gulf of Alaska and 2017 Bering Sea single- and
-multi-species assessments is already loaded within the
-<code>Rceattle</code> package:</p>
+<p>To run <code>Rceattle</code> a data object must first be loaded. Data
+from the 2018 Gulf of Alaska and 2017 eastern Bering Sea single- and
+multi-species assessments are bundled with the package:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://grantdadams.github.io/Rceattle/">Rceattle</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"GOApollock"</span><span class="op">)</span> <span class="co"># Data for GOA-pollock (1-species) ?GOApollock for more information on the data </span></span>
@@ -161,11 +157,11 @@ first sheet (<code>meta_data</code>) and the associated help function
 <div class="section level2">
 <h2 id="fit-models">3. Fit models<a class="anchor" aria-label="anchor" href="#fit-models"></a>
 </h2>
-<p>Models can be fit using the <code>fit_mod</code> function. For the
-first model we use fit a single-species model with no stock-recruit to
-data on Gulf of Alaska pollock. The model has 8 fleets: 1 fishing fleet,
-6 surveys, and 1 fleet turned off and all data are excluded from the
-likelihood (see <code>model_1$fleet_control</code>).</p>
+<p>Models are fit with the <code>fit_mod</code> function. The first
+model is a single-species fit with no stock–recruit relationship to Gulf
+of Alaska pollock. It has 8 fleets: 1 fishery, 6 surveys, and 1 fleet
+turned off (its data excluded from the likelihood; see
+<code>model_1$fleet_control</code>).</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_1</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">GOApollock</span>,</span>
 <span>                            inits <span class="op">=</span> <span class="cn">NULL</span>, <span class="co"># Initial parameters = 0</span></span>
@@ -175,28 +171,25 @@ likelihood (see <code>model_1$fleet_control</code>).</p>
 <span>                              phase <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>                              verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
-<p>For the second model we use fit three single-species model jointly
-with no stock-recruit curve and natural mortality is fixed as the input
-values (<code>mydata$M1_base</code>). The model has 7 fleets: 3 fishing
-fleets that target each species individually and 4 surveys (see
-<code>mydata$fleet_control</code>). The single-species model can be fit
-by the default setting <code>msmMode = 0</code> using the
-<code>fit_mod</code> function:</p>
+<p>The second model fits three single-species models jointly, with no
+stock–recruit curve and natural mortality fixed at the input values
+(<code>mydata$M1_base</code>). It has 7 fleets: 3 fisheries (one per
+species) and 4 surveys (see <code>mydata$fleet_control</code>).
+Single-species mode is the default (<code>msmMode = 0</code>):</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_2</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">mydata</span>,</span>
 <span>                            inits <span class="op">=</span> <span class="cn">NULL</span>, <span class="co"># Initial parameters = 0</span></span>
 <span>                            estimateMode <span class="op">=</span> <span class="fl">0</span>, <span class="co"># Estimate</span></span>
 <span>                            random_rec <span class="op">=</span> <span class="cn">FALSE</span>, <span class="co"># No random recruitment</span></span>
-<span>                            msmMode <span class="op">=</span> <span class="fl">0</span>, <span class="co"># Penalized likelihood</span></span>
+<span>                            msmMode <span class="op">=</span> <span class="fl">0</span>, <span class="co"># Single-species</span></span>
 <span>                            fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span></span>
 <span>                              phase <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>                              verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_2</span><span class="op">)</span></span></code></pre></div>
-<p>Alternatively, we can estimate natural mortality using the
-<code>build_M1</code> function, where setting <code>M1_model = 1</code>
-estimates a single M for each species. Here, we also begin estimation at
-the maximum likelihood estimates from <code>model_1</code> using the
-<code>inits</code> argument:</p>
+<p>Alternatively, natural mortality can be estimated with the
+<code>build_M1</code> function;
+<code>M1_model = "sex_age_invariant"</code> estimates a single M per
+species, constant across sex and age:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_3</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">mydata</span>,</span>
 <span>                              estimateMode <span class="op">=</span> <span class="fl">0</span>, <span class="co"># Estimate</span></span>

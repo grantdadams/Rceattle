@@ -121,10 +121,17 @@ management strategy evaluation.
 
 ## Diagnostics and simulation
 
-Retrospective analysis, jitter testing, and simulation.
+Retrospective analysis, jitter testing, residual diagnostics, and
+simulation.
 
 - [`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)
   : Convergence diagnostics for a fitted Rceattle model
+- [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  : One-step-ahead (OSA) residuals for an Rceattle model
+- [`osa_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/osa_diagnostics.md)
+  : Statistical diagnostics for OSA residuals
+- [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
+  : Process residuals for an Rceattle model's random-effect processes
 - [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
   : Retrospective peels
 - [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
@@ -185,7 +192,9 @@ Visualize survey indices, fits, and residuals.
 - [`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
   : CPUE residual
 - [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
-  : Plot time series of comp data
+  : Plot composition fits and residuals
+- [`plot(`*`<rceattle_osa>`*`)`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)
+  : Plot one-step-ahead (OSA) residual diagnostics
 - [`plot_data()`](https://grantdadams.github.io/Rceattle/reference/plot_data.md)
   : Timeline of data used in the model likelihoods
 - [`plot_form()`](https://grantdadams.github.io/Rceattle/reference/plot_form.md)
@@ -285,7 +294,7 @@ S3 methods, utility functions, and internal helpers.
 - [`plot(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/plot.Rceattle.md)
   : Plot method for fitted Rceattle models
 - [`residuals(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.md)
-  : Observed-vs-fitted residuals from an Rceattle fit
+  : Residuals from an Rceattle fit
 - [`vcov(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/vcov.Rceattle.md)
   : Variance-covariance matrix for an Rceattle fit
 - [`prior_beta()`](https://grantdadams.github.io/Rceattle/reference/prior_beta.md)

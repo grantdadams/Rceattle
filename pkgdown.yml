@@ -3,6 +3,7 @@ pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   data-without-excel: data-without-excel.html
+  articles/developer-guide: developer-guide.html
   environmental-linkages-and-priors: environmental-linkages-and-priors.html
   growth-estimation: growth-estimation.html
   hcrs-and-mses: hcrs-and-mses.html
@@ -13,7 +14,7 @@ articles:
   projections-and-reference-points: projections-and-reference-points.html
   single-vs-multispecies: single-vs-multispecies.html
   stock-synthesis-conversion: stock-synthesis-conversion.html
-last_built: 2026-06-10T02:45Z
+last_built: 2026-07-04T22:50Z
 urls:
   reference: https://grantdadams.github.io/Rceattle/reference
   article: https://grantdadams.github.io/Rceattle/articles

@@ -46,3 +46,10 @@ Model parameterizations, equations, and switch settings.
   parameterizations](https://grantdadams.github.io/Rceattle/articles/model-parameterizations.md):
 - [Environmental linkages and priors: a formula-driven
   API](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md):
+
+### Contributing
+
+Extending and maintaining the package internals.
+
+- [Developer
+  guide](https://grantdadams.github.io/Rceattle/articles/developer-guide.md):
