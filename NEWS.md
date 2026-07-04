@@ -81,13 +81,6 @@
   observed proportions are retained (only `NA` is dropped), joint-sex (Sex == 3)
   data are drawn on a single age/length axis with females above and males below
   zero, and a `species` argument subsets the species shown.
-* Computing OSA residuals for composition / caal / diet data is opt-in via
-  `fit_control(osa = TRUE)`. By default (`osa = FALSE`) a fit skips assembling
-  the (sizeable) composition OSA observation data, so repeated refits stay fast
-  -- important for simulation testing (`run_mse()`, `self_test()`, `jitter()`,
-  `retrospective()`). The fitted objective is identical either way; only whether
-  the composition OSA data is built differs. Aggregate index/catch OSA residuals
-  and `process_residuals()` are available regardless of the setting.
 
 ## Bug fixes
 
