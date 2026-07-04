@@ -222,6 +222,13 @@ testthat::test_that("process_residuals() runs on a converging model", {
   pr2 <- process_residuals(fit, process = "recruitment")
   testthat::expect_equal(pr$residual, pr2$residual)
 
+  # Does not clobber the caller's global RNG: the posterior draw is seeded on a
+  # local stream and .Random.seed is restored on exit.
+  set.seed(101L)
+  before <- get(".Random.seed", envir = .GlobalEnv)
+  invisible(process_residuals(fit, process = "recruitment", seed = 7))
+  testthat::expect_identical(before, get(".Random.seed", envir = .GlobalEnv))
+
   # process = "all" returns every supported process present, all finite. On
   # GOApollock the catchability deviates use a random-walk prior, so the
   # marginal-SD standardization is approximate and emits a warning.

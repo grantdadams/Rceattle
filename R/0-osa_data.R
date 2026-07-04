@@ -64,6 +64,17 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     stop("`comp_offset` must be a single non-negative number.")
   }
 
+  # Lognormal bias-correction toggles (DATA_SCALARs read by the TMB template).
+  # Default to 1 (correction on) when absent so a data_list produced here is
+  # usable by MakeADFun directly -- the same guarantee comp_offset gives; fit_mod()
+  # overrides both from fit_control() before fitting.
+  bias_adjust_obs  <- data_list$bias_adjust_obs
+  if (is.null(bias_adjust_obs))  bias_adjust_obs  <- 1
+  bias_adjust_obs  <- as.numeric(bias_adjust_obs)[1]
+  bias_adjust_proc <- data_list$bias_adjust_proc
+  if (is.null(bias_adjust_proc)) bias_adjust_proc <- 1
+  bias_adjust_proc <- as.numeric(bias_adjust_proc)[1]
+
   endyr    <- data_list$endyr
   flt_type <- data_list$flt_type   # indexed by Fleet_code, matching the TMB cpp
   nages    <- data_list$nages
@@ -219,7 +230,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       # observed prey proportions plus the residual "other prey" category, then
       # the same offset/normalize the TMB likelihood applies, scaled to counts.
       obs_p  <- as.numeric(diet_obs[rows, 2])
-      vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + 0.00001
+      vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + comp_offset
       counts <- vec / sum(vec) * N_s
       diet_obsvec_idx[i + 1L] <- append_obs(
         value          = counts, source = "diet",
@@ -253,7 +264,9 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$caal_obsvec_idx  <- as.integer(caal_obsvec_idx)
   data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
   data_list$osa_mode         <- 0L
-  data_list$comp_offset      <- comp_offset   # read by the TMB DATA_SCALAR
+  data_list$comp_offset      <- comp_offset       # read by the TMB DATA_SCALAR
+  data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR
+  data_list$bias_adjust_proc <- bias_adjust_proc  # read by the TMB DATA_SCALAR
 
   data_list
 }

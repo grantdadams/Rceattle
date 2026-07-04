@@ -63,8 +63,19 @@ process_residuals <- function(fit,
                 catchability = "index_q_dev")
   todo <- if (process == "all") names(specs) else process
 
+  # Seed once here -- saving and restoring the caller's RNG -- and let the
+  # processes draw from a single advancing stream. Seeding inside the per-process
+  # loop instead would make equal-length deviation blocks (e.g. recruitment vs
+  # initial) draw identical standard normals (spurious cross-process correlation)
+  # and would clobber the caller's global .Random.seed.
+  if (exists(".Random.seed", envir = .GlobalEnv)) {
+    old_seed <- get(".Random.seed", envir = .GlobalEnv)
+    on.exit(assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
+  }
+  set.seed(seed)
+
   out <- lapply(todo, function(p) {
-    res <- tryCatch(.process_residual_one(fit, p, specs[[p]], seed),
+    res <- tryCatch(.process_residual_one(fit, p, specs[[p]]),
                     error = function(e) {
                       if (process == "all") NULL else stop(e)
                     })
@@ -84,7 +95,7 @@ process_residuals <- function(fit,
 
 #' Process residuals for a single deviation parameter
 #' @keywords internal
-.process_residual_one <- function(fit, process, par_name, seed) {
+.process_residual_one <- function(fit, process, par_name) {
   obj <- fit$obj
 
   # ---- Posterior mode + covariance of the estimated deviations ----
@@ -121,8 +132,9 @@ process_residuals <- function(fit,
   }
 
   # ---- One posterior draw, standardized by the prior ----
+  # The RNG is seeded once by the caller (process_residuals()); drawing from that
+  # advancing stream keeps each process's normals distinct and reproducible.
   L <- t(chol(Sigma))
-  set.seed(seed)
   draw  <- as.numeric(mode + L %*% stats::rnorm(n))
   resid <- (draw - spec$mean) / spec$sd
 

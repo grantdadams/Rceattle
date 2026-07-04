@@ -2498,8 +2498,8 @@ Type objective_function<Type>::operator() () {
         case -1:
           for(ln = 0; ln < n_comp; ln++) {
             // Martin's
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset)) ;
+            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset));
           }
           break;
 
@@ -3230,9 +3230,11 @@ Type objective_function<Type>::operator() () {
       Type sum_est_p = pred_diet_prop.head(n_prey).sum();
       pred_diet_prop(n_prey) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable (cant do if statement)
 
-      // Vectorized Offset & Normalization
-      obs_diet_prop += 0.00001;
-      pred_diet_prop += 0.00001;
+      // Vectorized Offset & Normalization. Uses the same configurable proportion
+      // offset (DATA_SCALAR comp_offset, default 1e-5) as the age/length comps,
+      // so fitting and the diet OSA obsvec stay consistent.
+      obs_diet_prop += comp_offset;
+      pred_diet_prop += comp_offset;
 
       obs_diet_prop /= obs_diet_prop.sum();
       pred_diet_prop /= pred_diet_prop.sum();
