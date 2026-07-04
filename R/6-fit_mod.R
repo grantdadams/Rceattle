@@ -418,13 +418,6 @@ fit_mod <-
     if (sum(data_list$M1_re) > 0) {
       random_vars <- c(random_vars, "log_M1_dev")
     }
-    # Debug modes (estimateMode >= 3) return a placeholder objective
-    # (jnll = dummy^2 in the template) that does not involve the deviations, so
-    # declaring them as random effects gives a singular Laplace inner Hessian and
-    # a spurious NaN objective. Debug builds do not optimize, so fit the
-    # deviations as fixed effects instead.
-    if (estimateMode >= 3) random_vars <- c()
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 6: Reorganize data ----
