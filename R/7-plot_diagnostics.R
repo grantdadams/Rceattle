@@ -879,6 +879,10 @@ plot_logindex <- function(Rceattle,
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param width plot width
 #' @param height plot hight
+#' @param residual_type `"pearson"` (default) for the legacy index/catch residual
+#'   plots, or `"osa"` to draw one-step-ahead residual diagnostics (Q-Q plot with
+#'   SDNR / tail annotation and residual-by-year) for a single fitted model via
+#'   [osa_residuals()] and [plot.rceattle_osa()].
 #' @export
 
 plot_indexresidual <- function(Rceattle,
@@ -891,9 +895,20 @@ plot_indexresidual <- function(Rceattle,
                                incl_proj = FALSE,
                                single.plots=FALSE,
                                width=NULL,
-                               height=NULL){
+                               height=NULL,
+                               residual_type = c("pearson", "osa")){
 
   .save_par()  # snapshot graphics par() and restore on exit
+
+  # One-step-ahead residuals (Stewart & Monnahan 2025): route a single fitted
+  # model to the rceattle_osa plot (Q-Q with SDNR/tail annotation +
+  # residual-by-year). Default "pearson" keeps the legacy residual plots below.
+  residual_type <- match.arg(residual_type)
+  if (residual_type == "osa") {
+    fit <- if (inherits(Rceattle, "Rceattle")) Rceattle else Rceattle[[1]]
+    osa <- osa_residuals(fit, source = c("index", "catch"))
+    return(invisible(plot(osa)))
+  }
 
   # Convert single one into a list
   if(inherits(Rceattle, "Rceattle")){

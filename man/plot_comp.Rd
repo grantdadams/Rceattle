@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_comp.R
 \name{plot_comp}
 \alias{plot_comp}
-\title{Plot time series of comp data}
+\title{Plot composition fits and residuals}
 \usage{
 plot_comp(
   Rceattle,
@@ -11,28 +11,57 @@ plot_comp(
   species = NULL,
   cex = 3,
   lwd = 3,
-  right_adj = 0
+  right_adj = 0,
+  residual_type = c("pearson", "osa")
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single fitted \code{Rceattle} model.}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional filename stem; when supplied, each figure is also saved
+as a PNG.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Unused (kept for back-compatibility).}
 
-\item{species}{Species names for legend}
+\item{species}{Optional species code(s) to plot (matched against the
+\code{Species} column); \code{NULL} (default) plots all. Mirrors the \code{species}
+argument of \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 
-\item{cex}{Line width as specified by user}
+\item{cex}{Unused (kept for back-compatibility).}
 
-\item{lwd}{Line width for observed data lines}
+\item{lwd}{Width of the fitted-composition line. Default \code{3}.}
 
-\item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Unused (kept for back-compatibility).}
+
+\item{residual_type}{\code{"pearson"} (default) for the ggplot2 Pearson-residual
+and composition-fit figures drawn here, or \code{"osa"} to instead draw the
+one-step-ahead residual diagnostics via \code{\link[=osa_residuals]{osa_residuals()}} and
+\code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} -- a Q-Q plot (with SDNR / tail annotation) alongside
+signed OSA- and Pearson-residual bubbles. The \code{"osa"} path builds its
+observation data on demand, so it works with any fit.}
 }
 \value{
-Returns and saves a figure
+Invisibly, a named list of the \code{ggplot} objects. Called for its side
+effect of drawing (and optionally saving) the figures.
 }
 \description{
-Function the plots the comp data as estimated from Rceattle
+Diagnostic plots for age / length composition data from a fitted \link{Rceattle}
+model, drawn with ggplot2 for a consistent look with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
+With the default \code{residual_type = "pearson"} three figures are produced per
+fleet x composition type:
+\itemize{
+\item \strong{Pearson residual bubbles} by year and bin, faceted by fleet (and,
+for joint-sex data, by sex); red = positive, blue = negative, sized by
+magnitude. The Pearson residual is
+\eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}, the same form used by
+\code{\link[=residuals.Rceattle]{residuals.Rceattle()}}.
+\item \strong{Annual composition} -- observed (shaded area) vs fitted (line)
+proportion at age / length, one panel per year. Joint-sex data are
+mirrored (females up, males down).
+\item \strong{Aggregated composition} -- the same, summed over (hindcast) years.
+}
+The shaded area and fitted line span only the observed bins (they do not
+extend past the first/last bin), and bins with zero observed proportion are
+retained (only \code{NA} bins are dropped), so the curves are not interpolated
+across gaps.
 }

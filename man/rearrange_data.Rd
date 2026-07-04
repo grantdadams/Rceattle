@@ -5,12 +5,18 @@
 \alias{rearrange_dat}
 \title{Rearrange a data_list for TMB}
 \usage{
-rearrange_data(data_list)
+rearrange_data(data_list, build_osa = FALSE)
 
 rearrange_dat(data_list)
 }
 \arguments{
 \item{data_list}{an Rceattle data_list}
+
+\item{build_osa}{Logical. Passed to \code{\link[=build_osa_data]{build_osa_data()}}; when \code{TRUE} the full
+one-step-ahead (OSA) observation data is assembled so \code{\link[=osa_residuals]{osa_residuals()}} can
+be computed. Default \code{FALSE} (the fast path used by simulation testing). The
+composition proportion offset is read from \code{data_list$comp_offset} (default
+\code{1e-5}).}
 }
 \description{
 Function to rearrange a \code{data_list} object to be read into TMB

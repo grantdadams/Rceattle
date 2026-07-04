@@ -11,7 +11,6 @@ fit_mod(
   bounds = NULL,
   file = NULL,
   estimateMode = 0,
-  projection_uncertainty = FALSE,
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
@@ -46,8 +45,6 @@ from scratch via \code{\link{build_params}}.}
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
 \item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
-
-\item{projection_uncertainty}{logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
 

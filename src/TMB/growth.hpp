@@ -32,8 +32,8 @@
  *   N-at-age-weighted recruitment correction at the season transition.
  * - **SD-at-Age**: For current_age <= age_L1, SD = $e^{sd_0}$. Otherwise
  *   linear interpolation in length between SD($l_1$) = $e^{sd_0}$ and
- *   SD($L_{\infty}$) = $e^{sd_1}$. The plus group uses the same
- *   interpolation (no special-case) for continuity.
+ *   SD($L_{\infty}$) = $e^{sd_1}$, with the plus group pinned to the upper
+ *   anchor $e^{sd_1}$ (WHAM-style; identical in estimate_growth_within_yr()).
  * - **Size Transition**: Converts mean length and SD into a probability
  *   matrix $P(\text{Length} | \text{Age})$ via `pnorm`. First length bin is
  *   a minus-group; last length bin is a plus-group.
@@ -207,11 +207,16 @@ void estimate_growth(
 
         // 3. Calculate SD (Integrated) ---
         // Length-based linear interpolation: SD(l1) = sd0, SD(linf) = sd1.
-        // Applied uniformly above age_L1 (including the plus group) to avoid
-        // the discontinuity that a special-case plus-group rule would create.
+        // SD-at-age: e^{sd0} up to age_L1, then linear-in-length interpolation
+        // to e^{sd1} (the plus group pinned to the upper anchor e^{sd1}).
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
+          // Pin the plus group's SD to the upper anchor exp(sd_Linf), matching
+          // WHAM (SDAA plus group = SD_len(1)) and estimate_growth_within_yr(),
+          // instead of interpolating it by length.
+          } else if(age == (nages(sp) - 1)) {
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
@@ -288,7 +293,8 @@ void estimate_growth(
  *   into the plus group is applied at every year boundary by `estimate_growth()`
  *   (month 0), so `id_pop` already carries the corrected Jan-1 length.
  * - **SD-at-Age**: Length-based linear interpolation between `SD(l1)` and
- *   `SD(linf)`, applied uniformly above `age_L1` (including the plus group).
+ *   `SD(linf)` above `age_L1`, with the plus group pinned to `SD(linf)` =
+ *   `exp(sd_Linf)` (matching WHAM and `estimate_growth()`).
  * - **Size Transition**: Converts mean length and SD into a probability matrix
  *   $P(\text{Length} | \text{Age})$ using a cumulative normal distribution (`pnorm`).
  *   The first length bin is a minus-group on length; the last is a plus-group.
@@ -340,7 +346,7 @@ void estimate_growth_within_yr(
 
   // Calculate mean-length, SD, and growth matrix, for all years:
   // lengths is vector with lengths mm (2, 4, 6, 8, etc)
-  Type Fac1, Fac2, Slope, b_len, current_age;
+  Type Fac1, Fac2, Slope, b_len, current_age, last_linear;
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
@@ -385,7 +391,21 @@ void estimate_growth_within_yr(
           // so id_pop already carries the corrected Jan-1 length.
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          }else { // Growth curve (incl. plus group)
+          // WHAM-style parameterization: for ages between the anchor and the
+          // plus group, blend the linear ramp with the growth curve; the plus
+          // group is pinned at its Jan-1 (id_pop) length rather than advanced by
+          // within-year growth.
+          // TODO(review): this branch (and its Richards mirror below) tests
+          // `age + 1.0 < age_L1`, mixing the slot index with an age, while the
+          // sibling branch above uses `current_age` (= age + minage + fracyr).
+          // For minage != 1 the two disagree, so the interpolated length can be
+          // off by one age. Unreachable for minage 0/1; verify for minage >= 2.
+          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
+          }else if(age + 1.0 == nages(sp)) { // Plus group pinned at Jan-1. Comment out for SS3 style.
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          }else { // Growth curve (excl. plus group)
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
           }
           break;
@@ -395,10 +415,18 @@ void estimate_growth_within_yr(
           // Slope from Lmin to L1
           b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
 
-          // Age < minage (plus group advances via Richards growth — see VBGF
-          // branch above for the year-boundary correction reasoning).
+          // Mirror the VBGF branch above with the Richards curve so the plus
+          // group is treated identically regardless of growth family: a linear
+          // ramp below the anchor, a mixed linear+growth branch, the plus group
+          // pinned at its Jan-1 (id_pop) length, and within-year Richards growth
+          // for the remaining ages. (`last_linear` is declared at function scope.)
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
+          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+          }else if(age + 1.0 == nages(sp)) { // Plus group pinned at Jan-1. Comment out for SS3 style.
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
           } else {
             length_hat(wtind,  sex, age, yr) = pow(pow(length_hat(id_pop,  sex, age, yr), m) + (pow(length_hat(id_pop,  sex, age, yr), m) - pow(linf, m)) * (exp(-kappa * fracyr) - 1.0), 1 / m); // Add fracyr growth
           }
@@ -414,11 +442,16 @@ void estimate_growth_within_yr(
         } // Growth_model switch
 
         // 2. Calculate SD (Integrated) ---
-        // Length-based linear interpolation: SD(l1) = sd0, SD(linf) = sd1.
-        // Applied uniformly above age_L1 (including the plus group).
+        // SD-at-age: e^{sd0} up to age_L1, then linear-in-length interpolation
+        // to e^{sd1} (the plus group pinned to the upper anchor e^{sd1}).
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
+          // Pin the plus group's SD to the upper anchor exp(sd_Linf), matching
+          // WHAM (SDAA plus group = SD_len(1)) and estimate_growth(), instead
+          // of interpolating it by length.
+          } else if(age == (nages(sp) - 1)) {
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);

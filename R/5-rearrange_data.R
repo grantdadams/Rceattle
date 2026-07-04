@@ -3,13 +3,18 @@
 #' @description Function to rearrange a \code{data_list} object to be read into TMB
 #'
 #' @param data_list an Rceattle data_list
+#' @param build_osa Logical. Passed to [build_osa_data()]; when `TRUE` the full
+#'   one-step-ahead (OSA) observation data is assembled so [osa_residuals()] can
+#'   be computed. Default `FALSE` (the fast path used by simulation testing). The
+#'   composition proportion offset is read from `data_list$comp_offset` (default
+#'   `1e-5`).
 #'
 #' @export
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
-rearrange_data <- function(data_list){
+rearrange_data <- function(data_list, build_osa = FALSE){
 
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
@@ -505,6 +510,17 @@ rearrange_data <- function(data_list){
                        "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
+
+  # 17 - One-step-ahead (OSA) residual vector ----
+  # Assemble the flat observation vector (obsvec), the position-map metadata
+  # (obs_ctl), and the per-type obsvec index vectors that the TMB template uses
+  # to compute OSA residuals (see build_osa_data()). Built from the *_ctl/*_obs
+  # matrices above. The aggregate index/catch entries are always built (the
+  # template reads them); the costly composition/caal/diet metadata is built
+  # only when build_osa = TRUE (off by default for fast simulation refits). This
+  # runs AFTER section 16 on purpose: obs_ctl is a mixed-type data frame (R-side
+  # metadata) and must not be swept into the data.frame->matrix coercion above.
+  data_list <- build_osa_data(data_list, build_osa = build_osa)
 
   return(data_list)
 }

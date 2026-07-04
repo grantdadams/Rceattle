@@ -15,7 +15,8 @@ plot_indexresidual(
   incl_proj = FALSE,
   single.plots = FALSE,
   width = NULL,
-  height = NULL
+  height = NULL,
+  residual_type = c("pearson", "osa")
 )
 }
 \arguments{
@@ -41,6 +42,11 @@ function.}
 \item{width}{plot width}
 
 \item{height}{plot hight}
+
+\item{residual_type}{\code{"pearson"} (default) for the legacy index/catch residual
+plots, or \code{"osa"} to draw one-step-ahead residual diagnostics (Q-Q plot with
+SDNR / tail annotation and residual-by-year) for a single fitted model via
+\code{\link[=osa_residuals]{osa_residuals()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 }
 \description{
 Plot of residuals CPUE indices on log-scale (r4ss-style)

@@ -56,8 +56,9 @@ summary(model_1)              # same compact summary
 coef(model_1)                 # estimated fixed-effect parameters
 logLik(model_1)               # logLik with df attribute (AIC works)
 AIC(model_1)
-vcov(model_1)                 # fixed-effect covariance fro
-residuals(model_1)            # data.frame of residuals
+vcov(model_1)                 # fixed-effect covariance from sdreport
+residuals(model_1)                    # response residuals, all data sources
+residuals(model_1, type = "pearson")  # Pearson residuals (glm-style `type`)
 as.data.frame(model_1)
 ```
 
@@ -99,14 +100,14 @@ The checks cover:
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.
 
-Each record carries a `data` element with the underlying numbers (e.g. the
-condition number and loadings for `hessian_conditioning`).
-
 ## Fit plots
 
 ### Composition data
 
-`plot_comp()` overlays observed (bars) and predicted (line) age or length compositions for every fleet.
+`plot_comp()` draws composition Pearson-residual bubbles and overlays the
+observed (shaded area) and predicted (line) age or length compositions for every
+fleet, both annually and aggregated across years. Joint-sex data are drawn on a
+single bin axis with females above and males below zero.
 
 ```{r}
 plot_comp(model_1)
@@ -126,6 +127,87 @@ plot_indexresidual(model_1)
 
 ```{r}
 plot_catch(model_1)
+```
+
+## One-step-ahead (OSA) residuals
+
+Pearson residuals on composition data are *not* standard normal even when the
+model is correct, because the age/length bins are correlated (more fish in one
+bin means fewer in another) and because random effects induce correlation across
+years. One-step-ahead (OSA) residuals fix this: each observation is residualized
+conditional on the previously-added observations, integrating out the random
+effects, so the residuals are iid standard normal under a correctly specified
+model (Thygesen et al. 2017; Trijoulet et al. 2023). They therefore support
+objective goodness-of-fit testing.
+
+`osa_residuals()` computes them *post hoc* for any combination of the fitted data
+types -- survey indices, fishery catch, age/length composition (`"comp"`),
+conditional age-at-length (`"caal"`), and predator diet (`"diet"`). Composition
+data are residualized with the conditional binomial / beta-binomial
+decomposition. OSA re-optimizes the random effects per observation, so it is
+expensive; run it on a converged fit (`estimateMode < 3`).
+
+All OSA sources -- aggregate index/catch and composition
+(`"comp"`/`"caal"`/`"diet"`) -- are available from any fit; `osa_residuals()`
+builds the required observation data on demand.
+
+```{r osa, eval = FALSE}
+# Aggregate (catch + index) residuals
+osa <- osa_residuals(model_1, source = c("index", "catch"))
+head(osa)
+
+# Statistical diagnostics (Stewart & Monnahan 2025): SDNR and lower/upper tail
+# statistics, each with the interval expected under the standard-normal null.
+osa_diagnostics(osa)
+
+# Q-Q plot (with SDNR / tail annotation) + residual-by-year
+plot(osa)
+
+# residuals() also exposes them in the common residual schema (`source` selects
+# the data, like `type` in stats::residuals.glm()):
+residuals(model_1, type = "osa", source = c("index", "catch"))
+
+# Composition OSA residuals -- no special fit required
+plot_comp(model_1, residual_type = "osa")              # Q-Q + signed bubbles
+residuals(model_1, type = "osa", source = "comp")
+```
+
+Following Stewart and Monnahan (2025), a practical workflow is:
+
+1. **Inspect the aggregate fit** across years (`plot_comp(model_1)`): systematic
+   lack of fit here points to structural misspecification (e.g. the wrong
+   selectivity shape).
+2. **Compare the SDNR** to its null interval (from `osa_diagnostics()`): a value
+   outside the interval flags over- or under-dispersion, often a data-weighting
+   or effective-sample-size issue.
+3. **Compare the lower/upper tail statistics** to their null intervals: these
+   localize departures to the tails of the residual distribution.
+4. **Inspect Pearson bubble plots** (`plot_comp(model_1)`, the default): patterns
+   in the sign of residuals across age/year can identify *where* lack of fit
+   occurs -- Stewart and Monnahan recommend keeping these alongside OSA
+   residuals.
+5. **Revise the model or data weighting** where misspecification is found, using
+   this together with the other diagnostics rather than as an accept/reject test.
+
+Because OSA residuals for discrete composition data are randomized quantile
+residuals, they are stochastic; `osa_residuals()` takes a `seed` for
+reproducibility.
+
+### Process residuals
+
+`process_residuals()` is the complementary check on the *process* model: it
+standardizes the model's random-effect deviations (recruitment, initial
+abundance, catchability) against their process prior, drawing once from the
+joint posterior (SAM's `procres`; Nielsen and Berg 2014). Under a correct
+process model these are also approximately iid standard normal.
+
+```{r procres, eval = FALSE}
+pr <- process_residuals(model_1, process = "recruitment")
+osa_diagnostics(pr)
+plot(pr)
+
+# residuals() exposes them too:
+residuals(model_1, type = "process")
 ```
 
 ## Retrospective analysis
@@ -197,19 +279,14 @@ Each simulation uses `seed + i` as its RNG seed, so results are reproducible whe
 
 ## Likelihood profile
 
-`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
+`profile()` re-fits the model across a grid of fixed values for a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. It supports the recruitment standard deviation, the stock–recruit parameters, and natural mortality.
 
-Two ways to specify `param`:
-
-- **Natural-scale alias** (recommended for the three documented parameters). The alias implies `transform = "log"` so you pass natural-scale values like sigmaR or M directly. For the `rec_pars` aliases (`"R0"`, `"alpha"`, `"beta"`) the column is filled in from the alias name, so `slots` only needs the species index.
-  - `"sigmaR"` / `"R_sd"` &rarr; `R_log_sd`
-  - `"M1"` &rarr; `log_M1`
-  - `"R0"` &rarr; `rec_pars[, 1]`
-  - `"alpha"` &rarr; `rec_pars[, 2]`
-  - `"beta"` &rarr; `rec_pars[, 3]`
-- **Raw parameter slot**. Pass the storage name (`"R_log_sd"`, `"rec_pars"`, `"log_M1"`, etc.); `slots` must index the full array and `transform` controls the scale.
-
-`slots` is a list of integer index vectors — one entry per cell to hold fixed — and (under raw names) its entries must match the dimensionality of the parameter array (length 1 for vectors, length 2 for matrices, length 3 for 3-D arrays). `values` is a list of value grids parallel to `slots`; the full grid of fits is `expand.grid(values)`, so multiple slots produce an N-D cross-profile.
+Specify the parameter with a natural-scale alias: `"sigmaR"` (recruitment
+standard deviation), `"M1"` (natural mortality), or the stock–recruit parameters
+`"R0"`, `"alpha"`, and `"beta"`. Aliases take natural-scale values directly.
+`slots` gives the cell(s) to profile — usually just the species index — and
+`values` gives the grid of values for each. Supplying more than one slot
+profiles over the full grid of combinations.
 
 ```{r}
 # 1-D profile: sigmaR for species 1 (natural-scale alias)

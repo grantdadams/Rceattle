@@ -1,6 +1,6 @@
 # Comparison of Rceattle and WHAM fit to conditional age-at-length (CAAL) data
 # Modified from https://giancarlomcorrea.netlify.app/labs/OFI_WK_2023/examples/case3.R
-
+# Note that the plus group in year 1 is wrong on WHAM line 1720 of the cpp and needs adjustment
 
 # remotes::install_github(repo = 'GiancarloMCorrea/wham', ref='growth', INSTALL_opts = c("--no-docs", "--no-multiarch", "--no-demo"))
 library(readxl)
@@ -9,7 +9,7 @@ library(ggplot2)
 library(dplyr)
 source("tests/comparison/WHAM_growth_comparison/helper.R")
 dir.create("tests/comparison/WHAM_growth_comparison")
-runmodels = FALSE
+runmodels = TRUE
 
 # WHAM ------------------------------------------------------------------
 catch_df = readxl::read_xlsx(path = 'tests/comparison/WHAM_growth_comparison/case3.xlsx', sheet = 1)
@@ -109,9 +109,9 @@ input3 = wham::prepare_wham_input(model_name = "Case_3",
 input3$map$log_N1_pars = factor(c(1, NA))
 input3$map$logit_q = factor(NA)
 # Optional: fix sigmaR and turn off NAA (recruitment) as random variable (to make it faster):
-input3$par$log_NAA_sigma = log(0.6)
-input3$map$log_NAA_sigma = factor(NA)
-input3$random = NULL
+# input3$par$log_NAA_sigma = log(0.6)
+# input3$map$log_NAA_sigma = factor(NA)
+# input3$random = NULL
 
 # * Run model ----
 if(isTRUE(runmodels)) {
@@ -187,7 +187,7 @@ simData$index_data <- data.frame(Fleet_name = "Survey",
                                  Selectivity_block = 1,
                                  Q_block = 1,
                                  Observation = index_df$index,
-                                 Log_sd = index_df$cv)
+                                 Log_sd = sqrt(log(index_df$cv^2 + 1))) # WHAM converts CV -> sigma
 
 # * Catch data
 simData$catch_data <- data.frame(Fleet_name = "Fishery",
@@ -197,7 +197,7 @@ simData$catch_data <- data.frame(Fleet_name = "Fishery",
                                  Month = 0,
                                  Selectivity_block = 1,
                                  Catch = catch_df$catch,
-                                 Log_sd = catch_df$cv)
+                                 Log_sd = sqrt(log(catch_df$cv^2 + 1))) # WHAM converts CV -> sigma
 
 # * Comp data
 # - Index length comp
@@ -320,11 +320,19 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 )
 
 
+# Growth fn matched to WHAM: fix the growth SD (WHAM fixes SDgrowth_par) via the
+# sd_L1 / sd_Linf linkage endpoints with est_phase = 0 (fix at init).  Init values
+# are log-SD endpoints, threaded onto growth_log_sd (= WHAM SDgrowth_par = log(c(1,9))).
+growthFun_vb <- build_growth(fun = "vonBertalanffy",
+                             linkages = list(
+                               sd_L1   = linkage_spec(~1, init = list(`(Intercept)` = 1), est_phase = 0L),
+                               sd_Linf = linkage_spec(~1, init = list(`(Intercept)` = 9), est_phase = 0L)))
+
 # * Null Rceattle ----
 ss_fix <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 3, # Don't estimate
-                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
+                            growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
@@ -340,7 +348,8 @@ names(wham_model$parList)
 inits$rec_pars[1,1] <- wham_model$parList$mean_rec_pars
 inits$rec_dev[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
 inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
-inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
+inits$init_dev[1,] <- 0 # equilibrium initial age structure (ages 2+ at R0); year-1 recruitment enters via rec_dev[1,1]. Matches WHAM N1_model=1 (equilibrium-at-mean-rec) with penalized year-1 recruitment.
+inits$R_log_sd <- wham_model$parList$log_NAA_sigma
 
 # - F (random walk in WHAM)
 inits$log_F[2,1]  <- wham_model$parList$log_F1
@@ -365,12 +374,12 @@ inits$growth_log_sd[1,1,] <- wham_model$parList$SDgrowth_par
 ss_inits <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters = 0
                               estimateMode = 3, # Do not estimate
-                              growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
+                              growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = FALSE,
                               initMode = 1,
-                              verbose = 1)
+                              # comp_offset = 0 -> WHAM-style multinomial (no proportion offset)
+                              fit_control = fit_control(phase = FALSE, verbose = 0, comp_offset = 0))
 
 
 # SSB
@@ -451,18 +460,19 @@ sum(wham_model$rep$nll_index_caal)
 wham_model$rep$nll_NAA # Uses lognormal bias correction
 
 
-# Estimate Rceattle ----
-#FIXME: Finit for initmode 3 and 4
+# * Estimate Rceattle ----
 ss_est <- Rceattle::fit_mod(data_list = simData,
-                            inits = NULL, # Initial parameters = 0
+                            inits = inits, # Initial parameters = 0
                             estimateMode = 0, # estimate
-                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
-                            random_rec = FALSE, # No random recruitment
+                            growthFun = growthFun_vb, # Von Bert, growth SD fixed to match WHAM
+                            random_rec = TRUE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = FALSE,
-                            initMode = "NonEquilibrium",
-                            verbose = 1)
+                            initMode = 1, # Equilibrium (matches WHAM N1_model=1, init_dev off)
+                            # comp_offset = 0 -> WHAM-style multinomial (no proportion offset)
+                            fit_control = fit_control(phase = TRUE, verbose = 0, comp_offset = 0))
 
+
+# Compare ----
 wham_ests <- ss_est
 wham_ests$quantities$ssb[1,1:nyrs] <- wham_model$rep$SSB/2
 

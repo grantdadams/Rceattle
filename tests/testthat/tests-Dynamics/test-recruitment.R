@@ -32,7 +32,7 @@ testthat::test_that("mean recruitment and devs", {
 
   # JNLL
   testthat::expect_equal(as.numeric(ss_run$quantities$jnll_comp[11,1]), sum(-dnorm(Rdev,
-                                                                                   mean = 1/2, # lognormal bias correction to center around 0
+                                                                                   mean = -1/2, # -sigma^2/2 lognormal bias correction so E[R] = R0
                                                                                    sd = 1, log = TRUE)), tolerance = 0.0001)
 })
 
