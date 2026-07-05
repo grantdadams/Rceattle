@@ -4,10 +4,14 @@
 \alias{.osa_build_obj}
 \title{Rebuild a fitted Rceattle TMB object in OSA mode at the fitted parameters}
 \usage{
-.osa_build_obj(fit)
+.osa_build_obj(fit, osa_dat = NULL)
 }
 \arguments{
 \item{fit}{A fitted \code{Rceattle} object.}
+
+\item{osa_dat}{Optional pre-built OSA observation data (the list returned by
+\code{\link[=build_osa_data]{build_osa_data()}} with \code{build_osa = TRUE}) to reuse instead of rebuilding
+it. \code{NULL} (the default) rebuilds it from \code{fit$obj$env$data}.}
 }
 \value{
 A TMB ADFun object with \code{osa_mode = 1}.

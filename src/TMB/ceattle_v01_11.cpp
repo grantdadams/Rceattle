@@ -321,6 +321,8 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.3. Others
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population
   DATA_MATRIX( maturity );                // Proportion of mature females at age; [nspp, nages]
+  DATA_SCALAR(bias_adjust_obs);           // Whether to apply bias adjustment (-sigma^2/2) in index likelihoods
+  DATA_SCALAR(bias_adjust_proc);           // Whether to apply bias adjustment (-sigma^2/2) in process likelihoods
 
 
   /** ------------------------------------------------------------------------ //
@@ -2405,8 +2407,13 @@ Type objective_function<Type>::operator() () {
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
         // fitting) and obsvec(pos) == log(index_obs) this equals the original
         // lognormal likelihood exactly.
+        // TODO(review): unlike comp/caal/diet (which guard `if(start >= 0)`),
+        // the index and catch OSA reads below have no `pos >= 0` guard. Safe
+        // today because the R build_osa_data() inclusion guard matches this
+        // branch exactly, but a future divergence would make obsvec(pos) an
+        // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
         int pos = index_obsvec_idx(index_ind);
-        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -2442,7 +2449,7 @@ Type objective_function<Type>::operator() () {
         // residuals (see the index slot above). With keep == 1 and
         // obsvec(pos) == log(catch_obs) this equals the original likelihood.
         int pos = catch_obsvec_idx(fsh_ind);
-        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
         // Martin's
         // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
@@ -2456,6 +2463,12 @@ Type objective_function<Type>::operator() () {
   // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
   // offset, so fitting and OSA residuals stay consistent.
   Type comp_prop_offset = comp_offset;
+  // TODO(review): case 0 now routes fitting through dmultinom_osa(), which
+  // renormalizes p; the previous dmultinom() did not, so the *reported* case-0
+  // multinomial NLL shifts by a per-row constant Neff*log(1 + n_comp*offset).
+  // The gradient and MLE are unchanged, but wording that says this only "changes
+  // the decomposition, not the value" is imprecise -- the value shifts by that
+  // constant. Reword, or subtract the constant so the reported NLL is comparable.
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -2503,8 +2516,8 @@ Type objective_function<Type>::operator() () {
         case -1:
           for(ln = 0; ln < n_comp; ln++) {
             // Martin's
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001));
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset)) ;
+            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset));
           }
           break;
 
@@ -2959,9 +2972,10 @@ Type objective_function<Type>::operator() () {
   for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
     // Slot 9 -- stock-recruit prior for Beverton
-    // -- Lognormal
+    // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
+    //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
     if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
-      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
@@ -2989,14 +3003,14 @@ Type objective_function<Type>::operator() () {
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
     if(initMode > 1){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
@@ -3313,6 +3327,12 @@ Type objective_function<Type>::operator() () {
     for (int i = 0; i < n_stomach_obs; ++i) {
 
       // Find how many prey items for this predator without a full scan
+      // TODO(review): this contiguous scan assumes diet_ctl rows for one stomach
+      // are consecutive, but build_osa_data() counts prey with which(stomach_id
+      // == i) (order-independent). If stomach_id is ever non-contiguous the two
+      // disagree and the diet OSA "other prey" bin misaligns (the start >= 0
+      // guard prevents a crash, not a wrong residual). Validate contiguity or
+      // make this count order-independent.
       int start_j = current_j;
       while((current_j < diet_ctl.rows()) && (stomach_id(current_j) == i)) {
         current_j++;
@@ -3343,9 +3363,11 @@ Type objective_function<Type>::operator() () {
       Type sum_est_p = pred_diet_prop.head(n_prey).sum();
       pred_diet_prop(n_prey) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable (cant do if statement)
 
-      // Vectorized Offset & Normalization
-      obs_diet_prop += 0.00001;
-      pred_diet_prop += 0.00001;
+      // Vectorized Offset & Normalization. Uses the same configurable proportion
+      // offset (DATA_SCALAR comp_offset, default 1e-5) as the age/length comps,
+      // so fitting and the diet OSA obsvec stay consistent.
+      obs_diet_prop += comp_offset;
+      pred_diet_prop += comp_offset;
 
       obs_diet_prop /= obs_diet_prop.sum();
       pred_diet_prop /= pred_diet_prop.sum();

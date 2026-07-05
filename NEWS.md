@@ -38,6 +38,24 @@
 
 ## New features
 
+* `osa_residuals()` now builds the composition / conditional-age-at-length /
+  diet one-step-ahead observation data on demand, so OSA residuals can be
+  computed from any fit. Previously the composition OSA data had to be assembled
+  during the fit via `fit_control(osa = TRUE)`; that pre-build is no longer
+  required (the reconstruction reads only the `*_ctl` / `*_obs` arrays already
+  carried by the fitted object, and is identical to an `osa = TRUE` fit).
+  Aggregate index/catch OSA residuals are unaffected.
+* **Breaking:** the `osa` argument to `fit_control()` has been removed; it is no
+  longer needed (see above), and passing it now raises an "unused argument"
+  error. The `$osa` element is no longer stored on fitted `Rceattle` objects.
+* `fit_control()` gains `bias_adjust_obs` and `bias_adjust_proc` (both default
+  `TRUE`) to toggle the lognormal bias correction (`-sigma^2/2`) applied to the
+  observation (index / catch) and process (recruitment, initial abundance, and
+  the Beverton-Holt steepness prior) likelihoods, respectively. The defaults give
+  the standard mean-unbiased behaviour (`E[R] = R0`); set a flag to `FALSE` to
+  drop the correction for that likelihood group. The values are passed to the TMB
+  template as `DATA_SCALAR`s.
+
 * Added one-step-ahead (OSA) residuals for model validation via the new
   exported `osa_residuals()` (Thygesen et al. 2017; Trijoulet et al. 2023).
   Unlike Pearson residuals, OSA residuals are iid standard normal under a
@@ -55,15 +73,16 @@
   as discrete (randomized quantile residuals; Dunn and Smyth 1996) while the
   aggregate series stay continuous.
 * `fit_control()` gains `comp_offset`, the small proportion offset added to the
-  observed and predicted age/length composition and conditional-age-at-length
-  bins before the multinomial / Dirichlet-multinomial likelihood (and to the
-  matching OSA observation vector, so fitting and OSA residuals use the same
-  offset). It defaults to `1e-5` (the historical CEATTLE value, which avoids
-  `log(0)` for empty bins); set `comp_offset = 0` for a standard WHAM-style
-  multinomial. The value is stored on `data_list$comp_offset` (filled by
-  `switch_check()`), so internal re-fits (projections, `retrospective()`,
-  `jitter()`, `run_mse()`) inherit it; `fit_control(comp_offset = ...)` overrides
-  the stored value. Does not apply to diet (stomach-content) compositions.
+  observed and predicted age/length composition, conditional-age-at-length, and
+  predator diet (stomach-content) bins before the multinomial /
+  Dirichlet-multinomial likelihood (and to the matching OSA observation vector,
+  so fitting and OSA residuals use the same offset). It applies to every
+  composition likelihood, including the "Martin's" (`comp_ll_type = -1`) form. It
+  defaults to `1e-5` (the historical CEATTLE value, which avoids `log(0)` for
+  empty bins); set `comp_offset = 0` for a standard WHAM-style multinomial. The
+  value is stored on `data_list$comp_offset` (filled by `switch_check()`), so
+  internal re-fits (projections, `retrospective()`, `jitter()`, `run_mse()`)
+  inherit it; `fit_control(comp_offset = ...)` overrides the stored value.
 * `osa_residuals()` gains a `parallel` argument (default `TRUE`) that computes
   the per-observation one-step-ahead loop with `parallel::mclapply()` -- a
   near-linear speedup for models with random effects, where each observation
@@ -98,13 +117,6 @@
   observed proportions are retained (only `NA` is dropped), joint-sex (Sex == 3)
   data are drawn on a single age/length axis with females above and males below
   zero, and a `species` argument subsets the species shown.
-* Computing OSA residuals for composition / caal / diet data is opt-in via
-  `fit_control(osa = TRUE)`. By default (`osa = FALSE`) a fit skips assembling
-  the (sizeable) composition OSA observation data, so repeated refits stay fast
-  -- important for simulation testing (`run_mse()`, `self_test()`, `jitter()`,
-  `retrospective()`). The fitted objective is identical either way; only whether
-  the composition OSA data is built differs. Aggregate index/catch OSA residuals
-  and `process_residuals()` are available regardless of the setting.
 
 ## Bug fixes
 
@@ -136,6 +148,29 @@
   `plot()` (it replaces the earlier `types` argument of `osa_residuals()`),
   accepting `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, and `"all"`, so
   the three entry points select data sources with one consistent vocabulary.
+
+## Documentation
+
+* Reviewed and revised the user vignettes for accuracy, clarity, and
+  consistency, targeting assessment scientists rather than developers. Trimmed
+  developer-oriented internals and repetition, and corrected the option tables
+  so they match the code: `estimateMode`, `suitMode`, selectivity, catchability,
+  harvest-control-rule, `M1_model`, and bioenergetics (`Ceq`) codes now agree
+  across `model-options-and-functionality`, `single-vs-multispecies`,
+  `projections-and-reference-points`, `data-without-excel`, and
+  `model-parameterizations`.
+* Clarified that the length-based suitability modes (`suitMode = 1/3/5`) are not
+  yet enabled; use a weight-based mode (`2/4/6`) for parametric suitability.
+* Standardized data-structure terminology across vignettes: weight-at-age is in
+  kilograms, and the diet / stomach-content input is `diet_data` (removing the
+  legacy `UobsWtAge` / `UobsAgeWt` / `stom_prop_data` names).
+* Corrected the `residuals()` examples in the README to the `type` / `source`
+  convention (e.g. `residuals(fit, type = "pearson", source = "comp")`).
+* Added a website-only "Developer guide" article
+  (`vignettes/articles/developer-guide.Rmd`) documenting the fit pipeline, the
+  switch system, the TMB module layout, and recipes for adding parameters, data
+  inputs, switch options, and likelihood components. Consolidates and updates
+  the GitHub wiki developer notes.
 
 # Rceattle 4.5.0
 
@@ -237,7 +272,7 @@ navigate. None of these changes alter model output.
 * **`last_par` returned wrong vector**: Fixed `fit_mod()` so the value stored on the returned fit is the optimizer's last parameter vector rather than a stale prior reference, removing the need for the surrounding `try()` guards in downstream callers.
 * **Growth at `minage = 0`**: Fixed a segfault in `growth.hpp` when `minage = 0` by guarding `current_age`, `age_L1`, and the cohort-boundary `age_L1_ceil` against the zero-age anchor. Also corrected length-at-age at `minage = 0` so the closed-form anchor at `L1` is honored on both the within-year and cohort recursion paths.
 * **Length-bin midpoint for weight-at-age**: `calculate_weight()` now computes each bin's midpoint as `(lengths[ln] + lengths[ln+1]) / 2` (with the plus-group extended by half the final interior width) rather than `lengths[ln] + (lengths[1] - lengths[0]) / 2`. The previous formula assumed uniform bin widths and silently mis-located the midpoint for non-uniform length bins; for uniform bins (the common case) the two are algebraically identical, so existing fits are unchanged.
-* **Plus-group SD-at-age continuity**: `growth.hpp` no longer special-cases the oldest age class when computing `length_sd`. Previously the plus group used `exp(growth_log_sd(sp, sex, 1))` directly (SD at `Linf`); it now uses the same length-based linear interpolation between SD(`L1`) and SD(`Linf`) as all other ages above `age_L1`. This restores continuity across the plus-group boundary; users with archived fits whose plus group did not reach `Linf` should expect small numerical drift in `length_sd` at the oldest age.
+* **Plus-group SD-at-age pinned to the upper anchor**: both growth builders in `growth.hpp` now pin the oldest age class's `length_sd` to `exp(growth_log_sd(sp, sex, 1))` (SD at `Linf`), matching WHAM (`SDAA` plus group `= SD_len(1)`), instead of the length-based interpolation between SD(`L1`) and SD(`Linf`) used previously. This makes the plus-group convention consistent across von Bertalanffy and Richards growth and across both builders; expect a small numerical change in `length_sd` at the oldest age relative to prior versions.
 * **`fit_mod()` bounds ordering**: `fit_mod()` now indexes parameter bounds by name rather than positional order when assembling `L` / `U` for `nlminb`. Previously, when `map$mapFactor` and `bounds$lower` were not in identical order, parameters could be paired with another parameter's bounds, producing silently wrong constraints. `start_par` is now also subset by name with `drop = FALSE`.
 * **`mse_summary()` Tier-3 Flimit**: The internal `flimit_tier3_fun()` returned `Flimit` (its argument) instead of the depletion-adjusted `tier3_flimit` it had just computed, so the Tier-3 (HCR = 5) branch of P(F > Flimit) reduced to the base-Flimit check. Now returns the adjusted vector.
 * **`mse_summary()` HCR coercion**: `HCR` is now normalized to its integer code before downstream comparisons (`HCR == 5`, etc.). `build_hcr()` accepts either an integer or a string alias (e.g. `"NPFMC"`); `mse_summary()` previously assumed integer form and silently produced wrong status flags when fits carried the string form.

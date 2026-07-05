@@ -54,6 +54,9 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 
   # Proportion offset added to comp/caal bins before the likelihood. It lives on
   # data_list (filled by switch_check(), overridable via fit_control(comp_offset=))
+  # TODO(review): on the exported rearrange_data() path switch_check() does not
+  # run -- comp_offset (and the bias_adjust_* scalars below) are actually filled
+  # here in build_osa_data(). Tidy this comment to say so.
   # so fitting and the OSA obsvec use the same value and internal re-fits inherit
   # it. Read it from data_list, defaulting to 1e-5, and keep it as a plain double
   # for the TMB DATA_SCALAR.
@@ -63,6 +66,17 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   if (!is.finite(comp_offset) || comp_offset < 0) {
     stop("`comp_offset` must be a single non-negative number.")
   }
+
+  # Lognormal bias-correction toggles (DATA_SCALARs read by the TMB template).
+  # Default to 1 (correction on) when absent so a data_list produced here is
+  # usable by MakeADFun directly -- the same guarantee comp_offset gives; fit_mod()
+  # overrides both from fit_control() before fitting.
+  bias_adjust_obs  <- data_list$bias_adjust_obs
+  if (is.null(bias_adjust_obs))  bias_adjust_obs  <- 1
+  bias_adjust_obs  <- as.numeric(bias_adjust_obs)[1]
+  bias_adjust_proc <- data_list$bias_adjust_proc
+  if (is.null(bias_adjust_proc)) bias_adjust_proc <- 1
+  bias_adjust_proc <- as.numeric(bias_adjust_proc)[1]
 
   endyr    <- data_list$endyr
   flt_type <- data_list$flt_type   # indexed by Fleet_code, matching the TMB cpp
@@ -210,6 +224,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     stomach_id <- data_list$stomach_id
     suitMode   <- data_list$suitMode
     for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
+      # TODO(review): which() is order-independent, but the C++ diet likelihood
+      # counts prey via a contiguous scan of stomach_id; keep both consistent
+      # (see the matching TODO in ceattle_v01_11.cpp) or non-contiguous ids
+      # would misalign the diet OSA "other prey" bin.
       rows   <- which(stomach_id == i)
       n_prey <- length(rows)
       if (n_prey == 0) next
@@ -219,7 +237,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       # observed prey proportions plus the residual "other prey" category, then
       # the same offset/normalize the TMB likelihood applies, scaled to counts.
       obs_p  <- as.numeric(diet_obs[rows, 2])
-      vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + 0.00001
+      vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + comp_offset
       counts <- vec / sum(vec) * N_s
       diet_obsvec_idx[i + 1L] <- append_obs(
         value          = counts, source = "diet",
@@ -253,7 +271,9 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$caal_obsvec_idx  <- as.integer(caal_obsvec_idx)
   data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
   data_list$osa_mode         <- 0L
-  data_list$comp_offset      <- comp_offset   # read by the TMB DATA_SCALAR
+  data_list$comp_offset      <- comp_offset       # read by the TMB DATA_SCALAR
+  data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR
+  data_list$bias_adjust_proc <- bias_adjust_proc  # read by the TMB DATA_SCALAR
 
   data_list
 }

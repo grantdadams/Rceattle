@@ -55,12 +55,14 @@ the log scale by default (matching the lognormal likelihood; set
 \code{scale = "natural"} for the arithmetic difference); for \code{comp} / \code{caal}
 it is the difference in proportions, observed minus fitted.}
 \item{\code{"pearson"}}{Standardized residuals. For \code{index} / \code{catch},
-\eqn{(\log o - (\log\hat{o} - \sigma^2/2))/\sigma} using the model's
-realized observation log-SD; for \code{comp} / \code{caal},
+\eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
+realized observation log-SD \eqn{\sigma} and the observation
+bias-adjustment flag \eqn{b} (\code{bias_adjust_obs}, default 1); for
+\code{comp} / \code{caal},
 \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 N.}
-\item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}. Composition
-sources require a fit made with \code{fit_control(osa = TRUE)}.}
+\item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds
+the composition observation data on demand from any fit.}
 \item{\code{"process"}}{Process residuals via \code{\link[=process_residuals]{process_residuals()}} for the
 model's random-effect deviations; \code{source} does not apply.}
 }

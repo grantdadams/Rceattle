@@ -37,8 +37,8 @@ argument of \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} and \code{\l
 and composition-fit figures drawn here, or \code{"osa"} to instead draw the
 one-step-ahead residual diagnostics via \code{\link[=osa_residuals]{osa_residuals()}} and
 \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} -- a Q-Q plot (with SDNR / tail annotation) alongside
-signed OSA- and Pearson-residual bubbles. The \code{"osa"} path requires a model
-fit with \code{fit_control(osa = TRUE)}.}
+signed OSA- and Pearson-residual bubbles. The \code{"osa"} path builds its
+observation data on demand, so it works with any fit.}
 }
 \value{
 Invisibly, a named list of the \code{ggplot} objects. Called for its side

@@ -32,14 +32,6 @@
 #'   parameter uncertainty in projections when using an HCR (refits with all
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
-#' @param osa logical. If `TRUE`, assemble the full one-step-ahead (OSA)
-#'   observation data during the fit so [osa_residuals()] can be computed for
-#'   composition / caal / diet as well as the index/catch series. Default `FALSE`:
-#'   the fitted objective is identical either way, but skipping the (sizeable)
-#'   composition OSA metadata keeps fits fast -- important for
-#'   simulation testing such as [run_mse()], [self_test()], [jitter()], and
-#'   [retrospective()]. Set `TRUE` when you intend to call [osa_residuals()] on
-#'   composition data.
 #' @param comp_offset Numeric or `NULL`. Small proportion offset added to the
 #'   observed and predicted age/length composition and conditional-age-at-length
 #'   (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -48,6 +40,12 @@
 #'   internal re-fits inherit it. `NULL` (the default) inherits
 #'   `data_list$comp_offset` if set, otherwise `1e-5`; a number overrides it.
 #'   Does not apply to diet (stomach-content) compositions.
+#' @param bias_adjust_obs logical with default TRUE. Whether to
+#'   apply a bias adjustment (mean-sd^2/2) to lognormal data
+#'   likelihoods
+#' @param bias_adjust_proc logical with default TRUE. Whether to
+#'   apply a bias adjustment (mean-sd^2/2) to lognormal process
+#'   likelihoods
 #' @param use_gradient logical. Use the analytic gradient during
 #'   phasing. Default `TRUE`.
 #' @param rel_tol Numeric tolerance used to flag discontinuous
@@ -87,8 +85,9 @@ fit_control <- function(
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
-  osa                 = FALSE,
   comp_offset         = NULL,
+  bias_adjust_obs     = TRUE,
+  bias_adjust_proc    = TRUE,
   use_gradient        = TRUE,
   rel_tol             = 1,
   loopnum             = 5,
@@ -104,8 +103,9 @@ fit_control <- function(
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
     projection_uncertainty = projection_uncertainty,
-    osa                 = osa,
     comp_offset         = comp_offset,
+    bias_adjust_obs     = bias_adjust_obs,
+    bias_adjust_proc    = bias_adjust_proc,
     use_gradient        = use_gradient,
     rel_tol             = rel_tol,
     loopnum             = loopnum,
