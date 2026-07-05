@@ -44,8 +44,8 @@ stochastic; set \code{seed} for reproducibility.
 
 Supported processes and their deviations:
 \describe{
-\item{\code{"recruitment"}}{\code{rec_dev}, prior \code{N(R_sd^2/2, R_sd^2)} per species.}
-\item{\code{"initial"}}{\code{init_dev}, prior \code{N(R_sd^2/2, R_sd^2)} per species.}
+\item{\code{"recruitment"}}{\code{rec_dev}, prior \code{N(-bias_adjust_proc * R_sd^2/2, R_sd^2)} per species.}
+\item{\code{"initial"}}{\code{init_dev}, prior \code{N(-bias_adjust_proc * R_sd^2/2, R_sd^2)} per species.}
 \item{\code{"catchability"}}{\code{index_q_dev}, prior \code{N(0, q_dev_sd^2)} per index.}
 }
 \code{"all"} returns every supported process present in the fit. Selectivity and

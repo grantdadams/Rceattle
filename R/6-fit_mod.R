@@ -170,7 +170,6 @@ fit_mod <-
     getJointPrecision   <- fit_control$getJointPrecision
     getReportCovariance <- fit_control$getReportCovariance
     projection_uncertainty <- fit_control$projection_uncertainty
-    osa                 <- isTRUE(fit_control$osa)
     use_gradient        <- fit_control$use_gradient
     rel_tol             <- fit_control$rel_tol
     loopnum             <- fit_control$loopnum
@@ -404,8 +403,9 @@ fit_mod <-
       # initial age structure is the deterministic equilibrium, init_dev fixed at
       # 0), so adding it to `random` would ask TMB to integrate a fully-mapped
       # parameter -- producing an NA/NaN gradient. Only treat it as random when
-      # at least one element is free.
-      if (any(!is.na(map$init_dev))) {
+      # at least one element is free. build_map() returns a list with $mapList
+      # (the raw per-parameter maps, NA = fixed); the init_dev map lives there.
+      if (any(!is.na(map$mapList$init_dev))) {
         random_vars <- c(random_vars, "init_dev")
       }
     }
@@ -418,7 +418,6 @@ fit_mod <-
     if (sum(data_list$M1_re) > 0) {
       random_vars <- c(random_vars, "log_M1_dev")
     }
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 6: Reorganize data ----
@@ -442,8 +441,20 @@ fit_mod <-
     if (!is.null(fit_control$comp_offset)) data_list$comp_offset <- fit_control$comp_offset
     if (is.null(data_list$comp_offset))    data_list$comp_offset <- 1e-5
 
-    # Reorganize data for .cpp file
-    data_list_reorganized <- Rceattle::rearrange_data(data_list, build_osa = osa)
+    # Bias-adjustment flags for lognormal likelihoods (default TRUE/1). Stored on
+    # data_list as numeric (0/1) so the DATA_SCALAR is a clean double, so the TMB
+    # template can toggle the -sigma^2/2 correction.
+    data_list$bias_adjust_obs <- data_list$bias_adjust_proc <- 1
+    # TODO(review): a user-supplied NA (e.g. fit_control(bias_adjust_obs = NA))
+    # becomes NaN via as.numeric() and propagates a NaN objective. Add a finite
+    # check to reject it with a clear error.
+    if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
+    if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
+
+    # Reorganize data for .cpp file. The OSA observation vector is built on
+    # demand by osa_residuals(), so only the fast aggregate metadata is assembled
+    # here (build_osa = FALSE, the rearrange_data() default).
+    data_list_reorganized <- Rceattle::rearrange_data(data_list)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
@@ -863,12 +874,11 @@ fit_mod <-
     mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
-    # OSA residual metadata (maps obsvec positions to fleet/species/year/age),
-    # used by osa_residuals() to interpret oneStepPredict() output. `osa` records
-    # whether the full composition OSA data was built (fit_control(osa = TRUE));
-    # osa_residuals() uses it to give a clear message when it was not.
+    # OSA residual metadata for the aggregate (index/catch) series, mapping
+    # obsvec positions to fleet/species/year/age. osa_residuals() rebuilds the
+    # full composition / caal / diet metadata on demand, so only the aggregate
+    # map is stored here.
     mod_objects$obs_ctl <- .obs_ctl
-    mod_objects$osa <- osa
 
     mod_objects$run_time <- (Sys.time() - start_time)
 

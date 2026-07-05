@@ -197,12 +197,14 @@ logLik.Rceattle <- function(object, ...) {
 #'     `scale = "natural"` for the arithmetic difference); for `comp` / `caal`
 #'     it is the difference in proportions, observed minus fitted.}
 #'   \item{`"pearson"`}{Standardized residuals. For `index` / `catch`,
-#'     \eqn{(\log o - (\log\hat{o} - \sigma^2/2))/\sigma} using the model's
-#'     realized observation log-SD; for `comp` / `caal`,
+#'     \eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
+#'     realized observation log-SD \eqn{\sigma} and the observation
+#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1); for
+#'     `comp` / `caal`,
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
-#'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()]. Composition
-#'     sources require a fit made with `fit_control(osa = TRUE)`.}
+#'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
+#'     the composition observation data on demand from any fit.}
 #'   \item{`"process"`}{Process residuals via [process_residuals()] for the
 #'     model's random-effect deviations; `source` does not apply.}
 #' }
@@ -238,12 +240,18 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   type   <- match.arg(type, c("response", "pearson", "osa", "process"))
   source <- match.arg(source, c("all", "index", "catch", "comp", "caal", "diet"),
                       several.ok = TRUE)
+  # TODO(review): osa path -- osa_residuals("all") includes diet, but this "all"
+  # expansion (forwarded when type = "osa") omits it, and source = c("all",
+  # "diet") silently drops diet too. Add "diet" here or document the asymmetry.
   if ("all" %in% source) source <- c("index", "catch", "comp", "caal")
   scale  <- match.arg(scale, c("log", "natural"))
 
-  # Optional species filter, applied to whichever data frame is returned.
+  # Optional species filter, applied to whichever data frame is returned. Keep
+  # rows with NA species (e.g. catchability process residuals, which belong to a
+  # fleet, not a species) so a species filter does not silently drop them.
   .sp_filter <- function(df) {
-    if (is.null(species)) df else df[df$Species %in% species, , drop = FALSE]
+    if (is.null(species)) df
+    else df[df$Species %in% species | is.na(df$Species), , drop = FALSE]
   }
 
   # Diet (predator stomach-content) composition uses a predator/prey schema that
@@ -337,6 +345,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     )
   }
 
+  # Observation bias-adjustment flag (default 1): the index/catch lognormal
+  # likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2, so the Pearson
+  # residual must subtract the same offset.
+  ba_obs <- d$bias_adjust_obs
+  if (is.null(ba_obs) && !is.null(object$obj)) ba_obs <- object$obj$env$data$bias_adjust_obs
+  if (is.null(ba_obs)) ba_obs <- 1
+  ba_obs <- as.numeric(ba_obs)[1]
+
   out <- list()
 
   if ("index" %in% source &&
@@ -346,7 +362,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     hat <- as.numeric(q$index_hat)
     if (type == "pearson") {
       sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
-      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
@@ -361,6 +377,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual   <- res
     # Keep only genuine observations: drop projection / NA rows and non-positive
     # values, which carry no (lognormal) residual.
+    # TODO(review): held-out rows (Year <= 0) with a positive observation still
+    # pass this filter and appear with a negative Year, though the C++ likelihood
+    # excludes them (Year>0 & Year<=endyr & flt_type>0). Gate on that same rule;
+    # the "drop projection rows" comment above is not fully accurate for them.
     df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
              df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$index <- df
@@ -373,7 +393,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     hat <- as.numeric(q$catch_hat)
     if (type == "pearson") {
       sigma <- if (!is.null(q$log_catch_sd)) as.numeric(q$log_catch_sd) else ctc$Log_sd
-      res   <- (log(obs) - (log(hat) - sigma^2 / 2)) / sigma
+      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
@@ -388,6 +408,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual   <- res
     # Keep only genuine observations: drop projection / NA rows and non-positive
     # values, which carry no (lognormal) residual.
+    # TODO(review): held-out rows (Year <= 0) with a positive observation still
+    # pass this filter and appear with a negative Year, though the C++ likelihood
+    # excludes them (Year>0 & Year<=endyr & flt_type>0). Gate on that same rule;
+    # the "drop projection rows" comment above is not fully accurate for them.
     df <- df[is.finite(df$Observed) & is.finite(df$Fitted) &
              df$Observed > 0 & df$Fitted > 0, , drop = FALSE]
     out$catch <- df
@@ -422,7 +446,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual     <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
-    df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
+    # Drop zero-padded phantom bins (ragged multispecies comps have
+    # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
+    df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
+             !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
     out$comp <- df
   }
 
@@ -458,7 +485,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Residual    <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
-    df <- df[!is.na(df$Observed) & !is.na(df$Fitted), , drop = FALSE]
+    # Drop zero-padded phantom bins (ragged multispecies comps have
+    # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
+    df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
+             !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
     out$caal <- df
   }
 

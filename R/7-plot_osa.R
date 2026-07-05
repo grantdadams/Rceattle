@@ -55,6 +55,10 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   nlengths <- attr(x, "nlengths")
 
   # ---- Subset by data source and species (like residuals.Rceattle()) ----
+  # TODO(review): process-residual objects (from process_residuals()) carry
+  # source names like "recruitment"/"initial"/"catchability", which are not in
+  # valid_src, so plot(x, source = "recruitment") errors in match.arg(); only
+  # source = "all" works for those. Allow process names when x is a procres.
   valid_src  <- c("index", "catch", "comp", "caal", "diet")
   keep_types <- if (identical(source, "all")) unique(x$source) else
     match.arg(source, valid_src, several.ok = TRUE)

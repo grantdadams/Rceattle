@@ -12,13 +12,13 @@ make_fake_fit <- function(max_gradient = 1e-5, worst = "log_F", pdHess = TRUE) {
 }
 
 test_that("high gradient and non-PD Hessian are flagged", {
-  fit <- make_fake_fit(max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
+  fit <- make_fake_fit(max_gradient = 4e12, worst = "sel_inf", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_s3_class(cv, "Rceattle_convergence")
   expect_equal(cv$status, "FAIL")
   expect_equal(cv$checks$max_gradient$severity, "FAIL")
   expect_equal(cv$checks$pdHess$severity, "FAIL")
-  expect_match(cv$checks$max_gradient$message, "beta_z")
+  expect_match(cv$checks$max_gradient$message, "sel_inf")
 })
 
 test_that("a converged fit is OK", {
@@ -123,7 +123,7 @@ test_that("a phase that ends with a high gradient is flagged (WARN)", {
 })
 
 test_that("print method runs and is non-erroring", {
-  fit <- make_fake_fit(max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
+  fit <- make_fake_fit(max_gradient = 4e12, worst = "sel_inf", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_output(print(cv), "status: FAIL")
   expect_invisible(print(cv))

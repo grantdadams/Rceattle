@@ -1375,12 +1375,15 @@ build_map_linkages <- function(map_list, data_list) {
 #' @description Maps the base parameter (`rec_pars`, `log_M1`,
 #'   `log_growth_pars`) out of estimation only for stratum groups
 #'   whose linkage formula carries *no* intercept. With an intercept
-#'   in the formula (`~ 1`, `~ temp`, ...) the base parameter holds
-#'   the level and stays estimable; the linkage `(Intercept)` row is
-#'   fixed at 0 instead. Slope-only formulas (`~ 0 + temp`) emit no
-#'   intercept row, so we mask the base parameter to keep it at its
-#'   `build_params()` default and let the slope rows define the
-#'   year-by-year offset.
+#'   in the formula (`~ 1`, `~ temp`, ...) and a nonzero `est_phase` the
+#'   base parameter holds the level and stays estimable; the linkage
+#'   `(Intercept)` row is fixed at 0 instead. When an intercept row has
+#'   `est_phase == 0` (the documented "fix at init" contract), the base
+#'   parameter is mapped off as well, so a fixed intercept truly fixes the
+#'   parameter at its `build_params()` initial value. Slope-only formulas
+#'   (`~ 0 + temp`) emit no intercept row, so we mask the base parameter to
+#'   keep it at its `build_params()` default and let the slope rows define
+#'   the year-by-year offset.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list an Rceattle data_list (with the pooled

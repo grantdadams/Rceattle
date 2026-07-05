@@ -10,8 +10,9 @@ fit_control(
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
-  osa = FALSE,
   comp_offset = NULL,
+  bias_adjust_obs = TRUE,
+  bias_adjust_proc = TRUE,
   use_gradient = TRUE,
   rel_tol = 1,
   loopnum = 5,
@@ -40,15 +41,6 @@ parameter uncertainty in projections when using an HCR (refits with all
 hindcast and biological-reference-point parameters turned on). Default
 \code{FALSE} for speed.}
 
-\item{osa}{logical. If \code{TRUE}, assemble the full one-step-ahead (OSA)
-observation data during the fit so \code{\link[=osa_residuals]{osa_residuals()}} can be computed for
-composition / caal / diet as well as the index/catch series. Default \code{FALSE}:
-the fitted objective is identical either way, but skipping the (sizeable)
-composition OSA metadata keeps fits fast -- important for
-simulation testing such as \code{\link[=run_mse]{run_mse()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=jitter]{jitter()}}, and
-\code{\link[=retrospective]{retrospective()}}. Set \code{TRUE} when you intend to call \code{\link[=osa_residuals]{osa_residuals()}} on
-composition data.}
-
 \item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
 observed and predicted age/length composition and conditional-age-at-length
 (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -57,6 +49,14 @@ likelihood and the OSA observation vector use the same offset, and so
 internal re-fits inherit it. \code{NULL} (the default) inherits
 \code{data_list$comp_offset} if set, otherwise \code{1e-5}; a number overrides it.
 Does not apply to diet (stomach-content) compositions.}
+
+\item{bias_adjust_obs}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal data
+likelihoods}
+
+\item{bias_adjust_proc}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal process
+likelihoods}
 
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}

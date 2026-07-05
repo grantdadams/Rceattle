@@ -293,7 +293,8 @@ void estimate_growth(
  *   into the plus group is applied at every year boundary by `estimate_growth()`
  *   (month 0), so `id_pop` already carries the corrected Jan-1 length.
  * - **SD-at-Age**: Length-based linear interpolation between `SD(l1)` and
- *   `SD(linf)`, applied uniformly above `age_L1` (including the plus group).
+ *   `SD(linf)` above `age_L1`, with the plus group pinned to `SD(linf)` =
+ *   `exp(sd_Linf)` (matching WHAM and `estimate_growth()`).
  * - **Size Transition**: Converts mean length and SD into a probability matrix
  *   $P(\text{Length} | \text{Age})$ using a cumulative normal distribution (`pnorm`).
  *   The first length bin is a minus-group on length; the last is a plus-group.
@@ -390,10 +391,15 @@ void estimate_growth_within_yr(
           // so id_pop already carries the corrected Jan-1 length.
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          // WHAM-style parameterization:
-          // ages between the anchor and the plus group blended the linear ramp
-          // with the growth curve, and the plus group was *pinned* at its Jan-1
-          // (id_pop) length rather than advanced by within-year growth. :
+          // WHAM-style parameterization: for ages between the anchor and the
+          // plus group, blend the linear ramp with the growth curve; the plus
+          // group is pinned at its Jan-1 (id_pop) length rather than advanced by
+          // within-year growth.
+          // TODO(review): this branch (and its Richards mirror below) tests
+          // `age + 1.0 < age_L1`, mixing the slot index with an age, while the
+          // sibling branch above uses `current_age` (= age + minage + fracyr).
+          // For minage != 1 the two disagree, so the interpolated length can be
+          // off by one age. Unreachable for minage 0/1; verify for minage >= 2.
           }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
             last_linear = Lmin_sp + b_len * age_L1;
             length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
