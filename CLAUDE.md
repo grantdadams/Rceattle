@@ -86,6 +86,21 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
 
+## Domain vocabulary (use these exact terms in plots/docs/messages)
+
+Rceattle implements fisheries stock assessments — match this vocabulary in axis labels,
+documentation, and console messages; don't substitute lay phrasing.
+
+- **Reference points:** Amendment-56 SPR proxies — F40% = max FABC, F35% = FOFL, B40% = BMSY
+  proxy (Tier 3); Tier 1 uses estimated FMSY/BMSY. Don't write "MSY" where an SPR proxy is meant.
+- **SSB** = female spawning-stock biomass; "recruitment deviations" (log-scale), not "recruitment error".
+- **Selectivity:** name the form (logistic / double-normal / gamma / nonparametric / semi-parametric) —
+  don't call every dome shape "double-normal".
+- **Composition:** age comps, length comps, conditional age-at-length (CAAL). An ageing-error matrix
+  applies only where age/CAAL data are fit — length-only stocks have none.
+- **Data weighting:** Francis (2011) or McAllister–Ianelli or Dirichlet-Multinomial. **Diagnostics:** Mohn's rho (retrospective),
+  OSA residuals, likelihood profiles.
+
 ## After any change — keep docs & version in sync
 
 When a change affects behavior, the public API, or docs (not just local repo/tooling
