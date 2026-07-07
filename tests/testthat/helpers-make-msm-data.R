@@ -20,8 +20,8 @@ make_msm_test_data <- function(
                         1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
     srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
                        1 / (1 + exp(-2 * (ages - 2.5)))), nspp, length(ages), byrow = TRUE),
-    Fmort = matrix(c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2),
-                     seq(0.02, 0.3, length.out = nyrs)),
+    Fmort = matrix(c(seq(0.02, 0.3, length.out = length(years)/2), seq(0.3, 0.05, length.out = length(years)/2),
+                     seq(0.02, 0.3, length.out = length(years))),
                    nrow = nspp, ncol = length(years), byrow = TRUE),
     srv_q = rep(1, nspp),
 
@@ -83,7 +83,7 @@ make_msm_test_data <- function(
   length_at_age <- array(0, dim = c(nspp, nages))
   for(sp in 1:nspp){
     gp <- array(growth_params[sp,], dim=c(1, 1, 4))
-    gsd <- array(log(3), dim=c(1, nspp))
+    gsd <- array(log(3), dim=c(nspp, 2))
 
     # - Run Growth Matrix
     gm <-  Rceattle:::get_growth_matrix_r(fracyr=0,
@@ -463,7 +463,7 @@ make_msm_test_data <- function(
     }
   }
   srv_caal <- do.call("rbind", srv_caal_list)
-  simData$caal_data <- rbind(srv_caal, srv_caal)
+  simData$caal_data <- rbind(fish_caal, srv_caal)
 
   #  Empirical selectivity
   simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
