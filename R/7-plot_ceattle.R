@@ -98,14 +98,13 @@ plot_timeseries <- function(Rceattle,
   }
 
 
-  ## Line color ----
+  ## Line width / colour ----
   lwd <- rep(lwd, length(Rceattle))
-  if (is.null(line_col)) {
-    if(!mse){
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    } else {
-      line_col <- 1
-    }
+  # line_col stays NULL unless the user supplies colours, in which case it falls
+  # through to the default colourblind-safe scale (.rceattle_scale) at render
+  # time. When supplied, recycle to one colour per model.
+  if (!is.null(line_col)) {
+    line_col <- rep(line_col, length.out = length(Rceattle))
   }
 
   ## Add reference model
@@ -113,7 +112,7 @@ plot_timeseries <- function(Rceattle,
     Rceattle <- c(Rceattle, list(reference))
     mod_avg = c(mod_avg, FALSE)
     lty = c(lty, 1)
-    line_col <- c(line_col, 1)
+    if (!is.null(line_col)) line_col <- c(line_col, "black")
     lwd <- c(lwd, lwd[1] * 1.5)
   }
 
@@ -337,13 +336,21 @@ plot_timeseries <- function(Rceattle,
                           colour = "red", linetype = 2)
   }
 
-  p <- .rceattle_scale(
-    p +
-      ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
-                          strip.position = "top") +
-      ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
-      ggplot2::labs(x = "Year", y = ylab) +
-      .rceattle_theme())
+  p <- p +
+    ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
+                        strip.position = "top") +
+    ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
+    ggplot2::labs(x = "Year", y = ylab) +
+    .rceattle_theme()
+  if (is.null(line_col)) {
+    p <- .rceattle_scale(p)                       # default Okabe-Ito palette
+  } else {
+    # User-supplied colours, mapped to the model levels in plotting order.
+    cols <- stats::setNames(rep(line_col, length.out = nlevels(plot_df$Model)),
+                            levels(plot_df$Model))
+    p <- p + ggplot2::scale_colour_manual(values = cols) +
+      ggplot2::scale_fill_manual(values = cols)
+  }
 
   # A single model needs no colour legend
   if (nlevels(plot_df$Model) < 2L) {

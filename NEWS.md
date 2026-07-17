@@ -14,6 +14,10 @@
   points + error bars + predicted line for index/catch fits; year-coloured
   at-age curves for selectivity and mortality surfaces).
 * `plot_index()` gains a `log` argument for the log-scale survey-index fit.
+* The time-series plotters (`plot_biomass()`, `plot_ssb()`, `plot_recruitment()`,
+  and the other `plot_timeseries()` wrappers) again honour a user-supplied
+  `line_col`: pass a colour per model to override the default colourblind-safe
+  palette (e.g. `plot_biomass(list(m1, m2), line_col = c("black", "red"))`).
 * `plot_stock_recruit()` adds a 95% data ellipse of the SSB–recruitment cloud
   (`add_ci`, default `TRUE`).
 * The test suite is reorganised into a flat, navigable `tests/testthat/` (see
@@ -27,7 +31,7 @@
   for the side effect still work (the object prints); scripts that depended on
   the base-graphics device state or on a `NULL` return may need updating.
 * `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
-* The `gplots` dependency has been dropped (no longer used).
+* The `gplots` and `oce` dependencies have been dropped (no longer used).
 
 ## Bug fixes
 
