@@ -71,20 +71,50 @@
     )
 }
 
-#' Add the standard colourblind-safe (viridis) scales to a plot
+#' Okabe-Ito colourblind-safe qualitative palette
+#'
+#' Eight fixed hues in a fixed order, reordered so the strongest-contrast,
+#' best-separated hues come first (2-4 model overlays are the common case) and
+#' the low-contrast yellow comes last. Unlike a sequential ramp (viridis), this
+#' encodes *identity* (which model), not magnitude: the colours carry no implied
+#' ordering and every hue holds a legible contrast against a white panel.
+#'
+#' Reference: Okabe & Ito (2008), "Color Universal Design".
+#' @keywords internal
+.okabe_ito <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7",
+                "#56B4E9", "#E69F00", "#000000", "#F0E442")
+
+#' Discrete palette function: Okabe-Ito for up to 8 series, else interpolate
+#'
+#' Mirrors the arity contract of `scale_*_viridis_d` (accepts any `n`) so the
+#' scale never errors on a many-model overlay; beyond 8 series it interpolates
+#' the Okabe-Ito anchors (rare enough that CVD-optimality is not guaranteed).
+#' @keywords internal
+.okabe_ito_pal <- function(n) {
+  if (n <= length(.okabe_ito)) return(.okabe_ito[seq_len(n)])
+  grDevices::colorRampPalette(.okabe_ito)(n)
+}
+
+#' Add the standard colourblind-safe scales to a plot
+#'
+#' Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
+#' qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
+#' use viridis. Both are colourblind-safe.
 #'
 #' @param p A ggplot.
-#' @param discrete Use discrete (`scale_*_viridis_d`) or continuous scales.
+#' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.
 #' @param aesthetics Which of `"colour"`/`"fill"` to add.
 #' @keywords internal
 .rceattle_scale <- function(p, discrete = TRUE,
                             aesthetics = c("colour", "fill")) {
   if ("colour" %in% aesthetics) {
-    p <- p + (if (discrete) ggplot2::scale_colour_viridis_d(end = 0.9)
+    p <- p + (if (discrete)
+                ggplot2::discrete_scale("colour", "okabe_ito", .okabe_ito_pal)
               else ggplot2::scale_colour_viridis_c())
   }
   if ("fill" %in% aesthetics) {
-    p <- p + (if (discrete) ggplot2::scale_fill_viridis_d(end = 0.9)
+    p <- p + (if (discrete)
+                ggplot2::discrete_scale("fill", "okabe_ito", .okabe_ito_pal)
               else ggplot2::scale_fill_viridis_c())
   }
   p

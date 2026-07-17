@@ -63,7 +63,9 @@ plot_stock_recruit <-
         xmax <- max(ssb[sp, ], na.rm = TRUE)
         xg <- seq(0, xmax, length.out = 100)
         yg <- if (srr_pred == 0) {
-          rep(exp(rp[sp, 1]), length(xg))                                # mean rec
+          # exp(rec_pars[,1]) = R0, in the same units as quantities$R; divide by
+          # 1e6 to match the points (which are plotted in millions).
+          rep(exp(rp[sp, 1]) / 1e6, length(xg))                          # mean rec
         } else if (srr_pred %in% c(2, 3)) {                             # Beverton-Holt
           exp(rp[sp, 2]) * xg / (1 + exp(rp[sp, 3]) * xg * 1e6)
         } else if (srr_pred %in% c(4, 5)) {                             # Ricker

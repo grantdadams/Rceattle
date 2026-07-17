@@ -29,7 +29,10 @@
     dat$.obs <- dat[[cfg$obs]]
     dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
-    keep <- dat$Species %in% species & dat$Fleet_code %in% codes
+    # Year < 0 flags a prediction-only row (excluded from the likelihood; see
+    # ceattle_v01_11.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
+    # them so they are not drawn as fitted observations.
+    keep <- dat$Species %in% species & dat$Fleet_code %in% codes & dat$Year > 0
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     if (!is.null(maxyr)) keep <- keep & dat$Year <= maxyr
     dat <- dat[keep, , drop = FALSE]
@@ -244,7 +247,9 @@ plot_indexresidual <- function(Rceattle,
   for (i in seq_along(Rceattle)) {
     dat <- Rceattle[[i]]$data_list$index_data
     dat$.hat <- Rceattle[[i]]$quantities$index_hat
-    keep <- dat$Species %in% species
+    # Drop prediction-only rows (Year < 0); they are not in the likelihood and
+    # have no residual to plot.
+    keep <- dat$Species %in% species & dat$Year > 0
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
     out[[length(out) + 1L]] <- data.frame(

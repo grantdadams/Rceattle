@@ -3,8 +3,10 @@
 ## New features
 
 * The plotting functions have been overhauled to **ggplot2**. Every exported
-  `plot_*()` function now builds its figure with ggplot2 (a colourblind-safe
-  viridis palette and `theme_classic`) and **returns the `ggplot` object**, so
+  `plot_*()` function now builds its figure with ggplot2 (colourblind-safe
+  palettes — the Okabe-Ito qualitative palette for series identity and viridis
+  for ordered magnitude such as year — and `theme_classic`) and **returns the
+  `ggplot` object**, so
   plots print when called interactively and can be further customised
   (`plot_biomass(fit) + ggplot2::ggtitle(...)`) or saved with `ggplot2::ggsave()`.
   Pass `file = "stem"` to also write the figure to `stem_<plot>.png`. Plot
@@ -33,6 +35,15 @@
   fits; it now reads `data_list$maturity`.
 * `plot_ration()` failed for single-sex models (a dropped array dimension); the
   sex dimension is now indexed explicitly.
+* `plot_stock_recruit()` drew the mean-recruitment reference line a factor of
+  1e6 too high (recruitment points are in millions but the line was not scaled),
+  which under ggplot's free y-scale collapsed the SSB–recruitment cloud to the
+  axis; the line is now scaled to match the points.
+* `plot_index()`, `plot_catch()`, and `plot_indexresidual()` drew
+  prediction-only rows (`Year < 0`, excluded from the likelihood) as if they
+  were fitted observations; these rows are now omitted.
+* `plot_mortality(M2 = TRUE)` labelled the y-axis "M1 + M2" while plotting M2;
+  the label now reads "M2".
 
 # Rceattle 4.6.0
 

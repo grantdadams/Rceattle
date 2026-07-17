@@ -2,18 +2,20 @@
 % Please edit documentation in R/7-plot_helpers.R
 \name{.rceattle_scale}
 \alias{.rceattle_scale}
-\title{Add the standard colourblind-safe (viridis) scales to a plot}
+\title{Add the standard colourblind-safe scales to a plot}
 \usage{
 .rceattle_scale(p, discrete = TRUE, aesthetics = c("colour", "fill"))
 }
 \arguments{
 \item{p}{A ggplot.}
 
-\item{discrete}{Use discrete (\verb{scale_*_viridis_d}) or continuous scales.}
+\item{discrete}{Use the discrete (Okabe-Ito) or continuous (viridis) scale.}
 
 \item{aesthetics}{Which of \code{"colour"}/\code{"fill"} to add.}
 }
 \description{
-Add the standard colourblind-safe (viridis) scales to a plot
+Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
+qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
+use viridis. Both are colourblind-safe.
 }
 \keyword{internal}

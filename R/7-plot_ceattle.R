@@ -988,7 +988,8 @@ plot_mortality <-
     }
     plot_df <- do.call(rbind, df_list)
     plot_df$Species <- factor(plot_df$Species, levels = spnames[spp])
-    ylab <- if (M2) "M1 + M2" else "M1"
+    # Msrc is M2_at_age when M2 = TRUE, else M1_at_age; label matches the source.
+    ylab <- if (M2) "M2" else "M1"
     if (log) ylab <- paste0("log(", ylab, ")")
 
     if (identical(type, "heatmap") || identical(type, 0)) {
