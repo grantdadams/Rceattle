@@ -20,10 +20,17 @@ name: test-coverage
 
 permissions: read-all
 
+# Coverage runs the full NOT_CRAN suite (47 fit_mod integration files) under covr
+# instrumentation (~3x slowdown), so a single run is long. Cancel superseded runs
+# on the same ref so pushes don't queue redundant multi-hour jobs.
+concurrency:
+  group: test-coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"   # run the full suite (see header)
