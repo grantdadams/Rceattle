@@ -51,6 +51,15 @@
   were fitted observations; these rows are now omitted.
 * `plot_mortality(M2 = TRUE)` labelled the y-axis "M1 + M2" while plotting M2;
   the label now reads "M2".
+* `osa_residuals()` now includes fleet in the one-step-ahead conditioning order
+  (source, year, **fleet**, then bin), making the sequence fully deterministic
+  when several fleets report in the same year. Previously the within-year,
+  multi-fleet order fell to the incidental row order of the observation table.
+  This does not change results for fixed-effects fits (`random_rec = FALSE`),
+  where OSA residuals are order-invariant, and ascending fleet order matches
+  WHAM's within-stage sequencing so the WHAM cross-check is unaffected; for
+  random-effects fits it makes individual residuals reproducible (the overall
+  N(0,1) properties were already order-invariant).
 
 # Rceattle 4.6.0
 
