@@ -28,6 +28,9 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
     testthat::expect_s3_class(p, "ggplot")
     pd <- p$data[p$data$Species == sp1, c("Year", "value")]
     pd <- pd[order(pd$Year), ]
+    # Guard against an empty selection: if the Species filter matches nothing,
+    # both pd$value and src are numeric(0) and expect_equal() passes vacuously.
+    testthat::expect_gt(nrow(pd), 0)
     sd <- ad[ad$quantity == quantity & ad$species == sp1, c("year", "value")]
     src <- sd$value[match(pd$Year, sd$year)] / scale
     testthat::expect_equal(pd$value, src)
