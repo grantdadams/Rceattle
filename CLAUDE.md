@@ -1,6 +1,6 @@
 # Rceattle — Claude Code guide
 
-Rceattle (v4.6.0, GPL) fits the **CEATTLE** single- and multi-species, climate-linked,
+Rceattle (v4.7.0, GPL) fits the **CEATTLE** single- and multi-species, climate-linked,
 age-structured stock assessment model. The likelihood is a **TMB / C++** model
 (`src/TMB/`); everything around it (data prep, fitting, projection, MSE, diagnostics,
 plotting) is R.
@@ -22,9 +22,15 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Editing `src/TMB/*.cpp` or `*.hpp` has no effect until you reload** — `load_all()`
   recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes. Compiled
   artifacts (`*.o` ~77 MB, `*.so`) are gitignored — never commit them.
-- **Tests** run with `NOT_CRAN=true` and the shared helpers sourced into an env `e`
-  (`for (f in list.files("tests/testthat","^helper",full.names=TRUE)) sys.source(f, e)`),
-  then `test_file(f, env = e)`. `options(testthat.max_fails = Inf)` shows all failures.
+- **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
+  package namespace so internal (non-exported) helpers resolve, then source the shared
+  helpers into it:
+  `e <- new.env(parent = asNamespace("Rceattle")); for (f in list.files("tests/testthat","^helper",full.names=TRUE)) sys.source(f, e); testthat::test_file(f, env = e)`.
+  A plain `new.env()` makes tests fail spuriously with `could not find function "data_check"`.
+  `options(testthat.max_fails = Inf)` shows all failures.
+- **Tests that run a real `fit_mod()` optimization must use `testthat::skip_on_cran()`** so
+  plain `R CMD check` / `devtools::test()` stay fast (only `NOT_CRAN=true` runs them); leave
+  fast unit tests unguarded.
 - CI = `.github/workflows/R-CMD-check.yaml` (r-lib actions, multi-OS matrix) +
   `pkgdown.yaml`. There is **no lint config** and no coverage gate.
 - **Slash commands** wrap these: `/recompile`, `/test [file]`, `/document`, `/check`,
@@ -40,9 +46,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
-- **`tests/testthat/`** — organized by process (`tests-Dynamics/`, `tests-Selectivity/`,
-  `tests-Likelihoods/`, `tests-Data-processing/`, …) with shared `helpers-*.R` /
-  `fixtures/`. `tests/comparison/` holds WHAM cross-checks (not part of `test_check`).
+- **`tests/testthat/`** — **flat layout**: every test is a top-level `test-<area>-<topic>.R`
+  (e.g. `test-selectivity-logisticpm.R`, `test-likelihood-index-covariance.R`); the old
+  `tests-Dynamics/` / `tests-Selectivity/` … subdirectories were removed. Shared
+  `helpers-*.R` / `fixtures/` sit alongside. Fast fixtures: `make_test_data()`
+  (single-species) or `make_msm_test_data()` (multispecies, incl. diet) with
+  `estimateMode = 3` build a non-optimized object. `tests/comparison/` holds WHAM
+  cross-checks (not part of `test_check`).
 - **`vignettes/`** are `eval = FALSE` (they only need to render). `data/` has bundled
   example datasets (`BS2017SS`, `BS2017MS`, `GOA2018SS`, …).
 
@@ -50,7 +60,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
 - Roxygen uses markdown; run `devtools::document()` after touching `@`-docs.
-- **Released package — preserve the public API.** Rceattle is shipped (v4.6.0, has users;
+- **Released package — preserve the public API.** Rceattle is shipped (v4.7.0, has users;
   see `cran-comments.md` / `inst/RELEASE-CHECKLIST.md`). Exported `build_*()` args carry
   deprecation paths (e.g. SRR codes `1/3/5`) — **deprecate / keep back-compat rather than
   deleting public surface.** Internal refactors are free as long as golden-reference
@@ -64,8 +74,34 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   If you add/reorder a likelihood component, update both.
 - **Numeric changes need golden-reference equivalence:** any edit that can move the fit
   must keep an example fit (e.g. `BS2017SS`) within tolerance and the suite green.
+- **`fit_mod(estimateMode=)`:** 0 = hindcast + HCR projection, 1 = hindcast only,
+  2 = projection-only from `inits`, 3 = build (`MakeADFun`) without optimizing, 4 = optimize
+  with all params mapped out. **Trap: for `estimateMode >= 3` the template returns a
+  placeholder objective (`jnll = dummy*dummy`) independent of the real parameters** — so
+  `obj$fn()` / gradients are meaningless, and a random-effects model built in mode 3 gives a
+  *spurious* NaN / singular Hessian. Read the REPORTed `jnll_comp` for the real likelihood;
+  use `estimateMode = 1` to diagnose the actual objective / gradient / random effects.
+- **`fit_control()` bundles the optimizer / uncertainty knobs** (`getsd`, `bias.correct`,
+  `loopnum`, `newtonsteps`, `getJointPrecision`). Pass `getsd = FALSE` for fast dev/test fits
+  (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty
+  bands are NA.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
+
+## Domain vocabulary (use these exact terms in plots/docs/messages)
+
+Rceattle implements fisheries stock assessments — match this vocabulary in axis labels,
+documentation, and console messages; don't substitute lay phrasing.
+
+- **Reference points:** Amendment-56 SPR proxies — F40% = max FABC, F35% = FOFL, B40% = BMSY
+  proxy (Tier 3); Tier 1 uses estimated FMSY/BMSY. Don't write "MSY" where an SPR proxy is meant.
+- **SSB** = female spawning-stock biomass; "recruitment deviations" (log-scale), not "recruitment error".
+- **Selectivity:** name the form (logistic / double-normal / gamma / nonparametric / semi-parametric) —
+  don't call every dome shape "double-normal".
+- **Composition:** age comps, length comps, conditional age-at-length (CAAL). An ageing-error matrix
+  applies only where age/CAAL data are fit — length-only stocks have none.
+- **Data weighting:** Francis (2011) or McAllister–Ianelli or Dirichlet-Multinomial. **Diagnostics:** Mohn's rho (retrospective),
+  OSA residuals, likelihood profiles.
 
 ## After any change — keep docs & version in sync
 
