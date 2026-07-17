@@ -28,6 +28,23 @@
 #include "diet_data.hpp"
 #include "linkage.hpp"
 
+// List-of-matrices data structure: reads an R list() of numeric matrices into a
+// vector<matrix<Type>>. Used for the per-fleet survey-index covariance matrices
+// (Sigma) supplied when Index_loglike == "MVN"/"MVNORM" (the AMAK/ebswp DoCovBTS
+// covariance survey likelihood; see sections 8.2 and 13.1). Non-covariance fleets
+// pass a 1x1 inert dummy so the list is always length n_flt and can be indexed by
+// fleet code.
+template<class Type>
+struct LOM_t : vector<matrix<Type> > {
+  LOM_t(SEXP x) {  // x = R list of matrices
+    (*this).resize(LENGTH(x));
+    for(int i = 0; i < LENGTH(x); i++){
+      SEXP m = VECTOR_ELT(x, i);
+      (*this)(i) = asMatrix<Type>(m);
+    }
+  }
+};
+
 /** ------------------------------------------------------------------------ //
  *                 CEATTLE version 4.4                                       //
  *                  Template Model Builder                                   //
@@ -247,6 +264,9 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
+  DATA_IVECTOR( index_ll_type );          // Survey index likelihood family per fleet (0 = lognormal IID, 1 = MVN bare quadratic form, 2 = MVNORM full density)
+  DATA_STRUCT( index_cov_mat, LOM_t );    // Per-fleet covariance matrices Sigma for the MVN/MVNORM survey likelihood (1x1 dummy if unused)
+  DATA_VECTOR( index_cov_const );         // Per-fleet 0.5*(logdet(Sigma) + n*log(2pi)); subtracted for "MVN" so it reports the bare quadratic form
 
   // -- 2.4.2b One-step-ahead (OSA) residual support
   // `obsvec` is a flat vector holding every observation that enters the
@@ -1833,6 +1853,34 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // -- 8.2b. Arithmetic-mean analytical q (AMAK/ebswp): q = sum(obs)/sum(pred)
+  //    over the fitted survey years (est_index_q == 7, "AnalyticalArith"). This
+  //    reproduces the AMAK BTS q_bts = mean(ob_bts)/mean(eb_bts) and is the q
+  //    form paired with the MVN covariance survey likelihood (Index_loglike =
+  //    "MVN"). Uses index_hat before it is scaled by q just below.
+  vector<Type> index_obs_sum(n_flt); index_obs_sum.setZero();
+  vector<Type> index_hat_sum(n_flt); index_hat_sum.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+    index = index_ctl(index_ind, 0) - 1;
+    flt_yr = index_ctl(index_ind, 2);
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+      if(flt_yr < nyrs_hind){
+        index_obs_sum(index) += index_obs(index_ind, 0);
+        index_hat_sum(index) += index_hat(index_ind);
+      }
+    }
+  }
+  for(index = 0; index < n_flt; index++){
+    if(est_index_q(index) == 7){
+      Type q_arith = index_obs_sum(index) / index_hat_sum(index);
+      for(yr = 0; yr < nyrs_hind; yr++){
+        index_q(index, yr) = q_arith;
+      }
+    }
+  }
+
+
   // -- 8.3. Survey Biomass - multiply by q
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
@@ -2400,8 +2448,10 @@ Type objective_function<Type>::operator() () {
 
     log_index_sd(index_ind) = index_std_dev;
 
-    // Only include years from hindcast
-    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
+    // Only include years from hindcast. Lognormal IID branch (index_ll_type == 0);
+    // MVN covariance fleets (index_ll_type == 1) are handled in the per-fleet loop
+    // below and contribute nothing here.
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 0)){
       if(index_obs(index_ind) > 0){
         // Read the (log) observation from obsvec and gate it with keep so that
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
@@ -2414,6 +2464,47 @@ Type objective_function<Type>::operator() () {
         // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
         int pos = index_obsvec_idx(index_ind);
         jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+      }
+    }
+  }
+
+  // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
+  // DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r applied to each MVN
+  // fleet's fitted residual vector r = obs - q*pred (arithmetic, natural scale;
+  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma^-1 is the
+  // precomputed precision matrix index_cov_prec(index). The residual vector is
+  // assembled in index_obs row order to match the rows/cols of Sigma. Reuses
+  // jnll_comp row 0. Note: OSA residuals are not defined for this multivariate
+  // block, so it does not read obsvec/keep.
+  for(index = 0; index < n_flt; index++){
+    if((flt_type(index) > 0) && (index_ll_type(index) >= 1)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density)
+      int n_mvn = 0;
+      for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
+        if((index_ctl(index_ind, 0) - 1) == index){
+          flt_yr = index_ctl(index_ind, 2);
+          if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)) n_mvn++;
+        }
+      }
+      if(n_mvn > 0){
+        vector<Type> resid(n_mvn);
+        int k = 0;
+        for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
+          if((index_ctl(index_ind, 0) - 1) == index){
+            flt_yr = index_ctl(index_ind, 2);
+            if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)){
+              resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
+              k++;
+            }
+          }
+        }
+        // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
+        // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
+        // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
+        Type dens = MVNORM(index_cov_mat(index))(resid);
+        // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
+        // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
+        // full density. Both give an identical fit (the constant has zero gradient).
+        jnll_comp(0, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
       }
     }
   }

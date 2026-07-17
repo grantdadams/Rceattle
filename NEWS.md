@@ -2,6 +2,22 @@
 
 ## New features
 
+* **Multivariate-normal (covariance) survey-index likelihood.** A survey/index
+  fleet can now use a full variance-covariance matrix for its biomass index
+  instead of independent lognormal errors, via the new `fleet_control` column
+  `Index_loglike` (`"Lognormal"`, the default, or `"MVN"` / `"MVNORM"`). Supply
+  the covariance matrix (e.g. a VAST-derived Sigma) as a named element of the new
+  `index_cov` data list, keyed by `Fleet_name`. The likelihood uses TMB's native
+  `density::MVNORM(Sigma)` on the natural-scale residual `r = obs - q*pred`:
+  `"MVN"` reports the bare quadratic form `0.5 * r' Sigma^-1 r` (the AMAK/ebswp
+  `DoCovBTS` bottom-trawl survey value, matching ADMB's reported likelihood),
+  while `"MVNORM"` reports the full normalized density
+  `0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi))` — the two give an
+  identical fit and differ only by a fixed constant. A companion catchability
+  option `Catchability = "AnalyticalArith"` gives the arithmetic-mean analytical q
+  (`mean(obs)/mean(pred)`) that the AMAK covariance survey uses (the existing
+  `"Analytical"` q remains the geometric mean). Defaults are fully back-compatible:
+  existing models get `Index_loglike = "Lognormal"` and are numerically unchanged.
 * The plotting functions have been overhauled to **ggplot2**. Every exported
   `plot_*()` function now builds its figure with ggplot2 (a colourblind-safe
   viridis palette and `theme_classic`) and **returns the `ggplot` object**, so
@@ -29,6 +45,47 @@
 
 ## Bug fixes
 
+* **Time-varying selectivity deviations were estimated before a fleet had any
+  data.** `build_map()` never consulted `fleet_control$Sel_start_year`, so a fleet
+  with time-varying (`"RandomWalk"`) selectivity had deviations estimated across
+  *every* hindcast year — including years before its first observation. Those
+  deviations are informed by no data and constrained by no penalty (every
+  selectivity penalty in the objective is anchored at `Sel_start_year`), leaving
+  unidentified flat directions that stall the optimizer. In the EBS pollock model
+  this left ~54 free pre-survey deviations on a bottom-trawl survey starting in
+  1982 and ~240 on an acoustic survey starting in 1994 — a total parameter count
+  of 1483 against 1225 for the equivalent ADMB (AMAK) model, which never declares
+  them. Deviations before `Sel_start_year` are now fixed at 0, giving 1249. The
+  two selectivity parameterizations differ in where the base curve lives and are
+  handled accordingly: `LogisticPM` (and other curve-based forms) estimate a
+  separate base, so deviations are fixed *through* the start year; the
+  non-parametric random walk maps its mean (`sel_coff`) off and lets the start-year
+  deviation carry the base, so only the deviations strictly *before* it are fixed.
+* **`Sel_start_year` now defaults to the fleet's first year of data** rather than
+  `styr`. It is an optional `fleet_control` column, so the fix above only took
+  effect for users who knew to set it — a model with a late-starting survey would
+  silently carry unidentified deviations. The default is derived from
+  `catch_data` / `index_data` / `comp_data` / `caal_data`, consistent with how
+  `switch_check()` already auto-`"Off"`s fleets with no observations. Fleets
+  sharing a `Selectivity_index` share one selectivity curve, so the start year is
+  the *earliest* first-observation year across the whole group: a fleet whose own
+  data starts late but which mirrors an earlier fleet's curve (e.g. an AVO index
+  starting in 2006 mirroring an acoustic survey starting in 1994) must not drop
+  the deviations the mirrored fleet's data informs. Set the column explicitly to
+  override. Only models with time-varying selectivity on a fleet whose data starts
+  after `styr` are affected; for those, the previous behaviour is recovered by
+  setting `Sel_start_year = styr`.
+* **`LogisticPM` selectivity started with an unusable age-1 selectivity.**
+  `build_params()` initializes `sel_inf[2]` to `10`, which is correct for its
+  usual meaning (the descending-limb inflection *age*), but `LogisticPM`
+  (type 11) repurposes that slot as the free first-bin (age-1) **log**-selectivity.
+  The shared default therefore started age-1 selectivity at `exp(10)` = 22026
+  (for reference, the ADMB AMAK "pm" estimate is `sel_age_one_bts` = -3.19, i.e.
+  0.04). When age-1 was selected (`Bin_first_selected = 1`) this swamped the
+  survey-index prediction and the optimizer diverged with a gradient blow-up on
+  `sel_inf`; when it was not selected the bad value was silently masked by the
+  zeroed first bin. `sel_inf[2]` now defaults to `0` (age-1 selectivity = 1) for
+  `LogisticPM` fleets.
 * `plot_maturity()` read a non-existent `pmature` field and errored on real
   fits; it now reads `data_list$maturity`.
 * `plot_ration()` failed for single-sex models (a dropped array dimension); the

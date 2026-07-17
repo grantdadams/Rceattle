@@ -130,3 +130,38 @@ testthat::test_that("LogisticPM rejects non-random-walk time variation", {
     regexp = "RandomWalk"
   )
 })
+
+testthat::test_that("LogisticPM defaults the free age-1 log-selectivity slot to a log scale, not the inflection-age default", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Regression test. sel_inf[2] is normally the descending-limb inflection *age*
+  # and build_params defaults it to 10 for every fleet. LogisticPM repurposes that
+  # slot as the free first-bin (age-1) LOG-selectivity, so the shared default gave
+  # age-1 selectivity = exp(10) = 22026 (ADMB's sel_age_one_bts = -3.19 -> 0.04).
+  # With age-1 selected that swamps the survey-index prediction and the optimizer
+  # diverges (gradient blow-up on sel_inf), so the default must be a log-scale 0.
+  data("GOA2018SS")
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0)
+  GOA2018SS$fleet_control$Selectivity[rows_use]        <- "LogisticPM"
+  GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1   # age-1 selected (free)
+  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use]      <- NA  # no normalization
+  GOA2018SS$fleet_control$Time_varying_sel[rows_use]   <- 0   # time-invariant
+
+  mod0 <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+                                   random_rec = FALSE, msmMode = 0,
+                                   fit_control = fit_control(verbose = 0)))
+
+  # Default init is on the log scale (0), NOT the inflection-age default (10)
+  testthat::expect_equal(unname(mod0$estimated_params$sel_inf[2, rows_use[1], 1]), 0)
+
+  # ...so realized age-1 selectivity is exp(0) = 1, and the curve has no
+  # exp() underflow to exactly zero. sel_at_age is dimensioned to the max nages
+  # across species, so only this fleet's own species' ages carry a curve --
+  # bins beyond nages[sp] are structurally 0 and are not part of the check.
+  sp <- GOA2018SS$fleet_control$Species[rows_use[1]]
+  s  <- mod0$obj$report()$sel_at_age[rows_use[1], 1, seq_len(GOA2018SS$nages[sp]), 1]
+  testthat::expect_equal(unname(s[1]), 1)
+  testthat::expect_true(all(is.finite(s)))
+  testthat::expect_true(all(s > 0))
+})

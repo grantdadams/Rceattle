@@ -295,8 +295,13 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
                                   "Year", "Sample_size", "Stomach_proportion_by_weight")
 
 
-  # Clean and return
+  # Clean and normalize switches/defaults, then return. switch_check() fills the
+  # fleet_control columns that fit_mod()/rearrange_data() rely on (Sel_start_year,
+  # Sel_pen_*, Index_loglike, ...) so the fixture can be passed straight to
+  # rearrange_data() in tests, not only through fit_mod(). switch_check() is
+  # idempotent, so fit_mod() re-running it on this data is a no-op.
   simData <- Rceattle::clean_data(simData)
+  simData <- suppressMessages(Rceattle::switch_check(simData))
   return(simData)
 }
 

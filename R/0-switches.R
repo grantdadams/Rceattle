@@ -98,7 +98,8 @@ q_map <- c(
   "Analytical" = 3,
   "PowerEquation" = 4,
   "Environmental" = 5,
-  "AR1" = 6
+  "AR1" = 6,
+  "AnalyticalArith" = 7
 )
 
 tv_q_map <- c(
@@ -113,6 +114,24 @@ comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
   "Multinomial" = 0,
   "DirichletMultinomial" = 1
+)
+
+# Survey/index biomass observation likelihood family (per fleet). MVN/MVNORM use
+# a user-supplied full variance-covariance matrix (e.g. a VAST-derived Sigma) on
+# the natural-scale residual vector (obs - q*pred); see `index_cov`, and pair with
+# Catchability = "AnalyticalArith" for the AMAK arithmetic-mean q.
+#   Lognormal = independent lognormal on log(obs) (the historical default).
+#   MVN       = the AMAK/ebswp `DoCovBTS = 1` *bare* quadratic form 0.5 * r' Sigma^-1 r
+#               (drops the normalizing constant, so the reported value matches ADMB).
+#   MVNORM    = the *full* multivariate-normal negative log-density
+#               0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)), i.e. TMB's
+#               density::MVNORM(Sigma)(r). Identical fit to "MVN" (the extra term is
+#               a fixed constant), but a proper normalized likelihood; the reported
+#               value is "MVN" + 0.5*(logdet(Sigma) + n*log(2*pi)).
+index_loglike_map <- c(
+  "Lognormal" = 0,
+  "MVN" = 1,
+  "MVNORM" = 2
 )
 
 fleet_map <- c(
@@ -244,6 +263,10 @@ switch_check <- function(data_list){
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
   data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
+  data_list$fleet_control$Index_loglike <- set_default(data_list$fleet_control$Index_loglike, "Lognormal")  # survey index likelihood family; default preserves the historical lognormal fit
+  # Also fill per-element NAs: setting Index_loglike for one fleet (e.g. only the
+  # covariance survey) leaves the other rows NA, which should default to Lognormal.
+  data_list$fleet_control$Index_loglike[is.na(data_list$fleet_control$Index_loglike)] <- "Lognormal"
   data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
   data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
 
@@ -324,6 +347,47 @@ switch_check <- function(data_list){
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
   }
 
+  # Default Sel_start_year to each fleet's FIRST YEAR OF DATA (not styr).
+  # Selectivity deviations before a fleet's first observation have neither data nor
+  # a penalty -- every selectivity penalty in the cpp is anchored at start_yr -- so
+  # they are unidentified and leave flat directions the optimiser cannot resolve.
+  # Deriving the default from the data drops them automatically instead of relying
+  # on the user to know the switch exists. Only fleets with time-varying selectivity
+  # are affected (build_map is what consumes this); an explicit per-fleet value wins.
+  fleet_obs_yrs <- function(df) {
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    if (!all(c("Fleet_code", "Year") %in% colnames(df))) return(NULL)
+    df <- df[!is.na(df$Year) & df$Year > 0 & !is.na(df$Fleet_code), , drop = FALSE]
+    if (nrow(df) == 0) return(NULL)
+    data.frame(Fleet_code = as.integer(df$Fleet_code), Year = as.integer(df$Year))
+  }
+  obs_yrs <- do.call(rbind, list(
+    fleet_obs_yrs(data_list$catch_data),
+    fleet_obs_yrs(data_list$index_data),
+    fleet_obs_yrs(data_list$comp_data),
+    fleet_obs_yrs(data_list$caal_data)
+  ))
+  if (!is.null(obs_yrs) && nrow(obs_yrs) > 0) {
+    first_obs <- tapply(obs_yrs$Year, obs_yrs$Fleet_code, min)
+    fc2 <- data_list$fleet_control
+    # Fleets sharing a Selectivity_index share ONE selectivity curve, so the start
+    # year must be the earliest first-observation across the whole group -- not the
+    # fleet's own. E.g. AVO's data starts 2006 but it mirrors the ATS curve, whose
+    # data starts 1994; keying off AVO alone would drop the 1994-2005 deviations
+    # that the ATS data actually informs.
+    sel_grp <- if (!is.null(fc2$Selectivity_index)) as.character(fc2$Selectivity_index) else
+      as.character(fc2$Fleet_code)
+    fleet_first <- first_obs[as.character(fc2$Fleet_code)]
+    grp_first <- tapply(fleet_first, sel_grp, function(v) if (all(is.na(v))) NA_integer_ else min(v, na.rm = TRUE))
+    unset_idx <- which(is.na(fc2$Sel_start_year))
+    for (i in unset_idx) {
+      fy <- grp_first[sel_grp[i]]
+      if (!is.na(fy)) {
+        data_list$fleet_control$Sel_start_year[i] <- max(as.integer(data_list$styr), as.integer(fy))
+      }
+    }
+  }
+
   return(data_list)
 }
 
@@ -354,6 +418,12 @@ revert_switches <- function(data_list) {
   }
 
   # - Fleet switches
+  # Guard: Index_loglike is a newer column; a hand-built fleet_control (or a
+  # data_list passed straight to rearrange_data(), bypassing switch_check) may
+  # lack it. Default to Lognormal so the conversion below works without it.
+  if(is.null(data_list$fleet_control$Index_loglike)){
+    data_list$fleet_control$Index_loglike <- "Lognormal"
+  }
   data_list$fleet_control <- data_list$fleet_control |>
     dplyr::mutate(
       Fleet_type = .conv(.data$Fleet_type, fleet_map),
@@ -361,7 +431,8 @@ revert_switches <- function(data_list) {
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
       Catchability = .conv(.data$Catchability, q_map),
       Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
+      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map),
+      Index_loglike = .conv(.data$Index_loglike, index_loglike_map)
     )
 
   # Time_varying_q doubles as an environmental-index column when Catchability
@@ -410,6 +481,9 @@ validate_switches <- function(data_list = NULL){
 
   invalid_caal_ll <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+
+  invalid_index_ll <- data_list$fleet_control |>
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_loglike %in% c(index_loglike_map, names(index_loglike_map)))
 
   # Throw clear errors to guide the user
   if(nrow(invalid_flt_type) > 0) {
@@ -461,6 +535,13 @@ validate_switches <- function(data_list = NULL){
                               paste(names(comp_loglike_map), collapse = ", ")))
   }
 
+  if(nrow(invalid_index_ll) > 0) {
+    errors <- c(errors, paste("Invalid 'Index_loglike' specified for fleets:",
+                              paste(invalid_index_ll$Fleet_name, collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(index_loglike_map), collapse = ":")," or one of:",
+                              paste(names(index_loglike_map), collapse = ", ")))
+  }
+
   # Validate pop dy controls ----
   # * initMode ----
   invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
@@ -504,6 +585,12 @@ convert_switches <- function(data_list) {
   .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
 
   # Fleet controls ----
+  # Guard: default the newer Index_loglike column when a caller (e.g. a direct
+  # rearrange_data() unit test) supplies a fleet_control that never went through
+  # switch_check.
+  if(is.null(data_list$fleet_control$Index_loglike)){
+    data_list$fleet_control$Index_loglike <- "Lognormal"
+  }
   # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
@@ -513,7 +600,8 @@ convert_switches <- function(data_list) {
       Catchability = .conv(.data$Catchability, q_map),
       Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
       Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
+      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map),
+      Index_loglike = .conv(.data$Index_loglike, index_loglike_map)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
@@ -523,7 +611,8 @@ convert_switches <- function(data_list) {
       Catchability = as.integer(.data$Catchability),
       Time_varying_q = as.integer(.data$Time_varying_q),
       Comp_loglike = as.integer(.data$Comp_loglike),
-      CAAL_loglike = as.integer(.data$CAAL_loglike)
+      CAAL_loglike = as.integer(.data$CAAL_loglike),
+      Index_loglike = as.integer(.data$Index_loglike)
     )
 
   # Pop dy controls ----

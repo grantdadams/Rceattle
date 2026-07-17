@@ -181,6 +181,10 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$est_sigma_fsh <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
 
+  # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
+  data_list$index_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Index_loglike) %>% as.integer()
+
   data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
   # Species names
@@ -204,6 +208,49 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::select(Observation, Log_sd) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
+
+  # - Survey-index covariance matrices (Index_loglike == "MVN" or "MVNORM").
+  #   TMB evaluates TMB's density::MVNORM(Sigma) on each covariance fleet's fitted
+  #   residual vector r = obs - q*pred, i.e. 0.5*(r' Sigma^-1 r + logdet(Sigma) +
+  #   n*log(2*pi)). "MVN" reports the bare quadratic form 0.5 r' Sigma^-1 r (the
+  #   AMAK/ebswp DoCovBTS value) by subtracting the fixed normalizing constant
+  #   index_cov_const = 0.5*(logdet(Sigma) + n*log(2*pi)); "MVNORM" keeps the full
+  #   density. We pass Sigma directly (MVNORM factorizes it internally -- more
+  #   robust than an explicit inverse) plus the precomputed constant. Non-covariance
+  #   fleets get a 1x1 inert dummy (const 0) so the list is length n_flt and TMB can
+  #   index it by fleet code. Sigma must be square/symmetric with dimension equal to
+  #   the number of fitted survey obs for the fleet, in index_data row order.
+  n_flt_cov <- nrow(data_list$fleet_control)
+  data_list$index_cov_mat   <- vector("list", n_flt_cov)
+  data_list$index_cov_const <- numeric(n_flt_cov)
+  for(flt in seq_len(n_flt_cov)){
+    if(isTRUE(data_list$index_ll_type[flt] %in% c(1L, 2L))){
+      flt_name <- data_list$fleet_control$Fleet_name[flt]
+      flt_code <- data_list$fleet_control$Fleet_code[flt]
+      Sigma <- data_list$index_cov[[as.character(flt_name)]]
+      if(is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(flt_code)]]
+      Sigma <- as.matrix(Sigma)
+      n_fit <- sum(data_list$index_data$Fleet_code == flt_code &
+                     data_list$index_data$Year > 0 &
+                     data_list$index_data$Year <= data_list$endyr &
+                     data_list$index_data$Observation > 0)
+      if(nrow(Sigma) != n_fit || ncol(Sigma) != n_fit){
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the fleet has %d fitted ",
+                            "survey observations. Provide a square Sigma matching the fitted survey years ",
+                            "(Year in [styr, endyr], Observation > 0), in index_data row order."),
+                     flt_name, nrow(Sigma), ncol(Sigma), n_fit))
+      }
+      Sigma <- (Sigma + t(Sigma)) / 2  # symmetrize away tiny numerical asymmetry from the source file
+      logdet <- tryCatch(as.numeric(determinant(Sigma, logarithm = TRUE)$modulus),
+                         error = function(e) stop(sprintf(
+                           "Index covariance matrix for fleet '%s' is not invertible: %s", flt_name, conditionMessage(e))))
+      data_list$index_cov_mat[[flt]]  <- Sigma
+      data_list$index_cov_const[flt]  <- 0.5 * (logdet + nrow(Sigma) * log(2 * pi))
+    } else {
+      data_list$index_cov_mat[[flt]]  <- matrix(0, 1, 1)  # inert dummy (present-but-off)
+      data_list$index_cov_const[flt]  <- 0
+    }
+  }
 
 
   # 3 -  Catch data ----
@@ -566,7 +613,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
-                       "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
+                       "aLW", "diet_data", "index_cov", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 

@@ -24,6 +24,7 @@
 #' \item{est_M1}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
 #' \item{fleet_control}{Survey and fishery data specifications}
 #' \item{index_data}{Survey index in weight (kg) or numbers data}
+#' \item{index_cov}{Optional named list of survey-index variance-covariance matrices, keyed by Fleet_name (or Fleet_code), used only by fleets whose fleet_control \code{Index_loglike == "MVN"}. Each matrix must be square and symmetric with dimension equal to the number of fitted survey observations for that fleet (Year in [styr, endyr], Observation > 0), ordered as in index_data. Inverted once internally to the precision matrix used in 0.5 * r' Sigma^-1 r. Leave unset for the default lognormal likelihood.}
 #' \item{catch_data}{Total catch in weight (kg) or numbers data}
 #' \item{comp_data}{Survey/fishery age or length composition data. Note if sex is 3, put female composition data then male composition data (similar to SS).}
 #' \item{emp_sel}{Empirical/fixed selectivity for surveys and fisheries (leave empty if not used)}
@@ -64,6 +65,7 @@
 #' \item{Nselages}{Number of ages to estimate non-parametric selectivity.}
 #' \item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
 #' \item{Time_varying_sel_sd_prior}{The fixed or initial sd to use for time varying selectivity.}
+#' \item{Sel_start_year}{First year the fleet's time-varying selectivity deviations are estimated and penalized. Deviations before this year are fixed at 0: they have no data and no penalty (the selectivity penalties are anchored at this year), so estimating them would leave unidentified flat directions. Defaults to the earliest year of data across all fleets sharing the fleet's \code{Selectivity_index} (fleets sharing an index share one selectivity curve), bounded below by \code{styr}. Only used for time-varying selectivity; set explicitly to override.}
 #' \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 #' \item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
 #' \item{Acuumulation_age_upper}{Ages above this will be grouped to this age for composition data. For example, if set to 9 for a species with 10 ages, comp data for age 9 will include 9 and 10 year olds.}
@@ -71,7 +73,7 @@
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 #' \item{Q_index}{index to use if catchability coefficients are to be set the same}
-#' \item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025)}
+#' \item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate geometric-mean analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025; 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood)}
 #' \item{Q_prior}{Starting value or fixed value for catchability}
 #' \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
 #' \item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
@@ -80,6 +82,7 @@
 #' \item{Survey_sd_prior}{Starting value to be used if Estimate_sigma_index = 1}
 #' \item{Estimate_catch_sd}{Estimate fishery variance (0 = use CV from index_data, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
 #' \item{Catch_sd_prior}{Starting value to be used if Estimate_sigma_catch = 1}
+#' \item{Index_loglike}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default, unchanged historical behavior). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q*pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (the AMAK/ebswp DoCovBTS value, matching ADMB's reported survey likelihood); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)) (TMB's density::MVNORM). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
 #' \item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
 #' \item{proj_F_prop}{The proportion of future fishing mortality assigned to this fleet}

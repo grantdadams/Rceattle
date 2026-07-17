@@ -530,6 +530,50 @@ data_check <- function(data_list) {
     errors <- c(errors, "catch_data$Catch must be >= 0")
   }
 
+  # MVN survey covariance requirement ----
+  # A fleet using Index_loglike == "MVN" or "MVNORM" must supply a square,
+  # symmetric variance-covariance matrix in data_list$index_cov (keyed by
+  # Fleet_name or Fleet_code) whose dimension equals the number of fitted survey
+  # observations for that fleet. Validated here so the requirement surfaces with a
+  # clear message at the flag rather than as a cryptic error in rearrange_data().
+  fc <- data_list$fleet_control
+  if(has_data(fc) && "Index_loglike" %in% colnames(fc)){
+    mvn_flts <- which(fc$Index_loglike %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
+    for(flt in mvn_flts){
+      flt_name <- fc$Fleet_name[flt]
+      flt_code <- fc$Fleet_code[flt]
+      Sigma <- NULL
+      if(!is.null(data_list$index_cov)){
+        Sigma <- data_list$index_cov[[as.character(flt_name)]]
+        if(is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(flt_code)]]
+      }
+      if(is.null(Sigma)){
+        errors <- c(errors, paste0("Fleet '", flt_name, "' has Index_loglike == 'MVN' but no covariance matrix ",
+                                   "was found in data_list$index_cov (expected an element named '", flt_name,
+                                   "' or '", flt_code, "')."))
+        next
+      }
+      Sigma <- as.matrix(Sigma)
+      n_fit <- 0
+      if(has_data(data_list$index_data)){
+        n_fit <- sum(data_list$index_data$Fleet_code == flt_code &
+                       data_list$index_data$Year > 0 &
+                       data_list$index_data$Year <= data_list$endyr &
+                       data_list$index_data$Observation > 0, na.rm = TRUE)
+      }
+      if(nrow(Sigma) != ncol(Sigma)){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' must be square (got ",
+                                   nrow(Sigma), " x ", ncol(Sigma), ")."))
+      } else if(nrow(Sigma) != n_fit){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' is ", nrow(Sigma), " x ",
+                                   ncol(Sigma), " but the fleet has ", n_fit, " fitted survey observations ",
+                                   "(Year in [styr, endyr], Observation > 0). Sigma must match those rows in index_data order."))
+      } else if(!isTRUE(all.equal(Sigma, t(Sigma), tolerance = 1e-4, check.attributes = FALSE))){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' is not symmetric."))
+      }
+    }
+  }
+
   # Duplicates per (Fleet_code, Year, Month)
   for(df_name in c("catch_data", "index_data")){
     df <- data_list[[df_name]]

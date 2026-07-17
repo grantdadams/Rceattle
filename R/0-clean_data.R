@@ -54,6 +54,16 @@ clean_data <- function(data_list){
     data_list$env_data <- data.frame(Year = yrs)
   }
 
+  # index_cov: named list of survey-index variance-covariance matrices, keyed by
+  # Fleet_name, used only by fleets with Index_loglike == "MVN" (the AMAK/ebswp
+  # DoCovBTS covariance survey likelihood). Default to an empty list so
+  # rearrange_data() / data_check() can treat "not supplied" uniformly; a fleet
+  # that is not MVN never needs one, and data_check() enforces that an MVN fleet
+  # has a matrix of the correct dimension.
+  if(is.null(data_list$index_cov)){
+    data_list$index_cov <- list()
+  }
+
   # --- 1. Filter Data by Year ----
   # Data in likelihood (use absolute Year)
   abs_year_data <- c("index_data", "catch_data", "comp_data", "caal_data")
