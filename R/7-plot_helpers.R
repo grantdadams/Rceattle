@@ -109,12 +109,12 @@
                             aesthetics = c("colour", "fill")) {
   if ("colour" %in% aesthetics) {
     p <- p + (if (discrete)
-                ggplot2::discrete_scale("colour", "okabe_ito", .okabe_ito_pal)
+                ggplot2::discrete_scale("colour", palette = .okabe_ito_pal)
               else ggplot2::scale_colour_viridis_c())
   }
   if ("fill" %in% aesthetics) {
     p <- p + (if (discrete)
-                ggplot2::discrete_scale("fill", "okabe_ito", .okabe_ito_pal)
+                ggplot2::discrete_scale("fill", palette = .okabe_ito_pal)
               else ggplot2::scale_fill_viridis_c())
   }
   p

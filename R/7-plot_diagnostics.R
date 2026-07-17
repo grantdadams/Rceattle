@@ -52,6 +52,11 @@
       Predicted   = dat$.hat,
       stringsAsFactors = FALSE)
   }
+  if (length(out) == 0L) {
+    stop("No data to plot: the selected species/fleet(s) have no ",
+         "likelihood observations (all rows are projections or excluded).",
+         call. = FALSE)
+  }
   df <- do.call(rbind, out)
   df$Model <- factor(df$Model, levels = unique(model_names_use))
   df$Fleet <- factor(df$Fleet,
@@ -259,6 +264,11 @@ plot_indexresidual <- function(Rceattle,
       Year     = abs(dat$Year),
       Residual = log(dat$.hat) - log(dat$Observation),
       stringsAsFactors = FALSE)
+  }
+  if (length(out) == 0L) {
+    stop("No index residuals to plot: the selected species have no ",
+         "likelihood observations (all rows are projections or excluded).",
+         call. = FALSE)
   }
   df <- do.call(rbind, out)
   df$Model <- factor(df$Model, levels = unique(model_names_use))

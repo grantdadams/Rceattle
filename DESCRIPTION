@@ -48,7 +48,7 @@ LinkingTo:
     TMB,
     RcppEigen
 Suggests:
-    testthat (>= 2.0.0),
+    testthat (>= 3.1.5),
     covr,
     rmarkdown,
     knitr,

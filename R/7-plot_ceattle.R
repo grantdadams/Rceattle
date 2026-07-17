@@ -114,6 +114,10 @@ plot_timeseries <- function(Rceattle,
     lty = c(lty, 1)
     if (!is.null(line_col)) line_col <- c(line_col, "black")
     lwd <- c(lwd, lwd[1] * 1.5)
+    # Give the reference its own label so .model_labels() does not recycle the
+    # user's model_names (which would collapse the reference into the first
+    # model's factor level and drop its distinct colour / width / type).
+    if (!is.null(model_names)) model_names <- c(model_names, "Reference")
   }
 
   # Species names
