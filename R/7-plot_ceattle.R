@@ -312,7 +312,19 @@ plot_timeseries <- function(Rceattle,
     }
   }
 
-  p <- p + ggplot2::geom_line(linewidth = 1)
+  # Line width / type: honour per-model lwd / lty. Map to Model (and add a
+  # manual scale below) only when they vary, so the uniform default adds no
+  # extra legend. lwd keeps the base-graphics convention where the default (3)
+  # renders as a standard-weight ggplot line (linewidth 1), hence lwd / 3.
+  vary_lwd <- length(unique(lwd)) > 1L
+  vary_lty <- length(unique(lty)) > 1L
+  line_map <- ggplot2::aes(linewidth = .data$Model, linetype = .data$Model)
+  if (!vary_lwd) line_map$linewidth <- NULL
+  if (!vary_lty) line_map$linetype  <- NULL
+  line_args <- list(mapping = line_map)
+  if (!vary_lwd) line_args$linewidth <- lwd[1] / 3
+  if (!vary_lty) line_args$linetype  <- lty[1]
+  p <- p + do.call(ggplot2::geom_line, line_args)
 
   # Projection divider at the terminal hindcast year
   if (incl_proj) {
@@ -352,9 +364,21 @@ plot_timeseries <- function(Rceattle,
       ggplot2::scale_fill_manual(values = cols)
   }
 
+  # Per-model line width / type scales (only added when they vary).
+  lvl <- levels(plot_df$Model)
+  if (vary_lwd) {
+    p <- p + ggplot2::scale_linewidth_manual(
+      values = stats::setNames(rep(lwd, length.out = length(lvl)) / 3, lvl))
+  }
+  if (vary_lty) {
+    p <- p + ggplot2::scale_linetype_manual(
+      values = stats::setNames(rep(lty, length.out = length(lvl)), lvl))
+  }
+
   # A single model needs no colour legend
   if (nlevels(plot_df$Model) < 2L) {
-    p <- p + ggplot2::guides(colour = "none", fill = "none")
+    p <- p + ggplot2::guides(colour = "none", fill = "none",
+                             linewidth = "none", linetype = "none")
   }
 
   .save_ggplot(p, file = file, suffix = paste0(output, "_trajectory"),

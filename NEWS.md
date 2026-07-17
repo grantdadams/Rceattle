@@ -15,9 +15,12 @@
   at-age curves for selectivity and mortality surfaces).
 * `plot_index()` gains a `log` argument for the log-scale survey-index fit.
 * The time-series plotters (`plot_biomass()`, `plot_ssb()`, `plot_recruitment()`,
-  and the other `plot_timeseries()` wrappers) again honour a user-supplied
-  `line_col`: pass a colour per model to override the default colourblind-safe
-  palette (e.g. `plot_biomass(list(m1, m2), line_col = c("black", "red"))`).
+  and the other `plot_timeseries()` wrappers) again honour user-supplied
+  `line_col`, `lwd`, and `lty`: pass a colour, line width, and/or line type per
+  model to override the defaults
+  (e.g. `plot_biomass(list(m1, m2), line_col = c("black", "red"), lty = c(1, 2))`).
+  `lwd` keeps the base-graphics convention where the default (3) renders as a
+  standard-weight line.
 * `plot_stock_recruit()` adds a 95% data ellipse of the SSB–recruitment cloud
   (`add_ci`, default `TRUE`).
 * The test suite is reorganised into a flat, navigable `tests/testthat/` (see
