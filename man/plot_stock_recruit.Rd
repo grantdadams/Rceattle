@@ -17,37 +17,38 @@ plot_stock_recruit(
   lty = 1,
   incl_proj = FALSE,
   plot_env = FALSE,
-  mod_cex = 1
+  mod_cex = 1,
+  add_ci = TRUE
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_stock_recruit.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col, lwd, lty, plot_env, mod_cex}{Deprecated base-graphics
+arguments, retained for back-compatibility and ignored.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size (inches).}
 
-\item{height}{Figure height in inches}
+\item{species}{Species (indices) to include. Default all.}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{spnames}{Species names for the facet labels.}
 
-\item{spnames}{Species names for legend}
+\item{incl_proj}{Currently unused (kept for back-compatibility).}
 
-\item{lwd}{Line width as specified by user}
-
-\item{lty}{Line type}
-
-\item{incl_proj}{TRUE/FALSE, include projection years for environmental relationship}
-
-\item{plot_env}{TRUE/FALSE, plot environmental covariate relationship}
-
-\item{mod_cex}{Cex of text for model name legend}
+\item{add_ci}{Add a 95\% normal data ellipse of the SSB-R points.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Function the plots the stock recruit function as estimated from Rceattle
+Plots the stock-recruit relationship estimated by Rceattle:
+spawning stock biomass (x) against recruitment (y) as points, with the
+fitted stock-recruit curve (mean recruitment, Beverton-Holt, or Ricker)
+overlaid, faceted by species. A 95\% normal data ellipse of the SSB-R
+cloud is added when \code{add_ci = TRUE}.
 }

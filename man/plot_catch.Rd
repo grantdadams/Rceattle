@@ -2,67 +2,62 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_catch}
 \alias{plot_catch}
-\title{Landings fits}
+\title{Fishery catch fits}
 \usage{
 plot_catch(
   Rceattle,
   file = NULL,
   model_names = NULL,
-  line_col = NULL,
   species = NULL,
-  right_adj = 0,
-  top_adj = 1.2,
   incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL,
-  alpha = 0.4,
-  lwd = 2,
-  ymax = NULL,
+  width = 7,
+  height = 6.5,
+  error = TRUE,
   maxyr = NULL,
   mse = FALSE,
-  error = TRUE,
-  fleets = NULL
+  fleets = NULL,
+  line_col = NULL,
+  right_adj = 0,
+  top_adj = 1.2,
+  single.plots = FALSE,
+  alpha = 0.4,
+  lwd = 2,
+  ymax = NULL
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; if given the figure is written to
+\verb{<file>_survey_indices.png}.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{species}{Species (indices) to include. Default all.}
 
-\item{species}{Species names for legend}
+\item{incl_proj}{Include projection years.}
 
-\item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
+\item{width, height}{Saved figure size (inches).}
 
-\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage (default = 1.2).}
+\item{error}{Draw observed points and error bars.}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
+\item{maxyr}{Last year to plot.}
 
-\item{single.plots}{if TRUE plot invidual fits else make multiplot}
+\item{mse}{Is \code{Rceattle} an MSE object (operating models)?}
 
-\item{width}{plot width}
+\item{fleets}{Fishery fleets to include (indices into the sorted fleet
+codes). Default all.}
 
-\item{height}{plot hight}
+\item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
+arguments, retained for back-compatibility and ignored.}
 
-\item{alpha}{Transparency of lines for MSE plots}
-
-\item{lwd}{Line width}
-
-\item{ymax}{Fleet specific upper ylim}
-
-\item{maxyr}{Max year to plot}
-
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}. Will plot data from OMs.}
-
-\item{error}{Include observed data with error bars?}
-
-\item{fleets}{Which fishing fleets to include (defaults to all = NULL)}
+\item{alpha, lwd, ymax}{Deprecated base-graphics arguments, ignored.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Plot of fitted landings data on natural-scale (r4ss-style)
+Plots fitted fishery catch: observed points with lognormal 95\% intervals and
+the model-predicted catch, faceted by fishery fleet. For MSE objects the
+projection period is summarised with 50\% / 95\% ribbons across simulations.
 }

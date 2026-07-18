@@ -1,3 +1,66 @@
+# Rceattle 4.7.0
+
+## New features
+
+* The plotting functions have been overhauled to **ggplot2**. Every exported
+  `plot_*()` function now builds its figure with ggplot2 (colourblind-safe
+  palettes — the Okabe-Ito qualitative palette for series identity and viridis
+  for ordered magnitude such as year — and `theme_classic`) and **returns the
+  `ggplot` object**, so
+  plots print when called interactively and can be further customised
+  (`plot_biomass(fit) + ggplot2::ggtitle(...)`) or saved with `ggplot2::ggsave()`.
+  Pass `file = "stem"` to also write the figure to `stem_<plot>.png`. Plot
+  conventions follow r4ss / WHAM / SAM (line + 95% ribbon time series; observed
+  points + error bars + predicted line for index/catch fits; year-coloured
+  at-age curves for selectivity and mortality surfaces).
+* `plot_index()` gains a `log` argument for the log-scale survey-index fit.
+* The time-series plotters (`plot_biomass()`, `plot_ssb()`, `plot_recruitment()`,
+  and the other `plot_timeseries()` wrappers) again honour user-supplied
+  `line_col`, `lwd`, and `lty`: pass a colour, line width, and/or line type per
+  model to override the defaults
+  (e.g. `plot_biomass(list(m1, m2), line_col = c("black", "red"), lty = c(1, 2))`).
+  `lwd` keeps the base-graphics convention where the default (3) renders as a
+  standard-weight line.
+* `plot_stock_recruit()` adds a 95% data ellipse of the SSB–recruitment cloud
+  (`add_ci`, default `TRUE`).
+* The test suite is reorganised into a flat, navigable `tests/testthat/` (see
+  the new `tests/testthat/README.md`), runs fully under continuous integration,
+  and has automated code-coverage reporting.
+
+## Breaking changes
+
+* `plot_*()` functions now **return a `ggplot` object** instead of drawing as a
+  base-graphics side effect (returning `NULL`). Scripts that only called them
+  for the side effect still work (the object prints); scripts that depended on
+  the base-graphics device state or on a `NULL` return may need updating.
+* `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
+* The `gplots` and `oce` dependencies have been dropped (no longer used).
+
+## Bug fixes
+
+* `plot_maturity()` read a non-existent `pmature` field and errored on real
+  fits; it now reads `data_list$maturity`.
+* `plot_ration()` failed for single-sex models (a dropped array dimension); the
+  sex dimension is now indexed explicitly.
+* `plot_stock_recruit()` drew the mean-recruitment reference line a factor of
+  1e6 too high (recruitment points are in millions but the line was not scaled),
+  which under ggplot's free y-scale collapsed the SSB–recruitment cloud to the
+  axis; the line is now scaled to match the points.
+* `plot_index()`, `plot_catch()`, and `plot_indexresidual()` drew
+  prediction-only rows (`Year < 0`, excluded from the likelihood) as if they
+  were fitted observations; these rows are now omitted.
+* `plot_mortality(M2 = TRUE)` labelled the y-axis "M1 + M2" while plotting M2;
+  the label now reads "M2".
+* `osa_residuals()` now includes fleet in the one-step-ahead conditioning order
+  (source, year, **fleet**, then bin), making the sequence fully deterministic
+  when several fleets report in the same year. Previously the within-year,
+  multi-fleet order fell to the incidental row order of the observation table.
+  This does not change results for fixed-effects fits (`random_rec = FALSE`),
+  where OSA residuals are order-invariant, and ascending fleet order matches
+  WHAM's within-stage sequencing so the WHAM cross-check is unaffected; for
+  random-effects fits it makes individual residuals reproducible (the overall
+  N(0,1) properties were already order-invariant).
+
 # Rceattle 4.6.0
 
 ## New features

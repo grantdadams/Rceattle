@@ -2,49 +2,49 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_index}
 \alias{plot_index}
-\title{CPUE fits}
+\title{Survey index fits}
 \usage{
 plot_index(
   Rceattle,
   file = NULL,
   model_names = NULL,
-  line_col = NULL,
   species = NULL,
+  incl_proj = FALSE,
+  width = 7,
+  height = 6.5,
+  error = TRUE,
+  log = FALSE,
+  line_col = NULL,
   right_adj = 0,
   top_adj = 0.05,
-  incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL,
-  error = TRUE
+  single.plots = FALSE
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; if given the figure is written to
+\verb{<file>_survey_indices.png}.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{species}{Species (indices) to include. Default all.}
 
-\item{species}{Species names for legend}
+\item{incl_proj}{Include projection years.}
 
-\item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
+\item{width, height}{Saved figure size (inches).}
 
-\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage.}
+\item{error}{Draw observed points and error bars.}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
+\item{log}{Plot the index on the log scale.}
 
-\item{single.plots}{if TRUE plot invidual fits else make multiplot}
-
-\item{width}{plot width}
-
-\item{height}{plot hight}
-
-\item{error}{include observed data and error bars?}
+\item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
+arguments, retained for back-compatibility and ignored.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Plot of fitted CPUE indices on natural-scale (r4ss-style)
+Plots fitted survey CPUE indices: observed points with lognormal 95\%
+intervals and the model-predicted index, faceted by survey fleet.
 }
