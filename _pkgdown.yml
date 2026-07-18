@@ -216,7 +216,6 @@ reference:
   desc: Visualize survey indices, fits, and residuals.
   contents:
   - plot_index
-  - plot_logindex
   - plot_indexresidual
   - plot_comp
   - plot.rceattle_osa

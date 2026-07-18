@@ -98,14 +98,13 @@ plot_timeseries <- function(Rceattle,
   }
 
 
-  ## Line color ----
+  ## Line width / colour ----
   lwd <- rep(lwd, length(Rceattle))
-  if (is.null(line_col)) {
-    if(!mse){
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    } else {
-      line_col <- 1
-    }
+  # line_col stays NULL unless the user supplies colours, in which case it falls
+  # through to the default colourblind-safe scale (.rceattle_scale) at render
+  # time. When supplied, recycle to one colour per model.
+  if (!is.null(line_col)) {
+    line_col <- rep(line_col, length.out = length(Rceattle))
   }
 
   ## Add reference model
@@ -113,8 +112,12 @@ plot_timeseries <- function(Rceattle,
     Rceattle <- c(Rceattle, list(reference))
     mod_avg = c(mod_avg, FALSE)
     lty = c(lty, 1)
-    line_col <- c(line_col, 1)
+    if (!is.null(line_col)) line_col <- c(line_col, "black")
     lwd <- c(lwd, lwd[1] * 1.5)
+    # Give the reference its own label so .model_labels() does not recycle the
+    # user's model_names (which would collapse the reference into the first
+    # model's factor level and drop its distinct colour / width / type).
+    if (!is.null(model_names)) model_names <- c(model_names, "Reference")
   }
 
   # Species names
@@ -313,7 +316,19 @@ plot_timeseries <- function(Rceattle,
     }
   }
 
-  p <- p + ggplot2::geom_line(linewidth = 1)
+  # Line width / type: honour per-model lwd / lty. Map to Model (and add a
+  # manual scale below) only when they vary, so the uniform default adds no
+  # extra legend. lwd keeps the base-graphics convention where the default (3)
+  # renders as a standard-weight ggplot line (linewidth 1), hence lwd / 3.
+  vary_lwd <- length(unique(lwd)) > 1L
+  vary_lty <- length(unique(lty)) > 1L
+  line_map <- ggplot2::aes(linewidth = .data$Model, linetype = .data$Model)
+  if (!vary_lwd) line_map$linewidth <- NULL
+  if (!vary_lty) line_map$linetype  <- NULL
+  line_args <- list(mapping = line_map)
+  if (!vary_lwd) line_args$linewidth <- lwd[1] / 3
+  if (!vary_lty) line_args$linetype  <- lty[1]
+  p <- p + do.call(ggplot2::geom_line, line_args)
 
   # Projection divider at the terminal hindcast year
   if (incl_proj) {
@@ -337,17 +352,37 @@ plot_timeseries <- function(Rceattle,
                           colour = "red", linetype = 2)
   }
 
-  p <- .rceattle_scale(
-    p +
-      ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
-                          strip.position = "top") +
-      ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
-      ggplot2::labs(x = "Year", y = ylab) +
-      .rceattle_theme())
+  p <- p +
+    ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
+                        strip.position = "top") +
+    ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
+    ggplot2::labs(x = "Year", y = ylab) +
+    .rceattle_theme()
+  if (is.null(line_col)) {
+    p <- .rceattle_scale(p)                       # default Okabe-Ito palette
+  } else {
+    # User-supplied colours, mapped to the model levels in plotting order.
+    cols <- stats::setNames(rep(line_col, length.out = nlevels(plot_df$Model)),
+                            levels(plot_df$Model))
+    p <- p + ggplot2::scale_colour_manual(values = cols) +
+      ggplot2::scale_fill_manual(values = cols)
+  }
+
+  # Per-model line width / type scales (only added when they vary).
+  lvl <- levels(plot_df$Model)
+  if (vary_lwd) {
+    p <- p + ggplot2::scale_linewidth_manual(
+      values = stats::setNames(rep(lwd, length.out = length(lvl)) / 3, lvl))
+  }
+  if (vary_lty) {
+    p <- p + ggplot2::scale_linetype_manual(
+      values = stats::setNames(rep(lty, length.out = length(lvl)), lvl))
+  }
 
   # A single model needs no colour legend
   if (nlevels(plot_df$Model) < 2L) {
-    p <- p + ggplot2::guides(colour = "none", fill = "none")
+    p <- p + ggplot2::guides(colour = "none", fill = "none",
+                             linewidth = "none", linetype = "none")
   }
 
   .save_ggplot(p, file = file, suffix = paste0(output, "_trajectory"),
@@ -988,7 +1023,8 @@ plot_mortality <-
     }
     plot_df <- do.call(rbind, df_list)
     plot_df$Species <- factor(plot_df$Species, levels = spnames[spp])
-    ylab <- if (M2) "M1 + M2" else "M1"
+    # Msrc is M2_at_age when M2 = TRUE, else M1_at_age; label matches the source.
+    ylab <- if (M2) "M2" else "M1"
     if (log) ylab <- paste0("log(", ylab, ")")
 
     if (identical(type, "heatmap") || identical(type, 0)) {

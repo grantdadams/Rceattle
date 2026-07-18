@@ -20,9 +20,17 @@ name: test-coverage
 
 permissions: read-all
 
+# Coverage runs the full NOT_CRAN suite (47 fit_mod integration files) under covr
+# instrumentation (~3x slowdown), so a single run is long. Cancel superseded runs
+# on the same ref so pushes don't queue redundant multi-hour jobs.
+concurrency:
+  group: test-coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"   # run the full suite (see header)
@@ -63,9 +71,10 @@ jobs:
 
       - uses: codecov/codecov-action@v5
         with:
-          # On pushes, fail loudly if the upload errors; on PRs from forks the
-          # token may be unavailable, so don't fail those.
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          # Never fail the build on a coverage-upload error: the CODECOV_TOKEN
+          # secret may not be configured (and is unavailable on fork PRs), and a
+          # missing coverage upload should not turn the whole run red.
+          fail_ci_if_error: false
           files: ./cobertura.xml
           plugins: noop
           disable_search: true

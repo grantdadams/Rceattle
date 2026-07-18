@@ -14,6 +14,13 @@
 # this file, so test files call it unqualified (like the other helpers here).
 expect_all_true <- function(object) {
   lab <- paste(deparse(substitute(object)), collapse = " ")
+  # Guard against an empty selection: `all(logical(0))` is TRUE, so without this
+  # an index expression that selects nothing would pass vacuously instead of
+  # flagging that the sub-array it was meant to check does not exist.
+  testthat::expect(
+    length(object) > 0L,
+    sprintf("%s is empty: expected a non-empty logical vector.", lab)
+  )
   ok  <- !is.na(object) & object
   testthat::expect(
     all(ok),

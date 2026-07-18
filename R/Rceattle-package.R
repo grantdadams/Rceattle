@@ -51,7 +51,5 @@ utils::globalVariables(c(
   "Time_varying_sel", "Time_varying_sel_sd_prior",
   "Sel_curve_pen1", "Sel_curve_pen2",
   # Loop iterators and anonymous function variables
-  "i", "x", "spp", "sim", "var",
-  # oce function used without explicit namespace
-  "oce.colorsDensity"
+  "i", "x", "spp", "sim", "var"
 ))
