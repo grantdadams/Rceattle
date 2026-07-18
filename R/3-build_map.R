@@ -686,7 +686,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             #       styr_bts..endyr only).
             # When Sel_start_year is NA / equal to styr this reduces to the previous
             # behaviour of fixing only the first deviate.
-            sel_start_yr <- data_list$fleet_control$Sel_start_year[flt]
+            sel_start_yr <- data_list$fleet_control$Sel_start_year[i]  # fleet_control column -> row index i (flt = Fleet_code is for parameter-array dims)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
             map_list$log_sel_slp_dev[1, flt, , 1:start_idx] <- NA
@@ -734,7 +734,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             # unidentified and leave flat directions that stall the optimizer.
             # ADMB declares its survey deviation matrix only over the survey years.
             # When Sel_start_year is NA / equal to styr this is a no-op.
-            sel_start_yr <- data_list$fleet_control$Sel_start_year[flt]
+            sel_start_yr <- data_list$fleet_control$Sel_start_year[i]  # fleet_control column -> row index i (flt = Fleet_code is for parameter-array dims)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
             if (start_idx > 1L) {

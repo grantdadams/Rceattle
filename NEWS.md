@@ -18,6 +18,19 @@
   (`mean(obs)/mean(pred)`) that the AMAK covariance survey uses (the existing
   `"Analytical"` q remains the geometric mean). Defaults are fully back-compatible:
   existing models get `Index_loglike = "Lognormal"` and are numerically unchanged.
+* **AMAK-style non-parametric and logistic selectivity forms.** Two new
+  `fleet_control$Selectivity` options reproduce the ADMB AMAK ("pm") selectivity:
+  `NonParametricPM` (Ianelli coefficient selectivity with the decreasing,
+  curvature, and deviation-magnitude penalties, whose weights are set by
+  `Sel_curve_pen1` / `Sel_curve_pen2` / `Sel_curve_pen3`) and `LogisticPM`
+  (logistic + a free age-1 selectivity). Both take `Time_varying_sel =
+  "RandomWalk"`. Four new per-fleet `fleet_control` columns tune the shape
+  penalty: `Sel_pen_first_age` and `Sel_pen_last_age` (the age range of the
+  adjacent-age shape penalty, letting it span a narrower range than the first
+  selected age), `Sel_shape_mode` (`"Directional"` one-sided decreasing/increasing,
+  the AMAK default, or `"Smooth"` two-sided curvature), and `Sel_cap_age`
+  (hold the realized non-parametric curve flat at/after an age). All default to
+  the previous behavior when unset.
 * The plotting functions have been overhauled to **ggplot2**. Every exported
   `plot_*()` function now builds its figure with ggplot2 (colourblind-safe
   palettes — the Okabe-Ito qualitative palette for series identity and viridis
@@ -51,6 +64,19 @@
   the base-graphics device state or on a `NULL` return may need updating.
 * `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
 * The `gplots` and `oce` dependencies have been dropped (no longer used).
+* **Time-varying non-parametric selectivity now uses `"RandomWalk"`, not
+  `"IID"`.** The Ianelli non-parametric form (`Selectivity = "NonParametric"`)
+  previously fired its time-varying coefficient deviations on `Time_varying_sel =
+  "IID"`; it now requires `"RandomWalk"` (matching the random-walk structure the
+  penalty implements) and rejects `"IID"` with an error at `build_map()`. A model
+  using `NonParametric` + `IID` must switch to `RandomWalk`.
+* **A selectivity shared across fleets is now penalized once.** When two or more
+  fleets share a `Selectivity_index` *and* selectivity type (a mirrored curve),
+  the selectivity shape/deviation penalty is accumulated only on the lead fleet
+  rather than once per fleet, matching ADMB. This changes the objective only for
+  models that both mirror a selectivity **and** put a penalty on it (non-parametric
+  or time-varying); models with a unique selectivity index per fleet, and all
+  bundled examples, are numerically unaffected.
 
 ## Bug fixes
 
