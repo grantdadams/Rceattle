@@ -80,6 +80,20 @@
 
 ## Bug fixes
 
+* **Survey-index covariance matrices were not re-aligned when the fitted year
+  range changed.** An `index_cov` (MVN/MVNORM) Sigma is positionally keyed to a
+  fleet's fitted survey observations, so any workflow that changes that set —
+  a `retrospective()` peel, an `endyr` / `styr` subset, or a `run_mse()`
+  assessment step that appends survey observations — left the Sigma at its
+  original dimension and tripped `rearrange_data()`'s dimension check
+  (`"N x N but the fleet has M fitted survey observations"`). `clean_data()` now
+  tags each Sigma with its fitted years the first time it is seen and, on every
+  subsequent pass, re-keys it to the current fitted set: retained years keep
+  their full covariance block, and new (future/simulated) years are added as an
+  independent diagonal block with variance `(Observation * Log_sd)^2`. Because
+  every re-fit routes through `clean_data()`, retrospective, MSE, and jitter now
+  all work with covariance-survey models; fresh fits and non-MVN fleets are
+  numerically unchanged.
 * **Time-varying selectivity deviations were estimated before a fleet had any
   data.** `build_map()` never consulted `fleet_control$Sel_start_year`, so a fleet
   with time-varying (`"RandomWalk"`) selectivity had deviations estimated across
