@@ -42,7 +42,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `1-*` data checks, `2..5-*` params/map/bounds/rearrange, `6-*` fit + rename output,
   `7-*` plotting, `8-*` sim, `9-*` retro/jitter, `10-*` MSE, `11-*` model averaging.
   **The numeric prefixes are meaningful — don't renumber or rename wholesale.**
-- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,574 lines, numbered section
+- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,810 lines, numbered section
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
@@ -59,7 +59,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 ## Conventions & traps
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
-- Roxygen uses markdown; run `devtools::document()` after touching `@`-docs.
+- Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
+  repo was documented with roxygen2 7.3.3 (`DESCRIPTION: RoxygenNote: 7.3.3`), but a newer
+  local roxygen2 (e.g. 8.0.0) rewrites *every* `man/*.Rd` and swaps `RoxygenNote:` for
+  `Config/roxygen2/version:` — a huge spurious diff. After `document()`, `git checkout`
+  the unrelated `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
 - **Released package — preserve the public API.** Rceattle is shipped (v4.7.0, has users;
   see `cran-comments.md` / `inst/RELEASE-CHECKLIST.md`). Exported `build_*()` args carry
   deprecation paths (e.g. SRR codes `1/3/5`) — **deprecate / keep back-compat rather than
