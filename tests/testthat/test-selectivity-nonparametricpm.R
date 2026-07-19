@@ -104,6 +104,57 @@ testthat::test_that("NonParametricPM penalty matches the ADMB form (time-invaria
 })
 
 
+testthat::test_that("Length-based NonParametricPM penalty spans the length bins, not the ages", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Length-based non-parametric selectivity has nlengths (20) bins, more than the
+  # nages (15) ages. The shape/curvature penalties must run over all 20 length
+  # bins; before the fix they were hard-coded to nages and silently dropped the
+  # last 5 bins. One free coefficient per length bin (so bins 16-20 carry real
+  # signal, not a plateau) makes the check sensitive to that dropped range.
+  set.seed(11)
+  sim <- make_msm_test_data(use_size_sel = TRUE)
+  dat <- sim$data_list
+  nlengths <- dat$nlengths[1]                      # 20
+  n_sel_bins <- nlengths                           # one coefficient per length bin
+  coffs <- rnorm(n_sel_bins)
+
+  dat$fleet_control$Selectivity               <- "NonParametricPM"
+  dat$fleet_control$Selectivity_dimension     <- "Length"
+  dat$fleet_control$N_sel_bins                <- n_sel_bins
+  dat$fleet_control$Bin_first_selected        <- 1
+  dat$fleet_control$Sel_curve_pen1            <- 5     # decreasing weight
+  dat$fleet_control$Sel_curve_pen2            <- 10    # curvature weight
+  dat$fleet_control$Sel_curve_pen3            <- 0
+  dat$fleet_control$Sel_norm_bin1             <- NA
+  dat$fleet_control$Time_varying_sel          <- 0
+  dat$fleet_control$Time_varying_sel_sd_prior <- 1
+
+  flt <- 1                                          # Survey Species 1
+  mod0 <- suppressMessages(fit_mod(data_list = dat, inits = NULL, estimateMode = 3,
+                                   random_rec = FALSE, msmMode = 0,
+                                   fit_control = fit_control(verbose = 0)))
+  inits <- mod0$estimated_params
+  inits$sel_coff[flt, 1, 1:n_sel_bins] <- coffs
+  ss <- suppressMessages(fit_mod(data_list = dat, inits = inits, estimateMode = 3,
+                                 random_rec = FALSE, msmMode = 0,
+                                 fit_control = fit_control(verbose = 0)))
+
+  # Realized log-selectivity over all length bins: coefficients plateau past
+  # N_sel_bins, then centred so mean(exp(.)) = 1 (matches case 9 construction).
+  log_sel <- c(coffs, rep(coffs[n_sel_bins], nlengths - n_sel_bins))
+  log_sel <- log_sel - log(mean(exp(log_sel)))
+
+  d       <- -diff(log_sel); d <- (abs(d) + d) / 2  # differentiable max(decreasing, 0)
+  pen_dec <- 5  * sum(d^2)                           # jnll row 5, over 19 length pairs
+  pen_curv <- 10 * sum(diff(diff(log_sel))^2)        # jnll row 6, over 20 length bins
+
+  testthat::expect_equal(as.numeric(ss$quantities$jnll_comp[5, flt]), pen_dec,  tolerance = 1e-4)
+  testthat::expect_equal(as.numeric(ss$quantities$jnll_comp[6, flt]), pen_curv, tolerance = 1e-4)
+})
+
+
 testthat::test_that("NonParametricPM rejects non-random-walk time variation", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")

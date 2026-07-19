@@ -2722,6 +2722,11 @@ Type objective_function<Type>::operator() () {
     jnll_comp(5, flt) = 0;
     sp = flt_spp(flt);
 
+    // Non-parametric penalties act over the fleet's selectivity dimension:
+    // nbins = nages for age-based, nlengths for length-based selectivity.
+    bool sel_is_length = (flt_sel_dim(flt) == 1);
+    int  nbins = sel_is_length ? nlengths(sp) : nages(sp);
+
     // If estimating survey or fishery (and not a selectivity mirror of an earlier
     // fleet - the shared penalty is accumulated once, on the lead fleet).
     if(flt_type(flt) > 0 && flt_sel_lead(flt) == 1){
@@ -2742,10 +2747,10 @@ Type objective_function<Type>::operator() () {
 
         for(yr = 0; yr < nyrs_tmp; yr++){
 
-          // 1. Decreasing selectivity penalty
-          // FIXME: AMAK starts at nages/2
+          // 1. Decreasing selectivity penalty (over the fleet's own bins)
+          // FIXME: AMAK starts at nbins/2
           for(sex = 0; sex < nsex(sp); sex++){
-            for(age = 0; age < (nages(sp) - 1); age++) {
+            for(age = 0; age < (nbins - 1); age++) {
               Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
               jnll_comp(4, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
@@ -2754,13 +2759,13 @@ Type objective_function<Type>::operator() () {
           // 2. Curvature penalty
           for(sex = 0; sex < nsex(sp); sex++){
             // Extract only the selectivities we want
-            vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
+            vector<Type> sel_tmp(nbins); sel_tmp.setZero();
 
-            for(age = 0; age < nages(sp); age++) {
+            for(age = 0; age < nbins; age++) {
               sel_tmp(age) = log(non_par_sel(flt, sex, age, yr));
             }
 
-            for(age = 0; age < nages(sp) - 2; age++) {
+            for(age = 0; age < nbins - 2; age++) {
               sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
               jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
             }
@@ -2769,7 +2774,7 @@ Type objective_function<Type>::operator() () {
           // 3. Time-varying penalty
           if(yr > 0){
             for(sex = 0; sex < nsex(sp); sex++){
-              for(age = 0; age < (nages(sp) - 1); age++) {
+              for(age = 0; age < (nbins - 1); age++) {
                 jnll_comp(5, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
               }
             }
@@ -2809,8 +2814,8 @@ Type objective_function<Type>::operator() () {
         int start_yr = flt_sel_start_yr(flt);
         int shape_a0 = flt_sel_pen_first_age(flt);              // first (left) age of the shape-penalty pairs
         if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected age
-        int shape_a1 = flt_sel_pen_last_age(flt);               // last (left) age of the shape-penalty pairs
-        if(shape_a1 < 0) shape_a1 = nages(sp) - 2;              // default: whole range (pairs up to (nages-2, nages-1))
+        int shape_a1 = flt_sel_pen_last_age(flt);               // last (left) bin of the shape-penalty pairs
+        if(shape_a1 < 0) shape_a1 = nbins - 2;                  // default: whole range (pairs up to (nbins-2, nbins-1))
         int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
         for(sex = 0; sex < nsex(sp); sex++){
           for(yr = start_yr; yr < nyrs_tmp; yr++){
@@ -2835,15 +2840,15 @@ Type objective_function<Type>::operator() () {
             //     otherwise the survey base-year curvature is excluded (ADMB anchors
             //     the base curvature term at styr, which is 0 pre-survey).
             if((yr > start_yr) || (start_yr == 0)){
-              vector<Type> ls(nages(sp)); ls.setZero();
-              for(age = 0; age < nages(sp); age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
+              vector<Type> ls(nbins); ls.setZero();
+              for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
               vector<Type> d2 = first_difference( first_difference( ls ) );
               for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(5, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
             }
 
             // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
             if(yr > start_yr){
-              for(age = 0; age < nages(sp); age++) {
+              for(age = 0; age < nbins; age++) {
                 Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
                 jnll_comp(5, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
               }
@@ -2923,12 +2928,14 @@ Type objective_function<Type>::operator() () {
         int start_yr = flt_sel_start_yr(flt);                 // 0-based; first first-difference is start_yr+1
         int alo = sel_norm_bin1(flt); int ahi = sel_norm_bin2(flt);
         if(alo < 0) alo = bin_first_selected(flt);            // default: whole selected range
-        if(ahi < 0) ahi = nages(sp) - 1;
+        if(ahi < 0) ahi = nbins - 1;
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = start_yr + 1; yr < nyrs_hind; yr++){
-            // (1) realized log-selectivity random walk over the penalty age-range
+            // (1) realized log-selectivity random walk over the penalty bin-range
             for(age = alo; age <= ahi; age++){
-              Type d = log(sel_at_age(flt, sex, age, yr)) - log(sel_at_age(flt, sex, age, yr - 1));
+              Type s_now  = sel_is_length ? sel_at_length(flt, sex, age, yr)     : sel_at_age(flt, sex, age, yr);
+              Type s_prev = sel_is_length ? sel_at_length(flt, sex, age, yr - 1) : sel_at_age(flt, sex, age, yr - 1);
+              Type d = log(s_now) - log(s_prev);
               jnll_comp(5, flt) += sel_curve_pen(flt, 0) * d * d;
             }
             // (2) free age-1 parameter-deviate random walk

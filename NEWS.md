@@ -80,6 +80,15 @@
 
 ## Bug fixes
 
+* **Non-parametric selectivity penalties now span length bins for length-based
+  fleets.** The shape, curvature, and random-walk penalties for the
+  `NonParametric` (type 2), `NonParametricPM` (type 9), and `LogisticPM`
+  (type 11) forms were hard-coded to the number of ages, so a length-based fleet
+  (`Selectivity_dimension = "Length"`) with more length bins than ages left the
+  upper length bins unpenalized (and read the wrong array). The penalties now run
+  over the fleet's own selectivity dimension (`nlengths` for length-based,
+  `nages` for age-based), so every parametric and non-parametric selectivity form
+  works on both age and length. Age-based fits are numerically unchanged.
 * **Survey-index covariance matrices were not re-aligned when the fitted year
   range changed.** An `index_cov` (MVN/MVNORM) Sigma is positionally keyed to a
   fleet's fitted survey observations, so any workflow that changes that set —
