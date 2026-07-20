@@ -1,3 +1,123 @@
+# Rceattle 4.7.1
+
+## Bug fixes
+
+* **Mohn's rho was computed from the wrong row for forecast years beyond the
+  terminal year.** `retrospective()` accumulated relative error into
+  `mohns[ind, ]` while reading from `mohns[j, ]`; the two indices coincide only
+  at forecast year 0, so retrospective bias was wrong for every additional
+  forecast year. The observation counter on the adjacent line was correctly
+  indexed, which masked the problem.
+
+* **Projection-year conditional age-at-length was missing from every MSE.**
+  `run_mse()` built `proj_caal` and then appended a different object
+  (`proj_comp`) to a non-existent `proj_caal` field instead of appending the
+  CAAL rows to `caal_data`. When the composition branch had not run,
+  `proj_comp` did not exist at all.
+
+* **`sim_mod()` reproduced the previous observation's draw instead of
+  simulating.** The CAAL branch tested `Comp_loglike` (rather than
+  `CAAL_loglike`) against integer codes, and neither the composition nor the
+  CAAL branch handled `"MultinomialAFSC"` — the default `Comp_loglike`. In both
+  cases no branch fired, leaving the simulation variable holding its value from
+  the previous row. Unrecognised likelihood codes now raise an error rather
+  than falling through.
+
+* **`sample_rec()` and retrospective forecasts produced `NaN` recruitment
+  deviations.** Both took `log()` of the mean of `log(R) - log(R_hat)`, a
+  log-scale quantity centred near zero whose mean is routinely negative. The
+  trend adjustment is now applied additively on the log scale, matching the
+  sibling sampling branch.
+
+* **`combine_data()` discarded merged environmental data** (it assigned the
+  merge to its input rather than to the returned object) and appended two
+  `NA`-named elements by iterating past the end of its column-name vector.
+
+* **`read_data()` overwrote a user-supplied `fleet_control$Month`** with zero.
+  The guard was inverted relative to its own message, so per-fleet survey
+  months set in the workbook were silently reset.
+
+* **`build_hcr_map()` disabled SPR reference points too eagerly.** It turned off
+  `Ftarget`/`Flimit` when *any* fishery for a species had zero `proj_F_prop`,
+  though its comment and message both describe the all-zero case.
+
+* **`set_phases()` declared `log_M1` twice**, misaligning the positional
+  phase-to-parameter pairing in `TMBphase()` for every subsequent parameter.
+
+* **`fit_mod()` could fail with `object 'opt' not found`** for
+  `estimateMode = 2` combined with `HCR = "NoFishing"`.
+
+* **`Time_varying_q` environmental-index lists were destroyed.** For fleets with
+  `Catchability = "Environmental"`, a comma-separated list of `env_data` column
+  indices (e.g. `"1,3"`) was coerced with `as.integer()` and became `NA`, both in
+  `fleet_control` itself and in the `index_varying_q` vector passed to TMB.
+  `process_residuals()` tests that vector against a mode code, so the `NA`
+  silently poisoned a branch rather than failing.
+
+* **Natural-mortality environmental linkages used the wrong coefficients.**
+  Assigning a scalar to the vector `beta_M1_tmp` broadcast it, so the dot
+  product collapsed to `beta_last * sum(env)` rather than `sum_j env_j * beta_j`.
+  Dormant in practice because `M1_beta` is mapped out by default.
+
+* **Observation years earlier than `styr` produced a large negative array
+  index.** Two consecutive `if` statements (rather than `if`/`else if`) applied
+  both year transformations in sequence. Five sites.
+
+* **Selectivity max-normalisation branched on an AD type**, freezing the
+  location of the maximum at its initial-parameter position for the whole
+  optimisation. If the peak moved during fitting, the curve was normalised by
+  the wrong bin and the gradient with respect to the true peak was absent. Now
+  folded with `max2()`, matching the neighbouring single-bin normalisation.
+
+* **`plot_form()` errored on every call.** It plots the Kinzey & Punt (2009)
+  functional responses, whose parameters (`logH_1`, `logH_1a`, `logH_1b`,
+  `logH_2`, `logH_3`, `H_4`) are commented out in the TMB template,
+  `build_params()`, `build_map()` and `build_bounds()`, and whose modes
+  (`msmMode` 3-9) `data_check()` blocks. `params$logH_1` was therefore always
+  `NULL` and the first line failed with "non-numeric argument to mathematical
+  function". The function remains exported but now raises a clear message
+  naming the supported alternatives; its body is retained, commented, so it can
+  be revived with the C++ if these formulations are validated.
+
+* **Predation suitability could become infinite.** The zero-guard tested
+  `diet_prop_sum`, but the division is by `suma_suit + other_food_diet_prop`,
+  which can reach zero or go negative independently.
+
+## Behavior changes
+
+* **`estimateMode = 3` now returns the real objective and gradient.** It
+  previously shared mode 4's placeholder objective (`dummy^2`), so `obj$fn()`
+  returned zero and every gradient element was identically zero — a build-only
+  object appeared healthy while carrying no information. Mode 3 is the
+  build-without-optimizing entry point (the analogue of WHAM's
+  `fit_wham(do.fit = FALSE)` and SAM's `sam.fit(run = FALSE)`) and can now be
+  used to inspect a model before committing to a fit. **`estimateMode = 4` is
+  unchanged** and still returns the placeholder: it maps out every hindcast
+  parameter, so it is a plumbing smoke test rather than a likelihood.
+
+## Internal
+
+* **Observed-proportion columns are now found by name rather than by counting
+  from a fixed position.** `comp_data` and `caal_data` begin with identifying
+  columns (fleet, species, sex, year, sample size) followed by the observed
+  proportion at each age or length bin. `sim_mod()` located those proportions
+  by a fixed offset (`[, 9:ncol(x)]`, `[, 7:ncol(x)]`), so adding or reordering
+  an identifying column would have written simulated values into the wrong
+  columns without any error. Both tables now resolve the proportion columns by
+  name, as `rearrange_data()` already did.
+
+* **Added an internal parameter dictionary** (`R/0-parameter_dictionary.R`)
+  mapping each of the 43 TMB parameters to its natural-scale name, its process
+  group, a one-sentence meaning, and its dimensions — so diagnostics and error
+  messages can describe `log_sel_slp_dev` or `index_q_rho` in terms a reader
+  can act on. A test enforces that the dictionary and the parameter list stay
+  in exact correspondence.
+
+* The non-parametric selectivity curvature penalty is computed in one pass
+  rather than recomputing the full second difference for each age (O(n) instead
+  of O(n^2)). Numerically identical.
+
+
 # Rceattle 4.7.0
 
 ## New features

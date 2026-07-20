@@ -34,11 +34,14 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     # if phases for parameters is less than the current phase
     # then map will contain a factor filled with NAs
     map_use <- map
-    j <- 0
-    for (i in 1:length(parameters)) {
-      if (phases[[i]]>phase_cur) {
-        map_val <- which(names(map_use) %in% names(phases)[i])
-        map_use[[map_val]] <- fill_vals(map[[map_val]],NA)
+    # Iterate by name: `phases` covers only parameters with a declared phase,
+    # and its order is the phase table's, not the parameter list's.
+    for (nm in names(phases)) {
+      if (phases[[nm]] > phase_cur) {
+        map_val <- which(names(map_use) %in% nm)
+        if (length(map_val) == 1L) {
+          map_use[[map_val]] <- fill_vals(map[[map_val]], NA)
+        }
       }
     }
 
@@ -94,7 +97,6 @@ set_phases <- function(){
     M1_beta = 5,       #  Estimated natural or residual mortality
     M1_rho = 5,        #  Estimated natural or residual mortality
     M1_dev_log_sd = 5,  #  Estimated natural or residual mortality
-    log_M1 = 4,         #  Estimated natural or residual mortality
     log_Flimit = 3,     # Estimated F limit
     log_Ftarget = 3,    # Estimated F target
     log_Finit = 3,      # Estimated fishing mortality for non-equilibrium initial age-structure

@@ -198,6 +198,10 @@ fit_mod <-
     mod_objects <- list()
     start_time  <- Sys.time()
 
+    # Not every estimateMode / HCR combination runs an optimization, and the
+    # reporting block below reads `opt$SD`.
+    opt <- NULL
+
     extend_length <- function(x) {
       if (length(x) == data_list$nspp) x else rep(x, data_list$nspp)
     }
@@ -859,7 +863,7 @@ fit_mod <-
     # Warning for discontinuous likelihood
     if (estimateMode %in% c(0:2)) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
-        if (!is.null(opt$SD) & random_rec == FALSE) {
+        if (!is.null(opt) && !is.null(opt$SD) && random_rec == FALSE) {
           if (abs(opt$objective - quantities$jnll) > rel_tol) {
             message("#################################################")
             message("Convergence warning (8): discontinuous likelihood")

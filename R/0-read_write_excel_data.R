@@ -268,7 +268,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     message("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
   }
 
-  if(!is.null(data_list$fleet_control$Month)){
+  # Default a missing `Month` column.
+  if(is.null(data_list$fleet_control$Month)){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(Month = 0)
     message("Adding 'Month' column to 'fleet_control' with default value of 0")

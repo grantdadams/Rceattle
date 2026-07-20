@@ -55,9 +55,71 @@ LINKAGE_COLS <- c(
 #' @keywords internal
 LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
 
+#' Processes with a C++ accumulator behind them
+#'
+#' `LINKAGE_PROCESSES` is the *reserved* set, shared with
+#' `src/TMB/linkage.hpp` and `R/0-linkage_encode.R::LINKAGE_PROCESS_CODES`.
+#' Only this subset is wired end-to-end; the rest are rejected up front so a
+#' reserved process cannot be estimated without affecting the model.
+#'
+#' @keywords internal
+#' @noRd
+LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth")
+
+
+#' Error on a reserved-but-unwired process
+#'
+#' @param process character scalar, already matched against
+#'   [LINKAGE_PROCESSES].
+#' @return `process` invisibly, on success. Throws otherwise.
+#' @keywords internal
+#' @noRd
+.check_process_implemented <- function(process) {
+  if (!process %in% LINKAGE_PROCESSES_IMPLEMENTED) {
+    stop(sprintf(
+      paste0("linkages on process \"%s\" are reserved but not yet ",
+             "implemented: no C++ accumulator consumes them, so the ",
+             "coefficients would be estimated without affecting the ",
+             "model.\n  Implemented processes: %s"),
+      process, paste(LINKAGE_PROCESSES_IMPLEMENTED, collapse = ", ")),
+      call. = FALSE)
+  }
+  invisible(process)
+}
+
 #' @rdname LINKAGE_PROCESSES
 #' @keywords internal
 LINKAGE_LINKS <- c("identity", "log", "logit")
+
+#' Link functions with a C++ accumulator behind them
+#'
+#' Every accumulator in `src/TMB/linkage.hpp` gates on `linkfn == 1` (log) or
+#' `linkfn == 0` (identity). `"logit"` stays reserved -- the code is referenced
+#' by the C++ header -- but is rejected until an accumulator implements it;
+#' the processes wired today expose only log-scale parameters.
+#'
+#' @keywords internal
+#' @noRd
+LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log")
+
+
+#' Error on a reserved-but-unimplemented link function
+#'
+#' @param link character scalar, already matched against [LINKAGE_LINKS].
+#' @return `link` invisibly, on success. Throws otherwise.
+#' @keywords internal
+#' @noRd
+.check_link_implemented <- function(link) {
+  if (!link %in% LINKAGE_LINKS_IMPLEMENTED) {
+    stop(sprintf(
+      paste0("link = \"%s\" is reserved but not yet implemented: no C++ ",
+             "accumulator consumes it, so the linkage would be estimated ",
+             "and contribute nothing to the model.\n  Implemented links: %s"),
+      link, paste(LINKAGE_LINKS_IMPLEMENTED, collapse = ", ")),
+      call. = FALSE)
+  }
+  invisible(link)
+}
 
 
 #' Construct an empty linkage table with the canonical schema
@@ -137,11 +199,22 @@ validate_linkage_table <- function(x) {
          paste(bad_proc, collapse = ", "),
          "; allowed: ", paste(LINKAGE_PROCESSES, collapse = ", "))
   }
+  # Backstop for tables assembled without going through
+  # materialize_linkage(): a reserved-but-unwired process must not
+  # reach TMB as a silently inert (q) or cryptically failing (sel) row.
+  for (pr in setdiff(unique(x$process), LINKAGE_PROCESSES_IMPLEMENTED)) {
+    .check_process_implemented(pr)
+  }
   bad_link <- setdiff(unique(x$link), LINKAGE_LINKS)
   if (length(bad_link) > 0) {
     stop("unknown link(s) in linkage table: ",
          paste(bad_link, collapse = ", "),
          "; allowed: ", paste(LINKAGE_LINKS, collapse = ", "))
+  }
+  # Backstop for tables assembled without going through linkage_spec():
+  # a reserved-but-unimplemented link must not reach TMB silently.
+  for (lk in setdiff(unique(x$link), LINKAGE_LINKS_IMPLEMENTED)) {
+    .check_link_implemented(lk)
   }
   bad_fam <- setdiff(unique(x$prior_family), PRIOR_FAMILIES)
   if (length(bad_fam) > 0) {

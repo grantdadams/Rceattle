@@ -170,8 +170,17 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Catchability) %>% as.integer()
 
   # - 15) Time varying q type
-  data_list$index_varying_q <- data_list$fleet_control %>%
-    dplyr::pull(.data$Time_varying_q) %>% as.integer()
+  #
+  # `Time_varying_q` is overloaded: for most fleets it holds a tv_q_map mode
+  # code (0 Off / 1 IID / 2 AR1 / 4 RandomWalk), but for "AR1" and
+  # "Environmental" catchability it holds `env_data` column indices, which
+  # `convert_switches()` leaves unconverted. "Environmental" (5) may carry a
+  # comma-separated list; those indices reach the model via the `index_q_beta`
+  # map, so emit 0 ("not applicable") here -- it collides with no mode code
+  # and is never read for Catchability = 5.
+  .tv_q <- data_list$fleet_control %>% dplyr::pull(.data$Time_varying_q)
+  .tv_q[data_list$est_index_q %in% 5L] <- "0"
+  data_list$index_varying_q <- as.integer(.tv_q)
 
   # - 16) Whether to estimate standard deviation of index time series
   data_list$est_sigma_index <- data_list$fleet_control %>%

@@ -609,11 +609,23 @@ convert_switches <- function(data_list) {
       Selectivity = as.integer(.data$Selectivity),
       Time_varying_sel = as.integer(.data$Time_varying_sel),
       Catchability = as.integer(.data$Catchability),
-      Time_varying_q = as.integer(.data$Time_varying_q),
       Comp_loglike = as.integer(.data$Comp_loglike),
       CAAL_loglike = as.integer(.data$CAAL_loglike),
       Index_loglike = as.integer(.data$Index_loglike)
     )
+
+  # `Time_varying_q` is excluded from the blanket coercion above: for "AR1" (6)
+  # and "Environmental" (5) catchability it holds 1-based `env_data` column
+  # indices rather than a tv_q_map mode, and "Environmental" may carry a
+  # comma-separated list ("1,3"). Coerce only the rows holding a mode code.
+  .q_env_rows <- data_list$fleet_control$Catchability %in% c(5L, 6L)
+  if (!any(.q_env_rows)) {
+    data_list$fleet_control$Time_varying_q <-
+      as.integer(data_list$fleet_control$Time_varying_q)
+  } else if (any(!.q_env_rows)) {
+    data_list$fleet_control$Time_varying_q[!.q_env_rows] <-
+      as.integer(data_list$fleet_control$Time_varying_q[!.q_env_rows])
+  }
 
   # Pop dy controls ----
   data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))

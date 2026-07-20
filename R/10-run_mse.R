@@ -394,8 +394,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     proj_caal$Sample_size <- proj_caal$Sample_size * fut_sample # Adjust future sampling effort
     proj_caal <- proj_caal |>
       dplyr::mutate_at(vars(matches("CAAL_")), ~ 1)
-    om$data_list$proj_caal  <- rbind(om$data_list$proj_caal, proj_comp)
-    om$data_list$proj_caal <- dplyr::arrange(om$data_list$proj_caal, Fleet_code, abs(Year))
+    om$data_list$caal_data  <- rbind(om$data_list$caal_data, proj_caal)
+    om$data_list$caal_data <- dplyr::arrange(om$data_list$caal_data, Fleet_code, abs(Year))
   }
 
   # -- emp_sel - Use terminal year

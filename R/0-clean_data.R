@@ -226,3 +226,35 @@ clean_data <- function(data_list){
 
   return(data_list)
 }
+
+
+#' Locate the observed-proportion columns of a composition table
+#'
+#' @description
+#' `comp_data` and `caal_data` each begin with identifying columns (fleet,
+#' species, sex, year, sample size, ...) followed by the observed proportions
+#' at each age or length bin (`Comp_1`, `Comp_2`, ... / `CAAL_1`, `CAAL_2`,
+#' ...). The number of identifying columns differs between the two tables and
+#' is not fixed, so the proportion columns must be found by name rather than by
+#' counting from a fixed position. `rearrange_data()` does this with
+#' `dplyr::contains()`; this helper is the base-R equivalent for subsetting and
+#' assignment.
+#'
+#' @param x a composition table (`comp_data` or `caal_data`).
+#' @param prefix column-name prefix identifying the proportion columns, e.g.
+#'   `"Comp_"` or `"CAAL_"`.
+#'
+#' @return Integer vector of column indices, in table order. Throws if no
+#'   column matches, rather than returning a silent zero-length result.
+#'
+#' @keywords internal
+#' @noRd
+.composition_cols <- function(x, prefix) {
+  idx <- grep(paste0("^", prefix), names(x))
+  if (length(idx) == 0L) {
+    stop(sprintf(
+      "no '%s*' columns found in the supplied table; available columns: %s",
+      prefix, paste(names(x), collapse = ", ")), call. = FALSE)
+  }
+  idx
+}

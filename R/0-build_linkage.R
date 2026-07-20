@@ -118,6 +118,7 @@ linkage_spec <- function(formula,
     sex <- .coerce_sex_arg(sex)
   }
   link <- match.arg(link, LINKAGE_LINKS)
+  .check_link_implemented(link)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
 
   init   <- .validate_linkage_init_arg(init)
@@ -477,6 +478,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
          "build_*() linkages argument.", call. = FALSE)
   }
   process <- match.arg(process, LINKAGE_PROCESSES)
+  .check_process_implemented(process)
   if (!is.data.frame(env_data)) {
     stop("`env_data` must be a data.frame")
   }
