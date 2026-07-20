@@ -82,6 +82,13 @@
 
 ## Bug fixes
 
+* **A mirrored group led by an `Off` fleet stopped estimating selectivity and
+  catchability.** `adjust_map_shared_params()` copied the first sharing fleet's
+  map slice onto the rest. When that fleet was `Fleet_type = "Off"` its slice is
+  all `NA`, so every fleet sharing the index silently had its selectivity /
+  catchability parameters fixed at their starting values. The donor is now the
+  first *estimated* fleet in the group, and the copy is skipped when the group
+  has none. Groups led by an estimated fleet are unchanged.
 * **An explicitly set `Sel_start_year` was not shared across mirrored fleets,
   making the fit depend on `fleet_control` row order.** The default derived from
   the data is already the earliest first-observation year across each

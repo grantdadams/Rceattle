@@ -1141,6 +1141,16 @@ adjust_map_shared_params <- function(map_list, data_list) {
   q_index_tested <- c()
   rows_tests <- c()
 
+  # A fleet with Fleet_type "Off" has no estimated parameters, so its (all-NA)
+  # map slice must not be copied onto the fleets sharing its index -- that would
+  # silently stop estimating their selectivity/catchability. Prefer the first
+  # estimated fleet in the group as the donor.
+  flt_off <- data_list$fleet_control$Fleet_type == "Off"
+  first_est <- function(rows) {
+    est <- rows[!flt_off[rows]]
+    if (length(est)) est[1] else NA_integer_
+  }
+
   for(i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
     sel_test <- sel_index[i] %in% sel_index_tested
@@ -1152,8 +1162,8 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
     # If selectivity is the same as a previous index
     if(sel_test){
-      sel_duplicate <- which(sel_index_tested == sel_index[i])[1]
       sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
+      sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
@@ -1185,21 +1195,23 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # FIXME add checks for surveys sel sigma
 
       # Make selectivity maps the same if selectivity is the same
-      map_list$log_sel_slp[1:2, flt,] <- map_list$log_sel_slp[1:2, sel_duplicate,]
-      map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
-      map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
-      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
-      map_list$log_sel_slp_dev[1:2, flt,,] <- map_list$log_sel_slp_dev[1:2, sel_duplicate,,]
-      map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
-      map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
-      map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+      if(!is.na(sel_duplicate)){
+        map_list$log_sel_slp[1:2, flt,] <- map_list$log_sel_slp[1:2, sel_duplicate,]
+        map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
+        map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
+        map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
+        map_list$log_sel_slp_dev[1:2, flt,,] <- map_list$log_sel_slp_dev[1:2, sel_duplicate,,]
+        map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
+        map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
+        map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+      }
     }
 
 
     # If catchability is the same as a previous index
     if(q_test){
-      q_duplicate <- which(q_index_tested == q_index[i])[1]
       q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
+      q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
@@ -1217,14 +1229,15 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # FIXME add checks for surveys q sigma
 
       # Make catchability maps the same
-      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
-      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
-      # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
-      map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
-      map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
-      map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
-      map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
-      map_list$index_q_dev_log_sd[flt] <- map_list$index_q_dev_log_sd[q_duplicate]
+      if(!is.na(q_duplicate)){
+        map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
+        # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
+        map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
+        map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
+        map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
+        map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
+        map_list$index_q_dev_log_sd[flt] <- map_list$index_q_dev_log_sd[q_duplicate]
+      }
     }
 
 
