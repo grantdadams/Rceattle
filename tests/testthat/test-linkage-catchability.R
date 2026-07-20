@@ -91,3 +91,49 @@ testthat::test_that("a q linkage moves catchability and is estimated", {
   # than the no-linkage one.
   testthat::expect_lt(fit$opt$objective, 10241.0304274978)
 })
+
+
+testthat::test_that("Catchability = 'Environmental' warns but still fits", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  d$env_data <- .q_env_data(d)
+  d$fleet_control$Catchability[1]   <- "Environmental"
+  d$fleet_control$Time_varying_q[1] <- "1"
+
+  warns <- character(0)
+  fit <- withCallingHandlers(
+    Rceattle::fit_mod(
+      data_list = d, estimateMode = 1, msmMode = 0,
+      fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                          verbose = 0)),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w)); invokeRestart("muffleWarning")
+    })
+
+  # The deprecation is a redirect, not a removal: the legacy path still runs.
+  testthat::expect_true(any(grepl("deprecated", warns)))
+  testthat::expect_true(any(grepl("build_catchability", warns)))
+  testthat::expect_true(is.finite(fit$opt$objective))
+})
+
+
+testthat::test_that("a q linkage intercept re-targets the base catchability", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  d$env_data <- .q_env_data(d)
+
+  fit <- Rceattle::fit_mod(
+    data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = Rceattle::build_catchability(linkages = list(
+      q = Rceattle::linkage_spec(~ temp, by = ~ fleet))),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))
+
+  tbl <- fit$data_list$linkage_table
+  # An intercept-bearing formula fixes the intercept rows at 0 and leaves the
+  # base index_log_q estimable to carry the level -- as growth/M/recruitment
+  # linkages do with their base parameters.
+  testthat::expect_true(
+    all(is.na(fit$map$mapList$beta_linkage[tbl$design_col == "(Intercept)"])))
+  testthat::expect_true(any(!is.na(fit$map$mapList$index_log_q)))
+})

@@ -3435,6 +3435,12 @@ Type objective_function<Type>::operator() () {
         } else {
           b = growth_log_sd(sp_idx, sx_idx, param - RCEATTLE_N_GROWTH_PARAMS);
         }
+      } else if (proc == RCEATTLE_PROC_Q) {
+        // Catchability is fleet- not species-indexed. The intercept
+        // stands in for the base log-catchability index_log_q(fleet).
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        b = index_log_q(fl_idx);
       }
     }
 

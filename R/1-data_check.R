@@ -44,6 +44,26 @@ data_check <- function(data_list) {
     errors <- c(errors, "'PowerEquation' catchability not yet implemented")
   }
 
+  # Catchability = "Environmental" (Estimate_q = 5) is superseded by a q
+  # linkage. The old form still fits -- it keeps its own C++ path and exact
+  # numerics -- but names covariates by position in Time_varying_q rather than
+  # by a formula, and cannot carry priors, bounds or a phase. Redirect the
+  # user without changing their result.
+  if(!is.null(data_list$fleet_control$Catchability) &&
+     any(data_list$fleet_control$Catchability %in% c("Environmental", 5),
+         na.rm = TRUE)){
+    env_flts <- data_list$fleet_control$Fleet_name[
+      data_list$fleet_control$Catchability %in% c("Environmental", 5)]
+    warning(paste0(
+      "Catchability = 'Environmental' is deprecated. Fleet(s) ",
+      paste(env_flts, collapse = ", "), " still fit with their current ",
+      "numerics, but the environmental effect on q is better expressed as a ",
+      "linkage:\n  build_catchability(linkages = list(q = ",
+      "linkage_spec(~ your_covariate, by = ~ fleet)))\n",
+      "which names the covariate by a formula and can carry priors, bounds ",
+      "and an estimation phase."), call. = FALSE)
+  }
+
   # minage: < 0 error
   if(any(data_list$minage < 0)){
     errors <- c(errors, "Minimum age is < 0. Check 'minage'.")
