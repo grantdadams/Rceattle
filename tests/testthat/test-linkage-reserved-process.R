@@ -1,36 +1,32 @@
-# Regression tests for the reserved-but-unwired "q" and "sel" processes.
+# Regression tests for the reserved-but-unwired "sel" process.
 #
-# Both are reserved in LINKAGE_PROCESSES (and as RCEATTLE_PROC_Q /
-# RCEATTLE_PROC_SEL in src/TMB/linkage.hpp) but neither has an
-# accumulator. They used to fail asymmetrically and both failed badly:
-#   * LINKAGE_PARAM_CODES$q is populated, so a "q" row encoded cleanly
-#     and was then estimated and prior-penalized while contributing
-#     nothing to the model.
-#   * LINKAGE_PARAM_CODES$sel is empty, so a "sel" row died inside
-#     encode_linkage_for_tmb() with an opaque "unknown param".
-# Both must now be rejected up front with a message that says why.
+# "sel" is reserved in LINKAGE_PROCESSES (and as RCEATTLE_PROC_SEL in
+# src/TMB/linkage.hpp) but has no accumulator yet. A "sel" row must be
+# rejected up front rather than estimated without affecting the model, or
+# dying with an opaque "unknown param" deeper in the pipeline.
+#
+# ("q" was in the same state until catchability linkages were wired; it is
+# now implemented and has its own tests in test-linkage-catchability.R.)
 
 .env_df <- function() data.frame(Year = 1:6, temp = seq(-1, 1, length.out = 6))
 
-testthat::test_that("q and sel are reserved but not implemented", {
-  testthat::expect_true(all(c("q", "sel") %in% Rceattle:::LINKAGE_PROCESSES))
-  testthat::expect_false(any(c("q", "sel") %in%
-                               Rceattle:::LINKAGE_PROCESSES_IMPLEMENTED))
+testthat::test_that("sel is reserved but not yet implemented", {
+  testthat::expect_true("sel" %in% Rceattle:::LINKAGE_PROCESSES)
+  testthat::expect_false("sel" %in% Rceattle:::LINKAGE_PROCESSES_IMPLEMENTED)
+  # q has been wired; sel has not.
+  testthat::expect_true("q" %in% Rceattle:::LINKAGE_PROCESSES_IMPLEMENTED)
   testthat::expect_setequal(Rceattle:::LINKAGE_PROCESSES_IMPLEMENTED,
-                            c("recruitment", "M", "growth"))
+                            c("recruitment", "M", "growth", "q"))
 })
 
 
-testthat::test_that("materialize_linkage() rejects reserved processes", {
+testthat::test_that("materialize_linkage() rejects the sel process", {
   spec <- Rceattle::linkage_spec(~temp, param = "M1")
-  for (proc in c("q", "sel")) {
-    testthat::expect_error(
-      Rceattle:::materialize_linkage(spec, proc, .env_df(),
-                                     list(species = 1L)),
-      "reserved but not yet implemented",
-      info = proc
-    )
-  }
+  testthat::expect_error(
+    Rceattle:::materialize_linkage(spec, "sel", .env_df(),
+                                   list(species = 1L)),
+    "reserved but not yet implemented"
+  )
 })
 
 
@@ -45,9 +41,9 @@ testthat::test_that("materialize_linkage() still works for wired processes", {
 })
 
 
-testthat::test_that("validate_linkage_table() backstops hand-built q/sel rows", {
+testthat::test_that("validate_linkage_table() backstops hand-built sel rows", {
   testthat::expect_error(
-    Rceattle:::linkage_row(process = "q", param = "q", X_col = 1L),
+    Rceattle:::linkage_row(process = "sel", param = "coff", X_col = 1L),
     "reserved but not yet implemented"
   )
 })
