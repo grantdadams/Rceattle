@@ -674,6 +674,7 @@ Type objective_function<Type>::operator() () {
   recruitment_linkage_offset_nat.setZero();
   rceattle_apply_recruitment_linkages(
     recruitment_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -686,8 +687,9 @@ Type objective_function<Type>::operator() () {
     nspp,
     nyrs
   );
-  rceattle_apply_recruitment_linkages_natural(
+  rceattle_apply_recruitment_linkages(
     recruitment_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -710,6 +712,7 @@ Type objective_function<Type>::operator() () {
   M_linkage_offset_nat.setZero();
   rceattle_apply_M_linkages(
     M_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -724,8 +727,9 @@ Type objective_function<Type>::operator() () {
     nages,
     nyrs
   );
-  rceattle_apply_M_linkages_natural(
+  rceattle_apply_M_linkages(
     M_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -751,6 +755,7 @@ Type objective_function<Type>::operator() () {
   growth_linkage_offset_nat.setZero();
   rceattle_apply_growth_linkages(
     growth_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -764,8 +769,9 @@ Type objective_function<Type>::operator() () {
     nsex,
     nyrs
   );
-  rceattle_apply_growth_linkages_natural(
+  rceattle_apply_growth_linkages(
     growth_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
