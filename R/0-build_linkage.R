@@ -496,7 +496,25 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   if (!is.data.frame(env_data)) {
     stop("`env_data` must be a data.frame")
   }
-  X <- stats::model.matrix(spec$formula, data = env_data)
+  # Split fixed from random before building the design matrix. Passing a
+  # formula containing a bar straight to model.matrix() evaluates `1 | Year`
+  # as a logical OR and yields a nonsense column ("1 | YearTRUE"), so the
+  # split has to happen first.
+  parsed <- .parse_linkage_formula(spec$formula)
+  if (length(parsed$re_terms) > 0L) {
+    stop(sprintf(
+      paste0("random-effect terms are not yet supported in linkage ",
+             "formulas: found %s.\n",
+             "  Terms outside a bar are fixed effects and work today; use a ",
+             "prior to shrink them.\n",
+             "  Bar terms need the random-effect parameter vectors, which ",
+             "are not wired to TMB yet."),
+      paste0("`", vapply(parsed$re_terms, deparse1, character(1)), "`",
+             collapse = ", ")),
+      call. = FALSE)
+  }
+
+  X <- stats::model.matrix(parsed$fixed, data = env_data)
   X_names <- colnames(X)
   n_cols  <- ncol(X)
 

@@ -71,3 +71,35 @@ testthat::test_that("two-sided and non-formula input are rejected", {
   testthat::expect_error(.p(y ~ temp), "one-sided")
   testthat::expect_error(.p("temp"),   "one-sided")
 })
+
+
+testthat::test_that("bar terms are rejected by materialize_linkage, not mangled", {
+  # model.matrix() evaluates `1 | Year` as a logical OR and produces a
+  # column literally named "1 | YearTRUE". Splitting the formula first
+  # turns that silent corruption into an error.
+  env <- data.frame(Year = 1:6, temp = stats::rnorm(6))
+  spec <- Rceattle::linkage_spec(~ (1 | Year), param = "M1")
+  testthat::expect_error(
+    Rceattle:::materialize_linkage(spec, "M", env, list(species = 1L)),
+    "random-effect terms are not yet supported")
+})
+
+
+testthat::test_that("fixed formulas still materialize, with contrast coding", {
+  env <- data.frame(Year = 1:6, temp = stats::rnorm(6))
+
+  tbl <- Rceattle:::materialize_linkage(
+    Rceattle::linkage_spec(~ temp, param = "M1"), "M", env, list(species = 1L))
+  testthat::expect_equal(tbl$design_col, c("(Intercept)", "temp"))
+
+  # `~ Year` is one column (a linear trend); `~ factor(Year)` is one per
+  # level less the reference -- which is what makes the deviate vector
+  # identifiable without a sum-to-zero constraint.
+  tr <- Rceattle:::materialize_linkage(
+    Rceattle::linkage_spec(~ Year, param = "M1"), "M", env, list(species = 1L))
+  dv <- Rceattle:::materialize_linkage(
+    Rceattle::linkage_spec(~ factor(Year), param = "M1"), "M", env,
+    list(species = 1L))
+  testthat::expect_equal(nrow(tr), 2L)
+  testthat::expect_equal(nrow(dv), length(unique(env$Year)))
+})
