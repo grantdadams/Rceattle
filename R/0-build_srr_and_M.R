@@ -734,3 +734,51 @@ build_growth <- function(fun = "empirical",
   }
   lapply(val, .set_linkage_param, param = param)
 }
+
+
+#' Catchability parameters that accept a linkage
+#' @keywords internal
+#' @noRd
+Q_LINKAGE_PARAMS <- c("q")
+
+
+#' @keywords internal
+#' @noRd
+.validate_q_linkages <- function(linkages) {
+  .validate_process_linkages(linkages, Q_LINKAGE_PARAMS, "q")
+}
+
+
+#' Catchability specification
+#'
+#' @description
+#' Describes how survey/index catchability is estimated. At present its only
+#' role is to carry environmental linkages on `q`, which supersede the
+#' `Estimate_q = "Environmental"` / `Time_varying_q` column pair: instead of
+#' naming `env_data` columns by position, the effect is written as a formula
+#' and can carry priors, bounds and an estimation phase like any other
+#' linkage.
+#'
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by
+#'   catchability parameter. The only parameter is `q`. Use `by = ~ fleet` for
+#'   a separate coefficient per fleet, and the `fleet` argument of
+#'   [linkage_spec()] to restrict a spec to particular fleets.
+#'
+#' @return A list of catchability settings for [fit_mod()].
+#'
+#' @examples
+#' \donttest{
+#' # One temperature effect on q, estimated separately for each fleet
+#' build_catchability(linkages = list(
+#'   q = linkage_spec(~ temp, by = ~ fleet)))
+#'
+#' # Restrict it to fleets 1 and 3, with a prior on the slope
+#' build_catchability(linkages = list(
+#'   q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+#'                    priors = list(temp = prior_normal(0, 1)))))
+#' }
+#'
+#' @export
+build_catchability <- function(linkages = NULL) {
+  list(linkages = .validate_q_linkages(linkages))
+}

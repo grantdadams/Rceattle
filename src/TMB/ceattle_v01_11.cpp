@@ -611,9 +611,33 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.3. CATCHABILITY
+  // Environmental linkage offsets, one pass per link scale. Zero unless a
+  // q linkage was supplied, so models without one are unaffected.
+  matrix<Type> q_linkage_offset(n_flt, nyrs_hind);     q_linkage_offset.setZero();
+  matrix<Type> q_linkage_offset_nat(n_flt, nyrs_hind); q_linkage_offset_nat.setZero();
+
+  rceattle_apply_q_linkages(
+    q_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage, n_flt, nyrs_hind);
+
+  rceattle_apply_q_linkages(
+    q_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage, n_flt, nyrs_hind);
+
+  REPORT(q_linkage_offset);
+  REPORT(q_linkage_offset_nat);
+
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
-      index_q(flt, yr) = exp(index_log_q(flt) + index_q_dev(flt, yr));                 // Exponentiate
+      index_q(flt, yr) = exp(index_log_q(flt) + index_q_dev(flt, yr)
+                               + q_linkage_offset(flt, yr))
+                           + q_linkage_offset_nat(flt, yr);              // Exponentiate
 
       // Q as a function of environmental index
       if(est_index_q(flt) == 5){

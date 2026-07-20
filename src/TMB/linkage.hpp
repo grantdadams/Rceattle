@@ -225,4 +225,52 @@ void rceattle_apply_recruitment_linkages(
   }
 }
 
+
+// Catchability: offset tensor is [n_flt, nyrs]. Catchability is indexed by
+// fleet rather than by species/sex/age, so those sentinels are accepted and
+// ignored -- a fleet already implies its species through fleet_control.
+template<class Type>
+void rceattle_apply_q_linkages(
+    matrix<Type>&         q_offset,
+    int                   link_code,
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_fleet,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   n_flt,
+    int                   nyrs)
+{
+  (void)linkage_param;                 // only q itself is exposed
+  (void)linkage_species;
+  (void)linkage_sex;
+  (void)linkage_age_bin;
+  int n = beta.size();
+  if (n == 0) return;
+
+  int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+
+  for (int i = 0; i < n; ++i) {
+    if (linkage_process(i) != RCEATTLE_PROC_Q) continue;
+    if (linkage_link(i)    != link_code)       continue;
+
+    int xc = linkage_X_col(i);
+    Type b = beta(i);
+
+    int fl_lo, fl_hi;
+    rceattle_stratum_range(linkage_fleet(i), n_flt, fl_lo, fl_hi);
+
+    for (int flt = fl_lo; flt < fl_hi; ++flt) {
+      for (int yr = 0; yr < yr_hi; ++yr) {
+        q_offset(flt, yr) += b * linkage_X(yr, xc);
+      }
+    }
+  }
+}
+
 #endif

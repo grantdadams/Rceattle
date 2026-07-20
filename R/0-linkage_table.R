@@ -65,7 +65,7 @@ LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
 #'
 #' @keywords internal
 #' @noRd
-LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth")
+LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q")
 
 
 #' Error on a reserved-but-unwired process

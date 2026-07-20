@@ -1549,6 +1549,11 @@ map_linkage_adjuster <- function(map_list, data_list) {
         par_idx <- .REC_PARAM_TO_INDEX[row$param]
         if (is.na(par_idx)) next
         map_list$rec_pars[idx$species, par_idx] <- NA
+      },
+      q = {
+        # Catchability is indexed by fleet, so the stratum to mask is
+        # idx$fleet rather than the species/sex/age triple.
+        map_list$index_log_q[idx$fleet] <- NA
       }
     )
   }

@@ -28,6 +28,8 @@
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param growthFun The weight-at-age parameterization from \code{\link{build_growth}}.
+#' @param qFun Catchability specification from \code{\link{build_catchability}},
+#'   carrying any environmental linkages on q.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
@@ -108,6 +110,7 @@ fit_mod <-
     recFun = build_srr(),
     M1Fun = build_M1(),
     growthFun = build_growth(),
+    qFun = build_catchability(),
     msmMode = 0,
     avgnMode = 0,
     initMode = "NonEquilibrium",
@@ -283,6 +286,7 @@ fit_mod <-
     # * Growth switches ----
     data_list$growth_fun      <- growthFun$fun
     data_list$growth_linkages <- growthFun$linkages
+    data_list$q_linkages      <- qFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
     data_list$growth_indices  <- growthFun$growth_indices
@@ -333,9 +337,11 @@ fit_mod <-
     .linkage_pool <- pool_linkages(
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
-                         recruitment = data_list$srr_linkages),
+                         recruitment = data_list$srr_linkages,
+                         q           = data_list$q_linkages),
       env_data    = data_list$env_data,
       strata      = list(
+        fleet   = seq_len(nrow(data_list$fleet_control)),
         species = seq_len(data_list$nspp),
         sex     = if (length(data_list$nsex) > 1L &&
                       length(unique(data_list$nsex)) > 1L) {
@@ -480,6 +486,7 @@ fit_mod <-
     data_list_reorganized$growth_fun      <- NULL
     data_list_reorganized$M1_linkages     <- NULL
     data_list_reorganized$srr_linkages    <- NULL
+    data_list_reorganized$q_linkages      <- NULL
 
     # OSA residual metadata: obs_ctl maps each obsvec element back to its
     # fleet/species/year/age. It is an R-side data frame (TMB's dataSanitize
