@@ -198,30 +198,85 @@ replaces a readable expression with an index-arithmetic trick. `construct_Q()`'s
 inverse is genuinely slow but only reachable for `Sel_type = 7`; leave it until someone uses
 that path.
 
-## Standing constraint: this work should be net-negative on line count
+## The architectural constraint that rules the design (from the RFC, §2)
 
-The risk of everything above is that it *adds* surface — `build_data()`, `data_requirements()`,
-`model_config`, `save_config()`, the spec tree, `sanity()` — to a codebase that is already
-sprawling. It should not. Every PR below passes through code with large, identified
-duplication; collapse it while we are already there rather than leaving a second layer on top.
+**A compiled TMB template's `DATA_*` members must all exist.** "Off" cannot be *absent* — it
+must be a **present, flagged or zeroed structure**. This is what rules out FIMS's
+true-absence module model for Rceattle and points at WHAM's dummy-off, and it is already
+Rceattle's own `map -> NA` convention.
 
-The requirement table in PR 4 is the model for this: it **replaces** the scattered conditionals
-in `data_check()` rather than sitting alongside them. Prefer that shape everywhere.
+Everything in PR 4 has to respect this. `build_data()` may let a *user* omit a block, but
+what reaches `MakeADFun` is always a full set of slots — the omission is realised as
+`clean_data()` filling a defaulted, inert structure, not as a missing element. The
+requirement table's three states map onto this directly: Required (user must supply),
+Optional (defaulted to a present-but-inert structure), Ignored (present, never read).
+
+### The worked exemplar already in the tree (RFC §5)
+
+The MVN covariance survey likelihood is this pattern in miniature, already merged, and is the
+template to copy rather than reinvent:
+
+- **Optional and keyed by name** — `data_list$index_cov <- list(BTS = Sigma)`; a fleet that
+  is not MVN never mentions it.
+- **Flag-driven with a back-compatible default** — `fleet_control$Index_loglike` defaults to
+  `"Lognormal"`, so existing models are numerically unchanged.
+- **Present-but-inert for the compiled model** — TMB always receives a length-`n_flt` list of
+  precision matrices; non-MVN fleets get a 1x1 dummy that is never read.
+- **Validated early, at the flag** — `data_check()` errors naming the fleet and the exact
+  dimension mismatch, rather than failing deep inside `rearrange_data()`.
+
+Under PR 4 this becomes `set_index(d, index_df, cov = list(BTS = Sigma))` with
+`Index_loglike = "MVN"` inferred from the presence of `cov` for that fleet.
+
+## Deferred: condense the codebase (TODO, after the data workflow)
+
+**Sequencing (Grant's call): do the data workflow first, then condense as a separate pass.**
+Not woven into each PR. The `.refit_like()` investigation showed why — collapsing 11 call
+sites that differ in six invisible ways is its own piece of work with its own failure mode,
+and bundling it into a feature PR means a behaviour change disguised as a refactor. Keep the
+two apart so each can be golden-checked on its own.
+
+The risk of PRs 1-7 is that they *add* surface — `build_data()`, `data_requirements()`,
+`model_config`, `save_config()`, the spec tree, `sanity()`. This pass is what makes the net
+negative. The requirement table in PR 4 is the one exception that condenses *while* adding,
+because it **replaces** the scattered conditionals in `data_check()` rather than sitting
+alongside them; prefer that shape where it is available.
 
 Rough sizes are from the review sweep and want confirming before each is attempted.
 
-**Collapse where the PR already lands**
+**Collapse candidates**
 
-| Where | What | Approx |
+| Target | What | Approx |
 |---|---|---|
-| PR 4 (data) | The `fit_mod()` re-invocation block is copy-pasted **11 times** across `9-retro_and_jitter.R`, `10-run_mse.R`, `10-project-no-F.R` — `build_hcr(11 args)` + `build_srr(13)` + `build_M1(10)` + `build_growth()` + 8 pass-throughs, differing only in source object, `estimateMode`, `phase`, `getsd`. **Already drifted** (`run_mse.R:667` pins SRR args to `om` where `:864` uses `em_use`). One `.refit_like(model, overrides)`. | ~900 → ~120 |
-| PR 4/5 (data) | 26 `pull()` blocks in `rearrange_data.R` in three shapes; two helpers also put the 1-based→0-based conversion in **one auditable place** instead of four — the same class of bug as the year-index defect | ~110 → ~20 |
-| PR 5 (schema) | Three `.coerce_*` functions with the same four-branch skeleton (they even disagree on return type), plus four `.warn_*_deprecation()` from one template | ~130 → ~40 |
-| PR 5 (schema) | `check_composition_data()` / `check_caal_data()` ~90% identical — and the CAAL one's message says "Composition data have NAs" | ~90 → ~50 |
-| PR 5 (schema) | `read_data()`'s sheet-reading idiom repeated 12×; the CRAN core-cap block 6×; PSOCK dispatch 5× | meaningful |
-| PR 1/2 (linkage) | `linkage.hpp`'s six accumulators share ~90% of their bodies — one templated helper parameterised on an index-mapping functor, called six times | ~250 → ~90 |
-| PR 2 (selectivity) | `growth.hpp`: `estimate_growth()` and `estimate_growth_within_yr()` are ~200-line near-duplicates; two sections are **byte-identical** | ~200 → ~120 |
-| PR 7 (legibility) | Six `plot_*` wrappers byte-identical but for two strings, each declaring and forwarding 21 formals; a `.ts_wrapper(output, ylab)` factory | ~300 → ~15 |
+| `9-retro_and_jitter.R`, `10-run_mse.R`, `10-project-no-F.R` | The `fit_mod()` re-invocation block, copy-pasted **11 times** — `build_hcr(11 args)` + `build_srr(13)` + `build_M1(10)` + `build_growth()` + 8 pass-throughs. **Needs the tabulation step first** (see below). | ~900 → ~120 |
+| `5-rearrange_data.R` | 26 `pull()` blocks in three shapes; two helpers also put the 1-based→0-based conversion in **one auditable place** instead of four — the same class of bug as the year-index defect | ~110 → ~20 |
+| `0-build_srr_and_M.R` | Three `.coerce_*` functions with the same four-branch skeleton (they even disagree on return type), plus four `.warn_*_deprecation()` from one template | ~130 → ~40 |
+| `5-rearrange_data.R` | `check_composition_data()` / `check_caal_data()` ~90% identical — and the CAAL one's message says "Composition data have NAs" | ~90 → ~50 |
+| `0-read_write_excel_data.R` | The sheet-reading idiom repeated 12×; the CRAN core-cap block 6×; PSOCK dispatch 5× | meaningful |
+| `linkage.hpp` | Six accumulators sharing ~90% of their bodies — one templated helper parameterised on an index-mapping functor. **Do this before PR 1 adds two more**, or it becomes eight near-copies. | ~250 → ~90 |
+| `growth.hpp` | `estimate_growth()` and `estimate_growth_within_yr()` are ~200-line near-duplicates; two sections are **byte-identical** | ~200 → ~120 |
+| `7-plot_ceattle.R` | Six `plot_*` wrappers byte-identical but for two strings, each declaring and forwarding 21 formals; a `.ts_wrapper(output, ylab)` factory | ~300 → ~15 |
+
+**Prerequisite for the `.refit_like()` collapse — do not skip.** The 11 sites are not
+homogeneous. Each is ~40 arguments read from the *working* model with a few deliberate
+exceptions read from the *pristine* original:
+
+- OM site: 38 x `om_use$`, **5 x `om$`** (`suit_styr`, `suit_endyr`, `srr_mse_switchyr`,
+  `srr_hat_styr`, `srr_hat_endyr`) — the OM pinning its suitability and stock-recruit
+  reference periods to the original so its biology stays fixed through the projection.
+- EM site: 42 x `em_use$`, **1 x `em$`** (`HCRorder`) — origin unclear, worth a decision.
+- And one argument is **computed, not forwarded**: `srr_mse_switchyr = em_use$data_list$endyr`
+  reads a *different field* and advances every iteration. A pure field-forwarder cannot
+  express it; `.refit_like()` needs computed overrides.
+
+So: tabulate all 11 sites x every argument x source object first; classify each exception as
+intentional pin or accidental drift; then write the helper with the pins as **named
+overrides** so a reader sees "this deliberately uses the original OM" at the call site
+instead of inferring it from a variable name. Golden-check each site before and after.
+
+(An earlier draft of this plan repeated a review claim that the OM and EM SRR arguments had
+"drifted". They have not — those are two different models each reading its own family. The
+real subtlety is the computed `endyr` substitution above.)
 
 **Straight deletion — no replacement needed**
 
