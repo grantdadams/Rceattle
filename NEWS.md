@@ -82,6 +82,14 @@
 
 ## Bug fixes
 
+* **`Catchability = "AnalyticalArith"` left an unused free catchability parameter,
+  making the Hessian singular.** The arithmetic-mean analytical q solves q from the
+  data (like the geometric `"Analytical"`), so its `index_log_q` is never used —
+  but `build_map()` excluded only `"Analytical"` from estimation, so the
+  `AnalyticalArith` fleet's `index_log_q` was still freed. That parameter never
+  entered the objective, leaving a zero-gradient flat direction that prevented
+  `sdreport()` from inverting the Hessian (`pdHess = FALSE`). It is now mapped
+  out, and such models converge with an invertible Hessian.
 * **The catchability prior and deviate penalties were counted once per fleet
   sharing a `Q_index`, not once per estimated parameter.** Fleets sharing a
   `Q_index` estimate one catchability and one deviate vector, but the template
