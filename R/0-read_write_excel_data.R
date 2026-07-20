@@ -157,6 +157,18 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   names_used <- c(names_used, "diet_data")
 
 
+  # Survey-index covariance ----
+  # - One sheet per MVN/MVNORM fleet, named "index_cov_<Fleet_name>", holding that
+  #   fleet's variance-covariance matrix. Sheet names are capped at 31 characters
+  #   by the xlsx format, so long fleet names are truncated.
+  if(!is.null(data_list$index_cov) && length(data_list$index_cov) > 0){
+    for(nm in names(data_list$index_cov)){
+      sheet <- substr(paste0("index_cov_", nm), 1, 31)
+      xcel_list[[sheet]] <- as.data.frame(as.matrix(data_list$index_cov[[nm]]))
+      names_used <- c(names_used, sheet)
+    }
+  }
+
   # data_names[!data_names %in% names_used]
 
   # Write the data
@@ -420,6 +432,15 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     message("Renaming 'stom_prop_data' to 'diet_data'")
   }
 
+  # Survey-index covariance ----
+  # - One "index_cov_<Fleet_name>" sheet per MVN/MVNORM fleet (see write_data).
+  cov_sheets <- grep("^index_cov_", sheetnames, value = TRUE)
+  if(length(cov_sheets) > 0){
+    data_list$index_cov <- stats::setNames(
+      lapply(cov_sheets, function(sh)
+        as.matrix(as.data.frame(readxl::read_xlsx(file, sheet = sh)))),
+      sub("^index_cov_", "", cov_sheets))
+  }
 
   # write the data
   return(data_list)
