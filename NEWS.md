@@ -25,12 +25,14 @@
   `Sel_curve_pen1` / `Sel_curve_pen2` / `Sel_curve_pen3`) and `LogisticPM`
   (logistic + a free age-1 selectivity). Both take `Time_varying_sel =
   "RandomWalk"`. Four new per-fleet `fleet_control` columns tune the shape
-  penalty: `Sel_pen_first_age` and `Sel_pen_last_age` (the age range of the
-  adjacent-age shape penalty, letting it span a narrower range than the first
-  selected age), `Sel_shape_mode` (`"Directional"` one-sided decreasing/increasing,
-  the AMAK default, or `"Smooth"` two-sided curvature), and `Sel_cap_age`
-  (hold the realized non-parametric curve flat at/after an age). All default to
-  the previous behavior when unset.
+  penalty: `Sel_pen_first_bin` and `Sel_pen_last_bin` (the bin range of the
+  adjacent-bin shape penalty, letting it span a narrower range than the first
+  selected bin), `Sel_shape_mode` (`"Directional"` one-sided decreasing/increasing,
+  the AMAK default, or `"Smooth"` two-sided curvature), and `Sel_cap_bin`
+  (hold the realized non-parametric curve flat at/after a bin). Each is given on
+  the fleet's own selectivity dimension — an age for age-based fleets, a 1-based
+  length-bin ordinal for length-based fleets — and is range-checked accordingly.
+  All default to the previous behavior when unset.
 * The plotting functions have been overhauled to **ggplot2**. Every exported
   `plot_*()` function now builds its figure with ggplot2 (colourblind-safe
   palettes — the Okabe-Ito qualitative palette for series identity and viridis
@@ -80,6 +82,15 @@
 
 ## Bug fixes
 
+* **Selectivity bin columns were converted to model indices using the species'
+  `minage`, which is wrong for length-based fleets.** `Sel_norm_bin1`,
+  `Sel_norm_bin2`, and the shape-penalty range/cap columns subtracted
+  `minage` to get the 0-based template index. That is correct for an age-based
+  fleet (the value is an age), but a length-based fleet's value is a 1-based
+  length-bin ordinal and must be offset by 1 — so those columns silently pointed
+  at the wrong length bin whenever `minage != 1`. The offset is now chosen per
+  fleet from `Selectivity_dimension`. Age-based fits, and length-based fits with
+  `minage == 1` (where the two offsets coincide), are unchanged.
 * **Non-parametric selectivity penalties now span length bins for length-based
   fleets.** The shape, curvature, and random-walk penalties for the
   `NonParametric` (type 2), `NonParametricPM` (type 9), and `LogisticPM`

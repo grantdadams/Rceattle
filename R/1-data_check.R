@@ -302,6 +302,26 @@ data_check <- function(data_list) {
         errors <- c(errors, paste0("Fleet '", flt_name, "': N_sel_bins (", nsb, ") must be in 1:", max_bin))
       }
 
+      # Non-parametric shape-penalty range and cap, given on the fleet's own
+      # selectivity dimension: an age (from minage) for age-based fleets, a
+      # 1-based length-bin ordinal for length-based. Out-of-range values would
+      # index past the selectivity array in the template.
+      bin_lo <- if(dim_is_age) data_list$minage[sp_idx] else 1L
+      bin_hi <- bin_lo + max_bin - 1L
+      for(col in c("Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_cap_bin")){
+        val <- fc_num(fc, col, flt)
+        if(!is.na(val) && (val < bin_lo || val > bin_hi)){
+          errors <- c(errors, paste0("Fleet '", flt_name, "': ", col, " (", val, ") must be in ",
+                                     bin_lo, ":", bin_hi,
+                                     if(dim_is_age) " (age-based selectivity)" else " (length-based selectivity)"))
+        }
+      }
+      pf <- fc_num(fc, "Sel_pen_first_bin", flt); pl <- fc_num(fc, "Sel_pen_last_bin", flt)
+      if(!is.na(pf) && !is.na(pl) && pf > pl){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': Sel_pen_first_bin (", pf,
+                                   ") must be <= Sel_pen_last_bin (", pl, ")"))
+      }
+
       # Accumulation ages
       lo <- fc_num(fc, "Accumulation_age_lower", flt)
       hi <- fc_num(fc, "Accumulation_age_upper", flt)

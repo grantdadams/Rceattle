@@ -274,7 +274,7 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
     const vector<int>&  flt_n_sel_bins,
-    const vector<int>&  flt_sel_cap_age,
+    const vector<int>&  flt_sel_cap_bin,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
     matrix<Type> emp_sel_obs,
@@ -354,7 +354,7 @@ void calculate_selectivity(
           // RAW per-year increments placed at the year they apply. Ages >= n_sel_bins
           // plateau at the last coff. The UNCAPPED centered curve (np_unc) is carried
           // forward for the walk; the realized curve is that capped flat at
-          // flt_sel_cap_age and re-centered (mean(exp)=1).
+          // flt_sel_cap_bin and re-centered (mean(exp)=1).
           for(int bin = 0; bin < nbins; bin++){
             Type prev = (yr == 0) ? sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1))
                                   : np_unc(sex, (bin < n_sel_bins ? bin : n_sel_bins - 1), yr - 1);
@@ -367,7 +367,7 @@ void calculate_selectivity(
             for(int bin = 0; bin < nbins; bin++) np_unc(sex, bin, yr) -= m; }
           { vector<Type> cl(nbins);
             for(int bin = 0; bin < nbins; bin++) cl(bin) = np_unc(sex, bin, yr);
-            int cap = flt_sel_cap_age(flt);
+            int cap = flt_sel_cap_bin(flt);
             if(cap >= 0) for(int bin = cap + 1; bin < nbins; bin++) cl(bin) = cl(cap);
             Type m2 = 0; for(int bin = 0; bin < nbins; bin++) m2 += exp(cl(bin));
             m2 = log(m2 / nbins);

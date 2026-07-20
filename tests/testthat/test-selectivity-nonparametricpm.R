@@ -108,11 +108,10 @@ testthat::test_that("Length-based NonParametricPM penalty spans the length bins,
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  # Length-based non-parametric selectivity has nlengths (20) bins, more than the
-  # nages (15) ages. The shape/curvature penalties must run over all 20 length
-  # bins; before the fix they were hard-coded to nages and silently dropped the
-  # last 5 bins. One free coefficient per length bin (so bins 16-20 carry real
-  # signal, not a plateau) makes the check sensitive to that dropped range.
+  # Length-based selectivity here has nlengths (20) bins against nages (15), so
+  # the shape/curvature penalties must span all 20 length bins. One free
+  # coefficient per bin keeps bins 16-20 informative (no plateau), making the
+  # check sensitive to the range beyond nages.
   set.seed(11)
   sim <- make_msm_test_data(use_size_sel = TRUE)
   dat <- sim$data_list

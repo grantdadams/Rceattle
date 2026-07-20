@@ -75,6 +75,13 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     )) %>%
     dplyr::pull(.data$Selectivity_dimension) %>% as.integer()
 
+  # - 4b) Per-fleet offset converting a selectivity bin column to the 0-based C++
+  #       index. Age-based fleets give absolute ages -> offset is the species'
+  #       minage; length-based fleets give 1-based length-bin ordinals -> offset 1.
+  sel_bin_offset <- ifelse(!is.na(data_list$flt_sel_dim) & data_list$flt_sel_dim == 1L,
+                           1L,
+                           data_list$minage[data_list$fleet_control$Species])
+
   # - 5) Number of ages/lengths for non-parametric selectivity
   data_list$flt_n_sel_bins <- data_list$fleet_control %>%
     dplyr::mutate(N_sel_bins = ifelse(is.na(.data$N_sel_bins), -999, .data$N_sel_bins)) %>%
@@ -93,14 +100,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
-      Sel_norm_bin1 = .data$Sel_norm_bin1 - data_list$minage[Species],
+      Sel_norm_bin1 = .data$Sel_norm_bin1 - sel_bin_offset,
       Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
       Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
     dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
+    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - sel_bin_offset,
                   Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
     dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
 
@@ -112,22 +119,22 @@ rearrange_data <- function(data_list, build_osa = FALSE){
                   Sel_start_year = .data$Sel_start_year - data_list$styr) %>%
     dplyr::pull(.data$Sel_start_year) %>% as.integer()
 
-  # - 9c) First age (0-based) for the non-parametric shape penalty. NA -> -999
+  # - 9c) First bin (0-based) for the non-parametric shape penalty. NA -> -999
   #       (cpp falls back to bin_first_selected). Lets the ascending/descending
-  #       shape constraint span a narrower age-range than the first selected age
+  #       shape constraint span a narrower range than the first selected bin
   #       (e.g. ATS: age-1 is selected but the shape penalty starts at mina_ats).
-  data_list$flt_sel_pen_first_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_pen_first_age = .data$Sel_pen_first_age - data_list$minage[Species],
-                  Sel_pen_first_age = ifelse(is.na(.data$Sel_pen_first_age), -999, .data$Sel_pen_first_age)) %>%
-    dplyr::pull(.data$Sel_pen_first_age) %>% as.integer()
+  data_list$flt_sel_pen_first_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_first_bin = .data$Sel_pen_first_bin - sel_bin_offset,
+                  Sel_pen_first_bin = ifelse(is.na(.data$Sel_pen_first_bin), -999, .data$Sel_pen_first_bin)) %>%
+    dplyr::pull(.data$Sel_pen_first_bin) %>% as.integer()
 
-  # - 9d) Last (left) age (0-based) of the shape-penalty adjacent pairs. NA -> -999
-  #       (cpp falls back to nages-2). With 9c, bounds the shape penalty to a sub-
+  # - 9d) Last (left) bin (0-based) of the shape-penalty adjacent pairs. NA -> -999
+  #       (cpp falls back to nbins-2). With 9c, bounds the shape penalty to a sub-
   #       range (e.g. RTMB "rpm" fishery smoothness over ages 6-11, ATS 5-7).
-  data_list$flt_sel_pen_last_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_pen_last_age = .data$Sel_pen_last_age - data_list$minage[Species],
-                  Sel_pen_last_age = ifelse(is.na(.data$Sel_pen_last_age), -999, .data$Sel_pen_last_age)) %>%
-    dplyr::pull(.data$Sel_pen_last_age) %>% as.integer()
+  data_list$flt_sel_pen_last_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_last_bin = .data$Sel_pen_last_bin - sel_bin_offset,
+                  Sel_pen_last_bin = ifelse(is.na(.data$Sel_pen_last_bin), -999, .data$Sel_pen_last_bin)) %>%
+    dplyr::pull(.data$Sel_pen_last_bin) %>% as.integer()
 
   # - 9e) Non-parametric shape-penalty mode: "Directional" (0; sign of Sel_curve_pen1
   #       -> one-sided decreasing/increasing, ADMB/AMAK) or "Smooth" (1; two-sided
@@ -138,12 +145,12 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = 0L)) %>%
     dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
 
-  # - 9f) NonParametricRPM (type 9) age cap (0-based): the realized selectivity is
-  #       held flat at/after this age (RTMB cap_old_age). NA -> -999 (no cap).
-  data_list$flt_sel_cap_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_cap_age = .data$Sel_cap_age - data_list$minage[Species],
-                  Sel_cap_age = ifelse(is.na(.data$Sel_cap_age), -999, .data$Sel_cap_age)) %>%
-    dplyr::pull(.data$Sel_cap_age) %>% as.integer()
+  # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
+  #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
+  data_list$flt_sel_cap_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_cap_bin = .data$Sel_cap_bin - sel_bin_offset,
+                  Sel_cap_bin = ifelse(is.na(.data$Sel_cap_bin), -999, .data$Sel_cap_bin)) %>%
+    dplyr::pull(.data$Sel_cap_bin) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
