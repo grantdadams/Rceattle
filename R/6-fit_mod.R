@@ -511,6 +511,7 @@ fit_mod <-
     data_list_reorganized$linkage_species      <- .linkage_enc$linkage_species
     data_list_reorganized$linkage_sex          <- .linkage_enc$linkage_sex
     data_list_reorganized$linkage_age_bin      <- .linkage_enc$linkage_age_bin
+    data_list_reorganized$linkage_fleet        <- .linkage_enc$linkage_fleet
     data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept

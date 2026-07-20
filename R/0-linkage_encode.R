@@ -4,7 +4,7 @@
 #' parallel `IVECTOR` / `VECTOR` inputs plus a dense design matrix.
 #' R encodes string-valued columns (`process`, `param`, `link`,
 #' `prior_family`) as 0-based integer codes (TMB-friendly); converts
-#' `NA` stratum ids (`species`, `sex`, `age_bin`) to a sentinel `0`
+#' `NA` stratum ids (`species`, `sex`, `age_bin`, `fleet`) to a sentinel `0`
 #' meaning "applies to all levels" (TMB-side dispatch expands the
 #' shared rows over the relevant 1-based levels); converts the 1-based
 #' `X_col` to 0-based.
@@ -97,7 +97,7 @@ LINKAGE_STRATUM_ALL <- 0L
 #'   \item{n_linkage}{`integer(1)`. Number of coefficients
 #'     (`nrow(table)`).}
 #'   \item{linkage_process, linkage_param, linkage_species,
-#'     linkage_sex, linkage_age_bin, linkage_X_col, linkage_link,
+#'     linkage_sex, linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
 #'     linkage_prior_family}{Parallel `integer(n_linkage)` vectors.}
 #'   \item{linkage_prior_p1, linkage_prior_p2}{Parallel
 #'     `numeric(n_linkage)` vectors.}
@@ -153,6 +153,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_species       = to_stratum(table$species),
     linkage_sex           = to_stratum(table$sex),
     linkage_age_bin       = to_stratum(table$age_bin),
+    linkage_fleet         = to_stratum(table$fleet),
     linkage_X_col         = as.integer(table$X_col) - 1L,   # 0-based for TMB
     linkage_link          = link_int,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
@@ -175,6 +176,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_species       = integer(0),
     linkage_sex           = integer(0),
     linkage_age_bin       = integer(0),
+    linkage_fleet         = integer(0),
     linkage_X_col         = integer(0),
     linkage_link          = integer(0),
     linkage_is_intercept  = integer(0),

@@ -41,13 +41,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_linkages(map_list, data_list)
 
-  map_list <- map_linkage_adjuster(map_list, data_list)
-
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 
   map_list <- build_map_catchability(map_list, data_list, nyrs_hind)
+
+  # After the per-process builders, not before: a linkage supplies the level
+  # of the parameter it targets, so it must have the last word on whether
+  # that base parameter stays estimable. Ordered ahead of them, a linkage on
+  # catchability or selectivity would be silently overwritten by
+  # build_map_catchability() / build_map_selectivity().
+  map_list <- map_linkage_adjuster(map_list, data_list)
 
   map_list <- adjust_map_shared_params(map_list, data_list)
 

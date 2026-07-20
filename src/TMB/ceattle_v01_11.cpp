@@ -219,6 +219,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
   DATA_IVECTOR(linkage_sex);           // 1-based sex id; 0 = all
   DATA_IVECTOR(linkage_age_bin);       // 1-based age id; 0 = all
+  DATA_IVECTOR(linkage_fleet);         // 1-based Fleet_code; 0 = all
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
