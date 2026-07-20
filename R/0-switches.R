@@ -256,6 +256,17 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
+  # Back-compatibility: these were named *_age before they were generalised to
+  # work on either the age or the length dimension. Accept the old names.
+  for(.old in c("Sel_pen_first_age", "Sel_pen_last_age", "Sel_cap_age")){
+    .new <- sub("_age$", "_bin", .old)
+    if(!is.null(data_list$fleet_control[[.old]]) && is.null(data_list$fleet_control[[.new]])){
+      data_list$fleet_control[[.new]] <- data_list$fleet_control[[.old]]
+      data_list$fleet_control[[.old]] <- NULL
+      message("Renaming '", .old, "' to '", .new, "'")
+    }
+  }
+
   data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)

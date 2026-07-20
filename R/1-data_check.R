@@ -36,6 +36,14 @@ data_check <- function(data_list) {
     errors <- c(errors, "Length based suitability not yet implemented")
   }
 
+  # Catchability = "PowerEquation" is not yet implemented: the power coefficient
+  # (index_q_pow) is not built as a parameter and the template does not apply it,
+  # so the fleet would silently get a plain estimated q instead.
+  if(!is.null(data_list$fleet_control$Catchability) &&
+     any(data_list$fleet_control$Catchability %in% c("PowerEquation", 4), na.rm = TRUE)){
+    errors <- c(errors, "'PowerEquation' catchability not yet implemented")
+  }
+
   # minage: < 0 error
   if(any(data_list$minage < 0)){
     errors <- c(errors, "Minimum age is < 0. Check 'minage'.")

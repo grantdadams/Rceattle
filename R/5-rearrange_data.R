@@ -14,6 +14,28 @@
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
+#' Flag the fleet that carries each shared parameter block's penalty
+#'
+#' Fleets sharing an index estimate one block of parameters, so its prior /
+#' penalty must be accumulated once. Returns 1 for the first estimated fleet in
+#' each group and 0 for the rest. An "Off" fleet estimates nothing, so it is
+#' never chosen while an estimated fleet is available -- the same donor rule
+#' `adjust_map_shared_params()` uses. Fleets with no index (`NA`) share with
+#' nobody and always lead.
+#'
+#' @keywords internal
+#' @noRd
+.group_lead <- function(key, is_off) {
+  lead <- rep(0L, length(key))
+  for (k in unique(key[!is.na(key)])) {
+    rows <- which(!is.na(key) & key == k)
+    est  <- rows[!is_off[rows]]
+    lead[if (length(est)) est[1] else rows[1]] <- 1L
+  }
+  lead[is.na(key)] <- 1L
+  as.integer(lead)
+}
+
 #' Effective selectivity start year, resolved across mirrored fleets
 #'
 #' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
@@ -76,22 +98,19 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$flt_sel_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Selectivity) %>% as.integer()
 
-  # - 4b) Selectivity penalty "lead": 0 if an EARLIER fleet shares this fleet's
-  #       Selectivity_index AND selectivity type (i.e. this fleet mirrors an
-  #       earlier one's estimated selectivity), else 1. The selectivity penalty is
-  #       only accumulated for lead fleets so a mirrored selectivity is penalized
-  #       once (matching ADMB). Requiring the same type means a fleet with empirical
-  #       selectivity (type 0) sharing an index with a parametric fleet does NOT
-  #       suppress the parametric fleet's penalty.
+  # - 4b) Selectivity penalty "lead": 1 for the one fleet that carries each shared
+  #       block's penalty, 0 for the fleets mirroring it, so a mirrored selectivity
+  #       is penalized once (matching ADMB). Fleets are grouped by Selectivity_index
+  #       AND selectivity type, so a fleet with empirical selectivity (type 0)
+  #       sharing an index with a parametric fleet does not suppress the parametric
+  #       fleet's penalty. The lead is the first ESTIMATED fleet in the group: an
+  #       "Off" fleet estimates nothing and the cpp penalty is gated on flt_type,
+  #       so leading with one would drop the group's penalty entirely. This matches
+  #       the map donor chosen in adjust_map_shared_params().
   {
-    .sel_idx <- data_list$fleet_control$Selectivity_index
-    .sel_typ <- data_list$flt_sel_type
-    .lead <- rep(1L, length(.sel_typ))
-    for(.i in seq_along(.sel_typ)) {
-      if(.i > 1 && any(.sel_idx[seq_len(.i - 1)] == .sel_idx[.i] &
-                       .sel_typ[seq_len(.i - 1)] == .sel_typ[.i], na.rm = TRUE)) .lead[.i] <- 0L
-    }
-    data_list$flt_sel_lead <- as.integer(.lead)
+    .off <- data_list$flt_type == 0
+    data_list$flt_sel_lead <- .group_lead(
+      paste(data_list$fleet_control$Selectivity_index, data_list$flt_sel_type), .off)
   }
 
   data_list$flt_sel_dim <- data_list$fleet_control %>%
@@ -206,6 +225,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 15) Time varying q type
   data_list$index_varying_q <- data_list$fleet_control %>%
     dplyr::pull(.data$Time_varying_q) %>% as.integer()
+
+  # - 15b) Catchability "lead", the q analogue of flt_sel_lead. Fleets sharing a
+  #        Q_index estimate ONE catchability (and one deviate vector), so the q
+  #        prior and the deviate penalties are accumulated on the lead fleet only.
+  #        Without this they were applied once per sharing fleet to the same
+  #        parameter, e.g. counting a q prior twice for a mirrored pair.
+  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Q_index,
+                                      data_list$flt_type == 0)
 
   # - 16) Whether to estimate standard deviation of index time series
   data_list$est_sigma_index <- data_list$fleet_control %>%

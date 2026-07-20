@@ -242,6 +242,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
+  DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
   DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
@@ -3028,7 +3029,10 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 6-7 -- Catchability
+  // Fleets sharing a Q_index estimate one catchability and one deviate vector,
+  // so only the lead fleet accumulates the prior and deviate penalties.
   for(flt = 0; flt < n_flt; flt++){
+   if(flt_q_lead(flt) == 1){
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
@@ -3069,6 +3073,7 @@ Type objective_function<Type>::operator() () {
         jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
+   } // End q lead gate
   } // End q loop
 
 

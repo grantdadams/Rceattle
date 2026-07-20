@@ -82,6 +82,26 @@
 
 ## Bug fixes
 
+* **The catchability prior and deviate penalties were counted once per fleet
+  sharing a `Q_index`, not once per estimated parameter.** Fleets sharing a
+  `Q_index` estimate one catchability and one deviate vector, but the template
+  looped over every fleet, so a mirrored pair applied the `Q_prior` twice to the
+  same parameter — tightening an intended prior SD of 0.2 to 0.2/sqrt(2) — and
+  penalized the shared `index_q_dev` vector once per fleet for the IID, random
+  walk and AR1 forms. A new `flt_q_lead` (the catchability analogue of
+  `flt_sel_lead`) accumulates them on one fleet per group. Models whose fleets
+  all have distinct `Q_index` are unchanged.
+* **`Catchability = "PowerEquation"` is now rejected as not yet implemented.** It
+  was accepted as a valid switch, but the power coefficient (`index_q_pow`) is
+  not built as a parameter and the template does not apply it, so the fleet
+  silently got a plain estimated q. `data_check()` now errors, matching how
+  length-based `suitMode` values are handled.
+* **`flt_sel_lead` could put the selectivity penalty on an `Off` fleet.** The
+  lead was the first fleet in a `Selectivity_index` group by row order. When that
+  fleet was `Fleet_type = "Off"` the template's `flt_type > 0` gate then skipped
+  the penalty for the whole group, leaving the shared selectivity unpenalized.
+  The lead is now the first *estimated* fleet in the group, matching the map
+  donor.
 * **A mirrored group led by an `Off` fleet stopped estimating selectivity and
   catchability.** `adjust_map_shared_params()` copied the first sharing fleet's
   map slice onto the rest. When that fleet was `Fleet_type = "Off"` its slice is
