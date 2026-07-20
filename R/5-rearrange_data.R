@@ -1,19 +1,3 @@
-#' Rearrange a data_list for TMB
-#'
-#' @description Function to rearrange a \code{data_list} object to be read into TMB
-#'
-#' @param data_list an Rceattle data_list
-#' @param build_osa Logical. Passed to [build_osa_data()]; when `TRUE` the full
-#'   one-step-ahead (OSA) observation data is assembled so [osa_residuals()] can
-#'   be computed. Default `FALSE` (the fast path used by simulation testing). The
-#'   composition proportion offset is read from `data_list$comp_offset` (default
-#'   `1e-5`).
-#'
-#' @export
-#' @importFrom magrittr %>%
-#' @importFrom rlang .data
-#' @importFrom dplyr n
-#' @importFrom tidyselect contains
 #' Flag the fleet that carries each shared parameter block's penalty
 #'
 #' Fleets sharing an index estimate one block of parameters, so its prior /
@@ -63,6 +47,22 @@
   as.integer(mins[match(grp, names(mins))])
 }
 
+#' Rearrange a data_list for TMB
+#'
+#' @description Function to rearrange a \code{data_list} object to be read into TMB
+#'
+#' @param data_list an Rceattle data_list
+#' @param build_osa Logical. Passed to [build_osa_data()]; when `TRUE` the full
+#'   one-step-ahead (OSA) observation data is assembled so [osa_residuals()] can
+#'   be computed. Default `FALSE` (the fast path used by simulation testing). The
+#'   composition proportion offset is read from `data_list$comp_offset` (default
+#'   `1e-5`).
+#'
+#' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
+#' @importFrom dplyr n
+#' @importFrom tidyselect contains
 rearrange_data <- function(data_list, build_osa = FALSE){
 
   # Convert text to integer for switches used in TMB
