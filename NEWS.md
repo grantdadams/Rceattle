@@ -82,6 +82,26 @@
 
 ## Bug fixes
 
+* **An explicitly set `Sel_start_year` was not shared across mirrored fleets,
+  making the fit depend on `fleet_control` row order.** The default derived from
+  the data is already the earliest first-observation year across each
+  `Selectivity_index` group, but a value the user sets directly was used
+  per fleet. Since fleets sharing an index share one deviation block,
+  `adjust_map_shared_params()` then overwrote the mirrored fleet's mask with the
+  lead fleet's, so whichever fleet appeared first governed the group: when that
+  fleet started later, a sharing fleet with earlier data silently lost those
+  deviations (12 years in a 1982/1994 pair). `Sel_start_year` now resolves to the
+  group minimum for both the map mask and the template's penalty anchor, however
+  it was set. `data_check()` warns when a mirrored group has differing
+  `Sel_start_year`, and `build_map()` warns when `Bin_first_selected` or
+  `N_sel_bins` differ within a group (those are likewise taken from the lead
+  fleet). Unmirrored fleets and derived defaults are unchanged.
+* **`fleet_control$Fleet_code` is now required to equal the row number.** It is
+  used directly as the fleet slot of the per-fleet parameter and map arrays,
+  which are built in `fleet_control` row order; a mismatch silently attached
+  parameters to the wrong fleet. `data_check()` now rejects it, and the
+  remaining places that read a `fleet_control` column by `Fleet_code` instead of
+  row index were corrected.
 * **Selectivity bin columns were converted to model indices using the species'
   `minage`, which is wrong for length-based fleets.** `Sel_norm_bin1`,
   `Sel_norm_bin2`, and the shape-penalty range/cap columns subtracted

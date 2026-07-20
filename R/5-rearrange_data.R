@@ -14,6 +14,33 @@
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
+#' Effective selectivity start year, resolved across mirrored fleets
+#'
+#' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
+#' so the shared block must start at the earliest year any of them has data.
+#' Returns the per-fleet group minimum of `Sel_start_year` (NA = `styr`), keeping
+#' the mask and the penalty anchor independent of `fleet_control` row order.
+#'
+#' @keywords internal
+#' @noRd
+.sel_start_year_by_group <- function(fleet_control, styr) {
+  n   <- nrow(fleet_control)
+  styr <- as.integer(styr)
+  ssy <- fleet_control$Sel_start_year
+  if (is.null(ssy)) return(rep(styr, n))
+
+  eff <- suppressWarnings(as.integer(ssy))
+  eff[is.na(eff)] <- styr                       # NA -> styr (no pre-start masking)
+
+  grp <- fleet_control$Selectivity_index
+  if (is.null(grp)) return(eff)
+  # A fleet with no Selectivity_index shares with nobody -> its own group.
+  grp <- ifelse(is.na(grp), paste0("_row", seq_len(n)), as.character(grp))
+
+  mins <- tapply(eff, grp, min)
+  as.integer(mins[match(grp, names(mins))])
+}
+
 rearrange_data <- function(data_list, build_osa = FALSE){
 
   # Convert text to integer for switches used in TMB
@@ -114,10 +141,10 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the
   #       start-year boundary). NA -> styr (index 0). Used by LogisticPM (type 11).
-  data_list$flt_sel_start_yr <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_start_year = ifelse(is.na(.data$Sel_start_year), data_list$styr, .data$Sel_start_year),
-                  Sel_start_year = .data$Sel_start_year - data_list$styr) %>%
-    dplyr::pull(.data$Sel_start_year) %>% as.integer()
+  #       Resolved to the minimum across each Selectivity_index group, since
+  #       mirrored fleets share one deviation block (see .sel_start_year_by_group).
+  data_list$flt_sel_start_yr <- as.integer(
+    .sel_start_year_by_group(data_list$fleet_control, data_list$styr) - data_list$styr)
 
   # - 9c) First bin (0-based) for the non-parametric shape penalty. NA -> -999
   #       (cpp falls back to bin_first_selected). Lets the ascending/descending

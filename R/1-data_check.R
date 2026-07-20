@@ -253,6 +253,15 @@ data_check <- function(data_list) {
     if(any(duplicated(fcodes[!is.na(fcodes)]))){
       errors <- c(errors, "fleet_control$Fleet_code values must be unique")
     }
+    # Fleet_code is used directly as the fleet slot of the per-fleet parameter
+    # and map arrays, which are built in fleet_control row order. The two must
+    # therefore agree, or parameters are silently attached to the wrong fleet.
+    if(length(fcodes) == nrow(fc) && !identical(as.integer(fcodes), seq_len(nrow(fc)))){
+      errors <- c(errors, paste0(
+        "fleet_control$Fleet_code must equal the row number (1, 2, ... ", nrow(fc),
+        "); got ", paste(fcodes, collapse = ", "),
+        ". Fleet_code indexes the per-fleet parameter/map arrays, which are built in row order."))
+    }
     if(any(!is.na(fsp) & (fsp < 1 | fsp > data_list$nspp))){
       errors <- c(errors, paste0("fleet_control$Species values must be in 1:", data_list$nspp))
     }
@@ -431,6 +440,26 @@ data_check <- function(data_list) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
       any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
     }
+    # Fleets sharing a Selectivity_index share one deviation block, so a
+    # differing Sel_start_year within the group is resolved to the group minimum
+    # (the earliest year any sharing fleet has data). Surface it so the
+    # resolution is deliberate rather than silent.
+    if (all(c("Selectivity_index", "Sel_start_year") %in% colnames(fc))) {
+      for (si in unique(fc$Selectivity_index[!is.na(fc$Selectivity_index)])) {
+        rows <- which(!is.na(fc$Selectivity_index) & fc$Selectivity_index == si)
+        if (length(rows) > 1) {
+          ys <- suppressWarnings(as.integer(fc$Sel_start_year[rows]))
+          ys[is.na(ys)] <- as.integer(data_list$styr)
+          if (length(unique(ys)) > 1) {
+            warning(paste0("Fleets sharing Selectivity_index ", si, " (",
+                           paste(fc$Fleet_name[rows], collapse = ", "),
+                           ") have different Sel_start_year (", paste(ys, collapse = ", "),
+                           "); the shared selectivity deviations use the earliest (", min(ys), ")."))
+          }
+        }
+      }
+    }
+
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
