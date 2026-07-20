@@ -198,6 +198,56 @@ replaces a readable expression with an index-arithmetic trick. `construct_Q()`'s
 inverse is genuinely slow but only reachable for `Sel_type = 7`; leave it until someone uses
 that path.
 
+## Standing constraint: this work should be net-negative on line count
+
+The risk of everything above is that it *adds* surface — `build_data()`, `data_requirements()`,
+`model_config`, `save_config()`, the spec tree, `sanity()` — to a codebase that is already
+sprawling. It should not. Every PR below passes through code with large, identified
+duplication; collapse it while we are already there rather than leaving a second layer on top.
+
+The requirement table in PR 4 is the model for this: it **replaces** the scattered conditionals
+in `data_check()` rather than sitting alongside them. Prefer that shape everywhere.
+
+Rough sizes are from the review sweep and want confirming before each is attempted.
+
+**Collapse where the PR already lands**
+
+| Where | What | Approx |
+|---|---|---|
+| PR 4 (data) | The `fit_mod()` re-invocation block is copy-pasted **11 times** across `9-retro_and_jitter.R`, `10-run_mse.R`, `10-project-no-F.R` — `build_hcr(11 args)` + `build_srr(13)` + `build_M1(10)` + `build_growth()` + 8 pass-throughs, differing only in source object, `estimateMode`, `phase`, `getsd`. **Already drifted** (`run_mse.R:667` pins SRR args to `om` where `:864` uses `em_use`). One `.refit_like(model, overrides)`. | ~900 → ~120 |
+| PR 4/5 (data) | 26 `pull()` blocks in `rearrange_data.R` in three shapes; two helpers also put the 1-based→0-based conversion in **one auditable place** instead of four — the same class of bug as the year-index defect | ~110 → ~20 |
+| PR 5 (schema) | Three `.coerce_*` functions with the same four-branch skeleton (they even disagree on return type), plus four `.warn_*_deprecation()` from one template | ~130 → ~40 |
+| PR 5 (schema) | `check_composition_data()` / `check_caal_data()` ~90% identical — and the CAAL one's message says "Composition data have NAs" | ~90 → ~50 |
+| PR 5 (schema) | `read_data()`'s sheet-reading idiom repeated 12×; the CRAN core-cap block 6×; PSOCK dispatch 5× | meaningful |
+| PR 1/2 (linkage) | `linkage.hpp`'s six accumulators share ~90% of their bodies — one templated helper parameterised on an index-mapping functor, called six times | ~250 → ~90 |
+| PR 2 (selectivity) | `growth.hpp`: `estimate_growth()` and `estimate_growth_within_yr()` are ~200-line near-duplicates; two sections are **byte-identical** | ~200 → ~120 |
+| PR 7 (legibility) | Six `plot_*` wrappers byte-identical but for two strings, each declaring and forwarding 21 formals; a `.ts_wrapper(output, ylab)` factory | ~300 → ~15 |
+
+**Straight deletion — no replacement needed**
+
+- `R/11-model_average.R`: **181 of 188 lines are commented out** (three abandoned uncertainty
+  implementations, 52% of the file). Also a stray `plot_ssb()` call inside a non-plotting
+  function that opens a device unbidden — and does it *before* `sdrep$sd` is populated, so it
+  plots stale CIs.
+- ~350 lines of commented-out Kinzey code in `predation.hpp`, plus the dead triplicate blocks
+  in `2-build_params.R`, `4-build_parameter_bounds.R` and `OPT-phaser.R`, and two
+  `growth_model == 3` branches nested inside `growth_model < 3` (unreachable).
+- The 27-name MSE "quantities to keep" whitelist appears **3×** — and lists
+  `"ssb_depletion"` twice in all three, which is the tell that it was hand-copied.
+- `t_col()` in `7-plot_stock_recruit.R`: defined, roxygen-documented, called nowhere.
+- Six no-op self-assignments (`proj_F(sp, yr) = proj_F(sp, yr);`) in the projection HCR switch.
+- `R/dev/`: 12 files, 106 KB, including what look like abandoned forks of shipped code
+  (`6-fit_mod_MSE.R`, `11a-mse_run_parallel_fast.R`). Correctly Rbuildignored, but a
+  navigation hazard inside a numbered-collation directory. Move to top-level `dev/` or delete.
+- Stale empty `tests/testthat/tests-*/` directories left from the flat-layout migration,
+  each containing only a `_snaps` folder that `test_check` never reaches.
+
+**The honest arithmetic.** The new surface across PRs 1–7 is roughly 1,500–2,000 lines
+(grammar parser, requirement table, `build_data()`, config round-trip, spec tree, dictionary,
+tests). The collapses and deletions above are ~2,500–3,000. Net should be **down**, with far
+less duplication — but only if the collapses are actually done rather than deferred, which is
+why each is tied to a PR that already has that file open.
+
 ---
 
 ## PR 0 — Fix the three latent bugs (small, independent, ships first)
