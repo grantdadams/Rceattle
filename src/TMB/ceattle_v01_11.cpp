@@ -3753,13 +3753,16 @@ Type objective_function<Type>::operator() () {
 
   Type jnll = 0;
 
-  // Estimation mode
-  if(estimateMode < 3) {
+  // Modes 0-3 return the real objective. Mode 3 builds the TMB object without
+  // running the optimizer, so obj$fn()/obj$gr() are usable for diagnostics.
+  if(estimateMode < 4) {
     jnll = jnll_comp.sum();
   }
 
-  // Debug mode
-  if(estimateMode > 2) {
+  // Mode 4: build_map() maps out every hindcast parameter, leaving `dummy` as
+  // the only free parameter. Placeholder objective so nlminb has something
+  // valid to minimize -- a plumbing smoke test, not a likelihood.
+  if(estimateMode > 3) {
     jnll = dummy * dummy;
   }
 
