@@ -24,7 +24,7 @@
 #' \item{est_M1}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
 #' \item{fleet_control}{Survey and fishery data specifications}
 #' \item{index_data}{Survey index in weight (kg) or numbers data}
-#' \item{index_cov}{Optional named list of survey-index variance-covariance matrices, keyed by Fleet_name (or Fleet_code), used only by fleets whose fleet_control \code{Index_loglike == "MVN"}. Each matrix must be square and symmetric with dimension equal to the number of fitted survey observations for that fleet (Year in [styr, endyr], Observation > 0), ordered as in index_data. Inverted once internally to the precision matrix used in 0.5 * r' Sigma^-1 r. Leave unset for the default lognormal likelihood.}
+#' \item{index_cov}{Optional named list of survey-index variance-covariance matrices, keyed by Fleet_name (or Fleet_code), used only by fleets whose fleet_control \code{Index_loglike == "MVN"}. Each matrix must be square and symmetric with dimension equal to the number of fitted survey observations for that fleet (Year in \code{styr:endyr}, Observation > 0), ordered as in index_data. Inverted once internally to the precision matrix used in 0.5 * r' Sigma^-1 r. Leave unset for the default lognormal likelihood.}
 #' \item{catch_data}{Total catch in weight (kg) or numbers data}
 #' \item{comp_data}{Survey/fishery age or length composition data. Note if sex is 3, put female composition data then male composition data (similar to SS).}
 #' \item{emp_sel}{Empirical/fixed selectivity for surveys and fisheries (leave empty if not used)}
