@@ -256,10 +256,21 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
-  data_list$fleet_control$Sel_pen_first_age <- set_default(data_list$fleet_control$Sel_pen_first_age, NA)  # first age for the non-parametric shape penalty (NA -> bin_first_selected)
-  data_list$fleet_control$Sel_pen_last_age <- set_default(data_list$fleet_control$Sel_pen_last_age, NA)  # last (left) age of the shape-penalty pairs (NA -> nages-2)
+  # Back-compatibility: these were named *_age before they were generalised to
+  # work on either the age or the length dimension. Accept the old names.
+  for(.old in c("Sel_pen_first_age", "Sel_pen_last_age", "Sel_cap_age")){
+    .new <- sub("_age$", "_bin", .old)
+    if(!is.null(data_list$fleet_control[[.old]]) && is.null(data_list$fleet_control[[.new]])){
+      data_list$fleet_control[[.new]] <- data_list$fleet_control[[.old]]
+      data_list$fleet_control[[.old]] <- NULL
+      message("Renaming '", .old, "' to '", .new, "'")
+    }
+  }
+
+  data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
+  data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
-  data_list$fleet_control$Sel_cap_age <- set_default(data_list$fleet_control$Sel_cap_age, NA)  # NonParametricRPM age cap (NA -> no cap)
+  data_list$fleet_control$Sel_cap_bin <- set_default(data_list$fleet_control$Sel_cap_bin, NA)  # NonParametricRPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
   data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
@@ -347,13 +358,10 @@ switch_check <- function(data_list){
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
   }
 
-  # Default Sel_start_year to each fleet's FIRST YEAR OF DATA (not styr).
-  # Selectivity deviations before a fleet's first observation have neither data nor
-  # a penalty -- every selectivity penalty in the cpp is anchored at start_yr -- so
-  # they are unidentified and leave flat directions the optimiser cannot resolve.
-  # Deriving the default from the data drops them automatically instead of relying
-  # on the user to know the switch exists. Only fleets with time-varying selectivity
-  # are affected (build_map is what consumes this); an explicit per-fleet value wins.
+  # Default Sel_start_year to the fleet's first year of data (not styr). Earlier
+  # deviations have neither data nor a penalty (every cpp selectivity penalty is
+  # anchored at start_yr), so they are unidentified. Only affects time-varying
+  # selectivity; an explicit per-fleet value wins.
   fleet_obs_yrs <- function(df) {
     if (is.null(df) || nrow(df) == 0) return(NULL)
     if (!all(c("Fleet_code", "Year") %in% colnames(df))) return(NULL)

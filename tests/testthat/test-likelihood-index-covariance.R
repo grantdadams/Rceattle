@@ -119,15 +119,14 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
   dat$index_cov <- list(Survey = Sigma)
 
-  # A fresh fit tags the stored Sigma with its fitted years, so it becomes
+  # A fresh fit tags the stored Sigma with its fitted years, so it is
   # self-describing for every subsequent re-fit (retrospective / MSE / jitter).
   fit <- Rceattle::fit_mod(data_list = dat, estimateMode = 3,
                            fit_control = fit_control(phase = FALSE, verbose = 0))
   testthat::expect_equal(rownames(fit$data_list$index_cov$Survey), as.character(1:nyrs))
 
-  # (a) Shrink: a retrospective peel drops the fitted set to 1:5. Previously this
-  #     errored ("N x N but the fleet has M fitted survey observations"); now the
-  #     Sigma is subset to the retained years, covariance block preserved.
+  # (a) Shrink: a retrospective peel drops the fitted set to 1:5; the Sigma is
+  #     subset to the retained years with the covariance block preserved.
   dl2 <- fit$data_list; dl2$endyr <- 5
   fit2 <- Rceattle::fit_mod(data_list = dl2, estimateMode = 3,
                             fit_control = fit_control(phase = FALSE, verbose = 0))

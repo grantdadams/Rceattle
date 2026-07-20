@@ -14,6 +14,55 @@
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
+#' Flag the fleet that carries each shared parameter block's penalty
+#'
+#' Fleets sharing an index estimate one block of parameters, so its prior /
+#' penalty must be accumulated once. Returns 1 for the first estimated fleet in
+#' each group and 0 for the rest. An "Off" fleet estimates nothing, so it is
+#' never chosen while an estimated fleet is available -- the same donor rule
+#' `adjust_map_shared_params()` uses. Fleets with no index (`NA`) share with
+#' nobody and always lead.
+#'
+#' @keywords internal
+#' @noRd
+.group_lead <- function(key, is_off) {
+  lead <- rep(0L, length(key))
+  for (k in unique(key[!is.na(key)])) {
+    rows <- which(!is.na(key) & key == k)
+    est  <- rows[!is_off[rows]]
+    lead[if (length(est)) est[1] else rows[1]] <- 1L
+  }
+  lead[is.na(key)] <- 1L
+  as.integer(lead)
+}
+
+#' Effective selectivity start year, resolved across mirrored fleets
+#'
+#' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
+#' so the shared block must start at the earliest year any of them has data.
+#' Returns the per-fleet group minimum of `Sel_start_year` (NA = `styr`), keeping
+#' the mask and the penalty anchor independent of `fleet_control` row order.
+#'
+#' @keywords internal
+#' @noRd
+.sel_start_year_by_group <- function(fleet_control, styr) {
+  n   <- nrow(fleet_control)
+  styr <- as.integer(styr)
+  ssy <- fleet_control$Sel_start_year
+  if (is.null(ssy)) return(rep(styr, n))
+
+  eff <- suppressWarnings(as.integer(ssy))
+  eff[is.na(eff)] <- styr                       # NA -> styr (no pre-start masking)
+
+  grp <- fleet_control$Selectivity_index
+  if (is.null(grp)) return(eff)
+  # A fleet with no Selectivity_index shares with nobody -> its own group.
+  grp <- ifelse(is.na(grp), paste0("_row", seq_len(n)), as.character(grp))
+
+  mins <- tapply(eff, grp, min)
+  as.integer(mins[match(grp, names(mins))])
+}
+
 rearrange_data <- function(data_list, build_osa = FALSE){
 
   # Convert text to integer for switches used in TMB
@@ -49,22 +98,19 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$flt_sel_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Selectivity) %>% as.integer()
 
-  # - 4b) Selectivity penalty "lead": 0 if an EARLIER fleet shares this fleet's
-  #       Selectivity_index AND selectivity type (i.e. this fleet mirrors an
-  #       earlier one's estimated selectivity), else 1. The selectivity penalty is
-  #       only accumulated for lead fleets so a mirrored selectivity is penalized
-  #       once (matching ADMB). Requiring the same type means a fleet with empirical
-  #       selectivity (type 0) sharing an index with a parametric fleet does NOT
-  #       suppress the parametric fleet's penalty.
+  # - 4b) Selectivity penalty "lead": 1 for the one fleet that carries each shared
+  #       block's penalty, 0 for the fleets mirroring it, so a mirrored selectivity
+  #       is penalized once (matching ADMB). Fleets are grouped by Selectivity_index
+  #       AND selectivity type, so a fleet with empirical selectivity (type 0)
+  #       sharing an index with a parametric fleet does not suppress the parametric
+  #       fleet's penalty. The lead is the first ESTIMATED fleet in the group: an
+  #       "Off" fleet estimates nothing and the cpp penalty is gated on flt_type,
+  #       so leading with one would drop the group's penalty entirely. This matches
+  #       the map donor chosen in adjust_map_shared_params().
   {
-    .sel_idx <- data_list$fleet_control$Selectivity_index
-    .sel_typ <- data_list$flt_sel_type
-    .lead <- rep(1L, length(.sel_typ))
-    for(.i in seq_along(.sel_typ)) {
-      if(.i > 1 && any(.sel_idx[seq_len(.i - 1)] == .sel_idx[.i] &
-                       .sel_typ[seq_len(.i - 1)] == .sel_typ[.i], na.rm = TRUE)) .lead[.i] <- 0L
-    }
-    data_list$flt_sel_lead <- as.integer(.lead)
+    .off <- data_list$flt_type == 0
+    data_list$flt_sel_lead <- .group_lead(
+      paste(data_list$fleet_control$Selectivity_index, data_list$flt_sel_type), .off)
   }
 
   data_list$flt_sel_dim <- data_list$fleet_control %>%
@@ -74,6 +120,13 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = NA
     )) %>%
     dplyr::pull(.data$Selectivity_dimension) %>% as.integer()
+
+  # - 4b) Per-fleet offset converting a selectivity bin column to the 0-based C++
+  #       index. Age-based fleets give absolute ages -> offset is the species'
+  #       minage; length-based fleets give 1-based length-bin ordinals -> offset 1.
+  sel_bin_offset <- ifelse(!is.na(data_list$flt_sel_dim) & data_list$flt_sel_dim == 1L,
+                           1L,
+                           data_list$minage[data_list$fleet_control$Species])
 
   # - 5) Number of ages/lengths for non-parametric selectivity
   data_list$flt_n_sel_bins <- data_list$fleet_control %>%
@@ -93,41 +146,41 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
-      Sel_norm_bin1 = .data$Sel_norm_bin1 - data_list$minage[Species],
+      Sel_norm_bin1 = .data$Sel_norm_bin1 - sel_bin_offset,
       Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
       Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
     dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
+    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - sel_bin_offset,
                   Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
     dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
 
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the
   #       start-year boundary). NA -> styr (index 0). Used by LogisticPM (type 11).
-  data_list$flt_sel_start_yr <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_start_year = ifelse(is.na(.data$Sel_start_year), data_list$styr, .data$Sel_start_year),
-                  Sel_start_year = .data$Sel_start_year - data_list$styr) %>%
-    dplyr::pull(.data$Sel_start_year) %>% as.integer()
+  #       Resolved to the minimum across each Selectivity_index group, since
+  #       mirrored fleets share one deviation block (see .sel_start_year_by_group).
+  data_list$flt_sel_start_yr <- as.integer(
+    .sel_start_year_by_group(data_list$fleet_control, data_list$styr) - data_list$styr)
 
-  # - 9c) First age (0-based) for the non-parametric shape penalty. NA -> -999
+  # - 9c) First bin (0-based) for the non-parametric shape penalty. NA -> -999
   #       (cpp falls back to bin_first_selected). Lets the ascending/descending
-  #       shape constraint span a narrower age-range than the first selected age
+  #       shape constraint span a narrower range than the first selected bin
   #       (e.g. ATS: age-1 is selected but the shape penalty starts at mina_ats).
-  data_list$flt_sel_pen_first_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_pen_first_age = .data$Sel_pen_first_age - data_list$minage[Species],
-                  Sel_pen_first_age = ifelse(is.na(.data$Sel_pen_first_age), -999, .data$Sel_pen_first_age)) %>%
-    dplyr::pull(.data$Sel_pen_first_age) %>% as.integer()
+  data_list$flt_sel_pen_first_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_first_bin = .data$Sel_pen_first_bin - sel_bin_offset,
+                  Sel_pen_first_bin = ifelse(is.na(.data$Sel_pen_first_bin), -999, .data$Sel_pen_first_bin)) %>%
+    dplyr::pull(.data$Sel_pen_first_bin) %>% as.integer()
 
-  # - 9d) Last (left) age (0-based) of the shape-penalty adjacent pairs. NA -> -999
-  #       (cpp falls back to nages-2). With 9c, bounds the shape penalty to a sub-
+  # - 9d) Last (left) bin (0-based) of the shape-penalty adjacent pairs. NA -> -999
+  #       (cpp falls back to nbins-2). With 9c, bounds the shape penalty to a sub-
   #       range (e.g. RTMB "rpm" fishery smoothness over ages 6-11, ATS 5-7).
-  data_list$flt_sel_pen_last_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_pen_last_age = .data$Sel_pen_last_age - data_list$minage[Species],
-                  Sel_pen_last_age = ifelse(is.na(.data$Sel_pen_last_age), -999, .data$Sel_pen_last_age)) %>%
-    dplyr::pull(.data$Sel_pen_last_age) %>% as.integer()
+  data_list$flt_sel_pen_last_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_last_bin = .data$Sel_pen_last_bin - sel_bin_offset,
+                  Sel_pen_last_bin = ifelse(is.na(.data$Sel_pen_last_bin), -999, .data$Sel_pen_last_bin)) %>%
+    dplyr::pull(.data$Sel_pen_last_bin) %>% as.integer()
 
   # - 9e) Non-parametric shape-penalty mode: "Directional" (0; sign of Sel_curve_pen1
   #       -> one-sided decreasing/increasing, ADMB/AMAK) or "Smooth" (1; two-sided
@@ -138,12 +191,12 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = 0L)) %>%
     dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
 
-  # - 9f) NonParametricRPM (type 9) age cap (0-based): the realized selectivity is
-  #       held flat at/after this age (RTMB cap_old_age). NA -> -999 (no cap).
-  data_list$flt_sel_cap_age <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_cap_age = .data$Sel_cap_age - data_list$minage[Species],
-                  Sel_cap_age = ifelse(is.na(.data$Sel_cap_age), -999, .data$Sel_cap_age)) %>%
-    dplyr::pull(.data$Sel_cap_age) %>% as.integer()
+  # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
+  #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
+  data_list$flt_sel_cap_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_cap_bin = .data$Sel_cap_bin - sel_bin_offset,
+                  Sel_cap_bin = ifelse(is.na(.data$Sel_cap_bin), -999, .data$Sel_cap_bin)) %>%
+    dplyr::pull(.data$Sel_cap_bin) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
@@ -181,6 +234,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   .tv_q <- data_list$fleet_control %>% dplyr::pull(.data$Time_varying_q)
   .tv_q[data_list$est_index_q %in% 5L] <- "0"
   data_list$index_varying_q <- as.integer(.tv_q)
+
+  # - 15b) Catchability "lead", the q analogue of flt_sel_lead. Fleets sharing a
+  #        Q_index estimate ONE catchability (and one deviate vector), so the q
+  #        prior and the deviate penalties are accumulated on the lead fleet only.
+  #        Without this they were applied once per sharing fleet to the same
+  #        parameter, e.g. counting a q prior twice for a mirrored pair.
+  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Q_index,
+                                      data_list$flt_type == 0)
 
   # - 16) Whether to estimate standard deviation of index time series
   data_list$est_sigma_index <- data_list$fleet_control %>%

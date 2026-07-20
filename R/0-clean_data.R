@@ -1,27 +1,13 @@
 #' Align survey-index covariance matrices to the current fitted observations
 #'
-#' `index_cov` Sigma matrices are positional: their rows/cols correspond, in
-#' `index_data` row order, to a fleet's FITTED survey observations (Year in
-#' (0, endyr], Observation > 0). When that fitted set changes -- a retrospective
-#' peel or an `endyr` / `styr` subset drops rows, an MSE assessment step appends
-#' rows -- each MVN/MVNORM fleet's Sigma must be re-aligned, otherwise the
-#' `rearrange_data()` dimension check rejects it (the Sigma stays the original
-#' size while the fitted-observation count changes).
-#'
-#' The Sigma is made self-describing: its dimnames are tagged with the fitted
-#' years the first time it is seen (when it still matches the data). Because
-#' every re-fit -- `fit_mod()`, `retrospective()`, `run_mse()`, `jitter()` --
-#' passes through `clean_data()`, the tagged Sigma is then rebuilt to the current
-#' fitted years on each pass:
-#'   * years retained from the tagged Sigma keep their full covariance block;
-#'   * years not in the tagged Sigma (future / simulated survey observations in an
-#'     MSE projection) are added as an independent diagonal block with variance
-#'     `(Observation * Log_sd)^2` -- future observations are treated as
-#'     independent with their stated observation error;
-#'   * cross terms between retained and new years are 0.
-#' Non-MVN fleets, and a fresh fit whose Sigma already matches the data, pass
-#' through unchanged, so existing models are numerically identical. Assumes one
-#' fitted observation per year per fleet (the covariance-survey structure).
+#' `index_cov` Sigma matrices are positional: rows/cols follow a fleet's fitted
+#' survey observations (Year in (0, endyr], Observation > 0) in `index_data`
+#' order. Sigma dimnames are tagged with those years the first time it matches
+#' the data, then re-keyed to the current fitted set on each `clean_data()` pass:
+#' retained years keep their covariance block, new years (future / simulated
+#' observations) get an independent diagonal `(Observation * Log_sd)^2`, and
+#' cross terms between the two are 0. Non-MVN fleets pass through unchanged.
+#' Assumes one fitted observation per year per fleet.
 #'
 #' @keywords internal
 #' @noRd
@@ -161,10 +147,8 @@ clean_data <- function(data_list){
     }
   }
 
-  # --- 1b. Re-align survey-index covariance matrices to the (possibly changed)
-  #         fitted survey observations. No-op for a fresh fit / non-MVN fleets;
-  #         handles retrospective peels, endyr/styr subsets, and MSE growth. See
-  #         .align_index_cov() above.
+  # --- 1b. Re-key survey-index covariance matrices to the current fitted
+  #         survey observations (see .align_index_cov above).
   data_list <- .align_index_cov(data_list)
 
   # --- 2. Add temp multi-species SB0 ----

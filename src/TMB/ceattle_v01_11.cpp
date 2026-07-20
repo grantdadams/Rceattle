@@ -233,16 +233,17 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_type);             // Vector to save fleet selectivity parameterization
   DATA_IVECTOR(flt_sel_dim);              // Vector to save fleet selectivity dimension (0 = age, 1 = length)
   DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
-  DATA_IVECTOR(flt_sel_cap_age);          // NonParametricRPM (type 13): first age (0-based) at/after which the realized selectivity is held flat (RTMB cap_old_age). < 0 -> no cap.
+  DATA_IVECTOR(flt_sel_cap_bin);          // NonParametricPM (type 9): first bin (0-based, age or length per flt_sel_dim) at/after which the realized selectivity is held flat (RTMB cap_old_age). < 0 -> no cap.
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
   DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
   DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
-  DATA_IVECTOR(flt_sel_pen_first_age);    // Per-fleet first age (0-based) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower age-range than the (possibly non-zero) first selected age (e.g. ATS mina_ats > first selected age).
+  DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
-  DATA_IVECTOR(flt_sel_pen_last_age);     // Per-fleet last age (0-based, = left age of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nages-2 (whole range).
+  DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
+  DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
@@ -865,7 +866,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_dim,          // Age or length based
     bin_first_selected,   // Min bin selected per fleet
     flt_n_sel_bins,       // Max estimated bins per fleet
-    flt_sel_cap_age,      // Age (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
+    flt_sel_cap_bin,      // Bin (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
     emp_sel_obs,          // Empirical observations matrix
@@ -2718,6 +2719,12 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 4-5 -- Selectivity
+  //
+  // FIXME: penalize every selectivity deviation rather than a sub-range. The
+  // range controls (Sel_pen_first_bin, Sel_pen_last_bin, Sel_cap_bin,
+  // Sel_start_year, and the matching build_map masking) exist only because these
+  // penalties cover a sub-range; penalizing all deviations would pin the
+  // unidentified directions and remove the need to index by bin and year.
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;
@@ -2814,9 +2821,9 @@ Type objective_function<Type>::operator() () {
         // starts after styr). For a fleet starting at styr (e.g. the fishery,
         // start_yr = 0) this is the original behaviour.
         int start_yr = flt_sel_start_yr(flt);
-        int shape_a0 = flt_sel_pen_first_age(flt);              // first (left) age of the shape-penalty pairs
-        if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected age
-        int shape_a1 = flt_sel_pen_last_age(flt);               // last (left) bin of the shape-penalty pairs
+        int shape_a0 = flt_sel_pen_first_bin(flt);              // first (left) bin of the shape-penalty pairs
+        if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected bin
+        int shape_a1 = flt_sel_pen_last_bin(flt);               // last (left) bin of the shape-penalty pairs
         if(shape_a1 < 0) shape_a1 = nbins - 2;                  // default: whole range (pairs up to (nbins-2, nbins-1))
         int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
         for(sex = 0; sex < nsex(sp); sex++){
@@ -3024,7 +3031,10 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 6-7 -- Catchability
+  // Fleets sharing a Q_index estimate one catchability and one deviate vector,
+  // so only the lead fleet accumulates the prior and deviate penalties.
   for(flt = 0; flt < n_flt; flt++){
+   if(flt_q_lead(flt) == 1){
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
@@ -3065,6 +3075,7 @@ Type objective_function<Type>::operator() () {
         jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
+   } // End q lead gate
   } // End q loop
 
 
