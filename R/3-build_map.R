@@ -678,20 +678,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_inf <- ind_inf + nyrs_hind
           }
           if (tv_sel == "RandomWalk") {
-            # Random walk: fix every deviate up to and including the fleet's
-            # selectivity start year, so the first ESTIMATED deviate is
-            # Sel_start_year + 1. This does two things at once:
-            #   (1) pins the level -- a random walk has no level of its own, so one
-            #       deviate must be fixed or the base parameter and the deviates are
-            #       confounded (this is what the ADMB dev_vector sum-to-zero does); and
-            #   (2) drops the PRE-START deviates. Before the fleet's start year there
-            #       is no data, and the cpp penalty also only begins at start_yr + 1,
-            #       so those deviates are neither informed nor penalized -- they are
-            #       unidentified and leave flat directions that stall the optimizer
-            #       (ADMB simply never declares them: its BTS dev vectors span
-            #       styr_bts..endyr only).
-            # When Sel_start_year is NA / equal to styr this reduces to the previous
-            # behaviour of fixing only the first deviate.
+            # Fix every deviate through the fleet's start year, so the first
+            # estimated deviate is Sel_start_year + 1. This pins the random walk's
+            # level (otherwise the base parameter and deviates are confounded) and
+            # drops the pre-start deviates, which have neither data nor a penalty
+            # (the cpp penalties also begin at start_yr + 1) and would otherwise
+            # leave flat directions that stall the optimizer.
             sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
@@ -730,16 +722,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
 
-            # Fix the deviates BEFORE the fleet's selectivity start year. For a
-            # random walk the mean parameter (sel_coff) is mapped off, so the
-            # deviate AT the start year carries the base shape and must stay
-            # estimated -- only the ones before it are dropped. Those have neither
-            # data (the fleet has no observations yet) nor a penalty: every
-            # NonParametricPM penalty in the cpp -- shape, curvature, random walk
-            # and dev-magnitude -- begins at start_yr. They are therefore
-            # unidentified and leave flat directions that stall the optimizer.
-            # ADMB declares its survey deviation matrix only over the survey years.
-            # When Sel_start_year is NA / equal to styr this is a no-op.
+            # Fix the deviates BEFORE the start year. The mean parameter
+            # (sel_coff) is mapped off for a random walk, so the deviate AT the
+            # start year carries the base shape and stays estimated; only the
+            # earlier ones are dropped, having neither data nor a penalty (all
+            # NonParametricPM penalties begin at start_yr).
             sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
             start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
               max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))

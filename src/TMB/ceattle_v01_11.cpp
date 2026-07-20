@@ -2719,11 +2719,10 @@ Type objective_function<Type>::operator() () {
   // Slot 4-5 -- Selectivity
   //
   // FIXME: penalize every selectivity deviation rather than a sub-range. The
-  // per-fleet range controls (Sel_pen_first_bin, Sel_pen_last_bin, Sel_cap_bin,
-  // Sel_start_year, and the matching build_map() masking) are only needed
-  // because these penalties cover a bin/year sub-range. Penalizing all
-  // deviations would pin the unidentified directions and remove the need to
-  // index by specific age/length and year ranges.
+  // range controls (Sel_pen_first_bin, Sel_pen_last_bin, Sel_cap_bin,
+  // Sel_start_year, and the matching build_map masking) exist only because these
+  // penalties cover a sub-range; penalizing all deviations would pin the
+  // unidentified directions and remove the need to index by bin and year.
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;

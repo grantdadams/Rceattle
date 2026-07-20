@@ -346,13 +346,10 @@ build_params <- function(data_list) {
     }
   }
 
-  # LogisticPM (type 11) repurposes the unused descending-limb slot sel_inf[2] as
-  # the FREE first-bin (age-1) LOG-selectivity (AMAK sel_age_one_bts), not as an
-  # inflection age. The shared default of 10 is an age-scale value and would start
-  # age-1 selectivity at exp(10) = 22026 -- roughly five orders of magnitude too
-  # high (ADMB's sel_age_one_bts = -3.19, i.e. selectivity 0.04). With age-1
-  # selected (Bin_first_selected = 1) that swamps the survey-index prediction and
-  # the optimizer diverges. Start at 0 (age-1 selectivity = 1), a neutral scale.
+  # LogisticPM (type 11) reuses the unused descending-limb slot sel_inf[2] as the
+  # free first-bin (age-1) LOG-selectivity (AMAK sel_age_one_bts), not an
+  # inflection age. The shared default of 10 would start age-1 selectivity at
+  # exp(10) = 22026, swamping the index prediction, so start at 0 (selectivity 1).
   sel_type <- data_list$fleet_control$Selectivity
   if (!is.null(sel_type)) {
     logisticpm_flts <- which(sel_type %in% c(11, "11", "LogisticPM"))
