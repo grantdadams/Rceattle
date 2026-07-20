@@ -36,6 +36,7 @@ LINKAGE_COLS <- c(
   species       = "integer",    # 1-based species id; NA = shared
   sex           = "integer",    # 1 or 2; NA = shared
   age_bin       = "integer",    # 1-based age index; NA = shared
+  fleet         = "integer",    # 1-based Fleet_code; NA = shared
   X_col         = "integer",    # column of the global design matrix
   design_col    = "character",  # name of the design matrix column
   link          = "character",  # "identity", "log", "logit"
@@ -241,7 +242,9 @@ validate_linkage_table <- function(x) {
 #' incremental table assembly.
 #'
 #' @param process,param,X_col required identifying fields.
-#' @param species,sex,age_bin stratum ids; `NA` = shared across the dimension.
+#' @param species,sex,age_bin,fleet stratum ids; `NA` = shared across the
+#'   dimension. `fleet` is a 1-based `Fleet_code`, used by catchability and
+#'   selectivity linkages; the process-level linkages leave it `NA`.
 #' @param design_col name of the design matrix column.
 #' @param link link function; one of [LINKAGE_LINKS].
 #' @param init initial value (default `0`).
@@ -257,6 +260,7 @@ linkage_row <- function(process, param, X_col,
                         species       = NA_integer_,
                         sex           = NA_integer_,
                         age_bin       = NA_integer_,
+                        fleet         = NA_integer_,
                         design_col    = NA_character_,
                         link          = "identity",
                         init          = 0,
@@ -275,6 +279,7 @@ linkage_row <- function(process, param, X_col,
     species       = as.integer(species),
     sex           = as.integer(sex),
     age_bin       = as.integer(age_bin),
+    fleet         = as.integer(fleet),
     X_col         = as.integer(X_col),
     design_col    = as.character(design_col),
     link          = as.character(link),
@@ -316,7 +321,16 @@ linkage_row <- function(process, param, X_col,
     ag <- if (is.na(row$age_bin)) seq_len(data_list$nages[s]) else as.integer(row$age_bin)
     per_sp[[as.character(s)]] <- list(sex = sx, age = ag)
   }
-  list(species = spp, per_sp = per_sp)
+  # Fleet is not nested inside species the way sex and age are: a fleet
+  # already implies its species via fleet_control$Species, so it resolves
+  # once against the full fleet set rather than per species.
+  flt <- if (is.na(row$fleet)) {
+    seq_len(nrow(data_list$fleet_control))
+  } else {
+    as.integer(row$fleet)
+  }
+
+  list(species = spp, per_sp = per_sp, fleet = flt)
 }
 
 
@@ -348,7 +362,7 @@ bind_linkage <- function(...) {
 print.Rceattle_linkage_table <- function(x, ...) {
   cat(sprintf("<Rceattle linkage table: %d coefficient(s)>\n", nrow(x)))
   if (nrow(x) == 0L) return(invisible(x))
-  show <- c("process", "param", "species", "sex", "age_bin",
+  show <- c("process", "param", "species", "sex", "age_bin", "fleet",
             "design_col", "link", "init", "prior_family", "est_phase")
   print(format(x[, show, drop = FALSE]), row.names = FALSE)
   invisible(x)

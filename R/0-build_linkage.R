@@ -53,6 +53,11 @@ NULL
 #'   filter is a no-op. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
+#' @param fleet optional integer vector of 1-based `Fleet_code`s this spec
+#'   applies to. `NULL` (default) means every fleet in `strata$fleet` at
+#'   materialization time. Only meaningful when `by` includes `fleet`;
+#'   otherwise the filter is a no-op. Used by catchability and selectivity
+#'   linkages to give different fleets different formulas.
 #' @param link link function relating the linear predictor to the
 #'   natural-scale target parameter. One of `"log"` (default) or
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
@@ -87,6 +92,7 @@ linkage_spec <- function(formula,
                          by        = ~ species,
                          species   = NULL,
                          sex       = NULL,
+                         fleet     = NULL,
                          link      = "log",
                          init      = NULL,
                          bounds    = NULL,
@@ -117,6 +123,13 @@ linkage_spec <- function(formula,
   if (!is.null(sex)) {
     sex <- .coerce_sex_arg(sex)
   }
+  if (!is.null(fleet)) {
+    fleet <- as.integer(fleet)
+    if (anyNA(fleet) || any(fleet < 1L)) {
+      stop("`fleet` must be a vector of positive 1-based Fleet_code values",
+           call. = FALSE)
+    }
+  }
   link <- match.arg(link, LINKAGE_LINKS)
   .check_link_implemented(link)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
@@ -131,6 +144,7 @@ linkage_spec <- function(formula,
       by        = by,
       species   = species,
       sex       = sex,
+      fleet     = fleet,
       link      = link,
       init      = init,
       bounds    = bounds,
@@ -487,11 +501,11 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   n_cols  <- ncol(X)
 
   by_vars <- if (is.null(spec$by)) character(0) else all.vars(spec$by)
-  unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin"))
+  unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin", "fleet"))
   if (length(unknown_by) > 0) {
     stop("unknown grouping variable(s) in `by`: ",
          paste(unknown_by, collapse = ", "),
-         "; allowed: species, sex, age_bin")
+         "; allowed: species, sex, age_bin, fleet")
   }
   for (v in by_vars) {
     if (is.null(strata[[v]])) {
@@ -585,6 +599,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     level_grid <- level_grid[level_grid$sex %in% spec$sex, ,
                              drop = FALSE]
   }
+  if (!is.null(spec$fleet) && "fleet" %in% names(level_grid)) {
+    level_grid <- level_grid[level_grid$fleet %in% spec$fleet, ,
+                             drop = FALSE]
+  }
   if (nrow(level_grid) == 0L) {
     return(.empty_materialized(X, X_names))
   }
@@ -601,6 +619,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       sp_id <- if ("species" %in% by_vars) level_grid$species[g] else NA_integer_
       sx_id <- if ("sex"     %in% by_vars) level_grid$sex[g]     else NA_integer_
       ab_id <- if ("age_bin" %in% by_vars) level_grid$age_bin[g] else NA_integer_
+      fl_id <- if ("fleet"   %in% by_vars) level_grid$fleet[g]   else NA_integer_
 
       prior <- .resolve_prior(prior_spec, sp_id, sx_id)
       if (is.null(prior)) {
@@ -617,6 +636,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         species       = sp_id,
         sex           = sx_id,
         age_bin       = ab_id,
+        fleet         = fl_id,
         design_col    = cn,
         link          = spec$link,
         init          = init_val,
