@@ -2,6 +2,15 @@
 
 ## New features
 
+* **Natural-scale normal survey-index likelihood.** `fleet_control$Index_loglike`
+  gains `"Normal"`: the index residual `obs - q*pred` is normal with an *absolute*
+  observation SD (the `index_data$Log_sd` column is read as a natural-scale SD, not
+  a log-scale CV), i.e. `0.5*(obs - q*pred)^2 / sd^2`. This matches the AMAK/ebswp
+  `avo_like` / `cpue_like` survey likelihoods (which use an absolute sigma) so those
+  indices can be reproduced exactly, rather than approximated by the default
+  lognormal. Fixed alongside a latent crash: the covariance (MVN/MVNORM) block was
+  gated on `Index_loglike >= 1`, which now also matched `"Normal"` and applied
+  `MVNORM()` to a 1x1 dummy Sigma; it is now restricted to `"MVN"` / `"MVNORM"`.
 * **Multivariate-normal (covariance) survey-index likelihood.** A survey/index
   fleet can now use a full variance-covariance matrix for its biomass index
   instead of independent lognormal errors, via the new `fleet_control` column

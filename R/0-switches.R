@@ -128,10 +128,16 @@ comp_loglike_map <- c(
 #               density::MVNORM(Sigma)(r). Identical fit to "MVN" (the extra term is
 #               a fixed constant), but a proper normalized likelihood; the reported
 #               value is "MVN" + 0.5*(logdet(Sigma) + n*log(2*pi)).
+#   Normal    = natural-scale normal on the residual (obs - q*pred) with an
+#               ABSOLUTE observation sd (the Log_sd column is read as the natural-
+#               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
+#               cpue_like. No lognormal bias correction; pair with a solved q
+#               (Analytical / AnalyticalArith) or an estimated q as needed.
 index_loglike_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
-  "MVNORM" = 2
+  "MVNORM" = 2,
+  "Normal" = 3
 )
 
 fleet_map <- c(

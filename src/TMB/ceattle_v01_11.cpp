@@ -265,7 +265,7 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
-  DATA_IVECTOR( index_ll_type );          // Survey index likelihood family per fleet (0 = lognormal IID, 1 = MVN bare quadratic form, 2 = MVNORM full density)
+  DATA_IVECTOR( index_ll_type );          // Survey index likelihood family per fleet (0 = lognormal IID, 1 = MVN bare quadratic form, 2 = MVNORM full density, 3 = natural-scale normal with absolute sd)
   DATA_STRUCT( index_cov_mat, LOM_t );    // Per-fleet covariance matrices Sigma for the MVN/MVNORM survey likelihood (1x1 dummy if unused)
   DATA_VECTOR( index_cov_const );         // Per-fleet 0.5*(logdet(Sigma) + n*log(2pi)); subtracted for "MVN" so it reports the bare quadratic form
 
@@ -2467,6 +2467,17 @@ Type objective_function<Type>::operator() () {
         jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
+
+    // Natural-scale normal (Index_loglike == "Normal", index_ll_type == 3): the
+    // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
+    // observation sd on the natural scale, not a log-scale CV), matching the AMAK
+    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term and
+    // no OSA (obsvec holds log-scale observations).
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
+      if(index_obs(index_ind, 0) > 0){
+        jnll_comp(0, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+      }
+    }
   }
 
   // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
@@ -2478,7 +2489,7 @@ Type objective_function<Type>::operator() () {
   // jnll_comp row 0. Note: OSA residuals are not defined for this multivariate
   // block, so it does not read obsvec/keep.
   for(index = 0; index < n_flt; index++){
-    if((flt_type(index) > 0) && (index_ll_type(index) >= 1)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density)
+    if((flt_type(index) > 0) && (index_ll_type(index) == 1 || index_ll_type(index) == 2)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density) ONLY -- other families (0 lognormal, 3 normal) carry a 1x1 dummy Sigma and must not enter here
       int n_mvn = 0;
       for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
         if((index_ctl(index_ind, 0) - 1) == index){
