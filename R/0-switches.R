@@ -276,6 +276,7 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
+  data_list$fleet_control$Sel_avgsel_pen <- set_default(data_list$fleet_control$Sel_avgsel_pen, 0)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
   data_list$fleet_control$Sel_cap_bin <- set_default(data_list$fleet_control$Sel_cap_bin, NA)  # NonParametricRPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")

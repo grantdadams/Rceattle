@@ -1,3 +1,36 @@
+# Rceattle 4.8.0
+
+## New features
+
+* **AMAK "avgsel" base-level selectivity penalty** (`fleet_control$Sel_avgsel_pen`).
+  Non-parametric (type 9 / `NonParametricPM`) fleets can now carry the AMAK/ebswp
+  base-level regulariser `weight * (log(mean(exp(base coefficients))))^2` — ADMB's
+  `10 * square(avgsel_*)` — which mildly pins the overall level of the base
+  selectivity coefficients that the per-year mean-centering otherwise leaves free.
+  The per-fleet weight defaults to `0` (off), so existing models and the `BS2017SS`
+  golden reference are unchanged; set `Sel_avgsel_pen = 10` to match AMAK. The
+  penalty is accumulated once per shared-selectivity block (on the lead fleet).
+
+## Bug fixes
+
+* **Non-parametric (AMAK "pm", type 9 / `NonParametricPM`) selectivity deviate
+  penalties.** Two corrections so the type-9 selectivity and its deviate penalty
+  reproduce ADMB/AMAK exactly when the fleet excludes a first bin (e.g. the
+  acoustic-survey age-1) and/or starts after the model start year:
+    - Excluded bins (below `Bin_first_selected`) are now held at 0 before each
+      year's mean-centering instead of being carried through the random walk.
+      Previously their log-selectivity accumulated the per-year centering offset
+      and drifted, inflating the curvature / random-walk penalty on a bin that is
+      zeroed out of the fit anyway.
+    - For years up to a fleet's `Sel_start_year`, the curve is now rebuilt from the
+      base coefficients each year rather than iterating the running random walk
+      over the (data-free) pre-survey years. Iterating instead converged the
+      excluded first bin to a different fixed point and perturbed the start-year
+      base selectivity, inflating the deviate penalty on the first change year.
+  A fleet that starts at `styr` with no excluded bins is unaffected (the reset
+  reduces to the original start-year behaviour); the `BS2017SS` golden reference is
+  unchanged.
+
 # Rceattle 4.7.0
 
 ## New features

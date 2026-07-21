@@ -245,6 +245,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
   DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
+  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
@@ -869,6 +870,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_cap_bin,      // Bin (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
+    flt_sel_start_yr,     // Per-fleet selectivity start year (0-based)
     emp_sel_obs,          // Empirical observations matrix
     emp_sel_ctl,          // Empirical control matrix
     log_sel_slp,           // Logistic slope parameters
@@ -2880,6 +2882,22 @@ Type objective_function<Type>::operator() () {
             for(yr = start_yr; yr < nyrs_tmp; yr++){
               jnll_comp(5, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
             }
+          }
+
+          // (5) AMAK "avgsel" base-level penalty:
+          //     weight * (log(mean(exp(base coffs))))^2 over the estimated coefficient
+          //     bins [bin_first_selected, n_sel_bins-1]. A mild regulariser that pins
+          //     the overall level of the base coefficients, which the per-year
+          //     mean-centering leaves unconstrained; equivalent to AMAK's
+          //     10*square(avgsel_*). The weight flt_sel_avgsel_pen defaults to 0 (off);
+          //     a model opts in via Sel_avgsel_pen (e.g. 10 to match AMAK).
+          if(flt_sel_avgsel_pen(flt) > 0){
+            Type msum = 0; Type nb = 0;
+            for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++){
+              msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
+            }
+            Type avgsel = log(msum / nb);
+            jnll_comp(4, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
           }
         }
       }
