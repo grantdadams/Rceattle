@@ -40,7 +40,7 @@ testthat::test_that("LogisticPM construction matches the AMAK mid-age logistic +
   inits$sel_inf[1, rows_use, ]     <- a50_v
   inits$sel_inf[2, rows_use, ]     <- age1_log
 
-  run <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 4,
+  run <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,  # build only: quantities reported at the input params (no fit needed)
                                   random_rec = FALSE, msmMode = 0,
                                   fit_control = fit_control(verbose = 0)))
 
@@ -97,7 +97,7 @@ testthat::test_that("LogisticPM penalty = realized-logsel RW (age-range, start-y
     inits$sel_inf_dev[2, r, 1, ]     <- a1_dev
   }
 
-  run <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 4,
+  run <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,  # build only: quantities reported at the input params (no fit needed)
                                   random_rec = FALSE, msmMode = 0,
                                   fit_control = fit_control(verbose = 0)))
 
