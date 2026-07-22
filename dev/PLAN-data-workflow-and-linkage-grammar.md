@@ -445,6 +445,22 @@ by **fleet**. Add a real `fleet` column, do not overload `age_bin`.
 - `ceattle_v01_11.cpp` — `DATA_IVECTOR(linkage_fleet)` in the linkage block (`:217-228`);
   inject from `R/6-fit_mod.R:485-507`.
 
+**Variances become linkage parameters (Grant's ask, 2026-07-21).** The random-effect forms
+introduce `log_sigma_linkage` as the deviate variance, and — crucially — it flows through the
+*same* `linkage_spec(init=, bounds=, priors=)` contract as any coefficient. So `init` inputs a
+fixed variance, `priors` puts a prior on the variance, and the map decides fixed-vs-estimated —
+one mechanism for both of Grant's asks. This is the whole reason to route variances through
+the grammar rather than add more `fleet_control` columns.
+
+Two facts this pass must respect / fix:
+- **No prior on the deviate SD exists today.** `sel_dev_log_sd` / `index_q_dev_log_sd` are
+  estimated-or-fixed but nothing shrinks them; the `jnll_comp(5)` terms are the deviate
+  density, not a prior on sigma. The RE machinery adds the prior via the grammar.
+- **`Time_varying_sel_sd_prior` / `Time_varying_q_sd_prior` are misnamed** — they are the
+  *input value* of the SD ([2-build_params.R:292,370](R/2-build_params.R#L292)), not a prior.
+  Rename with a deprecation alias as part of PR 5's schema cleanup; the grammar's `init=`/
+  `priors=` split is the correct replacement.
+
 **Random effects.** TMB's `random=` takes whole parameter names
 ([6-fit_mod.R:395-420](R/6-fit_mod.R#L395-L420)), so a subset of `beta_linkage` cannot be
 made random. Split the vector:
