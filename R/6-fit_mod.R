@@ -374,6 +374,7 @@ fit_mod <-
     # never silently dropped. (Empirical and the RPM random walk cannot carry
     # a covariate offset at all.)
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----

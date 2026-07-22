@@ -137,3 +137,16 @@ testthat::test_that("a q linkage intercept re-targets the base catchability", {
     all(is.na(fit$map$mapList$beta_linkage[tbl$design_col == "(Intercept)"])))
   testthat::expect_true(any(!is.na(fit$map$mapList$index_log_q)))
 })
+
+
+testthat::test_that("a q linkage on a solved-q fleet is rejected", {
+  # Analytical / AnalyticalArith solve q from the data (index_log_q is mapped
+  # out), so a q linkage there would target a non-free parameter and do
+  # nothing. It must error rather than silently no-op.
+  fc <- Rceattle::switch_check(Rceattle::clean_data(Rceattle::BS2017SS))$fleet_control
+  tbl <- data.frame(process = "q", fleet = 1L, stringsAsFactors = FALSE)
+  fc$Catchability[1] <- "Analytical"
+  testthat::expect_error(
+    Rceattle:::.check_q_linkage_support(tbl, fc),
+    "solves q from the data")
+})

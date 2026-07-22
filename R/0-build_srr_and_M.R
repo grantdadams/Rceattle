@@ -911,3 +911,40 @@ build_selectivity <- function(linkages = NULL) {
   }
   invisible()
 }
+
+
+# Catchability forms that SOLVE q from the data rather than estimating it:
+# index_log_q is mapped out (see build_map_catchability), so a q linkage
+# would target a parameter that is not free and contribute nothing.
+.Q_LINKAGE_SOLVED_FORMS <- c("Analytical", "AnalyticalArith")
+
+
+#' Reject q linkages on fleets whose catchability is solved, not estimated
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param fleet_control the fleet control table.
+#' @return invisibly NULL; errors on a q linkage targeting a solved fleet.
+#' @keywords internal
+#' @noRd
+.check_q_linkage_support <- function(linkage_table, fleet_control) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  q <- linkage_table[linkage_table$process == "q", , drop = FALSE]
+  if (nrow(q) == 0L) return(invisible())
+
+  flts <- unique(q$fleet)
+  flts <- flts[!is.na(flts)]
+  if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
+  forms <- as.character(fleet_control$Catchability[flts])
+  bad <- flts[forms %in% .Q_LINKAGE_SOLVED_FORMS]
+  if (length(bad) > 0) {
+    stop(sprintf(
+      paste0("catchability linkage on fleet(s) %s whose Catchability (%s) ",
+             "solves q from the data rather than estimating it, so index_log_q ",
+             "is not a free parameter and the linkage would have no effect.\n",
+             "  Set Catchability to an estimated form to link q."),
+      paste(fleet_control$Fleet_name[bad], collapse = ", "),
+      paste(unique(as.character(fleet_control$Catchability[bad])),
+            collapse = ", ")), call. = FALSE)
+  }
+  invisible()
+}

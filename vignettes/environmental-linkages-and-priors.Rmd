@@ -739,6 +739,90 @@ Practical note: a linkage row's `age_bin` is ignored for
 recruitment (recruitment is at age 0 by definition). The
 `sex_ratio` data input partitions recruits across sexes downstream.
 
+## Catchability
+
+Survey/index catchability is indexed by **fleet**, not by
+species/sex/age, so its linkages use `by = ~ fleet`. `build_catchability()`
+takes the same `linkages` argument with a single parameter key, `q`:
+
+```{r}
+fit <- fit_mod(
+  data_list = data_list,
+  qFun      = build_catchability(
+    linkages = list(
+      q = linkage_spec(~ temp, by = ~ fleet)   # one coefficient per fleet
+    )
+  ),
+  estimateMode = 0,
+  msmMode      = 0
+)
+
+# One coefficient set per fleet; the offset lands here:
+fit$quantities$q_linkage_offset      # [n_flt, nyrs]
+```
+
+Restrict a spec to particular fleets with the `fleet` argument of
+`linkage_spec()`, and attach priors the same way as any other process:
+
+```{r}
+build_catchability(linkages = list(
+  q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+                   priors = list(temp = normal(0, 1)))))
+```
+
+This **supersedes** the old `Catchability = "Environmental"` /
+`Time_varying_q` column pair, which named covariates by their position in
+a comma-separated list of `env_data` column indices. Existing models with
+`Catchability = "Environmental"` still fit -- they keep their own code path
+and exact numerics -- but emit a deprecation warning pointing at
+`build_catchability()`. As a linkage the effect is written as a formula,
+carries priors/bounds/phase, and names the fleet explicitly.
+
+An intercept-bearing formula (`~ temp`) leaves the base `index_log_q`
+estimable to carry the level and fixes the intercept row at 0, exactly as
+the growth/M/recruitment intercepts re-target their base parameters.
+
+## Selectivity
+
+Selectivity is also fleet-indexed (`by = ~ fleet`) and, unlike the other
+processes, has several parameters. `build_selectivity()` accepts these
+keys, which name the underlying slots shared across the parametric forms:
+
+| key | logistic family | DoubleNormal |
+|---|---|---|
+| `slp_asc`, `slp_desc` | ascending / descending slope | `sigma_asc`, `sigma_desc` |
+| `inf_asc`, `inf_desc` | ascending / descending inflection | `peak`, `right_floor` |
+
+The DoubleNormal aliases (`sigma_asc`, `peak`, ...) map to the same slots,
+so you name the quantity your fleet's form actually has.
+
+```{r}
+fit <- fit_mod(
+  data_list = data_list,
+  selFun    = build_selectivity(
+    linkages = list(
+      inf_asc = linkage_spec(~ cold_pool, by = ~ fleet)
+    )
+  ),
+  estimateMode = 0,
+  msmMode      = 0
+)
+```
+
+As with every process, `link = "log"` makes the effect multiplicative on
+the natural parameter and `link = "identity"` makes it additive, so you can
+link the log-space slope and the natural-space inflection independently.
+
+**Supported forms:** the parametric selectivities -- `Logistic`,
+`DoubleLogistic`, `DescendingLogistic`, `DoubleNormal`, and `LogisticPM`.
+A linkage on any other form errors at fit time naming the fleet, rather than
+being estimated to no effect. The non-parametric forms (`coff`) are
+excluded on principle: they mean-centre their coefficients every year, so a
+per-year offset applied across all bins cancels exactly -- a per-bin
+covariate would be needed, which the formula grammar does not express.
+`Time_varying_sel` process-error deviates are a separate mechanism and
+compose additively with a selectivity linkage.
+
 ## A multi-process example
 
 The same pattern composes when more than one parameter is linked:
@@ -931,15 +1015,21 @@ per parameter, two-sex species get two.
   row's `age_bin == NA` broadcasts across ages; specific values
   pin the offset to that age slice). The schema is reserved for
   other processes that may eventually vary by age.
-* **Selectivity / catchability linkages** -- the encoder already
-  reserves `process = "sel"` and `process = "q"` codes, but no
-  cpp accumulator consumes them yet.
+* **Random-effect selectivity/catchability deviates** -- fixed-effect
+  covariate linkages on `q` and `sel` work today (see above); the
+  `~ (1 | Year)` / `rw()` / `ar1()` random-effect forms and the
+  translation of `Time_varying_q` / `Time_varying_sel` onto them wait on
+  the shared random-effect machinery.
+* **Non-parametric selectivity** -- a `coff` linkage needs a per-bin
+  covariate, since a per-year scalar cancels under the annual
+  mean-centring; the formula grammar does not yet express that.
 * **Legacy retirement** -- `srr_indices`, `M1_indices`,
   `srr_fun %in% c(1, 3, 5)`, and `M1_model %in% c(4, 5)` are
   deprecated; see the migration table in `NEWS.md`.
 
 ## See also
 
-* `?linkage_spec`, `?build_growth`, `?build_M1`, `?build_srr`, `?prior_normal`
+* `?linkage_spec`, `?build_growth`, `?build_M1`, `?build_srr`,
+  `?build_catchability`, `?build_selectivity`, `?prior_normal`
 * `vignette("model-parameterizations", package = "Rceattle")` for the
   full set of process options.

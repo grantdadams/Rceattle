@@ -1,3 +1,44 @@
+# Rceattle 4.9.0
+
+## New features
+
+* **Environmental linkages on catchability and selectivity.** The
+  formula-driven linkage grammar (`linkage_spec()`) now extends to survey
+  catchability and to the parametric selectivity forms, both indexed by a new
+  `fleet` stratum (`by = ~ fleet`):
+
+    ```r
+    fit_mod(...,
+      qFun   = build_catchability(linkages = list(
+                 q = linkage_spec(~ temp, by = ~ fleet))),
+      selFun = build_selectivity(linkages = list(
+                 inf_asc = linkage_spec(~ cold_pool, by = ~ fleet))))
+    ```
+
+  Selectivity keys are the shared parameter slots `slp_asc`/`slp_desc`/
+  `inf_asc`/`inf_desc`, with DoubleNormal aliases `sigma_asc`/`sigma_desc`/
+  `peak`/`right_floor`. Supported forms: `Logistic`, `DoubleLogistic`,
+  `DescendingLogistic`, `DoubleNormal`, `LogisticPM`. Every parameter accepts
+  `link = "log"` (multiplicative) or `link = "identity"` (additive). A linkage
+  on an unsupported form or the non-parametric `coff` errors at fit time
+  naming the fleet, rather than being estimated to no effect.
+
+* **`build_catchability()` and `build_selectivity()`** exported, mirroring
+  `build_growth()` / `build_M1()` / `build_srr()`, each carrying a `linkages`
+  argument for its process.
+
+* Linkage formulas are now parsed with the **`reformulas`** package (shared by
+  lme4 and glmmTMB), so `(1 | Year)` / `ar1(Year + 0 | fleet)` syntax is
+  recognised and an unknown covariance-structure wrapper errors instead of
+  silently degrading to unstructured.
+
+## Behavior changes
+
+* **`Catchability = "Environmental"` (`Estimate_q = 5`) is deprecated.** It
+  still fits with its existing numerics but emits a warning pointing at
+  `build_catchability(linkages = ...)`, which names covariates by formula and
+  carries priors, bounds, and an estimation phase.
+
 # Rceattle 4.8.0
 
 ## New features
