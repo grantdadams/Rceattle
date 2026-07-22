@@ -1029,7 +1029,11 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
-      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical")){
+      # "Analytical" (geometric) and "AnalyticalArith" (arithmetic) both SOLVE q
+      # from the data rather than estimating it, so index_log_q is unused and must
+      # be mapped out -- otherwise it is a free parameter that never enters the
+      # objective, leaving a flat direction that makes the Hessian singular.
+      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical", "AnalyticalArith")){
         map_list$index_log_q[flt] <- flt
       }
 

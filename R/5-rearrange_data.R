@@ -191,6 +191,12 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = 0L)) %>%
     dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
 
+  # - 9g) AMAK "avgsel" base-level penalty weight (type 9). ADMB adds
+  #       10*square(avgsel_*), avgsel = log(mean(exp(base coffs))); 0 = off (default).
+  data_list$flt_sel_avgsel_pen <- suppressWarnings(
+    as.numeric(data_list$fleet_control$Sel_avgsel_pen))
+  data_list$flt_sel_avgsel_pen[is.na(data_list$flt_sel_avgsel_pen)] <- 0
+
   # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
   #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
   data_list$flt_sel_cap_bin <- data_list$fleet_control %>%

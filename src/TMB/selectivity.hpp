@@ -276,6 +276,7 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_cap_bin,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  flt_sel_start_yr,
     matrix<Type> emp_sel_obs,
     matrix<int>& emp_sel_ctl,
     array<Type> log_sel_slp,
@@ -354,13 +355,27 @@ void calculate_selectivity(
           // plateau at the last coff. The UNCAPPED centered curve (np_unc) is carried
           // forward for the walk; the realized curve is that capped flat at
           // flt_sel_cap_bin and re-centered (mean(exp)=1).
+          // For years at or before the fleet's selectivity start year, the curve is
+          // built directly from the base coefficients (a fresh mean-centering of that
+          // single vector each year) rather than by carrying the running random walk.
+          // This follows the AMAK convention of setting a survey's base selectivity
+          // once at its start year; beyond the start year the curve carries forward as
+          // a random walk. For a fleet that starts at styr (start_yr = 0) this is the
+          // ordinary base-year build.
+          bool from_base = (yr <= flt_sel_start_yr(flt));
           for(int bin = 0; bin < nbins; bin++){
-            Type prev = (yr == 0) ? sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1))
+            Type prev = from_base ? sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1))
                                   : np_unc(sex, (bin < n_sel_bins ? bin : n_sel_bins - 1), yr - 1);
             Type inc  = (bin < n_sel_bins) ? sel_coff_dev(flt, sex, bin, yr) : Type(0.0);
             np_unc(sex, bin, yr) = prev + inc;
           }
           for(int bin = n_sel_bins; bin < nbins; bin++) np_unc(sex, bin, yr) = np_unc(sex, n_sel_bins - 1, yr);
+          // Bins below bin_first_selected (e.g. the acoustic-survey age-1) are held at
+          // 0 before each year's mean-centering, following the AMAK convention that a
+          // fixed first-bin log-selectivity is 0 prior to normalization. This keeps the
+          // excluded bin out of the shared normalization of the selected ages and out
+          // of the deviate/curvature penalties.
+          for(int bin = 0; bin < bin_first_selected(flt); bin++) np_unc(sex, bin, yr) = 0.0;
           { Type m = 0; for(int bin = 0; bin < nbins; bin++) m += exp(np_unc(sex, bin, yr));
             m = log(m / nbins);
             for(int bin = 0; bin < nbins; bin++) np_unc(sex, bin, yr) -= m; }
