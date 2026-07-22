@@ -158,6 +158,9 @@ encode_linkage_for_tmb <- function(table, X) {
   # `beta_linkage_re(re_index)` for these rows instead of `beta_linkage(i)`.
   re_index_int <- ifelse(is.na(table$re_index), -1L, as.integer(table$re_index))
   is_re <- re_index_int >= 0L
+  # Per-slot sigma-group index (length n_re): slot g's log_sigma_linkage group.
+  # The C++ density reads sigma = exp(log_sigma_linkage(linkage_re_sigma(g))).
+  re_sigma_int <- integer(0)
   if (any(is_re)) {
     # Bijection: every beta_linkage_re slot is referenced by exactly one row,
     # so each has one data path (via the accumulators) and one density term.
@@ -174,6 +177,9 @@ encode_linkage_for_tmb <- function(table, X) {
            "fixed-effect prior (prior on the deviation SD goes through ",
            "`priors = list(sigma = ...)`).", call. = FALSE)
     }
+    re_rows <- which(is_re)
+    re_sigma_int <- integer(n_re)
+    re_sigma_int[re_index_int[re_rows] + 1L] <- as.integer(table$sigma_index[re_rows])
   }
 
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
@@ -194,6 +200,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_X_col         = as.integer(table$X_col) - 1L,   # 0-based for TMB
     linkage_link          = link_int,
     linkage_re_index      = re_index_int,
+    linkage_re_sigma      = re_sigma_int,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -218,6 +225,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_X_col         = integer(0),
     linkage_link          = integer(0),
     linkage_re_index      = integer(0),
+    linkage_re_sigma      = integer(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

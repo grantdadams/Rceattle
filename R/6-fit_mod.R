@@ -459,6 +459,12 @@ fit_mod <-
     if (sum(data_list$M1_re) > 0) {
       random_vars <- c(random_vars, "log_M1_dev")
     }
+    # Random-effect linkage deviations enter the Laplace approximation. Only add
+    # them when at least one is actually free (mirrors the init_dev guard above):
+    # integrating a fully-mapped / length-0 parameter yields an NA/NaN gradient.
+    if (any(!is.na(map$mapList$beta_linkage_re))) {
+      random_vars <- c(random_vars, "beta_linkage_re")
+    }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 6: Reorganize data ----
@@ -545,6 +551,7 @@ fit_mod <-
     data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
     data_list_reorganized$linkage_re_index     <- .linkage_enc$linkage_re_index
+    data_list_reorganized$linkage_re_sigma      <- .linkage_enc$linkage_re_sigma
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1

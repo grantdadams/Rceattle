@@ -202,16 +202,31 @@ build_params <- function(data_list) {
     param_list$beta_linkage <- numeric(0)
   }
 
-  # Random-effect linkage machinery. beta_linkage_re holds the deviation
-  # coefficients that enter the Laplace approximation (one per level of a
-  # `~ (1|group)` / rw() / ar1() term); log_sigma_linkage is one variance per
-  # RE group; trans_rho_linkage is one correlation per autocorrelated group.
-  # All length-0 until a random linkage spec is supplied, so a model without
-  # one is numerically unchanged. Populated from the RE group registry once
-  # the grammar wires random terms.
-  param_list$beta_linkage_re   <- numeric(0)
-  param_list$log_sigma_linkage <- numeric(0)
-  param_list$trans_rho_linkage <- numeric(0)
+  # Random-effect linkage machinery, sized from the RE registry that
+  # pool_linkages() wrote onto the table. beta_linkage_re holds the deviation
+  # coefficients that enter the Laplace approximation (one per RE row, indexed
+  # by `re_index`); log_sigma_linkage is one log-SD per RE group (`sigma_index`);
+  # trans_rho_linkage is one transformed correlation per autocorrelated (ar1)
+  # group. All length-0 until a random linkage spec is supplied, so a model
+  # without one is numerically unchanged.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L &&
+      any(!is.na(data_list$linkage_table$re_index))) {
+    lt      <- data_list$linkage_table
+    n_re    <- sum(!is.na(lt$re_index))
+    n_group <- max(lt$sigma_index, na.rm = TRUE) + 1L
+    # ar1 groups get a rho; us/rw groups do not. (rho estimation lands with
+    # ar1() -- until then no group is ar1 and this stays length 0.)
+    n_ar1   <- sum(!duplicated(lt$sigma_index[!is.na(lt$sigma_index)]) &
+                     lt$re_struct[!is.na(lt$sigma_index)] == "ar1")
+    param_list$beta_linkage_re   <- numeric(n_re)            # deviations, init 0
+    param_list$log_sigma_linkage <- rep(log(0.3), n_group)   # default start; spec-driven in a later step
+    param_list$trans_rho_linkage <- numeric(n_ar1)           # init 0 (rho ~ 0)
+  } else {
+    param_list$beta_linkage_re   <- numeric(0)
+    param_list$log_sigma_linkage <- numeric(0)
+    param_list$trans_rho_linkage <- numeric(0)
+  }
 
   # * 1.3c. Push (Intercept) inits to the base parameter ----
   # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits

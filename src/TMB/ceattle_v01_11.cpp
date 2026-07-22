@@ -223,6 +223,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
+  DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
   DATA_IVECTOR(linkage_prior_family);  // none=0, normal=1, lognormal=2, gamma=3, beta=4
   DATA_VECTOR(linkage_prior_p1);       // family-specific prior param 1
@@ -3872,6 +3873,24 @@ Type objective_function<Type>::operator() () {
    REPORT( ration_hat_ave );
    */
   REPORT(mort_sum);
+
+  // -------------------------------------------------------------------------
+  // RANDOM-EFFECT LINKAGE DENSITY (jnll_comp row 20)
+  // -------------------------------------------------------------------------
+  // Each beta_linkage_re slot is an IID deviation drawn from
+  // N(0, exp(log_sigma_linkage(group))), the group being the slot's
+  // linkage_re_sigma entry. This is the same idiom as the time-varying
+  // catchability deviate density (index_q_dev): a plain dnorm sum, NOT the AR1
+  // form (rw()/ar1() structures add their coupling in a later step). Guarded on
+  // size so row 20 stays exactly 0 for every model without a random linkage,
+  // keeping those fits bit-identical.
+  if (beta_linkage_re.size() > 0) {
+    for (int g = 0; g < beta_linkage_re.size(); ++g) {
+      Type sigma = exp(log_sigma_linkage(linkage_re_sigma(g)));
+      jnll_comp(20, 0)            -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
+      unweighted_jnll_comp(20, 0) -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
+    }
+  }
 
   /** ------------------------------------------------------------------------ //
    // 15. END MODEL                                                             //

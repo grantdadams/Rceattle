@@ -1461,9 +1461,18 @@ build_map_linkages <- function(map_list, data_list) {
   tbl <- data_list$linkage_table
   est_phase   <- as.integer(tbl$est_phase)
   is_intercept <- tbl$design_col == "(Intercept)"
+  # Random-effect indicator rows carry their deviation in beta_linkage_re (which
+  # holds the density), so the fixed beta_linkage entry is pinned at 0. Key on
+  # re_index -- the registry marker -- so a fixed row that merely inherited a
+  # spec-level re_group stays estimable.
+  is_re_row <- !is.na(tbl$re_index)
   m <- map_list$beta_linkage
-  m[est_phase == 0L | is_intercept] <- NA
+  m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
+  # beta_linkage_re and log_sigma_linkage keep the blanket "all estimable" map
+  # from build_map()'s initializer; the density damps beta_linkage_re and the
+  # variance is free. (Fixing a group's sigma via est_phase/init lands with the
+  # linkage_spec sigma routing in a later step.)
   map_list
 }
 
