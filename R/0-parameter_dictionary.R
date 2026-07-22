@@ -67,6 +67,12 @@
     # -- environmental linkage --------------------------------------------
     r("beta_linkage", "linkage coefficients", "linkage",
       "Coefficients of the formula-driven environmental linkages; one per row of the linkage table.", "[n_linkage]"),
+    r("beta_linkage_re", "linkage random-effect deviations", "linkage",
+      "Random-effect deviation coefficients for `~ (1|group)` / rw() / ar1() linkage terms; entered into the Laplace approximation. Length 0 without a random linkage.", "[n_linkage_re]"),
+    r("log_sigma_linkage", "linkage RE log-SD", "linkage",
+      "Log standard deviation of each random-effect linkage group; the variance of the time-varying deviations. Can be input (init) or given a prior. Length 0 without a random linkage.", "[n_re_group]"),
+    r("trans_rho_linkage", "linkage RE correlation", "linkage",
+      "Transformed autocorrelation for each ar1() linkage group. Length 0 unless a correlated (ar1) random linkage is used.", "[n_re_ar1_group]"),
 
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",
