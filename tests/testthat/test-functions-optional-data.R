@@ -40,7 +40,7 @@ testthat::test_that("Test no multi-species data", {
                                               random_rec = FALSE,
                                               msmMode = 0,
                                               initMode = "NonEquilibrium",
-                                              fit_control = fit_control(phase = TRUE, verbose = 0))
+                                              fit_control = fit_control(phase = FALSE, verbose = 0))
   )
 }
 )
