@@ -110,7 +110,9 @@ LINKAGE_STRATUM_ALL <- 0L
 #'     (`nrow(table)`).}
 #'   \item{linkage_process, linkage_param, linkage_species,
 #'     linkage_sex, linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
-#'     linkage_prior_family}{Parallel `integer(n_linkage)` vectors.}
+#'     linkage_re_index, linkage_prior_family}{Parallel `integer(n_linkage)`
+#'     vectors. `linkage_re_index` is `-1` on fixed rows, else the 0-based
+#'     `beta_linkage_re` slot.}
 #'   \item{linkage_prior_p1, linkage_prior_p2}{Parallel
 #'     `numeric(n_linkage)` vectors.}
 #'   \item{linkage_X}{The design matrix as passed in.}
@@ -151,6 +153,29 @@ encode_linkage_for_tmb <- function(table, X) {
   link_int  <- unname(LINKAGE_LINK_CODES[table$link])
   prior_int <- unname(LINKAGE_PRIOR_CODES[table$prior_family])
 
+  # Random-effect coefficient index (per row): -1 on fixed rows, else the
+  # 0-based slot in `beta_linkage_re`. The C++ accumulators read
+  # `beta_linkage_re(re_index)` for these rows instead of `beta_linkage(i)`.
+  re_index_int <- ifelse(is.na(table$re_index), -1L, as.integer(table$re_index))
+  is_re <- re_index_int >= 0L
+  if (any(is_re)) {
+    # Bijection: every beta_linkage_re slot is referenced by exactly one row,
+    # so each has one data path (via the accumulators) and one density term.
+    n_re <- sum(is_re)
+    if (!setequal(re_index_int[is_re], 0:(n_re - 1L)) ||
+        anyDuplicated(re_index_int[is_re])) {
+      stop("encode_linkage_for_tmb: re_index is not a bijection onto ",
+           "0:(n_re-1); the RE registry is inconsistent.", call. = FALSE)
+    }
+    # A stray prior on an RE indicator column would leak into the fixed-beta
+    # prior loop (which reads beta_linkage(i), frozen at 0 for RE rows).
+    if (any(prior_int[is_re] != 0L)) {
+      stop("encode_linkage_for_tmb: random-effect rows must not carry a ",
+           "fixed-effect prior (prior on the deviation SD goes through ",
+           "`priors = list(sigma = ...)`).", call. = FALSE)
+    }
+  }
+
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
   to_stratum <- function(v) {
     out <- as.integer(v)
@@ -168,6 +193,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_fleet         = to_stratum(table$fleet),
     linkage_X_col         = as.integer(table$X_col) - 1L,   # 0-based for TMB
     linkage_link          = link_int,
+    linkage_re_index      = re_index_int,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -191,6 +217,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_fleet         = integer(0),
     linkage_X_col         = integer(0),
     linkage_link          = integer(0),
+    linkage_re_index      = integer(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

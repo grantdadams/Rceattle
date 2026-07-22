@@ -516,6 +516,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   # Per-column RE metadata, aligned with the columns of X (NA for fixed).
   col_re_group  <- c(rep(NA_character_, ncol(X_fixed)), re$group)
   col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
+  col_re_time   <- c(rep(NA_real_,      ncol(X_fixed)), re$time)
 
   by_vars <- if (is.null(spec$by)) character(0) else all.vars(spec$by)
   unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin", "fleet"))
@@ -668,6 +669,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         # column inherits the spec's re_group (usually NA).
         re_group      = col_re_group[col_idx] %||% spec$re_group,
         re_struct     = col_re_struct[col_idx],
+        re_time       = col_re_time[col_idx],
         est_phase     = spec$est_phase
       )
     }
@@ -701,7 +703,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 .materialize_re_design <- function(re_terms, re_structures, env_data) {
   if (length(re_terms) == 0L) {
     return(list(X = matrix(numeric(0), nrow = nrow(env_data), ncol = 0L),
-                group = character(0), struct = character(0)))
+                group = character(0), struct = character(0),
+                time = numeric(0)))
   }
 
   not_iid <- setdiff(unique(re_structures), "us")
@@ -714,6 +717,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   }
 
   cols <- list(); groups <- character(0); structs <- character(0)
+  times <- numeric(0)
   for (i in seq_along(re_terms)) {
     # A bar expression `lhs | group`: the grouping variable is the RHS.
     bar <- re_terms[[i]]
@@ -727,16 +731,24 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                    grp_var), call. = FALSE)
     }
     # One indicator column per level (no reference dropped: the density pins
-    # them, so all levels are identifiable).
+    # them, so all levels are identifiable). model.matrix orders columns by
+    # sorted factor level, which is numeric order for a numeric grouping.
     ind <- stats::model.matrix(
       stats::as.formula(sprintf("~ 0 + factor(%s)", grp_var)), data = env_data)
     lev <- sub(sprintf("^factor\\(%s\\)", grp_var), "", colnames(ind))
     colnames(ind) <- sprintf("%s_re::%s", grp_var, lev)
+    # Numeric level value drives the real-elapsed-time ordering that rw()/ar1()
+    # require (the numeric-Year rule). A non-numeric grouping (e.g. a regime
+    # label) yields NA here; that is fine for IID (order-invariant) and is
+    # rejected for rw()/ar1() where a true lag is needed.
+    lev_num <- suppressWarnings(as.numeric(lev))
     cols[[i]] <- ind
     groups  <- c(groups,  rep(grp_var, ncol(ind)))
     structs <- c(structs, rep(re_structures[i], ncol(ind)))
+    times   <- c(times,   lev_num)
   }
-  list(X = do.call(cbind, cols), group = groups, struct = structs)
+  list(X = do.call(cbind, cols), group = groups, struct = structs,
+       time = times)
 }
 
 
@@ -876,10 +888,51 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   }
 
   list(
-    table        = bind_linkage(remapped),
+    table        = .assign_re_registry(bind_linkage(remapped)),
     X            = global_X,
     design_names = global_names
   )
+}
+
+
+#' Assign the random-effect registry on a pooled linkage table
+#'
+#' @description
+#' Fills the `re_index` and `sigma_index` columns for the materialized
+#' random-effect rows (those with a non-`NA` `re_struct`); fixed rows keep
+#' `NA`. A distinct **sigma group** is one unique
+#' `process|param|species|sex|age_bin|fleet|re_group|re_struct` combination --
+#' the same key `map_linkage_adjuster()` uses, extended by the RE group and
+#' structure so different fleets/params/groups each estimate their own variance.
+#' `re_index` (the 0-based slot in `beta_linkage_re`) is assigned in
+#' `(sigma group, elapsed time)` order, so each group's deviations are
+#' contiguous and time-ordered -- `rw()`/`ar1()` rely on the ordering; IID is
+#' order-invariant. The assignment is a bijection: `re_index` takes each value
+#' in `0:(n_re - 1)` exactly once.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table`.
+#' @return `tbl` with `re_index`/`sigma_index` filled on RE rows.
+#' @keywords internal
+#' @noRd
+.assign_re_registry <- function(tbl) {
+  if (nrow(tbl) == 0L) return(tbl)
+  is_re <- !is.na(tbl$re_struct)
+  if (!any(is_re)) return(tbl)          # no RE rows: leave the registry NA
+
+  re_rows <- which(is_re)
+  key <- paste(tbl$process, tbl$param,
+               ifelse(is.na(tbl$species), "*", tbl$species),
+               ifelse(is.na(tbl$sex),     "*", tbl$sex),
+               ifelse(is.na(tbl$age_bin), "*", tbl$age_bin),
+               ifelse(is.na(tbl$fleet),   "*", tbl$fleet),
+               tbl$re_group, tbl$re_struct, sep = "|")[re_rows]
+  uniq_keys <- unique(key)
+  tbl$sigma_index[re_rows] <- match(key, uniq_keys) - 1L
+
+  ord <- order(tbl$sigma_index[re_rows], tbl$re_time[re_rows],
+               method = "radix", na.last = TRUE)
+  tbl$re_index[re_rows[ord]] <- seq_along(re_rows) - 1L
+  tbl
 }
 
 

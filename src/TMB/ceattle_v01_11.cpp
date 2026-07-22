@@ -222,6 +222,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_fleet);         // 1-based Fleet_code; 0 = all
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
+  DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
   DATA_IVECTOR(linkage_prior_family);  // none=0, normal=1, lognormal=2, gamma=3, beta=4
   DATA_VECTOR(linkage_prior_p1);       // family-specific prior param 1
@@ -619,6 +620,20 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // Effective linkage coefficient per table row. Fixed rows use their
+  // beta_linkage(i); random-effect rows (linkage_re_index >= 0) instead draw
+  // their deviation from beta_linkage_re, which carries the density in row 20.
+  // The accumulators below are agnostic to the split -- they see one beta
+  // vector. With no RE rows every linkage_re_index is -1, so beta_linkage_eff
+  // is an element-wise copy of beta_linkage and the fit is bit-identical.
+  vector<Type> beta_linkage_eff = beta_linkage;
+  for (int i = 0; i < beta_linkage_eff.size(); ++i) {
+    if (linkage_re_index(i) >= 0) {
+      beta_linkage_eff(i) = beta_linkage_re(linkage_re_index(i));
+    }
+  }
+
+
   // 5.3. CATCHABILITY
   // Environmental linkage offsets, one pass per link scale. Zero unless a
   // q linkage was supplied, so models without one are unaffected.
@@ -630,14 +645,14 @@ Type objective_function<Type>::operator() () {
     /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
-    linkage_X, beta_linkage, n_flt, nyrs_hind);
+    linkage_X, beta_linkage_eff, n_flt, nyrs_hind);
 
   rceattle_apply_q_linkages(
     q_linkage_offset_nat,
     /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
-    linkage_X, beta_linkage, n_flt, nyrs_hind);
+    linkage_X, beta_linkage_eff, n_flt, nyrs_hind);
 
   REPORT(q_linkage_offset);
   REPORT(q_linkage_offset_nat);
@@ -717,7 +732,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nyrs
   );
@@ -732,7 +747,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nyrs
   );
@@ -755,7 +770,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nages,
@@ -772,7 +787,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nages,
@@ -798,7 +813,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nyrs
@@ -814,7 +829,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nyrs
@@ -903,14 +918,14 @@ Type objective_function<Type>::operator() () {
     /*link_code=*/ 1,   // log-link rows -> log-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
-    linkage_X, beta_linkage, n_flt, max_sex, max_bin, nyrs);
+    linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
 
   rceattle_apply_sel_linkages(
     sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat,
     /*link_code=*/ 0,   // identity-link rows -> natural-scale tensors
     linkage_process, linkage_param, linkage_species, linkage_sex,
     linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
-    linkage_X, beta_linkage, n_flt, max_sex, max_bin, nyrs);
+    linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
 
   // "sel_at_age" and "sel_at_length" modified via pass-by-reference
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix

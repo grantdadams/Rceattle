@@ -49,7 +49,11 @@ LINKAGE_COLS <- c(
   prior_p2      = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
   re_group      = "character",  # random-effect group name (NA = fixed)
   re_struct     = "character",  # covariance structure (us/rw/ar1/...; NA = fixed)
-  est_phase     = "integer"     # phase ordinal; 0 = fixed
+  est_phase     = "integer",    # phase ordinal; 0 = fixed
+  # Random-effect registry (filled by pool_linkages(); NA on fixed rows).
+  re_index      = "integer",    # 0-based slot in beta_linkage_re (NA = fixed row)
+  sigma_index   = "integer",    # 0-based slot in log_sigma_linkage (NA = fixed row)
+  re_time       = "numeric"     # numeric grouping value, for rw/ar1 time order (NA = fixed)
 )
 
 
@@ -254,7 +258,14 @@ validate_linkage_table <- function(x) {
 #' @param prior_p1,prior_p2 family-specific prior parameters; ignored when
 #'   `prior_family == "none"`.
 #' @param re_group random-effect grouping label; `NA` = fixed.
+#' @param re_struct random-effect covariance structure (`"us"`/`"rw"`/`"ar1"`);
+#'   `NA` = fixed.
 #' @param est_phase estimation phase ordinal; `0` = fix at `init`.
+#' @param re_index,sigma_index,re_time random-effect registry fields filled by
+#'   [pool_linkages()]; `NA` on fixed rows. `re_index` is the 0-based slot in
+#'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
+#'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
+#'   deviations in real elapsed time.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -273,7 +284,10 @@ linkage_row <- function(process, param, X_col,
                         prior_p2      = NA_real_,
                         re_group      = NA_character_,
                         re_struct     = NA_character_,
-                        est_phase     = 1L) {
+                        est_phase     = 1L,
+                        re_index      = NA_integer_,
+                        sigma_index   = NA_integer_,
+                        re_time       = NA_real_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -294,7 +308,10 @@ linkage_row <- function(process, param, X_col,
     prior_p2      = as.numeric(prior_p2),
     re_group      = as.character(re_group),
     re_struct     = as.character(re_struct),
-    est_phase     = as.integer(est_phase)
+    est_phase     = as.integer(est_phase),
+    re_index      = as.integer(re_index),
+    sigma_index   = as.integer(sigma_index),
+    re_time       = as.numeric(re_time)
   )
   validate_linkage_table(out)
   out

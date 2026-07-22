@@ -544,6 +544,7 @@ fit_mod <-
     data_list_reorganized$linkage_fleet        <- .linkage_enc$linkage_fleet
     data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
+    data_list_reorganized$linkage_re_index     <- .linkage_enc$linkage_re_index
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
