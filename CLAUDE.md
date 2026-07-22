@@ -1,6 +1,6 @@
 # Rceattle — Claude Code guide
 
-Rceattle (v4.6.0, GPL) fits the **CEATTLE** single- and multi-species, climate-linked,
+Rceattle (v4.7.0, GPL) fits the **CEATTLE** single- and multi-species, climate-linked,
 age-structured stock assessment model. The likelihood is a **TMB / C++** model
 (`src/TMB/`); everything around it (data prep, fitting, projection, MSE, diagnostics,
 plotting) is R.
@@ -42,23 +42,35 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `1-*` data checks, `2..5-*` params/map/bounds/rearrange, `6-*` fit + rename output,
   `7-*` plotting, `8-*` sim, `9-*` retro/jitter, `10-*` MSE, `11-*` model averaging.
   **The numeric prefixes are meaningful — don't renumber or rename wholesale.**
-- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,574 lines, numbered section
+- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,810 lines, numbered section
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
-- **`tests/testthat/`** — organized by process (`tests-Dynamics/`, `tests-Selectivity/`,
-  `tests-Likelihoods/`, `tests-Data-processing/`, …) with shared `helpers-*.R` /
-  `fixtures/`. Fast fixtures: `make_test_data()` (single-species) or `make_msm_test_data()`
-  (multispecies, incl. diet) with `estimateMode = 3` build a non-optimized object.
-  `tests/comparison/` holds WHAM cross-checks (not part of `test_check`).
+- **`tests/testthat/`** — **flat layout**: every test is a top-level `test-<area>-<topic>.R`
+  (e.g. `test-selectivity-logisticpm.R`, `test-likelihood-index-covariance.R`); the old
+  `tests-Dynamics/` / `tests-Selectivity/` … subdirectories were removed. Shared
+  `helpers-*.R` / `fixtures/` sit alongside. Fast fixtures: `make_test_data()`
+  (single-species) or `make_msm_test_data()` (multispecies, incl. diet) with
+  `estimateMode = 3` build a non-optimized object. `tests/comparison/` holds WHAM
+  cross-checks (not part of `test_check`).
 - **`vignettes/`** are `eval = FALSE` (they only need to render). `data/` has bundled
   example datasets (`BS2017SS`, `BS2017MS`, `GOA2018SS`, …).
 
 ## Conventions & traps
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
-- Roxygen uses markdown; run `devtools::document()` after touching `@`-docs.
-- **Released package — preserve the public API.** Rceattle is shipped (v4.6.0, has users;
+- Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
+  repo was documented with roxygen2 7.3.3 (`DESCRIPTION: RoxygenNote: 7.3.3`), but a newer
+  local roxygen2 (e.g. 8.0.0) rewrites *every* `man/*.Rd` and swaps `RoxygenNote:` for
+  `Config/roxygen2/version:` — a huge spurious diff. After `document()`, `git checkout`
+  the unrelated `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
+  **Second trap:** never insert a helper between a function's roxygen block and its
+  definition. Contiguous `#'` lines are ONE block and bind to whichever object follows, so
+  the helper silently steals the `@export` / `@importFrom` tags and the original function
+  loses them. Tests won't catch it (NAMESPACE isn't regenerated) — only the next
+  `document()` reveals it. Put helpers above the block or after the function.
+- **Released package — preserve the public API.** Rceattle is shipped (v4.7.0, has users;
   see `cran-comments.md` / `inst/RELEASE-CHECKLIST.md`). Exported `build_*()` args carry
   deprecation paths (e.g. SRR codes `1/3/5`) — **deprecate / keep back-compat rather than
   deleting public surface.** Internal refactors are free as long as golden-reference
@@ -70,6 +82,31 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **`jnll_comp` likelihood rows are magic integers** in `ceattle_v01_11.cpp`; their names
   live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by hand.
   If you add/reorder a likelihood component, update both.
+- **Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
+  `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the
+  group, so any per-fleet setting that differs within a group is silently taken from the
+  donor (`Sel_start_year`, `Bin_first_selected`, `N_sel_bins`, …). The donor is the first
+  *estimated* fleet — an `Off` fleet's slice is all `NA` and must never lead. Penalties and
+  priors on a shared block are accumulated once, on the lead fleet (`flt_sel_lead` /
+  `flt_q_lead`); without that gate they are counted once per sharing fleet. GOA2018SS is
+  the worked example (fleets 1 & 7 share selectivity; 9 & 10 share selectivity *and* q).
+- **`fleet_control$Fleet_code` must equal the row number.** Per-fleet parameter and map
+  arrays are dimensioned by `nrow(fleet_control)` but indexed by `Fleet_code`, so a
+  mismatch attaches parameters to the wrong fleet. `data_check()` enforces it; read
+  `fleet_control` columns by row index `i`, never by `flt`.
+- **Selectivity bin columns are dimension-aware.** `Bin_first_selected`, `N_sel_bins`,
+  `Sel_norm_bin1/2`, `Sel_pen_first_bin`, `Sel_pen_last_bin`, `Sel_cap_bin` are bin indices
+  on the fleet's own `Selectivity_dimension`: an absolute **age** for age-based fleets
+  (offset by `minage`) or a 1-based **length-bin ordinal** for length-based (offset by 1).
+  The cpp penalties loop over `nbins`, not `nages`.
+- **A new `data_list` element needs `write_data()` / `read_data()` support too**, or it
+  round-trips to nothing and the feature is silently lossy through the standard xlsx
+  format — this is how `index_cov` was lost.
+- **A slow fit is the model, not a regression.** A full `BS2017SS`
+  `estimateMode = 0, phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for
+  phasing, +~14 s for `sdreport`. That single fit has needed ~500–700 `nlminb` iterations
+  since at least 2023 (bisected back through `main`), so don't hunt a recent cause. For dev
+  loops `phase = FALSE, getsd = FALSE` gives ~14 s.
 - **Numeric changes need golden-reference equivalence:** any edit that can move the fit
   must keep an example fit (e.g. `BS2017SS`) within tolerance and the suite green.
 - **`fit_mod(estimateMode=)`:** 0 = hindcast + HCR projection, 1 = hindcast only,
@@ -116,6 +153,18 @@ files), update all three before considering it done:
   (they're `eval = FALSE`, so at minimum they must still render).
 
 Full release / tag process lives in `inst/RELEASE-CHECKLIST.md`.
+
+## Sibling model repo
+
+`../Rceattle-models` holds the real assessments (EBS/GOA pollock, sablefish, arrowtooth,
+plaice, POP, …) and is a live consumer of this package's API — a breaking change here
+breaks scripts there. After one, sweep it:
+`grep -rn "<removed_fn>" --include=*.R "../Rceattle-models"`. The v4.7.0 ggplot migration
+is the cautionary case: `plot_*()` now return ggplot objects, so every
+`plot_x(...); mtext(...)` chain in those scripts failed with "plot.new has not been called
+yet". Caveats: some models there are partially implemented and don't run regardless, so not
+every hit needs chasing; and a static sweep catches removed/renamed API but not behavioural
+drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Converting ADMB models
 

@@ -1,3 +1,52 @@
+#' Flag the fleet that carries each shared parameter block's penalty
+#'
+#' Fleets sharing an index estimate one block of parameters, so its prior /
+#' penalty must be accumulated once. Returns 1 for the first estimated fleet in
+#' each group and 0 for the rest. An "Off" fleet estimates nothing, so it is
+#' never chosen while an estimated fleet is available -- the same donor rule
+#' `adjust_map_shared_params()` uses. Fleets with no index (`NA`) share with
+#' nobody and always lead.
+#'
+#' @keywords internal
+#' @noRd
+.group_lead <- function(key, is_off) {
+  lead <- rep(0L, length(key))
+  for (k in unique(key[!is.na(key)])) {
+    rows <- which(!is.na(key) & key == k)
+    est  <- rows[!is_off[rows]]
+    lead[if (length(est)) est[1] else rows[1]] <- 1L
+  }
+  lead[is.na(key)] <- 1L
+  as.integer(lead)
+}
+
+#' Effective selectivity start year, resolved across mirrored fleets
+#'
+#' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
+#' so the shared block must start at the earliest year any of them has data.
+#' Returns the per-fleet group minimum of `Sel_start_year` (NA = `styr`), keeping
+#' the mask and the penalty anchor independent of `fleet_control` row order.
+#'
+#' @keywords internal
+#' @noRd
+.sel_start_year_by_group <- function(fleet_control, styr) {
+  n   <- nrow(fleet_control)
+  styr <- as.integer(styr)
+  ssy <- fleet_control$Sel_start_year
+  if (is.null(ssy)) return(rep(styr, n))
+
+  eff <- suppressWarnings(as.integer(ssy))
+  eff[is.na(eff)] <- styr                       # NA -> styr (no pre-start masking)
+
+  grp <- fleet_control$Selectivity_index
+  if (is.null(grp)) return(eff)
+  # A fleet with no Selectivity_index shares with nobody -> its own group.
+  grp <- ifelse(is.na(grp), paste0("_row", seq_len(n)), as.character(grp))
+
+  mins <- tapply(eff, grp, min)
+  as.integer(mins[match(grp, names(mins))])
+}
+
 #' Rearrange a data_list for TMB
 #'
 #' @description Function to rearrange a \code{data_list} object to be read into TMB
@@ -49,6 +98,21 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$flt_sel_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Selectivity) %>% as.integer()
 
+  # - 4b) Selectivity penalty "lead": 1 for the one fleet that carries each shared
+  #       block's penalty, 0 for the fleets mirroring it, so a mirrored selectivity
+  #       is penalized once (matching ADMB). Fleets are grouped by Selectivity_index
+  #       AND selectivity type, so a fleet with empirical selectivity (type 0)
+  #       sharing an index with a parametric fleet does not suppress the parametric
+  #       fleet's penalty. The lead is the first ESTIMATED fleet in the group: an
+  #       "Off" fleet estimates nothing and the cpp penalty is gated on flt_type,
+  #       so leading with one would drop the group's penalty entirely. This matches
+  #       the map donor chosen in adjust_map_shared_params().
+  {
+    .off <- data_list$flt_type == 0
+    data_list$flt_sel_lead <- .group_lead(
+      paste(data_list$fleet_control$Selectivity_index, data_list$flt_sel_type), .off)
+  }
+
   data_list$flt_sel_dim <- data_list$fleet_control %>%
     dplyr::mutate(Selectivity_dimension = dplyr::case_when(
       .data$Selectivity_dimension == "Age" ~ 0,
@@ -56,6 +120,13 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = NA
     )) %>%
     dplyr::pull(.data$Selectivity_dimension) %>% as.integer()
+
+  # - 4b) Per-fleet offset converting a selectivity bin column to the 0-based C++
+  #       index. Age-based fleets give absolute ages -> offset is the species'
+  #       minage; length-based fleets give 1-based length-bin ordinals -> offset 1.
+  sel_bin_offset <- ifelse(!is.na(data_list$flt_sel_dim) & data_list$flt_sel_dim == 1L,
+                           1L,
+                           data_list$minage[data_list$fleet_control$Species])
 
   # - 5) Number of ages/lengths for non-parametric selectivity
   data_list$flt_n_sel_bins <- data_list$fleet_control %>%
@@ -75,16 +146,63 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
-      Sel_norm_bin1 = .data$Sel_norm_bin1 - data_list$minage[Species],
+      Sel_norm_bin1 = .data$Sel_norm_bin1 - sel_bin_offset,
       Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
       Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
     dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
+    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - sel_bin_offset,
                   Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
     dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
+
+  # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
+  #       penalties begin the year after this (excludes pre-survey years + the
+  #       start-year boundary). NA -> styr (index 0). Used by LogisticPM (type 11).
+  #       Resolved to the minimum across each Selectivity_index group, since
+  #       mirrored fleets share one deviation block (see .sel_start_year_by_group).
+  data_list$flt_sel_start_yr <- as.integer(
+    .sel_start_year_by_group(data_list$fleet_control, data_list$styr) - data_list$styr)
+
+  # - 9c) First bin (0-based) for the non-parametric shape penalty. NA -> -999
+  #       (cpp falls back to bin_first_selected). Lets the ascending/descending
+  #       shape constraint span a narrower range than the first selected bin
+  #       (e.g. ATS: age-1 is selected but the shape penalty starts at mina_ats).
+  data_list$flt_sel_pen_first_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_first_bin = .data$Sel_pen_first_bin - sel_bin_offset,
+                  Sel_pen_first_bin = ifelse(is.na(.data$Sel_pen_first_bin), -999, .data$Sel_pen_first_bin)) %>%
+    dplyr::pull(.data$Sel_pen_first_bin) %>% as.integer()
+
+  # - 9d) Last (left) bin (0-based) of the shape-penalty adjacent pairs. NA -> -999
+  #       (cpp falls back to nbins-2). With 9c, bounds the shape penalty to a sub-
+  #       range (e.g. RTMB "rpm" fishery smoothness over ages 6-11, ATS 5-7).
+  data_list$flt_sel_pen_last_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_last_bin = .data$Sel_pen_last_bin - sel_bin_offset,
+                  Sel_pen_last_bin = ifelse(is.na(.data$Sel_pen_last_bin), -999, .data$Sel_pen_last_bin)) %>%
+    dplyr::pull(.data$Sel_pen_last_bin) %>% as.integer()
+
+  # - 9e) Non-parametric shape-penalty mode: "Directional" (0; sign of Sel_curve_pen1
+  #       -> one-sided decreasing/increasing, ADMB/AMAK) or "Smooth" (1; two-sided
+  #       d^2 over adjacent ages, RTMB "rpm"). NA/other -> 0.
+  data_list$flt_sel_shape_mode <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_shape_mode = dplyr::case_when(
+      .data$Sel_shape_mode %in% c(1, "Smooth", "smooth") ~ 1L,
+      .default = 0L)) %>%
+    dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
+
+  # - 9g) AMAK "avgsel" base-level penalty weight (type 9). ADMB adds
+  #       10*square(avgsel_*), avgsel = log(mean(exp(base coffs))); 0 = off (default).
+  data_list$flt_sel_avgsel_pen <- suppressWarnings(
+    as.numeric(data_list$fleet_control$Sel_avgsel_pen))
+  data_list$flt_sel_avgsel_pen[is.na(data_list$flt_sel_avgsel_pen)] <- 0
+
+  # - 9f) NonParametricRPM (type 9) bin cap (0-based): the realized selectivity is
+  #       held flat at/after this bin (RTMB cap_old_age). NA -> -999 (no cap).
+  data_list$flt_sel_cap_bin <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_cap_bin = .data$Sel_cap_bin - sel_bin_offset,
+                  Sel_cap_bin = ifelse(is.na(.data$Sel_cap_bin), -999, .data$Sel_cap_bin)) %>%
+    dplyr::pull(.data$Sel_cap_bin) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
@@ -114,6 +232,14 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$index_varying_q <- data_list$fleet_control %>%
     dplyr::pull(.data$Time_varying_q) %>% as.integer()
 
+  # - 15b) Catchability "lead", the q analogue of flt_sel_lead. Fleets sharing a
+  #        Q_index estimate ONE catchability (and one deviate vector), so the q
+  #        prior and the deviate penalties are accumulated on the lead fleet only.
+  #        Without this they were applied once per sharing fleet to the same
+  #        parameter, e.g. counting a q prior twice for a mirrored pair.
+  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Q_index,
+                                      data_list$flt_type == 0)
+
   # - 16) Whether to estimate standard deviation of index time series
   data_list$est_sigma_index <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
@@ -121,6 +247,10 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 17) Whether to estimate standard deviation of fishery time series
   data_list$est_sigma_fsh <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
+
+  # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
+  data_list$index_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Index_loglike) %>% as.integer()
 
   data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
@@ -145,6 +275,49 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::select(Observation, Log_sd) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
+
+  # - Survey-index covariance matrices (Index_loglike == "MVN" or "MVNORM").
+  #   TMB evaluates TMB's density::MVNORM(Sigma) on each covariance fleet's fitted
+  #   residual vector r = obs - q*pred, i.e. 0.5*(r' Sigma^-1 r + logdet(Sigma) +
+  #   n*log(2*pi)). "MVN" reports the bare quadratic form 0.5 r' Sigma^-1 r (the
+  #   AMAK/ebswp DoCovBTS value) by subtracting the fixed normalizing constant
+  #   index_cov_const = 0.5*(logdet(Sigma) + n*log(2*pi)); "MVNORM" keeps the full
+  #   density. We pass Sigma directly (MVNORM factorizes it internally -- more
+  #   robust than an explicit inverse) plus the precomputed constant. Non-covariance
+  #   fleets get a 1x1 inert dummy (const 0) so the list is length n_flt and TMB can
+  #   index it by fleet code. Sigma must be square/symmetric with dimension equal to
+  #   the number of fitted survey obs for the fleet, in index_data row order.
+  n_flt_cov <- nrow(data_list$fleet_control)
+  data_list$index_cov_mat   <- vector("list", n_flt_cov)
+  data_list$index_cov_const <- numeric(n_flt_cov)
+  for(flt in seq_len(n_flt_cov)){
+    if(isTRUE(data_list$index_ll_type[flt] %in% c(1L, 2L))){
+      flt_name <- data_list$fleet_control$Fleet_name[flt]
+      flt_code <- data_list$fleet_control$Fleet_code[flt]
+      Sigma <- data_list$index_cov[[as.character(flt_name)]]
+      if(is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(flt_code)]]
+      Sigma <- as.matrix(Sigma)
+      n_fit <- sum(data_list$index_data$Fleet_code == flt_code &
+                     data_list$index_data$Year > 0 &
+                     data_list$index_data$Year <= data_list$endyr &
+                     data_list$index_data$Observation > 0)
+      if(nrow(Sigma) != n_fit || ncol(Sigma) != n_fit){
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the fleet has %d fitted ",
+                            "survey observations. Provide a square Sigma matching the fitted survey years ",
+                            "(Year in [styr, endyr], Observation > 0), in index_data row order."),
+                     flt_name, nrow(Sigma), ncol(Sigma), n_fit))
+      }
+      Sigma <- (Sigma + t(Sigma)) / 2  # symmetrize away tiny numerical asymmetry from the source file
+      logdet <- tryCatch(as.numeric(determinant(Sigma, logarithm = TRUE)$modulus),
+                         error = function(e) stop(sprintf(
+                           "Index covariance matrix for fleet '%s' is not invertible: %s", flt_name, conditionMessage(e))))
+      data_list$index_cov_mat[[flt]]  <- Sigma
+      data_list$index_cov_const[flt]  <- 0.5 * (logdet + nrow(Sigma) * log(2 * pi))
+    } else {
+      data_list$index_cov_mat[[flt]]  <- matrix(0, 1, 1)  # inert dummy (present-but-off)
+      data_list$index_cov_const[flt]  <- 0
+    }
+  }
 
 
   # 3 -  Catch data ----
@@ -507,7 +680,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
-                       "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
+                       "aLW", "diet_data", "index_cov", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 

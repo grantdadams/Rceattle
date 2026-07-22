@@ -4,7 +4,7 @@
 \alias{.process_residual_one}
 \title{Process residuals for a single deviation parameter}
 \usage{
-.process_residual_one(fit, process, par_name, seed)
+.process_residual_one(fit, process, par_name)
 }
 \description{
 Process residuals for a single deviation parameter

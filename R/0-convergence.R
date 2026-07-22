@@ -180,12 +180,27 @@
   if (length(pos) < 2L) return(out)
 
   kappa <- max(pos) / min(pos)               # = condition number of the Hessian
-  v  <- abs(ev$vectors[, which.max(vals)])    # flattest Hessian direction
+  v  <- ev$vectors[, which.max(vals)]         # flattest Hessian direction (unit norm)
   nm <- rownames(cov)
-  if (is.null(nm)) nm <- paste0("p", seq_along(v))
-  ord  <- order(-v)
-  top  <- utils::head(data.frame(param = nm[ord], loading = round(v[ord], 3)), 5L)
-  combo <- paste(unique(top$param[top$loading > 0.1]), collapse = " + ")
+  if (is.null(nm) || length(nm) != length(v)) nm <- names(object$sdrep$par.fixed)
+  if (is.null(nm) || length(nm) != length(v)) nm <- paste0("p", seq_along(v))
+
+  # The eigenvector is unit-norm, so v^2 partitions the direction across
+  # coefficients. Aggregate by parameter block (a vector parameter shares one
+  # name across its coefficients): each block's share is the sum of its squared
+  # loadings, and the shares sum to 1. This names the block(s) the flat direction
+  # lives in even when it is spread diffusely over many coefficients -- the case
+  # a single-coefficient threshold missed, leaving the message blank.
+  share <- tapply(v^2, factor(nm, levels = unique(nm)), sum)
+  share <- sort(share, decreasing = TRUE)
+  cum   <- cumsum(as.numeric(share))
+  ntop  <- which(cum >= 0.90)[1]                          # blocks explaining >=90%
+  if (is.na(ntop)) ntop <- length(share)
+  ntop  <- max(1L, min(ntop, 5L))                         # always name >=1, cap at 5
+  combo <- paste(sprintf("%s (%.0f%%)", names(share)[seq_len(ntop)],
+                         100 * as.numeric(share)[seq_len(ntop)]),
+                 collapse = " + ")
+  top   <- data.frame(param = names(share), share = round(as.numeric(share), 3))
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
   msg <- sprintf("Hessian condition number = %.2g.%s", kappa,

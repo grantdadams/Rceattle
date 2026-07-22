@@ -36,6 +36,14 @@ data_check <- function(data_list) {
     errors <- c(errors, "Length based suitability not yet implemented")
   }
 
+  # Catchability = "PowerEquation" is not yet implemented: the power coefficient
+  # (index_q_pow) is not built as a parameter and the template does not apply it,
+  # so the fleet would silently get a plain estimated q instead.
+  if(!is.null(data_list$fleet_control$Catchability) &&
+     any(data_list$fleet_control$Catchability %in% c("PowerEquation", 4), na.rm = TRUE)){
+    errors <- c(errors, "'PowerEquation' catchability not yet implemented")
+  }
+
   # minage: < 0 error
   if(any(data_list$minage < 0)){
     errors <- c(errors, "Minimum age is < 0. Check 'minage'.")
@@ -253,6 +261,15 @@ data_check <- function(data_list) {
     if(any(duplicated(fcodes[!is.na(fcodes)]))){
       errors <- c(errors, "fleet_control$Fleet_code values must be unique")
     }
+    # Fleet_code is used directly as the fleet slot of the per-fleet parameter
+    # and map arrays, which are built in fleet_control row order. The two must
+    # therefore agree, or parameters are silently attached to the wrong fleet.
+    if(length(fcodes) == nrow(fc) && !identical(as.integer(fcodes), seq_len(nrow(fc)))){
+      errors <- c(errors, paste0(
+        "fleet_control$Fleet_code must equal the row number (1, 2, ... ", nrow(fc),
+        "); got ", paste(fcodes, collapse = ", "),
+        ". Fleet_code indexes the per-fleet parameter/map arrays, which are built in row order."))
+    }
     if(any(!is.na(fsp) & (fsp < 1 | fsp > data_list$nspp))){
       errors <- c(errors, paste0("fleet_control$Species values must be in 1:", data_list$nspp))
     }
@@ -302,6 +319,26 @@ data_check <- function(data_list) {
         errors <- c(errors, paste0("Fleet '", flt_name, "': N_sel_bins (", nsb, ") must be in 1:", max_bin))
       }
 
+      # Non-parametric shape-penalty range and cap, given on the fleet's own
+      # selectivity dimension: an age (from minage) for age-based fleets, a
+      # 1-based length-bin ordinal for length-based. Out-of-range values would
+      # index past the selectivity array in the template.
+      bin_lo <- if(dim_is_age) data_list$minage[sp_idx] else 1L
+      bin_hi <- bin_lo + max_bin - 1L
+      for(col in c("Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_cap_bin")){
+        val <- fc_num(fc, col, flt)
+        if(!is.na(val) && (val < bin_lo || val > bin_hi)){
+          errors <- c(errors, paste0("Fleet '", flt_name, "': ", col, " (", val, ") must be in ",
+                                     bin_lo, ":", bin_hi,
+                                     if(dim_is_age) " (age-based selectivity)" else " (length-based selectivity)"))
+        }
+      }
+      pf <- fc_num(fc, "Sel_pen_first_bin", flt); pl <- fc_num(fc, "Sel_pen_last_bin", flt)
+      if(!is.na(pf) && !is.na(pl) && pf > pl){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': Sel_pen_first_bin (", pf,
+                                   ") must be <= Sel_pen_last_bin (", pl, ")"))
+      }
+
       # Accumulation ages
       lo <- fc_num(fc, "Accumulation_age_lower", flt)
       hi <- fc_num(fc, "Accumulation_age_upper", flt)
@@ -324,10 +361,55 @@ data_check <- function(data_list) {
         }
       }
 
-      # Non-parametric / Hake selectivity cannot use random-walk time variation
-      if(!fc$Time_varying_sel[flt] %in% c("Off", "IID", "AR1") &&
-         fc$Selectivity[flt] %in% c("NonParametric", "Hake")){
-        errors <- c(errors, "For non-parametric selectivities, 'Time_varying_sel' cannot be a random walk")
+      # Time-varying form is selectivity-type specific:
+      #  - NonParametric (Ianelli, type 2) / NonParametricPM (type 9): the cpp
+      #    penalizes year-to-year log selectivity-at-age, i.e. a RANDOM WALK ->
+      #    allow only "Off"/"RandomWalk".
+      #  - Hake (Taylor, type 5): IID coefficient deviates -> allow only "Off"/"IID".
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM") &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, "For 'NonParametric'/'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+      }
+      if(fc$Selectivity[flt] == "Hake" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
+        errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
+      }
+      #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
+      #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".
+      if(fc$Selectivity[flt] == "LogisticPM" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, "For 'LogisticPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+      }
+
+      # Non-parametric (Ianelli) selectivity penalties (Sel_curve_pen1 =
+      # decreasing penalty, Sel_curve_pen2 = curvature) must be present and
+      # numeric to identify the free coefficients. Catch the case where they are
+      # missing / non-numeric (e.g. a Time_varying_sel mode string accidentally
+      # written into Sel_curve_pen) before it surfaces as a cryptic
+      # "inits not within bounds" error in build_bounds.
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM")){
+        cp1 <- suppressWarnings(as.numeric(fc$Sel_curve_pen1[flt]))
+        cp2 <- suppressWarnings(as.numeric(fc$Sel_curve_pen2[flt]))
+        if(is.na(cp1) || is.na(cp2)){
+          errors <- c(errors, paste0(
+            "Fleet '", fc$Fleet_name[flt], "' has Selectivity = '", fc$Selectivity[flt], "' but ",
+            "'Sel_curve_pen1'/'Sel_curve_pen2' are missing or non-numeric (got '",
+            fc$Sel_curve_pen1[flt], "' / '", fc$Sel_curve_pen2[flt],
+            "'). Non-parametric selectivity requires numeric curvature/smoothness penalties."))
+        }
+      }
+
+      # LogisticPM: Sel_curve_pen1/2/3 are the random-walk weights on the
+      # slope / inflection / age-1 deviates (ADMB 50 / 50 / 8). Require numeric
+      # when time-varying so a stray mode string is caught early.
+      if(fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
+        cps <- suppressWarnings(as.numeric(c(fc$Sel_curve_pen1[flt], fc$Sel_curve_pen2[flt], fc$Sel_curve_pen3[flt])))
+        if(any(is.na(cps))){
+          errors <- c(errors, paste0(
+            "Fleet '", fc$Fleet_name[flt], "' has Selectivity = 'LogisticPM' with time-varying ",
+            "selectivity but 'Sel_curve_pen1'/'Sel_curve_pen2'/'Sel_curve_pen3' (slope/inflection/age-1 ",
+            "random-walk weights) are missing or non-numeric."))
+        }
       }
 
       # 2DAR1/3DAR1: 'Sel_curve_pen1'/'Sel_curve_pen2' are reused as logit-scale AR1
@@ -366,6 +448,26 @@ data_check <- function(data_list) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
       any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
     }
+    # Fleets sharing a Selectivity_index share one deviation block, so a
+    # differing Sel_start_year within the group is resolved to the group minimum
+    # (the earliest year any sharing fleet has data). Surface it so the
+    # resolution is deliberate rather than silent.
+    if (all(c("Selectivity_index", "Sel_start_year") %in% colnames(fc))) {
+      for (si in unique(fc$Selectivity_index[!is.na(fc$Selectivity_index)])) {
+        rows <- which(!is.na(fc$Selectivity_index) & fc$Selectivity_index == si)
+        if (length(rows) > 1) {
+          ys <- suppressWarnings(as.integer(fc$Sel_start_year[rows]))
+          ys[is.na(ys)] <- as.integer(data_list$styr)
+          if (length(unique(ys)) > 1) {
+            warning(paste0("Fleets sharing Selectivity_index ", si, " (",
+                           paste(fc$Fleet_name[rows], collapse = ", "),
+                           ") have different Sel_start_year (", paste(ys, collapse = ", "),
+                           "); the shared selectivity deviations use the earliest (", min(ys), ")."))
+          }
+        }
+      }
+    }
+
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
@@ -483,6 +585,50 @@ data_check <- function(data_list) {
   if(has_data(catch_df) && "Catch" %in% colnames(catch_df) &&
      any(is.na(catch_df$Catch) | catch_df$Catch < 0)){
     errors <- c(errors, "catch_data$Catch must be >= 0")
+  }
+
+  # MVN survey covariance requirement ----
+  # A fleet using Index_loglike == "MVN" or "MVNORM" must supply a square,
+  # symmetric variance-covariance matrix in data_list$index_cov (keyed by
+  # Fleet_name or Fleet_code) whose dimension equals the number of fitted survey
+  # observations for that fleet. Validated here so the requirement surfaces with a
+  # clear message at the flag rather than as a cryptic error in rearrange_data().
+  fc <- data_list$fleet_control
+  if(has_data(fc) && "Index_loglike" %in% colnames(fc)){
+    mvn_flts <- which(fc$Index_loglike %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
+    for(flt in mvn_flts){
+      flt_name <- fc$Fleet_name[flt]
+      flt_code <- fc$Fleet_code[flt]
+      Sigma <- NULL
+      if(!is.null(data_list$index_cov)){
+        Sigma <- data_list$index_cov[[as.character(flt_name)]]
+        if(is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(flt_code)]]
+      }
+      if(is.null(Sigma)){
+        errors <- c(errors, paste0("Fleet '", flt_name, "' has Index_loglike == 'MVN' but no covariance matrix ",
+                                   "was found in data_list$index_cov (expected an element named '", flt_name,
+                                   "' or '", flt_code, "')."))
+        next
+      }
+      Sigma <- as.matrix(Sigma)
+      n_fit <- 0
+      if(has_data(data_list$index_data)){
+        n_fit <- sum(data_list$index_data$Fleet_code == flt_code &
+                       data_list$index_data$Year > 0 &
+                       data_list$index_data$Year <= data_list$endyr &
+                       data_list$index_data$Observation > 0, na.rm = TRUE)
+      }
+      if(nrow(Sigma) != ncol(Sigma)){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' must be square (got ",
+                                   nrow(Sigma), " x ", ncol(Sigma), ")."))
+      } else if(nrow(Sigma) != n_fit){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' is ", nrow(Sigma), " x ",
+                                   ncol(Sigma), " but the fleet has ", n_fit, " fitted survey observations ",
+                                   "(Year in [styr, endyr], Observation > 0). Sigma must match those rows in index_data order."))
+      } else if(!isTRUE(all.equal(Sigma, t(Sigma), tolerance = 1e-4, check.attributes = FALSE))){
+        errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' is not symmetric."))
+      }
+    }
   }
 
   # Duplicates per (Fleet_code, Year, Month)

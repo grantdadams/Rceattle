@@ -1,7 +1,88 @@
+# Rceattle 4.8.0
+
+## New features
+
+* **AMAK "avgsel" base-level selectivity penalty** (`fleet_control$Sel_avgsel_pen`).
+  Non-parametric (type 9 / `NonParametricPM`) fleets can now carry the AMAK/ebswp
+  base-level regulariser `weight * (log(mean(exp(base coefficients))))^2` — ADMB's
+  `10 * square(avgsel_*)` — which mildly pins the overall level of the base
+  selectivity coefficients that the per-year mean-centering otherwise leaves free.
+  The per-fleet weight defaults to `0` (off), so existing models and the `BS2017SS`
+  golden reference are unchanged; set `Sel_avgsel_pen = 10` to match AMAK. The
+  penalty is accumulated once per shared-selectivity block (on the lead fleet).
+
+## Bug fixes
+
+* **Non-parametric (AMAK "pm", type 9 / `NonParametricPM`) selectivity deviate
+  penalties.** Two corrections so the type-9 selectivity and its deviate penalty
+  reproduce ADMB/AMAK exactly when the fleet excludes a first bin (e.g. the
+  acoustic-survey age-1) and/or starts after the model start year:
+    - Excluded bins (below `Bin_first_selected`) are now held at 0 before each
+      year's mean-centering instead of being carried through the random walk.
+      Previously their log-selectivity accumulated the per-year centering offset
+      and drifted, inflating the curvature / random-walk penalty on a bin that is
+      zeroed out of the fit anyway.
+    - For years up to a fleet's `Sel_start_year`, the curve is now rebuilt from the
+      base coefficients each year rather than iterating the running random walk
+      over the (data-free) pre-survey years. Iterating instead converged the
+      excluded first bin to a different fixed point and perturbed the start-year
+      base selectivity, inflating the deviate penalty on the first change year.
+  A fleet that starts at `styr` with no excluded bins is unaffected (the reset
+  reduces to the original start-year behaviour); the `BS2017SS` golden reference is
+  unchanged.
+* **`hessian_conditioning` diagnostic now always names the flat direction.** When
+  the Hessian's least-identified direction was spread diffusely over many
+  coefficients (no single coefficient above the reporting threshold), the message
+  read `loads on: .` with nothing after it. The check now aggregates the
+  eigenvector's squared loadings by parameter block and reports the block(s) making
+  up the direction with their percentage share (e.g. `loads on: rec_dev (69%) +
+  ln_srv_sel (31%)`), falling back to `par.fixed` names when `cov.fixed` carries no
+  dimnames.
+
 # Rceattle 4.7.0
 
 ## New features
 
+* **Natural-scale normal survey-index likelihood.** `fleet_control$Index_loglike`
+  gains `"Normal"`: the index residual `obs - q*pred` is normal with an *absolute*
+  observation SD (the `index_data$Log_sd` column is read as a natural-scale SD, not
+  a log-scale CV), i.e. `0.5*(obs - q*pred)^2 / sd^2`. This matches the AMAK/ebswp
+  `avo_like` / `cpue_like` survey likelihoods (which use an absolute sigma) so those
+  indices can be reproduced exactly, rather than approximated by the default
+  lognormal. Fixed alongside a latent crash: the covariance (MVN/MVNORM) block was
+  gated on `Index_loglike >= 1`, which now also matched `"Normal"` and applied
+  `MVNORM()` to a 1x1 dummy Sigma; it is now restricted to `"MVN"` / `"MVNORM"`.
+* **Multivariate-normal (covariance) survey-index likelihood.** A survey/index
+  fleet can now use a full variance-covariance matrix for its biomass index
+  instead of independent lognormal errors, via the new `fleet_control` column
+  `Index_loglike` (`"Lognormal"`, the default, or `"MVN"` / `"MVNORM"`). Supply
+  the covariance matrix (e.g. a VAST-derived Sigma) as a named element of the new
+  `index_cov` data list, keyed by `Fleet_name`. The likelihood uses TMB's native
+  `density::MVNORM(Sigma)` on the natural-scale residual `r = obs - q*pred`:
+  `"MVN"` reports the bare quadratic form `0.5 * r' Sigma^-1 r` (the AMAK/ebswp
+  `DoCovBTS` bottom-trawl survey value, matching ADMB's reported likelihood),
+  while `"MVNORM"` reports the full normalized density
+  `0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi))` — the two give an
+  identical fit and differ only by a fixed constant. A companion catchability
+  option `Catchability = "AnalyticalArith"` gives the arithmetic-mean analytical q
+  (`mean(obs)/mean(pred)`) that the AMAK covariance survey uses (the existing
+  `"Analytical"` q remains the geometric mean). Defaults are fully back-compatible:
+  existing models get `Index_loglike = "Lognormal"` and are numerically unchanged.
+* **AMAK-style non-parametric and logistic selectivity forms.** Two new
+  `fleet_control$Selectivity` options reproduce the ADMB AMAK ("pm") selectivity:
+  `NonParametricPM` (Ianelli coefficient selectivity with the decreasing,
+  curvature, and deviation-magnitude penalties, whose weights are set by
+  `Sel_curve_pen1` / `Sel_curve_pen2` / `Sel_curve_pen3`) and `LogisticPM`
+  (logistic + a free age-1 selectivity). Both take `Time_varying_sel =
+  "RandomWalk"`. Four new per-fleet `fleet_control` columns tune the shape
+  penalty: `Sel_pen_first_bin` and `Sel_pen_last_bin` (the bin range of the
+  adjacent-bin shape penalty, letting it span a narrower range than the first
+  selected bin), `Sel_shape_mode` (`"Directional"` one-sided decreasing/increasing,
+  the AMAK default, or `"Smooth"` two-sided curvature), and `Sel_cap_bin`
+  (hold the realized non-parametric curve flat at/after a bin). Each is given on
+  the fleet's own selectivity dimension — an age for age-based fleets, a 1-based
+  length-bin ordinal for length-based fleets — and is range-checked accordingly.
+  All default to the previous behavior when unset.
 * The plotting functions have been overhauled to **ggplot2**. Every exported
   `plot_*()` function now builds its figure with ggplot2 (colourblind-safe
   palettes — the Okabe-Ito qualitative palette for series identity and viridis
@@ -35,9 +116,150 @@
   the base-graphics device state or on a `NULL` return may need updating.
 * `plot_logindex()` has been **removed**; use `plot_index(..., log = TRUE)`.
 * The `gplots` and `oce` dependencies have been dropped (no longer used).
+* **Time-varying non-parametric selectivity now uses `"RandomWalk"`, not
+  `"IID"`.** The Ianelli non-parametric form (`Selectivity = "NonParametric"`)
+  previously fired its time-varying coefficient deviations on `Time_varying_sel =
+  "IID"`; it now requires `"RandomWalk"` (matching the random-walk structure the
+  penalty implements) and rejects `"IID"` with an error at `build_map()`. A model
+  using `NonParametric` + `IID` must switch to `RandomWalk`.
+* **A selectivity shared across fleets is now penalized once.** When two or more
+  fleets share a `Selectivity_index` *and* selectivity type (a mirrored curve),
+  the selectivity shape/deviation penalty is accumulated only on the lead fleet
+  rather than once per fleet, matching ADMB. This changes the objective only for
+  models that both mirror a selectivity **and** put a penalty on it (non-parametric
+  or time-varying); models with a unique selectivity index per fleet, and all
+  bundled examples, are numerically unaffected.
 
 ## Bug fixes
 
+* **`Catchability = "AnalyticalArith"` left an unused free catchability parameter,
+  making the Hessian singular.** The arithmetic-mean analytical q solves q from the
+  data (like the geometric `"Analytical"`), so its `index_log_q` is never used —
+  but `build_map()` excluded only `"Analytical"` from estimation, so the
+  `AnalyticalArith` fleet's `index_log_q` was still freed. That parameter never
+  entered the objective, leaving a zero-gradient flat direction that prevented
+  `sdreport()` from inverting the Hessian (`pdHess = FALSE`). It is now mapped
+  out, and such models converge with an invertible Hessian.
+* **The catchability prior and deviate penalties were counted once per fleet
+  sharing a `Q_index`, not once per estimated parameter.** Fleets sharing a
+  `Q_index` estimate one catchability and one deviate vector, but the template
+  looped over every fleet, so a mirrored pair applied the `Q_prior` twice to the
+  same parameter — tightening an intended prior SD of 0.2 to 0.2/sqrt(2) — and
+  penalized the shared `index_q_dev` vector once per fleet for the IID, random
+  walk and AR1 forms. A new `flt_q_lead` (the catchability analogue of
+  `flt_sel_lead`) accumulates them on one fleet per group. Models whose fleets
+  all have distinct `Q_index` are unchanged.
+* **`Catchability = "PowerEquation"` is now rejected as not yet implemented.** It
+  was accepted as a valid switch, but the power coefficient (`index_q_pow`) is
+  not built as a parameter and the template does not apply it, so the fleet
+  silently got a plain estimated q. `data_check()` now errors, matching how
+  length-based `suitMode` values are handled.
+* **`flt_sel_lead` could put the selectivity penalty on an `Off` fleet.** The
+  lead was the first fleet in a `Selectivity_index` group by row order. When that
+  fleet was `Fleet_type = "Off"` the template's `flt_type > 0` gate then skipped
+  the penalty for the whole group, leaving the shared selectivity unpenalized.
+  The lead is now the first *estimated* fleet in the group, matching the map
+  donor.
+* **A mirrored group led by an `Off` fleet stopped estimating selectivity and
+  catchability.** `adjust_map_shared_params()` copied the first sharing fleet's
+  map slice onto the rest. When that fleet was `Fleet_type = "Off"` its slice is
+  all `NA`, so every fleet sharing the index silently had its selectivity /
+  catchability parameters fixed at their starting values. The donor is now the
+  first *estimated* fleet in the group, and the copy is skipped when the group
+  has none. Groups led by an estimated fleet are unchanged.
+* **An explicitly set `Sel_start_year` was not shared across mirrored fleets,
+  making the fit depend on `fleet_control` row order.** The default derived from
+  the data is already the earliest first-observation year across each
+  `Selectivity_index` group, but a value the user sets directly was used
+  per fleet. Since fleets sharing an index share one deviation block,
+  `adjust_map_shared_params()` then overwrote the mirrored fleet's mask with the
+  lead fleet's, so whichever fleet appeared first governed the group: when that
+  fleet started later, a sharing fleet with earlier data silently lost those
+  deviations (12 years in a 1982/1994 pair). `Sel_start_year` now resolves to the
+  group minimum for both the map mask and the template's penalty anchor, however
+  it was set. `data_check()` warns when a mirrored group has differing
+  `Sel_start_year`, and `build_map()` warns when `Bin_first_selected` or
+  `N_sel_bins` differ within a group (those are likewise taken from the lead
+  fleet). Unmirrored fleets and derived defaults are unchanged.
+* **`fleet_control$Fleet_code` is now required to equal the row number.** It is
+  used directly as the fleet slot of the per-fleet parameter and map arrays,
+  which are built in `fleet_control` row order; a mismatch silently attached
+  parameters to the wrong fleet. `data_check()` now rejects it, and the
+  remaining places that read a `fleet_control` column by `Fleet_code` instead of
+  row index were corrected.
+* **Selectivity bin columns were converted to model indices using the species'
+  `minage`, which is wrong for length-based fleets.** `Sel_norm_bin1`,
+  `Sel_norm_bin2`, and the shape-penalty range/cap columns subtracted
+  `minage` to get the 0-based template index. That is correct for an age-based
+  fleet (the value is an age), but a length-based fleet's value is a 1-based
+  length-bin ordinal and must be offset by 1 — so those columns silently pointed
+  at the wrong length bin whenever `minage != 1`. The offset is now chosen per
+  fleet from `Selectivity_dimension`. Age-based fits, and length-based fits with
+  `minage == 1` (where the two offsets coincide), are unchanged.
+* **Non-parametric selectivity penalties now span length bins for length-based
+  fleets.** The shape, curvature, and random-walk penalties for the
+  `NonParametric` (type 2), `NonParametricPM` (type 9), and `LogisticPM`
+  (type 11) forms were hard-coded to the number of ages, so a length-based fleet
+  (`Selectivity_dimension = "Length"`) with more length bins than ages left the
+  upper length bins unpenalized (and read the wrong array). The penalties now run
+  over the fleet's own selectivity dimension (`nlengths` for length-based,
+  `nages` for age-based), so every parametric and non-parametric selectivity form
+  works on both age and length. Age-based fits are numerically unchanged.
+* **Survey-index covariance matrices were not re-aligned when the fitted year
+  range changed.** An `index_cov` (MVN/MVNORM) Sigma is positionally keyed to a
+  fleet's fitted survey observations, so any workflow that changes that set —
+  a `retrospective()` peel, an `endyr` / `styr` subset, or a `run_mse()`
+  assessment step that appends survey observations — left the Sigma at its
+  original dimension and tripped `rearrange_data()`'s dimension check
+  (`"N x N but the fleet has M fitted survey observations"`). `clean_data()` now
+  tags each Sigma with its fitted years the first time it is seen and, on every
+  subsequent pass, re-keys it to the current fitted set: retained years keep
+  their full covariance block, and new (future/simulated) years are added as an
+  independent diagonal block with variance `(Observation * Log_sd)^2`. Because
+  every re-fit routes through `clean_data()`, retrospective, MSE, and jitter now
+  all work with covariance-survey models; fresh fits and non-MVN fleets are
+  numerically unchanged.
+* **Time-varying selectivity deviations were estimated before a fleet had any
+  data.** `build_map()` never consulted `fleet_control$Sel_start_year`, so a fleet
+  with time-varying (`"RandomWalk"`) selectivity had deviations estimated across
+  *every* hindcast year — including years before its first observation. Those
+  deviations are informed by no data and constrained by no penalty (every
+  selectivity penalty in the objective is anchored at `Sel_start_year`), leaving
+  unidentified flat directions that stall the optimizer. In the EBS pollock model
+  this left ~54 free pre-survey deviations on a bottom-trawl survey starting in
+  1982 and ~240 on an acoustic survey starting in 1994 — a total parameter count
+  of 1483 against 1225 for the equivalent ADMB (AMAK) model, which never declares
+  them. Deviations before `Sel_start_year` are now fixed at 0, giving 1249. The
+  two selectivity parameterizations differ in where the base curve lives and are
+  handled accordingly: `LogisticPM` (and other curve-based forms) estimate a
+  separate base, so deviations are fixed *through* the start year; the
+  non-parametric random walk maps its mean (`sel_coff`) off and lets the start-year
+  deviation carry the base, so only the deviations strictly *before* it are fixed.
+* **`Sel_start_year` now defaults to the fleet's first year of data** rather than
+  `styr`. It is an optional `fleet_control` column, so the fix above only took
+  effect for users who knew to set it — a model with a late-starting survey would
+  silently carry unidentified deviations. The default is derived from
+  `catch_data` / `index_data` / `comp_data` / `caal_data`, consistent with how
+  `switch_check()` already auto-`"Off"`s fleets with no observations. Fleets
+  sharing a `Selectivity_index` share one selectivity curve, so the start year is
+  the *earliest* first-observation year across the whole group: a fleet whose own
+  data starts late but which mirrors an earlier fleet's curve (e.g. an AVO index
+  starting in 2006 mirroring an acoustic survey starting in 1994) must not drop
+  the deviations the mirrored fleet's data informs. Set the column explicitly to
+  override. Only models with time-varying selectivity on a fleet whose data starts
+  after `styr` are affected; for those, the previous behaviour is recovered by
+  setting `Sel_start_year = styr`.
+* **`LogisticPM` selectivity started with an unusable age-1 selectivity.**
+  `build_params()` initializes `sel_inf[2]` to `10`, which is correct for its
+  usual meaning (the descending-limb inflection *age*), but `LogisticPM`
+  (type 11) repurposes that slot as the free first-bin (age-1) **log**-selectivity.
+  The shared default therefore started age-1 selectivity at `exp(10)` = 22026
+  (for reference, the ADMB AMAK "pm" estimate is `sel_age_one_bts` = -3.19, i.e.
+  0.04). When age-1 was selected (`Bin_first_selected = 1`) this swamped the
+  survey-index prediction and the optimizer diverged with a gradient blow-up on
+  `sel_inf`; when it was not selected the bad value was silently masked by the
+  zeroed first bin. `sel_inf[2]` now defaults to `0` (age-1 selectivity = 1) for
+  `LogisticPM` fleets.
 * `plot_maturity()` read a non-existent `pmature` field and errored on real
   fits; it now reads `data_list$maturity`.
 * `plot_ration()` failed for single-sex models (a dropped array dimension); the

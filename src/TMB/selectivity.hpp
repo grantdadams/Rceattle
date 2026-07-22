@@ -64,7 +64,7 @@ void normalize_and_project_selectivity(
   if(sel_norm_bin1(flt) > -500){
 
     // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12)) { // Dont normalize hake type selex
+    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) { // Dont normalize hake (5/12) or LogisticPM (11; Sel_norm_bin1/2 are reused as the penalty age-range)
       for(int yr = 0; yr < nyrs_hind; yr++) {
         for(int sex = 0; sex < nsex(sp); sex++){
 
@@ -92,7 +92,7 @@ void normalize_and_project_selectivity(
 
     // 2. Normalize by max for each fishery and year across bins, and sexes
     // - Don't for hake non-parametric
-    if((sel_type != 5) && (sel_type != 12) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+    if((sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
       for(int yr = 0; yr < nyrs_hind; yr++) {
         max_sel = 0;
         for(int bin = 0; bin < nbins; bin++){
@@ -274,8 +274,10 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
     const vector<int>&  flt_n_sel_bins,
+    const vector<int>&  flt_sel_cap_bin,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  flt_sel_start_yr,
     matrix<Type> emp_sel_obs,
     matrix<int>& emp_sel_ctl,
     array<Type> log_sel_slp,
@@ -327,6 +329,10 @@ void calculate_selectivity(
     int n_sel_bins = flt_n_sel_bins(flt);
     Type binwidth = is_length_based ? (lengths(sp, 1) - lengths(sp, 0)) : Type(1.0);
 
+    // Uncapped, per-year-centered log-selectivity, carried across years for the
+    // NonParametricRPM (type 9) random walk (the realized curve is then capped).
+    array<Type> np_unc(nsex(sp), nbins, nyrs_hind); np_unc.setZero();
+
     for (int yr = 0; yr < nyrs_hind; yr++) {
       for (int sex = 0; sex < nsex(sp); sex++) {
 
@@ -342,6 +348,52 @@ void calculate_selectivity(
             else sel_at_age(flt, sex, bin, yr) = val;
           }
           break;
+
+        case 9: { // NonParametricRPM (RTMB "rpm"): random walk on the per-year-
+                  // renormalized log-selectivity, then a flat age-cap.
+          // sel_coff = base coffs (year styr, ages 0..n_sel_bins-1); sel_coff_dev =
+          // RAW per-year increments placed at the year they apply. Ages >= n_sel_bins
+          // plateau at the last coff. The UNCAPPED centered curve (np_unc) is carried
+          // forward for the walk; the realized curve is that capped flat at
+          // flt_sel_cap_bin and re-centered (mean(exp)=1).
+          // For years at or before the fleet's selectivity start year, the curve is
+          // built directly from the base coefficients (a fresh mean-centering of that
+          // single vector each year) rather than by carrying the running random walk.
+          // This follows the AMAK convention of setting a survey's base selectivity
+          // once at its start year; beyond the start year the curve carries forward as
+          // a random walk. For a fleet that starts at styr (start_yr = 0) this is the
+          // ordinary base-year build.
+          bool from_base = (yr <= flt_sel_start_yr(flt));
+          for(int bin = 0; bin < nbins; bin++){
+            Type prev = from_base ? sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1))
+                                  : np_unc(sex, (bin < n_sel_bins ? bin : n_sel_bins - 1), yr - 1);
+            Type inc  = (bin < n_sel_bins) ? sel_coff_dev(flt, sex, bin, yr) : Type(0.0);
+            np_unc(sex, bin, yr) = prev + inc;
+          }
+          for(int bin = n_sel_bins; bin < nbins; bin++) np_unc(sex, bin, yr) = np_unc(sex, n_sel_bins - 1, yr);
+          // Bins below bin_first_selected (e.g. the acoustic-survey age-1) are held at
+          // 0 before each year's mean-centering, following the AMAK convention that a
+          // fixed first-bin log-selectivity is 0 prior to normalization. This keeps the
+          // excluded bin out of the shared normalization of the selected ages and out
+          // of the deviate/curvature penalties.
+          for(int bin = 0; bin < bin_first_selected(flt); bin++) np_unc(sex, bin, yr) = 0.0;
+          { Type m = 0; for(int bin = 0; bin < nbins; bin++) m += exp(np_unc(sex, bin, yr));
+            m = log(m / nbins);
+            for(int bin = 0; bin < nbins; bin++) np_unc(sex, bin, yr) -= m; }
+          { vector<Type> cl(nbins);
+            for(int bin = 0; bin < nbins; bin++) cl(bin) = np_unc(sex, bin, yr);
+            int cap = flt_sel_cap_bin(flt);
+            if(cap >= 0) for(int bin = cap + 1; bin < nbins; bin++) cl(bin) = cl(cap);
+            Type m2 = 0; for(int bin = 0; bin < nbins; bin++) m2 += exp(cl(bin));
+            m2 = log(m2 / nbins);
+            for(int bin = 0; bin < nbins; bin++){
+              non_par_sel(flt, sex, bin, yr) = exp(cl(bin) - m2);
+              if (is_length_based) sel_at_length(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+              else                 sel_at_age(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+            }
+          }
+          break;
+        }
 
         case 2: // Non-parametric (Ianelli style)
           for(int bin = 0; bin < n_sel_bins; bin++) {
@@ -461,6 +513,34 @@ void calculate_selectivity(
             else sel_at_age(flt, sex, bin, yr) = val;
           }
           break;
+
+        case 11: { // LogisticPM (ADMB AMAK "pm" bottom-trawl survey form)
+          // Standard 2-parameter logistic over all bins, but with MULTIPLICATIVE
+          // time-varying deviations on slope and inflection (matching AMAK's
+          //   sel = 1/(1 + exp(-slp*exp(slp_dev) * (age - a50*exp(a50_dev)))) ),
+          // plus a FREE first-bin (age-1) log-selectivity independent of the
+          // logistic (AMAK sel_age_one_bts*exp(sel_age_one_bts_dev)). The first-bin
+          // base and its deviates are stored in the unused descending-limb slots
+          // sel_inf(1)/sel_inf_dev(1). No internal normalization (set Sel_norm_bin1
+          // = NA): AMAK does not renormalize the BTS curve and age-1 may exceed 1.
+          // NOTE: AMAK evaluates the logistic at age_vector(j) = j + 0.5 (mid-age),
+          // so the age-based x is (bin + 1) + 0.5 = bin + 1.5, NOT bin + 1 as in
+          // the standard Logistic (case 1). This 0.5 shift cannot be folded into a50
+          // because the inflection deviate is multiplicative (a50*exp(dev)).
+          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
+          Type inf   = sel_inf(0, flt, sex) * exp(sel_inf_dev(0, flt, sex, yr));
+          for (int bin = 0; bin < nbins; bin++) {
+            Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1.5);
+            Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else                 sel_at_age(flt, sex, bin, yr) = val;
+          }
+          // Free first-bin (age-1) log-selectivity override
+          Type log_s1 = sel_inf(1, flt, sex) * exp(sel_inf_dev(1, flt, sex, yr));
+          if (is_length_based) sel_at_length(flt, sex, 0, yr) = exp(log_s1);
+          else                 sel_at_age(flt, sex, 0, yr) = exp(log_s1);
+          break;
+        }
         }
 
       } // End sex
