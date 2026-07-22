@@ -98,6 +98,19 @@ For the linkage version, indexed by **re_group** instead of species:
    (`Time_varying_sel`/`Time_varying_q`/`M1_re` → grammar, bit-identical) and the
    `Time_varying_*_sd_prior` → `_sd` rename (it is an input value, not a prior — see the plan).
 
+## Local-dev gotcha (cost 30 min this session — do not rediscover it)
+
+The parallel functions (`retrospective`, `jitter`, `run_mse`, ...) have their workers run
+`library(Rceattle)`, which loads the **installed** package, not the `load_all` dev version.
+So after any change to `jnll_comp`'s row count or the linkage-table schema, the dev parent
+produces a fitted object the stale installed workers can't process → **"subscript out of
+bounds" in `checkForRemoteErrors`**, only in the parallel path (serial `cores = 1` is fine).
+It is a version-mismatch artifact, NOT a code bug — CI installs first, so CI is green.
+**Fix: `R CMD INSTALL .` (with `export PATH=/usr/bin:$PATH`) before running the parallel
+tests locally.** The RE work changes `jnll_comp` again (already did: 20→21) and the schema,
+so reinstall before every local `devtools::test()` that reaches `test-functions-retrospective`
+/ `-jitter` / `-mse`.
+
 ## Traps specific to this work
 
 - **The numeric-Year / true-lag rule** (from the plan): when rw()/ar1() land, the RE vector's
