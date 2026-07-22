@@ -1,5 +1,10 @@
 
 testthat::test_that("Bias adjustment of data and process likelihoods works", {
+  # Runs real fit_mod() optimizations and checks hardcoded terminal values, so it
+  # is platform-sensitive (the phased fit can land in a different basin on another
+  # optimizer/BLAS). Skip on CRAN / plain R CMD check; the coverage workflow runs
+  # it under NOT_CRAN. See CLAUDE.md.
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 

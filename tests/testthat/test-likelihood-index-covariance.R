@@ -164,6 +164,32 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   testthat::expect_equal(S3[nyrs + 1L, 1L], 0)                               # no spurious cross term
 })
 
+testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an absolute sd", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  nages <- 5; nyrs <- 8
+  dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
+  srv <- dat$fleet_control$Fleet_name == "Survey"
+  dat$fleet_control$Index_loglike[srv] <- "Normal"           # natural-scale normal
+  dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
+  dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- 20   # ABSOLUTE sd
+
+  fit <- Rceattle::fit_mod(data_list = dat, estimateMode = 3,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  rep <- fit$obj$report(); td <- fit$obj$env$data
+  sel <- which(td$index_ctl[, 1] == 1 & td$index_ctl[, 3] > 0 &
+                 td$index_ctl[, 3] <= td$endyr & td$index_obs[, 1] > 0)
+  # 0.5*(obs - q*pred)^2 / sd^2 + normalizing constant = -sum dnorm(obs, pred, sd)
+  ll_R <- -sum(dnorm(td$index_obs[sel, 1], rep$index_hat[sel], 20, log = TRUE))
+  testthat::expect_equal(rep$jnll_comp[1, 1], ll_R, tolerance = 1e-8)
+
+  # Regression: a non-MVN family (0/3) carries a 1x1 dummy Sigma and must NOT
+  # enter the MVN block (Index_loglike >= 1 there previously segfaulted for
+  # "Normal" by applying MVNORM(1x1) to a length-nyrs residual).
+  testthat::expect_false(is.null(fit$obj))
+})
+
 testthat::test_that("data_check rejects invalid MVN covariance input", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")

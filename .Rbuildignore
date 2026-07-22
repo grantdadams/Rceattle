@@ -30,3 +30,4 @@
 ^Rplots\.pdf$
 ^_pkgdown\.yml$
 ^docs$
+^HANDOFF-data-workflow-modernization\.md$

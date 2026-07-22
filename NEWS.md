@@ -1,6 +1,43 @@
-# Rceattle 4.7.1
+# Rceattle 4.8.0
+
+## New features
+
+* **AMAK "avgsel" base-level selectivity penalty** (`fleet_control$Sel_avgsel_pen`).
+  Non-parametric (type 9 / `NonParametricPM`) fleets can now carry the AMAK/ebswp
+  base-level regulariser `weight * (log(mean(exp(base coefficients))))^2` — ADMB's
+  `10 * square(avgsel_*)` — which mildly pins the overall level of the base
+  selectivity coefficients that the per-year mean-centering otherwise leaves free.
+  The per-fleet weight defaults to `0` (off), so existing models and the `BS2017SS`
+  golden reference are unchanged; set `Sel_avgsel_pen = 10` to match AMAK. The
+  penalty is accumulated once per shared-selectivity block (on the lead fleet).
 
 ## Bug fixes
+
+* **Non-parametric (AMAK "pm", type 9 / `NonParametricPM`) selectivity deviate
+  penalties.** Two corrections so the type-9 selectivity and its deviate penalty
+  reproduce ADMB/AMAK exactly when the fleet excludes a first bin (e.g. the
+  acoustic-survey age-1) and/or starts after the model start year:
+    - Excluded bins (below `Bin_first_selected`) are now held at 0 before each
+      year's mean-centering instead of being carried through the random walk.
+      Previously their log-selectivity accumulated the per-year centering offset
+      and drifted, inflating the curvature / random-walk penalty on a bin that is
+      zeroed out of the fit anyway.
+    - For years up to a fleet's `Sel_start_year`, the curve is now rebuilt from the
+      base coefficients each year rather than iterating the running random walk
+      over the (data-free) pre-survey years. Iterating instead converged the
+      excluded first bin to a different fixed point and perturbed the start-year
+      base selectivity, inflating the deviate penalty on the first change year.
+  A fleet that starts at `styr` with no excluded bins is unaffected (the reset
+  reduces to the original start-year behaviour); the `BS2017SS` golden reference is
+  unchanged.
+* **`hessian_conditioning` diagnostic now always names the flat direction.** When
+  the Hessian's least-identified direction was spread diffusely over many
+  coefficients (no single coefficient above the reporting threshold), the message
+  read `loads on: .` with nothing after it. The check now aggregates the
+  eigenvector's squared loadings by parameter block and reports the block(s) making
+  up the direction with their percentage share (e.g. `loads on: rec_dev (69%) +
+  ln_srv_sel (31%)`), falling back to `par.fixed` names when `cov.fixed` carries no
+  dimnames.
 
 * **Mohn's rho was computed from the wrong row for forecast years beyond the
   terminal year.** `retrospective()` accumulated relative error into
@@ -117,11 +154,19 @@
   rather than recomputing the full second difference for each age (O(n) instead
   of O(n^2)). Numerically identical.
 
-
 # Rceattle 4.7.0
 
 ## New features
 
+* **Natural-scale normal survey-index likelihood.** `fleet_control$Index_loglike`
+  gains `"Normal"`: the index residual `obs - q*pred` is normal with an *absolute*
+  observation SD (the `index_data$Log_sd` column is read as a natural-scale SD, not
+  a log-scale CV), i.e. `0.5*(obs - q*pred)^2 / sd^2`. This matches the AMAK/ebswp
+  `avo_like` / `cpue_like` survey likelihoods (which use an absolute sigma) so those
+  indices can be reproduced exactly, rather than approximated by the default
+  lognormal. Fixed alongside a latent crash: the covariance (MVN/MVNORM) block was
+  gated on `Index_loglike >= 1`, which now also matched `"Normal"` and applied
+  `MVNORM()` to a 1x1 dummy Sigma; it is now restricted to `"MVN"` / `"MVNORM"`.
 * **Multivariate-normal (covariance) survey-index likelihood.** A survey/index
   fleet can now use a full variance-covariance matrix for its biomass index
   instead of independent lognormal errors, via the new `fleet_control` column
@@ -202,6 +247,14 @@
 
 ## Bug fixes
 
+* **`Catchability = "AnalyticalArith"` left an unused free catchability parameter,
+  making the Hessian singular.** The arithmetic-mean analytical q solves q from the
+  data (like the geometric `"Analytical"`), so its `index_log_q` is never used —
+  but `build_map()` excluded only `"Analytical"` from estimation, so the
+  `AnalyticalArith` fleet's `index_log_q` was still freed. That parameter never
+  entered the objective, leaving a zero-gradient flat direction that prevented
+  `sdreport()` from inverting the Hessian (`pdHess = FALSE`). It is now mapped
+  out, and such models converge with an invertible Hessian.
 * **The catchability prior and deviate penalties were counted once per fleet
   sharing a `Q_index`, not once per estimated parameter.** Fleets sharing a
   `Q_index` estimate one catchability and one deviate vector, but the template
@@ -574,7 +627,6 @@ navigate. None of these changes alter model output.
 * **Likelihood profile**: New `profile_param()` generalises the legacy `profile_rsigma()` example helper to any parameter slot in `Rceattle$estimated_params`. Supports arbitrary N-D cross-profiles via `expand.grid()` over a list of per-cell value grids (e.g. cross-profiling `log_M1` across sex, or `R_log_sd` across multiple species). Natural-scale aliases `"sigmaR"` / `"R_sd"`, `"M1"`, and `"R0"` / `"alpha"` / `"beta"` apply the implicit `log()` transform and (for the `rec_pars` aliases) auto-fill the column, so `slots` only needs the species index. `slots` defaults to species 1 with a warning. Fits run in parallel on the same PSOCK harness as `jitter()` / `retrospective()` / `self_test()`.
 * **Parallel `retrospective()` and `jitter()`**: Both diagnostics now run their independent peels / starts on a PSOCK cluster (same approach as `run_mse()`). New `cores` argument on each (default `parallel::detectCores() - 6`, capped at 2 when `_R_CHECK_LIMIT_CORES_` is set); pass `cores = 1` to force sequential execution.
 * **Standard errors in `as.data.frame.Rceattle()`**: The tidy long-format frame now carries a `se` column alongside `value` / `lwr` / `upr`, populated from the TMB `sdreport` for any `ADREPORT`'d quantity. Set to `NA` for non-ADREPORT'd quantities and for fits produced with `getsd = FALSE`.
-
 
 ## Bug fixes
 
@@ -1009,7 +1061,6 @@ one-time warnings pointing users at the linkage table. They will be
 * Remove the `suppressWarnings()` wrappers around internal
   `build_srr()` / `build_M1()` re-callers in `sim_mod()`,
   `retrospective()`, `jitter()`, `run_mse()`, `project_no_F()`.
-
 
 # Rceattle 4.0.3
 

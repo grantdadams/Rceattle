@@ -128,10 +128,16 @@ comp_loglike_map <- c(
 #               density::MVNORM(Sigma)(r). Identical fit to "MVN" (the extra term is
 #               a fixed constant), but a proper normalized likelihood; the reported
 #               value is "MVN" + 0.5*(logdet(Sigma) + n*log(2*pi)).
+#   Normal    = natural-scale normal on the residual (obs - q*pred) with an
+#               ABSOLUTE observation sd (the Log_sd column is read as the natural-
+#               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
+#               cpue_like. No lognormal bias correction; pair with a solved q
+#               (Analytical / AnalyticalArith) or an estimated q as needed.
 index_loglike_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
-  "MVNORM" = 2
+  "MVNORM" = 2,
+  "Normal" = 3
 )
 
 fleet_map <- c(
@@ -270,6 +276,7 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
+  data_list$fleet_control$Sel_avgsel_pen <- set_default(data_list$fleet_control$Sel_avgsel_pen, 0)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
   data_list$fleet_control$Sel_cap_bin <- set_default(data_list$fleet_control$Sel_cap_bin, NA)  # NonParametricRPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
