@@ -56,6 +56,35 @@ testthat::test_that("a fixed-effect prior on an RE column is rejected", {
   which(rownames(fit$quantities$jnll_comp) == "Linkage random effects")
 }
 
+testthat::test_that("the RE density equals -sum(dnorm(dev, 0, sigma)) exactly", {
+  # The strongest check of the density math, and it needs no optimisation:
+  # build the object (estimateMode = 3), evaluate it once at a KNOWN deviate
+  # pattern + SD, and confirm the reported density row is the mathematical
+  # definition to machine precision. (The legacy M1_re = 2 density is the same
+  # SCALE(AR1(rho = 0), sigma) form, i.e. the identical dnorm sum.)
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+  obj <- Rceattle::fit_mod(data_list = d, estimateMode = 3, msmMode = 0,
+    qFun = qfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))$obj
+
+  p <- obj$env$last.par
+  n_re <- sum(names(p) == "beta_linkage_re")
+  set.seed(1)
+  dev  <- stats::rnorm(n_re, 0, 0.4)
+  lsig <- log(0.3)
+  p[names(p) == "beta_linkage_re"]   <- dev
+  p[names(p) == "log_sigma_linkage"] <- lsig
+  rep <- obj$report(p)
+  # raw REPORT has no rownames; the density is the last jnll_comp row
+  # (cpp row 20, 0-based).
+  reported <- sum(rep$jnll_comp[nrow(rep$jnll_comp), ])
+  testthat::expect_equal(reported,
+    -sum(stats::dnorm(dev, 0, exp(lsig), log = TRUE)), tolerance = 1e-8)
+})
+
 testthat::test_that("a model without a random linkage keeps density row 20 at 0", {
   testthat::skip_on_cran()
   fit <- Rceattle::fit_mod(
