@@ -73,15 +73,32 @@ testthat::test_that("two-sided and non-formula input are rejected", {
 })
 
 
-testthat::test_that("bar terms are rejected by materialize_linkage, not mangled", {
-  # model.matrix() evaluates `1 | Year` as a logical OR and produces a
-  # column literally named "1 | YearTRUE". Splitting the formula first
-  # turns that silent corruption into an error.
-  env <- data.frame(Year = 1:6, temp = stats::rnorm(6))
+testthat::test_that("an IID bar term expands to per-level indicator rows", {
+  # `(1 | Year)` must not reach model.matrix() as a formula (it would evaluate
+  # `1 | Year` as a logical OR). Split first, then expand to one indicator row
+  # per level, marked as a random effect.
+  env <- data.frame(Year = 2000:2005, temp = stats::rnorm(6))
   spec <- Rceattle::linkage_spec(~ (1 | Year), param = "M1")
+  tbl <- Rceattle:::materialize_linkage(spec, "M", env, list(species = 1L))
+
+  # Intercept (re-targets the base parameter) + one deviation per year.
+  testthat::expect_equal(nrow(tbl), 1L + length(unique(env$Year)))
+  re <- tbl[!is.na(tbl$re_group), ]
+  testthat::expect_equal(nrow(re), length(unique(env$Year)))
+  testthat::expect_true(all(re$re_group == "Year"))
+  testthat::expect_true(all(re$re_struct == "us"))
+  # The fixed intercept row is not a random effect.
+  testthat::expect_true(all(is.na(tbl$re_group[tbl$design_col == "(Intercept)"])))
+})
+
+
+testthat::test_that("correlated RE structures are rejected until wired", {
+  env <- data.frame(Year = 2000:2005, temp = stats::rnorm(6), fleet = 1L)
   testthat::expect_error(
-    Rceattle:::materialize_linkage(spec, "M", env, list(species = 1L)),
-    "random-effect terms are not yet supported")
+    Rceattle:::materialize_linkage(
+      Rceattle::linkage_spec(~ ar1(Year + 0 | fleet), param = "M1"),
+      "M", env, list(species = 1L)),
+    "not yet wired")
 })
 
 

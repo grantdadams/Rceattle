@@ -501,22 +501,21 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   # as a logical OR and yields a nonsense column ("1 | YearTRUE"), so the
   # split has to happen first.
   parsed <- .parse_linkage_formula(spec$formula)
-  if (length(parsed$re_terms) > 0L) {
-    stop(sprintf(
-      paste0("random-effect terms are not yet supported in linkage ",
-             "formulas: found %s.\n",
-             "  Terms outside a bar are fixed effects and work today; use a ",
-             "prior to shrink them.\n",
-             "  Bar terms need the random-effect parameter vectors, which ",
-             "are not wired to TMB yet."),
-      paste0("`", vapply(parsed$re_terms, deparse1, character(1)), "`",
-             collapse = ", ")),
-      call. = FALSE)
-  }
 
-  X <- stats::model.matrix(parsed$fixed, data = env_data)
+  # Fixed part: standard design matrix. Random parts (bar terms) are expanded
+  # into per-level indicator columns appended after the fixed columns, so the
+  # C++ accumulator adds beta[i] * indicator(level) exactly as for a fixed
+  # column -- the only differences are which beta vector supplies the
+  # coefficient (beta_linkage_re) and that a density is placed on it.
+  X_fixed <- stats::model.matrix(parsed$fixed, data = env_data)
+  re <- .materialize_re_design(parsed$re_terms, parsed$re_structures, env_data)
+
+  X <- cbind(X_fixed, re$X)
   X_names <- colnames(X)
   n_cols  <- ncol(X)
+  # Per-column RE metadata, aligned with the columns of X (NA for fixed).
+  col_re_group  <- c(rep(NA_character_, ncol(X_fixed)), re$group)
+  col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
 
   by_vars <- if (is.null(spec$by)) character(0) else all.vars(spec$by)
   unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin", "fleet"))
@@ -664,7 +663,11 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         prior_family  = pf,
         prior_p1      = pp1,
         prior_p2      = pp2,
-        re_group      = spec$re_group,
+        # A random-effect column carries its own group id (made unique per
+        # process/param/stratum below in pool_linkages) and structure; a fixed
+        # column inherits the spec's re_group (usually NA).
+        re_group      = col_re_group[col_idx] %||% spec$re_group,
+        re_struct     = col_re_struct[col_idx],
         est_phase     = spec$est_phase
       )
     }
@@ -673,6 +676,67 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   attr(out, "design_colnames") <- X_names
   attr(out, "design_matrix")   <- X
   out
+}
+
+
+#' Build the indicator design for random-effect (bar) terms
+#'
+#' @description
+#' Each bar term `struct(<lhs> | <group>)` becomes one indicator column per
+#' level of its grouping variable, so the deviation for that level enters the
+#' offset the same way a fixed coefficient does. This increment supports the
+#' unstructured / IID case (a plain `(1 | group)` bar, structure `"us"`);
+#' `rw()` / `ar1()` and other structures are recognised by the parser but
+#' rejected here until their densities are wired.
+#'
+#' @param re_terms list of bar expressions from [.parse_linkage_formula()].
+#' @param re_structures character vector of structure names, one per term.
+#' @param env_data the covariate/time table.
+#'
+#' @return A list with `X` (indicator design, 0 columns if no RE terms),
+#'   `group` (character, one per column: the grouping variable name), and
+#'   `struct` (character, one per column: the covariance structure).
+#' @keywords internal
+#' @noRd
+.materialize_re_design <- function(re_terms, re_structures, env_data) {
+  if (length(re_terms) == 0L) {
+    return(list(X = matrix(numeric(0), nrow = nrow(env_data), ncol = 0L),
+                group = character(0), struct = character(0)))
+  }
+
+  not_iid <- setdiff(unique(re_structures), "us")
+  if (length(not_iid) > 0) {
+    stop(sprintf(
+      paste0("random-effect structure(s) not yet wired: %s.\n",
+             "  The IID form `(1 | group)` works now; rw() / ar1() and other ",
+             "correlated structures come in a later step."),
+      paste0(not_iid, "()", collapse = ", ")), call. = FALSE)
+  }
+
+  cols <- list(); groups <- character(0); structs <- character(0)
+  for (i in seq_along(re_terms)) {
+    # A bar expression `lhs | group`: the grouping variable is the RHS.
+    bar <- re_terms[[i]]
+    grp_var <- all.vars(bar[[3L]])
+    if (length(grp_var) != 1L) {
+      stop(sprintf("random-effect grouping must be a single variable; got `%s`",
+                   deparse1(bar)), call. = FALSE)
+    }
+    if (!grp_var %in% names(env_data)) {
+      stop(sprintf("random-effect grouping variable `%s` is not a column of env_data",
+                   grp_var), call. = FALSE)
+    }
+    # One indicator column per level (no reference dropped: the density pins
+    # them, so all levels are identifiable).
+    ind <- stats::model.matrix(
+      stats::as.formula(sprintf("~ 0 + factor(%s)", grp_var)), data = env_data)
+    lev <- sub(sprintf("^factor\\(%s\\)", grp_var), "", colnames(ind))
+    colnames(ind) <- sprintf("%s_re::%s", grp_var, lev)
+    cols[[i]] <- ind
+    groups  <- c(groups,  rep(grp_var, ncol(ind)))
+    structs <- c(structs, rep(re_structures[i], ncol(ind)))
+  }
+  list(X = do.call(cbind, cols), group = groups, struct = structs)
 }
 
 

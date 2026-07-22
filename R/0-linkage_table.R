@@ -48,6 +48,7 @@ LINKAGE_COLS <- c(
   prior_p1      = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
   prior_p2      = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
   re_group      = "character",  # random-effect group name (NA = fixed)
+  re_struct     = "character",  # covariance structure (us/rw/ar1/...; NA = fixed)
   est_phase     = "integer"     # phase ordinal; 0 = fixed
 )
 
@@ -271,6 +272,7 @@ linkage_row <- function(process, param, X_col,
                         prior_p1      = NA_real_,
                         prior_p2      = NA_real_,
                         re_group      = NA_character_,
+                        re_struct     = NA_character_,
                         est_phase     = 1L) {
   out <- new_linkage_table()
   out[1L, ] <- list(
@@ -291,6 +293,7 @@ linkage_row <- function(process, param, X_col,
     prior_p1      = as.numeric(prior_p1),
     prior_p2      = as.numeric(prior_p2),
     re_group      = as.character(re_group),
+    re_struct     = as.character(re_struct),
     est_phase     = as.integer(est_phase)
   )
   validate_linkage_table(out)
