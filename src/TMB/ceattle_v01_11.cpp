@@ -3815,6 +3815,23 @@ Type objective_function<Type>::operator() () {
   REPORT( pred_CAAL );
 
 
+  // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
+  // Each beta_linkage_re slot is an IID deviation drawn from
+  // N(0, exp(log_sigma_linkage(group))), the group being the slot's
+  // linkage_re_sigma entry. This is the same idiom as the time-varying
+  // catchability deviate density (index_q_dev): a plain dnorm sum, NOT the AR1
+  // form (rw()/ar1() structures add their coupling in a later step). Guarded on
+  // size so row 20 stays exactly 0 for every model without a random linkage,
+  // keeping those fits bit-identical. Placed before REPORT(jnll_comp) so the
+  // reported matrix reflects the density that jnll_comp.sum() also carries.
+  if (beta_linkage_re.size() > 0) {
+    for (int g = 0; g < beta_linkage_re.size(); ++g) {
+      Type sigma = exp(log_sigma_linkage(linkage_re_sigma(g)));
+      jnll_comp(20, 0)            -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
+      unweighted_jnll_comp(20, 0) -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
+    }
+  }
+
   // -- 14.7. Likelihood components
   REPORT( jnll_comp );
   REPORT( unweighted_jnll_comp );
@@ -3873,24 +3890,6 @@ Type objective_function<Type>::operator() () {
    REPORT( ration_hat_ave );
    */
   REPORT(mort_sum);
-
-  // -------------------------------------------------------------------------
-  // RANDOM-EFFECT LINKAGE DENSITY (jnll_comp row 20)
-  // -------------------------------------------------------------------------
-  // Each beta_linkage_re slot is an IID deviation drawn from
-  // N(0, exp(log_sigma_linkage(group))), the group being the slot's
-  // linkage_re_sigma entry. This is the same idiom as the time-varying
-  // catchability deviate density (index_q_dev): a plain dnorm sum, NOT the AR1
-  // form (rw()/ar1() structures add their coupling in a later step). Guarded on
-  // size so row 20 stays exactly 0 for every model without a random linkage,
-  // keeping those fits bit-identical.
-  if (beta_linkage_re.size() > 0) {
-    for (int g = 0; g < beta_linkage_re.size(); ++g) {
-      Type sigma = exp(log_sigma_linkage(linkage_re_sigma(g)));
-      jnll_comp(20, 0)            -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
-      unweighted_jnll_comp(20, 0) -= dnorm(beta_linkage_re(g), Type(0), sigma, true);
-    }
-  }
 
   /** ------------------------------------------------------------------------ //
    // 15. END MODEL                                                             //

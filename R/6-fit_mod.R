@@ -376,15 +376,10 @@ fit_mod <-
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
 
-    # Random-effect linkage rows materialize (indicator expansion), but the
-    # TMB density that penalizes them is not wired yet. Reject them rather than
-    # letting them reach MakeADFun as free, undamped parameters.
-    if (!is.null(data_list$linkage_table) &&
-        any(!is.na(data_list$linkage_table$re_group))) {
-      stop("random-effect linkages (`~ (1 | group)` / rw() / ar1()) are not ",
-           "yet consumed by the TMB template; use fixed-effect covariate terms ",
-           "or a prior for now.", call. = FALSE)
-    }
+    # Random-effect linkage rows (IID `~ (1 | group)`) are now consumed by the
+    # TMB template: beta_linkage_re carries the deviations and jnll_comp row 20
+    # the N(0, sigma) density. Correlated structures (rw()/ar1()) are still
+    # rejected upstream in .materialize_re_design() until their densities land.
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----

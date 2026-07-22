@@ -1,3 +1,26 @@
+# Rceattle 4.10.0
+
+## New features
+
+* **Random-effect linkages (`~ (1 | group)`).** A linkage formula may now carry
+  an IID random effect, so a parameter can vary year to year (or over any
+  grouping) as a set of deviations damped by an estimated
+  `N(0, sigma)` density, rather than fixed covariate slopes:
+
+    ```r
+    fit_mod(...,
+      qFun = build_catchability(linkages = list(
+               q = linkage_spec(~ (1 | Year), by = ~ fleet))))
+    ```
+
+  Each level of the grouping variable gets one deviation (`beta_linkage_re`);
+  each distinct group estimates its own log-SD (`log_sigma_linkage`). The
+  density is reported in the new `jnll_comp` row *"Linkage random effects"*.
+  This is the same statistical model as the existing `Time_varying_q`/`_sel`
+  deviate processes, expressed through the linkage grammar. Correlated
+  structures (`rw()`, `ar1()`) are recognised by the parser but still rejected
+  until their densities land in a following release.
+
 # Rceattle 4.9.0
 
 ## New features
