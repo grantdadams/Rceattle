@@ -646,6 +646,23 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         pf <- prior$family; pp1 <- prior$p1; pp2 <- prior$p2
       }
 
+      # Per-group RE-SD (sigma) routing: only on random-effect columns. The
+      # reserved `sigma` key in the spec's init/priors sets the deviation SD's
+      # start value (or, with est_phase == 0, its fixed value) and an optional
+      # prior. Resolved per (species, sex) so a `by = ~ species` RE can carry a
+      # species-specific sigma prior; the fixed-effect columns keep NA.
+      if (!is.na(col_re_struct[col_idx])) {
+        s_init  <- spec$init[["sigma"]] %||% NA_real_
+        s_prior <- .resolve_prior(spec$priors[["sigma"]], sp_id, sx_id)
+        if (is.null(s_prior)) {
+          spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
+        } else {
+          spf <- s_prior$family; sp1 <- s_prior$p1; sp2 <- s_prior$p2
+        }
+      } else {
+        s_init <- NA_real_; spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
+      }
+
       k <- k + 1L
       rows[[k]] <- linkage_row(
         process       = process,
@@ -670,6 +687,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_group      = col_re_group[col_idx] %||% spec$re_group,
         re_struct     = col_re_struct[col_idx],
         re_time       = col_re_time[col_idx],
+        re_sigma_init = s_init,
+        re_sigma_prior_family = spf,
+        re_sigma_prior_p1     = sp1,
+        re_sigma_prior_p2     = sp2,
         est_phase     = spec$est_phase
       )
     }
@@ -933,6 +954,43 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
                method = "radix", na.last = TRUE)
   tbl$re_index[re_rows[ord]] <- seq_along(re_rows) - 1L
   tbl
+}
+
+
+#' Per-group random-effect SD (sigma) table
+#'
+#' @description
+#' Collapses the per-row RE registry to one row per sigma group (ordered by
+#' `sigma_index`, so row `i` is the 0-based group `i - 1`). The `sigma`-key
+#' routing on `linkage_spec()` is identical across a group's rows, so this is a
+#' plain de-duplication. Encodes the fix-vs-estimate contract:
+#' * `init = list(sigma = v)` **and no** sigma prior -> `sigma_fixed = TRUE`,
+#'   the SD is held at `v` (reproduces the reference `Time_varying_*_sd_prior`
+#'   fixed-input SD);
+#' * a sigma prior -> estimated with that prior (started from `init` if given);
+#' * neither -> estimated from a default start.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
+#' @return a data.frame with one row per group, or `NULL` if there are none.
+#' @keywords internal
+#' @noRd
+.re_group_table <- function(tbl) {
+  if (is.null(tbl) || nrow(tbl) == 0L) return(NULL)
+  re <- tbl[!is.na(tbl$sigma_index), , drop = FALSE]
+  if (nrow(re) == 0L) return(NULL)
+  g <- re[!duplicated(re$sigma_index), , drop = FALSE]
+  g <- g[order(g$sigma_index), , drop = FALSE]
+  has_prior <- !is.na(g$re_sigma_prior_family) & g$re_sigma_prior_family != "none"
+  data.frame(
+    sigma_index  = as.integer(g$sigma_index),
+    re_struct    = as.character(g$re_struct),
+    sigma_start  = ifelse(is.na(g$re_sigma_init), 0.3, as.numeric(g$re_sigma_init)),
+    sigma_fixed  = !is.na(g$re_sigma_init) & !has_prior,
+    prior_family = ifelse(has_prior, g$re_sigma_prior_family, "none"),
+    prior_p1     = as.numeric(g$re_sigma_prior_p1),
+    prior_p2     = as.numeric(g$re_sigma_prior_p2),
+    stringsAsFactors = FALSE
+  )
 }
 
 

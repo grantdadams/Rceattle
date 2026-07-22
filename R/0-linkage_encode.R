@@ -182,6 +182,20 @@ encode_linkage_for_tmb <- function(table, X) {
     re_sigma_int[re_index_int[re_rows] + 1L] <- as.integer(table$sigma_index[re_rows])
   }
 
+  # Per-group sigma-prior triple (length n_re_group), from the reserved `sigma`
+  # key in linkage_spec(priors = ). Groups are ordered by sigma_index.
+  gt <- .re_group_table(table)
+  n_re_group <- if (is.null(gt)) 0L else nrow(gt)
+  if (is.null(gt)) {
+    re_sigma_prior_fam <- integer(0)
+    re_sigma_prior_p1  <- numeric(0)
+    re_sigma_prior_p2  <- numeric(0)
+  } else {
+    re_sigma_prior_fam <- unname(LINKAGE_PRIOR_CODES[gt$prior_family])
+    re_sigma_prior_p1  <- as.numeric(gt$prior_p1)
+    re_sigma_prior_p2  <- as.numeric(gt$prior_p2)
+  }
+
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
   to_stratum <- function(v) {
     out <- as.integer(v)
@@ -201,6 +215,10 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_link          = link_int,
     linkage_re_index      = re_index_int,
     linkage_re_sigma      = re_sigma_int,
+    n_re_group            = n_re_group,
+    linkage_re_sigma_prior_family = re_sigma_prior_fam,
+    linkage_re_sigma_prior_p1     = re_sigma_prior_p1,
+    linkage_re_sigma_prior_p2     = re_sigma_prior_p2,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -226,6 +244,10 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_link          = integer(0),
     linkage_re_index      = integer(0),
     linkage_re_sigma      = integer(0),
+    n_re_group            = 0L,
+    linkage_re_sigma_prior_family = integer(0),
+    linkage_re_sigma_prior_p1     = numeric(0),
+    linkage_re_sigma_prior_p2     = numeric(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

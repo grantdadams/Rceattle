@@ -1469,10 +1469,16 @@ build_map_linkages <- function(map_list, data_list) {
   m <- map_list$beta_linkage
   m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
-  # beta_linkage_re and log_sigma_linkage keep the blanket "all estimable" map
-  # from build_map()'s initializer; the density damps beta_linkage_re and the
-  # variance is free. (Fixing a group's sigma via est_phase/init lands with the
-  # linkage_spec sigma routing in a later step.)
+  # beta_linkage_re keeps the blanket "all estimable" map (the density damps
+  # it). A group's log_sigma_linkage is estimable unless the spec supplied a
+  # fixed input SD (`init = list(sigma = )` with no sigma prior) -- then it is
+  # held at that value, reproducing the reference Time_varying_*_sd_prior.
+  gt <- .re_group_table(tbl)
+  if (!is.null(gt) && any(gt$sigma_fixed)) {
+    m_sig <- map_list$log_sigma_linkage
+    m_sig[gt$sigma_index[gt$sigma_fixed] + 1L] <- NA   # sigma_index 0-based
+    map_list$log_sigma_linkage <- m_sig
+  }
   map_list
 }
 

@@ -16,6 +16,11 @@
   Each level of the grouping variable gets one deviation (`beta_linkage_re`);
   each distinct group estimates its own log-SD (`log_sigma_linkage`). The
   density is reported in the new `jnll_comp` row *"Linkage random effects"*.
+  The deviation SD is routed through the same `linkage_spec()` arguments as
+  every other parameter: `init = list(sigma = v)` **fixes** it at an input
+  value (reproducing the legacy `Time_varying_*_sd_prior` fixed input), and
+  `priors = list(sigma = lognormal(...))` places a **prior** on it and
+  estimates it — the first prior on a deviation SD anywhere in the model.
   This is the same statistical model as the existing `Time_varying_q`/`_sel`
   deviate processes, expressed through the linkage grammar. Correlated
   structures (`rw()`, `ar1()`) are recognised by the parser but still rejected

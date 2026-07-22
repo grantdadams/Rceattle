@@ -213,14 +213,16 @@ build_params <- function(data_list) {
       nrow(data_list$linkage_table) > 0L &&
       any(!is.na(data_list$linkage_table$re_index))) {
     lt      <- data_list$linkage_table
+    gt      <- .re_group_table(lt)
     n_re    <- sum(!is.na(lt$re_index))
-    n_group <- max(lt$sigma_index, na.rm = TRUE) + 1L
     # ar1 groups get a rho; us/rw groups do not. (rho estimation lands with
     # ar1() -- until then no group is ar1 and this stays length 0.)
-    n_ar1   <- sum(!duplicated(lt$sigma_index[!is.na(lt$sigma_index)]) &
-                     lt$re_struct[!is.na(lt$sigma_index)] == "ar1")
+    n_ar1   <- sum(gt$re_struct == "ar1")
     param_list$beta_linkage_re   <- numeric(n_re)            # deviations, init 0
-    param_list$log_sigma_linkage <- rep(log(0.3), n_group)   # default start; spec-driven in a later step
+    # One log-SD per group; start from linkage_spec(init = list(sigma = )) when
+    # supplied (fixed there via build_map), else a default. gt is ordered by
+    # sigma_index so element g is group g - 1.
+    param_list$log_sigma_linkage <- log(gt$sigma_start)
     param_list$trans_rho_linkage <- numeric(n_ar1)           # init 0 (rho ~ 0)
   } else {
     param_list$beta_linkage_re   <- numeric(0)

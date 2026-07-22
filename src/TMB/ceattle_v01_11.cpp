@@ -224,6 +224,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
   DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_sigma_prior_family); // per RE group: prior on the SD (0=none,1=normal,2=lognormal,3=gamma,4=beta)
+  DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
+  DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
   DATA_IVECTOR(linkage_prior_family);  // none=0, normal=1, lognormal=2, gamma=3, beta=4
   DATA_VECTOR(linkage_prior_p1);       // family-specific prior param 1
@@ -3814,6 +3817,34 @@ Type objective_function<Type>::operator() () {
   REPORT( caal_obs );
   REPORT( pred_CAAL );
 
+
+  // -- 14.6a. Random-effect SD priors (jnll_comp row 19). A prior on a group's
+  // deviation SD, routed from linkage_spec(priors = list(sigma = ...)). Applied
+  // once per group (not per level -- the loop is over groups, so the "once"
+  // property is structural). Shares the linkage-prior row and the same families
+  // as the fixed-beta prior loop above, on the natural-scale SD exp(log_sigma).
+  if (log_sigma_linkage.size() > 0) {
+    for (int g = 0; g < log_sigma_linkage.size(); ++g) {
+      int fam = linkage_re_sigma_prior_family(g);
+      if (fam == 0) continue;
+      Type sd = exp(log_sigma_linkage(g));
+      Type p1 = linkage_re_sigma_prior_p1(g);
+      Type p2 = linkage_re_sigma_prior_p2(g);
+      if (fam == 1) {                         // normal(p1, p2) on the SD
+        jnll_comp(19, 0)            -= dnorm(sd, p1, p2, true);
+        unweighted_jnll_comp(19, 0) -= dnorm(sd, p1, p2, true);
+      } else if (fam == 2) {                  // lognormal: normal on log(SD)
+        jnll_comp(19, 0)            -= dnorm(log(sd), p1, p2, true);
+        unweighted_jnll_comp(19, 0) -= dnorm(log(sd), p1, p2, true);
+      } else if (fam == 3) {                  // gamma(shape, rate)
+        jnll_comp(19, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
+        unweighted_jnll_comp(19, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);
+      } else if (fam == 4) {                  // beta(shape1, shape2)
+        jnll_comp(19, 0)            -= dbeta(sd, p1, p2, true);
+        unweighted_jnll_comp(19, 0) -= dbeta(sd, p1, p2, true);
+      }
+    }
+  }
 
   // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
   // Each beta_linkage_re slot is an IID deviation drawn from

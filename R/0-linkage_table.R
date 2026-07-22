@@ -53,7 +53,13 @@ LINKAGE_COLS <- c(
   # Random-effect registry (filled by pool_linkages(); NA on fixed rows).
   re_index      = "integer",    # 0-based slot in beta_linkage_re (NA = fixed row)
   sigma_index   = "integer",    # 0-based slot in log_sigma_linkage (NA = fixed row)
-  re_time       = "numeric"     # numeric grouping value, for rw/ar1 time order (NA = fixed)
+  re_time       = "numeric",    # numeric grouping value, for rw/ar1 time order (NA = fixed)
+  # Per-group RE-SD (sigma) routing from linkage_spec(); identical across a
+  # group's rows, deduped per sigma_index at encode time. NA on fixed rows.
+  re_sigma_init = "numeric",       # start / fixed SD on natural scale (NA = default)
+  re_sigma_prior_family = "character", # prior on the SD; "none"/NA = no prior
+  re_sigma_prior_p1     = "numeric",
+  re_sigma_prior_p2     = "numeric"
 )
 
 
@@ -266,6 +272,11 @@ validate_linkage_table <- function(x) {
 #'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
 #'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
 #'   deviations in real elapsed time.
+#' @param re_sigma_init,re_sigma_prior_family,re_sigma_prior_p1,re_sigma_prior_p2
+#'   per-group RE-SD routing from `linkage_spec(init = list(sigma = ), priors =
+#'   list(sigma = ))`; identical across a group's rows, `NA` on fixed rows.
+#'   `re_sigma_init` is the start (or, with `est_phase = 0`, fixed) SD on the
+#'   natural scale; the prior triple places a prior on that SD.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -287,7 +298,11 @@ linkage_row <- function(process, param, X_col,
                         est_phase     = 1L,
                         re_index      = NA_integer_,
                         sigma_index   = NA_integer_,
-                        re_time       = NA_real_) {
+                        re_time       = NA_real_,
+                        re_sigma_init = NA_real_,
+                        re_sigma_prior_family = NA_character_,
+                        re_sigma_prior_p1     = NA_real_,
+                        re_sigma_prior_p2     = NA_real_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -311,7 +326,11 @@ linkage_row <- function(process, param, X_col,
     est_phase     = as.integer(est_phase),
     re_index      = as.integer(re_index),
     sigma_index   = as.integer(sigma_index),
-    re_time       = as.numeric(re_time)
+    re_time       = as.numeric(re_time),
+    re_sigma_init = as.numeric(re_sigma_init),
+    re_sigma_prior_family = as.character(re_sigma_prior_family),
+    re_sigma_prior_p1     = as.numeric(re_sigma_prior_p1),
+    re_sigma_prior_p2     = as.numeric(re_sigma_prior_p2)
   )
   validate_linkage_table(out)
   out

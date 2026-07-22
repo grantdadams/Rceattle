@@ -87,3 +87,31 @@ testthat::test_that("an IID (1|Year) q linkage builds finite and estimates a den
   sigma <- exp(fit$estimated_params$log_sigma_linkage)
   testthat::expect_true(is.finite(sigma) && sigma > 0)
 })
+
+testthat::test_that("init = list(sigma = v) fixes the deviation SD at v", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  survey_flt <- d$fleet_control$Fleet_code[d$fleet_control$Fleet_type == 2][1]
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt,
+                               init = list(sigma = 0.1))))
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+  # the SD is held exactly at the input value, and the density is still active
+  testthat::expect_equal(exp(fit$estimated_params$log_sigma_linkage), 0.1, tolerance = 1e-9)
+  testthat::expect_true(sum(fit$quantities$jnll_comp[.re_row(fit), ]) != 0)
+})
+
+testthat::test_that("priors = list(sigma = ...) puts a prior on the deviation SD", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  survey_flt <- d$fleet_control$Fleet_code[d$fleet_control$Fleet_type == 2][1]
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt,
+                               priors = list(sigma = lognormal(log(0.05), 0.3)))))
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+  pr_row <- which(rownames(fit$quantities$jnll_comp) == "Linkage-table priors")
+  testthat::expect_true(sum(fit$quantities$jnll_comp[pr_row, ]) != 0)   # prior contributes
+  testthat::expect_true(is.finite(exp(fit$estimated_params$log_sigma_linkage)))
+})
