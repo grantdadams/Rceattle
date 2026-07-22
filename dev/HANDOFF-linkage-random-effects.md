@@ -113,6 +113,27 @@ For the linkage version, indexed by **re_group** instead of species:
   `~/.claude/plans/shiny-hugging-yeti.md`) has the full PR 1 "Random effects" section and the
   variance-prior design under "Variances become linkage parameters (Grant's ask)".
 
+## Reference models in ../Rceattle-models (real validation targets)
+
+These are configured, runnable assessments that use the *existing* time-varying q/sel
+mechanisms. They are the constructive-verification cases the density work needs — the new
+grammar path must reproduce each **bit-identically** through the translator (step 8), and each
+exercises a specific RE structure. Codes: `Time_varying_* = 0` Off, `1` IID, `4` RandomWalk;
+`Estimate_q = 6` QAR1 (AR1 catchability).
+
+| Model / file | Config | Structure it validates |
+|---|---|---|
+| `EBS pollock/Dev/2024 EBS pollock re models.R` | `Time_varying_sel[1] <- 1` + `random_sel = TRUE` (+ `random_rec = TRUE`) on the Fishery | **IID selectivity**, estimated sigma — the cleanest IID target |
+| `EBS pollock/scratchpad/random_sel.R` | `random_sel = TRUE` on non-parametric `sel_coff` fishery, `getsd = TRUE`, reports pdHess/maxgrad | IID sel on `coff` (existing mechanism; note the grammar excludes `coff` linkages — this stays on the legacy path) |
+| `GOA pollock/2021 pollock build data.R` | `Time_varying_sel = c(rep(0,nindex), 1)`, `Time_varying_sel_sd_prior[FISH] = 0.1`; `Time_varying_q = c(4,0,4,0,0,0,NA)`, `Time_varying_q_sd_prior = c(0.038,NA,0.05,...)` | **IID sel + RandomWalk q** with **input SDs** — the richest single case, and proof the `_sd_prior` column is an input value, not a prior |
+| `GOA pollock/2024 pollock bridging.R` | `Time_varying_q[1] <- 1` + `random_q = TRUE` | **IID catchability**, estimated sigma |
+| `GOA pollock/2021 pollock build data.R` (`pollock23`) | `Estimate_q[1] <- 6` | **AR1 catchability (QAR1)**, Rogers et al. 2024 — the `est_index_q == 6` path in cpp |
+
+Verification recipe per case: run the legacy config, capture `obj$fn()` / sigma estimate /
+`jnll_comp`; run the equivalent new-grammar spec; assert bit-identical. The `0.1` / `0.038` /
+`0.05` input SDs become `linkage_spec(init = list(sigma = log(<value>)))` — which is exactly
+Grant's "input a variance value" ask, demonstrated against a real model.
+
 ## State to resume from
 - Branch `dev-data-workflow` @ `97775cb3`, working tree clean, full suite green.
 - Version is **4.9.0** (q + selectivity linkages shipped). The RE work bumps to **4.10.0**
