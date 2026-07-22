@@ -30,6 +30,14 @@
   A fleet that starts at `styr` with no excluded bins is unaffected (the reset
   reduces to the original start-year behaviour); the `BS2017SS` golden reference is
   unchanged.
+* **`hessian_conditioning` diagnostic now always names the flat direction.** When
+  the Hessian's least-identified direction was spread diffusely over many
+  coefficients (no single coefficient above the reporting threshold), the message
+  read `loads on: .` with nothing after it. The check now aggregates the
+  eigenvector's squared loadings by parameter block and reports the block(s) making
+  up the direction with their percentage share (e.g. `loads on: rec_dev (69%) +
+  ln_srv_sel (31%)`), falling back to `par.fixed` names when `cov.fixed` carries no
+  dimnames.
 
 # Rceattle 4.7.0
 
