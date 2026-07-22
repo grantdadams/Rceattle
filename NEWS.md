@@ -21,6 +21,16 @@
   value (reproducing the legacy `Time_varying_*_sd_prior` fixed input), and
   `priors = list(sigma = lognormal(...))` places a **prior** on it and
   estimates it — the first prior on a deviation SD anywhere in the model.
+
+## Bug fixes
+
+* **A catchability linkage on a non-estimated q now errors.** A `q` linkage
+  (environmental or random-effect) on a fleet whose `Catchability` is `"Fixed"`
+  or an analytical form (`"Analytical"` / `"AnalyticalArith"`) is rejected up
+  front, naming the fleet. Previously only the analytical forms were caught, so
+  a linkage on a `"Fixed"` fleet silently turned a fixed catchability
+  time-varying — contrary to the assessor's setting. Set `Catchability` to
+  `"Estimated"` / `"Estimated-with-prior"` to link q.
   This is the same statistical model as the existing `Time_varying_q`/`_sel`
   deviate processes, expressed through the linkage grammar. Correlated
   structures (`rw()`, `ar1()`) are recognised by the parser but still rejected

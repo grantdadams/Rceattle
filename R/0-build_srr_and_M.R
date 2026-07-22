@@ -913,17 +913,21 @@ build_selectivity <- function(linkages = NULL) {
 }
 
 
-# Catchability forms that SOLVE q from the data rather than estimating it:
-# index_log_q is mapped out (see build_map_catchability), so a q linkage
-# would target a parameter that is not free and contribute nothing.
-.Q_LINKAGE_SOLVED_FORMS <- c("Analytical", "AnalyticalArith")
+# Catchability forms that do NOT estimate q, so a q linkage must not attach:
+# "Fixed" holds index_log_q at its input (a linkage would silently turn a fixed
+# q time-varying, contrary to the assessor's Fixed setting), and
+# "Analytical"/"AnalyticalArith" solve q from the data (index_log_q is mapped
+# out, so a linkage targets a non-free parameter and does nothing). Both are
+# rejected up front rather than quietly changing q. See build_map_catchability.
+.Q_LINKAGE_UNESTIMATED_FORMS <- c("Fixed", "Analytical", "AnalyticalArith")
 
 
-#' Reject q linkages on fleets whose catchability is solved, not estimated
+#' Reject q linkages on fleets whose catchability is not estimated
 #'
 #' @param linkage_table pooled linkage table (may be NULL / empty).
 #' @param fleet_control the fleet control table.
-#' @return invisibly NULL; errors on a q linkage targeting a solved fleet.
+#' @return invisibly NULL; errors on a q linkage targeting a fleet whose q is
+#'   fixed or analytically solved.
 #' @keywords internal
 #' @noRd
 .check_q_linkage_support <- function(linkage_table, fleet_control) {
@@ -935,13 +939,15 @@ build_selectivity <- function(linkages = NULL) {
   flts <- flts[!is.na(flts)]
   if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
   forms <- as.character(fleet_control$Catchability[flts])
-  bad <- flts[forms %in% .Q_LINKAGE_SOLVED_FORMS]
+  bad <- flts[forms %in% .Q_LINKAGE_UNESTIMATED_FORMS]
   if (length(bad) > 0) {
     stop(sprintf(
-      paste0("catchability linkage on fleet(s) %s whose Catchability (%s) ",
-             "solves q from the data rather than estimating it, so index_log_q ",
-             "is not a free parameter and the linkage would have no effect.\n",
-             "  Set Catchability to an estimated form to link q."),
+      paste0("catchability linkage on fleet(s) %s whose Catchability (%s) does ",
+             "not estimate q: index_log_q is held fixed (Fixed) or solved from ",
+             "the data (Analytical), so a linkage would silently turn a fixed q ",
+             "time-varying or have no effect.\n",
+             "  Set Catchability to an estimated form (\"Estimated\" / ",
+             "\"Estimated-with-prior\") to link q."),
       paste(fleet_control$Fleet_name[bad], collapse = ", "),
       paste(unique(as.character(fleet_control$Catchability[bad])),
             collapse = ", ")), call. = FALSE)

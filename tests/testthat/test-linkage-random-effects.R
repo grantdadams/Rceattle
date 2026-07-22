@@ -67,7 +67,7 @@ testthat::test_that("a model without a random linkage keeps density row 20 at 0"
 testthat::test_that("an IID (1|Year) q linkage builds finite and estimates a density", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS                      # env_data already has Year
-  survey_flt <- d$fleet_control$Fleet_code[d$fleet_control$Fleet_type == 2][1]
+  survey_flt <- 7L  # EIT_Pollock, the only Estimated-q survey (Fixed q is rejected)
   qfun <- Rceattle::build_catchability(linkages = list(
     q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt)))
   ctl <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
@@ -91,7 +91,7 @@ testthat::test_that("an IID (1|Year) q linkage builds finite and estimates a den
 testthat::test_that("init = list(sigma = v) fixes the deviation SD at v", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS
-  survey_flt <- d$fleet_control$Fleet_code[d$fleet_control$Fleet_type == 2][1]
+  survey_flt <- 7L  # EIT_Pollock, the only Estimated-q survey (Fixed q is rejected)
   qfun <- Rceattle::build_catchability(linkages = list(
     q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt,
                                init = list(sigma = 0.1))))
@@ -105,7 +105,7 @@ testthat::test_that("init = list(sigma = v) fixes the deviation SD at v", {
 testthat::test_that("priors = list(sigma = ...) puts a prior on the deviation SD", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS
-  survey_flt <- d$fleet_control$Fleet_code[d$fleet_control$Fleet_type == 2][1]
+  survey_flt <- 7L  # EIT_Pollock, the only Estimated-q survey (Fixed q is rejected)
   qfun <- Rceattle::build_catchability(linkages = list(
     q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt,
                                priors = list(sigma = lognormal(log(0.05), 0.3)))))

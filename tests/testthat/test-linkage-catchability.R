@@ -79,10 +79,12 @@ testthat::test_that("a q linkage moves catchability and is estimated", {
   d <- Rceattle::BS2017SS
   d$env_data <- .q_env_data(d)
 
+  # Fleet 7 (EIT_Pollock) is the only Estimated-q survey; a q linkage requires
+  # an estimated q (Fixed/Analytical are rejected up front).
   fit <- Rceattle::fit_mod(
     data_list = d, estimateMode = 1, msmMode = 0,
     qFun = Rceattle::build_catchability(linkages = list(
-      q = Rceattle::linkage_spec(~ temp, by = ~ fleet))),
+      q = Rceattle::linkage_spec(~ temp, by = ~ fleet, fleet = 7L))),
     fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                         verbose = 0))
 
@@ -125,7 +127,7 @@ testthat::test_that("a q linkage intercept re-targets the base catchability", {
   fit <- Rceattle::fit_mod(
     data_list = d, estimateMode = 1, msmMode = 0,
     qFun = Rceattle::build_catchability(linkages = list(
-      q = Rceattle::linkage_spec(~ temp, by = ~ fleet))),
+      q = Rceattle::linkage_spec(~ temp, by = ~ fleet, fleet = 7L))),
     fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                         verbose = 0))
 
@@ -139,14 +141,16 @@ testthat::test_that("a q linkage intercept re-targets the base catchability", {
 })
 
 
-testthat::test_that("a q linkage on a solved-q fleet is rejected", {
+testthat::test_that("a q linkage on a non-estimated-q fleet is rejected", {
   # Analytical / AnalyticalArith solve q from the data (index_log_q is mapped
-  # out), so a q linkage there would target a non-free parameter and do
-  # nothing. It must error rather than silently no-op.
+  # out), and "Fixed" holds q at its input. A q linkage on either must error
+  # rather than silently no-op or turn a fixed q time-varying.
   fc <- Rceattle::switch_check(Rceattle::clean_data(Rceattle::BS2017SS))$fleet_control
   tbl <- data.frame(process = "q", fleet = 1L, stringsAsFactors = FALSE)
-  fc$Catchability[1] <- "Analytical"
-  testthat::expect_error(
-    Rceattle:::.check_q_linkage_support(tbl, fc),
-    "solves q from the data")
+  for (form in c("Analytical", "AnalyticalArith", "Fixed")) {
+    fc$Catchability[1] <- form
+    testthat::expect_error(
+      Rceattle:::.check_q_linkage_support(tbl, fc),
+      "does not estimate q")
+  }
 })
