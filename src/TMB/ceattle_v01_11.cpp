@@ -379,6 +379,14 @@ Type objective_function<Type>::operator() () {
   //          be length 0 (no linkages supplied).
   PARAMETER_VECTOR(beta_linkage);
 
+  // Random-effect linkage coefficients and their hyperparameters. All length 0
+  // unless a `~ (1|group)` / rw() / ar1() linkage was supplied; when present,
+  // beta_linkage_re enters the Laplace approximation (added to random=) and the
+  // density on it is accumulated into jnll_comp row 20.
+  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients
+  PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
+  PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
+
   // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( log_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( log_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
@@ -2455,8 +2463,8 @@ Type objective_function<Type>::operator() () {
   // 13.0. OBJECTIVE FUNCTION
   int n_col = std::max(n_flt, nspp);
   // Slot 19 reserved for linkage-table prior contributions (per-row).
-  matrix<Type> jnll_comp(20, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components
-  matrix<Type> unweighted_jnll_comp(20, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
+  matrix<Type> jnll_comp(21, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components (row 20 = linkage random effects)
+  matrix<Type> unweighted_jnll_comp(21, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights (row 20 = linkage random effects)
 
   // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass

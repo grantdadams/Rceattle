@@ -202,6 +202,17 @@ build_params <- function(data_list) {
     param_list$beta_linkage <- numeric(0)
   }
 
+  # Random-effect linkage machinery. beta_linkage_re holds the deviation
+  # coefficients that enter the Laplace approximation (one per level of a
+  # `~ (1|group)` / rw() / ar1() term); log_sigma_linkage is one variance per
+  # RE group; trans_rho_linkage is one correlation per autocorrelated group.
+  # All length-0 until a random linkage spec is supplied, so a model without
+  # one is numerically unchanged. Populated from the RE group registry once
+  # the grammar wires random terms.
+  param_list$beta_linkage_re   <- numeric(0)
+  param_list$log_sigma_linkage <- numeric(0)
+  param_list$trans_rho_linkage <- numeric(0)
+
   # * 1.3c. Push (Intercept) inits to the base parameter ----
   # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits
   # an "(Intercept)" row whose coefficient stays fixed at 0 (mapped

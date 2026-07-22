@@ -147,7 +147,8 @@ rename_output <- function(data_list = NULL, quantities = NULL){
     "Ration",
     "Ration penalties",
     "Stomach content data",
-    "Linkage-table priors"
+    "Linkage-table priors",
+    "Linkage random effects"
   )
 
   return(quantities)
