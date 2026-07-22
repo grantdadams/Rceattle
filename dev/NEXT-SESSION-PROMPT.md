@@ -8,6 +8,20 @@ We're continuing the Rceattle formula-linkage grammar work on branch **`dev-data
 (shipped v4.9.0: catchability + selectivity environmental linkages, all parametric forms).
 The branch is green (full suite 4059/0) and every commit is golden-verified.
 
+**Governing standard — this software sets US federal fishing quotas.** Rceattle output drives
+management advice under Magnuson-Stevens, so a silently-wrong number can misset a catch limit.
+Hold every change to that bar: verify *statistical accuracy*, not just that a fit converges;
+keep golden-reference equivalence for anything that can move an existing fit; and for anything
+without a golden reference (the RE density), verify constructively — simulation
+self-consistency (recover a known sigma), limiting cases (sigma→0 = the fixed fit),
+cross-checks against the M1_re analogue and the real reference models. **Note and test edge
+cases explicitly** (gappy/mis-ordered years, single- vs two-sex, series ending in different
+years, mirrored/shared params, mapped-out "Off" structures, non-convergence); an unsupported
+path must error loudly naming why, never silently do nothing. Automated tests passing is
+necessary but not sufficient — reason through the math, and adversarially verify correctness
+claims against the source before asserting them (several review "findings" this project did not
+survive that check).
+
 **Primary task — the random-effect linkage density.** This is the deferred, most delicate
 piece: Laplace-approximation AD taping with NO golden reference to catch a subtle bug, so it
 was banked for a fresh session. **Before writing any C++, read

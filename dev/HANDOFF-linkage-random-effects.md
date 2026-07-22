@@ -5,6 +5,13 @@ Branch **`dev-data-workflow`**, checkpoint commit **`97775cb3`**. Everything bel
 work — Laplace-approximation AD taping — so it was deliberately deferred to a fresh session.
 **Read this whole file before writing any C++.**
 
+> **This code sets US federal fishing quotas.** A silently-wrong likelihood term can misset a
+> catch limit — it will not announce itself as a crash. Treat statistical accuracy, not
+> "it converged," as the acceptance bar. This density has no golden reference (a new RE fit is
+> genuinely new), so its correctness rests entirely on the constructive verification below —
+> do not skip it, and do not report the feature done until simulation self-consistency and the
+> limiting cases pass. Note and test every edge case; an unsupported structure errors loudly.
+
 ## Why this piece is different from everything before it
 
 Every earlier linkage increment (catchability, all of selectivity, the RE foundation) was
