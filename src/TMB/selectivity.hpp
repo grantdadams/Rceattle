@@ -501,10 +501,18 @@ void calculate_selectivity(
           //   log_sel_slp(1) = log(sigma_descending)  - descending limb SD
           //   sel_inf(1)     = logit(right_floor) — right-tail floor, analogous to SS3 P6 (end_logit).
           //                    right_floor -> 0: fully dome-shaped; right_floor -> 1: logistic (ascending only).
-          Type peak        = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr))));
+          // DoubleNormal reuses the logistic slots: sel_inf(0)=peak,
+          // log_sel_slp(0/1)=log sigma asc/desc, sel_inf(1)=logit right-floor.
+          // The linkage offsets ride in the same position as the deviates, so
+          // slp/inf params act on sigma/peak/floor here without special-casing.
+          Type peak        = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                              + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
+          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                              + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                              + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                              + sel_inf_off_nat(1, flt, sex, yr)))) * exp(sel_inf_off(1, flt, sex, yr));
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val      = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
             // Smooth logistic blend: ~0 left of peak, ~1 right of peak.
@@ -546,8 +554,14 @@ void calculate_selectivity(
           // so the age-based x is (bin + 1) + 0.5 = bin + 1.5, NOT bin + 1 as in
           // the standard Logistic (case 1). This 0.5 shift cannot be folded into a50
           // because the inflection deviate is multiplicative (a50*exp(dev)).
-          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-          Type inf   = sel_inf(0, flt, sex) * exp(sel_inf_dev(0, flt, sex, yr));
+          // LogisticPM deviates are MULTIPLICATIVE (a50 * exp(dev)), so a log-link
+          // linkage offset rides inside the same exp and an identity offset adds
+          // to the base -- both leaving the log-link = multiplicative-on-natural
+          // meaning that holds for the other forms.
+          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                           + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+          Type inf   = (sel_inf(0, flt, sex) + sel_inf_off_nat(0, flt, sex, yr))
+                         * exp(sel_inf_dev(0, flt, sex, yr) + sel_inf_off(0, flt, sex, yr));
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1.5);
             Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
@@ -555,7 +569,8 @@ void calculate_selectivity(
             else                 sel_at_age(flt, sex, bin, yr) = val;
           }
           // Free first-bin (age-1) log-selectivity override
-          Type log_s1 = sel_inf(1, flt, sex) * exp(sel_inf_dev(1, flt, sex, yr));
+          Type log_s1 = (sel_inf(1, flt, sex) + sel_inf_off_nat(1, flt, sex, yr))
+                          * exp(sel_inf_dev(1, flt, sex, yr) + sel_inf_off(1, flt, sex, yr));
           if (is_length_based) sel_at_length(flt, sex, 0, yr) = exp(log_s1);
           else                 sel_at_age(flt, sex, 0, yr) = exp(log_s1);
           break;

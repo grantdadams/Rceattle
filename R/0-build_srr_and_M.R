@@ -857,10 +857,15 @@ build_selectivity <- function(linkages = NULL) {
 )
 
 
-# Selectivity forms whose consume site currently reads the linkage offset.
-# Expand as more forms are wired in the TMB template.
-.SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic")
-.SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc")
+# Selectivity forms whose consume site reads the linkage offset: every
+# PARAMETRIC form. DoubleNormal reuses the slp/inf slots (peak/sigma/floor
+# aliases) and LogisticPM's multiplicative deviates carry the offset inside
+# their exp. The non-parametric forms are excluded on purpose -- see the
+# `coff` note in .check_sel_linkage_support().
+.SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic",
+                              "DoubleNormal", "LogisticPM")
+.SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc",
+                               "sigma_asc", "sigma_desc", "peak", "right_floor")
 
 
 #' Reject selectivity linkages the template does not yet consume
@@ -877,12 +882,16 @@ build_selectivity <- function(linkages = NULL) {
 
   bad_param <- setdiff(unique(sel$param), .SEL_LINKAGE_WIRED_PARAMS)
   if (length(bad_param) > 0) {
+    extra <- if ("coff" %in% bad_param) paste0(
+      "\n  `coff` (non-parametric selectivity) cannot carry a linkage: those ",
+      "forms mean-centre their coefficients each year, so a per-year offset ",
+      "applied across all bins cancels exactly. A meaningful effect would need ",
+      "a per-bin covariate, which the formula grammar does not express.") else ""
     stop(sprintf(
-      paste0("selectivity linkage parameter(s) not yet wired: %s.\n",
-             "  Wired: %s. The non-parametric `coff` and the DoubleNormal ",
-             "parameters are reserved and come in a later step."),
+      paste0("selectivity linkage parameter(s) not supported: %s.\n",
+             "  Supported: %s.%s"),
       paste(bad_param, collapse = ", "),
-      paste(.SEL_LINKAGE_WIRED_PARAMS, collapse = ", ")), call. = FALSE)
+      paste(.SEL_LINKAGE_WIRED_PARAMS, collapse = ", "), extra), call. = FALSE)
   }
 
   # Every fleet a sel row targets must use a wired selectivity form.

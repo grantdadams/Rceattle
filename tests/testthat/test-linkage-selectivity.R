@@ -71,34 +71,44 @@ testthat::test_that("a sel linkage on a logistic fleet is estimated and moves th
 })
 
 
-testthat::test_that("unwired sel params and forms are rejected, not silently dropped", {
+testthat::test_that("coff (non-parametric) is rejected as a normalization no-op", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS
   d$env_data <- .sel_env_data(d)
 
-  # coff is reserved until the non-parametric consume site is wired.
-  testthat::expect_error(
+  # A per-year offset on mean-centred coefficients cancels exactly, so coff
+  # is refused with an explanation rather than silently doing nothing.
+  err <- tryCatch(
     Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,
       selFun = Rceattle::build_selectivity(linkages = list(
         coff = Rceattle::linkage_spec(~ temp, by = ~ fleet, fleet = 1))),
       fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                           verbose = 0)),
-    "not yet wired")
+    error = function(e) conditionMessage(e))
+  testthat::expect_match(err, "not supported")
+  testthat::expect_match(err, "cancels exactly")
+})
 
-  # A non-logistic fleet is rejected.
+
+testthat::test_that("a sel linkage on a non-parametric fleet is rejected", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  d$env_data <- .sel_env_data(d)
+
+  # Any fleet whose form is not one of the parametric wired forms.
   fc <- Rceattle::switch_check(Rceattle::clean_data(d))$fleet_control
-  nonlogi <- which(!fc$Selectivity %in%
-                     c("Logistic", "DoubleLogistic", "DescendingLogistic") &
-                     fc$Fleet_type != "Off")
-  testthat::skip_if(length(nonlogi) == 0)
+  wired <- c("Logistic", "DoubleLogistic", "DescendingLogistic",
+             "DoubleNormal", "LogisticPM")
+  unwired <- which(!fc$Selectivity %in% wired & fc$Fleet_type != "Off")
+  testthat::skip_if(length(unwired) == 0)
   testthat::expect_error(
     Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,
       selFun = Rceattle::build_selectivity(linkages = list(
         inf_asc = Rceattle::linkage_spec(~ temp, by = ~ fleet,
-                                         fleet = nonlogi[1]))),
+                                         fleet = unwired[1]))),
       fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                           verbose = 0)),
-    "not yet wired")
+    "not yet")
 })
