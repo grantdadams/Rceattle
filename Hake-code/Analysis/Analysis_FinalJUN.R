@@ -11,6 +11,16 @@ set.seed(123)
 
 SBF_ATF_hakedata <- Rceattle::read_data(file = "300426_SBF_ATF_Hake_Final.xlsx")
 
+## DEFINE DM for compositional data
+SBF_ATF_hakedata$fleet_control$Comp_loglike <- c(0,0) # default: DM for age comps
+
+# Manually add diet_ll_type -- length must equal nspp
+SBF_ATF_hakedata$diet_ll_type <- rep(0L, SBF_ATF_hakedata$nspp)  # default: DM for diet comps
+
+
+run_ms_CSL_Mest_test_W$data_list$diet_ll_type
+run_ms_CSL_Mest_test_W$data_list$diet_ll_type
+
 #############################################################################################################
 ## RUN MODELS - single spss and multispss MSVPA (hake cannibalims only)
 #############################################################################################################
@@ -29,8 +39,76 @@ ss_run <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
 ss_run$quantities$jnll #2164.514
 ss_run$quantities$jnll_comp
 ss_run$quantities$M1 #Fixed at 0.21
-save(ss_run, file = "results/models_final/ss_run.Rdata")
+save(ss_run, file = "results/Models_July11/Comps_multinomial/ss_run.Rdata")
 
+ss_run_M <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
+                              inits = NULL, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              M1Fun = build_M1(M1_model = 1,
+                                               #updateM1 = TRUE,
+                                               M1_use_prior = TRUE,
+                                               M_prior = 0.2,
+                                               M_prior_sd = 0.1),
+                              estimateMode = 0, # Estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              verbose = 1)
+
+ss_run_M$quantities$jnll #2214.202
+ss_run_M$quantities$jnll_comp
+ss_run_M$quantities$M1 #estimated: 0.2276400
+save(ss_run_M, file = "results/Models_July11/Comps_multinomial/ss_run_M.Rdata")
+
+ss_run_M_noPrior <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
+                              inits = NULL, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              M1Fun = build_M1(M1_model = 1,
+                                               #updateM1 = TRUE,
+                                               M1_use_prior = FALSE),
+                              estimateMode = 0, # Estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              verbose = 1)
+
+ss_run_M_noPrior$quantities$jnll #2162.233
+ss_run_M_noPrior$quantities$jnll_comp
+ss_run_M_noPrior$quantities$M1 #estimated: 0.268
+
+inits_warm <- ss_run_M$estimated_params
+ss_M1_re <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
+  inits = inits_warm,
+  map = NULL,
+  estimateMode = 0,
+  random_rec = FALSE,        # keep consistent with your other runs
+  M1Fun = build_M1(
+    M1_model = 1,             # species-specific M1
+    M1_re = 2,                # AR1 random effect varying by year, constant across ages
+    M1_use_prior = TRUE,      # keep the same informative prior as your other estimated-M1 runs
+    M_prior = 0.2,
+    M_prior_sd = 0.1
+  ),
+  msmMode = 0,                # single-species mode
+  phase = TRUE,               # recommended for random effects models, improves convergence
+  verbose = 1,
+  loopnum = 5
+)
+
+ss_M1_re$quantities$jnll
+
+mod_list <- list(ss_run, run_ms_CSL_Mest_test_W, ss_run_M, ss_run_M_noPrior)
+mod_names <- c("ss_model_Fix", "MS_model_Est", "ss_model_Est", "ss_run_M_noPrior")
+
+# Plot biomass trajectory
+plot_ssb(Rceattle = mod_list, model_names = mod_names, species = 1) #Now biomass looks alike
+plot_biomass(Rceattle = mod_list, model_names = mod_names, species = 1)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, species = 1)
+
+plot_depletionSSB(Rceattle = mod_list, model_names = mod_names, species = 1)
+
+#############################################################################################
+#### MULTISPECIES MODELS ###################################################################
 ## Run multispecies model estimating M1
 ms_run <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
@@ -68,9 +146,6 @@ map = ms_run$map # gam_a, gam_b, and log_phi are turned off here
 #ORIGINAL (TRUE) VALUES
 inits$log_gam_a = c(0, log(3.7), log(3.1))  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
 inits$log_gam_b = c(0, log(1.83), log(1.120))
-
-inits$log_gam_a = c(0, 3.7, 3.1)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
-inits$log_gam_b = c(0, 1.83, 1.120)
 
 # Set vulnerability matrix
 inits$log_phi #Currently all set to 0.5 (keep it)
@@ -115,7 +190,7 @@ run_ms_CSL_Mest_prior<- Rceattle::fit_mod(data_list = test_data,
                                             initMode = 2,
                                             verbose = 1)
 
-run_ms_CSL_Mest_prior$quantities$jnll #2305.217
+run_ms_CSL_Mest_prior$quantities$jnll_comp #2305.217
 run_ms_CSL_Mest_prior$quantities$M1 #0.2661498
 run_ms_CSL_Mest_prior$sdrep
 run_ms_CSL_Mest_prior$estimated_params$log_phi
@@ -130,7 +205,7 @@ grcheck2 <- data.frame(names = names(pars), par = pars, gr = abs(gr[1,]))
 ###########################################################################################
 ## Lets try to estabilize the model and reduce gradient for M1 by re-fitting the model again.
 ############################################################################################
-
+## Diet_comps_Multinomial
 run_ms_CSL_Mest_test <- Rceattle::fit_mod(data_list = run_ms_CSL_Mest_prior$data_list,
                                           inits = run_ms_CSL_Mest_prior$estimated_params, # Initial parameters from single species ests
                                           map = run_ms_CSL_Mest_prior$map,
@@ -156,6 +231,7 @@ run_ms_CSL_Mest_test$quantities$jnll #2305.217
 run_ms_CSL_Mest_test$quantities$M1 #0.2661498
 run_ms_CSL_Mest_test$quantities$jnll_comp
 run_ms_CSL_Mest_test$sdrep
+plot_diet_comp2(run_ms_CSL_Mest_test)
 
 save(run_ms_CSL_Mest_test, file = "results/models_final/ms_LN_run_refit.Rdata")
 
@@ -163,11 +239,13 @@ gr <- run_ms_CSL_Mest_test$obj$gr() # Get gradients (unnamed vector)
 pars <- run_ms_CSL_Mest_test$obj$par # Get parameters and names (same order as gradient)
 grcheck <- data.frame(names = names(pars), par = pars, gr = abs(gr[1,]))
 
+save(run_ms_CSL_Mest_test, file = "results/Models_July11/Comps_multinomial/run_ms_CSL_Mest_test.Rdata")
+load("results/Models_July11/Comps_multinomial/run_ms_CSL_Mest_test.Rdata")
 
 ###########################################################################################
-## test model weigthing
+## test model weigthing (Diet comps Dirichlet multinomial)
 ###########################################################################################
-load("results/models_final/ms_LN_run_refit.Rdata")
+#load("results/models_final/ms_LN_run_refit.Rdata")
 map<- run_ms_CSL_Mest_test$map
 map$mapList$diet_comp_weights <- c(NA, 2, 3) # spp 1 fixed, spp 2&3 estimated
 map$mapFactor$diet_comp_weights <- factor(map$mapList$diet_comp_weights)
@@ -200,8 +278,71 @@ run_ms_CSL_Mest_test_W$quantities$M1 # 0.2642167
 run_ms_CSL_Mest_test_W$sdrep
 run_ms_CSL_Mest_test_W$estimated_params$log_phi
 run_ms_CSL_Mest_test_W$quantities$vulnerability #0.8450781 and 0.7672554
+run_ms_CSL_Mest_test_W$quantities$unweighted_jnll_comp
 save(run_ms_CSL_Mest_test_W, file = "results/models_final/ms_LN_run_refit_weigth_test.Rdata")
 
+
+mod_list <- list(ss_run, run_ms_CSL_Mest_test_W, ss_run_M, ss_run_M_noPrior)
+mod_names <- c("ss_model_Fix", "MS_model_Est", "ss_model_Est", "ss_run_M_noPrior")
+
+# Plot biomass trajectory
+plot_ssb(Rceattle = mod_list, model_names = mod_names, species = 1) #Now biomass looks alike
+plot_biomass(Rceattle = mod_list, model_names = mod_names, species = 1)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, species = 1)
+
+plot_depletionSSB(Rceattle = mod_list, model_names = mod_names, species = 1)
+
+###########################################################################################
+## test diet multinomial instead of DM
+###########################################################################################
+Data<- run_ms_CSL_Mest_test$data_list
+Data$Diet_comp_weights<- c(20, 20, 20)
+
+inits_large_theta <- run_ms_CSL_Mest_test$estimated_params
+print(inits_large_theta$diet_comp_weights)  # should show whatever it currently is
+
+# Overwrite
+inits_large_theta$diet_comp_weights <- c(20, 20, 20)
+# Confirm the overwrite actually took
+print(inits_large_theta$diet_comp_weights)
+
+run_ms_diet_multinomial_equiv <- Rceattle::fit_mod(data_list = Data,
+                                            inits = inits_large_theta, # Initial parameters from single species ests
+                                            map = map,
+                                            M1Fun = build_M1(M1_model = 1,
+                                                             #updateM1 = TRUE,
+                                                             M1_use_prior = TRUE,
+                                                             M_prior = 0.2,
+                                                             M_prior_sd = 0.1),
+                                            file = NULL, # Don't save
+                                            estimateMode = 0, # estimate
+                                            niter = 3, # 3 iterations around population and predation dynamics
+                                            random_rec = FALSE, # No random recruitment
+                                            msmMode = 1, # MSVPA based
+                                            loopnum = 5,
+                                            phase = TRUE,
+                                            suitMode = c(0, 4, 4), # empirical + LN suitability
+                                            suit_styr = c(1980, 2013, 2005),  # hake, ATF, sablefish
+                                            suit_endyr = c(2019, 2018, 2008), # hake, ATF, sablefish
+                                            initMode = 2,
+                                            verbose = 1)
+
+run_ms_diet_multinomial_equiv$quantities$jnll
+run_ms_diet_multinomial_equiv$quantities$jnll_comp
+run_ms_diet_multinomial_equiv$quantities$M1
+run_ms_diet_multinomial_equiv$sdrep
+run_ms_diet_multinomial_equiv$quantities$unweighted_jnll_comp
+run_ms_diet_multinomial_equiv$initial_params$diet_comp_weights
+
+mod_list <- list(run_ms_CSL_Mest_test_W, run_ms_CSL_Mest_test, run_ms_diet_multinomial_equiv)
+mod_names <- c("model_DM", "model_1", "model_M20")
+
+# Plot biomass trajectory
+plot_ssb(Rceattle = mod_list, model_names = mod_names, species = 1) #Now biomass looks alike
+plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
+plot_depletionSSB(Rceattle = mod_list, model_names = mod_names, species = 1)
+
+################################################################################################
 load("results/models_final/ms_LN_run_refit_weigth_test.Rdata")
 ##############################################################################################
 run_ms_CSL_Mest_0<- Rceattle::fit_mod(data_list = test_data,
@@ -352,9 +493,11 @@ fit_out <- function(run) {
   return(fit)
 }
 
-fit_out(ss_run)
-fit_out(run_ms_CSL_Mest_test_W0)
+fit_out(run_ms_CSL_Mest_test)
+fit_out(run_ms_CSL_Mest_test_W_DM_steady)
 
+run_ms_CSL_Mest_test$quantities$M1#0.2638791
+run_ms_CSL_Mest_test_W_DM_steady$quantities$M1 #0.2631309
 
 # PLOT POPULATION DYNAMICS
 plot_biomass(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = TRUE)

@@ -303,6 +303,7 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( diet_ctl );               // Info on pred, prey, pred-age, prey-age diet matrix (weight of prey in pred stomach)
   DATA_INTEGER(n_stomach_obs);            // The total number of unique stomach samples (groups)
   DATA_IVECTOR(stomach_id);               // A vector mapping each diet data row to a stomach ID
+  DATA_IVECTOR(diet_ll_type);  // Per-predator switch: 0 = multinomial; 1 = dirichlet-multinomial
 
   // 2.3.7. Environmental data
   DATA_MATRIX( env_index );               // Matrix of environmental predictors such as bottom temperature
@@ -3487,6 +3488,12 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+  // PRIOR DM
+  for(flt = 0; flt < n_flt; flt++){
+    if(comp_ll_type(flt) == 1){
+      jnll_comp(2, flt) -= dnorm(comp_weights(flt), Type(0.0), Type(2.0), true);
+    }
+   }
 
   // Slot 3-4 -- Selectivity
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
@@ -3946,7 +3953,6 @@ Type objective_function<Type>::operator() () {
       std::vector<Type> pred_diet_prop_std;
       Type N_s = 0.0;
       int rsp = -1;
-
       // Loop through all diet data rows to find those belonging to predator i
       for (int j = 0; j < diet_ctl.rows(); ++j) {
         if (stomach_id(j) == i) {
@@ -3958,58 +3964,63 @@ Type objective_function<Type>::operator() () {
           pred_diet_prop_std.push_back(diet_hat(j, 1));
         }
       }
-
       // --- Skip if no data or suitability not estimated
       if (obs_diet_prop_std.size() == 0) continue;
       if (suitMode(rsp) <= 0) continue;
-
       int n_prey = obs_diet_prop_std.size();
-
       // --- Pre-allocate TMB vectors with space for "Other prey" (+1)
       vector<Type> obs_diet_prop(n_prey + 1);  obs_diet_prop.setZero();
       vector<Type> pred_diet_prop(n_prey + 1); pred_diet_prop.setZero();
-
       for (int k = 0; k < n_prey; ++k) {
         obs_diet_prop(k)  = obs_diet_prop_std[k];
         pred_diet_prop(k) = pred_diet_prop_std[k];
       }
-
       // --- Add "Other prey" slot ---
       Type sum_obs_p = obs_diet_prop.head(n_prey).sum();
       if (sum_obs_p > 1.0) sum_obs_p = 1.0;
       obs_diet_prop(n_prey) = 1.0 - sum_obs_p;
-
       Type sum_est_p = pred_diet_prop.head(n_prey).sum();
       pred_diet_prop(n_prey) = posfun(1.0 - sum_est_p, Type(0.00001), penalty);
-
       // --- Offset both (following comp likelihood convention) ---
       obs_diet_prop  += 0.00001;
       pred_diet_prop += 0.00001;
-
       // --- Convert observed proportions to counts ---
       vector<Type> obs_diet_content = obs_diet_prop * N_s;
-
       // --- Compute and report ESS (diagnostic only, following Cole's GOA pollock) ---
       diet_ESS(rsp) = N_s * invlogit(diet_comp_weights(rsp));
 
-      // --- DM alpha: sum(obs_counts) * pred_prop * concentration ---
-      Type DM_diet_par = DM_diet_pars(rsp);
-      vector<Type> alphas            = sum(obs_diet_content) * pred_diet_prop * DM_diet_par;
-      vector<Type> unweighted_alphas = sum(obs_diet_content) * pred_diet_prop;
+      // --- NEW: switch between multinomial and Dirichlet-multinomial ---
+      Type stomach_log_likelihood = 0;
+      Type unweighted_stomach_log_likelihood = 0;
 
-      Type stomach_log_likelihood            = ddirmultinom(obs_diet_content, alphas, true);
-      Type unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_alphas, true);
+      switch(diet_ll_type(rsp)){
 
-      unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
-      jnll_comp(18, rsp)            -= stomach_log_likelihood;
+      case 0:  // Full multinomial
+        stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
+        jnll_comp(18, rsp)            -= stomach_log_likelihood;
+        break;
+
+      case 1: {  // Dirichlet-multinomial (your existing code, unchanged)
+          Type DM_diet_par = DM_diet_pars(rsp);
+          vector<Type> alphas            = sum(obs_diet_content) * pred_diet_prop * DM_diet_par;
+          vector<Type> unweighted_alphas = sum(obs_diet_content) * pred_diet_prop;
+          stomach_log_likelihood            = ddirmultinom(obs_diet_content, alphas, true);
+          unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_alphas, true);
+          unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
+          jnll_comp(18, rsp)            -= stomach_log_likelihood;
+          break;
+        }
+
+      default:
+        error("Invalid 'diet_ll_type'");
+      }
     }
   }
 
-  // --- Prior on diet_comp_weights to stabilize DM estimation (following Monnahan GOA pollock)
-  // Prior mean = 0 (concentration = exp(0) = 1, neutral/multinomial-equivalent)
-  // Prior SD = 2 on log scale (weakly informative)
+  // --- Prior on diet_comp_weights to stabilize DM estimation (unchanged, only applies when DM is used)
   for(int sp = 0; sp < nspp; sp++){
-    if(suitMode(sp) > 0){
+    if((suitMode(sp) > 0) && (diet_ll_type(sp) == 1)){
       jnll_comp(18, sp) -= dnorm(diet_comp_weights(sp), Type(0.0), Type(2.0), true);
     }
   }

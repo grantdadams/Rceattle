@@ -126,6 +126,14 @@ rearrange_dat <- function(data_list){
     data_list$diet_obs <- diet_dat %>%
       dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
       dplyr::mutate_all(as.numeric)
+
+    # NEW: diet_ll_type -- per-predator-species switch (0 = multinomial, 1 = Dirichlet-multinomial)
+    # Default to DM (1) for all species if not otherwise specified, to preserve existing behavior
+    if(is.null(data_list$diet_ll_type)){
+      data_list$diet_ll_type <- rep(1L, data_list$nspp)  # length = nspp, one entry per species
+    } else {
+      data_list$diet_ll_type <- as.integer(data_list$diet_ll_type)
+    }
   }
 
 
