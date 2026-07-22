@@ -468,9 +468,23 @@ made random. Split the vector:
   `random_vars`), plus **`log_sigma_linkage`** (one per `re_group`) and
   **`trans_rho_linkage`** (one per AR1 group).
 - The linkage table gains a `re_index` column saying which vector each row lives in and where.
-- The RE density (IID / RW first-differences / `AR1()`) goes in a **new `jnll_comp` row 20** —
-  which per CLAUDE.md means adding `"Linkage random effects"` to
+- The RE density (IID / RW first-differences / `AR1()`) goes in a **new `jnll_comp` row 20**
+  (currently `jnll_comp(20, n_col)` at [cpp:2458](src/TMB/ceattle_v01_11.cpp#L2458) — resize to
+  21) — which per CLAUDE.md means adding `"Linkage random effects"` to
   [R/6-rename_output.R:130-151](R/6-rename_output.R#L130-L151) in the same commit.
+  **Copy the M1_re density verbatim as the template** ([cpp:3388-3435](src/TMB/ceattle_v01_11.cpp#L3388)):
+  it already does `Type rho = rho_trans(M1_rho(...))`, `Type Sigma = sigma/sqrt(1-rho^2)`, and
+  `jnll_comp(15, sp) += SCALE(AR1(rho), Sigma)(re_vector)` (with `SEPARABLE(AR1, AR1)` for 2D).
+  The linkage version is the same, indexed by `re_group` instead of species, with `sigma =
+  exp(log_sigma_linkage(group))` and `rho = rho_trans(trans_rho_linkage(group))`. IID is
+  `AR1(0)`; RW is `dnorm(first-difference, 0, sigma)`. The RE coefficients for a group are the
+  `beta_linkage_re` slice ordered by the group's time levels — which is exactly why the
+  numeric-Year / true-lag rule matters (the vector's index positions must be real elapsed
+  time, not factor-column order).
+- **The `random_vars` block** ([6-fit_mod.R:429-451](R/6-fit_mod.R#L429)) adds whole parameter
+  names to `random=`; append `"beta_linkage_re"` whenever any pooled spec is random. The three
+  legacy logicals (`random_rec`/`random_q`/`random_sel`) become translation shims that inject
+  the equivalent `~ (1|Year)` specs, so there is one RE path.
 - Per-spec random/fixed replaces the global `random_rec`/`random_q`/`random_sel` logicals.
   This also fixes the gap the review found: `random_q = TRUE` with IID/RW currently integrates
   the deviates while leaving sigma **fixed** — a Laplace-integrated fixed-sigma model.
