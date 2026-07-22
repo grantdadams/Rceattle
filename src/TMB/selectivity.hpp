@@ -289,7 +289,15 @@ void calculate_selectivity(
     array<Type> &non_par_sel,
     array<Type> &sel_at_length,
     array<Type> &sel_at_age,
-    array<Type> growth_matrix
+    array<Type> growth_matrix,
+    // Environmental-linkage offsets, one log-scale and one natural-scale tensor
+    // per parameter family. All zero unless a selectivity linkage was supplied,
+    // so a model without one is numerically unchanged.
+    // Non-const references only because TMB's multi-index array operator() is
+    // not const-qualified; these tensors are read, never written, here.
+    array<Type>& sel_slp_off,      array<Type>& sel_slp_off_nat,
+    array<Type>& sel_inf_off,      array<Type>& sel_inf_off_nat,
+    array<Type>& sel_coff_off,     array<Type>& sel_coff_off_nat
 ) {
   sel_at_age.setZero();
   sel_at_length.setZero();
@@ -339,8 +347,14 @@ void calculate_selectivity(
         case 1: // Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-            Type inf   = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
+            // slope stored on the log scale: log-link offset rides inside the
+            // exp (multiplicative on the natural slope), natural-link offset
+            // adds after. inflection stored natural: identity-link offset adds,
+            // log-link offset multiplies. Both no-op when the offsets are zero.
+            Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                             + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+            Type inf   = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                          + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
             Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
@@ -423,10 +437,14 @@ void calculate_selectivity(
         case 3: // Double Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp1 = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-            Type inf1 = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-            Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
+            Type slp1 = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                            + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+            Type inf1 = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                         + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                            + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+            Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                         + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
             Type val = (1.0 / (1.0 + exp(-slp1 * (x_val - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
@@ -437,8 +455,10 @@ void calculate_selectivity(
         case 4: // Descending Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-            Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                            + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+            Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                         + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
             Type val = (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;

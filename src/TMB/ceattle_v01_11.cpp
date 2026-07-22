@@ -881,6 +881,29 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.8. SELECTIVITY
+  // Environmental-linkage offsets. Two tensors per parameter family (log and
+  // natural scale), all zero unless a selectivity linkage was supplied.
+  array<Type> sel_slp_off (2, n_flt, max_sex, nyrs);            sel_slp_off.setZero();
+  array<Type> sel_slp_off_nat (2, n_flt, max_sex, nyrs);        sel_slp_off_nat.setZero();
+  array<Type> sel_inf_off (2, n_flt, max_sex, nyrs);            sel_inf_off.setZero();
+  array<Type> sel_inf_off_nat (2, n_flt, max_sex, nyrs);        sel_inf_off_nat.setZero();
+  array<Type> sel_coff_off (n_flt, max_sex, max_bin, nyrs);     sel_coff_off.setZero();
+  array<Type> sel_coff_off_nat (n_flt, max_sex, max_bin, nyrs); sel_coff_off_nat.setZero();
+
+  rceattle_apply_sel_linkages(
+    sel_slp_off, sel_inf_off, sel_coff_off,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensors
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage, n_flt, max_sex, max_bin, nyrs);
+
+  rceattle_apply_sel_linkages(
+    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensors
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage, n_flt, max_sex, max_bin, nyrs);
+
   // "sel_at_age" and "sel_at_length" modified via pass-by-reference
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   calculate_selectivity(
@@ -914,7 +937,10 @@ Type objective_function<Type>::operator() () {
     non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
     sel_at_length,        // [Modified] Final length-based selectivity
     sel_at_age,           // [Modified] Final age-based selectivity
-    growth_matrix         // Length to age transition matrix
+    growth_matrix,        // Length to age transition matrix
+    sel_slp_off, sel_slp_off_nat,   // selectivity linkage offsets (log / natural)
+    sel_inf_off, sel_inf_off_nat,
+    sel_coff_off, sel_coff_off_nat
   );
 
 

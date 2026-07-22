@@ -19,6 +19,8 @@ fit_mod(
   recFun = build_srr(),
   M1Fun = build_M1(),
   growthFun = build_growth(),
+  qFun = build_catchability(),
+  selFun = build_selectivity(),
   msmMode = 0,
   avgnMode = 0,
   initMode = "NonEquilibrium",
@@ -70,6 +72,11 @@ placeholder (\code{dummy^2}), not a likelihood.}
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
 
 \item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
+
+\item{qFun}{Catchability specification from \code{\link{build_catchability}},
+carrying any environmental linkages on q.}
+
+\item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.}
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 

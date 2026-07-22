@@ -782,3 +782,123 @@ Q_LINKAGE_PARAMS <- c("q")
 build_catchability <- function(linkages = NULL) {
   list(linkages = .validate_q_linkages(linkages))
 }
+
+
+#' Selectivity parameters that accept a linkage
+#'
+#' Slot names shared across the parametric forms, plus DoubleNormal aliases.
+#' @keywords internal
+#' @noRd
+SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
+                        "sigma_asc", "sigma_desc", "peak", "right_floor")
+
+
+#' @keywords internal
+#' @noRd
+.validate_sel_linkages <- function(linkages) {
+  .validate_process_linkages(linkages, SEL_LINKAGE_PARAMS, "sel")
+}
+
+
+#' Selectivity specification
+#'
+#' @description
+#' Carries environmental linkages on selectivity parameters. The effect on a
+#' parameter is written as a formula and composes additively with any
+#' `Time_varying_sel` process error on the same fleet (the two are separate
+#' mechanisms: a covariate effect versus a deviation).
+#'
+#' The parameter names index the underlying selectivity slots, which the
+#' parametric forms share:
+#' \describe{
+#'   \item{`slp_asc`, `slp_desc`}{ascending / descending logistic slope (log
+#'     scale); for DoubleNormal the ascending / descending sigma, aliased
+#'     `sigma_asc` / `sigma_desc`.}
+#'   \item{`inf_asc`, `inf_desc`}{ascending / descending inflection (natural
+#'     scale); for DoubleNormal the peak and the logit right-floor, aliased
+#'     `peak` / `right_floor`.}
+#'   \item{`coff`}{non-parametric selectivity-at-bin coefficients.}
+#' }
+#'
+#' Every parameter accepts `link = "log"` (multiplicative on the natural
+#' parameter) or `link = "identity"` (additive), like the other processes.
+#'
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by
+#'   selectivity parameter. Use `by = ~ fleet` for a separate coefficient per
+#'   fleet.
+#'
+#' @return A list of selectivity settings for [fit_mod()].
+#'
+#' @examples
+#' \donttest{
+#' # A cold-pool effect on the ascending inflection of a logistic fleet
+#' build_selectivity(linkages = list(
+#'   inf_asc = linkage_spec(~ cold_pool, by = ~ fleet)))
+#' }
+#'
+#' @export
+build_selectivity <- function(linkages = NULL) {
+  list(linkages = .validate_sel_linkages(linkages))
+}
+
+
+# Map a selectivity linkage param name to (array, 1-based slot). log_sel_slp
+# and sel_inf are [2, fleet, sex]; sel_coff is [fleet, sex, bin].
+.SEL_PARAM_TO_SLOT <- list(
+  slp_asc     = list(arr = "log_sel_slp", slot = 1L),
+  slp_desc    = list(arr = "log_sel_slp", slot = 2L),
+  sigma_asc   = list(arr = "log_sel_slp", slot = 1L),
+  sigma_desc  = list(arr = "log_sel_slp", slot = 2L),
+  inf_asc     = list(arr = "sel_inf",     slot = 1L),
+  inf_desc    = list(arr = "sel_inf",     slot = 2L),
+  peak        = list(arr = "sel_inf",     slot = 1L),
+  right_floor = list(arr = "sel_inf",     slot = 2L),
+  coff        = list(arr = "sel_coff",    slot = NA_integer_)
+)
+
+
+# Selectivity forms whose consume site currently reads the linkage offset.
+# Expand as more forms are wired in the TMB template.
+.SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic")
+.SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc")
+
+
+#' Reject selectivity linkages the template does not yet consume
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param fleet_control the fleet control table.
+#' @return invisibly NULL; errors on an unsupported sel linkage.
+#' @keywords internal
+#' @noRd
+.check_sel_linkage_support <- function(linkage_table, fleet_control) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  sel <- linkage_table[linkage_table$process == "sel", , drop = FALSE]
+  if (nrow(sel) == 0L) return(invisible())
+
+  bad_param <- setdiff(unique(sel$param), .SEL_LINKAGE_WIRED_PARAMS)
+  if (length(bad_param) > 0) {
+    stop(sprintf(
+      paste0("selectivity linkage parameter(s) not yet wired: %s.\n",
+             "  Wired: %s. The non-parametric `coff` and the DoubleNormal ",
+             "parameters are reserved and come in a later step."),
+      paste(bad_param, collapse = ", "),
+      paste(.SEL_LINKAGE_WIRED_PARAMS, collapse = ", ")), call. = FALSE)
+  }
+
+  # Every fleet a sel row targets must use a wired selectivity form.
+  flts <- unique(sel$fleet)
+  flts <- flts[!is.na(flts)]
+  if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
+  forms <- as.character(fleet_control$Selectivity[flts])
+  bad_flt <- flts[!forms %in% .SEL_LINKAGE_WIRED_FORMS]
+  if (length(bad_flt) > 0) {
+    stop(sprintf(
+      paste0("selectivity linkage on fleet(s) %s whose form (%s) is not yet ",
+             "wired for linkages.\n  Wired forms: %s."),
+      paste(fleet_control$Fleet_name[bad_flt], collapse = ", "),
+      paste(unique(as.character(fleet_control$Selectivity[bad_flt])),
+            collapse = ", "),
+      paste(.SEL_LINKAGE_WIRED_FORMS, collapse = ", ")), call. = FALSE)
+  }
+  invisible()
+}

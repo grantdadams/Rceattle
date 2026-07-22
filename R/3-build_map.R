@@ -1559,6 +1559,21 @@ map_linkage_adjuster <- function(map_list, data_list) {
         # Catchability is indexed by fleet, so the stratum to mask is
         # idx$fleet rather than the species/sex/age triple.
         map_list$index_log_q[idx$fleet] <- NA
+      },
+      sel = {
+        # Selectivity is indexed by (slot, fleet, sex). A slope-only formula
+        # masks the base slot across all sexes of the linked fleet; the coff
+        # form masks every bin.
+        m <- .SEL_PARAM_TO_SLOT[[row$param]]
+        if (!is.null(m)) {
+          if (m$arr == "log_sel_slp") {
+            map_list$log_sel_slp[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_inf") {
+            map_list$sel_inf[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_coff") {
+            map_list$sel_coff[idx$fleet, , ] <- NA
+          }
+        }
       }
     )
   }

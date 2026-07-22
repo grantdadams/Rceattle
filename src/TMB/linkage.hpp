@@ -273,4 +273,72 @@ void rceattle_apply_q_linkages(
   }
 }
 
+
+// Selectivity: fills three offset tensors, one per parameter family, routed by
+// the row's param code. Selectivity is indexed by fleet and sex (mirroring is
+// collapsed by the TMB map, so the parameter arrays are effectively per-fleet).
+// Param codes: 0/1 -> log_sel_slp[asc/desc] (slp_offset),
+//              2/3 -> sel_inf[asc/desc]      (inf_offset),
+//              4   -> sel_coff (all bins)    (coff_offset).
+// As with the other processes, called once per link scale; the caller passes
+// the log-scale or the natural-scale trio of tensors.
+template<class Type>
+void rceattle_apply_sel_linkages(
+    array<Type>&          slp_offset,   // [2, n_flt, max_sex, nyrs]
+    array<Type>&          inf_offset,   // [2, n_flt, max_sex, nyrs]
+    array<Type>&          coff_offset,  // [n_flt, max_sex, n_sel_bins, nyrs]
+    int                   link_code,
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_fleet,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   n_flt,
+    int                   max_sex,
+    int                   n_sel_bins,
+    int                   nyrs)
+{
+  (void)linkage_species;
+  (void)linkage_age_bin;
+  int n = beta.size();
+  if (n == 0) return;
+
+  int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+
+  for (int i = 0; i < n; ++i) {
+    if (linkage_process(i) != RCEATTLE_PROC_SEL) continue;
+    if (linkage_link(i)    != link_code)         continue;
+
+    int param = linkage_param(i);
+    int xc    = linkage_X_col(i);
+    Type b    = beta(i);
+
+    int fl_lo, fl_hi, sx_lo, sx_hi;
+    rceattle_stratum_range(linkage_fleet(i), n_flt,   fl_lo, fl_hi);
+    rceattle_stratum_range(linkage_sex(i),   max_sex, sx_lo, sx_hi);
+
+    for (int flt = fl_lo; flt < fl_hi; ++flt) {
+      for (int sx = sx_lo; sx < sx_hi; ++sx) {
+        for (int yr = 0; yr < yr_hi; ++yr) {
+          Type v = b * linkage_X(yr, xc);
+          if (param == 0 || param == 1) {
+            slp_offset(param, flt, sx, yr) += v;
+          } else if (param == 2 || param == 3) {
+            inf_offset(param - 2, flt, sx, yr) += v;
+          } else if (param == 4) {
+            for (int bin = 0; bin < n_sel_bins; ++bin) {
+              coff_offset(flt, sx, bin, yr) += v;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 #endif
