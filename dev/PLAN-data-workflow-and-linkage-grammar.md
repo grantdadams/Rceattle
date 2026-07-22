@@ -73,6 +73,61 @@ Six claims in the draft were wrong or overstated. The corrections shape the plan
 
 ---
 
+## External validation: the FIMS CIE peer review (April 2026)
+
+The three independent CIE reviewers of FIMS (Holmes, Howell, Ono) plus the summary report
+converged on a short list of recommendations. Rceattle is a different tool at a different
+maturity, but every one of the reviewers' *cross-cutting* themes is something this plan
+already targets — which is a useful independent check that the priorities are right, and in
+two places it sharpens them.
+
+**Direct hits — themes all reviewers raised, mapped to where this plan delivers them:**
+
+1. **"Make users aware of default versus other settings, and their implications"** — the
+   single most-repeated ask (all four documents, TOR 3). This *is* the PR 4 spec tree +
+   `data_requirements()` + parameter dictionary: turn "unknowingly accept defaults" into a
+   printout that shows every process's form, what is estimated vs fixed vs mapped-out, and
+   which linkages are active. Ono explicitly wants defaults' *consequences* stated, not just
+   their values — the spec tree should annotate, e.g., that `~ (1|Year)` recruitment smooths
+   episodic recruitment (his worked example of a harmful default).
+2. **Estimation-failure warnings must be unavoidable** — every reviewer, emphatically
+   ("watermark on figures", "header in tables", "not hidden among routine messages"). This is
+   the same principle as PR 0–2's design rule: **a mis-specified linkage errors loudly rather
+   than silently contributing zero.** The `.check_sel_linkage_support()` guard and the
+   logit/`q`-noop fixes in PR 0 are exactly this instinct applied to model *construction*; the
+   reviewers want it applied to model *fitting* too. → adds a diagnostics item below.
+3. **"Avoid feature sprawl and overlapping, redundant functionality"** (Howell and Ono both,
+   TOR 5) — the entire "one grammar for every process" thesis and the condensing pass. Ono:
+   "rename options to improve interpretability, e.g. `constant` → `not estimated`" — a direct
+   nudge for the parameter dictionary's plain-language column.
+4. **sdmTMB-style tiered documentation** (Ono and the summary name sdmTMB explicitly) — model
+   description with equations, getting-started, one topic-based section per component
+   (selectivity, growth, likelihoods…), estimation+diagnostics, projections. This is the
+   shape PR 7's vignettes should take; the plan already cites sdmTMB's `sanity()`.
+5. **Version-controlled, diffable, archivable model configuration** (Ono, TOR 5 "streamlined
+   outputs and configuration tracking") — precisely PR 6 `save_config()`/`load_config()`.
+6. **A concise reference manual complementing vignettes** (Holmes, Howell, summary) — the
+   "diffable text config with doc strings" of PR 6 plus the canonical schema of PR 5 generate
+   most of this for free.
+
+**Two sharpenings this plan should absorb:**
+
+- **Add a diagnostics/warnings item to PR 7** (or a small PR 7.5): a single `sanity()`-style
+  reporter that runs after `fit_mod()` and flags, unmissably, non-convergence, a
+  non-invertible Hessian, and parameters at bounds — the reviewers' universal ask. Rceattle
+  already computes a `hessian_conditioning` diagnostic (improved on `dev-ebs-pk`); the gap is
+  making its verdict prominent and attaching it to plotted/tabulated output rather than
+  leaving it in the console. Cheap, high-leverage, and it is the thing three independent
+  experts each singled out.
+- **OSA / one-step-ahead residuals for composition data** (Howell, Ono): Rceattle already has
+  `comp_osa.hpp` and `0-osa_data.R`, so this is largely a plotting-surface question, not new
+  model code — worth confirming it is exposed and documented in the PR 7 diagnostics vignette.
+
+**Deliberately out of scope** (FIMS structural asks that are not Rceattle gaps or not this
+work): seasonality, sex/sub-stock partitions, and reference-point machinery are FIMS
+catch-up items; Rceattle already has sex, SPR proxies and HCR projection. Noted only so the
+reports are not mis-read as a task list for this branch.
+
 ## The grammar
 
 One grammar, five (soon six) processes. `env_data` already carries a `Year` column, so the
