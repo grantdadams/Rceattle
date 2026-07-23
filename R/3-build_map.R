@@ -346,7 +346,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       map_list$M1_dev_log_sd[sp,] = sp
 
       # AR1 correlation (shared across sexes)
-      if(M1_re_model == 5){
+      if(M1_re_model == 6){
         map_list$M1_rho[sp,1,] = M1_dev_log_sd_ind + 1:2
         map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
         M1_dev_log_sd_ind = M1_dev_log_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
