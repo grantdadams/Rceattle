@@ -212,6 +212,10 @@ build_data <- function(base = NULL, file = NULL, ..., .check = TRUE) {
     dl
   })
 
+  # Tag the object so print()/summary() show the spec tree. A thin class tag:
+  # every consumer (clean_data/data_check/fit_mod/write_data) treats it as a
+  # plain list, so this cannot change a fit.
+  class(dl) <- unique(c("Rceattle_data", class(dl)))
   dl
 }
 

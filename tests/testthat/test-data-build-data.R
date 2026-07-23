@@ -1,11 +1,24 @@
 # build_data() -- the code-first data-list constructor. Fast unit behaviour is
 # unguarded; the golden-equivalence fit is skipped on CRAN.
 
-testthat::test_that("base + no overrides equals clean_data(base)", {
+testthat::test_that("base + no overrides equals clean_data(base) (up to the class tag)", {
   testthat::skip_if_not_installed("Rceattle")
   a <- suppressWarnings(suppressMessages(build_data(base = BS2017SS, .check = FALSE)))
   b <- suppressWarnings(suppressMessages(Rceattle::clean_data(BS2017SS)))
-  testthat::expect_identical(a, b)
+  # build_data tags the object "Rceattle_data"; content is otherwise identical.
+  testthat::expect_s3_class(a, "Rceattle_data")
+  testthat::expect_identical(unclass(a), b)
+})
+
+testthat::test_that("print/summary render an Rceattle_data spec tree", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- suppressWarnings(suppressMessages(build_data(base = BS2017SS, .check = FALSE)))
+  out <- utils::capture.output(print(d))
+  testthat::expect_true(any(grepl("<Rceattle data>", out)))
+  testthat::expect_true(any(grepl("dimensions", out)))
+  testthat::expect_true(any(grepl("fleets", out)))
+  # summary() delegates to print().
+  testthat::expect_identical(utils::capture.output(summary(d)), out)
 })
 
 testthat::test_that("named overrides are applied", {

@@ -81,6 +81,16 @@
   take effect. The slot is code-side structure, not a workbook sheet, so it does
   not persist through a `write_data()`/`read_data()` round-trip (a warning fires).
 
+* **Spec-tree `print()` / `summary()` for data objects and fits.** A
+  `build_data()` object now carries the class `"Rceattle_data"` and prints as an
+  indented specification tree — dimensions → fleets (with their selectivity /
+  catchability forms and mirroring) → configured processes → active linkages →
+  any attached `model_config()` — instead of dumping the ~40-element list. The
+  same tree is shown by `print()` on a fitted model above its fit statistics, so
+  "read 600 lines of switch tables" becomes "read the printout". The class is a
+  thin tag: every consumer still treats the object as a plain list, so it does
+  not change a fit.
+
 ## Bug fixes
 
 * **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
