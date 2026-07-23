@@ -24,6 +24,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                               msmMode = 0, # Single species mode
                               fit_control = fit_control(
                                 phase = TRUE,
+                                getsd = FALSE,
                                 verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -40,6 +41,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
+                        getsd = FALSE,
                         verbose = 0))
   )
 
@@ -83,6 +85,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                               msmMode = 0, # Single species mode
                               fit_control = fit_control(
                                 phase = TRUE,
+                                getsd = FALSE,
                                 verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -99,6 +102,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
+                        getsd = FALSE,
                         verbose = 0))
   )
 
