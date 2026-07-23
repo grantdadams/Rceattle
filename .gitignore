@@ -40,3 +40,6 @@ tests/comparison/WHAM_growth_comparison/rce_osa.RDS
 # the comparison scripts interactively)
 /Len_comp_OSA.png
 /wham_osa_plot.png
+
+# Development scratch (RFCs, plans, working notes) — kept local, not part of the package
+/dev/

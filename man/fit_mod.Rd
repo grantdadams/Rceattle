@@ -44,7 +44,16 @@ from scratch via \code{\link{build_params}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
+\item{estimateMode}{0 = Fit the hindcast model and projection with HCR
+specified via \code{HCR}. 1 = Fit the hindcast model only (no projection).
+2 = Run the projection only with HCR specified via \code{HCR} given the
+initial parameters in \code{inits}. 3 = build only: runs the model through
+\code{MakeADFun} but not \code{nlminb}. The returned \code{obj} carries the
+real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are
+usable for diagnosing a model before committing to a fit. 4 = runs the
+model through \code{MakeADFun} and \code{nlminb} with all parameters
+mapped out; this is a plumbing smoke test and its objective is a
+placeholder (\code{dummy^2}), not a likelihood.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
 

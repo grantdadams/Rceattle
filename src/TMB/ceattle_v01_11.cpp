@@ -1016,8 +1016,9 @@ Type objective_function<Type>::operator() () {
     // 6.1. TOTAL MORTALITY-AT-AGE
     for(sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
+        // Element-wise: assigning a scalar to a vector would broadcast.
         for(int i = 0; i < M1_beta.dim(2); i++){
-          beta_M1_tmp = M1_beta(sp, sex, i);
+          beta_M1_tmp(i) = M1_beta(sp, sex, i);
         }
         for(age = 0; age < nages(sp); age++) {
           for(yr = 0; yr < nyrs; yr++) {
@@ -1791,7 +1792,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -1893,7 +1894,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -1946,7 +1947,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -2011,7 +2012,7 @@ Type objective_function<Type>::operator() () {
     if(yr > 0){
       yr = yr - styr;
     }
-    if(yr < 0){
+    else if(yr < 0){
       yr = -yr - styr;
     }
 
@@ -2296,7 +2297,7 @@ Type objective_function<Type>::operator() () {
     if(yr > 0){
       yr = yr - styr;
     }
-    if(yr < 0){
+    else if(yr < 0){
       yr = -yr - styr;
     }
     // Hindcast
@@ -2785,9 +2786,10 @@ Type objective_function<Type>::operator() () {
               sel_tmp(age) = log(non_par_sel(flt, sex, age, yr));
             }
 
-            for(age = 0; age < nbins - 2; age++) {
-              sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
+            // Second difference computed once (matches the type-9 branch).
+            vector<Type> sel_d2 = first_difference( first_difference( sel_tmp ) );
+            for(int a2 = 0; a2 < sel_d2.size(); a2++) {
+              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
             }
           }
 
@@ -3791,13 +3793,16 @@ Type objective_function<Type>::operator() () {
 
   Type jnll = 0;
 
-  // Estimation mode
-  if(estimateMode < 3) {
+  // Modes 0-3 return the real objective. Mode 3 builds the TMB object without
+  // running the optimizer, so obj$fn()/obj$gr() are usable for diagnostics.
+  if(estimateMode < 4) {
     jnll = jnll_comp.sum();
   }
 
-  // Debug mode
-  if(estimateMode > 2) {
+  // Mode 4: build_map() maps out every hindcast parameter, leaving `dummy` as
+  // the only free parameter. Placeholder objective so nlminb has something
+  // valid to minimize -- a plumbing smoke test, not a likelihood.
+  if(estimateMode > 3) {
     jnll = dummy * dummy;
   }
 

@@ -111,11 +111,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   must keep an example fit (e.g. `BS2017SS`) within tolerance and the suite green.
 - **`fit_mod(estimateMode=)`:** 0 = hindcast + HCR projection, 1 = hindcast only,
   2 = projection-only from `inits`, 3 = build (`MakeADFun`) without optimizing, 4 = optimize
-  with all params mapped out. **Trap: for `estimateMode >= 3` the template returns a
-  placeholder objective (`jnll = dummy*dummy`) independent of the real parameters** — so
-  `obj$fn()` / gradients are meaningless, and a random-effects model built in mode 3 gives a
-  *spurious* NaN / singular Hessian. Read the REPORTed `jnll_comp` for the real likelihood;
-  use `estimateMode = 1` to diagnose the actual objective / gradient / random effects.
+  with all params mapped out. **Mode 3 returns the real objective**, so `obj$fn()` /
+  `obj$gr()` are usable for diagnosing a model before fitting it — the analogue of WHAM's
+  `fit_wham(do.fit = FALSE)` and SAM's `sam.fit(run = FALSE)`. (Before v4.7.1 mode 3 shared
+  mode 4's placeholder and returned an identically-zero gradient.) **Mode 4 still returns the
+  placeholder `jnll = dummy*dummy`** — `build_map()` maps out every hindcast parameter there,
+  so `dummy` is the only free parameter and the objective is a plumbing smoke test, not a
+  likelihood. Don't read anything into a mode-4 objective, gradient, or Hessian.
 - **`fit_control()` bundles the optimizer / uncertainty knobs** (`getsd`, `bias.correct`,
   `loopnum`, `newtonsteps`, `getJointPrecision`). Pass `getsd = FALSE` for fast dev/test fits
   (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty

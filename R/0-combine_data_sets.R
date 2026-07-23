@@ -39,7 +39,8 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   data_list2$fleet_control$Fleet_code <- data_list2$fleet_control$Fleet_code + fleet_index1
 
   # Update fleet and spp indices of matrices
-  for(i in 2:15){
+  # Skip fleet_control (index 1); re-indexed explicitly above.
+  for(i in seq_along(mat_names)[-1]){
     if(!is.null(data_list2[[mat_names[i]]]$Species)){
       data_list2[[mat_names[i]]]$Species <- data_list2[[mat_names[i]]]$Species + nspp1
     }
@@ -64,11 +65,12 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   }
 
   # Combine matrices
-  for(i in mat_names[1:17]){
+  for(i in mat_names){
     data_list_new[[i]] <- plyr::rbind.fill(data_list1[[i]], data_list2[[i]])
   }
 
-  data_list1$env_data <- merge(data_list1$env_data, data_list2$env_data, by = "Year", all = TRUE)
+  data_list_new$env_data <- merge(data_list1$env_data, data_list2$env_data,
+                                  by = "Year", all = TRUE)
 
 
   # Add new species

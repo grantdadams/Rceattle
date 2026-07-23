@@ -265,8 +265,11 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
           vector<Type> inv_pred_denom(nyrs);
           for(int yr = suit_styr; yr <= suit_endyr; yr++) {
             Type denom = suma_suit(rsp, r_sex, r_age, yr) + other_food_diet_prop(rsp, r_sex, r_age, yr);
+            // `diet_prop_sum` gates whether this predator/age has diet data;
+            // `denom` is what we divide by and can reach 0 or go negative
+            // independently, so floor it.
             if (diet_prop_sum(rsp, r_sex, r_age, yr) > Type(0.0)) {
-              inv_pred_denom(yr) = Type(1.0) / denom;
+              inv_pred_denom(yr) = Type(1.0) / max2(denom, Type(1.0e-10));
             } else {
               inv_pred_denom(yr) = Type(0.0);
             }

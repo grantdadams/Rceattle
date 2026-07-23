@@ -16,6 +16,7 @@
 ^~\$.*$
 ^.*/~\$.*$
 ^\.vscode$
+^dev$
 ^R/dev$
 ^src/TMB/Dev$
 ^src/TMB/Depricated$

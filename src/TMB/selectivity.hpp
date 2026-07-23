@@ -97,10 +97,9 @@ void normalize_and_project_selectivity(
         max_sel = 0;
         for(int bin = 0; bin < nbins; bin++){
           for(int sex = 0; sex < nsex(sp); sex++){
-            // Find max
-            if(selectivity(flt, sex, bin, yr) > max_sel){
-              max_sel = selectivity(flt, sex, bin, yr);
-            }
+            // Fold rather than branch: TMB tapes once, so an `if` on an AD
+            // Type would freeze the argmax bin at its initial position.
+            max_sel = max2(max_sel, selectivity(flt, sex, bin, yr));
           }
         }
 
@@ -465,7 +464,7 @@ void calculate_selectivity(
             } else {
               for(int bin=0; bin<nbins; bin++) {
                 Type val = is_length_based ? sel_at_length(flt, sex, bin, yr) : sel_at_age(flt, sex, bin, yr);
-                if(val > max_sel) max_sel = val;
+                max_sel = max2(max_sel, val);   // fold, don't branch (see above)
               }
             }
             for (int bin = 0; bin < nbins; bin++) {
