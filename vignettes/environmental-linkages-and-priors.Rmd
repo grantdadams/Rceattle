@@ -1125,11 +1125,21 @@ numeric grouping variable (a real elapsed-time lag).
 An `ar1(1 | Year)` term can additionally be a **state-space covariate** (the
 Rogers et al. 2024 QAR1 catchability model): with `observe = "<env column>",
 obs_sd = <value>` the AR1 latent is observed as an `env_data` column with a
-fixed measurement SD and enters the linked parameter through an estimated
-effect size. The effect size and the AR1 SD are separately identified only when
-`obs_sd` is informative (small relative to the latent's SD); an uninformatively
-large `obs_sd` lets the observation stop pinning the latent, so use the
-measured series' actual measurement error.
+**fixed** measurement SD and enters the linked parameter through an estimated
+effect size (reported as `beta_linkage_obs` in `fit$quantities`, with a standard
+error via `ADREPORT`). The effect size and the AR1 SD are separately identified
+only when `obs_sd` is informative (small relative to the latent's SD); an
+uninformatively large `obs_sd` lets the observation stop pinning the latent, so
+use the measured series' actual measurement error. (`obs_sd` is fixed for now;
+*estimating* it — as the reference `Estimate_q = 6` model does — is planned, but
+freely estimated it collapses toward 0 on a smooth covariate, so it needs a
+prior/bound.)
+
+The observed covariate need **not** span the whole series: if `env_data` starts
+after the model start year (e.g. a survey that began mid-series), it is
+auto-extended to `styr` with `NA` for the missing years and the observation is
+applied **only** where the covariate is present — the latent AR1 still runs over
+all years, but no observation is fabricated for the un-surveyed ones.
 
 `rw()` / `ar1()` couple *consecutive* deviations with a unit lag, so their time
 points must be **equally spaced** -- a gap (a missing year) would be silently
