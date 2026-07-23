@@ -24,6 +24,14 @@
 
 ## Bug fixes
 
+* **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
+  A gate bug in `build_map()` (`if(M1_re_model == 5)` inside a block reachable only
+  when the mode is 3 or 6) plus a reference to an undefined index left mode 6's age
+  and year AR1 correlations unmapped, so the separable AR1 silently collapsed to IID
+  (identical to `M1_re = 3`). Mode 6 now frees both `rho` hyperparameters, so it is a
+  genuine separable 2D-AR1. This changes results only for models using `M1_re = 6`
+  (none of the bundled examples do); golden references are unaffected.
+
 * **The deprecated `est_M1` name is now recognized everywhere `M1_model` is.**
   The natural-mortality estimation switch was renamed `est_M1` → `M1_model`, but
   the data dictionary still documented `est_M1` and no alias existed, so a data

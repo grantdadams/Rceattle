@@ -350,11 +350,20 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       # - Standard deviation (shared across sexes)
       map_list$M1_dev_log_sd[sp,] = sp
 
-      # AR1 correlation (shared across sexes)
-      if(M1_re_model == 5){
-        map_list$M1_rho[sp,1,] = M1_dev_log_sd_ind + 1:2
-        map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
-        M1_dev_log_sd_ind = M1_dev_log_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
+      # AR1 correlations (age AND year, shared across sexes) for the separable
+      # 2D-AR1 (mode 6). The gate was `== 5` -- impossible inside this
+      # `%in% c(3, 6)` block, so mode 6's rho parameters were never estimated and
+      # the separable AR1 silently collapsed to IID. Estimate both here.
+      # `M1_rho_ind` is offset past nspp so these two map values never collide
+      # with the single `sp`-valued rho of a mode-4/5 species.
+      if(M1_re_model == 6){
+        # dim 3: 1 = age correlation, 2 = year correlation. `sp,,k` sets every
+        # sex at once (shared across sexes), matching the mode-4/5 style and
+        # working for 1- or 2-sex models. Two distinct map values so age and
+        # year rho are estimated separately.
+        map_list$M1_rho[sp,,1] = data_list$nspp + M1_rho_ind + 1  # age rho
+        map_list$M1_rho[sp,,2] = data_list$nspp + M1_rho_ind + 2  # year rho
+        M1_rho_ind = M1_rho_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
       }
     }
   }
