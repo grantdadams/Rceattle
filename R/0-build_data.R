@@ -43,7 +43,7 @@
     # configuration / switches commonly stored on a data list
     "msmMode", "initMode", "avgnMode", "suitMode", "niter", "random_rec",
     "estDynamics", "est_M1", "M1_model", "M1_re", "debug", "proj_F",
-    "HCR", "comp_offset",
+    "HCR", "comp_offset", "model_config",
     # legacy top-level aliases (also normalised by read_data)
     names(.RCE_DATA_ALIASES)
   ))

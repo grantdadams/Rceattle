@@ -688,8 +688,12 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
+  # model_config is a code-side configuration slot (a nested list of build_*()
+  # spec objects), not TMB data; strip it here alongside the other list-of-spec
+  # objects so it does not ride into obj$env$data (inert to the objective, but it
+  # bloats the fit and relies on TMB's sanitizer tolerating an arbitrary list).
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
-                       "aLW", "diet_data", "index_cov", # "NByageFixed", "estDynamics", "Ceq",
+                       "aLW", "diet_data", "index_cov", "model_config", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 

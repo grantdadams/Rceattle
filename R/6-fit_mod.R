@@ -237,6 +237,29 @@ fit_mod <-
 
     data_list <- Rceattle::clean_data(data_list)
 
+    # Overlay a stored model_config (if any) onto arguments the caller did not
+    # supply. An explicitly-passed argument always wins (missing() is FALSE); an
+    # argument the caller omitted falls back to the stored field. With no
+    # model_config slot this is a no-op, so fit_mod() behaves exactly as before.
+    # Detected with missing() rather than a sentinel so 0 / FALSE / "" stored
+    # values are honoured. NOTE: a call that passes one of these arguments --
+    # even at its default -- overrides the slot; omit it to let the config win.
+    cfg <- data_list$model_config
+    if (!is.null(cfg)) {
+      if (missing(msmMode)   && !is.null(cfg$msmMode))   msmMode   <- cfg$msmMode
+      if (missing(initMode)  && !is.null(cfg$initMode))  initMode  <- cfg$initMode
+      if (missing(avgnMode)  && !is.null(cfg$avgnMode))  avgnMode  <- cfg$avgnMode
+      if (missing(suitMode)  && !is.null(cfg$suitMode))  suitMode  <- cfg$suitMode
+      if (missing(niter)     && !is.null(cfg$niter))     niter     <- cfg$niter
+      if (missing(HCR)       && !is.null(cfg$HCR))       HCR       <- cfg$HCR
+      if (missing(recFun)    && !is.null(cfg$recFun))    recFun    <- cfg$recFun
+      if (missing(M1Fun)     && !is.null(cfg$M1Fun))     M1Fun     <- cfg$M1Fun
+      if (missing(growthFun) && !is.null(cfg$growthFun)) growthFun <- cfg$growthFun
+      if (missing(qFun)      && !is.null(cfg$qFun))      qFun      <- cfg$qFun
+      if (missing(selFun)    && !is.null(cfg$selFun))    selFun    <- cfg$selFun
+      if (missing(compFun)   && !is.null(cfg$compFun))   compFun   <- cfg$compFun
+    }
+
     # Add switches from function call
     data_list$random_rec  <- as.numeric(random_rec)
     data_list$estimateMode <- estimateMode

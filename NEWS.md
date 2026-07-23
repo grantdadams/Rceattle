@@ -62,6 +62,25 @@
   same bare list `read_data()` returns and round-trips through `write_data()`
   unchanged — a `build_data(base = X)` object fits bit-identically to `X`.
 
+* **`model_config()` — a model configuration that travels with the data.** The
+  model-structure arguments of `fit_mod()` (`msmMode`, `initMode`, the HCR and
+  the `build_*()` process specifications) can now be bundled into a slot on the
+  data list, so a data object records how it is meant to be fit:
+
+    ```r
+    dat <- build_data(base = BS2017MS, model_config = model_config(msmMode = 1))
+    fit_mod(dat)                     # fits as multispecies without passing msmMode
+    ```
+
+  `fit_mod()`'s signature and defaults are unchanged; when a data list carries a
+  `model_config`, `fit_mod()` reads each field only for arguments the caller did
+  **not** pass (detected with `missing()`), and an explicitly-passed argument
+  always overrides the slot. With no slot present the behaviour is byte-identical
+  (a `BS2017SS` fit is bit-identical). A call that passes an argument — even at
+  its default — overrides the slot, so omit the argument to let the configuration
+  take effect. The slot is code-side structure, not a workbook sheet, so it does
+  not persist through a `write_data()`/`read_data()` round-trip (a warning fires).
+
 ## Bug fixes
 
 * **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
