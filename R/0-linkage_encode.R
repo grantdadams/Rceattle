@@ -201,13 +201,22 @@ encode_linkage_for_tmb <- function(table, X) {
     re_rows <- which(is_re)
     re_sigma_int <- integer(n_re)
     re_sigma_int[re_index_int[re_rows] + 1L] <- as.integer(table$sigma_index[re_rows])
-    # Per-slot observed covariate value (Rogers QAR1); 0 for unobserved slots.
+    # Per-slot observed covariate value (Rogers QAR1) + a mask flagging which
+    # slots actually carry an observation. A slot is un-observed when its year is
+    # absent from env_data (`re_obs_value` NA there): the latent still exists (the
+    # AR1 runs over all years) but no observation term is added. Store 0 for the
+    # value (never read when masked) and 0 in the mask.
     re_obs_value <- numeric(n_re)
+    re_obs_mask  <- integer(n_re)
     ov <- table$re_obs_value[re_rows]
-    ov[is.na(ov)] <- 0
-    re_obs_value[re_index_int[re_rows] + 1L] <- as.numeric(ov)
+    obs_finite <- is.finite(ov)
+    ov[!obs_finite] <- 0
+    slots <- re_index_int[re_rows] + 1L
+    re_obs_value[slots] <- as.numeric(ov)
+    re_obs_mask[slots]  <- as.integer(obs_finite)
   } else {
     re_obs_value <- numeric(0)
+    re_obs_mask  <- integer(0)
   }
 
   # Per-group sigma-prior triple (length n_re_group), from the reserved `sigma`
@@ -276,6 +285,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_obs        = re_obs_idx,
     linkage_re_obs_sd     = re_obs_sd,
     linkage_re_obs_value  = re_obs_value,
+    linkage_re_obs_mask   = re_obs_mask,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -313,6 +323,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_obs        = integer(0),
     linkage_re_obs_sd     = numeric(0),
     linkage_re_obs_value  = numeric(0),
+    linkage_re_obs_mask   = integer(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

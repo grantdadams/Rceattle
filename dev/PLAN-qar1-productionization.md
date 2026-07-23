@@ -44,9 +44,13 @@ density-math was verified exact (~1e-13) in the RE-density session.
   fixed-`obs_sd` option (the "fixable" half of the decision) for weakly-informative
   cases; a full simulate-and-recover check against GOApollock.
 
-- **env_data skip-un-observed years** — NOT yet implemented (next; design refined
-  below). The materialize already yields `re_obs_value = NA` for years absent from
-  env_data. Remaining work + subtleties uncovered while scoping:
+- **env_data skip-un-observed years** — DONE. `.extend_env_data()` prepends/gap-fills
+  env_data to start at `styr` with NA; a per-slot `linkage_re_obs_mask` (encode) is
+  gathered in the cpp density and the observation skips masked slots; a
+  `linkage_X` NA guard rejects fixed-effect covariates with missing years. Verified:
+  the real pollock QAR1 now fits WITHOUT hand-padding (55-year latent, 40 observed
+  years masked in); golden bit-identical; tests for the extend / mask / guard green.
+  Original design + subtleties (kept for reference):
   1. **Auto-extend** env_data to `styr:endyr` (row 1 = styr) with NA for missing
      years — this fixes the positional alignment (the RE levels and the q-offset
      rows come from env_data), so a QcovPol that starts at 1983 aligns correctly.

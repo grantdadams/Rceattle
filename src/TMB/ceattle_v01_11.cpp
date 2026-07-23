@@ -233,6 +233,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_re_obs);        // per RE group: 0-based slot in beta_linkage_obs (Rogers QAR1 observed ar1; -1 otherwise)
   DATA_VECTOR(linkage_re_obs_sd);      // per RE group: fixed measurement SD (0 if unobserved)
   DATA_VECTOR(linkage_re_obs_value);   // per beta_linkage_re slot: observed covariate value (0 if unobserved)
+  DATA_IVECTOR(linkage_re_obs_mask);   // per beta_linkage_re slot: 1 if the covariate is observed that year, 0 otherwise
   DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
   DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
@@ -3939,9 +3940,11 @@ Type objective_function<Type>::operator() () {
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) len++;
       if (len == 0) continue;
       vector<Type> re(len), obs(len);
+      vector<int> obs_mask(len);
       int j = 0;
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
-        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g); j++;
+        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g);
+        obs_mask(j) = linkage_re_obs_mask(g); j++;
       }
 
       int st = linkage_re_struct(grp);
@@ -3971,6 +3974,7 @@ Type objective_function<Type>::operator() () {
       if (linkage_re_obs(grp) >= 0) {
         Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
+          if (obs_mask(t) == 0) continue;   // year absent from env_data: latent exists, but no observation
           jnll_comp(20, 0)            -= dnorm(obs(t), re(t), osd, true);
           unweighted_jnll_comp(20, 0) -= dnorm(obs(t), re(t), osd, true);
         }

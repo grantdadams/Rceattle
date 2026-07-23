@@ -929,6 +929,45 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' @return invisibly `NULL`; errors on misalignment.
 #' @keywords internal
 #' @noRd
+#' Extend env_data to start at the model start year (prepend + gap-fill with NA)
+#'
+#' Linkages align env_data POSITIONALLY (row r -> model year styr + r - 1). A
+#' state-space `observe` covariate (Rogers QAR1) commonly starts later than the
+#' model (e.g. a survey that began mid-series), which would misalign every row.
+#' Rather than force the user to hand-pad, prepend the missing leading years
+#' (styr .. first year - 1) and fill any interior gaps, with `NA` in the
+#' covariate columns. The QAR1 observation is applied only where the covariate is
+#' present (NA years are masked out), so no observation is fabricated. Years
+#' BEYOND the last supplied row are left alone (they keep the existing
+#' zero-offset-beyond-env_data behaviour). Malformed year columns (unsorted, NA,
+#' or starting before styr) are left untouched for `.check_env_data_years()` to
+#' reject.
+#'
+#' @param env_data the covariate/time table (or `NULL`).
+#' @param styr the model start year.
+#' @return the (possibly extended) env_data.
+#' @keywords internal
+#' @noRd
+.extend_env_data <- function(env_data, styr) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr)) {
+    return(env_data)
+  }
+  yrs <- env_data$Year
+  if (anyNA(yrs) || is.unsorted(yrs, strictly = TRUE) || yrs[1] < styr) {
+    return(env_data)
+  }
+  full <- styr:max(yrs)
+  if (identical(as.integer(yrs), as.integer(full))) return(env_data)  # already contiguous from styr
+  out <- merge(data.frame(Year = full), env_data, by = "Year",
+               all.x = TRUE, sort = TRUE)
+  message(sprintf(paste0(
+    "env_data extended to start at styr (%s) with NA for missing years; a ",
+    "state-space `observe` covariate is used only where present."), styr))
+  out
+}
+
+
 .check_env_data_years <- function(env_data, styr) {
   if (is.null(env_data) || !is.data.frame(env_data) ||
       !"Year" %in% names(env_data) || is.null(styr)) {

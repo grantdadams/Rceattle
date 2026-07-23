@@ -353,6 +353,10 @@ fit_mod <-
            data_list$comp_linkages),
       function(x) !is.null(x) && length(x) > 0L, logical(1)))
     if (.has_linkage) {
+      # Prepend/gap-fill env_data to start at styr (NA for missing years) so a
+      # later-starting `observe` covariate aligns; the check then validates the
+      # extended table. NA years are skipped in the QAR1 observation (masked).
+      data_list$env_data <- .extend_env_data(data_list$env_data, data_list$styr)
       .check_env_data_years(data_list$env_data, data_list$styr)
     }
     .linkage_pool <- pool_linkages(
@@ -386,6 +390,20 @@ fit_mod <-
     )
     data_list$linkage_table <- .linkage_pool$table
     data_list$linkage_X     <- .linkage_pool$X
+
+    # Fixed-effect covariates must be finite over the model range: the design
+    # matrix multiplies them into the offset, so an NA (e.g. from env_data
+    # extension, or a covariate that stops short) would silently NaN the fit.
+    # A state-space `observe` covariate is NOT in linkage_X (it feeds the masked
+    # observation instead), so this only catches genuine fixed-effect gaps.
+    if (!is.null(data_list$linkage_X) && anyNA(data_list$linkage_X)) {
+      bad <- colnames(data_list$linkage_X)[apply(data_list$linkage_X, 2L, anyNA)]
+      stop(sprintf(paste0(
+        "fixed-effect linkage covariate(s) have missing (NA) values over the ",
+        "model years: %s. Provide the covariate for every year styr:endyr (a ",
+        "state-space `observe` covariate may be partial, but a fixed-effect ",
+        "covariate may not)."), paste(bad, collapse = ", ")), call. = FALSE)
+    }
 
     # Selectivity linkages are only consumed by the parametric forms wired in
     # the TMB template. Reject a sel linkage on a fleet whose selectivity form
@@ -579,6 +597,7 @@ fit_mod <-
     data_list_reorganized$linkage_re_obs        <- .linkage_enc$linkage_re_obs
     data_list_reorganized$linkage_re_obs_sd     <- .linkage_enc$linkage_re_obs_sd
     data_list_reorganized$linkage_re_obs_value  <- .linkage_enc$linkage_re_obs_value
+    data_list_reorganized$linkage_re_obs_mask   <- .linkage_enc$linkage_re_obs_mask
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1

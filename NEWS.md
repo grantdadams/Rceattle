@@ -114,6 +114,16 @@
   quantity the model exists to estimate — was buried in the raw parameter vector
   with no readable exposure or uncertainty.
 
+* **QAR1 covariates need not span the whole series.** A state-space `observe`
+  covariate (e.g. a survey index that began mid-series) is now handled without
+  hand-padding: `env_data` is auto-extended to start at `styr` with `NA` for
+  missing years, the latent AR1 spans all hindcast years, and the observation is
+  applied **only** where the covariate is present (un-observed years are masked
+  out — no fabricated observations, unlike the legacy mean-fill). Fixed-effect
+  covariates must still be finite over the model range: a missing year in a
+  fixed-effect (non-`observe`) covariate now errors clearly rather than silently
+  producing an NaN.
+
 * **The QAR1 observation SD is now estimated.** The Rogers-2024 `observe` /
   `obs_sd` state-space covariate previously fixed the measurement SD; it is now an
   estimated parameter (`log_obs_sd_linkage`, one per observed group), matching the
