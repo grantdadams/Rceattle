@@ -13,6 +13,12 @@
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
+#'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
+#'   effect on rho. Default \code{NULL} inherits the input model's setting
+#'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
+#'   \code{sdrep}); the returned peel models then carry standard errors only
+#'   when \code{getsd} is \code{TRUE}.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -27,10 +33,14 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL) {
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # Peels inherit the input model's sdreport setting unless overridden. Mohn's
+  # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Get objects
   Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
@@ -251,7 +261,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           fit_control = fit_control(
             phase   = TRUE, # Phasing or else the parameters dont wanna move
             loopnum = data_list$loopnum,
-            getsd   = TRUE,
+            getsd   = getsd,
             verbose = 0))
       )
     )
@@ -359,7 +369,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           fit_control = fit_control(
             phase   = TRUE, # Phasing or else the parameters dont wanna move
             loopnum = data_list$loopnum,
-            getsd   = TRUE,
+            getsd   = getsd,
             verbose = 0))
       )
     )
