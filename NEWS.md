@@ -38,8 +38,15 @@
   walk — `N(0, sigma)` on successive first differences, the first deviate
   pinned so the walk's level stays with the base parameter — reproducing the
   Dorn-style `Time_varying_* = "RandomWalk"` process through the grammar. The
-  grouping variable must be numeric (a real elapsed-time lag). `ar1()` is
-  recognised by the parser but still rejected until its density lands.
+  grouping variable must be numeric (a real elapsed-time lag).
+
+* **AR1 linkages (`ar1(1 | group)`).** A stationary first-order autoregressive
+  deviation, `SCALE(AR1(rho), sigma)` with `sigma` the marginal SD and `rho`
+  the correlation (the glmmTMB convention, and the same form as the Rogers et
+  al. (2024) QAR1 catchability process). The correlation is routed through the
+  same grammar as `sigma`: `init = list(rho = 0.7)` fixes it,
+  `priors = list(rho = normal(0, 0.3))` places a prior on it, else it is
+  estimated free. Reduces to the IID density at `rho = 0`.
 
 # Rceattle 4.9.0
 

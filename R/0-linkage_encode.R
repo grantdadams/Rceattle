@@ -201,14 +201,26 @@ encode_linkage_for_tmb <- function(table, X) {
   n_re_group <- if (is.null(gt)) 0L else nrow(gt)
   if (is.null(gt)) {
     re_struct_codes    <- integer(0)
+    re_rho_idx         <- integer(0)
     re_sigma_prior_fam <- integer(0)
     re_sigma_prior_p1  <- numeric(0)
     re_sigma_prior_p2  <- numeric(0)
+    re_rho_prior_fam   <- integer(0)
+    re_rho_prior_p1    <- numeric(0)
+    re_rho_prior_p2    <- numeric(0)
   } else {
     re_struct_codes    <- unname(LINKAGE_STRUCT_CODES[gt$re_struct])
+    # Per group: its 0-based slot in trans_rho_linkage (ar1 groups only, in
+    # group order), -1 for non-ar1 groups.
+    re_rho_idx <- rep(-1L, nrow(gt))
+    is_ar1 <- gt$re_struct == "ar1"
+    re_rho_idx[is_ar1] <- seq_len(sum(is_ar1)) - 1L
     re_sigma_prior_fam <- unname(LINKAGE_PRIOR_CODES[gt$prior_family])
     re_sigma_prior_p1  <- as.numeric(gt$prior_p1)
     re_sigma_prior_p2  <- as.numeric(gt$prior_p2)
+    re_rho_prior_fam   <- unname(LINKAGE_PRIOR_CODES[gt$rho_prior_family])
+    re_rho_prior_p1    <- as.numeric(gt$rho_prior_p1)
+    re_rho_prior_p2    <- as.numeric(gt$rho_prior_p2)
   }
 
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
@@ -232,9 +244,13 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_sigma      = re_sigma_int,
     n_re_group            = n_re_group,
     linkage_re_struct     = re_struct_codes,
+    linkage_re_rho        = re_rho_idx,
     linkage_re_sigma_prior_family = re_sigma_prior_fam,
     linkage_re_sigma_prior_p1     = re_sigma_prior_p1,
     linkage_re_sigma_prior_p2     = re_sigma_prior_p2,
+    linkage_re_rho_prior_family   = re_rho_prior_fam,
+    linkage_re_rho_prior_p1       = re_rho_prior_p1,
+    linkage_re_rho_prior_p2       = re_rho_prior_p2,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -262,9 +278,13 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_sigma      = integer(0),
     n_re_group            = 0L,
     linkage_re_struct     = integer(0),
+    linkage_re_rho        = integer(0),
     linkage_re_sigma_prior_family = integer(0),
     linkage_re_sigma_prior_p1     = numeric(0),
     linkage_re_sigma_prior_p2     = numeric(0),
+    linkage_re_rho_prior_family   = integer(0),
+    linkage_re_rho_prior_p1       = numeric(0),
+    linkage_re_rho_prior_p2       = numeric(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

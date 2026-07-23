@@ -134,6 +134,35 @@ testthat::test_that("rw(1|Year) fits, pins the first deviate, and uses a differe
     -sum(stats::dnorm(diff(dev), 0, sigma, log = TRUE)), tolerance = 1e-7)
 })
 
+testthat::test_that("ar1(1|Year) fits with a stationary AR1 density and estimable rho", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 7L)))
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+  re    <- fit$estimated_params$beta_linkage_re
+  sigma <- exp(fit$estimated_params$log_sigma_linkage)
+  rho   <- tanh(fit$estimated_params$trans_rho_linkage)   # rho_trans(x) == tanh(x)
+  testthat::expect_true(is.finite(rho) && abs(rho) < 1)
+  # exact stationary AR1 negative log density, MARGINAL SD = sigma:
+  n <- length(re)
+  nll <- -stats::dnorm(re[1], 0, sigma, log = TRUE) -
+          sum(stats::dnorm(re[2:n], rho * re[1:(n - 1)], sigma * sqrt(1 - rho^2), log = TRUE))
+  testthat::expect_equal(sum(fit$quantities$jnll_comp[.re_row(fit), ]), nll, tolerance = 1e-6)
+})
+
+testthat::test_that("init = list(rho = v) fixes the ar1 correlation at v", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 7L,
+                               init = list(rho = 0.5))))
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+  testthat::expect_equal(tanh(fit$estimated_params$trans_rho_linkage), 0.5, tolerance = 1e-6)
+})
+
 testthat::test_that("rw()/ar1() require a numeric grouping variable", {
   env <- data.frame(Year = letters[1:5])
   testthat::expect_error(

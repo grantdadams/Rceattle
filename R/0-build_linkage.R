@@ -659,8 +659,21 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         } else {
           spf <- s_prior$family; sp1 <- s_prior$p1; sp2 <- s_prior$p2
         }
+        # rho routing applies only to ar1 columns (natural (-1,1) correlation).
+        if (col_re_struct[col_idx] == "ar1") {
+          r_init  <- spec$init[["rho"]] %||% NA_real_
+          r_prior <- .resolve_prior(spec$priors[["rho"]], sp_id, sx_id)
+          if (is.null(r_prior)) {
+            rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+          } else {
+            rpf <- r_prior$family; rp1 <- r_prior$p1; rp2 <- r_prior$p2
+          }
+        } else {
+          r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+        }
       } else {
         s_init <- NA_real_; spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
+        r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
       }
 
       k <- k + 1L
@@ -691,6 +704,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_sigma_prior_family = spf,
         re_sigma_prior_p1     = sp1,
         re_sigma_prior_p2     = sp2,
+        re_rho_init   = r_init,
+        re_rho_prior_family = rpf,
+        re_rho_prior_p1     = rp1,
+        re_rho_prior_p2     = rp2,
         est_phase     = spec$est_phase
       )
     }
@@ -728,12 +745,12 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                 time = numeric(0)))
   }
 
-  not_wired <- setdiff(unique(re_structures), c("us", "rw"))
+  not_wired <- setdiff(unique(re_structures), c("us", "rw", "ar1"))
   if (length(not_wired) > 0) {
     stop(sprintf(
       paste0("random-effect structure(s) not yet wired: %s.\n",
-             "  The IID form `(1 | group)` and the random walk `rw(1 | group)` ",
-             "work now; ar1() comes in a later step."),
+             "  Supported: `(1 | group)` (IID), `rw(1 | group)` (random walk), ",
+             "`ar1(1 | group)` (first-order autoregressive)."),
       paste0(not_wired, "()", collapse = ", ")), call. = FALSE)
   }
 
@@ -750,6 +767,16 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     if (!grp_var %in% names(env_data)) {
       stop(sprintf("random-effect grouping variable `%s` is not a column of env_data",
                    grp_var), call. = FALSE)
+    }
+    # Only random intercepts `struct(1 | group)` are supported: the grouping
+    # variable indexes the deviations (one per level) and the structure runs
+    # over them. A random slope (a non-`1` bar LHS, e.g. `ar1(Year + 0 | fleet)`)
+    # is a different, unsupported model.
+    if (length(all.vars(bar[[2L]])) > 0L) {
+      stop(sprintf(
+        paste0("random-effect term `%s` is a random slope; only random ",
+               "intercepts `%s(1 | group)` are supported."),
+        deparse1(bar), re_structures[i]), call. = FALSE)
     }
     # rw()/ar1() couple deviations by elapsed time, so the grouping variable
     # must be numeric (a real lag). IID is order-invariant, so it accepts any
@@ -993,6 +1020,7 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   g <- re[!duplicated(re$sigma_index), , drop = FALSE]
   g <- g[order(g$sigma_index), , drop = FALSE]
   has_prior <- !is.na(g$re_sigma_prior_family) & g$re_sigma_prior_family != "none"
+  has_rprior <- !is.na(g$re_rho_prior_family) & g$re_rho_prior_family != "none"
   data.frame(
     sigma_index  = as.integer(g$sigma_index),
     re_struct    = as.character(g$re_struct),
@@ -1001,6 +1029,12 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     prior_family = ifelse(has_prior, g$re_sigma_prior_family, "none"),
     prior_p1     = as.numeric(g$re_sigma_prior_p1),
     prior_p2     = as.numeric(g$re_sigma_prior_p2),
+    # ar1 correlation, same fix-vs-estimate contract on the (-1,1) scale.
+    rho_start    = ifelse(is.na(g$re_rho_init), 0, as.numeric(g$re_rho_init)),
+    rho_fixed    = !is.na(g$re_rho_init) & !has_rprior,
+    rho_prior_family = ifelse(has_rprior, g$re_rho_prior_family, "none"),
+    rho_prior_p1 = as.numeric(g$re_rho_prior_p1),
+    rho_prior_p2 = as.numeric(g$re_rho_prior_p2),
     stringsAsFactors = FALSE
   )
 }

@@ -1492,6 +1492,17 @@ build_map_linkages <- function(map_list, data_list) {
     m_sig[gt$sigma_index[gt$sigma_fixed] + 1L] <- NA   # sigma_index 0-based
     map_list$log_sigma_linkage <- m_sig
   }
+  # ar1 correlation: estimable unless the spec supplied a fixed input rho
+  # (`init = list(rho = )` with no rho prior). trans_rho_linkage is ordered by
+  # ar1 group (gt order among ar1 rows), matching build_params / linkage_re_rho.
+  if (!is.null(gt)) {
+    ar1 <- gt[gt$re_struct == "ar1", , drop = FALSE]
+    if (nrow(ar1) > 0L && any(ar1$rho_fixed)) {
+      m_rho <- map_list$trans_rho_linkage
+      m_rho[which(ar1$rho_fixed)] <- NA
+      map_list$trans_rho_linkage <- m_rho
+    }
+  }
   map_list
 }
 

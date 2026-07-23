@@ -59,7 +59,13 @@ LINKAGE_COLS <- c(
   re_sigma_init = "numeric",       # start / fixed SD on natural scale (NA = default)
   re_sigma_prior_family = "character", # prior on the SD; "none"/NA = no prior
   re_sigma_prior_p1     = "numeric",
-  re_sigma_prior_p2     = "numeric"
+  re_sigma_prior_p2     = "numeric",
+  # Per-group ar1 correlation (rho) routing from linkage_spec(); natural (-1,1)
+  # scale. NA on non-ar1 rows.
+  re_rho_init   = "numeric",       # start / fixed correlation (NA = default 0)
+  re_rho_prior_family = "character",   # prior on rho; "none"/NA = no prior
+  re_rho_prior_p1     = "numeric",
+  re_rho_prior_p2     = "numeric"
 )
 
 
@@ -275,8 +281,11 @@ validate_linkage_table <- function(x) {
 #' @param re_sigma_init,re_sigma_prior_family,re_sigma_prior_p1,re_sigma_prior_p2
 #'   per-group RE-SD routing from `linkage_spec(init = list(sigma = ), priors =
 #'   list(sigma = ))`; identical across a group's rows, `NA` on fixed rows.
-#'   `re_sigma_init` is the start (or, with `est_phase = 0`, fixed) SD on the
-#'   natural scale; the prior triple places a prior on that SD.
+#'   `re_sigma_init` is the start (or, when supplied without a prior, fixed) SD
+#'   on the natural scale; the prior triple places a prior on that SD.
+#' @param re_rho_init,re_rho_prior_family,re_rho_prior_p1,re_rho_prior_p2
+#'   per-group `ar1` correlation routing from `linkage_spec(init = list(rho = ),
+#'   priors = list(rho = ))`; natural `(-1, 1)` scale, `NA` on non-`ar1` rows.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -302,7 +311,11 @@ linkage_row <- function(process, param, X_col,
                         re_sigma_init = NA_real_,
                         re_sigma_prior_family = NA_character_,
                         re_sigma_prior_p1     = NA_real_,
-                        re_sigma_prior_p2     = NA_real_) {
+                        re_sigma_prior_p2     = NA_real_,
+                        re_rho_init   = NA_real_,
+                        re_rho_prior_family = NA_character_,
+                        re_rho_prior_p1     = NA_real_,
+                        re_rho_prior_p2     = NA_real_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -330,7 +343,11 @@ linkage_row <- function(process, param, X_col,
     re_sigma_init = as.numeric(re_sigma_init),
     re_sigma_prior_family = as.character(re_sigma_prior_family),
     re_sigma_prior_p1     = as.numeric(re_sigma_prior_p1),
-    re_sigma_prior_p2     = as.numeric(re_sigma_prior_p2)
+    re_sigma_prior_p2     = as.numeric(re_sigma_prior_p2),
+    re_rho_init   = as.numeric(re_rho_init),
+    re_rho_prior_family = as.character(re_rho_prior_family),
+    re_rho_prior_p1     = as.numeric(re_rho_prior_p1),
+    re_rho_prior_p2     = as.numeric(re_rho_prior_p2)
   )
   validate_linkage_table(out)
   out

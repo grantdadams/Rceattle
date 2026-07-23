@@ -92,13 +92,20 @@ testthat::test_that("an IID bar term expands to per-level indicator rows", {
 })
 
 
-testthat::test_that("correlated RE structures are rejected until wired", {
+testthat::test_that("unwired RE structures and random slopes are rejected", {
   env <- data.frame(Year = 2000:2005, temp = stats::rnorm(6), fleet = 1L)
+  # us / rw / ar1 are wired; other covariance structures are not yet.
+  testthat::expect_error(
+    Rceattle:::materialize_linkage(
+      Rceattle::linkage_spec(~ ou(1 | Year), param = "M1"),
+      "M", env, list(species = 1L)),
+    "not yet wired")
+  # Only random intercepts are supported; a random slope is rejected.
   testthat::expect_error(
     Rceattle:::materialize_linkage(
       Rceattle::linkage_spec(~ ar1(Year + 0 | fleet), param = "M1"),
       "M", env, list(species = 1L)),
-    "not yet wired")
+    "random slope")
 })
 
 

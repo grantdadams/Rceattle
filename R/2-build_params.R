@@ -223,7 +223,15 @@ build_params <- function(data_list) {
     # supplied (fixed there via build_map), else a default. gt is ordered by
     # sigma_index so element g is group g - 1.
     param_list$log_sigma_linkage <- log(gt$sigma_start)
-    param_list$trans_rho_linkage <- numeric(n_ar1)           # init 0 (rho ~ 0)
+    # One transformed correlation per ar1 group (ar1 groups in gt order, matching
+    # linkage_re_rho). trans is the rho_trans pre-image atanh(rho) of the start
+    # correlation (default 0). rho_trans(x) = 2/(1+exp(-2x)) - 1, so x=atanh(rho).
+    if (n_ar1 > 0L) {
+      rho_start <- gt$rho_start[gt$re_struct == "ar1"]
+      param_list$trans_rho_linkage <- atanh(pmin(pmax(rho_start, -0.999), 0.999))
+    } else {
+      param_list$trans_rho_linkage <- numeric(0)
+    }
   } else {
     param_list$beta_linkage_re   <- numeric(0)
     param_list$log_sigma_linkage <- numeric(0)

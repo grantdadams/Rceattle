@@ -225,7 +225,11 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
   DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
   DATA_IVECTOR(linkage_re_struct);     // per RE group: covariance structure (0=us/IID, 1=rw, 2=ar1)
+  DATA_IVECTOR(linkage_re_rho);        // per RE group: 0-based slot in trans_rho_linkage (ar1 only; -1 otherwise)
   DATA_IVECTOR(linkage_re_sigma_prior_family); // per RE group: prior on the SD (0=none,1=normal,2=lognormal,3=gamma,4=beta)
+  DATA_IVECTOR(linkage_re_rho_prior_family);   // per RE group: prior on rho (natural (-1,1) scale)
+  DATA_VECTOR(linkage_re_rho_prior_p1);        // per RE group: rho prior param 1
+  DATA_VECTOR(linkage_re_rho_prior_p2);        // per RE group: rho prior param 2
   DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
   DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
@@ -3847,6 +3851,27 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+  // -- 14.6a'. Random-effect AR1 correlation priors (jnll_comp row 19), routed
+  // from linkage_spec(priors = list(rho = ...)) on an ar1 group. On the natural
+  // (-1, 1) correlation rho = rho_trans(trans_rho_linkage): normal(p1, p2)
+  // directly, or beta(p1, p2) on (rho + 1) / 2. Once per group.
+  if (trans_rho_linkage.size() > 0) {
+    for (int g = 0; g < linkage_re_rho.size(); ++g) {
+      int fam = linkage_re_rho_prior_family(g);
+      if (fam == 0) continue;
+      Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(g)));
+      Type p1 = linkage_re_rho_prior_p1(g);
+      Type p2 = linkage_re_rho_prior_p2(g);
+      if (fam == 1) {                         // normal(p1, p2) on rho
+        jnll_comp(19, 0)            -= dnorm(rho, p1, p2, true);
+        unweighted_jnll_comp(19, 0) -= dnorm(rho, p1, p2, true);
+      } else if (fam == 4) {                  // beta(p1, p2) on (rho + 1) / 2
+        jnll_comp(19, 0)            -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+        unweighted_jnll_comp(19, 0) -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+      }
+    }
+  }
+
   // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
   // Group-oriented so each covariance structure couples its deviations
   // correctly. For each RE group, gather its beta_linkage_re slots in ascending
@@ -3855,7 +3880,9 @@ Type objective_function<Type>::operator() () {
   //   us  (IID)        : sum of N(0, sigma) densities (the index_q_dev idiom);
   //   rw  (RandomWalk) : N(0, sigma) on successive first differences, the first
   //                      deviate pinned at 0 by the map (as legacy index_q_dev);
-  //   ar1              : wired in a later step.
+  //   ar1 (AR1)        : stationary AR1 with MARGINAL SD sigma and correlation
+  //                      rho = rho_trans(trans_rho_linkage), the glmmTMB /
+  //                      Rogers-QAR1 convention SCALE(AR1(rho), sigma).
   // Guarded on size so row 20 stays exactly 0 for every model without a random
   // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
   // the density that jnll_comp.sum() also carries.
@@ -3877,6 +3904,13 @@ Type objective_function<Type>::operator() () {
           jnll_comp(20, 0)            -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
           unweighted_jnll_comp(20, 0) -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
         }
+      } else if (st == 2) {                            // ar1 / first-order AR
+        // Stationary AR1 with marginal SD sigma and correlation rho. SCALE(...)
+        // returns the negative log density, so it is ADDED (unlike the -= dnorm
+        // forms). Reduces to the IID sum at rho = 0.
+        Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(grp)));
+        jnll_comp(20, 0)            += SCALE(AR1(rho), sigma)(re);
+        unweighted_jnll_comp(20, 0) += SCALE(AR1(rho), sigma)(re);
       } else {                                         // us / IID (default)
         jnll_comp(20, 0)            -= sum(dnorm(re, Type(0), sigma, true));
         unweighted_jnll_comp(20, 0) -= sum(dnorm(re, Type(0), sigma, true));

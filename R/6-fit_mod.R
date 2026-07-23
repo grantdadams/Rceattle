@@ -548,9 +548,13 @@ fit_mod <-
     data_list_reorganized$linkage_re_index     <- .linkage_enc$linkage_re_index
     data_list_reorganized$linkage_re_sigma      <- .linkage_enc$linkage_re_sigma
     data_list_reorganized$linkage_re_struct     <- .linkage_enc$linkage_re_struct
+    data_list_reorganized$linkage_re_rho        <- .linkage_enc$linkage_re_rho
     data_list_reorganized$linkage_re_sigma_prior_family <- .linkage_enc$linkage_re_sigma_prior_family
     data_list_reorganized$linkage_re_sigma_prior_p1     <- .linkage_enc$linkage_re_sigma_prior_p1
     data_list_reorganized$linkage_re_sigma_prior_p2     <- .linkage_enc$linkage_re_sigma_prior_p2
+    data_list_reorganized$linkage_re_rho_prior_family   <- .linkage_enc$linkage_re_rho_prior_family
+    data_list_reorganized$linkage_re_rho_prior_p1       <- .linkage_enc$linkage_re_rho_prior_p1
+    data_list_reorganized$linkage_re_rho_prior_p2       <- .linkage_enc$linkage_re_rho_prior_p2
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
