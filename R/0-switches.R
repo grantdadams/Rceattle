@@ -366,6 +366,34 @@ switch_check <- function(data_list){
   # logistic-only models).
   .np_hake <- any(data_list$fleet_control$Selectivity %in%
                     c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 5, "Hake", 11, "LogisticPM"))
+  # Intuitive alternative to the cryptic non-parametric penalty WEIGHTS: express
+  # each as a standard deviation. Every non-parametric shape/curvature/dev-magnitude
+  # penalty is a Gaussian SSQ `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`.
+  # A fleet may supply `Sel_shape_sd` (+ `Sel_shape_dir` "Decreasing"/"Increasing"
+  # for the directional sign), `Sel_curvature_sd`, `Sel_devmag_sd` instead of
+  # `Sel_curve_pen1/2/3`; convert them here (only where the legacy weight is not
+  # already supplied, so legacy models are untouched / bit-identical). This applies
+  # to the penalty-weight forms only -- LogisticPM RW weights and 2D/3D-AR1
+  # logit-rho reuse of Sel_curve_pen keep the legacy columns.
+  .fc <- data_list$fleet_control
+  .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
+  .cp1 <- .col("Sel_curve_pen1"); .cp2 <- .col("Sel_curve_pen2"); .cp3 <- .col("Sel_curve_pen3")
+  .sd2w <- function(sd) 1 / (2 * sd^2)
+  if (!is.null(.fc$Sel_shape_sd)) {
+    .ss <- suppressWarnings(as.numeric(.fc$Sel_shape_sd))
+    .dir <- if (is.null(.fc$Sel_shape_dir)) rep("Decreasing", nrow(.fc)) else as.character(.fc$Sel_shape_dir)
+    .sgn <- ifelse(.dir %in% c("Increasing", "increasing", "-1"), -1, 1)
+    .u <- !is.na(.ss) & is.na(.cp1); .cp1[.u] <- .sgn[.u] * .sd2w(.ss[.u])
+  }
+  if (!is.null(.fc$Sel_curvature_sd)) {
+    .sc <- suppressWarnings(as.numeric(.fc$Sel_curvature_sd)); .u <- !is.na(.sc) & is.na(.cp2); .cp2[.u] <- .sd2w(.sc[.u])
+  }
+  if (!is.null(.fc$Sel_devmag_sd)) {
+    .sm <- suppressWarnings(as.numeric(.fc$Sel_devmag_sd)); .u <- !is.na(.sm) & is.na(.cp3); .cp3[.u] <- .sd2w(.sm[.u])
+  }
+  data_list$fleet_control$Sel_curve_pen1 <- .cp1
+  data_list$fleet_control$Sel_curve_pen2 <- .cp2
+  data_list$fleet_control$Sel_curve_pen3 <- .cp3
   data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, if(.np_hake) "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")

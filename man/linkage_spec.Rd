@@ -101,8 +101,12 @@ sensu Rogers et al. 2024). The latent enters the linked parameter through
 an estimated effect size and is observed against this column. \code{NULL}
 (default) leaves the AR1 as a plain random effect.}
 
-\item{obs_sd}{optional positive numeric: the fixed measurement SD for
-\code{observe}. Required with \code{observe}, unused otherwise.}
+\item{obs_sd}{optional positive numeric: the \strong{fixed} measurement SD for the
+\code{observe} covariate (one per observed group). Required with \code{observe},
+unused otherwise. (Estimating \code{obs_sd} — as the reference \code{Estimate_q = 6} /
+GOApollock model does — is deferred: freely estimated it collapses toward 0
+on a smooth covariate, the effect-size/\code{obs_sd} identifiability degeneracy,
+so it needs a prior/bound. That is part of the GOApollock bridge work.)}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.

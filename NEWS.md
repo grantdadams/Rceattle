@@ -131,6 +131,16 @@
   is deferred because freely estimated it collapses toward 0 on a smooth covariate
   (the effect-size / `obs_sd` identifiability degeneracy) and needs a prior/bound.
 
+* **Non-parametric selectivity penalties can be given as standard deviations.**
+  The cryptic penalty *weights* in `Sel_curve_pen1/2/3` can instead be supplied as
+  SDs via `Sel_shape_sd` (+ `Sel_shape_dir` `"Decreasing"`/`"Increasing"` for the
+  directional sign), `Sel_curvature_sd`, and `Sel_devmag_sd`. Each penalty is a
+  Gaussian SSQ, so `switch_check()` converts `weight = 1/(2*sd^2)`. Legacy
+  `Sel_curve_pen` values are never overwritten (existing models are bit-identical);
+  a fleet supplying the SD columns fits equivalently. Applies to the non-parametric
+  penalty-weight forms only — LogisticPM and 2D/3D-AR1 keep the `Sel_curve_pen`
+  columns (which they reuse for random-walk weights / logit-scale correlations).
+
 * **Readable string aliases for integer-coded switches.** Following the CIE
   review's "rename options to improve interpretability" (e.g. *constant → not
   estimated*), integer-only switches now also accept self-explanatory strings,
