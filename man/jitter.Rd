@@ -10,7 +10,8 @@ jitter(
   sd = 0.2,
   phase = FALSE,
   seed = 123,
-  cores = NULL
+  cores = NULL,
+  getsd = NULL
 )
 }
 \arguments{
@@ -29,6 +30,11 @@ so results are reproducible under both sequential and parallel execution.}
 \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 running under \code{R CMD check} (which sets
 \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+
+\item{getsd}{whether each jitter runs \code{TMB::sdreport}. Jitter compares
+objectives and point estimates across starts, so \code{FALSE} is faster
+with no effect on that comparison. Default \code{NULL} inherits the input
+model's setting (\code{TRUE} only if it carries an \code{sdrep}).}
 }
 \value{
 a list of Rceattle models

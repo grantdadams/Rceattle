@@ -17,7 +17,7 @@ testthat::test_that("profile: 1-D sigmaR profile fixes R_log_sd at the grid valu
     estimateMode = 1,        # Hindcast only -- keeps the smoke test fast
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   grid_vals <- c(0.2, 0.6, 1.2)
@@ -64,7 +64,7 @@ testthat::test_that("profile: sigmaR alias matches raw R_log_sd call", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   grid_vals <- c(0.3, 0.9)
@@ -114,7 +114,7 @@ testthat::test_that("profile: alpha alias fills in rec_pars column", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   alpha_vals <- c(5, 15)
@@ -149,7 +149,7 @@ testthat::test_that("profile: alias warns when transform is overridden", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   testthat::expect_warning(
@@ -175,7 +175,7 @@ testthat::test_that("profile: defaults slots to species 1 with a warning", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   # sigmaR alias: default slot should be list(1) (species 1)
@@ -215,7 +215,7 @@ testthat::test_that("profile: rec_pars alias rejects multi-element slots", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   testthat::expect_error(
@@ -248,7 +248,7 @@ testthat::test_that("profile: input validation", {
     estimateMode = 1,
     random_rec  = FALSE,
     msmMode     = 0,
-    fit_control = fit_control(phase = TRUE, verbose = 0)
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
   # Unknown parameter

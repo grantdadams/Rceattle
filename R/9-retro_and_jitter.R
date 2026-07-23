@@ -518,6 +518,10 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each jitter runs \code{TMB::sdreport}. Jitter compares
+#'   objectives and point estimates across starts, so \code{FALSE} is faster
+#'   with no effect on that comparison. Default \code{NULL} inherits the input
+#'   model's setting (\code{TRUE} only if it carries an \code{sdrep}).
 #'
 #' @return a list of Rceattle models
 #'
@@ -532,10 +536,14 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL) {
+jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # Jitters inherit the input model's sdreport setting unless overridden;
+  # multimodality is judged from objectives and point estimates, not sdrep.
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
   # (same approach as run_mse). Respect the CRAN core limit
@@ -634,7 +642,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
             fit_control = fit_control(
               phase   = phase,
               loopnum = data_list$loopnum,
-              getsd   = TRUE,
+              getsd   = getsd,
               verbose = 0))
         )
       )
@@ -810,7 +818,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
             fit_control = fit_control(
               phase   = FALSE,
               loopnum = data_list$loopnum,
-              getsd   = TRUE,
+              getsd   = getsd,
               verbose = 0))
         )
       )
@@ -923,6 +931,10 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each grid fit runs \code{TMB::sdreport}. The profile
+#'   reads only the objective (\code{nll}), so \code{FALSE} is faster with no
+#'   effect on the profile. Default \code{NULL} inherits the input model's
+#'   setting (\code{TRUE} only if it carries an \code{sdrep}).
 #' @param ... Unused; present for consistency with the \code{stats::profile}
 #'   generic.
 #'
@@ -987,12 +999,16 @@ profile.Rceattle <- function(fitted = NULL,
                           values = NULL,
                           transform = "log",
                           cores = NULL,
+                          getsd = NULL,
                           ...) {
 
   # -- Input validation ----
   if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  # Grid fits inherit the input model's sdreport setting unless overridden;
+  # the profile reads only the objective, not sdrep.
+  if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
   if (is.null(param) || !is.character(param) || length(param) != 1L) {
     stop("`param` must be a single character string naming a parameter slot.")
   }
@@ -1223,7 +1239,7 @@ profile.Rceattle <- function(fitted = NULL,
           fit_control = fit_control(
             phase   = FALSE,
             loopnum = data_list$loopnum,
-            getsd   = TRUE,
+            getsd   = getsd,
             verbose = 0))
       ))
 

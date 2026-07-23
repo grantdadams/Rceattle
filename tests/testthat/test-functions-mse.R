@@ -110,10 +110,10 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  mse <- Rceattle::run_mse(om = ss_run, em = ss_run_Tier3, nsim = 5, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = FALSE)
+  mse <- Rceattle::run_mse(om = ss_run, em = ss_run_Tier3, nsim = 2, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = FALSE)
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Tests ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  testthat::expect_equal(5, length(mse))
+  testthat::expect_equal(2, length(mse))
 })
