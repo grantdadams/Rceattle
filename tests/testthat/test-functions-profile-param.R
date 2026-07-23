@@ -178,18 +178,20 @@ testthat::test_that("profile: defaults slots to species 1 with a warning", {
     fit_control = fit_control(phase = TRUE, getsd = FALSE, verbose = 0)
   )
 
-  # sigmaR alias: default slot should be list(1) (species 1)
-  prof <- testthat::expect_warning(
-    profile(ss_run, param = "sigmaR",
-                  values = list(c(0.4, 0.8)), cores = 1),
+  # sigmaR alias: default slot should be list(1) (species 1). Assign inside
+  # expect_warning() because under testthat edition 3 the expectation returns
+  # the condition, not the expression's value.
+  testthat::expect_warning(
+    prof <- profile(ss_run, param = "sigmaR",
+                    values = list(c(0.4, 0.8)), cores = 1),
     "defaulting to species 1"
   )
   testthat::expect_equal(prof$slots, list(1L))
 
   # alpha alias: user slot dim is 1 (column appended); default still list(1)
-  prof_a <- testthat::expect_warning(
-    profile(ss_run, param = "alpha",
-                  values = list(c(5, 10)), cores = 1),
+  testthat::expect_warning(
+    prof_a <- profile(ss_run, param = "alpha",
+                      values = list(c(5, 10)), cores = 1),
     "defaulting to species 1"
   )
   testthat::expect_equal(prof_a$slots, list(c(1L, 2L)))
