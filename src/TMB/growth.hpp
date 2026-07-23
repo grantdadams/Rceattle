@@ -67,10 +67,10 @@ void estimate_growth(
     const vector<int>&  minage,
     const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
-    matrix<Type> lengths,
+    matrix<Type>& lengths,
     array<Type>& growth_parameters,
     array<Type>& growth_log_sd,
-    matrix<Type> weight_length_pars,
+    matrix<Type>& weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
     array<Type> &weight_hat      // Modified by reference
@@ -331,10 +331,10 @@ void estimate_growth_within_yr(
     const vector<int>&  minage,
     const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
-    matrix<Type> lengths,
-    array<Type> growth_parameters,
-    array<Type> growth_log_sd,
-    matrix<Type> weight_length_pars,
+    matrix<Type>& lengths,
+    array<Type>& growth_parameters,
+    array<Type>& growth_log_sd,
+    matrix<Type>& weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
     array<Type> &weight_hat      // Modified by reference
@@ -536,7 +536,7 @@ void calculate_weight(
     array<Type> &weight_hat,   // Modified by reference
     array<Type> &length_hat,   // Modified by reference
     array<Type> &growth_matrix,// Modified by reference
-    array<Type> weight_obs,
+    array<Type>& weight_obs,
     const vector<int>&  growth_model,
     const int& nspp,
     const int& nyrs,
@@ -553,9 +553,9 @@ void calculate_weight(
     const vector<int>&  ssb_wt_index,
     const vector<int>&  flt_wt_index,
     vector<Type> spawn_month,
-    matrix<Type> lengths,
-    array<Type> growth_parameters,
-    array<Type> growth_log_sd,
+    matrix<Type>& lengths,
+    array<Type>& growth_parameters,
+    array<Type>& growth_log_sd,
     matrix<Type> weight_length_pars
 ) {
   int yr_ind;
