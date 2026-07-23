@@ -33,6 +33,22 @@ density-math was verified exact (~1e-13) in the RE-density session.
   `REPORT`'d into `fit$quantities`; coefficients + effect size are `ADREPORT`'d so
   they carry a standard error. Golden bit-identical.
 
+- **(c) Estimable `obs_sd`** (implemented). The QAR1 observation SD is now an
+  estimated parameter `log_obs_sd_linkage` (one per observed group), started from
+  the spec `obs_sd`, replacing the fixed DATA value — matching the reference
+  `Estimate_q = 6` / GOApollock. Golden bit-identical (length 0 with no QAR1).
+  **Validated on the real pollock QcovPol data**: `obs_sd` estimates to a sensible
+  0.60 (β = 0.65, σ = 0.58) — non-degenerate. On a *smooth synthetic* covariate it
+  collapses toward 0 (the documented β/obs_sd joint-identifiability caveat: only
+  identified when the covariate is informative). **Still TODO:** a prior / explicit
+  fixed-`obs_sd` option (the "fixable" half of the decision) for weakly-informative
+  cases; a full simulate-and-recover check against GOApollock.
+
+- **env_data skip-un-observed years** — NOT yet implemented (next). The materialize
+  already yields `re_obs_value = NA` for years absent from env_data; the remaining
+  work is: auto-extend env_data to `styr:endyr`, encode a per-slot observed mask,
+  and have the cpp observation skip masked slots (see the machinery map below).
+
 ## GOA-pollock cross-check (part d) — findings
 
 Reference: `../Rceattle-models/GOA pollock/2024 pollock model.R` + its data

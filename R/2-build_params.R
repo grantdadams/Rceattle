@@ -235,11 +235,16 @@ build_params <- function(data_list) {
     # Rogers QAR1 effect size: one estimated beta per observed group (the latent
     # ar1 deviate enters the target as beta * deviate). Init 0 (no effect).
     param_list$beta_linkage_obs <- numeric(sum(gt$observed))
+    # Rogers QAR1 observation SD: one log-SD per observed group, estimated by
+    # default (matching the reference Estimate_q = 6 / GOApollock, which estimates
+    # the measurement SD), started from the `obs_sd` value supplied on the spec.
+    param_list$log_obs_sd_linkage <- log(gt$obs_sd[gt$observed])
   } else {
     param_list$beta_linkage_re   <- numeric(0)
     param_list$log_sigma_linkage <- numeric(0)
     param_list$trans_rho_linkage <- numeric(0)
     param_list$beta_linkage_obs  <- numeric(0)
+    param_list$log_obs_sd_linkage <- numeric(0)
   }
 
   # * 1.3c. Push (Intercept) inits to the base parameter ----

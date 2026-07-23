@@ -33,6 +33,32 @@ testthat::test_that("a QAR1 q-linkage reports its effect size and deviations", {
   testthat::expect_true(is.finite(q$beta_linkage_obs))
 })
 
+testthat::test_that("QAR1 observation SD is an estimated parameter", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  d <- Rceattle::BS2017SS
+  nyr <- d$endyr - d$styr + 1
+  # A noisy covariate (not a smooth series the AR1 can perfectly track) so the
+  # observation SD is informative/identified. (On a smooth series obs_sd is only
+  # weakly identified and can collapse toward 0 -- the documented caveat.)
+  set.seed(42)
+  d$env_data <- data.frame(Year = d$styr:d$endyr, qcov = stats::rnorm(nyr))
+  qflt <- which(d$fleet_control$Catchability %in% c(1L, 2L))[1]
+  cf <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = qflt,
+                               observe = "qcov", obs_sd = 0.5)))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, qFun = cf, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+
+  # It is a free parameter (one per observed group) and estimates to a finite SD.
+  testthat::expect_equal(length(fit$estimated_params$log_obs_sd_linkage), 1L)
+  osd <- exp(fit$estimated_params$log_obs_sd_linkage)
+  testthat::expect_true(is.finite(osd) && osd > 0)
+})
+
 testthat::test_that("a model with no linkages reports empty linkage effect-size vectors", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")

@@ -87,8 +87,13 @@ NULL
 #'   sensu Rogers et al. 2024). The latent enters the linked parameter through
 #'   an estimated effect size and is observed against this column. `NULL`
 #'   (default) leaves the AR1 as a plain random effect.
-#' @param obs_sd optional positive numeric: the fixed measurement SD for
-#'   `observe`. Required with `observe`, unused otherwise.
+#' @param obs_sd optional positive numeric: the **starting value** for the
+#'   `observe` measurement SD, which is **estimated** (one per observed group),
+#'   matching the reference `Estimate_q = 6` / GOApollock model. Required with
+#'   `observe`, unused otherwise. Note: the effect size and `obs_sd` are only
+#'   jointly identified when the observed covariate is informative — on a smooth
+#'   series the AR1 latent can track exactly and `obs_sd` collapses toward 0. Use
+#'   an informative covariate (or, in future, a prior / fixed `obs_sd`).
 #'
 #' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
 #'   random-effect deviation SD and (for `ar1`) the correlation: e.g.

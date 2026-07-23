@@ -400,6 +400,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
   PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
   PARAMETER_VECTOR(beta_linkage_obs);    // Rogers QAR1 effect size: one per observed ar1 group
+  PARAMETER_VECTOR(log_obs_sd_linkage);  // Rogers QAR1 observation log-SD: one per observed ar1 group (estimated)
 
   // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( log_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
@@ -3962,11 +3963,13 @@ Type objective_function<Type>::operator() () {
       }
 
       // Rogers QAR1 observation: the ar1 latent re(t) is measured as
-      // linkage_re_obs_value(t) with fixed SD linkage_re_obs_sd(grp). This is
-      // the cpp:3919 term that pins the latent to the observed env series (and,
-      // with the beta scaling in beta_linkage_eff, identifies the effect size).
+      // linkage_re_obs_value(t) with SD exp(log_obs_sd_linkage(obs_slot)). The
+      // observation SD is ESTIMATED (one per observed group, matching the
+      // reference Estimate_q = 6 / GOApollock), started from the spec's obs_sd.
+      // This term pins the latent to the observed env series and, with the beta
+      // scaling in beta_linkage_eff, identifies the effect size.
       if (linkage_re_obs(grp) >= 0) {
-        Type osd = linkage_re_obs_sd(grp);
+        Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
           jnll_comp(20, 0)            -= dnorm(obs(t), re(t), osd, true);
           unweighted_jnll_comp(20, 0) -= dnorm(obs(t), re(t), osd, true);
