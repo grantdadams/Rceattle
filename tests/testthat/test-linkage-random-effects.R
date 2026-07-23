@@ -163,6 +163,51 @@ testthat::test_that("init = list(rho = v) fixes the ar1 correlation at v", {
   testthat::expect_equal(tanh(fit$estimated_params$trans_rho_linkage), 0.5, tolerance = 1e-6)
 })
 
+testthat::test_that("Rogers QAR1: observed ar1 adds an observation term and a beta effect", {
+  # linkage_spec(observe=, obs_sd=) makes the ar1 latent a state-space covariate
+  # (Rogers et al. 2024): row 20 carries the AR1 process density PLUS a Gaussian
+  # observation of the latent, and the latent enters q scaled by an estimated
+  # beta. Verified build-only (no optimisation) at a known parameter vector.
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 7L,
+                               observe = "BTempC", obs_sd = 0.5)))
+  o <- Rceattle::fit_mod(data_list = d, estimateMode = 3, msmMode = 0, qFun = qfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))$obj
+  p <- o$env$last.par
+  n_re <- sum(names(p) == "beta_linkage_re")
+  set.seed(5)
+  re <- stats::rnorm(n_re, 0, 0.4); lsig <- log(0.3); tr <- atanh(0.6); bobs <- 0.8
+  p[names(p) == "beta_linkage_re"]   <- re
+  p[names(p) == "log_sigma_linkage"] <- lsig
+  p[names(p) == "trans_rho_linkage"] <- tr
+  p[names(p) == "beta_linkage_obs"]  <- bobs
+  rep <- o$report(p)
+  sigma <- exp(lsig); rho <- tanh(tr); obs_series <- d$env_data$BTempC
+  ar1_nll <- -stats::dnorm(re[1], 0, sigma, log = TRUE) -
+    sum(stats::dnorm(re[2:n_re], rho * re[1:(n_re - 1)], sigma * sqrt(1 - rho^2), log = TRUE))
+  obs_nll <- -sum(stats::dnorm(obs_series, re, 0.5, log = TRUE))
+  testthat::expect_equal(sum(rep$jnll_comp[nrow(rep$jnll_comp), ]),
+                         ar1_nll + obs_nll, tolerance = 1e-6)
+  # the latent enters q scaled by beta
+  testthat::expect_equal(as.numeric(rep$q_linkage_offset[7, seq_len(n_re)]),
+                         bobs * re, tolerance = 1e-8)
+})
+
+testthat::test_that("observe requires an ar1 term and a valid column", {
+  env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5), fleet = 1L)
+  testthat::expect_error(
+    Rceattle:::materialize_linkage(
+      Rceattle::linkage_spec(~ (1 | Year), param = "q", by = ~ fleet, fleet = 1L,
+                             observe = "temp", obs_sd = 0.5),
+      "q", env, list(fleet = 1L)),
+    "requires an")
+  testthat::expect_error(
+    Rceattle::linkage_spec(~ ar1(1 | Year), param = "q", observe = "temp"),
+    "obs_sd")
+})
+
 testthat::test_that("rw()/ar1() require a numeric grouping variable", {
   env <- data.frame(Year = letters[1:5])
   testthat::expect_error(

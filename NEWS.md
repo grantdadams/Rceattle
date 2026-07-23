@@ -48,6 +48,23 @@
   `priors = list(rho = normal(0, 0.3))` places a prior on it, else it is
   estimated free. Reduces to the IID density at `rho = 0`.
 
+* **State-space environmental covariate (Rogers et al. 2024 QAR1).** An
+  `ar1(1 | Year)` term can be turned into a measured latent covariate via
+  `observe` / `obs_sd`: the AR1 latent is observed as an `env_data` column with
+  a fixed measurement SD, and enters the linked parameter through an estimated
+  effect size. This reproduces the Rogers-2024 QAR1 catchability model
+  (`Estimate_q = 6`) through the grammar:
+
+    ```r
+    build_catchability(linkages = list(
+      q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 1,
+                       observe = "QcovPol", obs_sd = 0.1)))
+    ```
+
+  The AR1 process, the covariate observation, and the effect size are all
+  carried by the one term; `observe` requires an `ar1` term and a positive
+  fixed `obs_sd`.
+
 # Rceattle 4.9.0
 
 ## New features

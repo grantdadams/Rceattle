@@ -65,7 +65,12 @@ LINKAGE_COLS <- c(
   re_rho_init   = "numeric",       # start / fixed correlation (NA = default 0)
   re_rho_prior_family = "character",   # prior on rho; "none"/NA = no prior
   re_rho_prior_p1     = "numeric",
-  re_rho_prior_p2     = "numeric"
+  re_rho_prior_p2     = "numeric",
+  # State-space (Rogers QAR1) observation: this row's latent ar1 deviate is also
+  # observed as `re_obs_value` (an env_data column) with fixed SD `re_obs_sd`,
+  # and enters the target through an estimated effect size. NA when not observed.
+  re_obs_value  = "numeric",       # observed covariate value at this row's time
+  re_obs_sd     = "numeric"        # fixed measurement SD (NA = not observed)
 )
 
 
@@ -286,6 +291,9 @@ validate_linkage_table <- function(x) {
 #' @param re_rho_init,re_rho_prior_family,re_rho_prior_p1,re_rho_prior_p2
 #'   per-group `ar1` correlation routing from `linkage_spec(init = list(rho = ),
 #'   priors = list(rho = ))`; natural `(-1, 1)` scale, `NA` on non-`ar1` rows.
+#' @param re_obs_value,re_obs_sd state-space (Rogers QAR1) observation from
+#'   `linkage_spec(observe = , obs_sd = )`: the observed covariate value at this
+#'   row's time and the fixed measurement SD. `NA` when the group is unobserved.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -315,7 +323,9 @@ linkage_row <- function(process, param, X_col,
                         re_rho_init   = NA_real_,
                         re_rho_prior_family = NA_character_,
                         re_rho_prior_p1     = NA_real_,
-                        re_rho_prior_p2     = NA_real_) {
+                        re_rho_prior_p2     = NA_real_,
+                        re_obs_value  = NA_real_,
+                        re_obs_sd     = NA_real_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -347,7 +357,9 @@ linkage_row <- function(process, param, X_col,
     re_rho_init   = as.numeric(re_rho_init),
     re_rho_prior_family = as.character(re_rho_prior_family),
     re_rho_prior_p1     = as.numeric(re_rho_prior_p1),
-    re_rho_prior_p2     = as.numeric(re_rho_prior_p2)
+    re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
+    re_obs_value  = as.numeric(re_obs_value),
+    re_obs_sd     = as.numeric(re_obs_sd)
   )
   validate_linkage_table(out)
   out

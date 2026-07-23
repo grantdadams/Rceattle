@@ -230,6 +230,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_re_rho_prior_family);   // per RE group: prior on rho (natural (-1,1) scale)
   DATA_VECTOR(linkage_re_rho_prior_p1);        // per RE group: rho prior param 1
   DATA_VECTOR(linkage_re_rho_prior_p2);        // per RE group: rho prior param 2
+  DATA_IVECTOR(linkage_re_obs);        // per RE group: 0-based slot in beta_linkage_obs (Rogers QAR1 observed ar1; -1 otherwise)
+  DATA_VECTOR(linkage_re_obs_sd);      // per RE group: fixed measurement SD (0 if unobserved)
+  DATA_VECTOR(linkage_re_obs_value);   // per beta_linkage_re slot: observed covariate value (0 if unobserved)
   DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
   DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
@@ -396,6 +399,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients
   PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
   PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
+  PARAMETER_VECTOR(beta_linkage_obs);    // Rogers QAR1 effect size: one per observed ar1 group
 
   // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( log_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
@@ -638,7 +642,13 @@ Type objective_function<Type>::operator() () {
   vector<Type> beta_linkage_eff = beta_linkage;
   for (int i = 0; i < beta_linkage_eff.size(); ++i) {
     if (linkage_re_index(i) >= 0) {
-      beta_linkage_eff(i) = beta_linkage_re(linkage_re_index(i));
+      Type z = beta_linkage_re(linkage_re_index(i));
+      // Rogers QAR1: an observed ar1 latent enters the target scaled by an
+      // estimated effect size beta. Unobserved groups (the common case) keep
+      // the deviate as-is, so those fits stay bit-identical.
+      int grp = linkage_re_sigma(linkage_re_index(i));
+      if (linkage_re_obs(grp) >= 0) z *= beta_linkage_obs(linkage_re_obs(grp));
+      beta_linkage_eff(i) = z;
     }
   }
 
@@ -3894,9 +3904,11 @@ Type objective_function<Type>::operator() () {
       int len = 0;
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) len++;
       if (len == 0) continue;
-      vector<Type> re(len);
+      vector<Type> re(len), obs(len);
       int j = 0;
-      for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) re(j++) = beta_linkage_re(g);
+      for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
+        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g); j++;
+      }
 
       int st = linkage_re_struct(grp);
       if (st == 1) {                                   // rw / RandomWalk
@@ -3914,6 +3926,18 @@ Type objective_function<Type>::operator() () {
       } else {                                         // us / IID (default)
         jnll_comp(20, 0)            -= sum(dnorm(re, Type(0), sigma, true));
         unweighted_jnll_comp(20, 0) -= sum(dnorm(re, Type(0), sigma, true));
+      }
+
+      // Rogers QAR1 observation: the ar1 latent re(t) is measured as
+      // linkage_re_obs_value(t) with fixed SD linkage_re_obs_sd(grp). This is
+      // the cpp:3919 term that pins the latent to the observed env series (and,
+      // with the beta scaling in beta_linkage_eff, identifies the effect size).
+      if (linkage_re_obs(grp) >= 0) {
+        Type osd = linkage_re_obs_sd(grp);
+        for (int t = 0; t < len; ++t) {
+          jnll_comp(20, 0)            -= dnorm(obs(t), re(t), osd, true);
+          unweighted_jnll_comp(20, 0) -= dnorm(obs(t), re(t), osd, true);
+        }
       }
     }
   }

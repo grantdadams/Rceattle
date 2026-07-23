@@ -232,10 +232,14 @@ build_params <- function(data_list) {
     } else {
       param_list$trans_rho_linkage <- numeric(0)
     }
+    # Rogers QAR1 effect size: one estimated beta per observed group (the latent
+    # ar1 deviate enters the target as beta * deviate). Init 0 (no effect).
+    param_list$beta_linkage_obs <- numeric(sum(gt$observed))
   } else {
     param_list$beta_linkage_re   <- numeric(0)
     param_list$log_sigma_linkage <- numeric(0)
     param_list$trans_rho_linkage <- numeric(0)
+    param_list$beta_linkage_obs  <- numeric(0)
   }
 
   # * 1.3c. Push (Intercept) inits to the base parameter ----

@@ -98,10 +98,29 @@ linkage_spec <- function(formula,
                          bounds    = NULL,
                          priors    = NULL,
                          re_group  = NA_character_,
-                         est_phase = 1L) {
+                         est_phase = 1L,
+                         observe   = NULL,
+                         obs_sd    = NULL) {
   priors_quo <- rlang::enquo(priors)
   priors_obj <- rlang::eval_tidy(priors_quo, data = .prior_dispatch_mask())
   priors_obj <- .validate_priors_arg(priors_obj)
+
+  # State-space (Rogers et al. 2024 QAR1) option: an ar1 latent that is also
+  # OBSERVED as an env_data column with a fixed measurement SD, and enters the
+  # linked parameter through an estimated effect size (beta). Only meaningful
+  # with an `ar1(1 | group)` term.
+  if (!is.null(observe)) {
+    if (!is.character(observe) || length(observe) != 1L || !nzchar(observe)) {
+      stop("`observe` must be a single env_data column name.", call. = FALSE)
+    }
+    if (is.null(obs_sd) || !is.numeric(obs_sd) || length(obs_sd) != 1L ||
+        !is.finite(obs_sd) || obs_sd <= 0) {
+      stop("`observe` requires a positive fixed `obs_sd` (the measurement SD).",
+           call. = FALSE)
+    }
+  } else if (!is.null(obs_sd)) {
+    stop("`obs_sd` is only used with `observe`.", call. = FALSE)
+  }
 
   if (!inherits(formula, "formula")) {
     stop("`formula` must be an R formula (e.g. ~ temp + PDO)")
@@ -150,7 +169,9 @@ linkage_spec <- function(formula,
       bounds    = bounds,
       priors    = priors_obj,
       re_group  = as.character(re_group),
-      est_phase = as.integer(est_phase)
+      est_phase = as.integer(est_phase),
+      observe   = observe,
+      obs_sd    = obs_sd
     ),
     class = "Rceattle_linkage_spec"
   )
@@ -518,6 +539,18 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
   col_re_time   <- c(rep(NA_real_,      ncol(X_fixed)), re$time)
 
+  # State-space (Rogers QAR1) `observe` needs an ar1 term and a real column.
+  if (!is.null(spec$observe)) {
+    if (!"ar1" %in% re$struct) {
+      stop("`observe` (a state-space covariate observation) requires an ",
+           "`ar1(1 | group)` term in the formula.", call. = FALSE)
+    }
+    if (!spec$observe %in% names(env_data)) {
+      stop(sprintf("`observe` column `%s` is not in env_data.", spec$observe),
+           call. = FALSE)
+    }
+  }
+
   by_vars <- if (is.null(spec$by)) character(0) else all.vars(spec$by)
   unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin", "fleet"))
   if (length(unknown_by) > 0) {
@@ -659,7 +692,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         } else {
           spf <- s_prior$family; sp1 <- s_prior$p1; sp2 <- s_prior$p2
         }
-        # rho routing applies only to ar1 columns (natural (-1,1) correlation).
+        # rho routing + state-space observation apply only to ar1 columns.
         if (col_re_struct[col_idx] == "ar1") {
           r_init  <- spec$init[["rho"]] %||% NA_real_
           r_prior <- .resolve_prior(spec$priors[["rho"]], sp_id, sx_id)
@@ -668,12 +701,25 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
           } else {
             rpf <- r_prior$family; rp1 <- r_prior$p1; rp2 <- r_prior$p2
           }
+          # Rogers QAR1: the latent ar1 deviate is observed as env_data[[observe]]
+          # at this level's time, with fixed SD obs_sd.
+          if (!is.null(spec$observe)) {
+            grp_col <- col_re_group[col_idx]
+            o_val <- env_data[[spec$observe]][
+              match(col_re_time[col_idx], env_data[[grp_col]])]
+            o_val <- if (length(o_val) == 1L) as.numeric(o_val) else NA_real_
+            r_obs_v <- o_val; r_obs_sd <- as.numeric(spec$obs_sd)
+          } else {
+            r_obs_v <- NA_real_; r_obs_sd <- NA_real_
+          }
         } else {
           r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+          r_obs_v <- NA_real_; r_obs_sd <- NA_real_
         }
       } else {
         s_init <- NA_real_; spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
         r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+        r_obs_v <- NA_real_; r_obs_sd <- NA_real_
       }
 
       k <- k + 1L
@@ -708,6 +754,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_rho_prior_family = rpf,
         re_rho_prior_p1     = rp1,
         re_rho_prior_p2     = rp2,
+        re_obs_value  = r_obs_v,
+        re_obs_sd     = r_obs_sd,
         est_phase     = spec$est_phase
       )
     }
@@ -1035,6 +1083,10 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     rho_prior_family = ifelse(has_rprior, g$re_rho_prior_family, "none"),
     rho_prior_p1 = as.numeric(g$re_rho_prior_p1),
     rho_prior_p2 = as.numeric(g$re_rho_prior_p2),
+    # State-space (Rogers QAR1) observation: observed groups carry a fixed obs SD
+    # and an estimated effect size (beta) applied to the deviate.
+    observed     = !is.na(g$re_obs_sd),
+    obs_sd       = as.numeric(g$re_obs_sd),
     stringsAsFactors = FALSE
   )
 }

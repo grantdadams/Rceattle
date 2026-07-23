@@ -193,6 +193,13 @@ encode_linkage_for_tmb <- function(table, X) {
     re_rows <- which(is_re)
     re_sigma_int <- integer(n_re)
     re_sigma_int[re_index_int[re_rows] + 1L] <- as.integer(table$sigma_index[re_rows])
+    # Per-slot observed covariate value (Rogers QAR1); 0 for unobserved slots.
+    re_obs_value <- numeric(n_re)
+    ov <- table$re_obs_value[re_rows]
+    ov[is.na(ov)] <- 0
+    re_obs_value[re_index_int[re_rows] + 1L] <- as.numeric(ov)
+  } else {
+    re_obs_value <- numeric(0)
   }
 
   # Per-group sigma-prior triple (length n_re_group), from the reserved `sigma`
@@ -208,6 +215,8 @@ encode_linkage_for_tmb <- function(table, X) {
     re_rho_prior_fam   <- integer(0)
     re_rho_prior_p1    <- numeric(0)
     re_rho_prior_p2    <- numeric(0)
+    re_obs_idx         <- integer(0)
+    re_obs_sd          <- numeric(0)
   } else {
     re_struct_codes    <- unname(LINKAGE_STRUCT_CODES[gt$re_struct])
     # Per group: its 0-based slot in trans_rho_linkage (ar1 groups only, in
@@ -221,6 +230,11 @@ encode_linkage_for_tmb <- function(table, X) {
     re_rho_prior_fam   <- unname(LINKAGE_PRIOR_CODES[gt$rho_prior_family])
     re_rho_prior_p1    <- as.numeric(gt$rho_prior_p1)
     re_rho_prior_p2    <- as.numeric(gt$rho_prior_p2)
+    # Per group (Rogers QAR1): 0-based slot in beta_linkage_obs (observed groups,
+    # in group order), -1 otherwise; and the fixed observation SD (0 otherwise).
+    re_obs_idx <- rep(-1L, nrow(gt))
+    re_obs_idx[gt$observed] <- seq_len(sum(gt$observed)) - 1L
+    re_obs_sd <- ifelse(gt$observed, as.numeric(gt$obs_sd), 0)
   }
 
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
@@ -251,6 +265,9 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_rho_prior_family   = re_rho_prior_fam,
     linkage_re_rho_prior_p1       = re_rho_prior_p1,
     linkage_re_rho_prior_p2       = re_rho_prior_p2,
+    linkage_re_obs        = re_obs_idx,
+    linkage_re_obs_sd     = re_obs_sd,
+    linkage_re_obs_value  = re_obs_value,
     linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
@@ -285,6 +302,9 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_rho_prior_family   = integer(0),
     linkage_re_rho_prior_p1       = numeric(0),
     linkage_re_rho_prior_p2       = numeric(0),
+    linkage_re_obs        = integer(0),
+    linkage_re_obs_sd     = numeric(0),
+    linkage_re_obs_value  = numeric(0),
     linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),

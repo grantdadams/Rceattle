@@ -555,6 +555,9 @@ fit_mod <-
     data_list_reorganized$linkage_re_rho_prior_family   <- .linkage_enc$linkage_re_rho_prior_family
     data_list_reorganized$linkage_re_rho_prior_p1       <- .linkage_enc$linkage_re_rho_prior_p1
     data_list_reorganized$linkage_re_rho_prior_p2       <- .linkage_enc$linkage_re_rho_prior_p2
+    data_list_reorganized$linkage_re_obs        <- .linkage_enc$linkage_re_obs
+    data_list_reorganized$linkage_re_obs_sd     <- .linkage_enc$linkage_re_obs_sd
+    data_list_reorganized$linkage_re_obs_value  <- .linkage_enc$linkage_re_obs_value
     data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
