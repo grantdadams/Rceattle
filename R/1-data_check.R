@@ -244,9 +244,11 @@ data_check <- function(data_list) {
     if(any(ration_sex$max_sex > data_list$nsex)){
       errors <- c(errors, "'ration_data' has more sexes than specified in 'nsex'")
     }
-  } else if(data_list$msmMode > 0){
-    message("No ration data")
   }
+  # ration_data presence (msmMode > 0): message-only requirement (see the
+  # declarative requirement table). Not an error -- missing ration data is a
+  # notice, not a blocker.
+  .rce_notify_presence(data_list, "ration_data")
 
   # Age transition matrix: length coverage when growth is fixed and length data are used
   if(any(data_list$growth_model == 0) &
@@ -303,17 +305,15 @@ data_check <- function(data_list) {
     }
   }
 
-  # NByageFixed: required when estDynamics > 0
-  if(any(data_list$estDynamics > 0)){
-    if(!has_data(data_list$NByageFixed)){
-      errors <- c(errors, "estDynamics > 0 requires NByageFixed data to be provided")
-    } else {
-      expected_cols <- 4 + max(data_list$nages)
-      if(ncol(data_list$NByageFixed) != expected_cols){
-        errors <- c(errors, paste0("NByageFixed should have ", expected_cols,
-                                   " columns (Species_name, Species, Sex, Year, Age1...Age",
-                                   max(data_list$nages), "), but has ", ncol(data_list$NByageFixed)))
-      }
+  # NByageFixed: presence required when estDynamics > 0 (declarative requirement
+  # table); the column-count adequacy check stays imperative below.
+  errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
+  if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed)){
+    expected_cols <- 4 + max(data_list$nages)
+    if(ncol(data_list$NByageFixed) != expected_cols){
+      errors <- c(errors, paste0("NByageFixed should have ", expected_cols,
+                                 " columns (Species_name, Species, Sex, Year, Age1...Age",
+                                 max(data_list$nages), "), but has ", ncol(data_list$NByageFixed)))
     }
   }
 
@@ -511,15 +511,9 @@ data_check <- function(data_list) {
       }
     }
 
-    # emp_sel required when any fleet has Selectivity = "Fixed"
-    fixed_flts <- fc[!is.na(fc$Selectivity) & fc$Selectivity == "Fixed", , drop = FALSE]
-    if(nrow(fixed_flts) > 0 && !has_data(data_list$emp_sel)){
-      errors <- c(errors, paste0(
-        "Fleet(s) with Selectivity = 'Fixed' (",
-        paste(fixed_flts$Fleet_name, collapse = ", "),
-        ") require emp_sel data"
-      ))
-    }
+    # emp_sel presence required when any fleet has Selectivity = "Fixed"
+    # (declarative requirement table).
+    errors <- c(errors, .rce_check_presence(data_list, "emp_sel"))
 
     # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
@@ -763,34 +757,32 @@ data_check <- function(data_list) {
     }
   }
 
-  # CAAL: required when growth is being estimated
-  if(any(data_list$growth_model > 0)){
-    if(!has_data(data_list$caal_data)){
-      errors <- c(errors, "Growth estimation (growth_model > 0) requires caal_data to be provided")
+  # CAAL: presence required when growth is being estimated (declarative
+  # requirement table); the column / length adequacy checks stay imperative.
+  errors <- c(errors, .rce_check_presence(data_list, "caal_data"))
+  if(any(data_list$growth_model > 0) && has_data(data_list$caal_data)){
+    missing_cols <- setdiff(c("Fleet_code", "Species", "Year", "Length", "Sample_size"),
+                            colnames(data_list$caal_data))
+    if(length(missing_cols) > 0){
+      errors <- c(errors, paste("caal_data is missing required columns:",
+                                paste(missing_cols, collapse = ", ")))
+    }
+    for(sp in 1:data_list$nspp){
+      sp_lengths <- unique(data_list$caal_data$Length[data_list$caal_data$Species == sp])
+      if(length(sp_lengths) != data_list$nlengths[sp]){
+        errors <- c(errors, paste0("Species ", sp, " has ", length(sp_lengths),
+                                   " unique lengths in caal_data, but nlengths[", sp, "] = ",
+                                   data_list$nlengths[sp]))
+      }
+    }
+    caal_cols <- grep("^CAAL_", colnames(data_list$caal_data), value = TRUE)
+    if(length(caal_cols) == 0){
+      errors <- c(errors, "caal_data is missing CAAL_ columns (CAAL_1, CAAL_2, etc.)")
     } else {
-      missing_cols <- setdiff(c("Fleet_code", "Species", "Year", "Length", "Sample_size"),
-                              colnames(data_list$caal_data))
-      if(length(missing_cols) > 0){
-        errors <- c(errors, paste("caal_data is missing required columns:",
-                                  paste(missing_cols, collapse = ", ")))
-      }
-      for(sp in 1:data_list$nspp){
-        sp_lengths <- unique(data_list$caal_data$Length[data_list$caal_data$Species == sp])
-        if(length(sp_lengths) != data_list$nlengths[sp]){
-          errors <- c(errors, paste0("Species ", sp, " has ", length(sp_lengths),
-                                     " unique lengths in caal_data, but nlengths[", sp, "] = ",
-                                     data_list$nlengths[sp]))
-        }
-      }
-      caal_cols <- grep("^CAAL_", colnames(data_list$caal_data), value = TRUE)
-      if(length(caal_cols) == 0){
-        errors <- c(errors, "caal_data is missing CAAL_ columns (CAAL_1, CAAL_2, etc.)")
-      } else {
-        missing_caal <- setdiff(paste0("CAAL_", 1:max(data_list$nages)), caal_cols)
-        if(length(missing_caal) > 0){
-          errors <- c(errors, paste("caal_data is missing CAAL columns:",
-                                    paste(missing_caal, collapse = ", ")))
-        }
+      missing_caal <- setdiff(paste0("CAAL_", 1:max(data_list$nages)), caal_cols)
+      if(length(missing_caal) > 0){
+        errors <- c(errors, paste("caal_data is missing CAAL columns:",
+                                  paste(missing_caal, collapse = ", ")))
       }
     }
   }
@@ -829,9 +821,9 @@ data_check <- function(data_list) {
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }
-  } else if(data_list$msmMode > 0){
-    errors <- c(errors, "No diet data included")
   }
+  # diet_data presence required when msmMode > 0 (declarative requirement table).
+  errors <- c(errors, .rce_check_presence(data_list, "diet_data"))
 
   # Diet composition likelihood weights & types (only enforced when suitMode > 0)
   if(any(is.na(data_list$Diet_comp_weights) & data_list$suitMode > 0)){
@@ -847,23 +839,11 @@ data_check <- function(data_list) {
     errors <- c(errors, "msmMode > 0 requires other_food > 0 for all species; zero values cause divide-by-zero in suitability")
   }
 
-  # Bioenergetics scalars: required when msmMode > 0. switch_check fills these
-  # with safe sentinels in single-species mode, so the only way they're missing
-  # or wrong-length here is in multispecies mode.
-  if(!is.null(data_list$msmMode) && data_list$msmMode > 0){
-    bio_scalars <- c("Ceq", "Cindex", "Pvalue", "fday", "CA", "CB",
-                     "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4")
-    bad <- bio_scalars[vapply(bio_scalars, function(nm){
-      is.null(data_list[[nm]]) || length(data_list[[nm]]) != data_list$nspp
-    }, logical(1))]
-    if(length(bad) > 0){
-      errors <- c(errors, paste0(
-        "msmMode > 0 requires bioenergetics scalars of length nspp = ",
-        data_list$nspp, "; missing or wrong length: ",
-        paste(bad, collapse = ", ")
-      ))
-    }
-  }
+  # Bioenergetics scalars: required (length nspp) when msmMode > 0. switch_check
+  # fills these with safe sentinels in single-species mode, so the only way
+  # they're missing or wrong-length here is in multispecies mode. The 12 scalars
+  # form one grouped requirement (declarative requirement table).
+  errors <- c(errors, .rce_check_presence(data_list, "bioenergetics"))
 
   # =======================================================================
   # 7. Environmental data ----
