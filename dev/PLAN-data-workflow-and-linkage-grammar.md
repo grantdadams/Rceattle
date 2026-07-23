@@ -699,6 +699,41 @@ Per PR, in order:
 5. `rcmdcheck::rcmdcheck()` backgrounded before each PR lands.
 
 Per CLAUDE.md, each PR updates **`NEWS.md`**, bumps **`DESCRIPTION` Version:** (minor for
-1–4, patch for 0 and 5–7), and touches affected vignettes. After `devtools::document()`,
-`git checkout` the spurious roxygen 8.0.0 churn in unrelated `man/` files and `DESCRIPTION`.
-Commit messages plain, no AI-attribution trailer; Grant confirms before each commit.
+1–4, patch for 0 and 5–7), and touches affected vignettes. Commit messages plain, no
+AI-attribution trailer; Grant confirms before each commit. (The repo is now pinned to
+roxygen2 8.0.0 via `Config/roxygen2/version:`, so `document()` no longer churns unrelated
+`man/` files.)
+
+---
+
+## Status + follow-up phases (as of the RE-density session)
+
+**DONE — random-effect linkage density.** `~ (1|Year)` (IID), `rw(1|Year)`,
+`ar1(1|Year)`, with the SD (`sigma`) and correlation (`rho`) routed through
+`linkage_spec(init=/priors=)`, plus the Rogers-2024 QAR1 state-space covariate
+(`observe=`/`obs_sd=`). Adversarially reviewed (all density claims confirmed); gappy-year
+lag and env_data positional-alignment hardened; Fixed/Analytical-q linkages now error.
+Verified: golden bit-identical, density-math exact to machine precision, full linkage suite
+green. `sigma` is the *innovation* SD for `rw()` and the *marginal* SD for `ar1()`.
+
+**NEXT — Dirichlet-multinomial comp priors (in progress).** A `comp` process on the grammar
+(`theta_comp`/`theta_caal`/`theta_diet`, `by = ~fleet`/`~pred`) so a prior on the DM
+weight falls out of `linkage_spec(priors=)` via the intercept-re-target loop; attach only
+when `Comp_loglike == "DirichletMultinomial"`, error otherwise. `comp_weights` is stored
+un-logged and `exp()`d in the cpp (`DM_pars = exp(comp_weights)`), so decide the prior
+scale deliberately.
+
+**DEFERRED — noted for later (Grant's request):**
+1. **Legacy translators + `_sd` renames.** Auto-translate `Time_varying_q`/`Time_varying_sel`/
+   `M1_re` configs onto the equivalent random-effect grammar (bit-identical), converging the
+   two paths, and rename `Time_varying_*_sd_prior` (an input SD, not a prior) to `_sd` with a
+   deprecation alias. Enables the `../Rceattle-models` reference cross-checks by hand-written
+   equivalence. Note: the grammar `rw()`/`ar1()` use the *normalized* `dnorm`/`SCALE` densities
+   and marginal-SD (ar1); the GOA-pollock reference uses the *un-normalized* `0.5*square`
+   penalty — bit-identity holds only at fixed sigma.
+2. **Intuitive-naming sweep.** Deprecate-and-rename misleading legacy names across the public
+   API (self-explanatory names, readable strings over positional integer codes), back-compat
+   aliases (released package).
+3. **Productionize QAR1.** Estimable-`obs_sd` option, a real GOA-pollock reference cross-check,
+   the effect-size `beta` in reporting/plots, and read/write round-trip for the `observe`/
+   `obs_sd` spec fields.
