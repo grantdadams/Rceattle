@@ -17,6 +17,24 @@
   data_list
 }
 
+testthat::test_that("switch_check() renames Q_prior/Index_sd_prior/Catch_sd_prior", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  fc <- d$fleet_control
+  names(fc)[names(fc) == "Q_init"]   <- "Q_prior"
+  names(fc)[names(fc) == "Index_sd"] <- "Index_sd_prior"
+  names(fc)[names(fc) == "Catch_sd"] <- "Catch_sd_prior"
+  d$fleet_control <- fc
+
+  out <- suppressMessages(suppressWarnings(Rceattle::switch_check(d)))
+  fc_new <- out$fleet_control
+  testthat::expect_true(all(c("Q_init", "Index_sd", "Catch_sd") %in% names(fc_new)))
+  testthat::expect_false(any(c("Q_prior", "Index_sd_prior", "Catch_sd_prior") %in% names(fc_new)))
+  testthat::expect_equal(fc_new$Q_init,   fc$Q_prior)
+  testthat::expect_equal(fc_new$Index_sd, fc$Index_sd_prior)
+  testthat::expect_equal(fc_new$Catch_sd, fc$Catch_sd_prior)
+})
+
 testthat::test_that("switch_check() renames deprecated Time_varying_*_sd_prior columns", {
   testthat::skip_if_not_installed("Rceattle")
   dat_old <- .deprecate_sd_names(make_test_data())

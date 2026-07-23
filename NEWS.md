@@ -122,6 +122,13 @@
   columns), the non-parametric selectivity forms, and the separable `M1_re = 6`
   (age × year).
 
+* **`fleet_control` columns `Q_prior` → `Q_init`, `Index_sd_prior` → `Index_sd`,
+  `Catch_sd_prior` → `Catch_sd`.** These are start/input values, not priors (the
+  prior on q lives in `Q_sd_prior`), so the names misled. As with the other
+  renames, the old names are accepted and upgraded in place by `switch_check()` /
+  `read_data()`, and the bundled datasets were regenerated — existing scripts keep
+  fitting identically.
+
 * **`fleet_control` columns `Time_varying_q_sd_prior` / `Time_varying_sel_sd_prior`
   renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`.** They hold the input
   *value* of the time-varying deviate SD, not a prior on it (no density is placed

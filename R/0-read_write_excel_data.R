@@ -239,8 +239,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   if(length(data_list$fleet_control$Survey_sd_prior) > 0){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
-                    Index_sd_prior = Survey_sd_prior)
-    message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
+                    Index_sd = Survey_sd_prior)
+    message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd'")
   }
 
 
@@ -268,6 +268,26 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Time_varying_q_sd = Time_varying_q_sd_prior)
     message("Renaming 'Time_varying_q_sd_prior' to 'Time_varying_q_sd'")
+  }
+
+  # `Q_prior` / `Index_sd_prior` / `Catch_sd_prior` are start/input values, not
+  # priors; renamed to `Q_init` / `Index_sd` / `Catch_sd`. Upgrade on read.
+  if(length(data_list$fleet_control$Q_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Q_init = Q_prior)
+    message("Renaming 'Q_prior' to 'Q_init'")
+  }
+
+  if(length(data_list$fleet_control$Index_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Index_sd = Index_sd_prior)
+    message("Renaming 'Index_sd_prior' to 'Index_sd'")
+  }
+
+  if(length(data_list$fleet_control$Catch_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Catch_sd = Catch_sd_prior)
+    message("Renaming 'Catch_sd_prior' to 'Catch_sd'")
   }
 
   if(length(data_list$fleet_control$Estimate_q) > 0){

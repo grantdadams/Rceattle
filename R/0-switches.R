@@ -274,6 +274,15 @@ switch_check <- function(data_list){
     data_list$fleet_control, "Time_varying_q_sd_prior",   "Time_varying_q_sd")
   data_list$fleet_control <- rename_deprecated_col(
     data_list$fleet_control, "Time_varying_sel_sd_prior", "Time_varying_sel_sd")
+  # `Q_prior` / `Index_sd_prior` / `Catch_sd_prior` are start/input values, not
+  # priors on those quantities (the prior on q lives in `Q_sd_prior`). Renamed
+  # to `Q_init` / `Index_sd` / `Catch_sd`.
+  data_list$fleet_control <- rename_deprecated_col(
+    data_list$fleet_control, "Q_prior",        "Q_init")
+  data_list$fleet_control <- rename_deprecated_col(
+    data_list$fleet_control, "Index_sd_prior", "Index_sd")
+  data_list$fleet_control <- rename_deprecated_col(
+    data_list$fleet_control, "Catch_sd_prior", "Catch_sd")
 
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0

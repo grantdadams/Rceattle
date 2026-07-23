@@ -261,7 +261,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$index_ll_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Index_loglike) %>% as.integer()
 
-  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_init)
 
   # Species names
   data_list$spnames <- NULL

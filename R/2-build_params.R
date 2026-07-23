@@ -307,7 +307,7 @@ build_params <- function(data_list) {
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
-  param_list$index_log_q = log(data_list$fleet_control$Q_prior)
+  param_list$index_log_q = log(data_list$fleet_control$Q_init)
   names(param_list$index_log_q) <- data_list$fleet_control$Fleet_name
 
   # - Regression coefficients for environment-q linkage
@@ -413,11 +413,11 @@ build_params <- function(data_list) {
 
   # * 2.3. Variance of survey and fishery time series ----
   # - Log standard deviation of survey index time-series
-  param_list$index_log_sd = log(data_list$fleet_control$Index_sd_prior)
+  param_list$index_log_sd = log(data_list$fleet_control$Index_sd)
   names(param_list$index_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation of fishery catch time-series
-  param_list$catch_log_sd = log(data_list$fleet_control$Catch_sd_prior)
+  param_list$catch_log_sd = log(data_list$fleet_control$Catch_sd)
   names(param_list$catch_log_sd) <- data_list$fleet_control$Fleet_name
 
   # * 2.4. Comp weighting ----

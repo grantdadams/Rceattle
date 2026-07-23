@@ -9,7 +9,7 @@ q_prior_dat <- function(share) {
   d <- BS2017SS
   srv <- which(d$fleet_control$Fleet_type == 2)[1:2]
   d$fleet_control$Catchability[srv] <- "Estimated-with-prior"
-  d$fleet_control$Q_prior[srv]      <- 1
+  d$fleet_control$Q_init[srv]      <- 1
   d$fleet_control$Q_sd_prior[srv]   <- 0.2
   if (share) d$fleet_control$Q_index[srv] <- 99
   list(data = d, codes = d$fleet_control$Fleet_code[srv])
