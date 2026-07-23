@@ -63,3 +63,8 @@ VignetteBuilder:
     knitr
 Depends:
     R (>= 4.1.0)
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+Config/testthat/start-first: functions-profile-param, functions-mse,
+    dynamics-brps, functions-retrospective, likelihood-osa-residuals,
+    selectivity-normalization, dynamics-recruitment-linkage
