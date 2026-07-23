@@ -89,9 +89,9 @@ carrying any environmental linkages on q.}
 
 \item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.}
 
-\item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+\item{suit_styr}{The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length \code{nspp} sets a distinct start year per predator. Defaults to \code{styr} in \code{data_list}. Used when diet data were sampled from a subset of years.}
 
-\item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+\item{suit_endyr}{The last year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length \code{nspp} sets a distinct end year per predator. Defaults to \code{endyr} in \code{data_list}. Used when diet data were sampled from a subset of years.}
 
 \item{fit_control}{A list returned by \code{\link[=fit_control]{fit_control()}} that bundles the
 optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{getsd},

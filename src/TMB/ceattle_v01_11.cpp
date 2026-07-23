@@ -111,17 +111,16 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( projyr );                 // End year of projection
 
   DATA_INTEGER( srr_mse_switchyr );             // The last year used to calculate average recruitment. Used for MSE runs.
-  DATA_INTEGER( suit_styr );              // The first year used to calculate suitability averages.
-  DATA_INTEGER( suit_endyr );             // The last year used to calculate suitability averages.
+  DATA_IVECTOR( suit_styr );              // The first year (per predator species) used to calculate suitability averages.
+  DATA_IVECTOR( suit_endyr );             // The last year (per predator species) used to calculate suitability averages.
   DATA_INTEGER( srr_hat_styr );           // The first year used to calculate stock-recuitment penalties or env-rec relationship.
   DATA_INTEGER( srr_hat_endyr );          // The last year used to calculate stock-recuitment penalties or env-rec relationship.
 
   int nyrs = projyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
 
-  suit_endyr = suit_endyr - styr;
-  suit_styr = suit_styr - styr;
-  int nyrs_suit = suit_endyr - suit_styr + 1;
+  // suit_styr / suit_endyr are per-predator (offset to model-year indices below,
+  // once `nspp` is available).
   int nyrs_srrmean = srr_mse_switchyr - styr + 1;
 
   srr_hat_styr = srr_hat_styr - styr;
@@ -131,6 +130,16 @@ Type objective_function<Type>::operator() () {
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
+
+  // Offset per-predator suitability reference years to model-year indices and
+  // count the averaging window length for each predator species.
+  vector<int> nyrs_suit(nspp);
+  for(int sp = 0; sp < nspp; sp++){
+    suit_endyr(sp) = suit_endyr(sp) - styr;
+    suit_styr(sp)  = suit_styr(sp) - styr;
+    nyrs_suit(sp)  = suit_endyr(sp) - suit_styr(sp) + 1;
+  }
+
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of weight to use for population dynamics
   DATA_IVECTOR( ssb_wt_index );           // Dim 3 of weight to use for spawning stock biomass calculation
   DATA_IVECTOR( pop_age_transition_index );// Dim 3 of weight to use for age_transition_matrix

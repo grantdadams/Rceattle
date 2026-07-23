@@ -477,6 +477,20 @@ read_data <- function(file = "Rceattle_data.xlsx") {
       sub("^index_cov_", "", cov_sheets))
   }
 
+  # Trim trailing all-NA age padding from NByageFixed. Older writers (e.g. the
+  # Hake multispecies workbooks) pad the age columns to a fixed width wider than
+  # max(nages); those extra columns are entirely empty and would otherwise trip
+  # the column-count check in data_check().
+  if(!is.null(data_list$NByageFixed) && !is.null(data_list$nages) &&
+     ncol(data_list$NByageFixed) > 4 + max(data_list$nages)){
+    keep <- 4 + max(data_list$nages)
+    extra <- data_list$NByageFixed[, (keep + 1):ncol(data_list$NByageFixed), drop = FALSE]
+    if(all(is.na(extra))){
+      data_list$NByageFixed <- data_list$NByageFixed[, seq_len(keep), drop = FALSE]
+      message("Trimming ", ncol(extra), " empty trailing age column(s) from 'NByageFixed'")
+    }
+  }
+
   # write the data
   return(data_list)
 }

@@ -36,8 +36,8 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
 #' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.
-#' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
-#' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
+#' @param suit_styr The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct start year per predator. Defaults to `styr` in `data_list`. Used when diet data were sampled from a subset of years.
+#' @param suit_endyr The last year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct end year per predator. Defaults to `endyr` in `data_list`. Used when diet data were sampled from a subset of years.
 #' @param fit_control A list returned by [fit_control()] that bundles the
 #'   optimizer / sdreport / phasing knobs (`phase`, `bias.correct`, `getsd`,
 #'   `getJointPrecision`, `getReportCovariance`, `use_gradient`, `rel_tol`,
@@ -219,6 +219,13 @@ fit_mod <-
     opt <- NULL
 
     extend_length <- function(x) {
+      # A scalar recycles to every species; a length-nspp vector passes through.
+      # A multi-element vector of any other length is a misconfiguration (it
+      # would otherwise be silently re-recycled, e.g. length 3 with nspp 2 -> 6).
+      if (length(x) > 1L && length(x) != data_list$nspp) {
+        stop("Expected a scalar or a length-", data_list$nspp,
+             " (nspp) vector; got length ", length(x), call. = FALSE)
+      }
       if (length(x) == data_list$nspp) x else rep(x, data_list$nspp)
     }
 
@@ -248,8 +255,10 @@ fit_mod <-
     data_list$suitMode    <- extend_length(suitMode)
 
     # * Suitability switches ----
-    data_list$suit_styr  <- resolve_yr(suit_styr,  data_list$suit_styr,  data_list$styr)
-    data_list$suit_endyr <- resolve_yr(suit_endyr, data_list$suit_endyr, data_list$endyr)
+    # suit_styr/suit_endyr are per-predator: a scalar is recycled to all species,
+    # a length-nspp vector sets a distinct suitability-averaging window per predator.
+    data_list$suit_styr  <- extend_length(resolve_yr(suit_styr,  data_list$suit_styr,  data_list$styr))
+    data_list$suit_endyr <- extend_length(resolve_yr(suit_endyr, data_list$suit_endyr, data_list$endyr))
 
 
     # * Recruitment switches ----

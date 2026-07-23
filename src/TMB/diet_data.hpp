@@ -150,8 +150,8 @@ void calculate_other_food_diet_prop(
  * * @param nspp Number of modeled species.
  * @param nyrs_hind Number of years in the hindcast period.
  * @param styr The starting year of the model.
- * @param suit_styr The starting year used for suitability averaging.
- * @param suit_endyr The ending year used for suitability averaging.
+ * @param suit_styr The starting year (per predator species) used for suitability averaging.
+ * @param suit_endyr The ending year (per predator species) used for suitability averaging.
  * @param minage Vector containing the minimum modeled age for each species.
  * @param nsex Vector containing the number of sexes modeled for each species.
  * @param nages Vector containing the maximum number of age bins for each species.
@@ -166,8 +166,8 @@ void predict_stomach_content(
     const int& nspp,
     const int& nyrs_hind,
     const int& styr,
-    const int& suit_styr,
-    const int& suit_endyr,
+    const vector<int>& suit_styr,
+    const vector<int>& suit_endyr,
     const vector<int>& minage,
     const vector<int>& nsex,
     const vector<int>& nages,
@@ -209,8 +209,8 @@ void predict_stomach_content(
       yr_start = flt_yr - styr;
       yr_end = flt_yr - styr;
     } else if (flt_yr == 0) {
-      yr_start = suit_styr;
-      yr_end = suit_endyr;
+      yr_start = suit_styr(rsp);
+      yr_end = suit_endyr(rsp);
     } else {
       yr_start = -flt_yr - styr;
       yr_end = -flt_yr - styr;

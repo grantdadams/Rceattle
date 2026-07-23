@@ -256,7 +256,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           avgnMode = data_list$avgnMode,
           suitMode = data_list$suitMode,
           suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+          suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
           initMode = data_list$initMode,
           fit_control = fit_control(
             phase   = TRUE, # Phasing or else the parameters dont wanna move
@@ -364,7 +364,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           avgnMode = data_list$avgnMode,
           suitMode = data_list$suitMode,
           suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+          suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
           initMode = data_list$initMode,
           fit_control = fit_control(
             phase   = TRUE, # Phasing or else the parameters dont wanna move
@@ -637,7 +637,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
             avgnMode = data_list$avgnMode,
             suitMode = data_list$suitMode,
             suit_styr = data_list$suit_styr,
-            suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
+            suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
             initMode = data_list$initMode,
             fit_control = fit_control(
               phase   = phase,
@@ -813,7 +813,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
             avgnMode = data_list$avgnMode,
             suitMode = data_list$suitMode,
             suit_styr = data_list$suit_styr,
-            suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
+            suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
             initMode = data_list$initMode,
             fit_control = fit_control(
               phase   = FALSE,
@@ -1234,7 +1234,7 @@ profile.Rceattle <- function(fitted = NULL,
           avgnMode = data_list$avgnMode,
           suitMode = data_list$suitMode,
           suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, data_list$endyr),
+          suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),
           initMode = data_list$initMode,
           fit_control = fit_control(
             phase   = FALSE,

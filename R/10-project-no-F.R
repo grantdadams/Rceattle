@@ -13,7 +13,8 @@ remove_F <- function(Rceattle){
 
   # * Years for F = 0 ----
   # - don't want hindcast or it will bias suitability in Multi-species models
-  proj_years <- (Rceattle$data_list$suit_endyr+1):Rceattle$data_list$projyr - Rceattle$data_list$styr + 1
+  # suit_endyr is per-predator; project F = 0 only after the latest suitability window.
+  proj_years <- (max(Rceattle$data_list$suit_endyr)+1):Rceattle$data_list$projyr - Rceattle$data_list$styr + 1
   fdevs_cols <- 1:ncol(Rceattle$estimated_params$log_F)
   fdevs_change <- which(fdevs_cols %in% proj_years)
 
@@ -74,7 +75,7 @@ remove_F <- function(Rceattle){
     avgnMode = Rceattle$data_list$avgnMode,
     suitMode = Rceattle$data_list$suitMode,
     suit_styr = Rceattle$data_list$suit_styr,
-    suit_endyr = min(Rceattle$data_list$suit_endyr, Rceattle$data_list$endyr),   # Update to end year if less than suit_endyr
+    suit_endyr = pmin(Rceattle$data_list$suit_endyr, Rceattle$data_list$endyr),   # Update to end year if less than suit_endyr
     initMode = Rceattle$data_list$initMode,
     fit_control = fit_control(
       phase   = FALSE,
