@@ -26,6 +26,44 @@ testthat::test_that("an unknown estDynamics string errors clearly", {
                          "Invalid 'estDynamics'")
 })
 
+testthat::test_that("Estimate_index_sd / Estimate_catch_sd resolve readable strings", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  n <- nrow(d$fleet_control)
+  d$fleet_control$Estimate_index_sd <- rep("Estimated", n)
+  d$fleet_control$Estimate_catch_sd <- rep("Analytical", n)
+  out <- suppressMessages(Rceattle::switch_check(d))
+  testthat::expect_equal(unique(out$fleet_control$Estimate_index_sd), 1L)
+  testthat::expect_equal(unique(out$fleet_control$Estimate_catch_sd), 2L)
+})
+
+testthat::test_that("Estimate_index_sd passes NA (off fleets) through unmapped", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  col <- rep(c("Fixed", NA), length.out = nrow(d$fleet_control))
+  d$fleet_control$Estimate_index_sd <- col
+  out <- suppressMessages(Rceattle::switch_check(d))
+  testthat::expect_equal(out$fleet_control$Estimate_index_sd[!is.na(col)],
+                         rep(0L, sum(!is.na(col))))
+  testthat::expect_true(all(is.na(out$fleet_control$Estimate_index_sd[is.na(col)])))
+})
+
+testthat::test_that("suitMode wires its (previously dead) string map", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  d$suitMode <- "GammaWeight"
+  out <- suppressMessages(Rceattle::switch_check(d))
+  testthat::expect_equal(out$suitMode, 2L)
+})
+
+testthat::test_that("build_srr resolves srr_est_mode strings", {
+  testthat::skip_if_not_installed("Rceattle")
+  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Fixed")$srr_est_mode, 0L)
+  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "Estimated")$srr_est_mode, 1L)
+  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "LognormalPrior")$srr_est_mode, 2L)
+  testthat::expect_equal(Rceattle::build_srr(srr_est_mode = "BetaPrior")$srr_est_mode, 3L)
+})
+
 testthat::test_that("estDynamics string spec fits bit-identically to the integer spec", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")

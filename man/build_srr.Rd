@@ -32,7 +32,7 @@ build_srr(
 
 \item{srr_hat_endyr}{Integer. The last year used for estimating the recruitment function as an additional penalty. It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available for the full time-series, but projections are desired.}
 
-\item{srr_est_mode}{Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate R0, alpha, and/or beta (default), 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.}
+\item{srr_est_mode}{Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.}
 
 \item{srr_prior}{mean for normally distributed prior for stock-recruit parameter}
 

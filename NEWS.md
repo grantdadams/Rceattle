@@ -96,10 +96,17 @@
 * **Readable string aliases for integer-coded switches.** Following the CIE
   review's "rename options to improve interpretability" (e.g. *constant → not
   estimated*), integer-only switches now also accept self-explanatory strings,
-  resolved by `switch_check()` to the same integer codes (so fits are identical).
-  `estDynamics` accepts `"Estimated"` (0) / `"Fixed"` (1) / `"FixedScaled"` (2) /
-  `"FixedScaledByAge"` (3). New aliases follow a consistent convention — the
-  not-estimated value is `"Fixed"`, estimated is `"Estimated"`.
+  resolved by `switch_check()` (or `build_srr()`) to the same integer codes (so
+  fits are identical). New aliases follow a consistent convention — the
+  not-estimated value is `"Fixed"`, estimated is `"Estimated"`:
+    - `estDynamics`: `"Estimated"` (0) / `"Fixed"` (1) / `"FixedScaled"` (2) /
+      `"FixedScaledByAge"` (3);
+    - `Estimate_index_sd` / `Estimate_catch_sd`: `"Fixed"` (0) / `"Estimated"` (1) /
+      `"Analytical"` (2);
+    - `srr_est_mode` (via `build_srr()`): `"Fixed"` (0) / `"Estimated"` (1) /
+      `"LognormalPrior"` (2) / `"BetaPrior"` (3);
+    - `suitMode`: the documented string map (`"Empirical"`, `"GammaWeight"`, …) is
+      now actually applied (previously defined but never wired).
 
 ## Deprecations
 

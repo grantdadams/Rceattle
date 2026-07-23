@@ -203,15 +203,35 @@ estDynamics_map <- c(
 # resolved early, in switch_check().
 .map_switch <- function(x, map, name) {
   if (is.null(x) || !is.character(x)) return(x)
-  bad <- setdiff(x, names(map))
+  bad <- setdiff(x[!is.na(x)], names(map))
   if (length(bad) > 0) {
     stop(sprintf("Invalid '%s' value(s): %s. Options: %s (or the integer codes %s).",
                  name, paste(unique(bad), collapse = ", "),
                  paste(names(map), collapse = ", "),
                  paste(unname(map), collapse = ", ")), call. = FALSE)
   }
-  unname(map[x])
+  unname(map[x])   # map[NA] is NA, so off-fleet NAs pass through
 }
+
+# Observation-SD estimation mode for a survey index or catch series
+# (fleet_control$Estimate_index_sd / Estimate_catch_sd). 0 = use the fixed SD
+# implied by the data CV (not estimated); 1 = estimate; 2 = analytical
+# (Ludwig-Walters 1994). "Fixed" reads plainly for the 0 = not-estimated case.
+estimate_sd_map <- c(
+  "Fixed"      = 0,
+  "Estimated"  = 1,
+  "Analytical" = 2
+)
+
+# Stock-recruit hyperparameter estimation mode (data_list$srr_est_mode; set via
+# build_srr()). 0 = fix alpha/steepness at its prior mean (not estimated);
+# 1 = freely estimate; 2 = lognormal prior; 3 = beta prior.
+srr_est_mode_map <- c(
+  "Fixed"          = 0,
+  "Estimated"      = 1,
+  "LognormalPrior" = 2,
+  "BetaPrior"      = 3
+)
 
 
 #' Function to check for missing switches for map and parameter functions
@@ -268,6 +288,15 @@ switch_check <- function(data_list){
   # build_map()/build_params() read estDynamics numerically, before
   # convert_switches() runs.
   data_list$estDynamics <- .map_switch(data_list$estDynamics, estDynamics_map, "estDynamics")
+  data_list$suitMode <- .map_switch(data_list$suitMode, suitMode_map, "suitMode")
+  if (!is.null(data_list$fleet_control$Estimate_index_sd)) {
+    data_list$fleet_control$Estimate_index_sd <-
+      .map_switch(data_list$fleet_control$Estimate_index_sd, estimate_sd_map, "Estimate_index_sd")
+  }
+  if (!is.null(data_list$fleet_control$Estimate_catch_sd)) {
+    data_list$fleet_control$Estimate_catch_sd <-
+      .map_switch(data_list$fleet_control$Estimate_catch_sd, estimate_sd_map, "Estimate_catch_sd")
+  }
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
   data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
