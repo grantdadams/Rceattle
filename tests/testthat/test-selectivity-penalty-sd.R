@@ -41,6 +41,40 @@ testthat::test_that("penalty SD columns are rejected on non-non-parametric forms
                          "NonParametric")
 })
 
+testthat::test_that("LogisticPM accepts Sel_shape_sd / Sel_devmag_sd (two-sided, positive)", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  f <- which(d$fleet_control$Selectivity == 1)[1]   # repurpose a logistic fleet
+  testthat::skip_if(length(f) == 0)
+  d$fleet_control$Selectivity[f] <- 11              # LogisticPM
+  d$fleet_control$Sel_shape_sd  <- NA_real_; d$fleet_control$Sel_shape_sd[f]  <- 1 / sqrt(2 * 20)
+  d$fleet_control$Sel_devmag_sd <- NA_real_; d$fleet_control$Sel_devmag_sd[f] <- 1 / sqrt(2 * 8)
+  out <- suppressMessages(Rceattle::switch_check(d))
+  testthat::expect_equal(out$fleet_control$Sel_curve_pen1[f], 20, tolerance = 1e-8)  # pen1 (shape)
+  testthat::expect_equal(out$fleet_control$Sel_curve_pen3[f], 8,  tolerance = 1e-8)  # pen3 (dev-mag)
+})
+
+testthat::test_that("Sel_curvature_sd is rejected on LogisticPM (pen2 unused there)", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  f <- which(d$fleet_control$Selectivity == 1)[1]
+  testthat::skip_if(length(f) == 0)
+  d$fleet_control$Selectivity[f] <- 11
+  d$fleet_control$Sel_curvature_sd <- NA_real_; d$fleet_control$Sel_curvature_sd[f] <- 0.2
+  testthat::expect_error(suppressMessages(Rceattle::switch_check(d)), "NonParametric")
+})
+
+testthat::test_that("Sel_shape_dir = 'Increasing' is rejected on LogisticPM (two-sided)", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  f <- which(d$fleet_control$Selectivity == 1)[1]
+  testthat::skip_if(length(f) == 0)
+  d$fleet_control$Selectivity[f] <- 11
+  d$fleet_control$Sel_shape_sd  <- NA_real_; d$fleet_control$Sel_shape_sd[f]  <- 0.2
+  d$fleet_control$Sel_shape_dir <- NA;       d$fleet_control$Sel_shape_dir[f] <- "Increasing"
+  testthat::expect_error(suppressMessages(Rceattle::switch_check(d)), "two-sided")
+})
+
 testthat::test_that("a non-positive penalty SD is rejected", {
   testthat::skip_if_not_installed("Rceattle")
   d <- Rceattle::BS2017SS

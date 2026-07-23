@@ -366,59 +366,75 @@ switch_check <- function(data_list){
   # logistic-only models).
   .np_hake <- any(data_list$fleet_control$Selectivity %in%
                     c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 5, "Hake", 11, "LogisticPM"))
-  # Intuitive alternative to the cryptic non-parametric penalty WEIGHTS: express
-  # each as a standard deviation. Every non-parametric shape/curvature/dev-magnitude
-  # penalty is a Gaussian SSQ `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`.
-  # A fleet may supply `Sel_shape_sd` (+ `Sel_shape_dir` "Decreasing"/"Increasing"
-  # for the directional sign), `Sel_curvature_sd`, `Sel_devmag_sd` instead of
-  # `Sel_curve_pen1/2/3`; convert them here (only where the legacy weight is not
-  # already supplied, so legacy models are untouched / bit-identical). This applies
-  # to the penalty-weight forms only -- LogisticPM RW weights and 2D/3D-AR1
-  # logit-rho reuse of Sel_curve_pen keep the legacy columns.
-  .fc <- data_list$fleet_control
+  # Intuitive alternative to the cryptic selectivity penalty WEIGHTS: express each
+  # as a standard deviation. Every such penalty is a Gaussian SSQ
+  # `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`. A fleet may supply
+  # the SD column instead of the raw `Sel_curve_pen` weight; convert it here (only
+  # where the legacy weight is not already supplied, so legacy models are untouched
+  # / bit-identical). Each SD column applies to the selectivity FORMS that use its
+  # `Sel_curve_pen` slot as a penalty weight -- on any other form the slot is a
+  # logit-scale correlation (2D/3D-AR1) or unused, so setting the SD there is
+  # rejected rather than silently converted. A non-positive/non-finite SD (sd = 0
+  # would give an Inf penalty; a negative SD squares to a spurious weight) is also
+  # rejected.
+  .fc  <- data_list$fleet_control
   .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
-  .cp1 <- .col("Sel_curve_pen1"); .cp2 <- .col("Sel_curve_pen2"); .cp3 <- .col("Sel_curve_pen3")
-  # Guard the SD columns: they reformulate NON-PARAMETRIC penalty weights only.
-  # On LogisticPM / 2D-3D-AR1 forms `Sel_curve_pen` holds RW weights / logit-scale
-  # correlations, so converting an SD there would silently corrupt them -- reject
-  # rather than convert. Also reject a non-positive / non-finite SD (sd = 0 would
-  # give an Inf penalty; a negative SD is meaningless but squares to a weight).
-  .np_form <- .fc$Selectivity %in%
-    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
-  for (nm in c("Sel_shape_sd", "Sel_curvature_sd", "Sel_devmag_sd")) {
+  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
+  .lpm <- c(11, "LogisticPM")
+  # SD column -> (target Sel_curve_pen slot, forms that use it as a weight). Both
+  # NonParametric (2/9) and LogisticPM (11) use pen1 (shape) and pen3 (dev-mag) as
+  # Gaussian weights; only NonParametric uses pen2 (curvature) -- LogisticPM leaves
+  # it unused.
+  .sd_specs <- list(
+    Sel_shape_sd     = list(pen = "Sel_curve_pen1", forms = c(.np, .lpm)),
+    Sel_curvature_sd = list(pen = "Sel_curve_pen2", forms = .np),
+    Sel_devmag_sd    = list(pen = "Sel_curve_pen3", forms = c(.np, .lpm))
+  )
+  .pen <- list(Sel_curve_pen1 = .col("Sel_curve_pen1"),
+               Sel_curve_pen2 = .col("Sel_curve_pen2"),
+               Sel_curve_pen3 = .col("Sel_curve_pen3"))
+  .dir <- if (is.null(.fc$Sel_shape_dir)) rep("Decreasing", nrow(.fc)) else as.character(.fc$Sel_shape_dir)
+  .is_incr <- .dir %in% c("Increasing", "increasing", "-1")
+  for (nm in names(.sd_specs)) {
     v <- .col(nm)
-    bad_form <- which(!is.na(v) & !.np_form)
+    if (all(is.na(v))) next
+    spec <- .sd_specs[[nm]]
+    bad_form <- which(!is.na(v) & !(.fc$Selectivity %in% spec$forms))
     if (length(bad_form) > 0) {
       stop(sprintf(paste0(
-        "'%s' is a penalty-SD column for NON-parametric selectivity, but is set ",
-        "on fleet(s) %s whose Selectivity is not 'NonParametric'/'NonParametricPM'. ",
-        "Use Sel_curve_pen for LogisticPM / 2DAR1 / 3DAR1 forms."),
-        nm, paste(bad_form, collapse = ", ")), call. = FALSE)
+        "'%s' (a penalty-SD column) is set on fleet(s) %s whose Selectivity does ",
+        "not use that penalty slot as a weight; it applies to %s only (use ",
+        "Sel_curve_pen for other forms)."), nm, paste(bad_form, collapse = ", "),
+        if (identical(spec$forms, .np)) "NonParametric/NonParametricPM"
+        else "NonParametric/NonParametricPM/LogisticPM"), call. = FALSE)
     }
     bad_val <- which(!is.na(v) & !(is.finite(v) & v > 0))
     if (length(bad_val) > 0) {
       stop(sprintf(paste0(
-        "'%s' must be a positive standard deviation; fleet(s) %s have a ",
-        "non-positive or non-finite value."),
-        nm, paste(bad_val, collapse = ", ")), call. = FALSE)
+        "'%s' must be a positive standard deviation; fleet(s) %s are non-positive ",
+        "or non-finite."), nm, paste(bad_val, collapse = ", ")), call. = FALSE)
     }
+    w <- 1 / (2 * v^2)
+    # The shape penalty is DIRECTIONAL for the non-parametric forms only (the sign
+    # of pen1 sets penalize-decreasing vs -increasing); LogisticPM's shape term is
+    # two-sided (d^2), so its weight must stay positive.
+    if (nm == "Sel_shape_sd") {
+      np_here <- .fc$Selectivity %in% .np
+      bad_dir <- which(!is.na(v) & !np_here & .is_incr)
+      if (length(bad_dir) > 0) {
+        stop(sprintf(paste0(
+          "Sel_shape_dir = 'Increasing' on fleet(s) %s, but their (LogisticPM) ",
+          "shape penalty is two-sided -- the weight must be positive."),
+          paste(bad_dir, collapse = ", ")), call. = FALSE)
+      }
+      w <- ifelse(np_here & .is_incr, -w, w)
+    }
+    u <- !is.na(v) & is.na(.pen[[spec$pen]])
+    .pen[[spec$pen]][u] <- w[u]
   }
-  .sd2w <- function(sd) 1 / (2 * sd^2)
-  if (!is.null(.fc$Sel_shape_sd)) {
-    .ss <- suppressWarnings(as.numeric(.fc$Sel_shape_sd))
-    .dir <- if (is.null(.fc$Sel_shape_dir)) rep("Decreasing", nrow(.fc)) else as.character(.fc$Sel_shape_dir)
-    .sgn <- ifelse(.dir %in% c("Increasing", "increasing", "-1"), -1, 1)
-    .u <- !is.na(.ss) & is.na(.cp1); .cp1[.u] <- .sgn[.u] * .sd2w(.ss[.u])
-  }
-  if (!is.null(.fc$Sel_curvature_sd)) {
-    .sc <- suppressWarnings(as.numeric(.fc$Sel_curvature_sd)); .u <- !is.na(.sc) & is.na(.cp2); .cp2[.u] <- .sd2w(.sc[.u])
-  }
-  if (!is.null(.fc$Sel_devmag_sd)) {
-    .sm <- suppressWarnings(as.numeric(.fc$Sel_devmag_sd)); .u <- !is.na(.sm) & is.na(.cp3); .cp3[.u] <- .sd2w(.sm[.u])
-  }
-  data_list$fleet_control$Sel_curve_pen1 <- .cp1
-  data_list$fleet_control$Sel_curve_pen2 <- .cp2
-  data_list$fleet_control$Sel_curve_pen3 <- .cp3
+  data_list$fleet_control$Sel_curve_pen1 <- .pen$Sel_curve_pen1
+  data_list$fleet_control$Sel_curve_pen2 <- .pen$Sel_curve_pen2
+  data_list$fleet_control$Sel_curve_pen3 <- .pen$Sel_curve_pen3
   data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, if(.np_hake) "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
