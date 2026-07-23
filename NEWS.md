@@ -93,6 +93,14 @@
   `est_phase` on a composition spec, or a linkage on a fleet/predator not fit
   with the `DirichletMultinomial` likelihood, errors up front.
 
+* **Readable string aliases for integer-coded switches.** Following the CIE
+  review's "rename options to improve interpretability" (e.g. *constant → not
+  estimated*), integer-only switches now also accept self-explanatory strings,
+  resolved by `switch_check()` to the same integer codes (so fits are identical).
+  `estDynamics` accepts `"Estimated"` (0) / `"Fixed"` (1) / `"FixedScaled"` (2) /
+  `"FixedScaledByAge"` (3). New aliases follow a consistent convention — the
+  not-estimated value is `"Fixed"`, estimated is `"Estimated"`.
+
 ## Deprecations
 
 * **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour

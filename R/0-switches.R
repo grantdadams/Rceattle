@@ -184,6 +184,35 @@ hcr_map <- c(
   "SESSF"        = 7
 )
 
+# Numbers-at-age estimation mode, per species (data_list$estDynamics).
+# 0 = estimate the population dynamics; 1 = use fixed input numbers-at-age from
+# NByageFixed; 2 = scale the fixed input by one estimated coefficient; 3 = scale
+# it by an age-specific estimated coefficient. Named per the Fixed/Estimated
+# convention so "0 = not estimated" reads plainly.
+estDynamics_map <- c(
+  "Estimated"        = 0,
+  "Fixed"            = 1,
+  "FixedScaled"      = 2,
+  "FixedScaledByAge" = 3
+)
+
+# Apply a string->integer switch map to a (possibly character) switch value,
+# passing integers through unchanged and erroring clearly on an unknown string.
+# Used for switches consumed as bare integers before convert_switches() runs
+# (e.g. estDynamics is read numerically by build_map()), so the string must be
+# resolved early, in switch_check().
+.map_switch <- function(x, map, name) {
+  if (is.null(x) || !is.character(x)) return(x)
+  bad <- setdiff(x, names(map))
+  if (length(bad) > 0) {
+    stop(sprintf("Invalid '%s' value(s): %s. Options: %s (or the integer codes %s).",
+                 name, paste(unique(bad), collapse = ", "),
+                 paste(names(map), collapse = ", "),
+                 paste(unname(map), collapse = ", ")), call. = FALSE)
+  }
+  unname(map[x])
+}
+
 
 #' Function to check for missing switches for map and parameter functions
 #'
@@ -235,6 +264,10 @@ switch_check <- function(data_list){
 
   # Model and multi-species switches
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
+  # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
+  # build_map()/build_params() read estDynamics numerically, before
+  # convert_switches() runs.
+  data_list$estDynamics <- .map_switch(data_list$estDynamics, estDynamics_map, "estDynamics")
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
   data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
