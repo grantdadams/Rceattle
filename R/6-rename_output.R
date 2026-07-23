@@ -140,7 +140,7 @@ rename_output <- function(data_list = NULL, quantities = NULL){
     "Initial abundance deviates",
     "Recruitment deviates",
     "Stock-recruit penalty",
-    "Reference point penalities",
+    "Reference point penalties",
     "Zero n-at-age penalty",
     "M prior",
     "M random effects",

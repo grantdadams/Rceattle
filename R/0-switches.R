@@ -239,6 +239,13 @@ switch_check <- function(data_list){
   data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
+  # `est_M1` was renamed to `M1_model`. A data list carrying only the old name
+  # would otherwise fall through to the default below and silently fix M1 (mode
+  # 0) -- dropping the requested M1 estimation. Accept the deprecated name.
+  if (is.null(data_list$M1_model) && !is.null(data_list$est_M1)) {
+    data_list$M1_model <- data_list$est_M1
+    message("'est_M1' is deprecated; use 'M1_model'.")
+  }
   data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
   data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
