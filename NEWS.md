@@ -40,6 +40,28 @@
   presence-requirement gates were refactored to consume one declarative
   requirement table, so the reader and the validator can never drift apart.
 
+* **`build_data()` — assemble a data list in R.** A code-first constructor
+  complementing `read_data()`: supply only the blocks a model uses and the
+  optional blocks a single-species model does not need are default-filled by
+  `clean_data()`. Three combinable entry points cover the workflows real
+  assessments use:
+
+    ```r
+    build_data(base = BS2017SS, projyr = 2060)          # copy-and-edit a dataset
+    build_data(file = "model.xlsx", fleet_control = fc) # read a workbook, override
+    build_data(nspp = 1, styr = 1977, endyr = 2023,     # assemble from blocks
+               fleet_control = fc, catch_data = catch, index_data = survey)
+    ```
+
+  Overrides are checked against the recognised schema, so a typo (`maturty`) is
+  caught at construction with a suggestion rather than surfacing later in a fit;
+  legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to
+  their canonical equivalents. Validation is deferred to `data_check()` at fit
+  time (one source of truth); `build_data()` runs only a light presence
+  pre-check so a missing required block is reported early. The result is the
+  same bare list `read_data()` returns and round-trips through `write_data()`
+  unchanged — a `build_data(base = X)` object fits bit-identically to `X`.
+
 ## Bug fixes
 
 * **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
