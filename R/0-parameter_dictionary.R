@@ -75,6 +75,8 @@
       "Transformed autocorrelation for each ar1() linkage group. Length 0 unless a correlated (ar1) random linkage is used.", "[n_re_ar1_group]"),
     r("beta_linkage_obs", "linkage QAR1 effect size", "linkage",
       "Rogers et al. (2024) QAR1 effect size: one per observed ar1 linkage group (`observe = `), scaling the latent deviate into the linked parameter. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
+    r("log_obs_sd_linkage", "linkage QAR1 observation log-SD", "linkage",
+      "Rogers et al. (2024) QAR1 observation log-SD: one per observed ar1 linkage group (`observe = `), the SD of the covariate around the latent deviate. Fixed by default; estimated with `linkage_spec(obs_sd_est = TRUE)`. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
 
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",
