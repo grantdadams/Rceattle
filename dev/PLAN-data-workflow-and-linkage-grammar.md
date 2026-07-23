@@ -716,12 +716,17 @@ lag and env_data positional-alignment hardened; Fixed/Analytical-q linkages now 
 Verified: golden bit-identical, density-math exact to machine precision, full linkage suite
 green. `sigma` is the *innovation* SD for `rw()` and the *marginal* SD for `ar1()`.
 
-**NEXT — Dirichlet-multinomial comp priors (in progress).** A `comp` process on the grammar
-(`theta_comp`/`theta_caal`/`theta_diet`, `by = ~fleet`/`~pred`) so a prior on the DM
-weight falls out of `linkage_spec(priors=)` via the intercept-re-target loop; attach only
-when `Comp_loglike == "DirichletMultinomial"`, error otherwise. `comp_weights` is stored
-un-logged and `exp()`d in the cpp (`DM_pars = exp(comp_weights)`), so decide the prior
-scale deliberately.
+**DONE — Dirichlet-multinomial comp priors.** A `comp` process on the grammar
+(`theta_comp`/`theta_caal`/`theta_diet`) so a prior on the DM weight falls out of
+`linkage_spec(priors=)` via the intercept-re-target loop (`build_composition()`, commit
+0f37bdf7). Prior on the natural scale `theta = exp(weight)` (comp_weights stored un-logged);
+attaches only under `DirichletMultinomial`, errors otherwise. Prior-only: covariate/init/
+est_phase rejected. Each row targets one weight (no cpp broadcast), so a spec must name the
+correct stratum — `theta_comp`/`theta_caal` are fleet-indexed (`by = ~ fleet`), `theta_diet`
+predator-indexed (`by = ~ species`); a mis-stratified spec errors up front. Adversarially
+reviewed (5/6 claims confirmed; the fleet-indexing mis-stratification bug found + fixed).
+Verified: golden bit-identical, `theta_comp` gamma prior exact to rounding, `theta_diet`
+end-to-end bit-exact, 10 committed tests green.
 
 **DEFERRED — noted for later (Grant's request):**
 1. **Legacy translators + `_sd` renames.** Auto-translate `Time_varying_q`/`Time_varying_sel`/
