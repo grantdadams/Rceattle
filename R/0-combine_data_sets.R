@@ -7,13 +7,19 @@
 #'
 combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
+  # Fold the deprecated `est_M1` into `M1_model` on both inputs first, so a
+  # legacy (est_M1) list combines correctly with a modern (M1_model) one -- both
+  # then concatenate under the single `M1_model` name below.
+  data_list1 <- .alias_est_M1(data_list1)
+  data_list2 <- .alias_est_M1(data_list2)
+
   data_list_new <- data_list1
 
   dat_names <- names(data_list_new)
 
   names_not_used <- c("nspp", "styr", "endyr", "projyr")
 
-  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "M1_model", "est_M1", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_loglike", "Diet_comp_weights") # Object names of vectors (M1_model is the current name; est_M1 kept for back-compat)
+  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "M1_model", "M1_re", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_loglike", "Diet_comp_weights") # Object names of per-species vectors
 
   mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "caal_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "weight",   "maturity", "sex_ratio", "M1_base", "ration_data", "diet_data") # Object names of matrices
 

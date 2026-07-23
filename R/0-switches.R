@@ -213,6 +213,21 @@ estDynamics_map <- c(
   unname(map[x])   # map[NA] is NA, so off-fleet NAs pass through
 }
 
+# `est_M1` was renamed to `M1_model`. Fold the deprecated name into `M1_model`
+# so it is honoured everywhere `M1_model` is (fit_mod's M1Fun reconciliation,
+# switch_check's default, combine_data). Only fires when `M1_model` is unset and
+# `est_M1` carries a real (non-all-NA) value -- an all-NA `est_M1` (e.g. the
+# GOA2018SS placeholder) means "not specified" and must fall through to the
+# `M1_model` default, not pin it to NA.
+.alias_est_M1 <- function(data_list) {
+  if (is.null(data_list$M1_model) && !is.null(data_list$est_M1) &&
+      !all(is.na(data_list$est_M1))) {
+    data_list$M1_model <- data_list$est_M1
+    message("'est_M1' is deprecated; use 'M1_model'.")
+  }
+  data_list
+}
+
 # Observation-SD estimation mode for a survey index or catch series
 # (fleet_control$Estimate_index_sd / Estimate_catch_sd). 0 = use the fixed SD
 # implied by the data CV (not estimated); 1 = estimate; 2 = analytical
@@ -264,9 +279,7 @@ switch_check <- function(data_list){
     if (!is.null(fc[[old]])) {
       if (is.null(fc[[new]])) fc[[new]] <- fc[[old]]
       fc[[old]] <- NULL
-      message(sprintf(
-        "'%s' is deprecated; use '%s' (the input SD value, not a prior).",
-        old, new))
+      message(sprintf("'%s' is deprecated; use '%s'.", old, new))
     }
     fc
   }
@@ -310,13 +323,7 @@ switch_check <- function(data_list){
   data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
-  # `est_M1` was renamed to `M1_model`. A data list carrying only the old name
-  # would otherwise fall through to the default below and silently fix M1 (mode
-  # 0) -- dropping the requested M1 estimation. Accept the deprecated name.
-  if (is.null(data_list$M1_model) && !is.null(data_list$est_M1)) {
-    data_list$M1_model <- data_list$est_M1
-    message("'est_M1' is deprecated; use 'M1_model'.")
-  }
+  data_list <- .alias_est_M1(data_list)
   data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
   data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")

@@ -268,6 +268,11 @@ fit_mod <-
     data_list$Bmsy_lim     <- extend_length(recFun$Bmsy_lim)
 
     # * M switches ----
+    # Fold the deprecated `est_M1` into `M1_model` here -- BEFORE the M1Fun
+    # reconciliation below -- so it gets the same treatment as `M1_model`
+    # (the switch_check() alias runs later, after M1_model is already resolved
+    # from M1Fun, so it cannot help the fit path).
+    data_list <- .alias_est_M1(data_list)
     if (!is.null(data_list$M1_model)) {
       if (sum(data_list$M1_model != extend_length(M1Fun$M1_model))) {
         warning("M1_model in data is different than in call `fit_mod`, using switch from 'fit_mod'")

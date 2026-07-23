@@ -24,13 +24,18 @@
 
 ## Bug fixes
 
-* **A data list using the documented `est_M1` name no longer silently fixes M.**
-  The natural-mortality estimation switch was renamed `est_M1` → `M1_model` in the
-  fitting code, but the data dictionary still documented `est_M1` and no alias
-  existed, so a data list carrying `est_M1` fell through to the default and
-  silently set `M1_model = 0` (fixed M) — dropping the requested M1 estimation.
-  `switch_check()` now accepts `est_M1` (with a deprecation message), `combine_data()`
-  carries `M1_model` through, and the dictionary documents `M1_model`.
+* **The deprecated `est_M1` name is now recognized everywhere `M1_model` is.**
+  The natural-mortality estimation switch was renamed `est_M1` → `M1_model`, but
+  the data dictionary still documented `est_M1` and no alias existed, so a data
+  list carrying `est_M1` was silently ignored — it fell through to the `M1_model`
+  default with no warning. `est_M1` is now folded into `M1_model` in `fit_mod()`
+  (before the `build_M1()` reconciliation), `switch_check()`, and `combine_data()`,
+  with a deprecation message. As with `M1_model`, the value set on the data list
+  is a default that an explicit `build_M1(M1_model = ...)` argument overrides — but
+  a data-list value that differs from the `build_M1()` setting now *warns* rather
+  than being dropped silently. The recommended way to request M1 estimation remains
+  `fit_mod(..., M1Fun = build_M1(M1_model = ...))`. The dictionary now documents
+  `M1_model`.
 
 * **A catchability linkage on a non-estimated q now errors.** A `q` linkage
   (environmental or random-effect) on a fleet whose `Catchability` is `"Fixed"`
