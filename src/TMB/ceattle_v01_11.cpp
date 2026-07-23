@@ -3838,6 +3838,13 @@ Type objective_function<Type>::operator() () {
   // once per group (not per level -- the loop is over groups, so the "once"
   // property is structural). Shares the linkage-prior row and the same families
   // as the fixed-beta prior loop above, on the natural-scale SD exp(log_sigma).
+  // FIXME(jacobian): the normal/gamma/beta families place the prior on the
+  // natural-scale SD while the free parameter is log_sigma, WITHOUT the change-
+  // of-variables Jacobian d(sd)/d(log_sigma) = sd. This is a penalized-likelihood
+  // prior, not a proper Bayesian prior on the SD (it matches the existing
+  // fixed-beta prior loop's convention). `lognormal` is exempt: dnorm(log(sd),..)
+  // has a constant Jacobian w.r.t. log_sigma. Add `+ log_sigma` to the log-prior
+  // for the natural-scale families if a proper density is wanted.
   if (log_sigma_linkage.size() > 0) {
     for (int g = 0; g < log_sigma_linkage.size(); ++g) {
       int fam = linkage_re_sigma_prior_family(g);
@@ -3865,6 +3872,9 @@ Type objective_function<Type>::operator() () {
   // from linkage_spec(priors = list(rho = ...)) on an ar1 group. On the natural
   // (-1, 1) correlation rho = rho_trans(trans_rho_linkage): normal(p1, p2)
   // directly, or beta(p1, p2) on (rho + 1) / 2. Once per group.
+  // FIXME(jacobian): as with the sigma priors above, the prior is on the natural
+  // rho while the free parameter is trans_rho_linkage, without the rho_trans
+  // Jacobian -- a penalized-likelihood prior, not a proper density on rho.
   if (trans_rho_linkage.size() > 0) {
     for (int g = 0; g < linkage_re_rho.size(); ++g) {
       int fam = linkage_re_rho_prior_family(g);

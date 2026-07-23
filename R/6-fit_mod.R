@@ -333,10 +333,19 @@ fit_mod <-
     # * Pool process linkages into a global table + design matrix ----
     # No-op when no build_*() supplied a `linkages` list. When
     # linkages are present, this materializes each spec against
-    # data_list$env_data and unions design columns by name. The
-    # resulting `linkage_table` and `linkage_X` are used downstream
-    # once the TMB template knows how to consume them; for now they
-    # are computed (and validated) but not yet plumbed into TMB.
+    # data_list$env_data and unions design columns by name.
+    #
+    # Linkages consume env_data POSITIONALLY: row r is applied to model year
+    # styr + r - 1 (years beyond env_data get a zero offset). So a `Year`
+    # column must be sorted, start at styr, and be contiguous, or a covariate /
+    # deviate lands on the wrong year. Validate up front rather than misalign.
+    .has_linkage <- any(vapply(
+      list(data_list$growth_linkages, data_list$M1_linkages,
+           data_list$srr_linkages, data_list$q_linkages, data_list$sel_linkages),
+      function(x) !is.null(x) && length(x) > 0L, logical(1)))
+    if (.has_linkage) {
+      .check_env_data_years(data_list$env_data, data_list$styr)
+    }
     .linkage_pool <- pool_linkages(
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,

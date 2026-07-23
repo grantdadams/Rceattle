@@ -1004,22 +1004,57 @@ with mixed `nsex` (some single-sex, some two-sex species) emit one
 sex level per species automatically -- single-sex species get one row
 per parameter, two-sex species get two.
 
+## Random effects
+
+A linkage formula may carry a **random effect**, so a parameter varies
+year-to-year (or over any grouping) as a set of deviations damped by an
+estimated density rather than fixed covariate slopes:
+
+* `~ (1 | Year)` -- **IID** deviations, `N(0, sigma)`;
+* `rw(1 | Year)` -- a **random walk**, `N(0, sigma)` on first differences
+  (first deviate pinned so the base parameter carries the level);
+* `ar1(1 | Year)` -- a stationary **AR1**, `SCALE(AR1(rho), sigma)` with
+  `sigma` the marginal SD and `rho` the correlation.
+
+Each grouping level gets one deviation; each group estimates its own SD. The
+SD and (for `ar1`) the correlation route through the same `init` / `priors`
+arguments as every other parameter: `init = list(sigma = 0.1)` fixes the SD
+(reproducing the legacy `Time_varying_*_sd_prior` input), `init = list(rho =
+0.7)` fixes the correlation, and `priors = list(sigma = lognormal(...))` /
+`priors = list(rho = normal(...))` place priors. `rw()` / `ar1()` need a
+numeric grouping variable (a real elapsed-time lag).
+
+An `ar1(1 | Year)` term can additionally be a **state-space covariate** (the
+Rogers et al. 2024 QAR1 catchability model): with `observe = "<env column>",
+obs_sd = <value>` the AR1 latent is observed as an `env_data` column with a
+fixed measurement SD and enters the linked parameter through an estimated
+effect size. The effect size and the AR1 SD are separately identified only when
+`obs_sd` is informative (small relative to the latent's SD); an uninformatively
+large `obs_sd` lets the observation stop pinning the latent, so use the
+measured series' actual measurement error.
+
+`rw()` / `ar1()` couple *consecutive* deviations with a unit lag, so their time
+points must be **equally spaced** -- a gap (a missing year) would be silently
+treated as a single step. A grid with gaps errors rather than mis-specifying
+the process.
+
+`env_data` is applied to model years **by row position**: row 1 is the model
+start year, and years beyond the last row get a zero offset (so `env_data` may
+stop short of the projection horizon). When `env_data` carries a `Year` column
+it must start at `styr` and be contiguous; a misaligned or gappy `Year` errors
+rather than applying a covariate/deviate to the wrong year.
+
 ## On the roadmap
 
-* **Random-effects grouping** -- the `re_group` column on the linkage
-  table is stored end-to-end; the cpp will grow a hierarchical
-  penalty so coefficients sharing a `re_group` value are partially
-  pooled.
+* **Legacy translation** -- `Time_varying_q` / `Time_varying_sel` / `M1_re`
+  configurations are not yet auto-translated onto the equivalent random-effect
+  grammar; both paths coexist. The `Time_varying_*_sd_prior` column is an input
+  SD (reproduced by `init = list(sigma = )`), not a prior, despite its name.
 * **Age-dependent linkages on processes other than M** -- the
   `age_bin` stratum is consumed by the M accumulator today (a
   row's `age_bin == NA` broadcasts across ages; specific values
   pin the offset to that age slice). The schema is reserved for
   other processes that may eventually vary by age.
-* **Random-effect selectivity/catchability deviates** -- fixed-effect
-  covariate linkages on `q` and `sel` work today (see above); the
-  `~ (1 | Year)` / `rw()` / `ar1()` random-effect forms and the
-  translation of `Time_varying_q` / `Time_varying_sel` onto them wait on
-  the shared random-effect machinery.
 * **Non-parametric selectivity** -- a `coff` linkage needs a per-bin
   covariate, since a per-year scalar cancels under the annual
   mean-centring; the formula grammar does not yet express that.

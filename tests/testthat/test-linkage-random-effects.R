@@ -50,6 +50,26 @@ testthat::test_that("a fixed-effect prior on an RE column is rejected", {
     Rceattle:::encode_linkage_for_tmb(bad, pool$X), "fixed-effect prior")
 })
 
+testthat::test_that("env_data must align to the model years for linkages", {
+  # Linkages apply env_data positionally (row r -> model year styr + r - 1), so
+  # a Year column must start at styr and be contiguous.
+  ok <- data.frame(Year = 1979:2000, temp = 0)
+  testthat::expect_silent(Rceattle:::.check_env_data_years(ok, 1979L))
+  # starts after styr
+  testthat::expect_error(
+    Rceattle:::.check_env_data_years(data.frame(Year = 1985:2000), 1979L),
+    "must start at the model start year")
+  # interior gap (1990 missing)
+  testthat::expect_error(
+    Rceattle:::.check_env_data_years(
+      data.frame(Year = c(1979:1989, 1991:2000)), 1979L),
+    "gaps")
+  # a shorter-than-projection but aligned env_data is fine
+  testthat::expect_silent(Rceattle:::.check_env_data_years(data.frame(Year = 1979:1985), 1979L))
+  # no Year column -> positional contract assumed, no error
+  testthat::expect_silent(Rceattle:::.check_env_data_years(data.frame(temp = 1:5), 1979L))
+})
+
 # ---- end-to-end density (skip_on_cran) --------------------------------------
 
 .re_row <- function(fit) {
@@ -215,6 +235,26 @@ testthat::test_that("rw()/ar1() require a numeric grouping variable", {
       ~ rw(1 | Year), param = "q", by = ~ fleet, fleet = 1L))),
       env_data = env, strata = list(fleet = 1L)),
     "numeric grouping")
+})
+
+testthat::test_that("rw()/ar1() require equally-spaced time (reject gaps)", {
+  # A gap (missing 2002) would be silently treated as a unit lag -- wrong
+  # variance (rw) / correlation (ar1). It must error, not mis-specify.
+  gap <- data.frame(Year = c(2000, 2001, 2003, 2004), fleet = 1L)
+  for (form in c(~ rw(1 | Year), ~ ar1(1 | Year))) {
+    testthat::expect_error(
+      Rceattle:::pool_linkages(list(q = list(q = Rceattle::linkage_spec(
+        form, param = "q", by = ~ fleet, fleet = 1L))),
+        env_data = gap, strata = list(fleet = 1L)),
+      "equally-spaced")
+  }
+  # a regularly-spaced (non-unit) grid is fine
+  reg <- data.frame(Year = c(2000, 2002, 2004, 2006), fleet = 1L)
+  testthat::expect_s3_class(
+    Rceattle:::pool_linkages(list(q = list(q = Rceattle::linkage_spec(
+      ~ ar1(1 | Year), param = "q", by = ~ fleet, fleet = 1L))),
+      env_data = reg, strata = list(fleet = 1L))$table,
+    "Rceattle_linkage_table")
 })
 
 testthat::test_that("init = list(sigma = v) fixes the deviation SD at v", {

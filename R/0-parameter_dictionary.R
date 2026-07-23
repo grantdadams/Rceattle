@@ -73,6 +73,8 @@
       "Log standard deviation of each random-effect linkage group; the variance of the time-varying deviations. Can be input (init) or given a prior. Length 0 without a random linkage.", "[n_re_group]"),
     r("trans_rho_linkage", "linkage RE correlation", "linkage",
       "Transformed autocorrelation for each ar1() linkage group. Length 0 unless a correlated (ar1) random linkage is used.", "[n_re_ar1_group]"),
+    r("beta_linkage_obs", "linkage QAR1 effect size", "linkage",
+      "Rogers et al. (2024) QAR1 effect size: one per observed ar1 linkage group (`observe = `), scaling the latent deviate into the linked parameter. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
 
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",

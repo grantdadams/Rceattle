@@ -845,11 +845,30 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       stats::as.formula(sprintf("~ 0 + factor(%s)", grp_var)), data = env_data)
     lev <- sub(sprintf("^factor\\(%s\\)", grp_var), "", colnames(ind))
     colnames(ind) <- sprintf("%s_re::%s", grp_var, lev)
-    # Numeric level value drives the real-elapsed-time ordering that rw()/ar1()
+    # Numeric level value drives the elapsed-time ordering that rw()/ar1()
     # require (the numeric-Year rule). A non-numeric grouping (e.g. a regime
     # label) yields NA here; that is fine for IID (order-invariant) and is
     # rejected for rw()/ar1() where a true lag is needed.
     lev_num <- suppressWarnings(as.numeric(lev))
+    # rw()/ar1() couple CONSECUTIVE deviations with a unit lag, so the time
+    # points must be EQUALLY SPACED. A gap (e.g. a missing year) would be
+    # silently treated as a single step -- wrong variance (rw) / wrong
+    # correlation (ar1). Require equal spacing rather than mis-specify; a
+    # gap-aware (continuous-time) density is future work.
+    if (re_structures[i] != "us" && !anyNA(lev_num)) {
+      ts <- sort(unique(lev_num))
+      if (length(ts) >= 3L) {
+        dts <- diff(ts)
+        if (any(abs(dts - dts[1]) > 1e-8 * max(1, abs(dts[1])))) {
+          stop(sprintf(
+            paste0("random-effect structure `%s(1 | %s)` requires equally-spaced ",
+                   "time points (it couples consecutive deviations with a unit ",
+                   "lag); `%s` has gaps/irregular spacing. Fill the missing ",
+                   "levels or use `(1 | %s)` (IID)."),
+            re_structures[i], grp_var, grp_var, grp_var), call. = FALSE)
+        }
+      }
+    }
     cols[[i]] <- ind
     groups  <- c(groups,  rep(grp_var, ncol(ind)))
     structs <- c(structs, rep(re_structures[i], ncol(ind)))
@@ -912,6 +931,51 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #'     convenience).}
 #' }
 #' @keywords internal
+#' Validate that env_data aligns to the model years for linkages
+#'
+#' @description
+#' Linkages consume `env_data` positionally: row `r` supplies the offset for
+#' model year `styr + r - 1`, and years beyond the last row get a zero offset
+#' (env_data need not span the projection horizon). A misaligned `env_data`
+#' therefore applies a covariate or random-effect deviate to the wrong year. If
+#' `env_data` carries a `Year` column, require it to be sorted, start at `styr`,
+#' and be contiguous (no gaps), erroring loudly otherwise. Without a `Year`
+#' column the positional contract cannot be checked and is assumed.
+#'
+#' @param env_data the covariate/time table (or `NULL`).
+#' @param styr the model start year.
+#' @return invisibly `NULL`; errors on misalignment.
+#' @keywords internal
+#' @noRd
+.check_env_data_years <- function(env_data, styr) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr)) {
+    return(invisible())
+  }
+  yrs <- env_data$Year
+  if (anyNA(yrs) || is.unsorted(yrs, strictly = TRUE)) {
+    stop("env_data$Year must be sorted ascending with no duplicates or NA; ",
+         "linkages align each row to model year styr + (row - 1).",
+         call. = FALSE)
+  }
+  if (yrs[1] != styr) {
+    stop(sprintf(paste0(
+      "env_data$Year must start at the model start year styr (%s); it starts ",
+      "at %s. Linkages align by row position, so env_data must begin at styr."),
+      styr, yrs[1]), call. = FALSE)
+  }
+  if (length(yrs) > 1L && any(diff(yrs) != 1L)) {
+    bad <- yrs[which(diff(yrs) != 1L) + 1L]
+    stop(sprintf(paste0(
+      "env_data$Year has gaps (missing year(s) before %s); linkages align by ",
+      "row = styr + offset, so the years must be contiguous. Fill the missing ",
+      "rows (env_data may still stop short of the projection horizon)."),
+      paste(bad, collapse = ", ")), call. = FALSE)
+  }
+  invisible()
+}
+
+
 pool_linkages <- function(spec_groups, env_data, strata = list()) {
   has_specs <- !is.null(spec_groups) && length(spec_groups) > 0L &&
     any(vapply(spec_groups, length, integer(1)) > 0L)
