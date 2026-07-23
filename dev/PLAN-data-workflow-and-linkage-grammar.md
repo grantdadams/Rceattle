@@ -742,3 +742,15 @@ end-to-end bit-exact, 10 committed tests green.
 3. **Productionize QAR1.** Estimable-`obs_sd` option, a real GOA-pollock reference cross-check,
    the effect-size `beta` in reporting/plots, and read/write round-trip for the `observe`/
    `obs_sd` spec fields.
+4. **Separable `2dar1()` grammar structure.** The grammar AR1 is strictly 1-D, so three legacy
+   configs have **no grammar equivalent** and must stay on the legacy path: `M1_re = 6`
+   (`ar1_age_year`, separable age×year), and the selectivity forms `2DAR1` (6) and `3DAR1` (7).
+   A `2dar1(age_bin, Year)` structure — `SCALE(SEPARABLE(AR1(rho_a), AR1(rho_y)), sigma)` with two
+   `rho` params and a 2D materialized design, mirroring the `M1_re` mode-6 density
+   ([cpp:3455-3476](src/TMB/ceattle_v01_11.cpp#L3455)) — would close the gap and let those
+   translate. Real plumbing (new `linkage_re_struct` code, second rho slot, 2D design assembly);
+   roadmap, not the translator phase. **Related latent bug to fix alongside:** the `M1_re` mode-6
+   branch gates rho estimation on `M1_re_model == 5` instead of `== 6`
+   ([3-build_map.R:354](R/3-build_map.R#L354)), so mode 6's rho stays pinned at 0 and silently
+   collapses to IID (behaves like mode 3). Independent of the rename; needs its own golden
+   consideration (it moves numbers for mode-6 users).
