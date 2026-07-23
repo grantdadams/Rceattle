@@ -378,6 +378,31 @@ switch_check <- function(data_list){
   .fc <- data_list$fleet_control
   .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
   .cp1 <- .col("Sel_curve_pen1"); .cp2 <- .col("Sel_curve_pen2"); .cp3 <- .col("Sel_curve_pen3")
+  # Guard the SD columns: they reformulate NON-PARAMETRIC penalty weights only.
+  # On LogisticPM / 2D-3D-AR1 forms `Sel_curve_pen` holds RW weights / logit-scale
+  # correlations, so converting an SD there would silently corrupt them -- reject
+  # rather than convert. Also reject a non-positive / non-finite SD (sd = 0 would
+  # give an Inf penalty; a negative SD is meaningless but squares to a weight).
+  .np_form <- .fc$Selectivity %in%
+    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
+  for (nm in c("Sel_shape_sd", "Sel_curvature_sd", "Sel_devmag_sd")) {
+    v <- .col(nm)
+    bad_form <- which(!is.na(v) & !.np_form)
+    if (length(bad_form) > 0) {
+      stop(sprintf(paste0(
+        "'%s' is a penalty-SD column for NON-parametric selectivity, but is set ",
+        "on fleet(s) %s whose Selectivity is not 'NonParametric'/'NonParametricPM'. ",
+        "Use Sel_curve_pen for LogisticPM / 2DAR1 / 3DAR1 forms."),
+        nm, paste(bad_form, collapse = ", ")), call. = FALSE)
+    }
+    bad_val <- which(!is.na(v) & !(is.finite(v) & v > 0))
+    if (length(bad_val) > 0) {
+      stop(sprintf(paste0(
+        "'%s' must be a positive standard deviation; fleet(s) %s have a ",
+        "non-positive or non-finite value."),
+        nm, paste(bad_val, collapse = ", ")), call. = FALSE)
+    }
+  }
   .sd2w <- function(sd) 1 / (2 * sd^2)
   if (!is.null(.fc$Sel_shape_sd)) {
     .ss <- suppressWarnings(as.numeric(.fc$Sel_shape_sd))

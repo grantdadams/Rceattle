@@ -29,6 +29,29 @@ testthat::test_that("switch_check converts penalty SDs to Sel_curve_pen weights"
   testthat::expect_equal(out2$fleet_control$Sel_curve_pen1[np], rep(-20, length(np)), tolerance = 1e-8)
 })
 
+testthat::test_that("penalty SD columns are rejected on non-non-parametric forms", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  # fleet 4 is logistic (Selectivity == 1): a penalty SD there is meaningless and
+  # (for AR1 forms) would corrupt the logit-rho reuse of Sel_curve_pen.
+  logi <- which(d$fleet_control$Selectivity == 1)
+  testthat::skip_if(length(logi) == 0)
+  d$fleet_control$Sel_shape_sd <- NA_real_; d$fleet_control$Sel_shape_sd[logi[1]] <- 0.2
+  testthat::expect_error(suppressMessages(Rceattle::switch_check(d)),
+                         "NonParametric")
+})
+
+testthat::test_that("a non-positive penalty SD is rejected", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017SS
+  np <- which(d$fleet_control$Selectivity == 2)
+  testthat::skip_if(length(np) == 0)
+  d$fleet_control$Sel_curve_pen1[np] <- NA_real_
+  d$fleet_control$Sel_shape_sd <- NA_real_; d$fleet_control$Sel_shape_sd[np[1]] <- 0
+  testthat::expect_error(suppressMessages(Rceattle::switch_check(d)),
+                         "positive standard deviation")
+})
+
 testthat::test_that("penalty SD columns fit equivalently to the legacy weights", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
