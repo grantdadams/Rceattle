@@ -729,13 +729,28 @@ Verified: golden bit-identical, `theta_comp` gamma prior exact to rounding, `the
 end-to-end bit-exact, 10 committed tests green.
 
 **DEFERRED — noted for later (Grant's request):**
-1. **Legacy translators + `_sd` renames.** Auto-translate `Time_varying_q`/`Time_varying_sel`/
-   `M1_re` configs onto the equivalent random-effect grammar (bit-identical), converging the
-   two paths, and rename `Time_varying_*_sd_prior` (an input SD, not a prior) to `_sd` with a
-   deprecation alias. Enables the `../Rceattle-models` reference cross-checks by hand-written
-   equivalence. Note: the grammar `rw()`/`ar1()` use the *normalized* `dnorm`/`SCALE` densities
-   and marginal-SD (ar1); the GOA-pollock reference uses the *un-normalized* `0.5*square`
-   penalty — bit-identity holds only at fixed sigma.
+1. **Legacy translators + `_sd` renames.**
+   - **DONE — `_sd` rename** (commits `4b81820c` code+alias, `8ad6ca06` data+docs). Renamed
+     `Time_varying_{q,sel}_sd_prior` → `Time_varying_{q,sel}_sd` (an input SD, not a prior)
+     with a dual-path deprecation alias (`switch_check()` in-memory + `read_data()` xlsx),
+     regenerated the 3 bundled `.rda`, swept docs/vignettes/tests. Golden bit-identical; a
+     back-compat test fits the old-name list identically. Sibling repo protected by the alias.
+   - **TODO — translators.** Auto-translate `Time_varying_q`/`Time_varying_sel`/`M1_re` configs
+     onto the equivalent random-effect grammar (bit-identical), converging the two paths.
+     Enables the `../Rceattle-models` reference cross-checks by hand-written equivalence.
+     **Per-mode bit-identity map established by the investigation** (see below); only the
+     bit-identical subset gets a translator + `deprecate_warn()`, everything else stays on the
+     legacy path (Grant's call). Key traps: (a) legacy IID/RW SDs are *fixed inputs* → the spec
+     must force `init=list(sigma=)` with no prior so grammar σ maps out; (b) `Time_varying_{q,sel}=2`
+     is a mislabeled "AR1" that is actually IID → translate to `(1|Year)`, **not** `ar1()`;
+     (c) `M1_re` AR1 uses the *innovation* SD (`Sigma=σ/√(1−ρ²)`) but grammar `ar1()` takes the
+     *marginal* → translator must convert `σ_grammar=σ_M/√(1−ρ²)`; (d) legacy parametric-sel IID/RW
+     couple both limbs to one `sel_dev_sd` with a hardcoded 4× on one limb → needs two RE groups
+     (σ, 4σ), bit-identical only at fixed σ; (e) non-parametric sel (2/5/6/7/9), separable
+     `M1_re=6`, and any estimated-σ case are **not** bit-identically representable → stay on legacy.
+     Note: the grammar densities are normalized and marginal-SD (ar1); an external GOA-pollock
+     ADMB reference uses an un-normalized `0.5*square` penalty — that cross-check is bit-identical
+     only at fixed sigma.
 2. **Intuitive-naming sweep.** Deprecate-and-rename misleading legacy names across the public
    API (self-explanatory names, readable strings over positional integer codes), back-compat
    aliases (released package).
