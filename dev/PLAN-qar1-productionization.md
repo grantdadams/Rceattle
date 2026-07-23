@@ -44,10 +44,27 @@ density-math was verified exact (~1e-13) in the RE-density session.
   fixed-`obs_sd` option (the "fixable" half of the decision) for weakly-informative
   cases; a full simulate-and-recover check against GOApollock.
 
-- **env_data skip-un-observed years** — NOT yet implemented (next). The materialize
-  already yields `re_obs_value = NA` for years absent from env_data; the remaining
-  work is: auto-extend env_data to `styr:endyr`, encode a per-slot observed mask,
-  and have the cpp observation skip masked slots (see the machinery map below).
+- **env_data skip-un-observed years** — NOT yet implemented (next; design refined
+  below). The materialize already yields `re_obs_value = NA` for years absent from
+  env_data. Remaining work + subtleties uncovered while scoping:
+  1. **Auto-extend** env_data to `styr:endyr` (row 1 = styr) with NA for missing
+     years — this fixes the positional alignment (the RE levels and the q-offset
+     rows come from env_data), so a QcovPol that starts at 1983 aligns correctly.
+     Verified manually in the cross-check (extending to styr made the grammar QAR1
+     run). **Behaviour change:** `.check_env_data_years()` currently *errors* when
+     env_data doesn't span styr; auto-extend replaces that error — update the tests
+     that assert the error.
+  2. **Per-slot observed mask** — encode `linkage_re_obs_mask` (1 where
+     `re_obs_value` is finite, 0 where NA); replace NA `re_obs_value` with 0 (never
+     read when masked). The cpp observation density skips masked slots:
+     `if (linkage_re_obs(grp) >= 0) for t: if (mask(slot)) dnorm(obs, re, osd)`.
+     The latent AR1 still spans all years; only the *observations* are on real data.
+  3. **Fixed-effect-covariate guard.** Auto-extending with NA is safe only for the
+     `observe` column (handled by the mask). A NA-filled year in a **fixed-effect**
+     covariate would NaN the design-matrix offset — so keep requiring fixed-effect
+     linkage covariates to be finite over the model range (error clearly if a
+     fixed-effect design column is NA post-extend), and only NA-fill the `observe`
+     column.
 
 ## GOA-pollock cross-check (part d) — findings
 
