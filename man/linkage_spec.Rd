@@ -11,12 +11,15 @@ linkage_spec(
   by = ~species,
   species = NULL,
   sex = NULL,
+  fleet = NULL,
   link = "log",
   init = NULL,
   bounds = NULL,
   priors = NULL,
   re_group = NA_character_,
-  est_phase = 1L
+  est_phase = 1L,
+  observe = NULL,
+  obs_sd = NULL
 )
 }
 \arguments{
@@ -56,6 +59,12 @@ filter is a no-op. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
+\item{fleet}{optional integer vector of 1-based \code{Fleet_code}s this spec
+applies to. \code{NULL} (default) means every fleet in \code{strata$fleet} at
+materialization time. Only meaningful when \code{by} includes \code{fleet};
+otherwise the filter is a no-op. Used by catchability and selectivity
+linkages to give different fleets different formulas.}
+
 \item{link}{link function relating the linear predictor to the
 natural-scale target parameter. One of \code{"log"} (default) or
 \code{"identity"}. With \code{link = "log"}, \code{log(param) = X * beta} -- slope
@@ -78,17 +87,31 @@ Inside this argument the unprefixed shorthand \code{normal()},
 \code{lognormal()}, \code{gamma()}, and \code{beta()} resolves to the
 corresponding \verb{prior_*} constructors via a private data mask, so
 \code{priors = list(temp = normal(0, 1))} works without masking
-\code{\link[base:Special]{base::gamma()}} or \code{\link[base:Special]{base::beta()}} at the package level. Equivalent
+\code{\link[base:gamma]{base::gamma()}} or \code{\link[base:beta]{base::beta()}} at the package level. Equivalent
 to \code{priors = list(temp = prior_normal(0, 1))}.}
 
 \item{re_group}{optional character: name of a random-effect grouping
 for these coefficients. \code{NA} (default) means fixed.}
 
 \item{est_phase}{optional integer estimation phase. Default \code{1L}.}
+
+\item{observe}{optional character: for an \code{ar1(1 | group)} term, the name of
+an \code{env_data} column that measures the AR1 latent (a state-space covariate,
+sensu Rogers et al. 2024). The latent enters the linked parameter through
+an estimated effect size and is observed against this column. \code{NULL}
+(default) leaves the AR1 as a plain random effect.}
+
+\item{obs_sd}{optional positive numeric: the fixed measurement SD for
+\code{observe}. Required with \code{observe}, unused otherwise.}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.
 }
 \description{
 Capture a linkage specification
+}
+\details{
+The reserved keys \code{sigma} and \code{rho} in \code{init} / \code{priors} route the
+random-effect deviation SD and (for \code{ar1}) the correlation: e.g.
+\code{init = list(sigma = 0.1)} fixes the SD, \code{priors = list(rho = normal(0, 0.3))} places a prior on the correlation.
 }
