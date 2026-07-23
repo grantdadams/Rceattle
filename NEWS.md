@@ -106,6 +106,14 @@
   `est_phase` on a composition spec, or a linkage on a fleet/predator not fit
   with the `DirichletMultinomial` likelihood, errors up front.
 
+* **Formula-linkage effect sizes are now reported.** The estimated linkage
+  coefficients (`beta_linkage`), the random-effect deviations (`beta_linkage_re`),
+  and the Rogers-2024 QAR1 effect size (`beta_linkage_obs`) appear in
+  `fit$quantities`, and the coefficients / effect size are `ADREPORT`'d so they
+  carry a standard error in the `sdreport`. Previously the QAR1 effect size — the
+  quantity the model exists to estimate — was buried in the raw parameter vector
+  with no readable exposure or uncertainty.
+
 * **Readable string aliases for integer-coded switches.** Following the CIE
   review's "rename options to improve interpretability" (e.g. *constant → not
   estimated*), integer-only switches now also accept self-explanatory strings,

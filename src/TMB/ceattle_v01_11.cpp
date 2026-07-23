@@ -3814,6 +3814,18 @@ Type objective_function<Type>::operator() () {
   vector<Type>  log_index_hat = index_hat;  log_index_hat = log(index_hat.array());// Fixed n-at-age scaling coefficient
   REPORT( log_index_hat );
   ADREPORT( log_index_hat );
+
+  // -- 14.4b. Formula-linkage effect sizes. Expose the estimated linkage
+  // coefficients, the random-effect deviations, and the Rogers-2024 QAR1
+  // effect size so a user can read the *effect* (and, via ADREPORT, its
+  // uncertainty) -- not just the realized parameter (index_q above). All are
+  // PARAMETER_VECTORs and may be length 0 (no linkages), in which case these
+  // report nothing and do not affect the objective.
+  REPORT( beta_linkage );
+  ADREPORT( beta_linkage );
+  REPORT( beta_linkage_re );
+  REPORT( beta_linkage_obs );
+  ADREPORT( beta_linkage_obs );
   /*
    REPORT( index_q_analytical );
    REPORT( index_q_sd );
