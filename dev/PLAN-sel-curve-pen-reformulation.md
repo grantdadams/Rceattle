@@ -99,6 +99,29 @@ The **GOA2018SS** (and/or a constructed non-parametric + AR1 fixture) must fit
 data and move the quota. Adversarial review of the conversion + the form dispatch
 + the direction-sign handling after P2, per the federal-rigor standard.
 
+## Findings from digging into the code (scope-affecting)
+
+- **`Sel_curve_pen1/2/3` is overloaded FOUR ways, not two.** By selectivity form:
+  NonParametric (2/9) = penalty *weights* (SD-reformulatable); **LogisticPM (11)** =
+  random-walk weights on slope/inflection/age-1 ([data_check.R:485-497](../R/1-data_check.R#L485));
+  **2DAR1/3DAR1 (6/7)** = *logit-scale* AR1 correlations ([data_check.R:498-502](../R/1-data_check.R#L498));
+  and a separate `Sel_shape_mode` column ("Directional"/"Smooth") already exists
+  ([0-switches.R:386](../R/0-switches.R#L386)) with the *sign* of `Sel_curve_pen1`
+  choosing decreasing-vs-increasing within directional mode. So an SD reformulation
+  is clean ONLY for the NonParametric penalty weights; LogisticPM and AR1 uses must
+  stay on the legacy columns (or get their own separate fields).
+- **The σ↔w conversion is NOT floating-point exact.** `w = 1/(2σ²)`, `σ = 1/√(2w)`:
+  `w=12.5→σ=0.2→12.5` and `w=200→0.05→200` fail `all.equal(tol=0)` (round to ~1e-15
+  off). So migrating a model from weights to SD columns is equivalent only to
+  ~machine precision — a strict bit-identity gate cannot use the *new-column* path.
+  **Mitigation:** leave the legacy `Sel_curve_pen` path untouched (golden = exactly
+  bit-identical), add SD columns as an ALTERNATIVE input converted in `switch_check`,
+  and test the new-column path against the legacy with tolerance ~1e-10.
+
+**Recommended scope:** NonParametric penalties only (`Sel_shape_sd` + `Sel_shape_dir`,
+`Sel_curvature_sd`, `Sel_devmag_sd`), converted to `Sel_curve_pen1/2/3` in
+`switch_check`, legacy untouched. LogisticPM / 2D-3D-AR1 keep the legacy columns.
+
 ## Honest scope note
 
 This is the highest-effort, highest-risk item in the naming sweep: it changes a
