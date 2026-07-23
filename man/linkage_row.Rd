@@ -36,7 +36,8 @@ linkage_row(
   re_rho_prior_p1 = NA_real_,
   re_rho_prior_p2 = NA_real_,
   re_obs_value = NA_real_,
-  re_obs_sd = NA_real_
+  re_obs_sd = NA_real_,
+  re_obs_est = NA
 )
 }
 \arguments{

@@ -113,6 +113,33 @@ testthat::test_that("a fixed-effect covariate with missing years errors (not sil
     "missing \\(NA\\) values")
 })
 
+testthat::test_that("obs_sd_est = TRUE makes the QAR1 observation SD an estimated parameter", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  d <- Rceattle::BS2017SS
+  nyr <- d$endyr - d$styr + 1
+  set.seed(7)
+  d$env_data <- data.frame(Year = d$styr:d$endyr, qcov = stats::rnorm(nyr))
+  qflt <- which(d$fleet_control$Catchability %in% c(1L, 2L))[1]
+  cf <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = qflt,
+                               observe = "qcov", obs_sd = 0.5, obs_sd_est = TRUE)))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, qFun = cf, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+  # now a FREE parameter (contrast with the fixed default above)
+  testthat::expect_true("log_obs_sd_linkage" %in% names(fit$obj$par))
+})
+
+testthat::test_that("obs_sd_est is rejected without observe", {
+  testthat::skip_if_not_installed("Rceattle")
+  testthat::expect_error(
+    Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, obs_sd_est = TRUE),
+    "only used with")
+})
+
 testthat::test_that("a model with no linkages reports empty linkage effect-size vectors", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")

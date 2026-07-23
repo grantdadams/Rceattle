@@ -87,12 +87,18 @@ NULL
 #'   sensu Rogers et al. 2024). The latent enters the linked parameter through
 #'   an estimated effect size and is observed against this column. `NULL`
 #'   (default) leaves the AR1 as a plain random effect.
-#' @param obs_sd optional positive numeric: the **fixed** measurement SD for the
-#'   `observe` covariate (one per observed group). Required with `observe`,
-#'   unused otherwise. (Estimating `obs_sd` — as the reference `Estimate_q = 6` /
-#'   GOApollock model does — is deferred: freely estimated it collapses toward 0
-#'   on a smooth covariate, the effect-size/`obs_sd` identifiability degeneracy,
-#'   so it needs a prior/bound. That is part of the GOApollock bridge work.)
+#' @param obs_sd optional positive numeric: the measurement SD for the `observe`
+#'   covariate (one per observed group). Required with `observe`, unused
+#'   otherwise. Held **fixed** at this value by default (`obs_sd_est = FALSE`); it
+#'   is the *starting* value when `obs_sd_est = TRUE`.
+#' @param obs_sd_est optional single `TRUE`/`FALSE` (default `FALSE`): estimate the
+#'   `observe` measurement SD instead of holding it fixed — as the reference
+#'   `Estimate_q = 6` / GOApollock model does. **Caveat:** the effect size and
+#'   `obs_sd` are only jointly identified when the observed covariate is
+#'   informative; on a smooth series the AR1 latent can track it exactly and the
+#'   freely-estimated `obs_sd` collapses toward 0. Keep it fixed unless the
+#'   covariate is informative (a prior on `obs_sd` to regularise this is future
+#'   work). Only used with `observe`.
 #'
 #' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
 #'   random-effect deviation SD and (for `ar1`) the correlation: e.g.
@@ -116,7 +122,8 @@ linkage_spec <- function(formula,
                          re_group  = NA_character_,
                          est_phase = 1L,
                          observe   = NULL,
-                         obs_sd    = NULL) {
+                         obs_sd    = NULL,
+                         obs_sd_est = FALSE) {
   priors_quo <- rlang::enquo(priors)
   priors_obj <- rlang::eval_tidy(priors_quo, data = .prior_dispatch_mask())
   priors_obj <- .validate_priors_arg(priors_obj)
@@ -136,6 +143,12 @@ linkage_spec <- function(formula,
     }
   } else if (!is.null(obs_sd)) {
     stop("`obs_sd` is only used with `observe`.", call. = FALSE)
+  }
+  if (!is.logical(obs_sd_est) || length(obs_sd_est) != 1L || is.na(obs_sd_est)) {
+    stop("`obs_sd_est` must be a single TRUE/FALSE.", call. = FALSE)
+  }
+  if (obs_sd_est && is.null(observe)) {
+    stop("`obs_sd_est` is only used with `observe`.", call. = FALSE)
   }
 
   if (!inherits(formula, "formula")) {
@@ -187,7 +200,8 @@ linkage_spec <- function(formula,
       re_group  = as.character(re_group),
       est_phase = as.integer(est_phase),
       observe   = observe,
-      obs_sd    = obs_sd
+      obs_sd    = obs_sd,
+      obs_sd_est = obs_sd_est
     ),
     class = "Rceattle_linkage_spec"
   )
@@ -740,18 +754,18 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
             o_val <- env_data[[spec$observe]][
               match(col_re_time[col_idx], env_data[[grp_col]])]
             o_val <- if (length(o_val) == 1L) as.numeric(o_val) else NA_real_
-            r_obs_v <- o_val; r_obs_sd <- as.numeric(spec$obs_sd)
+            r_obs_v <- o_val; r_obs_sd <- as.numeric(spec$obs_sd); r_obs_est <- isTRUE(spec$obs_sd_est)
           } else {
-            r_obs_v <- NA_real_; r_obs_sd <- NA_real_
+            r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
           }
         } else {
           r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
-          r_obs_v <- NA_real_; r_obs_sd <- NA_real_
+          r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
         }
       } else {
         s_init <- NA_real_; spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
         r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
-        r_obs_v <- NA_real_; r_obs_sd <- NA_real_
+        r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
       }
 
       k <- k + 1L
@@ -788,6 +802,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_rho_prior_p2     = rp2,
         re_obs_value  = r_obs_v,
         re_obs_sd     = r_obs_sd,
+        re_obs_est    = r_obs_est,
         est_phase     = spec$est_phase
       )
     }
@@ -1222,6 +1237,7 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     # and an estimated effect size (beta) applied to the deviate.
     observed     = !is.na(g$re_obs_sd),
     obs_sd       = as.numeric(g$re_obs_sd),
+    obs_sd_est   = !is.na(g$re_obs_est) & g$re_obs_est,
     stringsAsFactors = FALSE
   )
 }

@@ -70,7 +70,8 @@ LINKAGE_COLS <- c(
   # observed as `re_obs_value` (an env_data column) with fixed SD `re_obs_sd`,
   # and enters the target through an estimated effect size. NA when not observed.
   re_obs_value  = "numeric",       # observed covariate value at this row's time
-  re_obs_sd     = "numeric"        # fixed measurement SD (NA = not observed)
+  re_obs_sd     = "numeric",       # measurement SD start/fixed value (NA = not observed)
+  re_obs_est    = "logical"        # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
 )
 
 
@@ -325,7 +326,8 @@ linkage_row <- function(process, param, X_col,
                         re_rho_prior_p1     = NA_real_,
                         re_rho_prior_p2     = NA_real_,
                         re_obs_value  = NA_real_,
-                        re_obs_sd     = NA_real_) {
+                        re_obs_sd     = NA_real_,
+                        re_obs_est    = NA) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -359,7 +361,8 @@ linkage_row <- function(process, param, X_col,
     re_rho_prior_p1     = as.numeric(re_rho_prior_p1),
     re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
     re_obs_value  = as.numeric(re_obs_value),
-    re_obs_sd     = as.numeric(re_obs_sd)
+    re_obs_sd     = as.numeric(re_obs_sd),
+    re_obs_est    = as.logical(re_obs_est)
   )
   validate_linkage_table(out)
   out

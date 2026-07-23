@@ -19,7 +19,8 @@ linkage_spec(
   re_group = NA_character_,
   est_phase = 1L,
   observe = NULL,
-  obs_sd = NULL
+  obs_sd = NULL,
+  obs_sd_est = FALSE
 )
 }
 \arguments{
@@ -101,12 +102,19 @@ sensu Rogers et al. 2024). The latent enters the linked parameter through
 an estimated effect size and is observed against this column. \code{NULL}
 (default) leaves the AR1 as a plain random effect.}
 
-\item{obs_sd}{optional positive numeric: the \strong{fixed} measurement SD for the
-\code{observe} covariate (one per observed group). Required with \code{observe},
-unused otherwise. (Estimating \code{obs_sd} — as the reference \code{Estimate_q = 6} /
-GOApollock model does — is deferred: freely estimated it collapses toward 0
-on a smooth covariate, the effect-size/\code{obs_sd} identifiability degeneracy,
-so it needs a prior/bound. That is part of the GOApollock bridge work.)}
+\item{obs_sd}{optional positive numeric: the measurement SD for the \code{observe}
+covariate (one per observed group). Required with \code{observe}, unused
+otherwise. Held \strong{fixed} at this value by default (\code{obs_sd_est = FALSE}); it
+is the \emph{starting} value when \code{obs_sd_est = TRUE}.}
+
+\item{obs_sd_est}{optional single \code{TRUE}/\code{FALSE} (default \code{FALSE}): estimate the
+\code{observe} measurement SD instead of holding it fixed — as the reference
+\code{Estimate_q = 6} / GOApollock model does. \strong{Caveat:} the effect size and
+\code{obs_sd} are only jointly identified when the observed covariate is
+informative; on a smooth series the AR1 latent can track it exactly and the
+freely-estimated \code{obs_sd} collapses toward 0. Keep it fixed unless the
+covariate is informative (a prior on \code{obs_sd} to regularise this is future
+work). Only used with \code{observe}.}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.

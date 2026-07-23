@@ -124,12 +124,14 @@
   fixed-effect (non-`observe`) covariate now errors clearly rather than silently
   producing an NaN.
 
-* **QAR1 observation SD is a fixed input.** The Rogers-2024 `observe` / `obs_sd`
-  state-space covariate uses a **fixed** measurement SD (`obs_sd` on the spec).
-  The parameter machinery (`log_obs_sd_linkage`) exists but is mapped out —
-  estimating `obs_sd`, as the reference `Estimate_q = 6` / GOApollock model does,
-  is deferred because freely estimated it collapses toward 0 on a smooth covariate
-  (the effect-size / `obs_sd` identifiability degeneracy) and needs a prior/bound.
+* **QAR1 observation SD can be fixed or estimated.** The Rogers-2024 `observe` /
+  `obs_sd` state-space covariate holds the measurement SD **fixed** by default;
+  pass `linkage_spec(..., obs_sd_est = TRUE)` to **estimate** it (one per observed
+  group, started from `obs_sd`), as the reference `Estimate_q = 6` / GOApollock
+  model does. Estimation is opt-in because a freely-estimated `obs_sd` collapses
+  toward 0 on a smooth covariate (the effect-size / `obs_sd` identifiability
+  degeneracy) — keep it fixed unless the covariate is informative (a prior on
+  `obs_sd` to regularise this is future work).
 
 * **Non-parametric selectivity penalties can be given as standard deviations.**
   The cryptic penalty *weights* in `Sel_curve_pen1/2/3` can instead be supplied as
