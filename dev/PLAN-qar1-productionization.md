@@ -89,6 +89,17 @@ acoustic survey (fleet 1, `Time_varying_q = 4`), not the QAR1 — the QAR1 is th
   density (that was verified exact on a controlled fixture) but in the real-config
   env handling below.
 
+## Identifiability watch (adversarial-review observation)
+
+On the real pollock QcovPol fit with `obs_sd_est = TRUE`, `obs_sd` estimates to a
+sensible ~0.99 (finite; objective improves vs fixed), but the **effect size
+`beta_linkage_obs` pins to 10 (a bound)**. This is pre-existing Rogers-QAR1
+effect-size/`obs_sd` identifiability behavior (both commits only made `obs_sd`
+estimable), but it means a freely-estimated QAR1 on this covariate is at a bound —
+so for the GOApollock bridge / production use, expect to need a **prior on `obs_sd`
+and/or on `beta`**, and to check the beta bound. Fold into the "prior on obs_sd"
+work below.
+
 ## Open gaps (issues to file / future work)
 
 1. **env_data must span `styr`; the legacy path auto-fills missing years with the
