@@ -1,5 +1,25 @@
 # QAR1 (Rogers et al. 2024) productionization — status
 
+> **North-star:** the end goal is to **match the afsc-assessments/GOApollock**
+> assessment (https://github.com/afsc-assessments/GOApollock), the official ADMB
+> GOA pollock model, not merely the Rceattle legacy `Estimate_q = 6` path. That
+> model **estimates** the QAR1 observation SD, so the grammar must too
+> (decision below), and its env-covariate handling is the parity target.
+
+## Locked design decisions (this session)
+
+- **Estimable `obs_sd`** — implement it (GOApollock estimates the obs SD). Contract:
+  the `obs_sd` value is the *start*; estimated by default; fixable (for a known
+  measurement error) via the same `est_phase`/fix mechanism as `sigma`/`rho`.
+  Needs a **simulation self-consistency** check (β and `obs_sd` are only jointly
+  identified when `obs_sd` is informative).
+- **env_data mismatch = skip un-observed years.** Auto-extend `env_data` to the
+  model year range with `NA` for missing years; apply the QAR1 observation ONLY
+  where the covariate is present (no fabricated observations — do NOT replicate the
+  legacy mean-fill). The latent AR1 still spans all years. Verify density
+  equivalence (bit-identity vs legacy) on a *full-coverage* env_data case instead.
+
+
 The grammar expresses the Rogers-2024 environmental-index-driven QAR1 catchability
 model as `ar1(1 | Year)` with `observe = "<env column>", obs_sd = <value>`: an AR1
 latent q-deviation observed against an env_data column with a fixed measurement SD,
