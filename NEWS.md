@@ -22,6 +22,24 @@
   `priors = list(sigma = lognormal(...))` places a **prior** on it and
   estimates it — the first prior on a deviation SD anywhere in the model.
 
+* **`data_requirements()` — see which inputs a model configuration needs.** A new
+  exported reader reports, for a given model spec, which top-level data inputs are
+  **Required**, **Optional** (used if supplied, otherwise default-filled by
+  `clean_data()`), or **Ignored** (not consulted because the feature is switched
+  off) — the same conditions `data_check()` enforces at fit time, surfaced up
+  front instead of buried in the validator:
+
+    ```r
+    data_requirements(msmMode = 1)          # multispecies: diet/ration/bioenergetics Required
+    data_requirements(BS2017SS, msmMode = 0) # preview a data object as single-species
+    ```
+
+  It accepts either an existing (possibly partial) data list or the convenience
+  switch arguments; an explicit switch argument overrides the data list's stored
+  value (matching `fit_mod()` precedence). Internally, `data_check()`'s conditional
+  presence-requirement gates were refactored to consume one declarative
+  requirement table, so the reader and the validator can never drift apart.
+
 ## Bug fixes
 
 * **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**

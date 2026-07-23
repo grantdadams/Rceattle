@@ -33,11 +33,16 @@ check_err <- function(dat) {
 testthat::test_that("requirement table has well-formed rows", {
   tbl <- Rceattle:::.rce_requirement_table()
   testthat::expect_true(length(tbl) >= 8)
-  # Keyed by element; driven rows carry severity + adequate + message.
+  # Keyed by element; every row is either always_required or carries a
+  # required_when predicate; driven rows carry severity + adequate + message.
   for (nm in names(tbl)) {
     row <- tbl[[nm]]
     testthat::expect_identical(row$element, nm)
-    testthat::expect_true(is.function(row$required_when))
+    # A row is always-required, conditionally-required, or purely optional.
+    testthat::expect_true(
+      isTRUE(row$always_required) ||
+        is.function(row$required_when) ||
+        identical(row$optional_status, "defaulted"))
     if (isTRUE(row$driven)) {
       testthat::expect_true(row$severity %in% c("error", "message"))
       testthat::expect_true(is.function(row$adequate))
