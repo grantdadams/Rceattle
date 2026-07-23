@@ -545,6 +545,22 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   # C++ accumulator adds beta[i] * indicator(level) exactly as for a fixed
   # column -- the only differences are which beta vector supplies the
   # coefficient (beta_linkage_re) and that a density is placed on it.
+  # Fixed-effect covariates must be finite over the model range: model.matrix()
+  # silently DROPS rows whose covariate is NA (e.g. a fixed-effect covariate with
+  # missing years after env_data extension), which would misalign X_fixed against
+  # the RE design and error cryptically in the cbind below. Reject a missing year
+  # up front with a clear message. A state-space `observe` covariate is NOT a
+  # fixed term, so it is not checked here (it is masked in the observation).
+  fixed_vars <- intersect(all.vars(parsed$fixed), names(env_data))
+  na_fixed <- fixed_vars[vapply(fixed_vars,
+                                function(v) anyNA(env_data[[v]]), logical(1))]
+  if (length(na_fixed) > 0) {
+    stop(sprintf(paste0(
+      "fixed-effect linkage covariate(s) have missing (NA) values over the ",
+      "model years: %s. Provide the covariate for every year styr:endyr (a ",
+      "state-space `observe` covariate may be partial, but a fixed-effect ",
+      "covariate may not)."), paste(na_fixed, collapse = ", ")), call. = FALSE)
+  }
   X_fixed <- stats::model.matrix(parsed$fixed, data = env_data)
   re <- .materialize_re_design(parsed$re_terms, parsed$re_structures, env_data)
 
