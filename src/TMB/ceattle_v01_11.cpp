@@ -3538,6 +3538,17 @@ Type objective_function<Type>::operator() () {
         int fl_in  = linkage_fleet(i);
         int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
         b = index_log_q(fl_idx);
+      } else if (proc == RCEATTLE_PROC_COMP) {
+        // Dirichlet-multinomial overdispersion. comp/caal weights are
+        // fleet-indexed, diet weights predator(species)-indexed; all stored on
+        // the log scale (theta = exp(weight)), so b_nat = exp(b) is the natural
+        // DM scalar the prior targets. param: theta_comp=0, theta_caal=1,
+        // theta_diet=2.
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        if (param == 0)      b = comp_weights(fl_idx);
+        else if (param == 1) b = caal_weights(fl_idx);
+        else if (param == 2) b = diet_comp_weights(sp_idx);
       }
     }
 

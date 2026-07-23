@@ -65,6 +65,26 @@
   carried by the one term; `observe` requires an `ar1` term and a positive
   fixed `obs_sd`.
 
+* **Priors on Dirichlet-multinomial data weights (`build_composition()`).** The
+  DM likelihood self-tunes each composition dataset's effective sample size, but
+  that weight can be poorly identified when a fleet has few comp years. A new
+  `build_composition()` linkage attaches a prior to the DM weight, keeping the
+  implied effective sample size in a believable range without reverting to
+  Francis / McAllister–Ianelli hand-tuning:
+
+    ```r
+    fit_mod(...,
+      compFun = build_composition(linkages = list(
+                  theta_comp = linkage_spec(~ 1, by = ~ fleet, fleet = c(1, 2),
+                                 priors = list(`(Intercept)` = gamma(2, 0.5))))))
+    ```
+
+  Keys `theta_comp` / `theta_caal` / `theta_diet` cover age/length composition,
+  conditional age-at-length, and predator diet. The process is prior-only (the
+  weight is a scalar, not year-varying): a covariate, an `init`, or an
+  `est_phase` on a composition spec, or a linkage on a fleet/predator not fit
+  with the `DirichletMultinomial` likelihood, errors up front.
+
 # Rceattle 4.9.0
 
 ## New features

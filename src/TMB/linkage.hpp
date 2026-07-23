@@ -29,6 +29,7 @@
 #define RCEATTLE_PROC_GROWTH  2
 #define RCEATTLE_PROC_Q       3
 #define RCEATTLE_PROC_SEL     4
+#define RCEATTLE_PROC_COMP    5   // prior-only: DM composition-weighting overdispersion
 
 // Number of growth parameters tracked in the offset tensor
 // (log_K, log_L1, log_Linf, log_m).

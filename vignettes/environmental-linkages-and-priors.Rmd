@@ -782,6 +782,27 @@ An intercept-bearing formula (`~ temp`) leaves the base `index_log_q`
 estimable to carry the level and fixes the intercept row at 0, exactly as
 the growth/M/recruitment intercepts re-target their base parameters.
 
+### A prior on the survey catchability
+
+Often you know something about a survey's catchability from outside the model:
+an acoustic or diver survey believed to see close to the whole stock (`q ≈ 1`),
+or a `q` prior borrowed from a catchability meta-analysis or a companion
+assessment. Put that belief on the fleet's catchability with a `~ 1` formula
+and a prior on the intercept:
+
+```{r}
+build_catchability(linkages = list(
+  # Survey q for fleet 2 believed near 1, with moderate uncertainty.
+  q = linkage_spec(~ 1, by = ~ fleet, fleet = 2,
+                   priors = list(`(Intercept)` = lognormal(log(1), 0.2)))))
+```
+
+The prior is on `q` on its natural scale, so a `lognormal(log(1), 0.2)` says
+"`q` is near 1, and I'd be mildly surprised by a factor of ~1.5 either way."
+`~ 1` alone gives an estimated `q` with a prior on its level and no
+environmental effect; write `~ 1 + temp` to keep the level prior *and* link
+`q` to a covariate.
+
 ## Selectivity
 
 Selectivity is also fleet-indexed (`by = ~ fleet`) and, unlike the other
@@ -822,6 +843,55 @@ per-year offset applied across all bins cancels exactly -- a per-bin
 covariate would be needed, which the formula grammar does not express.
 `Time_varying_sel` process-error deviates are a separate mechanism and
 compose additively with a selectivity linkage.
+
+## Data weighting (Dirichlet-multinomial)
+
+The Dirichlet-multinomial (DM) likelihood (Thorson et al. 2017) is a
+self-weighting alternative to Francis or McAllister–Ianelli tuning: instead of
+iterating an external weight, it estimates each composition dataset's
+**effective sample size** as part of the fit. That works well when a fleet has
+many comp years, but the weight can be poorly identified when a fleet has only
+a handful -- the fit may push the effective sample size to an implausible
+extreme. A prior on the DM weight keeps it in a believable range without
+reverting to hand-tuning:
+
+```{r}
+# Use the DM likelihood on the fleets you want it to self-weight ...
+data_list$fleet_control$Comp_loglike[c(1, 2)] <- "DirichletMultinomial"
+
+# ... and (optionally) constrain its weight with a prior.
+fit <- fit_mod(
+  data_list = data_list,
+  compFun   = build_composition(
+    linkages = list(
+      theta_comp = linkage_spec(
+        ~ 1, by = ~ fleet, fleet = c(1, 2),
+        # Gamma(2, 0.5): mean 4, mildly informative. Keeps the weight off 0
+        # (comps ignored) and off very large (comps fit as if unweighted).
+        priors = list(`(Intercept)` = gamma(2, 0.5)))
+    )
+  ),
+  estimateMode = 0,
+  msmMode      = 0
+)
+```
+
+Three keys, one per kind of composition data:
+
+| key | applies to | DM likelihood set on |
+|---|---|---|
+| `theta_comp` | age / length composition | `Comp_loglike` |
+| `theta_caal` | conditional age-at-length | `CAAL_loglike` |
+| `theta_diet` | predator diet composition | `Diet_loglike` |
+
+The prior is on the weight itself (a larger weight = a larger effective sample
+size = the composition data trusted more). It only makes sense where the DM is
+actually estimating that weight, so a `theta_*` linkage on a fleet or predator
+whose likelihood is **not** `DirichletMultinomial` errors up front rather than
+sitting inert. And because the weight is a single number per fleet, not a
+time series, this is a **prior only**: a covariate (`~ temp`), an `init`, or an
+`est_phase` on a composition spec is rejected -- start or fix the weight
+through the model's usual `inits` / `map` if you need to.
 
 ## A multi-process example
 
@@ -1074,6 +1144,7 @@ rather than applying a covariate/deviate to the wrong year.
 ## See also
 
 * `?linkage_spec`, `?build_growth`, `?build_M1`, `?build_srr`,
-  `?build_catchability`, `?build_selectivity`, `?prior_normal`
+  `?build_catchability`, `?build_selectivity`, `?build_composition`,
+  `?prior_normal`
 * `vignette("model-parameterizations", package = "Rceattle")` for the
   full set of process options.

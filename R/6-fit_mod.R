@@ -31,6 +31,7 @@
 #' @param qFun Catchability specification from \code{\link{build_catchability}},
 #'   carrying any environmental linkages on q.
 #' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
+#' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
@@ -113,6 +114,7 @@ fit_mod <-
     growthFun = build_growth(),
     qFun = build_catchability(),
     selFun = build_selectivity(),
+    compFun = build_composition(),
     msmMode = 0,
     avgnMode = 0,
     initMode = "NonEquilibrium",
@@ -290,6 +292,7 @@ fit_mod <-
     data_list$growth_linkages <- growthFun$linkages
     data_list$q_linkages      <- qFun$linkages
     data_list$sel_linkages    <- selFun$linkages
+    data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
     data_list$growth_indices  <- growthFun$growth_indices
@@ -341,7 +344,8 @@ fit_mod <-
     # deviate lands on the wrong year. Validate up front rather than misalign.
     .has_linkage <- any(vapply(
       list(data_list$growth_linkages, data_list$M1_linkages,
-           data_list$srr_linkages, data_list$q_linkages, data_list$sel_linkages),
+           data_list$srr_linkages, data_list$q_linkages, data_list$sel_linkages,
+           data_list$comp_linkages),
       function(x) !is.null(x) && length(x) > 0L, logical(1)))
     if (.has_linkage) {
       .check_env_data_years(data_list$env_data, data_list$styr)
@@ -351,7 +355,8 @@ fit_mod <-
                          M           = data_list$M1_linkages,
                          recruitment = data_list$srr_linkages,
                          q           = data_list$q_linkages,
-                         sel         = data_list$sel_linkages),
+                         sel         = data_list$sel_linkages,
+                         comp        = data_list$comp_linkages),
       env_data    = data_list$env_data,
       strata      = list(
         fleet   = seq_len(nrow(data_list$fleet_control)),
@@ -384,6 +389,7 @@ fit_mod <-
     # a covariate offset at all.)
     .check_sel_linkage_support(data_list$linkage_table, data_list$fleet_control)
     .check_q_linkage_support(data_list$linkage_table, data_list$fleet_control)
+    .check_comp_linkage_support(data_list$linkage_table, data_list)
 
     # Random-effect linkage rows (IID `~ (1 | group)`) are now consumed by the
     # TMB template: beta_linkage_re carries the deviations and jnll_comp row 20
@@ -520,6 +526,7 @@ fit_mod <-
     data_list_reorganized$srr_linkages    <- NULL
     data_list_reorganized$q_linkages      <- NULL
     data_list_reorganized$sel_linkages    <- NULL
+    data_list_reorganized$comp_linkages   <- NULL
 
     # OSA residual metadata: obs_ctl maps each obsvec element back to its
     # fleet/species/year/age. It is an R-side data frame (TMB's dataSanitize

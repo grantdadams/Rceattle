@@ -21,6 +21,7 @@ fit_mod(
   growthFun = build_growth(),
   qFun = build_catchability(),
   selFun = build_selectivity(),
+  compFun = build_composition(),
   msmMode = 0,
   avgnMode = 0,
   initMode = "NonEquilibrium",
@@ -77,6 +78,8 @@ placeholder (\code{dummy^2}), not a likelihood.}
 carrying any environmental linkages on q.}
 
 \item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.}
+
+\item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 

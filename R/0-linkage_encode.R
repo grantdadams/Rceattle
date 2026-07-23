@@ -28,7 +28,8 @@ LINKAGE_PROCESS_CODES <- c(
   M           = 1L,
   growth      = 2L,
   q           = 3L,
-  sel         = 4L
+  sel         = 4L,
+  comp        = 5L
 )
 
 
@@ -96,7 +97,14 @@ LINKAGE_PARAM_CODES <- list(
                   coff        = 4L,
                   # DoubleNormal aliases
                   sigma_asc   = 0L, sigma_desc = 1L,
-                  peak        = 2L, right_floor = 3L)
+                  peak        = 2L, right_floor = 3L),
+  # Dirichlet-multinomial composition-weighting overdispersion. Prior-only
+  # (no year-varying accumulator): the intercept re-targets the log DM scalar
+  # (comp_weights / caal_weights per fleet, diet_comp_weights per predator;
+  # theta = exp()), so a prior on the natural theta falls out of the shared
+  # intercept prior loop. theta_comp = age/length comps, theta_caal = CAAL,
+  # theta_diet = diet composition.
+  comp        = c(theta_comp = 0L, theta_caal = 1L, theta_diet = 2L)
 )
 
 

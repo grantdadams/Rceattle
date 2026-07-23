@@ -76,7 +76,7 @@ LINKAGE_COLS <- c(
 
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
-LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
+LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel", "comp")
 
 #' Processes with a C++ accumulator behind them
 #'
@@ -87,7 +87,7 @@ LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
 #'
 #' @keywords internal
 #' @noRd
-LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q", "sel")
+LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q", "sel", "comp")
 
 
 #' Error on a reserved-but-unwired process
