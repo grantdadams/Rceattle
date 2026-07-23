@@ -66,7 +66,7 @@ fleet_control: controls for survey and fisheries data
 \item{Selectivity_dimension}{"Age" or "Length".}
 \item{Nselages}{Number of ages to estimate non-parametric selectivity.}
 \item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
-\item{Time_varying_sel_sd_prior}{The fixed or initial sd to use for time varying selectivity.}
+\item{Time_varying_sel_sd}{The fixed or initial sd to use for time varying selectivity.}
 \item{Sel_start_year}{First year the fleet's time-varying selectivity deviations are estimated and penalized. Deviations before this year are fixed at 0: they have no data and no penalty (the selectivity penalties are anchored at this year), so estimating them would leave unidentified flat directions. Defaults to the earliest year of data across all fleets sharing the fleet's \code{Selectivity_index} (fleets sharing an index share one selectivity curve), bounded below by \code{styr}. Only used for time-varying selectivity; set explicitly to override.}
 \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 \item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
@@ -79,7 +79,7 @@ fleet_control: controls for survey and fisheries data
 \item{Q_prior}{Starting value or fixed value for catchability}
 \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
 \item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
-\item{Time_varying_q_sd_prior}{The sd to use for the random walk of time varying q if set to 1}
+\item{Time_varying_q_sd}{The sd to use for the random walk of time varying q if set to 1}
 \item{Estimate_survey_sd}{Estimate survey variance (0 = use CV from index_data, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
 \item{Survey_sd_prior}{Starting value to be used if Estimate_sigma_index = 1}
 \item{Estimate_catch_sd}{Estimate fishery variance (0 = use CV from index_data, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}

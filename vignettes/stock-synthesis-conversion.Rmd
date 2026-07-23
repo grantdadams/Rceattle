@@ -86,7 +86,7 @@ The CPUE / survey configuration is split across two Rceattle sheets:
 | Units (numbers / biomass) | `Weight1_Numbers2` | `1` = biomass, `2` = numbers |
 | (estimate index SD?) | `Estimate_index_sd` | `0` = supplied, `1` = estimated |
 | Q estimation | `Catchability`, `Q_prior`, `Q_sd_prior` | See vignette 0 §4 for the option table |
-| Time-varying q | `Time_varying_q`, `Time_varying_q_sd_prior` | |
+| Time-varying q | `Time_varying_q`, `Time_varying_q_sd` | |
 
 * `index_data` for the year-level *observations*:
 

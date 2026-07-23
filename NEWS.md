@@ -85,6 +85,17 @@
   `est_phase` on a composition spec, or a linkage on a fleet/predator not fit
   with the `DirichletMultinomial` likelihood, errors up front.
 
+## Deprecations
+
+* **`fleet_control` columns `Time_varying_q_sd_prior` / `Time_varying_sel_sd_prior`
+  renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`.** They hold the input
+  *value* of the time-varying deviate SD, not a prior on it (no density is placed
+  on the SD), so the `_prior` suffix was misleading. The old names are still
+  accepted — `switch_check()` and `read_data()` upgrade them in place with a
+  one-time message — so existing data lists, saved xlsx files, and the bundled
+  example datasets keep fitting identically. Update scripts to the new names at
+  your convenience.
+
 # Rceattle 4.9.0
 
 ## New features
