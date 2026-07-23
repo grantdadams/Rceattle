@@ -124,14 +124,12 @@
   fixed-effect (non-`observe`) covariate now errors clearly rather than silently
   producing an NaN.
 
-* **The QAR1 observation SD is now estimated.** The Rogers-2024 `observe` /
-  `obs_sd` state-space covariate previously fixed the measurement SD; it is now an
-  estimated parameter (`log_obs_sd_linkage`, one per observed group), matching the
-  reference `Estimate_q = 6` / GOApollock model. `obs_sd` on the spec is the
-  starting value. Caveat: the effect size and `obs_sd` are only jointly identified
-  when the observed covariate is informative — on a smooth series the AR1 latent
-  can track it exactly and `obs_sd` collapses toward 0; use an informative
-  covariate (a prior / fixed-`obs_sd` option is future work).
+* **QAR1 observation SD is a fixed input.** The Rogers-2024 `observe` / `obs_sd`
+  state-space covariate uses a **fixed** measurement SD (`obs_sd` on the spec).
+  The parameter machinery (`log_obs_sd_linkage`) exists but is mapped out —
+  estimating `obs_sd`, as the reference `Estimate_q = 6` / GOApollock model does,
+  is deferred because freely estimated it collapses toward 0 on a smooth covariate
+  (the effect-size / `obs_sd` identifiability degeneracy) and needs a prior/bound.
 
 * **Readable string aliases for integer-coded switches.** Following the CIE
   review's "rename options to improve interpretability" (e.g. *constant → not

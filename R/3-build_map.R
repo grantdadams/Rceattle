@@ -1512,6 +1512,14 @@ build_map_linkages <- function(map_list, data_list) {
       map_list$trans_rho_linkage <- m_rho
     }
   }
+  # Rogers QAR1 observation SD: held FIXED at the input `obs_sd` (the parameter
+  # exists but is mapped out). Estimating it is deferred -- freely estimated it
+  # collapses toward 0 on a smooth covariate (the beta/obs_sd identifiability
+  # degeneracy), so it needs a prior/bound, which is part of the GOApollock
+  # bridge work. Un-map this to make it estimable.
+  if (!is.null(gt) && any(gt$observed)) {
+    map_list$log_obs_sd_linkage <- factor(rep(NA, sum(gt$observed)))
+  }
   map_list
 }
 
