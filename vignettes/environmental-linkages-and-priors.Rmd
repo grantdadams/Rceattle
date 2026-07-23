@@ -1016,6 +1016,15 @@ estimated density rather than fixed covariate slopes:
 * `ar1(1 | Year)` -- a stationary **AR1**, `SCALE(AR1(rho), sigma)` with
   `sigma` the marginal SD and `rho` the correlation.
 
+Note that `sigma` means different things across structures. For `rw()` it is
+the **innovation** (step) SD -- the SD of each `year-to-year` change -- because
+a random walk is non-stationary and has no overall spread. For `ar1()` it is
+the **marginal** (stationary) SD -- the overall spread of the deviations
+(`sigma_marginal = sigma_innovation / sqrt(1 - rho^2)`) -- following the
+`glmmTMB` convention. The two agree at `rho = 0` (where `ar1` reduces to `IID`),
+but if you switch a group from `rw()` to `ar1()` the estimated `sigma` is not
+directly comparable across the two.
+
 Each grouping level gets one deviation; each group estimates its own SD. The
 SD and (for `ar1`) the correlation route through the same `init` / `priors`
 arguments as every other parameter: `init = list(sigma = 0.1)` fixes the SD
