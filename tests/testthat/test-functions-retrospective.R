@@ -22,7 +22,7 @@ testthat::test_that("Test retrospective", {
                     estimateMode = 1, # Estimate hindcast only
                     random_rec = FALSE, # No random recruitment
                     msmMode = 0, # Single species mode
-                    fit_control = fit_control(
+                    fit_control = fit_control(getsd = FALSE, 
                       phase = TRUE,
                       verbose = 1))
 
@@ -40,7 +40,7 @@ testthat::test_that("Test retrospective", {
                                          estimateMode = 1, # Estimate hindcast only
                                          random_rec = FALSE, # No random recruitment
                                          msmMode = 0, # Single species mode
-                                         fit_control = fit_control(
+                                         fit_control = fit_control(getsd = FALSE, 
                                            phase = TRUE,
                                            loopnum = 5,
                                            verbose = 1))
