@@ -32,9 +32,14 @@
   time-varying — contrary to the assessor's setting. Set `Catchability` to
   `"Estimated"` / `"Estimated-with-prior"` to link q.
   This is the same statistical model as the existing `Time_varying_q`/`_sel`
-  deviate processes, expressed through the linkage grammar. Correlated
-  structures (`rw()`, `ar1()`) are recognised by the parser but still rejected
-  until their densities land in a following release.
+  deviate processes, expressed through the linkage grammar.
+
+* **Random-walk linkages (`rw(1 | group)`).** A deviation that follows a random
+  walk — `N(0, sigma)` on successive first differences, the first deviate
+  pinned so the walk's level stays with the base parameter — reproducing the
+  Dorn-style `Time_varying_* = "RandomWalk"` process through the grammar. The
+  grouping variable must be numeric (a real elapsed-time lag). `ar1()` is
+  recognised by the parser but still rejected until its density lands.
 
 # Rceattle 4.9.0
 

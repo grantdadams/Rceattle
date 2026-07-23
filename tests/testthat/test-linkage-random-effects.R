@@ -117,6 +117,32 @@ testthat::test_that("an IID (1|Year) q linkage builds finite and estimates a den
   testthat::expect_true(is.finite(sigma) && sigma > 0)
 })
 
+testthat::test_that("rw(1|Year) fits, pins the first deviate, and uses a difference density", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 7L)))
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+  dev   <- fit$estimated_params$beta_linkage_re
+  sigma <- exp(fit$estimated_params$log_sigma_linkage)
+  # first deviate pinned at 0 (the walk's level is carried by the base q)
+  testthat::expect_equal(dev[1], 0, tolerance = 1e-10)
+  # the density is N(0, sigma) on successive first differences (deviates are in
+  # elapsed-time order)
+  testthat::expect_equal(sum(fit$quantities$jnll_comp[.re_row(fit), ]),
+    -sum(stats::dnorm(diff(dev), 0, sigma, log = TRUE)), tolerance = 1e-7)
+})
+
+testthat::test_that("rw()/ar1() require a numeric grouping variable", {
+  env <- data.frame(Year = letters[1:5])
+  testthat::expect_error(
+    Rceattle:::pool_linkages(list(q = list(q = Rceattle::linkage_spec(
+      ~ rw(1 | Year), param = "q", by = ~ fleet, fleet = 1L))),
+      env_data = env, strata = list(fleet = 1L)),
+    "numeric grouping")
+})
+
 testthat::test_that("init = list(sigma = v) fixes the deviation SD at v", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS

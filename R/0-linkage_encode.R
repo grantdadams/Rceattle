@@ -41,6 +41,19 @@ LINKAGE_LINK_CODES <- c(
 )
 
 
+#' Integer codes for the random-effect covariance `re_struct`
+#'
+#' Stable across versions; the C++ density dispatches on these. `us`/IID and
+#' `rw`/RandomWalk are wired; `ar1` follows.
+#'
+#' @keywords internal
+LINKAGE_STRUCT_CODES <- c(
+  us  = 0L,
+  rw  = 1L,
+  ar1 = 2L
+)
+
+
 #' Integer codes for the `prior_family` column
 #' @keywords internal
 LINKAGE_PRIOR_CODES <- c(
@@ -187,10 +200,12 @@ encode_linkage_for_tmb <- function(table, X) {
   gt <- .re_group_table(table)
   n_re_group <- if (is.null(gt)) 0L else nrow(gt)
   if (is.null(gt)) {
+    re_struct_codes    <- integer(0)
     re_sigma_prior_fam <- integer(0)
     re_sigma_prior_p1  <- numeric(0)
     re_sigma_prior_p2  <- numeric(0)
   } else {
+    re_struct_codes    <- unname(LINKAGE_STRUCT_CODES[gt$re_struct])
     re_sigma_prior_fam <- unname(LINKAGE_PRIOR_CODES[gt$prior_family])
     re_sigma_prior_p1  <- as.numeric(gt$prior_p1)
     re_sigma_prior_p2  <- as.numeric(gt$prior_p2)
@@ -216,6 +231,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_index      = re_index_int,
     linkage_re_sigma      = re_sigma_int,
     n_re_group            = n_re_group,
+    linkage_re_struct     = re_struct_codes,
     linkage_re_sigma_prior_family = re_sigma_prior_fam,
     linkage_re_sigma_prior_p1     = re_sigma_prior_p1,
     linkage_re_sigma_prior_p2     = re_sigma_prior_p2,
@@ -245,6 +261,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_re_index      = integer(0),
     linkage_re_sigma      = integer(0),
     n_re_group            = 0L,
+    linkage_re_struct     = integer(0),
     linkage_re_sigma_prior_family = integer(0),
     linkage_re_sigma_prior_p1     = numeric(0),
     linkage_re_sigma_prior_p2     = numeric(0),

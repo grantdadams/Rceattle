@@ -728,13 +728,13 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                 time = numeric(0)))
   }
 
-  not_iid <- setdiff(unique(re_structures), "us")
-  if (length(not_iid) > 0) {
+  not_wired <- setdiff(unique(re_structures), c("us", "rw"))
+  if (length(not_wired) > 0) {
     stop(sprintf(
       paste0("random-effect structure(s) not yet wired: %s.\n",
-             "  The IID form `(1 | group)` works now; rw() / ar1() and other ",
-             "correlated structures come in a later step."),
-      paste0(not_iid, "()", collapse = ", ")), call. = FALSE)
+             "  The IID form `(1 | group)` and the random walk `rw(1 | group)` ",
+             "work now; ar1() comes in a later step."),
+      paste0(not_wired, "()", collapse = ", ")), call. = FALSE)
   }
 
   cols <- list(); groups <- character(0); structs <- character(0)
@@ -750,6 +750,18 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     if (!grp_var %in% names(env_data)) {
       stop(sprintf("random-effect grouping variable `%s` is not a column of env_data",
                    grp_var), call. = FALSE)
+    }
+    # rw()/ar1() couple deviations by elapsed time, so the grouping variable
+    # must be numeric (a real lag). IID is order-invariant, so it accepts any
+    # grouping (e.g. a regime label).
+    if (re_structures[i] != "us" &&
+        !is.numeric(env_data[[grp_var]]) &&
+        anyNA(suppressWarnings(as.numeric(as.character(env_data[[grp_var]]))))) {
+      stop(sprintf(
+        paste0("random-effect structure `%s(1 | %s)` needs a numeric grouping ",
+               "variable so deviations can be ordered in real elapsed time; ",
+               "`%s` is not numeric."),
+        re_structures[i], grp_var, grp_var), call. = FALSE)
     }
     # One indicator column per level (no reference dropped: the density pins
     # them, so all levels are identifiable). model.matrix orders columns by

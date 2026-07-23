@@ -1470,9 +1470,22 @@ build_map_linkages <- function(map_list, data_list) {
   m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
   # beta_linkage_re keeps the blanket "all estimable" map (the density damps
-  # it). A group's log_sigma_linkage is estimable unless the spec supplied a
-  # fixed input SD (`init = list(sigma = )` with no sigma prior) -- then it is
-  # held at that value, reproducing the reference Time_varying_*_sd_prior.
+  # it), except a random walk pins its FIRST deviate at 0 for identifiability:
+  # the walk's mean level is carried by the base parameter the intercept
+  # re-targets, exactly as the legacy RandomWalk fixes index_q_dev[flt, 1].
+  rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
+  if (length(rw_rows) > 0L) {
+    m_re <- map_list$beta_linkage_re
+    # first slot of each rw group = smallest re_index (earliest time, since
+    # re_index is assigned in (group, elapsed-time) order).
+    first_slot <- tapply(tbl$re_index[rw_rows], tbl$sigma_index[rw_rows], min)
+    m_re[as.integer(first_slot) + 1L] <- NA
+    map_list$beta_linkage_re <- m_re
+  }
+
+  # A group's log_sigma_linkage is estimable unless the spec supplied a fixed
+  # input SD (`init = list(sigma = )` with no sigma prior) -- then it is held at
+  # that value, reproducing the reference Time_varying_*_sd_prior.
   gt <- .re_group_table(tbl)
   if (!is.null(gt) && any(gt$sigma_fixed)) {
     m_sig <- map_list$log_sigma_linkage
