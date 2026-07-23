@@ -87,6 +87,18 @@
 
 ## Deprecations
 
+* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour
+  of random-effect linkages.** `fit_mod()` now warns (naming the fleets/species and
+  the grammar equivalent) when a model uses these legacy time-variation switches,
+  pointing at `build_catchability()` / `build_selectivity()` / `build_M1()` with
+  `(1 | Year)` / `rw(1 | Year)` / `ar1(1 | Year)` — which additionally allow a prior
+  on, or free estimation of, the deviation SD. **The legacy switches still fit with
+  their exact numerics** (they keep their own C++ path); this is only a nudge. The
+  warning is not raised where no grammar equivalent exists yet: the environmental /
+  Rogers-AR1 catchability modes (which overload `Time_varying_q` to name env
+  columns), the non-parametric selectivity forms, and the separable `M1_re = 6`
+  (age × year).
+
 * **`fleet_control` columns `Time_varying_q_sd_prior` / `Time_varying_sel_sd_prior`
   renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`.** They hold the input
   *value* of the time-varying deviate SD, not a prior on it (no density is placed

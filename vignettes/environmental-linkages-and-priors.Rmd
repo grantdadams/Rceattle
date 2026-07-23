@@ -1086,6 +1086,25 @@ estimated density rather than fixed covariate slopes:
 * `ar1(1 | Year)` -- a stationary **AR1**, `SCALE(AR1(rho), sigma)` with
   `sigma` the marginal SD and `rho` the correlation.
 
+These random-effect structures **supersede the legacy `Time_varying_q`,
+`Time_varying_sel`, and `M1_re` switches** -- this is now the recommended way to
+express a time-varying parameter. A survey catchability that used
+`Time_varying_q = "RandomWalk"` becomes
+
+```{r}
+build_catchability(linkages = list(
+  q = linkage_spec(~ rw(1 | Year), by = ~ fleet)))
+```
+
+time-varying selectivity becomes a linkage on the relevant selectivity parameter
+(e.g. `inf_asc = linkage_spec(~ rw(1 | Year), by = ~ fleet)`), and a time-varying
+natural-mortality `M1_re` model becomes
+`build_M1(linkages = list(M1 = linkage_spec(~ (1 | Year))))`. The legacy switches
+are only *soft-deprecated* -- they still fit with their exact numerics, and
+`fit_mod()` emits a nudge when it sees them -- but the grammar additionally lets
+you put a **prior** on the deviation SD (or estimate it freely) rather than
+fixing it at an input value.
+
 Note that `sigma` means different things across structures. For `rw()` it is
 the **innovation** (step) SD -- the SD of each `year-to-year` change -- because
 a random walk is non-stationary and has no overall spread. For `ar1()` it is
@@ -1098,7 +1117,7 @@ directly comparable across the two.
 Each grouping level gets one deviation; each group estimates its own SD. The
 SD and (for `ar1`) the correlation route through the same `init` / `priors`
 arguments as every other parameter: `init = list(sigma = 0.1)` fixes the SD
-(reproducing the legacy `Time_varying_*_sd_prior` input), `init = list(rho =
+(reproducing the legacy `Time_varying_*_sd` input), `init = list(rho =
 0.7)` fixes the correlation, and `priors = list(sigma = lognormal(...))` /
 `priors = list(rho = normal(...))` place priors. `rw()` / `ar1()` need a
 numeric grouping variable (a real elapsed-time lag).
@@ -1125,10 +1144,14 @@ rather than applying a covariate/deviate to the wrong year.
 
 ## On the roadmap
 
-* **Legacy translation** -- `Time_varying_q` / `Time_varying_sel` / `M1_re`
-  configurations are not yet auto-translated onto the equivalent random-effect
-  grammar; both paths coexist. The `Time_varying_*_sd_prior` column is an input
-  SD (reproduced by `init = list(sigma = )`), not a prior, despite its name.
+* **Legacy time-variation switches** -- `Time_varying_q` / `Time_varying_sel` /
+  `M1_re` are **soft-deprecated** in favour of the random-effect grammar above
+  (`fit_mod()` nudges you toward the equivalent `linkage_spec()`), but they still
+  fit with their exact numerics and are not auto-translated -- rewrite the spec by
+  hand when you want the grammar's features. No grammar equivalent exists yet for
+  the environmental / Rogers-AR1 catchability modes, the non-parametric
+  selectivity forms, or the separable `M1_re = 6` (age × year), which stay on the
+  legacy path without a nudge.
 * **Age-dependent linkages on processes other than M** -- the
   `age_bin` stratum is consumed by the M accumulator today (a
   row's `age_bin == NA` broadcasts across ages; specific values

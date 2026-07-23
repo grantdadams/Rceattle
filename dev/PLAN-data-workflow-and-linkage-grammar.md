@@ -735,12 +735,21 @@ end-to-end bit-exact, 10 committed tests green.
      with a dual-path deprecation alias (`switch_check()` in-memory + `read_data()` xlsx),
      regenerated the 3 bundled `.rda`, swept docs/vignettes/tests. Golden bit-identical; a
      back-compat test fits the old-name list identically. Sibling repo protected by the alias.
-   - **TODO — translators.** Auto-translate `Time_varying_q`/`Time_varying_sel`/`M1_re` configs
-     onto the equivalent random-effect grammar (bit-identical), converging the two paths.
-     Enables the `../Rceattle-models` reference cross-checks by hand-written equivalence.
-     **Per-mode bit-identity map established by the investigation** (see below); only the
-     bit-identical subset gets a translator + `deprecate_warn()`, everything else stays on the
-     legacy path (Grant's call). Key traps: (a) legacy IID/RW SDs are *fixed inputs* → the spec
+   - **DONE — soft-deprecation instead of auto-translators.** Decided *against* building
+     auto-translators: the grammar is already hand-usable, the translation would be opt-in and
+     bit-identical (so it buys the sole user nothing numerically), it can't remove the legacy
+     C++ (non-parametric forms still need it), and a bit-identical auto-rewiring engine is
+     high-risk/low-reward for federal models. Instead, `Time_varying_q`/`Time_varying_sel`/`M1_re`
+     now emit a **soft-deprecation warning** from `data_check()` naming the fleets/species and the
+     grammar equivalent (`build_*()` with `(1|Year)`/`rw`/`ar1`), and the
+     environmental-linkages vignette frames the grammar as superseding the legacy switches.
+     Warnings fire only where a grammar equivalent exists — not the environmental/Rogers-AR1
+     q overloads, non-parametric sel, or separable `M1_re=6`. Legacy paths keep exact numerics.
+     Committed with tests (which configs warn / stay silent); golden bit-identical (warnings
+     don't move numbers).
+   - **Not built — auto-translators** (superseded by the above). The per-mode bit-identity map
+     from the investigation is retained below for reference should a bulk-migration helper ever
+     be wanted. Key traps: (a) legacy IID/RW SDs are *fixed inputs* → the spec
      must force `init=list(sigma=)` with no prior so grammar σ maps out; (b) `Time_varying_{q,sel}=2`
      is a mislabeled "AR1" that is actually IID → translate to `(1|Year)`, **not** `ar1()`;
      (c) `M1_re` AR1 uses the *innovation* SD (`Sigma=σ/√(1−ρ²)`) but grammar `ar1()` takes the

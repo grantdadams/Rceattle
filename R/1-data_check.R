@@ -55,13 +55,76 @@ data_check <- function(data_list) {
     env_flts <- data_list$fleet_control$Fleet_name[
       data_list$fleet_control$Catchability %in% c("Environmental", 5)]
     warning(paste0(
-      "Catchability = 'Environmental' is deprecated. Fleet(s) ",
+      "Catchability = 'Environmental' is soft-deprecated. Fleet(s) ",
       paste(env_flts, collapse = ", "), " still fit with their current ",
       "numerics, but the environmental effect on q is better expressed as a ",
       "linkage:\n  build_catchability(linkages = list(q = ",
       "linkage_spec(~ your_covariate, by = ~ fleet)))\n",
       "which names the covariate by a formula and can carry priors, bounds ",
       "and an estimation phase."), call. = FALSE)
+  }
+
+  # Time_varying_q / Time_varying_sel / M1_re are superseded by random-effect
+  # linkages. The legacy switches still fit with their exact numerics (they keep
+  # their own C++ path); the formula grammar expresses the same IID / random-walk
+  # / AR1 deviations through build_*() with (1 | Year) / rw(1 | Year) /
+  # ar1(1 | Year), and additionally allows a prior on -- or free estimation of --
+  # the deviation SD. Warn only where a grammar equivalent exists: the
+  # environmental / Rogers-AR1 catchability modes overload Time_varying_q to name
+  # env columns (not a time-varying mode), the non-parametric selectivity forms
+  # have no additive slot, and the separable M1_re (age x year, code 6) has no
+  # 1-D grammar structure -- those stay on the legacy path without a nudge.
+  fc <- data_list$fleet_control
+  if (!is.null(fc$Time_varying_q)) {
+    tvq_dep <- fc$Time_varying_q %in% c(1, 2, 4, "IID", "AR1", "RandomWalk")
+    q_est   <- fc$Catchability %in% c(1, 2, "Estimated", "Estimated-with-prior")
+    tvq_flts <- fc$Fleet_name[tvq_dep & q_est]
+    if (length(tvq_flts) > 0) {
+      warning(paste0(
+        "Time_varying_q is soft-deprecated for fleet(s) ",
+        paste(tvq_flts, collapse = ", "), ". They still fit with their current ",
+        "numerics, but a time-varying catchability is better expressed as a ",
+        "random-effect linkage:\n  build_catchability(linkages = list(q = ",
+        "linkage_spec(~ (1 | Year), by = ~ fleet)))\n",
+        "(use rw(1 | Year) for a random walk, ar1(1 | Year) for AR1); see ",
+        "vignette('environmental-linkages-and-priors')."), call. = FALSE)
+    }
+  }
+  if (!is.null(fc$Time_varying_sel)) {
+    tvs_dep  <- fc$Time_varying_sel %in%
+      c(1, 2, 4, 5, "IID", "AR1", "RandomWalk", "RandomWalkAscending")
+    sel_para <- fc$Selectivity %in%
+      c(1, 3, 4, 8, 11, "Logistic", "DoubleLogistic", "DescendingLogistic",
+        "DoubleNormal", "LogisticPM")
+    tvs_flts <- fc$Fleet_name[tvs_dep & sel_para]
+    if (length(tvs_flts) > 0) {
+      warning(paste0(
+        "Time_varying_sel is soft-deprecated for fleet(s) ",
+        paste(tvs_flts, collapse = ", "), ". They still fit with their current ",
+        "numerics, but time-varying parametric selectivity is better expressed ",
+        "as a random-effect linkage on the relevant parameter, e.g.\n",
+        "  build_selectivity(linkages = list(inf_asc = ",
+        "linkage_spec(~ (1 | Year), by = ~ fleet)))\n",
+        "(use rw(1 | Year) for a random walk); see ",
+        "vignette('environmental-linkages-and-priors')."), call. = FALSE)
+    }
+  }
+  if (!is.null(data_list$M1_re)) {
+    # modes 1-5 (iid_age / iid_year / iid_age_year / ar1_age / ar1_year) have a
+    # grammar equivalent; mode 6 (separable ar1_age_year) does not -- exclude it.
+    m1_dep <- data_list$M1_re %in%
+      c(1, 2, 3, 4, 5, "iid_age", "iid_year", "iid_age_year", "ar1_age", "ar1_year")
+    if (any(m1_dep, na.rm = TRUE)) {
+      m1_sp <- if (!is.null(data_list$spnames)) data_list$spnames[which(m1_dep)] else which(m1_dep)
+      warning(paste0(
+        "M1_re is soft-deprecated for species ", paste(m1_sp, collapse = ", "),
+        ". It still fits with its current numerics, but time-varying natural ",
+        "mortality is better expressed as a random-effect linkage:\n",
+        "  build_M1(linkages = list(M1 = linkage_spec(~ (1 | Year))))\n",
+        "(use ar1(Year) / ar1(age_bin) for correlated deviations; note the ",
+        "grammar AR1 uses the marginal SD); see ",
+        "vignette('environmental-linkages-and-priors')."), call. = FALSE)
+    }
   }
 
   # minage: < 0 error
