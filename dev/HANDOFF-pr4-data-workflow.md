@@ -77,6 +77,19 @@ against — soft-deprecation instead).
 **Invariant any constructor must preserve:** `fleet_control$Fleet_code` must equal the row
 number (enforced in `data_check()`; see CLAUDE.md).
 
+**Concrete make-optional target — `Selectivity_block` / `Q_block` in `index_data`/`catch_data`:**
+- **`Q_block` is fully vestigial** — never read in `R/` or `src/` (q-blocking reuses
+  `index_data$Selectivity_block`, `R/3-build_map.R:1091`); it survives only in example data /
+  test helpers. Drop it / soft-deprecate now, zero behavioral risk.
+- **`Selectivity_block` is read ONLY under `Time_varying_{sel,q} == "Block"`**
+  (`R/3-build_map.R:621, :1090`); Off/IID/RW/AR1 and the grammar linkages ignore it. So make it
+  **optional, default `1`** (single block) — only Block-mode fleets need supply it. Golden must
+  stay bit-identical (the default only fires when the column is absent).
+- A *full* soft-deprecation toward the grammar needs a grammar time-block (`~ factor(period)` /
+  `~ (1 | period)` with the block label in `env_data`) to replace `Time_varying_* = "Block"`
+  (the one legacy time-varying mode with no grammar equivalent) + a translator from the per-obs
+  column. Separate, later.
+
 ## Open design questions (decide first, via AskUserQuestion / EnterPlanMode)
 1. Does `build_data()` validate **eagerly** or defer to `data_check()` at fit time? (Deferring =
    one source of truth; eager = better messages.) *Lean: defer for truth, add a thin eager
