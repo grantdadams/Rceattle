@@ -252,8 +252,22 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   if(length(data_list$fleet_control$Sel_sd_prior) > 0){
     data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Time_varying_sel_sd_prior = Sel_sd_prior)
-    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd_prior'")
+      dplyr::rename(Time_varying_sel_sd = Sel_sd_prior)
+    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd'")
+  }
+
+  # `Time_varying_{q,sel}_sd_prior` were misnamed (an input SD value, not a
+  # prior); renamed to `Time_varying_{q,sel}_sd`. Upgrade on read.
+  if(length(data_list$fleet_control$Time_varying_sel_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Time_varying_sel_sd = Time_varying_sel_sd_prior)
+    message("Renaming 'Time_varying_sel_sd_prior' to 'Time_varying_sel_sd'")
+  }
+
+  if(length(data_list$fleet_control$Time_varying_q_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Time_varying_q_sd = Time_varying_q_sd_prior)
+    message("Renaming 'Time_varying_q_sd_prior' to 'Time_varying_q_sd'")
   }
 
   if(length(data_list$fleet_control$Estimate_q) > 0){

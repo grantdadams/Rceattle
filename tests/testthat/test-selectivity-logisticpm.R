@@ -71,7 +71,7 @@ testthat::test_that("LogisticPM penalty = realized-logsel RW (age-range, start-y
   GOA2018SS$fleet_control$Sel_norm_bin2[rows_use]             <- NA
   GOA2018SS$fleet_control$Sel_start_year[rows_use]            <- start_year
   GOA2018SS$fleet_control$Time_varying_sel[rows_use]          <- "RandomWalk"
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior[rows_use] <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use]            <- w_sel
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use]            <- 0
   GOA2018SS$fleet_control$Sel_curve_pen3[rows_use]            <- w_a1

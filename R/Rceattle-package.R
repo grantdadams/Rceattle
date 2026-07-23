@@ -48,7 +48,8 @@ utils::globalVariables(c(
   "Estimate_survey_sd", "Survey_sd_prior", "Nselages", "Sel_sd_prior",
   "Estimate_q", "Age_first_selected", "Age_max_selected",
   "Age_max_selected_upper",
-  "Time_varying_sel", "Time_varying_sel_sd_prior",
+  "Time_varying_sel", "Time_varying_sel_sd_prior", "Time_varying_sel_sd",
+  "Time_varying_q_sd_prior", "Time_varying_q_sd",
   "Sel_curve_pen1", "Sel_curve_pen2",
   # Loop iterators and anonymous function variables
   "i", "x", "spp", "sim", "var"

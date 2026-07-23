@@ -203,6 +203,29 @@ switch_check <- function(data_list){
     return(val)
   }
 
+  # Deprecated fleet_control column names. `Time_varying_q_sd_prior` /
+  # `Time_varying_sel_sd_prior` are misnomers: they hold the input VALUE of the
+  # time-varying deviate SD, not a prior on it (no density is placed on the SD).
+  # Renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`. Accept the old names
+  # from existing data lists / .rda / xlsx and upgrade in place -- once, with a
+  # deprecation message -- here at the top of switch_check() so the rename lands
+  # before build_params() reads the column and before the non-parametric
+  # penalty migration below.
+  rename_deprecated_col <- function(fc, old, new) {
+    if (!is.null(fc[[old]])) {
+      if (is.null(fc[[new]])) fc[[new]] <- fc[[old]]
+      fc[[old]] <- NULL
+      message(sprintf(
+        "'%s' is deprecated; use '%s' (the input SD value, not a prior).",
+        old, new))
+    }
+    fc
+  }
+  data_list$fleet_control <- rename_deprecated_col(
+    data_list$fleet_control, "Time_varying_q_sd_prior",   "Time_varying_q_sd")
+  data_list$fleet_control <- rename_deprecated_col(
+    data_list$fleet_control, "Time_varying_sel_sd_prior", "Time_varying_sel_sd")
+
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0
     data_list$srr_pred_fun <- 0
@@ -294,9 +317,9 @@ switch_check <- function(data_list){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(
         Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd_prior, Sel_curve_pen2),
+        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd, Sel_curve_pen2),
         Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel),
-        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd_prior)
+        Time_varying_sel_sd = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd)
       )
     message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }

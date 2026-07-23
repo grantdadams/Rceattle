@@ -329,7 +329,7 @@ build_params <- function(data_list) {
   names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation for survey selectivity random walk - used for logistic
-  param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
+  param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd)
   names(param_list$index_q_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 
@@ -407,7 +407,7 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
+  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd)
   names(param_list$sel_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 

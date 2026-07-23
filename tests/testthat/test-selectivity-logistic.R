@@ -90,7 +90,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
@@ -187,7 +187,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
@@ -223,7 +223,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
   #FIXME: move to scale invariant setup
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize

@@ -19,7 +19,7 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Bin_first_selected <- 3
   GOA2018SS$fleet_control$Time_varying_sel <- 0
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1
 
 
   # Set params
@@ -61,7 +61,7 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
   GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic" # Age-based double logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
   #FIXME: move to scale invariant setup
   GOA2018SS$fleet_control$Bin_first_selected <- 4
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize

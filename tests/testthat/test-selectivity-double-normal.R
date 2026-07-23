@@ -226,7 +226,7 @@ testthat::test_that("IID time-varying double-normal: map has correct number of d
   simData <- sim$data_list
   simData$fleet_control$Selectivity              <- "DoubleNormal"
   simData$fleet_control$Time_varying_sel         <- "IID"
-  simData$fleet_control$Time_varying_sel_sd_prior <- 1
+  simData$fleet_control$Time_varying_sel_sd <- 1
   simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected       <- 1
   simData$fleet_control$Sel_norm_bin1            <- NA
@@ -280,7 +280,7 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   simData <- sim$data_list
   simData$fleet_control$Selectivity              <- "DoubleNormal"
   simData$fleet_control$Time_varying_sel         <- "IID"
-  simData$fleet_control$Time_varying_sel_sd_prior <- 1
+  simData$fleet_control$Time_varying_sel_sd <- 1
   simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected       <- 1
   simData$fleet_control$Sel_norm_bin1            <- NA
@@ -292,7 +292,7 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   asc_sd_devs      <- rnorm(nyrs)
   desc_sd_devs     <- rnorm(nyrs)
 
-  sd_prior <- 1  # Time_varying_sel_sd_prior
+  sd_prior <- 1  # Time_varying_sel_sd
 
   mod0 <- suppressMessages(
     fit_mod(data_list = simData, inits = NULL, estimateMode = 3,
