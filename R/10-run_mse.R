@@ -986,19 +986,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # Dispatch sims (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, nsim))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    # Workers need the package; locals (om, em, seed, ...) are passed
-    # in clusterExport via the closure environment.
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    sim_list <- parallel::parLapply(cl, start_sim:nsim, run_one_sim)
+    # FORK where possible (inherits the loaded package + the large OM/EM objects
+    # via copy-on-write); PSOCK fallback exports them. See .parallel_lapply().
+    sim_list <- .parallel_lapply(start_sim:nsim, run_one_sim, min(cores, nsim), environment())
   } else {
     sim_list <- lapply(start_sim:nsim, run_one_sim)
   }

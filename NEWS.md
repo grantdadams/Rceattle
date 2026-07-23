@@ -1,3 +1,18 @@
+# Rceattle 4.10.1
+
+## Bug fixes
+
+* **Parallel workers now run the in-session package.** `run_mse()`,
+  `retrospective()`, and `jitter()` use a FORK cluster on non-Windows platforms,
+  so workers inherit the parent's loaded namespace (and the large fitted OM/EM
+  objects) via copy-on-write instead of each reloading `library(Rceattle)` and
+  receiving a `clusterExport()` of those objects. This fixes silently running a
+  stale *installed* package on the workers during `pkgload::load_all()` /
+  development sessions, and removes the per-worker startup cost (~3 s for 6
+  workers with the Bering Sea multispecies objects). Results are unchanged
+  (parallel and serial runs are bit-identical for a given seed). Windows keeps
+  the previous PSOCK path as a fallback.
+
 # Rceattle 4.10.0
 
 ## New features

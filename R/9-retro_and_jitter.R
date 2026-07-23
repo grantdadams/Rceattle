@@ -1,3 +1,38 @@
+#' Parallel `lapply` over a cluster, using FORK where the platform allows.
+#'
+#' @description
+#' On non-Windows platforms a FORK cluster inherits the parent process's memory
+#' (the already-loaded `Rceattle` namespace and every local, including the large
+#' fitted OM/EM objects) via copy-on-write, so it needs neither a per-worker
+#' `library(Rceattle)` nor a `clusterExport()` of those objects. The PSOCK path
+#' pays both on every worker: a package load and serialization/transfer of the
+#' exported bindings. FORK therefore removes the dominant cluster-startup cost
+#' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
+#' fallback (Windows), reproducing the previous behaviour exactly.
+#'
+#' @param items Vector iterated over; each element is passed to `fun`.
+#' @param fun Worker closure.
+#' @param n_workers Number of cluster workers.
+#' @param export_env For the PSOCK fallback only, the environment whose bindings
+#'   are exported to the workers (the caller's `environment()`). Ignored for
+#'   FORK, where the workers inherit it directly.
+#' @return A list of `fun` applied to each element of `items`.
+#' @noRd
+.parallel_lapply <- function(items, fun, n_workers, export_env) {
+  fork <- .Platform$OS.type != "windows"
+  cl <- if (fork) {
+    parallel::makeCluster(n_workers, type = "FORK")
+  } else {
+    parallel::makeCluster(n_workers)
+  }
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+  if (!fork) {
+    parallel::clusterEvalQ(cl, suppressPackageStartupMessages(library(Rceattle)))
+    parallel::clusterExport(cl, varlist = ls(envir = export_env), envir = export_env)
+  }
+  parallel::parLapply(cl, items, fun)
+}
+
 #' Retrospective peels
 #'
 #' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
@@ -398,17 +433,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   # Dispatch peels (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, peels))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    peel_results <- parallel::parLapply(cl, 1:peels, run_one_peel)
+    peel_results <- .parallel_lapply(1:peels, run_one_peel, min(cores, peels), environment())
   } else {
     peel_results <- lapply(1:peels, run_one_peel)
   }
@@ -661,17 +686,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
   # Dispatch jitters (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, njitter))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, 1:njitter, run_one_jitter)
+    mod_list <- .parallel_lapply(1:njitter, run_one_jitter, min(cores, njitter), environment())
   } else {
     mod_list <- lapply(1:njitter, run_one_jitter)
   }
@@ -837,17 +852,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # Dispatch sims (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, nsim))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, 1:nsim, run_one_sim)
+    mod_list <- .parallel_lapply(1:nsim, run_one_sim, min(cores, nsim), environment())
   } else {
     mod_list <- lapply(1:nsim, run_one_sim)
   }
@@ -1256,17 +1261,7 @@ profile.Rceattle <- function(fitted = NULL,
   # Dispatch (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, ngrid))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, seq_len(ngrid), run_one_point)
+    mod_list <- .parallel_lapply(seq_len(ngrid), run_one_point, min(cores, ngrid), environment())
   } else {
     mod_list <- lapply(seq_len(ngrid), run_one_point)
   }
