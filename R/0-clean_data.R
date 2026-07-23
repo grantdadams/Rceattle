@@ -106,6 +106,20 @@ clean_data <- function(data_list){
     }
   }
 
+  # Selectivity_block: optional per-observation time-block id in index_data /
+  # catch_data. It is READ ONLY for Time_varying_{sel,q} == "Block" (build_map);
+  # every other configuration (Off / IID / RW / AR1, and the random-effect
+  # linkages) ignores it. Default a missing column to 1 (a single block = no
+  # time-blocking), so a user need only supply it for Block-mode fleets. (The
+  # `Q_block` column is vestigial -- never read; the q time-blocking reuses
+  # Selectivity_block -- see data_check() for its soft-deprecation.)
+  for (.blk in c("index_data", "catch_data")) {
+    if (!is.null(data_list[[.blk]]) && nrow(data_list[[.blk]]) > 0L &&
+        !"Selectivity_block" %in% names(data_list[[.blk]])) {
+      data_list[[.blk]]$Selectivity_block <- 1L
+    }
+  }
+
   # env_data: default to a Year-only data.frame so downstream code that does
   # `ncol(env_data) - 1` (number of indices) gets 0 when no environmental data
   # are supplied, and `merge(env_data, ...)` in rearrange_data() works.

@@ -153,7 +153,6 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
     Year = years,
     Month = 0,
     Selectivity_block = 1,
-    Q_block = 1,
     Observation = total_biom,
     Log_sd = 0.1
   )

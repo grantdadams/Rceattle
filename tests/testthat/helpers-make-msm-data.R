@@ -390,7 +390,6 @@ make_msm_test_data <- function(
     Year = rep(years, nspp),
     Month = 0,
     Selectivity_block = 1,
-    Q_block = 1,
     Observation = as.numeric(t(SrvIdx)),
     Log_sd = sigma_srv
   )

@@ -203,6 +203,16 @@
 
 ## Deprecations
 
+* **`Selectivity_block` is now optional; `Q_block` is deprecated and ignored.** The
+  per-observation time-block columns in `index_data`/`catch_data` are read only for
+  `Time_varying_{sel,q} = "Block"`; every other configuration (including the
+  random-effect linkages) ignores them. `clean_data()` now default-fills a missing
+  `Selectivity_block` with `1` (a single block), so you need only supply it for
+  Block-mode fleets. `Q_block` was never read (q time-blocking reuses
+  `Selectivity_block`) — supplying it now warns, and it has been dropped from all
+  bundled example datasets (as has the unused `Selectivity_block`). Existing models
+  are bit-identical.
+
 * **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour
   of random-effect linkages.** `fit_mod()` now warns (naming the fleets/species and
   the grammar equivalent) when a model uses these legacy time-variation switches,

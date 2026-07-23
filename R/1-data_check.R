@@ -127,6 +127,16 @@ data_check <- function(data_list) {
     }
   }
 
+  # `Q_block` is vestigial: it is never read (q time-blocking reuses the
+  # `Selectivity_block` column, R/3-build_map.R), so a supplied `Q_block` is
+  # silently ignored. Warn once so users don't rely on it.
+  if (any(vapply(c("index_data", "catch_data"),
+                 function(b) "Q_block" %in% names(data_list[[b]]), logical(1)))) {
+    warning("'Q_block' in index_data/catch_data is deprecated and ignored: q ",
+            "time-blocking (Time_varying_q = 'Block') uses the 'Selectivity_block' ",
+            "column, not 'Q_block'.", call. = FALSE)
+  }
+
   # minage: < 0 error
   if(any(data_list$minage < 0)){
     errors <- c(errors, "Minimum age is < 0. Check 'minage'.")
