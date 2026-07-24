@@ -20,6 +20,13 @@
 #' file.remove(out_file)
 write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
+  # Upgrade any deprecated column / element names to canonical first, so the
+  # written workbook uses the canonical names (the control + bioenergetics
+  # sheets below are assembled from the canonical schema names).
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+  data_list <- .rce_upgrade_data_list_aliases(data_list)
+
   # A model_config slot is code-side model structure, not a workbook data sheet,
   # so it is not written and will not survive the xlsx round-trip. Warn rather
   # than drop it silently; re-attach it in code after read_data() (a documented
@@ -112,8 +119,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
   }
-  if(is.null(data_list$Diet_loglike)){
-    data_list$Diet_loglike <- rep(0, data_list$nspp)
+  if(is.null(data_list$Diet_distribution)){
+    data_list$Diet_distribution <- rep(0, data_list$nspp)
   }
   bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 14)
   bioenergetics_control[1, ] <- data_list$Ceq
@@ -128,7 +135,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   bioenergetics_control[10, ] <- data_list$Tcl
   bioenergetics_control[11, ] <- data_list$CK1
   bioenergetics_control[12, ] <- data_list$CK4
-  bioenergetics_control[13, ] <- data_list$Diet_loglike
+  bioenergetics_control[13, ] <- data_list$Diet_distribution
   bioenergetics_control[14, ] <- data_list$Diet_comp_weights
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
@@ -140,7 +147,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   bio_labels <- .rce_schema_names("bioenergetics_control")
   stopifnot(identical(bio_labels,
     c("Ceq", "Cindex", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm",
-      "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights")))
+      "Tcl", "CK1", "CK4", "Diet_distribution", "Diet_comp_weights")))
   bioenergetics_control <- cbind(bio_labels, bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
@@ -233,7 +240,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   # 5. Extract Vectors
   # vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
   #               "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
-  #               "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
+  #               "pop_age_transition_index", "sigma_rec", "other_food", "estDynamics")
   # data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
 
   for (i in 5:nrow(sheet1)) {
@@ -436,6 +443,11 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     }
   }
 
-  # write the data
+  # Upgrade any deprecated control / bioenergetics element names read from an
+  # older workbook (e.g. sigma_rec_prior -> sigma_rec, Diet_loglike ->
+  # Diet_distribution) now that every sheet has been read. fleet_control column
+  # aliases were already upgraded above.
+  data_list <- .rce_upgrade_data_list_aliases(data_list)
+
   return(data_list)
 }

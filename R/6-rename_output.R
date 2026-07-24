@@ -172,10 +172,10 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 
 
   # Loop fleets and take harmonic mean
-  data_list$fleet_control$Est_weights_mcallister <- NA
+  data_list$fleet_control$Comp_weights_mcallister <- NA
   for(flt in unique(data_list$comp_data$Fleet_code)){
     comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
-    data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
+    data_list$fleet_control$Comp_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
   }
 
   return(data_list)

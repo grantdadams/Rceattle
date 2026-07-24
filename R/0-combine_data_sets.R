@@ -20,6 +20,10 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
     data_list1$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list1$fleet_control)
   if (!is.null(data_list2))
     data_list2$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list2$fleet_control)
+  # ...and the control / bioenergetics element names (sigma_rec, Diet_distribution)
+  # so both inputs concatenate under the single canonical vec_names below.
+  data_list1 <- .rce_upgrade_data_list_aliases(data_list1)
+  data_list2 <- .rce_upgrade_data_list_aliases(data_list2)
 
   data_list_new <- data_list1
 
@@ -27,7 +31,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
   names_not_used <- c("nspp", "styr", "endyr", "projyr")
 
-  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "M1_model", "M1_re", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_loglike", "Diet_comp_weights") # Object names of per-species vectors
+  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "M1_model", "M1_re", "pop_alk_index", "sigma_rec", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_distribution", "Diet_comp_weights") # Object names of per-species vectors
 
   mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "caal_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "weight",   "maturity", "sex_ratio", "M1_base", "ration_data", "diet_data") # Object names of matrices
 

@@ -20,7 +20,7 @@ Control
 \item{pop_wt_index}{Weight-at-age (weight) index to use for calculation of each species population derived quantities (SSB, Consumption/Ration, Suitability, etc)}
 \item{ssb_wt_index}{Weight-at-age (weight) index to use for calculation of each species spawning biomass}
 \item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
-\item{sigma_rec_prior}{Standard deviation to use for recruitment}
+\item{sigma_rec}{Standard deviation to use for recruitment}
 \item{other_food}{Other food in the ecosystem for each species}
 \item{estDynamics}{Estimate or fix numbers-at-age. Accepts integer codes or the equivalent readable strings: 0 / "Estimated" = estimate dynamics; 1 / "Fixed" = use input numbers-at-age in NByageFixed; 2 / "FixedScaled" = multiply input numbers-at-age (NByageFixed) by a single scaling coefficient; 3 / "FixedScaledByAge" = multiply input numbers-at-age (NByageFixed) by an age-specific scaling coefficient.}
 \item{M1_model}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1. (Formerly named \code{est_M1}; the old name is still accepted with a deprecation message.)}

@@ -97,7 +97,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
   simData$alpha_wt_len = 0.0001
   simData$beta_wt_len = 3
   simData$pop_age_transition_index = 1
-  simData$sigma_rec_prior = 1
+  simData$sigma_rec = 1
   simData$other_food = 1e6
   simData$estDynamics = 0
 
@@ -141,7 +141,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
     Catch_sd = c(NA, 1),
     Proj_F_proportion = c(NA, 1),
     CAAL_weights = 1,
-    Est_weights_mcallister = 1
+    Comp_weights_mcallister = 1
   )
 
   # Deterministic simple observations for fast tests
@@ -281,7 +281,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
   simData$Tcl = 1
   simData$CK1 = 1
   simData$CK4 = 1
-  simData$Diet_loglike = 1
+  simData$Diet_distribution = 1
   simData$Diet_comp_weights = 1
 
   # Environmental data

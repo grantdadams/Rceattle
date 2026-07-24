@@ -7,7 +7,7 @@
 # mapped out at 0 and whose prior re-targets the underlying weight parameter
 #   theta_comp  -> comp_weights        (age/length comps, Comp_distribution)
 #   theta_caal  -> caal_weights        (conditional age-at-length, CAAL_distribution)
-#   theta_diet  -> diet_comp_weights   (predator diet, Diet_loglike)
+#   theta_diet  -> diet_comp_weights   (predator diet, Diet_distribution)
 # The DM parameter is exp(weight), so the intercept prior is evaluated on the
 # NATURAL scale: b_nat = exp(weight) (same log-link contract as the growth / M /
 # q intercept priors, tested in test-linkage-intercept-prior-base-parameter.R).
@@ -79,7 +79,7 @@ testthat::test_that("theta_diet prior is evaluated on exp(diet_comp_weights) per
   # per-predator (sp_idx) branch that theta_comp / theta_caal (fleet-keyed) do
   # not. make_msm_test_data() carries diet_data; switch its likelihood to DM.
   d <- make_msm_test_data()$data_list
-  d$Diet_loglike <- rep(1L, d$nspp)   # 1 = DirichletMultinomial for diet
+  d$Diet_distribution <- rep(1L, d$nspp)   # 1 = DirichletMultinomial for diet
 
   shape <- 2; rate <- 0.5
   cf <- Rceattle::build_composition(linkages = list(

@@ -280,6 +280,9 @@ switch_check <- function(data_list){
   # Estimate_q, Estimate_survey_sd, Age_first_selected, Age_max_selected(_upper).
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+  # ...and the deprecated control / bioenergetics element names (e.g.
+  # `sigma_rec_prior` -> `sigma_rec`, `Diet_loglike` -> `Diet_distribution`).
+  data_list <- .rce_upgrade_data_list_aliases(data_list)
 
   # `Accumulation_age_lower` / `Accumulation_age_upper` are removed. They were
   # only ever range-validated and never applied (no composition-age grouping
@@ -324,7 +327,7 @@ switch_check <- function(data_list){
       .map_switch(data_list$fleet_control$Estimate_catch_sd, estimate_sd_map, "Estimate_catch_sd")
   }
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
-  data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
+  data_list$Diet_distribution <- set_default(data_list$Diet_distribution, rep(0, data_list$nspp), "'Diet_distribution' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
   data_list <- .alias_est_M1(data_list)

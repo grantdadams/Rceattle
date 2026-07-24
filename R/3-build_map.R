@@ -523,7 +523,7 @@ build_map_predation <- function(map_list, data_list) {
         map_list$log_phi[, sp] <- NA
       }
 
-      if(data_list$Diet_loglike[sp] == 1){
+      if(data_list$Diet_distribution[sp] == 1){
         map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
       }
     }

@@ -36,9 +36,9 @@
     names(.rce_requirement_table()),
     .RCE_BIOENERGETICS_SCALARS,
     # auxiliary data / parameters
-    "alpha_wt_len", "beta_wt_len", "aLW", "sigma_rec_prior",
+    "alpha_wt_len", "beta_wt_len", "aLW", "sigma_rec",
     "srr_prior_mean", "srr_prior_sd",
-    "Diet_loglike", "Diet_comp_weights", "est_diet", "stom_tau",
+    "Diet_distribution", "Diet_comp_weights", "est_diet", "stom_tau",
     "UobsAge", "UobsWtAge", "minNByage", "MSSB0", "MSB0",
     # configuration / switches commonly stored on a data list
     "msmMode", "initMode", "avgnMode", "suitMode", "niter", "random_rec",

@@ -24,9 +24,9 @@ roundtrip <- function(d) {
 CONTROL_KEYS <- c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month",
                   "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index",
                   "alpha_wt_len", "beta_wt_len", "pop_age_transition_index",
-                  "sigma_rec_prior", "other_food", "estDynamics")
+                  "sigma_rec", "other_food", "estDynamics")
 BIO_KEYS <- c("Ceq", "Cindex", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm",
-              "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights")
+              "Tcl", "CK1", "CK4", "Diet_distribution", "Diet_comp_weights")
 
 # GOA2018MS is not bundled (the multispecies GOA reference reuses GOA2018SS), so
 # only the three shipped data lists are exercised.
@@ -41,14 +41,14 @@ for (nm in Filter(exists, c("BS2017SS", "BS2017MS", "GOA2018SS"))) {
   })
 }
 
-test_that("Diet_loglike / Diet_comp_weights round-trip (bundled data leave them empty)", {
+test_that("Diet_distribution / Diet_comp_weights round-trip (bundled data leave them empty)", {
   # Both are NULL in the shipped datasets, so set them explicitly to exercise the
   # two bioenergetics rows added to the schema for the write_data label vector.
   d <- BS2017MS
-  d$Diet_loglike <- c(0, 1, 0)
+  d$Diet_distribution <- c(0, 1, 0)
   d$Diet_comp_weights <- c(2, 3, 4)
   back <- roundtrip(d)
-  expect_equal(as.numeric(back$Diet_loglike), c(0, 1, 0))
+  expect_equal(as.numeric(back$Diet_distribution), c(0, 1, 0))
   expect_equal(as.numeric(back$Diet_comp_weights), c(2, 3, 4))
 })
 

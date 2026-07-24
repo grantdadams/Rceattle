@@ -339,7 +339,7 @@ make_msm_test_data <- function(
   simData$alpha_wt_len = rep(0.00001, nspp)
   simData$beta_wt_len = rep(3, nspp)
   simData$pop_age_transition_index <- rep(1, nspp)
-  simData$sigma_rec_prior = rep(1, nspp)
+  simData$sigma_rec = rep(1, nspp)
   simData$other_food <- rep(1e5, nspp)
   simData$estDynamics = rep(0, nspp)
 
@@ -379,7 +379,7 @@ make_msm_test_data <- function(
     Catch_sd = rep(c(NA, 1), nspp),
     Proj_F_proportion = rep(c(NA, 1), nspp),
     CAAL_weights = 1,
-    Est_weights_mcallister = 1
+    Comp_weights_mcallister = 1
   )
 
   # * Index data
@@ -600,7 +600,7 @@ make_msm_test_data <- function(
   simData$Tcl <- rep(1, nspp)
   simData$CK1 <- rep(1, nspp)
   simData$CK4 <- rep(1, nspp)
-  simData$Diet_loglike <- rep(0,nspp)
+  simData$Diet_distribution <- rep(0,nspp)
   simData$Diet_comp_weights <- rep(1,nspp)
 
   # * Diet proportion ----

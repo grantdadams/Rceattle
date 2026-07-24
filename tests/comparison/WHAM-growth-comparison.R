@@ -160,7 +160,7 @@ simData$spawn_month <- 0
 simData$alpha_wt_len <- 5.56e-06
 simData$beta_wt_len <- 3.2
 simData$pop_age_transition_index <- 1
-simData$sigma_rec_prior <- 0.6
+simData$sigma_rec <- 0.6
 nages <- simData$nages
 nlengths <- simData$nlengths
 

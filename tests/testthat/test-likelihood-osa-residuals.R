@@ -423,7 +423,7 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
 
 
 # A small multispecies diet fixture reused by the two OSA-diet tests below.
-# Diet is multinomial (Diet_loglike = 0) with unit weights, so the OSA
+# Diet is multinomial (Diet_distribution = 0) with unit weights, so the OSA
 # (conditional-binomial) decomposition of the diet likelihood must reproduce the
 # ordinary multinomial diet likelihood slot exactly (see test (a)).
 .make_diet_osa_fixture <- function() {

@@ -1085,7 +1085,7 @@ build_composition <- function(linkages = NULL) {
 #' non-DM fleet/predator would target a fixed parameter. Both error up front.
 #'
 #' @param linkage_table pooled linkage table (may be NULL / empty).
-#' @param data_list the data list (for `fleet_control` and `Diet_loglike`).
+#' @param data_list the data list (for `fleet_control` and `Diet_distribution`).
 #' @return invisibly NULL; errors on an unsupported comp linkage.
 #' @keywords internal
 #' @noRd
@@ -1156,9 +1156,9 @@ build_composition <- function(linkages = NULL) {
           "by species (`by = ~ species`). An unstratified spec would attach ",
           "the prior to a single predator only."), call. = FALSE)
       }
-      if (as.integer(data_list$Diet_loglike[sp]) != 1L) {
+      if (as.integer(data_list$Diet_distribution[sp]) != 1L) {
         stop(sprintf(paste0(
-          "theta_diet linkage on predator %s whose Diet_loglike is not ",
+          "theta_diet linkage on predator %s whose Diet_distribution is not ",
           "DirichletMultinomial; the DM weight is not estimated there."), sp),
           call. = FALSE)
       }

@@ -217,7 +217,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Comp_distribution) %>% as.integer()
   data_list$caal_ll_type <- data_list$fleet_control %>%
     dplyr::pull(.data$CAAL_distribution) %>% as.integer()
-  data_list$diet_ll_type <- data_list$Diet_loglike %>%
+  data_list$diet_ll_type <- data_list$Diet_distribution %>%
     as.integer()
 
   # - 11) Index units (1 = weight, 2 = numbers)

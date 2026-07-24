@@ -109,7 +109,7 @@
     .rce_col("alpha_wt_len", "control", "Alpha parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 1e-6, default_msg = "'alpha_wt_len' not specified in data, assuming 1e-6"),
     .rce_col("beta_wt_len", "control", "Beta parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 3, default_msg = "'beta_wt_len' not specified in data, assuming 3"),
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
-    .rce_col("sigma_rec_prior", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates"),
+    .rce_col("sigma_rec", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates", aliases = "sigma_rec_prior"),
     .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
     .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only"),
 
@@ -184,7 +184,7 @@
     .rce_col("CK4", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
     # Per-predator-species vectors defaulted by switch_check
     # (rep(0, nspp) / rep(1, nspp)); their defaulting stays imperative there.
-    .rce_col("Diet_loglike", "bioenergetics_control", "Diet composition likelihood distribution per predator species (0 = multinomial).", type = "switch", meta = TRUE),
+    .rce_col("Diet_distribution", "bioenergetics_control", "Diet composition likelihood distribution per predator species (0 = multinomial).", type = "switch", meta = TRUE, aliases = "Diet_loglike"),
     .rce_col("Diet_comp_weights", "bioenergetics_control", "Diet composition weight (multinomial multiplier) per predator species.", meta = TRUE)
   )
 
@@ -257,6 +257,36 @@
     }
   }
   fc
+}
+
+#' Upgrade deprecated data_list-level (control / bioenergetics) names to canonical.
+#'
+#' The analogue of `.rce_upgrade_fleet_control_aliases()` for the top-level
+#' data_list elements that are NOT fleet_control columns -- the control scalars
+#' and bioenergetics per-species vectors, whose deprecated names live in the
+#' same schema `aliases` field (e.g. `sigma_rec_prior` -> `sigma_rec`,
+#' `Diet_loglike` -> `Diet_distribution`). Double-fire-safe; one message per
+#' rename applied.
+#'
+#' @param data_list An Rceattle data list (or NULL).
+#' @return `data_list` with any deprecated control/bioenergetics element names
+#'   upgraded to canonical.
+#' @keywords internal
+#' @noRd
+.rce_upgrade_data_list_aliases <- function(data_list) {
+  if (is.null(data_list)) return(data_list)
+  schema <- .rce_column_schema()
+  for (row in schema) {
+    if (row$sheet == "fleet_control" || length(row$aliases) == 0L) next
+    for (old in row$aliases) {
+      if (!is.null(data_list[[old]])) {
+        if (is.null(data_list[[row$name]])) data_list[[row$name]] <- data_list[[old]]
+        data_list[[old]] <- NULL
+        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
+      }
+    }
+  }
+  data_list
 }
 
 #' Rows for one sheet, in schema (write) order.

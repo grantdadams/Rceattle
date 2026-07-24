@@ -53,7 +53,7 @@ build_params <- function(data_list) {
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
                               dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
-  param_list$R_log_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
+  param_list$R_log_sd = log(as.numeric(data_list$sigma_rec))  # Standard deviation of recruitment deviations; n = [1, nspp]
   names(param_list$R_log_sd) <- data_list$spnames
 
   # * 1.3. Initial age-structure parameters ----

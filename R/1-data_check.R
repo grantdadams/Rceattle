@@ -12,6 +12,7 @@ data_check <- function(data_list) {
   # this is a silent no-op there.
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+  data_list <- .rce_upgrade_data_list_aliases(data_list)
 
   # ---- Helpers ----
   has_data <- function(df) !is.null(df) && nrow(df) > 0
@@ -854,7 +855,7 @@ data_check <- function(data_list) {
   if(any(is.na(data_list$Diet_comp_weights) & data_list$suitMode > 0)){
     errors <- c(errors, "Diet composition likelihood weight for a species with estimated suitability is NA")
   }
-  if(any(!(data_list$Diet_loglike %in% c(0, 1)) & data_list$suitMode > 0)){
+  if(any(!(data_list$Diet_distribution %in% c(0, 1)) & data_list$suitMode > 0)){
     errors <- c(errors, "Diet composition likelihood for a species with estimated suitability is not 0 or 1")
   }
 
