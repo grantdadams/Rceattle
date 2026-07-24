@@ -22,7 +22,7 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
   # added to one side but not the other is caught) and each VALUE (so a wrong
   # schema default cannot slip through a same-source comparison).
   expected <- list(
-    Sel_norm_bin1 = NA, Sel_norm_bin2 = NA,
+    Sel_norm_bin = NA, Sel_norm_bin_upper = NA,
     Sel_curve_pen1 = 0, Sel_curve_pen2 = 0, Sel_curve_pen3 = 0,
     Sel_start_year = NA, Sel_pen_first_bin = NA, Sel_pen_last_bin = NA,
     Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
@@ -44,7 +44,7 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
 
 test_that("schema-driven defaults fill the documented values", {
   d <- BS2017SS
-  for (col in c("Sel_norm_bin1", "Sel_norm_bin2", "Sel_start_year",
+  for (col in c("Sel_norm_bin", "Sel_norm_bin_upper", "Sel_start_year",
                 "Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_shape_mode",
                 "Sel_avgsel_pen", "Sel_cap_bin", "Selectivity_dimension",
                 "Comp_distribution", "CAAL_distribution", "Index_distribution", "CAAL_weights",
@@ -61,7 +61,7 @@ test_that("schema-driven defaults fill the documented values", {
                  rep(schema[[col]]$default, nf), info = col)
   }
   # NA defaults come back all-NA.
-  for (col in c("Sel_norm_bin1", "Sel_norm_bin2", "Sel_shape_mode", "Sel_cap_bin"))
+  for (col in c("Sel_norm_bin", "Sel_norm_bin_upper", "Sel_shape_mode", "Sel_cap_bin"))
     expect_true(all(is.na(out$fleet_control[[col]])), info = col)
 
   # Index_distribution is defaulted then per-NA-filled to Lognormal.

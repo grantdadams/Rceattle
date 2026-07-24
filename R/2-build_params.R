@@ -131,7 +131,7 @@ build_params <- function(data_list) {
   names(param_list$log_Finit) <- data_list$spnames
 
   # - Proportion of future fishing mortality for projections for each fleet
-  param_list$proj_F_prop = data_list$fleet_control$proj_F_prop
+  param_list$proj_F_prop = data_list$fleet_control$Proj_F_proportion
   names(param_list$proj_F_prop) <- data_list$fleet_control$Fleet_name
 
   # - Annual fishing mortality deviations

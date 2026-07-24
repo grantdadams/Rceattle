@@ -367,8 +367,8 @@ switch_check <- function(data_list){
   # instead of being hand-copied here. The order of the calls (and thus the
   # message order) is unchanged.
   .sch <- .rce_column_schema()
-  data_list$fleet_control$Sel_norm_bin1 <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin1, "Sel_norm_bin1", .sch)
-  data_list$fleet_control$Sel_norm_bin2 <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin2, "Sel_norm_bin2", .sch)
+  data_list$fleet_control$Sel_norm_bin <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin, "Sel_norm_bin", .sch)
+  data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch)
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
@@ -495,15 +495,15 @@ switch_check <- function(data_list){
                       data_list$nlengths[sp_idx])
 
     # - Sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin1[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin1[flt] <- max_bin
-      message(paste0("'Sel_norm_bin1' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    if(any(data_list$fleet_control$Sel_norm_bin[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin[flt] <- max_bin
+      message(paste0("'Sel_norm_bin' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
     }
 
     # - Upper sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin2[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin2[flt] <- max_bin
-      message(paste0("'Sel_norm_bin2' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    if(any(data_list$fleet_control$Sel_norm_bin_upper[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin_upper[flt] <- max_bin
+      message(paste0("'Sel_norm_bin_upper' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
     }
 
     # - N bins

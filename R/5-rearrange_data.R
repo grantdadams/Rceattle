@@ -154,16 +154,16 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
-      Sel_norm_bin1 = .data$Sel_norm_bin1 - sel_bin_offset,
-      Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
-      Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
-    dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
+      Sel_norm_bin = .data$Sel_norm_bin - sel_bin_offset,
+      Sel_norm_bin = ifelse(.data$Sel_norm_bin < 0, -99, .data$Sel_norm_bin),         # Less than zero, normalize by max
+      Sel_norm_bin = ifelse(is.na(.data$Sel_norm_bin), -999, .data$Sel_norm_bin)) %>% # NA, do not normalize (unless type = 2)
+    dplyr::pull(.data$Sel_norm_bin) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - sel_bin_offset,
-                  Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
-    dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
+    dplyr::mutate(Sel_norm_bin_upper = .data$Sel_norm_bin_upper - sel_bin_offset,
+                  Sel_norm_bin_upper = ifelse(is.na(.data$Sel_norm_bin_upper), -999, .data$Sel_norm_bin_upper)) %>%
+    dplyr::pull(.data$Sel_norm_bin_upper) %>% as.integer()
 
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the
@@ -222,7 +222,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # - 11) Index units (1 = weight, 2 = numbers)
   data_list$flt_units <- data_list$fleet_control %>%
-    dplyr::pull(.data$Weight1_Numbers2) %>% as.integer()
+    dplyr::pull(.data$Observation_units) %>% as.integer()
 
   # - 12) Dim1 of weight (what weight-at-age data set)
   data_list$flt_wt_index <- data_list$fleet_control %>%

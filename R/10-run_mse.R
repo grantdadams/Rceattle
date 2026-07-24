@@ -70,11 +70,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
-    stop("F prop per fleet 'proj_F_prop' is zero")
+  if(sum(om$data_list$fleet_control$Proj_F_proportion) == 0){
+    stop("F prop per fleet 'Proj_F_proportion' is zero")
   }
 
-  # ** Refit OM if proj_F_prop was not activated ----
+  # ** Refit OM if Proj_F_proportion was not activated ----
   if(sum((om$data_list$catch_data$Catch > 0) - (om$quantities$max_catch_hat > 0), na.rm = TRUE) > 0){
     # -- Set estimate mode back to original
     estimate_mode_base <- om$data_list$estimateMode

@@ -72,7 +72,7 @@ simData$fleet_control$Selectivity <- "Logistic"                  # Length-based 
 simData$fleet_control$Selectivity_dimension <- "Length"          # Length-based logistic
 simData$fleet_control$Selectivity_index <- 1:2
 simData$fleet_control$Weight_index <- 1
-simData$fleet_control$Weight1_Numbers2 <- 1
+simData$fleet_control$Observation_units <- 1
 simData$fleet_control$Month <- c(0, 6)
 simData$fleet_control$Bin_first_selected <- 1
 simData$fleet_control$Catchability <- c(0, NA)

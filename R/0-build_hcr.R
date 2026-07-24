@@ -128,12 +128,12 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
 
 
     # Turn off SPR parameters for special cases ----
-    # -- Turn off SPR parameters for species with no fishing (sum(proj_F_prop) == 0)
+    # -- Turn off SPR parameters for species with no fishing (sum(Proj_F_proportion) == 0)
     # -- Turn off SPR parameters for species with fixed Nbyage
     for(sp in 1:data_list$nspp){
 
       # Check proj F if proj F prop is all 0
-      prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == "Fishery")]
+      prop_check <- data_list$fleet_control$Proj_F_proportion[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == "Fishery")]
       # Turn off future F only when *every* fishery for this species is inactive.
       if(sum(prop_check, na.rm = TRUE) == 0){
         message(paste("F_prop for species",sp,"sums to 0"))

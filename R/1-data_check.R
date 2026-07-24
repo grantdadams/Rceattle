@@ -404,19 +404,19 @@ data_check <- function(data_list) {
       }
     }
 
-    # proj_F_prop: must be 0 (NoFishing) or sum to 1 across fleets
+    # Proj_F_proportion: must be 0 (NoFishing) or sum to 1 across fleets
     flt_spp <- unique(fc$Species)
     for(sp in flt_spp){
       fc_spp <- fc |> dplyr::filter(Species == sp &
                                       Fleet_type %in% c(1, "Fishery"))
-      total_proj_f <- sum(fc_spp$proj_F_prop, na.rm = TRUE)
+      total_proj_f <- sum(fc_spp$Proj_F_proportion, na.rm = TRUE)
 
       if(total_proj_f == 0 && !(data_list$HCR %in% c(0, "NoFishing"))){
-        errors <- c(errors, "HCR is > 0 and 'proj_F_prop' is 0")
+        errors <- c(errors, "HCR is > 0 and 'Proj_F_proportion' is 0")
       }
 
       if(total_proj_f > 0 && abs(total_proj_f - 1) > 1e-6){
-        errors <- c(errors, paste0("proj_F_prop values should sum to 1 for species ", sp, ", but sum to ", total_proj_f))
+        errors <- c(errors, paste0("Proj_F_proportion values should sum to 1 for species ", sp, ", but sum to ", total_proj_f))
       }
     }
 

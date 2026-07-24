@@ -69,7 +69,7 @@
 #' \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 #' \item{Sel_shape_sd, Sel_curvature_sd, Sel_devmag_sd}{Selectivity penalties expressed as standard deviations (an intuitive alternative to the raw penalty weights in Sel_curve_pen1/2/3). Each penalty is a Gaussian SSQ, so the weight is 1/(2*sd^2): Sel_shape_sd is the shape/smoothness penalty (Sel_curve_pen1), Sel_curvature_sd the 2nd-difference curvature penalty (Sel_curve_pen2), Sel_devmag_sd the deviation-magnitude penalty (Sel_curve_pen3). Supplying an SD sets the corresponding Sel_curve_pen column; a legacy Sel_curve_pen value is never overwritten. Sel_shape_sd and Sel_devmag_sd apply to NonParametric (2/9) and LogisticPM (11); Sel_curvature_sd is NonParametric-only (LogisticPM does not use Sel_curve_pen2). The 2DAR1/3DAR1 forms reuse Sel_curve_pen for logit-scale correlations and keep those columns.}
 #' \item{Sel_shape_dir}{Direction of the (directional-mode) NonParametric shape penalty when Sel_shape_sd is used: "Decreasing" (default, penalize decreasing selectivity) or "Increasing" (sets the sign of Sel_curve_pen1). LogisticPM's shape penalty is two-sided, so "Increasing" is rejected there.}
-#' \item{weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+#' \item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction. (Formerly \code{Weight1_Numbers2}; the old name is still accepted with a deprecation message.)}
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 #' \item{Catchability_index}{index to use if catchability coefficients are to be set the same. (Formerly \code{Q_index}; the old name is still accepted with a deprecation message.)}
@@ -85,7 +85,7 @@
 #' \item{Index_distribution}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default, unchanged historical behavior). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q*pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (the AMAK/ebswp DoCovBTS value, matching ADMB's reported survey likelihood); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)) (TMB's density::MVNORM). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
 #' \item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
-#' \item{proj_F_prop}{The proportion of future fishing mortality assigned to this fleet}
+#' \item{Proj_F_proportion}{The proportion of future fishing mortality assigned to this fleet. (Formerly \code{proj_F_prop}; the old name is still accepted with a deprecation message.)}
 #' \item{Sex}{sex codes: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #'}
 "BS2017SS"

@@ -30,7 +30,7 @@ testthat::test_that("NonParametricPM construction matches NonParametric", {
     dat$fleet_control$Sel_curve_pen1[rows_use]             <- 5
     dat$fleet_control$Sel_curve_pen2[rows_use]             <- 10
     dat$fleet_control$Sel_curve_pen3[rows_use]             <- 0
-    dat$fleet_control$Sel_norm_bin1[rows_use]              <- NA
+    dat$fleet_control$Sel_norm_bin[rows_use]              <- NA
     dat$fleet_control$Time_varying_sel[rows_use]           <- 0   # time-invariant
     dat$fleet_control$Time_varying_sel_sd[rows_use]  <- 1
     dat
@@ -70,7 +70,7 @@ testthat::test_that("NonParametricPM penalty matches the ADMB form (time-invaria
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use]            <- 5    # decreasing weight
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use]            <- 10   # curvature weight
   GOA2018SS$fleet_control$Sel_curve_pen3[rows_use]            <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use]             <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use]             <- NA
   GOA2018SS$fleet_control$Time_varying_sel[rows_use]          <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
 
@@ -126,7 +126,7 @@ testthat::test_that("Length-based NonParametricPM penalty spans the length bins,
   dat$fleet_control$Sel_curve_pen1            <- 5     # decreasing weight
   dat$fleet_control$Sel_curve_pen2            <- 10    # curvature weight
   dat$fleet_control$Sel_curve_pen3            <- 0
-  dat$fleet_control$Sel_norm_bin1             <- NA
+  dat$fleet_control$Sel_norm_bin             <- NA
   dat$fleet_control$Time_varying_sel          <- 0
   dat$fleet_control$Time_varying_sel_sd <- 1
 

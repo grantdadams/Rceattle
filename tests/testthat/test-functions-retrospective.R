@@ -12,7 +12,7 @@ testthat::test_that("Test retrospective", {
   # Data
   data(BS2017SS) # ?BS2017SS for more information on the data
   BS2017SS$projyr <- 2020
-  BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
+  BS2017SS$fleet_control$Proj_F_proportion <-rep(1,7)
 
 
   # Single-species with fixed M

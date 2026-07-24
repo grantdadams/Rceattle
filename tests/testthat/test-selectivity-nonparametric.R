@@ -16,7 +16,7 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 10
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA
   GOA2018SS$fleet_control$Time_varying_sel[rows_use] <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
 
@@ -115,7 +115,7 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Run
@@ -196,7 +196,7 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Run
@@ -277,7 +277,7 @@ testthat::test_that("2DAR1/3DAR1 reject saturating Sel_curve_pen rho values", {
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Sel_curve_pen1 above the saturation threshold should error for 2DAR1

@@ -83,8 +83,10 @@ test_that("schema pins the known legacy -> canonical column aliases", {
     Time_varying_q_sd   = "Time_varying_q_sd_prior",
     Catchability        = "Estimate_q",
     Bin_first_selected  = "Age_first_selected",
-    Sel_norm_bin1       = "Age_max_selected",
-    Sel_norm_bin2       = "Age_max_selected_upper",
+    Sel_norm_bin        = c("Age_max_selected", "Sel_norm_bin1"),
+    Sel_norm_bin_upper  = c("Age_max_selected_upper", "Sel_norm_bin2"),
+    Observation_units   = c("Weight1_Numbers2", "weight1_Numbers2"),
+    Proj_F_proportion   = "proj_F_prop",
     Sel_pen_first_bin   = "Sel_pen_first_age",
     Sel_pen_last_bin    = "Sel_pen_last_age",
     Sel_cap_bin         = "Sel_cap_age"

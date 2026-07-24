@@ -458,7 +458,7 @@ fit_mod <-
       rm(zero_catch)
 
       # Update proj F prop
-      start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
+      start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     }
 
     mod_objects$initial_params <- start_par
@@ -638,7 +638,7 @@ fit_mod <-
       start_par$diet_comp_weights <- data_list$Diet_comp_weights
     }
     # Proportion of projected F to each fleet
-    start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
+    start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
       start_par$log_Ftarget <- log(HCR$Ftarget)

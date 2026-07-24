@@ -15,7 +15,7 @@
 #   log_sel_slp[1] = log(sigma_ascending)
 #   log_sel_slp[2] = log(sigma_descending)
 #
-# Normalization: the model normalises sel to max = 1 when Sel_norm_bin1 = NA.
+# Normalization: the model normalises sel to max = 1 when Sel_norm_bin = NA.
 
 # Integration test (fits a CEATTLE model): skipped on CRAN to keep R CMD check
 # fast; the coverage workflow runs it in full (NOT_CRAN=true). See README.md.
@@ -29,7 +29,7 @@ double_normal_sel <- function(x, peak, sigma_asc, sigma_desc, logit_floor = 0) {
   desc_gauss  <- exp(-0.5 * ((x - peak) / sigma_desc)^2)
   val_desc    <- right_floor + (1 - right_floor) * desc_gauss
   val         <- (1 - w) * asc_gauss + w * val_desc
-  val / max(val)   # max-normalise (matches Sel_norm_bin1 < 0 path)
+  val / max(val)   # max-normalise (matches Sel_norm_bin < 0 path)
 }
 
 
@@ -44,7 +44,7 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
   GOA2018SS$fleet_control$Time_varying_sel   <- 0
   GOA2018SS$fleet_control$Selectivity_index  <- seq_len(nrow(GOA2018SS$fleet_control))
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1      <- NA  # max-normalise
+  GOA2018SS$fleet_control$Sel_norm_bin      <- NA  # max-normalise
 
   peak        <- 8
   sigma_asc   <- 3
@@ -106,7 +106,7 @@ testthat::test_that("Age-based double-normal: logit_floor=+10 produces near-logi
   GOA2018SS$fleet_control$Time_varying_sel   <- 0
   GOA2018SS$fleet_control$Selectivity_index  <- seq_len(nrow(GOA2018SS$fleet_control))
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1      <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin      <- NA
 
   peak        <- 8
   sigma_asc   <- 3
@@ -166,7 +166,7 @@ testthat::test_that("Length-based double-normal: static shape non-trivial", {
   simData$fleet_control$Time_varying_sel      <- 0
   simData$fleet_control$Selectivity_index     <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected    <- 1
-  simData$fleet_control$Sel_norm_bin1         <- NA
+  simData$fleet_control$Sel_norm_bin         <- NA
 
   peak        <- 60   # cm
   sigma_asc   <- 10
@@ -229,7 +229,7 @@ testthat::test_that("IID time-varying double-normal: map has correct number of d
   simData$fleet_control$Time_varying_sel_sd <- 1
   simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected       <- 1
-  simData$fleet_control$Sel_norm_bin1            <- NA
+  simData$fleet_control$Sel_norm_bin            <- NA
   simData$catch_data$Catch <- 1e6  # non-zero catch keeps sel devs on
 
   n_active <- sum(simData$fleet_control$Fleet_type != "Off")
@@ -283,7 +283,7 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   simData$fleet_control$Time_varying_sel_sd <- 1
   simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected       <- 1
-  simData$fleet_control$Sel_norm_bin1            <- NA
+  simData$fleet_control$Sel_norm_bin            <- NA
   simData$catch_data$Catch <- 1e6
 
   peak      <- 8; sigma_asc <- 3; sigma_desc <- 6; logit_floor <- 0
@@ -362,7 +362,7 @@ testthat::test_that("Block time-varying double-normal: map assigns correct block
   simData$fleet_control$Time_varying_sel         <- "Block"
   simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
   simData$fleet_control$Bin_first_selected       <- 1
-  simData$fleet_control$Sel_norm_bin1            <- NA
+  simData$fleet_control$Sel_norm_bin            <- NA
 
   # Assign 2 blocks: years 1..half in block 1, rest in block 2
   half <- floor(nyrs / 2)

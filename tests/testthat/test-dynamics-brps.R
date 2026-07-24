@@ -127,7 +127,7 @@ testthat::test_that("Test SB0 under R0", {
 
 testthat::test_that("Test SB40 under mean recruitment", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -149,7 +149,7 @@ testthat::test_that("Test SB40 under mean recruitment", {
 
 testthat::test_that("Test SB40 under R0", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -232,7 +232,7 @@ testthat::test_that("Test SPR0 calculation", {
 
 testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- Base
   ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -471,7 +471,7 @@ testthat::test_that("Test mean recruitment calculation", {
 
 testthat::test_that("Invalid HCRs/BRPs", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
                                            estimateMode = 0, # Run projection only
@@ -498,7 +498,7 @@ testthat::test_that("Invalid HCRs/BRPs", {
 
 testthat::test_that("No F prop", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(0, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(0, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
                                            estimateMode = 0, # Run projection only

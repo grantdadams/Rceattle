@@ -56,7 +56,7 @@ testthat::test_that("set_phases() has no duplicated parameter names", {
 
 testthat::test_that("build_hcr_map() disables F only when ALL fisheries are inactive", {
   # Build the map once from a valid data set, then vary only the
-  # proj_F_prop column so the any()-vs-all() branch is isolated.
+  # Proj_F_proportion column so the any()-vs-all() branch is isolated.
   dat <- make_test_data(seed = 1)
   dat <- utils::modifyList(dat, Rceattle::build_growth())  # growth switches
   dat <- utils::modifyList(dat, Rceattle::build_hcr(        # HCR switches
@@ -72,20 +72,20 @@ testthat::test_that("build_hcr_map() disables F only when ALL fisheries are inac
 
   # Add a second fishery for the same species so "one of several inactive"
   # is representable. build_hcr_map() reads only Species, Fleet_type and
-  # proj_F_prop, so duplicating the row is sufficient here.
+  # Proj_F_proportion, so duplicating the row is sufficient here.
   dat_two <- dat
   dat_two$fleet_control <- rbind(dat_two$fleet_control,
                                  dat_two$fleet_control[fsh[1], ])
   fsh2 <- which(dat_two$fleet_control$Fleet_type == "Fishery")
 
   # One active, one inactive -> F must stay estimable.
-  dat_two$fleet_control$proj_F_prop[fsh2] <- c(1, 0)
+  dat_two$fleet_control$Proj_F_proportion[fsh2] <- c(1, 0)
   mixed <- suppressMessages(Rceattle::build_hcr_map(dat_two, map))
   testthat::expect_false(all(is.na(mixed$mapList$log_Ftarget)))
   testthat::expect_false(all(is.na(mixed$mapList$log_Flimit)))
 
   # All inactive -> F is correctly turned off (the intended behaviour).
-  dat_two$fleet_control$proj_F_prop[fsh2] <- 0
+  dat_two$fleet_control$Proj_F_proportion[fsh2] <- 0
   none <- suppressMessages(Rceattle::build_hcr_map(dat_two, map))
   testthat::expect_true(all(is.na(none$mapList$log_Ftarget)))
   testthat::expect_true(all(is.na(none$mapList$log_Flimit)))
