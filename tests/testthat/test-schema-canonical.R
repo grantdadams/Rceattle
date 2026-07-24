@@ -95,3 +95,32 @@ test_that("schema pins the known legacy -> canonical column aliases", {
   for (canon in names(expected))
     expect_setequal(schema[[canon]]$aliases, expected[[canon]])
 })
+
+test_that("R/data.R @format documents exactly the fleet_control schema columns", {
+  # The roxygen field dictionary in R/data.R must stay in lock-step with the
+  # schema: every live fleet_control column that appears in the meta sheet is
+  # documented, and no stale/orphan item lingers. Guards against a rename or a
+  # newly surfaced column that forgets its roxygen entry.
+  candidates <- c("R/data.R",
+                  testthat::test_path("..", "..", "R", "data.R"))
+  data_r <- candidates[file.exists(candidates)]
+  testthat::skip_if(length(data_r) == 0, "R/data.R source not available")
+  lines <- readLines(data_r[1])
+
+  # Bound the fleet_control @format block: from its `\describe` header to the
+  # `"BS2017SS"` object line that closes the roxygen block.
+  start <- grep("fleet_control: controls", lines)
+  end   <- grep('^"BS2017SS"', lines)
+  end   <- min(end[end > start])
+  block <- lines[start:end]
+
+  item_lines <- grep("\\\\item\\{", block, value = TRUE)
+  labs <- sub(".*\\\\item\\{([^}]*)\\}.*", "\\1", item_lines)
+  labs <- trimws(unlist(strsplit(labs, ",\\s*")))   # split combined {a, b, c}
+
+  sc <- .rce_schema_rows("fleet_control")
+  sc_meta <- vapply(Filter(function(r) isTRUE(r$meta), sc),
+                    function(r) r$name, character(1))
+
+  testthat::expect_setequal(labs, sc_meta)
+})

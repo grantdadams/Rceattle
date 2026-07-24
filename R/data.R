@@ -69,6 +69,16 @@
 #' \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 #' \item{Sel_shape_sd, Sel_curvature_sd, Sel_devmag_sd}{Selectivity penalties expressed as standard deviations (an intuitive alternative to the raw penalty weights in Sel_curve_pen1/2/3). Each penalty is a Gaussian SSQ, so the weight is 1/(2*sd^2): Sel_shape_sd is the shape/smoothness penalty (Sel_curve_pen1), Sel_curvature_sd the 2nd-difference curvature penalty (Sel_curve_pen2), Sel_devmag_sd the deviation-magnitude penalty (Sel_curve_pen3). Supplying an SD sets the corresponding Sel_curve_pen column; a legacy Sel_curve_pen value is never overwritten. Sel_shape_sd and Sel_devmag_sd apply to NonParametric (2/9) and LogisticPM (11); Sel_curvature_sd is NonParametric-only (LogisticPM does not use Sel_curve_pen2). The 2DAR1/3DAR1 forms reuse Sel_curve_pen for logit-scale correlations and keep those columns.}
 #' \item{Sel_shape_dir}{Direction of the (directional-mode) NonParametric shape penalty when Sel_shape_sd is used: "Decreasing" (default, penalize decreasing selectivity) or "Increasing" (sets the sign of Sel_curve_pen1). LogisticPM's shape penalty is two-sided, so "Increasing" is rejected there.}
+#' \item{Sel_curve_pen1}{Raw shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity. The intuitive alternative is Sel_shape_sd, which sets this to \code{1 / (2 * sd^2)}. The 2DAR1/3DAR1 forms reuse this column as a logit-scale correlation.}
+#' \item{Sel_curve_pen2}{Raw 2nd-difference curvature penalty weight for non-parametric selectivity (the intuitive alternative is Sel_curvature_sd). Reused as a logit-scale correlation by the 2DAR1/3DAR1 forms.}
+#' \item{Sel_curve_pen3}{Raw deviation-magnitude penalty weight for non-parametric / LogisticPM selectivity (the intuitive alternative is Sel_devmag_sd).}
+#' \item{Sel_pen_first_bin}{First bin (age or length, on the fleet's Selectivity_dimension) for the non-parametric shape penalty. NA defaults to Bin_first_selected.}
+#' \item{Sel_pen_last_bin}{Last (left) bin of the shape-penalty pairs. NA defaults to nbins - 2.}
+#' \item{Sel_shape_mode}{Shape-penalty mode: "Directional" (default) or "Smooth" (two-sided second-difference penalty, RTMB).}
+#' \item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty (type 9 only): 0 = off (default), 10 matches AMAK.}
+#' \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
+#' \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum. (Formerly \code{Sel_norm_bin1}; the old name is still accepted with a deprecation message.)}
+#' \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper. (Formerly \code{Sel_norm_bin2}; the old name is still accepted with a deprecation message.)}
 #' \item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction. (Formerly \code{Weight1_Numbers2}; the old name is still accepted with a deprecation message.)}
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
@@ -83,10 +93,12 @@
 #' \item{Estimate_catch_sd}{Estimate fishery/catch observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994.}
 #' \item{Catch_sd}{Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated". (Formerly \code{Catch_sd_prior}; the old name is still accepted with a deprecation message.)}
 #' \item{Index_distribution}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default, unchanged historical behavior). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q*pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (the AMAK/ebswp DoCovBTS value, matching ADMB's reported survey likelihood); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)) (TMB's density::MVNORM). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
+#' \item{Comp_distribution}{Age/length composition data distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" (default) = AFSC multinomial; 0 or "Multinomial" = full multinomial; 1 or "DirichletMultinomial". (Formerly \code{Comp_loglike}; the old name is still accepted with a deprecation message.)}
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
-#' \item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
+#' \item{CAAL_distribution}{Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial". (Formerly \code{CAAL_loglike}; the old name is still accepted with a deprecation message.)}
+#' \item{CAAL_weights}{Composition weights for the conditional age-at-length (CAAL) likelihood.}
+#' \item{Month}{Observation month for the fleet (0 = not specified).}
 #' \item{Proj_F_proportion}{The proportion of future fishing mortality assigned to this fleet. (Formerly \code{proj_F_prop}; the old name is still accepted with a deprecation message.)}
-#' \item{Sex}{sex codes: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #'}
 "BS2017SS"
 

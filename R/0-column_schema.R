@@ -52,13 +52,12 @@
 #                    nowhere -- excluded from generated docs once dropped).
 #   tmb_target  chr  the downstream DATA_*/derived object, for reference.
 #
-# NOTE (Phase 1 -- faithful reproduction): the rows below reproduce the CURRENT
-# state. `doc` for a `meta = TRUE` column is the verbatim `meta_data_names.xlsx`
-# Description, matched to the workbook row by the column's canonical name OR one
-# of its `aliases` (the xlsx still carries several legacy names, e.g. `Q_prior`
-# for `Q_init`). The guard test in test-schema-canonical.R asserts that mapping,
-# which both proves the descriptions are captured faithfully and validates the
-# alias table -- before any consumer is switched over.
+# The `doc` string is the single authoritative description for each column: it
+# is written verbatim into the generated `meta_data_names.xlsx` Description and
+# is asserted, name-for-name, against the `R/data.R` roxygen `@format` items by
+# the drift-guard in test-schema-canonical.R (so a rename or a new column that
+# forgets its roxygen entry fails CI). Deprecated spellings live in `aliases`
+# and are upgraded on read; keep the `doc` on the canonical names.
 
 # ---- Row constructor: one call per column, non-default fields only -----------
 .rce_col <- function(name, sheet, doc, type = "numeric",
@@ -150,10 +149,10 @@
     .rce_col("Weight_index", "fleet_control", "Weight index to use for calculation of derived quantities", type = "integer"),
     .rce_col("Age_transition_index", "fleet_control", "Age transition matrix (e.g. growth trajectory) index to used convert age to length", type = "integer"),
     .rce_col("Catchability_index", "fleet_control", "index to use if catchability coefficients are to be set the same", type = "integer", aliases = "Q_index"),
-    .rce_col("Catchability", "fleet_control", "0 = fixed at \"Q_sd_prior\" \r\n1 = Estimate as free parameter; \r\n2 = Estimate as free parameter with normal prior of N(Q_prior, Q_sd_prior)\r\n3 = Estimate analytically following Ludwig and Walters 1994\r\n4 = Estimate power equation (NOT YET IMPLEMENTED)\r\n5 = Linear equation log(q_y) = q_mu + beta * index_y). Indices are comma seperated and specified by Time_varying_q\r\n6 = AR1 random deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005). Index is specified by Time_varying_q", type = "switch", allowed = "q_map", aliases = "Estimate_q"),
+    .rce_col("Catchability", "fleet_control", "Catchability form. Accepts integer codes or readable strings:\r\n0 or \"Fixed\" = fixed at Catchability_init\r\n1 or \"Estimated\" = estimate as a free parameter\r\n2 or \"Estimated-with-prior\" = estimate with a normal prior N(Catchability_init, Catchability_prior_sd)\r\n3 or \"Analytical\" = geometric-mean analytical q following Ludwig and Walters 1994\r\n4 or \"PowerEquation\" = power equation (NOT YET IMPLEMENTED)\r\n5 or \"Environmental\" = linear equation log(q_y) = q_mu + beta * index_y; the environmental index is specified by Time_varying_q\r\n6 or \"AR1\" = AR1 random deviates fit to an environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005), index specified by Time_varying_q\r\n7 or \"AnalyticalArith\" = arithmetic-mean analytical q (AMAK/ebswp form, pair with the MVN survey likelihood)", type = "switch", allowed = "q_map", aliases = "Estimate_q"),
     .rce_col("Catchability_init", "fleet_control", "Starting value or fixed value for catchability", aliases = c("Q_prior", "Q_init")),
     .rce_col("Catchability_prior_sd", "fleet_control", "Standard deviation for q prior", aliases = "Q_sd_prior"),
-    .rce_col("Time_varying_q", "fleet_control", "0 = no\r\n1 = penalized deviate or random effect \r\n3 = time blocks with no penalty\r\n4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)\r\nIf \"Estimate_q\" = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y\r\nIf \"random_q\" is selected in fit_mod, penalized deviates (1) and random walk parameters (4) will be treated as random effects", type = "switch", allowed = "tv_q_map"),
+    .rce_col("Time_varying_q", "fleet_control", "0 = no\r\n1 = penalized deviate or random effect \r\n3 = time blocks with no penalty\r\n4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)\r\nIf Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y\r\nIf \"random_q\" is selected in fit_mod, penalized deviates (1) and random walk parameters (4) will be treated as random effects", type = "switch", allowed = "tv_q_map"),
     .rce_col("Time_varying_q_sd", "fleet_control", "starting or fixed sd to use for the random walk of time varying q if set to 1", aliases = "Time_varying_q_sd_prior"),
     .rce_col("Estimate_index_sd", "fleet_control", "0 = use input \"Log_sd\" from index_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map", aliases = "Estimate_survey_sd"),
     .rce_col("Index_sd", "fleet_control", "Starting value to be used if \"Estimate_index_sd\" = 1", aliases = c("Survey_sd_prior", "Index_sd_prior")),
@@ -335,7 +334,7 @@
 
 # env_data / ration_data / diet_data headers sit after the bioenergetics block.
 .RCE_META_SHEET_HEADERS_TAIL <- list(
-  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specificed by Ceq and Cindex. Also used to drive catchability if Estimate_q = 5 or 6. Will use the mean for missing years. Temperature should be in celcius."),
+  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specificed by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in celcius."),
   c("ration_data", "Annual relative foraging rate by age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs."),
   c("diet_data",   "Stomach proportion by weight for each predator, prey, predator age, prey age combination. Multiple diet-data formats can be included:\r\n\r\n1) If Pred_age >= 0 and Prey_age >= 0, data is assumed to be  diet proportion of prey-at-age/sex in predator-at-age/sex. \r\n2) If Pred_age >= 0 and Prey_age < 0, data is assumed to be mean diet proportion of prey-spp in predator-at-age/sex (sum across prey ages and sexes)\r\n3) If Pred_age < 0 and Prey_age < 0, data is assumed to be  mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take mean across predator ages/sexes)\r\n4) If Pred_age < -500 and Prey_age < 0, data is assumed to be weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take weighted mean across predator ages/sexes). Weights are estimated predators-at-age. \r\n\r\nIf \"Year = 0\", the the diet will be assumed to be the average between \"suit_styr\" and \"suit_endyr\". \r\n\r\nOnly diet-data type 1 can be used for MSVPA based suitability")
 )
