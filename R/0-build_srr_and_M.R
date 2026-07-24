@@ -835,6 +835,15 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' priors = list(\`(Intercept)\` = normal(0, 3)))))`. This mirrors the
 #' prior-only [build_composition()] path.
 #'
+#' Current limitations of a selectivity prior: it targets one base-parameter
+#' cell, so in a two-sex model an unstratified `~ 1` prior regularizes sex 1
+#' only (use `by = ~ sex` for a per-sex prior); an `init` supplied on a
+#' selectivity intercept is not pushed to the base parameter (the start comes
+#' from `build_params()` / the data); a prior on the DoubleNormal `right_floor`
+#' (a logit-scale slot) is rejected; and a prior on a fleet that mirrors another
+#' fleet's selectivity (shared `Selectivity_index`) must be placed on the lead
+#' fleet to avoid double-counting the shared block.
+#'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Use `by = ~ fleet` for a separate coefficient per
 #'   fleet.
@@ -976,6 +985,48 @@ build_composition <- function(linkages = NULL) {
       paste(unique(as.character(fleet_control$Selectivity[bad_flt])),
             collapse = ", "),
       paste(.SEL_LINKAGE_WIRED_FORMS, collapse = ", ")), call. = FALSE)
+  }
+
+  # A PRIOR on a selectivity intercept re-targets the base parameter, whose scale
+  # depends on the fleet's form and whose ownership depends on Selectivity_index.
+  # Two cases the re-target cannot yet express correctly are rejected up front
+  # (a covariate linkage on the same slot is fine -- only priors are affected).
+  prior_rows <- sel[!is.na(sel$prior_family) & sel$prior_family != "none", ,
+                    drop = FALSE]
+  if (nrow(prior_rows) > 0L) {
+    row_flt <- function(f) if (is.na(f)) 1L else as.integer(f)   # NA fleet = cell 1 (cpp default)
+
+    # (a) DoubleNormal stores sel_inf(1) as logit(right_floor), so a natural-scale
+    # prior on `inf_desc` / `right_floor` would be evaluated on the logit scale.
+    # Reject until the logit transform is wired -- the ascending peak (`inf_asc`)
+    # and the sigmas/slopes (log scale) are unaffected.
+    dn <- prior_rows[prior_rows$param %in% c("inf_desc", "right_floor"), , drop = FALSE]
+    dn_flt <- unique(vapply(dn$fleet, row_flt, integer(1)))
+    dn_flt <- dn_flt[as.character(fleet_control$Selectivity[dn_flt]) == "DoubleNormal"]
+    if (length(dn_flt) > 0L) {
+      stop(sprintf(paste0(
+        "prior on `inf_desc` / `right_floor` for DoubleNormal fleet(s) %s is not ",
+        "supported: that slot holds logit(right_floor), so a natural-scale prior ",
+        "would be applied on the logit scale. Prior the ascending peak / sigmas ",
+        "instead."),
+        paste(fleet_control$Fleet_name[dn_flt], collapse = ", ")), call. = FALSE)
+    }
+
+    # (b) Fleets that mirror another fleet's selectivity (Selectivity_index != own
+    # Fleet_code) share one parameter block; a prior on the mirror double-counts
+    # the block (cf. the shared-block penalty trap). Require the prior on the lead
+    # fleet (Selectivity_index == Fleet_code).
+    sidx <- fleet_control$Selectivity_index
+    mir_flt <- unique(vapply(prior_rows$fleet, row_flt, integer(1)))
+    mir_flt <- mir_flt[!is.na(sidx[mir_flt]) & sidx[mir_flt] != mir_flt]
+    if (length(mir_flt) > 0L) {
+      stop(sprintf(paste0(
+        "selectivity prior on fleet(s) %s that mirror another fleet's ",
+        "selectivity (Selectivity_index != Fleet_code): the shared block would be ",
+        "penalized once per sharing fleet. Place the prior on the lead fleet ",
+        "(the one whose Selectivity_index equals its Fleet_code)."),
+        paste(fleet_control$Fleet_name[mir_flt], collapse = ", ")), call. = FALSE)
+    }
   }
   invisible()
 }

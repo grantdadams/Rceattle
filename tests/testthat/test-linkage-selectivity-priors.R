@@ -53,3 +53,39 @@ testthat::test_that("lognormal prior on slp_asc re-targets the LOG-scale log_sel
   testthat::expect_equal(sum(fit$quantities$jnll_comp["Linkage-table priors", ]),
                          -dnorm(lslp, MU, SD, log = TRUE), tolerance = 1e-8)
 })
+
+# --- Guards on sel-prior re-targeting (density-review follow-ups) ------------
+
+testthat::test_that("prior on DoubleNormal right_floor/inf_desc is rejected (logit scale)", {
+  lt <- data.frame(process = "sel", param = "right_floor", fleet = 1L,
+                   prior_family = "normal", stringsAsFactors = FALSE)
+  fc <- data.frame(Fleet_name = "F1", Selectivity = "DoubleNormal",
+                   Selectivity_index = 1L, Fleet_code = 1L, stringsAsFactors = FALSE)
+  testthat::expect_error(Rceattle:::.check_sel_linkage_support(lt, fc), "logit")
+  # The same inflection prior on a DoubleLogistic fleet (natural scale) is allowed.
+  fc$Selectivity <- "DoubleLogistic"; lt$param <- "inf_desc"
+  testthat::expect_silent(Rceattle:::.check_sel_linkage_support(lt, fc))
+})
+
+testthat::test_that("prior on a mirror fleet (shared Selectivity_index) is rejected", {
+  fc <- data.frame(Fleet_name = c("F1", "F2"), Selectivity = c("Logistic", "Logistic"),
+                   Selectivity_index = c(1L, 1L), Fleet_code = c(1L, 2L),
+                   stringsAsFactors = FALSE)
+  # Fleet 2 mirrors fleet 1 (Selectivity_index 1 != Fleet_code 2) -> double-count.
+  lt2 <- data.frame(process = "sel", param = "inf_asc", fleet = 2L,
+                    prior_family = "normal", stringsAsFactors = FALSE)
+  testthat::expect_error(Rceattle:::.check_sel_linkage_support(lt2, fc), "mirror")
+  # The lead fleet (Selectivity_index 1 == Fleet_code 1) carries the block prior.
+  lt1 <- lt2; lt1$fleet <- 1L
+  testthat::expect_silent(Rceattle:::.check_sel_linkage_support(lt1, fc))
+})
+
+testthat::test_that("a covariate (non-prior) sel linkage on a mirror fleet is allowed", {
+  fc <- data.frame(Fleet_name = c("F1", "F2"), Selectivity = c("Logistic", "Logistic"),
+                   Selectivity_index = c(1L, 1L), Fleet_code = c(1L, 2L),
+                   stringsAsFactors = FALSE)
+  # prior_family "none" => an additive covariate offset, which is fine on a mirror.
+  lt <- data.frame(process = "sel", param = "inf_asc", fleet = 2L,
+                   prior_family = "none", stringsAsFactors = FALSE)
+  testthat::expect_silent(Rceattle:::.check_sel_linkage_support(lt, fc))
+})

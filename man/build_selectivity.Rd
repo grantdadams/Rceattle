@@ -44,6 +44,15 @@ the inflections (\code{inf_asc} / \code{inf_desc}) on \code{sel_inf} (natural sc
 \code{normal()}). For example, a normal prior on the ascending inflection:
 \verb{build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors = list(\\}(Intercept)\\verb{ = normal(0, 3)))))}. This mirrors the
 prior-only \code{\link[=build_composition]{build_composition()}} path.
+
+Current limitations of a selectivity prior: it targets one base-parameter
+cell, so in a two-sex model an unstratified \code{~ 1} prior regularizes sex 1
+only (use \code{by = ~ sex} for a per-sex prior); an \code{init} supplied on a
+selectivity intercept is not pushed to the base parameter (the start comes
+from \code{build_params()} / the data); a prior on the DoubleNormal \code{right_floor}
+(a logit-scale slot) is rejected; and a prior on a fleet that mirrors another
+fleet's selectivity (shared \code{Selectivity_index}) must be placed on the lead
+fleet to avoid double-counting the shared block.
 }
 \examples{
 \donttest{
