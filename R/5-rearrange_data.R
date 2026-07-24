@@ -73,6 +73,20 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
 
+  # Fail clearly on a malformed fleet_control rather than via a cryptic dplyr
+  # error deep in the reshaping below. These identity / structural columns are
+  # read by name (and by `$`) throughout; a missing one has no sensible default.
+  if (is.null(data_list$fleet_control) || nrow(data_list$fleet_control) == 0)
+    stop("rearrange_data(): 'fleet_control' is missing or empty.", call. = FALSE)
+  .required_fc <- c("Species", "Fleet_code", "Fleet_type", "Fleet_name",
+                    "Selectivity", "Selectivity_index", "Sel_start_year",
+                    "Catchability_init")
+  .missing_fc <- setdiff(.required_fc, names(data_list$fleet_control))
+  if (length(.missing_fc) > 0)
+    stop("rearrange_data(): 'fleet_control' is missing required column(s): ",
+         paste(.missing_fc, collapse = ", "),
+         ". Run switch_check() first to fill defaulted columns.", call. = FALSE)
+
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
 

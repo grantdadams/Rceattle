@@ -191,6 +191,124 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 }
 
 
+#' Write a minimal starter CEATTLE data workbook
+#'
+#' Emits a small, structurally complete single-species workbook -- one survey
+#' and one fishery, flat placeholder data -- that a user can open and edit as a
+#' starting point. fleet_control is built on the canonical column names with
+#' schema defaults filled by \code{\link{switch_check}}, so the template is
+#' always in sync with the current schema. The template round-trips through
+#' \code{\link{read_data}} and \code{\link{data_check}} and builds under
+#' \code{fit_mod(estimateMode = 3)}; replace the placeholder observations with
+#' real data before fitting.
+#'
+#' @param file Output path for the \code{.xlsx} workbook.
+#' @param nages Number of ages to template (default 10).
+#' @param nyrs Number of hindcast years (default 30).
+#' @param nprojyrs Number of projection years beyond the hindcast (default 12).
+#' @param minage Minimum age (recruitment age; default 1).
+#'
+#' @return Invisibly, the minimal \code{data_list} that was written.
+#' @export
+write_template <- function(file = "Rceattle_data_template.xlsx",
+                           nages = 10, nyrs = 30, nprojyrs = 12, minage = 1) {
+  ages  <- seq_len(nages)
+  years <- seq_len(nyrs)
+
+  d <- list(
+    nspp = 1, styr = 1, endyr = nyrs, projyr = nyrs + nprojyrs,
+    spnames = "Species_1", nsex = 1, spawn_month = 0, nages = nages,
+    minage = minage, nlengths = nages, pop_wt_index = 1, ssb_wt_index = 1,
+    alpha_wt_len = 1e-4, beta_wt_len = 3, pop_age_transition_index = 1,
+    sigma_rec = 1, other_food = 1e6, estDynamics = 0)
+
+  # fleet_control: one survey + one fishery on canonical column names. The full
+  # column set is written explicitly (some columns -- e.g. Time_varying_q -- are
+  # read by convert_switches()/rearrange_data() and are not schema-defaulted).
+  d$fleet_control <- data.frame(
+    Fleet_name = c("Survey", "Fishery"), Fleet_code = 1:2,
+    Fleet_type = c("Survey", "Fishery"), Species = 1L, Month = 0L,
+    Selectivity_index = 1:2, Selectivity = "Logistic",
+    Selectivity_dimension = "Age", N_sel_bins = NA,
+    Sel_curve_pen1 = NA, Sel_curve_pen2 = NA, Time_varying_sel = 0L,
+    Time_varying_sel_sd = 1, Bin_first_selected = 1L,
+    Sel_norm_bin = NA, Sel_norm_bin_upper = NA,
+    Comp_distribution = "Multinomial", Comp_weights = 1,
+    CAAL_distribution = 0L, CAAL_weights = 1, Observation_units = 1L,
+    Weight_index = 1L, Age_transition_index = 1L,
+    Catchability_index = c(1L, NA), Catchability = c("Fixed", NA),
+    Catchability_init = c(1, NA), Catchability_prior_sd = c(0.2, NA),
+    Time_varying_q = c(0L, NA), Time_varying_q_sd = c(1, NA),
+    Estimate_index_sd = c(0L, NA), Index_sd = c(1, NA),
+    Estimate_catch_sd = c(NA, 0L), Catch_sd = c(NA, 1),
+    Proj_F_proportion = c(NA, 1), stringsAsFactors = FALSE)
+
+  # Placeholder observations (flat) -- replace with real data before fitting.
+  d$index_data <- data.frame(Fleet_name = "Survey", Fleet_code = 1L, Species = 1L,
+    Year = years, Month = 0L, Selectivity_block = 1L, Observation = 100,
+    Log_sd = 0.2)
+  d$catch_data <- data.frame(Fleet_name = "Fishery", Fleet_code = 2L, Species = 1L,
+    Year = years, Month = 0L, Selectivity_block = 1L, Catch = 10, Log_sd = 0.05)
+
+  # Minimal flat age composition (one row per fleet) so a fleet with estimated
+  # selectivity has comp data to fit.
+  comp_cols <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Age0_Length1",
+                 "Year", "Month", "Sample_size", paste0("Comp_", ages))
+  flat <- as.data.frame(matrix(1 / nages, nrow = 2, ncol = nages))
+  d$comp_data <- setNames(
+    cbind(data.frame(Fleet_name = c("Survey", "Fishery"), Fleet_code = 1:2,
+                     Species = 1L, Sex = 0L, Age0_Length1 = 0L, Year = years[1],
+                     Month = 0L, Sample_size = 1L, stringsAsFactors = FALSE), flat),
+    comp_cols)
+
+  # Empty optional matrices (typed, so read/write round-trip cleanly).
+  d$caal_data   <- setNames(data.frame(matrix(NA_real_, 0, 7 + nages)),
+    c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length",
+      "Sample_size", paste0("CAAL_", ages)))
+  d$emp_sel     <- setNames(data.frame(matrix(NA_real_, 0, 5 + nages)),
+    c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", paste0("Comp_", ages)))
+  d$NByageFixed <- setNames(data.frame(matrix(NA_real_, 0, 4 + nages)),
+    c("Species_name", "Species", "Sex", "Year", paste0("Age", ages)))
+
+  # Weight / maturity / sex-ratio / mortality (flat placeholders).
+  waa <- setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages))
+  d$weight   <- cbind(data.frame(Wt_name = "Base", Wt_index = 1L, Species = 1L,
+                                 Sex = 0L, Year = 0L), waa)
+  d$maturity <- cbind(data.frame(Species = 1L),
+                      setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages)))
+  d$sex_ratio <- cbind(data.frame(Species = 1L),
+                       setNames(as.data.frame(matrix(0.5, 1, nages)), paste0("Age", ages)))
+  d$M1_base <- cbind(data.frame(Species = 1L, Sex = 0L),
+                     setNames(as.data.frame(matrix(0.2, 1, nages)), paste0("Age", ages)))
+
+  # Age-transition (identity) + ageing-error (identity).
+  atm <- setNames(as.data.frame(diag(nages)), paste0("Length_", ages))
+  d$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
+    Age_transition_index = 1L, Species = 1L, Sex = 0L,
+    Age = minage:(minage + nages - 1L)), atm)
+  aerr <- setNames(as.data.frame(diag(nages)), paste0("Obs_age", ages))
+  d$age_error <- cbind(data.frame(Species = 1L,
+    True_age = minage:(minage + nages - 1L)), aerr)
+
+  # Bioenergetics scalars (single-species defaults) + a minimal environmental
+  # index (its column count sizes the M1 environmental-linkage parameter) +
+  # empty ration / diet frames.
+  d$Ceq <- 1L; d$Cindex <- 0L; d$Pvalue <- 1; d$fday <- 365
+  d$CA <- 0; d$CB <- 0; d$Qc <- 0; d$Tco <- 0; d$Tcm <- 0; d$Tcl <- 0
+  d$CK1 <- 0; d$CK4 <- 0; d$Diet_distribution <- 0L; d$Diet_comp_weights <- 1
+  d$env_data  <- data.frame(Year = years, BottomTemp = 0)
+  d$ration_data <- d$weight[, c("Species", "Sex", "Year", paste0("Age", ages))]
+  d$diet_data <- setNames(data.frame(matrix(NA_real_, 0, 9)),
+    c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",
+      "Year", "Sample_size", "Stomach_proportion_by_weight"))
+
+  d <- clean_data(d)
+  d <- suppressMessages(switch_check(d))
+  write_data(d, file)
+  invisible(d)
+}
+
+
 
 
 
@@ -221,6 +339,19 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   # Setup a list object
   data_list <- list()
 
+  # Sheet inventory, hoisted so every read below can check presence. The two
+  # required sheets error clearly if absent; every other sheet is optional and
+  # simply skipped when missing (defaulted downstream by clean_data() /
+  # switch_check()), so a minimal single-species workbook reads cleanly instead
+  # of failing with a cryptic readxl error.
+  sheetnames <- readxl::excel_sheets(file)
+  for (req in c("control", "fleet_control")) {
+    if (!req %in% sheetnames)
+      stop("Required sheet '", req, "' not found in workbook '", file,
+           "'. Sheets present: ", paste(sheetnames, collapse = ", "), ".",
+           call. = FALSE)
+  }
+
   # Control (model dimensions) ----
   # 1. Read and Transpose
   sheet1 <- readxl::read_xlsx(file, sheet = "control")
@@ -243,14 +374,39 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   #               "pop_age_transition_index", "sigma_rec", "other_food", "estDynamics")
   # data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
 
+  # Coerce a per-species control/bioenergetics row to numeric, but error on a
+  # non-empty cell that is not a number (a typo like "O.5" or a stray label)
+  # rather than silently turning it into NA -- which used to propagate a wrong
+  # default deep into the fit. Genuinely empty / NA cells stay NA.
+  checked_numeric <- function(x, object, sheet) {
+    chr <- trimws(as.character(x))
+    num <- suppressWarnings(as.numeric(chr))
+    # Flag only a genuinely present, non-empty, non-numeric cell. A blank Excel
+    # cell reads back as NA (never ""), and the literal strings "NA"/"NaN" are
+    # legitimate ways to say "no value" -- all of these stay NA, not an error.
+    bad <- !is.na(chr) & nzchar(chr) & is.na(num) &
+      !(tolower(chr) %in% c("na", "nan"))
+    if (any(bad)) {
+      stop("Non-numeric value(s) ",
+           paste(sprintf("'%s'", chr[bad]), collapse = ", "),
+           " for '", object, "' in the '", sheet, "' sheet; expected numbers.",
+           call. = FALSE)
+    }
+    num
+  }
+
   for (i in 5:nrow(sheet1)) {
-    data_list[[sheet1$Object[i]]] <- suppressWarnings(as.numeric(as.character(sheet1[i, ((1:data_list$nspp) + 1)])))
+    data_list[[sheet1$Object[i]]] <-
+      checked_numeric(sheet1[i, ((1:data_list$nspp) + 1)], sheet1$Object[i], "control")
   }
 
 
-  # Composition, fleet control, fixed selectivity, n-at-age
+  # Composition, fleet control, fixed selectivity, n-at-age. fleet_control is
+  # required (guarded above); comp_data / emp_sel / NByageFixed are optional --
+  # read only if present.
   matrix_data <- c("fleet_control" , "comp_data", "emp_sel", "NByageFixed")
   for (i in 1:length(matrix_data)) {
+    if (!matrix_data[i] %in% sheetnames) next
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = matrix_data[i]))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list[[matrix_data[i]]] <- sheet
@@ -274,7 +430,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   }
 
   # Index and catch data ----
-  sheetnames <- readxl::excel_sheets(file)
+  # (sheetnames was hoisted to the top of read_data)
 
   # -- Catch
   if("catch_data" %in% sheetnames){
@@ -316,14 +472,18 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
   # Age transition matrix (age to length) ----
-  age_trans_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "age_trans_matrix"))
-  data_list$age_trans_matrix <- age_trans_matrix
+  if("age_trans_matrix" %in% sheetnames){
+    data_list$age_trans_matrix <-
+      as.data.frame(readxl::read_xlsx(file, sheet = "age_trans_matrix"))
+  }
 
 
   # Ageing error ----
-  age_error <- as.data.frame(readxl::read_xlsx(file, sheet = "age_error"))
-  age_error <- age_error[rowSums(is.na(age_error)) != ncol(age_error), ] # Remove rows with all NA's
-  data_list$age_error <- age_error
+  if("age_error" %in% sheetnames){
+    age_error <- as.data.frame(readxl::read_xlsx(file, sheet = "age_error"))
+    age_error <- age_error[rowSums(is.na(age_error)) != ncol(age_error), ] # Remove rows with all NA's
+    data_list$age_error <- age_error
+  }
 
 
   # Weight-at-age ----
@@ -357,12 +517,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
   # Sex ratio-at-age (proportion F) ----
-  data_list$sex_ratio <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "sex_ratio")))
+  if("sex_ratio" %in% sheetnames){
+    data_list$sex_ratio <-
+      suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "sex_ratio")))
+  }
 
 
   # Residual natural mortality ----
-  M1_base <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "M1_base")))
-  data_list$M1_base <- M1_base
+  if("M1_base" %in% sheetnames){
+    data_list$M1_base <-
+      suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "M1_base")))
+  }
 
 
   # # Length-weight parameters ----
@@ -370,17 +535,22 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   # data_list$aLW <- aLW
 
 
-  # Bioenergetics specifications  ----
-  bioenergetics_control <- as.data.frame(readxl::read_xlsx(file, sheet = "bioenergetics_control"))
+  # Bioenergetics specifications (optional -- multispecies only) ----
+  if("bioenergetics_control" %in% sheetnames){
+    bioenergetics_control <- as.data.frame(readxl::read_xlsx(file, sheet = "bioenergetics_control"))
 
-  for (i in 1:nrow(bioenergetics_control)) {
-    data_list[[bioenergetics_control$Object[i]]] <- suppressWarnings(as.numeric(as.character(bioenergetics_control[i, ((1:data_list$nspp) + 1)])))
+    for (i in 1:nrow(bioenergetics_control)) {
+      data_list[[bioenergetics_control$Object[i]]] <-
+        checked_numeric(bioenergetics_control[i, ((1:data_list$nspp) + 1)],
+                        bioenergetics_control$Object[i], "bioenergetics_control")
+    }
   }
 
 
   # Environmental data ----
-  env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
-  data_list$env_data <- env_data
+  if("env_data" %in% sheetnames){
+    data_list$env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
+  }
 
 
   # Consumption information  ----
