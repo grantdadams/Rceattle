@@ -255,38 +255,38 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
   comp_cols <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Age0_Length1",
                  "Year", "Month", "Sample_size", paste0("Comp_", ages))
   flat <- as.data.frame(matrix(1 / nages, nrow = 2, ncol = nages))
-  d$comp_data <- setNames(
+  d$comp_data <- stats::setNames(
     cbind(data.frame(Fleet_name = c("Survey", "Fishery"), Fleet_code = 1:2,
                      Species = 1L, Sex = 0L, Age0_Length1 = 0L, Year = years[1],
                      Month = 0L, Sample_size = 1L, stringsAsFactors = FALSE), flat),
     comp_cols)
 
   # Empty optional matrices (typed, so read/write round-trip cleanly).
-  d$caal_data   <- setNames(data.frame(matrix(NA_real_, 0, 7 + nages)),
+  d$caal_data   <- stats::setNames(data.frame(matrix(NA_real_, 0, 7 + nages)),
     c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length",
       "Sample_size", paste0("CAAL_", ages)))
-  d$emp_sel     <- setNames(data.frame(matrix(NA_real_, 0, 5 + nages)),
+  d$emp_sel     <- stats::setNames(data.frame(matrix(NA_real_, 0, 5 + nages)),
     c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", paste0("Comp_", ages)))
-  d$NByageFixed <- setNames(data.frame(matrix(NA_real_, 0, 4 + nages)),
+  d$NByageFixed <- stats::setNames(data.frame(matrix(NA_real_, 0, 4 + nages)),
     c("Species_name", "Species", "Sex", "Year", paste0("Age", ages)))
 
   # Weight / maturity / sex-ratio / mortality (flat placeholders).
-  waa <- setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages))
+  waa <- stats::setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages))
   d$weight   <- cbind(data.frame(Wt_name = "Base", Wt_index = 1L, Species = 1L,
                                  Sex = 0L, Year = 0L), waa)
   d$maturity <- cbind(data.frame(Species = 1L),
-                      setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages)))
+                      stats::setNames(as.data.frame(matrix(1, 1, nages)), paste0("Age", ages)))
   d$sex_ratio <- cbind(data.frame(Species = 1L),
-                       setNames(as.data.frame(matrix(0.5, 1, nages)), paste0("Age", ages)))
+                       stats::setNames(as.data.frame(matrix(0.5, 1, nages)), paste0("Age", ages)))
   d$M1_base <- cbind(data.frame(Species = 1L, Sex = 0L),
-                     setNames(as.data.frame(matrix(0.2, 1, nages)), paste0("Age", ages)))
+                     stats::setNames(as.data.frame(matrix(0.2, 1, nages)), paste0("Age", ages)))
 
   # Age-transition (identity) + ageing-error (identity).
-  atm <- setNames(as.data.frame(diag(nages)), paste0("Length_", ages))
+  atm <- stats::setNames(as.data.frame(diag(nages)), paste0("Length_", ages))
   d$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
     Age_transition_index = 1L, Species = 1L, Sex = 0L,
     Age = minage:(minage + nages - 1L)), atm)
-  aerr <- setNames(as.data.frame(diag(nages)), paste0("Obs_age", ages))
+  aerr <- stats::setNames(as.data.frame(diag(nages)), paste0("Obs_age", ages))
   d$age_error <- cbind(data.frame(Species = 1L,
     True_age = minage:(minage + nages - 1L)), aerr)
 
@@ -298,7 +298,7 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
   d$CK1 <- 0; d$CK4 <- 0; d$Diet_distribution <- 0L; d$Diet_comp_weights <- 1
   d$env_data  <- data.frame(Year = years, BottomTemp = 0)
   d$ration_data <- d$weight[, c("Species", "Sex", "Year", paste0("Age", ages))]
-  d$diet_data <- setNames(data.frame(matrix(NA_real_, 0, 9)),
+  d$diet_data <- stats::setNames(data.frame(matrix(NA_real_, 0, 9)),
     c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",
       "Year", "Sample_size", "Stomach_proportion_by_weight"))
 
