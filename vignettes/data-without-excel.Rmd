@@ -26,6 +26,13 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 
 Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
 
+If you would rather start from a workbook than a list, `write_template()` writes a minimal, structurally complete single-species starter workbook on the current column names that you can open, edit, and read back with `read_data()`:
+
+```{r write-template}
+write_template("my_data_template.xlsx")
+dat <- read_data("my_data_template.xlsx")
+```
+
 ## The quick path: `build_data()`
 
 Most of the time you do not need to assemble the whole list by hand. `build_data()` is a constructor that takes only the blocks a model uses and default-fills the rest (via `clean_data()`), so a single-species model does not need the predation, growth, or empirical-selectivity blocks. It has three combinable entry points:

@@ -1,3 +1,45 @@
+# Rceattle 4.12.0
+
+## New features
+
+* **Intuitive `fleet_control` / data column names.** The workbook and data-list
+  columns were renamed to say what they hold, each keeping a back-compat alias
+  that is upgraded on read, so existing data lists, `.rda`, workbooks, and
+  scripts keep working (with a one-time deprecation message) and fit
+  identically: `Q_index`/`Q_init`/`Q_sd_prior` →
+  `Catchability_index`/`Catchability_init`/`Catchability_prior_sd`;
+  `Comp_loglike`/`CAAL_loglike`/`Index_loglike` →
+  `Comp_distribution`/`CAAL_distribution`/`Index_distribution`;
+  `Sel_norm_bin1`/`Sel_norm_bin2` → `Sel_norm_bin`/`Sel_norm_bin_upper`;
+  `weight1_Numbers2` → `Observation_units`; `proj_F_prop` → `Proj_F_proportion`;
+  the control scalar `sigma_rec_prior` → `sigma_rec`; the bioenergetics
+  `Diet_loglike` → `Diet_distribution`; and the post-fit output column
+  `Est_weights_mcallister` → `Comp_weights_mcallister` (the old name is still
+  written for downstream readers).
+
+* **`write_template()`.** A new export that writes a minimal, structurally
+  complete single-species starter workbook on the canonical column names; it
+  round-trips through `read_data()` and builds under `fit_mod(estimateMode = 3)`.
+
+* **Single-source workbook schema.** The column dictionary now lives once in the
+  package (`R/0-column_schema.R`) and drives `switch_check()` defaults,
+  `write_data()` object order, the embedded `meta_data` documentation sheet, and
+  the roxygen field dictionary, which are kept in sync by guard tests. ~16
+  previously used-but-undocumented columns are now documented.
+
+## Bug fixes
+
+* **Robust workbook reads.** `read_data()` now errors clearly when a required
+  sheet (`control`, `fleet_control`) is missing and skips optional sheets when
+  absent, so a minimal single-species workbook reads cleanly instead of failing
+  with a cryptic error. A non-numeric cell in the control or bioenergetics rows
+  now errors by name instead of silently becoming `NA`. `rearrange_data()` fails
+  clearly on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
+
+* **Removed the dead accumulation-age feature.** `Accumulation_age_lower/upper`
+  were only range-validated and never applied to composition data; they are
+  dropped (with a soft-deprecation message if an old workbook carries them).
+
 # Rceattle 4.11.0
 
 ## New features
