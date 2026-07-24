@@ -96,12 +96,15 @@
     .rce_col("nlengths", "control", "Integer: number of lengths of each species", type = "integer"),
     .rce_col("pop_wt_index", "control", "Integer: weight index for calculating  biomass, consumption/ration, and suitability for each species", type = "integer"),
     .rce_col("ssb_wt_index", "control", "Integer: weight index for calculating  spawning biomass for each species", type = "integer"),
+    # Order matches write_data()'s control-sheet assembly (alpha/beta before the
+    # age-transition index) so the write -> read round-trip preserves data_list
+    # element order exactly, not just element values.
+    .rce_col("alpha_wt_len", "control", "Alpha parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 1e-6, default_msg = "'alpha_wt_len' not specified in data, assuming 1e-6"),
+    .rce_col("beta_wt_len", "control", "Beta parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 3, default_msg = "'beta_wt_len' not specified in data, assuming 3"),
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec_prior", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates"),
     .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
     .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0L, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp))"),
-    .rce_col("alpha_wt_len", "control", "Alpha parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 1e-6, default_msg = "'alpha_wt_len' not specified in data, assuming 1e-6"),
-    .rce_col("beta_wt_len", "control", "Beta parameter from Weight = alpha * Length ^ beta", has_default = TRUE, default = 3, default_msg = "'beta_wt_len' not specified in data, assuming 3"),
 
     # ======================================================================
     # fleet_control sheet, in canonical column order
@@ -171,7 +174,12 @@
     .rce_col("Tcm", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("Tcl", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("CK1", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
-    .rce_col("CK4", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species")
+    .rce_col("CK4", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
+    # Written to the bioenergetics_control sheet but not documented in the meta
+    # sheet (meta = FALSE). Per-predator-species vectors defaulted by switch_check
+    # (rep(0, nspp) / rep(1, nspp)); their defaulting stays imperative there.
+    .rce_col("Diet_loglike", "bioenergetics_control", "Diet composition likelihood distribution per predator species (0 = multinomial).", type = "switch", meta = FALSE),
+    .rce_col("Diet_comp_weights", "bioenergetics_control", "Diet composition weight (multinomial multiplier) per predator species.", meta = FALSE)
   )
 
   names(rows) <- vapply(rows, function(r) r$name, character(1))
@@ -225,7 +233,8 @@
 #' @keywords internal
 #' @noRd
 .rce_schema_names <- function(sheet, include_orphans = FALSE) {
-  vapply(.rce_schema_rows(sheet, include_orphans), function(r) r$name, character(1))
+  unname(vapply(.rce_schema_rows(sheet, include_orphans),
+                function(r) r$name, character(1)))
 }
 
 # -----------------------------------------------------------------------------

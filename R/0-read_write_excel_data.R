@@ -41,35 +41,21 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   xcel_list$meta_data <- meta_data
 
 
-  # Define the row names in order
-  row_labels <- c(
-    "nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "nages", "minage",
-    "nlengths", "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
-    "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics"
-  )
+  # Control-sheet objects (names + order) come from the canonical schema
+  # (R/0-column_schema.R) instead of a hand-maintained vector. read_data parses
+  # the control sheet by object NAME, so the row order is not load-bearing. The
+  # four model-wide dimensions carry a single meaningful value in column 1 and
+  # NA in the rest; every other object is a per-species vector (length nspp) or a
+  # single value recycled across species (rbind's default) -- matching the prior
+  # hand-written assembly exactly.
+  row_labels <- .rce_schema_names("control")
+  .model_dims <- c("nspp", "styr", "endyr", "projyr")
+  control <- do.call(rbind, lapply(row_labels, function(nm) {
+    v <- data_list[[nm]]
+    if (nm %in% .model_dims) c(v[1], rep(NA, data_list$nspp - 1)) else v
+  }))
 
-  # Combine the data elements into a matrix
-  control <- rbind(
-    nspp                     = c(data_list$nspp, rep(NA, data_list$nspp - 1)),
-    styr                     = c(data_list$styr, rep(NA, data_list$nspp - 1)),
-    endyr                    = c(data_list$endyr, rep(NA, data_list$nspp - 1)),
-    projyr                   = c(data_list$projyr, rep(NA, data_list$nspp - 1)),
-    nsex                     = data_list$nsex,
-    spawn_month              = data_list$spawn_month,
-    nages                    = data_list$nages,
-    minage                   = data_list$minage,
-    nlengths                 = data_list$nlengths,
-    pop_wt_index             = data_list$pop_wt_index,
-    ssb_wt_index             = data_list$ssb_wt_index,
-    alpha_wt_len             = data_list$alpha_wt_len,
-    beta_wt_len              = data_list$beta_wt_len,
-    pop_age_transition_index = data_list$pop_age_transition_index,
-    sigma_rec_prior          = data_list$sigma_rec_prior,
-    other_food               = data_list$other_food,
-    estDynamics              = data_list$estDynamics
-  )
-
-  # Convert to data frame and move row names to a column
+  # Move object names into a column
   control <- data.frame(Object = row_labels, control, row.names = NULL)
   colnames(control) <- c("Object", data_list$spnames)
 
@@ -147,7 +133,15 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights"), bioenergetics_control)
+  # Object names + order for the bioenergetics sheet come from the schema; the
+  # matrix rows above are assembled by hard-coded index in this exact order, so
+  # assert the schema order matches (guards against a silent mislabel if the
+  # schema's bioenergetics rows are ever reordered).
+  bio_labels <- .rce_schema_names("bioenergetics_control")
+  stopifnot(identical(bio_labels,
+    c("Ceq", "Cindex", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm",
+      "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights")))
+  bioenergetics_control <- cbind(bio_labels, bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
 
