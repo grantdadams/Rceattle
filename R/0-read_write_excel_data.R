@@ -249,84 +249,15 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list[[matrix_data[i]]] <- sheet
   }
 
-  # -- Update names if necessary
-  if(length(data_list$fleet_control$Survey_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
-                    Index_sd = Survey_sd_prior)
-    message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd'")
-  }
-
-
-  if(length(data_list$fleet_control$Nselages) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(N_sel_bins = Nselages)
-    message("Renaming 'Nselages' to 'N_sel_bins'")
-  }
-
-  if(length(data_list$fleet_control$Sel_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Time_varying_sel_sd = Sel_sd_prior)
-    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd'")
-  }
-
-  # `Time_varying_{q,sel}_sd_prior` were misnamed (an input SD value, not a
-  # prior); renamed to `Time_varying_{q,sel}_sd`. Upgrade on read.
-  if(length(data_list$fleet_control$Time_varying_sel_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Time_varying_sel_sd = Time_varying_sel_sd_prior)
-    message("Renaming 'Time_varying_sel_sd_prior' to 'Time_varying_sel_sd'")
-  }
-
-  if(length(data_list$fleet_control$Time_varying_q_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Time_varying_q_sd = Time_varying_q_sd_prior)
-    message("Renaming 'Time_varying_q_sd_prior' to 'Time_varying_q_sd'")
-  }
-
-  # `Q_prior` / `Index_sd_prior` / `Catch_sd_prior` are start/input values, not
-  # priors; renamed to `Q_init` / `Index_sd` / `Catch_sd`. Upgrade on read.
-  if(length(data_list$fleet_control$Q_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Q_init = Q_prior)
-    message("Renaming 'Q_prior' to 'Q_init'")
-  }
-
-  if(length(data_list$fleet_control$Index_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Index_sd = Index_sd_prior)
-    message("Renaming 'Index_sd_prior' to 'Index_sd'")
-  }
-
-  if(length(data_list$fleet_control$Catch_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Catch_sd = Catch_sd_prior)
-    message("Renaming 'Catch_sd_prior' to 'Catch_sd'")
-  }
-
-  if(length(data_list$fleet_control$Estimate_q) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Catchability = Estimate_q)
-    message("Renaming 'Estimate_q' to 'Catchability'")
-  }
-
-  if(length(data_list$fleet_control$Age_first_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Bin_first_selected = Age_first_selected)
-    message("Renaming 'Age_first_selected' to 'Bin_first_selected'")
-  }
-
-  if(length(data_list$fleet_control$Age_max_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Sel_norm_bin1 = Age_max_selected)
-    message("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
-  }
-
-  if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
-    message("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
-  }
+  # -- Upgrade any deprecated fleet_control column names to canonical, from the
+  # single schema-driven migration (the `aliases` field). The same call
+  # switch_check() uses, so the xlsx-read and direct-data-list paths upgrade
+  # identically from one source (no hand-maintained cascade to drift). Legacy
+  # names accepted: Estimate_survey_sd, Survey_sd_prior/Index_sd_prior, Nselages,
+  # Sel_sd_prior, Time_varying_{q,sel}_sd_prior, Q_prior, Catch_sd_prior,
+  # Estimate_q, Age_first_selected, Age_max_selected(_upper).
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
 
   # Default a missing `Month` column.
   if(is.null(data_list$fleet_control$Month)){

@@ -271,35 +271,15 @@ switch_check <- function(data_list){
     return(val)
   }
 
-  # Deprecated fleet_control column names. `Time_varying_q_sd_prior` /
-  # `Time_varying_sel_sd_prior` are misnomers: they hold the input VALUE of the
-  # time-varying deviate SD, not a prior on it (no density is placed on the SD).
-  # Renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`. Accept the old names
-  # from existing data lists / .rda / xlsx and upgrade in place -- once, with a
-  # deprecation message -- here at the top of switch_check() so the rename lands
-  # before build_params() reads the column and before the non-parametric
-  # penalty migration below.
-  rename_deprecated_col <- function(fc, old, new) {
-    if (!is.null(fc[[old]])) {
-      if (is.null(fc[[new]])) fc[[new]] <- fc[[old]]
-      fc[[old]] <- NULL
-      message(sprintf("'%s' is deprecated; use '%s'.", old, new))
-    }
-    fc
-  }
-  data_list$fleet_control <- rename_deprecated_col(
-    data_list$fleet_control, "Time_varying_q_sd_prior",   "Time_varying_q_sd")
-  data_list$fleet_control <- rename_deprecated_col(
-    data_list$fleet_control, "Time_varying_sel_sd_prior", "Time_varying_sel_sd")
-  # `Q_prior` / `Index_sd_prior` / `Catch_sd_prior` are start/input values, not
-  # priors on those quantities (the prior on q lives in `Q_sd_prior`). Renamed
-  # to `Q_init` / `Index_sd` / `Catch_sd`.
-  data_list$fleet_control <- rename_deprecated_col(
-    data_list$fleet_control, "Q_prior",        "Q_init")
-  data_list$fleet_control <- rename_deprecated_col(
-    data_list$fleet_control, "Index_sd_prior", "Index_sd")
-  data_list$fleet_control <- rename_deprecated_col(
-    data_list$fleet_control, "Catch_sd_prior", "Catch_sd")
+  # Upgrade any deprecated fleet_control column names to their canonical
+  # spellings from the single schema-driven migration (`aliases` field), here
+  # at the top of switch_check() so the rename lands before build_params()
+  # reads the columns and before the non-parametric penalty migration below.
+  # Legacy names accepted: Q_prior, Index_sd_prior/Survey_sd_prior,
+  # Catch_sd_prior, Time_varying_{q,sel}_sd_prior, Sel_sd_prior, Nselages,
+  # Estimate_q, Estimate_survey_sd, Age_first_selected, Age_max_selected(_upper).
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
 
   # `Accumulation_age_lower` / `Accumulation_age_upper` are removed. They were
   # only ever range-validated and never applied (no composition-age grouping
@@ -468,17 +448,10 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen2 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen2, "Sel_curve_pen2", .sch, .np_hake)
   data_list$fleet_control$Sel_curve_pen3 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen3, "Sel_curve_pen3", .sch, .np_hake)
   data_list$fleet_control$Sel_start_year <- .rce_apply_default(data_list$fleet_control$Sel_start_year, "Sel_start_year", .sch)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
-  # Back-compatibility: these were named *_age before they were generalised to
-  # work on either the age or the length dimension. Accept the old names.
-  for(.old in c("Sel_pen_first_age", "Sel_pen_last_age", "Sel_cap_age")){
-    .new <- sub("_age$", "_bin", .old)
-    if(!is.null(data_list$fleet_control[[.old]]) && is.null(data_list$fleet_control[[.new]])){
-      data_list$fleet_control[[.new]] <- data_list$fleet_control[[.old]]
-      data_list$fleet_control[[.old]] <- NULL
-      message("Renaming '", .old, "' to '", .new, "'")
-    }
-  }
-
+  # The `Sel_pen_first_age` / `Sel_pen_last_age` / `Sel_cap_age` back-compat
+  # renames (these bins were named *_age before they were generalised to work on
+  # either dimension) are handled by .rce_upgrade_fleet_control_aliases() at the
+  # top of switch_check(), from the schema `aliases` field.
   data_list$fleet_control$Sel_pen_first_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_first_bin, "Sel_pen_first_bin", .sch)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
   data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)

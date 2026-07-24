@@ -225,6 +225,40 @@
   row$default
 }
 
+#' Upgrade deprecated fleet_control column names to canonical, in place.
+#'
+#' The single migration point for legacy fleet_control column names: every
+#' canonical column carries its historical spellings in the schema `aliases`
+#' field, and this walks them, renaming any present old name to the canonical
+#' one. Both `read_data()` (on the xlsx path) and `switch_check()` (on every
+#' fit path) call it, so a data list built either way is upgraded identically
+#' from the one schema -- the hand-coded rename cascades that used to live in
+#' both are gone.
+#'
+#' Double-fire-safe: a no-op when the old name is absent (so re-running on an
+#' already-upgraded list is silent), and it never clobbers an existing
+#' canonical column. Emits one deprecation message per rename actually applied.
+#'
+#' @param fc A `fleet_control` data frame (or NULL).
+#' @return `fc` with any deprecated column names upgraded to canonical.
+#' @keywords internal
+#' @noRd
+.rce_upgrade_fleet_control_aliases <- function(fc) {
+  if (is.null(fc)) return(fc)
+  schema <- .rce_column_schema()
+  for (row in schema) {
+    if (row$sheet != "fleet_control" || length(row$aliases) == 0L) next
+    for (old in row$aliases) {
+      if (!is.null(fc[[old]])) {
+        if (is.null(fc[[row$name]])) fc[[row$name]] <- fc[[old]]
+        fc[[old]] <- NULL
+        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
+      }
+    }
+  }
+  fc
+}
+
 #' Rows for one sheet, in schema (write) order.
 #' @keywords internal
 #' @noRd
