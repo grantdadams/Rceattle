@@ -70,13 +70,15 @@
       }
       as.character(v)
     }
-    # Which Selectivity_index / Q_index values are shared (mirrored)?
+    # Which Selectivity_index / Catchability_index values are shared (mirrored)?
     shared <- function(col) {
       if (!col %in% colnames(fc)) return(integer(0))
       t <- table(fc[[col]][!is.na(fc[[col]])])
       as.integer(names(t[t > 1]))
     }
-    sel_mir <- shared("Selectivity_index"); q_mir <- shared("Q_index")
+    # Accept the legacy `Q_index` spelling for display of an un-upgraded list.
+    q_col <- if ("Catchability_index" %in% colnames(fc)) "Catchability_index" else "Q_index"
+    sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
     for (i in seq_len(nrow(fc))) {
       last <- i == nrow(fc)
       elbow <- if (last) "  └─ " else "  ├─ "
@@ -92,7 +94,7 @@
       # Mirror annotations.
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA
-      qi <- if ("Q_index" %in% colnames(fc)) fc$Q_index[i] else NA
+      qi <- if (q_col %in% colnames(fc)) fc[[q_col]][i] else NA
       if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel↔", si))
       if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q↔", qi))
       if (length(mir)) parts <- c(parts, paste0("[", paste(mir, collapse = ", "), "]"))

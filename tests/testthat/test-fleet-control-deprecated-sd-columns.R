@@ -28,9 +28,10 @@ testthat::test_that("switch_check() renames Q_prior/Index_sd_prior/Catch_sd_prio
 
   out <- suppressMessages(suppressWarnings(Rceattle::switch_check(d)))
   fc_new <- out$fleet_control
-  testthat::expect_true(all(c("Q_init", "Index_sd", "Catch_sd") %in% names(fc_new)))
+  # `Q_prior` now upgrades to the renamed canonical `Catchability_init`.
+  testthat::expect_true(all(c("Catchability_init", "Index_sd", "Catch_sd") %in% names(fc_new)))
   testthat::expect_false(any(c("Q_prior", "Index_sd_prior", "Catch_sd_prior") %in% names(fc_new)))
-  testthat::expect_equal(fc_new$Q_init,   fc$Q_prior)
+  testthat::expect_equal(fc_new$Catchability_init, fc$Q_prior)
   testthat::expect_equal(fc_new$Index_sd, fc$Index_sd_prior)
   testthat::expect_equal(fc_new$Catch_sd, fc$Catch_sd_prior)
 })

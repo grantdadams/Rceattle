@@ -6,6 +6,13 @@
 data_check <- function(data_list) {
   errors <- character(0)
 
+  # Upgrade any deprecated fleet_control column names to canonical first, so the
+  # checks below (and a standalone data_check() on a legacy data list) see the
+  # canonical names. In the fit_mod() pipeline switch_check() has already run, so
+  # this is a silent no-op there.
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+
   # ---- Helpers ----
   has_data <- function(df) !is.null(df) && nrow(df) > 0
   fc_num <- function(fc, col, flt){
@@ -609,7 +616,7 @@ data_check <- function(data_list) {
                      " is mirrored with another fleet"))
     }
     mirror_q <- fc |> dplyr::filter(!is.na(Catchability)) |>
-      dplyr::group_by(Q_index) |> dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
+      dplyr::group_by(Catchability_index) |> dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
     if(nrow(mirror_q) > 0){
       message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "),
                      " is mirrored with another fleet"))

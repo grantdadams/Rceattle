@@ -40,7 +40,7 @@ utils::globalVariables(c(
   "Pred", "Pred_age", "Pred_sex", "Sample_size", "Diet_hat",
   "Stomach_proportion_by_weight", "Diet_weights_mcallister",
   "Prey", "Prey_sex", "Prey_age", "stratum_id", "stomach_id",
-  "Selectivity_index", "Catchability", "Q_index", "Fleet_type",
+  "Selectivity_index", "Catchability", "Q_index", "Catchability_index", "Fleet_type",
   "Selectivity", "Comp_loglike", "CAAL_loglike", "Wt_index", "Tmp_ind",
   "Wt_name", "Age_transition_name", "Age_transition_index",
   "Age", "True_age", "M",
@@ -50,7 +50,8 @@ utils::globalVariables(c(
   "Age_max_selected_upper",
   "Time_varying_sel", "Time_varying_sel_sd_prior", "Time_varying_sel_sd",
   "Time_varying_q_sd_prior", "Time_varying_q_sd",
-  "Q_prior", "Q_init", "Index_sd_prior", "Index_sd", "Catch_sd_prior", "Catch_sd",
+  "Q_prior", "Q_init", "Catchability_init", "Q_sd_prior", "Catchability_prior_sd",
+  "Index_sd_prior", "Index_sd", "Catch_sd_prior", "Catch_sd",
   "Sel_curve_pen1", "Sel_curve_pen2",
   # Loop iterators and anonymous function variables
   "i", "x", "spp", "sim", "var"

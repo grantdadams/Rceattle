@@ -65,6 +65,14 @@
 #' @importFrom tidyselect contains
 rearrange_data <- function(data_list, build_osa = FALSE){
 
+  # Upgrade any deprecated fleet_control column names to canonical, so the
+  # catchability/selectivity reads below see the canonical names even when
+  # rearrange_data() is called directly (build_params()/build_map() self-upgrade
+  # via switch_check(); this closes the same gap here). No-op in the fit_mod()
+  # pipeline, where switch_check() has already run.
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
 
@@ -242,11 +250,11 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$index_varying_q <- as.integer(.tv_q)
 
   # - 15b) Catchability "lead", the q analogue of flt_sel_lead. Fleets sharing a
-  #        Q_index estimate ONE catchability (and one deviate vector), so the q
-  #        prior and the deviate penalties are accumulated on the lead fleet only.
-  #        Without this they were applied once per sharing fleet to the same
-  #        parameter, e.g. counting a q prior twice for a mirrored pair.
-  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Q_index,
+  #        Catchability_index estimate ONE catchability (and one deviate vector),
+  #        so the q prior and the deviate penalties are accumulated on the lead
+  #        fleet only. Without this they were applied once per sharing fleet to
+  #        the same parameter, e.g. counting a q prior twice for a mirrored pair.
+  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Catchability_index,
                                       data_list$flt_type == 0)
 
   # - 16) Whether to estimate standard deviation of index time series
@@ -261,7 +269,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$index_ll_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Index_loglike) %>% as.integer()
 
-  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_init)
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Catchability_init)
 
   # Species names
   data_list$spnames <- NULL

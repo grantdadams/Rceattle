@@ -1144,8 +1144,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @title Helper to adjust map for shared catchability/selectivity indices
 #'
 #' @description Enforces parameter sharing by mapping parameters for fleets
-#'   with a common \code{Selectivity_index} or \code{Q_index} to the same value
-#'   as the initial index.
+#'   with a common \code{Selectivity_index} or \code{Catchability_index} to the
+#'   same value as the initial index.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1153,11 +1153,11 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 adjust_map_shared_params <- function(map_list, data_list) {
 
-  # Based on `Selectivity_index` or `Q_index` in `fleet_control`
+  # Based on `Selectivity_index` or `Catchability_index` in `fleet_control`
   sel_index <- data_list$fleet_control$Selectivity_index
   sel_index_tested <- c()
 
-  q_index <- data_list$fleet_control$Q_index
+  q_index <- data_list$fleet_control$Catchability_index
   q_index_tested <- c()
   rows_tests <- c()
 
@@ -1235,14 +1235,14 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
-        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning("Survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
 
       # Error check time-varying selectivity type
       if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning("Time varying survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 

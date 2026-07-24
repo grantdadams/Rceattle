@@ -312,7 +312,7 @@ build_params <- function(data_list) {
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
-  param_list$index_log_q = log(data_list$fleet_control$Q_init)
+  param_list$index_log_q = log(data_list$fleet_control$Catchability_init)
   names(param_list$index_log_q) <- data_list$fleet_control$Fleet_name
 
   # - Regression coefficients for environment-q linkage
@@ -330,7 +330,7 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
   # - Log standard deviation prior on Q (maybe should be data...)
-  param_list$index_q_log_sd <- log(data_list$fleet_control$Q_sd_prior)
+  param_list$index_q_log_sd <- log(data_list$fleet_control$Catchability_prior_sd)
   names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation for survey selectivity random walk - used for logistic

@@ -13,6 +13,14 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   data_list1 <- .alias_est_M1(data_list1)
   data_list2 <- .alias_est_M1(data_list2)
 
+  # Upgrade deprecated fleet_control column names on both inputs, so a legacy
+  # (e.g. Q_index) list combines correctly with a modern (Catchability_index)
+  # one under the single canonical names read below.
+  if (!is.null(data_list1))
+    data_list1$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list1$fleet_control)
+  if (!is.null(data_list2))
+    data_list2$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list2$fleet_control)
+
   data_list_new <- data_list1
 
   dat_names <- names(data_list_new)
@@ -28,7 +36,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   weight_index1 <- max(data_list1$weight$Wt_index, na.rm = TRUE)
   alk_index1 <- max(data_list1$age_trans_matrix$Age_transition_index, na.rm = TRUE)
   nspp1 <- data_list1$nspp
-  q_index1 <- max(data_list1$fleet_control$Q_index, na.rm = TRUE)
+  q_index1 <- max(data_list1$fleet_control$Catchability_index, na.rm = TRUE)
   sel_index1 <- max(data_list1$fleet_control$Selectivity_index, na.rm = TRUE)
 
   # Update vector indices
@@ -39,7 +47,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   # Update fleet control
   data_list2$fleet_control$Age_transition_index <- data_list2$fleet_control$Age_transition_index + alk_index1
   data_list2$fleet_control$Selectivity_index <- data_list2$fleet_control$Selectivity_index + sel_index1
-  data_list2$fleet_control$Q_index <- data_list2$fleet_control$Q_index + q_index1
+  data_list2$fleet_control$Catchability_index <- data_list2$fleet_control$Catchability_index + q_index1
   data_list2$fleet_control$Species <- data_list2$fleet_control$Species + nspp1
   data_list2$fleet_control$Weight_index <- data_list2$fleet_control$Weight_index + weight_index1
   data_list2$fleet_control$Fleet_code <- data_list2$fleet_control$Fleet_code + fleet_index1
