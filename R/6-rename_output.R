@@ -178,6 +178,13 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
     data_list$fleet_control$Comp_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
   }
 
+  # Back-compat: this output column was named `Est_weights_mcallister` before
+  # v4.12 (renamed to `Comp_weights_mcallister` for parity with the diet output).
+  # Mirror the old name so downstream reweighting scripts that read it off a
+  # fitted object keep working. Deprecated; prefer `Comp_weights_mcallister`.
+  data_list$fleet_control$Est_weights_mcallister <-
+    data_list$fleet_control$Comp_weights_mcallister
+
   return(data_list)
 }
 

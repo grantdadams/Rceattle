@@ -28,7 +28,7 @@ library(Rceattle)
 # Fit a single-species model for the 2022 Northern Rockfish assessment.
 data("NorthernRockfish2022")
 nrdata <- NorthernRockfish2022
-nrdata$fleet_control$proj_F_prop <- 1
+nrdata$fleet_control$Proj_F_proportion <- 1
 plot_data(nrdata)
 ```
 

@@ -143,7 +143,7 @@ simData$beta_wt_len  <- rep(3, nspp)
 
 # Prior or initial standard deviation for log-recruitment deviations. Controls the
 # strength of the recruitment penalty in penalized-likelihood mode.
-simData$sigma_rec_prior <- rep(1, nspp)
+simData$sigma_rec <- rep(1, nspp)
 
 # Non-modelled ("other") prey biomass available to predators. Used in
 # multi-species mode to prevent unrealistically high predation mortality when
@@ -176,16 +176,16 @@ This is the most important configuration table. Each row defines one fleet (fish
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
 
 # Catchability options (Catchability column) — use the string name or integer code:
-#   "Fixed"                (0) -- Q fixed at Q_init; not estimated
+#   "Fixed"                (0) -- Q fixed at Catchability_init; not estimated
 #   "Estimated"            (1) -- freely estimated on log scale
-#   "Estimated-with-prior" (2) -- estimated with a lognormal prior (Q_init, Q_sd_prior)
+#   "Estimated-with-prior" (2) -- estimated with a lognormal prior (Catchability_init, Catchability_prior_sd)
 #   "Analytical"           (3) -- Ludwig & Walters / Martell (1994) analytical Q
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
 #   NA                         -- not applicable (use for fisheries without CPUE)
 
-# Comp_loglike / CAAL_loglike options:
+# Comp_distribution / CAAL_distribution options:
 #   "Multinomial"           -- standard multinomial
 #   "DirichletMultinomial"  -- overdispersed; estimates a concentration parameter
 #   "MultinomialAFSC"       -- AFSC variant of multinomial (marginal age + length)
@@ -217,25 +217,25 @@ simData$fleet_control <- data.frame(
   Time_varying_sel          = 0,
   Time_varying_sel_sd = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
-  Sel_norm_bin1             = NA,    # bin to normalise selectivity from (optional)
-  Sel_norm_bin2             = NA,
+  Sel_norm_bin             = NA,    # bin to normalise selectivity from (optional)
+  Sel_norm_bin_upper             = NA,
 
   # Composition likelihoods
-  Comp_loglike = "Multinomial",
+  Comp_distribution = "Multinomial",
   Comp_weights = 1,                  # input effective sample size multiplier
-  CAAL_loglike = "Multinomial",
+  CAAL_distribution = "Multinomial",
   CAAL_weights = 1,
 
   # Index units and weight/growth linkage
-  Weight1_Numbers2     = 1,          # 1 = weight (mt), 2 = numbers
+  Observation_units     = 1,          # 1 = weight (mt), 2 = numbers
   Weight_index         = rep(1:nspp, each = 2),
   Age_transition_index = 1,
 
-  # Q_index links fleets that share the same catchability parameter.
-  Q_index              = 1:(nspp * 2),
+  # Catchability_index links fleets that share the same catchability parameter.
+  Catchability_index              = 1:(nspp * 2),
   Catchability         = rep(c("Estimated", NA), nspp),
-  Q_init              = rep(c(1,   NA), nspp),
-  Q_sd_prior           = rep(c(0.2, NA), nspp),
+  Catchability_init              = rep(c(1,   NA), nspp),
+  Catchability_prior_sd           = rep(c(0.2, NA), nspp),
   # Time_varying_q:
   #   0 / "Off" = time-invariant
   #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd
@@ -259,15 +259,15 @@ simData$fleet_control <- data.frame(
   Estimate_catch_sd  = rep(c(NA, 0),  nspp),
   Catch_sd     = rep(c(NA, 1),  nspp),
 
-  # proj_F_prop: how future F is distributed across fishery fleets per species.
+  # Proj_F_proportion: how future F is distributed across fishery fleets per species.
   # Must sum to 1 across fishery fleets for each species. NA for surveys.
-  proj_F_prop = rep(c(NA, 1), nspp)
+  Proj_F_proportion = rep(c(NA, 1), nspp)
 )
 ```
 
 ## 3. Survey index data
 
-One row per fleet-year combination for survey fleets. `Observation` is the log-scale biomass index (or numbers if `Weight1_Numbers2 = 2`). A negative `Year` value tells Rceattle to predict the index without including it in the likelihood, which is useful for model checking.
+One row per fleet-year combination for survey fleets. `Observation` is the log-scale biomass index (or numbers if `Observation_units = 2`). A negative `Year` value tells Rceattle to predict the index without including it in the likelihood, which is useful for model checking.
 
 ```{r}
 simData$index_data <- data.frame(
@@ -517,7 +517,7 @@ simData$CK4 <- rep(1,  nspp)
 
 # Diet composition likelihood for each predator species
 # 0 = Multinomial, 1 = Dirichlet-multinomial
-simData$Diet_loglike      <- rep(0, nspp)
+simData$Diet_distribution      <- rep(0, nspp)
 simData$Diet_comp_weights <- rep(1, nspp)
 
 # Ration data (optional in single-species mode): observed mean ration-at-age from

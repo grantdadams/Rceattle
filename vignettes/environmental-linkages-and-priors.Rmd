@@ -857,7 +857,7 @@ reverting to hand-tuning:
 
 ```{r}
 # Use the DM likelihood on the fleets you want it to self-weight ...
-data_list$fleet_control$Comp_loglike[c(1, 2)] <- "DirichletMultinomial"
+data_list$fleet_control$Comp_distribution[c(1, 2)] <- "DirichletMultinomial"
 
 # ... and (optionally) constrain its weight with a prior.
 fit <- fit_mod(
@@ -880,9 +880,9 @@ Three keys, one per kind of composition data:
 
 | key | applies to | DM likelihood set on |
 |---|---|---|
-| `theta_comp` | age / length composition | `Comp_loglike` |
-| `theta_caal` | conditional age-at-length | `CAAL_loglike` |
-| `theta_diet` | predator diet composition | `Diet_loglike` |
+| `theta_comp` | age / length composition | `Comp_distribution` |
+| `theta_caal` | conditional age-at-length | `CAAL_distribution` |
+| `theta_diet` | predator diet composition | `Diet_distribution` |
 
 The prior is on the weight itself (a larger weight = a larger effective sample
 size = the composition data trusted more). It only makes sense where the DM is
