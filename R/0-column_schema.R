@@ -182,6 +182,35 @@
 # Accessors over the schema
 # -----------------------------------------------------------------------------
 
+#' Apply a column's schema default when the value is absent.
+#'
+#' Reproduces `switch_check()`'s local `set_default(val, default, msg)`: when
+#' `val` is NULL, emit the schema's `default_msg` (gated by `default_msg_when`)
+#' and return the schema `default`; otherwise return `val` unchanged. Sourcing
+#' the value and message from the schema is what removes the hand-copied
+#' defaults from `switch_check()`.
+#'
+#' @param val The current column value (NULL if the column is absent).
+#' @param col Canonical column name (schema key).
+#' @param schema A prefetched `.rce_column_schema()` (avoids rebuilding it per
+#'   call).
+#' @param np_hake Value of the non-parametric/Hake/LogisticPM predicate, for
+#'   columns whose message only fires when such a fleet is present
+#'   (`default_msg_when == "np_hake"`).
+#' @keywords internal
+#' @noRd
+.rce_apply_default <- function(val, col, schema = .rce_column_schema(),
+                               np_hake = FALSE) {
+  if (!is.null(val)) return(val)
+  row <- schema[[col]]
+  if (is.null(row) || !isTRUE(row$has_default))
+    stop("Internal: no schema default for column '", col, "'")
+  msg <- row$default_msg
+  if (identical(row$default_msg_when, "np_hake") && !isTRUE(np_hake)) msg <- NULL
+  if (!is.null(msg)) message(msg)
+  row$default
+}
+
 #' Rows for one sheet, in schema (write) order.
 #' @keywords internal
 #' @noRd

@@ -358,8 +358,13 @@ switch_check <- function(data_list){
   }
 
   # 1. Fleet Control defaults ----
-  data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
-  data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
+  # Per-column defaults + messages come from the canonical schema
+  # (R/0-column_schema.R) via .rce_apply_default(), so they live in one place
+  # instead of being hand-copied here. The order of the calls (and thus the
+  # message order) is unchanged.
+  .sch <- .rce_column_schema()
+  data_list$fleet_control$Sel_norm_bin1 <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin1, "Sel_norm_bin1", .sch)
+  data_list$fleet_control$Sel_norm_bin2 <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin2, "Sel_norm_bin2", .sch)
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
@@ -435,10 +440,10 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen1 <- .pen$Sel_curve_pen1
   data_list$fleet_control$Sel_curve_pen2 <- .pen$Sel_curve_pen2
   data_list$fleet_control$Sel_curve_pen3 <- .pen$Sel_curve_pen3
-  data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, if(.np_hake) "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
+  data_list$fleet_control$Sel_curve_pen1 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen1, "Sel_curve_pen1", .sch, .np_hake)
+  data_list$fleet_control$Sel_curve_pen2 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen2, "Sel_curve_pen2", .sch, .np_hake)
+  data_list$fleet_control$Sel_curve_pen3 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen3, "Sel_curve_pen3", .sch, .np_hake)
+  data_list$fleet_control$Sel_start_year <- .rce_apply_default(data_list$fleet_control$Sel_start_year, "Sel_start_year", .sch)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
   # Back-compatibility: these were named *_age before they were generalised to
   # work on either the age or the length dimension. Accept the old names.
   for(.old in c("Sel_pen_first_age", "Sel_pen_last_age", "Sel_cap_age")){
@@ -450,20 +455,20 @@ switch_check <- function(data_list){
     }
   }
 
-  data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
-  data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
-  data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
-  data_list$fleet_control$Sel_avgsel_pen <- set_default(data_list$fleet_control$Sel_avgsel_pen, 0)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
-  data_list$fleet_control$Sel_cap_bin <- set_default(data_list$fleet_control$Sel_cap_bin, NA)  # NonParametricRPM bin cap (NA -> no cap)
-  data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
-  data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
-  data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
-  data_list$fleet_control$Index_loglike <- set_default(data_list$fleet_control$Index_loglike, "Lognormal")  # survey index likelihood family; default preserves the historical lognormal fit
+  data_list$fleet_control$Sel_pen_first_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_first_bin, "Sel_pen_first_bin", .sch)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
+  data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
+  data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
+  data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
+  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
+  data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch)
+  data_list$fleet_control$Comp_loglike <- .rce_apply_default(data_list$fleet_control$Comp_loglike, "Comp_loglike", .sch)
+  data_list$fleet_control$CAAL_loglike <- .rce_apply_default(data_list$fleet_control$CAAL_loglike, "CAAL_loglike", .sch)
+  data_list$fleet_control$Index_loglike <- .rce_apply_default(data_list$fleet_control$Index_loglike, "Index_loglike", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
   # Also fill per-element NAs: setting Index_loglike for one fleet (e.g. only the
   # covariance survey) leaves the other rows NA, which should default to Lognormal.
   data_list$fleet_control$Index_loglike[is.na(data_list$fleet_control$Index_loglike)] <- "Lognormal"
-  data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
-  data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
+  data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch)
+  data_list$fleet_control$Month <- .rce_apply_default(data_list$fleet_control$Month, "Month", .sch)
 
   # Format adjustment for NonParametric
   np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
