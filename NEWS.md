@@ -1,6 +1,30 @@
-# Rceattle 4.10.1
+# Rceattle 4.11.0
+
+## New features
+
+* **Per-predator suitability reference years** (`suit_styr` / `suit_endyr`).
+  These `fit_mod()` arguments (and the underlying `data_list` fields) now accept
+  a vector of length `nspp` so each predator can average its suitability over a
+  different set of years — e.g. a California Current model with hake 1980–2019,
+  arrowtooth 2013–2018, and sablefish 2005–2008. A single scalar is recycled to
+  every predator, exactly reproducing the previous global-window behaviour
+  (`BS2017MS` and the golden references are unchanged to numerical tolerance).
+  Internally `suit_styr` / `suit_endyr` became per-predator `DATA_IVECTOR`s and
+  the suitability-averaging and stomach-content prediction loops index them by
+  predator.
+
+* **`plot_diet_comp2()` and `plot_diet_comp1()`.** `plot_diet_comp2()` adds
+  aggregation-aware diet-composition diagnostics (line plots when prey- or
+  predator-age is aggregated, dodged bars when both are, bubble grids when fully
+  disaggregated), built on `residuals(source = "diet")`. `plot_diet_comp1()` is
+  an alias of `plot_diet_comp()` (the bubble/grid diagnostic).
 
 ## Bug fixes
+
+* **`read_data()` tolerates trailing empty age columns in `NByageFixed`.** Older
+  writers pad the fixed numbers-at-age sheet to a wider age range than
+  `max(nages)`; the all-`NA` trailing columns are now dropped on read instead of
+  tripping the `data_check()` column-count validation.
 
 * **Parallel workers now run the in-session package.** `run_mse()`,
   `retrospective()`, and `jitter()` use a FORK cluster on non-Windows platforms,

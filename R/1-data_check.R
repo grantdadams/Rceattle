@@ -149,8 +149,30 @@ data_check <- function(data_list) {
   if(!is.null(data_list$projyr) && !is.null(data_list$endyr) && data_list$projyr < data_list$endyr){
     errors <- c(errors, paste0("projyr (", data_list$projyr, ") must be >= endyr (", data_list$endyr, ")"))
   }
-  if(!is.null(data_list$suit_styr) && !is.null(data_list$suit_endyr) && data_list$suit_styr > data_list$suit_endyr){
-    errors <- c(errors, paste0("suit_styr (", data_list$suit_styr, ") must be <= suit_endyr (", data_list$suit_endyr, ")"))
+  # suit_styr/suit_endyr are per-predator (length nspp) or a recycled scalar.
+  # The suitability window must sit inside the hindcast [styr, endyr]: the C++
+  # loops index the year arrays by the offset window, so a start below styr
+  # reads out of bounds (segfault in MakeADFun) and an end past endyr silently
+  # pads the nyrs_suit divisor with empty years, under-normalising predation
+  # mortality on modelled prey.
+  if(!is.null(data_list$suit_styr) && !is.null(data_list$suit_endyr) && any(data_list$suit_styr > data_list$suit_endyr)){
+    bad <- which(data_list$suit_styr > data_list$suit_endyr)
+    errors <- c(errors, paste0("suit_styr must be <= suit_endyr for every predator; violated for species ",
+                               paste(bad, collapse = ", "),
+                               " (suit_styr = ", paste(data_list$suit_styr[bad], collapse = ", "),
+                               " > suit_endyr = ", paste(data_list$suit_endyr[bad], collapse = ", "), ")"))
+  }
+  if(!is.null(data_list$suit_styr) && !is.null(data_list$styr) && any(data_list$suit_styr < data_list$styr)){
+    bad <- which(data_list$suit_styr < data_list$styr)
+    errors <- c(errors, paste0("suit_styr must be >= styr (", data_list$styr,
+                               ") for every predator; violated for species ", paste(bad, collapse = ", "),
+                               " (suit_styr = ", paste(data_list$suit_styr[bad], collapse = ", "), ")"))
+  }
+  if(!is.null(data_list$suit_endyr) && !is.null(data_list$endyr) && any(data_list$suit_endyr > data_list$endyr)){
+    bad <- which(data_list$suit_endyr > data_list$endyr)
+    errors <- c(errors, paste0("suit_endyr must be <= endyr (", data_list$endyr,
+                               ") for every predator; violated for species ", paste(bad, collapse = ", "),
+                               " (suit_endyr = ", paste(data_list$suit_endyr[bad], collapse = ", "), ")"))
   }
 
   # =======================================================================
