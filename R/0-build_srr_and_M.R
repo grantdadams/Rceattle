@@ -896,7 +896,7 @@ COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
 #' year-varying quantity, so only intercept formulas (`~ 1`) with a `priors`
 #' entry are meaningful. The prior is placed on the natural-scale DM weight
 #' `theta = exp(weight)`, so a `gamma()` prior reads naturally. A linkage on a
-#' fleet whose `Comp_loglike` (or `CAAL_loglike`) is not
+#' fleet whose `Comp_distribution` (or `CAAL_distribution`) is not
 #' `"DirichletMultinomial"` errors, since the weight has no effect there.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
@@ -1142,7 +1142,7 @@ build_composition <- function(linkages = NULL) {
           "spec would attach the prior to a single fleet only."), prm),
           call. = FALSE)
       }
-      col <- if (prm == "theta_comp") "Comp_loglike" else "CAAL_loglike"
+      col <- if (prm == "theta_comp") "Comp_distribution" else "CAAL_distribution"
       if (!dm_str(fc[[col]][fl])) {
         stop(sprintf(paste0(
           "%s linkage on fleet %s whose %s is not 'DirichletMultinomial'; ",

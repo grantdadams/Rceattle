@@ -5,8 +5,8 @@
 # `build_composition()` exposes the DM weights as a "prior-only" process on the
 # linkage table: an intercept row (`~ 1`) whose (Intercept) coefficient is
 # mapped out at 0 and whose prior re-targets the underlying weight parameter
-#   theta_comp  -> comp_weights        (age/length comps, Comp_loglike)
-#   theta_caal  -> caal_weights        (conditional age-at-length, CAAL_loglike)
+#   theta_comp  -> comp_weights        (age/length comps, Comp_distribution)
+#   theta_caal  -> caal_weights        (conditional age-at-length, CAAL_distribution)
 #   theta_diet  -> diet_comp_weights   (predator diet, Diet_loglike)
 # The DM parameter is exp(weight), so the intercept prior is evaluated on the
 # NATURAL scale: b_nat = exp(weight) (same log-link contract as the growth / M /
@@ -40,8 +40,8 @@ testthat::test_that("comp DM gamma prior is evaluated on exp(comp_weights) per D
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
-  d$fleet_control$Comp_loglike <- "MultinomialAFSC"
-  d$fleet_control$Comp_loglike[comp_flts] <- "DirichletMultinomial"
+  d$fleet_control$Comp_distribution <- "MultinomialAFSC"
+  d$fleet_control$Comp_distribution[comp_flts] <- "DirichletMultinomial"
 
   shape <- 2; rate <- 0.5
   cf <- Rceattle::build_composition(linkages = list(
@@ -115,7 +115,7 @@ testthat::test_that("a comp linkage on a non-DM fleet is rejected", {
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
-  # leave Comp_loglike at its (non-DM) default
+  # leave Comp_distribution at its (non-DM) default
   testthat::expect_error(
     suppressMessages(Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,
@@ -132,8 +132,8 @@ testthat::test_that("a comp covariate slope (non-intercept) is rejected as prior
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
-  d$fleet_control$Comp_loglike <- "MultinomialAFSC"
-  d$fleet_control$Comp_loglike[comp_flts] <- "DirichletMultinomial"
+  d$fleet_control$Comp_distribution <- "MultinomialAFSC"
+  d$fleet_control$Comp_distribution[comp_flts] <- "DirichletMultinomial"
   d$env_data <- data.frame(Year = d$styr:d$endyr, temp = 0)
   testthat::expect_error(
     suppressMessages(Rceattle::fit_mod(
@@ -153,8 +153,8 @@ testthat::test_that("theta_comp without `by = ~ fleet` is rejected (fleet-indexe
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
-  d$fleet_control$Comp_loglike <- "MultinomialAFSC"
-  d$fleet_control$Comp_loglike[comp_flts] <- "DirichletMultinomial"
+  d$fleet_control$Comp_distribution <- "MultinomialAFSC"
+  d$fleet_control$Comp_distribution[comp_flts] <- "DirichletMultinomial"
   testthat::expect_error(
     suppressMessages(Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,
@@ -170,8 +170,8 @@ testthat::test_that("`init` / `est_phase` on a comp spec are rejected as prior-o
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
-  d$fleet_control$Comp_loglike <- "MultinomialAFSC"
-  d$fleet_control$Comp_loglike[comp_flts] <- "DirichletMultinomial"
+  d$fleet_control$Comp_distribution <- "MultinomialAFSC"
+  d$fleet_control$Comp_distribution[comp_flts] <- "DirichletMultinomial"
 
   make <- function(...) Rceattle::build_composition(linkages = list(
     theta_comp = Rceattle::linkage_spec(~ 1, by = ~ fleet, fleet = comp_flts, ...)))

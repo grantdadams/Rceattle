@@ -16,7 +16,7 @@
   if (is.null(ic) || length(ic) == 0) return(data_list)
   fc  <- data_list$fleet_control
   idx <- data_list$index_data
-  if (is.null(fc) || is.null(idx) || !"Index_loglike" %in% colnames(fc)) return(data_list)
+  if (is.null(fc) || is.null(idx) || !"Index_distribution" %in% colnames(fc)) return(data_list)
   endyr <- data_list$endyr
   mvn_codes <- c("MVN", "MVNORM", 1, 2, "1", "2")
 
@@ -24,7 +24,7 @@
     Sigma <- as.matrix(ic[[nm]])
     row <- which(fc$Fleet_name == nm | as.character(fc$Fleet_code) == nm)
     if (length(row) != 1) next
-    if (!(fc$Index_loglike[row] %in% mvn_codes)) next        # only MVN/MVNORM fleets
+    if (!(fc$Index_distribution[row] %in% mvn_codes)) next        # only MVN/MVNORM fleets
     code <- fc$Fleet_code[row]
 
     fit <- idx[idx$Fleet_code == code & idx$Year > 0 &
@@ -133,7 +133,7 @@ clean_data <- function(data_list){
   }
 
   # index_cov: named list of survey-index variance-covariance matrices, keyed by
-  # Fleet_name, used only by fleets with Index_loglike == "MVN" (the AMAK/ebswp
+  # Fleet_name, used only by fleets with Index_distribution == "MVN" (the AMAK/ebswp
   # DoCovBTS covariance survey likelihood). Default to an empty list so
   # rearrange_data() / data_check() can treat "not supplied" uniformly; a fleet
   # that is not MVN never needs one, and data_check() enforces that an MVN fleet

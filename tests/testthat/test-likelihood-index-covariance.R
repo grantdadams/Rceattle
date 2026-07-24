@@ -2,7 +2,7 @@
 # fast; the coverage workflow runs it in full (NOT_CRAN=true). See README.md.
 #
 # Covers the covariance (MVN) survey-index likelihood (fleet_control
-# Index_loglike == "MVN") and its companion arithmetic-mean analytical q
+# Index_distribution == "MVN") and its companion arithmetic-mean analytical q
 # (Catchability == "AnalyticalArith"), which together reproduce the AMAK/ebswp
 # DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r.
 testthat::skip_on_cran()
@@ -23,7 +23,7 @@ testthat::test_that("MVN survey likelihood equals 0.5 * r' Sigma^-1 r on the mod
   Sigma <- diag(sds) %*% Rho %*% diag(sds)
 
   srv <- dat$fleet_control$Fleet_name == "Survey"
-  dat$fleet_control$Index_loglike[srv] <- "MVN"
+  dat$fleet_control$Index_distribution[srv] <- "MVN"
   dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
   dat$index_cov <- list(Survey = Sigma)
 
@@ -65,7 +65,7 @@ testthat::test_that("MVNORM reports the full density = MVN (bare) + normalizing 
   bts_jnll <- function(mode) {
     d <- dat
     srv <- d$fleet_control$Fleet_name == "Survey"
-    d$fleet_control$Index_loglike[srv] <- mode
+    d$fleet_control$Index_distribution[srv] <- mode
     d$fleet_control$Catchability[srv]  <- "AnalyticalArith"
     d$index_cov <- list(Survey = Sigma)
     fit <- Rceattle::fit_mod(data_list = d, estimateMode = 3,
@@ -84,8 +84,8 @@ testthat::test_that("MVN and lognormal index likelihoods differ, and lognormal i
   nyrs  <- 8
   base  <- make_test_data(nyrs = nyrs, nages = nages, seed = 7)
 
-  # Default (no Index_loglike override) is Lognormal
-  testthat::expect_true(all(base$fleet_control$Index_loglike == "Lognormal"))
+  # Default (no Index_distribution override) is Lognormal
+  testthat::expect_true(all(base$fleet_control$Index_distribution == "Lognormal"))
 
   ss_ln <- Rceattle::fit_mod(data_list = base, estimateMode = 3,
                              fit_control = fit_control(phase = FALSE, verbose = 0))
@@ -94,7 +94,7 @@ testthat::test_that("MVN and lognormal index likelihoods differ, and lognormal i
   sds   <- rep(15, nyrs)
   Sigma <- diag(sds^2)                      # diagonal Sigma (independent, but MVN form)
   srv <- mvn$fleet_control$Fleet_name == "Survey"
-  mvn$fleet_control$Index_loglike[srv] <- "MVN"
+  mvn$fleet_control$Index_distribution[srv] <- "MVN"
   mvn$index_cov <- list(Survey = Sigma)
   ss_mvn <- Rceattle::fit_mod(data_list = mvn, estimateMode = 3,
                               fit_control = fit_control(phase = FALSE, verbose = 0))
@@ -115,7 +115,7 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   Rho   <- matrix(0.3, nyrs, nyrs); diag(Rho) <- 1
   Sigma <- diag(sds) %*% Rho %*% diag(sds)
   srv   <- dat$fleet_control$Fleet_name == "Survey"
-  dat$fleet_control$Index_loglike[srv] <- "MVN"
+  dat$fleet_control$Index_distribution[srv] <- "MVN"
   dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
   dat$index_cov <- list(Survey = Sigma)
 
@@ -171,7 +171,7 @@ testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an
   nages <- 5; nyrs <- 8
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
   srv <- dat$fleet_control$Fleet_name == "Survey"
-  dat$fleet_control$Index_loglike[srv] <- "Normal"           # natural-scale normal
+  dat$fleet_control$Index_distribution[srv] <- "Normal"           # natural-scale normal
   dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
   dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- 20   # ABSOLUTE sd
 
@@ -185,7 +185,7 @@ testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an
   testthat::expect_equal(rep$jnll_comp[1, 1], ll_R, tolerance = 1e-8)
 
   # Regression: a non-MVN family (0/3) carries a 1x1 dummy Sigma and must NOT
-  # enter the MVN block (Index_loglike >= 1 there previously segfaulted for
+  # enter the MVN block (Index_distribution >= 1 there previously segfaulted for
   # "Normal" by applying MVNORM(1x1) to a length-nyrs residual).
   testthat::expect_false(is.null(fit$obj))
 })
@@ -197,7 +197,7 @@ testthat::test_that("data_check rejects invalid MVN covariance input", {
   nyrs <- 8
   mk_mvn <- function() {
     d <- make_test_data(nyrs = nyrs, nages = 5, seed = 1)
-    d$fleet_control$Index_loglike[d$fleet_control$Fleet_name == "Survey"] <- "MVN"
+    d$fleet_control$Index_distribution[d$fleet_control$Fleet_name == "Survey"] <- "MVN"
     d
   }
   fc <- fit_control(phase = FALSE, verbose = 0)

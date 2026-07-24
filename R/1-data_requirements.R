@@ -18,7 +18,7 @@
 #' Required under multispecies (`msmMode > 0`); `caal_data` is Optional unless
 #' `growth_model > 0`; `NByageFixed` is Ignored unless `estDynamics > 0`;
 #' `emp_sel` is Required only for fleets with `Selectivity = "Fixed"`;
-#' `index_cov` only for `Index_loglike = "MVN"`.
+#' `index_cov` only for `Index_distribution = "MVN"`.
 #'
 #' @param data_list Optional. An existing Rceattle data list (e.g. from
 #'   [read_data()] / [build_data()], or a bundled dataset). When supplied, the
@@ -84,7 +84,7 @@ data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
         Fleet_code    = seq_len(n),
         Selectivity   = if (is.null(selectivity)) NA_character_
                         else rep_len(as.character(selectivity), n),
-        Index_loglike = if (is.null(index_loglike)) "Lognormal"
+        Index_distribution = if (is.null(index_loglike)) "Lognormal"
                         else rep_len(as.character(index_loglike), n),
         stringsAsFactors = FALSE
       )

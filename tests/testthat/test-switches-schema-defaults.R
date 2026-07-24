@@ -26,8 +26,8 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
     Sel_curve_pen1 = 0, Sel_curve_pen2 = 0, Sel_curve_pen3 = 0,
     Sel_start_year = NA, Sel_pen_first_bin = NA, Sel_pen_last_bin = NA,
     Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
-    Selectivity_dimension = "Age", Comp_loglike = "MultinomialAFSC",
-    CAAL_loglike = "Multinomial", Index_loglike = "Lognormal",
+    Selectivity_dimension = "Age", Comp_distribution = "MultinomialAFSC",
+    CAAL_distribution = "Multinomial", Index_distribution = "Lognormal",
     CAAL_weights = 1, Month = 0)
 
   schema <- .rce_column_schema()
@@ -47,7 +47,7 @@ test_that("schema-driven defaults fill the documented values", {
   for (col in c("Sel_norm_bin1", "Sel_norm_bin2", "Sel_start_year",
                 "Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_shape_mode",
                 "Sel_avgsel_pen", "Sel_cap_bin", "Selectivity_dimension",
-                "Comp_loglike", "CAAL_loglike", "Index_loglike", "CAAL_weights",
+                "Comp_distribution", "CAAL_distribution", "Index_distribution", "CAAL_weights",
                 "Month"))
     d$fleet_control[[col]] <- NULL
 
@@ -55,8 +55,8 @@ test_that("schema-driven defaults fill the documented values", {
   schema <- .rce_column_schema()
   nf <- nrow(out$fleet_control)
 
-  for (col in c("Sel_avgsel_pen", "Selectivity_dimension", "Comp_loglike",
-                "CAAL_loglike", "CAAL_weights", "Month")) {
+  for (col in c("Sel_avgsel_pen", "Selectivity_dimension", "Comp_distribution",
+                "CAAL_distribution", "CAAL_weights", "Month")) {
     expect_equal(unname(out$fleet_control[[col]]),
                  rep(schema[[col]]$default, nf), info = col)
   }
@@ -64,13 +64,13 @@ test_that("schema-driven defaults fill the documented values", {
   for (col in c("Sel_norm_bin1", "Sel_norm_bin2", "Sel_shape_mode", "Sel_cap_bin"))
     expect_true(all(is.na(out$fleet_control[[col]])), info = col)
 
-  # Index_loglike is defaulted then per-NA-filled to Lognormal.
-  expect_true(all(out$fleet_control$Index_loglike == "Lognormal"))
+  # Index_distribution is defaulted then per-NA-filled to Lognormal.
+  expect_true(all(out$fleet_control$Index_distribution == "Lognormal"))
 })
 
 test_that("default messages fire for messaged columns and stay silent otherwise", {
   d <- BS2017SS
-  for (col in c("Selectivity_dimension", "Comp_loglike", "Month",
+  for (col in c("Selectivity_dimension", "Comp_distribution", "Month",
                 "Sel_avgsel_pen", "Sel_shape_mode"))
     d$fleet_control[[col]] <- NULL
 
@@ -78,7 +78,7 @@ test_that("default messages fire for messaged columns and stay silent otherwise"
 
   # Messaged columns announce their default.
   expect_true(any(grepl("'Selectivity_dimension' not specified", msgs, fixed = TRUE)))
-  expect_true(any(grepl("'Comp_loglike' not specified", msgs, fixed = TRUE)))
+  expect_true(any(grepl("'Comp_distribution' not specified", msgs, fixed = TRUE)))
   expect_true(any(grepl("'Month' not specified", msgs, fixed = TRUE)))
 
   # Silent-default columns (default_msg = NULL) never announce.

@@ -176,7 +176,7 @@ simData$fleet_control$Weight1_Numbers2 <- 1
 simData$fleet_control$Month <- c(0, 6)
 simData$fleet_control$Bin_first_selected <- 1
 simData$fleet_control$Catchability <- c(0, NA)
-simData$fleet_control$Q_init <- c(1, NA)
+simData$fleet_control$Catchability_init <- c(1, NA)
 
 # * Index data
 simData$index_data <- data.frame(Fleet_name = "Survey",

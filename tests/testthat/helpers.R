@@ -123,16 +123,16 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
     Bin_first_selected = 1,
     Sel_norm_bin1 = NA,
     Sel_norm_bin2 = NA,
-    Comp_loglike = "Multinomial",
+    Comp_distribution = "Multinomial",
     Comp_weights = 1,
-    CAAL_loglike = 0,
+    CAAL_distribution = 0,
     Weight1_Numbers2 = 1,
     Weight_index = 1,
     Age_transition_index = 1,
-    Q_index = c(1, NA),
+    Catchability_index = c(1, NA),
     Catchability = c("Fixed", NA),
-    Q_init = c(1, NA),
-    Q_sd_prior = c(0.2, NA),
+    Catchability_init = c(1, NA),
+    Catchability_prior_sd = c(0.2, NA),
     Time_varying_q = c(0, NA),
     Time_varying_q_sd = c(1, NA),
     Estimate_index_sd = c(0, NA),
@@ -303,7 +303,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
 
   # Clean and normalize switches/defaults, then return. switch_check() fills the
   # fleet_control columns that fit_mod()/rearrange_data() rely on (Sel_start_year,
-  # Sel_pen_*, Index_loglike, ...) so the fixture can be passed straight to
+  # Sel_pen_*, Index_distribution, ...) so the fixture can be passed straight to
   # rearrange_data() in tests, not only through fit_mod(). switch_check() is
   # idempotent, so fit_mod() re-running it on this data is a no-op.
   simData <- Rceattle::clean_data(simData)
@@ -366,7 +366,7 @@ calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
 
 # Reference NLL of multinomial composition data: observed counts `obs_num`
 # against expected proportions `hat_prop`. Cross-checks the "Multinomial"
-# Comp_loglike branch of jnll_comp.
+# Comp_distribution branch of jnll_comp.
 calc_multinom_nll <- function(obs_num, hat_prop) {
   p <- hat_prop / sum(hat_prop)
   # TMB uses the continuous lgamma instead of factorial: x! = gamma(x+1)
@@ -376,7 +376,7 @@ calc_multinom_nll <- function(obs_num, hat_prop) {
 
 # Reference NLL of Dirichlet-multinomial composition data: observed counts
 # `obs_num` with concentration parameters `alpha`. Cross-checks the
-# "Dirichlet-multinomial" Comp_loglike branch of jnll_comp.
+# "Dirichlet-multinomial" Comp_distribution branch of jnll_comp.
 calc_dirmultinom_nll <- function(obs_num, alpha) {
   N <- sum(obs_num)
   sum_alpha <- sum(alpha)

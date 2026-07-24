@@ -73,8 +73,8 @@
 # TRUE when any fleet requests an MVN survey covariance.
 .rce_any_mvn <- function(dl) {
   fc <- dl$fleet_control
-  !is.null(fc) && "Index_loglike" %in% colnames(fc) &&
-    any(fc$Index_loglike %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
+  !is.null(fc) && "Index_distribution" %in% colnames(fc) &&
+    any(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
 }
 
 # TRUE when any fleet fixes selectivity to an empirical curve.
@@ -232,7 +232,7 @@
       category       = "fishery",
       required_when  = function(dl) .rce_any_mvn(dl),
       ignored_when   = function(dl) !.rce_any_mvn(dl),
-      condition_label = "any fleet Index_loglike == 'MVN'",
+      condition_label = "any fleet Index_distribution == 'MVN'",
       driven         = FALSE,
       optional_status = "defaulted",
       default_label  = "empty list (clean_data)"

@@ -690,14 +690,14 @@ data_check <- function(data_list) {
   }
 
   # MVN survey covariance requirement ----
-  # A fleet using Index_loglike == "MVN" or "MVNORM" must supply a square,
+  # A fleet using Index_distribution == "MVN" or "MVNORM" must supply a square,
   # symmetric variance-covariance matrix in data_list$index_cov (keyed by
   # Fleet_name or Fleet_code) whose dimension equals the number of fitted survey
   # observations for that fleet. Validated here so the requirement surfaces with a
   # clear message at the flag rather than as a cryptic error in rearrange_data().
   fc <- data_list$fleet_control
-  if(has_data(fc) && "Index_loglike" %in% colnames(fc)){
-    mvn_flts <- which(fc$Index_loglike %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
+  if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
+    mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
     for(flt in mvn_flts){
       flt_name <- fc$Fleet_name[flt]
       flt_code <- fc$Fleet_code[flt]
@@ -707,7 +707,7 @@ data_check <- function(data_list) {
         if(is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(flt_code)]]
       }
       if(is.null(Sigma)){
-        errors <- c(errors, paste0("Fleet '", flt_name, "' has Index_loglike == 'MVN' but no covariance matrix ",
+        errors <- c(errors, paste0("Fleet '", flt_name, "' has Index_distribution == 'MVN' but no covariance matrix ",
                                    "was found in data_list$index_cov (expected an element named '", flt_name,
                                    "' or '", flt_code, "')."))
         next

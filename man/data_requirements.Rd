@@ -73,7 +73,7 @@ bioenergetics scalars are Ignored under single-species (\code{msmMode = 0}) but
 Required under multispecies (\code{msmMode > 0}); \code{caal_data} is Optional unless
 \code{growth_model > 0}; \code{NByageFixed} is Ignored unless \code{estDynamics > 0};
 \code{emp_sel} is Required only for fleets with \code{Selectivity = "Fixed"};
-\code{index_cov} only for \code{Index_loglike = "MVN"}.
+\code{index_cov} only for \code{Index_distribution = "MVN"}.
 }
 \examples{
 # Single-species: predation/diet inputs are Ignored, comp_data Optional.

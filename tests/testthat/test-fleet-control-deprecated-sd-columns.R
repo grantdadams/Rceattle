@@ -21,7 +21,7 @@ testthat::test_that("switch_check() renames Q_prior/Index_sd_prior/Catch_sd_prio
   testthat::skip_if_not_installed("Rceattle")
   d <- Rceattle::BS2017SS
   fc <- d$fleet_control
-  names(fc)[names(fc) == "Q_init"]   <- "Q_prior"
+  names(fc)[names(fc) == "Catchability_init"] <- "Q_prior"
   names(fc)[names(fc) == "Index_sd"] <- "Index_sd_prior"
   names(fc)[names(fc) == "Catch_sd"] <- "Catch_sd_prior"
   d$fleet_control <- fc

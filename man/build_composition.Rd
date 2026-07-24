@@ -33,7 +33,7 @@ This is a \strong{prior-only} process: the DM weight is a scalar, not a
 year-varying quantity, so only intercept formulas (\code{~ 1}) with a \code{priors}
 entry are meaningful. The prior is placed on the natural-scale DM weight
 \code{theta = exp(weight)}, so a \code{gamma()} prior reads naturally. A linkage on a
-fleet whose \code{Comp_loglike} (or \code{CAAL_loglike}) is not
+fleet whose \code{Comp_distribution} (or \code{CAAL_distribution}) is not
 \code{"DirichletMultinomial"} errors, since the weight has no effect there.
 }
 \examples{

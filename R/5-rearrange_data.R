@@ -214,9 +214,9 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Comp_loglike) %>% as.integer()
+    dplyr::pull(.data$Comp_distribution) %>% as.integer()
   data_list$caal_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$CAAL_loglike) %>% as.integer()
+    dplyr::pull(.data$CAAL_distribution) %>% as.integer()
   data_list$diet_ll_type <- data_list$Diet_loglike %>%
     as.integer()
 
@@ -267,7 +267,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
   data_list$index_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Index_loglike) %>% as.integer()
+    dplyr::pull(.data$Index_distribution) %>% as.integer()
 
   data_list$index_log_q_prior <- log(data_list$fleet_control$Catchability_init)
 
@@ -293,7 +293,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
-  # - Survey-index covariance matrices (Index_loglike == "MVN" or "MVNORM").
+  # - Survey-index covariance matrices (Index_distribution == "MVN" or "MVNORM").
   #   TMB evaluates TMB's density::MVNORM(Sigma) on each covariance fleet's fitted
   #   residual vector r = obs - q*pred, i.e. 0.5*(r' Sigma^-1 r + logdet(Sigma) +
   #   n*log(2*pi)). "MVN" reports the bare quadratic form 0.5 r' Sigma^-1 r (the

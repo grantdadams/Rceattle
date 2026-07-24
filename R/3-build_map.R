@@ -1316,12 +1316,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights if using multinomial
-    if(data_list$fleet_control$Comp_loglike[i] !=  "DirichletMultinomial") {
+    if(data_list$fleet_control$Comp_distribution[i] !=  "DirichletMultinomial") {
       map_list$comp_weights[i] <- NA
     }
 
     # Map out CAAL weights if using multinomial
-    if(data_list$fleet_control$CAAL_loglike[i] != "DirichletMultinomial") {
+    if(data_list$fleet_control$CAAL_distribution[i] != "DirichletMultinomial") {
       map_list$caal_weights[i] <- NA
     }
 
