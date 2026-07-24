@@ -15,6 +15,33 @@ capture_messages <- function(expr) {
   msgs
 }
 
+test_that("schema pins the exact fleet_control defaults switch_check applies", {
+  # Non-self-referential guard: the expected values are the historical literals
+  # that lived in switch_check() before Phase 2.1 (git HEAD~N), NOT re-derived
+  # from the schema. This pins both the SET of defaulted columns (so a column
+  # added to one side but not the other is caught) and each VALUE (so a wrong
+  # schema default cannot slip through a same-source comparison).
+  expected <- list(
+    Sel_norm_bin1 = NA, Sel_norm_bin2 = NA,
+    Sel_curve_pen1 = 0, Sel_curve_pen2 = 0, Sel_curve_pen3 = 0,
+    Sel_start_year = NA, Sel_pen_first_bin = NA, Sel_pen_last_bin = NA,
+    Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
+    Selectivity_dimension = "Age", Comp_loglike = "MultinomialAFSC",
+    CAAL_loglike = "Multinomial", Index_loglike = "Lognormal",
+    CAAL_weights = 1, Month = 0)
+
+  schema <- .rce_column_schema()
+  fc_defaulted <- vapply(
+    Filter(function(r) r$sheet == "fleet_control" && isTRUE(r$has_default), schema),
+    function(r) r$name, character(1))
+
+  # Exact set of wired fleet_control defaults.
+  expect_setequal(unname(fc_defaulted), names(expected))
+  # Each default value matches the historical literal.
+  for (nm in names(expected))
+    expect_identical(schema[[nm]]$default, expected[[nm]], info = nm)
+})
+
 test_that("schema-driven defaults fill the documented values", {
   d <- BS2017SS
   for (col in c("Sel_norm_bin1", "Sel_norm_bin2", "Sel_start_year",

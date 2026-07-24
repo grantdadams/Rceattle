@@ -29,10 +29,17 @@
 #   doc         chr  the canonical description (drives the xlsx `Description`
 #                    column and, after Phase 3, the roxygen `\item`).
 #   meta        lgl  TRUE if the column appears in the `meta_data` sheet.
-#   has_default lgl  TRUE if `switch_check()` fills a default when absent.
-#   default          the default value (only meaningful when has_default).
-#   default_msg chr  the exact `message()` switch_check emits on defaulting
-#                    (NULL = fill silently).
+#   has_default lgl  TRUE if a default is filled when the column/scalar is absent.
+#                    WIRED for `sheet == "fleet_control"` only: switch_check()
+#                    reads the value + message from here via `.rce_apply_default()`.
+#                    For control / bioenergetics scalars the `default` fields are
+#                    DOCUMENTATION ONLY (like `aliases`) -- switch_check() fills
+#                    those with hand-coded literals that carry per-species /
+#                    `msmMode == 0` logic this table does not represent.
+#   default          the default value (only meaningful when has_default). For a
+#                    control/bio scalar it records the per-element value only.
+#   default_msg chr  the exact `message()` switch_check emits on defaulting a
+#                    fleet_control column (NULL = fill silently).
 #   default_msg_when chr  name of a predicate gating the message (NULL = always);
 #                    "np_hake" = only when a non-parametric/Hake/LogisticPM fleet
 #                    is present (matches the current conditional messaging).
@@ -104,7 +111,7 @@
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec_prior", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates"),
     .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
-    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0L, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp))"),
+    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only"),
 
     # ======================================================================
     # fleet_control sheet, in canonical column order
