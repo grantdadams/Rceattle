@@ -98,13 +98,15 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 1) Equilibrium with no devs
-    if (data_list$initMode == "Equilibrium") {
+    # 1) Equilibrium with no devs. FishedEquilibrium (5) likewise turns init_dev
+    # off entirely -- the initial age-structure is the deterministic equilibrium
+    # seeded by first-year recruitment, so every element is fixed at 0.
+    if (data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
       map_list$init_dev[sp, ] <- NA
     }
 
     # 0, 2-3) Equilibrium or non-equilibrium with no devs
-    if (!data_list$initMode %in% c("Equilibrium")) {
+    if (!data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }

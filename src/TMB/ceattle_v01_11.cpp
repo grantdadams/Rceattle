@@ -717,8 +717,8 @@ Type objective_function<Type>::operator() () {
   matrix<Type> mature_females = maturity;
   for( sp = 0; sp < nspp ; sp++) {
 
-    if(initMode < 3){
-      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
+    if(initMode < 3 || initMode == 5){
+      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (FishedEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
     }
 
     // Sex ratio for SSB derivation
@@ -1318,8 +1318,22 @@ Type objective_function<Type>::operator() () {
             // Finit is set to 0 when initMode != 2
             if(initMode > 0){
 
-              // Sum M1 until age - 1
-              if((initMode == 1) | (initMode == 2) | (initMode == 3)){
+              // FishedEquilibrium (initMode 5): seed the initial age-structure
+              // off the FIRST-YEAR recruitment exp(rec_pars + rec_dev(sp, 0))
+              // rather than the mean-recruitment equilibrium R0, with init devs
+              // off (Cole Monnahan / AFSC GOA pollock convention). Scaling R_init
+              // by exp(rec_dev(sp, 0)) injects the year-0 recruitment deviation
+              // so the initial numbers track it under free estimation. All other
+              // modes leave this scalar at 0 (no change).
+              Type init_log_scalar = 0.0;
+              if(initMode == 5){
+                init_log_scalar = rec_dev(sp, 0);
+              }
+
+              // Sum M1 until age - 1. FishedEquilibrium (5) uses the same
+              // standard departing-age cumulative-M decay as the equilibrium
+              // modes (Finit is 0 for mode 5).
+              if((initMode == 1) | (initMode == 2) | (initMode == 3) | (initMode == 5)){
                 mort_sum(sp, age) = 0;
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0) + Finit(sp);
@@ -1338,10 +1352,10 @@ Type objective_function<Type>::operator() () {
               if((age > 0) & (age < nages(sp) - 1)) {
 
                 if(sex == 0){
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) * sex_ratio(sp, 0);
                 }
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) * (1-sex_ratio(sp, 0));
                 }
               }
 
@@ -1349,11 +1363,11 @@ Type objective_function<Type>::operator() () {
               if(age == (nages(sp) - 1)) {
 
                 if(sex == 0){// NOTE: This solves for the geometric series
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
                 }
 
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
                 }
               }
             }
@@ -3251,7 +3265,9 @@ Type objective_function<Type>::operator() () {
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
-    if(initMode > 1){
+    // initMode 5 (FishedEquilibrium) fixes init_dev at 0 (off), like the
+    // equilibrium modes, so it carries no init_dev penalty.
+    if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
         jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
@@ -3514,6 +3530,12 @@ Type objective_function<Type>::operator() () {
     if (slot_col >= n_col) slot_col = 0;
 
     Type b = beta_linkage(i);
+    // Whether the intercept's base parameter lives on the log scale (so
+    // b_nat = exp(b)). True for every log-scale base (rec_pars, log_M1,
+    // log_growth_pars, index_log_q, comp_weights); set false for a
+    // natural-scale base (the selectivity inflection sel_inf), whose prior is
+    // read on the natural scale directly.
+    bool base_is_log = true;
     if (linkage_is_intercept(i) == 1) {
       // Re-target the prior to the base parameter that this intercept
       // row stands in for. Sentinel 0 in species/sex/age_bin means
@@ -3560,20 +3582,43 @@ Type objective_function<Type>::operator() () {
         if (param == 0)      b = comp_weights(fl_idx);
         else if (param == 1) b = caal_weights(fl_idx);
         else if (param == 2) b = diet_comp_weights(sp_idx);
+      } else if (proc == RCEATTLE_PROC_SEL) {
+        // Parametric selectivity base parameters are (slot, fleet, sex).
+        // param: slp_asc=0 / slp_desc=1 -> log_sel_slp (log scale, exp -> slope);
+        //        inf_asc=2 / inf_desc=3 -> sel_inf    (natural scale, the
+        //        inflection age / peak). asc -> slot 0, desc -> slot 1. The
+        //        (Intercept) beta_linkage row is pinned at 0, so it adds no
+        //        offset to selectivity -- the base parameter carries the mean
+        //        and this prior regularizes it (Cole Monnahan's GOA pollock
+        //        selectivity priors: lognormal on the log-slope, normal on the
+        //        natural inflection). coff (param 4) has no scalar base
+        //        parameter and cannot carry a linkage (see
+        //        .check_sel_linkage_support), so it is not reachable here.
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        int slot   = param % 2;   // asc -> 0, desc -> 1
+        if (param == 0 || param == 1) {
+          b = log_sel_slp(slot, fl_idx, sx_idx);
+        } else if (param == 2 || param == 3) {
+          b = sel_inf(slot, fl_idx, sx_idx);
+          base_is_log = false;    // inflection is natural-scale, not log
+        }
       }
     }
 
     // Back-transform to natural scale when this is
-    // an intercept row (b holds the log-scale parameter).
-    // For all slope rows, b_nat == b already.
-    Type b_nat = (linkage_is_intercept(i) == 1) ? exp(b) : b;
+    // an intercept row on a log-scale base parameter (b holds the log-scale
+    // parameter). For all slope rows, and for a natural-scale intercept base
+    // (sel_inf), b_nat == b already.
+    Type b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? exp(b) : b;
 
     if (fam == 1) {                         // normal(p1, p2) on natural scale
       jnll_comp(19, slot_col)            -= dnorm(b_nat, p1, p2, true);
       unweighted_jnll_comp(19, slot_col) -= dnorm(b_nat, p1, p2, true);
     } else if (fam == 2) {                  // lognormal: normal on log of natural scale
-      // For log-link intercept: log(b_nat) = b (efficient form avoids log(exp(b)))
-      Type log_b_nat = (linkage_is_intercept(i) == 1) ? b : log(b_nat);
+      // For a log-scale intercept base: log(b_nat) = b (efficient form avoids
+      // log(exp(b))). A natural-scale intercept base (sel_inf) takes log(b_nat).
+      Type log_b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? b : log(b_nat);
       jnll_comp(19, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
       unweighted_jnll_comp(19, slot_col) -= dnorm(log_b_nat, p1, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale

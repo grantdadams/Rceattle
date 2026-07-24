@@ -152,12 +152,16 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
+# 5 = FishedEquilibrium: F = 0 equilibrium seeded by first-year recruitment
+#     (exp(rec_pars + rec_dev[year 1])), init devs off, no init-dev penalty
+#     (Cole Monnahan / AFSC GOA pollock convention).
 initMode_map <- c(
   "FreeParams"           = 0,
   "Equilibrium"          = 1,
   "NonEquilibrium"       = 2,
   "FishedNonEquilibrium"       = 3,
-  "FishedNonEquilibriumScaled" = 4
+  "FishedNonEquilibriumScaled" = 4,
+  "FishedEquilibrium"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)

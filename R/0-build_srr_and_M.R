@@ -824,6 +824,17 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' Every parameter accepts `link = "log"` (multiplicative on the natural
 #' parameter) or `link = "identity"` (additive), like the other processes.
 #'
+#' **Priors on the base parameter.** An intercept-only formula (`~ 1`) with a
+#' `priors` entry places a prior on the base selectivity parameter that carries
+#' the level (the `(Intercept)` linkage coefficient is pinned at 0, so it adds
+#' no offset). The prior is read on the parameter's own scale: the slopes
+#' (`slp_asc` / `slp_desc`) live on `log_sel_slp` (log scale — use `lognormal()`),
+#' the inflections (`inf_asc` / `inf_desc`) on `sel_inf` (natural scale — use
+#' `normal()`). For example, a normal prior on the ascending inflection:
+#' `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1,
+#' priors = list(\`(Intercept)\` = normal(0, 3)))))`. This mirrors the
+#' prior-only [build_composition()] path.
+#'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Use `by = ~ fleet` for a separate coefficient per
 #'   fleet.

@@ -34,6 +34,16 @@ scale); for DoubleNormal the peak and the logit right-floor, aliased
 
 Every parameter accepts \code{link = "log"} (multiplicative on the natural
 parameter) or \code{link = "identity"} (additive), like the other processes.
+
+\strong{Priors on the base parameter.} An intercept-only formula (\code{~ 1}) with a
+\code{priors} entry places a prior on the base selectivity parameter that carries
+the level (the \code{(Intercept)} linkage coefficient is pinned at 0, so it adds
+no offset). The prior is read on the parameter's own scale: the slopes
+(\code{slp_asc} / \code{slp_desc}) live on \code{log_sel_slp} (log scale — use \code{lognormal()}),
+the inflections (\code{inf_asc} / \code{inf_desc}) on \code{sel_inf} (natural scale — use
+\code{normal()}). For example, a normal prior on the ascending inflection:
+\verb{build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors = list(\\}(Intercept)\\verb{ = normal(0, 3)))))}. This mirrors the
+prior-only \code{\link[=build_composition]{build_composition()}} path.
 }
 \examples{
 \donttest{

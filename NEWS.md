@@ -2,6 +2,28 @@
 
 ## New features
 
+* **`initMode = "FishedEquilibrium"` (5).** A new initial-age-structure mode: an
+  F = 0 equilibrium seeded by the *first-year* recruitment
+  (`exp(rec_pars + rec_dev[year 1])`) decayed by natural mortality, with initial
+  deviates turned off and no init-dev penalty. Unlike `initMode = "Equilibrium"`
+  (which seeds off the mean-recruitment equilibrium `R0`), the initial numbers
+  track the year-1 recruitment deviation, matching the AFSC GOA pollock (Cole
+  Monnahan) convention — the first-year cohort and the initial age composition
+  share one deviation. Every other mode is unchanged (golden references
+  bit-identical).
+
+* **Priors on base selectivity parameters through the linkage grammar.** A
+  selectivity linkage with an intercept-only formula and a `priors` entry now
+  places a prior on the base logistic parameter that carries the level — the
+  ascending/descending slope (`slp_asc` / `slp_desc`, on `log_sel_slp`, log
+  scale) or inflection (`inf_asc` / `inf_desc`, on `sel_inf`, natural scale),
+  e.g. `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors =
+  list(\`(Intercept)\` = normal(0, 3)))))`. Use `lognormal()` for the log-scale
+  slopes and `normal()` for the natural-scale inflections. This mirrors the
+  prior-only `build_composition()` path and reproduces the AFSC GOA pollock
+  selectivity priors. (Previously such an intercept prior was silently inert for
+  selectivity — the `sel` process was missing from the prior re-targeting.)
+
 * **Per-predator suitability reference years** (`suit_styr` / `suit_endyr`).
   These `fit_mod()` arguments (and the underlying `data_list` fields) now accept
   a vector of length `nspp` so each predator can average its suitability over a
