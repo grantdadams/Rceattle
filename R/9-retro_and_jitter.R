@@ -452,8 +452,6 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           mohns[ind, 1] <- objects[j]         # Object
           mohns[ind, 2] <- yr                 # Year
           mohns[ind, 3] <- mohns[ind, 3] + 1  # N
-          # `ind` indexes (object x forecast-year) rows; `j` indexes objects
-          # only. Accumulate into the row being written.
           mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[ind, 4:(data_list$nspp + 3)] + rel_error # Relative error
         }
         ind = ind+1
