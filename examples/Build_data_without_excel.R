@@ -2,7 +2,21 @@
 # Build a Rceattle data object in R (without Excel)
 # =============================================================================
 #
-# PURPOSE:
+# RECOMMENDED PATH: build_data()
+#   For most uses you do not need to assemble the list by hand. build_data()
+#   takes only the blocks a model uses and default-fills the rest, checks block
+#   names against the schema (catching typos early), and prints a spec tree:
+#
+#     dat <- build_data(base = BS2017SS, projyr = 2060)          # copy-and-edit
+#     dat <- build_data(nspp = 1, styr = 1977, endyr = 2023,     # from blocks
+#                       fleet_control = fc, weight = wt, catch_data = catch)
+#     data_requirements(msmMode = 0)   # which blocks does my model need?
+#
+#   See vignette("data-without-excel") for the full build_data()/data_requirements()
+#   walkthrough. The script below shows the underlying by-hand construction --
+#   useful for simulating data or understanding exactly what each block contains.
+#
+# PURPOSE (by-hand construction):
 #   Rceattle can read input data from an Excel workbook using read_data().
 #   This script shows how to build the same data object directly in R as a
 #   named list.  This is useful when:
@@ -16,6 +30,8 @@
 #   3. Pass the completed list to fit_mod()
 #
 # RELATED FUNCTIONS:
+#   build_data()   -- constructor that wraps this by-hand assembly (recommended)
+#   data_requirements() -- reports which blocks a configuration needs
 #   read_data()    -- reads the Excel template into this same list format
 #   write_data()   -- writes a data list back to Excel (see end of script)
 #   data_check()   -- validates a data list before fitting

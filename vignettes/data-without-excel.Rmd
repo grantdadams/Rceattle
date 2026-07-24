@@ -26,9 +26,45 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 
 Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
 
-### Required vs. optional fields
+## The quick path: `build_data()`
 
-The following fields are optional and only needed when a particular feature is turned on. `Rceattle` fills missing optional fields with safe defaults and stops model runs under the conditions that actually require them:
+Most of the time you do not need to assemble the whole list by hand. `build_data()` is a constructor that takes only the blocks a model uses and default-fills the rest (via `clean_data()`), so a single-species model does not need the predation, growth, or empirical-selectivity blocks. It has three combinable entry points:
+
+```{r}
+library(Rceattle)
+
+# 1. Copy-and-edit an existing data object (a bundled dataset, a read_data()
+#    result, or a combine_data() result):
+dat <- build_data(base = BS2017SS, projyr = 2060)
+
+# 2. Read a workbook, then override a few blocks:
+dat <- build_data(file = "GOA_pollock.xlsx",
+                  fleet_control = fc)          # fc overrides the sheet
+
+# 3. Assemble from named blocks (the rest are default-filled):
+dat <- build_data(nspp = 1, styr = 1977, endyr = 2023,
+                  fleet_control = fc, weight = wt, maturity = mat,
+                  sex_ratio = sr, catch_data = catch, index_data = survey,
+                  comp_data = ages)
+```
+
+`build_data()` checks each block name against the recognised schema, so a typo (`maturty`) or a case-slip (`Maturity`) is caught at construction with a suggestion — not much later inside a fit — and legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to their canonical equivalents. Printing the result shows an indented specification tree rather than the raw list:
+
+```{r}
+dat            # <Rceattle data>: dimensions -> fleets -> processes -> ...
+```
+
+### Which inputs does my model need?
+
+Rather than reading the table below by hand, ask `data_requirements()`: it reports, for a given configuration, which blocks are **Required**, **Optional** (used if supplied, otherwise default-filled), or **Ignored** (not consulted because the feature is off) — the exact conditions `data_check()` enforces at fit time.
+
+```{r}
+data_requirements(msmMode = 0)            # single-species: predation Ignored
+data_requirements(msmMode = 1)            # multispecies: diet + bioenergetics Required
+data_requirements(BS2017SS, msmMode = 0)  # preview an existing object as single-species
+```
+
+The conditional requirements it encodes:
 
 | Field                                    | Required when                                  |
 |------------------------------------------|------------------------------------------------|
@@ -36,12 +72,16 @@ The following fields are optional and only needed when a particular feature is t
 | `caal_data`                              | `any(growth_model > 0)` (estimating growth)    |
 | `emp_sel`                                | any fleet has `Selectivity = "Fixed"`          |
 | `NByageFixed`                            | `any(estDynamics > 0)`                         |
-| `env_data`                               |  env linkages                                  |
+| `env_data`                               |  env linkages / `Ceq > 1`                      |
 | `diet_data`                              | `msmMode > 0`                                  |
 | `ration_data`                            | `msmMode > 0`                                  |
 | Bioenergetics scalars (`Ceq`, `CA`, `CB`, `Tco`, ...) | `msmMode > 0`                     |
 
-In default single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list. The single-species example below shows the full machinery, but feel free to skip sections you don't need.
+In default single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list.
+
+## Building the list by hand
+
+The rest of this vignette assembles the list field by field. This is the machinery `build_data()` wraps — useful when you are simulating data, generating inputs programmatically, or want to understand exactly what each block contains. Feel free to skip sections you don't need.
 
 ## Setup
 

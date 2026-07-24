@@ -5,6 +5,10 @@
 #' @param data_list Rceattle data_list object
 #' @param file Filname to be used. Must end with '.xlsx'
 #'
+#' @seealso [build_data()] to assemble or edit a data list in R, [read_data()]
+#'   to read one back. Note a [model_config()] slot is not written to the
+#'   workbook and does not survive the round-trip (a warning is issued).
+#'
 #' @export
 #'
 #' @examples
@@ -195,6 +199,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 #'
 #' @param file Filname to be used. Must end with '.xlsx'
 #'
+#' @seealso [build_data()] to assemble or edit a data list in R (and to read a
+#'   workbook then override blocks in one call, `build_data(file = ...)`),
+#'   [data_requirements()] to see which inputs a configuration needs.
+#'
 #' @export
 #'
 #' @examples
@@ -204,6 +212,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 #' out_file <- file.path(tempdir(), "BS2017SS.xlsx")
 #' write_data(data_list = BS2017SS, file = out_file)
 #' data_list <- read_data(file = out_file)
+#' # Or read + override blocks in one call:
+#' data_list <- build_data(file = out_file, projyr = 2060)
 #' file.remove(out_file)
 read_data <- function(file = "Rceattle_data.xlsx") {
 

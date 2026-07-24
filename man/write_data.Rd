@@ -22,3 +22,8 @@ out_file <- file.path(tempdir(), "BS2017SS.xlsx")
 write_data(data_list = BS2017SS, file = out_file)
 file.remove(out_file)
 }
+\seealso{
+\code{\link[=build_data]{build_data()}} to assemble or edit a data list in R, \code{\link[=read_data]{read_data()}}
+to read one back. Note a \code{\link[=model_config]{model_config()}} slot is not written to the
+workbook and does not survive the round-trip (a warning is issued).
+}
