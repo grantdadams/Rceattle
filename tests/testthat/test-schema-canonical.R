@@ -43,58 +43,48 @@ test_that("schema is structurally sound", {
   expect_length(intersect(.rce_schema_names("control"), orphan), 0)
 })
 
-test_that("meta_data generator reproduces the bundled meta_data_names.xlsx", {
-  schema <- .rce_column_schema()
+test_that("committed meta_data_names.xlsx matches the schema generator exactly", {
+  # The bundled xlsx is generated from the schema (data-raw/regenerate_meta_xlsx.R);
+  # this drift guard fails if the two diverge (i.e. the schema was edited without
+  # re-running the generator, or the asset was hand-edited).
   gen <- .rce_build_meta_data_df()
-
   xlsx <- as.data.frame(readxl::read_xlsx(
     system.file("extdata", "meta_data_names.xlsx", package = "Rceattle")))
-  colnames(xlsx) <- c("sheet", "col", "desc")
 
-  # --- Column rows: map each side to a canonical key and compare descriptions.
-  alias_to_canon <- list()
-  for (r in schema) for (a in r$aliases) alias_to_canon[[a]] <- r$name
-  to_canon <- function(col) {
-    if (is.na(col)) return(NA_character_)
-    if (!is.null(alias_to_canon[[col]])) alias_to_canon[[col]] else col
-  }
+  expect_equal(dim(xlsx), dim(gen))
+  expect_equal(colnames(xlsx), colnames(gen))
 
-  gen_cols <- gen[!is.na(gen$`Column/row name`), ]
-  xlsx_cols <- xlsx[!is.na(xlsx$col) & !is.na(xlsx$desc), ]
-
-  gen_map <- setNames(gen_cols$Description,
-                      vapply(gen_cols$`Column/row name`, to_canon, character(1)))
-  xlsx_map <- setNames(xlsx_cols$desc,
-                       vapply(xlsx_cols$col, to_canon, character(1)))
-
-  # Same set of documented columns (by canonical name).
-  expect_setequal(names(gen_map), names(xlsx_map))
-
-  # Identical descriptions for every documented column.
-  for (nm in names(xlsx_map))
-    expect_equal(norm_desc(gen_map[[nm]]), norm_desc(xlsx_map[[nm]]),
-                 info = paste("meta description for", nm))
-
-  # --- Sheet-header rows (Column/row name is NA, Description names the sheet).
-  gen_hdr <- gen[is.na(gen$`Column/row name`) & !is.na(gen$Description), ]
-  xlsx_hdr <- xlsx[is.na(xlsx$col) & !is.na(xlsx$desc), ]
-  expect_setequal(gen_hdr$`Sheet name`, xlsx_hdr$sheet)
-  gh <- setNames(gen_hdr$Description, gen_hdr$`Sheet name`)
-  xh <- setNames(xlsx_hdr$desc, xlsx_hdr$sheet)
-  for (nm in names(xh))
-    expect_equal(norm_desc(gh[[nm]]), norm_desc(xh[[nm]]),
-                 info = paste("sheet header for", nm))
+  blank <- function(x) { x <- as.character(x); x[is.na(x)] <- ""; x }
+  expect_equal(blank(xlsx[["Sheet name"]]), blank(gen[["Sheet name"]]))
+  expect_equal(blank(xlsx[["Column/row name"]]), blank(gen[["Column/row name"]]))
+  # Descriptions compared on meaningful text (whitespace-normalized), row-aligned.
+  # USE.NAMES = FALSE so the comparison is on the normalized text, not names
+  # carrying the raw strings (which would defeat the whitespace tolerance).
+  expect_equal(vapply(blank(xlsx$Description), norm_desc, character(1), USE.NAMES = FALSE),
+               vapply(blank(gen$Description), norm_desc, character(1), USE.NAMES = FALSE))
 })
 
-test_that("every bundled meta_data column maps to a schema name or alias", {
+test_that("schema pins the known legacy -> canonical column aliases", {
+  # These are the deprecated names accepted on read and upgraded in place
+  # (read_data / switch_check). Pinning them here guards the alias table the
+  # generator and the rename cascades rely on.
+  expected <- list(
+    Estimate_index_sd   = "Estimate_survey_sd",
+    Index_sd            = c("Survey_sd_prior", "Index_sd_prior"),
+    Catch_sd            = "Catch_sd_prior",
+    Q_init              = "Q_prior",
+    N_sel_bins          = "Nselages",
+    Time_varying_sel_sd = c("Sel_sd_prior", "Time_varying_sel_sd_prior"),
+    Time_varying_q_sd   = "Time_varying_q_sd_prior",
+    Catchability        = "Estimate_q",
+    Bin_first_selected  = "Age_first_selected",
+    Sel_norm_bin1       = "Age_max_selected",
+    Sel_norm_bin2       = "Age_max_selected_upper",
+    Sel_pen_first_bin   = "Sel_pen_first_age",
+    Sel_pen_last_bin    = "Sel_pen_last_age",
+    Sel_cap_bin         = "Sel_cap_age"
+  )
   schema <- .rce_column_schema()
-  allkeys <- unlist(lapply(schema, function(r) c(r$name, r$aliases)))
-  xlsx <- as.data.frame(readxl::read_xlsx(
-    system.file("extdata", "meta_data_names.xlsx", package = "Rceattle")))
-  cols <- xlsx[[2]]
-  cols <- cols[!is.na(cols)]
-  # The lone "Sex" legend row (col holds the legend text, not a column) is not a
-  # real column; every other documented column must resolve.
-  cols <- cols[!grepl("combined|female|male", cols)]
-  expect_length(setdiff(cols, allkeys), 0)
+  for (canon in names(expected))
+    expect_setequal(schema[[canon]]$aliases, expected[[canon]])
 })
