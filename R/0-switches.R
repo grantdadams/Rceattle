@@ -301,6 +301,26 @@ switch_check <- function(data_list){
   data_list$fleet_control <- rename_deprecated_col(
     data_list$fleet_control, "Catch_sd_prior", "Catch_sd")
 
+  # `Accumulation_age_lower` / `Accumulation_age_upper` are removed. They were
+  # only ever range-validated and never applied (no composition-age grouping
+  # exists anywhere in the R pipeline or the C++ template), so the columns did
+  # nothing. Drop them -- once, with a soft-deprecation message -- if an old
+  # workbook / data list still carries either spelling, so a stale column does
+  # not silently propagate.
+  drop_deprecated_col <- function(fc, old) {
+    if (!is.null(fc[[old]])) {
+      fc[[old]] <- NULL
+      message(sprintf(
+        "'%s' is deprecated and ignored; it was never applied to composition data and has been removed.",
+        old))
+    }
+    fc
+  }
+  data_list$fleet_control <- drop_deprecated_col(
+    data_list$fleet_control, "Accumulation_age_lower")
+  data_list$fleet_control <- drop_deprecated_col(
+    data_list$fleet_control, "Accumulation_age_upper")
+
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0
     data_list$srr_pred_fun <- 0

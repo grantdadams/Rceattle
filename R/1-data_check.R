@@ -454,20 +454,6 @@ data_check <- function(data_list) {
                                    ") must be <= Sel_pen_last_bin (", pl, ")"))
       }
 
-      # Accumulation ages
-      lo <- fc_num(fc, "Accumulation_age_lower", flt)
-      hi <- fc_num(fc, "Accumulation_age_upper", flt)
-      if(!is.na(lo) && (lo < 1 || lo > max_bin)){
-        errors <- c(errors, paste0("Fleet '", flt_name, "': Accumulation_age_lower (", lo, ") must be in 1:", max_bin))
-      }
-      if(!is.na(hi) && (hi < 1 || hi > max_bin)){
-        errors <- c(errors, paste0("Fleet '", flt_name, "': Accumulation_age_upper (", hi, ") must be in 1:", max_bin))
-      }
-      if(!is.na(lo) && !is.na(hi) && lo > hi){
-        errors <- c(errors, paste0("Fleet '", flt_name, "': Accumulation_age_lower (", lo,
-                                   ") must be <= Accumulation_age_upper (", hi, ")"))
-      }
-
       # AR1 catchability: Time_varying_q must be a valid env_data column index (1..ncol-1)
       if(!is.na(fc$Catchability[flt]) && fc$Catchability[flt] == "AR1"){
         if((fc$Time_varying_q[flt] > (ncol(data_list$env_data) - 1) ||
