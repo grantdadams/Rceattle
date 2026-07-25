@@ -56,7 +56,8 @@ Suggests:
     mvtnorm,
     pkgdown,
     TMBhelper,
-    RcppEigen
+    RcppEigen,
+    withr
 Remotes: 
     TMBhelper=github::kaskr/TMB_contrib_R/TMBhelper
 VignetteBuilder:
