@@ -29,6 +29,7 @@ fit_mod(
   suit_styr = NULL,
   suit_endyr = NULL,
   fit_control = NULL,
+  config = NULL,
   ...
 )
 }
@@ -99,6 +100,14 @@ optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{g
 \code{loopnum}, \code{newtonsteps}, \code{TMBfilename}, \code{verbose}, \code{nlminb_control}).
 Defaults to \code{fit_control()}. See \code{\link[=fit_control]{fit_control()}} for the meaning and
 defaults of each field.}
+
+\item{config}{(Optional) An \code{Rceattle_run_config} from \code{\link[=load_config]{load_config()}} (or
+\code{\link[=run_config]{run_config()}}). Its stored \code{model_config} structure and estimation controls
+(\code{estimateMode}, \code{random_rec}/\code{random_q}/\code{random_sel}, \code{suit_styr}/
+\code{suit_endyr}, \code{fit_control}) overlay only the arguments the caller did \emph{not}
+pass -- an explicit argument always wins. \code{NULL} (default) is a complete
+no-op, so \code{fit_mod()} behaves exactly as before. Gives
+\code{fit_mod(data_list, config = load_config("run.yaml"))}.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},

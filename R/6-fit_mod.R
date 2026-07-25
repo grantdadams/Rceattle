@@ -44,6 +44,13 @@
 #'   `loopnum`, `newtonsteps`, `TMBfilename`, `verbose`, `nlminb_control`).
 #'   Defaults to `fit_control()`. See [fit_control()] for the meaning and
 #'   defaults of each field.
+#' @param config (Optional) An `Rceattle_run_config` from [load_config()] (or
+#'   [run_config()]). Its stored `model_config` structure and estimation controls
+#'   (`estimateMode`, `random_rec`/`random_q`/`random_sel`, `suit_styr`/
+#'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
+#'   pass -- an explicit argument always wins. `NULL` (default) is a complete
+#'   no-op, so `fit_mod()` behaves exactly as before. Gives
+#'   `fit_mod(data_list, config = load_config("run.yaml"))`.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -122,7 +129,13 @@ fit_mod <-
     suit_styr = NULL,
     suit_endyr = NULL,
     fit_control = NULL,
+    config = NULL,
     ...){
+
+    # Whether the caller supplied fit_control -- captured before the default is
+    # filled below, since assigning to the argument makes missing() unreliable.
+    # (The config= overlay needs this to know if it may fill fit_control.)
+    fc_supplied <- !missing(fit_control)
 
     # Default control bundle. Built inside the body to avoid the
     # "recursive default argument reference" error that occurs when a
@@ -243,6 +256,26 @@ fit_mod <-
     }
 
     data_list <- Rceattle::clean_data(data_list)
+
+    # Overlay a run configuration (from load_config()) onto arguments the caller
+    # did not supply. Its model_config structure is attached to the data list so
+    # the model_config overlay below applies it to the omitted structure args;
+    # its estimation controls fill the omitted scalar args. An explicitly-passed
+    # argument always wins (missing() / fc_supplied is FALSE). config = NULL
+    # (default) is a complete no-op, so the fit path is unchanged.
+    if (!is.null(config)) {
+      if (!inherits(config, "Rceattle_run_config"))
+        stop("`config` must be an Rceattle_run_config (from load_config() / run_config()).",
+             call. = FALSE)
+      if (!is.null(config$model_config)) data_list$model_config <- config$model_config
+      if (missing(estimateMode) && !is.null(config$estimateMode)) estimateMode <- config$estimateMode
+      if (missing(random_rec)   && !is.null(config$random_rec))   random_rec   <- config$random_rec
+      if (missing(random_q)     && !is.null(config$random_q))     random_q     <- config$random_q
+      if (missing(random_sel)   && !is.null(config$random_sel))   random_sel   <- config$random_sel
+      if (missing(suit_styr)    && !is.null(config$suit_styr))    suit_styr    <- config$suit_styr
+      if (missing(suit_endyr)   && !is.null(config$suit_endyr))   suit_endyr   <- config$suit_endyr
+      if (!fc_supplied          && !is.null(config$fit_control))  fit_control  <- config$fit_control
+    }
 
     # Overlay a stored model_config (if any) onto arguments the caller did not
     # supply. An explicitly-passed argument always wins (missing() is FALSE); an
@@ -999,6 +1032,18 @@ fit_mod <-
     mod_objects$obs_ctl <- .obs_ctl
 
     mod_objects$run_time <- (Sys.time() - start_time)
+
+    # Record the resolved run configuration so save_config(fit) / run_config(fit)
+    # reproduce this fit without re-deriving it. Built from the arguments as
+    # actually used (after any config= / model_config overlay).
+    mod_objects$run_config <- .rce_run_config(
+      mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
+                        suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
+                        M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
+                        selFun = selFun, compFun = compFun),
+      estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
+      random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
+      fc = fit_control)
 
     if (estimateMode < 3) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
