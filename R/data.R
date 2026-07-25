@@ -97,6 +97,8 @@
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
 #' \item{CAAL_distribution}{Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial". (Formerly \code{CAAL_loglike}; the old name is still accepted with a deprecation message.)}
 #' \item{CAAL_weights}{Composition weights for the conditional age-at-length (CAAL) likelihood.}
+#' \item{Comp_accum_young}{Young-tail composition accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; age/length bins below it are folded into it before the likelihood. NA (default) or 1 = no young accumulation.}
+#' \item{Comp_accum_old}{Old-tail composition accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; age/length bins above it are folded into it before the likelihood. NA (default), 0, or a value at/above the number of bins = no old accumulation.}
 #' \item{Month}{Observation month for the fleet (0 = not specified).}
 #' \item{Proj_F_proportion}{The proportion of future fishing mortality assigned to this fleet. (Formerly \code{proj_F_prop}; the old name is still accepted with a deprecation message.)}
 #'}

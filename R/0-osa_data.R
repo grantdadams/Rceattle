@@ -180,12 +180,28 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   comp_n   <- data_list$comp_n
   comp_obsvec_idx <- rep(-1L, nrow(comp_obs))
   if (build_osa && nrow(comp_obs) > 0) {
+    accum_yng <- data_list$comp_accum_young; accum_old <- data_list$comp_accum_old
     for (r in seq_len(nrow(comp_obs))) {
       fleet     <- comp_ctl[r, 1]; sp <- comp_ctl[r, 2]; sex <- comp_ctl[r, 3]
       comp_type <- comp_ctl[r, 4]; yr <- comp_ctl[r, 5]; Neff <- comp_n[r, 2]
       if (!(yr > 0 && yr <= endyr && flt_type[fleet] > 0 && Neff > 0)) next
       joint_adjust <- if (sex == 3) 2L else 1L          # joint-sex doubles the bins
-      n_comp <- (if (comp_type == 0) nages[sp] else nlengths[sp]) * joint_adjust
+      nbins_blk <- if (comp_type == 0) nages[sp] else nlengths[sp]
+      # Composition tail accumulation folds the fitted likelihood but the OSA
+      # residuals are built on the full, un-accumulated bins, so they would not
+      # correspond to the fit. Refuse the combination rather than emit residuals
+      # for a different model than was fit.
+      if ((!is.null(accum_yng) && accum_yng[fleet] > 1) ||
+          (!is.null(accum_old) && accum_old[fleet] > 0 && accum_old[fleet] < nbins_blk)) {
+        stop(sprintf(paste0(
+          "OSA residuals do not support composition tail accumulation ",
+          "(Comp_accum_young/old is active on fleet %d). The fold changes the ",
+          "fitted composition likelihood, but OSA residuals are computed on the ",
+          "full, un-accumulated bins and would not match the fit. Drop the ",
+          "accumulation columns for that fleet, or request the fit without OSA ",
+          "residuals."), fleet))
+      }
+      n_comp <- nbins_blk * joint_adjust
       comp_obsvec_idx[r] <- append_composition(
         "comp", comp_obs[r, ], n_comp, Neff, fleet, sp, sex, yr, r,
         comp_type = comp_type)

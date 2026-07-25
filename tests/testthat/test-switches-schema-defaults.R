@@ -28,7 +28,7 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
     Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
     Selectivity_dimension = "Age", Comp_distribution = "MultinomialAFSC",
     CAAL_distribution = "Multinomial", Index_distribution = "Lognormal",
-    CAAL_weights = 1, Month = 0)
+    CAAL_weights = 1, Comp_accum_young = NA, Comp_accum_old = NA, Month = 0)
 
   schema <- .rce_column_schema()
   fc_defaulted <- vapply(
@@ -48,7 +48,7 @@ test_that("schema-driven defaults fill the documented values", {
                 "Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_shape_mode",
                 "Sel_avgsel_pen", "Sel_cap_bin", "Selectivity_dimension",
                 "Comp_distribution", "CAAL_distribution", "Index_distribution", "CAAL_weights",
-                "Month"))
+                "Comp_accum_young", "Comp_accum_old", "Month"))
     d$fleet_control[[col]] <- NULL
 
   out <- suppressMessages(switch_check(d))
@@ -60,8 +60,10 @@ test_that("schema-driven defaults fill the documented values", {
     expect_equal(unname(out$fleet_control[[col]]),
                  rep(schema[[col]]$default, nf), info = col)
   }
-  # NA defaults come back all-NA.
-  for (col in c("Sel_norm_bin", "Sel_norm_bin_upper", "Sel_shape_mode", "Sel_cap_bin"))
+  # NA defaults come back all-NA (including the composition-accumulation columns,
+  # which switch_check() must materialize per the schema's has_default contract).
+  for (col in c("Sel_norm_bin", "Sel_norm_bin_upper", "Sel_shape_mode", "Sel_cap_bin",
+                "Comp_accum_young", "Comp_accum_old"))
     expect_true(all(is.na(out$fleet_control[[col]])), info = col)
 
   # Index_distribution is defaulted then per-NA-filled to Lognormal.

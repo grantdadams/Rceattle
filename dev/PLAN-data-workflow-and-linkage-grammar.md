@@ -51,9 +51,20 @@ model configurations.
 - **PR 7** (contributor docs + C++ legibility): after PR 6.
 - **Composition tail-accumulation** (AFSC `ac_yng`/`ac_old`): a parallel session added
   `Comp_accum_young`/`Comp_accum_old` fleet_control columns + the C++ young/old-tail fold
-  (`ceattle_v01_11.cpp`), bit-identical by default. Being finished to PR-5's schema standard
-  (register the two columns, docs, golden-verify, a folding test) and committed **standalone**
-  (distinct from the dead `Accumulation_age_*` stub PR 5 removed).
+  (`ceattle_v01_11.cpp`), bit-identical by default. **Finished to PR-5's schema standard and
+  committed standalone** (distinct from the dead `Accumulation_age_*` stub PR 5 removed):
+  registered the two columns in the schema + `switch_check()` materialization + `data.R`
+  docs + meta workbook; golden bit-identical (all 4 models); constructive folding tests.
+  An adversarial review of the parallel session's C++ caught and this commit fixed four
+  defects: **(C1)** the fold was silently bypassed for the *default* `MultinomialAFSC`
+  (`comp_ll_type == -1`) likelihood — it read the un-folded matrices — so an AFSC fleet with
+  accumulation got a wrong composition NLL; now routed through the folded proportions and
+  hand-verified against a from-scratch AFSC NLL for combined- and joint-sex (Sex 3, GOA2018SS
+  fleet 9) comps. **(H1)** no upper clamp / no `young <= old` invariant could build a
+  negative-length vector; added a `data_check()` guard + a defensive C++ clamp. **(M1)** OSA
+  residuals are built on un-accumulated bins, so `build_osa_data()` now refuses an active
+  accumulation. **(M2)** `switch_check()` now materializes the columns per the `has_default`
+  contract.
 - **Parked:** GOA multispecies M-estimation convergence (the published `M1_model=c(1,2,1)` recipe
   returns an NA objective) — see `dev/PROMPT-goa-ms-m-estimation.md`; the `goa_ms` golden uses
   fixed M until that's solved.

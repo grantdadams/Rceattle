@@ -234,6 +234,21 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$diet_ll_type <- data_list$Diet_distribution %>%
     as.integer()
 
+  # - 10b) Composition young/old-tail accumulation bins (AFSC ac_yng / ac_old).
+  # Absent columns or NAs default to NO accumulation (young = 1; old = 0, which
+  # the cpp reads as "use the last bin"), so existing models are bit-identical.
+  .accum_col <- function(nm, default) {
+    v <- if (nm %in% names(data_list$fleet_control)) {
+      as.integer(dplyr::pull(data_list$fleet_control, nm))
+    } else {
+      rep(NA_integer_, nrow(data_list$fleet_control))
+    }
+    v[is.na(v)] <- default
+    v
+  }
+  data_list$comp_accum_young <- .accum_col("Comp_accum_young", 1L)
+  data_list$comp_accum_old   <- .accum_col("Comp_accum_old", 0L)
+
   # - 11) Index units (1 = weight, 2 = numbers)
   data_list$flt_units <- data_list$fleet_control %>%
     dplyr::pull(.data$Observation_units) %>% as.integer()

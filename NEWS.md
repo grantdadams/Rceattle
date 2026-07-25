@@ -1,3 +1,18 @@
+# Rceattle 4.13.0
+
+## New features
+
+* **Composition tail accumulation (AFSC `ac_yng` / `ac_old`).** Two new
+  `fleet_control` columns, `Comp_accum_young` and `Comp_accum_old`, fold the
+  young and old tails of a fleet's age/length composition into a boundary bin
+  before the composition likelihood (per sex block for joint-sex comps), for
+  every composition family including the default `MultinomialAFSC`. They are
+  1-based bin ordinals on the fleet's composition dimension; leaving them unset
+  (or `young = 1` / `old` at the last bin) applies no accumulation, so every
+  existing model is bit-identical. `data_check()` rejects out-of-range or
+  inverted (`young > old`) bins, and OSA residuals are not available for a fleet
+  with active accumulation (the residuals are built on the un-accumulated bins).
+
 # Rceattle 4.12.0
 
 ## New features

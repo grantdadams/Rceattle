@@ -462,6 +462,38 @@ data_check <- function(data_list) {
                                    ") must be <= Sel_pen_last_bin (", pl, ")"))
       }
 
+      # Composition young/old tail-accumulation bins (Comp_accum_young/old) are
+      # 1-based ordinals on the fleet's COMPOSITION dimension -- age or length,
+      # from comp_data$Age0_Length1 -- and are PER SEX BLOCK for joint-sex (Sex 3)
+      # comps (so the bound is nages/nlengths, not the doubled joint row). An
+      # out-of-range value or young > old would fold into a nonexistent bin or
+      # build a negative-length vector in the template, so reject them here.
+      if(!is.null(data_list$comp_data) && nrow(data_list$comp_data) > 0){
+        a0l1 <- unique(data_list$comp_data$Age0_Length1[
+          data_list$comp_data$Fleet_code == fc$Fleet_code[flt]])
+        a0l1 <- a0l1[!is.na(a0l1)]
+        if(length(a0l1) > 0){
+          comp_max_bin <- max(ifelse(a0l1 == 0, data_list$nages[sp_idx],
+                                                 data_list$nlengths[sp_idx]))
+          ay <- fc_num(fc, "Comp_accum_young", flt)
+          ao <- fc_num(fc, "Comp_accum_old",   flt)
+          if(!is.na(ay) && (ay < 1 || ay > comp_max_bin)){
+            errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
+                                       ") must be in 1:", comp_max_bin,
+                                       " (a per-sex-block bin on the fleet's composition dimension)"))
+          }
+          # Comp_accum_old sentinels NA / 0 both mean "no old accumulation".
+          if(!is.na(ao) && ao != 0 && (ao < 1 || ao > comp_max_bin)){
+            errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_old (", ao,
+                                       ") must be in 1:", comp_max_bin, " (or 0/NA for no old accumulation)"))
+          }
+          if(!is.na(ay) && !is.na(ao) && ao != 0 && ay > ao){
+            errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
+                                       ") must be <= Comp_accum_old (", ao, ")"))
+          }
+        }
+      }
+
       # AR1 catchability: Time_varying_q must be a valid env_data column index (1..ncol-1)
       if(!is.na(fc$Catchability[flt]) && fc$Catchability[flt] == "AR1"){
         if((fc$Time_varying_q[flt] > (ncol(data_list$env_data) - 1) ||

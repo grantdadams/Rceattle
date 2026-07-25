@@ -271,6 +271,8 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
   DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
+  DATA_IVECTOR(comp_accum_young);         // Per-fleet age/length-composition young-tail accumulation bin (1-based ordinal on the comp dimension); bins below it fold into it. 1 (or <1) = no young accumulation (AFSC ac_yng).
+  DATA_IVECTOR(comp_accum_old);           // Per-fleet age/length-composition old-tail accumulation bin (1-based); bins above it fold into it. 0/NA or >= nbins = no old accumulation (AFSC ac_old).
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
   DATA_IVECTOR(flt_wt_index);             // Vector to save 1st dim of weight to use for weight-at-age
@@ -2727,6 +2729,50 @@ Type objective_function<Type>::operator() () {
     vector<Type> comp_obs_tmp = comp_obs.row(comp_ind).segment(0, n_comp); // Observed proportion
     vector<Type> comp_hat_tmp = comp_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
 
+    // Composition young/old accumulation (AFSC ac_yng / ac_old): fold the bins
+    // below `yng` into the `yng` bin and above `old` into the `old` bin, then
+    // restrict the likelihood to [yng, old]. Done PER SEX BLOCK for joint-sex
+    // comps (joint_adjust == 2) so a fold never crosses the sex boundary. yng/old
+    // are 1-based bin ordinals on the fleet's comp dimension (age or length); the
+    // default (yng = 1, old >= nbins) is a no-op, so models without accumulation
+    // stay bit-identical. Guarded to the ordinary-fitting path (osa_mode == 0);
+    // OSA residuals are read from obsvec on the full, un-accumulated comps.
+    if (osa_mode == 0) {
+      int nbins_blk = (comp_type == 0) ? nages(sp) : nlengths(sp);
+      int yng = comp_accum_young(flt);
+      int old = comp_accum_old(flt);
+      if (yng < 1) yng = 1;
+      if (old < 1 || old > nbins_blk) old = nbins_blk;
+      if (yng > old) yng = old;   // defensive: keep 1 <= yng <= old (data_check() validates)
+      if (yng > 1 || old < nbins_blk) {
+        int nkeep = old - yng + 1;
+        int nblk  = joint_adjust(comp_ind);
+        vector<Type> obs_acc(nblk * nkeep); obs_acc.setZero();
+        vector<Type> hat_acc(nblk * nkeep); hat_acc.setZero();
+        for (int b = 0; b < nblk; b++) {
+          for (int j = 0; j < nbins_blk; j++) {
+            int tgt = j;
+            if (j < yng - 1) tgt = yng - 1;   // fold young tail into the yng bin
+            if (j > old - 1) tgt = old - 1;   // fold old tail into the old bin
+            obs_acc(b * nkeep + tgt - (yng - 1)) += comp_obs_tmp(b * nbins_blk + j);
+            hat_acc(b * nkeep + tgt - (yng - 1)) += comp_hat_tmp(b * nbins_blk + j);
+          }
+        }
+        comp_obs_tmp = obs_acc;
+        comp_hat_tmp = hat_acc;
+        n_comp = nblk * nkeep;
+      }
+    }
+
+    // Folded proportions (pre-offset, pre-numbers) for the AFSC pseudo-likelihood
+    // (comp_ll_type == -1), which reads proportions directly rather than the
+    // numbers vector built below. Copying here -- after the fold -- keeps case -1
+    // consistent with cases 0/1 (which use comp_obs_tmp/comp_hat_tmp). With no
+    // accumulation these equal comp_obs.row(comp_ind)/comp_hat.row(comp_ind), so
+    // the no-op path stays bit-identical.
+    vector<Type> comp_obs_prop = comp_obs_tmp;
+    vector<Type> comp_hat_prop = comp_hat_tmp;
+
     // Add offset (for some reason can't do above in single line....)
     comp_obs_tmp += comp_prop_offset;
     comp_hat_tmp += comp_prop_offset;
@@ -2745,9 +2791,10 @@ Type objective_function<Type>::operator() () {
 
         case -1:
           for(ln = 0; ln < n_comp; ln++) {
-            // Martin's
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset)) ;
-            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset));
+            // Martin's -- read the folded proportions (comp_*_prop), so an active
+            // Comp_accum_young/old actually accumulates the tails here too.
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset)) ;
+            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset));
           }
           break;
 

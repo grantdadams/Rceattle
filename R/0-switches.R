@@ -468,6 +468,8 @@ switch_check <- function(data_list){
   # covariance survey) leaves the other rows NA, which should default to Lognormal.
   data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <- "Lognormal"
   data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch)
+  data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
+  data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Month <- .rce_apply_default(data_list$fleet_control$Month, "Month", .sch)
 
   # Format adjustment for NonParametric
