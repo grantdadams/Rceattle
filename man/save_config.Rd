@@ -13,7 +13,7 @@ save_config(x, file = "Rceattle_config.yaml", ...)
 \item{file}{Output path for the \code{.yaml} file.}
 
 \item{...}{Estimation controls / \code{fit_control} to record (passed to
-\code{\link[TMB:config]{config()}}).}
+\code{\link[=run_config]{run_config()}}).}
 }
 \value{
 Invisibly, the \code{Rceattle_run_config} that was written.
@@ -34,5 +34,5 @@ save_config(cfg, f)
 identical(load_config(f)$model_config$msmMode, 1)
 }
 \seealso{
-\code{\link[=load_config]{load_config()}}, \code{\link[TMB:config]{config()}}, \code{\link[=model_config]{model_config()}}, \code{\link[=fit_mod]{fit_mod()}}.
+\code{\link[=load_config]{load_config()}}, \code{\link[=run_config]{run_config()}}, \code{\link[=model_config]{model_config()}}, \code{\link[=fit_mod]{fit_mod()}}.
 }

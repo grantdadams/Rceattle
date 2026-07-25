@@ -333,7 +333,7 @@ print.Rceattle_run_config <- function(x, ...) {
 #' @return An `Rceattle_run_config`.
 #' @seealso [save_config()], [load_config()], [model_config()].
 #' @export
-config <- function(x, ...) {
+run_config <- function(x, ...) {
   ov <- list(...)
   if (inherits(x, "Rceattle_run_config")) {
     rc <- x
@@ -371,9 +371,9 @@ config <- function(x, ...) {
 #'   `Rceattle_run_config`, or an `Rceattle_model_config`.
 #' @param file Output path for the `.yaml` file.
 #' @param ... Estimation controls / `fit_control` to record (passed to
-#'   [config()]).
+#'   [run_config()]).
 #' @return Invisibly, the `Rceattle_run_config` that was written.
-#' @seealso [load_config()], [config()], [model_config()], [fit_mod()].
+#' @seealso [load_config()], [run_config()], [model_config()], [fit_mod()].
 #' @examples
 #' cfg <- model_config(msmMode = 1, initMode = "FishedEquilibrium")
 #' f <- file.path(tempdir(), "run.yaml")
@@ -381,7 +381,7 @@ config <- function(x, ...) {
 #' identical(load_config(f)$model_config$msmMode, 1)
 #' @export
 save_config <- function(x, file = "Rceattle_config.yaml", ...) {
-  rc <- config(x, ...)
+  rc <- run_config(x, ...)
   l  <- .rce_run_config_to_list(rc)
 
   # Provenance + human spec-tree header (comment lines; ignored on read).

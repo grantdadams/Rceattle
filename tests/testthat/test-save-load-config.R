@@ -96,21 +96,21 @@ testthat::test_that("save_config writes a documented YAML that load_config rebui
                              Rceattle:::.rce_run_config_to_list(rc2))
 })
 
-testthat::test_that("config() normalizes a model_config, run_config, and data list", {
+testthat::test_that("run_config() normalizes a model_config, run_config, and data list", {
   testthat::skip_if_not_installed("Rceattle")
   mc <- Rceattle::model_config(msmMode = 1)
-  testthat::expect_equal(Rceattle::config(mc)$model_config$msmMode, 1)
+  testthat::expect_equal(Rceattle::run_config(mc)$model_config$msmMode, 1)
 
   rc <- Rceattle:::.rce_run_config(mc = mc, estimateMode = 2)
-  testthat::expect_identical(Rceattle::config(rc), rc)
+  testthat::expect_identical(Rceattle::run_config(rc), rc)
 
   dl <- list(model_config = mc, estimateMode = 3)
-  cfg <- Rceattle::config(dl)
+  cfg <- Rceattle::run_config(dl)
   testthat::expect_equal(cfg$model_config$msmMode, 1)
   testthat::expect_equal(cfg$estimateMode, 3)
 
   # ... overrides win.
-  testthat::expect_equal(Rceattle::config(mc, estimateMode = 9)$estimateMode, 9)
+  testthat::expect_equal(Rceattle::run_config(mc, estimateMode = 9)$estimateMode, 9)
 })
 
 testthat::test_that("load_config errors clearly on a missing file", {
