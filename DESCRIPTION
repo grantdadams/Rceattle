@@ -43,7 +43,8 @@ Imports:
     plyr,
     tidyselect,
     magrittr,
-    Matrix
+    Matrix,
+    yaml
 LinkingTo:
     TMB,
     RcppEigen
