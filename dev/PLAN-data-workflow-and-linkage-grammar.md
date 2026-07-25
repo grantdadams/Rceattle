@@ -25,7 +25,7 @@ covariate, time block, annual deviate, random walk, AR1 — in **one formula gra
 their whole model in one printout; supply only the data their model needs; and git-diff two
 model configurations.
 
-## Status (2026-07) — PR 0–5 shipped (v4.12.0); PR 6 in progress
+## Status (2026-07) — PR 0–6 shipped (v4.13.0); PR 7 next
 
 - **PR 0–3** (linkage-formula grammar, RE/rw/ar1 + QAR1 densities, Dirichlet-multinomial comp
   priors): shipped on `dev-data-workflow`.
@@ -42,19 +42,20 @@ model configurations.
   dead accumulation-age stub removed; read-path robustness (sheet guards, checked coercion,
   rearrange guards); new `write_template()`; committed golden-regression test. Each step
   adversarially reviewed + golden-gated. Full brief `dev/HANDOFF-pr5-phase3.md`.
-- **PR 6** (`save_config`/`load_config`): **IN PROGRESS**. Locked with Grant: format = **YAML**
+- **PR 6** (`save_config`/`load_config`): **DONE + committed** (v4.13.0). Format = **YAML**
   (adds `yaml` to Imports), scope = **full run config** (model_config + estimation controls +
   fit_control), applied via an additive default-off **`fit_mod(config=)`** overlay.
-  - Sub-commit A (converters + `save_config()`/`load_config()` + the run-config accessor + tests):
-    **DONE + committed** (`396e212e`). The accessor was renamed `config()` → **`run_config()`**
-    (`dc5c52f9`): the exported `config()` masked `TMB::config()` — roxygen even resolved the
-    `save_config()` doc link to `TMB::config`. No deprecation alias (unreleased).
-  - **Remaining: sub-commit B** — the additive `fit_mod(config = NULL)` overlay (overlay the
-    run-config onto args the caller left at their defaults, attach `model_config` to the data list,
-    store `fit$run_config`). **Golden bit-identical** (default off) + a `skip_on_cran` fit-identity
-    proof (`load_config(save_config(fit))` reproduces a non-default fit bit-identical). Then
-    **sub-commit C** — finalize (persistence notes → shipped, vignette, a `save_config` NEWS bullet,
-    `document()`, `rcmdcheck`). DESCRIPTION is already at **4.13.0**.
+  - A (`396e212e`): converters + `save_config()`/`load_config()` + the run-config accessor + tests.
+  - Rename (`dc5c52f9`): the accessor `config()` → **`run_config()`** — the exported `config()`
+    masked `TMB::config()` (roxygen even resolved the `save_config()` doc link to `TMB::config`).
+    No deprecation alias (unreleased).
+  - B (`c767e3d1`): the additive `fit_mod(config = NULL)` overlay (fills only omitted args, attaches
+    `model_config`, stores `fit$run_config`). **Golden bit-identical** (default off) + a fit-identity
+    proof — `load_config(save_config(fit))` reproduces a non-default fit (estimateMode = 1,
+    FishedEquilibrium) bit-identical (objective + SSB, diff 0).
+  - C (`b09715b6`): finalize — persistence notes (`model_config()`, `write_data()`) point at the
+    shipped functions, vignette "persist & share a run configuration" section, `save_config` NEWS
+    bullet. DESCRIPTION at **4.13.0**.
 - **PR 7** (contributor docs + C++ legibility): after PR 6.
 - **Composition tail-accumulation** (AFSC `ac_yng`/`ac_old`): a parallel session added
   `Comp_accum_young`/`Comp_accum_old` fleet_control columns + the C++ young/old-tail fold
