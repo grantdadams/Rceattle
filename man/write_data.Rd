@@ -25,5 +25,6 @@ file.remove(out_file)
 \seealso{
 \code{\link[=build_data]{build_data()}} to assemble or edit a data list in R, \code{\link[=read_data]{read_data()}}
 to read one back. Note a \code{\link[=model_config]{model_config()}} slot is not written to the
-workbook and does not survive the round-trip (a warning is issued).
+workbook and does not survive the round-trip (a warning is issued); persist
+it separately with \code{\link[=save_config]{save_config()}} / \code{\link[=load_config]{load_config()}}.
 }

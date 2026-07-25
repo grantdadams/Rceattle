@@ -2,6 +2,17 @@
 
 ## New features
 
+* **Save / load a run configuration (`save_config()` / `load_config()`).** A full
+  run configuration -- the [model_config()] structure plus the estimation controls
+  and `fit_control()` bundle -- round-trips to a documented, git-diffable YAML file
+  (each field carries its doc string as a comment; fields at their default are
+  omitted so two runs diff to only their real differences). Apply a saved config
+  with `fit_mod(data_list, config = load_config("run.yaml"))`; it fills only the
+  arguments the caller did not pass (an explicit argument always wins), and every
+  fit now records the run configuration it used (`fit$run_config`, also reachable
+  via `run_config(fit)`). Follows SAM's `saveConf`/`loadConf` and the
+  config-separate-from-weights idiom; adds a `yaml` dependency.
+
 * **Composition tail accumulation (AFSC `ac_yng` / `ac_old`).** Two new
   `fleet_control` columns, `Comp_accum_young` and `Comp_accum_old`, fold the
   young and old tails of a fleet's age/length composition into a boundary bin

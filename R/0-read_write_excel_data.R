@@ -7,7 +7,8 @@
 #'
 #' @seealso [build_data()] to assemble or edit a data list in R, [read_data()]
 #'   to read one back. Note a [model_config()] slot is not written to the
-#'   workbook and does not survive the round-trip (a warning is issued).
+#'   workbook and does not survive the round-trip (a warning is issued); persist
+#'   it separately with [save_config()] / [load_config()].
 #'
 #' @export
 #'
@@ -29,12 +30,12 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
   # A model_config slot is code-side model structure, not a workbook data sheet,
   # so it is not written and will not survive the xlsx round-trip. Warn rather
-  # than drop it silently; re-attach it in code after read_data() (a documented
-  # save_config()/load_config() round-trip is planned for a future release).
+  # than drop it silently; re-attach it in code after read_data(), or persist it
+  # separately with save_config() / load_config().
   if (!is.null(data_list$model_config)) {
     warning("data_list$model_config is not written to the xlsx workbook and ",
             "will be lost on read_data(); re-attach it in code with ",
-            "model_config().", call. = FALSE)
+            "model_config(), or persist it with save_config()/load_config().", call. = FALSE)
   }
 
   # Setup a workbook

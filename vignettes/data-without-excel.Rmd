@@ -583,3 +583,24 @@ sim_run <- fit_mod(
 ```{r}
 write_data(simData, file = tempfile(fileext = ".xlsx"))
 ```
+
+## 11. Persist and share a run configuration (optional)
+
+`write_data()` stores the *data*; the model *structure* and estimation controls
+live in the `fit_mod()` call (or in a `model_config()` slot). `save_config()`
+writes that full run configuration -- the `model_config()` structure plus the
+estimation controls and `fit_control()` bundle -- to a documented, git-diffable
+YAML file, so two assessment runs diff cleanly and a configuration can be archived
+alongside the data. `load_config()` reads it back, and passing it as
+`fit_mod(config = ...)` reproduces the fit (filling only the arguments you did not
+pass explicitly):
+
+```{r}
+cfg_file <- tempfile(fileext = ".yaml")
+save_config(model_config(msmMode = 1, initMode = "FishedEquilibrium"), cfg_file)
+cfg <- load_config(cfg_file)
+# fit_mod(simData, config = cfg)   # applies the stored structure + controls
+```
+
+Every fit also records the configuration it used in `fit$run_config`, so
+`save_config(fit, "run.yaml")` archives exactly what produced a result.

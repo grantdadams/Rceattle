@@ -73,8 +73,9 @@ The configuration is code-side model structure, not one of the workbook data
 sheets, so it is \strong{not} written by \code{\link[=write_data]{write_data()}} and does not survive an
 xlsx round-trip -- \code{build_data(base = x, model_config = cfg)} piped through
 \code{\link[=write_data]{write_data()}} then \code{\link[=read_data]{read_data()}} returns without the slot. Re-attach it in
-code (or store it alongside the data). A documented text round-trip
-(\code{save_config()} / \code{load_config()}) is planned for a future release.
+code, store it alongside the data, or persist it as a documented, git-diffable
+YAML with \code{\link[=save_config]{save_config()}} / \code{\link[=load_config]{load_config()}} and apply it with
+\code{fit_mod(data_list, config = load_config("run.yaml"))}.
 }
 
 \examples{
@@ -83,5 +84,5 @@ dat <- build_data(base = BS2017MS, model_config = cfg)
 # fit_mod(dat) would then fit as multispecies without passing msmMode.
 }
 \seealso{
-\code{\link[=fit_mod]{fit_mod()}}, \code{\link[=build_data]{build_data()}}.
+\code{\link[=fit_mod]{fit_mod()}}, \code{\link[=build_data]{build_data()}}, \code{\link[=save_config]{save_config()}}, \code{\link[=load_config]{load_config()}}.
 }

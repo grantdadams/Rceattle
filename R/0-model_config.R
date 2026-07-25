@@ -54,10 +54,11 @@
 #' sheets, so it is **not** written by [write_data()] and does not survive an
 #' xlsx round-trip -- `build_data(base = x, model_config = cfg)` piped through
 #' [write_data()] then [read_data()] returns without the slot. Re-attach it in
-#' code (or store it alongside the data). A documented text round-trip
-#' (`save_config()` / `load_config()`) is planned for a future release.
+#' code, store it alongside the data, or persist it as a documented, git-diffable
+#' YAML with [save_config()] / [load_config()] and apply it with
+#' `fit_mod(data_list, config = load_config("run.yaml"))`.
 #'
-#' @seealso [fit_mod()], [build_data()].
+#' @seealso [fit_mod()], [build_data()], [save_config()], [load_config()].
 #' @examples
 #' cfg <- model_config(msmMode = 1, initMode = "NonEquilibrium")
 #' dat <- build_data(base = BS2017MS, model_config = cfg)
