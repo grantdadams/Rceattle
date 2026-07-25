@@ -1,5 +1,16 @@
 # Next session — starting prompt
 
+> **CURRENT STATE (2026-07):** the data-workflow PRs have progressed well past this prompt.
+> **PR 5 is DONE (v4.12.0)** — the canonical column schema + the full intuitive-naming rename
+> pass + read robustness + `write_template()`. **PR 6 (`save_config`/`load_config`) is IN
+> PROGRESS** — sub-commit A (YAML serialization + `save_config`/`load_config`/`config()`) is
+> built + reviewed; remaining is the additive `fit_mod(config=)` overlay + finalize. A parallel
+> session added **composition tail-accumulation** (`Comp_accum_young`/`Comp_accum_old` + the C++
+> fold), being finished to schema standard + committed standalone. The authoritative status +
+> next steps live in `dev/PLAN-data-workflow-and-linkage-grammar.md` (the "Status" section).
+> The linkage random-effect-density brief below is retained for the record; check it against the
+> current tree before assuming it is still the open thread.
+
 Copy the block below into the next session.
 
 ---

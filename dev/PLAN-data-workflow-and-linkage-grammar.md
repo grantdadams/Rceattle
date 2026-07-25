@@ -25,6 +25,39 @@ covariate, time block, annual deviate, random walk, AR1 — in **one formula gra
 their whole model in one printout; supply only the data their model needs; and git-diff two
 model configurations.
 
+## Status (2026-07) — PR 0–5 shipped (v4.12.0); PR 6 in progress
+
+- **PR 0–3** (linkage-formula grammar, RE/rw/ar1 + QAR1 densities, Dirichlet-multinomial comp
+  priors): shipped on `dev-data-workflow`.
+- **PR 4** (data-workflow layer): **DONE + committed** — `data_requirements()`, `build_data()`,
+  `model_config()`, and an `Rceattle_data` spec-tree `print()`/`summary()`. Golden re-pinned
+  with the SS-MLE-warm-start recipe.
+- **PR 5** (optional Excel data + one canonical schema): **DONE + committed** (v4.12.0, 11 commits,
+  `f59fee43`..`ec055d13`). Single canonical column schema (`R/0-column_schema.R`) drives
+  switch_check defaults / write_data order / the meta sheet / the roxygen field dictionary;
+  the full intuitive-naming rename pass (all alias-backed, golden bit-identical) —
+  `Q_*`→`Catchability_*`, `*_loglike`→`*_distribution`, `Sel_norm_bin1/2`→`Sel_norm_bin`/`_upper`,
+  `weight1_Numbers2`→`Observation_units`, `proj_F_prop`→`Proj_F_proportion` (column only),
+  `sigma_rec_prior`→`sigma_rec`, `Diet_loglike`→`Diet_distribution`, mcallister output (mirrored);
+  dead accumulation-age stub removed; read-path robustness (sheet guards, checked coercion,
+  rearrange guards); new `write_template()`; committed golden-regression test. Each step
+  adversarially reviewed + golden-gated. Full brief `dev/HANDOFF-pr5-phase3.md`.
+- **PR 6** (`save_config`/`load_config`): **IN PROGRESS**. Locked with Grant: format = **YAML**
+  (adds `yaml` to Imports), scope = **full run config** (model_config + estimation controls +
+  fit_control), applied via an additive default-off **`fit_mod(config=)`** overlay. Sub-commit A
+  (converters + `save_config()`/`load_config()`/`config()` + tests) built + reviewed. Remaining:
+  the `fit_mod(config=)` overlay (golden bit-identical, store `fit$run_config`) + finalize (docs,
+  vignette, NEWS, DESCRIPTION → 4.13.0). Working plan: the locked-decision brief.
+- **PR 7** (contributor docs + C++ legibility): after PR 6.
+- **Composition tail-accumulation** (AFSC `ac_yng`/`ac_old`): a parallel session added
+  `Comp_accum_young`/`Comp_accum_old` fleet_control columns + the C++ young/old-tail fold
+  (`ceattle_v01_11.cpp`), bit-identical by default. Being finished to PR-5's schema standard
+  (register the two columns, docs, golden-verify, a folding test) and committed **standalone**
+  (distinct from the dead `Accumulation_age_*` stub PR 5 removed).
+- **Parked:** GOA multispecies M-estimation convergence (the published `M1_model=c(1,2,1)` recipe
+  returns an NA objective) — see `dev/PROMPT-goa-ms-m-estimation.md`; the `goa_ms` golden uses
+  fixed M until that's solved.
+
 ### Decisions locked with Grant this session
 1. **Linkages first, data ergonomics follows.**
 2. **Config home = middle path**: `fit_mod()` args stay authoritative; the data object
@@ -647,12 +680,28 @@ number (now enforced in `data_check()`).
   "must be kept in sync by eye" comment at [0-switches.R:27-30](R/0-switches.R#L27-L30).
 - Add the missing `fleet_control` presence guards in `rearrange_data()`.
 
-## PR 6 — `save_config()` / `load_config()`
+## PR 6 — `save_config()` / `load_config()`  (IN PROGRESS)
 
 SAM's `saveConf`/`loadConf` pattern: round-trip the config to documented plain text with each
 field's doc string emitted as a comment above it. Makes two assessment runs **git-diffable**
 and a configuration archivable alongside an assessment. Reuses PR 5's canonical schema for the
 doc strings and PR 4's `model_config` for the content.
+
+**Locked with Grant:** format = **YAML** (adds `yaml` to Imports); scope = **full run config**
+(the 12 `model_config()` fields + the estimation controls `estimateMode`/`random_*`/`suit_*` +
+the `fit_control()` bundle; `inits`/`map`/`bounds` are NOT stored — HuggingFace config-vs-weights
+split). Applied via an **additive, default-off `fit_mod(config = NULL)` overlay** (extends the
+existing `data_list$model_config` overlay) so existing fits are byte-identical. Everything
+serializes as plain YAML except the linkage `formula` objects (`deparse`↔`as.formula`) and
+`Rceattle_prior` S3 (`{family,p1,p2}`); a `by = NULL` shared-coefficient linkage gets an explicit
+sentinel. Borrowed conventions: a spec-tree + provenance comment header (PyTorch `__repr__` /
+MLflow), a `config(fit)` accessor (scikit-learn `get_params`), and default-omission (Hydra).
+
+**Progress:** sub-commit A (new `R/0-save_config.R` — converters + `save_config()` / `load_config()`
+/ `config()`, `yaml` dependency, `test-save-load-config.R`) built, adversarially reviewed (one
+HIGH `by = NULL` fidelity bug found + fixed), no fit-path touched. **Remaining:** the
+`fit_mod(config=)` overlay + `fit$run_config` storage (golden bit-identical), then finalize
+(persistence notes → shipped, vignette, NEWS `# Rceattle 4.13.0`, DESCRIPTION → 4.13.0, rcmdcheck).
 
 ## PR 7 — Contributor docs + C++ legibility
 
