@@ -44,10 +44,17 @@ model configurations.
   adversarially reviewed + golden-gated. Full brief `dev/HANDOFF-pr5-phase3.md`.
 - **PR 6** (`save_config`/`load_config`): **IN PROGRESS**. Locked with Grant: format = **YAML**
   (adds `yaml` to Imports), scope = **full run config** (model_config + estimation controls +
-  fit_control), applied via an additive default-off **`fit_mod(config=)`** overlay. Sub-commit A
-  (converters + `save_config()`/`load_config()`/`config()` + tests) built + reviewed. Remaining:
-  the `fit_mod(config=)` overlay (golden bit-identical, store `fit$run_config`) + finalize (docs,
-  vignette, NEWS, DESCRIPTION → 4.13.0). Working plan: the locked-decision brief.
+  fit_control), applied via an additive default-off **`fit_mod(config=)`** overlay.
+  - Sub-commit A (converters + `save_config()`/`load_config()` + the run-config accessor + tests):
+    **DONE + committed** (`396e212e`). The accessor was renamed `config()` → **`run_config()`**
+    (`dc5c52f9`): the exported `config()` masked `TMB::config()` — roxygen even resolved the
+    `save_config()` doc link to `TMB::config`. No deprecation alias (unreleased).
+  - **Remaining: sub-commit B** — the additive `fit_mod(config = NULL)` overlay (overlay the
+    run-config onto args the caller left at their defaults, attach `model_config` to the data list,
+    store `fit$run_config`). **Golden bit-identical** (default off) + a `skip_on_cran` fit-identity
+    proof (`load_config(save_config(fit))` reproduces a non-default fit bit-identical). Then
+    **sub-commit C** — finalize (persistence notes → shipped, vignette, a `save_config` NEWS bullet,
+    `document()`, `rcmdcheck`). DESCRIPTION is already at **4.13.0**.
 - **PR 7** (contributor docs + C++ legibility): after PR 6.
 - **Composition tail-accumulation** (AFSC `ac_yng`/`ac_old`): a parallel session added
   `Comp_accum_young`/`Comp_accum_old` fleet_control columns + the C++ young/old-tail fold
@@ -64,7 +71,11 @@ model configurations.
   negative-length vector; added a `data_check()` guard + a defensive C++ clamp. **(M1)** OSA
   residuals are built on un-accumulated bins, so `build_osa_data()` now refuses an active
   accumulation. **(M2)** `switch_check()` now materializes the columns per the `has_default`
-  contract.
+  contract. A second adversarial review — of the *fixes* — independently oracle-confirmed the
+  fold arithmetic (combined/joint/age/length/mixed, 0–2e-13) and drove three follow-ups
+  (`d2939f24`): bound the columns by the most restrictive dimension on a mixed age+length fleet,
+  reject `young == old`, and add a Multinomial + Dirichlet-multinomial folded-value oracle test.
+  OSA-with-accumulation is a planned follow-up (`dev/PROMPT-osa-with-composition-accumulation.md`).
 - **Parked:** GOA multispecies M-estimation convergence (the published `M1_model=c(1,2,1)` recipe
   returns an NA objective) — see `dev/PROMPT-goa-ms-m-estimation.md`; the `goa_ms` golden uses
   fixed M until that's solved.
