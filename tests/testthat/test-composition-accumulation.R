@@ -88,6 +88,68 @@ testthat::test_that("MultinomialAFSC (case -1) folds the exact hand-computed bin
   }
 })
 
+# Oracle for the Multinomial (case 0) and Dirichlet-multinomial (case 1)
+# composition NLL for one fleet, folding the tails per sex block from the model's
+# own comp_obs / comp_hat. dmultinom_osa() with all bins kept is algebraically the
+# full multinomial (chain rule), so the case-0 kernel is the plain lgamma
+# multinomial; case 1 is ddirmultinom() with alpha = Neff * (hat + off) *
+# exp(comp_weights). Independent of the C++ loop.
+.comp_fold_nll <- function(f, fleet, young, kind) {
+  dat <- f$obj$env$data
+  obs <- f$quantities$comp_obs; hat <- f$quantities$comp_hat
+  ctl <- dat$comp_ctl; cn <- dat$comp_n[, 2]
+  cw  <- f$estimated_params$comp_weights[fleet]
+  off <- dat$comp_offset; endyr <- f$data_list$endyr; flt_type <- dat$flt_type
+  nll <- 0
+  for (i in seq_len(nrow(ctl))) {
+    if (ctl[i, 1] != fleet) next
+    yr <- ctl[i, 5]
+    if (!(yr <= endyr && yr > 0 && flt_type[fleet] > 0 && cn[i] > 0)) next
+    sp <- ctl[i, 2]; sex <- ctl[i, 3]; ctype <- ctl[i, 4]
+    nblk <- if (sex == 3) 2L else 1L
+    nb   <- if (ctype == 0) f$data_list$nages[sp] else f$data_list$nlengths[sp]
+    yng <- young; if (is.na(yng) || yng < 1) yng <- 1L
+    tgt <- pmin(pmax(seq_len(nb), yng), nb)
+    of <- numeric(0); hf <- numeric(0)
+    for (b in 0:(nblk - 1)) {
+      of <- c(of, tapply(obs[i, b * nb + seq_len(nb)], tgt, sum))
+      hf <- c(hf, tapply(hat[i, b * nb + seq_len(nb)], tgt, sum))
+    }
+    if (kind == "mult") {
+      x <- (of + off) * cn[i]; p <- (hf + off) / sum(hf + off)
+      nll <- nll - cw * (lgamma(sum(x) + 1) - sum(lgamma(x + 1)) + sum(x * log(p)))
+    } else {                                   # Dirichlet-multinomial
+      ob <- (of + off) * cn[i]; al <- cn[i] * (hf + off) * exp(cw)
+      nll <- nll - (lgamma(sum(ob) + 1) + lgamma(sum(al)) - lgamma(sum(ob) + sum(al)) +
+                    sum(-lgamma(ob + 1) + lgamma(ob + al) - lgamma(al)))
+    }
+  }
+  nll
+}
+
+testthat::test_that("Multinomial (case 0) and Dirichlet-multinomial (case 1) fold the exact hand-computed likelihood", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Pin the folded value (not just "it changed") against an independent oracle,
+  # for both densities that read the folded numbers vector.
+  d0 <- make_test_data(); d0$fleet_control$Comp_accum_young <- 3L
+  f0 <- .build_accum(d0)
+  for (flt in unique(f0$obj$env$data$comp_ctl[, 1]))
+    testthat::expect_equal(f0$quantities$jnll_comp["Composition data", flt],
+                           .comp_fold_nll(f0, flt, 3L, "mult"),
+                           tolerance = 1e-8, info = paste("mult fleet", flt))
+
+  d1 <- make_test_data()
+  d1$fleet_control$Comp_distribution <- "DirichletMultinomial"
+  d1$fleet_control$Comp_accum_young  <- 3L
+  f1 <- .build_accum(d1)
+  for (flt in unique(f1$obj$env$data$comp_ctl[, 1]))
+    testthat::expect_equal(f1$quantities$jnll_comp["Composition data", flt],
+                           .comp_fold_nll(f1, flt, 3L, "dm"),
+                           tolerance = 1e-8, info = paste("DM fleet", flt))
+})
+
 testthat::test_that("MultinomialAFSC (case -1) folds per sex block for joint-sex (Sex 3) comps", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
@@ -153,7 +215,12 @@ testthat::test_that("data_check rejects out-of-range or inverted accumulation bi
   d3 <- d                                       # young > old (with a real old bin)
   d3$fleet_control$Comp_accum_young <- 4L
   d3$fleet_control$Comp_accum_old   <- 2L
-  testthat::expect_error(data_check(d3), "must be <= Comp_accum_old")
+  testthat::expect_error(data_check(d3), "must be < Comp_accum_old")
+
+  d3b <- d                                      # young == old folds to a single bin
+  d3b$fleet_control$Comp_accum_young <- 3L
+  d3b$fleet_control$Comp_accum_old   <- 3L
+  testthat::expect_error(data_check(d3b), "must be < Comp_accum_old")
 
   # Valid values and the no-accum sentinels pass (data_check may message; the
   # point is that it does not raise).

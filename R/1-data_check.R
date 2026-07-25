@@ -466,30 +466,36 @@ data_check <- function(data_list) {
       # 1-based ordinals on the fleet's COMPOSITION dimension -- age or length,
       # from comp_data$Age0_Length1 -- and are PER SEX BLOCK for joint-sex (Sex 3)
       # comps (so the bound is nages/nlengths, not the doubled joint row). An
-      # out-of-range value or young > old would fold into a nonexistent bin or
-      # build a negative-length vector in the template, so reject them here.
+      # out-of-range value or young >= old would fold into a nonexistent bin,
+      # build a negative-length vector in the template, or collapse the whole
+      # composition into a single (zero-information) bin, so reject them here.
+      # A single per-fleet column drives every composition row on the fleet, so
+      # the bound is the MOST restrictive dimension present (min): a value that
+      # is out of range for one dimension would otherwise silently no-op on it.
       if(!is.null(data_list$comp_data) && nrow(data_list$comp_data) > 0){
         a0l1 <- unique(data_list$comp_data$Age0_Length1[
           data_list$comp_data$Fleet_code == fc$Fleet_code[flt]])
         a0l1 <- a0l1[!is.na(a0l1)]
         if(length(a0l1) > 0){
-          comp_max_bin <- max(ifelse(a0l1 == 0, data_list$nages[sp_idx],
+          comp_max_bin <- min(ifelse(a0l1 == 0, data_list$nages[sp_idx],
                                                  data_list$nlengths[sp_idx]))
           ay <- fc_num(fc, "Comp_accum_young", flt)
           ao <- fc_num(fc, "Comp_accum_old",   flt)
+          # Effective old bin: the NA / 0 sentinels both mean "no old accumulation",
+          # which the template reads as the last bin.
+          ao_eff <- if(is.na(ao) || ao == 0) comp_max_bin else ao
           if(!is.na(ay) && (ay < 1 || ay > comp_max_bin)){
             errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
                                        ") must be in 1:", comp_max_bin,
                                        " (a per-sex-block bin on the fleet's composition dimension)"))
+          } else if(!is.na(ay) && ay >= ao_eff){
+            errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
+                                       ") must be < Comp_accum_old (", ao_eff,
+                                       "); folding into a single bin discards the composition"))
           }
-          # Comp_accum_old sentinels NA / 0 both mean "no old accumulation".
           if(!is.na(ao) && ao != 0 && (ao < 1 || ao > comp_max_bin)){
             errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_old (", ao,
                                        ") must be in 1:", comp_max_bin, " (or 0/NA for no old accumulation)"))
-          }
-          if(!is.na(ay) && !is.na(ao) && ao != 0 && ay > ao){
-            errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
-                                       ") must be <= Comp_accum_old (", ao, ")"))
           }
         }
       }
