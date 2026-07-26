@@ -107,11 +107,13 @@ block and its function.
 
 ## Also noted, out of scope for this pass
 
-- **Pre-existing order-dependent test flakiness.** The full fast suite shows **2 failures that pass
-  in isolation** — currently `test-selectivity-nonparametric.R:297/308`, but the failing *pair
-  shifts between sessions* (PR-5/6 notes recorded `test-dynamics-initial.R:14` +
-  `test-likelihood-index-covariance.R:131`). This is real test-pollution / shared global state,
-  present at `e2e3a110`, and it undermines confidence in every golden gate. Worth a dedicated fix.
+- **Two pre-existing suite failures — FIXED (`c0995d12`), and they were NOT order-dependent.** They
+  were deterministic stale-test assertions (both reproduce in isolation): `test-dynamics-initial.R`
+  asserted `initMode = 5` errors, but 5 is now valid (FishedEquilibrium); and the index-covariance
+  retro-peel sim changed `endyr` without clamping `suit_endyr` the way `retrospective()` does. Both
+  fixed in the tests (golden-inert). The full suite is now 0 failures. (An earlier read of a
+  "shifting pair" of `selectivity-nonparametric` failures was a mistake — those were testthat
+  WARNING blocks for the `Time_varying_q` soft-deprecation, not failures.)
 - **Per-species `srr_fun`** (Grant's observation). `M1_model` and growth `fun` are per-species
   vectors; `srr_fun` is model-wide (length-1). Making it per-species is a *feature* (touches
   `build_srr()`, `rearrange_data()`, the `srr_fun` DATA scalar in the cpp), not a legibility item.
