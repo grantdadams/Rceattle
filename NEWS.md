@@ -2,6 +2,11 @@
 
 ## Bug fixes
 
+* The NA-handling diagnostic in `check_caal_data()` now reports "CAAL data
+  have NAs ..." instead of mislabelling them as "Composition data" (the
+  message was copy-pasted from `check_composition_data()`). Message text only;
+  no change to the data or fit.
+
 * `model_average(uncertainty = TRUE)` no longer opens a plot device partway
   through the computation. A stray `plot_ssb()` call fired before the averaged
   `sdrep$sd` was populated, so it drew stale, pre-averaging confidence
