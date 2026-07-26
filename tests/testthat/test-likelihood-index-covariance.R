@@ -126,8 +126,11 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   testthat::expect_equal(rownames(fit$data_list$index_cov$Survey), as.character(1:nyrs))
 
   # (a) Shrink: a retrospective peel drops the fitted set to 1:5; the Sigma is
-  #     subset to the retained years with the covariance block preserved.
+  #     subset to the retained years with the covariance block preserved. A real
+  #     peel also clamps suit_endyr to the new endyr (see retrospective()), so
+  #     mirror that here rather than leaving suit_endyr past the fitted range.
   dl2 <- fit$data_list; dl2$endyr <- 5
+  dl2$suit_endyr <- pmin(dl2$suit_endyr, dl2$endyr)
   fit2 <- Rceattle::fit_mod(data_list = dl2, estimateMode = 3,
                             fit_control = fit_control(phase = FALSE, verbose = 0))
   S2 <- fit2$data_list$index_cov$Survey
