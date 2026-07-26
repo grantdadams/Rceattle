@@ -1,3 +1,13 @@
+# Rceattle 4.13.1
+
+## Bug fixes
+
+* `model_average(uncertainty = TRUE)` no longer opens a plot device partway
+  through the computation. A stray `plot_ssb()` call fired before the averaged
+  `sdrep$sd` was populated, so it drew stale, pre-averaging confidence
+  intervals as an unrequested side effect; the averaged object it returns is
+  unchanged.
+
 # Rceattle 4.13.0
 
 ## New features

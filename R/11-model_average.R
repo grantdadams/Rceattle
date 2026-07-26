@@ -147,7 +147,6 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       ssb[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$ssb[, sub_rel_proj_yrs]))
       biomass[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$biomass[, sub_rel_proj_yrs]))
     }
-    plot_ssb(mod_avg, mod_avg = FALSE, add_ci = TRUE)
 
     # - Calculate SD
     rec_rows <- which(names(mod_avg$sdrep$value) == "R")
