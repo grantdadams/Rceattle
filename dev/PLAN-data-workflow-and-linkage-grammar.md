@@ -56,7 +56,15 @@ model configurations.
   - C (`b09715b6`): finalize — persistence notes (`model_config()`, `write_data()`) point at the
     shipped functions, vignette "persist & share a run configuration" section, `save_config` NEWS
     bullet. DESCRIPTION at **4.13.0**.
-- **PR 7** (contributor docs + C++ legibility): after PR 6.
+- **PR 7** (contributor docs + C++ legibility): **next** — after PR 6. A large, distinct sweep;
+  **best started in a fresh session** with `dev/PROMPT-code-legibility-and-roxygen.md` as the brief
+  (condense/clarify code + clearer roxygen without AI verbosity). The tree is clean at `74f029d6`,
+  golden PASS, PR 0–6 shipped on `dev-data-workflow`.
+- **`self_test()` "object 'getsd' not found" bug** — SHIPPED (`74f029d6`). Surfaced by PR 6's
+  `rcmdcheck --run-donttest` (not run in the default check, so long-latent): `run_one_sim` referenced a
+  `getsd` the function never defined (unlike `retrospective`/`jitter`/`profile`), breaking every refit on
+  both dispatch paths. Fixed with a `getsd = NULL` arg + sdrep-inheriting default + regression test;
+  adversarially reviewed (fix complete; review caught + fixed a wrong return-shape assertion in the test).
 - **Composition tail-accumulation** (AFSC `ac_yng`/`ac_old`): a parallel session added
   `Comp_accum_young`/`Comp_accum_old` fleet_control columns + the C++ young/old-tail fold
   (`ceattle_v01_11.cpp`), bit-identical by default. **Finished to PR-5's schema standard and
