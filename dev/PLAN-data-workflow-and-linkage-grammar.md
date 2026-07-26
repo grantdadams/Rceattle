@@ -25,7 +25,7 @@ covariate, time block, annual deviate, random walk, AR1 — in **one formula gra
 their whole model in one printout; supply only the data their model needs; and git-diff two
 model configurations.
 
-## Status (2026-07) — PR 0–6 shipped (v4.13.0); PR 7 next
+## Status (2026-07) — PR 0–6 shipped (v4.13.0); linkage grammar complete; PR 7 in progress
 
 - **PR 0–3** (linkage-formula grammar, RE/rw/ar1 + QAR1 densities, Dirichlet-multinomial comp
   priors): shipped on `dev-data-workflow`.
@@ -56,10 +56,18 @@ model configurations.
   - C (`b09715b6`): finalize — persistence notes (`model_config()`, `write_data()`) point at the
     shipped functions, vignette "persist & share a run configuration" section, `save_config` NEWS
     bullet. DESCRIPTION at **4.13.0**.
-- **PR 7** (contributor docs + C++ legibility): **next** — after PR 6. A large, distinct sweep;
-  **best started in a fresh session** with `dev/PROMPT-code-legibility-and-roxygen.md` as the brief
-  (condense/clarify code + clearer roxygen without AI verbosity). The tree is clean at `74f029d6`,
-  golden PASS, PR 0–6 shipped on `dev-data-workflow`.
+- **PR 7** (contributor docs + C++ legibility + condense): **IN PROGRESS** on its own branch
+  **`pr7-legibility`** (off `e2e3a110`, 12 commits, not yet merged). **DONE this pass:** the
+  "condense the codebase" Tiers A–C (dead-code deletion, `R/dev/`→`dev/`, the `.ts_wrapper()` /
+  `.coerce_switch_arg()` / `.pull_int` factories, the MSE-whitelist constant, the HCR self-assign
+  removal), the one-off `man/` source-path resync, two small bug fixes (`model_average` stray
+  `plot_ssb`, `check_caal_data` message), and **fixing the 2 long-standing deterministic suite
+  failures** (stale `initMode`/`suit_endyr` test assertions — see below). Every fit-touching commit
+  golden bit-identical; full suite now **0 failures**. **REMAINING (see
+  `dev/HANDOFF-pr7-condense-tiers-DE.md`):** the contributor-docs + C++-legibility items in the "PR 7"
+  section below (vignettes, `jnll_comp` enum, cpp section-index repair, Doxygen headers), condense
+  Tiers D–E (`growth.hpp`/`linkage.hpp`, the 11-site `.refit_like()`), and the roxygen-clarity sweep.
+  Several condense targets were over-scoped — see the STATUS block in "Deferred: condense".
 - **`self_test()` "object 'getsd' not found" bug** — SHIPPED (`74f029d6`). Surfaced by PR 6's
   `rcmdcheck --run-donttest` (not run in the default check, so long-latent): `run_one_sim` referenced a
   `getsd` the function never defined (unlike `retrospective`/`jitter`/`profile`), breaking every refit on
@@ -761,6 +769,12 @@ HIGH `by = NULL` fidelity bug found + fixed), no fit-path touched. **Remaining:*
 (persistence notes → shipped, vignette, NEWS `# Rceattle 4.13.0`, DESCRIPTION → 4.13.0, rcmdcheck).
 
 ## PR 7 — Contributor docs + C++ legibility
+
+> **STATUS: these items are still OUTSTANDING.** PR 7's *condense* half (the "Deferred: condense"
+> section above) has Tiers A–C done on branch `pr7-legibility`; the contributor-docs + C++-legibility
+> items in THIS section were not started and are carried in `dev/HANDOFF-pr7-condense-tiers-DE.md`
+> alongside condense Tiers D–E and the roxygen sweep. Line numbers below have drifted (the file grew
+> in PRs 4–6 + PR 7 A–C) — re-confirm against the tree.
 
 The paused accessibility work, unblocked now that PR #98's testing suite and
 `.claude/commands/golden-check.md` are merged:

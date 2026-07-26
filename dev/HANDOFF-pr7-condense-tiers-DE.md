@@ -105,6 +105,23 @@ don't manufacture churn. Voice anchors: `R/0-fit_control.R`, `R/0-column_schema.
 `src/TMB/recruitment.hpp`. Give internal helpers `@noRd`; never wedge a helper between a roxygen
 block and its function.
 
+## Contributor docs + C++ legibility (the "PR 7" section of the PLAN — UNSTARTED)
+
+These are the *other half* of PR 7 (PLAN "PR 7 — Contributor docs + C++ legibility"), untouched by
+the A–C condense pass. All doc/comment-level (golden-inert), but re-confirm line numbers — they
+drifted through PRs 4–6 + PR 7 A–C:
+- `vignettes/environmental-linkages.Rmd` — the unified grammar across all six processes, with the
+  legacy→grammar translation table as a migration guide. `vignettes/extending-rceattle.Rmd` — how to
+  add an SRR form / selectivity form / likelihood component; `.github/CONTRIBUTING.md` + pkgdown nav.
+- **Name the `jnll_comp` magic-integer rows via an enum** (now 0–20, bare integers in
+  `ceattle_v01_11.cpp`; legend only in `R/6-rename_output.R:~130-151`). If you touch the row
+  order, update BOTH in lockstep (CLAUDE.md trap).
+- **Repair the non-monotonic cpp section index** (missing 5.2 / 6.10, `10.1.1` twice, `12.2.1`
+  before `12.1`).
+- **Doxygen the three bare headers** — `linkage.hpp`, `helper_functions.hpp`, `comp_osa.hpp` —
+  emulating `recruitment.hpp`. Delete the now-false `linkage.hpp` note ("currently only exposes the
+  accumulator against the growth parameters") — five accumulators now exist.
+
 ## Also noted, out of scope for this pass
 
 - **Two pre-existing suite failures — FIXED (`c0995d12`), and they were NOT order-dependent.** They

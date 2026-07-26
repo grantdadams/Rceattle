@@ -1,5 +1,13 @@
 # Handoff: random-effect linkage density (resume point)
 
+> **STATUS: DONE — this handoff is completed work, retained for reference.** The random-effect
+> linkage density (`~ (1|Year)` IID, `rw(1|Year)`, `ar1(1|Year)`, with `sigma`/`rho` via
+> `linkage_spec(init=/priors=)`) plus the Rogers-2024 QAR1 state-space covariate all shipped on
+> `dev-data-workflow` and were adversarially reviewed + verified (golden bit-identical, density
+> math exact to machine precision, full linkage suite green). See "Status + follow-up phases" in
+> `dev/PLAN-data-workflow-and-linkage-grammar.md` for the shipped summary. Nothing below is an
+> open thread anymore. `sigma` is the *innovation* SD for `rw()`, the *marginal* SD for `ar1()`.
+
 Branch **`dev-data-workflow`**, checkpoint commit **`97775cb3`**. Everything below the
 "Remaining" line is not yet built. The RE density is the most delicate piece of the linkage
 work — Laplace-approximation AD taping — so it was deliberately deferred to a fresh session.

@@ -1,15 +1,15 @@
 # Next session — starting prompt
 
-> **CURRENT STATE (2026-07):** the data-workflow PRs have progressed well past this prompt.
-> **PR 5 is DONE (v4.12.0)** — the canonical column schema + the full intuitive-naming rename
-> pass + read robustness + `write_template()`. **PR 6 (`save_config`/`load_config`) is IN
-> PROGRESS** — sub-commit A (YAML serialization + `save_config`/`load_config`/`config()`) is
-> built + reviewed; remaining is the additive `fit_mod(config=)` overlay + finalize. A parallel
-> session added **composition tail-accumulation** (`Comp_accum_young`/`Comp_accum_old` + the C++
-> fold), being finished to schema standard + committed standalone. The authoritative status +
-> next steps live in `dev/PLAN-data-workflow-and-linkage-grammar.md` (the "Status" section).
-> The linkage random-effect-density brief below is retained for the record; check it against the
-> current tree before assuming it is still the open thread.
+> **CURRENT STATE (2026-07) — this prompt is fully superseded; retained only for history.**
+> **PRs 0–6 are shipped (v4.13.0)** on `dev-data-workflow`, and the **linkage grammar is complete**
+> — the random-effect-density brief below (IID / `rw` / `ar1` / QAR1) plus Dirichlet-multinomial
+> comp priors are all DONE and verified (see the "Status + follow-up phases" section of
+> `dev/PLAN-data-workflow-and-linkage-grammar.md`, and `dev/HANDOFF-linkage-random-effects.md`,
+> now marked DONE). **PR 7 is the only open thread**, in progress on branch `pr7-legibility`
+> (condense Tiers A–C + man resync + 2 bug fixes + fixed the 2 stale suite tests done; contributor
+> docs + C++ legibility + condense Tiers D–E + roxygen sweep remain — see
+> `dev/HANDOFF-pr7-condense-tiers-DE.md`). Do NOT resume from the brief below; it describes
+> already-shipped work.
 
 Copy the block below into the next session.
 
