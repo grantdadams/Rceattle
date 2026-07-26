@@ -1,3 +1,16 @@
+# Derived quantities kept when an MSE operating/estimation model object is
+# slimmed for storage; every other quantity is dropped to keep saved runs small.
+# Shared by run_mse() and mse_summary() so the retained set stays in one place.
+.mse_keep_quantities <- c(
+  "catch_hat", "log_catch_sd", "index_hat", "log_index_sd",
+  "ssb_depletion", "biomass_depletion", "biomass", "ssb",
+  "BO", "SB0", "SBF", "F_spp", "R",
+  "M1_at_age", "M_at_age", "avg_rec",
+  "DynamicB0", "DynamicSB0", "DynamicSBF",
+  "SPR0", "SPRlimit", "SPRtarget", "Ftarget",
+  "B_eaten", "B_eaten_as_prey", "Flimit"
+)
+
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
@@ -926,33 +939,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$obj <- NULL
       em_use$opt <- NULL
       em_use$sdrep <- NULL
-      em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
-                                                         "log_catch_sd",
-                                                         "index_hat",
-                                                         "log_index_sd",
-                                                         "ssb_depletion",
-                                                         "biomass_depletion",
-                                                         "biomass",
-                                                         "ssb",
-                                                         "ssb_depletion",
-                                                         "BO",
-                                                         "SB0",
-                                                         "SBF",
-                                                         "F_spp",
-                                                         "R",
-                                                         "M1_at_age",
-                                                         "M_at_age",
-                                                         "avg_rec",
-                                                         "DynamicB0",
-                                                         "DynamicSB0",
-                                                         "DynamicSBF",
-                                                         "SPR0",
-                                                         "SPRlimit",
-                                                         "SPRtarget",
-                                                         "Ftarget",
-                                                         "B_eaten",
-                                                         "B_eaten_as_prey",
-                                                         "Flimit")] <- NULL
+      em_use$quantities[names(em_use$quantities) %!in% .mse_keep_quantities] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))

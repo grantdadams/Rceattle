@@ -602,33 +602,7 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
     mse_tmp[[i]]$OM$obj <- NULL
     mse_tmp[[i]]$OM$opt <- NULL
     mse_tmp[[i]]$OM$sdrep <- NULL
-    mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% c("catch_hat",
-                                                                         "log_catch_sd",
-                                                                         "index_hat",
-                                                                         "log_index_sd",
-                                                                         "ssb_depletion",
-                                                                         "biomass_depletion",
-                                                                         "biomass",
-                                                                         "ssb",
-                                                                         "ssb_depletion",
-                                                                         "BO",
-                                                                         "SB0",
-                                                                         "SBF",
-                                                                         "F_spp",
-                                                                         "R",
-                                                                         "M1_at_age",
-                                                                         "M_at_age",
-                                                                         "avg_rec",
-                                                                         "DynamicB0",
-                                                                         "DynamicSB0",
-                                                                         "DynamicSBF",
-                                                                         "SPR0",
-                                                                         "SPRlimit",
-                                                                         "SPRtarget",
-                                                                         "Ftarget",
-                                                                         "B_eaten",
-                                                                         "B_eaten_as_prey",
-                                                                         "Flimit")] <- NULL
+    mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% .mse_keep_quantities] <- NULL
 
 
     # Only use these bits for OM no F
@@ -638,33 +612,7 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
     mse_tmp[[i]]$OM_no_F$obj <- NULL
     mse_tmp[[i]]$OM_no_F$opt <- NULL
     mse_tmp[[i]]$OM_no_F$sdrep <- NULL
-    mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% c("catch_hat",
-                                                                                   "log_catch_sd",
-                                                                                   "index_hat",
-                                                                                   "log_index_sd",
-                                                                                   "ssb_depletion",
-                                                                                   "biomass_depletion",
-                                                                                   "biomass",
-                                                                                   "ssb",
-                                                                                   "ssb_depletion",
-                                                                                   "BO",
-                                                                                   "SB0",
-                                                                                   "SBF",
-                                                                                   "F_spp",
-                                                                                   "R",
-                                                                                   "M1_at_age",
-                                                                                   "M_at_age",
-                                                                                   "avg_rec",
-                                                                                   "DynamicB0",
-                                                                                   "DynamicSB0",
-                                                                                   "DynamicSBF",
-                                                                                   "SPR0",
-                                                                                   "SPRlimit",
-                                                                                   "SPRtarget",
-                                                                                   "Ftarget",
-                                                                                   "B_eaten",
-                                                                                   "B_eaten_as_prey",
-                                                                                   "Flimit")] <- NULL
+    mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% .mse_keep_quantities] <- NULL
 
     # - Return
     mse_tmp[[i]]$name <- mse_files[i]
