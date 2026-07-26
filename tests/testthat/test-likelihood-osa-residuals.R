@@ -2,7 +2,7 @@
 #
 # A gold-standard "joint nll is numerically unchanged by the obsvec/keep
 # refactor" check (comparing against a DLL built from the pre-change source)
-# lives in R/dev/osa_phase1_check.R -- it is too slow for routine testing
+# lives in dev/osa_phase1_check.R -- it is too slow for routine testing
 # because it recompiles a second DLL. Here we test the parts that guarantee
 # correctness and are fast/CI-appropriate: the obsvec/obs_ctl construction and
 # the end-to-end osa_residuals() machinery.

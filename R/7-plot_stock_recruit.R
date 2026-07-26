@@ -99,27 +99,3 @@ plot_stock_recruit <-
     .save_ggplot(p, file = file, suffix = "stock_recruit",
                  width = width, height = height)
   }
-
-
-#' Make a transparent colour
-#'
-#' From <https://www.dataanalytics.org.uk/make-transparent-colors-in-r/>.
-#'
-#' @param color color name
-#' @param percent percent transparency
-#' @param name an optional name for the color
-#' @keywords internal
-t_col <- function(color, percent = 50, name = NULL) {
-
-  ## Get RGB values for named color
-  rgb.val <- grDevices::col2rgb(color)
-
-  ## Make new color using input color as base and alpha set by transparency
-  t.col <- grDevices::rgb(rgb.val[1], rgb.val[2], rgb.val[3],
-                          maxColorValue = 255,
-                          alpha = (100 - percent) * 255 / 100,
-                          names = name)
-
-  ## Save the color
-  invisible(t.col)
-}
