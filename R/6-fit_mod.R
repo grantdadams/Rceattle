@@ -364,6 +364,7 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
+    data_list$growth_sd_style <- extend_length(growthFun$growth_sd_style)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
     data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution

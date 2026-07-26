@@ -1,3 +1,16 @@
+# Rceattle 4.14.0
+
+## New features
+
+* **Plus-group SD-at-age convention (`build_growth(sd_plus_group=)`).** For
+  estimated growth, choose how the oldest age class's standard deviation of
+  length-at-age is set: `"WHAM"` (default) pins it to the upper anchor
+  `exp(sd_Linf)` (the WHAM SDAA convention, unchanged from prior releases);
+  `"SS3"` instead interpolates it by length like any interior age. Per-species
+  (scalar or length-`nspp`), round-trips through `save_config()`/`load_config()`,
+  and affects only `growth_model > 0` fits. Existing models are bit-identical
+  under the default.
+
 # Rceattle 4.13.1
 
 ## Bug fixes
