@@ -20,6 +20,14 @@
   as.integer(lead)
 }
 
+# Pull a `fleet_control` column as an integer vector. `.pull_int0()` additionally
+# shifts a 1-based R index to the 0-based index the C++ template expects -- the
+# single place that conversion happens, so an off-by-one can only be introduced
+# (or fixed) once. `.pull_int0()` keeps `- 1` (double), matching the original
+# `pull() %>% as.integer() - 1` result type exactly.
+.pull_int  <- function(fc, col) as.integer(fc[[col]])
+.pull_int0 <- function(fc, col) as.integer(fc[[col]]) - 1
+
 #' Effective selectivity start year, resolved across mirrored fleets
 #'
 #' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
@@ -101,24 +109,20 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # 1 - Fleet control ----
   # - 0) Vector to save  species
-  data_list$flt_spp <- data_list$fleet_control %>%
-    dplyr::pull(.data$Species) %>% as.integer() - 1
+  data_list$flt_spp <- .pull_int0(data_list$fleet_control, "Species")
 
   # - 1) Fleet pointer
-  data_list$flt_sel_ind <- data_list$fleet_control %>%
-    dplyr::pull(.data$Fleet_code) %>% as.integer() - 1
+  data_list$flt_sel_ind <- .pull_int0(data_list$fleet_control, "Fleet_code")
 
   # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-  data_list$flt_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Fleet_type) %>% as.integer()
+  data_list$flt_type <- .pull_int(data_list$fleet_control, "Fleet_type")
 
   # - 3) Month of observation
   data_list$flt_month <- data_list$fleet_control %>%
     dplyr::pull(.data$Month)
 
   # - 4) Selectivity type
-  data_list$flt_sel_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Selectivity) %>% as.integer()
+  data_list$flt_sel_type <- .pull_int(data_list$fleet_control, "Selectivity")
 
   # - 4b) Selectivity penalty "lead": 1 for the one fleet that carries each shared
   #       block's penalty, 0 for the fleets mirroring it, so a mirrored selectivity
@@ -156,8 +160,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$N_sel_bins) %>% as.integer()
 
   # - 6) Time-varying selectivity type.
-  data_list$flt_varying_sel <- data_list$fleet_control %>%
-    dplyr::pull(.data$Time_varying_sel) %>% as.integer()
+  data_list$flt_varying_sel <- .pull_int(data_list$fleet_control, "Time_varying_sel")
 
   # - 7) First age selected
   data_list$bin_first_selected <- data_list$fleet_control %>%
@@ -227,10 +230,8 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Sel_cap_bin) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
-  data_list$comp_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Comp_distribution) %>% as.integer()
-  data_list$caal_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$CAAL_distribution) %>% as.integer()
+  data_list$comp_ll_type <- .pull_int(data_list$fleet_control, "Comp_distribution")
+  data_list$caal_ll_type <- .pull_int(data_list$fleet_control, "CAAL_distribution")
   data_list$diet_ll_type <- data_list$Diet_distribution %>%
     as.integer()
 
@@ -250,20 +251,16 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$comp_accum_old   <- .accum_col("Comp_accum_old", 0L)
 
   # - 11) Index units (1 = weight, 2 = numbers)
-  data_list$flt_units <- data_list$fleet_control %>%
-    dplyr::pull(.data$Observation_units) %>% as.integer()
+  data_list$flt_units <- .pull_int(data_list$fleet_control, "Observation_units")
 
   # - 12) Dim1 of weight (what weight-at-age data set)
-  data_list$flt_wt_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Weight_index) %>% as.integer() - 1
+  data_list$flt_wt_index <- .pull_int0(data_list$fleet_control, "Weight_index")
 
   # - 13) Dim3 of age transition matrix (what ALK to use)
-  data_list$flt_age_transition_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Age_transition_index) %>% as.integer() - 1
+  data_list$flt_age_transition_index <- .pull_int0(data_list$fleet_control, "Age_transition_index")
 
   # - 14) Parametric form of q
-  data_list$est_index_q <- data_list$fleet_control %>%
-    dplyr::pull(.data$Catchability) %>% as.integer()
+  data_list$est_index_q <- .pull_int(data_list$fleet_control, "Catchability")
 
   # - 15) Time varying q type
   #
@@ -287,16 +284,13 @@ rearrange_data <- function(data_list, build_osa = FALSE){
                                       data_list$flt_type == 0)
 
   # - 16) Whether to estimate standard deviation of index time series
-  data_list$est_sigma_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
+  data_list$est_sigma_index <- .pull_int(data_list$fleet_control, "Estimate_index_sd")
 
   # - 17) Whether to estimate standard deviation of fishery time series
-  data_list$est_sigma_fsh <- data_list$fleet_control %>%
-    dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
+  data_list$est_sigma_fsh <- .pull_int(data_list$fleet_control, "Estimate_catch_sd")
 
   # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
-  data_list$index_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Index_distribution) %>% as.integer()
+  data_list$index_ll_type <- .pull_int(data_list$fleet_control, "Index_distribution")
 
   data_list$index_log_q_prior <- log(data_list$fleet_control$Catchability_init)
 
