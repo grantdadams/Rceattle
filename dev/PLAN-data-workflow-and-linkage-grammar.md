@@ -349,6 +349,32 @@ Under PR 4 this becomes `set_index(d, index_df, cov = list(BTS = Sigma))` with
 
 ## Deferred: condense the codebase (TODO, after the data workflow)
 
+> **STATUS (PR 7, branch `pr7-legibility` off `e2e3a110`, 9 commits, golden bit-identical).**
+> Tiers A–C of this list are **DONE**; Tiers D–E **deferred**. See
+> `dev/HANDOFF-pr7-condense-tiers-DE.md` for the remaining work and the full `.refit_like()`
+> tabulation. **Several targets below were over-scoped — corrected by source inspection:**
+> - **`.warn_*` "4 → one template": WRONG.** The four deprecation warnings are *distinct
+>   migration messages* (each prints the exact `build_srr()`/`build_M1()` linkage code for that
+>   case). Merging genericizes them (UX regression) or passes full messages as args (no savings).
+>   **Left separate.**
+> - **`.coerce_*` "3 → one": only 2 merge.** `.coerce_srr_fun`+`.coerce_M1_arg` (both return int)
+>   → `.coerce_switch_arg()` (done, `64192361`). `.coerce_growth_fun` returns *strings* with no
+>   deprecation branch → **left separate**. Net ~break-even lines; the win is one auditable path.
+> - **`check_composition_data`/`check_caal_data` merge: TRAP, skipped.** Their empty-matrix guards
+>   differ (comp keeps its `ncol` when `nrow==0`; caal resets to `ncol=10`) — a naive merge changes
+>   behavior. Only the CAAL NA-message bug was fixed (`05343873`). The `check` merge stays undone
+>   unless someone proves the guard difference inert.
+> - **26 `pull()` blocks: only ~14 collapse.** The pure `pull %>% as.integer()`(±`-1`) blocks →
+>   `.pull_int`/`.pull_int0` (done, `b22fa021`); the ~9 `mutate`-based pulls (bespoke NA sentinels
+>   −999/−99/0) are each unique → left alone. `.pull_int0` keeps `- 1` **double** to match type.
+> - **Straight deletions done:** `11-model_average.R` dead block, `t_col()`, MSE whitelist ×3 → one
+>   constant, 6 HCR `proj_F` self-assigns, empty `tests-*/` dirs, `R/dev/` → `dev/`, man/ path
+>   resync. **Kinzey code (predation.hpp + R `logH` blocks) PRESERVED per Grant** — not deleted.
+> - **`plot_*` factory done** (`b0a0a7c4`): `.ts_wrapper()` returns a closure with identical 22
+>   formals, so signatures + man pages are byte-identical.
+> - **Lesson for D–E:** trust source inspection over the sweep's line-savings estimates; several
+>   "N near-identical" claims here dissolve on reading. Adversarially verify every collapse.
+
 **Sequencing (Grant's call): do the data workflow first, then condense as a separate pass.**
 Not woven into each PR. The `.refit_like()` investigation showed why — collapsing 11 call
 sites that differ in six invisible ways is its own piece of work with its own failure mode,
