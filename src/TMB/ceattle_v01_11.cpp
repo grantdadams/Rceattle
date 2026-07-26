@@ -1632,15 +1632,15 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 1: // CMSY
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 2: // Constant F
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 3: // Constant F to acheive X% of SB0
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 4: // Constant Fspr with multiplier
@@ -1648,7 +1648,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 5: // NPFMC Tier 3 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SBF){
             proj_F(sp, yr) = Ftarget(sp) * (((ssb(sp, yr-1)/ref_SBF)-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
           }
@@ -1658,7 +1657,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 6: // PFMC Category 1 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SB0 * Ptarget(sp)){
             proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (ref_SB0 * Ptarget(sp) * (ssb(sp, yr-1) - ref_SB0 * Plimit(sp))) / (ssb(sp, yr-1) * (ref_SB0 * (Ptarget(sp) - Plimit(sp))));
           }
@@ -1668,7 +1666,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 7: // SESSF Tier 1 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SB0 * Ptarget(sp)){
             proj_F(sp, yr) = Ftarget(sp) * ((ssb(sp, yr-1)/(ref_SB0 * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
           }
