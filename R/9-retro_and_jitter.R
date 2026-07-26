@@ -721,6 +721,10 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each refit runs \code{TMB::sdreport}. Self-test compares
+#'   the refit point estimates to the operating model, so \code{FALSE} is faster
+#'   with no effect on that comparison. Default \code{NULL} inherits the input
+#'   model's setting (\code{TRUE} only if it carries an \code{sdrep}).
 #'
 #' @return a list of Rceattle models
 #'
@@ -735,10 +739,14 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' sims <- self_test(ss_run, nsim = 10)
 #' }
 #' @export
-self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL) {
+self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # rho/self-test read point estimates, so getsd = FALSE is faster and neutral;
+  # default inherits the input model's setting (matches retrospective/jitter).
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
   # (same approach as run_mse). Respect the CRAN core limit

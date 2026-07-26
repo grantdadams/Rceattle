@@ -24,6 +24,15 @@
   inverted (`young > old`) bins, and OSA residuals are not available for a fleet
   with active accumulation (the residuals are built on the un-accumulated bins).
 
+## Bug fixes
+
+* **`self_test()` no longer errors with `object 'getsd' not found`.** Its
+  per-simulation refit closure referenced a `getsd` value that the function --
+  unlike `retrospective()`, `jitter()`, and `profile()` -- never defined, so
+  every simulation died on both the sequential and the parallel-cluster path.
+  `self_test()` now takes a `getsd` argument (default `NULL`, inheriting the
+  input model's setting) like its sibling functions.
+
 # Rceattle 4.12.0
 
 ## New features
