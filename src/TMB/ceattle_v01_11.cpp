@@ -175,7 +175,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.6. MODEL OBJECTS
-  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
+  // 1.6.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
   // age = age, ln = length, yr = year
   int sp, sex, age, ln, yr;
   int index, flt;                                                         // Survey and fishery indices
@@ -2265,7 +2265,7 @@ Type objective_function<Type>::operator() () {
     } // End estimated growth loop
 
 
-    // 10.1.1. Empirical weight-at-age
+    // 10.1.2. Empirical weight-at-age
     if(growth_model(sp) == 0){
       for(age = 0; age < nages(sp); age++) {
 
