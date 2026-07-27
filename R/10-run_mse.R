@@ -148,7 +148,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       growthFun = build_growth(fun = om$data_list$growth_fun,
                                linkages = om$data_list$growth_linkages),
       fit_control = fit_control(
-        loopnum = om$data_list$loopnum,
+        loopnum = om$data_list$loopnum,   # unused here (estimateMode = 3 builds, does not optimize)
         phase   = FALSE,
         getsd   = FALSE,
         verbose = 0))
@@ -676,7 +676,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
               recFun = suppressWarnings(build_srr(
                 srr_fun = om_use$data_list$srr_fun,
                 srr_pred_fun = om_use$data_list$srr_pred_fun,
-                proj_mean_rec = TRUE,
+                proj_mean_rec = TRUE,   # OM projects on mean recruitment across sim iterations
+                # srr_mse_switchyr / srr_hat_styr / srr_hat_endyr read the PRISTINE
+                # om$ (not om_use$) so the OM's stock-recruit reference period stays
+                # fixed through the projection -- the same "hold the original OM
+                # constant" intent as suit_styr/suit_endyr above.
                 srr_mse_switchyr = om$data_list$srr_mse_switchyr,
                 srr_hat_styr = om$data_list$srr_hat_styr,
                 srr_hat_endyr = om$data_list$srr_hat_endyr,
@@ -870,6 +874,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               Pstar = em_use$data_list$Pstar,
                               Sigma = em_use$data_list$Sigma,
                               Fmult = em_use$data_list$Fmult,
+                              # em$ == em_use$ here: HCRorder is copied at em_use <- em
+                              # and never modified in the sim loop, so this is
+                              # equivalent to em_use$data_list$HCRorder.
                               HCRorder = em$data_list$HCRorder
               ),
               # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
@@ -877,6 +884,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                 srr_fun = em_use$data_list$srr_fun,
                 srr_pred_fun = em_use$data_list$srr_pred_fun,
                 proj_mean_rec = em_use$data_list$proj_mean_rec,
+                # switch the stock-recruit relationship at the EM's current
+                # assessment endyr (advances each iteration), not the stored
+                # srr_mse_switchyr -- deliberately reads $endyr.
                 srr_mse_switchyr = em_use$data_list$endyr,
                 srr_hat_styr = em_use$data_list$srr_hat_styr,
                 srr_hat_endyr = em_use$data_list$srr_hat_endyr,
