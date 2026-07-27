@@ -2761,9 +2761,11 @@ Type objective_function<Type>::operator() () {
     // comps (joint_adjust == 2) so a fold never crosses the sex boundary. yng/old
     // are 1-based bin ordinals on the fleet's comp dimension (age or length); the
     // default (yng = 1, old >= nbins) is a no-op, so models without accumulation
-    // stay bit-identical. Guarded to the ordinary-fitting path (osa_mode == 0);
-    // OSA residuals are read from obsvec on the full, un-accumulated comps.
-    if (osa_mode == 0) {
+    // stay bit-identical. Applied on BOTH the ordinary-fitting path and the OSA
+    // path (osa_mode == 1): OSA residuals must correspond to the folded model that
+    // was fit, so the OSA branch below reads a folded obsvec (built identically in
+    // build_osa_data()) against this folded comp_hat_tmp / n_comp.
+    {
       int nbins_blk = (comp_type == 0) ? nages(sp) : nlengths(sp);
       int yng = comp_accum_young(flt);
       int old = comp_accum_old(flt);

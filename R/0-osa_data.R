@@ -1,3 +1,27 @@
+# Fold a raw composition proportion row for tail accumulation, mirroring the
+# per-sex-block young/old fold in ceattle_v01_11.cpp (Slot 2). `prop` is the raw
+# proportion vector of length `nblk * nbins_blk` (block-major: block 0's bins,
+# then block 1's for joint-sex). Bins below `yng` fold into the `yng` bin and
+# above `old` into the `old` bin, within each sex block, yielding an
+# `nblk * (old - yng + 1)` vector. yng/old are 1-based, already clamped by the
+# caller (1 <= yng <= old <= nbins_blk). Returns the folded raw proportions; the
+# caller adds the offset once per folded bin via append_composition(), matching
+# the cpp order (fold raw props, then += comp_prop_offset).
+.fold_comp_bins <- function(prop, nbins_blk, nblk, yng, old) {
+  nkeep  <- old - yng + 1L
+  folded <- numeric(nblk * nkeep)
+  for (b in seq_len(nblk) - 1L) {
+    for (j in seq_len(nbins_blk) - 1L) {   # 0-based source bin within the block
+      tgt <- j
+      if (j < yng - 1L) tgt <- yng - 1L    # fold young tail into the yng bin
+      if (j > old - 1L) tgt <- old - 1L    # fold old tail into the old bin
+      k <- b * nkeep + (tgt - (yng - 1L)) + 1L
+      folded[k] <- folded[k] + prop[b * nbins_blk + j + 1L]
+    }
+  }
+  folded
+}
+
 #' Build the flat observation vector and metadata for OSA residuals
 #'
 #' @description
@@ -187,23 +211,26 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       if (!(yr > 0 && yr <= endyr && flt_type[fleet] > 0 && Neff > 0)) next
       joint_adjust <- if (sex == 3) 2L else 1L          # joint-sex doubles the bins
       nbins_blk <- if (comp_type == 0) nages[sp] else nlengths[sp]
-      # Composition tail accumulation folds the fitted likelihood but the OSA
-      # residuals are built on the full, un-accumulated bins, so they would not
-      # correspond to the fit. Refuse the combination rather than emit residuals
-      # for a different model than was fit.
-      if ((!is.null(accum_yng) && accum_yng[fleet] > 1) ||
-          (!is.null(accum_old) && accum_old[fleet] > 0 && accum_old[fleet] < nbins_blk)) {
-        stop(sprintf(paste0(
-          "OSA residuals do not support composition tail accumulation ",
-          "(Comp_accum_young/old is active on fleet %d). The fold changes the ",
-          "fitted composition likelihood, but OSA residuals are computed on the ",
-          "full, un-accumulated bins and would not match the fit. Drop the ",
-          "accumulation columns for that fleet, or request the fit without OSA ",
-          "residuals."), fleet))
+      # Composition tail accumulation (Comp_accum_young/old): fold the RAW
+      # proportion row exactly as the fitting path does (ceattle_v01_11.cpp Slot 2)
+      # BEFORE append_composition() adds the offset, so the OSA obsvec matches the
+      # folded comp_hat_tmp / n_comp the un-gated cpp fold now produces on the OSA
+      # path too. yng/old clamp mirrors the cpp; the default (yng == 1, old >=
+      # nbins_blk) is a no-op, leaving non-accumulating fleets bit-identical.
+      obs_row <- comp_obs[r, ]
+      n_comp  <- nbins_blk * joint_adjust
+      yng <- if (!is.null(accum_yng)) accum_yng[fleet] else 1L
+      old <- if (!is.null(accum_old)) accum_old[fleet] else 0L
+      if (is.na(yng) || yng < 1L) yng <- 1L                 # NA/0 -> no young accum
+      if (is.na(old) || old < 1L || old > nbins_blk) old <- nbins_blk  # NA/0/>=nbins -> no old accum
+      if (yng > old) yng <- old
+      if (yng > 1L || old < nbins_blk) {
+        obs_row <- .fold_comp_bins(as.numeric(obs_row[seq_len(n_comp)]),
+                                   nbins_blk, joint_adjust, yng, old)
+        n_comp  <- joint_adjust * (old - yng + 1L)
       }
-      n_comp <- nbins_blk * joint_adjust
       comp_obsvec_idx[r] <- append_composition(
-        "comp", comp_obs[r, ], n_comp, Neff, fleet, sp, sex, yr, r,
+        "comp", obs_row, n_comp, Neff, fleet, sp, sex, yr, r,
         comp_type = comp_type)
     }
   }

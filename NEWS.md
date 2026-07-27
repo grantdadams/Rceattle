@@ -1,3 +1,16 @@
+# Rceattle 5.0.1
+
+## New features
+
+* **OSA residuals now support composition tail accumulation.** When a fleet folds
+  its age/length composition tails via `Comp_accum_young` / `Comp_accum_old` (AFSC
+  `ac_yng`/`ac_old`), `osa_residuals()` now residualizes the folded composition
+  that was actually fit -- one residual per fitted (folded) bin per sex block,
+  rather than refusing the combination. `build_osa_data()` applies the same
+  per-sex-block young/old fold to the OSA observation vector, so the one-step-ahead
+  decomposition matches the fitted composition likelihood bin-for-bin. Fleets
+  without accumulation are unchanged.
+
 # Rceattle 5.0.0
 
 ## Breaking changes
