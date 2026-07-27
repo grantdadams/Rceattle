@@ -2721,12 +2721,13 @@ Type objective_function<Type>::operator() () {
   // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
   // offset, so fitting and OSA residuals stay consistent.
   Type comp_prop_offset = comp_offset;
-  // TODO(review): case 0 now routes fitting through dmultinom_osa(), which
-  // renormalizes p; the previous dmultinom() did not, so the *reported* case-0
-  // multinomial NLL shifts by a per-row constant Neff*log(1 + n_comp*offset).
-  // The gradient and MLE are unchanged, but wording that says this only "changes
-  // the decomposition, not the value" is imprecise -- the value shifts by that
-  // constant. Reword, or subtract the constant so the reported NLL is comparable.
+  // FIXME: case 0 fitting routes through dmultinom_osa(), which renormalizes p;
+  // the previous dmultinom() did not, so the *reported* case-0 multinomial NLL
+  // shifts by a per-row constant Neff*log(1 + n_comp*offset). The gradient and MLE
+  // are unchanged (additive constant) -- only the reported value moves. Left as-is
+  // for now: either reword the "changes the decomposition, not the value" note to
+  // admit the constant, or subtract it so the reported NLL is comparable across
+  // versions.
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
