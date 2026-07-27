@@ -2626,11 +2626,20 @@ Type objective_function<Type>::operator() () {
     // Natural-scale normal (Index_loglike == "Normal", index_ll_type == 3): the
     // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
     // observation sd on the natural scale, not a log-scale CV), matching the AMAK
-    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term and
-    // no OSA (obsvec holds log-scale observations).
+    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term.
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
       if(index_obs(index_ind, 0) > 0){
-        jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+        if(osa_mode == 0){
+          jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+        } else {
+          // OSA: read the natural-scale observation from obsvec (build_osa_data()
+          // stores the untransformed obs for this family), keep-gated, so
+          // oneStepPredict() residualizes it as an independent normal.
+          int pos = index_obsvec_idx(index_ind);
+          if(pos >= 0){
+            jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
+          }
+        }
       }
     }
   }
@@ -2638,11 +2647,21 @@ Type objective_function<Type>::operator() () {
   // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
   // DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r applied to each MVN
   // fleet's fitted residual vector r = obs - q*pred (arithmetic, natural scale;
-  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma^-1 is the
-  // precomputed precision matrix index_cov_prec(index). The residual vector is
-  // assembled in index_obs row order to match the rows/cols of Sigma. Reuses
-  // jnll_comp row 0. Note: OSA residuals are not defined for this multivariate
-  // block, so it does not read obsvec/keep.
+  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma is the
+  // per-fleet covariance index_cov_mat(index). The residual vector is assembled in
+  // index_obs row order to match the rows/cols of Sigma. Reuses jnll_comp row 0.
+  //
+  // OSA (osa_mode == 1): the correlated block is whitened into independent standard
+  // normals so oneStepPredict() can residualize each survey observation. With the
+  // lower Cholesky Sigma = L L', build_osa_data() stores the whitened observation
+  // z = L^-1 obs in obsvec, and here the whitened predicted mean m = L^-1 mu (mu =
+  // index_hat) is formed with the SAME L; z_k ~ N(m_k, 1) are independent and the
+  // innovation z_k - m_k = (L^-1(obs - mu))_k is the multivariate-Gaussian
+  // one-step-ahead residual (Thygesen et al. 2017, the SAM/TMB OSA construction).
+  // Sigma is fixed data, so L is a constant factorization; the whitened negative
+  // log-density differs from the fitting density only by the constant
+  // 0.5*logdet(Sigma) (family 1 also drops n/2*log(2*pi)), which does not affect
+  // oneStepPredict's residuals.
   for(index = 0; index < n_flt; index++){
     if((flt_type(index) > 0) && (index_ll_type(index) == 1 || index_ll_type(index) == 2)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density) ONLY -- other families (0 lognormal, 3 normal) carry a 1x1 dummy Sigma and must not enter here
       int n_mvn = 0;
@@ -2654,24 +2673,45 @@ Type objective_function<Type>::operator() () {
       }
       if(n_mvn > 0){
         vector<Type> resid(n_mvn);
+        vector<Type> mu(n_mvn);
+        vector<int>  posv(n_mvn);
         int k = 0;
         for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
           if((index_ctl(index_ind, 0) - 1) == index){
             flt_yr = index_ctl(index_ind, 2);
             if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)){
               resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
+              mu(k)    = index_hat(index_ind);
+              posv(k)  = index_obsvec_idx(index_ind);
               k++;
             }
           }
         }
-        // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
-        // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
-        // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
-        Type dens = MVNORM(index_cov_mat(index))(resid);
-        // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
-        // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
-        // full density. Both give an identical fit (the constant has zero gradient).
-        jnll_comp(JNLL_INDEX, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
+        if(osa_mode == 0){
+          // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
+          // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
+          // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
+          Type dens = MVNORM(index_cov_mat(index))(resid);
+          // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
+          // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
+          // full density. Both give an identical fit (the constant has zero gradient).
+          jnll_comp(JNLL_INDEX, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
+        } else {
+          // OSA: whiten with the lower Cholesky of Sigma (same unique factor
+          // build_osa_data() uses to whiten the observations), then score each
+          // whitened observation as an independent standard normal.
+          Eigen::LLT<Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic> > llt(index_cov_mat(index));
+          matrix<Type> Lmat = llt.matrixL();
+          matrix<Type> muc(n_mvn, 1);
+          for(k = 0; k < n_mvn; k++) muc(k, 0) = mu(k);
+          matrix<Type> mwhite = Lmat.template triangularView<Eigen::Lower>().solve(muc);  // m = L^-1 mu
+          for(k = 0; k < n_mvn; k++){
+            int pos = posv(k);
+            if(pos >= 0){
+              jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), mwhite(k, 0), Type(1.0), true);
+            }
+          }
+        }
       }
     }
   }

@@ -162,39 +162,73 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
                is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE)[1]
   }
 
-  # ---- Index (survey) observations: lognormal, stored as log(obs) ----
+  # ---- Index (survey) observations ----
   # TMB guard: Year in (0, endyr], fleet on (flt_type > 0), observation > 0.
+  # The value laid into obsvec depends on the index likelihood family
+  # (index_ll_type), matching what the cpp reads in OSA mode so oneStepPredict()
+  # residualizes the same model that was fit:
+  #   0 lognormal IID  -> log(obs)                     (dnorm on the log scale)
+  #   3 natural Normal -> obs                           (dnorm on the natural scale)
+  #   1/2 MVN / MVNORM -> z = L^-1 obs, whitened by the
+  #       lower Cholesky of the fleet's covariance Sigma = L L', so the correlated
+  #       block becomes independent standard normals (the cpp whitens the mean with
+  #       the same L). The innovation z - L^-1(q*pred) is the multivariate-Gaussian
+  #       one-step-ahead residual (Thygesen et al. 2017; the SAM/TMB construction).
+  # The per-family scale is only needed for the OSA build; the ordinary fit reads
+  # obsvec only for family 0 (and reads index_obs directly for 1/2/3), so the fast
+  # path (build_osa == FALSE) keeps the original log(obs) layout for every fleet.
   index_ctl <- data_list$index_ctl
   index_obs <- data_list$index_obs
   index_obsvec_idx <- rep(-1L, nrow(index_obs))
   if (nrow(index_obs) > 0) {
     inc <- which(index_ctl[, 3] > 0 & index_ctl[, 3] <= endyr &
                    flt_type[index_ctl[, 1]] > 0 & index_obs[, 1] > 0)
-    # OSA residuals are defined only for the lognormal IID index family
-    # (index_ll_type == 0), the sole branch that reads obsvec/keep in the cpp.
-    # The MVN-covariance families (1 = MVN quadratic form, 2 = MVNORM) evaluate a
-    # correlated joint density that does not read obsvec/keep, and the
-    # natural-scale normal family (3) reads index_obs directly on the natural
-    # scale -- residualizing either from this log-scale obsvec would be
-    # statistically invalid. Drop those fleets from the OSA obsvec (leaving
-    # index_obsvec_idx == -1, i.e. "excluded") and warn, so a mixed model still
-    # gets correct residuals for its lognormal fleets. Gated to the OSA build
-    # (build_osa) so the ordinary-fitting obsvec is untouched.
-    if (build_osa && length(inc) > 0) {
-      ill <- data_list$index_ll_type
-      if (!is.null(ill)) {
-        drop <- inc[ill[index_ctl[inc, 1]] != 0L]
-        if (length(drop) > 0) {
-          bad_flts <- sort(unique(index_ctl[drop, 1]))
+    ill <- data_list$index_ll_type
+    if (build_osa && !is.null(ill) && length(inc) > 0) {
+      # MVN / MVNORM (families 1, 2): whiten each fleet's fitted observation block
+      # with the lower Cholesky of its covariance. Rows are taken in ascending
+      # index_obs order, matching Sigma's row order (.align_index_cov() builds
+      # Sigma in this order) and the cpp residual assembly. The lower-triangular
+      # whitening conditions observation k on rows 1..k, so this row order is also
+      # the one-step-ahead conditioning order; CEATTLE index_obs is chronological,
+      # making it the chronological order. A fleet whose fitted years are NOT in
+      # ascending order is excluded (rather than given a non-chronological, and
+      # potentially Sigma-misaligned, decomposition).
+      for (f in sort(unique(index_ctl[inc, 1][ill[index_ctl[inc, 1]] %in% c(1L, 2L)]))) {
+        rows <- inc[index_ctl[inc, 1] == f]
+        Sigma <- tryCatch(as.matrix(data_list$index_cov_mat[[f]]), error = function(e) NULL)
+        chrono <- !is.unsorted(index_ctl[rows, 3], strictly = FALSE)
+        L <- if (!is.null(Sigma) && nrow(Sigma) == length(rows) && chrono)
+          tryCatch(t(chol(Sigma)), error = function(e) NULL) else NULL
+        if (is.null(L)) {
+          # Malformed / non-PD / mis-dimensioned covariance, or non-chronological
+          # rows: fall back to excluding this fleet from the OSA residuals rather
+          # than emit a wrong or ambiguously-ordered residual.
           warning(sprintf(paste0(
-            "OSA residuals are not defined for non-lognormal index fleets ",
-            "(Index_distribution MVN / MVNORM / Normal; fleet(s) %s); their ",
-            "index observations are excluded from the OSA residuals."),
-            paste(bad_flts, collapse = ", ")))
-          inc <- setdiff(inc, drop)
+            "OSA residuals: index fleet %d has a missing / non-positive-definite / ",
+            "non-%dx%d covariance matrix or non-chronological survey rows; ",
+            "excluding it from the OSA residuals."), f, length(rows), length(rows)))
+        } else {
+          z <- as.numeric(forwardsolve(L, index_obs[rows, 1]))   # L^-1 obs (whitened)
+          index_obsvec_idx[rows] <- append_obs(
+            value = z, source = "index", data_row = rows,
+            fleet_code = index_ctl[rows, 1], species = index_ctl[rows, 2],
+            year = index_ctl[rows, 3])
         }
+        inc <- setdiff(inc, rows)
+      }
+      # Natural-scale Normal (family 3): store the untransformed observation.
+      rows3 <- inc[ill[index_ctl[inc, 1]] == 3L]
+      if (length(rows3) > 0) {
+        index_obsvec_idx[rows3] <- append_obs(
+          value = index_obs[rows3, 1], source = "index", data_row = rows3,
+          fleet_code = index_ctl[rows3, 1], species = index_ctl[rows3, 2],
+          year = index_ctl[rows3, 3])
+        inc <- setdiff(inc, rows3)
       }
     }
+    # Lognormal IID (family 0) -- and every fleet on the fast fitting path -- as
+    # log(obs).
     if (length(inc) > 0) {
       index_obsvec_idx[inc] <- append_obs(
         value = log(index_obs[inc, 1]), source = "index", data_row = inc,

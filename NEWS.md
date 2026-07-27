@@ -1,3 +1,19 @@
+# Rceattle 5.0.3
+
+## New features
+
+* **OSA residuals now support every survey-index likelihood family.**
+  `osa_residuals()` previously produced one-step-ahead residuals only for the
+  lognormal IID index (`Index_distribution` `"Lognormal"`). It now covers all
+  families: natural-scale `"Normal"` residualizes as an independent normal on the
+  natural scale, and the correlated covariance families `"MVN"` / `"MVNORM"` are
+  whitened by the lower Cholesky of the fleet's survey covariance
+  `Sigma = L L'`, so the residuals are the multivariate-Gaussian one-step-ahead
+  innovations `L^-1 (obs - q*pred)` — the closed form `TMB::oneStepPredict()`
+  reproduces for a Gaussian block (Thygesen et al. 2017). This supersedes the
+  5.0.2 exclusion of these fleets. The ordinary model fit is unchanged (the
+  whitening applies only to the post-hoc OSA observation vector).
+
 # Rceattle 5.0.2
 
 ## Bug fixes
