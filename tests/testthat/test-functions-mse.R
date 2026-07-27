@@ -63,17 +63,24 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   # returns the expected per-species metrics (it does substantial index math and
   # references the package hcr_map constant).
   summ <- Rceattle::mse_summary(mse)
-  testthat::expect_false(is.null(summ))
-  metric_names <- names(summ)
-  testthat::expect_true("OM: Average SSB Depletion" %in% metric_names)
-  testthat::expect_true("OM: SSB Collapse" %in% metric_names)
-  # Per-species metrics occupy the first nspp rows; the frame is padded with NA
-  # to the (larger) fleet count. The real per-species depletions are finite and
-  # near the Tier-3 40% target for this HCR.
-  nspp <- mse[[1]]$OM$data_list$nspp
-  dep <- summ[["OM: Average SSB Depletion"]][seq_len(nspp)]
+  testthat::expect_named(summ, c("species", "fleet", "total", "meta"))
+
+  # Per-species conservation metrics: one row per species, no NA padding.
+  testthat::expect_s3_class(summ$species, "data.frame")
+  testthat::expect_equal(nrow(summ$species), mse[[1]]$OM$data_list$nspp)
+  testthat::expect_true(all(c("OM: Average SSB Depletion", "OM: SSB Collapse") %in%
+                              names(summ$species)))
+  dep <- summ$species[["OM: Average SSB Depletion"]]
   testthat::expect_true(all(is.finite(dep)))
-  testthat::expect_true(all(dep > 0 & dep < 1.5))
+  testthat::expect_true(all(dep > 0 & dep < 1.5))   # near the Tier-3 40% target
+
+  # Per-fleet catch metrics: one row per fishery fleet.
+  testthat::expect_s3_class(summ$fleet, "data.frame")
+  testthat::expect_true("Average Catch" %in% names(summ$fleet))
+  testthat::expect_gt(nrow(summ$fleet), 0L)
+
+  # Across-fleet totals.
+  testthat::expect_true(is.finite(summ$total[["Average Catch"]]))
 })
 
 testthat::test_that("Test MSE - Tier 3 parallel", {

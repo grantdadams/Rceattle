@@ -5,18 +5,24 @@
 #' @param mse MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}
 #' @param om_only only include performance metrics from OMs
 #'
-#' @return Alist of two data.frames with MSE summary statistics of performance metrics including:
-#' data.frame 1
-#' 1.	Average annual catch across projection years and simulations per fleet and across fleets
-#' 2.	Average interannual variation in catch (IAV) across projection years (n) per fleet and across fleets
-#' 3.	% of years in which the fishery is closed across simulations (s)
-#' 4.	Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
-#' 5. % of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
-#' 6.	% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
-#' 7. % of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM
-#' 8. % of years in which the population is overfished as determined from the “true” B_Limit across simulations via \code{\link{build_hcr}} in the OM
-#' 9.	Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
-#' 10-14. Terminal biomass, SSB, SSB depletion (relative to equilibrium), SSB depletion (relative to dynamic SB0)
+#' @return A named list, one element per entity dimension so each metric lives
+#'   only where it applies (no NA padding):
+#'   * `species` -- a data.frame with one row per species (keyed by `Species`)
+#'     of the conservation / status metrics: per-species average catch, catch
+#'     IAV and P(Closed); relative MSE of terminal and average SSB; the EM- and
+#'     OM-perceived overfishing / overfished probabilities (via
+#'     \code{\link{build_hcr}}) and their discordances; and terminal biomass,
+#'     SSB, dynamic SB0, SSB depletion (equilibrium and dynamic), average SSB
+#'     depletion, and SSB-collapse counts.
+#'   * `fleet` -- a data.frame with one row per fishery fleet (keyed by
+#'     `Fleet_code` / `Fleet_name`) of average catch, catch IAV, and P(Closed).
+#'   * `total` -- a named numeric of the across-fleet total average catch and
+#'     catch IAV.
+#'   * `meta` -- run provenance (`nsim`, `nspp`, `nflts`, `HCR`, projection-year
+#'     range).
+#'
+#'   All metrics are averaged across projection years and simulations. (Prior to
+#'   v5.0.0 this returned a single stacked data.frame; see NEWS.)
 #'
 #' @export
 #'
@@ -490,7 +496,42 @@ mse_summary <- function(mse, om_only = FALSE){
                                                                               (x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] > 1000)) > 0))
   }
 
-  return(mse_summary = mse_summary)
+  ############################################
+  ## Reshape into per-entity tidy frames
+  ############################################
+  # The metrics above were accumulated into a single stacked frame (species
+  # rows, then fishery-fleet rows, then an "All" row), so every column was
+  # NA-padded outside the entity it applies to and the same column name (e.g.
+  # "Average Catch") meant a species value, a fleet value, or a total depending
+  # on the row. Return them split by entity instead: one frame per dimension,
+  # each with a labelled key column and no padding.
+  metric_cols   <- setdiff(colnames(mse_summary),
+                           c("Species", "Fleet_name", "Fleet_code"))
+  fleet_metrics <- c("Average Catch", "Catch IAV", "P(Closed)")
+  species_rows  <- seq_len(nspp)
+  fleet_rows    <- nspp + seq_len(nflts)
+  total_row     <- nspp + nflts + 1L
+
+  species <- data.frame(
+    Species = mse_summary$Species[species_rows],
+    mse_summary[species_rows, metric_cols, drop = FALSE],
+    check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE)
+
+  fleet <- data.frame(
+    Fleet_code = mse_summary$Fleet_code[fleet_rows],
+    Fleet_name = mse_summary$Fleet_name[fleet_rows],
+    mse_summary[fleet_rows, fleet_metrics, drop = FALSE],
+    check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE)
+
+  total <- unlist(mse_summary[total_row, c("Average Catch", "Catch IAV")])
+
+  list(
+    species = species,
+    fleet   = fleet,
+    total   = total,
+    meta    = list(nsim = nsim, nspp = nspp, nflts = nflts, HCR = HCR,
+                   proj_years = c(first = min(projyrs), last = max(projyrs)))
+  )
 }
 
 

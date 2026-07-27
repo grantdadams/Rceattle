@@ -12,20 +12,26 @@ mse_summary(mse, om_only = FALSE)
 \item{om_only}{only include performance metrics from OMs}
 }
 \value{
-Alist of two data.frames with MSE summary statistics of performance metrics including:
-data.frame 1
-\enumerate{
-\item Average annual catch across projection years and simulations per fleet and across fleets
-\item Average interannual variation in catch (IAV) across projection years (n) per fleet and across fleets
-\item \% of years in which the fishery is closed across simulations (s)
-\item Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
-\item \% of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
-\item \% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
-\item \% of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM
-\item \% of years in which the population is overfished as determined from the “true” B_Limit across simulations via \code{\link{build_hcr}} in the OM
-\item Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
-10-14. Terminal biomass, SSB, SSB depletion (relative to equilibrium), SSB depletion (relative to dynamic SB0)
+A named list, one element per entity dimension so each metric lives
+only where it applies (no NA padding):
+\itemize{
+\item \code{species} -- a data.frame with one row per species (keyed by \code{Species})
+of the conservation / status metrics: per-species average catch, catch
+IAV and P(Closed); relative MSE of terminal and average SSB; the EM- and
+OM-perceived overfishing / overfished probabilities (via
+\code{\link{build_hcr}}) and their discordances; and terminal biomass,
+SSB, dynamic SB0, SSB depletion (equilibrium and dynamic), average SSB
+depletion, and SSB-collapse counts.
+\item \code{fleet} -- a data.frame with one row per fishery fleet (keyed by
+\code{Fleet_code} / \code{Fleet_name}) of average catch, catch IAV, and P(Closed).
+\item \code{total} -- a named numeric of the across-fleet total average catch and
+catch IAV.
+\item \code{meta} -- run provenance (\code{nsim}, \code{nspp}, \code{nflts}, \code{HCR}, projection-year
+range).
 }
+
+All metrics are averaged across projection years and simulations. (Prior to
+v5.0.0 this returned a single stacked data.frame; see NEWS.)
 }
 \description{
 Management strategy evaluation performance metric summary

@@ -1,4 +1,17 @@
-# Rceattle 4.14.0
+# Rceattle 5.0.0
+
+## Breaking changes
+
+* **`mse_summary()` now returns a per-entity list instead of one stacked
+  data.frame.** The result is `list(species, fleet, total, meta)`: `species`
+  (one row per species, keyed by `Species`) holds the conservation/status
+  metrics; `fleet` (one row per fishery fleet) holds average catch / catch IAV
+  / P(Closed); `total` is the across-fleet totals; `meta` carries run
+  provenance. This removes the NA padding and the ambiguity of the old shape,
+  where species, fleet, and "All" rows were stacked in one frame and a column
+  like `Average Catch` meant different things per row. The metric values are
+  unchanged. Update `summ$"<metric>"` call sites to `summ$species$"<metric>"`
+  or `summ$fleet$"<metric>"`.
 
 ## Bug fixes
 
