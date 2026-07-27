@@ -74,10 +74,13 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   testthat::expect_true(all(is.finite(dep)))
   testthat::expect_true(all(dep > 0 & dep < 1.5))   # near the Tier-3 40% target
 
-  # Per-fleet catch metrics: one row per fishery fleet.
+  # Per-fleet catch metrics: one row per fishery fleet, integer-keyed, finite.
   testthat::expect_s3_class(summ$fleet, "data.frame")
   testthat::expect_true("Average Catch" %in% names(summ$fleet))
-  testthat::expect_gt(nrow(summ$fleet), 0L)
+  n_fishery <- sum(mse[[1]]$OM$data_list$fleet_control$Fleet_type == "Fishery")
+  testthat::expect_equal(nrow(summ$fleet), n_fishery)
+  testthat::expect_type(summ$fleet$Fleet_code, "integer")
+  testthat::expect_true(all(is.finite(summ$fleet[["Average Catch"]])))
 
   # Across-fleet totals.
   testthat::expect_true(is.finite(summ$total[["Average Catch"]]))

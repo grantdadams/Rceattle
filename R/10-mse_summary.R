@@ -518,7 +518,9 @@ mse_summary <- function(mse, om_only = FALSE){
     check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE)
 
   fleet <- data.frame(
-    Fleet_code = mse_summary$Fleet_code[fleet_rows],
+    # Fleet_code was character in the stacked frame only because of the "All"
+    # total row (now in `total`); the per-fleet frame carries the integer codes.
+    Fleet_code = as.integer(mse_summary$Fleet_code[fleet_rows]),
     Fleet_name = mse_summary$Fleet_name[fleet_rows],
     mse_summary[fleet_rows, fleet_metrics, drop = FALSE],
     check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE)
