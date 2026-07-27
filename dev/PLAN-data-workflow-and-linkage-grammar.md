@@ -57,17 +57,21 @@ model configurations.
     shipped functions, vignette "persist & share a run configuration" section, `save_config` NEWS
     bullet. DESCRIPTION at **4.13.0**.
 - **PR 7** (contributor docs + C++ legibility + condense): **IN PROGRESS** on its own branch
-  **`pr7-legibility`** (off `e2e3a110`, 12 commits, not yet merged). **DONE this pass:** the
-  "condense the codebase" Tiers A–C (dead-code deletion, `R/dev/`→`dev/`, the `.ts_wrapper()` /
-  `.coerce_switch_arg()` / `.pull_int` factories, the MSE-whitelist constant, the HCR self-assign
-  removal), the one-off `man/` source-path resync, two small bug fixes (`model_average` stray
-  `plot_ssb`, `check_caal_data` message), and **fixing the 2 long-standing deterministic suite
-  failures** (stale `initMode`/`suit_endyr` test assertions — see below). Every fit-touching commit
-  golden bit-identical; full suite now **0 failures**. **REMAINING (see
-  `dev/HANDOFF-pr7-condense-tiers-DE.md`):** the contributor-docs + C++-legibility items in the "PR 7"
-  section below (vignettes, `jnll_comp` enum, cpp section-index repair, Doxygen headers), condense
-  Tiers D–E (`growth.hpp`/`linkage.hpp`, the 11-site `.refit_like()`), and the roxygen-clarity sweep.
-  Several condense targets were over-scoped — see the STATUS block in "Deferred: condense".
+  **`pr7-legibility`** (off `e2e3a110`, ~19 commits, DESCRIPTION 4.14.0, not yet merged). See
+  `dev/HANDOFF-pr7-condense-tiers-DE.md` (STATUS UPDATE at top) for the authoritative breakdown.
+  **DONE:** condense Tiers A–C (dead code, `R/dev/`→`dev/`, the `.ts_wrapper()`/`.coerce_switch_arg()`/
+  `.pull_int` factories, MSE-whitelist constant, HCR self-assign removal); `man/` source-path resync;
+  two bug fixes (`model_average` stray `plot_ssb`, `check_caal_data` message); fixed the 2 stale
+  deterministic suite failures (`initMode`/`suit_endyr`); a **new feature** —
+  `build_growth(sd_plus_group=)` WHAM/SS3 plus-group SD switch (D1, reframed by Grant) with NA-inherit;
+  the E **tabulation/verification** (all 11 refit sites — no bug found; pins documented, collapse
+  deferred); cpp section-index fixes + **Doxygen on the 3 bare headers**; and audit follow-ups
+  (`plot_logindex` deprecated shim, `mse_summary()`/`sim_mod()` tests). Contributor docs already exist
+  (`environmental-linkages-and-priors.Rmd`, `articles/developer-guide.Rmd`); the roxygen sweep was
+  skipped (low value). Every fit-touching commit golden bit-identical; full suite 0 failures.
+  **REMAINING:** the **`jnll_comp` enum** (+ the 2 deferred section labels 12.2.1/14.3), **Tier D2**
+  (`linkage.hpp` accumulators), the **`.refit_like` collapse** (deferred, golden-unverifiable), and
+  the **merge** to `dev-data-workflow`.
 - **`self_test()` "object 'getsd' not found" bug** — SHIPPED (`74f029d6`). Surfaced by PR 6's
   `rcmdcheck --run-donttest` (not run in the default check, so long-latent): `run_one_sim` referenced a
   `getsd` the function never defined (unlike `retrospective`/`jitter`/`profile`), breaking every refit on
