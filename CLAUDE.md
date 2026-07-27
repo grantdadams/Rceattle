@@ -130,6 +130,22 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `loopnum`, `newtonsteps`, `getJointPrecision`). Pass `getsd = FALSE` for fast dev/test fits
   (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty
   bands are NA.
+- **The diagnostic *refit* paths go through `.refit_like()` (`R/6-refit_like.R`) and are
+  NOT covered by `/golden-check`.** `retrospective()`, `jitter()`, `self_test()`,
+  `profile()`, `run_mse()`, and `remove_F()` all re-invoke `fit_mod()` via this one helper,
+  which rebuilds the HCR / SR / M1 / growth specs from a source `data_list` and exposes each
+  per-caller divergence as a named override. The four golden models exercise none of these
+  paths, so a change that could move a refit needs `dev/verify-refit-like.R` (before/after
+  bit-identity across all six entry functions, including a multispecies MSE) — golden-check
+  alone proves nothing here.
+- **`run_mse()` pins the OM's stock-recruit and suitability reference windows to the
+  pristine `om$`** (not the advancing `om_use$`) so the hindcast does not drift through the
+  projection — essential for multispecies, whose predation suitability must stay fixed. In
+  `.refit_like()` these are the `srr_mse_switchyr` / `srr_hat_styr` / `srr_hat_endyr` /
+  `suit_styr` / `suit_endyr` overrides; the EM instead advances `srr_mse_switchyr` to its
+  current assessment `endyr` each iteration. The invariant (MSE must not perturb the
+  hindcast, under any `simulate_data` / `sample_rec`) is checked by
+  `dev/verify-mse-hindcast-invariant.R`.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
 

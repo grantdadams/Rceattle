@@ -1,5 +1,17 @@
 # Rceattle: one formula grammar for every process + data-workflow redesign
 
+> **STATUS (2026-07-27): the effort is COMPLETE and merged onto `dev-data-workflow`.**
+> PRs 0–7 all shipped — the linkage grammar (q/sel/growth/M/rec/comp + IID/rw/ar1/QAR1
+> densities + DM priors), the column schema, `build_data()`/`model_config()`/
+> `data_requirements()`, `save_config()`/`load_config()`/`run_config()` + `fit_mod(config=)`,
+> the composition tail-accumulation feature, and PR 7 (condense Tiers A–C, the C++ legibility
+> pass + `JnllRow` enum, the `build_growth(sd_plus_group=)` WHAM/SS3 feature, the
+> `.refit_like()` collapse, the `mse_summary()` reshape → **5.0.0**, the developer-guide +
+> CLAUDE.md docs). **D2 declined** (net-negative). `pr7-legibility` was fast-forwarded into
+> `dev-data-workflow` (`766d89b6`), which is **not yet released to `main`**. Remaining backlog
+> (own prompt files): `PLAN-sel-curve-pen-reformulation.md`, `PROMPT-mse-runtime-optimization.md`,
+> `PROMPT-osa-with-composition-accumulation.md`. The detail below is the historical record.
+
 ## Context
 
 As Rceattle has grown (predation, DSEM env linkages, time-varying selectivity, OSA, growth),
