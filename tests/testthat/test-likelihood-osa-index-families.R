@@ -14,6 +14,12 @@
 # With random_rec = FALSE the estimated model has no random effects, so the
 # oneStepPredict residual equals this closed form to numerical precision -- which is
 # the check below (osa_residuals() runs oneStepPredict internally).
+#
+# External cross-check (when installed): the SAM-author / WHAM OSA packages
+#   compResidual::resmvnorm   -- devtools::install_github("fishfollower/compResidual/compResidual")
+#   OSA_multivariate_dists    -- TMB:::install.contrib("https://github.com/vtrijoulet/OSA_multivariate_dists/archive/main.zip")
+# implement the same multivariate-normal one-step-ahead residual; the last test
+# below verifies Rceattle's MVN OSA residuals against compResidual::resmvnorm().
 
 .osa_index_fit <- function(dist, nyrs = 8, nages = 5, seed = 42, rho = 0.3,
                            sd = 20, absolute_sd = FALSE) {
@@ -150,4 +156,24 @@ testthat::test_that("MVN OSA residuals run with random recruitment (Laplace re-c
   testthat::expect_true(all(is.finite(osa$residual)))
   testthat::expect_equal(nrow(osa), nyrs)
   testthat::expect_true(all(abs(osa$residual) < 10))     # not blown up
+})
+
+testthat::test_that("MVN OSA residuals match compResidual::resmvnorm (SAM-author oracle)", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("compResidual")   # GitHub-only; local cross-check
+
+  # Cross-check Rceattle's whitened MVN OSA residuals against the independent
+  # multivariate-normal one-step-ahead residual from compResidual (Nielsen, the SAM
+  # author). On the same fitted state both must return L^-1 (obs - index_hat).
+  o <- .osa_index_fit("MVNORM"); fit <- o$fit; Sigma <- o$Sigma
+  osa <- suppressWarnings(osa_residuals(fit, source = "index"))
+  sel <- .fitted_index(fit)
+  rp  <- fit$obj$report(fit$obj$env$last.par.best)
+  obs <- fit$obj$env$data$index_obs[sel, 1]
+  mu  <- rp$index_hat[sel]
+
+  r_sam <- as.numeric(compResidual::resmvnorm(matrix(obs, ncol = 1),
+                                              matrix(mu, ncol = 1), Sigma))
+  testthat::expect_equal(osa$residual[order(osa$year)], r_sam, tolerance = 1e-6)
 })
