@@ -79,9 +79,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   Doxygen-documented header to emulate) and any `R/*.R` + its `tests/testthat/*` pair. The
   codebase favors explanatory section headers and Doxygen on the C++ — match local comment
   density; don't strip comments.
-- **`jnll_comp` likelihood rows are magic integers** in `ceattle_v01_11.cpp`; their names
-  live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by hand.
-  If you add/reorder a likelihood component, update both.
+- **`jnll_comp` likelihood rows are addressed by the `JnllRow` enum** in
+  `ceattle_v01_11.cpp` (`JNLL_INDEX`=0 … `JNLL_LINKAGE_RE`=20, `JNLL_N_ROWS` dimensions
+  the matrix) — refer to a row by its constant, never a bare integer. Their **display
+  names** live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by
+  hand. If you add/reorder a likelihood component, update both the enum and the name vector.
 - **Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
   `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the
   group, so any per-fleet setting that differs within a group is silently taken from the
@@ -102,6 +104,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **A new `data_list` element needs `write_data()` / `read_data()` support too**, or it
   round-trips to nothing and the feature is silently lossy through the standard xlsx
   format — this is how `index_cov` was lost.
+- **A new `fleet_control` column is defined once, in `R/0-column_schema.R`.**
+  `.rce_column_schema()` is the single source of truth: its rows drive `switch_check()`
+  defaults, `write_data()`/`read_data()` ordering, the meta sheet, the field dictionary,
+  and (via `aliases`) the auto-upgrade of older column spellings on every entry into the
+  pipeline. Add the column there and consume it by its **canonical** name — don't hardcode
+  a default or a column order anywhere else. `test-schema-canonical.R` pins the aliases.
 - **A slow fit is the model, not a regression.** A full `BS2017SS`
   `estimateMode = 0, phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for
   phasing, +~14 s for `sdreport`. That single fit has needed ~500–700 `nlminb` iterations
@@ -124,6 +132,43 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   bands are NA.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
+
+## Data assembly, configuration & the linkage grammar
+
+Three subsystems sit in front of `fit_mod()`. The **developer guide**
+(`vignettes/articles/developer-guide.Rmd`) is the deep-dive; the load-bearing facts:
+
+- **Assembling / editing a `data_list` in R:** `build_data()` + `model_config()`
+  (`R/0-build_data.R`) supply only what a configuration uses and print the model as a
+  readable outline; `data_requirements()` (`R/1-data_requirements.R`, table in
+  `R/1-data_requirements_table.R`) reports required/optional/ignored inputs *before*
+  fitting; `write_template()` writes a blank correctly-shaped workbook. All of this reads
+  the column schema (above) — the schema is authoritative, not these callers.
+- **Run configuration:** `save_config()` / `load_config()` / `run_config()`
+  (`R/0-save_config.R`) round-trip the full model + estimation + `fit_control()` setup to a
+  commented, default-omitting **YAML** file. Apply with
+  `fit_mod(data_list, config = load_config("run.yaml"))` — it fills only the args the caller
+  didn't pass (**explicit args always win**), and every fit records its own config in
+  `fit$run_config`. Formulas, `Rceattle_prior` objects, and nested `build_*()` specs all
+  serialize, so a saved config reproduces a non-default fit bit-identically.
+- **Linkage & priors grammar:** one formula system (`R/0-build_linkage.R`,
+  `linkage_encode.R`, `linkage_table.R`, `R/0-priors.R`) covers time-varying / covariate /
+  random-effect / prior structure on **every** process — recruitment, M, growth,
+  catchability, selectivity, and (prior-only) Dirichlet-multinomial composition weights —
+  attached through the `build_*()` constructors via `linkage_spec(formula, by, init,
+  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ block(Year)`),
+  random effect (`~ (1|Year)` IID, `rw()`, `ar1()`), or `~ 1` + `priors` for an
+  intercept-only prior (keyed `` `(Intercept)` ``). A **prior on a selectivity /
+  catchability / DM parameter** is the `~ 1` case. Inside `priors =`, the bare `normal()` /
+  `lognormal()` / `gamma()` / `beta()` resolve to the `prior_*()` constructors via a data
+  mask — intentional, don't "fix" them.
+- **C++ side of linkages:** `linkage.hpp` holds five per-process accumulators
+  (`rceattle_apply_{growth,M,recruitment,q,sel}_linkages`) whose process/param codes are in
+  **lockstep with `R/0-linkage_encode.R`** — change one, change both. Each REPORTs a
+  `*_linkage_offset` tensor; the constructive linkage tests
+  (e.g. `test-dynamics-recruitment-linkage.R`) pin those offsets, so they — not
+  `/golden-check` (whose 4 models carry no linkage rows) — are the regression net for any
+  linkage-path edit.
 
 ## Domain vocabulary (use these exact terms in plots/docs/messages)
 
@@ -180,7 +225,20 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-A multi-PR accessibility / code-review refactor is **planned but paused** (branch
-`accessibility-and-code-review`). The self-contained plan and locked decisions are in
-`~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming
-that work; do not start editing from scratch.
+- **Data-workflow + linkage-grammar effort** (branch `dev-data-workflow`): PRs 1–6 shipped
+  — the linkage grammar, column schema, `build_data()`/`model_config()`,
+  `save_config()`/`load_config()`, and `fit_mod(config=)` (all documented above and in the
+  developer guide). Roadmap/status live in `dev/PLAN-data-workflow-and-linkage-grammar.md`.
+- **PR 7 (legibility + docs)** on branch `pr7-legibility` (off `dev-data-workflow`): condense
+  Tiers A–C, the `build_growth(sd_plus_group=)` WHAM/SS3 feature (D1), the C++ legibility
+  pass (section-index repair, Doxygen headers, the `JnllRow` enum), the `mse_summary()`
+  reshape to a per-entity list, and the developer-guide expansion are **done and golden
+  bit-identical**. **Deferred/declined:** Tier D2 (the `linkage.hpp` accumulator merge) was
+  **declined** — the five accumulators span two stratum universes (species vs fleet) and are
+  already clear/Doxygen'd, so a merge is net-negative; the `.refit_like` 11-site collapse is
+  deferred (golden-unverifiable). The branch is **not yet merged** to `dev-data-workflow`.
+  See `dev/HANDOFF-pr7-condense-tiers-DE.md`.
+- **Older paused work:** a multi-PR accessibility / code-review refactor (branch
+  `accessibility-and-code-review`), plan in
+  `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
+  do not start from scratch.

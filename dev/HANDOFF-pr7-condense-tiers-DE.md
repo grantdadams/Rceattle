@@ -28,10 +28,21 @@
 > `R/6-rename_output.R`; each enum value equals the integer it replaced, so golden bit-identical
 > (incl. per-row `jnll_dev`). Also relabeled `14.3`→`13.2` (Diet likelihood is a section-13 term).
 >
-> **STILL OPEN:** (1) **Tier D2 (`linkage.hpp` accumulators)** — still deferred (see below).
-> (2) **The `.refit_like` collapse** — deferred (tabulation below). (3) **Merge** `pr7-legibility` →
-> `dev-data-workflow`. (4) Minor: the orphaned `12.2.1 "Calculate CAAL"` cpp section label (needs a
-> structural call on where section 12 begins) was left as-is.
+> **STILL OPEN:** (1) **The `.refit_like` collapse** — deferred (tabulation below).
+> (2) **Merge** `pr7-legibility` → `dev-data-workflow`. (3) Minor: the orphaned
+> `12.2.1 "Calculate CAAL"` cpp section label (needs a structural call on where section 12
+> begins) was left as-is.
+>
+> **CLOSED — Tier D2 (`linkage.hpp` accumulators): DECLINED (wontfix), 2026-07-26.** Grant's
+> call after review. The five accumulators span **two stratum universes** (population:
+> species×sex×age for growth/M/rec; fleet: fleet[×sex] for q/sel) with four tensor ranks and
+> `sel`'s three-way param branch — they do **not** factor onto one writer-parameterized helper
+> without functors over both universes. The genuinely-shared slice is only the ~9-line
+> row-matching harness (~5–15 net lines). Against that: AD-taped code that sets federal quotas,
+> already Doxygen'd and individually simple. Verdict: a merge is **net-negative for legibility**.
+> (Coverage worry from the original plan is moot: the suite already exercises all five compiled
+> accumulators — `test-dynamics-recruitment-linkage.R` *constructively pins the offset tensor*,
+> q/sel via real fits — so a future edit is well-netted regardless.)
 
 **Context.** PR 7 (the "condense the codebase" + roxygen pass, brief:
 `dev/PROMPT-code-legibility-and-roxygen.md`) was run on branch **`pr7-legibility`** off
@@ -76,7 +87,11 @@ into one helper both call. Also drop the **unreachable `growth_model == 3` branc
 L461; both already commented, nested inside `growth_model < 3`, and the switch only yields 1/2).
 Risk: AD taping — golden bit-identical is mandatory. Est. ~100 lines.
 
-**D2 — `src/TMB/linkage.hpp` accumulators (candidate to DEFER further).** There are **FIVE**
+**D2 — `src/TMB/linkage.hpp` accumulators: DECLINED (wontfix, 2026-07-26).** See the STATUS
+block at the top for the rationale. The analysis below stands as the record of *why* it doesn't
+factor; it is no longer a backlog item.
+
+There are **FIVE**
 `rceattle_apply_{growth,M,recruitment,q,sel}_linkages` (not six), sharing ~90% skeleton
 (`beta.size()` guard, `yr_hi=min(...)`, the `linkage_process`/`link_code` row filter,
 `rceattle_stratum_range()` expansion, `+= b * linkage_X(yr, xc)`). They differ **only** in the
