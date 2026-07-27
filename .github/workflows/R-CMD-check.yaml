@@ -1,11 +1,12 @@
 # Standard r-lib R-CMD-check workflow for an R package that links to TMB.
-# Runs on push / PR to master and on a weekly schedule (so silent
-# upstream breakage in CRAN dependencies surfaces even on quiet weeks).
+# Runs on push / PR to master, main, and the dev integration branch, and on a
+# weekly schedule (so silent upstream breakage in CRAN dependencies surfaces
+# even on quiet weeks).
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, dev]
   pull_request:
-    branches: [master, main]
+    branches: [master, main, dev]
   schedule:
     - cron: "0 6 * * 1"  # Mondays 06:00 UTC
   workflow_dispatch:
@@ -66,6 +67,19 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+
+      # setup-r-dependencies writes NOT_CRAN=true to $GITHUB_ENV, which would run
+      # the full skip_on_cran() fit_mod() integration suite on EVERY OS in the
+      # matrix. Those phased fits are multimodal and platform-sensitive -- on
+      # Windows one settles in a different basin, its gradient blows up, and
+      # sdreport crashes R (the check then fails with no test named). The multi-OS
+      # check is meant to stay fast; the full fit suite runs on the coverage
+      # workflow (ubuntu, NOT_CRAN=true). Override NOT_CRAN here -- via GITHUB_ENV,
+      # after setup-r-dependencies, since a job-level env: would be shadowed by the
+      # value it already exported -- so skip_on_cran() actually skips. See CLAUDE.md.
+      - name: Keep the multi-OS check fast (skip fit_mod integration tests)
+        shell: bash
+        run: echo "NOT_CRAN=false" >> "$GITHUB_ENV"
 
       - uses: r-lib/actions/check-r-package@v2
         with:

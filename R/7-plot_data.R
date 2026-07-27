@@ -69,8 +69,6 @@ plot_data <- function(Rceattle,
                       mainTitle = FALSE,
                       cex.main = 1) {
 
-  .save_par()  # snapshot graphics par() and restore on exit
-
   # Accept either a fitted Rceattle object or a raw data_list
   if (inherits(Rceattle, "Rceattle")) {
     data_list <- Rceattle$data_list
@@ -256,114 +254,39 @@ plot_data <- function(Rceattle,
     fleetcol <- rep(fleetcol, length.out = nflt)
   }
 
-  # Inner plotting routine
-  plotdata <- function(datasize) {
-    par(mar = margins)
-    xlim <- c(-1, 1) + range(typetable$yr, na.rm = TRUE)
-    # one row per (fleet, type) combo with data
-    n_rows <- nrow(unique(typetable[, c("fleet", "itype")]))
-    ntypes <- length(unique(typetable$itype))
-    ymax <- n_rows + 2 * ntypes + 0.5
+  # Build display labels and relative point size (within each data type, max
+  # -> 1), then render a faceted ggplot: year on x, fleet on y, one facet row
+  # per data type, point area scaled to the relative quantity/precision.
+  typetable$Fleet_label <- vapply(typetable$fleet, fleet_label, character(1))
+  typetable$Type_label  <- factor(
+    typetable_def$label[match(typetable$type, typetable_def$type)],
+    levels = typetable_def$label)
 
-    main.temp <- ""
-    if (mainTitle) {
-      main.temp <- if (datasize) {
-        "Data by type and year (circle area = relative within type)"
-      } else {
-        "Data by type and year"
-      }
-    }
+  typetable <- do.call(rbind, lapply(split(typetable, typetable$type),
+    function(d) {
+      mx <- max(d$size, na.rm = TRUE)
+      d$rel <- if (is.finite(mx) && mx > 0) d$size / mx else 0
+      d
+    }))
+  fl_order <- unique(typetable$Fleet_label[order(typetable$itype,
+                                                 typetable$fleet)])
+  typetable$Fleet_label <- factor(typetable$Fleet_label, levels = rev(fl_order))
 
-    plot(0, type = "n", axes = FALSE, xaxs = "i", yaxs = "i",
-         xlim = xlim, ylim = c(0, ymax),
-         xlab = "Year", ylab = "",
-         main = main.temp, cex.main = cex.main)
-    xticks <- 5 * (floor(xlim[1] / 5):ceiling(xlim[2] / 5))
-    abline(v = xticks, col = "grey", lty = 3)
-    # mark model endyr (separator between data and projection inputs)
-    abline(v = endyr + 0.5, col = "grey50", lty = 2)
+  p <- ggplot2::ggplot(
+    typetable,
+    ggplot2::aes(x = .data$yr, y = .data$Fleet_label,
+                 colour = .data$Type_label, size = .data$rel)) +
+    ggplot2::geom_vline(xintercept = endyr + 0.5, linetype = 2,
+                        colour = "grey50") +
+    ggplot2::geom_point(alpha = alphasize) +
+    ggplot2::facet_grid(rows = ggplot2::vars(.data$Type_label),
+                        scales = "free_y", space = "free_y") +
+    ggplot2::scale_size_area(max_size = 6, guide = "none") +
+    ggplot2::labs(x = "Year", y = NULL)
+  p <- .rceattle_scale(p + .rceattle_theme() +
+                         ggplot2::theme(legend.position = "none"),
+                       aesthetics = "colour")
 
-    axistable <- data.frame(fleet = integer(0), yval = numeric(0))
-    yval <- 0
-
-    # plot in reverse order so first type is on top
-    for (it in rev(sort(unique(typetable$itype)))) {
-      tt_it <- typetable[typetable$itype == it, , drop = FALSE]
-
-      # rescale size within data type so max bubble = 1
-      sz_max <- max(tt_it$size, na.rm = TRUE)
-      tt_it$size <- if (is.finite(sz_max) && sz_max > 0) tt_it$size / sz_max else 0
-
-      type_fleets <- sort(unique(tt_it$fleet))
-      for (flt in rev(type_fleets)) {
-        sub <- tt_it[tt_it$fleet == flt, , drop = FALSE]
-        if (nrow(sub) == 0) next
-        col <- fleetcol[match(flt, fleets_used)]
-        yval <- yval + 1
-        yrs <- sub$yr
-        sz  <- sub$size
-
-        if (!datasize) {
-          # presence / absence: lines for runs, points for solos
-          x_full <- min(yrs):max(yrs)
-          y_full <- ifelse(x_full %in% yrs, yval, NA)
-          n <- length(x_full)
-          solo <- rep(FALSE, n)
-          if (n == 1) {
-            solo[1] <- TRUE
-          } else {
-            pad <- c(NA, y_full, NA)
-            for (i in seq_len(n)) {
-              if (!is.na(y_full[i]) && is.na(pad[i]) && is.na(pad[i + 2])) {
-                solo[i] <- TRUE
-              }
-            }
-          }
-          points(x_full[solo], y_full[solo], pch = 16, cex = cex, col = col)
-          lines(x_full, y_full, lwd = lwd, col = col)
-        } else {
-          # bubble plot — drop zero-size rows
-          keep <- is.finite(sz) & sz > 0
-          if (any(keep)) {
-            symbols(x = yrs[keep], y = rep(yval, sum(keep)),
-                    circles = sqrt(sz[keep]) * maxsize,
-                    bg = adjustcolor(col, alpha.f = alphasize),
-                    fg = col, add = TRUE, inches = FALSE)
-          }
-        }
-        axistable <- rbind(axistable, data.frame(fleet = flt, yval = yval))
-      }
-      yval <- yval + 2
-      label_y <- yval - 0.6
-      if (it != min(typetable$itype)) {
-        abline(h = yval - 0.3, col = "grey", lty = 3)
-      }
-      this_label <- typetable_def$label[match(
-        unique(tt_it$type), typetable_def$type)]
-      text(mean(xlim), label_y, this_label, font = 2)
-    }
-
-    axis(4, at = axistable$yval,
-         labels = vapply(axistable$fleet, fleet_label, character(1)),
-         las = 1)
-    axis(1, at = xticks)
-    box()
-  }
-
-  # Draw + optionally save each requested subplot
-  draw_one <- function(datasize, suffix) {
-    plotdata(datasize = datasize)
-    if (!is.null(file)) {
-      filename <- paste0(file, suffix)
-      png(filename = filename, width = width, height = height,
-          units = "in", res = res, pointsize = ptsize)
-      plotdata(datasize = datasize)
-      dev.off()
-    }
-  }
-
-  if (1 %in% subplots) draw_one(FALSE, "_data_plot.png")
-  if (2 %in% subplots) draw_one(TRUE,  "_data_plot2.png")
-
-  invisible(list(typetable = typetable))
+  .save_ggplot(p, file = file, suffix = "data_plot",
+               width = width, height = height)
 }

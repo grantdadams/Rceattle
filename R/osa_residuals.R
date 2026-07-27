@@ -150,17 +150,26 @@ osa_residuals <- function(fit,
   # observations are independent given the parameters, so the OSA residuals are
   # invariant to this subset order
   #
-  # Optional -- chronological: year first, then data source, then bin. Puts the
-  # conditional sequence in time order. 
-  # sel <- sel[order(sel$year, match(sel$source, source), sel$bin_index,
-  #                 na.last = TRUE), , drop = FALSE]
+  # `fleet_code` is included as a tie-break so the sequence is fully determined:
+  # within a given (source, year) -- or (year, source) below -- several fleets can
+  # supply observations (e.g. multiple surveys), and without an explicit key their
+  # order would fall to the incidental row order of obs_ctl. Under random effects
+  # that within-year fleet order is not cosmetic -- it shifts individual residuals
+  # (though not the overall N(0,1) properties / validity conclusion; Trijoulet et
+  # al. 2023). Ascending fleet_code also matches WHAM's within-stage ordering
+  # (index fleets before the fishery), so it does not disturb the WHAM cross-check.
+  #
+  # Optional -- chronological: year first, then data source, then fleet, then bin.
+  # Puts the conditional sequence in time order.
+  # sel <- sel[order(sel$year, match(sel$source, source), sel$fleet_code,
+  #                 sel$bin_index, na.last = TRUE), , drop = FALSE]
 
   # WHAM-style -- type-blocked: source first (aggregate index/catch, then comp,
-  # then caal), then year, then bin. This reproduces
+  # then caal), then year, then fleet, then bin. This reproduces
   # WHAM's make_osa_residuals() conditioning (aggregate -> comp -> CAAL,
   # each conditional on the previous types).
-  sel <- sel[order(match(sel$source, source), sel$year, sel$bin_index,
-                    na.last = TRUE), , drop = FALSE]
+  sel <- sel[order(match(sel$source, source), sel$year, sel$fleet_code,
+                    sel$bin_index, na.last = TRUE), , drop = FALSE]
 
   # Rebuild the model in OSA mode (osa = TRUE) at the fitted parameters. This
   # is required so the composition (comp/caal) likelihoods read their counts

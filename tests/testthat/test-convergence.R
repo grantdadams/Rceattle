@@ -38,6 +38,34 @@ test_that("Hessian eigen check flags an ill-conditioned covariance", {
   expect_gt(cv$checks$hessian_conditioning$data$condition_number, 1e6)
 })
 
+test_that("Hessian eigen check names a diffusely-loaded flat direction", {
+  # Flat direction spread evenly over 40 rec_dev coefficients (each loading
+  # ~0.16, below any single-coefficient threshold) plus a little ln_srv_sel.
+  # The pre-fix check printed "loads on: ." with nothing after it.
+  nm  <- c(rep("rec_dev", 40), rep("ln_srv_sel", 4))
+  p   <- length(nm)
+  v1  <- c(rep(1, 40), rep(1.5, 4)); v1 <- v1 / sqrt(sum(v1^2))
+  Q   <- qr.Q(qr(cbind(v1, diag(p)[, -1])))
+  cov <- Q %*% diag(c(1e8, rep(1, p - 1))) %*% t(Q)
+  dimnames(cov) <- list(nm, nm)
+  fit <- make_fake_fit(); fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
+  hc  <- convergence_diagnostics(fit)$checks$hessian_conditioning
+  expect_true(hc$severity %in% c("WARN", "FAIL"))
+  expect_match(hc$message, "loads on: [A-Za-z]")   # never blank after "loads on: "
+  expect_match(hc$message, "rec_dev")              # the dominant block is named
+  expect_true("rec_dev" %in% hc$data$loadings$param)
+})
+
+test_that("Hessian eigen check falls back to par.fixed names without dimnames", {
+  nm  <- c("a", "b", "c")
+  cov <- diag(c(1e8, 1, 1))                        # flat direction is coeff 'a'
+  fit <- make_fake_fit()
+  fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE,
+                    par.fixed = stats::setNames(c(0, 0, 0), nm))
+  hc  <- convergence_diagnostics(fit)$checks$hessian_conditioning
+  expect_match(hc$message, "loads on: a")          # named from par.fixed, not "p1"
+})
+
 test_that("Hessian eigen check is OK on a well-conditioned covariance", {
   cov <- diag(c(1, 2)); dimnames(cov) <- list(c("a", "b"), c("a", "b"))
   fit <- make_fake_fit(); fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)

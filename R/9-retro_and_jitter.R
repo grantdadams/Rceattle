@@ -289,7 +289,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
       # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
       if(newmod$data_list$srr_fun != newmod$data_list$srr_pred_fun){
-        rec_dev <- log(mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])) # - Scale mean rec for rec trend
+        # Already a log-scale deviation, so take the mean directly.
+        rec_dev <- mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])
 
       }
 
@@ -441,7 +442,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           mohns[ind, 1] <- objects[j]         # Object
           mohns[ind, 2] <- yr                 # Year
           mohns[ind, 3] <- mohns[ind, 3] + 1  # N
-          mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
+          mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[ind, 4:(data_list$nspp + 3)] + rel_error # Relative error
         }
         ind = ind+1
       }

@@ -1,4 +1,32 @@
 # Adapted from Matt Cheng
+#
+#' Make a multi-species operating-model data set
+#'
+#' Simulates an age-structured, multi-species CEATTLE population (MSVPA-style
+#' predation) and returns both the underlying truth and an Rceattle-shaped data
+#' list, so estimation tests can compare a fitted model against known values.
+#'
+#' The population is projected forward `niter` times so predation mortality
+#' (`M2`) converges, then observations (survey index, catch, age/length comps,
+#' diet proportions) are drawn with the given sampling error / input sample
+#' sizes. Selectivity, growth, suitability, and bioenergetics are all
+#' configurable via the formals.
+#'
+#' @param nspp,years,ages Dimensions of the simulated system.
+#' @param mean_Rec,sigma_R,M,rhoM,sigmaM Recruitment level/variability and
+#'   natural-mortality level plus its AR(1) time-variation.
+#' @param fish_sel,srv_sel,fish_size_sel,srv_size_sel,use_size_sel Age- or
+#'   length-based selectivity for the fishery and survey.
+#' @param growth_params,growth_model,nlengths,lengths Growth (K, L1, Linf, m)
+#'   and the length bins used to build the age-length transition.
+#' @param gam_a,gam_b,log_phi,other_food,ration_mult,normalize_suitability
+#'   Predation/diet controls (size-preference, vulnerability, ration).
+#' @param sigma_catch,sigma_srv,fish_ISS,srv_ISS,diet_ISS,fish_CAAL_ISS,srv_CAAL_ISS
+#'   Observation error and input sample sizes for each data type.
+#'
+#' @return A list with `model_quantities` (the simulated truth: NAA, FAA, SSB,
+#'   suitability, diet_prop, ...), `data_list` (the Rceattle data list ready for
+#'   `fit_mod()`), and `base_data` (the data list before ration is added).
 make_msm_test_data <- function(
     nspp = 2,
     years = 1:30,

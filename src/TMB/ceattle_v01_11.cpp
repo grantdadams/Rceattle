@@ -28,8 +28,25 @@
 #include "diet_data.hpp"
 #include "linkage.hpp"
 
+// List-of-matrices data structure: reads an R list() of numeric matrices into a
+// vector<matrix<Type>>. Used for the per-fleet survey-index covariance matrices
+// (Sigma) supplied when Index_loglike == "MVN"/"MVNORM" (the AMAK/ebswp DoCovBTS
+// covariance survey likelihood; see sections 8.2 and 13.1). Non-covariance fleets
+// pass a 1x1 inert dummy so the list is always length n_flt and can be indexed by
+// fleet code.
+template<class Type>
+struct LOM_t : vector<matrix<Type> > {
+  LOM_t(SEXP x) {  // x = R list of matrices
+    (*this).resize(LENGTH(x));
+    for(int i = 0; i < LENGTH(x); i++){
+      SEXP m = VECTOR_ELT(x, i);
+      (*this)(i) = asMatrix<Type>(m);
+    }
+  }
+};
+
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.4.0                                     //
+ *                 CEATTLE version 4.4                                       //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -216,11 +233,19 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_type);             // Vector to save fleet selectivity parameterization
   DATA_IVECTOR(flt_sel_dim);              // Vector to save fleet selectivity dimension (0 = age, 1 = length)
   DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
+  DATA_IVECTOR(flt_sel_cap_bin);          // NonParametricPM (type 9): first bin (0-based, age or length per flt_sel_dim) at/after which the realized selectivity is held flat (RTMB cap_old_age). < 0 -> no cap.
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
-  DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used)
-  DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used)
+  DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
+  DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
+  DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
+  DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
+  DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
+  DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
+  DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
+  DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
+  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
@@ -241,6 +266,9 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
+  DATA_IVECTOR( index_ll_type );          // Survey index likelihood family per fleet (0 = lognormal IID, 1 = MVN bare quadratic form, 2 = MVNORM full density, 3 = natural-scale normal with absolute sd)
+  DATA_STRUCT( index_cov_mat, LOM_t );    // Per-fleet covariance matrices Sigma for the MVN/MVNORM survey likelihood (1x1 dummy if unused)
+  DATA_VECTOR( index_cov_const );         // Per-fleet 0.5*(logdet(Sigma) + n*log(2pi)); subtracted for "MVN" so it reports the bare quadratic form
 
   // -- 2.4.2b One-step-ahead (OSA) residual support
   // `obsvec` is a flat vector holding every observation that enters the
@@ -839,8 +867,10 @@ Type objective_function<Type>::operator() () {
     flt_sel_dim,          // Age or length based
     bin_first_selected,   // Min bin selected per fleet
     flt_n_sel_bins,       // Max estimated bins per fleet
+    flt_sel_cap_bin,      // Bin (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
+    flt_sel_start_yr,     // Per-fleet selectivity start year (0-based)
     emp_sel_obs,          // Empirical observations matrix
     emp_sel_ctl,          // Empirical control matrix
     log_sel_slp,           // Logistic slope parameters
@@ -986,8 +1016,9 @@ Type objective_function<Type>::operator() () {
     // 6.1. TOTAL MORTALITY-AT-AGE
     for(sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
+        // Element-wise: assigning a scalar to a vector would broadcast.
         for(int i = 0; i < M1_beta.dim(2); i++){
-          beta_M1_tmp = M1_beta(sp, sex, i);
+          beta_M1_tmp(i) = M1_beta(sp, sex, i);
         }
         for(age = 0; age < nages(sp); age++) {
           for(yr = 0; yr < nyrs; yr++) {
@@ -1761,7 +1792,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -1826,6 +1857,34 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // -- 8.2b. Arithmetic-mean analytical q (AMAK/ebswp): q = sum(obs)/sum(pred)
+  //    over the fitted survey years (est_index_q == 7, "AnalyticalArith"). This
+  //    reproduces the AMAK BTS q_bts = mean(ob_bts)/mean(eb_bts) and is the q
+  //    form paired with the MVN covariance survey likelihood (Index_loglike =
+  //    "MVN"). Uses index_hat before it is scaled by q just below.
+  vector<Type> index_obs_sum(n_flt); index_obs_sum.setZero();
+  vector<Type> index_hat_sum(n_flt); index_hat_sum.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+    index = index_ctl(index_ind, 0) - 1;
+    flt_yr = index_ctl(index_ind, 2);
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+      if(flt_yr < nyrs_hind){
+        index_obs_sum(index) += index_obs(index_ind, 0);
+        index_hat_sum(index) += index_hat(index_ind);
+      }
+    }
+  }
+  for(index = 0; index < n_flt; index++){
+    if(est_index_q(index) == 7){
+      Type q_arith = index_obs_sum(index) / index_hat_sum(index);
+      for(yr = 0; yr < nyrs_hind; yr++){
+        index_q(index, yr) = q_arith;
+      }
+    }
+  }
+
+
   // -- 8.3. Survey Biomass - multiply by q
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
@@ -1835,7 +1894,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -1888,7 +1947,7 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
     }
-    if(flt_yr < 0){
+    else if(flt_yr < 0){
       flt_yr = -flt_yr - styr;
     }
 
@@ -1953,7 +2012,7 @@ Type objective_function<Type>::operator() () {
     if(yr > 0){
       yr = yr - styr;
     }
-    if(yr < 0){
+    else if(yr < 0){
       yr = -yr - styr;
     }
 
@@ -2238,7 +2297,7 @@ Type objective_function<Type>::operator() () {
     if(yr > 0){
       yr = yr - styr;
     }
-    if(yr < 0){
+    else if(yr < 0){
       yr = -yr - styr;
     }
     // Hindcast
@@ -2393,8 +2452,10 @@ Type objective_function<Type>::operator() () {
 
     log_index_sd(index_ind) = index_std_dev;
 
-    // Only include years from hindcast
-    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
+    // Only include years from hindcast. Lognormal IID branch (index_ll_type == 0);
+    // MVN covariance fleets (index_ll_type == 1) are handled in the per-fleet loop
+    // below and contribute nothing here.
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 0)){
       if(index_obs(index_ind) > 0){
         // Read the (log) observation from obsvec and gate it with keep so that
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
@@ -2407,6 +2468,58 @@ Type objective_function<Type>::operator() () {
         // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
         int pos = index_obsvec_idx(index_ind);
         jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+      }
+    }
+
+    // Natural-scale normal (Index_loglike == "Normal", index_ll_type == 3): the
+    // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
+    // observation sd on the natural scale, not a log-scale CV), matching the AMAK
+    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term and
+    // no OSA (obsvec holds log-scale observations).
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
+      if(index_obs(index_ind, 0) > 0){
+        jnll_comp(0, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+      }
+    }
+  }
+
+  // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
+  // DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r applied to each MVN
+  // fleet's fitted residual vector r = obs - q*pred (arithmetic, natural scale;
+  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma^-1 is the
+  // precomputed precision matrix index_cov_prec(index). The residual vector is
+  // assembled in index_obs row order to match the rows/cols of Sigma. Reuses
+  // jnll_comp row 0. Note: OSA residuals are not defined for this multivariate
+  // block, so it does not read obsvec/keep.
+  for(index = 0; index < n_flt; index++){
+    if((flt_type(index) > 0) && (index_ll_type(index) == 1 || index_ll_type(index) == 2)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density) ONLY -- other families (0 lognormal, 3 normal) carry a 1x1 dummy Sigma and must not enter here
+      int n_mvn = 0;
+      for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
+        if((index_ctl(index_ind, 0) - 1) == index){
+          flt_yr = index_ctl(index_ind, 2);
+          if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)) n_mvn++;
+        }
+      }
+      if(n_mvn > 0){
+        vector<Type> resid(n_mvn);
+        int k = 0;
+        for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
+          if((index_ctl(index_ind, 0) - 1) == index){
+            flt_yr = index_ctl(index_ind, 2);
+            if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)){
+              resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
+              k++;
+            }
+          }
+        }
+        // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
+        // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
+        // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
+        Type dens = MVNORM(index_cov_mat(index))(resid);
+        // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
+        // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
+        // full density. Both give an identical fit (the constant has zero gradient).
+        jnll_comp(0, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
       }
     }
   }
@@ -2619,38 +2732,46 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 4-5 -- Selectivity
-  // * - Case 1 / 6: Logistic (2-parameter: slope and inflection) [Age / Length]
-  // * - Case 2 / 7: Non-parametric (Bin-specific coefficients with smoothing, Ianelli style) [Age / Length]
-  // * - Case 3 / 8: Double Logistic (Dorn and Methot 1990) [Age / Length]
-  // * - Case 4 / 9: Descending Logistic [Age / Length]
-  // * - Case 5 / 10: Non-parametric (Cumulative coefficients, Hake/Taylor style) [Age / Length]
+  //
+  // FIXME: penalize every selectivity deviation rather than a sub-range. The
+  // range controls (Sel_pen_first_bin, Sel_pen_last_bin, Sel_cap_bin,
+  // Sel_start_year, and the matching build_map masking) exist only because these
+  // penalties cover a sub-range; penalizing all deviations would pin the
+  // unidentified directions and remove the need to index by bin and year.
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;
     sp = flt_spp(flt);
 
-    // If estimating survey or fishery
-    if(flt_type(flt) > 0){
+    // Non-parametric penalties act over the fleet's selectivity dimension:
+    // nbins = nages for age-based, nlengths for length-based selectivity.
+    bool sel_is_length = (flt_sel_dim(flt) == 1);
+    int  nbins = sel_is_length ? nlengths(sp) : nages(sp);
 
-      // 1) Ianelli/AMAK non-parametic selectivity penalties
+    // If estimating survey or fishery (and not a selectivity mirror of an earlier
+    // fleet - the shared penalty is accumulated once, on the lead fleet).
+    if(flt_type(flt) > 0 && flt_sel_lead(flt) == 1){
+
+      // 1a) Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
       // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
+      // - Added time-varying component following Atka mackerel
       if(flt_sel_type(flt) == 2) {
 
         // If time-invariant selectivity
         int nyrs_tmp = 1;
 
-        // If time-varying selectivity
-        if(flt_varying_sel(flt) == 1){
+        // If random walk is on
+        if(flt_varying_sel(flt) == 4){
           nyrs_tmp = nyrs_hind;
         }
 
         for(yr = 0; yr < nyrs_tmp; yr++){
 
-          // 1. Decreasing selectivity penalty
-          // FIXME: AMAK starts at nages/2
+          // 1. Decreasing selectivity penalty (over the fleet's own bins)
+          // FIXME: AMAK starts at nbins/2
           for(sex = 0; sex < nsex(sp); sex++){
-            for(age = 0; age < (nages(sp) - 1); age++) {
+            for(age = 0; age < (nbins - 1); age++) {
               Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
               jnll_comp(4, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
@@ -2659,22 +2780,23 @@ Type objective_function<Type>::operator() () {
           // 2. Curvature penalty
           for(sex = 0; sex < nsex(sp); sex++){
             // Extract only the selectivities we want
-            vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
+            vector<Type> sel_tmp(nbins); sel_tmp.setZero();
 
-            for(age = 0; age < nages(sp); age++) {
+            for(age = 0; age < nbins; age++) {
               sel_tmp(age) = log(non_par_sel(flt, sex, age, yr));
             }
 
-            for(age = 0; age < nages(sp) - 2; age++) {
-              sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
+            // Second difference computed once (matches the type-9 branch).
+            vector<Type> sel_d2 = first_difference( first_difference( sel_tmp ) );
+            for(int a2 = 0; a2 < sel_d2.size(); a2++) {
+              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
             }
           }
 
           // 3. Time-varying penalty
           if(yr > 0){
             for(sex = 0; sex < nsex(sp); sex++){
-              for(age = 0; age < (nages(sp) - 1); age++) {
+              for(age = 0; age < (nbins - 1); age++) {
                 jnll_comp(5, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
               }
             }
@@ -2687,10 +2809,105 @@ Type objective_function<Type>::operator() () {
         }
       }
 
+      // 1b) Non-parametric with the ADMB ("pm"/AMAK) selectivity penalty
+      //     (NonParametricPM, type 9). Construction is identical to type 2; only
+      //     the penalty differs to match ADMB's Selectivity_Likelihood:
+      //       jnll_comp(4) = ADMB sel_like(1): decreasing-only penalty,
+      //         weight sel_curve_pen(flt,0) (= ctrl_flag(13)).
+      //       jnll_comp(5) = ADMB sel_like_dev(1):
+      //         - curvature: weight sel_curve_pen(flt,1) (= ctrl_flag(11)/nch) on
+      //           the 2nd difference of log-selectivity, every year;
+      //         - random walk: bare Gaussian SSQ of the year-to-year change in
+      //           log-selectivity / (2*sd^2) (NO dnorm normalizing constant), all ages;
+      //         - dev magnitude: weight sel_curve_pen(flt,2) (= ctrl_flag(10)/group_num)
+      //           on norm2 of the year-to-year coefficient increments.
+      if(flt_sel_type(flt) == 9) {
+
+        int nyrs_tmp = 1;
+        if(flt_varying_sel(flt) == 4){
+          nyrs_tmp = nyrs_hind;
+        }
+
+        // Per-fleet selectivity start year (0-based). Penalties over realized
+        // selectivity skip pre-survey years (and the survey base-year curvature,
+        // matching ADMB's styr-anchored base term which is 0 for a survey that
+        // starts after styr). For a fleet starting at styr (e.g. the fishery,
+        // start_yr = 0) this is the original behaviour.
+        int start_yr = flt_sel_start_yr(flt);
+        int shape_a0 = flt_sel_pen_first_bin(flt);              // first (left) bin of the shape-penalty pairs
+        if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected bin
+        int shape_a1 = flt_sel_pen_last_bin(flt);               // last (left) bin of the shape-penalty pairs
+        if(shape_a1 < 0) shape_a1 = nbins - 2;                  // default: whole range (pairs up to (nbins-2, nbins-1))
+        int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
+        for(sex = 0; sex < nsex(sp); sex++){
+          for(yr = start_yr; yr < nyrs_tmp; yr++){
+
+            // (1) Shape penalty over adjacent ages [shape_a0 .. shape_a1], all active years.
+            //     mode 0 (directional, ADMB/AMAK): SIGN of sel_curve_pen(flt,0) sets
+            //       direction (>=0 penalize DECREASING, <0 penalize INCREASING), one-sided,
+            //       differentiable via (|d|+d)/2 = max(d,0) and (|d|-d)/2 = max(-d,0).
+            //     mode 1 (smooth, RTMB "rpm"): two-sided weight * d^2 smoothness.
+            for(age = shape_a0; age <= shape_a1; age++) {
+              Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
+              if(shape_mode == 1)
+                jnll_comp(4, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
+              else if(sel_curve_pen(flt, 0) >= 0)
+                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
+              else
+                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
+            }
+
+            // (2) Curvature (2nd-difference) penalty  [ADMB term 2/3]. Includes the
+            //     base year only when the fleet starts at styr (start_yr == 0);
+            //     otherwise the survey base-year curvature is excluded (ADMB anchors
+            //     the base curvature term at styr, which is 0 pre-survey).
+            if((yr > start_yr) || (start_yr == 0)){
+              vector<Type> ls(nbins); ls.setZero();
+              for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
+              vector<Type> d2 = first_difference( first_difference( ls ) );
+              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(5, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
+            }
+
+            // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
+            if(yr > start_yr){
+              for(age = 0; age < nbins; age++) {
+                Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
+                jnll_comp(5, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
+              }
+            }
+          }
+
+          // (4) Dev-magnitude penalty: norm2 of the RAW per-year increments
+          //     (sel_coff_dev IS the random-walk increment for NonParametricRPM;
+          //     = RTMB norm2(sel_devs)). Increments are 0 at non-change years.
+          for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
+            for(yr = start_yr; yr < nyrs_tmp; yr++){
+              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
+            }
+          }
+
+          // (5) AMAK "avgsel" base-level penalty:
+          //     weight * (log(mean(exp(base coffs))))^2 over the estimated coefficient
+          //     bins [bin_first_selected, n_sel_bins-1]. A mild regulariser that pins
+          //     the overall level of the base coefficients, which the per-year
+          //     mean-centering leaves unconstrained; equivalent to AMAK's
+          //     10*square(avgsel_*). The weight flt_sel_avgsel_pen defaults to 0 (off);
+          //     a model opts in via Sel_avgsel_pen (e.g. 10 to match AMAK).
+          if(flt_sel_avgsel_pen(flt) > 0){
+            Type msum = 0; Type nb = 0;
+            for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++){
+              msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
+            }
+            Type avgsel = log(msum / nb);
+            jnll_comp(4, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
+          }
+        }
+      }
+
 
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
@@ -2712,7 +2929,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
@@ -2727,6 +2944,41 @@ Type objective_function<Type>::operator() () {
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
+          }
+        }
+      }
+
+      // 2b) LogisticPM (type 11): ADMB AMAK ("pm") bottom-trawl-survey penalties,
+      //     ctrl_flag(19) > 0 branch. Two random-walk (norm2 of first-difference)
+      //     terms, BOTH starting the year AFTER the fleet's selectivity start year
+      //     (flt_sel_start_yr) so pre-survey years and the start-year boundary jump
+      //     are excluded (ADMB's dev_vector / flat pre-survey selectivity contribute
+      //     ~0 there):
+      //       (1) RW on the REALIZED log-selectivity-at-age over the penalty
+      //           age-range [sel_norm_bin1, sel_norm_bin2]  (= ADMB ctrl_flag(26) *
+      //           sum_{q_amin..q_amax-1} norm2(first_difference(log_sel_bts))),
+      //           weight sel_curve_pen(flt,0);
+      //       (2) RW on the free age-1 parameter deviates (= ADMB
+      //           8 * norm2(first_difference(sel_age_one_bts_dev))),
+      //           weight sel_curve_pen(flt,2).
+      //     (sel_curve_pen(flt,1) is unused in this branch.)
+      if(flt_sel_type(flt) == 11){
+        int start_yr = flt_sel_start_yr(flt);                 // 0-based; first first-difference is start_yr+1
+        int alo = sel_norm_bin1(flt); int ahi = sel_norm_bin2(flt);
+        if(alo < 0) alo = bin_first_selected(flt);            // default: whole selected range
+        if(ahi < 0) ahi = nbins - 1;
+        for(sex = 0; sex < nsex(sp); sex ++){
+          for(yr = start_yr + 1; yr < nyrs_hind; yr++){
+            // (1) realized log-selectivity random walk over the penalty bin-range
+            for(age = alo; age <= ahi; age++){
+              Type s_now  = sel_is_length ? sel_at_length(flt, sex, age, yr)     : sel_at_age(flt, sex, age, yr);
+              Type s_prev = sel_is_length ? sel_at_length(flt, sex, age, yr - 1) : sel_at_age(flt, sex, age, yr - 1);
+              Type d = log(s_now) - log(s_prev);
+              jnll_comp(5, flt) += sel_curve_pen(flt, 0) * d * d;
+            }
+            // (2) free age-1 parameter-deviate random walk
+            Type da1 = sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr - 1);
+            jnll_comp(5, flt) += sel_curve_pen(flt, 2) * da1 * da1;
           }
         }
       }
@@ -2808,7 +3060,10 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 6-7 -- Catchability
+  // Fleets sharing a Q_index estimate one catchability and one deviate vector,
+  // so only the lead fleet accumulates the prior and deviate penalties.
   for(flt = 0; flt < n_flt; flt++){
+   if(flt_q_lead(flt) == 1){
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
@@ -2849,6 +3104,7 @@ Type objective_function<Type>::operator() () {
         jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
+   } // End q lead gate
   } // End q loop
 
 
@@ -3537,13 +3793,16 @@ Type objective_function<Type>::operator() () {
 
   Type jnll = 0;
 
-  // Estimation mode
-  if(estimateMode < 3) {
+  // Modes 0-3 return the real objective. Mode 3 builds the TMB object without
+  // running the optimizer, so obj$fn()/obj$gr() are usable for diagnostics.
+  if(estimateMode < 4) {
     jnll = jnll_comp.sum();
   }
 
-  // Debug mode
-  if(estimateMode > 2) {
+  // Mode 4: build_map() maps out every hindcast parameter, leaving `dummy` as
+  // the only free parameter. Placeholder objective so nlminb has something
+  // valid to minimize -- a plumbing smoke test, not a likelihood.
+  if(estimateMode > 3) {
     jnll = dummy * dummy;
   }
 

@@ -2,6 +2,8 @@
 ^\.Rproj\.user$
 ^\.Rhistory$
 ^\.claude$
+^\.mcp\.json$
+^CLAUDE\.md$
 ^doc$
 ^Meta$
 ^examples$
@@ -14,6 +16,7 @@
 ^~\$.*$
 ^.*/~\$.*$
 ^\.vscode$
+^dev$
 ^R/dev$
 ^src/TMB/Dev$
 ^src/TMB/Depricated$
@@ -27,3 +30,4 @@
 ^Rplots\.pdf$
 ^_pkgdown\.yml$
 ^docs$
+^HANDOFF-data-workflow-modernization\.md$

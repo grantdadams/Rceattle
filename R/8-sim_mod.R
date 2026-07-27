@@ -39,6 +39,9 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   # Age/Length composition ----
   if(nrow(dat_sim$comp_data) > 0){
     comp_hat <- quantities$comp_hat
+    # Proportion columns found by name; the number of identifying columns
+    # ahead of them is not fixed.
+    comp_cols <- .composition_cols(dat_sim$comp_data, "Comp_")
     for (obs in 1:nrow(dat_sim$comp_data)) {
       prob_vec <- comp_hat[obs, ]
       sum_prob <- sum(prob_vec, na.rm = TRUE)
@@ -46,13 +49,16 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$comp_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
+        .ll <- as.character(dat_sim$fleet_control$Comp_loglike[flt])
+
         # --- Multinomial ---
-        if(dat_sim$fleet_control$Comp_loglike[flt] == "Multinomial"){
+        # "MultinomialAFSC" differs from "Multinomial" only in the likelihood's
+        # normalisation, not in the sampling distribution.
+        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
           sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
-        }
 
         # --- Dirichlet-multinomial ---
-        if(dat_sim$fleet_control$Comp_loglike[flt] == "DirichletMultinomial"){
+        } else if(.ll == "DirichletMultinomial"){
           # Theta is the overdispersion/precision parameter.
           theta <- exp(Rceattle$estimated_params$comp_weights[flt])
 
@@ -66,11 +72,16 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
           # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
           sim_comp <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
+
+        } else {
+          stop(sprintf(
+            "sim_mod(): unsupported Comp_loglike '%s' for fleet %s.",
+            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 
-        dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- as.vector(sim_comp)
+        dat_sim$comp_data[obs, comp_cols] <- as.vector(sim_comp)
       } else {
-        dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- prob_vec
+        dat_sim$comp_data[obs, comp_cols] <- prob_vec
       }
     }
   }
@@ -79,6 +90,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   # CAAL ----
   caal_hat <- quantities$caal_hat
   if(nrow(dat_sim$caal_data) > 0){
+    caal_cols <- .composition_cols(dat_sim$caal_data, "CAAL_")
     for (obs in 1:nrow(dat_sim$caal_data)) {
       prob_vec <- caal_hat[obs, ]
       sum_prob <- sum(prob_vec, na.rm = TRUE)
@@ -86,13 +98,14 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$caal_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
+        .ll <- as.character(dat_sim$fleet_control$CAAL_loglike[flt])
+
         # --- Multinomial ---
-        if(dat_sim$fleet_control$CAAL_loglike[flt] == 0){
+        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
           sim_caal <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
-        }
 
         # --- Dirichlet-multinomial ---
-        if(dat_sim$fleet_control$Comp_loglike[flt] == 1){
+        } else if(.ll == "DirichletMultinomial"){
           # Theta is the overdispersion/precision parameter.
           theta <- exp(Rceattle$estimated_params$caal_weights[flt])
 
@@ -106,12 +119,17 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
           # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
           sim_caal <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
+
+        } else {
+          stop(sprintf(
+            "sim_mod(): unsupported CAAL_loglike '%s' for fleet %s.",
+            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 
-        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- as.vector(sim_caal)
+        dat_sim$caal_data[obs, caal_cols] <- as.vector(sim_caal)
 
       } else {
-        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- prob_vec
+        dat_sim$caal_data[obs, caal_cols] <- prob_vec
       }
     }
   }
@@ -215,7 +233,12 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
         rec_dev <- sample(x = (log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs],
                           size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean((log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        # `log(R) - log(R_hat)` is already a log-scale deviation centred near
+        # zero, so its mean is routinely negative and the outer log() this
+        # used to take returned NaN. Take the mean deviation directly and add
+        # the log trend, mirroring the sampling branch above.
+        rec_dev <- mean((log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs]) +
+          log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       }
     }
 
