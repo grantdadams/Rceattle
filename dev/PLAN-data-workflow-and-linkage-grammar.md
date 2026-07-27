@@ -11,6 +11,14 @@
 > `dev-data-workflow` (`766d89b6`), which is **not yet released to `main`**. Remaining backlog
 > (own prompt files): `PLAN-sel-curve-pen-reformulation.md`, `PROMPT-mse-runtime-optimization.md`,
 > `PROMPT-osa-with-composition-accumulation.md`. The detail below is the historical record.
+>
+> **Post-merge (2026-07-27):** a documentation-quality review of the PR 1–7 surface + a
+> technical roxygen-accuracy audit (`fit_mod`, `build_srr`/`M1`/`growth`/`catchability`/
+> `selectivity`/`composition`, `linkage_spec`, `build_hcr`) landed on `dev-data-workflow`,
+> correcting the `build_hcr` SESSF/NPFMC/PFMC reference-point formulas, the Ricker β/1e6
+> note, the inert `avgnMode` switch, and the field-dictionary selectivity-penalty rows; plus
+> a code fix removing the HCR-4 `Fmult` double-application. See the archived
+> `PROMPT-doc-quality-review-pr1-7.md`.
 
 ## Context
 

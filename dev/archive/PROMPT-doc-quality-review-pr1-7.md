@@ -1,5 +1,16 @@
 # Prompt — documentation-quality review of the PR 1–7 doc surface
 
+> **DONE (2026-07-27).** Executed on `pr7-legibility`. All five clusters applied —
+> linkage/config roxygen, the data-workflow roxygen + `R/data.R`/`column_schema.R` field
+> dictionaries (regenerated `meta_data_names.xlsx`), the `data_check()` console messages,
+> the vignettes (substantial rewrite of `environmental-linkages-and-priors.Rmd`; light
+> passes elsewhere), and a NEWS trim. Two factual defects fixed along the way: the vignette's
+> slot-19-vs-20 contradiction (verified `JNLL_LINKAGE_PRIOR = 19`) and a stale "`obs_sd` …
+> is planned" claim that contradicted the shipped `obs_sd_est = TRUE`. `devtools::document()`
+> touched only the 16 intended `man/*.Rd`; doc-coupled tests + vignette knit-checks green.
+> A separate technical-accuracy audit of the `fit_mod`/`build_*` roxygen math followed.
+> Superseded — kept for history only.
+
 Copy the block below into a fresh session. This is a **documentation-only** pass over
 everything the data-workflow + linkage-grammar effort (PRs 1–7) added or changed. It does
 **not** touch code, the public API, or any fit — the code was adversarially reviewed and

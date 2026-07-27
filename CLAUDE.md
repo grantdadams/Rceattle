@@ -241,19 +241,24 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-- **Data-workflow + linkage-grammar effort** (branch `dev-data-workflow`): PRs 1–6 shipped
-  — the linkage grammar, column schema, `build_data()`/`model_config()`,
-  `save_config()`/`load_config()`, and `fit_mod(config=)` (all documented above and in the
-  developer guide). Roadmap/status live in `dev/PLAN-data-workflow-and-linkage-grammar.md`.
-- **PR 7 (legibility + docs)** on branch `pr7-legibility` (off `dev-data-workflow`): condense
-  Tiers A–C, the `build_growth(sd_plus_group=)` WHAM/SS3 feature (D1), the C++ legibility
-  pass (section-index repair, Doxygen headers, the `JnllRow` enum), the `mse_summary()`
-  reshape to a per-entity list, and the developer-guide expansion are **done and golden
-  bit-identical**. **Deferred/declined:** Tier D2 (the `linkage.hpp` accumulator merge) was
-  **declined** — the five accumulators span two stratum universes (species vs fleet) and are
-  already clear/Doxygen'd, so a merge is net-negative; the `.refit_like` 11-site collapse is
-  deferred (golden-unverifiable). The branch is **not yet merged** to `dev-data-workflow`.
-  See `dev/HANDOFF-pr7-condense-tiers-DE.md`.
+- **Data-workflow + linkage-grammar effort** (PRs 0–7): **complete and merged onto
+  `dev-data-workflow`** (bumped to 5.0.0; not yet released to `main`). The linkage grammar,
+  column schema, `build_data()`/`model_config()`, `save_config()`/`load_config()` +
+  `fit_mod(config=)`, the C++ legibility pass + `JnllRow` enum, the
+  `build_growth(sd_plus_group=)` WHAM/SS3 feature, the `mse_summary()` per-entity reshape,
+  the `.refit_like()` collapse, and the developer-guide expansion all shipped. Tier D2 (the
+  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap + historical
+  record: `dev/PLAN-data-workflow-and-linkage-grammar.md`; forward backlog + archive index:
+  `dev/README.md`.
+- **Documentation-quality + roxygen-accuracy pass** (on `dev-data-workflow`): the PR 1–7
+  user-facing doc surface was reviewed against three criteria (not AI-verbose,
+  current-capabilities-not-changelog, scientist-legible), and a technical-accuracy audit
+  cross-checked the `fit_mod` / `build_srr` / `build_M1` / `build_growth` /
+  `build_catchability` / `build_selectivity` / `build_composition` / `linkage_spec` /
+  `build_hcr` roxygen math against the C++ — fixing accuracy issues incl. the `build_hcr`
+  SESSF/NPFMC/PFMC reference-point formula errors, the Ricker β/1e6 reparametrization note,
+  and the inert `avgnMode` switch. A companion **code fix** removed the HCR-4 `Fmult`
+  double-application (`ceattle_v01_11.cpp` case 4). Doc-only otherwise.
 - **Older paused work:** a multi-PR accessibility / code-review refactor (branch
   `accessibility-and-code-review`), plan in
   `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
