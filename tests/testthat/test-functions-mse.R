@@ -57,6 +57,20 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   nyrs <- length(1979:2040)
   testthat::expect_equal(24, length(mse$Sim_1$EM))
   testthat::expect_equal(rep(0.4, 3), as.numeric(mse$Sim_1$OM$quantities$ssb_depletion[,nyrs]), tolerance = 0.005)
+
+  # mse_summary() derives the performance-metric table from the MSE run. It is
+  # exported but was previously untested; guard that it runs end-to-end and
+  # returns the expected per-species metrics (it does substantial index math and
+  # references the package hcr_map constant).
+  summ <- Rceattle::mse_summary(mse)
+  testthat::expect_false(is.null(summ))
+  metric_names <- names(summ)
+  testthat::expect_true("OM: Average SSB Depletion" %in% metric_names)
+  testthat::expect_true("OM: SSB Collapse" %in% metric_names)
+  # The depletion metric is returned as a numeric vector, one entry per species.
+  dep <- summ[["OM: Average SSB Depletion"]]
+  testthat::expect_true(is.numeric(dep))
+  testthat::expect_gt(length(dep), 0L)
 })
 
 testthat::test_that("Test MSE - Tier 3 parallel", {
