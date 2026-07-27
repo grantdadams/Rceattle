@@ -7,7 +7,7 @@
 build_growth(
   fun = "empirical",
   growth_age_L1 = NA,
-  sd_plus_group = "WHAM",
+  sd_plus_group = NA,
   linkages = NULL
 )
 }
@@ -27,11 +27,13 @@ models stay backwards-compatible and \code{minage = 0} models pick up an
 SS3-consistent half-year anchor.}
 
 \item{sd_plus_group}{How the oldest age class's SD-at-age is treated (only
-affects estimated growth, \code{fun != "empirical"}). \code{"WHAM"} (default) pins
-the plus-group SD to the upper anchor \code{exp(sd_Linf)} (the WHAM SDAA
+affects estimated growth, \code{fun != "empirical"}). \code{"WHAM"} pins the
+plus-group SD to the upper anchor \code{exp(sd_Linf)} (the WHAM SDAA
 convention); \code{"SS3"} instead interpolates it by length like any interior
 age. Accepts a string or the integer code (\code{1}/\code{2}), scalar or a
-length-\code{nspp} vector. Default \code{"WHAM"} is unchanged from prior releases.}
+length-\code{nspp} vector. Default \code{NA} inherits \code{data_list$growth_sd_style}
+if present (so a refit keeps the original choice), otherwise \code{"WHAM"} --
+unchanged from prior releases.}
 
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).

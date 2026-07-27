@@ -364,8 +364,17 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
-    data_list$growth_sd_style <- extend_length(growthFun$growth_sd_style)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
+    # Plus-group SD-at-age style, resolved like growth_age_L1 below:
+    # build_growth() value (if given) > existing data_list$growth_sd_style
+    # (so a refit that rebuilds growth via build_growth(fun=) keeps the
+    # original SS3/WHAM choice) > WHAM (1) fallback.
+    gsd <- extend_length(growthFun$growth_sd_style)
+    if (!is.null(data_list$growth_sd_style)) {
+      gsd[is.na(gsd)] <- extend_length(data_list$growth_sd_style)[is.na(gsd)]
+    }
+    gsd[is.na(gsd)] <- 1L   # WHAM
+    data_list$growth_sd_style <- gsd
     data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
     # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from

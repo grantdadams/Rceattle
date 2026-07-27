@@ -588,11 +588,13 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #'   models stay backwards-compatible and `minage = 0` models pick up an
 #'   SS3-consistent half-year anchor.
 #' @param sd_plus_group How the oldest age class's SD-at-age is treated (only
-#'   affects estimated growth, `fun != "empirical"`). `"WHAM"` (default) pins
-#'   the plus-group SD to the upper anchor `exp(sd_Linf)` (the WHAM SDAA
+#'   affects estimated growth, `fun != "empirical"`). `"WHAM"` pins the
+#'   plus-group SD to the upper anchor `exp(sd_Linf)` (the WHAM SDAA
 #'   convention); `"SS3"` instead interpolates it by length like any interior
 #'   age. Accepts a string or the integer code (`1`/`2`), scalar or a
-#'   length-`nspp` vector. Default `"WHAM"` is unchanged from prior releases.
+#'   length-`nspp` vector. Default `NA` inherits `data_list$growth_sd_style`
+#'   if present (so a refit keeps the original choice), otherwise `"WHAM"` --
+#'   unchanged from prior releases.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
 #'   The mean-growth keys (`K`, `L1`, `Linf`, `m`)
@@ -626,10 +628,18 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #' }
 build_growth <- function(fun = "empirical",
                          growth_age_L1 = NA,
-                         sd_plus_group = "WHAM",
+                         sd_plus_group = NA,
                          linkages = NULL) {
   fun <- .coerce_growth_fun(fun)
-  sd_style_int <- .coerce_switch_arg(sd_plus_group, .GROWTH_SD_STYLE, "sd_plus_group")
+  # NA (the default) means "inherit": fit_mod() resolves it from
+  # data_list$growth_sd_style if present, else the WHAM fallback -- exactly like
+  # growth_age_L1. This keeps a refit that rebuilds growth via build_growth(fun=)
+  # from silently resetting an SS3 model to WHAM.
+  sd_style_int <- if (all(is.na(sd_plus_group))) {
+    NA_integer_
+  } else {
+    .coerce_switch_arg(sd_plus_group, .GROWTH_SD_STYLE, "sd_plus_group")
+  }
   linkages <- .validate_growth_linkages(linkages, fun)
   list(
     fun            = fun,
@@ -641,8 +651,9 @@ build_growth <- function(fun = "empirical",
     growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
     # Plus-group SD-at-age treatment. Like `fun`/`growth_model`, the canonical
     # string is kept under the argument name (for save_config round-trip) and
-    # the int code (1 = WHAM, 2 = SS3) feeds the TMB template. Per-species;
-    # default WHAM keeps existing models bit-identical.
+    # the int code (1 = WHAM, 2 = SS3) feeds the TMB template. Per-species.
+    # NA_integer_ = inherit (resolved in fit_mod); the string field is NA too and
+    # is dropped from a saved config, so unspecified models re-derive on load.
     sd_plus_group   = names(.GROWTH_SD_STYLE)[match(sd_style_int, .GROWTH_SD_STYLE)],
     growth_sd_style = sd_style_int,
     # VB anchor age (= age at which `l1` is the length). Matches SS3's
