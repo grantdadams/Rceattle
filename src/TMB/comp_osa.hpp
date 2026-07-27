@@ -1,23 +1,26 @@
-// One-step-ahead (OSA) residual helpers for composition data.
-//
-// TMB's oneStepPredict() requires every observation entering the likelihood to
-// live in a flat `obsvec` with a `keep` indicator, and each likelihood term to
-// be multiplied by its keep element. Multinomial and Dirichlet-multinomial
-// composition data are multivariate and discrete, so oneStepPredict cannot use
-// them directly. Following Trijoulet et al. (2023) and WHAM
-// (src/age_comp_osa.hpp), a composition of A bins is decomposed into A-1
-// univariate conditional distributions -- binomials for the multinomial,
-// beta-binomials for the Dirichlet-multinomial -- each gated by its keep
-// element. The final bin is fixed by the sum-to-N constraint and contributes
-// nothing (its residual is not defined and is reported as NA on the R side).
-//
-// Key property: with keep == 1 the sum of the conditional log-densities equals
-// the joint multinomial / Dirichlet-multinomial log-density. Turning OSA on
-// therefore changes how the likelihood is *decomposed*, not its value.
-//
-// These functions are named with an `_osa` suffix and take a data_indicator so
-// they never collide with TMB's built-in dmultinom() or the plain
-// ddirmultinom() in helper_functions.hpp used during ordinary fitting.
+/**
+ * @file comp_osa.hpp
+ * @brief One-step-ahead (OSA) residual helpers for composition data.
+ *
+ * TMB's oneStepPredict() requires every observation entering the likelihood to
+ * live in a flat `obsvec` with a `keep` indicator, and each likelihood term to
+ * be multiplied by its keep element. Multinomial and Dirichlet-multinomial
+ * composition data are multivariate and discrete, so oneStepPredict cannot use
+ * them directly. Following Trijoulet et al. (2023) and WHAM
+ * (src/age_comp_osa.hpp), a composition of A bins is decomposed into A-1
+ * univariate conditional distributions -- binomials for the multinomial,
+ * beta-binomials for the Dirichlet-multinomial -- each gated by its keep
+ * element. The final bin is fixed by the sum-to-N constraint and contributes
+ * nothing (its residual is not defined and is reported as NA on the R side).
+ *
+ * Key property: with keep == 1 the sum of the conditional log-densities equals
+ * the joint multinomial / Dirichlet-multinomial log-density. Turning OSA on
+ * therefore changes how the likelihood is *decomposed*, not its value.
+ *
+ * These functions are named with an `_osa` suffix and take a data_indicator so
+ * they never collide with TMB's built-in dmultinom() or the plain
+ * ddirmultinom() in helper_functions.hpp used during ordinary fitting.
+ */
 
 // Reorder categories so kept (keep > 0.5) entries come first, preserving the
 // original order within the kept and dropped groups.
@@ -47,12 +50,19 @@ Type osa_squeeze(Type u){
   return (Type(1.0) - eps) * (u - Type(0.5)) + Type(0.5);
 }
 
-// Keep-aware multinomial log-density via conditional binomials.
-//   x        observed counts (length A; may be non-integer, e.g. Neff * prop)
-//   p        predicted proportions (length A; normalized internally)
-//   keep     data indicator for these A bins (from keep.segment(...))
-//   do_osa   1 = conditional-binomial decomposition; 0 = plain multinomial
-//   give_log 1 = return log-density
+/**
+ * @brief Keep-aware multinomial log-density via conditional binomials.
+ *
+ * With `do_osa`, decomposes the A-bin multinomial into A-1 conditional binomials
+ * (each gated by its keep element) so oneStepPredict can consume it; the sum
+ * equals the joint multinomial log-density when all keeps are 1.
+ *
+ * @param x Observed counts (length A; may be non-integer, e.g. Neff * prop).
+ * @param p Predicted proportions (length A; normalized internally).
+ * @param keep Data indicator for these A bins (from keep.segment(...)).
+ * @param do_osa 1 = conditional-binomial decomposition; 0 = plain multinomial.
+ * @param give_log 1 = return the log-density.
+ */
 template <class Type>
 Type dmultinom_osa(vector<Type> x, vector<Type> p,
                    data_indicator<vector<Type>, Type> keep,
@@ -103,12 +113,19 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
   return give_log ? logres : exp(logres);
 }
 
-// Keep-aware Dirichlet-multinomial log-density via conditional beta-binomials.
-//   obs      observed counts (length A)
-//   alpha    Dirichlet-multinomial concentration parameters (length A)
-//   keep     data indicator for these A bins
-//   do_osa   1 = conditional beta-binomial decomposition; 0 = plain D-M
-//   give_log 1 = return log-density
+/**
+ * @brief Keep-aware Dirichlet-multinomial log-density via conditional beta-binomials.
+ *
+ * With `do_osa`, decomposes the A-bin Dirichlet-multinomial into A-1 conditional
+ * beta-binomials (each gated by its keep element); the sum equals the joint D-M
+ * log-density when all keeps are 1.
+ *
+ * @param obs Observed counts (length A).
+ * @param alpha Dirichlet-multinomial concentration parameters (length A).
+ * @param keep Data indicator for these A bins.
+ * @param do_osa 1 = conditional beta-binomial decomposition; 0 = plain D-M.
+ * @param give_log 1 = return the log-density.
+ */
 template<class Type>
 Type ddirmultinom_osa(vector<Type> obs, vector<Type> alpha,
                       data_indicator<vector<Type>, Type> keep,
