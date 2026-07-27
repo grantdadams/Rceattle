@@ -13,8 +13,7 @@ The data-workflow + linkage-grammar effort (PRs 0–7) is **complete and merged 
 |---|---|
 | `PLAN-data-workflow-and-linkage-grammar.md` | Master roadmap + historical record of the whole effort. Top banner has the current status; the backlog is the prompts below. |
 | `PLAN-sel-curve-pen-reformulation.md` | Future work: rename the form-dependent `Sel_curve_pen1/2/3` columns to purpose-named SD columns. Not started (`Sel_curve_pen` still in code). |
-| `PROMPT-mse-runtime-optimization.md` | Future work: speed up the MSE loop. Not started; its own branch. |
-| `PROMPT-osa-with-composition-accumulation.md` | Future work: OSA residuals when composition tail-accumulation is active (deferred from the `Comp_accum_*` feature). |
+| `PROMPT-mse-runtime-optimization.md` | Future work: cut runtime of MSE runs, OSA residuals, and general fits, and keep runtime scaling near-linearly with model size. Not started; its own branch. |
 
 ## Verification scripts
 
