@@ -1,3 +1,17 @@
+# Rceattle 5.0.2
+
+## Bug fixes
+
+* **OSA residuals no longer silently mis-residualize non-lognormal index fleets.**
+  `osa_residuals()` / `build_osa_data()` previously laid MVN-covariance
+  (`Index_distribution` "MVN"/"MVNORM") and natural-scale "Normal" survey
+  observations into the one-step-ahead observation vector as if they were
+  independent lognormals, even though the C++ likelihood for those families does
+  not read the OSA observation vector — producing invalid residuals with no
+  warning. Those fleets are now excluded from the OSA residuals with a warning
+  naming them; lognormal (IID) index fleets in the same model are unaffected.
+  (Covariance-aware OSA residuals for the MVN families are a separate follow-up.)
+
 # Rceattle 5.0.1
 
 ## New features

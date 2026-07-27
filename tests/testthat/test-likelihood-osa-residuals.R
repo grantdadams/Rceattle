@@ -522,3 +522,48 @@ testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted 
   dg <- osa_diagnostics(osa)
   testthat::expect_true(is.finite(dg$sdnr[dg$group == "all"]))
 })
+
+testthat::test_that("OSA excludes non-lognormal (MVN) index fleets with a warning", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # OSA residuals are defined only for the lognormal IID index family; the MVN
+  # covariance likelihood evaluates a correlated joint density that never reads
+  # obsvec/keep, so residualizing it from the log-scale obsvec would be invalid.
+  # build_osa_data() must drop those fleets from the OSA obsvec and warn, rather
+  # than silently emit wrong residuals.
+  nyrs <- 8; nages <- 5
+  dat  <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
+  sds  <- rep(20, nyrs); Rho <- matrix(0.3, nyrs, nyrs); diag(Rho) <- 1
+  Sigma <- diag(sds) %*% Rho %*% diag(sds)
+  srv  <- dat$fleet_control$Fleet_name == "Survey"       # Survey == Fleet_code 1
+  dat$fleet_control$Index_distribution[srv] <- "MVN"
+  dat$fleet_control$Catchability[srv]       <- "AnalyticalArith"
+  dat$index_cov <- list(Survey = Sigma)
+
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # The OSA build warns and drops the MVN Survey's index observations (Survey is
+  # the only index fleet here, so no index obsvec entries remain).
+  testthat::expect_warning(
+    osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE),
+    "non-lognormal index")
+  testthat::expect_equal(sum(osa_dat$obs_ctl$source == "index"), 0L)
+  testthat::expect_true(all(osa_dat$index_obsvec_idx == -1L))
+
+  # Composition residuals are unaffected and still compute end-to-end.
+  osa <- suppressWarnings(osa_residuals(fit, source = "comp"))
+  testthat::expect_s3_class(osa, "rceattle_osa")
+  testthat::expect_true(all(is.finite(osa$residual)))
+
+  # A plain lognormal index model does NOT warn and keeps its index residuals.
+  dat0 <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
+  fit0 <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    dat0, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+  testthat::expect_no_warning(
+    osa0 <- Rceattle:::build_osa_data(fit0$obj$env$data, build_osa = TRUE))
+  testthat::expect_gt(sum(osa0$obs_ctl$source == "index"), 0L)
+})

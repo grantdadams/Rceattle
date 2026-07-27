@@ -170,6 +170,31 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   if (nrow(index_obs) > 0) {
     inc <- which(index_ctl[, 3] > 0 & index_ctl[, 3] <= endyr &
                    flt_type[index_ctl[, 1]] > 0 & index_obs[, 1] > 0)
+    # OSA residuals are defined only for the lognormal IID index family
+    # (index_ll_type == 0), the sole branch that reads obsvec/keep in the cpp.
+    # The MVN-covariance families (1 = MVN quadratic form, 2 = MVNORM) evaluate a
+    # correlated joint density that does not read obsvec/keep, and the
+    # natural-scale normal family (3) reads index_obs directly on the natural
+    # scale -- residualizing either from this log-scale obsvec would be
+    # statistically invalid. Drop those fleets from the OSA obsvec (leaving
+    # index_obsvec_idx == -1, i.e. "excluded") and warn, so a mixed model still
+    # gets correct residuals for its lognormal fleets. Gated to the OSA build
+    # (build_osa) so the ordinary-fitting obsvec is untouched.
+    if (build_osa && length(inc) > 0) {
+      ill <- data_list$index_ll_type
+      if (!is.null(ill)) {
+        drop <- inc[ill[index_ctl[inc, 1]] != 0L]
+        if (length(drop) > 0) {
+          bad_flts <- sort(unique(index_ctl[drop, 1]))
+          warning(sprintf(paste0(
+            "OSA residuals are not defined for non-lognormal index fleets ",
+            "(Index_distribution MVN / MVNORM / Normal; fleet(s) %s); their ",
+            "index observations are excluded from the OSA residuals."),
+            paste(bad_flts, collapse = ", ")))
+          inc <- setdiff(inc, drop)
+        }
+      }
+    }
     if (length(inc) > 0) {
       index_obsvec_idx[inc] <- append_obs(
         value = log(index_obs[inc, 1]), source = "index", data_row = inc,
