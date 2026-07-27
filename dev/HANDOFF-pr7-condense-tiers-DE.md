@@ -1,5 +1,38 @@
 # HANDOFF — PR 7 condense pass, deferred Tiers D + E (+ roxygen sweep)
 
+> **STATUS UPDATE (session 2, branch `pr7-legibility`, ~19 commits, DESCRIPTION 4.14.0).**
+> Since the Tier A–C header below, a second session took this much further. **DONE:**
+> - **D1 (growth.hpp)** — reframed by Grant from a line-extraction into a **feature**: per-species
+>   `build_growth(sd_plus_group=)` WHAM/SS3 plus-group SD-at-age switch (`467fc4a8`), plus an
+>   NA-inherit fix so refits keep the choice (`4c8de80e`). Golden bit-identical (default WHAM),
+>   constructive + refit tests, adversarial SAFE. The originally-planned "extract the ~100-line
+>   byte-identical growth tail" was **not** done — it's a 21-arg helper, net-neutral, so skipped.
+> - **E (`.refit_like`)** — the mandated **tabulation/verification was done** (all 11 sites × args ×
+>   source object). All six flagged divergences investigated: none is a bug (om_use SRR pinned to
+>   pristine `om$` = intentional; em_use `srr_mse_switchyr = $endyr` advances by design per Grant;
+>   `HCRorder=em$` ≡ `em_use$`; `loopnum` unused under estimateMode=3). Documented in place
+>   (`b84db778`). **The collapse itself is DEFERRED** (golden-unverifiable — refit paths aren't in
+>   the golden reference; needs bespoke arg-equivalence + MSE-smoke tests). Tabulation preserved below.
+> - **C++ legibility** — cpp section-index dup/misnumber fixes (`85a31543`); Doxygen on all three
+>   bare headers linkage/helper_functions/comp_osa (`622a8d71`). The false `linkage.hpp` note was
+>   already gone.
+> - **Multi-session audit follow-ups** — `plot_logindex` restored as a deprecated shim (`9f637e01`);
+>   `mse_summary()` + `sim_mod()` regression tests added (previously zero coverage).
+> - **Contributor docs** — already complete (`environmental-linkages-and-priors.Rmd`,
+>   `articles/developer-guide.Rmd`); the **roxygen clarity sweep was SKIPPED** (docs milder than
+>   feared, low value).
+>
+> **`jnll_comp` enum — DONE (`56733c6f`):** the 21 magic likelihood-row integers across 112
+> `jnll_comp(N,…)` / `unweighted_jnll_comp(N,…)` sites are now named constants (`JNLL_INDEX`..
+> `JNLL_LINKAGE_RE`) via a `JnllRow` enum by the declaration, cross-referenced to
+> `R/6-rename_output.R`; each enum value equals the integer it replaced, so golden bit-identical
+> (incl. per-row `jnll_dev`). Also relabeled `14.3`→`13.2` (Diet likelihood is a section-13 term).
+>
+> **STILL OPEN:** (1) **Tier D2 (`linkage.hpp` accumulators)** — still deferred (see below).
+> (2) **The `.refit_like` collapse** — deferred (tabulation below). (3) **Merge** `pr7-legibility` →
+> `dev-data-workflow`. (4) Minor: the orphaned `12.2.1 "Calculate CAAL"` cpp section label (needs a
+> structural call on where section 12 begins) was left as-is.
+
 **Context.** PR 7 (the "condense the codebase" + roxygen pass, brief:
 `dev/PROMPT-code-legibility-and-roxygen.md`) was run on branch **`pr7-legibility`** off
 `e2e3a110`. **Tiers A–C are done and committed** (9 commits, every fit-touching one golden
