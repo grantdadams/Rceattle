@@ -2522,9 +2522,36 @@ Type objective_function<Type>::operator() () {
 
   // 13.0. OBJECTIVE FUNCTION
   int n_col = std::max(n_flt, nspp);
-  // Slot 19 reserved for linkage-table prior contributions (per-row).
-  matrix<Type> jnll_comp(21, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components (row 20 = linkage random effects)
-  matrix<Type> unweighted_jnll_comp(21, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights (row 20 = linkage random effects)
+  // Named rows of jnll_comp / unweighted_jnll_comp. These integer codes are
+  // "magic" -- they MUST stay in sync with the row labels assigned in
+  // R/6-rename_output.R (rownames of quantities$jnll_comp). Add/reorder a row
+  // here and there in lockstep.
+  enum JnllRow {
+    JNLL_INDEX          = 0,   // Index data
+    JNLL_CATCH          = 1,   // Catch data
+    JNLL_COMP           = 2,   // Composition data
+    JNLL_CAAL           = 3,   // CAAL data
+    JNLL_SEL_NONPARAM   = 4,   // Non-parametric selectivity
+    JNLL_SEL_DEV        = 5,   // Selectivity deviates
+    JNLL_Q_PRIOR        = 6,   // Catchability prior
+    JNLL_Q_DEV          = 7,   // Catchability deviates
+    JNLL_SRR_PRIOR      = 8,   // Stock-recruit prior
+    JNLL_INIT_DEV       = 9,   // Initial abundance deviates
+    JNLL_REC_DEV        = 10,  // Recruitment deviates
+    JNLL_SRR_PENALTY    = 11,  // Stock-recruit penalty
+    JNLL_REFPT_PENALTY  = 12,  // Reference point penalties
+    JNLL_ZERO_N_PENALTY = 13,  // Zero n-at-age penalty
+    JNLL_M_PRIOR        = 14,  // M prior
+    JNLL_M_RE           = 15,  // M random effects
+    JNLL_RATION         = 16,  // Ration
+    JNLL_RATION_PENALTY = 17,  // Ration penalties
+    JNLL_STOMACH        = 18,  // Stomach content data
+    JNLL_LINKAGE_PRIOR  = 19,  // Linkage-table priors (per-row)
+    JNLL_LINKAGE_RE     = 20,  // Linkage random effects
+    JNLL_N_ROWS         = 21   // total row count (for dimensioning)
+  };
+  matrix<Type> jnll_comp(JNLL_N_ROWS, n_col); jnll_comp.setZero();  // negative log-likelihood components
+  matrix<Type> unweighted_jnll_comp(JNLL_N_ROWS, n_col); unweighted_jnll_comp.setZero();  // same, without likelihood weights
 
   // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass
@@ -2592,7 +2619,7 @@ Type objective_function<Type>::operator() () {
         // branch exactly, but a future divergence would make obsvec(pos) an
         // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
         int pos = index_obsvec_idx(index_ind);
-        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+        jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
 
@@ -2603,7 +2630,7 @@ Type objective_function<Type>::operator() () {
     // no OSA (obsvec holds log-scale observations).
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
       if(index_obs(index_ind, 0) > 0){
-        jnll_comp(0, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+        jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
       }
     }
   }
@@ -2644,7 +2671,7 @@ Type objective_function<Type>::operator() () {
         // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
         // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
         // full density. Both give an identical fit (the constant has zero gradient).
-        jnll_comp(0, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
+        jnll_comp(JNLL_INDEX, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
       }
     }
   }
@@ -2680,9 +2707,9 @@ Type objective_function<Type>::operator() () {
         // residuals (see the index slot above). With keep == 1 and
         // obsvec(pos) == log(catch_obs) this equals the original likelihood.
         int pos = catch_obsvec_idx(fsh_ind);
-        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
         // Martin's
-        // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
+        // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
   }
@@ -2792,21 +2819,21 @@ Type objective_function<Type>::operator() () {
           for(ln = 0; ln < n_comp; ln++) {
             // Martin's -- read the folded proportions (comp_*_prop), so an active
             // Comp_accum_young/old actually accumulates the tails here too.
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset)) ;
-            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset));
+            jnll_comp(JNLL_COMP, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset)) ;
+            unweighted_jnll_comp(JNLL_COMP, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset));
           }
           break;
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(comp_obs_tmp, true);
-          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
-          unweighted_jnll_comp(2, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          jnll_comp(JNLL_COMP, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
           break;
         }
 
         case 1:  // Dirichlet-multinomial
-          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
+          jnll_comp(JNLL_COMP, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(JNLL_COMP, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
           break;
         default:
           error("Invalid 'comp_ll_type'");
@@ -2820,9 +2847,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_comp);
           if(comp_ll_type(flt) == 1){     // Dirichlet-multinomial (uses fitted DM par)
-            jnll_comp(2, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
+            jnll_comp(JNLL_COMP, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
           } else {                        // multinomial (cases 0 and -1)
-            jnll_comp(2, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
+            jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
           }
         }
       }
@@ -2872,14 +2899,14 @@ Type objective_function<Type>::operator() () {
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);
-          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
-          unweighted_jnll_comp(3, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          jnll_comp(JNLL_CAAL, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
           break;
         }
 
         case 1:  // Dirichlet-multinomial
-          jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
+          jnll_comp(JNLL_CAAL, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(JNLL_CAAL, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
           break;
         default:
           error("Invalid 'caal_ll_type'");
@@ -2891,9 +2918,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_caal);
           if(caal_ll_type(flt) == 1){     // Dirichlet-multinomial
-            jnll_comp(3, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
+            jnll_comp(JNLL_CAAL, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
           } else {                        // multinomial
-            jnll_comp(3, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
+            jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
           }
         }
       }
@@ -2909,8 +2936,8 @@ Type objective_function<Type>::operator() () {
   // penalties cover a sub-range; penalizing all deviations would pin the
   // unidentified directions and remove the need to index by bin and year.
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
-    jnll_comp(4, flt) = 0;
-    jnll_comp(5, flt) = 0;
+    jnll_comp(JNLL_SEL_NONPARAM, flt) = 0;
+    jnll_comp(JNLL_SEL_DEV, flt) = 0;
     sp = flt_spp(flt);
 
     // Non-parametric penalties act over the fleet's selectivity dimension:
@@ -2943,7 +2970,7 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
               Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
-              jnll_comp(4, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
+              jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
           }
 
@@ -2959,7 +2986,7 @@ Type objective_function<Type>::operator() () {
             // Second difference computed once (matches the type-9 branch).
             vector<Type> sel_d2 = first_difference( first_difference( sel_tmp ) );
             for(int a2 = 0; a2 < sel_d2.size(); a2++) {
-              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
+              jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
             }
           }
 
@@ -2967,14 +2994,14 @@ Type objective_function<Type>::operator() () {
           if(yr > 0){
             for(sex = 0; sex < nsex(sp); sex++){
               for(age = 0; age < (nbins - 1); age++) {
-                jnll_comp(5, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
               }
             }
           }
 
           // 4. Survey selectivity normalization (non-parametric)
           for(sex = 0; sex < nsex(sp); sex++){
-            jnll_comp(4, flt) += 2.0 * square(avg_sel(flt, sex, yr));
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
         }
       }
@@ -3020,11 +3047,11 @@ Type objective_function<Type>::operator() () {
             for(age = shape_a0; age <= shape_a1; age++) {
               Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
               if(shape_mode == 1)
-                jnll_comp(4, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
               else if(sel_curve_pen(flt, 0) >= 0)
-                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
               else
-                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
             }
 
             // (2) Curvature (2nd-difference) penalty  [ADMB term 2/3]. Includes the
@@ -3035,14 +3062,14 @@ Type objective_function<Type>::operator() () {
               vector<Type> ls(nbins); ls.setZero();
               for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
               vector<Type> d2 = first_difference( first_difference( ls ) );
-              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(5, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
+              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
             }
 
             // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
             if(yr > start_yr){
               for(age = 0; age < nbins; age++) {
                 Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
-                jnll_comp(5, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
+                jnll_comp(JNLL_SEL_DEV, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
               }
             }
           }
@@ -3052,7 +3079,7 @@ Type objective_function<Type>::operator() () {
           //     = RTMB norm2(sel_devs)). Increments are 0 at non-change years.
           for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
             for(yr = start_yr; yr < nyrs_tmp; yr++){
-              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
+              jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
             }
           }
 
@@ -3069,7 +3096,7 @@ Type objective_function<Type>::operator() () {
               msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
             }
             Type avgsel = log(msum / nb);
-            jnll_comp(4, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
           }
         }
       }
@@ -3084,15 +3111,15 @@ Type objective_function<Type>::operator() () {
             // Logistic / ascending-limb deviates (types 1, 3, 8)
             // For DoubleNormal (8): sel_inf_dev(0) = peak deviate, log_sel_slp_dev(0) = ascending-SD deviate
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic / descending-limb deviates (types 3, 4, 8)
             // For DoubleNormal (8): sel_inf_dev(1) = right-floor logit deviate; log_sel_slp_dev(1) = descending-SD deviate
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
           }
         }
@@ -3105,14 +3132,14 @@ Type objective_function<Type>::operator() () {
 
             // Logistic / ascending-limb random walk (types 1, 3, 8)
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic / descending-limb random walk (types 3, 4, 8)
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
           }
         }
@@ -3144,11 +3171,11 @@ Type objective_function<Type>::operator() () {
               Type s_now  = sel_is_length ? sel_at_length(flt, sex, age, yr)     : sel_at_age(flt, sex, age, yr);
               Type s_prev = sel_is_length ? sel_at_length(flt, sex, age, yr - 1) : sel_at_age(flt, sex, age, yr - 1);
               Type d = log(s_now) - log(s_prev);
-              jnll_comp(5, flt) += sel_curve_pen(flt, 0) * d * d;
+              jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 0) * d * d;
             }
             // (2) free age-1 parameter-deviate random walk
             Type da1 = sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr - 1);
-            jnll_comp(5, flt) += sel_curve_pen(flt, 2) * da1 * da1;
+            jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 2) * da1 * da1;
           }
         }
       }
@@ -3159,7 +3186,7 @@ Type objective_function<Type>::operator() () {
         for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
-              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
             }
           }
         }
@@ -3183,7 +3210,7 @@ Type objective_function<Type>::operator() () {
           Type rho_y = rho_trans(sel_curve_pen(flt, 1));
 
           Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
-          jnll_comp(5, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
         } // end sex loop
       }
 
@@ -3222,7 +3249,7 @@ Type objective_function<Type>::operator() () {
               tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
             }
           }
-          jnll_comp(5, flt) += GMRF(Q_sparse)(tmp_AR2);
+          jnll_comp(JNLL_SEL_DEV, flt) += GMRF(Q_sparse)(tmp_AR2);
         }
       }
     }
@@ -3237,7 +3264,7 @@ Type objective_function<Type>::operator() () {
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
-      jnll_comp(6, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
+      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
@@ -3246,13 +3273,13 @@ Type objective_function<Type>::operator() () {
       // AR1 process error
       Type rho=rho_trans(index_q_rho(flt));
       vector<Type> index_q_dev_tmp = index_q_dev.row(flt);
-      jnll_comp(6, flt) = SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
+      jnll_comp(JNLL_Q_PRIOR, flt) = SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
 
       // Observation error
       // - Fit to environmental index
       int q_index = index_varying_q(flt) - 1;
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
       }
     }
 
@@ -3261,7 +3288,7 @@ Type objective_function<Type>::operator() () {
          && (flt_type(flt) > 0) &&                                    // - If survey or fishery CPUE
            ((est_index_q(flt) == 1) || (est_index_q(flt) == 2))){        // - Time_varying_q  = 1 (penalized deviate) or 2 (random effect)
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
 
@@ -3271,7 +3298,7 @@ Type objective_function<Type>::operator() () {
        ((est_index_q(flt) == 1) || (est_index_q(flt) == 2)))   // - Time_varying_q  = 4
     {
       for(yr = 1; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
    } // End q lead gate
@@ -3285,7 +3312,7 @@ Type objective_function<Type>::operator() () {
     // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
     //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
     if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
-      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
@@ -3293,19 +3320,19 @@ Type objective_function<Type>::operator() () {
       // Convert mean and SD to beta params
       Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
       Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
-      jnll_comp(8, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
     }
 
     // Slot 9 -- stock-recruit prior for Ricker
     if((srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
-      jnll_comp(8, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
     if((!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
-      jnll_comp(8, sp) += 100 * penalty;
+      jnll_comp(JNLL_SRR_PRIOR, sp) += 100 * penalty;
     }
 
 
@@ -3315,20 +3342,20 @@ Type objective_function<Type>::operator() () {
     // equilibrium modes, so it carries no init_dev penalty.
     if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(JNLL_INIT_DEV, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if((srr_fun == 0) & (srr_pred_fun  > 0)){
       for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
-        jnll_comp(11, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
+        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
       }
     }
   }
@@ -3356,7 +3383,7 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    jnll_comp(12, 0) = - square(CMSY/1000000.0); // CMSY is ll
+    jnll_comp(JNLL_REFPT_PENALTY, 0) = - square(CMSY/1000000.0); // CMSY is ll
 
 
     // --- Add biomass_depletion constraint
@@ -3364,7 +3391,7 @@ Type objective_function<Type>::operator() () {
       if((forecast(sp) == 1) && (estDynamics(sp) == 0)){
         penalty = 0.0;
         Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty); (void) nothing_useful;
-        jnll_comp(12, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
+        jnll_comp(JNLL_REFPT_PENALTY, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
       }
     }
   }
@@ -3376,19 +3403,19 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
       }
 
       // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
         // Using ssb rather than SBF because of multi-species interactions arent in SBF
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
-        jnll_comp(12, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
       }
     }
 
@@ -3397,20 +3424,20 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
       }
 
       for(yr = 1; yr < nyrs; yr++){ // No initial abundance
         // F that acheives Ftarget% of SSB0y
         if(HCR == 3){
-          jnll_comp(12, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-Ftarget_percent(sp));
+          jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-Ftarget_percent(sp));
         }
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
-        jnll_comp(12, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
       }
     }
 
@@ -3420,17 +3447,17 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
       }
 
       // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
       }
 
       // Tiered HCRs with Limit and Targets
       if(HCR == 6){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
       }
     }
   }
@@ -3439,7 +3466,7 @@ Type objective_function<Type>::operator() () {
   // Slot 13 -- N-at-age < 0 penalty. See "posfun"
   for(sp = 0; sp < nspp; sp++){
     if(estDynamics(sp) == 0){
-      jnll_comp(13, sp) += zero_N_pen(sp);
+      jnll_comp(JNLL_ZERO_N_PENALTY, sp) += zero_N_pen(sp);
     }
   }
 
@@ -3466,7 +3493,7 @@ Type objective_function<Type>::operator() () {
 
       for(int sex = 0; sex < nsex_tmp; sex++) {
         for(int age = 0; age < nage_tmp; age++) {
-          jnll_comp(14, sp) -= dnorm(log_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
+          jnll_comp(JNLL_M_PRIOR, sp) -= dnorm(log_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
         }
       }
     }
@@ -3477,7 +3504,7 @@ Type objective_function<Type>::operator() () {
       for(int sex = 0; sex < nsex(sp); sex++) {
         for(int age = 0; age < nages(sp); age++) {
           for(int yr = 0; yr < nyrs_hind; yr++) {
-            jnll_comp(14, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), M_prior_mean, M_prior_sd(sp), true);
+            jnll_comp(JNLL_M_PRIOR, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), M_prior_mean, M_prior_sd(sp), true);
           }
         }
       }
@@ -3511,7 +3538,7 @@ Type objective_function<Type>::operator() () {
         for(int age = 0; age < nages(sp); age++) {
           M_re_age(age) = log_M1_dev(sp, sex, age, 0);
         }
-        jnll_comp(15, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
       }
     }
 
@@ -3526,7 +3553,7 @@ Type objective_function<Type>::operator() () {
         for(int yr = 0; yr < nyrs_hind; yr++) {
           M_re_yr(yr) = log_M1_dev(sp, sex, 0, yr);
         }
-        jnll_comp(15, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
       }
     }
 
@@ -3544,7 +3571,7 @@ Type objective_function<Type>::operator() () {
             M_re_a_yr(age, yr) = log_M1_dev(sp, sex, age, yr);
           }
         }
-        jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
       }
     }
   }
@@ -3659,25 +3686,25 @@ Type objective_function<Type>::operator() () {
     Type b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? exp(b) : b;
 
     if (fam == 1) {                         // normal(p1, p2) on natural scale
-      jnll_comp(19, slot_col)            -= dnorm(b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(b_nat, p1, p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(b_nat, p1, p2, true);
     } else if (fam == 2) {                  // lognormal: normal on log of natural scale
       // For a log-scale intercept base: log(b_nat) = b (efficient form avoids
       // log(exp(b))). A natural-scale intercept base (sel_inf) takes log(b_nat).
       Type log_b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? b : log(b_nat);
-      jnll_comp(19, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(log_b_nat, p1, p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, p1, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale
-      jnll_comp(19, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
     } else if (fam == 4) {                  // beta(p1=shape1, p2=shape2) on natural scale
-      jnll_comp(19, slot_col)            -= dbeta(b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dbeta(b_nat, p1, p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dbeta(b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dbeta(b_nat, p1, p2, true);
     }
   }
 
 
-  // 14.3. Diet likelihood components
+  // 13.2. Diet likelihood components
   if((msmMode > 2) || (imax(suitMode) > 0)) {
 
     int current_j = 0; // Track position in diet_ctl
@@ -3749,16 +3776,16 @@ Type objective_function<Type>::operator() () {
         case 0:  // Full multinomial
           stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
 
-          unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+          unweighted_jnll_comp(JNLL_STOMACH, rsp) -= stomach_log_likelihood;
+          jnll_comp(JNLL_STOMACH, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
           break;
         case 1:  // Dirichlet-multinomial
           // Calculate the log-likelihood
           stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
           unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
 
-          unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
-          jnll_comp(18, rsp) -= stomach_log_likelihood;
+          unweighted_jnll_comp(JNLL_STOMACH, rsp) -= unweighted_stomach_log_likelihood;
+          jnll_comp(JNLL_STOMACH, rsp) -= stomach_log_likelihood;
           break;
 
         default:
@@ -3773,9 +3800,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_prey + 1);
           if(diet_ll_type(rsp) == 1){   // Dirichlet-multinomial (fitted DM par)
-            jnll_comp(18, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
+            jnll_comp(JNLL_STOMACH, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
           } else {                      // multinomial
-            jnll_comp(18, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
+            jnll_comp(JNLL_STOMACH, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
           }
         }
       }
@@ -3793,7 +3820,7 @@ Type objective_function<Type>::operator() () {
    for(age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
    if(ration(sp, sex, age, yr) > 0){
    if(ration_hat(sp, sex, age, yr) > 0){
-   jnll_comp(16, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
+   jnll_comp(JNLL_RATION, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
    }
    }
    }
@@ -3808,7 +3835,7 @@ Type objective_function<Type>::operator() () {
    for(age = 0; age < nages(sp); age++) {
    for(yr = 0; yr < nyrs_hind; yr++) {
    if(ration_hat(sp, sex, age, yr) > 0){
-   //jnll_comp(17, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
+   //jnll_comp(JNLL_RATION_PENALTY, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
    }
    }
    }
@@ -3978,17 +4005,17 @@ Type objective_function<Type>::operator() () {
       Type p1 = linkage_re_sigma_prior_p1(g);
       Type p2 = linkage_re_sigma_prior_p2(g);
       if (fam == 1) {                         // normal(p1, p2) on the SD
-        jnll_comp(19, 0)            -= dnorm(sd, p1, p2, true);
-        unweighted_jnll_comp(19, 0) -= dnorm(sd, p1, p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(sd, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(sd, p1, p2, true);
       } else if (fam == 2) {                  // lognormal: normal on log(SD)
-        jnll_comp(19, 0)            -= dnorm(log(sd), p1, p2, true);
-        unweighted_jnll_comp(19, 0) -= dnorm(log(sd), p1, p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), p1, p2, true);
       } else if (fam == 3) {                  // gamma(shape, rate)
-        jnll_comp(19, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
-        unweighted_jnll_comp(19, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);
       } else if (fam == 4) {                  // beta(shape1, shape2)
-        jnll_comp(19, 0)            -= dbeta(sd, p1, p2, true);
-        unweighted_jnll_comp(19, 0) -= dbeta(sd, p1, p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dbeta(sd, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dbeta(sd, p1, p2, true);
       }
     }
   }
@@ -4008,11 +4035,11 @@ Type objective_function<Type>::operator() () {
       Type p1 = linkage_re_rho_prior_p1(g);
       Type p2 = linkage_re_rho_prior_p2(g);
       if (fam == 1) {                         // normal(p1, p2) on rho
-        jnll_comp(19, 0)            -= dnorm(rho, p1, p2, true);
-        unweighted_jnll_comp(19, 0) -= dnorm(rho, p1, p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(rho, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(rho, p1, p2, true);
       } else if (fam == 4) {                  // beta(p1, p2) on (rho + 1) / 2
-        jnll_comp(19, 0)            -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
-        unweighted_jnll_comp(19, 0) -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
       }
     }
   }
@@ -4050,19 +4077,19 @@ Type objective_function<Type>::operator() () {
       int st = linkage_re_struct(grp);
       if (st == 1) {                                   // rw / RandomWalk
         for (int t = 1; t < len; ++t) {
-          jnll_comp(20, 0)            -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
-          unweighted_jnll_comp(20, 0) -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
+          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
+          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
         }
       } else if (st == 2) {                            // ar1 / first-order AR
         // Stationary AR1 with marginal SD sigma and correlation rho. SCALE(...)
         // returns the negative log density, so it is ADDED (unlike the -= dnorm
         // forms). Reduces to the IID sum at rho = 0.
         Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(grp)));
-        jnll_comp(20, 0)            += SCALE(AR1(rho), sigma)(re);
-        unweighted_jnll_comp(20, 0) += SCALE(AR1(rho), sigma)(re);
+        jnll_comp(JNLL_LINKAGE_RE, 0)            += SCALE(AR1(rho), sigma)(re);
+        unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) += SCALE(AR1(rho), sigma)(re);
       } else {                                         // us / IID (default)
-        jnll_comp(20, 0)            -= sum(dnorm(re, Type(0), sigma, true));
-        unweighted_jnll_comp(20, 0) -= sum(dnorm(re, Type(0), sigma, true));
+        jnll_comp(JNLL_LINKAGE_RE, 0)            -= sum(dnorm(re, Type(0), sigma, true));
+        unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= sum(dnorm(re, Type(0), sigma, true));
       }
 
       // Rogers QAR1 observation: the ar1 latent re(t) is measured as
@@ -4075,8 +4102,8 @@ Type objective_function<Type>::operator() () {
         Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
           if (obs_mask(t) == 0) continue;   // year absent from env_data: latent exists, but no observation
-          jnll_comp(20, 0)            -= dnorm(obs(t), re(t), osd, true);
-          unweighted_jnll_comp(20, 0) -= dnorm(obs(t), re(t), osd, true);
+          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
+          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
         }
       }
     }
