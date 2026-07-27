@@ -135,6 +135,20 @@ plot_index <- function(Rceattle,
 }
 
 
+#' Survey index fits on the log scale (deprecated)
+#'
+#' @description Deprecated. Use `plot_index(..., log = TRUE)`, which draws the
+#'   survey index on the log scale.
+#' @param ... Passed through to [plot_index()].
+#' @return A `ggplot` object.
+#' @keywords internal
+#' @export
+plot_logindex <- function(...) {
+  .Deprecated("plot_index")
+  plot_index(..., log = TRUE)
+}
+
+
 #' Fishery catch fits
 #'
 #' Plots fitted fishery catch: observed points with lognormal 95% intervals and

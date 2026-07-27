@@ -1,5 +1,12 @@
 # Rceattle 4.14.0
 
+## Bug fixes
+
+* Restored `plot_logindex()` as a deprecated shim for `plot_index(log = TRUE)`.
+  It had been removed outright when the log-scale option folded into
+  `plot_index()`, breaking any script that still called it; it now forwards with
+  a `.Deprecated()` notice.
+
 ## New features
 
 * **Plus-group SD-at-age convention (`build_growth(sd_plus_group=)`).** For
