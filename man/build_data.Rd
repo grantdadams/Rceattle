@@ -50,10 +50,9 @@ suggestion, so a typo is caught here rather than surfacing much later in a
 fit. Legacy top-level names (\code{fsh_biom}, \code{srv_biom}, \code{wt}, \code{pmature}, \code{Pyrs})
 are mapped to their canonical equivalents.
 
-Validation is \strong{deferred}: the authoritative check is \code{\link[=data_check]{data_check()}} at fit
-time (one source of truth). \code{build_data()} runs only a light presence
-pre-check (\code{.check = TRUE}) so a missing \emph{required} block is reported at
-construction with a clear message. Requirements that depend on fit-time
+Full validation runs at fit time in \code{\link[=data_check]{data_check()}}. \code{build_data()} runs only
+a light presence pre-check (\code{.check = TRUE}) so a missing \emph{required} block is
+reported at construction with a clear message. Requirements that depend on fit-time
 configuration not stored on the data list (e.g. \code{caal_data} when growth is
 estimated via \code{build_growth()}) are not knowable here and are left to
 \code{\link[=data_check]{data_check()}}; see \code{\link[=data_requirements]{data_requirements()}} to preview them.

@@ -1,23 +1,23 @@
 #' Specify the stock-recruit relationship (SRR) for Rceattle
 #'
-#' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
+#' @param srr_fun Stock-recruit function used in the hindcast estimation (see the list below). Default = 0
 #' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
 #' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)
-#' @param srr_hat_styr Integer. The first year used for estimating the recruitment function as an additional penalty. It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
-#' @param srr_hat_endyr Integer. The last year used for estimating the recruitment function as an additional penalty. It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available for the full time-series, but projections are desired.
+#' @param srr_hat_styr Integer. First year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}), starting at \code{styr + 1}. Defaults to \code{styr + 1} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship is not available until the terminal year but projections are still wanted.
+#' @param srr_hat_endyr Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.
 #' @param srr_est_mode Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
-#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty  (srr_fun = 0 and srr_pred_fun > 0). It tells the model in what year to switch to the stock recruit function.
+#' @param srr_mse_switchyr Year at which an MSE switches from the annual recruitment-penalty estimate to the stock-recruit function (the \code{srr_fun = 0}, \code{srr_pred_fun > 0} case).
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"R0"`, `"alpha"`, `"beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages-and-priors")` for details.
 #'
 #' @description
 #'
 #' **Stock recruitment relationships currently implemented in Rceattle:**
 #'
-#' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+#' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of \eqn{R0} (on the log scale) and annual deviates (i.e. steepness = 0.99).
 #'  \deqn{R_y = exp(R0 + R_{dev,y})}
 #'
 #' - \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
@@ -25,6 +25,13 @@
 #'
 #' - \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship
 #'   \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
+#'
+#' The Beverton-Holt and Ricker curves above are the deterministic mean; realized
+#' recruitment applies the annual log deviation, \eqn{R_y \cdot exp(R_{dev,y})}, as in the
+#' mean form. For numerical stability the Ricker \eqn{\beta_{srr}} is estimated on a scale
+#' divided by 1,000,000, so the fitted \code{beta} is 1e6 times the density-dependence
+#' coefficient in the equation above; \code{Bmsy_lim} (\eqn{\approx 1/\beta_{srr}}) carries
+#' the same scaling.
 #'
 #' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 #'
@@ -87,10 +94,10 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #'
 #' Either form is accepted; the canonical integer code is what the
 #' TMB template ultimately consumes. Only the structural codes (0,
-#' 2, 4) get string aliases. The historical env-driven codes (1, 3,
+#' 2, 4) get string aliases. The env-driven codes (1, 3,
 #' 5) still work with a soft-deprecation warning -- their structural
 #' part is identical to 0 / 2 / 4 respectively, and the env effect
-#' is now expressed via the `linkages` argument to [build_srr()].
+#' is expressed via the `linkages` argument to [build_srr()].
 #'
 #' @keywords internal
 .SRR_FUNS <- c(
@@ -278,8 +285,8 @@ RECRUITMENT_LINKAGE_PARAMS <- c("R0", "alpha", "beta")
 #'
 #' Natural-scale names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
-#' `M1` -- with the default log link the offset is added on the log
-#' scale to `log_M1` (broadcast across age unless the linkage row
+#' `M1` -- with the default log link the offset is added to M1 on the
+#' log scale (applied across all ages unless the linkage row
 #' pins a specific `age_bin`).
 #'
 #' Note: predation mortality `M2` is a derived quantity in CEATTLE
@@ -295,10 +302,10 @@ M_LINKAGE_PARAMS <- c("M1")
 #' String<->integer mapping for `M1_model` in [build_M1()]
 #'
 #' Either form is accepted by [build_M1()]; the canonical integer
-#' code is what the TMB template ultimately consumes. The legacy
+#' code is what the TMB template ultimately consumes. The
 #' env-driven integer codes 4 and 5 still work with a deprecation
 #' warning -- their structural part is identical to 1 and 2
-#' respectively, and the env effect is now expressed via the
+#' respectively, and the env effect is expressed via the
 #' \code{linkages} argument to [build_M1()] (see
 #' `vignette("environmental-linkages-and-priors")`). No string alias is offered
 #' for 4 or 5 to discourage their use in new code.
@@ -322,8 +329,8 @@ M_LINKAGE_PARAMS <- c("M1")
 #'
 #' Either form is accepted by [build_M1()]; the canonical integer
 #' code is what the TMB template ultimately consumes. The
-#' env-driven options (4, 5) on M1_model are now better expressed
-#' through the `linkages` argument to [build_M1()] but the integer
+#' env-driven options (4, 5) on M1_model can also be expressed
+#' through the `linkages` argument to [build_M1()]; the integer
 #' codes continue to work for backwards compatibility.
 #'
 #' @keywords internal
@@ -345,7 +352,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' vector that is already in the allowed set. Errors loudly on
 #' anything else.
 #'
-#' For `M1_model` only, the historical env-driven integer codes 4
+#' For `M1_model` only, the env-driven integer codes 4
 #' and 5 (controlled by `M1_indices`) are accepted for backwards
 #' compatibility but emit a soft-deprecation warning pointing users
 #' at the linkage table -- see [build_M1()].
@@ -442,7 +449,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Sex/age-invariant M with a temperature linkage on M1
 #' build_M1(
 #'   M1_model = "sex_age_invariant",
@@ -526,8 +533,7 @@ GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
 #' `"WHAM"` (1) pins the oldest age class's SD-at-age to the upper anchor
 #' `exp(sd_Linf)` (the WHAM SDAA convention). `"SS3"` (2) instead interpolates
 #' it by length like any interior age. Only affects estimated growth
-#' (`growth_model > 0`); the default is WHAM, which is unchanged from prior
-#' releases.
+#' (`growth_model > 0`); the default is WHAM.
 #' @keywords internal
 #' @noRd
 .GROWTH_SD_STYLE <- c(WHAM = 1L, SS3 = 2L)
@@ -538,10 +544,10 @@ GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
 #' Natural-scale names of the underlying growth-function parameters.
 #' Von Bertalanffy uses `K`, `L1`, `Linf`; Richards adds `m`.
 #' `sd_L1` / `sd_Linf` are the standard deviations of length-at-age
-#' anchored at `L1` and `Linf` (the SD-at-age interpolation endpoints
-#' from `growth.hpp`). Only intercept-only specs (`~ 1`) are honored
+#' anchored at `L1` and `Linf` (the SD-at-age interpolation endpoints).
+#' Only intercept-only specs (`~ 1`) are honored
 #' on the SD endpoints -- they thread through `init` / `bounds` /
-#' `priors` onto `growth_log_sd` but do not vary by year.
+#' `priors` onto the growth SD-at-age but do not vary by year.
 #' The empirical weight-at-age model admits no linkages.
 #'
 #' @keywords internal
@@ -593,27 +599,24 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #'   convention); `"SS3"` instead interpolates it by length like any interior
 #'   age. Accepts a string or the integer code (`1`/`2`), scalar or a
 #'   length-`nspp` vector. Default `NA` inherits `data_list$growth_sd_style`
-#'   if present (so a refit keeps the original choice), otherwise `"WHAM"` --
-#'   unchanged from prior releases.
+#'   if present (so a refit keeps the original choice), otherwise `"WHAM"`.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
 #'   The mean-growth keys (`K`, `L1`, `Linf`, `m`)
-#'   accept arbitrary one-sided formulas and produce year-varying
-#'   offsets applied inside `growth.hpp`. The SD-endpoint keys
+#'   accept arbitrary one-sided formulas and make that growth parameter
+#'   year-varying (a per-year offset around its mean). The SD-endpoint keys
 #'   (`sd_L1`, `sd_Linf`) only honor intercept-bearing
 #'   formulas (typically `~ 1`) -- they thread `init`, `bounds`, and
-#'   `priors` onto the underlying `growth_log_sd` parameter, giving
+#'   `priors` onto the growth SD-at-age, giving
 #'   the SDs the same prior/fix/initial-value contract as the mean
 #'   parameters. Slope rows on SD specs raise a warning and have no
 #'   effect; slope-only formulas (`~ 0 + temp`) error.
-#'   Materialization into the global linkage table happens inside
-#'   `fit_mod()` once `data_list$env_data` is in scope.
 #'
 #' @return A list of switches defining the growth model.
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Sex-specific von Bertalanffy with temperature on K, by species + sex
 #' build_growth(
 #'   fun = "vonBertalanffy",   # or fun = 1
@@ -798,12 +801,9 @@ Q_LINKAGE_PARAMS <- c("q")
 #' Catchability specification
 #'
 #' @description
-#' Describes how survey/index catchability is estimated. At present its only
-#' role is to carry environmental linkages on `q`, which supersede the
-#' `Estimate_q = "Environmental"` / `Time_varying_q` column pair: instead of
-#' naming `env_data` columns by position, the effect is written as a formula
-#' and can carry priors, bounds and an estimation phase like any other
-#' linkage.
+#' Carry environmental linkages on survey/index catchability `q`. The effect of
+#' an `env_data` covariate is written as a formula and can carry priors, bounds,
+#' and an estimation phase like any other linkage.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   catchability parameter. The only parameter is `q`. Use `by = ~ fleet` for
@@ -854,40 +854,39 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `Time_varying_sel` process error on the same fleet (the two are separate
 #' mechanisms: a covariate effect versus a deviation).
 #'
-#' The parameter names index the underlying selectivity slots, which the
-#' parametric forms share:
+#' The parameter names are the shape parameters of the parametric selectivity
+#' forms:
 #' \describe{
 #'   \item{`slp_asc`, `slp_desc`}{ascending / descending logistic slope (log
-#'     scale); for DoubleNormal the ascending / descending sigma, aliased
+#'     scale); for a double-normal the ascending / descending width, aliased
 #'     `sigma_asc` / `sigma_desc`.}
-#'   \item{`inf_asc`, `inf_desc`}{ascending / descending inflection (natural
-#'     scale); for DoubleNormal the peak and the logit right-floor, aliased
-#'     `peak` / `right_floor`.}
+#'   \item{`inf_asc`, `inf_desc`}{ascending / descending inflection age/length
+#'     (natural scale); for a double-normal the peak and the logit right-floor,
+#'     aliased `peak` / `right_floor`.}
 #'   \item{`coff`}{non-parametric selectivity-at-bin coefficients.}
 #' }
 #'
 #' Every parameter accepts `link = "log"` (multiplicative on the natural
 #' parameter) or `link = "identity"` (additive), like the other processes.
 #'
-#' **Priors on the base parameter.** An intercept-only formula (`~ 1`) with a
-#' `priors` entry places a prior on the base selectivity parameter that carries
-#' the level (the `(Intercept)` linkage coefficient is pinned at 0, so it adds
-#' no offset). The prior is read on the parameter's own scale: the slopes
-#' (`slp_asc` / `slp_desc`) live on `log_sel_slp` (log scale — use `lognormal()`),
-#' the inflections (`inf_asc` / `inf_desc`) on `sel_inf` (natural scale — use
-#' `normal()`). For example, a normal prior on the ascending inflection:
+#' **Priors on a selectivity parameter.** An intercept-only formula (`~ 1`) with
+#' a `priors` entry places a prior on the selectivity parameter itself (no
+#' year-to-year offset is added). Read the prior on the parameter's own scale:
+#' the slopes (`slp_asc` / `slp_desc`) are on the log scale (use `lognormal()`),
+#' the inflections (`inf_asc` / `inf_desc`) on the natural scale (use `normal()`).
+#' For example, a normal prior on the ascending inflection:
 #' `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1,
 #' priors = list(\`(Intercept)\` = normal(0, 3)))))`. This mirrors the
 #' prior-only [build_composition()] path.
 #'
-#' Current limitations of a selectivity prior: it targets one base-parameter
-#' cell, so in a two-sex model an unstratified `~ 1` prior regularizes sex 1
-#' only (use `by = ~ sex` for a per-sex prior); an `init` supplied on a
-#' selectivity intercept is not pushed to the base parameter (the start comes
-#' from `build_params()` / the data); a prior on the DoubleNormal `right_floor`
-#' (a logit-scale slot) is rejected; and a prior on a fleet that mirrors another
-#' fleet's selectivity (shared `Selectivity_index`) must be placed on the lead
-#' fleet to avoid double-counting the shared block.
+#' A selectivity prior targets one parameter, so in a two-sex model an
+#' unstratified `~ 1` prior constrains sex 1 only -- use `by = ~ sex` for a
+#' per-sex prior. An `init` on a selectivity intercept has no effect (the
+#' starting value comes from the data), and a prior on the double-normal
+#' `right_floor` is not supported.
+#' For a fleet that mirrors another fleet's selectivity (shared
+#' `Selectivity_index`), place the prior on the lead fleet so the shared
+#' parameter block is not penalised more than once.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Use `by = ~ fleet` for a separate coefficient per

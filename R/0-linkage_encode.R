@@ -9,8 +9,8 @@
 #' shared rows over the relevant 1-based levels); converts the 1-based
 #' `X_col` to 0-based.
 #'
-#' This is mechanism only; no model behavior depends on the encoding
-#' until the TMB template wires up the corresponding inputs.
+#' Encodes the pooled linkage table into the integer/vector inputs and
+#' design matrix the TMB template consumes.
 #'
 #' @keywords internal
 #' @name linkage_encode
@@ -44,8 +44,8 @@ LINKAGE_LINK_CODES <- c(
 
 #' Integer codes for the random-effect covariance `re_struct`
 #'
-#' Stable across versions; the C++ density dispatches on these. `us`/IID and
-#' `rw`/RandomWalk are wired; `ar1` follows.
+#' Stable across versions; the C++ density dispatches on these. Covariance
+#' structures: `us` (IID), `rw` (random walk), `ar1` (first-order autoregressive).
 #'
 #' @keywords internal
 LINKAGE_STRUCT_CODES <- c(

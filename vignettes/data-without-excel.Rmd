@@ -161,7 +161,7 @@ simData$other_food <- rep(1e5, nspp)
 
 ## 2. Fleet control table
 
-This is the most important configuration table. Each row defines one fleet (fishery or survey) and controls how it is modelled. Multiple fleets can target the same species.
+Each row defines one fleet (fishery or survey) and controls how it is modelled. Multiple fleets can target the same species.
 
 ```{r}
 # Fleet_type:
@@ -578,7 +578,7 @@ sim_run <- fit_mod(
 
 ## 10. Export back to Excel (optional)
 
-`write_data()` exports the data list to an Excel workbook in the standard Rceattle template format, which can then be edited and re-read with `read_data()`. This makes it easy to share data objects or move between R-based and spreadsheet-based workflows.
+`write_data()` exports the data list to an Excel workbook in the standard Rceattle template format, which can then be edited and re-read with `read_data()` -- so you can move between R-based and spreadsheet-based workflows.
 
 ```{r}
 write_data(simData, file = tempfile(fileext = ".xlsx"))

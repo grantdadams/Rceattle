@@ -14,7 +14,7 @@ shared rows over the relevant 1-based levels); converts the 1-based
 \code{X_col} to 0-based.
 }
 \details{
-This is mechanism only; no model behavior depends on the encoding
-until the TMB template wires up the corresponding inputs.
+Encodes the pooled linkage table into the integer/vector inputs and
+design matrix the TMB template consumes.
 }
 \keyword{internal}

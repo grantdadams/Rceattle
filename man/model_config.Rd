@@ -63,9 +63,9 @@ carrying \code{model_config()} fits identically to one with no slot at all. When
 data list has a \code{model_config}, \code{\link[=fit_mod]{fit_mod()}} reads each field only for
 arguments the caller did \strong{not} pass explicitly; an argument passed to
 \code{\link[=fit_mod]{fit_mod()}} always overrides the stored value (matching how \code{\link[=fit_mod]{fit_mod()}}
-already treats its arguments). Note that because production scripts often pass
-these arguments explicitly at their defaults, such a call still overrides the
-slot -- omit the argument to let the configuration take effect.
+already treats its arguments). A script that passes an argument explicitly --
+even at its default -- overrides the slot for that field; omit the argument to
+let the configuration take effect.
 }
 \section{Persistence}{
 

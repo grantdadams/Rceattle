@@ -32,22 +32,19 @@ plus-group SD to the upper anchor \code{exp(sd_Linf)} (the WHAM SDAA
 convention); \code{"SS3"} instead interpolates it by length like any interior
 age. Accepts a string or the integer code (\code{1}/\code{2}), scalar or a
 length-\code{nspp} vector. Default \code{NA} inherits \code{data_list$growth_sd_style}
-if present (so a refit keeps the original choice), otherwise \code{"WHAM"} --
-unchanged from prior releases.}
+if present (so a refit keeps the original choice), otherwise \code{"WHAM"}.}
 
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).
 The mean-growth keys (\code{K}, \code{L1}, \code{Linf}, \code{m})
-accept arbitrary one-sided formulas and produce year-varying
-offsets applied inside \code{growth.hpp}. The SD-endpoint keys
+accept arbitrary one-sided formulas and make that growth parameter
+year-varying (a per-year offset around its mean). The SD-endpoint keys
 (\code{sd_L1}, \code{sd_Linf}) only honor intercept-bearing
 formulas (typically \code{~ 1}) -- they thread \code{init}, \code{bounds}, and
-\code{priors} onto the underlying \code{growth_log_sd} parameter, giving
+\code{priors} onto the growth SD-at-age, giving
 the SDs the same prior/fix/initial-value contract as the mean
 parameters. Slope rows on SD specs raise a warning and have no
-effect; slope-only formulas (\code{~ 0 + temp}) error.
-Materialization into the global linkage table happens inside
-\code{fit_mod()} once \code{data_list$env_data} is in scope.}
+effect; slope-only formulas (\code{~ 0 + temp}) error.}
 }
 \value{
 A list of switches defining the growth model.
@@ -56,7 +53,7 @@ A list of switches defining the growth model.
 Specify the growth model for Rceattle
 }
 \examples{
-\dontrun{
+\donttest{
 # Sex-specific von Bertalanffy with temperature on K, by species + sex
 build_growth(
   fun = "vonBertalanffy",   # or fun = 1

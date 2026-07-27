@@ -3,17 +3,21 @@
 #' Management strategy evaluation performance metric summary
 #'
 #' @param mse MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}
-#' @param om_only only include performance metrics from OMs
+#' @param om_only If TRUE, report only operating-model (true) status and skip the
+#'   estimation-model (EM) perception metrics.
 #'
 #' @return A named list, one element per entity dimension so each metric lives
 #'   only where it applies (no NA padding):
 #'   * `species` -- a data.frame with one row per species (keyed by `Species`)
 #'     of the conservation / status metrics: per-species average catch, catch
-#'     IAV and P(Closed); relative MSE of terminal and average SSB; the EM- and
-#'     OM-perceived overfishing / overfished probabilities (via
-#'     \code{\link{build_hcr}}) and their discordances; and terminal biomass,
-#'     SSB, dynamic SB0, SSB depletion (equilibrium and dynamic), average SSB
-#'     depletion, and SSB-collapse counts.
+#'     inter-annual variability (IAV), and P(Closed) = the probability the
+#'     fishery is closed (catch ~ 0); the relative mean-squared error of
+#'     terminal and average SSB; the estimation-model- and operating-model-
+#'     perceived overfishing / overfished probabilities (via
+#'     \code{\link{build_hcr}}) and the probability each status is misclassified
+#'     (estimation model disagrees with the operating-model truth); and terminal
+#'     biomass, SSB, dynamic SB0, SSB depletion (equilibrium and dynamic),
+#'     average SSB depletion, and SSB-collapse counts.
 #'   * `fleet` -- a data.frame with one row per fishery fleet (keyed by
 #'     `Fleet_code` / `Fleet_name`) of average catch, catch IAV, and P(Closed).
 #'   * `total` -- a named numeric of the across-fleet total average catch and
@@ -21,8 +25,7 @@
 #'   * `meta` -- run provenance (`nsim`, `nspp`, `nflts`, `HCR`, projection-year
 #'     range).
 #'
-#'   All metrics are averaged across projection years and simulations. (Prior to
-#'   v5.0.0 this returned a single stacked data.frame; see NEWS.)
+#'   All metrics are averaged across projection years and simulations.
 #'
 #' @export
 #'
@@ -537,7 +540,7 @@ mse_summary <- function(mse, om_only = FALSE){
 }
 
 
-#' Function to load .RDs files from MSE runs
+#' Check which saved MSE simulation files can be loaded
 #'
 #' @param dir Directory used to save files from \code{\link{run_mse}}
 #' @param file file name used to save files from \code{\link{run_mse}}
@@ -584,7 +587,7 @@ check_mse <- function(dir = NULL, file = NULL){
 
 
 
-#' Function to load .RDs files from MSE runs
+#' Load saved MSE simulation runs
 #'
 #' @param dir Directory used to save files from \code{\link{run_mse}}
 #' @param file file name used to save files from \code{\link{run_mse}}

@@ -7,7 +7,7 @@
 LINKAGE_STRUCT_CODES
 }
 \description{
-Stable across versions; the C++ density dispatches on these. \code{us}/IID and
-\code{rw}/RandomWalk are wired; \code{ar1} follows.
+Stable across versions; the C++ density dispatches on these. Covariance
+structures: \code{us} (IID), \code{rw} (random walk), \code{ar1} (first-order autoregressive).
 }
 \keyword{internal}

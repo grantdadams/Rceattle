@@ -15,15 +15,15 @@ Control
 \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 \item{nages}{Number of ages of each species included in the hindcast}
-\item{minage}{Minimum age for each population (i.e.does recruitment correspond to age 0, 1, 2?)}
+\item{minage}{Minimum age for each population (i.e. does recruitment correspond to age 0, 1, 2?)}
 \item{nlengths}{Number of lengths of each species included in the hindcast}
 \item{pop_wt_index}{Weight-at-age (weight) index to use for calculation of each species population derived quantities (SSB, Consumption/Ration, Suitability, etc)}
-\item{ssb_wt_index}{Weight-at-age (weight) index to use for calculation of each species spawning biomass}
+\item{ssb_wt_index}{Weight-at-age index used to compute each species' female spawning-stock biomass (SSB)}
 \item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
-\item{sigma_rec}{Standard deviation to use for recruitment}
+\item{sigma_rec}{Standard deviation of the log-scale recruitment deviations (fixed, or an initial value if estimated)}
 \item{other_food}{Other food in the ecosystem for each species}
 \item{estDynamics}{Estimate or fix numbers-at-age. Accepts integer codes or the equivalent readable strings: 0 / "Estimated" = estimate dynamics; 1 / "Fixed" = use input numbers-at-age in NByageFixed; 2 / "FixedScaled" = multiply input numbers-at-age (NByageFixed) by a single scaling coefficient; 3 / "FixedScaledByAge" = multiply input numbers-at-age (NByageFixed) by an age-specific scaling coefficient.}
-\item{M1_model}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1. (Formerly named \code{est_M1}; the old name is still accepted with a deprecation message.)}
+\item{M1_model}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1.}
 \item{fleet_control}{Survey and fishery data specifications}
 \item{index_data}{Survey index in weight (kg) or numbers data}
 \item{index_cov}{Optional named list of survey-index variance-covariance matrices, keyed by Fleet_name (or Fleet_code), used only by fleets whose fleet_control \code{Index_distribution == "MVN"}. Each matrix must be square and symmetric with dimension equal to the number of fitted survey observations for that fleet (Year in \code{styr:endyr}, Observation > 0), ordered as in index_data. Inverted once internally to the precision matrix used in 0.5 * r' Sigma^-1 r. Leave unset for the default lognormal likelihood.}
@@ -36,8 +36,8 @@ Control
 \item{maturity}{Maturity-at-age for each species}
 \item{sex_ratio}{Percent female at age for each species}
 \item{M1_base}{Residual natural mortality for each species}
-\item{aLW}{Parameters for weight-at-length power function for each species. . Used when estimating time-variant length-based gamma suitability (suitMode = 2) or time-variant length-based lognormal suitability (suitMode = 5)}
-\item{Ceq}{Which bioenergetics equation to use for each species for ft to scale max consumtion: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)}
+\item{aLW}{Parameters for weight-at-length power function for each species. Used when estimating time-variant length-based gamma suitability (suitMode = 2) or time-variant length-based lognormal suitability (suitMode = 5)}
+\item{Ceq}{Which bioenergetics equation to use for each species for ft to scale max consumption: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)}
 \item{Cindex}{Which environmental index in env_data to use to drive bioenergetics}
 \item{Pvalue}{This scales the maximum consumption used for ration for each species; Pvalue is in Cmax\emph{fT}Pvalue*ration_data}
 \item{fday}{Number of foraging days per year for each species}
@@ -49,7 +49,7 @@ Control
 \item{Tcl}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 \item{CK1}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
 \item{CK4}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
-\item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specificed by Ceq and Cindex. Also used to drive catchability if Catchability = 5. Will use the mean for missing years. Temperature should be in celcius.}
+\item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius.}
 \item{ration_data}{Annual relative foraging rate by age or input consumption at age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs.}
 \item{UobsAge}{Stomach proportion by numbers for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 \item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
@@ -62,10 +62,10 @@ fleet_control: controls for survey and fisheries data
 \item{Fleet_type}{0 or 'Off' = Do not estimate; 1 = 'Fishery'; 2 = 'Survey'}
 \item{Species}{Species number}
 \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
-\item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic"; 5 = "Hake" non-parametric sensu Taylor et al; 6 = "2DAR1"; 7 = "3DAR1" sensu Cheng et al 2024; 8 = "DoubleNormal" (Gaussian ascending and descending limbs blended at a common peak — similar to SS3 pattern 24). Parameters: \code{sel_inf[1]} = peak bin/length; \code{sel_inf[2]} = logit(right_floor), right-tail floor analogous to SS3 P6/end_logit (logit=-10 → dome-shaped, logit=+10 → logistic ascending-only); \code{log_sel_slp[1]} = log(sigma_ascending); \code{log_sel_slp[2]} = log(sigma_descending). Supports the same time-varying modes as DoubleLogistic (IID, Block, RandomWalk).}
+\item{Selectivity}{Selectivity form: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" (Ianelli et al. 2018); 3 = "DoubleLogistic"; 4 = "DescendingLogistic"; 5 = "Hake" non-parametric (Taylor et al. 2014); 6 = "2DAR1"; 7 = "3DAR1" (Cheng et al. 2024); 8 = "DoubleNormal"; 9 = "NonParametricPM" (non-parametric random walk, AMAK "pm"); 11 = "LogisticPM" (logistic with a free age-1 selectivity, AMAK "pm"). Whether a form is age- or length-based is set by Selectivity_dimension.}
 \item{Selectivity_dimension}{"Age" or "Length".}
-\item{N_sel_bins}{Number of bins (ages or length bins) to estimate for non-parametric selectivity. (Formerly \code{Nselages}; the old name is renamed on read.)}
-\item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
+\item{N_sel_bins}{Number of bins (ages or length bins) to estimate for non-parametric selectivity.}
+\item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (not yet implemented), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
 \item{Time_varying_sel_sd}{The fixed or initial sd to use for time varying selectivity.}
 \item{Sel_start_year}{First year the fleet's time-varying selectivity deviations are estimated and penalized. Deviations before this year are fixed at 0: they have no data and no penalty (the selectivity penalties are anchored at this year), so estimating them would leave unidentified flat directions. Defaults to the earliest year of data across all fleets sharing the fleet's \code{Selectivity_index} (fleets sharing an index share one selectivity curve), bounded below by \code{styr}. Only used for time-varying selectivity; set explicitly to override.}
 \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
@@ -79,30 +79,30 @@ fleet_control: controls for survey and fisheries data
 \item{Sel_shape_mode}{Shape-penalty mode: "Directional" (default) or "Smooth" (two-sided second-difference penalty, RTMB).}
 \item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty (type 9 only): 0 = off (default), 10 matches AMAK.}
 \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
-\item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum. (Formerly \code{Sel_norm_bin1}; the old name is still accepted with a deprecation message.)}
-\item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper. (Formerly \code{Sel_norm_bin2}; the old name is still accepted with a deprecation message.)}
-\item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction. (Formerly \code{Weight1_Numbers2}; the old name is still accepted with a deprecation message.)}
+\item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum.}
+\item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
+\item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction.}
 \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
-\item{Catchability_index}{index to use if catchability coefficients are to be set the same. (Formerly \code{Q_index}; the old name is still accepted with a deprecation message.)}
-\item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate geometric-mean analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025; 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood)}
-\item{Catchability_init}{Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centres the q prior. (Formerly \code{Q_prior}, then \code{Q_init}; the old names are still accepted with a deprecation message.)}
-\item{Catchability_prior_sd}{Standard deviation of the q prior: dnorm(log_q, log_q_prior, Catchability_prior_sd). Used only when Catchability = "Estimated-with-prior". (Formerly \code{Q_sd_prior}; the old name is still accepted with a deprecation message.)}
-\item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
+\item{Catchability_index}{index to use if catchability coefficients are to be set the same.}
+\item{Catchability}{Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Ludwig and Walters 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates fit to an environmental index (Rogers et al. 2024); 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.}
+\item{Catchability_init}{Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centres the q prior.}
+\item{Catchability_prior_sd}{Standard deviation of the q prior: dnorm(log_q, log_q_prior, Catchability_prior_sd). Used only when Catchability = "Estimated-with-prior".}
+\item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (not yet implemented), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
 \item{Time_varying_q_sd}{The sd to use for the random walk of time varying q if set to 1}
-\item{Estimate_index_sd}{Estimate survey/index observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994. (Formerly \code{Estimate_survey_sd}; renamed on read.)}
-\item{Index_sd}{Starting/fixed value for the index observation SD, used when Estimate_index_sd = "Estimated". (Formerly \code{Survey_sd_prior}, then \code{Index_sd_prior}; the old names are still accepted.)}
+\item{Estimate_index_sd}{Estimate survey/index observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994.}
+\item{Index_sd}{Starting/fixed value for the index observation SD, used when Estimate_index_sd = "Estimated".}
 \item{Estimate_catch_sd}{Estimate fishery/catch observation SD. Accepts integer codes or readable strings: 0 / "Fixed" = use the fixed SD from the data CV; 1 / "Estimated" = estimate; 2 / "Analytical" = analytically estimate following Ludwig and Walters 1994.}
-\item{Catch_sd}{Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated". (Formerly \code{Catch_sd_prior}; the old name is still accepted with a deprecation message.)}
-\item{Index_distribution}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default, unchanged historical behavior). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q\emph{pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (the AMAK/ebswp DoCovBTS value, matching ADMB's reported survey likelihood); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n}log(2*pi)) (TMB's density::MVNORM). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
-\item{Comp_distribution}{Age/length composition data distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" (default) = AFSC multinomial; 0 or "Multinomial" = full multinomial; 1 or "DirichletMultinomial". (Formerly \code{Comp_loglike}; the old name is still accepted with a deprecation message.)}
+\item{Catch_sd}{Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated".}
+\item{Index_distribution}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q\emph{pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (matching the survey likelihood reported by AMAK/ebswp and ADMB); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n}log(2*pi)). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
+\item{Comp_distribution}{Age/length composition data distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" (default) = AFSC multinomial; 0 or "Multinomial" = full multinomial; 1 or "DirichletMultinomial".}
 \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
-\item{CAAL_distribution}{Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial". (Formerly \code{CAAL_loglike}; the old name is still accepted with a deprecation message.)}
+\item{CAAL_distribution}{Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial".}
 \item{CAAL_weights}{Composition weights for the conditional age-at-length (CAAL) likelihood.}
 \item{Comp_accum_young}{Young-tail composition accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; age/length bins below it are folded into it before the likelihood. NA (default) or 1 = no young accumulation.}
 \item{Comp_accum_old}{Old-tail composition accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; age/length bins above it are folded into it before the likelihood. NA (default), 0, or a value at/above the number of bins = no old accumulation.}
 \item{Month}{Observation month for the fleet (0 = not specified).}
-\item{Proj_F_proportion}{The proportion of future fishing mortality assigned to this fleet. (Formerly \code{proj_F_prop}; the old name is still accepted with a deprecation message.)}
+\item{Proj_F_proportion}{The proportion of future fishing mortality assigned to this fleet.}
 }
 }
 \usage{

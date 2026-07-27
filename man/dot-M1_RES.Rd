@@ -9,8 +9,8 @@
 \description{
 Either form is accepted by \code{\link[=build_M1]{build_M1()}}; the canonical integer
 code is what the TMB template ultimately consumes. The
-env-driven options (4, 5) on M1_model are now better expressed
-through the \code{linkages} argument to \code{\link[=build_M1]{build_M1()}} but the integer
+env-driven options (4, 5) on M1_model can also be expressed
+through the \code{linkages} argument to \code{\link[=build_M1]{build_M1()}}; the integer
 codes continue to work for backwards compatibility.
 }
 \keyword{internal}

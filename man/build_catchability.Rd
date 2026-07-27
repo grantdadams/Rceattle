@@ -16,12 +16,9 @@ a separate coefficient per fleet, and the \code{fleet} argument of
 A list of catchability settings for \code{\link[=fit_mod]{fit_mod()}}.
 }
 \description{
-Describes how survey/index catchability is estimated. At present its only
-role is to carry environmental linkages on \code{q}, which supersede the
-\code{Estimate_q = "Environmental"} / \code{Time_varying_q} column pair: instead of
-naming \code{env_data} columns by position, the effect is written as a formula
-and can carry priors, bounds and an estimation phase like any other
-linkage.
+Carry environmental linkages on survey/index catchability \code{q}. The effect of
+an \code{env_data} covariate is written as a formula and can carry priors, bounds,
+and an estimation phase like any other linkage.
 }
 \examples{
 \donttest{

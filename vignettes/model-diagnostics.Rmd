@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-Rceattle provides several layers of diagnostics: **convergence diagnostics** attached automatically to every fit, **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model fits observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, **jitter testing** to check that the optimizer has found a global minimum, **self-testing** (simulation–estimation) to check that the model can recover its own estimates from simulated data, and **likelihood profiling** to check how informative the data are about a particular parameter.
+Rceattle offers a range of diagnostics: **convergence diagnostics** attached automatically to every fit, **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model fits observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, **jitter testing** to check that the optimizer has found a global minimum, **self-testing** (simulation–estimation) to check that the model can recover its own estimates from simulated data, and **likelihood profiling** to check how informative the data are about a particular parameter.
 
 ## Setup and plotting data
 

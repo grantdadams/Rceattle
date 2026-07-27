@@ -20,39 +20,38 @@ parameter is written as a formula and composes additively with any
 \code{Time_varying_sel} process error on the same fleet (the two are separate
 mechanisms: a covariate effect versus a deviation).
 
-The parameter names index the underlying selectivity slots, which the
-parametric forms share:
+The parameter names are the shape parameters of the parametric selectivity
+forms:
 \describe{
 \item{\code{slp_asc}, \code{slp_desc}}{ascending / descending logistic slope (log
-scale); for DoubleNormal the ascending / descending sigma, aliased
+scale); for a double-normal the ascending / descending width, aliased
 \code{sigma_asc} / \code{sigma_desc}.}
-\item{\code{inf_asc}, \code{inf_desc}}{ascending / descending inflection (natural
-scale); for DoubleNormal the peak and the logit right-floor, aliased
-\code{peak} / \code{right_floor}.}
+\item{\code{inf_asc}, \code{inf_desc}}{ascending / descending inflection age/length
+(natural scale); for a double-normal the peak and the logit right-floor,
+aliased \code{peak} / \code{right_floor}.}
 \item{\code{coff}}{non-parametric selectivity-at-bin coefficients.}
 }
 
 Every parameter accepts \code{link = "log"} (multiplicative on the natural
 parameter) or \code{link = "identity"} (additive), like the other processes.
 
-\strong{Priors on the base parameter.} An intercept-only formula (\code{~ 1}) with a
-\code{priors} entry places a prior on the base selectivity parameter that carries
-the level (the \code{(Intercept)} linkage coefficient is pinned at 0, so it adds
-no offset). The prior is read on the parameter's own scale: the slopes
-(\code{slp_asc} / \code{slp_desc}) live on \code{log_sel_slp} (log scale — use \code{lognormal()}),
-the inflections (\code{inf_asc} / \code{inf_desc}) on \code{sel_inf} (natural scale — use
-\code{normal()}). For example, a normal prior on the ascending inflection:
+\strong{Priors on a selectivity parameter.} An intercept-only formula (\code{~ 1}) with
+a \code{priors} entry places a prior on the selectivity parameter itself (no
+year-to-year offset is added). Read the prior on the parameter's own scale:
+the slopes (\code{slp_asc} / \code{slp_desc}) are on the log scale (use \code{lognormal()}),
+the inflections (\code{inf_asc} / \code{inf_desc}) on the natural scale (use \code{normal()}).
+For example, a normal prior on the ascending inflection:
 \verb{build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors = list(\\}(Intercept)\\verb{ = normal(0, 3)))))}. This mirrors the
 prior-only \code{\link[=build_composition]{build_composition()}} path.
 
-Current limitations of a selectivity prior: it targets one base-parameter
-cell, so in a two-sex model an unstratified \code{~ 1} prior regularizes sex 1
-only (use \code{by = ~ sex} for a per-sex prior); an \code{init} supplied on a
-selectivity intercept is not pushed to the base parameter (the start comes
-from \code{build_params()} / the data); a prior on the DoubleNormal \code{right_floor}
-(a logit-scale slot) is rejected; and a prior on a fleet that mirrors another
-fleet's selectivity (shared \code{Selectivity_index}) must be placed on the lead
-fleet to avoid double-counting the shared block.
+A selectivity prior targets one parameter, so in a two-sex model an
+unstratified \code{~ 1} prior constrains sex 1 only -- use \code{by = ~ sex} for a
+per-sex prior. An \code{init} on a selectivity intercept has no effect (the
+starting value comes from the data), and a prior on the double-normal
+\code{right_floor} is not supported.
+For a fleet that mirrors another fleet's selectivity (shared
+\code{Selectivity_index}), place the prior on the lead fleet so the shared
+parameter block is not penalised more than once.
 }
 \examples{
 \donttest{

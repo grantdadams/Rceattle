@@ -2,7 +2,7 @@
 % Please edit documentation in R/10-mse_summary.R
 \name{load_mse}
 \alias{load_mse}
-\title{Function to load .RDs files from MSE runs}
+\title{Load saved MSE simulation runs}
 \usage{
 load_mse(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
 }
@@ -19,5 +19,5 @@ load_mse(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
 list of MSE simulations/run
 }
 \description{
-Function to load .RDs files from MSE runs
+Load saved MSE simulation runs
 }

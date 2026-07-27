@@ -29,11 +29,12 @@ NULL
 #'   (e.g. `"alpha"`, `"M1"`, `"K"`). May be `NULL` when the
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
-#' @param data (Optional) data frame for formula validation. Currently
-#'   validation happens at materialization time inside [fit_mod()].
+#' @param data Optional data frame for formula validation; validation is
+#'   performed at fit time inside [fit_mod()].
 #' @param by one-sided formula naming stratifying factors that should
 #'   each get their own coefficients. Allowed names are `species`,
-#'   `sex`, and `age_bin`. The default `~species` produces one
+#'   `sex`, `age_bin`, and `fleet` (`fleet` for catchability and
+#'   selectivity linkages). The default `~species` produces one
 #'   coefficient set per species (the typical multispecies
 #'   assessment use case); pass `~species + sex` for per-(species,
 #'   sex) coefficients, or `NULL` to share a single coefficient
@@ -63,22 +64,18 @@ NULL
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
 #'   contributions are multiplicative on the natural-scale parameter. With `link = "identity"`,
 #'   `param = X * beta` -- slope contributions are additive on the
-#'   natural scale. All linkage targets currently expose log-scale TMB
-#'   parameters, so `"log"` is the natural default; `"identity"` is
-#'   reserved for future processes (e.g. logit for steepness).
+#'   natural scale. The linkage targets are estimated on the log scale,
+#'   so `"log"` is the default.
 #' @param init optional named numeric vector of initial values keyed by
 #'   the design-matrix column name (e.g.
 #'   `c(`(Intercept)` = 4, temp = 0)`). Missing entries default to `0`.
 #' @param bounds optional named list of `c(lower, upper)` keyed the same
 #'   way as `init`.
-#' @param priors optional named list whose entries are
-#'   [Rceattle_priors] objects, keyed by design-matrix column name.
-#'   Inside this argument the unprefixed shorthand `normal()`,
-#'   `lognormal()`, `gamma()`, and `beta()` resolves to the
-#'   corresponding `prior_*` constructors via a private data mask, so
-#'   `priors = list(temp = normal(0, 1))` works without masking
-#'   [base::gamma()] or [base::beta()] at the package level. Equivalent
-#'   to `priors = list(temp = prior_normal(0, 1))`.
+#' @param priors optional named list of [Rceattle_priors] objects, keyed by
+#'   design-matrix column name. Inside this argument you may write `normal()`,
+#'   `lognormal()`, `gamma()`, or `beta()` directly, e.g.
+#'   `priors = list(temp = normal(0, 1))` -- equivalent to
+#'   `priors = list(temp = prior_normal(0, 1))`.
 #' @param re_group optional character: name of a random-effect grouping
 #'   for these coefficients. `NA` (default) means fixed.
 #' @param est_phase optional integer estimation phase. Default `1L`.
@@ -92,18 +89,20 @@ NULL
 #'   otherwise. Held **fixed** at this value by default (`obs_sd_est = FALSE`); it
 #'   is the *starting* value when `obs_sd_est = TRUE`.
 #' @param obs_sd_est optional single `TRUE`/`FALSE` (default `FALSE`): estimate the
-#'   `observe` measurement SD instead of holding it fixed — as the reference
-#'   `Estimate_q = 6` / GOApollock model does. **Caveat:** the effect size and
+#'   `observe` measurement SD instead of holding it fixed, as the state-space
+#'   survey-catchability (GOA pollock) model does. **Caveat:** the effect size and
 #'   `obs_sd` are only jointly identified when the observed covariate is
 #'   informative; on a smooth series the AR1 latent can track it exactly and the
 #'   freely-estimated `obs_sd` collapses toward 0. Keep it fixed unless the
-#'   covariate is informative (a prior on `obs_sd` to regularise this is future
-#'   work). Only used with `observe`.
+#'   covariate is informative. Only used with `observe`.
 #'
 #' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
 #'   random-effect deviation SD and (for `ar1`) the correlation: e.g.
 #'   `init = list(sigma = 0.1)` fixes the SD, `priors = list(rho = normal(0,
-#'   0.3))` places a prior on the correlation.
+#'   0.3))` places a prior on the correlation. `sigma` means different things by
+#'   structure: for `rw()` it is the innovation (per-step) SD; for `ar1()` it is
+#'   the marginal (stationary) SD. The two are not directly comparable across
+#'   structures -- see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
 #' @export
@@ -529,7 +528,7 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   stratifying factor named in `spec$by`. For example, for
 #'   `by = ~species` the user must supply `strata = list(species = 1:3)`.
 #'   Each element should be a 1-based integer vector of stratum ids.
-#'   Allowed names are `"species"`, `"sex"`, and `"age_bin"`.
+#'   Allowed names are `"species"`, `"sex"`, `"age_bin"`, and `"fleet"`.
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal

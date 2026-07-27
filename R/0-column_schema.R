@@ -98,10 +98,10 @@
     # explicit, testable record rather than a silent omission.
     .rce_col("R_sexr", "control", "Percent of recruitment that is female (ignored if nsex = 1)", meta = FALSE, status = "orphan"),
     .rce_col("nages", "control", "Integer: number of ages of each species", type = "integer"),
-    .rce_col("minage", "control", "Numeric: minimum age for each population (i.e.does recruitment correspond to age 0, 1, 2?)"),
+    .rce_col("minage", "control", "Numeric: minimum age for each population (i.e. does recruitment correspond to age 0, 1, 2?)"),
     .rce_col("nlengths", "control", "Integer: number of lengths of each species", type = "integer"),
-    .rce_col("pop_wt_index", "control", "Integer: weight index for calculating  biomass, consumption/ration, and suitability for each species", type = "integer"),
-    .rce_col("ssb_wt_index", "control", "Integer: weight index for calculating  spawning biomass for each species", type = "integer"),
+    .rce_col("pop_wt_index", "control", "Integer: weight index for calculating biomass, consumption/ration, and suitability for each species", type = "integer"),
+    .rce_col("ssb_wt_index", "control", "Integer: weight index for calculating female spawning-stock biomass (SSB) for each species", type = "integer"),
     # Order matches write_data()'s control-sheet assembly (alpha/beta before the
     # age-transition index) so the write -> read round-trip preserves data_list
     # element order exactly, not just element values.
@@ -120,13 +120,13 @@
     .rce_col("Fleet_type", "fleet_control", "0 = Do not estimate (fixes all parameters for this fleet to initial values)\r\n1 = Fishery\r\n2 = Survey", type = "switch", allowed = "fleet_map"),
     .rce_col("Species", "fleet_control", "Species number", type = "integer"),
     .rce_col("Selectivity_index", "fleet_control", "Index to mirror selectivities (otherwise, same as fleet_code)", type = "integer"),
-    .rce_col("Selectivity", "fleet_control", "0 = empirical selectivity provided in srv_emp_sel\r\n1 = Age-based logistic selectivity\r\n2 = Age-based non-parametric selecitivty sensu Ianelli et al 2018\r\n3 = Age-based double logistic\r\n4 = Age-based descending logistic\r\n5 = Age-based non-parametric selectivity sensu Taylor et al 2014 (Hake)\r\n6 = Length-based logistic selectivity\r\n7 = Length-based non-parametric selecitivty sensu Ianelli et al 2018\r\n8 = Length-based double logistic\r\n9 = Length-based descending logistic\r\n10 = Length-based non-parametric selectivity sensu Taylor et al 2014 (Hake)", type = "switch", allowed = "sel_map"),
+    .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk (AMAK 'pm')\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map"),
     .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'"),
-    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate non-parametric selectivity for Selectivity = 2 & 5. Not used otherwise", type = "integer", aliases = "Nselages"),
-    .rce_col("Sel_curve_pen1", "fleet_control", "If selectivity is set to type = 2 or 7 (non-parametric) this value will be the 1st penalty on selectivity.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Sel_curve_pen2", "fleet_control", "If selectivity is set to type = 2 or 7 (non-parametric) this value will be the 2nd penalty on selectivity.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, or 9).", type = "integer", aliases = "Nselages"),
+    .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9) selectivity (the intuitive alternative is Sel_curvature_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
     .rce_col("Sel_curve_pen3", "fleet_control", "Deviation-magnitude penalty weight (Sel_curve_pen3) for non-parametric / LogisticPM selectivity.", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Time_varying_sel", "fleet_control", "Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (Selectivity = 5). \r\n0 = no\r\n1 = penalized deviates given sel_sd_prior (or random effects if \"random_sel\" is selected in \"fit_mod\"), \r\n3 = time blocks with no penality \r\n4 = random walk following Dorn\r\n5 = random walk on ascending portion of double logistic only.", type = "switch", allowed = "tv_sel_map"),
+    .rce_col("Time_varying_sel", "fleet_control", "Whether to estimate time-varying selectivity for logistic, double logistic, descending logistic, or non-parametric forms.\r\n0 = no\r\n1 = penalized deviates given sel_sd_prior (or random effects if \"random_sel\" is selected in \"fit_mod\")\r\n3 = time blocks with no penalty\r\n4 = random walk following Dorn\r\n5 = random walk on the ascending portion of double logistic only.", type = "switch", allowed = "tv_sel_map"),
     .rce_col("Time_varying_sel_sd", "fleet_control", "The fixed or initial sd to use for time varying selectivity if set to 1, 4, or 5.", aliases = c("Sel_sd_prior", "Time_varying_sel_sd_prior")),
     .rce_col("Sel_start_year", "fleet_control", "First year the fleet's time-varying selectivity deviations are estimated and penalized (NA -> earliest year of data across fleets sharing the Selectivity_index, bounded below by styr).", type = "integer", meta = TRUE, has_default = TRUE, default = NA),
     .rce_col("Bin_first_selected", "fleet_control", "Age/length bin at which selectivity becomes non-zero", type = "integer", aliases = "Age_first_selected"),
@@ -171,7 +171,7 @@
     # ======================================================================
     # bioenergetics_control sheet, in write order
     # ======================================================================
-    .rce_col("Ceq", "bioenergetics_control", "Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumtion: \r\n1 = Exponential (Stewart et al 1983)\r\n2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015)\r\n3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)\r\n4 = for direct input of consumption in Pyrs  where consumption at age = Numbers * Pyrs (CA set to 1, fday set to 1, CB set to 0)", type = "integer", has_default = TRUE, default = 1L, default_scope = "single-species mode (msmMode == 0), per-species"),
+    .rce_col("Ceq", "bioenergetics_control", "Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumption: \r\n1 = Exponential (Stewart et al 1983)\r\n2 = Temperature-dependence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015)\r\n3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)\r\n4 = for direct input of consumption in Pyrs  where consumption at age = Numbers * Pyrs (CA set to 1, fday set to 1, CB set to 0)", type = "integer", has_default = TRUE, default = 1L, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("Cindex", "bioenergetics_control", "Integer: which environmental index in env_data to use to drive bioenergetics", type = "integer", has_default = TRUE, default = 0L, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("Pvalue", "bioenergetics_control", "Numeric: this scales the maximum consumption used for ration for each species; Pvalue is in Cmax*fT*Pvalue*Pyrs", has_default = TRUE, default = 1, default_scope = "single-species mode (msmMode == 0), per-species"),
     .rce_col("fday", "bioenergetics_control", "Numeric: number of foraging days per year for each species", has_default = TRUE, default = 365, default_scope = "single-species mode (msmMode == 0), per-species"),
@@ -336,7 +336,7 @@
 
 # env_data / ration_data / diet_data headers sit after the bioenergetics block.
 .RCE_META_SHEET_HEADERS_TAIL <- list(
-  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specificed by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in celcius."),
+  c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius."),
   c("ration_data", "Annual relative foraging rate by age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs."),
   c("diet_data",   "Stomach proportion by weight for each predator, prey, predator age, prey age combination. Multiple diet-data formats can be included:\r\n\r\n1) If Pred_age >= 0 and Prey_age >= 0, data is assumed to be  diet proportion of prey-at-age/sex in predator-at-age/sex. \r\n2) If Pred_age >= 0 and Prey_age < 0, data is assumed to be mean diet proportion of prey-spp in predator-at-age/sex (sum across prey ages and sexes)\r\n3) If Pred_age < 0 and Prey_age < 0, data is assumed to be  mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take mean across predator ages/sexes)\r\n4) If Pred_age < -500 and Prey_age < 0, data is assumed to be weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take weighted mean across predator ages/sexes). Weights are estimated predators-at-age. \r\n\r\nIf \"Year = 0\", the the diet will be assumed to be the average between \"suit_styr\" and \"suit_endyr\". \r\n\r\nOnly diet-data type 1 can be used for MSVPA based suitability")
 )
@@ -344,8 +344,8 @@
 # Free-text NOTE / legend rows carried verbatim as the sheet footer.
 .RCE_META_NOTES <- c(
   "NOTE: Most objects are ordered by species code if not specified",
-  "NOTE: Lengths are index 1 through nlenths",
-  "NOTE: Columns for ages are index by 1 trhough nages, but are place holders.",
+  "NOTE: Lengths are index 1 through nlengths",
+  "NOTE: Columns for ages are index by 1 through nages, but are placeholders.",
   "NOTE: For catch, index, and comp data, if \"Year\" is negative, it will predict for that year, but not include the data in the likelihood.",
   "NOTE: For emp_sel, weight, and ration_data, if \"Year\" == 0, those data will be used for all years"
 )

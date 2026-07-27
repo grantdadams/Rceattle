@@ -9,7 +9,8 @@ mse_summary(mse, om_only = FALSE)
 \arguments{
 \item{mse}{MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}}
 
-\item{om_only}{only include performance metrics from OMs}
+\item{om_only}{If TRUE, report only operating-model (true) status and skip the
+estimation-model (EM) perception metrics.}
 }
 \value{
 A named list, one element per entity dimension so each metric lives
@@ -17,11 +18,14 @@ only where it applies (no NA padding):
 \itemize{
 \item \code{species} -- a data.frame with one row per species (keyed by \code{Species})
 of the conservation / status metrics: per-species average catch, catch
-IAV and P(Closed); relative MSE of terminal and average SSB; the EM- and
-OM-perceived overfishing / overfished probabilities (via
-\code{\link{build_hcr}}) and their discordances; and terminal biomass,
-SSB, dynamic SB0, SSB depletion (equilibrium and dynamic), average SSB
-depletion, and SSB-collapse counts.
+inter-annual variability (IAV), and P(Closed) = the probability the
+fishery is closed (catch ~ 0); the relative mean-squared error of
+terminal and average SSB; the estimation-model- and operating-model-
+perceived overfishing / overfished probabilities (via
+\code{\link{build_hcr}}) and the probability each status is misclassified
+(estimation model disagrees with the operating-model truth); and terminal
+biomass, SSB, dynamic SB0, SSB depletion (equilibrium and dynamic),
+average SSB depletion, and SSB-collapse counts.
 \item \code{fleet} -- a data.frame with one row per fishery fleet (keyed by
 \code{Fleet_code} / \code{Fleet_name}) of average catch, catch IAV, and P(Closed).
 \item \code{total} -- a named numeric of the across-fleet total average catch and
@@ -30,8 +34,7 @@ catch IAV.
 range).
 }
 
-All metrics are averaged across projection years and simulations. (Prior to
-v5.0.0 this returned a single stacked data.frame; see NEWS.)
+All metrics are averaged across projection years and simulations.
 }
 \description{
 Management strategy evaluation performance metric summary

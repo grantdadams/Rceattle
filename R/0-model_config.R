@@ -28,9 +28,9 @@
 #' data list has a `model_config`, [fit_mod()] reads each field only for
 #' arguments the caller did **not** pass explicitly; an argument passed to
 #' [fit_mod()] always overrides the stored value (matching how [fit_mod()]
-#' already treats its arguments). Note that because production scripts often pass
-#' these arguments explicitly at their defaults, such a call still overrides the
-#' slot -- omit the argument to let the configuration take effect.
+#' already treats its arguments). A script that passes an argument explicitly --
+#' even at its default -- overrides the slot for that field; omit the argument to
+#' let the configuration take effect.
 #'
 #' @param msmMode Predation-mortality mode (see [fit_mod()]). Default `0`.
 #' @param initMode Population initialization (see [fit_mod()]). Default

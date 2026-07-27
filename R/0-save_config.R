@@ -9,9 +9,8 @@
 # in the fit_mod() call. save_config()/load_config() round-trip that
 # configuration to a YAML file with each field's doc string as a comment, so two
 # runs diff cleanly and a configuration is archivable alongside an assessment.
-# This mirrors SAM's saveConf/loadConf and the HuggingFace "text config separate
-# from binary weights" split -- the parameter values (inits/map/bounds) are NOT
-# stored here; only the model + estimation structure is.
+# The parameter values (inits/map/bounds) are NOT stored here; only the model +
+# estimation structure is. (Cf. SAM's saveConf/loadConf.)
 #
 # The content is a `run config`: the 12 model_config() fields, the estimation
 # controls, and the fit_control() bundle. Everything serializes as plain
@@ -360,7 +359,7 @@ run_config <- function(x, ...) {
 #' Save a model run configuration to a documented YAML file
 #'
 #' Round-trips a full run configuration -- the [model_config()] structure plus
-#' the estimation controls and [fit_control()] bundle -- to a human-readable,
+#' the estimation controls and [fit_control()] bundle -- to a
 #' git-diffable YAML file, with each field's documentation emitted as a comment
 #' and a spec-tree + provenance header. Only fields that differ from their
 #' defaults are written, so two configurations diff to just their real

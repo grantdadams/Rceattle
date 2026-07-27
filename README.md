@@ -12,7 +12,7 @@ Rceattle: an R package for fitting climate-linked, single- and multi-species age
 
 - **Single-species** (`msmMode = 0`) and **multispecies** (`msmMode > 0`) configurations, with one- or two-sex population dynamics
 - **One or multiple stocks** can be fit jointly.
-- **Multiple fisheries and surveys** with flexible **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying, etc)
+- **Multiple fisheries and surveys** with a range of **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying, etc)
 - **Stock–recruitment** options (Beverton–Holt, Ricker, mean-recruitment, environmentally-driven)
 - **Estimable growth** (von Bertalanffy / Richards/ empirical weight-at-age)
 - **Environmental linkages and priors** on recruitment, natural mortality, and growth parameters

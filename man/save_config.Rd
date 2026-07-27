@@ -20,7 +20,7 @@ Invisibly, the \code{Rceattle_run_config} that was written.
 }
 \description{
 Round-trips a full run configuration -- the \code{\link[=model_config]{model_config()}} structure plus
-the estimation controls and \code{\link[=fit_control]{fit_control()}} bundle -- to a human-readable,
+the estimation controls and \code{\link[=fit_control]{fit_control()}} bundle -- to a
 git-diffable YAML file, with each field's documentation emitted as a comment
 and a spec-tree + provenance header. Only fields that differ from their
 defaults are written, so two configurations diff to just their real

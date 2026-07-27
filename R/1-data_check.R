@@ -41,7 +41,7 @@ data_check <- function(data_list) {
   # suitMode: length-based modes are not yet implemented.
   # 1 = GammaLength, 3 = LognormalLength, 5 = NormalLength.
   if(any(data_list$suitMode %in% c(1, 3, 5))){
-    errors <- c(errors, "Length based suitability not yet implemented")
+    errors <- c(errors, "Length-based suitability (suitMode 1, 3, or 5) is not yet implemented; use a weight-based mode (2, 4, or 6) or empirical suitability (0)")
   }
 
   # Catchability = "PowerEquation" is not yet implemented: the power coefficient
@@ -190,7 +190,7 @@ data_check <- function(data_list) {
   if(data_list$nspp != max(data_list$weight$Species)){
     errors <- c(errors, "`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
   }
-  if(length(data_list$spnames)     != data_list$nspp) errors <- c(errors, "species names not included for all species")
+  if(length(data_list$spnames)     != data_list$nspp) errors <- c(errors, "'spnames' (species names) not included for all species (must have length nspp)")
   if(length(data_list$spawn_month) != data_list$nspp) errors <- c(errors, "'spawn_month' not included for all species")
   if(length(data_list$nages)       != data_list$nspp) errors <- c(errors, "'nages' not included for all species")
   if(length(data_list$nlengths)    != data_list$nspp) errors <- c(errors, "'nlengths' not included for all species")
@@ -209,7 +209,7 @@ data_check <- function(data_list) {
   # =======================================================================
 
   if(length(data_list$M1_base) == 1)    errors <- c(errors, "M1 is a single value, please make it age/species specific")
-  if(sum(data_list$other_food < 0) > 0) errors <- c(errors, "Other food for one species is negative")
+  if(sum(data_list$other_food < 0) > 0) errors <- c(errors, paste0("'other_food' is negative for species ", paste(which(data_list$other_food < 0), collapse = ", "), "; it must be >= 0"))
 
   # Weight: year coverage (only when time-varying)
   wt_yr <- data_list$weight |>
@@ -226,10 +226,10 @@ data_check <- function(data_list) {
   # Weight: pop_wt_index / ssb_wt_index reference valid Wt_index values
   wt_index <- data_list$weight |> dplyr::distinct(Wt_index, Species, Sex)
   if(any(!data_list$pop_wt_index %in% wt_index$Wt_index)){
-    errors <- c(errors, "Check population weight index, not in weight file")
+    errors <- c(errors, "'pop_wt_index' references a Wt_index that is not present in the 'weight' data")
   }
   if(any(!data_list$ssb_wt_index %in% wt_index$Wt_index)){
-    errors <- c(errors, "Check SSB weight index, not in weight file")
+    errors <- c(errors, "'ssb_wt_index' references a Wt_index that is not present in the 'weight' data")
   }
 
   # Weight: Wt_index must be unique per species
@@ -567,7 +567,7 @@ data_check <- function(data_list) {
           val <- suppressWarnings(as.numeric(fc[[col]][flt]))
           if(!is.na(val) && abs(val) > 10){
             errors <- c(errors, sprintf(
-              "Fleet '%s' has Selectivity = '%s'. For 2DAR1/3DAR1, '%s' is reused as a logit-scale AR1 correlation parameter (rho_trans maps to (-1, 1)); abs(value) > 10 saturates rho at +-1 and produces NaN likelihoods. Got %s = %s. Suggested replacement: %s = 0 (rho = 0). Use a value in roughly [-5, 5] to set non-trivial correlation.",
+              "Fleet '%s' has Selectivity = '%s'. For 2DAR1/3DAR1, '%s' sets the AR1 correlation between bins on a transformed scale that maps to (-1, 1); a magnitude above 10 pushes the correlation to +-1 and the fit fails to evaluate. Got %s = %s. Suggested replacement: %s = 0 (no correlation). Use a value in roughly [-5, 5] to set a non-trivial correlation.",
               flt_name, fc$Selectivity[flt], col, col, val, col
             ))
           }

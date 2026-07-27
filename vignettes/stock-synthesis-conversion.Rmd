@@ -114,7 +114,7 @@ distinguishes them).
 | `_N_lbins` (26) | `nlengths` (on `control` sheet) | Number of length bins |
 | Sex aggregation | `Sex` column on `comp_data` | Hake is single-sex |
 | Comp likelihood | `Comp_distribution` | `0` = multinomial, `1` = Dirichlet-multinomial. (`-1` = legacy AFSC convention.) |
-| Selectivity bin range | `Sel_norm_bin`, `Sel_norm_bin_upper`, `Bin_first_selected` | Replaces the old `Age_max_selected` / `Age_first_selected` columns |
+| Selectivity bin range | `Sel_norm_bin`, `Sel_norm_bin_upper`, `Bin_first_selected` | First selected bin and the bin(s) at which selectivity is normalized to 1 |
 
 `comp_data`:
 

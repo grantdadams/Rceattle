@@ -187,7 +187,7 @@ The `HCR` argument to `fit_mod()` accepts the output of `build_hcr()`. See `?bui
 | 3 | `"ConstantFSSB"` | F that achieves `Ftarget`% of SSB₀ at the end of the projection | Yes |
 | 4 | `"ConstantFSPR"` | Constant F_SPR set at `Ftarget`; can be scaled by `Fmult` (NEFSC convention) | No |
 | 5 | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Plimit`, `Alpha`) | No |
-| 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
+| 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Flimit`, `Ptarget`, `Plimit`, `Pstar`, `Sigma`; 40-10 needs `Ptarget = 0.40`, `Plimit = 0.10`) | Yes |
 | 7 | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
 
 ```{r}

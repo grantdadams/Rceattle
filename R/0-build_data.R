@@ -77,10 +77,9 @@
 #' fit. Legacy top-level names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`)
 #' are mapped to their canonical equivalents.
 #'
-#' Validation is **deferred**: the authoritative check is [data_check()] at fit
-#' time (one source of truth). `build_data()` runs only a light presence
-#' pre-check (`.check = TRUE`) so a missing *required* block is reported at
-#' construction with a clear message. Requirements that depend on fit-time
+#' Full validation runs at fit time in [data_check()]. `build_data()` runs only
+#' a light presence pre-check (`.check = TRUE`) so a missing *required* block is
+#' reported at construction with a clear message. Requirements that depend on fit-time
 #' configuration not stored on the data list (e.g. `caal_data` when growth is
 #' estimated via `build_growth()`) are not knowable here and are left to
 #' [data_check()]; see [data_requirements()] to preview them.
