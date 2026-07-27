@@ -15,10 +15,15 @@
 
 ## Bug fixes
 
+* Fixed the `ConstantFSPR` harvest control rule (`HCR = 4`) applying `Fmult`
+  twice, which set the projected F to `Ftarget * Fmult^2`. It is now
+  `Ftarget * Fmult`. Only affects projections with `Fmult != 1` (the default
+  `Fmult = 1` is unchanged).
+* Corrected the documented reference-point formulas in `?build_hcr`: the SESSF
+  (Tier 1) and NPFMC (Tier 3) fishing-mortality ramps and the PFMC 40-10
+  buffer (the normal quantile function, not the CDF).
 * Restored `plot_logindex()` as a deprecated shim for `plot_index(log = TRUE)`.
-  It had been removed outright when the log-scale option folded into
-  `plot_index()`, breaking any script that still called it; it now forwards with
-  a `.Deprecated()` notice.
+  It forwards to `plot_index()` with a `.Deprecated()` notice.
 
 ## New features
 

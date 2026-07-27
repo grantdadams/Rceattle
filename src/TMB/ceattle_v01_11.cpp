@@ -1646,7 +1646,7 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 4: // Constant Fspr with multiplier
-          proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 5: // NPFMC Tier 3 HCR
