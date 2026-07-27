@@ -67,10 +67,13 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   metric_names <- names(summ)
   testthat::expect_true("OM: Average SSB Depletion" %in% metric_names)
   testthat::expect_true("OM: SSB Collapse" %in% metric_names)
-  # The depletion metric is returned as a numeric vector, one entry per species.
-  dep <- summ[["OM: Average SSB Depletion"]]
-  testthat::expect_true(is.numeric(dep))
-  testthat::expect_gt(length(dep), 0L)
+  # Per-species metrics occupy the first nspp rows; the frame is padded with NA
+  # to the (larger) fleet count. The real per-species depletions are finite and
+  # near the Tier-3 40% target for this HCR.
+  nspp <- mse[[1]]$OM$data_list$nspp
+  dep <- summ[["OM: Average SSB Depletion"]][seq_len(nspp)]
+  testthat::expect_true(all(is.finite(dep)))
+  testthat::expect_true(all(dep > 0 & dep < 1.5))
 })
 
 testthat::test_that("Test MSE - Tier 3 parallel", {

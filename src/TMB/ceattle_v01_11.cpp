@@ -2438,7 +2438,7 @@ Type objective_function<Type>::operator() () {
       Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
-    // 12.2.1. Calculate CAAL
+    // 10.2. Calculate CAAL (predicted conditional age-at-length)
     for(age = 0; age < nages(sp); age++) {
 
       switch(flt_type(flt)){
