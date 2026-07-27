@@ -1,6 +1,12 @@
-# CPUE residual
+# Survey index residuals
 
-Plot of residuals CPUE indices on log-scale (r4ss-style)
+Plots log residuals `log(predicted) - log(observed)` of the survey index
+by year, faceted by survey fleet (`residual_type = "pearson"`, the
+default), or one-step-ahead (OSA) residual diagnostics for a single fit
+(`residual_type = "osa"`, via
+[`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+/
+[`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)).
 
 ## Usage
 
@@ -9,15 +15,15 @@ plot_indexresidual(
   Rceattle,
   file = NULL,
   model_names = NULL,
-  line_col = NULL,
   species = NULL,
+  width = 7,
+  height = 6.5,
+  residual_type = c("pearson", "osa"),
+  line_col = NULL,
   right_adj = 0,
   top_adj = 0.05,
   incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL,
-  residual_type = c("pearson", "osa")
+  single.plots = FALSE
 )
 ```
 
@@ -25,55 +31,40 @@ plot_indexresidual(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object or a list of them (overlaid).
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Optional file stem; if given the figure is written to
+  `<file>_survey_indices.png`.
 
 - model_names:
 
-  Names of models to be used in legend
-
-- line_col:
-
-  Colors of models to be used for line color
+  Legend labels for the models.
 
 - species:
 
-  Species names for legend
+  Species (indices) to include. Default all.
 
-- right_adj:
+- width, height:
 
-  How much right side of the x-axis for fitting the legend. As
-  percentage.
-
-- top_adj:
-
-  How much top side of the y-axis for fitting the legend. As percentage.
-
-- incl_proj:
-
-  TRUE/FALSE include projections years
-
-- single.plots:
-
-  if TRUE plot invidual fits else make multiplot
-
-- width:
-
-  plot width
-
-- height:
-
-  plot hight
+  Saved figure size (inches).
 
 - residual_type:
 
-  `"pearson"` (default) for the legacy index/catch residual plots, or
-  `"osa"` to draw one-step-ahead residual diagnostics (Q-Q plot with
-  SDNR / tail annotation and residual-by-year) for a single fitted model
-  via
-  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
-  and
-  [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md).
+  `"pearson"` (log index residuals) or `"osa"`.
+
+- line_col, right_adj, top_adj, single.plots:
+
+  Deprecated base-graphics arguments, retained for back-compatibility
+  and ignored.
+
+- incl_proj:
+
+  Include projection years.
+
+## Value
+
+A `ggplot` object.

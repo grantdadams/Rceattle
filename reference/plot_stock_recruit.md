@@ -1,6 +1,10 @@
 # Plot stock recruit function
 
-Function the plots the stock recruit function as estimated from Rceattle
+Plots the stock-recruit relationship estimated by Rceattle: spawning
+stock biomass (x) against recruitment (y) as points, with the fitted
+stock-recruit curve (mean recruitment, Beverton-Holt, or Ricker)
+overlaid, faceted by species. A 95% normal data ellipse of the SSB-R
+cloud is added when `add_ci = TRUE`.
 
 ## Usage
 
@@ -18,7 +22,8 @@ plot_stock_recruit(
   lty = 1,
   incl_proj = FALSE,
   plot_env = FALSE,
-  mod_cex = 1
+  mod_cex = 1,
+  add_ci = TRUE
 )
 ```
 
@@ -26,52 +31,44 @@ plot_stock_recruit(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object or a list of them (overlaid).
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Optional file stem; the figure is written to
+  `<file>_stock_recruit.png` if given.
 
 - model_names:
 
-  Names of models to be used in legend
+  Legend labels for the models.
 
-- line_col:
+- line_col, lwd, lty, plot_env, mod_cex:
 
-  Colors of models to be used for line color
+  Deprecated base-graphics arguments, retained for back-compatibility
+  and ignored.
 
-- width:
+- width, height:
 
-  Figure width in inches
-
-- height:
-
-  Figure height in inches
+  Saved figure size (inches).
 
 - species:
 
-  Which species to plot e.g. c(1,4). Default = NULL plots them all
+  Species (indices) to include. Default all.
 
 - spnames:
 
-  Species names for legend
-
-- lwd:
-
-  Line width as specified by user
-
-- lty:
-
-  Line type
+  Species names for the facet labels.
 
 - incl_proj:
 
-  TRUE/FALSE, include projection years for environmental relationship
+  Currently unused (kept for back-compatibility).
 
-- plot_env:
+- add_ci:
 
-  TRUE/FALSE, plot environmental covariate relationship
+  Add a 95% normal data ellipse of the SSB-R points.
 
-- mod_cex:
+## Value
 
-  Cex of text for model name legend
+A `ggplot` object.

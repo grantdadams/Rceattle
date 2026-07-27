@@ -1,7 +1,8 @@
 # Plot fishery selectivity and maturity
 
-Function the plots the fishery selectivity and input maturity. Useful
-for debugging SPR based reference points.
+Overlays terminal-year fishery selectivity-at-age against input
+maturity-at-age, faceted by species. Useful for debugging SPR-based
+reference points (the two curves drive spawning-potential ratio).
 
 ## Usage
 
@@ -13,7 +14,7 @@ plot_selectivity_vs_maturity(
   line_col = NULL,
   width = 7,
   height = 6.5,
-  species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+  species = NULL,
   lwd = 3
 )
 ```
@@ -22,32 +23,28 @@ plot_selectivity_vs_maturity(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object or a list of them (the first is used).
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Optional file stem; the figure is written to
+  `<file>_selectivity_vs_maturity.png` if given.
 
-- model_names:
+- model_names, line_col, lwd:
 
-  Names of models to be used in legend
+  Deprecated base-graphics arguments, retained for back-compatibility
+  and ignored.
 
-- line_col:
+- width, height:
 
-  Colors of models to be used for line color
-
-- width:
-
-  Figure width in inches
-
-- height:
-
-  Figure height in inches
+  Saved figure size (inches).
 
 - species:
 
-  Species names for legend
+  Species names for the facet labels. Default: model species names.
 
-- lwd:
+## Value
 
-  Line width as specified by user
+A `ggplot` object.

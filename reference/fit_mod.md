@@ -69,9 +69,13 @@ fit_mod(
   0 = Fit the hindcast model and projection with HCR specified via
   `HCR`. 1 = Fit the hindcast model only (no projection). 2 = Run the
   projection only with HCR specified via `HCR` given the initial
-  parameters in `inits`. 3 = debug mode 1: runs the model through
-  MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and
-  nlminb (will all parameters mapped out).
+  parameters in `inits`. 3 = build only: runs the model through
+  `MakeADFun` but not `nlminb`. The returned `obj` carries the real
+  objective and gradient, so `obj$fn()` / `obj$gr()` are usable for
+  diagnosing a model before committing to a fit. 4 = runs the model
+  through `MakeADFun` and `nlminb` with all parameters mapped out; this
+  is a plumbing smoke test and its objective is a placeholder
+  (`dummy^2`), not a likelihood.
 
 - random_rec:
 
@@ -235,6 +239,7 @@ ss_run <- fit_mod(
   fit_control  = fit_control(phase = FALSE, verbose = 0)
 )
 #> 'Diet_loglike' are not included in data, assuming 'Multinomial'
+#> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'
 #> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'
 #> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,7 +78,7 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-07-07</h4>
+            <h4 data-toc-skip class="date">2026-07-27</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
@@ -89,14 +89,14 @@
 <p>Rceattle provides several layers of diagnostics: <strong>convergence
 diagnostics</strong> attached automatically to every fit, <strong>S3
 methods</strong> (<code>residual</code>, <code>logLik</code>, etc),
-<strong>fit plots</strong> to visually inspect how well the model
-reproduces observed data, <strong>retrospective analysis</strong>
-(peels) to detect patterns of systematic over- or under-estimation,
-<strong>jitter testing</strong> to check that the optimiser has found a
-global minimum, <strong>self-testing</strong> (simulation–estimation) to
-check that the model can recover its own estimates from simulated data,
-and <strong>likelihood profiling</strong> to check how informative the
-data are about a particular parameter.</p>
+<strong>fit plots</strong> to visually inspect how well the model fits
+observed data, <strong>retrospective analysis</strong> (peels) to detect
+patterns of systematic over- or under-estimation, <strong>jitter
+testing</strong> to check that the optimizer has found a global minimum,
+<strong>self-testing</strong> (simulation–estimation) to check that the
+model can recover its own estimates from simulated data, and
+<strong>likelihood profiling</strong> to check how informative the data
+are about a particular parameter.</p>
 <div class="section level2">
 <h2 id="setup-and-plotting-data">Setup and plotting data<a class="anchor" aria-label="anchor" href="#setup-and-plotting-data"></a>
 </h2>
@@ -204,14 +204,14 @@ and males below zero.</p>
 <div class="section level3">
 <h3 id="survey-indices">Survey indices<a class="anchor" aria-label="anchor" href="#survey-indices"></a>
 </h3>
-<p><code><a href="../reference/plot_index.html">plot_index()</a></code> and <code><a href="../reference/plot_logindex.html">plot_logindex()</a></code> show
-observed vs. predicted survey biomass on the natural and log scales,
-respectively. <code><a href="../reference/plot_indexresidual.html">plot_indexresidual()</a></code> plots the log-scale
-residuals — a useful first check for time trends or
-heteroscedasticity.</p>
+<p><code><a href="../reference/plot_index.html">plot_index()</a></code> shows observed vs. predicted survey
+biomass; pass <code>log = TRUE</code> for the log scale.
+<code><a href="../reference/plot_indexresidual.html">plot_indexresidual()</a></code> plots the log-scale residuals — a
+useful first check for time trends or heteroscedasticity. These return
+<code>ggplot</code> objects.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_index.html">plot_index</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot_logindex.html">plot_logindex</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_index.html">plot_index</a></span><span class="op">(</span><span class="va">model_1</span>, log <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_indexresidual.html">plot_indexresidual</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -512,7 +512,7 @@ large divergences in biomass or mortality deserve scrutiny.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

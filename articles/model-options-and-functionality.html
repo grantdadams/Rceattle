@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1034,9 +1034,8 @@ the quantity they show: <code>plot_biomass</code>,
 <code>plot_exploitable_biomass</code>, <code>plot_catch</code>,
 <code>plot_f</code>, <code>plot_mortality</code>,
 <code>plot_m_at_age</code>, <code>plot_m2_at_age_prop</code>,
-<code>plot_index</code>, <code>plot_logindex</code>,
-<code>plot_indexresidual</code>, <code>plot_comp</code>,
-<code>plot_data</code>, <code>plot_form</code>,
+<code>plot_index</code>, <code>plot_indexresidual</code>,
+<code>plot_comp</code>, <code>plot_data</code>, <code>plot_form</code>,
 <code>plot_b_eaten</code>, <code>plot_b_eaten_prop</code>,
 <code>plot_diet_comp</code>, <code>plot_ration</code>,
 <code>plot_selectivity</code>,
@@ -1044,6 +1043,13 @@ the quantity they show: <code>plot_biomass</code>,
 <code>plot_stock_recruit</code>, <code>plot_timeseries</code>. Most
 accept a single fitted model or a list of models with
 <code>model_names</code>.</p>
+<p>These are built with <strong>ggplot2</strong> (colourblind-safe
+viridis palette, <code>theme_classic</code>) and <strong>return the
+<code>ggplot</code> object</strong>, so they print when called
+interactively and can be further customised by adding ggplot2 layers
+(e.g. <code>plot_biomass(fit) + ggplot2::ggtitle("My title")</code>).
+Pass <code>file = "stem"</code> to also write the figure to
+<code>stem_&lt;plot&gt;.png</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -1079,7 +1085,7 @@ vignette 8).</li>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

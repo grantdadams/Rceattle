@@ -1,6 +1,6 @@
-# \#https://www.dataanalytics.org.uk/make-transparent-colors-in-r/
+# Make a transparent colour
 
-\#https://www.dataanalytics.org.uk/make-transparent-colors-in-r/
+From <https://www.dataanalytics.org.uk/make-transparent-colors-in-r/>.
 
 ## Usage
 
@@ -16,7 +16,7 @@ t_col(color, percent = 50, name = NULL)
 
 - percent:
 
-  % transparency
+  percent transparency
 
 - name:
 

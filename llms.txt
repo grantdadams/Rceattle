@@ -380,7 +380,7 @@ Visualize biomass, recruitment, SSB, and depletion trajectories.
 Visualize fishing mortality, catch, and total mortality.
 
 - [`plot_catch()`](https://grantdadams.github.io/Rceattle/reference/plot_catch.md)
-  : Landings fits
+  : Fishery catch fits
 - [`plot_f()`](https://grantdadams.github.io/Rceattle/reference/plot_f.md)
   : plot F
 - [`plot_mortality()`](https://grantdadams.github.io/Rceattle/reference/plot_mortality.md)
@@ -395,11 +395,9 @@ Visualize fishing mortality, catch, and total mortality.
 Visualize survey indices, fits, and residuals.
 
 - [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
-  : CPUE fits
-- [`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
-  : log(CPUE) fits
+  : Survey index fits
 - [`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
-  : CPUE residual
+  : Survey index residuals
 - [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
   : Plot composition fits and residuals
 - [`plot(`*`<rceattle_osa>`*`)`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)
@@ -493,7 +491,7 @@ S3 methods, utility functions, and internal helpers.
 - [`rich.colors.short()`](https://grantdadams.github.io/Rceattle/reference/rich.colors.short.md)
   : Make a vector of colors.
 - [`t_col()`](https://grantdadams.github.io/Rceattle/reference/t_col.md)
-  : \#https://www.dataanalytics.org.uk/make-transparent-colors-in-r/
+  : Make a transparent colour
 - [`as.data.frame(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/as.data.frame.Rceattle.md)
   : Tidy long-format derived quantities from an Rceattle fit
 - [`coef(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/coef.Rceattle.md)

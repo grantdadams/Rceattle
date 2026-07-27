@@ -3,9 +3,9 @@
 Rceattle provides several layers of diagnostics: **convergence
 diagnostics** attached automatically to every fit, **S3 methods**
 (`residual`, `logLik`, etc), **fit plots** to visually inspect how well
-the model reproduces observed data, **retrospective analysis** (peels)
-to detect patterns of systematic over- or under-estimation, **jitter
-testing** to check that the optimiser has found a global minimum,
+the model fits observed data, **retrospective analysis** (peels) to
+detect patterns of systematic over- or under-estimation, **jitter
+testing** to check that the optimizer has found a global minimum,
 **self-testing** (simulation–estimation) to check that the model can
 recover its own estimates from simulated data, and **likelihood
 profiling** to check how informative the data are about a particular
@@ -123,18 +123,16 @@ plot_comp(model_1)
 ### Survey indices
 
 [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
-and
-[`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
-show observed vs. predicted survey biomass on the natural and log
-scales, respectively.
+shows observed vs. predicted survey biomass; pass `log = TRUE` for the
+log scale.
 [`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
 plots the log-scale residuals — a useful first check for time trends or
-heteroscedasticity.
+heteroscedasticity. These return `ggplot` objects.
 
 ``` r
 
 plot_index(model_1)
-plot_logindex(model_1)
+plot_index(model_1, log = TRUE)
 plot_indexresidual(model_1)
 ```
 

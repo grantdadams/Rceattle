@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,7 +116,16 @@ from scratch via <code><a href="build_params.html">build_params</a></code>.</p><
 
 
 <dt id="arg-estimatemode">estimateMode<a class="anchor" aria-label="anchor" href="#arg-estimatemode"></a></dt>
-<dd><p>0 = Fit the hindcast model and projection with HCR specified via <code>HCR</code>. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via <code>HCR</code> given the initial parameters in <code>inits</code>.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).</p></dd>
+<dd><p>0 = Fit the hindcast model and projection with HCR
+specified via <code>HCR</code>. 1 = Fit the hindcast model only (no projection).
+2 = Run the projection only with HCR specified via <code>HCR</code> given the
+initial parameters in <code>inits</code>. 3 = build only: runs the model through
+<code>MakeADFun</code> but not <code>nlminb</code>. The returned <code>obj</code> carries the
+real objective and gradient, so <code>obj$fn()</code> / <code>obj$gr()</code> are
+usable for diagnosing a model before committing to a fit. 4 = runs the
+model through <code>MakeADFun</code> and <code>nlminb</code> with all parameters
+mapped out; this is a plumbing smoke test and its objective is a
+placeholder (<code>dummy^2</code>), not a likelihood.</p></dd>
 
 
 <dt id="arg-random-rec">random_rec<a class="anchor" aria-label="anchor" href="#arg-random-rec"></a></dt>
@@ -230,6 +239,7 @@ current parameter set. See <code>src/TMB/predation.hpp</code>.</p>
 <span class="r-in"><span>  fit_control  <span class="op">=</span> <span class="fu"><a href="fit_control.html">fit_control</a></span><span class="op">(</span>phase <span class="op">=</span> <span class="cn">FALSE</span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 'Diet_loglike' are not included in data, assuming 'Multinomial'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 'CAAL_weights' not specified in 'fleet_control', assuming 1</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s</span>
@@ -246,7 +256,7 @@ current parameter set. See <code>src/TMB/predation.hpp</code>.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

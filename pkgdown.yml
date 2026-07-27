@@ -1,5 +1,5 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   data-without-excel: data-without-excel.html
@@ -14,7 +14,7 @@ articles:
   projections-and-reference-points: projections-and-reference-points.html
   single-vs-multispecies: single-vs-multispecies.html
   stock-synthesis-conversion: stock-synthesis-conversion.html
-last_built: 2026-07-07T21:23Z
+last_built: 2026-07-27T16:51Z
 urls:
   reference: https://grantdadams.github.io/Rceattle/reference
   article: https://grantdadams.github.io/Rceattle/articles

@@ -145,6 +145,7 @@ ss_run <- fit_mod(data_list = BS2017SS,
     phase = FALSE, verbose = 0)
 #> Warning: Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.
 #> 'Diet_loglike' are not included in data, assuming 'Multinomial'
+#> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'
 #> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'
 #> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s

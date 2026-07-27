@@ -1,5 +1,6 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://grantdadams.github.io/Rceattle/404.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/CLAUDE.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/articles/data-without-excel.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/articles/developer-guide.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.html</loc></url>
@@ -80,9 +81,13 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-M1_MODELS.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-M1_RES.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-SRR_FUNS.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-as_model_list.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-comp_aggregate.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-comp_resid_long.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-model_labels.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-new_obs_ctl.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-okabe_ito.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-okabe_ito_pal.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-osa_bin_side.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-osa_bubble_plot.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-osa_build_obj.html</loc></url>
@@ -98,6 +103,9 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-prior_dispatch_mask.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-process_prior_spec.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-process_residual_one.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-rceattle_scale.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-rceattle_theme.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/dot-save_ggplot.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/dot-set_linkage_param.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/encode_linkage_for_tmb.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/fit_control.html</loc></url>
@@ -137,7 +145,6 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_form.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_index.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.html</loc></url>
-<url><loc>https://grantdadams.github.io/Rceattle/reference/plot_logindex.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_m2_at_age_prop.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_m_at_age.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_maturity.html</loc></url>
