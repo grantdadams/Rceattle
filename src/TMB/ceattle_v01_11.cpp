@@ -2612,14 +2612,14 @@ Type objective_function<Type>::operator() () {
         // Read the (log) observation from obsvec and gate it with keep so that
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
         // fitting) and obsvec(pos) == log(index_obs) this equals the original
-        // lognormal likelihood exactly.
-        // TODO(review): unlike comp/caal/diet (which guard `if(start >= 0)`),
-        // the index and catch OSA reads below have no `pos >= 0` guard. Safe
-        // today because the R build_osa_data() inclusion guard matches this
-        // branch exactly, but a future divergence would make obsvec(pos) an
-        // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
+        // lognormal likelihood exactly. The `pos >= 0` guard matches comp/caal/
+        // diet and the MVN/Normal OSA branches: safe today because the R
+        // build_osa_data() inclusion set is identical to this predicate, and
+        // defensive against a future divergence making obsvec(pos) out of bounds.
         int pos = index_obsvec_idx(index_ind);
-        jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+        if(pos >= 0){
+          jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+        }
       }
     }
 
@@ -2745,9 +2745,13 @@ Type objective_function<Type>::operator() () {
       if(catch_obs(fsh_ind, 0) > 0){
         // Read the (log) observation from obsvec and gate it with keep for OSA
         // residuals (see the index slot above). With keep == 1 and
-        // obsvec(pos) == log(catch_obs) this equals the original likelihood.
+        // obsvec(pos) == log(catch_obs) this equals the original likelihood. The
+        // `pos >= 0` guard matches the index/comp/caal/diet reads (defensive
+        // parity; the R inclusion set makes pos valid for every fitted row today).
         int pos = catch_obsvec_idx(fsh_ind);
-        jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        if(pos >= 0){
+          jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        }
         // Martin's
         // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
