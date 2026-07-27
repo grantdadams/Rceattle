@@ -92,66 +92,14 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     # -- Set estimate mode back to original
     estimate_mode_base <- om$data_list$estimateMode
 
-    # Rerun OM in debug mode to make sure F-prop is set correctly
-    om <- fit_mod(
-      data_list = om$data_list,
-      inits = om$estimated_params,
-      map = om$map,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = 3, # Run in debug mode
-      random_rec = om$data_list$random_rec,
-      niter = om$data_list$niter,
-      msmMode = om$data_list$msmMode,
-      avgnMode = om$data_list$avgnMode,
-      suitMode = om$data_list$suitMode,
-      initMode = om$data_list$initMode,
-      suit_styr = om$data_list$suit_styr,
-      suit_endyr = om$data_list$suit_endyr,
-      HCR = build_hcr(HCR = om$data_list$HCR,
-                      DynamicHCR = om$data_list$DynamicHCR,
-                      Ftarget = om$data_list$Ftarget,
-                      Flimit = om$data_list$Flimit,
-                      Ptarget = om$data_list$Ptarget,
-                      Plimit = om$data_list$Plimit,
-                      Alpha = om$data_list$Alpha,
-                      Pstar = om$data_list$Pstar,
-                      Sigma = om$data_list$Sigma,
-                      Fmult = om$data_list$Fmult,
-                      HCRorder = om$data_list$HCRorder
-      ),
-      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-      recFun = suppressWarnings(build_srr(
-        srr_fun = om$data_list$srr_fun,
-        srr_pred_fun = om$data_list$srr_pred_fun,
-        proj_mean_rec = om$data_list$proj_mean_rec,
-        srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-        srr_hat_styr = om$data_list$srr_hat_styr,
-        srr_hat_endyr = om$data_list$srr_hat_endyr,
-        srr_est_mode  = om$data_list$srr_est_mode,
-        srr_prior = om$data_list$srr_prior,
-        srr_prior_sd = om$data_list$srr_prior_sd,
-        Bmsy_lim = om$data_list$Bmsy_lim,
-        srr_indices = om$data_list$srr_indices,
-        linkages = om$data_list$srr_linkages)),
-      # suppressWarnings: legacy M1_indices may travel via om$data_list.
-      M1Fun = suppressWarnings(build_M1(
-        M1_model = om$data_list$M1_model,
-        M1_re = om$data_list$M1_re,
-        updateM1 = FALSE,
-        M1_use_prior = om$data_list$M1_use_prior,
-        M2_use_prior = om$data_list$M2_use_prior,
-        M_prior = om$data_list$M_prior,
-        M_prior_sd = om$data_list$M_prior_sd,
-        M1_indices = om$data_list$M1_indices,
-        linkages = om$data_list$M1_linkages)),
-      growthFun = build_growth(fun = om$data_list$growth_fun,
-                               linkages = om$data_list$growth_linkages),
-      fit_control = fit_control(
-        loopnum = om$data_list$loopnum,   # unused here (estimateMode = 3 builds, does not optimize)
-        phase   = FALSE,
-        getsd   = FALSE,
-        verbose = 0))
+    # Rerun OM in debug mode to make sure F-prop is set correctly. Reuses the
+    # OM's own configuration unchanged (estimateMode = 3 builds without
+    # optimizing, so loopnum is inert here).
+    om <- .refit_like(
+      data_list    = om$data_list,
+      inits        = om$estimated_params,
+      map          = om$map,
+      estimateMode = 3)
 
     # Adjust back
     om$data_list$estimateMode <- estimate_mode_base
@@ -238,65 +186,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     em$data_list$caal_data <- sim_dat$caal_data
 
     # Restimate
-    em <- fit_mod(
-      data_list = em$data_list,
-      inits = em$estimated_params,
-      map =  NULL,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-      HCR = build_hcr(HCR = em$data_list$HCR, # Tier3 HCR
-                      DynamicHCR = em$data_list$DynamicHCR,
-                      Ftarget = em$data_list$Ftarget,
-                      Flimit = em$data_list$Flimit,
-                      Ptarget = em$data_list$Ptarget,
-                      Plimit = em$data_list$Plimit,
-                      Alpha = em$data_list$Alpha,
-                      Pstar = em$data_list$Pstar,
-                      Sigma = em$data_list$Sigma,
-                      Fmult = em$data_list$Fmult,
-                      HCRorder = em$data_list$HCRorder
-      ),
-      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-      recFun = suppressWarnings(build_srr(
-        srr_fun = em$data_list$srr_fun,
-        srr_pred_fun  = em$data_list$srr_pred_fun,
-        proj_mean_rec  = em$data_list$proj_mean_rec,
-        srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-        srr_hat_styr = em$data_list$srr_hat_styr,
-        srr_hat_endyr = em$data_list$srr_hat_endyr,
-        srr_est_mode  = em$data_list$srr_est_mode,
-        srr_prior  = em$data_list$srr_prior,
-        srr_prior_sd   = em$data_list$srr_prior_sd,
-        Bmsy_lim = em$data_list$Bmsy_lim,
-        srr_indices = em$data_list$srr_indices,
-        linkages = em$data_list$srr_linkages)),
-      # suppressWarnings: legacy M1_indices may travel via em$data_list.
-      M1Fun = suppressWarnings(build_M1(
-        M1_model = em$data_list$M1_model,
-        M1_re = em$data_list$M1_re,
-        updateM1 = FALSE,
-        M1_use_prior = em$data_list$M1_use_prior,
-        M2_use_prior = em$data_list$M2_use_prior,
-        M_prior = em$data_list$M_prior,
-        M_prior_sd = em$data_list$M_prior_sd,
-        M1_indices = em$data_list$M1_indices,
-        linkages = em$data_list$M1_linkages)),
-      growthFun = build_growth(fun = em$data_list$growth_fun,
-                               linkages = em$data_list$growth_linkages),
-      random_rec = em$data_list$random_rec,
-      niter = em$data_list$niter,
-      msmMode = em$data_list$msmMode,
-      avgnMode = em$data_list$avgnMode,
-      suitMode = em$data_list$suitMode,
-      suit_styr = em$data_list$suit_styr,
-      suit_endyr = em$data_list$suit_endyr,
-      initMode = em$data_list$initMode,
-      fit_control = fit_control(
-        phase   = FALSE,
-        loopnum = loopnum,
-        getsd   = FALSE,
-        verbose = 0))
+    em <- .refit_like(
+      data_list    = em$data_list,
+      inits        = em$estimated_params,
+      estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode),
+      loopnum      = loopnum)
 
     # Update avg F given model fit to regenerated data
     if(em$data_list$HCR == 2){
@@ -310,54 +204,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         dplyr::summarise(avg_F = sum(avg_F)) |>
         dplyr::arrange(spp)
 
-      # - Update model
-      em <- Rceattle::fit_mod(data_list = em$data_list,
-                              inits = em$estimated_params,
-                              estimateMode = 2, # Don't estimate
-                              HCR = build_hcr(HCR = 2, # Input F
-                                              Ftarget = avg_F$avg_F,
-                                              Ptarget = em$data_list$Ptarget,
-                                              Plimit = em$data_list$Plimit
-                              ),
-                              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-                              recFun = suppressWarnings(build_srr(
-                                srr_fun = em$data_list$srr_fun,
-                                srr_pred_fun  = em$data_list$srr_pred_fun,
-                                proj_mean_rec  = em$data_list$proj_mean_rec,
-                                srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                                srr_hat_styr = em$data_list$srr_hat_styr,
-                                srr_hat_endyr = em$data_list$srr_hat_endyr,
-                                srr_est_mode  = em$data_list$srr_est_mode,
-                                srr_prior  = em$data_list$srr_prior,
-                                srr_prior_sd   = em$data_list$srr_prior_sd,
-                                Bmsy_lim = em$data_list$Bmsy_lim,
-                                srr_indices = em$data_list$srr_indices,
-                                linkages = em$data_list$srr_linkages)),
-                              # suppressWarnings: legacy M1_indices may travel via em$data_list.
-                              M1Fun = suppressWarnings(build_M1(
-                                M1_model = em$data_list$M1_model,
-                                M1_re = em$data_list$M1_re,
-                                updateM1 = FALSE,
-                                M1_use_prior = em$data_list$M1_use_prior,
-                                M2_use_prior = em$data_list$M2_use_prior,
-                                M_prior = em$data_list$M_prior,
-                                M_prior_sd = em$data_list$M_prior_sd,
-                                M1_indices = em$data_list$M1_indices,
-                                linkages = em$data_list$M1_linkages)),
-                              growthFun = build_growth(fun = em$data_list$growth_fun,
-                                                       linkages = em$data_list$growth_linkages),
-                              random_rec = em$data_list$random_rec,
-                              niter = em$data_list$niter,
-                              msmMode = em$data_list$msmMode,
-                              avgnMode = em$data_list$avgnMode,
-                              suitMode = em$data_list$suitMode,
-                              suit_styr = em$data_list$suit_styr,
-                              suit_endyr = em$data_list$suit_endyr,
-                              initMode = em$data_list$initMode,
-                              fit_control = fit_control(
-                                loopnum = loopnum,
-                                getsd   = FALSE,
-                                verbose = 0))
+      # - Update model: project on the recomputed average F (input-F HCR).
+      em <- .refit_like(
+        data_list    = em$data_list,
+        inits        = em$estimated_params,
+        estimateMode = 2,   # Don't estimate
+        HCR          = build_hcr(HCR     = 2,   # Input F
+                                 Ftarget = avg_F$avg_F,
+                                 Ptarget = em$data_list$Ptarget,
+                                 Plimit  = em$data_list$Plimit),
+        loopnum      = loopnum)
     }
   }
 
@@ -645,69 +501,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           suppressMessages(
-            om_use <- fit_mod(
-              data_list = om_use$data_list,
-              inits = om_use$estimated_params,
-              map = om_use$map,
-              bounds = NULL,
-              file = NULL,
-              estimateMode = estimate_mode_use,
-              random_rec = om_use$data_list$random_rec,
-              niter = om_use$data_list$niter,
-              msmMode = om_use$data_list$msmMode,
-              avgnMode = om_use$data_list$avgnMode,
-              suitMode = om_use$data_list$suitMode,
-              initMode = om_use$data_list$initMode,
-              suit_styr = om$data_list$suit_styr,     # This stays the same as original OM to maintain constant suitability
-              suit_endyr = om$data_list$suit_endyr,   # This stays the same as original OM to maintain constant suitability
-              HCR = build_hcr(HCR = om_use$data_list$HCR,
-                              DynamicHCR = om_use$data_list$DynamicHCR,
-                              Ftarget = om_use$data_list$Ftarget,
-                              Flimit = om_use$data_list$Flimit,
-                              Ptarget = om_use$data_list$Ptarget,
-                              Plimit = om_use$data_list$Plimit,
-                              Alpha = om_use$data_list$Alpha,
-                              Pstar = om_use$data_list$Pstar,
-                              Sigma = om_use$data_list$Sigma,
-                              Fmult = om_use$data_list$Fmult,
-                              HCRorder = om_use$data_list$HCRorder
-              ),
-              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-              recFun = suppressWarnings(build_srr(
-                srr_fun = om_use$data_list$srr_fun,
-                srr_pred_fun = om_use$data_list$srr_pred_fun,
-                proj_mean_rec = TRUE,   # OM projects on mean recruitment across sim iterations
-                # srr_mse_switchyr / srr_hat_styr / srr_hat_endyr read the PRISTINE
-                # om$ (not om_use$) so the OM's stock-recruit reference period stays
-                # fixed through the projection -- the same "hold the original OM
-                # constant" intent as suit_styr/suit_endyr above.
-                srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-                srr_hat_styr = om$data_list$srr_hat_styr,
-                srr_hat_endyr = om$data_list$srr_hat_endyr,
-                srr_est_mode  = om_use$data_list$srr_est_mode,
-                srr_prior = om_use$data_list$srr_prior,
-                srr_prior_sd = om_use$data_list$srr_prior_sd,
-                Bmsy_lim = om_use$data_list$Bmsy_lim,
-                srr_indices = om_use$data_list$srr_indices,
-                linkages = om_use$data_list$srr_linkages)),
-              # suppressWarnings: legacy M1_indices may travel via om_use$data_list.
-              M1Fun = suppressWarnings(build_M1(
-                M1_model = om_use$data_list$M1_model,
-                M1_re = om_use$data_list$M1_re,
-                updateM1 = FALSE,
-                M1_use_prior = om_use$data_list$M1_use_prior,
-                M2_use_prior = om_use$data_list$M2_use_prior,
-                M_prior = om_use$data_list$M_prior,
-                M_prior_sd = om_use$data_list$M_prior_sd,
-                M1_indices = om_use$data_list$M1_indices,
-                linkages = om_use$data_list$M1_linkages)),
-              growthFun = build_growth(fun = om_use$data_list$growth_fun,
-                                       linkages = om_use$data_list$growth_linkages),
-              fit_control = fit_control(
-                loopnum = loopnum,
-                phase   = FALSE,
-                getsd   = FALSE,
-                verbose = 0))
+            # Advance the OM with the new catch. The stock-recruit reference
+            # period (srr_*) and the suitability window (suit_*) are pinned to
+            # the PRISTINE om$ (not the advancing om_use$) so both stay fixed
+            # through the projection -- critical for multispecies models, whose
+            # predation suitability must not drift over the MSE. The OM projects
+            # on mean recruitment across sim iterations (proj_mean_rec = TRUE).
+            om_use <- .refit_like(
+              data_list        = om_use$data_list,
+              inits            = om_use$estimated_params,
+              map              = om_use$map,
+              estimateMode     = estimate_mode_use,
+              loopnum          = loopnum,
+              proj_mean_rec    = TRUE,
+              srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+              srr_hat_styr     = om$data_list$srr_hat_styr,
+              srr_hat_endyr    = om$data_list$srr_hat_endyr,
+              suit_styr        = om$data_list$suit_styr,
+              suit_endyr       = om$data_list$suit_endyr)
           )
           return(list(kill_sim = FALSE, failure = NA))
         },
@@ -857,71 +668,17 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           suppressMessages(
-            em_use <- fit_mod(
-              data_list = em_use$data_list,
-              inits = em_use$estimated_params,
-              map =  NULL,
-              bounds = NULL,
-              file = NULL,
-              estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-              HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
-                              DynamicHCR = em_use$data_list$DynamicHCR,
-                              Ftarget = em_use$data_list$Ftarget,
-                              Flimit = em_use$data_list$Flimit,
-                              Ptarget = em_use$data_list$Ptarget,
-                              Plimit = em_use$data_list$Plimit,
-                              Alpha = em_use$data_list$Alpha,
-                              Pstar = em_use$data_list$Pstar,
-                              Sigma = em_use$data_list$Sigma,
-                              Fmult = em_use$data_list$Fmult,
-                              # em$ == em_use$ here: HCRorder is copied at em_use <- em
-                              # and never modified in the sim loop, so this is
-                              # equivalent to em_use$data_list$HCRorder.
-                              HCRorder = em$data_list$HCRorder
-              ),
-              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-              recFun = suppressWarnings(build_srr(
-                srr_fun = em_use$data_list$srr_fun,
-                srr_pred_fun = em_use$data_list$srr_pred_fun,
-                proj_mean_rec = em_use$data_list$proj_mean_rec,
-                # switch the stock-recruit relationship at the EM's current
-                # assessment endyr (advances each iteration), not the stored
-                # srr_mse_switchyr -- deliberately reads $endyr.
-                srr_mse_switchyr = em_use$data_list$endyr,
-                srr_hat_styr = em_use$data_list$srr_hat_styr,
-                srr_hat_endyr = em_use$data_list$srr_hat_endyr,
-                srr_est_mode  = em_use$data_list$srr_est_mode,
-                srr_prior = em_use$data_list$srr_prior,
-                srr_prior_sd = em_use$data_list$srr_prior_sd,
-                Bmsy_lim = em_use$data_list$Bmsy_lim,
-                srr_indices = em_use$data_list$srr_indices,
-                linkages = em_use$data_list$srr_linkages)),
-              # suppressWarnings: legacy M1_indices may travel via em_use$data_list.
-              M1Fun = suppressWarnings(build_M1(
-                M1_model = em_use$data_list$M1_model,
-                M1_re = em_use$data_list$M1_re,
-                updateM1 = FALSE,
-                M1_use_prior = em_use$data_list$M1_use_prior,
-                M2_use_prior = em_use$data_list$M2_use_prior,
-                M_prior = em_use$data_list$M_prior,
-                M_prior_sd = em_use$data_list$M_prior_sd,
-                M1_indices = em_use$data_list$M1_indices,
-                linkages = em_use$data_list$M1_linkages)),
-              growthFun = build_growth(fun = em_use$data_list$growth_fun,
-                                       linkages = em_use$data_list$growth_linkages),
-              random_rec = em_use$data_list$random_rec,
-              niter = em_use$data_list$niter,
-              msmMode = em_use$data_list$msmMode,
-              avgnMode = em_use$data_list$avgnMode,
-              suitMode = em_use$data_list$suitMode,
-              suit_styr = em_use$data_list$suit_styr,
-              suit_endyr = em_use$data_list$suit_endyr,
-              initMode = em_use$data_list$initMode,
-              fit_control = fit_control(
-                phase   = FALSE,
-                loopnum = loopnum,
-                getsd   = FALSE,
-                verbose = 0))
+            # Re-assess with the newly sampled data. srr_mse_switchyr switches
+            # the stock-recruit relationship at the EM's CURRENT assessment
+            # endyr (which advances each iteration), not the stored value. The
+            # HCR is reconstructed from em_use$, whose HCRorder equals the
+            # pristine em$ (copied at `em_use <- em`, never modified in the loop).
+            em_use <- .refit_like(
+              data_list        = em_use$data_list,
+              inits            = em_use$estimated_params,
+              estimateMode     = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode),
+              loopnum          = loopnum,
+              srr_mse_switchyr = em_use$data_list$endyr)
           )
           return(list(kill_sim = FALSE, failure = NA))
         },

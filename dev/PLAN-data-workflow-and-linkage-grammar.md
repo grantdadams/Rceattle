@@ -69,9 +69,11 @@ model configurations.
   (`plot_logindex` deprecated shim, `mse_summary()`/`sim_mod()` tests). Contributor docs already exist
   (`environmental-linkages-and-priors.Rmd`, `articles/developer-guide.Rmd`); the roxygen sweep was
   skipped (low value). Every fit-touching commit golden bit-identical; full suite 0 failures.
-  **REMAINING:** the **`jnll_comp` enum** (+ the 2 deferred section labels 12.2.1/14.3), **Tier D2**
-  (`linkage.hpp` accumulators), the **`.refit_like` collapse** (deferred, golden-unverifiable), and
-  the **merge** to `dev-data-workflow`.
+  The **`jnll_comp` enum**, **D1** (→ `build_growth(sd_plus_group=)` feature), the **`.refit_like`
+  collapse** (11 sites → `R/6-refit_like.R`, verified bit-identical incl. a multispecies MSE), the
+  **`mse_summary()` reshape** (breaking → 5.0.0), and the **developer-guide + CLAUDE.md** docs are all
+  **DONE**. **Tier D2** (`linkage.hpp` accumulators) was **DECLINED** (net-negative — see the handoff).
+  **ONLY REMAINING: merge `pr7-legibility` → `dev-data-workflow`** (+ the minor 12.2.1 cpp label).
 - **`self_test()` "object 'getsd' not found" bug** — SHIPPED (`74f029d6`). Surfaced by PR 6's
   `rcmdcheck --run-donttest` (not run in the default check, so long-latent): `run_one_sim` referenced a
   `getsd` the function never defined (unlike `retrospective`/`jitter`/`profile`), breaking every refit on

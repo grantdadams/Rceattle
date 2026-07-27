@@ -7,12 +7,18 @@
 >   NA-inherit fix so refits keep the choice (`4c8de80e`). Golden bit-identical (default WHAM),
 >   constructive + refit tests, adversarial SAFE. The originally-planned "extract the ~100-line
 >   byte-identical growth tail" was **not** done — it's a 21-arg helper, net-neutral, so skipped.
-> - **E (`.refit_like`)** — the mandated **tabulation/verification was done** (all 11 sites × args ×
->   source object). All six flagged divergences investigated: none is a bug (om_use SRR pinned to
->   pristine `om$` = intentional; em_use `srr_mse_switchyr = $endyr` advances by design per Grant;
->   `HCRorder=em$` ≡ `em_use$`; `loopnum` unused under estimateMode=3). Documented in place
->   (`b84db778`). **The collapse itself is DEFERRED** (golden-unverifiable — refit paths aren't in
->   the golden reference; needs bespoke arg-equivalence + MSE-smoke tests). Tabulation preserved below.
+> - **E (`.refit_like`) — DONE (2026-07-27).** The ~60-line `fit_mod()` refit block copy-pasted at
+>   **11 sites** (retrospective ×2, jitter, self_test, profile, run_mse ×5, remove_F) is now one
+>   internal helper `R/6-refit_like.R`. It reconstructs the HCR / recFun / M1Fun / growthFun + shared
+>   switches from a source `data_list`; every per-site divergence is a named override defaulting to the
+>   `data_list` value, so each site shows only what it changes (e.g. site-9's pins to pristine `om$`
+>   are now 5 explicit, commented lines). Console suppression left at each call site (differs, and is
+>   console-only). **Verified golden-unverifiably** via a bespoke before/after harness
+>   (`dev/verify-refit-like.R`) that runs all six entry functions on a tiny seeded model incl. a
+>   **multispecies MSE** (exercises the suit-window pin) — **bit-identical across all 9 sections**
+>   (obj+ssb+R). Plus `dev/verify-mse-hindcast-invariant.R` confirms the MSE does not perturb the
+>   hindcast (OM SSB over styr:endyr fixed under simulate_data F/F and T/T, SS and MS). The six
+>   originally-flagged divergences are preserved as the named overrides (none was a bug).
 > - **C++ legibility** — cpp section-index dup/misnumber fixes (`85a31543`); Doxygen on all three
 >   bare headers linkage/helper_functions/comp_osa (`622a8d71`). The false `linkage.hpp` note was
 >   already gone.
@@ -28,10 +34,14 @@
 > `R/6-rename_output.R`; each enum value equals the integer it replaced, so golden bit-identical
 > (incl. per-row `jnll_dev`). Also relabeled `14.3`→`13.2` (Diet likelihood is a section-13 term).
 >
-> **STILL OPEN:** (1) **The `.refit_like` collapse** — deferred (tabulation below).
-> (2) **Merge** `pr7-legibility` → `dev-data-workflow`. (3) Minor: the orphaned
-> `12.2.1 "Calculate CAAL"` cpp section label (needs a structural call on where section 12
-> begins) was left as-is.
+> **Also DONE this session:** the `mse_summary()` reshape to a per-entity `list(species, fleet,
+> total, meta)` (breaking → DESCRIPTION **5.0.0**); the developer-guide expansion for the PRs 1–7
+> data-workflow surface; and a **CLAUDE.md refresh** (column schema / config / linkage pointers +
+> `JnllRow` bullet + Active context).
+>
+> **STILL OPEN:** (1) **Merge** `pr7-legibility` → `dev-data-workflow` — the only remaining item.
+> (2) Minor: the orphaned `12.2.1 "Calculate CAAL"` cpp section label (needs a structural call on
+> where section 12 begins) was left as-is.
 >
 > **CLOSED — Tier D2 (`linkage.hpp` accumulators): DECLINED (wontfix), 2026-07-26.** Grant's
 > call after review. The five accumulators span **two stratum universes** (population:

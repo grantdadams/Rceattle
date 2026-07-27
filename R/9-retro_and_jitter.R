@@ -239,65 +239,19 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # * Refit ----
     newmod <- suppressWarnings(
       suppressMessages(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = inits,
-          map =  map,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder
-          ),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = TRUE, # Phasing or else the parameters dont wanna move
-            loopnum = data_list$loopnum,
-            getsd   = getsd,
-            verbose = 0))
+        # Refit the peeled data_list, reusing its HCR / SR / M / growth
+        # configuration; clamp the SR-switch, SR-fit-end, and suitability-end
+        # years back to this peel's terminal year.
+        .refit_like(
+          data_list        = data_list,
+          inits            = inits,
+          map              = map,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+          srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
+          suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))
       )
     )
 
@@ -347,65 +301,18 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     newmod <- suppressMessages(
       suppressWarnings(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = peeled_pars,
-          map =  map,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder
-          ),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = pmin(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = TRUE, # Phasing or else the parameters dont wanna move
-            loopnum = data_list$loopnum,
-            getsd   = getsd,
-            verbose = 0))
+        # Second refit: same peeled configuration, now started from the
+        # bias-adjusted peeled parameters with peeled-year F turned back on.
+        .refit_like(
+          data_list        = data_list,
+          inits            = peeled_pars,
+          map              = map,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+          srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
+          suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))
       )
     )
 
@@ -608,65 +515,15 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
     newmod <-
       suppressMessages(
         suppressWarnings(
-          Rceattle::fit_mod(
-            data_list = data_list,
-            inits = inits,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-            HCR = build_hcr(HCR = data_list$HCR,
-                            DynamicHCR = data_list$DynamicHCR,
-                            Ftarget = data_list$Ftarget,
-                            Flimit = data_list$Flimit,
-                            Ptarget = data_list$Ptarget,
-                            Plimit = data_list$Plimit,
-                            Alpha = data_list$Alpha,
-                            Pstar = data_list$Pstar,
-                            Sigma = data_list$Sigma,
-                            Fmult = data_list$Fmult,
-                            HCRorder = data_list$HCRorder
-            ),
-            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-            recFun = suppressWarnings(build_srr(
-              srr_fun = data_list$srr_fun,
-              srr_pred_fun  = data_list$srr_pred_fun,
-              proj_mean_rec  = data_list$proj_mean_rec,
-              srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-              srr_hat_styr = data_list$srr_hat_styr,
-              srr_hat_endyr = data_list$srr_hat_endyr,
-              srr_est_mode  = data_list$srr_est_mode,
-              srr_prior  = data_list$srr_prior,
-              srr_prior_sd   = data_list$srr_prior_sd,
-              Bmsy_lim = data_list$Bmsy_lim,
-              srr_indices = data_list$srr_indices,
-              linkages = data_list$srr_linkages)),
-            # suppressWarnings: legacy M1_indices may travel via data_list.
-            M1Fun = suppressWarnings(build_M1(
-              M1_model = data_list$M1_model,
-              M1_re = data_list$M1_re,
-              updateM1 = FALSE,
-              M1_use_prior = data_list$M1_use_prior,
-              M2_use_prior = data_list$M2_use_prior,
-              M_prior = data_list$M_prior,
-              M_prior_sd = data_list$M_prior_sd,
-              M1_indices = data_list$M1_indices,
-              linkages = data_list$M1_linkages)),
-            growthFun = build_growth(fun = data_list$growth_fun,
-                                     linkages = data_list$growth_linkages),
-            random_rec = data_list$random_rec,
-            niter = data_list$niter,
-            msmMode = data_list$msmMode,
-            avgnMode = data_list$avgnMode,
-            suitMode = data_list$suitMode,
-            suit_styr = data_list$suit_styr,
-            suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
-            initMode = data_list$initMode,
-            fit_control = fit_control(
-              phase   = phase,
-              loopnum = data_list$loopnum,
-              getsd   = getsd,
-              verbose = 0))
+          # Refit from the jittered starting values (map rebuilt from scratch).
+          .refit_like(
+            data_list        = data_list,
+            inits            = inits,
+            estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+            phase            = phase,
+            getsd            = getsd,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+            suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
         )
       )
 
@@ -782,65 +639,14 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     newmod <-
       suppressMessages(
         suppressWarnings(
-          Rceattle::fit_mod(
-            data_list = data_list,
-            inits = inits,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-            HCR = build_hcr(HCR = data_list$HCR,
-                            DynamicHCR = data_list$DynamicHCR,
-                            Ftarget = data_list$Ftarget,
-                            Flimit = data_list$Flimit,
-                            Ptarget = data_list$Ptarget,
-                            Plimit = data_list$Plimit,
-                            Alpha = data_list$Alpha,
-                            Pstar = data_list$Pstar,
-                            Sigma = data_list$Sigma,
-                            Fmult = data_list$Fmult,
-                            HCRorder = data_list$HCRorder
-            ),
-            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-            recFun = suppressWarnings(build_srr(
-              srr_fun = data_list$srr_fun,
-              srr_pred_fun  = data_list$srr_pred_fun,
-              proj_mean_rec  = data_list$proj_mean_rec,
-              srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-              srr_hat_styr = data_list$srr_hat_styr,
-              srr_hat_endyr = data_list$srr_hat_endyr,
-              srr_est_mode  = data_list$srr_est_mode,
-              srr_prior  = data_list$srr_prior,
-              srr_prior_sd   = data_list$srr_prior_sd,
-              Bmsy_lim = data_list$Bmsy_lim,
-              srr_indices = data_list$srr_indices,
-              linkages = data_list$srr_linkages)),
-            # suppressWarnings: legacy M1_indices may travel via data_list.
-            M1Fun = suppressWarnings(build_M1(
-              M1_model = data_list$M1_model,
-              M1_re = data_list$M1_re,
-              updateM1 = FALSE,
-              M1_use_prior = data_list$M1_use_prior,
-              M2_use_prior = data_list$M2_use_prior,
-              M_prior = data_list$M_prior,
-              M_prior_sd = data_list$M_prior_sd,
-              M1_indices = data_list$M1_indices,
-              linkages = data_list$M1_linkages)),
-            growthFun = build_growth(fun = data_list$growth_fun,
-                                     linkages = data_list$growth_linkages),
-            random_rec = data_list$random_rec,
-            niter = data_list$niter,
-            msmMode = data_list$msmMode,
-            avgnMode = data_list$avgnMode,
-            suitMode = data_list$suitMode,
-            suit_styr = data_list$suit_styr,
-            suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
-            initMode = data_list$initMode,
-            fit_control = fit_control(
-              phase   = FALSE,
-              loopnum = data_list$loopnum,
-              getsd   = getsd,
-              verbose = 0))
+          # Refit the simulated data set from the operating-model parameters.
+          .refit_like(
+            data_list        = data_list,
+            inits            = inits,
+            estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+            getsd            = getsd,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+            suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
         )
       )
 
@@ -1194,64 +1000,17 @@ profile.Rceattle <- function(fitted = NULL,
 
     newmod <-
       suppressMessages(suppressWarnings(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = inits,
-          map = map_obj,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = data_list$srr_hat_endyr,
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = pmin(data_list$suit_endyr, data_list$endyr),
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = FALSE,
-            loopnum = data_list$loopnum,
-            getsd   = getsd,
-            verbose = 0))
+        # Refit with the profiled parameter fixed at its grid value (mapped off
+        # in map_obj). estimateMode falls back to 1 -- profile the hindcast fit,
+        # not a projection.
+        .refit_like(
+          data_list        = data_list,
+          inits            = inits,
+          map              = map_obj,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+          suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
       ))
 
     if (!is.null(newmod$opt$Convergence_check)) {
