@@ -12,6 +12,9 @@
 
 testthat::test_that("the four reference fits reproduce their pinned objectives", {
   testthat::skip_on_cran()
+  # covr instruments the TMB model at -O0; the GOA fits then land on a different
+  # point of their flat selectivity ridge, so the pinned -O2 optima don't hold.
+  testthat::skip_on_covr()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 

@@ -3,6 +3,8 @@
 testthat::skip_on_cran()
 
 testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Multinomial)", {
+  # DM likelihood drifts ~1e-5 under covr's -O0 instrumentation vs the -O2 build.
+  testthat::skip_on_covr()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
