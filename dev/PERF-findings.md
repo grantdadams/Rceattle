@@ -8,6 +8,15 @@ sign-off. Implementation of any lever is a separate, gated follow-up.
 **Priority axis (as directed):** general fit + scaling (the C++ per-objective-eval cost that
 underlies every fit and every MSE refit).
 
+> **⚠ HEADLINE UPDATE (compile optimization).** Every timing below was measured under
+> `pkgload::load_all()`, which compiles the TMB model in **debug mode (`-O0`)**. A production
+> `R CMD INSTALL` compiles at **`-O2`**, which is **~10× faster and bit-identical** (see
+> "Compile optimization is the dominant lever"). So the absolute numbers here **overstate real
+> `fit_mod` cost by ~10×** — BS2017SS is a **5.4 s** fit in production, not 55 s; GOA multispecies
+> is **83 s**, not 904 s. The single most effective "speedup" is simply *not benchmarking or
+> running production fits through `load_all`*. Two code-level C++ optimizations were attempted
+> and both rejected (one broke bit-identity, one was a no-op) — details in that section.
+
 ## How to reproduce
 
 ```
@@ -165,6 +174,59 @@ default flip. Size it first with the targeted `getsd`/`getJointPrecision` on-off
 - `rearrange_data` `sum()` fleet×obs scan — lives inside the MVN `index_ll_type %in% c(1,2)`
   branch; does not execute for BS/GOA (or any non-covariance-index model).
 - R-side data-prep / alias-upgrade in the fit path — Rprof shows it is <1 s and does not scale.
+
+## Compile optimization is the dominant lever (`-O0` dev vs `-O2` production)
+
+The clang line emitted by `pkgload::load_all()` **ends in `-O0`** (pkgbuild's debug mode wins
+over R's `-O2`). A normal `R CMD INSTALL .` compiles the TMB model at `-O2`. Measured, same
+machine, single-threaded:
+
+| quantity | `-O0` (load_all) | `-O2` (install) | speedup |
+|---|---:|---:|---:|
+| `obj$gr` BS-SS | 12 ms | 1.0 ms | ~12× |
+| `obj$gr` GOA-SS | 51 ms | 6.5 ms | ~8× |
+| taping BS-SS | 2.4 s | 0.32 s | ~7.5× |
+| **full fit BS-SS** | 55.1 s | **5.4 s** | 10.2× |
+| **full fit BS-MS** | 130.3 s | **11.3 s** | 11.5× |
+| **full fit GOA-SS** | 376.1 s | **37.0 s** | 10.2× |
+| **full fit GOA-MS** | 904.4 s | **83.0 s** | 10.9× |
+
+`-O2` is **bit-identical** to the `-O0`-pinned golden reference (par/obj/ssb/R = 0.0e+00; max
+`jnll` deviation 1.4e-14 = FP epsilon) — `-O2` preserves IEEE FP semantics (no reassociation).
+
+**Takeaways.**
+1. Users who `library(Rceattle)` (installed package) already get the `-O2` build — the ~10×
+   is only lost when running/benchmarking through `load_all` (dev).
+2. The CLAUDE.md "~55 s BS2017SS fit" baseline is a `-O0` dev figure; production is ~5 s.
+3. `-O3` via `TMB_FLAGS` was tried but the flag lands before R's `-O2` (so `-O2` still wins);
+   enabling it properly needs a `CXXFLAGS` override and risks FP reassociation for marginal
+   gain — **not recommended** over the proven, standard, bit-identical `-O2`.
+
+## Two code-level C++ optimizations attempted — both rejected
+
+Following the "priority = general fit / C++ eval" direction, two tape-reducing changes to
+`ceattle_v01_11.cpp` were implemented and adversarially gated. Both were reverted:
+
+- **Precompute `surv_at_age = exp(-Z)` and reuse it** at the ~12 sites that recompute
+  `exp(-Z)` / the Baranov fraction (N-at-age recursion, `avgN`, catch/comp/CAAL). **Rejected:
+  not bit-identical.** Golden-check showed BS unchanged (7e-8, FP noise) but **GOA-SS off by
+  52.9 obj / 143,000 t SSB** and GOA-MS by 47. Storing `exp()` and reusing it changes
+  FMA/rounding associativity by ~1 ULP; harmless for well-conditioned BS, but GOA-SS is
+  ill-conditioned (Hessian cond ~1.7e6, flat ridge) so the optimizer walks to a different
+  solution. Unacceptable for quota software.
+- **Short-circuit the `niter` loop for `msmMode==0`** (`if(msmMode==0) break;`) — single-species
+  has no predation (M2≡0), so the default `niter=3` recomputes Section 6 three times. **Passed
+  golden-check bit-identical, but is a no-op.** Controlled microbench (both original and
+  patched builds): SS `obj$gr` and taping are **flat in `niter`** (n3/n1 = 1.00). The model
+  compiles with `framework="TMBad"`, whose tape optimizer already dead-code-eliminates the
+  redundant iterations (their outputs are fully overwritten). No measurable benefit → reverted.
+
+Lesson for future C++ work here: (a) any reuse/hoist that reassociates FP must be golden-gated
+against **GOA**, not just BS — GOA's ill-conditioning is the sensitive detector; (b) TMBad's
+optimizer already removes obvious redundancy, so "manual" tape trimming often does nothing —
+**measure with a controlled A/B microbench before assuming a win** (the ~26% the wall-clock
+harness first showed was pure environmental noise: it appeared on `niter=1` cases the change
+cannot affect).
 
 ## Recommended next diagnostics (measurement, before any implementation)
 
