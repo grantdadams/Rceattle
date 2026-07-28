@@ -22,6 +22,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Editing `src/TMB/*.cpp` or `*.hpp` has no effect until you reload** — `load_all()`
   recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes. Compiled
   artifacts (`*.o` ~77 MB, `*.so`) are gitignored — never commit them.
+- **Dev builds are compiled at `-O2` (fast), not pkgbuild's default `-O0`.** The repo
+  `.Rprofile` sets `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB
+  model with the same optimization as a production `R CMD INSTALL` — `fit_mod()` runs ~10x
+  faster than an unoptimized debug build, bit-identically (measured; see `dev/PERF-findings.md`).
+  A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
+  (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
+  timing must state its build** — an `-O0` number overstates real cost ~10x.
 - **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
   package namespace so internal (non-exported) helpers resolve, then source the shared
   helpers into it:
