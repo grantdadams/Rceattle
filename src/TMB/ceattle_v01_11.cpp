@@ -2852,8 +2852,13 @@ Type objective_function<Type>::operator() () {
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
-    vector<Type> alphas = comp_n(comp_ind, 1) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
-    vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
+    // Dirichlet-multinomial concentration. Use the observed-count total
+    // comp_obs_tmp.sum() = N*(1 + offset*nbins) as the effective sample size,
+    // matching the N that ddirmultinom() reads from obs.sum() (so the alpha and
+    // the density use a consistent N), the CAAL DM (which uses sum(caal_obs_tmp)),
+    // and the AFSC linear-DM parameterization. Previously used the raw comp_n.
+    vector<Type> alphas = comp_obs_tmp.sum() * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
+    vector<Type> unweighted_alphas = comp_obs_tmp.sum() * comp_hat_tmp;          // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (comp_n(comp_ind, 1) > 0)){
