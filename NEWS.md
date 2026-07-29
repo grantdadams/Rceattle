@@ -1,3 +1,19 @@
+# Rceattle 5.0.4
+
+## Bug fixes
+
+* **Random-effect models phase without a flat-field NaN.** During phasing, the
+  deviates of a random effect (recruitment, selectivity, catchability, ...) are now
+  estimated as *penalised fixed effects* with their variance / correlation
+  hyperparameters held, and the Laplace approximation is switched on only in the
+  final hindcast fit. Previously the deviates were integrated out from the first
+  phase, so a random field started flat (all-zero); for a 2D AR1 selectivity
+  (`random_sel = TRUE`), integrating a flat field gives a `NaN` marginal objective
+  and the fit could not start without an external warm start. Phasing the deviates
+  as penalised effects first builds up realistic non-zero values, so the final
+  Laplace begins near the mode. Gated on the presence of random effects, so fits
+  without any are unchanged (the four reference models remain bit-identical).
+
 # Rceattle 5.0.3
 
 ## New features

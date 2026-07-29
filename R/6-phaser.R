@@ -45,8 +45,23 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
       }
     }
 
-    # remove the random effects if they are not estimated
+    # Phase random effects as PENALISED fixed effects. During phasing, do NOT pass
+    # `random` -- the deviates (rec_dev, sel_coff_dev, index_q_dev, ...) are estimated
+    # as ordinary fixed effects, constrained by their density/penalty -- and hold the
+    # RE variance / correlation hyperparameters at their initial values. This builds up
+    # realistic non-zero deviates before the Laplace approximation is switched on in the
+    # final hindcast fit (which uses the full map + `random`, seeded from here). A flat
+    # random field integrated from zero gives a NaN marginal objective, so it must be
+    # warmed up first. Fits with no random effects keep the original behaviour.
     random_use <- random
+    if (length(random) > 0) {
+      random_use <- NULL
+      re_var_pars <- c("R_log_sd", "sel_dev_log_sd", "sel_curve_pen",
+                       "index_q_dev_log_sd", "index_q_rho", "M1_dev_log_sd", "M1_rho",
+                       "trans_rho_linkage", "growth_log_sd")
+      for (vp in intersect(re_var_pars, names(map_use)))
+        map_use[[vp]] <- fill_vals(map_use[[vp]], NA)
+    }
 
     # initialize the parameters at values in previous phase
     params_use <- parameters
