@@ -252,6 +252,28 @@ srr_est_mode_map <- c(
   "BetaPrior"      = 3
 )
 
+# What fit_mod() does with the model (the `estimateMode` argument).
+# 0 = fit the hindcast and the HCR projection; 1 = fit the hindcast only;
+# 2 = project only, from the supplied inits; 3 = build MakeADFun without
+# optimizing (returns the real objective, for pre-fit diagnostics); 4 = optimize
+# with every hindcast parameter mapped out (a plumbing smoke test).
+estimateMode_map <- c(
+  "Estimate"      = 0,
+  "Hindcast"      = 1,
+  "Projection"    = 2,
+  "DebugBuild"    = 3,
+  "DebugOptimize" = 4
+)
+
+# Predation-mortality mode (the `msmMode` argument). 0 = single-species (no
+# predation); 1 = Type II MSVPA (Holsman et al. 2015); 2 = Type III MSVPA. Higher
+# integer codes (Kinzey-Punt, Holling forms) are not yet implemented.
+msmMode_map <- c(
+  "SingleSpecies" = 0,
+  "TypeIIMSVPA"   = 1,
+  "TypeIIIMSVPA"  = 2
+)
+
 
 #' Function to check for missing switches for map and parameter functions
 #'

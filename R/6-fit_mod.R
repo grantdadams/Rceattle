@@ -11,16 +11,16 @@
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
-#' @param estimateMode 0 = Fit the hindcast model and projection with HCR
-#'   specified via \code{HCR}. 1 = Fit the hindcast model only (no projection).
-#'   2 = Run the projection only with HCR specified via \code{HCR} given the
-#'   initial parameters in \code{inits}. 3 = build only: runs the model through
-#'   \code{MakeADFun} but not \code{nlminb}. The returned \code{obj} carries the
-#'   real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are
-#'   usable for diagnosing a model before committing to a fit. 4 = runs the
-#'   model through \code{MakeADFun} and \code{nlminb} with all parameters
-#'   mapped out; the objective is a placeholder (\code{dummy^2}), not a
-#'   likelihood, so do not interpret it.
+#' @param estimateMode What to fit, given as a string alias or the integer code:
+#'   \code{"Estimate"} (0) = fit the hindcast model and the HCR projection
+#'   (\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
+#'   \code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
+#'   parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
+#'   \code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+#'   real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
+#'   for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
+#'   (4) = optimize with all parameters mapped out, so the objective is a
+#'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.
 #' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.
@@ -33,7 +33,10 @@
 #'   carrying any environmental linkages on q.
 #' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
 #' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
-#' @param msmMode The predation-mortality function to use. Defaults to none (single-species).
+#' @param msmMode The predation-mortality mode, as a string alias or integer code:
+#'   \code{"SingleSpecies"} (0, the default, no predation), \code{"TypeIIMSVPA"}
+#'   (1, sensu Holsman et al. 2015) or \code{"TypeIIIMSVPA"} (2). Higher integer
+#'   codes (Kinzey-Punt, Holling forms) are not yet implemented.
 #' @param avgnMode The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0; 5 = "FishedEquilibrium": F = 0 equilibrium age-structure seeded by the first-year recruitment (\code{exp(rec_pars + rec_dev[year 1])}) decayed by mortality (M1), with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention).
 #' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability. The length-based modes (1, 3, 5) are not yet implemented and are rejected by `data_check()`; use a weight-based mode (2, 4, 6) or empirical suitability (0).
@@ -299,6 +302,13 @@ fit_mod <-
       if (missing(selFun)    && !is.null(cfg$selFun))    selFun    <- cfg$selFun
       if (missing(compFun)   && !is.null(cfg$compFun))   compFun   <- cfg$compFun
     }
+
+    # Resolve string aliases for the model-mode switches (e.g. "Hindcast" -> 1,
+    # "SingleSpecies" -> 0); integers pass through unchanged and an unknown string
+    # errors clearly. Done here, after the config overlay, so every downstream
+    # integer test on estimateMode / msmMode still applies.
+    estimateMode <- .map_switch(estimateMode, estimateMode_map, "estimateMode")
+    msmMode      <- .map_switch(msmMode,      msmMode_map,      "msmMode")
 
     # Add switches from function call
     data_list$random_rec  <- as.numeric(random_rec)
