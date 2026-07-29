@@ -30,10 +30,26 @@ concurrency:
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # Serial (TESTTHAT_PARALLEL=false below) loses the 2-worker split, and covr
+    # forces the TMB model to -O0 (~10x slower per fit than the -O2 install), so
+    # the full NOT_CRAN suite needs more headroom than the parallel run did.
+    # 350 stays under GitHub's 360-minute hard cap for a hosted job.
+    timeout-minutes: 350
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"   # run the full suite (see header)
+      # Force testthat serial under covr (overrides DESCRIPTION
+      # `Config/testthat/parallel: true`). Two reasons, both essential here:
+      #   1. Correctness -- covr's line counters are per-process, so coverage
+      #      executed inside parallel worker processes is never merged back and
+      #      goes uncounted. Serial is the supported covr configuration.
+      #   2. Stability -- testthat marshals each worker's results back to the
+      #      parent by serializing them; the heavy fit/MSE files build
+      #      multi-GB fitted objects, and a worker payload can exceed R's ~2 GB
+      #      single-string limit, aborting the run with
+      #      "result string is too long" in the unserialize path.
+      # R-CMD-check does not set this, so it stays parallel and fast.
+      TESTTHAT_PARALLEL: "false"
 
     steps:
       - uses: actions/checkout@v4
