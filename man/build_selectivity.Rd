@@ -8,8 +8,9 @@ build_selectivity(linkages = NULL)
 }
 \arguments{
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by
-selectivity parameter. Use \code{by = ~ fleet} for a separate coefficient per
-fleet.}
+selectivity parameter. Coefficients are per fleet by default
+(\code{by = ~ fleet}); use the \code{fleet} argument of \code{\link[=linkage_spec]{linkage_spec()}} to restrict
+a spec to particular fleets.}
 }
 \value{
 A list of selectivity settings for \code{\link[=fit_mod]{fit_mod()}}.

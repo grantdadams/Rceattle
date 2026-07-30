@@ -1,3 +1,20 @@
+# Rceattle 5.1.0
+
+## New features
+
+* **`linkage_spec()` fills in `by` from the process it is attached to.** Omitting
+  `by` now defaults to the base stratum of the process -- `~ fleet` for
+  catchability, selectivity, and the fleet composition weights (`theta_comp` /
+  `theta_caal`), and `~ species` for recruitment, M, growth, and the diet weight
+  (`theta_diet`) -- so a base-case linkage no longer needs an explicit
+  `by = ~ fleet` / `by = ~ species`, e.g.
+  `build_catchability(linkages = list(q = linkage_spec(~ temp)))` is now the same
+  as passing `by = ~ fleet`. An explicit `by` (a formula, or `NULL` for a single
+  shared coefficient) is always kept as given, so existing code is unchanged. One
+  consequence: a `~ 1` prior on a selectivity or catchability parameter now applies
+  per fleet by default; name the fleet(s) via `linkage_spec(fleet = ...)` to
+  restrict it to specific ones.
+
 # Rceattle 5.0.6
 
 ## Bug fixes

@@ -777,11 +777,33 @@ build_growth <- function(fun = "empirical",
 
 #' @keywords internal
 #' @noRd
-.stamp_param <- function(val, param) {
-  if (inherits(val, "Rceattle_linkage_spec")) {
-    return(.set_linkage_param(val, param))
+# Base stratum a process uses when the user omits `by` in linkage_spec(): the
+# fleet-indexed processes key by fleet, everything else by species. Composition
+# is split -- the fleet DM weights (theta_comp / theta_caal) key by fleet, the
+# per-predator diet weight (theta_diet) by species.
+.default_stratum <- function(process_label, param) {
+  if (process_label %in% c("q", "sel")) return(~ fleet)
+  if (process_label == "comp") {
+    return(if (identical(as.character(param), "theta_diet")) ~ species else ~ fleet)
   }
-  lapply(val, .set_linkage_param, param = param)
+  ~ species                                    # recruitment, M, growth
+}
+
+# Fill an omitted `by` with the process's base stratum; an explicitly-set `by`
+# (a formula, or NULL for a single shared coefficient) is left as the user gave it.
+.resolve_auto_by <- function(spec, process_label, param) {
+  if (isTRUE(spec$by_auto)) spec$by <- .default_stratum(process_label, param)
+  spec
+}
+
+.stamp_param <- function(val, param, process_label = NULL) {
+  stamp1 <- function(s) {
+    s <- .set_linkage_param(s, param)
+    if (!is.null(process_label)) s <- .resolve_auto_by(s, process_label, param)
+    s
+  }
+  if (inherits(val, "Rceattle_linkage_spec")) return(stamp1(val))
+  lapply(val, stamp1)
 }
 
 
@@ -806,8 +828,8 @@ Q_LINKAGE_PARAMS <- c("q")
 #' and an estimation phase like any other linkage.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
-#'   catchability parameter. The only parameter is `q`. Use `by = ~ fleet` for
-#'   a separate coefficient per fleet, and the `fleet` argument of
+#'   catchability parameter. The only parameter is `q`. Coefficients are per
+#'   fleet by default (`by = ~ fleet`); use the `fleet` argument of
 #'   [linkage_spec()] to restrict a spec to particular fleets.
 #'
 #' @return A list of catchability settings for [fit_mod()].
@@ -887,8 +909,9 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' parameter block is not penalised more than once.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
-#'   selectivity parameter. Use `by = ~ fleet` for a separate coefficient per
-#'   fleet.
+#'   selectivity parameter. Coefficients are per fleet by default
+#'   (`by = ~ fleet`); use the `fleet` argument of [linkage_spec()] to restrict
+#'   a spec to particular fleets.
 #'
 #' @return A list of selectivity settings for [fit_mod()].
 #'
@@ -946,8 +969,8 @@ COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
 #' `"DirichletMultinomial"` errors, since the weight has no effect there.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
-#'   `theta_comp` / `theta_caal` (use `by = ~ fleet`) or `theta_diet`
-#'   (use `by = ~ species`).
+#'   `theta_comp` / `theta_caal` (per fleet by default, `by = ~ fleet`) or
+#'   `theta_diet` (per predator by default, `by = ~ species`).
 #'
 #' @return A list of composition-weighting settings for [fit_mod()].
 #'

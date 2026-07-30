@@ -32,8 +32,11 @@ testthat::test_that("normal prior on inf_asc re-targets the NATURAL-scale sel_in
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   MU <- 4.0; SD <- 0.5
+  # A `~1` selectivity prior defaults to by = ~ fleet (one coefficient per fleet);
+  # target fleet 1 so the prior is a single term matching sel_inf[1, 1, 1].
   fit <- .fit3(Rceattle::build_selectivity(linkages = list(
-    inf_asc = Rceattle::linkage_spec(~1, priors = list(`(Intercept)` = normal(MU, SD))))))
+    inf_asc = Rceattle::linkage_spec(~1, fleet = 1L,
+                                     priors = list(`(Intercept)` = normal(MU, SD))))))
   inf_val <- fit$estimated_params$sel_inf[1, 1, 1]
   # Prior is read on the natural inflection (NOT exp(0) = 1).
   testthat::expect_equal(sum(fit$quantities$jnll_comp["Linkage-table priors", ]),
@@ -47,8 +50,11 @@ testthat::test_that("lognormal prior on slp_asc re-targets the LOG-scale log_sel
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   MU <- -1.0; SD <- 1.5
+  # A `~1` selectivity prior defaults to by = ~ fleet; target fleet 1 so the
+  # prior is a single term matching log_sel_slp[1, 1, 1].
   fit <- .fit3(Rceattle::build_selectivity(linkages = list(
-    slp_asc = Rceattle::linkage_spec(~1, priors = list(`(Intercept)` = lognormal(MU, SD))))))
+    slp_asc = Rceattle::linkage_spec(~1, fleet = 1L,
+                                     priors = list(`(Intercept)` = lognormal(MU, SD))))))
   lslp <- fit$estimated_params$log_sel_slp[1, 1, 1]
   testthat::expect_equal(sum(fit$quantities$jnll_comp["Linkage-table priors", ]),
                          -dnorm(lslp, MU, SD, log = TRUE), tolerance = 1e-8)

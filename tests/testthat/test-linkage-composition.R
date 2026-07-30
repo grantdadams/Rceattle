@@ -145,11 +145,12 @@ testthat::test_that("a comp covariate slope (non-intercept) is rejected as prior
     "prior-only")
 })
 
-testthat::test_that("theta_comp without `by = ~ fleet` is rejected (fleet-indexed)", {
+testthat::test_that("an explicit by = ~ species on theta_comp is rejected (fleet-indexed)", {
   testthat::skip_if_not_installed("Rceattle")
-  # comp/caal weights are fleet-indexed; linkage_spec() defaults to
-  # by = ~ species, which would emit fleet = NA rows that the cpp collapses to
-  # fleet 1 -- silently mis-targeting the prior. Must error, not mis-target.
+  # comp/caal weights are fleet-indexed. Omitting `by` now defaults to ~ fleet
+  # (the base stratum), so it targets the fleets correctly. An *explicit*
+  # by = ~ species would emit fleet = NA rows the cpp collapses to fleet 1 --
+  # silently mis-targeting the prior -- and is still rejected.
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
   testthat::skip_if(length(comp_flts) == 0)
@@ -159,8 +160,8 @@ testthat::test_that("theta_comp without `by = ~ fleet` is rejected (fleet-indexe
     suppressMessages(Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,
       compFun = Rceattle::build_composition(linkages = list(
-        theta_comp = Rceattle::linkage_spec(   # NB: no by = ~ fleet
-          ~ 1, priors = list(`(Intercept)` = gamma(2, 0.5))))),
+        theta_comp = Rceattle::linkage_spec(
+          ~ 1, by = ~ species, priors = list(`(Intercept)` = gamma(2, 0.5))))),
       fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0))),
     "fleet-indexed")
 })

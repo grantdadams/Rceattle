@@ -34,11 +34,15 @@ NULL
 #' @param by one-sided formula naming stratifying factors that should
 #'   each get their own coefficients. Allowed names are `species`,
 #'   `sex`, `age_bin`, and `fleet` (`fleet` for catchability and
-#'   selectivity linkages). The default `~species` produces one
-#'   coefficient set per species (the typical multispecies
-#'   assessment use case); pass `~species + sex` for per-(species,
-#'   sex) coefficients, or `NULL` to share a single coefficient
-#'   set across every species/sex.
+#'   selectivity linkages). **When omitted, `by` defaults to the base
+#'   stratum of whichever process the spec is attached to** -- `~fleet`
+#'   for catchability, selectivity, and the fleet composition weights
+#'   (`theta_comp` / `theta_caal`), and `~species` for recruitment, M,
+#'   growth, and the diet weight (`theta_diet`) -- so you rarely need to
+#'   spell it out for the base case. Pass it explicitly to override:
+#'   e.g. `~species + sex` for per-(species, sex) coefficients, or
+#'   `NULL` to share a single coefficient across every stratum. An
+#'   explicit `by` (including `NULL`) is always kept as given.
 #' @param species optional integer vector of 1-based species ids that
 #'   this spec applies to. `NULL` (default) means every species in
 #'   `strata$species` at materialization time. Use this to give
@@ -123,6 +127,13 @@ linkage_spec <- function(formula,
                          observe   = NULL,
                          obs_sd    = NULL,
                          obs_sd_est = FALSE) {
+  # Whether `by` was left to its default. If so, the process that the spec is
+  # later attached to (via build_*()) fills in its base stratum -- `~ fleet` for
+  # catchability / selectivity / fleet composition weights, `~ species` otherwise
+  # -- so users need not spell out `by = ~ fleet` / `by = ~ species` for the base
+  # case. An explicitly-passed `by` (including `NULL` for a shared coefficient) is
+  # always kept as given. Resolved in `.resolve_auto_by()`.
+  by_auto <- missing(by)
   priors_quo <- rlang::enquo(priors)
   priors_obj <- rlang::eval_tidy(priors_quo, data = .prior_dispatch_mask())
   priors_obj <- .validate_priors_arg(priors_obj)
@@ -189,6 +200,7 @@ linkage_spec <- function(formula,
       formula   = formula,
       param     = param_str,
       by        = by,
+      by_auto   = by_auto,
       species   = species,
       sex       = sex,
       fleet     = fleet,
@@ -262,7 +274,7 @@ linkage_spec <- function(formula,
       "linkages$%s must be a linkage_spec() or a list of linkage_spec() objects.",
       nm), call. = FALSE)
   }
-  Map(.stamp_param, linkages, names(linkages))
+  Map(function(val, key) .stamp_param(val, key, process_label), linkages, names(linkages))
 }
 
 

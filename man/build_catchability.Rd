@@ -8,8 +8,8 @@ build_catchability(linkages = NULL)
 }
 \arguments{
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by
-catchability parameter. The only parameter is \code{q}. Use \code{by = ~ fleet} for
-a separate coefficient per fleet, and the \code{fleet} argument of
+catchability parameter. The only parameter is \code{q}. Coefficients are per
+fleet by default (\code{by = ~ fleet}); use the \code{fleet} argument of
 \code{\link[=linkage_spec]{linkage_spec()}} to restrict a spec to particular fleets.}
 }
 \value{

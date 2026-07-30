@@ -38,11 +38,15 @@ performed at fit time inside \code{\link[=fit_mod]{fit_mod()}}.}
 \item{by}{one-sided formula naming stratifying factors that should
 each get their own coefficients. Allowed names are \code{species},
 \code{sex}, \code{age_bin}, and \code{fleet} (\code{fleet} for catchability and
-selectivity linkages). The default \code{~species} produces one
-coefficient set per species (the typical multispecies
-assessment use case); pass \code{~species + sex} for per-(species,
-sex) coefficients, or \code{NULL} to share a single coefficient
-set across every species/sex.}
+selectivity linkages). \strong{When omitted, \code{by} defaults to the base
+stratum of whichever process the spec is attached to} -- \code{~fleet}
+for catchability, selectivity, and the fleet composition weights
+(\code{theta_comp} / \code{theta_caal}), and \code{~species} for recruitment, M,
+growth, and the diet weight (\code{theta_diet}) -- so you rarely need to
+spell it out for the base case. Pass it explicitly to override:
+e.g. \code{~species + sex} for per-(species, sex) coefficients, or
+\code{NULL} to share a single coefficient across every stratum. An
+explicit \code{by} (including \code{NULL}) is always kept as given.}
 
 \item{species}{optional integer vector of 1-based species ids that
 this spec applies to. \code{NULL} (default) means every species in

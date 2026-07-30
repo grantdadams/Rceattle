@@ -8,8 +8,8 @@ build_composition(linkages = NULL)
 }
 \arguments{
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by
-\code{theta_comp} / \code{theta_caal} (use \code{by = ~ fleet}) or \code{theta_diet}
-(use \code{by = ~ species}).}
+\code{theta_comp} / \code{theta_caal} (per fleet by default, \code{by = ~ fleet}) or
+\code{theta_diet} (per predator by default, \code{by = ~ species}).}
 }
 \value{
 A list of composition-weighting settings for \code{\link[=fit_mod]{fit_mod()}}.
