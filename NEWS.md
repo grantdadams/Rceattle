@@ -1,3 +1,16 @@
+# Rceattle 5.0.6
+
+## Bug fixes
+
+* **A `right_floor` selectivity linkage now applies its offset on the logit scale.**
+  For a double-normal fleet, `sel_inf(1)` parameterises the right-tail floor as
+  `logit(right_floor)`, but a log-link linkage offset was applied by multiplying the
+  already-transformed probability, which could push `right_floor` above 1 and corrupt the
+  descending limb. The offset now acts on the logit (additive and multiplicative), like the
+  peak and the other inflection slots, so `right_floor` stays in `[0, 1]` for any offset.
+  A fleet with no `right_floor` linkage is bit-identical (the four reference models are
+  unchanged).
+
 # Rceattle 5.0.5
 
 ## Bug fixes

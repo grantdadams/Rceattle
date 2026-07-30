@@ -511,8 +511,13 @@ void calculate_selectivity(
                               + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
           Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
                               + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
-          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
-                              + sel_inf_off_nat(1, flt, sex, yr)))) * exp(sel_inf_off(1, flt, sex, yr));
+          // right_floor is logit-parameterised (sel_inf(1) = logit(right_floor)), so the
+          // linkage offsets act on the logit scale -- additive (nat) and multiplicative
+          // (exp) inside the logistic, matching `peak` and the other inflection slots. This
+          // keeps right_floor in [0, 1] for any offset (applying exp() to the probability
+          // could push it > 1). Bit-identical at zero offset.
+          Type right_floor = 1.0 / (1.0 + exp(-((sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                              + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr)))));
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val      = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
             // Smooth logistic blend: ~0 left of peak, ~1 right of peak.
