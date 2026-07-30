@@ -123,7 +123,9 @@ testthat::test_that("MultinomialAFSC (case -1) folds the exact hand-computed bin
       x <- (of + off) * cn[i]; p <- (hf + off) / sum(hf + off)
       nll <- nll - cw * (lgamma(sum(x) + 1) - sum(lgamma(x + 1)) + sum(x * log(p)))
     } else {                                   # Dirichlet-multinomial
-      ob <- (of + off) * cn[i]; al <- cn[i] * (hf + off) * exp(cw)
+      # alpha's leading N is the offset-inflated observed total sum(ob), the same N
+      # the density uses, matching the C++ `comp_obs_tmp.sum()` (not raw cn[i]).
+      ob <- (of + off) * cn[i]; al <- sum(ob) * (hf + off) * exp(cw)
       nll <- nll - (lgamma(sum(ob) + 1) + lgamma(sum(al)) - lgamma(sum(ob) + sum(al)) +
                     sum(-lgamma(ob + 1) + lgamma(ob + al) - lgamma(al)))
     }

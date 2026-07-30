@@ -129,7 +129,11 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     hat_prop_offset <- hat_prop + 0.00001
 
     obs_num <- obs_prop_offset * samp_size
-    alpha <- samp_size * hat_prop_offset * theta
+    # The DM concentration's leading N is the offset-inflated observed total,
+    # sum(obs_num) = samp_size * (1 + n_ages * 0.00001) -- the same N the density
+    # itself uses -- matching the C++ `comp_obs_tmp.sum()` (Cole's goa_pk DM N setup),
+    # not the raw sample size.
+    alpha <- sum(obs_num) * hat_prop_offset * theta
 
     r_nll_dm <- r_nll_dm + calc_dirmultinom_nll(obs_num, alpha)
   }
