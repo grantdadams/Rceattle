@@ -47,3 +47,7 @@ dev/golden-ref.rds
 # NOTE: already-tracked dev/ files (e.g. the PR plan/handoffs) stay tracked; this only
 # stops NEW dev/ scratch from being committed.
 /dev/
+
+# Scratchpad / working-tool artifacts (created by dev tooling, not part of the package)
+scratchpad_loaded.flag
+scratchpad/
