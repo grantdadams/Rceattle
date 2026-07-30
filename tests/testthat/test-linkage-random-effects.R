@@ -210,6 +210,56 @@ testthat::test_that("init = list(rho = v) fixes the ar1 correlation at v", {
   testthat::expect_equal(tanh(fit$estimated_params$trans_rho_linkage), 0.5, tolerance = 1e-6)
 })
 
+testthat::test_that("an IID q linkage recovers a known deviation SD (simulate-refit self-consistency)", {
+  testthat::skip_on_cran()
+  # Beyond pinning the density VALUE (tests above): simulate a survey index from
+  # KNOWN year deviations on log-q, refit, and confirm the estimated SD *and* the
+  # deviations are recovered. This catches an estimation bias the value-pins cannot
+  # -- e.g. a sigma_hat that ignores the truth (a real failure mode during dev).
+  d    <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+  ctl  <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  obj  <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+                            qFun = qfun, fit_control = ctl)$obj
+  i7   <- which(d$index_data$Fleet_code == 7L)
+  n_re <- sum(names(obj$env$last.par) == "beta_linkage_re")
+
+  recover <- function(sig_true) {
+    set.seed(7); z <- stats::rnorm(n_re, 0, sig_true)
+    par <- obj$env$last.par.best
+    par[names(par) == "beta_linkage_re"] <- z       # inject known deviations
+    set.seed(7); sim <- obj$simulate(par)           # index generated from z (+ obs error)
+    dsim <- d; dsim$index_data$Observation[i7] <- as.numeric(sim$index_hat)[i7]
+    fit <- suppressWarnings(Rceattle::fit_mod(data_list = dsim, estimateMode = 1,
+             msmMode = 0, qFun = qfun, fit_control = ctl))
+    list(sig_hat = exp(fit$estimated_params$log_sigma_linkage), emp = stats::sd(z),
+         cor = stats::cor(fit$estimated_params$beta_linkage_re, z))
+  }
+  lo <- recover(0.4); hi <- recover(0.7)
+
+  # SD recovered within a generous band of the empirical SD of the injected devs
+  testthat::expect_gt(lo$sig_hat / lo$emp, 0.55); testthat::expect_lt(lo$sig_hat / lo$emp, 1.5)
+  testthat::expect_gt(hi$sig_hat / hi$emp, 0.55); testthat::expect_lt(hi$sig_hat / hi$emp, 1.5)
+  testthat::expect_gt(hi$sig_hat, lo$sig_hat)       # sigma_hat tracks the truth
+  testthat::expect_gt(lo$cor, 0.5); testthat::expect_gt(hi$cor, 0.5)  # devs recovered, not just spread
+})
+
+testthat::test_that("a (1|Year) q linkage with sigma pinned near 0 reproduces the no-linkage fit", {
+  testthat::skip_on_cran()
+  d   <- Rceattle::BS2017SS
+  ctl <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  base <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+                            fit_control = ctl)$opt$objective
+  pin  <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+            qFun = Rceattle::build_catchability(linkages = list(
+              q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L,
+                                         init = list(sigma = 1e-4)))),
+            fit_control = ctl)
+  testthat::expect_equal(pin$opt$objective, base, tolerance = 1e-3)
+  testthat::expect_lt(max(abs(pin$estimated_params$beta_linkage_re)), 1e-3)
+})
+
 testthat::test_that("Rogers QAR1: observed ar1 adds an observation term and a beta effect", {
   # linkage_spec(observe=, obs_sd=) makes the ar1 latent a state-space covariate
   # (Rogers et al. 2024): row 20 carries the AR1 process density PLUS a Gaussian
@@ -240,6 +290,26 @@ testthat::test_that("Rogers QAR1: observed ar1 adds an observation term and a be
   # the latent enters q scaled by beta
   testthat::expect_equal(as.numeric(rep$q_linkage_offset[7, seq_len(n_re)]),
                          bobs * re, tolerance = 1e-8)
+})
+
+testthat::test_that("Rogers QAR1: obs_sd_est = TRUE estimates the observation SD", {
+  # The build-only test above pins the density at a fixed obs_sd; this exercises
+  # the ESTIMATION path (log_obs_sd_linkage free). The obs SD is weakly identified
+  # and collapses toward 0 on a smooth covariate (documented degeneracy), so assert
+  # the path runs and yields a finite, genuinely-estimated value -- not a target.
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 7L,
+          observe = "BTempC", obs_sd = 0.5, obs_sd_est = TRUE)))
+  fit <- suppressWarnings(Rceattle::fit_mod(data_list = d, estimateMode = 1,
+           msmMode = 0, qFun = qfun,
+           fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)))
+  lo <- fit$estimated_params$log_obs_sd_linkage
+  testthat::expect_equal(length(lo), 1L)                       # one per observed group
+  testthat::expect_true(is.finite(fit$opt$objective))
+  testthat::expect_true(is.finite(exp(lo)) && exp(lo) > 0)
+  testthat::expect_true(any(abs(lo - log(0.5)) > 1e-6))        # genuinely estimated, not held
 })
 
 testthat::test_that("observe requires an ar1 term and a valid column", {
