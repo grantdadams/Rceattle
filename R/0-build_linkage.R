@@ -499,9 +499,16 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
   cat("  param:   ", x$param, "\n", sep = "")
   cat("  formula: ", deparse(x$formula), "\n", sep = "")
-  cat("  by:      ",
-      if (is.null(x$by)) "(shared)" else deparse(x$by),
-      "\n", sep = "")
+  by_txt <- if (is.null(x$by)) {
+    "(shared)"
+  } else if (isTRUE(x$by_auto) && is.na(x$param)) {
+    "(process default)"            # unattached: resolves to ~fleet / ~species per process
+  } else if (isTRUE(x$by_auto)) {
+    paste0(deparse(x$by), " (default)")
+  } else {
+    deparse(x$by)
+  }
+  cat("  by:      ", by_txt, "\n", sep = "")
   if (!is.null(x$species)) {
     cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
   }

@@ -111,13 +111,17 @@ print.Rceattle_run_config <- function(x, ...) {
   for (nm in .RCE_LINKAGE_SPEC_ARGS) {
     if (nm == "param") next
     v <- spec[[nm]]
-    # `by` is handled before the NULL skip: by = NULL (share one coefficient set
-    # across all species/sex) is a distinct model from the default `~ species`
-    # (one coefficient per species), so record it with an explicit sentinel.
+    # `by` is handled before the NULL skip. An auto-filled `by` (the user omitted
+    # it) is dropped -- reconstructing with the omitted argument re-derives the same
+    # per-process base stratum. An *explicit* `by` is always recorded so it survives
+    # the round-trip unchanged, including `by = NULL` (a single shared coefficient),
+    # via a sentinel. Keying on `by_auto` -- not on equality with `~ species` -- is
+    # what keeps an explicit `by = ~ species` on a fleet-keyed process (whose default
+    # is now `~ fleet`) from being silently re-resolved on reload.
     if (nm == "by") {
-      if (is.null(v)) out$by <- "NULL"
-      else if (!identical(.rce_formula_to_chr(v), .rce_formula_to_chr(ref$by)))
-        out$by <- .rce_formula_to_chr(v)      # drop the default `~ species`
+      if (!isTRUE(spec$by_auto)) {
+        out$by <- if (is.null(v)) "NULL" else .rce_formula_to_chr(v)
+      }
       next
     }
     if (is.null(v)) next

@@ -134,3 +134,27 @@ testthat::test_that("a shared-coefficient linkage (by = NULL) round-trips as NUL
   l <- Rceattle:::.rce_run_config_to_list(rc)
   testthat::expect_false("priors" %in% names(l$model$qFun$linkages$q))
 })
+
+testthat::test_that("an explicit by = ~ species on a fleet process survives the round-trip", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("Rceattle")
+  # The serializer keys default-omission on `by_auto`, not on equality with
+  # ~species: an *explicit* by = ~ species on catchability (whose auto default is
+  # ~ fleet) must not be dropped and silently re-resolved to ~ fleet on reload.
+  q <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ cold_pool, by = ~ species)))
+  rc <- Rceattle:::.rce_run_config(mc = Rceattle::model_config(qFun = q))
+  f <- withr::local_tempfile(fileext = ".yaml")
+  Rceattle::save_config(rc, f)
+  sp <- Rceattle::load_config(f)$model_config$qFun$linkages$q
+  testthat::expect_identical(all.vars(sp$by), "species")   # kept, NOT re-resolved to ~fleet
+
+  # while an *omitted* by on the same fleet process reloads as the ~fleet default
+  q2 <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ cold_pool)))
+  rc2 <- Rceattle:::.rce_run_config(mc = Rceattle::model_config(qFun = q2))
+  f2 <- withr::local_tempfile(fileext = ".yaml")
+  Rceattle::save_config(rc2, f2)
+  sp2 <- Rceattle::load_config(f2)$model_config$qFun$linkages$q
+  testthat::expect_identical(all.vars(sp2$by), "fleet")
+})

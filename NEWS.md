@@ -7,13 +7,15 @@
   catchability, selectivity, and the fleet composition weights (`theta_comp` /
   `theta_caal`), and `~ species` for recruitment, M, growth, and the diet weight
   (`theta_diet`) -- so a base-case linkage no longer needs an explicit
-  `by = ~ fleet` / `by = ~ species`, e.g.
-  `build_catchability(linkages = list(q = linkage_spec(~ temp)))` is now the same
-  as passing `by = ~ fleet`. An explicit `by` (a formula, or `NULL` for a single
-  shared coefficient) is always kept as given, so existing code is unchanged. One
-  consequence: a `~ 1` prior on a selectivity or catchability parameter now applies
-  per fleet by default; name the fleet(s) via `linkage_spec(fleet = ...)` to
-  restrict it to specific ones.
+  `by = ~ fleet` / `by = ~ species`. An explicit `by` (a formula, or `NULL` for a
+  single shared coefficient) is always kept as given, so code that passes `by`
+  explicitly -- as the bundled examples and real assessments do -- is unchanged.
+  A linkage that *omitted* `by` on a fleet-keyed process does change: it now spans
+  every fleet (with a separate coefficient each) rather than collapsing to fleet 1.
+  In particular a `~ 1` selectivity/catchability **prior** now applies per fleet, so
+  name the target fleet(s) via `linkage_spec(fleet = ...)` -- and note it will error
+  on a model with mirrored selectivity fleets unless a fleet is named. Restrict a
+  covariate or prior to the fleets you mean with the `fleet` argument.
 
 # Rceattle 5.0.6
 
