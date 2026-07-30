@@ -22,13 +22,15 @@ and an estimation phase like any other linkage.
 }
 \examples{
 \donttest{
-# One temperature effect on q, estimated separately for each fleet
+# One temperature effect on q per fleet. `by = ~ fleet` is the default, and a
+# fleet without an estimated survey catchability is not linkable, so at fit time
+# restrict the linkage to the estimated-q fleets (here fleet 7 of BS2017SS).
 build_catchability(linkages = list(
-  q = linkage_spec(~ temp, by = ~ fleet)))
+  q = linkage_spec(~ temp, fleet = 7)))
 
 # Restrict it to fleets 1 and 3, with a prior on the slope
 build_catchability(linkages = list(
-  q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+  q = linkage_spec(~ temp, fleet = c(1, 3),
                    priors = list(temp = prior_normal(0, 1)))))
 }
 

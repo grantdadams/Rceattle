@@ -15,7 +15,20 @@
   In particular a `~ 1` selectivity/catchability **prior** now applies per fleet, so
   name the target fleet(s) via `linkage_spec(fleet = ...)` -- and note it will error
   on a model with mirrored selectivity fleets unless a fleet is named. Restrict a
-  covariate or prior to the fleets you mean with the `fleet` argument.
+  covariate or prior to the fleets you mean with the `fleet` argument. When `by` is
+  omitted on a catchability/selectivity linkage, `fit_mod()` now prints a one-time
+  message noting that it spans every eligible fleet, so the per-fleet expansion is
+  not a surprise.
+
+## Bug fixes
+
+* **A catchability linkage on a fleet with no survey index now errors.** A `q`
+  linkage only makes sense on a fleet whose catchability is estimated. Fleets that
+  hold q fixed or solve it analytically were already rejected; a fleet with **no
+  index data** (so `Catchability` is `NA` and there is no q to estimate) was not, so
+  an omitted-`by` linkage silently attached meaningless q coefficients to, e.g.,
+  fishery fleets. Such fleets are now rejected with the same clear error, naming them
+  and pointing to `linkage_spec(fleet = ...)` to restrict the linkage.
 
 # Rceattle 5.0.6
 

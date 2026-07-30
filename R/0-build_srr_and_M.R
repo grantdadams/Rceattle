@@ -836,13 +836,15 @@ Q_LINKAGE_PARAMS <- c("q")
 #'
 #' @examples
 #' \donttest{
-#' # One temperature effect on q, estimated separately for each fleet
+#' # One temperature effect on q per fleet. `by = ~ fleet` is the default, and a
+#' # fleet without an estimated survey catchability is not linkable, so at fit time
+#' # restrict the linkage to the estimated-q fleets (here fleet 7 of BS2017SS).
 #' build_catchability(linkages = list(
-#'   q = linkage_spec(~ temp, by = ~ fleet)))
+#'   q = linkage_spec(~ temp, fleet = 7)))
 #'
 #' # Restrict it to fleets 1 and 3, with a prior on the slope
 #' build_catchability(linkages = list(
-#'   q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+#'   q = linkage_spec(~ temp, fleet = c(1, 3),
 #'                    priors = list(temp = prior_normal(0, 1)))))
 #' }
 #'
@@ -1118,6 +1120,33 @@ build_composition <- function(linkages = NULL) {
 #'   fixed or analytically solved.
 #' @keywords internal
 #' @noRd
+# Informational one-time message: a catchability/selectivity linkage whose `by` was
+# auto-filled (the user omitted it) and that names no fleets applies to EVERY fleet
+# of that process -- one coefficient each. Tell the user so the per-fleet expansion
+# (and any resulting eligibility error) is not a surprise; naming fleets via
+# linkage_spec(fleet = ) restricts it.
+.message_auto_fleet_linkages <- function(spec_groups) {
+  labs <- c(q = "catchability", sel = "selectivity")
+  for (proc in names(labs)) {
+    specs <- spec_groups[[proc]]
+    if (is.null(specs)) next
+    for (nm in names(specs)) {
+      val <- specs[[nm]]
+      lst <- if (inherits(val, "Rceattle_linkage_spec")) list(val) else val
+      for (s in lst) {
+        if (isTRUE(s$by_auto) && is.null(s$fleet) && "fleet" %in% all.vars(s$by)) {
+          message(sprintf(
+            paste0("A %s linkage (`%s`) did not name fleets, so it applies to every ",
+                   "eligible fleet -- one coefficient each. Pass ",
+                   "linkage_spec(fleet = ) to restrict it to specific fleets."),
+            labs[[proc]], nm))
+        }
+      }
+    }
+  }
+  invisible()
+}
+
 .check_q_linkage_support <- function(linkage_table, fleet_control) {
   if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
   q <- linkage_table[linkage_table$process == "q", , drop = FALSE]
@@ -1127,15 +1156,19 @@ build_composition <- function(linkages = NULL) {
   flts <- flts[!is.na(flts)]
   if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
   forms <- as.character(fleet_control$Catchability[flts])
-  bad <- flts[forms %in% .Q_LINKAGE_UNESTIMATED_FORMS]
+  # A fleet does not estimate q if its Catchability holds q fixed / solves it from
+  # the data (Fixed / Analytical), or is absent (NA) -- a fleet with no survey index
+  # has no catchability to link. A linkage on any of these cannot be estimated.
+  bad <- flts[is.na(forms) | forms %in% .Q_LINKAGE_UNESTIMATED_FORMS]
   if (length(bad) > 0) {
     stop(sprintf(
       paste0("catchability linkage on fleet(s) %s whose Catchability (%s) does ",
-             "not estimate q: index_log_q is held fixed (Fixed) or solved from ",
-             "the data (Analytical), so a linkage would silently turn a fixed q ",
-             "time-varying or have no effect.\n",
-             "  Set Catchability to an estimated form (\"Estimated\" / ",
-             "\"Estimated-with-prior\") to link q."),
+             "not estimate q: index_log_q is held fixed (Fixed), solved from the ",
+             "data (Analytical), or absent (NA -- the fleet has no survey index), ",
+             "so a linkage would turn a fixed q time-varying or have no effect.\n",
+             "  Give the fleet an estimated survey catchability (\"Estimated\" / ",
+             "\"Estimated-with-prior\") with index data, or restrict the linkage to ",
+             "estimated-q fleets via linkage_spec(fleet = ...)."),
       paste(fleet_control$Fleet_name[bad], collapse = ", "),
       paste(unique(as.character(fleet_control$Catchability[bad])),
             collapse = ", ")), call. = FALSE)

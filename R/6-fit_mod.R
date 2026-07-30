@@ -444,6 +444,8 @@ fit_mod <-
       data_list$env_data <- .extend_env_data(data_list$env_data, data_list$styr)
       .check_env_data_years(data_list$env_data, data_list$styr)
     }
+    .message_auto_fleet_linkages(list(q   = data_list$q_linkages,
+                                      sel = data_list$sel_linkages))
     .linkage_pool <- pool_linkages(
       spec_groups = list(growth      = data_list$growth_linkages,
                          M           = data_list$M1_linkages,
