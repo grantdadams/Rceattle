@@ -24,7 +24,7 @@ It consolidates and updates the developer notes on the
 | Path | Contents |
 |---|---|
 | `R/` | The R side. Files are number-prefixed in rough pipeline order (see below). |
-| `src/TMB/` | The C++ TMB template `ceattle_v01_11.cpp` and its included `.hpp` modules. |
+| `src/TMB/` | The C++ TMB template `ceattle.cpp` and its included `.hpp` modules. |
 | `tests/testthat/` | Unit and regression tests, grouped by area. |
 | `inst/extdata/` | Excel templates, including `meta_data_names.xlsx` (the authoritative column/switch reference). |
 | `data/` | Built-in example data lists (`BS2017SS`, `GOA2018SS`, `NorthernRockfish2022`, …). |
@@ -32,7 +32,7 @@ It consolidates and updates the developer notes on the
 | `.github/workflows/` | `R-CMD-check.yaml` and `pkgdown.yaml` CI. |
 
 The whole model — observation model, population dynamics, and likelihood — is
-a single C++ TMB script, `src/TMB/ceattle_v01_11.cpp`, which `#include`s a set
+a single C++ TMB script, `src/TMB/ceattle.cpp`, which `#include`s a set
 of topical `.hpp` modules. `fit_mod()` is the R entry point; it calls a chain
 of helpers that build the TMB inputs, optimize, and label the output.
 
@@ -129,7 +129,7 @@ save and reload, so reopening a saved configuration reproduces the same fit.
 
 ## The TMB template
 
-`ceattle_v01_11.cpp` includes these modules (order matches the top of the
+`ceattle.cpp` includes these modules (order matches the top of the
 file):
 
 | Module | Responsibility |
@@ -212,7 +212,7 @@ Note that inside `priors = `, the bare constructors `normal()`, `lognormal()`,
 
 ### Add a new estimated parameter
 
-1. Declare the `PARAMETER` in `ceattle_v01_11.cpp` and use it in the relevant
+1. Declare the `PARAMETER` in `ceattle.cpp` and use it in the relevant
    `.hpp` module.
 2. Add a default starting value in `R/2-build_params.R`.
 3. Add mapping logic in `R/3-build_map.R` (and the matching `build_map_*()`
@@ -242,7 +242,7 @@ place, `R/0-column_schema.R`:
 
 **A whole new `data_list` element** (a new sheet / array, e.g. an index covariate):
 
-1. Add the `DATA_*` object in `ceattle_v01_11.cpp` and consume it in the module.
+1. Add the `DATA_*` object in `ceattle.cpp` and consume it in the module.
 2. **Add read *and* write support in `R/0-read_write_excel_data.R`.** A new element
    with no `write_data()`/`read_data()` handling round-trips to nothing through the
    standard xlsx format — the feature is silently lossy. (This is exactly how
@@ -269,7 +269,7 @@ place, `R/0-column_schema.R`:
 ### Change the likelihood
 
 The joint negative log-likelihood is assembled at the end of
-`ceattle_v01_11.cpp`, in the `jnll_comp` matrix, addressed by the `JnllRow` row
+`ceattle.cpp`, in the `jnll_comp` matrix, addressed by the `JnllRow` row
 constant and the species/fleet column. Add or modify the relevant term there,
 then recompile and re-run the regression tests (below) to confirm the objective
 changes only as intended.

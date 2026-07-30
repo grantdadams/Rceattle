@@ -1151,14 +1151,13 @@ rather than applying a covariate/deviate to the wrong year.
 
 ## Current limitations
 
-* **Time-variation switches** -- `Time_varying_q` / `Time_varying_sel` /
-  `M1_re` are **soft-deprecated** in favour of the random-effect grammar above
-  (`fit_mod()` nudges you toward the equivalent `linkage_spec()`), but they still
-  fit with their exact numerics and are not auto-translated -- rewrite the spec by
-  hand when you want the grammar's features. No grammar equivalent exists yet for
-  the environmental / Rogers-AR1 catchability modes, the non-parametric
-  selectivity forms, or the separable `M1_re = 6` (age × year), which keep using
-  the switch-based path without a nudge.
+* **Time-variation switches are not auto-translated.** The soft-deprecated
+  `Time_varying_q` / `Time_varying_sel` / `M1_re` switches (above) are not
+  rewritten into the grammar for you -- rewrite the spec by hand when you want the
+  grammar's features. No grammar equivalent exists yet for the environmental /
+  Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
+  separable `M1_re = 6` (age × year), which keep using the switch-based path
+  without a nudge.
 * **Age-dependent linkages on processes other than M** -- the
   `age_bin` stratum is consumed by the M accumulator today (a
   row's `age_bin == NA` broadcasts across ages; specific values

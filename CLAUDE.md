@@ -49,7 +49,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `1-*` data checks, `2..5-*` params/map/bounds/rearrange, `6-*` fit + rename output,
   `7-*` plotting, `8-*` sim, `9-*` retro/jitter, `10-*` MSE, `11-*` model averaging.
   **The numeric prefixes are meaningful — don't renumber or rename wholesale.**
-- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,810 lines, numbered section
+- **`src/TMB/`** — `ceattle.cpp` is the main model (~3,810 lines, numbered section
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
@@ -87,7 +87,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   codebase favors explanatory section headers and Doxygen on the C++ — match local comment
   density; don't strip comments.
 - **`jnll_comp` likelihood rows are addressed by the `JnllRow` enum** in
-  `ceattle_v01_11.cpp` (`JNLL_INDEX`=0 … `JNLL_LINKAGE_RE`=20, `JNLL_N_ROWS` dimensions
+  `ceattle.cpp` (`JNLL_INDEX`=0 … `JNLL_LINKAGE_RE`=20, `JNLL_N_ROWS` dimensions
   the matrix) — refer to a row by its constant, never a bare integer. Their **display
   names** live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by
   hand. If you add/reorder a likelihood component, update both the enum and the name vector.
@@ -265,7 +265,7 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
   `build_hcr` roxygen math against the C++ — fixing accuracy issues incl. the `build_hcr`
   SESSF/NPFMC/PFMC reference-point formula errors, the Ricker β/1e6 reparametrization note,
   and the inert `avgnMode` switch. A companion **code fix** removed the HCR-4 `Fmult`
-  double-application (`ceattle_v01_11.cpp` case 4). Doc-only otherwise.
+  double-application (`ceattle.cpp` case 4). Doc-only otherwise.
 - **Older paused work:** a multi-PR accessibility / code-review refactor (branch
   `accessibility-and-code-review`), plan in
   `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;

@@ -38,13 +38,13 @@
 ##' 	\deqn{Fofl = 0}
 ##' 	\deqn{Fuse = 0}
 ##'
-##' \code{hcr = 6} or \code{"PFMC"}: An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P*) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F that achieves X% of SSB0 for multi-species. Here \eqn{Phi(Pstar, mean, Sigma)} is the normal quantile (inverse-CDF) function, \code{qnorm(Pstar, mean, Sigma)}, so \eqn{Phi(Pstar, Flimit, Sigma) = Flimit + qnorm(Pstar, 0, Sigma)} -- an F below \code{Flimit} when \eqn{Pstar < 0.5}. The taper runs between \eqn{SB0 * Plimit} and \eqn{SB0 * Ptarget}, so the 40-10 shape requires \code{Ptarget = 0.40} and \code{Plimit = 0.10}; the default \code{Plimit = 0} gives a 40-0 rule. Target biological reference points are:
+##' \code{hcr = 6} or \code{"PFMC"}: An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P*) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F that achieves X% of SSB0 for multi-species. The uncertainty buffer is the normal quantile function \code{qnorm(Pstar, mean, Sigma)}; note \code{qnorm(Pstar, Flimit, Sigma) = Flimit + qnorm(Pstar, 0, Sigma)} -- an F below \code{Flimit} when \eqn{Pstar < 0.5}. The taper runs between \eqn{SB0 * Plimit} and \eqn{SB0 * Ptarget}, so the 40-10 shape requires \code{Ptarget = 0.40} and \code{Plimit = 0.10}; the default \code{Plimit = 0} gives a 40-0 rule. Target biological reference points are:
 ##' 	Stock status: \eqn{SB > SB0 * Ptarget}
 ##' 	\deqn{Fofl = Flimit}
-##' 	\deqn{Fuse = Phi(Pstar, Flimit, Sigma)}
+##' 	\deqn{Fuse = qnorm(Pstar, Flimit, Sigma)}
 ##' 	Stock status: \eqn{SB0 * Plimit < SB \le SB0 * Ptarget}
 ##' 	\deqn{Fofl = Flimit}
-##' 	\deqn{Fuse = Phi(Pstar, Flimit, Sigma) * \frac{SB0 * Ptarget * (SB - SB0 * Plimit)}{SB * SB0 * (Ptarget - Plimit)}}
+##' 	\deqn{Fuse = qnorm(Pstar, Flimit, Sigma) * \frac{SB0 * Ptarget * (SB - SB0 * Plimit)}{SB * SB0 * (Ptarget - Plimit)}}
 ##' 	Stock status: \eqn{SB < SB0 * Plimit}
 ##' 	\deqn{Fofl = 0}
 ##' 	\deqn{Fuse = 0}

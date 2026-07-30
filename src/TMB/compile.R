@@ -1,4 +1,4 @@
-tmb_name <- "ceattle_v01_11"
+tmb_name <- "ceattle"
 tmb_flags <- commandArgs(trailingOnly = TRUE)
 if(length(tmb_flags) == 0) tmb_flags <- ""
 
@@ -6,7 +6,7 @@ if(length(tmb_flags) == 0) tmb_flags <- ""
 # vectorized reductions inlining TMB's multi-dimensional array indexing, e.g.
 # the 5-D suitability(...) access in predation.hpp) are suppressed at the SOURCE
 # level via a `#pragma GCC diagnostic ignored "-Warray-bounds"` near the top of
-# ceattle_v01_11.cpp. We deliberately do NOT add a -Wno-array-bounds compiler
+# ceattle.cpp. We deliberately do NOT add a -Wno-array-bounds compiler
 # flag here: CRAN's "checking compilation flags used" rejects flags that
 # suppress warnings, whereas a targeted source pragma is permitted.
 tmb_flags <- paste(tmb_flags, collapse = " ")

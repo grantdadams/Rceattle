@@ -79,7 +79,7 @@ list of parameter object names with corresponding phase. Default
 
 \item{TMBfilename}{Optional character. Path (without \code{.cpp}) to an
 alternate TMB template for development. Default \code{NULL} (use the
-bundled \code{ceattle_v01_11}).}
+bundled \code{ceattle}).}
 
 \item{verbose}{\code{0} = silent, \code{1} = print updates of model fit, \code{2} =
 print updates of model fit and TMB estimation progress. Default

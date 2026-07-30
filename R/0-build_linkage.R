@@ -942,22 +942,6 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 }
 
 
-#' Validate that env_data aligns to the model years for linkages
-#'
-#' @description
-#' Linkages consume `env_data` positionally: row `r` supplies the offset for
-#' model year `styr + r - 1`, and years beyond the last row get a zero offset
-#' (env_data need not span the projection horizon). A misaligned `env_data`
-#' therefore applies a covariate or random-effect deviate to the wrong year. If
-#' `env_data` carries a `Year` column, require it to be sorted, start at `styr`,
-#' and be contiguous (no gaps), erroring loudly otherwise. Without a `Year`
-#' column the positional contract cannot be checked and is assumed.
-#'
-#' @param env_data the covariate/time table (or `NULL`).
-#' @param styr the model start year.
-#' @return invisibly `NULL`; errors on misalignment.
-#' @keywords internal
-#' @noRd
 #' Extend env_data to start at the model start year (prepend + gap-fill with NA)
 #'
 #' Linkages align env_data POSITIONALLY (row r -> model year styr + r - 1). A
@@ -997,6 +981,22 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 }
 
 
+#' Validate that env_data aligns to the model years for linkages
+#'
+#' @description
+#' Linkages consume `env_data` positionally: row `r` supplies the offset for
+#' model year `styr + r - 1`, and years beyond the last row get a zero offset
+#' (env_data need not span the projection horizon). A misaligned `env_data`
+#' therefore applies a covariate or random-effect deviate to the wrong year. If
+#' `env_data` carries a `Year` column, require it to be sorted, start at `styr`,
+#' and be contiguous (no gaps), erroring loudly otherwise. Without a `Year`
+#' column the positional contract cannot be checked and is assumed.
+#'
+#' @param env_data the covariate/time table (or `NULL`).
+#' @param styr the model start year.
+#' @return invisibly `NULL`; errors on misalignment.
+#' @keywords internal
+#' @noRd
 .check_env_data_years <- function(env_data, styr) {
   if (is.null(env_data) || !is.data.frame(env_data) ||
       !"Year" %in% names(env_data) || is.null(styr)) {

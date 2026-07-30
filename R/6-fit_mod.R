@@ -584,7 +584,7 @@ fit_mod <-
       TMBfilename <- basename(TMBfilename)
     }
     if (is.null(TMBfilename)) {
-      TMBfilename <- "ceattle_v01_11"
+      TMBfilename <- "ceattle"
     }
 
     # Composition proportion offset. It lives on `data_list` so that every

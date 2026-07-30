@@ -1,5 +1,5 @@
 # Fold a raw composition proportion row for tail accumulation, mirroring the
-# per-sex-block young/old fold in ceattle_v01_11.cpp (Slot 2). `prop` is the raw
+# per-sex-block young/old fold in ceattle.cpp (Slot 2). `prop` is the raw
 # proportion vector of length `nblk * nbins_blk` (block-major: block 0's bins,
 # then block 1's for joint-sex). Bins below `yng` fold into the `yng` bin and
 # above `old` into the `old` bin, within each sex block, yielding an
@@ -272,7 +272,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       joint_adjust <- if (sex == 3) 2L else 1L          # joint-sex doubles the bins
       nbins_blk <- if (comp_type == 0) nages[sp] else nlengths[sp]
       # Composition tail accumulation (Comp_accum_young/old): fold the RAW
-      # proportion row exactly as the fitting path does (ceattle_v01_11.cpp Slot 2)
+      # proportion row exactly as the fitting path does (ceattle.cpp Slot 2)
       # BEFORE append_composition() adds the offset, so the OSA obsvec matches the
       # folded comp_hat_tmp / n_comp the un-gated cpp fold now produces on the OSA
       # path too. yng/old clamp mirrors the cpp; the default (yng == 1, old >=
@@ -329,7 +329,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
       # TODO(review): which() is order-independent, but the C++ diet likelihood
       # counts prey via a contiguous scan of stomach_id; keep both consistent
-      # (see the matching TODO in ceattle_v01_11.cpp) or non-contiguous ids
+      # (see the matching TODO in ceattle.cpp) or non-contiguous ids
       # would misalign the diet OSA "other prey" bin.
       rows   <- which(stomach_id == i)
       n_prey <- length(rows)

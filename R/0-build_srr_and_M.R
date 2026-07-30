@@ -874,9 +874,7 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' year-to-year offset is added). Read the prior on the parameter's own scale:
 #' the slopes (`slp_asc` / `slp_desc`) are on the log scale (use `lognormal()`),
 #' the inflections (`inf_asc` / `inf_desc`) on the natural scale (use `normal()`).
-#' For example, a normal prior on the ascending inflection:
-#' `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1,
-#' priors = list(\`(Intercept)\` = normal(0, 3)))))`. This mirrors the
+#' See Examples for a normal prior on the ascending inflection. This mirrors the
 #' prior-only [build_composition()] path.
 #'
 #' A selectivity prior targets one parameter, so in a two-sex model an
@@ -899,6 +897,10 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' # A cold-pool effect on the ascending inflection of a logistic fleet
 #' build_selectivity(linkages = list(
 #'   inf_asc = linkage_spec(~ cold_pool, by = ~ fleet)))
+#'
+#' # A normal prior on the ascending inflection (intercept-only formula)
+#' build_selectivity(linkages = list(
+#'   inf_asc = linkage_spec(~ 1, priors = list(`(Intercept)` = normal(0, 3)))))
 #' }
 #'
 #' @export

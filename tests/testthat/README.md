@@ -11,9 +11,9 @@ Files are flat (no subfolders) because `testthat` only auto-discovers tests dire
 | Prefix | What it covers | Main source under test |
 |--------|----------------|------------------------|
 | `test-data-*`        | Input assembly & validation: `clean_data` → `switch_check` → `data_check`, optional fields, combining data sets | `R/0-clean_data.R`, `R/1-data_check.R`, `R/0-combine_data_sets.R`, `R/0-switches.R` |
-| `test-dynamics-*`    | Population dynamics: recruitment, initial age structure, biological reference points (BRPs), multi-species fits, recruitment linkage | `R/6-fit_mod.R`, `R/5-rearrange_data.R`, `src/TMB/ceattle_v01_11.cpp`, `src/TMB/recruitment.hpp` |
+| `test-dynamics-*`    | Population dynamics: recruitment, initial age structure, biological reference points (BRPs), multi-species fits, recruitment linkage | `R/6-fit_mod.R`, `R/5-rearrange_data.R`, `src/TMB/ceattle.cpp`, `src/TMB/recruitment.hpp` |
 | `test-growth-*`      | Growth curves (von Bertalanffy / Richards), CAAL, plus-group continuity, minage = 0, size-based selectivity | `src/TMB/growth.hpp`, `R/0-build_linkage.R` (`build_growth`) |
-| `test-likelihood-*`  | Observation likelihoods: index, composition (multinomial / Dirichlet-multinomial), diet, expected composition, OSA residuals | `src/TMB/comp_osa.hpp`, `src/TMB/diet_data.hpp`, `R/osa_residuals.R`, `jnll_comp` rows |
+| `test-likelihood-*`  | Observation likelihoods: index, composition (multinomial / Dirichlet-multinomial), diet, expected composition, OSA residuals | `src/TMB/comp_osa.hpp`, `src/TMB/diet_data.hpp`, `R/6-osa_residuals.R`, `jnll_comp` rows |
 | `test-linkage-*`     | Covariate/environmental linkage: formula parsing, encoding, linkage table, priors & bounds, pooling, per-sex / per-species formulas | `R/0-build_linkage.R`, `R/0-linkage_encode.R`, `R/0-linkage_table.R`, `R/0-priors.R`, `src/TMB/linkage.hpp` |
 | `test-mortality-*`   | Natural mortality: `M1` input/output, M linkage, time-varying M | `R/0-build_srr_and_M.R` (`build_M1`), `src/TMB/predation.hpp` |
 | `test-selectivity-*` | Selectivity curves: logistic, descending/double logistic, double-normal, non-parametric, catchability, normalization | `src/TMB/selectivity.hpp`, `R/3-build_map.R` |

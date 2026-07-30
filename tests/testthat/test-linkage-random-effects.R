@@ -137,6 +137,33 @@ testthat::test_that("an IID (1|Year) q linkage builds finite and estimates a den
   testthat::expect_true(is.finite(sigma) && sigma > 0)
 })
 
+testthat::test_that("a phased (1|Year) q linkage holds its RE-SD and matches the direct fit", {
+  testthat::skip_on_cran()
+  # Regression for the phaser RE-SD hold-list: during phasing the deviates are
+  # estimated as penalised fixed effects, so log_sigma_linkage must be HELD, not
+  # estimated jointly with them. Without the hold, the near-saturated field and the
+  # free SD reach a joint optimum that collapses sigma -> ~0; the final Laplace fit
+  # stays trapped there and silently returns the RE-off objective (the linkage
+  # variation vanishes) -- a wrong-quota misfit, not a crash. So the discriminating
+  # check is that the phased sigma and objective MATCH the direct (unphased) fit.
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+
+  fit_ph <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = TRUE, getsd = FALSE, verbose = 0))
+  fit_dir <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+    qFun = qfun, fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))
+
+  sigma_ph  <- exp(fit_ph$estimated_params$log_sigma_linkage)
+  sigma_dir <- exp(fit_dir$estimated_params$log_sigma_linkage)
+  # sigma must NOT collapse (the bug drives it to ~1e-9) -- it recovers the direct MLE.
+  testthat::expect_equal(sigma_ph, sigma_dir, tolerance = 1e-2)
+  testthat::expect_gt(sigma_ph, 0.05)
+  # phasing is a warm-start, not a different model: same optimum.
+  testthat::expect_equal(fit_ph$opt$objective, fit_dir$opt$objective, tolerance = 1e-3)
+})
+
 testthat::test_that("rw(1|Year) fits, pins the first deviate, and uses a difference density", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS

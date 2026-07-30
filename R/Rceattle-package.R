@@ -17,7 +17,7 @@
 #'         TMB: automatic differentiation and Laplace approximation. arXiv
 #'         preprint arXiv:1509.00660.
 #' }
-#' @rawNamespace useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle_v01_11)
+#' @rawNamespace useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle)
 #' @keywords internal
 #' @importFrom dplyr filter mutate select arrange group_by summarise summarize rename left_join right_join full_join bind_rows bind_cols distinct pull n lag vars matches
 #' @importFrom plyr rbind.fill

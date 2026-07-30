@@ -48,16 +48,16 @@ from scratch via \code{\link{build_params}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{estimateMode}{0 = Fit the hindcast model and projection with HCR
-specified via \code{HCR}. 1 = Fit the hindcast model only (no projection).
-2 = Run the projection only with HCR specified via \code{HCR} given the
-initial parameters in \code{inits}. 3 = build only: runs the model through
-\code{MakeADFun} but not \code{nlminb}. The returned \code{obj} carries the
-real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are
-usable for diagnosing a model before committing to a fit. 4 = runs the
-model through \code{MakeADFun} and \code{nlminb} with all parameters
-mapped out; the objective is a placeholder (\code{dummy^2}), not a
-likelihood, so do not interpret it.}
+\item{estimateMode}{What to fit, given as a string alias or the integer code:
+\code{"Estimate"} (0) = fit the hindcast model and the HCR projection
+(\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
+\code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
+parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
+\code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
+for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
+(4) = optimize with all parameters mapped out, so the objective is a
+placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
@@ -82,7 +82,10 @@ carrying any environmental linkages on q.}
 
 \item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
 
-\item{msmMode}{The predation-mortality function to use. Defaults to none (single-species).}
+\item{msmMode}{The predation-mortality mode, as a string alias or integer code:
+\code{"SingleSpecies"} (0, the default, no predation), \code{"TypeIIMSVPA"}
+(1, sensu Holsman et al. 2015) or \code{"TypeIIIMSVPA"} (2). Higher integer
+codes (Kinzey-Punt, Holling forms) are not yet implemented.}
 
 \item{avgnMode}{The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.}
 

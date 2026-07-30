@@ -714,7 +714,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric ----
       # ---- sel_type = 2 (Ianelli penalty), 9 (NonParametricPM, ADMB AMAK penalty).
       #      Both share identical parameters / mapping; they differ only in the
-      #      selectivity penalty form (see ceattle_v01_11.cpp).
+      #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM")) {
         if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))

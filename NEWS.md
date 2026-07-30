@@ -1,3 +1,35 @@
+# Rceattle 5.0.5
+
+## Bug fixes
+
+* **Random-effect deviate SDs are now held during phasing.** The 5.0.4 phased
+  random-effect warm-up (deviates estimated as penalised fixed effects before the Laplace
+  step) held every process's variance hyperparameter fixed except three observation/deviate
+  SDs: `log_sigma_linkage` and `log_obs_sd_linkage` (the `~ (1 | Year)` / `rw()` / `ar1()`
+  and Rogers-2024 QAR1 SDs) and `index_q_log_sd` (the legacy `Catchability = "AR1"` q
+  observation SD). Left free, each was estimated jointly with its own penalised deviates and
+  could collapse toward 0, so a *phased* fit silently converged to the random-effect-*off*
+  solution -- the estimated time-variation vanished -- instead of the correct optimum. All
+  three are now held during phasing like every other process SD. Fits without these random
+  effects are unaffected (the four reference models stay bit-identical).
+
+## Internal
+
+* **The TMB model is now `src/TMB/ceattle.cpp`** (was `ceattle_v01_11.cpp`), and its
+  compiled DLL is `ceattle`. Internal rename only -- the model and results are
+  unchanged (the four reference models stay bit-identical), and `fit_mod()` loads the
+  renamed DLL automatically. A fit built with a custom `fit_control(TMBfilename = ...)`
+  is unaffected. Caveat: an object fitted by an earlier version stores
+  `TMBfilename = "ceattle_v01_11"`, so re-running `osa_residuals()` on such a saved fit
+  needs it re-fit under this version first (the old DLL name is no longer built).
+
+## Documentation
+
+* Moved the `?build_selectivity` prior example into `@examples` (it previously rendered
+  a broken `\verb{}`); corrected the `?build_hcr` PFMC notation to use the normal quantile
+  `qnorm()` rather than `Phi` (which denotes the CDF); and regrouped the 4.10.0 linkage
+  additions under New features. Minor vignette / README fixes.
+
 # Rceattle 5.0.4
 
 ## Bug fixes
@@ -246,14 +278,11 @@
 
 * **Parallel workers now run the in-session package.** `run_mse()`,
   `retrospective()`, and `jitter()` use a FORK cluster on non-Windows platforms,
-  so workers inherit the parent's loaded namespace (and the large fitted OM/EM
-  objects) via copy-on-write instead of each reloading `library(Rceattle)` and
-  receiving a `clusterExport()` of those objects. This fixes silently running a
-  stale *installed* package on the workers during `pkgload::load_all()` /
-  development sessions, and removes the per-worker startup cost (~3 s for 6
-  workers with the Bering Sea multispecies objects). Results are unchanged
-  (parallel and serial runs are bit-identical for a given seed). Windows keeps
-  the previous PSOCK path as a fallback.
+  so workers run the parent's loaded namespace via copy-on-write. This fixes
+  silently running a stale *installed* package on the workers during
+  `pkgload::load_all()` development sessions, and removes the per-worker startup
+  cost. Parallel and serial runs stay bit-identical for a given seed; Windows
+  keeps the previous PSOCK path as a fallback.
 
 # Rceattle 4.10.0
 
@@ -347,39 +376,6 @@
   "read 600 lines of switch tables" becomes "read the printout". The class is a
   thin tag: every consumer still treats the object as a plain list, so it does
   not change a fit.
-
-## Bug fixes
-
-* **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
-  A gate bug in `build_map()` (`if(M1_re_model == 5)` inside a block reachable only
-  when the mode is 3 or 6) plus a reference to an undefined index left mode 6's age
-  and year AR1 correlations unmapped, so the separable AR1 silently collapsed to IID
-  (identical to `M1_re = 3`). Mode 6 now frees both `rho` hyperparameters, so it is a
-  genuine separable 2D-AR1. This changes results only for models using `M1_re = 6`
-  (none of the bundled examples do); golden references are unaffected.
-
-* **The deprecated `est_M1` name is now recognized everywhere `M1_model` is.**
-  The natural-mortality estimation switch was renamed `est_M1` → `M1_model`, but
-  the data dictionary still documented `est_M1` and no alias existed, so a data
-  list carrying `est_M1` was silently ignored — it fell through to the `M1_model`
-  default with no warning. `est_M1` is now folded into `M1_model` in `fit_mod()`
-  (before the `build_M1()` reconciliation), `switch_check()`, and `combine_data()`,
-  with a deprecation message. As with `M1_model`, the value set on the data list
-  is a default that an explicit `build_M1(M1_model = ...)` argument overrides — but
-  a data-list value that differs from the `build_M1()` setting now *warns* rather
-  than being dropped silently. The recommended way to request M1 estimation remains
-  `fit_mod(..., M1Fun = build_M1(M1_model = ...))`. The dictionary now documents
-  `M1_model`.
-
-* **A catchability linkage on a non-estimated q now errors.** A `q` linkage
-  (environmental or random-effect) on a fleet whose `Catchability` is `"Fixed"`
-  or an analytical form (`"Analytical"` / `"AnalyticalArith"`) is rejected up
-  front, naming the fleet. Previously only the analytical forms were caught, so
-  a linkage on a `"Fixed"` fleet silently turned a fixed catchability
-  time-varying — contrary to the assessor's setting. Set `Catchability` to
-  `"Estimated"` / `"Estimated-with-prior"` to link q.
-  This is the same statistical model as the existing `Time_varying_q`/`_sel`
-  deviate processes, expressed through the linkage grammar.
 
 * **Random-walk linkages (`rw(1 | group)`).** A deviation that follows a random
   walk — `N(0, sigma)` on successive first differences, the first deviate
@@ -486,6 +482,39 @@
       `"LognormalPrior"` (2) / `"BetaPrior"` (3);
     - `suitMode`: the documented string map (`"Empirical"`, `"GammaWeight"`, …) is
       now actually applied (previously defined but never wired).
+
+## Bug fixes
+
+* **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
+  A gate bug in `build_map()` (`if(M1_re_model == 5)` inside a block reachable only
+  when the mode is 3 or 6) plus a reference to an undefined index left mode 6's age
+  and year AR1 correlations unmapped, so the separable AR1 silently collapsed to IID
+  (identical to `M1_re = 3`). Mode 6 now frees both `rho` hyperparameters, so it is a
+  genuine separable 2D-AR1. This changes results only for models using `M1_re = 6`
+  (none of the bundled examples do); golden references are unaffected.
+
+* **The deprecated `est_M1` name is now recognized everywhere `M1_model` is.**
+  The natural-mortality estimation switch was renamed `est_M1` → `M1_model`, but
+  the data dictionary still documented `est_M1` and no alias existed, so a data
+  list carrying `est_M1` was silently ignored — it fell through to the `M1_model`
+  default with no warning. `est_M1` is now folded into `M1_model` in `fit_mod()`
+  (before the `build_M1()` reconciliation), `switch_check()`, and `combine_data()`,
+  with a deprecation message. As with `M1_model`, the value set on the data list
+  is a default that an explicit `build_M1(M1_model = ...)` argument overrides — but
+  a data-list value that differs from the `build_M1()` setting now *warns* rather
+  than being dropped silently. The recommended way to request M1 estimation remains
+  `fit_mod(..., M1Fun = build_M1(M1_model = ...))`. The dictionary now documents
+  `M1_model`.
+
+* **A catchability linkage on a non-estimated q now errors.** A `q` linkage
+  (environmental or random-effect) on a fleet whose `Catchability` is `"Fixed"`
+  or an analytical form (`"Analytical"` / `"AnalyticalArith"`) is rejected up
+  front, naming the fleet. Previously only the analytical forms were caught, so
+  a linkage on a `"Fixed"` fleet silently turned a fixed catchability
+  time-varying — contrary to the assessor's setting. Set `Catchability` to
+  `"Estimated"` / `"Estimated-with-prior"` to link q.
+  This is the same statistical model as the existing `Time_varying_q`/`_sel`
+  deviate processes, expressed through the linkage grammar.
 
 ## Deprecations
 

@@ -57,8 +57,10 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     if (length(random) > 0) {
       random_use <- NULL
       re_var_pars <- c("R_log_sd", "sel_dev_log_sd", "sel_curve_pen",
-                       "index_q_dev_log_sd", "index_q_rho", "M1_dev_log_sd", "M1_rho",
-                       "trans_rho_linkage", "growth_log_sd")
+                       "index_q_dev_log_sd", "index_q_rho", "index_q_log_sd",
+                       "M1_dev_log_sd", "M1_rho",
+                       "log_sigma_linkage", "trans_rho_linkage", "log_obs_sd_linkage",
+                       "growth_log_sd")
       for (vp in intersect(re_var_pars, names(map_use)))
         map_use[[vp]] <- fill_vals(map_use[[vp]], NA)
     }

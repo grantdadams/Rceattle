@@ -30,7 +30,7 @@
     dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
-    # ceattle_v01_11.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
+    # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
     # them so they are not drawn as fitted observations.
     keep <- dat$Species %in% species & dat$Fleet_code %in% codes & dat$Year > 0
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
