@@ -9,13 +9,14 @@
 #                         problem from discussion #75).
 #   2. TMB system deps -- the same apt packages the R-CMD-check workflow
 #                         installs, so the package compiles on the runner.
-# Coverage runs the full NOT_CRAN fit_mod suite under covr, so even with the model
-# kept at -O2 (see src/TMB/compile.R) it is a long job. Run it nightly and on demand
-# rather than on every push / PR, so it never blocks day-to-day CI. (Scheduled runs
-# execute against the default branch.)
+# Coverage runs the full NOT_CRAN fit_mod suite under covr. With the model kept at
+# -O2 (see src/TMB/compile.R) it is a normal-length job, so run it on pull requests
+# (for the Codecov diff on the change) and on demand -- not on every push, which the
+# PR run plus cancel-in-progress already cover. Keep the status non-blocking so a slow
+# coverage run never gates a merge.
 on:
-  schedule:
-    - cron: "0 7 * * *"   # 07:00 UTC daily
+  pull_request:
+    branches: [master, main, dev]
   workflow_dispatch:
 
 name: test-coverage
