@@ -9,11 +9,13 @@
 #                         problem from discussion #75).
 #   2. TMB system deps -- the same apt packages the R-CMD-check workflow
 #                         installs, so the package compiles on the runner.
+# Coverage runs the full NOT_CRAN fit_mod suite under covr, so even with the model
+# kept at -O2 (see src/TMB/compile.R) it is a long job. Run it nightly and on demand
+# rather than on every push / PR, so it never blocks day-to-day CI. (Scheduled runs
+# execute against the default branch.)
 on:
-  push:
-    branches: [master, main, dev]
-  pull_request:
-    branches: [master, main, dev]
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily
   workflow_dispatch:
 
 name: test-coverage
@@ -21,8 +23,8 @@ name: test-coverage
 permissions: read-all
 
 # Coverage runs the full NOT_CRAN suite (47 fit_mod integration files) under covr
-# instrumentation (~3x slowdown), so a single run is long. Cancel superseded runs
-# on the same ref so pushes don't queue redundant multi-hour jobs.
+# instrumentation and serially, so a single run is long. Cancel superseded runs on
+# the same ref so a re-trigger doesn't queue redundant jobs.
 concurrency:
   group: test-coverage-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -30,11 +32,12 @@ concurrency:
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
-    # Serial (TESTTHAT_PARALLEL=false below) loses the 2-worker split, and covr
-    # forces the TMB model to -O0 (~10x slower per fit than the -O2 install), so
-    # the full NOT_CRAN suite needs more headroom than the parallel run did.
-    # 350 stays under GitHub's 360-minute hard cap for a hosted job.
-    timeout-minutes: 350
+    # Serial (TESTTHAT_PARALLEL=false below) loses the 2-worker split. The TMB model
+    # is kept at -O2 under covr (src/TMB/compile.R drops covr's -O0 coverage flags for
+    # that one C++ unit, which covr never reports on anyway), so fits run at production
+    # speed. 120 leaves ample headroom over the observed serial-at-O2 runtime while
+    # staying well under GitHub's 360-minute hard cap.
+    timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"   # run the full suite (see header)
