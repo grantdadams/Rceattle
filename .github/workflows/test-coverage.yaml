@@ -10,11 +10,16 @@
 #   2. TMB system deps -- the same apt packages the R-CMD-check workflow
 #                         installs, so the package compiles on the runner.
 # Coverage runs the full NOT_CRAN fit_mod suite under covr. With the model kept at
-# -O2 (see src/TMB/compile.R) it is a normal-length job, so run it on pull requests
-# (for the Codecov diff on the change) and on demand -- not on every push, which the
-# PR run plus cancel-in-progress already cover. Keep the status non-blocking so a slow
-# coverage run never gates a merge.
+# -O2 (see src/TMB/compile.R) it is a normal-length job. Triggers:
+#   - push to main / dev  -- gives Codecov a report attributed to those branches, which
+#     updates the badge/trend and is the BASE that PR coverage diffs compare against;
+#   - pull_request        -- the per-PR Codecov coverage diff;
+#   - workflow_dispatch   -- on demand.
+# Feature-branch pushes are covered by their PR run (plus cancel-in-progress), so they
+# do not trigger it. Keep the status non-blocking so a slow run never gates a merge.
 on:
+  push:
+    branches: [main, dev]
   pull_request:
     branches: [master, main, dev]
   workflow_dispatch:
