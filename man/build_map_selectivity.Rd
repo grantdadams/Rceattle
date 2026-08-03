@@ -40,7 +40,7 @@ right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
 \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 
 \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-\code{0} = 'None'
+\code{0} = 'Off'
 \code{1} = 'IID' penalized deviates given \code{sel_sd_prior}
 \code{3} = 'Block' time blocks with no penalty
 \code{4} = 'RandomWalk' random walk

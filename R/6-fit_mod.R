@@ -578,6 +578,11 @@ fit_mod <-
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
+    # Now that the map is known, drop any composition-weighting prior whose DM
+    # weight is fixed in this configuration -- it would only add a constant.
+    data_list$linkage_table <- .neutralize_inert_comp_priors(
+      data_list$linkage_table, map, verbose = verbose)
+
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 4: Get bounds ----

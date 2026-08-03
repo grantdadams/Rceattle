@@ -524,8 +524,12 @@ build_map_predation <- function(map_list, data_list) {
         map_list$log_phi[, sp] <- NA
       }
 
-      if(data_list$Diet_distribution[sp] == 1){
-        map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
+      # Dirichlet-multinomial overdispersion for the diet composition. Only
+      # estimated where the diet likelihood is actually fit: empirical
+      # suitability (suitMode = 0) takes the diet proportions as given and the
+      # cpp skips that predator, leaving nothing to inform the weight.
+      if (data_list$suitMode[sp] > 0 && data_list$Diet_distribution[sp] == 1) {
+        map_list$diet_comp_weights[sp] <- sp
       }
     }
   }
@@ -562,7 +566,7 @@ build_map_predation <- function(map_list, data_list) {
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' `0` = 'None'
+#' `0` = 'Off'
 #' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
 #' `3` = 'Block' time blocks with no penalty
 #' `4` = 'RandomWalk' random walk
@@ -718,7 +722,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM")) {
         if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'Off'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -906,8 +910,15 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric Hake-like ----
       # ---- sel_type = 5 (age-based), 12 (length-based)
       if (sel_type == "Hake") {
-        if (tv_sel != "IID") {
-          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 'None' (0), or 'IID' (1)). Current value:", tv_sel))
+        # "Off" (0) is legal here -- the bin coefficients are estimated with no
+        # annual deviates -- and data_check() enforces exactly {"Off", "IID"}
+        # for this form. Warn only on a mode the Hake form cannot represent
+        # ("Block", "AR1", "RandomWalk", ...); the old `tv_sel != "IID"` guard
+        # fired on "Off" too, which is why a valid Time_varying_sel = 0 fleet
+        # warned about itself. Guard NA explicitly -- `NA != "IID"` is NA, which
+        # errors inside `if()` rather than falling through.
+        if (!is.na(tv_sel) && !tv_sel %in% c("Off", "IID")) {
+          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select 'Off' (0) or 'IID' (1)). Current value:", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -1061,7 +1072,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # Time- varying q parameters "Time_varying_q"
-      # - 0 = "None",
+      # - 0 = "Off",
       # - 1 = "IID" penalized deviate or random effect
       # - 2 = "AR1"
       # - 3 = "Block" time blocks with no penalty

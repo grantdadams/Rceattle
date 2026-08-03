@@ -1268,3 +1268,73 @@ build_composition <- function(linkages = NULL) {
   }
   invisible()
 }
+
+
+#' Drop comp priors whose DM weight is fixed in this configuration
+#'
+#' @description
+#' A `comp` linkage row is prior-only, so when the map fixes the DM weight it
+#' targets the prior is a constant: it shifts the reported `jnll` without moving
+#' an estimate, and makes likelihoods non-comparable across configurations.
+#' Such rows are set to `prior_family = "none"`, which the template skips.
+#'
+#' [.check_comp_linkage_support()] rejects a prior that can never apply to the
+#' data at hand (a non-DM `Comp_distribution` / `Diet_distribution`). Whether a
+#' weight is estimated *in a given fit* also depends on `msmMode`, `suitMode`,
+#' and the fleet setup, and one `compFun` is routinely shared across the
+#' single-species and multispecies fits of a stock, so those are reported and
+#' ignored rather than rejected.
+#'
+#' Inertness is read off the finished `map` so it stays in step with
+#' [build_map()] and honours a user-supplied `map`. Rows are kept, not dropped:
+#' `beta_linkage` is dimensioned by `nrow(linkage_table)`, so dropping them
+#' would break `inits` reuse between fits sharing a `compFun`.
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param map the map object from [build_map()] (uses `$mapList`).
+#' @param verbose integer; 0 silences the message.
+#' @return the linkage table, with inert comp priors neutralized.
+#' @keywords internal
+#' @noRd
+.neutralize_inert_comp_priors <- function(linkage_table, map, verbose = 1) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(linkage_table)
+  if (is.null(map) || is.null(map$mapList)) return(linkage_table)
+
+  # comp param -> the map slot holding that DM weight, and how it is indexed.
+  slots <- list(theta_comp = "comp_weights",
+                theta_caal = "caal_weights",
+                theta_diet = "diet_comp_weights")
+
+  inert <- rep(FALSE, nrow(linkage_table))
+  for (i in which(linkage_table$process == "comp" &
+                  linkage_table$prior_family != "none")) {
+    prm  <- linkage_table$param[i]
+    slot <- slots[[prm]]
+    if (is.null(slot)) next
+    m <- map$mapList[[slot]]
+    if (is.null(m)) next
+    # theta_comp / theta_caal are fleet-indexed, theta_diet species-indexed.
+    idx <- if (prm == "theta_diet") linkage_table$species[i] else linkage_table$fleet[i]
+    if (is.na(idx) || idx < 1L || idx > length(m)) next
+    inert[i] <- is.na(m[[idx]])
+  }
+
+  if (any(inert)) {
+    if (verbose > 0) {
+      message(sprintf(
+        paste0("Ignoring %d composition-weighting prior(s) on a DM weight that ",
+               "is not estimated in this configuration (%s). A prior on a fixed ",
+               "parameter only adds a constant to the objective."),
+        sum(inert),
+        paste(sprintf("%s[%s]", linkage_table$param[inert],
+                      ifelse(linkage_table$param[inert] == "theta_diet",
+                             linkage_table$species[inert],
+                             linkage_table$fleet[inert])),
+              collapse = ", ")))
+    }
+    linkage_table$prior_family[inert] <- "none"
+    linkage_table$prior_p1[inert]     <- NA_real_
+    linkage_table$prior_p2[inert]     <- NA_real_
+  }
+  linkage_table
+}

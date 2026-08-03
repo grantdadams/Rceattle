@@ -1,3 +1,43 @@
+# Rceattle 5.2.1
+
+## Bug fixes
+
+* **The diet Dirichlet-multinomial weight is no longer estimated where there is
+  no diet likelihood.** `build_map()` freed `diet_comp_weights` for any predator
+  with `Diet_distribution = "DirichletMultinomial"` whenever `msmMode > 0`, but
+  the template only fits the diet composition for predators with
+  `suitMode > 0` -- under empirical suitability (`suitMode = 0`) the diet
+  proportions are taken as given. A multispecies run with empirical suitability
+  therefore carried one free, wholly uninformed overdispersion parameter per
+  predator, inflating the parameter count and risking a rank-deficient Hessian
+  under `getsd = TRUE`. The weight is now estimated only where the diet
+  composition is fit. Fits that did not use a DM diet are unchanged.
+
+* **A composition-weighting prior on a fixed DM weight is now ignored instead of
+  adding a constant.** A `theta_comp` / `theta_caal` / `theta_diet` prior from
+  `build_composition(linkages = )` is prior-only, so when the map fixes the
+  weight it targets -- a single-species fit, empirical suitability, an `"Off"`
+  fleet, a fleet with no composition data, or a user-supplied `map` -- the prior
+  contributed a constant that shifted the reported `jnll` without moving any
+  estimate, making likelihoods non-comparable across configurations. Such priors
+  are now dropped with a message. The linkage rows themselves are kept, so
+  `beta_linkage` keeps its length and `inits` remain portable between fits that
+  share one `compFun`. `linkage_spec()` still errors up front on a prior that
+  can never apply to the data at hand (a non-DM `Comp_distribution` /
+  `Diet_distribution`).
+
+* **`Hake` selectivity no longer warns about a valid `Time_varying_sel = 0`.**
+  `build_map_selectivity()` warned "Time_varying_sel for fleet N is not
+  compatible ... Current value: Off" on every fleet that was not `"IID"` --
+  including `"Off"` (0), which its own message and `data_check()` both list as
+  valid for the `"Hake"` (Taylor et al. 2014) form. Because `fit_mod()` wraps
+  `build_map()` in `suppressWarnings()`, the spurious warning surfaced only in
+  the callers that build the map directly, notably `run_mse()` and
+  `retrospective()`, where it appeared once per iteration. The map itself was
+  always correct (no coefficient deviates are estimated for `"Off"`), so fits
+  are unchanged. The warning now fires only for a mode the `"Hake"` form cannot
+  represent, and names `'Off'` rather than the non-existent `'None'`.
+
 # Rceattle 5.2.0
 
 ## New features
