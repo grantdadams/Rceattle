@@ -19,7 +19,7 @@ model year). Must contain every variable named on the RHS of
 stratifying factor named in \code{spec$by}. For example, for
 \code{by = ~species} the user must supply \code{strata = list(species = 1:3)}.
 Each element should be a 1-based integer vector of stratum ids.
-Allowed names are \code{"species"}, \code{"sex"}, and \code{"age_bin"}.}
+Allowed names are \code{"species"}, \code{"sex"}, \code{"age_bin"}, and \code{"fleet"}.}
 }
 \value{
 An \code{Rceattle_linkage_table} with one row per coefficient.

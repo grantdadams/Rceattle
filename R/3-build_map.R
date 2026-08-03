@@ -41,13 +41,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_linkages(map_list, data_list)
 
-  map_list <- map_linkage_adjuster(map_list, data_list)
-
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 
   map_list <- build_map_catchability(map_list, data_list, nyrs_hind)
+
+  # After the per-process builders, not before: a linkage supplies the level
+  # of the parameter it targets, so it must have the last word on whether
+  # that base parameter stays estimable. Ordered ahead of them, a linkage on
+  # catchability or selectivity would be silently overwritten by
+  # build_map_catchability() / build_map_selectivity().
+  map_list <- map_linkage_adjuster(map_list, data_list)
 
   map_list <- adjust_map_shared_params(map_list, data_list)
 
@@ -93,13 +98,15 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 1) Equilibrium with no devs
-    if (data_list$initMode == "Equilibrium") {
+    # 1) Equilibrium with no devs. FishedEquilibrium (5) likewise turns init_dev
+    # off entirely -- the initial age-structure is the deterministic equilibrium
+    # seeded by first-year recruitment, so every element is fixed at 0.
+    if (data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
       map_list$init_dev[sp, ] <- NA
     }
 
     # 0, 2-3) Equilibrium or non-equilibrium with no devs
-    if (!data_list$initMode %in% c("Equilibrium")) {
+    if (!data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -344,11 +351,20 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       # - Standard deviation (shared across sexes)
       map_list$M1_dev_log_sd[sp,] = sp
 
-      # AR1 correlation (shared across sexes)
-      if(M1_re_model == 5){
-        map_list$M1_rho[sp,1,] = M1_dev_log_sd_ind + 1:2
-        map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
-        M1_dev_log_sd_ind = M1_dev_log_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
+      # AR1 correlations (age AND year, shared across sexes) for the separable
+      # 2D-AR1 (mode 6). The gate was `== 5` -- impossible inside this
+      # `%in% c(3, 6)` block, so mode 6's rho parameters were never estimated and
+      # the separable AR1 silently collapsed to IID. Estimate both here.
+      # `M1_rho_ind` is offset past nspp so these two map values never collide
+      # with the single `sp`-valued rho of a mode-4/5 species.
+      if(M1_re_model == 6){
+        # dim 3: 1 = age correlation, 2 = year correlation. `sp,,k` sets every
+        # sex at once (shared across sexes), matching the mode-4/5 style and
+        # working for 1- or 2-sex models. Two distinct map values so age and
+        # year rho are estimated separately.
+        map_list$M1_rho[sp,,1] = data_list$nspp + M1_rho_ind + 1  # age rho
+        map_list$M1_rho[sp,,2] = data_list$nspp + M1_rho_ind + 2  # year rho
+        M1_rho_ind = M1_rho_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
       }
     }
   }
@@ -506,7 +522,7 @@ build_map_predation <- function(map_list, data_list) {
         map_list$log_phi[, sp] <- NA
       }
 
-      if(data_list$Diet_loglike[sp] == 1){
+      if(data_list$Diet_distribution[sp] == 1){
         map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
       }
     }
@@ -547,7 +563,7 @@ build_map_predation <- function(map_list, data_list) {
 #' `0` = 'None'
 #' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
 #' `3` = 'Block' time blocks with no penalty
-#' `4` = 'RandomWalk' random walk following Dorn
+#' `4` = 'RandomWalk' random walk
 #' `5` = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 #' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
@@ -584,6 +600,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
     }
   }
 
+
+  # Selectivity start year per fleet, resolved to the minimum across each
+  # Selectivity_index group: mirrored fleets share one deviation block, so the
+  # mask must start at the earliest year any of them has data (otherwise the
+  # result depends on fleet_control row order).
+  sel_start_yr_grp <- .sel_start_year_by_group(data_list$fleet_control, data_list$styr)
 
   # Loop through fleets to set up selectivity parameters
   for (i in 1:n_flt) {
@@ -646,11 +668,55 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
+      # * LogisticPM ----
+      # ---- sel_type = 11 (ADMB AMAK "pm" bottom-trawl survey).
+      #      Logistic (slope = log_sel_slp[1], inflection = sel_inf[1]) with
+      #      MULTIPLICATIVE time-varying deviates, PLUS a free first-bin (age-1)
+      #      log-selectivity carried in sel_inf[2] (base) and sel_inf_dev[2] (deviates).
+      #      Time_varying_sel must be "Off" or "RandomWalk".
+      if (sel_type == "LogisticPM") {
+
+        # Base parameters: logistic slope + inflection, and the free age-1 log-selectivity
+        for (sex in 1:nsex) {
+          map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$sel_inf[1, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$sel_inf[2, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1  # age-1 log-sel base
+        }
+
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk")) {
+          for (sex in 1:nsex) {
+            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1  # slope devs
+            map_list$sel_inf_dev[1, flt, sex, yrs_hind]     <- ind_inf + yrs_hind - 1  # inflection devs
+            ind_slp <- ind_slp + nyrs_hind
+            ind_inf <- ind_inf + nyrs_hind
+            map_list$sel_inf_dev[2, flt, sex, yrs_hind]     <- ind_inf + yrs_hind - 1  # age-1 devs
+            ind_inf <- ind_inf + nyrs_hind
+          }
+          if (tv_sel == "RandomWalk") {
+            # Fix every deviate through the fleet's start year, so the first
+            # estimated deviate is Sel_start_year + 1. This pins the random walk's
+            # level (otherwise the base parameter and deviates are confounded) and
+            # drops the pre-start deviates, which have neither data nor a penalty
+            # (the cpp penalties also begin at start_yr + 1) and would otherwise
+            # leave flat directions that stall the optimizer.
+            sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
+            start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
+              max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
+            map_list$log_sel_slp_dev[1, flt, , 1:start_idx] <- NA
+            map_list$sel_inf_dev[1, flt, , 1:start_idx]     <- NA
+            map_list$sel_inf_dev[2, flt, , 1:start_idx]     <- NA
+          }
+        }
+      }
+
+
       # * Non-parametric ----
-      # ---- sel_type = 2 (age-based), 9 (length-based)
-      if (sel_type == "NonParametric") {
-        if (tv_sel %in% c("AR1", "RandomWalk", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'IID'(1). Current value: ", tv_sel))
+      # ---- sel_type = 2 (Ianelli penalty), 9 (NonParametricPM, ADMB AMAK penalty).
+      #      Both share identical parameters / mapping; they differ only in the
+      #      selectivity penalty form (see ceattle.cpp).
+      if (sel_type %in% c("NonParametric", "NonParametricPM")) {
+        if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -665,11 +731,23 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
           ind_coff <- ind_coff + max_bin_on
 
-          if (tv_sel == "IID") { # Time-varying deviates
+          if (tv_sel == "RandomWalk") { # Time-varying deviates
             map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
             dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
+
+            # Fix the deviates BEFORE the start year. The mean parameter
+            # (sel_coff) is mapped off for a random walk, so the deviate AT the
+            # start year carries the base shape and stays estimated; only the
+            # earlier ones are dropped, having neither data nor a penalty (all
+            # NonParametricPM penalties begin at start_yr).
+            sel_start_yr <- sel_start_yr_grp[i]  # group-resolved (mirrored fleets share one block)
+            start_idx <- if (is.null(sel_start_yr) || is.na(sel_start_yr)) 1L else
+              max(1L, min(nyrs_hind, as.integer(sel_start_yr) - data_list$styr + 1L))
+            if (start_idx > 1L) {
+              map_list$sel_coff_dev[flt, sex, bins_on, 1:(start_idx - 1L)] <- NA
+            }
           }
         }
       }
@@ -949,7 +1027,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-    if(data_list$fleet_control$Fleet_type[flt] == "Survey"){
+    if(data_list$fleet_control$Fleet_type[i] == "Survey"){
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
@@ -966,7 +1044,11 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
-      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical")){
+      # "Analytical" (geometric) and "AnalyticalArith" (arithmetic) both SOLVE q
+      # from the data rather than estimating it, so index_log_q is unused and must
+      # be mapped out -- otherwise it is a free parameter that never enters the
+      # objective, leaving a flat direction that makes the Hessian singular.
+      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical", "AnalyticalArith")){
         map_list$index_log_q[flt] <- flt
       }
 
@@ -1061,8 +1143,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @title Helper to adjust map for shared catchability/selectivity indices
 #'
 #' @description Enforces parameter sharing by mapping parameters for fleets
-#'   with a common \code{Selectivity_index} or \code{Q_index} to the same value
-#'   as the initial index.
+#'   with a common \code{Selectivity_index} or \code{Catchability_index} to the
+#'   same value as the initial index.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1070,27 +1152,37 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 adjust_map_shared_params <- function(map_list, data_list) {
 
-  # Based on `Selectivity_index` or `Q_index` in `fleet_control`
+  # Based on `Selectivity_index` or `Catchability_index` in `fleet_control`
   sel_index <- data_list$fleet_control$Selectivity_index
   sel_index_tested <- c()
 
-  q_index <- data_list$fleet_control$Q_index
+  q_index <- data_list$fleet_control$Catchability_index
   q_index_tested <- c()
   rows_tests <- c()
 
+  # A fleet with Fleet_type "Off" has no estimated parameters, so its (all-NA)
+  # map slice must not be copied onto the fleets sharing its index -- that would
+  # silently stop estimating their selectivity/catchability. Prefer the first
+  # estimated fleet in the group as the donor.
+  flt_off <- data_list$fleet_control$Fleet_type == "Off"
+  first_est <- function(rows) {
+    est <- rows[!flt_off[rows]]
+    if (length(est)) est[1] else NA_integer_
+  }
+
   for(i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-    sel_test <- sel_index[flt] %in% sel_index_tested
-    if(!is.na(q_index[flt])){ # Make sure not using fishery data
-      q_test <- q_index[flt] %in% q_index_tested
+    sel_test <- sel_index[i] %in% sel_index_tested
+    if(!is.na(q_index[i])){ # Make sure not using fishery data
+      q_test <- q_index[i] %in% q_index_tested
     } else {
       q_test <- FALSE
     }
 
     # If selectivity is the same as a previous index
     if(sel_test){
-      sel_duplicate <- which(sel_index_tested == sel_index[flt])[1]
-      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[flt]), flt)
+      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
+      sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
@@ -1105,55 +1197,72 @@ adjust_map_shared_params <- function(map_list, data_list) {
         warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
       }
 
+      # Bin_first_selected / N_sel_bins also shape the per-fleet selectivity map
+      # (which bins are estimated), and the maps below overwrite the mirrored
+      # fleet's with the lead's. Differing values within a group would therefore
+      # be silently ignored, so flag them the same way.
+      for (col in c("Bin_first_selected", "N_sel_bins")) {
+        vals <- data_list$fleet_control[[col]][sel_duplicate_vec]
+        if (length(unique(vals[!is.na(vals)])) > 1) {
+          warning(paste0("'", col, "' differs among fleets with the same Selectivity_index (",
+                         paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec], collapse = ", "),
+                         "): ", paste(vals, collapse = ", "),
+                         ". The shared selectivity uses the first fleet's value."))
+        }
+      }
+
       # FIXME add checks for surveys sel sigma
 
       # Make selectivity maps the same if selectivity is the same
-      map_list$log_sel_slp[1:2, flt,] <- map_list$log_sel_slp[1:2, sel_duplicate,]
-      map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
-      map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
-      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
-      map_list$log_sel_slp_dev[1:2, flt,,] <- map_list$log_sel_slp_dev[1:2, sel_duplicate,,]
-      map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
-      map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
-      map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+      if(!is.na(sel_duplicate)){
+        map_list$log_sel_slp[1:2, flt,] <- map_list$log_sel_slp[1:2, sel_duplicate,]
+        map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
+        map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
+        map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
+        map_list$log_sel_slp_dev[1:2, flt,,] <- map_list$log_sel_slp_dev[1:2, sel_duplicate,,]
+        map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
+        map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
+        map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
+      }
     }
 
 
     # If catchability is the same as a previous index
     if(q_test){
-      q_duplicate <- which(q_index_tested == q_index[flt])[1]
-      q_duplicate_vec <- c(which(q_index_tested == q_index[flt]), flt)
+      q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
+      q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
-        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning("Survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
 
       # Error check time-varying selectivity type
       if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning("Time varying survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
       # FIXME add checks for surveys q sigma
 
       # Make catchability maps the same
-      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
-      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
-      # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
-      map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
-      map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
-      map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
-      map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
-      map_list$index_q_dev_log_sd[flt] <- map_list$index_q_dev_log_sd[q_duplicate]
+      if(!is.na(q_duplicate)){
+        map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
+        # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
+        map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
+        map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
+        map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
+        map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
+        map_list$index_q_dev_log_sd[flt] <- map_list$index_q_dev_log_sd[q_duplicate]
+      }
     }
 
 
     # Add index
-    sel_index_tested <- c(sel_index_tested, sel_index[flt])
-    q_index_tested <- c(q_index_tested, q_index[flt])
+    sel_index_tested <- c(sel_index_tested, sel_index[i])
+    q_index_tested <- c(q_index_tested, q_index[i])
   }
 
   return(map_list)
@@ -1206,12 +1315,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights if using multinomial
-    if(data_list$fleet_control$Comp_loglike[i] !=  "DirichletMultinomial") {
+    if(data_list$fleet_control$Comp_distribution[i] !=  "DirichletMultinomial") {
       map_list$comp_weights[i] <- NA
     }
 
     # Map out CAAL weights if using multinomial
-    if(data_list$fleet_control$CAAL_loglike[i] != "DirichletMultinomial") {
+    if(data_list$fleet_control$CAAL_distribution[i] != "DirichletMultinomial") {
       map_list$caal_weights[i] <- NA
     }
 
@@ -1361,9 +1470,60 @@ build_map_linkages <- function(map_list, data_list) {
   tbl <- data_list$linkage_table
   est_phase   <- as.integer(tbl$est_phase)
   is_intercept <- tbl$design_col == "(Intercept)"
+  # Random-effect indicator rows carry their deviation in beta_linkage_re (which
+  # holds the density), so the fixed beta_linkage entry is pinned at 0. Key on
+  # re_index -- the registry marker -- so a fixed row that merely inherited a
+  # spec-level re_group stays estimable.
+  is_re_row <- !is.na(tbl$re_index)
   m <- map_list$beta_linkage
-  m[est_phase == 0L | is_intercept] <- NA
+  m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
+  # beta_linkage_re keeps the blanket "all estimable" map (the density damps
+  # it), except a random walk pins its FIRST deviate at 0 for identifiability:
+  # the walk's mean level is carried by the base parameter the intercept
+  # re-targets, exactly as the legacy RandomWalk fixes index_q_dev[flt, 1].
+  rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
+  if (length(rw_rows) > 0L) {
+    m_re <- map_list$beta_linkage_re
+    # first slot of each rw group = smallest re_index (earliest time, since
+    # re_index is assigned in (group, elapsed-time) order).
+    first_slot <- tapply(tbl$re_index[rw_rows], tbl$sigma_index[rw_rows], min)
+    m_re[as.integer(first_slot) + 1L] <- NA
+    map_list$beta_linkage_re <- m_re
+  }
+
+  # A group's log_sigma_linkage is estimable unless the spec supplied a fixed
+  # input SD (`init = list(sigma = )` with no sigma prior) -- then it is held at
+  # that value, reproducing the reference Time_varying_*_sd_prior.
+  gt <- .re_group_table(tbl)
+  if (!is.null(gt) && any(gt$sigma_fixed)) {
+    m_sig <- map_list$log_sigma_linkage
+    m_sig[gt$sigma_index[gt$sigma_fixed] + 1L] <- NA   # sigma_index 0-based
+    map_list$log_sigma_linkage <- m_sig
+  }
+  # ar1 correlation: estimable unless the spec supplied a fixed input rho
+  # (`init = list(rho = )` with no rho prior). trans_rho_linkage is ordered by
+  # ar1 group (gt order among ar1 rows), matching build_params / linkage_re_rho.
+  if (!is.null(gt)) {
+    ar1 <- gt[gt$re_struct == "ar1", , drop = FALSE]
+    if (nrow(ar1) > 0L && any(ar1$rho_fixed)) {
+      m_rho <- map_list$trans_rho_linkage
+      m_rho[which(ar1$rho_fixed)] <- NA
+      map_list$trans_rho_linkage <- m_rho
+    }
+  }
+  # Rogers QAR1 observation SD: one log-SD per observed group. Held FIXED at the
+  # input `obs_sd` by default (mapped to NA); estimated when the spec sets
+  # `obs_sd_est = TRUE` (a distinct free level). Estimation is opt-in because a
+  # freely-estimated obs_sd collapses toward 0 on a smooth covariate (the
+  # beta/obs_sd identifiability degeneracy) -- keep it fixed unless the covariate
+  # is informative.
+  if (!is.null(gt) && any(gt$observed)) {
+    obs_est <- gt$obs_sd_est[gt$observed]
+    m <- rep(NA_integer_, length(obs_est))
+    if (any(obs_est)) m[obs_est] <- seq_len(sum(obs_est))
+    map_list$log_obs_sd_linkage <- factor(m)
+  }
   map_list
 }
 
@@ -1373,12 +1533,15 @@ build_map_linkages <- function(map_list, data_list) {
 #' @description Maps the base parameter (`rec_pars`, `log_M1`,
 #'   `log_growth_pars`) out of estimation only for stratum groups
 #'   whose linkage formula carries *no* intercept. With an intercept
-#'   in the formula (`~ 1`, `~ temp`, ...) the base parameter holds
-#'   the level and stays estimable; the linkage `(Intercept)` row is
-#'   fixed at 0 instead. Slope-only formulas (`~ 0 + temp`) emit no
-#'   intercept row, so we mask the base parameter to keep it at its
-#'   `build_params()` default and let the slope rows define the
-#'   year-by-year offset.
+#'   in the formula (`~ 1`, `~ temp`, ...) and a nonzero `est_phase` the
+#'   base parameter holds the level and stays estimable; the linkage
+#'   `(Intercept)` row is fixed at 0 instead. When an intercept row has
+#'   `est_phase == 0` (the documented "fix at init" contract), the base
+#'   parameter is mapped off as well, so a fixed intercept truly fixes the
+#'   parameter at its `build_params()` initial value. Slope-only formulas
+#'   (`~ 0 + temp`) emit no intercept row, so we mask the base parameter to
+#'   keep it at its `build_params()` default and let the slope rows define
+#'   the year-by-year offset.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list an Rceattle data_list (with the pooled
@@ -1396,6 +1559,7 @@ map_linkage_adjuster <- function(map_list, data_list) {
           ifelse(is.na(row$species), "*", row$species),
           ifelse(is.na(row$sex),     "*", row$sex),
           ifelse(is.na(row$age_bin), "*", row$age_bin),
+          ifelse(is.na(row$fleet),   "*", row$fleet),
           sep = "|")
   }
   keys <- vapply(seq_len(nrow(tbl)),
@@ -1405,9 +1569,18 @@ map_linkage_adjuster <- function(map_list, data_list) {
   groups_with_intercept <- unique(keys[is_intercept])
 
   for (i in seq_len(nrow(tbl))) {
-    if (keys[i] %in% groups_with_intercept) next      # base stays estimable
-    if (is_intercept[i]) next                          # paranoia; covered above
     row <- tbl[i, , drop = FALSE]
+    if (is_intercept[i]) {
+      # The intercept row carries the base parameter's level. est_phase == 0
+      # means "fix at init" (the documented prior/fix/init contract), so the
+      # base parameter must be mapped out of estimation as well. With a
+      # nonzero phase the base stays estimable and holds the level.
+      if (as.integer(row$est_phase) != 0L) next
+    } else {
+      # Slope rows only mask the base in slope-only groups (no intercept);
+      # in intercept-bearing groups the intercept holds the level.
+      if (keys[i] %in% groups_with_intercept) next
+    }
     idx <- .linkage_row_indices(row, data_list)
     switch(row$process,
       growth = {
@@ -1441,6 +1614,26 @@ map_linkage_adjuster <- function(map_list, data_list) {
         par_idx <- .REC_PARAM_TO_INDEX[row$param]
         if (is.na(par_idx)) next
         map_list$rec_pars[idx$species, par_idx] <- NA
+      },
+      q = {
+        # Catchability is indexed by fleet, so the stratum to mask is
+        # idx$fleet rather than the species/sex/age triple.
+        map_list$index_log_q[idx$fleet] <- NA
+      },
+      sel = {
+        # Selectivity is indexed by (slot, fleet, sex). A slope-only formula
+        # masks the base slot across all sexes of the linked fleet; the coff
+        # form masks every bin.
+        m <- .SEL_PARAM_TO_SLOT[[row$param]]
+        if (!is.null(m)) {
+          if (m$arr == "log_sel_slp") {
+            map_list$log_sel_slp[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_inf") {
+            map_list$sel_inf[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_coff") {
+            map_list$sel_coff[idx$fleet, , ] <- NA
+          }
+        }
       }
     )
   }

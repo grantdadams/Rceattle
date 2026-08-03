@@ -11,28 +11,30 @@ plot_selectivity_vs_maturity(
   line_col = NULL,
   width = 7,
   height = 6.5,
-  species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+  species = NULL,
   lwd = 3
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (the first is
+used).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_selectivity_vs_maturity.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names, line_col, lwd}{Deprecated base-graphics arguments, retained
+for back-compatibility and ignored.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{width, height}{Saved figure size (inches).}
 
-\item{width}{Figure width in inches}
-
-\item{height}{Figure height in inches}
-
-\item{species}{Species names for legend}
-
-\item{lwd}{Line width as specified by user}
+\item{species}{Species names for the facet labels. Default: model species
+names.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Function the plots the fishery selectivity and input maturity. Useful for debugging SPR based reference points.
+Overlays terminal-year fishery selectivity-at-age against input
+maturity-at-age, faceted by species. Useful for debugging SPR-based
+reference points (the two curves drive spawning-potential ratio).
 }

@@ -2,46 +2,18 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_logindex}
 \alias{plot_logindex}
-\title{log(CPUE) fits}
+\title{Survey index fits on the log scale (deprecated)}
 \usage{
-plot_logindex(
-  Rceattle,
-  file = NULL,
-  model_names = NULL,
-  line_col = NULL,
-  species = NULL,
-  right_adj = 0,
-  top_adj = 0.05,
-  incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL
-)
+plot_logindex(...)
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
-
-\item{file}{name of a file to identified the files exported by the
-function.}
-
-\item{model_names}{Names of models to be used in legend}
-
-\item{line_col}{Colors of models to be used for line color}
-
-\item{species}{Species names for legend}
-
-\item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
-
-\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage.}
-
-\item{incl_proj}{TRUE/FALSE include projections years}
-
-\item{single.plots}{if TRUE plot invidual fits else make multiplot}
-
-\item{width}{plot width}
-
-\item{height}{plot hight}
+\item{...}{Passed through to \code{\link[=plot_index]{plot_index()}}.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Plot of fitted CPUE indices on log-scale (r4ss-style)
+Deprecated. Use \code{plot_index(..., log = TRUE)}, which draws the
+survey index on the log scale.
 }
+\keyword{internal}

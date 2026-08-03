@@ -2,46 +2,72 @@
 % Please edit documentation in R/0-rceattle_class.R
 \name{residuals.Rceattle}
 \alias{residuals.Rceattle}
-\title{Observed-vs-fitted residuals from an Rceattle fit}
+\title{Residuals from an Rceattle fit}
 \usage{
-\method{residuals}{Rceattle}(object, type = "index", scale = "log", ...)
+\method{residuals}{Rceattle}(
+  object,
+  type = "response",
+  source = "all",
+  scale = "log",
+  species = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
 
-\item{type}{One or more of \code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"},
-or \code{"all"} (default \code{"index"}).}
+\item{type}{Residual kind: one of \code{"response"} (default), \code{"pearson"},
+\code{"osa"}, or \code{"process"}.}
 
-\item{scale}{\code{"log"} (default) or \code{"natural"}. Only affects
-\code{"index"} and \code{"catch"} residuals.}
+\item{source}{Data source(s) to include: any of \code{"index"}, \code{"catch"},
+\code{"comp"}, \code{"caal"}, or \code{"all"} (default). \code{"diet"} (predator
+stomach-content composition) is also accepted but, because it uses a
+predator/prey schema rather than the fleet/bin layout, must be requested on
+its own. Ignored when \code{type = "process"}.}
 
-\item{...}{Currently unused.}
+\item{scale}{\code{"log"} (default) or \code{"natural"}. Only affects \code{"response"}
+residuals for \code{index} / \code{catch}.}
+
+\item{species}{Optional species code(s) to include (matched against the
+\code{Species} column). Default \code{NULL} keeps all species. Mirrors the \code{species}
+argument of \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
+
+\item{...}{Passed to \code{\link[=osa_residuals]{osa_residuals()}} (e.g. \code{method}, \code{seed}) when
+\code{type = "osa"}, or to \code{\link[=process_residuals]{process_residuals()}} when \code{type = "process"}.}
 }
 \value{
-A \code{data.frame} with columns \code{Source}, \code{Fleet_code},
-\code{Fleet_name}, \code{Species}, \code{Sex}, \code{Year}, \code{Length}, \code{Bin},
-\code{Age0_Length1}, \code{Sample_size}, \code{Observed}, \code{Fitted}, \code{Residual}.
-\code{Sex}, \code{Length}, \code{Bin}, \code{Age0_Length1}, and \code{Sample_size} are
-\code{NA} where they do not apply (e.g. for index/catch rows).
+A \code{data.frame} with columns \code{Source}, \code{Fleet_code}, \code{Fleet_name},
+\code{Species}, \code{Sex}, \code{Year}, \code{Length}, \code{Bin}, \code{Age0_Length1}, \code{Sample_size},
+\code{Observed}, \code{Fitted}, \code{Residual}. Columns are \code{NA} where they do not apply.
 }
 \description{
-Returns a long-format data frame of residuals across one or more of
-the four fitted data sources: \code{"index"} (survey indices),
-\code{"catch"} (fishery catches), \code{"comp"} (age- or length-composition
-proportions), and \code{"caal"} (conditional age-at-length proportions).
+Returns a long-format data frame of residuals, following the convention of
+\code{\link[stats:residuals.glm]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
+default residuals are returned for every applicable data source -- survey
+indices, fishery catches, age/length composition (\code{comp}), and conditional
+age-at-length (\code{caal}); use \code{source} to restrict to particular ones.
 }
 \details{
-For \code{"index"} and \code{"catch"}, the \code{Residual} column is on the log
-scale by default (matching the lognormal observation likelihood) and
-can be switched to the natural scale via \code{scale = "natural"}. For
-\code{"comp"} and \code{"caal"}, residuals are Pearson residuals on the
-fitted proportions:
-\deqn{r = (p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}
-where N is the input sample size. Composition rows are returned in
-long form: one row per (observation, age/length bin).
+Residual kinds (\code{type}):
+\describe{
+\item{\code{"response"}}{Observed minus fitted. For \code{index} / \code{catch} this is on
+the log scale by default (matching the lognormal likelihood; set
+\code{scale = "natural"} for the arithmetic difference); for \code{comp} / \code{caal}
+it is the difference in proportions, observed minus fitted.}
+\item{\code{"pearson"}}{Standardized residuals. For \code{index} / \code{catch},
+\eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
+realized observation log-SD \eqn{\sigma} and the observation
+bias-adjustment flag \eqn{b} (\code{bias_adjust_obs}, default 1); for
+\code{comp} / \code{caal},
+\eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
+N.}
+\item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds
+the composition observation data on demand from any fit.}
+\item{\code{"process"}}{Process residuals via \code{\link[=process_residuals]{process_residuals()}} for the
+model's random-effect deviations; \code{source} does not apply.}
+}
 
-Composition rows carry the \code{Age0_Length1} flag from \code{comp_data}
-(\code{0} for age comps, \code{1} for length comps) so age and length comps
-can be filtered apart. CAAL rows carry both the conditioning
-\code{Length} and the age \code{Bin}.
+Composition rows are returned in long form (one row per observation x
+age/length bin) and carry the \code{Age0_Length1} flag from \code{comp_data} (\code{0} age,
+\code{1} length); CAAL rows carry both the conditioning \code{Length} and the age \code{Bin}.
 }

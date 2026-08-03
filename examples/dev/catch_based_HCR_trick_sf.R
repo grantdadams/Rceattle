@@ -15,7 +15,7 @@ data <- read_data("examples/dev/hake_intrasp_230912.xlsx")
 ################################################
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-# data$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# data$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = data,
                             inits = NULL, # Initial parameters = 0
                             M1Fun = Rceattle::build_M1(M1_model = 1,
@@ -31,7 +31,7 @@ ss_run <- Rceattle::fit_mod(data_list = data,
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
-# BS2017MS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# BS2017MS$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ms_run <- Rceattle::fit_mod(data_list = data,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             M1Fun = Rceattle::build_M1(M1_model = 1,
@@ -52,7 +52,7 @@ ms_run <- Rceattle::fit_mod(data_list = data,
 ##############################################################################
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-# BS2017SS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# BS2017SS$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ss_run_F <- Rceattle::fit_mod(data_list = data,
                               inits = ss_run$estimated_params, # Initial parameters = 0
                               M1Fun = Rceattle::build_M1(M1_model = 1,
@@ -70,7 +70,7 @@ ss_run_F <- Rceattle::fit_mod(data_list = data,
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
-# BS2017MS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# BS2017MS$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ms_run_F <- Rceattle::fit_mod(data_list = data,
                               inits = ms_run$estimated_params, # Initial parameters from single species ests
                               M1Fun = Rceattle::build_M1(M1_model = 1,
@@ -93,7 +93,7 @@ ms_run_F <- Rceattle::fit_mod(data_list = data,
 ##############################################################################
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-# BS2017SS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# BS2017SS$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ss_run_4010_F <- Rceattle::fit_mod(data_list = data,
                               inits = ss_run$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
@@ -115,7 +115,7 @@ ss_run_4010_F <- Rceattle::fit_mod(data_list = data,
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
-# BS2017MS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
+# BS2017MS$fleet_control$Proj_F_proportion <- c(rep(1,3), rep(0,4))
 ms_run_4010_F <- Rceattle::fit_mod(data_list = data,
                               inits = ms_run$estimated_params, # Initial parameters from single species ests
                               M1Fun = Rceattle::build_M1(M1_model = 1,

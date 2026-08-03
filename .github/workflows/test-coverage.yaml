@@ -1,0 +1,119 @@
+# Code-coverage workflow (covr -> Codecov), mirroring NOAA
+# `ghactions4r::use_calc_coverage()` but inlined and patched for this TMB
+# package. Two patches are essential and cannot be passed to ghactions4r's
+# hosted reusable workflow:
+#   1. NOT_CRAN=true   -- so the fit_mod() integration tests (which carry
+#                         skip_on_cran()) actually RUN and count toward
+#                         coverage. Without it covr would measure only the
+#                         fast unit tests (the "skipped tests affect coverage"
+#                         problem from discussion #75).
+#   2. TMB system deps -- the same apt packages the R-CMD-check workflow
+#                         installs, so the package compiles on the runner.
+# Coverage runs the full NOT_CRAN fit_mod suite under covr. With the model kept at
+# -O2 (see src/TMB/compile.R) it is a normal-length job. Triggers:
+#   - push to main / dev  -- gives Codecov a report attributed to those branches, which
+#     updates the badge/trend and is the BASE that PR coverage diffs compare against;
+#   - pull_request        -- the per-PR Codecov coverage diff;
+#   - workflow_dispatch   -- on demand.
+# Feature-branch pushes are covered by their PR run (plus cancel-in-progress), so they
+# do not trigger it. Keep the status non-blocking so a slow run never gates a merge.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [master, main, dev]
+  workflow_dispatch:
+
+name: test-coverage
+
+permissions: read-all
+
+# Coverage runs the full NOT_CRAN suite (47 fit_mod integration files) under covr
+# instrumentation and serially, so a single run is long. Cancel superseded runs on
+# the same ref so a re-trigger doesn't queue redundant jobs.
+concurrency:
+  group: test-coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    # Serial (TESTTHAT_PARALLEL=false below) loses the 2-worker split. The TMB model
+    # is kept at -O2 under covr (src/TMB/compile.R drops covr's -O0 coverage flags for
+    # that one C++ unit, which covr never reports on anyway), so fits run at production
+    # speed. 120 leaves ample headroom over the observed serial-at-O2 runtime while
+    # staying well under GitHub's 360-minute hard cap.
+    timeout-minutes: 120
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      NOT_CRAN: "true"   # run the full suite (see header)
+      # Force testthat serial under covr (overrides DESCRIPTION
+      # `Config/testthat/parallel: true`). Two reasons, both essential here:
+      #   1. Correctness -- covr's line counters are per-process, so coverage
+      #      executed inside parallel worker processes is never merged back and
+      #      goes uncounted. Serial is the supported covr configuration.
+      #   2. Stability -- testthat marshals each worker's results back to the
+      #      parent by serializing them; the heavy fit/MSE files build
+      #      multi-GB fitted objects, and a worker payload can exceed R's ~2 GB
+      #      single-string limit, aborting the run with
+      #      "result string is too long" in the unserialize path.
+      # R-CMD-check does not set this, so it stays parallel and fast.
+      TESTTHAT_PARALLEL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for TMB (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgsl-dev \
+            libblas-dev \
+            liblapack-dev \
+            gfortran \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            libxml2-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr, any::xml2
+          needs: coverage
+
+      - name: Test coverage
+        run: |
+          cov <- covr::package_coverage(
+            quiet = FALSE,
+            clean = FALSE,
+            install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
+          )
+          covr::to_cobertura(cov)
+        shell: Rscript {0}
+
+      - uses: codecov/codecov-action@v5
+        with:
+          # Never fail the build on a coverage-upload error: the CODECOV_TOKEN
+          # secret may not be configured (and is unavailable on fork PRs), and a
+          # missing coverage upload should not turn the whole run red.
+          fail_ci_if_error: false
+          files: ./cobertura.xml
+          plugins: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Show testthat output
+        if: always()
+        run: |
+          find '${{ runner.temp }}/package' -name 'testthat.Rout*' -exec cat '{}' \; || true
+        shell: bash
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-test-failures
+          path: ${{ runner.temp }}/package

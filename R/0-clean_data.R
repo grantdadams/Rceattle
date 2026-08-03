@@ -1,3 +1,67 @@
+#' Align survey-index covariance matrices to the current fitted observations
+#'
+#' `index_cov` Sigma matrices are positional: rows/cols follow a fleet's fitted
+#' survey observations (Year in (0, endyr], Observation > 0) in `index_data`
+#' order. Sigma dimnames are tagged with those years the first time it matches
+#' the data, then re-keyed to the current fitted set on each `clean_data()` pass:
+#' retained years keep their covariance block, new years (future / simulated
+#' observations) get an independent diagonal `(Observation * Log_sd)^2`, and
+#' cross terms between the two are 0. Non-MVN fleets pass through unchanged.
+#' Assumes one fitted observation per year per fleet.
+#'
+#' @keywords internal
+#' @noRd
+.align_index_cov <- function(data_list) {
+  ic <- data_list$index_cov
+  if (is.null(ic) || length(ic) == 0) return(data_list)
+  fc  <- data_list$fleet_control
+  idx <- data_list$index_data
+  if (is.null(fc) || is.null(idx) || !"Index_distribution" %in% colnames(fc)) return(data_list)
+  endyr <- data_list$endyr
+  mvn_codes <- c("MVN", "MVNORM", 1, 2, "1", "2")
+
+  for (nm in names(ic)) {
+    Sigma <- as.matrix(ic[[nm]])
+    row <- which(fc$Fleet_name == nm | as.character(fc$Fleet_code) == nm)
+    if (length(row) != 1) next
+    if (!(fc$Index_distribution[row] %in% mvn_codes)) next        # only MVN/MVNORM fleets
+    code <- fc$Fleet_code[row]
+
+    fit <- idx[idx$Fleet_code == code & idx$Year > 0 &
+                 idx$Year <= endyr & idx$Observation > 0, , drop = FALSE]
+    now_yrs <- fit$Year
+
+    have_yrs <- suppressWarnings(as.integer(rownames(Sigma)))
+    if (length(have_yrs) == 0 || any(is.na(have_yrs))) have_yrs <- NULL
+
+    if (is.null(have_yrs)) {
+      # First sight: tag with the fitted years only if the Sigma already matches
+      # the current fitted set; otherwise leave it for rearrange_data() to report.
+      if (nrow(Sigma) == length(now_yrs) && length(now_yrs) > 0) {
+        dimnames(Sigma) <- list(as.character(now_yrs), as.character(now_yrs))
+      }
+      ic[[nm]] <- Sigma
+      next
+    }
+
+    # Re-key the tagged Sigma to the current fitted years (subset / reorder / grow).
+    n   <- length(now_yrs)
+    S2  <- matrix(0, n, n)
+    pos <- match(now_yrs, have_yrs)                          # NA => a new (untagged) year
+    keep <- !is.na(pos)
+    if (any(keep)) S2[keep, keep] <- Sigma[pos[keep], pos[keep], drop = FALSE]
+    new_i <- which(!keep)
+    if (length(new_i)) {
+      v <- (fit$Observation[new_i] * fit$Log_sd[new_i])^2
+      S2[cbind(new_i, new_i)] <- v
+    }
+    if (n > 0) dimnames(S2) <- list(as.character(now_yrs), as.character(now_yrs))
+    ic[[nm]] <- S2
+  }
+  data_list$index_cov <- ic
+  data_list
+}
+
 #' Function to clean data prior to Rceattle runs
 #'
 #' @param data_list Rceattle data list
@@ -42,6 +106,20 @@ clean_data <- function(data_list){
     }
   }
 
+  # Selectivity_block: optional per-observation time-block id in index_data /
+  # catch_data. It is READ ONLY for Time_varying_{sel,q} == "Block" (build_map);
+  # every other configuration (Off / IID / RW / AR1, and the random-effect
+  # linkages) ignores it. Default a missing column to 1 (a single block = no
+  # time-blocking), so a user need only supply it for Block-mode fleets. (The
+  # `Q_block` column is vestigial -- never read; the q time-blocking reuses
+  # Selectivity_block -- see data_check() for its soft-deprecation.)
+  for (.blk in c("index_data", "catch_data")) {
+    if (!is.null(data_list[[.blk]]) && nrow(data_list[[.blk]]) > 0L &&
+        !"Selectivity_block" %in% names(data_list[[.blk]])) {
+      data_list[[.blk]]$Selectivity_block <- 1L
+    }
+  }
+
   # env_data: default to a Year-only data.frame so downstream code that does
   # `ncol(env_data) - 1` (number of indices) gets 0 when no environmental data
   # are supplied, and `merge(env_data, ...)` in rearrange_data() works.
@@ -52,6 +130,16 @@ clean_data <- function(data_list){
     yrs <- if(!is.null(data_list$styr) && !is.null(data_list$projyr))
              data_list$styr:data_list$projyr else integer(0)
     data_list$env_data <- data.frame(Year = yrs)
+  }
+
+  # index_cov: named list of survey-index variance-covariance matrices, keyed by
+  # Fleet_name, used only by fleets with Index_distribution == "MVN" (the AMAK/ebswp
+  # DoCovBTS covariance survey likelihood). Default to an empty list so
+  # rearrange_data() / data_check() can treat "not supplied" uniformly; a fleet
+  # that is not MVN never needs one, and data_check() enforces that an MVN fleet
+  # has a matrix of the correct dimension.
+  if(is.null(data_list$index_cov)){
+    data_list$index_cov <- list()
   }
 
   # --- 1. Filter Data by Year ----
@@ -72,6 +160,10 @@ clean_data <- function(data_list){
         dplyr::filter((Year >= data_list$styr & Year <= data_list$projyr) | Year == 0)
     }
   }
+
+  # --- 1b. Re-key survey-index covariance matrices to the current fitted
+  #         survey observations (see .align_index_cov above).
+  data_list <- .align_index_cov(data_list)
 
   # --- 2. Add temp multi-species SB0 ----
   #FIXME:may be redundant now?
@@ -131,4 +223,36 @@ clean_data <- function(data_list){
   }
 
   return(data_list)
+}
+
+
+#' Locate the observed-proportion columns of a composition table
+#'
+#' @description
+#' `comp_data` and `caal_data` each begin with identifying columns (fleet,
+#' species, sex, year, sample size, ...) followed by the observed proportions
+#' at each age or length bin (`Comp_1`, `Comp_2`, ... / `CAAL_1`, `CAAL_2`,
+#' ...). The number of identifying columns differs between the two tables and
+#' is not fixed, so the proportion columns must be found by name rather than by
+#' counting from a fixed position. `rearrange_data()` does this with
+#' `dplyr::contains()`; this helper is the base-R equivalent for subsetting and
+#' assignment.
+#'
+#' @param x a composition table (`comp_data` or `caal_data`).
+#' @param prefix column-name prefix identifying the proportion columns, e.g.
+#'   `"Comp_"` or `"CAAL_"`.
+#'
+#' @return Integer vector of column indices, in table order. Throws if no
+#'   column matches, rather than returning a silent zero-length result.
+#'
+#' @keywords internal
+#' @noRd
+.composition_cols <- function(x, prefix) {
+  idx <- grep(paste0("^", prefix), names(x))
+  if (length(idx) == 0L) {
+    stop(sprintf(
+      "no '%s*' columns found in the supplied table; available columns: %s",
+      prefix, paste(names(x), collapse = ", ")), call. = FALSE)
+  }
+  idx
 }

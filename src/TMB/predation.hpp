@@ -59,9 +59,9 @@ void calculate_vulnerability(matrix<Type> &vulnerability,
  * - suitMode = 2: Gamma distribution (Weight-based)
  * - suitMode = 3: Lognormal distribution (Length-based)   [NOT YET AVAILABLE -- blocked in data_check()]
  * - suitMode = 4: Lognormal distribution (Weight-based)
- * - suitMode = 5: Normal distribution (Length-based)
+ * - suitMode = 5: Normal distribution (Length-based)     [NOT YET AVAILABLE -- blocked in data_check()]
  * - suitMode = 6: Normal distribution (Weight-based)
- * Note: length-based modes (1, 3) require a growth model to be active and are blocked
+ * Note: length-based modes (1, 3, 5) require a growth model to be active and are blocked
  * at the R level until a growth-model validation pass is added to data_check().
  *
  * @param suitability         Array updated with size-based suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
@@ -167,9 +167,9 @@ void calculate_parametric_suitability(array<Type> &suitability,
  * @param suit_other           Array updated with the remaining suitability for "other food" [nspp, max_sex, max_age, nyrs].
  * @param nspp                 Total number of species in the model.
  * @param nyrs                 Total number of years evaluated.
- * @param suit_styr            Start year index for the suitability averaging period.
- * @param suit_endyr           End year index for the suitability averaging period.
- * @param nyrs_suit            Total number of years in the suitability averaging period.
+ * @param suit_styr            Start year index (per predator species) for the suitability averaging period.
+ * @param suit_endyr           End year index (per predator species) for the suitability averaging period.
+ * @param nyrs_suit            Number of years in the suitability averaging period, per predator species.
  * @param msmMode              Integer specifying the multi-species predation mode (e.g., 2 = Type III MSVPA).
  * @param nsex                 Vector containing the number of sexes modeled for each species.
  * @param nages                Vector containing the number of age classes for each species.
@@ -184,7 +184,7 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
                                  array<Type> &suitability,
                                  array<Type> &suit_other,
                                  int nspp, int nyrs,
-                                 int suit_styr, int suit_endyr, int nyrs_suit,
+                                 const vector<int> &suit_styr, const vector<int> &suit_endyr, const vector<int> &nyrs_suit,
                                  int msmMode,
                                  const vector<int> &nsex,
                                  const vector<int> &nages,
@@ -263,10 +263,13 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
 
           // OPTIMIZATION 2: Pre-calculate the normalization denominator for this specific predator
           vector<Type> inv_pred_denom(nyrs);
-          for(int yr = suit_styr; yr <= suit_endyr; yr++) {
+          for(int yr = suit_styr(rsp); yr <= suit_endyr(rsp); yr++) {
             Type denom = suma_suit(rsp, r_sex, r_age, yr) + other_food_diet_prop(rsp, r_sex, r_age, yr);
+            // `diet_prop_sum` gates whether this predator/age has diet data;
+            // `denom` is what we divide by and can reach 0 or go negative
+            // independently, so floor it.
             if (diet_prop_sum(rsp, r_sex, r_age, yr) > Type(0.0)) {
-              inv_pred_denom(yr) = Type(1.0) / denom;
+              inv_pred_denom(yr) = Type(1.0) / max2(denom, Type(1.0e-10));
             } else {
               inv_pred_denom(yr) = Type(0.0);
             }
@@ -282,12 +285,12 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
                 Type suit_sum_yrs = Type(0.0);
 
                 // Accumulate standardized suitability over the reference years
-                for(int yr = suit_styr; yr <= suit_endyr; yr++) {
+                for(int yr = suit_styr(rsp); yr <= suit_endyr(rsp); yr++) {
                   suit_sum_yrs += stom_div_bio(r_idx, k_idx, r_age, k_age, yr) * inv_pred_denom(yr);
                   // stom_div_bio(r_idx, k_idx, r_age, k_age, yr) / (suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr));
                 }
 
-                Type final_suit = suit_sum_yrs / Type(nyrs_suit);
+                Type final_suit = suit_sum_yrs / Type(nyrs_suit(rsp));
                 total_suit_prey += final_suit;
 
                 // Fill all years

@@ -10,7 +10,7 @@ data(BS2017SS) # ?BS2017SS for more information on the data
 
 BS2017SS$srr_prior_mean <- 9
 BS2017SS$initMode  <- 1
-BS2017SS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+BS2017SS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
 inits <- build_params(BS2017SS)
 
 # - Update population dynamics from previous parameters
@@ -71,7 +71,7 @@ data("BS2017MS")
 
 BS2017MS$srr_prior_mean <- 9
 BS2017MS$initMode  <- 2
-BS2017MS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+BS2017MS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
 # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
 inits <- build_params(BS2017MS)

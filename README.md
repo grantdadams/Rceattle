@@ -1,5 +1,11 @@
 # Rceattle
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/grantdadams/Rceattle/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/grantdadams/Rceattle/actions/workflows/R-CMD-check.yaml)
+[![test-coverage](https://github.com/grantdadams/Rceattle/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/grantdadams/Rceattle/actions/workflows/test-coverage.yaml)
+[![Codecov test coverage](https://codecov.io/gh/grantdadams/Rceattle/graph/badge.svg)](https://app.codecov.io/gh/grantdadams/Rceattle)
+<!-- badges: end -->
+
 Rceattle: an R package for fitting climate-linked, single- and multi-species age-structured stock assessment models and testing via diagnostics, simulation, and management strategy evaluation.
 
 NOTE: this branch is synced with "dev" and includes DSEM
@@ -8,7 +14,7 @@ NOTE: this branch is synced with "dev" and includes DSEM
 
 - **Single-species** (`msmMode = 0`) and **multispecies** (`msmMode > 0`) configurations, with one- or two-sex population dynamics
 - **One or multiple stocks** can be fit jointly.
-- **Multiple fisheries and surveys** with flexible **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying, etc)
+- **Multiple fisheries and surveys** with a range of **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying, etc)
 - **Stock–recruitment** options (Beverton–Holt, Ricker, mean-recruitment, environmentally-driven)
 - **Estimable growth** (von Bertalanffy / Richards/ empirical weight-at-age)
 - **Environmental linkages and priors** on recruitment, natural mortality, and growth parameters
@@ -80,9 +86,9 @@ plot(fit, what = "recruitment")
 plot(fit, what = "index")
 
 # Residuals across data sources (long-format data frame)
-ix_resid   <- residuals(fit, type = "index")    # log-scale by default
-comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
-all_resid  <- residuals(fit, type = "all")
+ix_resid   <- residuals(fit, source = "index")                  # response (log-scale) index residuals
+comp_resid <- residuals(fit, type = "pearson", source = "comp") # Pearson composition residuals
+all_resid  <- residuals(fit)                                    # response residuals, all data sources
 ```
 
 *3-species model*
@@ -120,9 +126,9 @@ plot(fit, what = "recruitment")
 plot(fit, what = "index")
 
 # Residuals across data sources (long-format data frame)
-ix_resid   <- residuals(fit, type = "index")    # log-scale by default
-comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
-all_resid  <- residuals(fit, type = "all")
+ix_resid   <- residuals(fit, source = "index")                  # response (log-scale) index residuals
+comp_resid <- residuals(fit, type = "pearson", source = "comp") # Pearson composition residuals
+all_resid  <- residuals(fit)                                    # response residuals, all data sources
 ```
 
 For a multispecies model, set `msmMode = 1`. See the

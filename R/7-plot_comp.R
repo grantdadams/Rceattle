@@ -1,662 +1,214 @@
-#' Plot time series of comp data
+#' Plot composition fits and residuals
 #'
-#' @description Function the plots the comp data as estimated from Rceattle
+#' @description
+#' Diagnostic plots for age / length composition data from a fitted [Rceattle]
+#' model, drawn with ggplot2 for a consistent look with [plot.rceattle_osa()].
+#' With the default `residual_type = "pearson"` three figures are produced per
+#' fleet x composition type:
+#' \itemize{
+#'   \item **Pearson residual bubbles** by year and bin, faceted by fleet (and,
+#'     for joint-sex data, by sex); red = positive, blue = negative, sized by
+#'     magnitude. The Pearson residual is
+#'     \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}}, the same form used by
+#'     [residuals.Rceattle()].
+#'   \item **Annual composition** -- observed (shaded area) vs fitted (line)
+#'     proportion at age / length, one panel per year. Joint-sex data are
+#'     mirrored (females up, males down).
+#'   \item **Aggregated composition** -- the same, summed over (hindcast) years.
+#' }
+#' The shaded area and fitted line span only the observed bins (they do not
+#' extend past the first/last bin), and bins with zero observed proportion are
+#' retained (only `NA` bins are dropped), so the curves are not interpolated
+#' across gaps.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param species Species names for legend
-#' @param cex Line width as specified by user
-#' @param lwd Line width for observed data lines
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param Rceattle A single fitted `Rceattle` model.
+#' @param file Optional filename stem; when supplied, each figure is also saved
+#'   as a PNG.
+#' @param model_names Unused (kept for back-compatibility).
+#' @param species Optional species code(s) to plot (matched against the
+#'   `Species` column); `NULL` (default) plots all. Mirrors the `species`
+#'   argument of [residuals.Rceattle()] and [plot.rceattle_osa()].
+#' @param cex Unused (kept for back-compatibility).
+#' @param lwd Width of the fitted-composition line. Default `3`.
+#' @param right_adj Unused (kept for back-compatibility).
+#' @param residual_type `"pearson"` (default) for the ggplot2 Pearson-residual
+#'   and composition-fit figures drawn here, or `"osa"` to instead draw the
+#'   one-step-ahead residual diagnostics via [osa_residuals()] and
+#'   [plot.rceattle_osa()] -- a Q-Q plot (with SDNR / tail annotation) alongside
+#'   signed OSA- and Pearson-residual bubbles. The `"osa"` path builds its
+#'   observation data on demand, so it works with any fit.
 #'
-#' @return Returns and saves a figure
+#' @return Invisibly, a named list of the `ggplot` objects. Called for its side
+#'   effect of drawing (and optionally saving) the figures.
+#' @importFrom rlang .data
 #' @export
-plot_comp <-
-  function(Rceattle,
-           file = NULL,
-           model_names = NULL,
-           species = NULL,
-           cex = 3,
-           lwd = 3,
-           right_adj = 0) {
+plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
+                      cex = 3, lwd = 3, right_adj = 0,
+                      residual_type = c("pearson", "osa")) {
 
-    .save_par()  # snapshot graphics par() and restore on exit
+  if (!inherits(Rceattle, "Rceattle")) {
+    stop("Please only use one Rceattle model")
+  }
+  residual_type <- match.arg(residual_type)
 
-    # Make sure we are using only one model
-    if(!inherits(Rceattle, "Rceattle")){
-      stop("Please only use one Rceattle model")
+  # One-step-ahead residual diagnostics: delegate to the rceattle_osa plot.
+  if (residual_type == "osa") {
+    osa <- osa_residuals(Rceattle, source = "comp")
+    return(invisible(plot(osa, species = species)))
+  }
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required to plot composition data.")
+  }
+
+  long <- .comp_resid_long(Rceattle, species = species)
+  if (is.null(long) || nrow(long) == 0) {
+    warning("No composition data to plot for the requested species.")
+    return(invisible(NULL))
+  }
+
+  sex_cols  <- c(combined = "black", female = "#d7301f", male = "#2c7fb8")
+  sign_cols <- c(positive = "#d7301f", negative = "#2c7fb8")
+  save_png  <- function(p, tag, w = 9, h = 6.5) {
+    if (!is.null(file)) {
+      ggplot2::ggsave(paste0(file, "_comp_", tag, ".png"), p,
+                      width = w, height = h, units = "in", dpi = 300)
     }
-
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle$data_list$spnames
-    }
-
-
-    # Get colors
-    colvec=c("red", "blue", "black")
-
-    # Extract data objects
-    # Get observed
-    comp_data <- Rceattle$data_list$comp_data
-    # Normalize
-    comp_data[,grep("Comp_", colnames(comp_data))] = comp_data[,grep("Comp_", colnames(comp_data))]/rowSums(comp_data[,grep("Comp_", colnames(comp_data))], na.rm = TRUE)
-
-    fleet_control <- Rceattle$data_list$fleet_control
-
-
-    # Get estimated
-    comp_hat <- Rceattle$data_list$comp_data
-    comp_hat[,grep("Comp_", colnames(comp_data))] = Rceattle$quantities$comp_hat
-
-
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # # Plot comps Type 1 ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # for(comp_type in c(0,1)){
-    #
-    # TMB:::install.contrib("https://github.com/vtrijoulet/OSA_multivariate_dists/archive/main.zip")
-    ## devtools::install_github("fishfollower/compResidual/compResidual")
-    # o <- round(Neff*obs/rowSums(obs),0); p=exp/rowSums(exp)
-    # ## default output
-    # res <-  compResidual::resMulti(t(o), t(p))
-
-    #
-    #   srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
-    #   nsrv <- length(srv)
-    #
-    #   loops <- ifelse(is.null(file), 1, 2)
-    #   for (i in 1:loops) {
-    #     if (i == 2) {
-    #       filename <- paste0(file, c("_survey_age_comps_1", "_survey_length_comps_1")[comp_type + 1], ".png")
-    #       png(
-    #         filename = filename ,
-    #         width = 7,# 169 / 25.4,
-    #         height = 6.5,# 150 / 25.4,
-    #
-    #         units = "in",
-    #         res = 300
-    #       )
-    #     }
-    #
-    #     # Plot configuration
-    #     layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-    #     par(
-    #       mar = c(0, 3 , 0 , 1) ,
-    #       oma = c(0 , 0 , 0 , 0),
-    #       tcl = -0.35,
-    #       mgp = c(1.75, 0.5, 0)
-    #     )
-    #     plot.new()
-    #
-    #     for (j in 1:nsrv) {
-    #
-    #
-    #       # Extract comps
-    #       srv_ind <- which(comp_data$Fleet_code == srv[j] & comp_data$Age0_Length1 == comp_type)
-    #       comp_tmp <- comp_data[srv_ind,]
-    #       comp_hat_tmp <- comp_hat[srv_ind, ]
-    #
-    #       # Reorganize and clean
-    #       comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-    #       comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-    #       comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-    #       comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
-    #
-    #       comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-    #       comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-    #       comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-    #       comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
-    #
-    #       sp <- fleet_control$Species[which(fleet_control$Fleet_code == srv[j])]
-    #       nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
-    #
-    #       plot(
-    #         y = NA,
-    #         x = NA,
-    #         ylim = c(0, nages[sp] * 1.20),
-    #         xlim = c(min(comp_data$Year, na.rm = TRUE), max(comp_data$Year, na.rm = TRUE) + right_adj),
-    #         xlab = "Year",
-    #         ylab = c("Survey age comp", "Survey length comp")[comp_type + 1],
-    #         xaxt = c(rep("n", nsrv - 1), "s")[j]
-    #       )
-    #
-    #
-    #       # Horizontal line
-    #       if(incl_proj){
-    #         abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
-    #       }
-    #
-    #       # Legends
-    #       legend("topleft", as.character(fleet_control$Fleet_name[srv[j]]), bty = "n", cex = 1.4)
-    #
-    #
-    #       # Type
-    #       if (j == 1) {
-    #         legend(
-    #           "topright",
-    #           legend = c("Observed", "Estimated"),
-    #           pch = c(16, 16),
-    #           cex = 1.125,
-    #           col = line_col,
-    #           bty = "n"
-    #         )
-    #
-    #         x_loc <- c(mean(comp_data$Year, na.rm = TRUE) - 2, mean(comp_data$Year, na.rm = TRUE), mean(comp_data$Year, na.rm = TRUE) +2)
-    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add= TRUE, fg = line_col[2])
-    #         text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
-    #       }
-    #
-    #
-    #       if(nrow(comp_tmp) > 0){
-    #         # Observed
-    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add= TRUE, fg = line_col[1])
-    #
-    #         # Estimated
-    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add= TRUE, fg = line_col[2])
-    #       }
-    #     }
-    #
-    #
-    #     if (i == 2) {
-    #       dev.off()
-    #     }
-    #   }
-    # }
-    #
-    #
-
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Plot comps Type 2 - Pearson residual ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    for(comp_type in c(0,1)){ # Age0, Length 1
-
-      srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
-      nsrv <- length(srv)
-
-
-      if(nsrv > 0){
-        loops <- ifelse(is.null(file), 1, 2)
-        for (i in 1:loops) {
-
-          # Plot configuration
-          par(
-            mar = c(3, 3 , 1 , 1) ,
-            oma = c(0 , 0 , 0 , 0),
-            tcl = -0.35,
-            mgp = c(1.75, 0.5, 0)
-          )
-
-          # Loop around fleets with comp data
-          for (j in 1:nsrv) {
-
-            #  Plot name
-            if (i == 2) {
-              filename <- paste0(file, paste0(c("_comps_pearson_residual_", "_comps_pearson_residual_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
-              png(
-                filename = filename ,
-                width = 7,# 169 / 25.4,
-                height = 6.5,# 150 / 25.4,
-
-                units = "in",
-                res = 300
-              )
-            }
-
-
-            # Extract comps
-            srv_ind <- which(comp_data$Fleet_code == srv[j] & comp_data$Age0_Length1 == comp_type)
-            comp_tmp <- comp_data[srv_ind,]
-            comp_hat_tmp <- comp_hat[srv_ind, ]
-
-            # Reorganize and clean
-            comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-            comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-
-            comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-            comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-
-            # Calculate pearson residual
-            comp_tmp$comp_hat <- comp_hat_tmp$comp
-            comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
-            comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
-
-            # Calculate pearson
-            comp_tmp$pearson <- (comp_tmp$comp - comp_tmp$comp_hat) / sqrt( ( comp_tmp$comp_hat * (1 - comp_tmp$comp_hat)) / comp_tmp$Sample_size)
-            max_pearson <- max(abs(comp_tmp$pearson), na.rm = TRUE)
-
-
-            sp <- fleet_control$Species[which(fleet_control$Fleet_code == srv[j])]
-            nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
-
-            plot(
-              y = NA,
-              x = NA,
-              ylim = c(0, nages[sp] * 1.25),
-              xlim = c(min(abs(comp_tmp$Year), na.rm = TRUE), max(abs(comp_tmp$Year), na.rm = TRUE) + right_adj),
-              xlab = "Year",
-              ylab = c("Pearson residual: Age comp", "Pearson residual: Length comp")[comp_type + 1],
-              xaxt = "s"
-            )
-
-
-            # Legends
-            legend("topleft", as.character(fleet_control$Fleet_name[srv[j]]), bty = "n", cex = 1)
-
-
-
-            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-            # Legend ----
-            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-            round = 0
-            if(sum(seq(from = 1, to = max_pearson, length.out = 3) < 3) == 3){
-              round = 1
-            }
-
-            # Positive
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 6, max(abs(comp_tmp$Year), na.rm = TRUE) - 3.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 1)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = colvec[3])
-            text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
-
-            # Negative
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 8.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 11, max(abs(comp_tmp$Year), na.rm = TRUE) - 13.5)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = NA)
-            text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
-
-
-            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-            # Plot comp pearson residuals
-            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-            if(nrow(comp_tmp) > 0){
-
-              # Get colors
-              comp_tmp$colors <- NA
-              comp_tmp$colors <- ifelse(comp_tmp$Sex == 0, colvec[3], comp_tmp$colors) # Combined sex / 1 sex model
-              comp_tmp$colors <- ifelse(comp_tmp$Sex == 1, colvec[1], comp_tmp$colors) # Females
-              comp_tmp$colors <- ifelse(comp_tmp$Sex == 2, colvec[2], comp_tmp$colors) # Males
-
-              # Joint sex
-              comp_tmp$colors <- ifelse(comp_tmp$Sex == 3 & comp_tmp$age <= nages[sp], colvec[1], comp_tmp$colors) # Females
-              comp_tmp$colors <- ifelse(comp_tmp$Sex == 3 & comp_tmp$age > nages[sp], colvec[2], comp_tmp$colors) # Males
-
-              # Adjust years for joint
-              comp_tmp$Year <- ifelse(comp_tmp$Sex == 3 & comp_tmp$age > nages[sp], comp_tmp$Year + 0.2, comp_tmp$Year) # Males
-              comp_tmp$Year <- ifelse(comp_tmp$Sex == 3 & comp_tmp$age <= nages[sp], comp_tmp$Year - 0.2, comp_tmp$Year) # Females
-
-              # Adjust age for joint data
-              comp_tmp$age <- ifelse(comp_tmp$age > nages[sp], comp_tmp$age - nages[sp], comp_tmp$age)
-
-              # Background colors
-              comp_tmp$bg_colors <- ifelse(comp_tmp$pearson > 0, comp_tmp$colors, NA)
-
-              # Plot
-              symbols( x = comp_tmp$Year , y = comp_tmp$age , circles = abs(comp_tmp$pearson), inches=0.2,add= TRUE, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
-            }
-
-
-
-            if (i == 2) {
-              dev.off()
-            }
-          }
-        }
-      }
-    }
-
-
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Plot comps Type 3 - Histograms ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    for(comp_type in c(0,1)){
-
-      srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
-      nsrv <- length(srv)
-
-      if(nsrv > 0){
-
-        loops <- ifelse(is.null(file), 1, 2)
-        for (i in 1:loops) {
-          # Loop around fleets with comp data
-          for (j in 1:nsrv) {
-
-            #  Plot name
-            if (i == 2) {
-              filename <- paste0(file, paste0(c("_age_comps_histograms_", "_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
-              png(
-                filename = filename ,
-                width = 7,# 169 / 25.4,
-                height = 6.5,# 150 / 25.4,
-
-                units = "in",
-                res = 300
-              )
-            }
-
-            # Extract comps
-            srv_ind <- which(comp_data$Fleet_code == srv[j] & comp_data$Age0_Length1 == comp_type)
-            comp_tmp <- comp_data[srv_ind,]
-            comp_hat_tmp <- comp_hat[srv_ind, ]
-
-            # Reorganize and clean
-            comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-            comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-
-            comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-            comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-
-            # Combine
-            comp_tmp$comp_hat <- comp_hat_tmp$comp
-            comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-
-            # Get comp dims
-            sp <- fleet_control$Species[which(fleet_control$Fleet_code == srv[j])]
-            nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
-
-            yrs <- sort(unique(c(abs(comp_hat_tmp$Year), abs(comp_tmp$Year))))
-            nyrs <- length(yrs)
-
-            # Min and max
-            max_comp <- max(c(comp_tmp$comp, comp_tmp$comp_hat))
-            min_comp <- min(c(comp_tmp$comp, comp_tmp$comp_hat))
-
-            # Plot configuration
-            plot_rows <- ceiling(nyrs/4) + 1
-            layout(matrix(1:(plot_rows * 5), ncol = 5, byrow = FALSE), widths = c(0.25,1,1,1,1))
-            par(
-              mar = c(0, 0 , 0 , 0) ,
-              oma = c(0 , 0 , 0 , 0),
-              tcl = -0.35,
-              mgp = c(1.75, 0.5, 0)
-            )
-
-            # Plot black row
-            for(k in 1:plot_rows){
-              plot.new()
-            }
-
-
-            row_cnt = 0
-            # Plot each comp for each year
-            for(yr in 1:nyrs){
-              row_cnt = row_cnt + 1
-
-              # Subset year for observed and predicted comp
-              comp_tmp_yr <- comp_tmp[which(abs(comp_tmp$Year) == yrs[yr]),]
-
-              # Get lower bound for joint sex
-              lowercomp <- 0
-              sex <- unique(comp_tmp_yr$Sex)
-
-              if(sex == 3){
-                lowercomp <- - max_comp * 1.10
-              }
-
-              # Set plot up
-              plot(
-                y = NA,
-                x = NA,
-                ylim = c(lowercomp, max_comp * 1.10),
-                xlim = c(0, nages[sp]),
-                xlab = NA,
-                ylab = NA,
-                xaxt = "n",
-                yaxt = "n"
-              )
-
-              # x-axis
-              if(row_cnt == (plot_rows - 1) | yr == nyrs){
-                axis(side = 1)
-                mtext(text =  paste(as.character(fleet_control$Fleet_name[srv[j]]), c("age", "length"))[comp_type + 1],
-                      side = 1, line = 2, cex = 0.7)
-              }
-
-
-              # y-axis
-              if(yr < plot_rows){
-                # Single sex or combined
-                if(sex != 3){
-                  y_axis <- round(seq(0, max_comp * 1.15, length.out = 4)[1:3],1)
-                  axis(side = 2, at = y_axis, labels = c(0,y_axis[2:3]))
-                }
-
-                # Joint sex comp
-                if(sex == 3){
-                  y_axis <- round(seq(-max_comp * 1.15, max_comp * 1.15, length.out = 5)[1:5],1)
-                  axis(side = 2, at = y_axis, labels = y_axis)
-                }
-
-                mtext(text =  paste0(c("Age comp", "Length comp"))[comp_type + 1],
-                      side = 2, line = 2, cex = 0.7)
-              }
-
-              # Legends
-              legend("topleft", legend = yrs[yr], bty = "n", cex = 1.2)
-
-
-              # Plot observed and predicted comp
-              # Single sex or combined
-              if(sex < 3){
-                if(sex == 1){
-                  line_col <- colvec[1]
-                }
-                if(sex == 2){
-                  line_col <- colvec[2]
-                }
-                if(sex == 0){
-                  line_col <- colvec[3]
-                }
-                polygon(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp, 0),col='grey80',border=NA)
-                lines(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp_hat, 0),col = line_col, lwd = lwd)
-              }
-
-              # Joint sex
-              if(sex == 3){
-                # Subset males and females and adjust ages
-                comp_tmp_yr_males <- comp_tmp_yr[which(comp_tmp_yr$age > nages[sp]),]
-                comp_tmp_yr_males$age <- comp_tmp_yr_males$age - nages[sp]
-                comp_tmp_yr_females <- comp_tmp_yr[which(comp_tmp_yr$age <= nages[sp]),]
-
-                # Plot females
-                polygon(x = c(0,comp_tmp_yr_females$age, nages[sp] + 1), y = c(0, comp_tmp_yr_females$comp, 0),col='grey80',border=NA)
-                lines(x = c(0,comp_tmp_yr_females$age, nages[sp] + 1), y =  c(0, comp_tmp_yr_females$comp_hat, 0),col = colvec[1], lwd = lwd, lty = ifelse(comp_tmp_yr$Year > 0, 1, 2))
-
-                # Plot males
-                polygon(x = c(0,comp_tmp_yr_males$age, nages[sp] + 1), y = c(0, -comp_tmp_yr_males$comp, 0),col='grey80',border=NA)
-                lines(x = c(0,comp_tmp_yr_males$age, nages[sp] + 1), y = c(0, -comp_tmp_yr_males$comp_hat, 0),col = colvec[2], lwd = lwd, lty = ifelse(comp_tmp_yr$Year > 0, 1, 2))
-
-                # Middle line
-                abline( h = 0, col = 1)
-              }
-
-
-              # Make bottom row of empty plots
-              if(row_cnt == (plot_rows - 1)){
-                plot.new()
-                row_cnt = 0
-              }
-            }
-
-            if (i == 2) {
-              dev.off()
-            }
-          }
-        }
-      }
-    }
-
-
-
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Plot comps Type 4 - Histograms of aggregated comps ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    for(comp_type in c(0,1)){
-
-      srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
-      nsrv <- length(srv)
-
-      if(nsrv > 0){
-
-        loops <- ifelse(is.null(file), 1, 2)
-        for (i in 1:loops) {
-          # Loop around fleets with comp data
-          for (j in 1:nsrv) {
-
-            #  Plot name
-            if (i == 2) {
-              filename <- paste0(file, paste0(c("_aggregated_age_comps_histograms_", "_aggregated_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
-              png(
-                filename = filename ,
-                width = 7,# 169 / 25.4,
-                height = 6.5,# 150 / 25.4,
-
-                units = "in",
-                res = 300
-              )
-            }
-
-            par(
-              mfrow = c(1,1),
-              mar = c(3.5, 3.5 , 0.5 , 0.5) ,
-              oma = c(0 , 0 , 0 , 0),
-              tcl = -0.35,
-              mgp = c(1.75, 0.5, 0)
-            )
-
-            # Extract comps
-            srv_ind <- which(comp_data$Fleet_code == srv[j] & comp_data$Age0_Length1 == comp_type)
-            comp_tmp <- comp_data[srv_ind,]
-            comp_hat_tmp <- comp_hat[srv_ind, ]
-
-            # Reorganize and clean
-            comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-            comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-            comp_tmp <- comp_tmp[which(comp_tmp$Year > 0),]
-
-            comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-            comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-            comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$Year > 0),]
-
-            # Combine
-            comp_tmp$comp_hat <- comp_hat_tmp$comp
-            comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-
-            # Combine across year for observed and predicted comp
-            comp_tmp_sum <- aggregate(comp_tmp$comp, by=list(Category=comp_tmp$age), FUN=sum)
-            comp_tmp_sum$x <- comp_tmp_sum$x / sum(comp_tmp_sum$x)
-
-            comp_hat_tmp_sum <- aggregate(comp_tmp$comp_hat, by=list(Category=comp_tmp$age), FUN=sum)
-            comp_hat_tmp_sum$x <- comp_hat_tmp_sum$x / sum(comp_hat_tmp_sum$x)
-
-
-            # Get comp dims
-            sp <- fleet_control$Species[which(fleet_control$Fleet_code == srv[j])]
-            nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
-
-            yrs <- sort(unique(c(comp_hat_tmp$Year, comp_tmp$Year)))
-            nyrs <- length(yrs)
-
-
-            # Min and max
-            max_comp <- max(c(comp_hat_tmp_sum$x, comp_tmp_sum$x))
-            min_comp <- min(c(comp_hat_tmp_sum$x, comp_tmp_sum$x))
-
-            sex <- unique(comp_tmp$Sex)
-            lowercomp <- 0
-            if(sex == 3){
-              lowercomp <- - max_comp * 1.10
-            }
-
-            # Set plot up
-            plot(
-              y = NA,
-              x = NA,
-              ylim = c(lowercomp, max_comp * 1.10),
-              xlim = c(0, nages[sp]),
-              xlab = NA,
-              ylab = NA,
-              xaxt = "n",
-              yaxt = "n"
-            )
-
-            # x-axisyrs){
-            axis(side = 1)
-            mtext(text =  paste(as.character(fleet_control$Fleet_name[srv[j]]), c("age", "length"))[comp_type + 1],
-                  side = 1, line = 2, cex = 0.7)
-
-
-
-            # y-axis
-            # Single sex or combined
-            if(sex != 3){
-              y_axis <- round(seq(0, max_comp * 1.15, length.out = 4)[1:3],2)
-              axis(side = 2, at = y_axis, labels = c(0,y_axis[2:3]))
-            }
-
-            # Joint sex comp
-            if(sex == 3){
-              y_axis <- round(seq(-max_comp * 1.15, max_comp * 1.15, length.out = 5)[1:5],2)
-              axis(side = 2, at = y_axis, labels = y_axis)
-            }
-
-            mtext(text =  paste0(c("Aggregated age comp", "Aggregated length comp"))[comp_type + 1],
-                  side = 2, line = 2, cex = 0.7)
-
-
-
-            # Plot observed and predicted comp
-            # Single sex or combined
-            if(sex < 3){
-              if(sex == 1){
-                line_col <- colvec[1]
-              }
-              if(sex == 2){
-                line_col <- colvec[2]
-              }
-              if(sex == 0){
-                line_col <- colvec[3]
-              }
-              polygon(c(0,comp_tmp_sum$Category, nages[sp] + 1), c(0, comp_tmp_sum$x, 0),col='grey80',border=NA)
-              lines(c(0,comp_hat_tmp_sum$Category, nages[sp] + 1), c(0, comp_hat_tmp_sum$x, 0),col = line_col, lwd = lwd)
-            }
-
-            # Joint sex
-            if(sex == 3){
-              # Subset males and females and adjust ages
-              comp_tmp_sum_males <- comp_tmp_sum[which(comp_tmp_sum$Category > nages[sp]),]
-              comp_tmp_sum_males$Category <- comp_tmp_sum_males$Category - nages[sp]
-              comp_tmp_sum_females <- comp_tmp_sum[which(comp_tmp_sum$Category <= nages[sp]),]
-
-              comp_hat_tmp_sum_males <- comp_hat_tmp_sum[which(comp_hat_tmp_sum$Category > nages[sp]),]
-              comp_hat_tmp_sum_males$Category <- comp_hat_tmp_sum_males$Category - nages[sp]
-              comp_hat_tmp_sum_females <- comp_hat_tmp_sum[which(comp_hat_tmp_sum$Category <= nages[sp]),]
-
-              # Plot females
-              polygon(x = c(0,comp_tmp_sum_females$Category, nages[sp] + 1), y = c(0, comp_tmp_sum_females$x, 0),col='grey80',border=NA)
-              lines(x = c(0,comp_hat_tmp_sum_females$Category, nages[sp] + 1), y =  c(0, comp_hat_tmp_sum_females$x, 0),col = colvec[1], lwd = lwd)
-
-              # Plot males
-              polygon(x = c(0,comp_tmp_sum_males$Category, nages[sp] + 1), y = c(0, -comp_tmp_sum_males$x, 0),col='grey80',border=NA)
-              lines(x = c(0,comp_hat_tmp_sum_males$Category, nages[sp] + 1), y = c(0, -comp_hat_tmp_sum_males$x, 0),col = colvec[2], lwd = lwd)
-
-              # Middle line
-              abline( h = 0, col = 1)
-            }
-
-
-
-            if (i == 2) {
-              dev.off()
-            }
-          }
-        }
-      }
+  }
+  plots <- list()
+
+  # ---- Pearson residual bubbles (faceted by fleet x type [x sex]) ----
+  pear <- long[is.finite(long$pearson), , drop = FALSE]
+  if (nrow(pear) > 0) {
+    pear$sign <- ifelse(pear$pearson >= 0, "positive", "negative")
+    g <- ggplot2::ggplot(pear, ggplot2::aes(.data$Year, .data$bin)) +
+      ggplot2::geom_point(ggplot2::aes(size = abs(.data$pearson),
+                                       colour = .data$sign), alpha = 0.8) +
+      ggplot2::scale_colour_manual(values = sign_cols, guide = "none") +
+      ggplot2::scale_size_continuous(range = c(0.5, 6), name = "|Pearson|") +
+      ggplot2::facet_wrap(~ source, scales = "free_y") +
+      ggplot2::labs(x = "Year", y = "Age / length bin",
+                    title = "Composition Pearson residuals") +
+      ggplot2::theme_bw(base_size = 10)
+    plots$pearson <- g; print(g); save_png(g, "pearson")
+  }
+
+  # ---- Composition fit: observed (area) vs fitted (line) ----
+  # Mirror joint-sex (females up, males down). geom_area spans only the observed
+  # bins, so it cannot extend past the data.
+  long$y_obs <- ifelse(long$sex_grp == "male", -long$obs, long$obs)
+  long$y_hat <- ifelse(long$sex_grp == "male", -long$hat, long$hat)
+
+  # Observed proportion as a shaded area, fitted as a line; joint-sex males are
+  # mirrored below zero (y_obs / y_hat). geom_area spans only the observed bins.
+  comp_area_plot <- function(df, ylab, title) {
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$bin)) +
+      ggplot2::geom_area(ggplot2::aes(y = .data$y_obs, group = .data$sex_grp),
+                         position = "identity", fill = "grey80") +
+      ggplot2::geom_line(ggplot2::aes(y = .data$y_hat, group = .data$sex_grp,
+                                      colour = .data$sex_grp),
+                         linewidth = lwd / 3) +
+      ggplot2::geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
+      ggplot2::scale_colour_manual(values = sex_cols, guide = "none") +
+      ggplot2::labs(x = df$bin_lab[1], y = ylab, title = title) +
+      ggplot2::theme_bw(base_size = 9)
+  }
+
+  for (nm in unique(long$panel)) {
+    d <- long[long$panel == nm, , drop = FALSE]
+
+    # Annual (one panel per year)
+    g_a <- comp_area_plot(d, "Proportion", nm) + ggplot2::facet_wrap(~ Year)
+    plots[[paste0("annual_", nm)]] <- g_a; print(g_a)
+    save_png(g_a, paste0("annual_fleet", d$Fleet[1], "_", d$type_lab[1]))
+
+    # Aggregated across hindcast years
+    agg <- .comp_aggregate(d)
+    if (nrow(agg) > 0) {
+      g_g <- comp_area_plot(agg, "Mean proportion", paste(nm, "(aggregated)"))
+      plots[[paste0("aggregated_", nm)]] <- g_g; print(g_g)
+      save_png(g_g, paste0("aggregated_fleet", d$Fleet[1], "_", d$type_lab[1]))
     }
   }
 
+  invisible(plots)
+}
 
 
+#' Tidy long-format composition observed / fitted / Pearson table
+#'
+#' Reuses [residuals.Rceattle()] (`type = "pearson"`, `source = "comp"`) for the
+#' observed and fitted proportions and the Pearson residual -- the single source
+#' of truth -- then adds the plotting-only columns: joint-sex bins re-based onto
+#' a single age/length axis (males stored as bins `nbin+1 .. 2*nbin` are mapped
+#' to `1 .. nbin` and tagged `sex_grp = "male"`) and the facet labels. Zero
+#' observed proportions are kept; only `NA` observed/fitted are dropped (by
+#' `residuals()`).
+#' @param Rceattle A fitted `Rceattle` model.
+#' @param species Optional species code(s) to keep.
+#' @return A data frame, or `NULL` when there are no composition residuals.
+#' @keywords internal
+.comp_resid_long <- function(Rceattle, species = NULL) {
+  r <- stats::residuals(Rceattle, type = "pearson", source = "comp",
+                        species = species)
+  if (is.null(r) || nrow(r) == 0) return(NULL)
+  nages    <- Rceattle$data_list$nages
+  nlengths <- Rceattle$data_list$nlengths
+
+  long <- data.frame(
+    Fleet      = r$Fleet_code,
+    Fleet_name = r$Fleet_name,
+    Species    = r$Species,
+    Sex        = r$Sex,
+    comp_type  = r$Age0_Length1,
+    Year       = r$Year,
+    N          = r$Sample_size,
+    bin        = r$Bin,
+    obs        = r$Observed,      # observed proportion
+    hat        = r$Fitted,        # fitted proportion
+    pearson    = r$Residual,      # (obs - hat) / sqrt(hat (1 - hat) / N)
+    stringsAsFactors = FALSE)
+
+  # Joint-sex (Sex == 3) stacks females in bins 1..nbin and males in
+  # nbin+1..2*nbin; re-base the male bins onto the same 1..nbin axis and label
+  # each row's sex so the two can be drawn together (males mirrored below 0).
+  bins_per_sex <- ifelse(long$comp_type == 1, nlengths[long$Species],
+                         nages[long$Species])
+  is_male <- long$Sex == 3 & long$bin > bins_per_sex
+  long$bin[is_male] <- long$bin[is_male] - bins_per_sex[is_male]
+  long$sex_grp <- ifelse(long$Sex == 1, "female",
+                  ifelse(long$Sex == 2, "male",
+                  ifelse(long$Sex == 3, ifelse(is_male, "male", "female"),
+                         "combined")))
+
+  long$type_lab <- ifelse(long$comp_type == 1, "length", "age")
+  long$bin_lab  <- ifelse(long$comp_type == 1, "Length bin", "Age bin")
+  long$panel    <- paste0(long$Fleet_name, " - ", long$type_lab, " comp")
+  long$source   <- paste0(long$Fleet_name, "\n", long$type_lab, " comp",
+                          ifelse(long$Sex == 3, paste0(" - ", long$sex_grp), ""))
+  long
+}
+
+
+#' Aggregate composition proportions across hindcast years
+#'
+#' Sums observed and fitted proportions over years (for one fleet x type panel)
+#' and renormalizes to the mean composition; joint-sex groups keep their shared
+#' normalization (females + males sum to 1).
+#' @param d One panel's rows from [.comp_resid_long()].
+#' @return A data frame with `bin`, `sex_grp`, `obs`, `hat`, `y_obs`, `y_hat`.
+#' @keywords internal
+.comp_aggregate <- function(d) {
+  d <- d[d$Year > 0, , drop = FALSE]              # hindcast only
+  if (nrow(d) == 0) return(d[, c("bin", "sex_grp"), drop = FALSE])
+  agg <- stats::aggregate(cbind(obs, hat) ~ bin + sex_grp, data = d, FUN = sum)
+  agg$obs <- agg$obs / sum(agg$obs)               # joint normalization (mean prop)
+  agg$hat <- agg$hat / sum(agg$hat)
+  agg$bin_lab <- d$bin_lab[1]
+  agg$y_obs <- ifelse(agg$sex_grp == "male", -agg$obs, agg$obs)
+  agg$y_hat <- ifelse(agg$sex_grp == "male", -agg$hat, agg$hat)
+  agg
+}
 
 
 
@@ -697,15 +249,18 @@ plot_diet_comp <-
 
     # Get colors
     colvec=c("red", "blue", "black")
+    plots <- list()  # collected per predator/prey/year cowplot grids
 
     # * Extract data objects ----
-    comp_data <- Rceattle$data_list$diet_data
-    comp_data$Est = Rceattle$quantities$diet_hat[,2]
-
-    # Use .data to avoid R CMD check notes
-    comp_data <- comp_data |>
-      dplyr::mutate(pearson = (.data$Stomach_proportion_by_weight - .data$Est) /
-                      sqrt((.data$Est * (1 - .data$Est)) / .data$Sample_size))
+    # Diet observed proportions, fitted, and the Pearson residual all come from
+    # residuals(type = "pearson", source = "diet") -- the single source of truth
+    # for residual computation -- then aliased to the column names this plotting
+    # loop expects.
+    comp_data <- stats::residuals(Rceattle, type = "pearson", source = "diet")
+    comp_data$Pred <- comp_data$Species
+    comp_data$Stomach_proportion_by_weight <- comp_data$Observed
+    comp_data$Est <- comp_data$Fitted
+    comp_data$pearson <- comp_data$Residual
 
     # Loop around predators ----
     for(pred in 1:data_list$nspp) {
@@ -775,6 +330,7 @@ plot_diet_comp <-
               ggplot2::theme(legend.position = c(0.25, 0.8))
 
             p1 <- cowplot::plot_grid(plot_obs, plot_est, plot_pear, nrow = 1)
+            plots[[length(plots) + 1L]] <- p1
             print(p1)
 
             if (!is.null(file)) {
@@ -785,4 +341,306 @@ plot_diet_comp <-
         }
       }
     }
+    invisible(plots)
   }
+
+
+#' Plot diet composition fits (bubble/grid diagnostic)
+#'
+#' @description
+#' `plot_diet_comp1()` is a thin alias of [plot_diet_comp()]: it produces the
+#' predator-age x prey-age bubble grids (observed / estimated / Pearson residual)
+#' for each predator-prey-year interaction. It exists so collaborator scripts
+#' that call `plot_diet_comp1()` for the bubble/grid diagnostic and
+#' [plot_diet_comp2()] for the aggregation-aware line/bar/bubble plots have both
+#' entry points. The `Hake_test` branch had no `plot_diet_comp1`; aliasing dev's
+#' [plot_diet_comp()] preserves that call site without duplicating logic.
+#'
+#' @param Rceattle Single Rceattle model object exported from \code{Rceattle}.
+#' @param file Optional file-name prefix for saved figures.
+#' @param species Optional species names for the legend.
+#'
+#' @return Invisibly returns a list of the printed plot grids (see
+#'   [plot_diet_comp()]).
+#' @examples
+#' \dontrun{
+#' plot_diet_comp1(my_msm_fit)
+#' }
+#' @seealso [plot_diet_comp()], [plot_diet_comp2()]
+#' @export
+plot_diet_comp1 <- plot_diet_comp
+
+
+#' Assemble diet observed-vs-fitted proportions for plotting
+#'
+#' @description
+#' Internal helper that builds the tidy data frame consumed by
+#' [plot_diet_comp2()] from dev's diet quantities. Observed proportions, fitted
+#' proportions and the Pearson residual all come from
+#' `residuals(type = "pearson", source = "diet")` (the single source of truth);
+#' the fitted value is `quantities$diet_hat[, 2]`, matched row-for-row to
+#' `data_list$diet_data`, so any prey-age / year aggregation is already resolved
+#' in the C++ model. This is dev's analogue of the `Hake_test`
+#' `match_diet_preds()` helper, adapted to dev's data path (which surfaces the
+#' fitted diet through `diet_hat` / `residuals()` rather than a `diet_prop_hat`
+#' array).
+#'
+#' Observed 95% intervals (`lower_95` / `upper_95`) are computed as a
+#' normal approximation to the binomial proportion,
+#' \eqn{\hat p \pm 1.96\sqrt{p(1-p)/N}}, consistent with the Sample_size used in
+#' dev's Pearson denominator (dev's `diet_data` carries no stored CI columns).
+#' Estimated 95% intervals (`Est_Lower` / `Est_Upper`) are added only when the
+#' `sdrep` exposes a `diet_hat` standard error; dev's C++ template `REPORT()`s
+#' but does not `ADREPORT()` `diet_hat`, so these are unavailable unless the
+#' template is changed to `ADREPORT(diet_hat)`.
+#'
+#' @param Rceattle A single Rceattle model object.
+#' @return A data frame with `Pred`, `Prey`, `Pred_sex`, `Prey_sex`, `Pred_age`,
+#'   `Prey_age`, `Year`, `Sample_size`, `Observed`, `Est`, `Pearson`,
+#'   `AbsPearson`, `lower_95`, `upper_95`, and (when available) `Est_Lower` /
+#'   `Est_Upper`; or `NULL` when the model has no diet data.
+#' @noRd
+.diet_plot_data <- function(Rceattle) {
+
+  dd <- Rceattle$data_list$diet_data
+  if (is.null(dd) || nrow(dd) == 0 || is.null(Rceattle$quantities$diet_hat)) {
+    return(NULL)
+  }
+
+  # residuals(source = "diet") is dev's single source of truth for observed,
+  # fitted (diet_hat[, 2]) and Pearson; rows align 1:1 with diet_data.
+  r <- stats::residuals(Rceattle, type = "pearson", source = "diet")
+
+  plot_data <- data.frame(
+    Pred        = r$Species,
+    Prey        = r$Prey,
+    Pred_sex    = r$Pred_sex,
+    Prey_sex    = r$Prey_sex,
+    Pred_age    = r$Pred_age,
+    Prey_age    = r$Prey_age,
+    Year        = r$Year,
+    Sample_size = r$Sample_size,
+    Observed    = r$Observed,
+    Est         = r$Fitted,
+    Pearson     = r$Residual,
+    stringsAsFactors = FALSE
+  )
+  plot_data$AbsPearson <- abs(plot_data$Pearson)
+
+  # Observed 95% CI: normal approximation to the binomial proportion, matching
+  # the Sample_size used in dev's Pearson denominator (no stored CI columns).
+  se_obs <- sqrt(plot_data$Observed * (1 - plot_data$Observed) / plot_data$Sample_size)
+  plot_data$lower_95 <- pmax(0, plot_data$Observed - 1.96 * se_obs)
+  plot_data$upper_95 <- pmin(1, plot_data$Observed + 1.96 * se_obs)
+
+  # Estimated 95% CI from the sdreport, if diet_hat was ADREPORT'd. dev's
+  # template only REPORT()s diet_hat, so this branch is normally skipped; the
+  # length handling mirrors Hake_test (a vector gives n SDs, an n x 2 matrix
+  # gives 2n, of which the second column -- the fitted proportion -- is used).
+  if (!is.null(Rceattle$sdrep)) {
+    sd_indices <- which(names(Rceattle$sdrep$value) == "diet_hat")
+    if (length(sd_indices) > 0) {
+      all_sd_values <- Rceattle$sdrep$sd[sd_indices]
+      n_rows_data   <- nrow(plot_data)
+      sd_values_to_use <- NULL
+      if (length(all_sd_values) == n_rows_data) {
+        sd_values_to_use <- all_sd_values
+      } else if (length(all_sd_values) == n_rows_data * 2) {
+        sd_values_to_use <- all_sd_values[(n_rows_data + 1):(n_rows_data * 2)]
+      }
+      if (!is.null(sd_values_to_use)) {
+        plot_data$Est_sd    <- sd_values_to_use
+        plot_data$Est_Lower <- pmax(0, plot_data$Est - 1.96 * plot_data$Est_sd)
+        plot_data$Est_Upper <- pmin(1, plot_data$Est + 1.96 * plot_data$Est_sd)
+      }
+    }
+  }
+
+  plot_data
+}
+
+
+#' Plot diet composition fits (aggregation-aware)
+#'
+#' @description
+#' Diagnostic plots for diet-composition fits that adapt to how each
+#' predator-prey interaction is aggregated (see [plot_diet_comp()] for the
+#' aggregation conventions):
+#' \itemize{
+#'   \item prey-age aggregated (predator age resolved): line plot of observed vs
+#'     estimated diet proportion against predator age, with 95% CI ribbons;
+#'   \item predator aggregated (prey age resolved): line plot against prey age;
+#'   \item both aggregated: dodged bar plot of observed vs estimated proportion;
+#'   \item fully disaggregated: predator-age x prey-age bubble grids (observed /
+#'     estimated / Pearson residual).
+#' }
+#'
+#' The observed proportions, fitted proportions and Pearson residuals come from
+#' dev's diet data path (`quantities$diet_hat` / `residuals(source = "diet")` /
+#' `data_list$diet_data`) via the internal `.diet_plot_data()` helper -- not from
+#' the `Hake_test` `match_diet_preds()` / `diet_prop_hat` array. Observed 95% CI
+#' ribbons are a normal approximation to the binomial proportion from
+#' `Sample_size`. Estimated 95% CI ribbons are drawn only when the `sdreport`
+#' exposes a `diet_hat` standard error; dev's C++ template `REPORT()`s but does
+#' not `ADREPORT()` `diet_hat`, so the estimated ribbon is unavailable unless the
+#' template is changed to `ADREPORT(diet_hat)` (the code path is retained so it
+#' activates automatically if that ever happens, or when `sdrep` is `NULL`).
+#'
+#' @param Rceattle A single Rceattle model object.
+#' @param file Optional file-name prefix for saved figures.
+#' @param species Optional species names for the legend.
+#'
+#' @return Invisibly returns a list of the printed plot objects.
+#' @importFrom rlang .data
+#' @examples
+#' \dontrun{
+#' plot_diet_comp2(my_msm_fit)
+#' }
+#' @seealso [plot_diet_comp()], [plot_diet_comp1()]
+#' @export
+plot_diet_comp2 <- function(Rceattle, file = NULL, species = NULL) {
+
+  # 1. SETUP & DATA PREPARATION ----
+  if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 is required for this function.")
+  if (!requireNamespace("tidyr", quietly = TRUE))   stop("tidyr is required for this function.")
+  if (!requireNamespace("dplyr", quietly = TRUE))   stop("dplyr is required for this function.")
+  if (!requireNamespace("cowplot", quietly = TRUE)) stop("cowplot is required for this function.")
+  if (!inherits(Rceattle, "Rceattle")) stop("Input 'Rceattle' must be a single object of class Rceattle.")
+  if (is.null(species)) species <- Rceattle$data_list$spnames
+
+  plot_data <- .diet_plot_data(Rceattle)
+  if (is.null(plot_data) || nrow(plot_data) == 0) {
+    message("No diet data to plot.")
+    return(invisible(NULL))
+  }
+
+  # 2. PLOTTING LOGIC ----
+  plot_list <- list()
+
+  for (pred_ind in 1:Rceattle$data_list$nspp) {
+    for (prey_ind in 1:Rceattle$data_list$nspp) {
+
+      subset_data <- plot_data |>
+        dplyr::filter(.data$Pred == pred_ind, .data$Prey == prey_ind)
+      if (nrow(subset_data) == 0) next
+
+      # Detect aggregation level for this predator-prey subset only. A negative
+      # age flags an aggregated (summed / averaged) dimension in diet_data.
+      is_prey_age_agg <- any(subset_data$Prey_age < 0)
+      is_pred_age_agg <- any(subset_data$Pred_age < 0)
+
+      pred_legend <- paste("Pred-", species[pred_ind])
+
+      # CASE 1: PREY-AGE AGGREGATED (predator age on x-axis) ----
+      if (is_prey_age_agg && !is_pred_age_agg) {
+
+        message(paste("Generating line plot (Pred Age) for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+
+        p <- ggplot2::ggplot(subset_data, ggplot2::aes(x = .data$Pred_age)) +
+          ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lower_95, ymax = .data$upper_95, fill = "Observed"), alpha = 0.3) +
+          {if ("Est_Lower" %in% names(subset_data)) {
+            ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$Est_Lower, ymax = .data$Est_Upper, fill = "Estimated"), alpha = 0.3)
+          }} +
+          ggplot2::geom_line(ggplot2::aes(y = .data$Est, color = "Estimated", linetype = "Estimated"), linewidth = 1, alpha = 0.7) +
+          ggplot2::geom_point(ggplot2::aes(y = .data$Est, color = "Estimated"), size = 2.5, alpha = 0.7) +
+          ggplot2::geom_line(ggplot2::aes(y = .data$Observed, color = "Observed", linetype = "Observed"), linewidth = 1) +
+          ggplot2::geom_point(ggplot2::aes(y = .data$Observed, color = "Observed"), size = 2.5) +
+          ggplot2::facet_wrap(~ Year, scales = "free_y", labeller = ggplot2::labeller(Year = ~paste("Year:", .))) +
+          ggplot2::facet_grid(~ Pred_sex, scales = "free_y", labeller = ggplot2::labeller(Pred_sex = ~paste("Sex:", .))) +
+          ggplot2::scale_color_manual(name = "Source", values = c("Observed" = "black", "Estimated" = "darkred")) +
+          ggplot2::scale_linetype_manual(name = "Source", values = c("Observed" = "dashed", "Estimated" = "solid")) +
+          ggplot2::scale_fill_manual(name = "95% CI", values = c("Observed" = "grey50", "Estimated" = "darkred")) +
+          ggplot2::labs(x = "Predator Age", y = "Diet Proportion", title = paste("Diet of", species[pred_ind], "on", species[prey_ind])) +
+          ggplot2::theme_bw()
+
+        print(p)
+        plot_list[[length(plot_list) + 1]] <- p
+        if (!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_line_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 7, height = 5)
+
+        # CASE 2: PREDATOR AGGREGATED (prey age on x-axis) ----
+      } else if (!is_prey_age_agg && is_pred_age_agg) {
+
+        message(paste("Generating line plot (Prey Age) for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+
+        p <- ggplot2::ggplot(subset_data, ggplot2::aes(x = .data$Prey_age)) +
+          ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lower_95, ymax = .data$upper_95, fill = "Observed"), alpha = 0.3) +
+          {if ("Est_Lower" %in% names(subset_data)) {
+            ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$Est_Lower, ymax = .data$Est_Upper, fill = "Estimated"), alpha = 0.3)
+          }} +
+          ggplot2::geom_line(ggplot2::aes(y = .data$Est, color = "Estimated", linetype = "Estimated"), linewidth = 1, alpha = 0.7) +
+          ggplot2::geom_point(ggplot2::aes(y = .data$Est, color = "Estimated"), size = 2.5, alpha = 0.7) +
+          ggplot2::geom_line(ggplot2::aes(y = .data$Observed, color = "Observed", linetype = "Observed"), linewidth = 1) +
+          ggplot2::geom_point(ggplot2::aes(y = .data$Observed, color = "Observed"), size = 2.5) +
+          ggplot2::facet_wrap(~ Year + Pred_sex, scales = "free_y",
+                              labeller = ggplot2::labeller(Year = ~paste("Year:", .), Pred_sex = ~paste("Sex:", .))) +
+          ggplot2::scale_color_manual(name = "Source", values = c("Observed" = "black", "Estimated" = "darkblue")) +
+          ggplot2::scale_linetype_manual(name = "Source", values = c("Observed" = "dashed", "Estimated" = "solid")) +
+          ggplot2::scale_fill_manual(name = "95% CI", values = c("Observed" = "grey50", "Estimated" = "darkblue")) +
+          ggplot2::labs(x = "Prey Age", y = "Diet Proportion",
+                        title = paste("Prey Age Composition in Diet\nPred:", species[pred_ind], "eating", species[prey_ind])) +
+          ggplot2::theme_bw()
+
+        print(p)
+        plot_list[[length(plot_list) + 1]] <- p
+        if (!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_preyage_Pred", pred_ind, "_Prey", prey_ind, ".png"), p, width = 7, height = 5)
+
+        # CASE 3: BOTH AGGREGATED (bar plot) ----
+      } else if (is_prey_age_agg && is_pred_age_agg) {
+
+        message(paste("Generating bar plot for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+
+        plot_data_long <- subset_data |>
+          tidyr::pivot_longer(cols = c("Observed", "Est"), names_to = "Source", values_to = "Proportion") |>
+          dplyr::mutate(Prey_name = species[.data$Prey])
+
+        p_fit <- ggplot2::ggplot(plot_data_long, ggplot2::aes(x = .data$Prey_name, y = .data$Proportion, fill = .data$Source)) +
+          ggplot2::geom_bar(stat = "identity", position = "dodge") +
+          ggplot2::facet_wrap(~ Year, scales = "free_y", labeller = ggplot2::labeller(Year = ~paste("Year:", .))) +
+          ggplot2::scale_fill_manual(name = "Source", values = c("Observed" = "grey50", "Est" = "red")) +
+          ggplot2::labs(x = "Prey Species", y = "Diet Proportion", title = paste("Fit to Aggregated Diet for Predator:", species[pred_ind])) +
+          ggplot2::theme_bw()
+
+        print(p_fit)
+        plot_list[[length(plot_list) + 1]] <- p_fit
+        if (!is.null(file)) ggplot2::ggsave(paste0(file, "_diet_barplot_Pred", pred_ind, ".png"), p_fit, width = 7, height = 5)
+
+        # CASE 4: FULLY DISAGGREGATED (bubble plots) ----
+      } else {
+
+        message(paste("Generating bubble plots for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+        yrs <- sort(unique(subset_data$Year))
+
+        for (i in seq_along(yrs)) {
+          current_yr  <- yrs[i]
+          comp_tmp_yr <- subset_data |> dplyr::filter(.data$Year == current_yr)
+          if (sum(comp_tmp_yr$Observed, na.rm = TRUE) == 0) next
+
+          title <- paste(pred_legend, "- Prey:", species[prey_ind], "- Year:", current_yr)
+          if (current_yr == 0) title <- paste(pred_legend, "- Prey:", species[prey_ind], "(Avg over Years)")
+
+          p_obs <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Observed)) +
+            ggplot2::geom_point(alpha = 0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Observed", size = "Prop.")
+
+          p_est <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Est)) +
+            ggplot2::geom_point(alpha = 0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Estimated", size = "Prop.")
+
+          p_pear <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$AbsPearson, color = .data$Pearson < 0)) +
+            ggplot2::geom_point(alpha = 0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Pearson Residuals", size = "Abs(Resid)")
+
+          p1 <- cowplot::plot_grid(p_obs, p_est, p_pear, nrow = 1)
+          p1 <- cowplot::ggdraw(p1) + cowplot::draw_label(title, x = 0.5, y = 0.98)
+          print(p1)
+          plot_list[[length(plot_list) + 1]] <- p1
+
+          if (!is.null(file)) {
+            ggplot2::ggsave(paste0(file, "_diet_bubble_Pred", pred_ind, "_Prey", prey_ind, "_Yr", current_yr, ".png"), p1, width = 10, height = 6)
+          }
+        }
+      }
+    }
+  }
+  return(invisible(plot_list))
+}

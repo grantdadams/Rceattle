@@ -66,6 +66,9 @@ navbar:
         href: articles/model-parameterizations.html
       - text: "Converting from Stock Synthesis"
         href: articles/stock-synthesis-conversion.html
+      - text: "--- Contributing ---"
+      - text: "Developer guide"
+        href: articles/developer-guide.html
     github:
       icon: fab fa-github
       href: https://github.com/grantdadams/Rceattle
@@ -108,10 +111,18 @@ articles:
   - model-parameterizations
   - environmental-linkages-and-priors
 
+- title: Contributing
+  desc: Extending and maintaining the package internals.
+  contents:
+  - articles/developer-guide
+
 reference:
 - title: "Data input / output"
-  desc: Read, write, and manipulate Rceattle data lists.
+  desc: Read, write, build, and manipulate Rceattle data lists.
   contents:
+  - build_data
+  - data_requirements
+  - model_config
   - read_data
   - write_data
   - clean_data
@@ -170,8 +181,12 @@ reference:
   - sample_rec
 
 - title: "Diagnostics and simulation"
-  desc: Retrospective analysis, jitter testing, and simulation.
+  desc: Retrospective analysis, jitter testing, residual diagnostics, and simulation.
   contents:
+  - convergence_diagnostics
+  - osa_residuals
+  - osa_diagnostics
+  - process_residuals
   - retrospective
   - jitter
   - profile.Rceattle
@@ -204,9 +219,9 @@ reference:
   desc: Visualize survey indices, fits, and residuals.
   contents:
   - plot_index
-  - plot_logindex
   - plot_indexresidual
   - plot_comp
+  - plot.rceattle_osa
   - plot_data
   - plot_form
 
@@ -256,7 +271,6 @@ reference:
   - get_growth_matrix_r
   - get_weight_at_age_r
   - rich.colors.short
-  - t_col
   - as.data.frame.Rceattle
   - coef.Rceattle
   - logLik.Rceattle

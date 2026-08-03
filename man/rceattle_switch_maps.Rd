@@ -21,7 +21,7 @@ how the maps are applied.
 \item{\code{tv_q_map}}{Time-varying catchability structure
 (\code{fleet_control$Time_varying_q}).}
 \item{\code{comp_loglike_map}}{Composition likelihood
-(\code{fleet_control$Comp_loglike} and \code{CAAL_loglike}).}
+(\code{fleet_control$Comp_distribution} and \code{CAAL_distribution}).}
 \item{\code{fleet_map}}{Fleet type (\code{fleet_control$Fleet_type}).}
 \item{\code{initMode_map}}{Initial age-structure mode
 (\code{data_list$initMode}; see \code{\link{fit_mod}}).}

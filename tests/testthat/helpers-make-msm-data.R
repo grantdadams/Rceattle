@@ -1,4 +1,32 @@
 # Adapted from Matt Cheng
+#
+#' Make a multi-species operating-model data set
+#'
+#' Simulates an age-structured, multi-species CEATTLE population (MSVPA-style
+#' predation) and returns both the underlying truth and an Rceattle-shaped data
+#' list, so estimation tests can compare a fitted model against known values.
+#'
+#' The population is projected forward `niter` times so predation mortality
+#' (`M2`) converges, then observations (survey index, catch, age/length comps,
+#' diet proportions) are drawn with the given sampling error / input sample
+#' sizes. Selectivity, growth, suitability, and bioenergetics are all
+#' configurable via the formals.
+#'
+#' @param nspp,years,ages Dimensions of the simulated system.
+#' @param mean_Rec,sigma_R,M,rhoM,sigmaM Recruitment level/variability and
+#'   natural-mortality level plus its AR(1) time-variation.
+#' @param fish_sel,srv_sel,fish_size_sel,srv_size_sel,use_size_sel Age- or
+#'   length-based selectivity for the fishery and survey.
+#' @param growth_params,growth_model,nlengths,lengths Growth (K, L1, Linf, m)
+#'   and the length bins used to build the age-length transition.
+#' @param gam_a,gam_b,log_phi,other_food,ration_mult,normalize_suitability
+#'   Predation/diet controls (size-preference, vulnerability, ration).
+#' @param sigma_catch,sigma_srv,fish_ISS,srv_ISS,diet_ISS,fish_CAAL_ISS,srv_CAAL_ISS
+#'   Observation error and input sample sizes for each data type.
+#'
+#' @return A list with `model_quantities` (the simulated truth: NAA, FAA, SSB,
+#'   suitability, diet_prop, ...), `data_list` (the Rceattle data list ready for
+#'   `fit_mod()`), and `base_data` (the data list before ration is added).
 make_msm_test_data <- function(
     nspp = 2,
     years = 1:30,
@@ -20,8 +48,8 @@ make_msm_test_data <- function(
                         1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
     srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
                        1 / (1 + exp(-2 * (ages - 2.5)))), nspp, length(ages), byrow = TRUE),
-    Fmort = matrix(c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2),
-                     seq(0.02, 0.3, length.out = nyrs)),
+    Fmort = matrix(c(seq(0.02, 0.3, length.out = length(years)/2), seq(0.3, 0.05, length.out = length(years)/2),
+                     seq(0.02, 0.3, length.out = length(years))),
                    nrow = nspp, ncol = length(years), byrow = TRUE),
     srv_q = rep(1, nspp),
 
@@ -83,7 +111,7 @@ make_msm_test_data <- function(
   length_at_age <- array(0, dim = c(nspp, nages))
   for(sp in 1:nspp){
     gp <- array(growth_params[sp,], dim=c(1, 1, 4))
-    gsd <- array(log(3), dim=c(1, nspp))
+    gsd <- array(log(3), dim=c(nspp, 2))
 
     # - Run Growth Matrix
     gm <-  Rceattle:::get_growth_matrix_r(fracyr=0,
@@ -311,7 +339,7 @@ make_msm_test_data <- function(
   simData$alpha_wt_len = rep(0.00001, nspp)
   simData$beta_wt_len = rep(3, nspp)
   simData$pop_age_transition_index <- rep(1, nspp)
-  simData$sigma_rec_prior = rep(1, nspp)
+  simData$sigma_rec = rep(1, nspp)
   simData$other_food <- rep(1e5, nspp)
   simData$estDynamics = rep(0, nspp)
 
@@ -329,29 +357,29 @@ make_msm_test_data <- function(
     Sel_curve_pen1 = NA,
     Sel_curve_pen2 = NA,
     Time_varying_sel = 0,
-    Time_varying_sel_sd_prior = 1,
+    Time_varying_sel_sd = 1,
     Bin_first_selected = 1,
-    Sel_norm_bin1 = NA,
-    Sel_norm_bin2 = NA,
-    Comp_loglike = "Multinomial",
+    Sel_norm_bin = NA,
+    Sel_norm_bin_upper = NA,
+    Comp_distribution = "Multinomial",
     Comp_weights = 1,
-    CAAL_loglike = 0,
-    Weight1_Numbers2 = 1,
+    CAAL_distribution = 0,
+    Observation_units = 1,
     Weight_index = rep(1:nspp, each = 2),
     Age_transition_index = 1,
-    Q_index = 1:(nspp * 2),
+    Catchability_index = 1:(nspp * 2),
     Catchability = rep(c(0, NA), nspp),
-    Q_prior = rep(c(1, NA), nspp),
-    Q_sd_prior = rep(c(0.2, NA), nspp),
+    Catchability_init = rep(c(1, NA), nspp),
+    Catchability_prior_sd = rep(c(0.2, NA), nspp),
     Time_varying_q = rep(c(0, NA), nspp),
-    Time_varying_q_sd_prior = rep(c(1, NA), nspp),
+    Time_varying_q_sd = rep(c(1, NA), nspp),
     Estimate_index_sd = rep(c(0, NA), nspp),
-    Index_sd_prior = rep(c(1, NA), nspp),
+    Index_sd = rep(c(1, NA), nspp),
     Estimate_catch_sd = rep(c(NA, 0), nspp),
-    Catch_sd_prior = rep(c(NA, 1), nspp),
-    proj_F_prop = rep(c(NA, 1), nspp),
+    Catch_sd = rep(c(NA, 1), nspp),
+    Proj_F_proportion = rep(c(NA, 1), nspp),
     CAAL_weights = 1,
-    Est_weights_mcallister = 1
+    Comp_weights_mcallister = 1
   )
 
   # * Index data
@@ -362,7 +390,6 @@ make_msm_test_data <- function(
     Year = rep(years, nspp),
     Month = 0,
     Selectivity_block = 1,
-    Q_block = 1,
     Observation = as.numeric(t(SrvIdx)),
     Log_sd = sigma_srv
   )
@@ -463,7 +490,7 @@ make_msm_test_data <- function(
     }
   }
   srv_caal <- do.call("rbind", srv_caal_list)
-  simData$caal_data <- rbind(srv_caal, srv_caal)
+  simData$caal_data <- rbind(fish_caal, srv_caal)
 
   #  Empirical selectivity
   simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
@@ -573,7 +600,7 @@ make_msm_test_data <- function(
   simData$Tcl <- rep(1, nspp)
   simData$CK1 <- rep(1, nspp)
   simData$CK4 <- rep(1, nspp)
-  simData$Diet_loglike <- rep(0,nspp)
+  simData$Diet_distribution <- rep(0,nspp)
   simData$Diet_comp_weights <- rep(1,nspp)
 
   # * Diet proportion ----

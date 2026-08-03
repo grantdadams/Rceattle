@@ -1,7 +1,10 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.Rprofile$
 ^\.Rhistory$
 ^\.claude$
+^\.mcp\.json$
+^CLAUDE\.md$
 ^doc$
 ^Meta$
 ^examples$
@@ -14,10 +17,12 @@
 ^~\$.*$
 ^.*/~\$.*$
 ^\.vscode$
-^R/dev$
+^dev$
+^data-raw$
 ^src/TMB/Dev$
 ^src/TMB/Depricated$
 ^vignettes/.*[.]pptx$
+^vignettes/articles$
 ^HCR[.]qmd$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
@@ -26,3 +31,4 @@
 ^Rplots\.pdf$
 ^_pkgdown\.yml$
 ^docs$
+^HANDOFF-data-workflow-modernization\.md$

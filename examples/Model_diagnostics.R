@@ -73,7 +73,6 @@ plot_depletion(Rceattle = mod_list, model_names = mod_names)
 # - Most functions only take a single model
 plot_comp(ms_run) # Fitted composition data
 plot_index(ms_run) # Fitted indices of abundance
-plot_logindex(ms_run) # Fitted log indices of abundance
 plot_indexresidual(ms_run) # Residuals of log indices of abundance
 plot_catch(ms_run) # Fitted catch series
 

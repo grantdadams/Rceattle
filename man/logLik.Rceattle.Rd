@@ -21,5 +21,5 @@ a \code{"logLik"} object. \code{df} is the number of estimated fixed-effect
 parameters. The \code{nobs} attribute is intentionally omitted: counting
 "observations" in a stock assessment likelihood (with composition
 cells, indices, catches, and priors) is not well-defined, so
-\code{\link[stats:AIC]{stats::AIC()}} works (uses \code{df}) while \code{\link[stats:AIC]{stats::BIC()}} does not.
+\code{\link[stats:AIC]{stats::AIC()}} works (uses \code{df}) while \code{\link[stats:BIC]{stats::BIC()}} does not.
 }

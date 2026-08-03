@@ -2,46 +2,48 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_indexresidual}
 \alias{plot_indexresidual}
-\title{CPUE residual}
+\title{Survey index residuals}
 \usage{
 plot_indexresidual(
   Rceattle,
   file = NULL,
   model_names = NULL,
-  line_col = NULL,
   species = NULL,
+  width = 7,
+  height = 6.5,
+  residual_type = c("pearson", "osa"),
+  line_col = NULL,
   right_adj = 0,
   top_adj = 0.05,
   incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL
+  single.plots = FALSE
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; if given the figure is written to
+\verb{<file>_survey_indices.png}.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{species}{Species (indices) to include. Default all.}
 
-\item{species}{Species names for legend}
+\item{width, height}{Saved figure size (inches).}
 
-\item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
+\item{residual_type}{\code{"pearson"} (log index residuals) or \code{"osa"}.}
 
-\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage.}
+\item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
+arguments, retained for back-compatibility and ignored.}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
-
-\item{single.plots}{if TRUE plot invidual fits else make multiplot}
-
-\item{width}{plot width}
-
-\item{height}{plot hight}
+\item{incl_proj}{Include projection years.}
+}
+\value{
+A \code{ggplot} object.
 }
 \description{
-Plot of residuals CPUE indices on log-scale (r4ss-style)
+Plots log residuals \code{log(predicted) - log(observed)} of the survey index by
+year, faceted by survey fleet (\code{residual_type = "pearson"}, the default), or
+one-step-ahead (OSA) residual diagnostics for a single fit
+(\code{residual_type = "osa"}, via \code{\link[=osa_residuals]{osa_residuals()}} / \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
 }

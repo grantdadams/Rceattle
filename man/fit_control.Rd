@@ -9,6 +9,10 @@ fit_control(
   getsd = TRUE,
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
+  projection_uncertainty = FALSE,
+  comp_offset = NULL,
+  bias_adjust_obs = TRUE,
+  bias_adjust_proc = TRUE,
   use_gradient = TRUE,
   rel_tol = 1,
   loopnum = 5,
@@ -32,6 +36,28 @@ and random effects. Default \code{TRUE} (matches \code{fit_mod()} default).}
 \item{getReportCovariance}{logical. Return the variance-covariance
 of \code{ADREPORT} variables. Default \code{FALSE}.}
 
+\item{projection_uncertainty}{logical. If \code{TRUE}, accounts for hindcast
+parameter uncertainty in projections when using an HCR (refits with all
+hindcast and biological-reference-point parameters turned on). Default
+\code{FALSE} for speed.}
+
+\item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
+observed and predicted age/length composition and conditional-age-at-length
+(caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
+avoid \code{log(0)} for empty bins). Stored on \code{data_list} so the fitted
+likelihood and the OSA observation vector use the same offset, and so
+internal re-fits inherit it. \code{NULL} (the default) inherits
+\code{data_list$comp_offset} if set, otherwise \code{1e-5}; a number overrides it.
+Does not apply to diet (stomach-content) compositions.}
+
+\item{bias_adjust_obs}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal data
+likelihoods}
+
+\item{bias_adjust_proc}{logical with default TRUE. Whether to
+apply a bias adjustment (mean-sd^2/2) to lognormal process
+likelihoods}
+
 \item{use_gradient}{logical. Use the analytic gradient during
 phasing. Default \code{TRUE}.}
 
@@ -53,7 +79,7 @@ list of parameter object names with corresponding phase. Default
 
 \item{TMBfilename}{Optional character. Path (without \code{.cpp}) to an
 alternate TMB template for development. Default \code{NULL} (use the
-bundled \code{ceattle_v01_11}).}
+bundled \code{ceattle}).}
 
 \item{verbose}{\code{0} = silent, \code{1} = print updates of model fit, \code{2} =
 print updates of model fit and TMB estimation progress. Default

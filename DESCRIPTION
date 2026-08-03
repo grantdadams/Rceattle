@@ -1,6 +1,6 @@
 Package: Rceattle
 Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
-Version: 4.5.0
+Version: 5.1.0
 Authors@R:
     person(given = "Grant",
            family = "Adams",
@@ -23,17 +23,14 @@ Encoding: UTF-8
 LazyData: true
 LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Imports:
     dplyr,
     ggplot2,
     MASS,
-    oce,
     readxl,
     TMB (>= 1.7.16),
     writexl,
     reshape2,
-    gplots,
     parallel,
     tidyr,
     R.utils,
@@ -42,26 +39,36 @@ Imports:
     grDevices,
     cowplot,
     rlang,
+    reformulas,
     plyr,
     tidyselect,
     magrittr,
     Matrix,
-    utils
+    yaml,
+    utils,
+    dsem (== 3.0.0)
 LinkingTo:
     TMB,
     RcppEigen
 Suggests:
-    dsem (== 3.0.0),
-    testthat (>= 2.0.0),
+    testthat (>= 3.1.5),
+    covr,
     rmarkdown,
     knitr,
     mvtnorm,
     pkgdown,
     TMBhelper,
-    RcppEigen
+    RcppEigen,
+    withr
 Remotes: 
     TMBhelper=github::kaskr/TMB_contrib_R/TMBhelper
 VignetteBuilder:
     knitr
 Depends:
     R (>= 4.1.0)
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+Config/testthat/start-first: functions-profile-param, functions-mse,
+    dynamics-brps, functions-retrospective, likelihood-osa-residuals,
+    selectivity-normalization, dynamics-recruitment-linkage
+Config/roxygen2/version: 8.0.0

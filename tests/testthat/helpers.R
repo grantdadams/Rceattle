@@ -1,6 +1,38 @@
 
 # Helpers for tests
-# Minimal test data factory and small utilities used by
+# Minimal test-data factories and small utilities used across the suite:
+#   - expect_all_true(): custom expectation (below)
+#   - make_test_data():  single-species data fixture (further below)
+#   - calc_*_nll():      independent R reference likelihoods for cross-checking
+#                        the TMB jnll_comp components
+
+# Custom expectation: every element of `object` must be TRUE; NA counts as a
+# failure. Used by the TMB map / quantity checks in the selectivity, growth,
+# and recruitment integration tests, where a whole sub-array of the parameter
+# map must be entirely (un)mapped. Reports how many elements failed so a
+# mismatch points straight at the offending sub-array. testthat auto-loads
+# this file, so test files call it unqualified (like the other helpers here).
+expect_all_true <- function(object) {
+  lab <- paste(deparse(substitute(object)), collapse = " ")
+  # Guard against an empty selection: `all(logical(0))` is TRUE, so without this
+  # an index expression that selects nothing would pass vacuously instead of
+  # flagging that the sub-array it was meant to check does not exist.
+  testthat::expect(
+    length(object) > 0L,
+    sprintf("%s is empty: expected a non-empty logical vector.", lab)
+  )
+  ok  <- !is.na(object) & object
+  testthat::expect(
+    all(ok),
+    sprintf("%s is not all TRUE: %d of %d element(s) are FALSE or NA.",
+            lab, sum(!ok), length(ok))
+  )
+  invisible(object)
+}
+
+# Reference NLL of a 1-D AR(1) deviation vector `x` with marginal SD `sd` and
+# lag-1 correlation `rho`, evaluated as a full multivariate normal. Used to
+# cross-check TMB's AR1() density (e.g. selectivity / recruitment deviations).
 calc_nll_ar1_1d <- function(x, sd, rho) {
   n <- length(x)
   Sigma_M <- sqrt(sd^2 / (1 - rho^2))
@@ -65,7 +97,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
   simData$alpha_wt_len = 0.0001
   simData$beta_wt_len = 3
   simData$pop_age_transition_index = 1
-  simData$sigma_rec_prior = 1
+  simData$sigma_rec = 1
   simData$other_food = 1e6
   simData$estDynamics = 0
 
@@ -87,29 +119,29 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
     Sel_curve_pen1 = NA,
     Sel_curve_pen2 = NA,
     Time_varying_sel = 0,
-    Time_varying_sel_sd_prior = 1,
+    Time_varying_sel_sd = 1,
     Bin_first_selected = 1,
-    Sel_norm_bin1 = NA,
-    Sel_norm_bin2 = NA,
-    Comp_loglike = "Multinomial",
+    Sel_norm_bin = NA,
+    Sel_norm_bin_upper = NA,
+    Comp_distribution = "Multinomial",
     Comp_weights = 1,
-    CAAL_loglike = 0,
-    Weight1_Numbers2 = 1,
+    CAAL_distribution = 0,
+    Observation_units = 1,
     Weight_index = 1,
     Age_transition_index = 1,
-    Q_index = c(1, NA),
+    Catchability_index = c(1, NA),
     Catchability = c("Fixed", NA),
-    Q_prior = c(1, NA),
-    Q_sd_prior = c(0.2, NA),
+    Catchability_init = c(1, NA),
+    Catchability_prior_sd = c(0.2, NA),
     Time_varying_q = c(0, NA),
-    Time_varying_q_sd_prior = c(1, NA),
+    Time_varying_q_sd = c(1, NA),
     Estimate_index_sd = c(0, NA),
-    Index_sd_prior = c(1, NA),
+    Index_sd = c(1, NA),
     Estimate_catch_sd = c(NA, 0),
-    Catch_sd_prior = c(NA, 1),
-    proj_F_prop = c(NA, 1),
+    Catch_sd = c(NA, 1),
+    Proj_F_proportion = c(NA, 1),
     CAAL_weights = 1,
-    Est_weights_mcallister = 1
+    Comp_weights_mcallister = 1
   )
 
   # Deterministic simple observations for fast tests
@@ -121,7 +153,6 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
     Year = years,
     Month = 0,
     Selectivity_block = 1,
-    Q_block = 1,
     Observation = total_biom,
     Log_sd = 0.1
   )
@@ -250,7 +281,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
   simData$Tcl = 1
   simData$CK1 = 1
   simData$CK4 = 1
-  simData$Diet_loglike = 1
+  simData$Diet_distribution = 1
   simData$Diet_comp_weights = 1
 
   # Environmental data
@@ -270,8 +301,13 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
                                   "Year", "Sample_size", "Stomach_proportion_by_weight")
 
 
-  # Clean and return
+  # Clean and normalize switches/defaults, then return. switch_check() fills the
+  # fleet_control columns that fit_mod()/rearrange_data() rely on (Sel_start_year,
+  # Sel_pen_*, Index_distribution, ...) so the fixture can be passed straight to
+  # rearrange_data() in tests, not only through fit_mod(). switch_check() is
+  # idempotent, so fit_mod() re-running it on this data is a no-op.
   simData <- Rceattle::clean_data(simData)
+  simData <- suppressMessages(Rceattle::switch_check(simData))
   return(simData)
 }
 
@@ -293,6 +329,9 @@ with_loaded_dll <- function(lib, code) {
 
 
 
+# Reference NLL of a 2-D separable AR(1) x AR(1) deviation field (age x year),
+# the R equivalent of TMB's SEPARABLE(AR1(age), AR1(yr)). Cross-checks the
+# 2-D random-effects densities (e.g. time- and age-varying selectivity).
 calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
   n_age <- nrow(x_matrix)
   n_yr  <- ncol(x_matrix)
@@ -325,6 +364,9 @@ calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
 }
 
 
+# Reference NLL of multinomial composition data: observed counts `obs_num`
+# against expected proportions `hat_prop`. Cross-checks the "Multinomial"
+# Comp_distribution branch of jnll_comp.
 calc_multinom_nll <- function(obs_num, hat_prop) {
   p <- hat_prop / sum(hat_prop)
   # TMB uses the continuous lgamma instead of factorial: x! = gamma(x+1)
@@ -332,6 +374,9 @@ calc_multinom_nll <- function(obs_num, hat_prop) {
   return(-ll)
 }
 
+# Reference NLL of Dirichlet-multinomial composition data: observed counts
+# `obs_num` with concentration parameters `alpha`. Cross-checks the
+# "Dirichlet-multinomial" Comp_distribution branch of jnll_comp.
 calc_dirmultinom_nll <- function(obs_num, alpha) {
   N <- sum(obs_num)
   sum_alpha <- sum(alpha)

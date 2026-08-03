@@ -18,7 +18,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
 # Update composition weights using McAllister-Ianelli method
 # - I estimate the weights after model optimization in the fit_mod function
 BS2017SS_weighted <- BS2017SS
-BS2017SS_weighted$fleet_control$Comp_weights <- ss_run$data_list$fleet_control$Est_weights_mcallister
+BS2017SS_weighted$fleet_control$Comp_weights <- ss_run$data_list$fleet_control$Comp_weights_mcallister
 
 ss_run_reweighted <- Rceattle::fit_mod(data_list = BS2017SS_weighted,
                             inits = NULL, # Initial parameters = 0

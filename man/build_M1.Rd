@@ -69,7 +69,7 @@ A list of switches for defining the M1 model.
 Define M1 specifications
 }
 \examples{
-\dontrun{
+\donttest{
 # Sex/age-invariant M with a temperature linkage on M1
 build_M1(
   M1_model = "sex_age_invariant",

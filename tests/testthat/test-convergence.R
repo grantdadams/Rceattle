@@ -1,78 +1,25 @@
 # Convergence diagnostics (R/0-convergence.R). Exercised on minimal synthetic
-# fit-like objects so the suite stays fast (no TMB fits). The real ATF/NORK
-# (FAIL) vs pollock (OK) fixtures are the integration-level counterpart.
+# fit-like objects so the suite stays fast (no TMB fits).
 
-# Minimal object carrying just what the checks read.
-make_fake_fit <- function(R_sd = 0.5, estimated = TRUE, max_gradient = 1e-5,
-                          worst = "log_F", pdHess = TRUE) {
+make_fake_fit <- function(max_gradient = 1e-5, worst = "log_F", pdHess = TRUE) {
   structure(list(
-    data_list = list(nspp = 1L, spnames = "spp1",
-                     random_rec = estimated),
-    quantities = list(R_sd = R_sd),
     sdrep = NULL,
-    # rec_sd_idx + beta_z map => .rceattle_rec_sd() reads `Estimated` from the
-    # map (NA = fixed/off, non-NA = estimated).
-    dsem = list(tmb_inputs = list(data = list(rec_sd_idx = 1L))),
-    map  = list(mapList = list(beta_z = if (estimated) 1 else NA)),
     .conv_hindcast = list(
       max_gradient = max_gradient,
       worst = list(param = worst, gradient = max_gradient),
-      pdHess = pdHess
-    )
+      pdHess = pdHess)
   ), class = "Rceattle")
 }
 
-test_that("estimated recruitment-SD collapse is a FAIL", {
-  fit <- make_fake_fit(R_sd = 5e-14, estimated = TRUE,
-                       max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
+test_that("high gradient and non-PD Hessian are flagged", {
+  fit <- make_fake_fit(max_gradient = 4e12, worst = "sel_inf", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_s3_class(cv, "Rceattle_convergence")
   expect_equal(cv$status, "FAIL")
-  expect_true("rec_sd_collapse" %in% names(cv$checks))
-  expect_equal(cv$checks$rec_sd_collapse$severity, "FAIL")
-  # cross-reference: beta_z worst gradient names the 1/R_sd^2 mechanism
-  expect_match(cv$checks$rec_sd_collapse$message, "beta_z")
-})
-
-test_that("healthy estimated recruitment SD is OK", {
-  fit <- make_fake_fit(R_sd = 0.67, estimated = TRUE,
-                       max_gradient = 1e-4, pdHess = TRUE)
-  cv <- convergence_diagnostics(fit)
-  expect_equal(cv$status, "OK")
-  expect_false("rec_sd_collapse" %in% names(cv$checks))
-})
-
-test_that("a fixed (non-estimated) small SD is NOT flagged", {
-  # random_rec = FALSE pins sigmaR at the prior; small but legitimate.
-  fit <- make_fake_fit(R_sd = 5e-14, estimated = FALSE,
-                       max_gradient = 1e-4, pdHess = TRUE)
-  cv <- convergence_diagnostics(fit)
-  expect_false("rec_sd_collapse" %in% names(cv$checks))
-  expect_equal(cv$status, "OK")
-})
-
-test_that("high gradient and non-PD Hessian are flagged", {
-  fit <- make_fake_fit(R_sd = 0.5, estimated = TRUE,
-                       max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
-  cv <- convergence_diagnostics(fit)
-  expect_equal(cv$status, "FAIL")
   expect_equal(cv$checks$max_gradient$severity, "FAIL")
   expect_equal(cv$checks$pdHess$severity, "FAIL")
+  expect_match(cv$checks$max_gradient$message, "sel_inf")
 })
-
-test_that("Hessian eigen check flags an ill-conditioned covariance", {
-  # cov.fixed with one near-flat direction: param p2 ~ 1e8x more uncertain.
-  cov <- diag(c(1, 1e8))
-  cov[1, 2] <- cov[2, 1] <- 1e3        # correlate so the flat dir mixes p1,p2
-  dimnames(cov) <- list(c("beta_z", "beta_z"), c("beta_z", "beta_z"))
-  fit <- make_fake_fit(R_sd = 0.5, estimated = TRUE)
-  fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
-  cv <- convergence_diagnostics(fit)
-  expect_true("hessian_conditioning" %in% names(cv$checks))
-  expect_true(cv$checks$hessian_conditioning$severity %in% c("WARN", "FAIL"))
-  expect_gt(cv$checks$hessian_conditioning$data$condition_number, 1e6)
-})
-
 
 test_that("a converged fit is OK", {
   fit <- make_fake_fit(max_gradient = 1e-5, pdHess = TRUE)
@@ -80,80 +27,67 @@ test_that("a converged fit is OK", {
   expect_equal(cv$status, "OK")
 })
 
-test_that("Hessian eigen check is OK on a well-conditioned covariance", {
-  cov <- diag(c(1, 2))
+test_that("Hessian eigen check flags an ill-conditioned covariance", {
+  cov <- diag(c(1, 1e8))
+  cov[1, 2] <- cov[2, 1] <- 1e3
   dimnames(cov) <- list(c("a", "b"), c("a", "b"))
-  fit <- make_fake_fit(R_sd = 0.5, estimated = TRUE)
+  fit <- make_fake_fit()
   fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
   cv <- convergence_diagnostics(fit)
-  # record is present (reports the condition number) but severity is OK
+  expect_true(cv$checks$hessian_conditioning$severity %in% c("WARN", "FAIL"))
+  expect_gt(cv$checks$hessian_conditioning$data$condition_number, 1e6)
+})
+
+test_that("Hessian eigen check names a diffusely-loaded flat direction", {
+  # Flat direction spread evenly over 40 rec_dev coefficients (each loading
+  # ~0.16, below any single-coefficient threshold) plus a little ln_srv_sel.
+  # The pre-fix check printed "loads on: ." with nothing after it.
+  nm  <- c(rep("rec_dev", 40), rep("ln_srv_sel", 4))
+  p   <- length(nm)
+  v1  <- c(rep(1, 40), rep(1.5, 4)); v1 <- v1 / sqrt(sum(v1^2))
+  Q   <- qr.Q(qr(cbind(v1, diag(p)[, -1])))
+  cov <- Q %*% diag(c(1e8, rep(1, p - 1))) %*% t(Q)
+  dimnames(cov) <- list(nm, nm)
+  fit <- make_fake_fit(); fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
+  hc  <- convergence_diagnostics(fit)$checks$hessian_conditioning
+  expect_true(hc$severity %in% c("WARN", "FAIL"))
+  expect_match(hc$message, "loads on: [A-Za-z]")   # never blank after "loads on: "
+  expect_match(hc$message, "rec_dev")              # the dominant block is named
+  expect_true("rec_dev" %in% hc$data$loadings$param)
+})
+
+test_that("Hessian eigen check falls back to par.fixed names without dimnames", {
+  nm  <- c("a", "b", "c")
+  cov <- diag(c(1e8, 1, 1))                        # flat direction is coeff 'a'
+  fit <- make_fake_fit()
+  fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE,
+                    par.fixed = stats::setNames(c(0, 0, 0), nm))
+  hc  <- convergence_diagnostics(fit)$checks$hessian_conditioning
+  expect_match(hc$message, "loads on: a")          # named from par.fixed, not "p1"
+})
+
+test_that("Hessian eigen check is OK on a well-conditioned covariance", {
+  cov <- diag(c(1, 2)); dimnames(cov) <- list(c("a", "b"), c("a", "b"))
+  fit <- make_fake_fit(); fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
+  cv <- convergence_diagnostics(fit)
   expect_equal(cv$checks$hessian_conditioning$severity, "OK")
-  expect_equal(cv$status, "OK")
-})
-
-
-test_that("pre-fit screen flags sparse + collinear + mis-scaled predictors", {
-  set.seed(1)
-  yrs <- 1980:2020
-  base <- rnorm(length(yrs))
-  ed <- data.frame(
-    Year = yrs,
-    # sst1/sst2 highly collinear; observed only in the last 10 years (sparse)
-    sst1 = NA_real_, sst2 = NA_real_,
-    # upwelling: fully observed but ~30x larger SD (scale heterogeneity)
-    up   = base * 30 + 5
-  )
-  tail_idx <- which(yrs >= 2011)
-  ed$sst1[tail_idx] <- base[tail_idx] + rnorm(length(tail_idx), 0, 0.05)
-  ed$sst2[tail_idx] <- ed$sst1[tail_idx] + rnorm(length(tail_idx), 0, 0.05)
-
-  sem_full <- data.frame(
-    first  = c("sst1", "sst2", "up"),
-    second = c("recdevs1", "recdevs1", "recdevs1"),
-    lag    = c(1, 1, 1),
-    direction = c(1, 1, 1),
-    stringsAsFactors = FALSE
-  )
-  dsem <- list(sem_full = sem_full)
-  dl <- list(env_data = ed, styr = 1980, endyr = 2020)
-
-  cv <- check_dsem_spec(dl, dsem)
-  expect_s3_class(cv, "Rceattle_convergence")
-  expect_true("rec_predictor_observability" %in% names(cv$checks))
-  expect_true("covariate_scale" %in% names(cv$checks))
-  # sst1/sst2 collinear among the years both are observed
-  expect_true("rec_design_conditioning" %in% names(cv$checks))
-})
-
-test_that("pre-fit screen is OK for a well-behaved spec", {
-  set.seed(2)
-  yrs <- 1980:2020
-  ed <- data.frame(Year = yrs,
-                   a = rnorm(length(yrs)),
-                   b = rnorm(length(yrs)))   # independent, fully observed, ~unit SD
-  sem_full <- data.frame(first = c("a", "b"),
-                         second = c("recdevs1", "recdevs1"),
-                         lag = c(1, 1), direction = c(1, 1),
-                         stringsAsFactors = FALSE)
-  cv <- check_dsem_spec(list(env_data = ed, styr = 1980, endyr = 2020),
-                        list(sem_full = sem_full))
   expect_equal(cv$status, "OK")
 })
 
 test_that("sdreport failure is a FAIL", {
   fit <- structure(list(.conv_hindcast = list(
     sd_requested = TRUE, sd_present = FALSE)), class = "Rceattle")
-  cv <- convergence_diagnostics(fit)
-  expect_equal(cv$checks$sdreport_failed$severity, "FAIL")
-  # not flagged when sdreport was not requested
+  expect_equal(convergence_diagnostics(fit)$checks$sdreport_failed$severity,
+               "FAIL")
   fit2 <- structure(list(.conv_hindcast = list(
     sd_requested = FALSE, sd_present = FALSE)), class = "Rceattle")
-  expect_false("sdreport_failed" %in% names(convergence_diagnostics(fit2)$checks))
+  expect_false("sdreport_failed" %in%
+                 names(convergence_diagnostics(fit2)$checks))
 })
 
 test_that("a parameter at a configured bound is flagged (WARN)", {
   fit <- structure(list(.conv_hindcast = list(
-    par   = c(a = 0.5, b = 2.0),     # b sits at its upper bound
+    par   = c(a = 0.5, b = 2.0),
     lower = c(0, -1), upper = c(1, 2))), class = "Rceattle")
   cv <- convergence_diagnostics(fit)
   expect_equal(cv$checks$parameters_on_bounds$severity, "WARN")
@@ -217,10 +151,8 @@ test_that("a phase that ends with a high gradient is flagged (WARN)", {
 })
 
 test_that("print method runs and is non-erroring", {
-  fit <- make_fake_fit(max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
+  fit <- make_fake_fit(max_gradient = 4e12, worst = "sel_inf", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_output(print(cv), "status: FAIL")
-  # capture.output() swallows print()'s cat() side-effect so it doesn't leak
-  # into the test log, while expect_invisible() still checks the return value.
-  capture.output(expect_invisible(print(cv)))
+  expect_invisible(print(cv))
 })

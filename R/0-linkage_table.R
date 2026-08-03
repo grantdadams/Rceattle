@@ -36,6 +36,7 @@ LINKAGE_COLS <- c(
   species       = "integer",    # 1-based species id; NA = shared
   sex           = "integer",    # 1 or 2; NA = shared
   age_bin       = "integer",    # 1-based age index; NA = shared
+  fleet         = "integer",    # 1-based Fleet_code; NA = shared
   X_col         = "integer",    # column of the global design matrix
   design_col    = "character",  # name of the design matrix column
   link          = "character",  # "identity", "log", "logit"
@@ -47,17 +48,102 @@ LINKAGE_COLS <- c(
   prior_p1      = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
   prior_p2      = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
   re_group      = "character",  # random-effect group name (NA = fixed)
-  est_phase     = "integer"     # phase ordinal; 0 = fixed
+  re_struct     = "character",  # covariance structure (us/rw/ar1/...; NA = fixed)
+  est_phase     = "integer",    # phase ordinal; 0 = fixed
+  # Random-effect registry (filled by pool_linkages(); NA on fixed rows).
+  re_index      = "integer",    # 0-based slot in beta_linkage_re (NA = fixed row)
+  sigma_index   = "integer",    # 0-based slot in log_sigma_linkage (NA = fixed row)
+  re_time       = "numeric",    # numeric grouping value, for rw/ar1 time order (NA = fixed)
+  # Per-group RE-SD (sigma) routing from linkage_spec(); identical across a
+  # group's rows, deduped per sigma_index at encode time. NA on fixed rows.
+  re_sigma_init = "numeric",       # start / fixed SD on natural scale (NA = default)
+  re_sigma_prior_family = "character", # prior on the SD; "none"/NA = no prior
+  re_sigma_prior_p1     = "numeric",
+  re_sigma_prior_p2     = "numeric",
+  # Per-group ar1 correlation (rho) routing from linkage_spec(); natural (-1,1)
+  # scale. NA on non-ar1 rows.
+  re_rho_init   = "numeric",       # start / fixed correlation (NA = default 0)
+  re_rho_prior_family = "character",   # prior on rho; "none"/NA = no prior
+  re_rho_prior_p1     = "numeric",
+  re_rho_prior_p2     = "numeric",
+  # State-space (Rogers QAR1) observation: this row's latent ar1 deviate is also
+  # observed as `re_obs_value` (an env_data column) with fixed SD `re_obs_sd`,
+  # and enters the target through an estimated effect size. NA when not observed.
+  re_obs_value  = "numeric",       # observed covariate value at this row's time
+  re_obs_sd     = "numeric",       # measurement SD start/fixed value (NA = not observed)
+  re_obs_est    = "logical"        # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
 )
 
 
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
-LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
+LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel", "comp")
+
+#' Processes with a C++ accumulator behind them
+#'
+#' `LINKAGE_PROCESSES` is the *reserved* set, shared with
+#' `src/TMB/linkage.hpp` and `R/0-linkage_encode.R::LINKAGE_PROCESS_CODES`.
+#' Only this subset is wired end-to-end; the rest are rejected up front so a
+#' reserved process cannot be estimated without affecting the model.
+#'
+#' @keywords internal
+#' @noRd
+LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q", "sel", "comp")
+
+
+#' Error on a reserved-but-unwired process
+#'
+#' @param process character scalar, already matched against
+#'   [LINKAGE_PROCESSES].
+#' @return `process` invisibly, on success. Throws otherwise.
+#' @keywords internal
+#' @noRd
+.check_process_implemented <- function(process) {
+  if (!process %in% LINKAGE_PROCESSES_IMPLEMENTED) {
+    stop(sprintf(
+      paste0("linkages on process \"%s\" are reserved but not yet ",
+             "implemented: no C++ accumulator consumes them, so the ",
+             "coefficients would be estimated without affecting the ",
+             "model.\n  Implemented processes: %s"),
+      process, paste(LINKAGE_PROCESSES_IMPLEMENTED, collapse = ", ")),
+      call. = FALSE)
+  }
+  invisible(process)
+}
 
 #' @rdname LINKAGE_PROCESSES
 #' @keywords internal
 LINKAGE_LINKS <- c("identity", "log", "logit")
+
+#' Link functions with a C++ accumulator behind them
+#'
+#' Every accumulator in `src/TMB/linkage.hpp` gates on `linkfn == 1` (log) or
+#' `linkfn == 0` (identity). `"logit"` stays reserved -- the code is referenced
+#' by the C++ header -- but is rejected until an accumulator implements it;
+#' the processes wired today expose only log-scale parameters.
+#'
+#' @keywords internal
+#' @noRd
+LINKAGE_LINKS_IMPLEMENTED <- c("identity", "log")
+
+
+#' Error on a reserved-but-unimplemented link function
+#'
+#' @param link character scalar, already matched against [LINKAGE_LINKS].
+#' @return `link` invisibly, on success. Throws otherwise.
+#' @keywords internal
+#' @noRd
+.check_link_implemented <- function(link) {
+  if (!link %in% LINKAGE_LINKS_IMPLEMENTED) {
+    stop(sprintf(
+      paste0("link = \"%s\" is reserved but not yet implemented: no C++ ",
+             "accumulator consumes it, so the linkage would be estimated ",
+             "and contribute nothing to the model.\n  Implemented links: %s"),
+      link, paste(LINKAGE_LINKS_IMPLEMENTED, collapse = ", ")),
+      call. = FALSE)
+  }
+  invisible(link)
+}
 
 
 #' Construct an empty linkage table with the canonical schema
@@ -137,11 +223,22 @@ validate_linkage_table <- function(x) {
          paste(bad_proc, collapse = ", "),
          "; allowed: ", paste(LINKAGE_PROCESSES, collapse = ", "))
   }
+  # Backstop for tables assembled without going through
+  # materialize_linkage(): a reserved-but-unwired process must not
+  # reach TMB as a silently inert (q) or cryptically failing (sel) row.
+  for (pr in setdiff(unique(x$process), LINKAGE_PROCESSES_IMPLEMENTED)) {
+    .check_process_implemented(pr)
+  }
   bad_link <- setdiff(unique(x$link), LINKAGE_LINKS)
   if (length(bad_link) > 0) {
     stop("unknown link(s) in linkage table: ",
          paste(bad_link, collapse = ", "),
          "; allowed: ", paste(LINKAGE_LINKS, collapse = ", "))
+  }
+  # Backstop for tables assembled without going through linkage_spec():
+  # a reserved-but-unimplemented link must not reach TMB silently.
+  for (lk in setdiff(unique(x$link), LINKAGE_LINKS_IMPLEMENTED)) {
+    .check_link_implemented(lk)
   }
   bad_fam <- setdiff(unique(x$prior_family), PRIOR_FAMILIES)
   if (length(bad_fam) > 0) {
@@ -168,7 +265,9 @@ validate_linkage_table <- function(x) {
 #' incremental table assembly.
 #'
 #' @param process,param,X_col required identifying fields.
-#' @param species,sex,age_bin stratum ids; `NA` = shared across the dimension.
+#' @param species,sex,age_bin,fleet stratum ids; `NA` = shared across the
+#'   dimension. `fleet` is a 1-based `Fleet_code`, used by catchability and
+#'   selectivity linkages; the process-level linkages leave it `NA`.
 #' @param design_col name of the design matrix column.
 #' @param link link function; one of [LINKAGE_LINKS].
 #' @param init initial value (default `0`).
@@ -177,13 +276,32 @@ validate_linkage_table <- function(x) {
 #' @param prior_p1,prior_p2 family-specific prior parameters; ignored when
 #'   `prior_family == "none"`.
 #' @param re_group random-effect grouping label; `NA` = fixed.
+#' @param re_struct random-effect covariance structure (`"us"`/`"rw"`/`"ar1"`);
+#'   `NA` = fixed.
 #' @param est_phase estimation phase ordinal; `0` = fix at `init`.
+#' @param re_index,sigma_index,re_time random-effect registry fields filled by
+#'   [pool_linkages()]; `NA` on fixed rows. `re_index` is the 0-based slot in
+#'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
+#'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
+#'   deviations in real elapsed time.
+#' @param re_sigma_init,re_sigma_prior_family,re_sigma_prior_p1,re_sigma_prior_p2
+#'   per-group RE-SD routing from `linkage_spec(init = list(sigma = ), priors =
+#'   list(sigma = ))`; identical across a group's rows, `NA` on fixed rows.
+#'   `re_sigma_init` is the start (or, when supplied without a prior, fixed) SD
+#'   on the natural scale; the prior triple places a prior on that SD.
+#' @param re_rho_init,re_rho_prior_family,re_rho_prior_p1,re_rho_prior_p2
+#'   per-group `ar1` correlation routing from `linkage_spec(init = list(rho = ),
+#'   priors = list(rho = ))`; natural `(-1, 1)` scale, `NA` on non-`ar1` rows.
+#' @param re_obs_value,re_obs_sd state-space (Rogers QAR1) observation from
+#'   `linkage_spec(observe = , obs_sd = )`: the observed covariate value at this
+#'   row's time and the fixed measurement SD. `NA` when the group is unobserved.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
                         species       = NA_integer_,
                         sex           = NA_integer_,
                         age_bin       = NA_integer_,
+                        fleet         = NA_integer_,
                         design_col    = NA_character_,
                         link          = "identity",
                         init          = 0,
@@ -194,7 +312,22 @@ linkage_row <- function(process, param, X_col,
                         prior_p1      = NA_real_,
                         prior_p2      = NA_real_,
                         re_group      = NA_character_,
-                        est_phase     = 1L) {
+                        re_struct     = NA_character_,
+                        est_phase     = 1L,
+                        re_index      = NA_integer_,
+                        sigma_index   = NA_integer_,
+                        re_time       = NA_real_,
+                        re_sigma_init = NA_real_,
+                        re_sigma_prior_family = NA_character_,
+                        re_sigma_prior_p1     = NA_real_,
+                        re_sigma_prior_p2     = NA_real_,
+                        re_rho_init   = NA_real_,
+                        re_rho_prior_family = NA_character_,
+                        re_rho_prior_p1     = NA_real_,
+                        re_rho_prior_p2     = NA_real_,
+                        re_obs_value  = NA_real_,
+                        re_obs_sd     = NA_real_,
+                        re_obs_est    = NA) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -202,6 +335,7 @@ linkage_row <- function(process, param, X_col,
     species       = as.integer(species),
     sex           = as.integer(sex),
     age_bin       = as.integer(age_bin),
+    fleet         = as.integer(fleet),
     X_col         = as.integer(X_col),
     design_col    = as.character(design_col),
     link          = as.character(link),
@@ -213,7 +347,22 @@ linkage_row <- function(process, param, X_col,
     prior_p1      = as.numeric(prior_p1),
     prior_p2      = as.numeric(prior_p2),
     re_group      = as.character(re_group),
-    est_phase     = as.integer(est_phase)
+    re_struct     = as.character(re_struct),
+    est_phase     = as.integer(est_phase),
+    re_index      = as.integer(re_index),
+    sigma_index   = as.integer(sigma_index),
+    re_time       = as.numeric(re_time),
+    re_sigma_init = as.numeric(re_sigma_init),
+    re_sigma_prior_family = as.character(re_sigma_prior_family),
+    re_sigma_prior_p1     = as.numeric(re_sigma_prior_p1),
+    re_sigma_prior_p2     = as.numeric(re_sigma_prior_p2),
+    re_rho_init   = as.numeric(re_rho_init),
+    re_rho_prior_family = as.character(re_rho_prior_family),
+    re_rho_prior_p1     = as.numeric(re_rho_prior_p1),
+    re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
+    re_obs_value  = as.numeric(re_obs_value),
+    re_obs_sd     = as.numeric(re_obs_sd),
+    re_obs_est    = as.logical(re_obs_est)
   )
   validate_linkage_table(out)
   out
@@ -243,7 +392,16 @@ linkage_row <- function(process, param, X_col,
     ag <- if (is.na(row$age_bin)) seq_len(data_list$nages[s]) else as.integer(row$age_bin)
     per_sp[[as.character(s)]] <- list(sex = sx, age = ag)
   }
-  list(species = spp, per_sp = per_sp)
+  # Fleet is not nested inside species the way sex and age are: a fleet
+  # already implies its species via fleet_control$Species, so it resolves
+  # once against the full fleet set rather than per species.
+  flt <- if (is.na(row$fleet)) {
+    seq_len(nrow(data_list$fleet_control))
+  } else {
+    as.integer(row$fleet)
+  }
+
+  list(species = spp, per_sp = per_sp, fleet = flt)
 }
 
 
@@ -275,7 +433,7 @@ bind_linkage <- function(...) {
 print.Rceattle_linkage_table <- function(x, ...) {
   cat(sprintf("<Rceattle linkage table: %d coefficient(s)>\n", nrow(x)))
   if (nrow(x) == 0L) return(invisible(x))
-  show <- c("process", "param", "species", "sex", "age_bin",
+  show <- c("process", "param", "species", "sex", "age_bin", "fleet",
             "design_col", "link", "init", "prior_family", "est_phase")
   print(format(x[, show, drop = FALSE]), row.names = FALSE)
   invisible(x)
