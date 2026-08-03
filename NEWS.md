@@ -8,6 +8,17 @@
   -- previously it accepted only the integer. The diet likelihood has no AFSC variant,
   so `"MultinomialAFSC"` / `-1` is rejected with a clear message.
 
+## Bug fixes
+
+* **Optional-input default messages fire only when the model uses the input.** The
+  "not specified, assuming ..." messages for `alpha_wt_len`, `beta_wt_len`, and
+  `Selectivity_dimension` now print only when growth is estimated (`growth_model > 0`);
+  `CAAL_distribution` / `CAAL_weights` only when the model has CAAL data; and
+  `Sel_norm_bin_upper` only when a fleet normalizes selectivity at a specific bin. The
+  default value is still applied silently in every case -- this only stops the messages
+  nagging about inputs the configuration never consumes (e.g. weight-length parameters
+  in a single-species age-based model).
+
 # Rceattle 5.1.0
 
 ## New features

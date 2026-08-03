@@ -341,6 +341,21 @@ switch_check <- function(data_list){
     message("'srr_fun' are not included in data, assuming 0")
   }
 
+  # Gate optional-input default messages so they fire only when the model actually
+  # uses the input (mirrors the PR's conditional data-requirement reporting), rather
+  # than nagging about inputs the configuration never consumes. Read here, before the
+  # defaults below overwrite the raw fleet_control values:
+  #   - growth_estimated: weight-length (alpha_wt_len / beta_wt_len) and the
+  #     selectivity dimension are only consumed when growth is estimated (growth_model > 0);
+  #   - has_caal: the CAAL distribution / weights defaults only matter with CAAL data;
+  #   - sel_norm_upper: the selectivity-normalization upper bin only matters when a fleet
+  #     normalizes at a specific bin (Sel_norm_bin >= 0), not max-normalized / off.
+  .dflt_when <- list(
+    growth_estimated = isTRUE(any(data_list$growth_model > 0)),
+    has_caal         = isTRUE(nrow(data_list$caal_data) > 0),
+    sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE))
+  )
+
   # Model and multi-species switches
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
   # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
@@ -361,8 +376,12 @@ switch_check <- function(data_list){
   # Resolve readable strings ("Multinomial" / "DirichletMultinomial") to the integer
   # codes the C++ diet likelihood reads; integer input passes through unchanged.
   data_list$Diet_distribution <- .map_switch(data_list$Diet_distribution, diet_loglike_map, "Diet_distribution")
-  data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
-  data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
+  # alpha_wt_len / beta_wt_len (the length -> weight conversion) are only used when
+  # growth is estimated, so only announce the default then; otherwise fill silently.
+  data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6,
+    if (.dflt_when$growth_estimated) "'alpha_wt_len' not specified in data, assuming 1e-6")
+  data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3,
+    if (.dflt_when$growth_estimated) "'beta_wt_len' not specified in data, assuming 3")
   data_list <- .alias_est_M1(data_list)
   data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
   data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
@@ -404,7 +423,7 @@ switch_check <- function(data_list){
   # message order) is unchanged.
   .sch <- .rce_column_schema()
   data_list$fleet_control$Sel_norm_bin <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin, "Sel_norm_bin", .sch)
-  data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch)
+  data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch, conditions = .dflt_when)
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
@@ -493,14 +512,14 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
   data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
   data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
-  data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch)
+  data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
-  data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch)
+  data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch, conditions = .dflt_when)
   data_list$fleet_control$Index_distribution <- .rce_apply_default(data_list$fleet_control$Index_distribution, "Index_distribution", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
   # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only the
   # covariance survey) leaves the other rows NA, which should default to Lognormal.
   data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <- "Lognormal"
-  data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch)
+  data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Month <- .rce_apply_default(data_list$fleet_control$Month, "Month", .sch)

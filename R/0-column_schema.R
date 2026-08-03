@@ -121,7 +121,7 @@
     .rce_col("Species", "fleet_control", "Species number", type = "integer"),
     .rce_col("Selectivity_index", "fleet_control", "Index to mirror selectivities (otherwise, same as fleet_code)", type = "integer"),
     .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk (AMAK 'pm')\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map"),
-    .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'"),
+    .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'", default_msg_when = "growth_estimated"),
     .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, or 9).", type = "integer", aliases = "Nselages"),
     .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
     .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9) selectivity (the intuitive alternative is Sel_curvature_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
@@ -140,11 +140,11 @@
     .rce_col("Sel_avgsel_pen", "fleet_control", "Weight on the AMAK avgsel base-level penalty (type 9); 0 = off (default), 10 matches AMAK.", meta = TRUE, has_default = TRUE, default = 0),
     .rce_col("Sel_cap_bin", "fleet_control", "NonParametricRPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age"),
     .rce_col("Sel_norm_bin", "fleet_control", "Age/length bin at which selectivity = 1. \r\nIf NA, it will not normalize selectivity. \r\nIf < 0, will normalize selectivity by the max.", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected", "Sel_norm_bin1")),
-    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected_upper", "Sel_norm_bin2")),
+    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2")),
     .rce_col("Comp_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "MultinomialAFSC", default_msg = "'Comp_distribution' not specified in 'fleet_control', assuming 'MultinomialAFSC'", aliases = "Comp_loglike"),
     .rce_col("Comp_weights", "fleet_control", "Composition weights for composition likelihood. \r\nAfter running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean."),
-    .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", aliases = "CAAL_loglike"),
-    .rce_col("CAAL_weights", "fleet_control", "Composition weights for CAAL  likelihood.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1"),
+    .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", default_msg_when = "has_caal", aliases = "CAAL_loglike"),
+    .rce_col("CAAL_weights", "fleet_control", "Composition weights for CAAL  likelihood.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1", default_msg_when = "has_caal"),
     .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA),
     .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA),
     .rce_col("Observation_units", "fleet_control", "1 = catch/index is weight (kg) the observation \r\n2 = catch/index is in numbers", type = "integer", aliases = c("Weight1_Numbers2", "weight1_Numbers2")),
@@ -215,13 +215,23 @@
 #' @keywords internal
 #' @noRd
 .rce_apply_default <- function(val, col, schema = .rce_column_schema(),
-                               np_hake = FALSE) {
+                               np_hake = FALSE, conditions = list()) {
   if (!is.null(val)) return(val)
   row <- schema[[col]]
   if (is.null(row) || !isTRUE(row$has_default))
     stop("Internal: no schema default for column '", col, "'")
-  msg <- row$default_msg
-  if (identical(row$default_msg_when, "np_hake") && !isTRUE(np_hake)) msg <- NULL
+  msg  <- row$default_msg
+  # A gated default message fires only when its condition holds -- so we don't
+  # nag about an optional input the current model configuration never uses (e.g.
+  # a CAAL distribution for a model with no CAAL data). The gate is named in the
+  # schema's `default_msg_when`; `np_hake` is the legacy first-class gate, every
+  # other named gate is supplied in `conditions` (a named logical list computed by
+  # switch_check()). An ungated message (no `default_msg_when`) always fires.
+  gate <- row$default_msg_when
+  if (!is.null(gate) && nzchar(gate)) {
+    on <- if (identical(gate, "np_hake")) isTRUE(np_hake) else isTRUE(conditions[[gate]])
+    if (!on) msg <- NULL
+  }
   if (!is.null(msg)) message(msg)
   row$default
 }

@@ -70,22 +70,47 @@ test_that("schema-driven defaults fill the documented values", {
   expect_true(all(out$fleet_control$Index_distribution == "Lognormal"))
 })
 
-test_that("default messages fire for messaged columns and stay silent otherwise", {
-  d <- BS2017SS
+test_that("default messages fire for ungated messaged columns and stay silent otherwise", {
+  d <- BS2017SS   # single-species, no estimated growth, no CAAL data
   for (col in c("Selectivity_dimension", "Comp_distribution", "Month",
                 "Sel_avgsel_pen", "Sel_shape_mode"))
     d$fleet_control[[col]] <- NULL
 
   msgs <- capture_messages(switch_check(d))
 
-  # Messaged columns announce their default.
-  expect_true(any(grepl("'Selectivity_dimension' not specified", msgs, fixed = TRUE)))
+  # Ungated messaged columns always announce their default.
   expect_true(any(grepl("'Comp_distribution' not specified", msgs, fixed = TRUE)))
   expect_true(any(grepl("'Month' not specified", msgs, fixed = TRUE)))
+
+  # Selectivity_dimension's message is gated on estimated growth (growth_model > 0);
+  # BS2017SS estimates none, so it stays silent (the default is still applied).
+  expect_false(any(grepl("'Selectivity_dimension' not specified", msgs, fixed = TRUE)))
 
   # Silent-default columns (default_msg = NULL) never announce.
   expect_false(any(grepl("Sel_avgsel_pen", msgs)))
   expect_false(any(grepl("Sel_shape_mode", msgs)))
+})
+
+test_that(".rce_apply_default gates optional-input messages on named conditions", {
+  schema <- .rce_column_schema()
+  gated <- list(
+    Selectivity_dimension = "growth_estimated",
+    CAAL_distribution     = "has_caal",
+    CAAL_weights          = "has_caal",
+    Sel_norm_bin_upper    = "sel_norm_upper"
+  )
+  for (col in names(gated)) {
+    cond <- gated[[col]]
+    # condition FALSE -> value still filled, but no message
+    expect_silent(v_off <- .rce_apply_default(NULL, col, schema,
+                                              conditions = stats::setNames(list(FALSE), cond)))
+    expect_equal(v_off, schema[[col]]$default)
+    # condition TRUE -> the default message fires
+    msg <- capture_messages(.rce_apply_default(NULL, col, schema,
+                                               conditions = stats::setNames(list(TRUE), cond)))
+    expect_true(any(grepl(col, msg, fixed = TRUE)),
+                info = paste("expected default message for", col, "when", cond, "is TRUE"))
+  }
 })
 
 test_that(".rce_apply_default gates the Sel_curve_pen message on np_hake", {
