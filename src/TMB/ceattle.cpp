@@ -721,7 +721,7 @@ Type objective_function<Type>::operator() () {
   for( sp = 0; sp < nspp ; sp++) {
 
     if(initMode < 3 || initMode == 5){
-      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (FishedEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
+      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (OffsetEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
     }
 
     // Sex ratio for SSB derivation
@@ -1319,10 +1319,11 @@ Type objective_function<Type>::operator() () {
             }
 
             // - Equilibrium or non-equilibrium estimated as function of Rinit, Finit, mortality, and init devs
-            // Finit is set to 0 when initMode != 2
+            // Finit is 0 for initMode 0, 1, 2, and 5; it is estimated only for
+            // the fished non-equilibrium modes 3 and 4 (see section 6.1).
             if(initMode > 0){
 
-              // FishedEquilibrium (initMode 5): seed the initial age-structure
+              // OffsetEquilibrium (initMode 5): seed the initial age-structure
               // off the FIRST-YEAR recruitment exp(rec_pars + rec_dev(sp, 0))
               // rather than the mean-recruitment equilibrium R0, with init devs
               // off (Cole Monnahan / AFSC GOA pollock convention). Scaling R_init
@@ -1334,7 +1335,7 @@ Type objective_function<Type>::operator() () {
                 init_log_scalar = rec_dev(sp, 0);
               }
 
-              // Sum M1 until age - 1. FishedEquilibrium (5) uses the same
+              // Sum M1 until age - 1. OffsetEquilibrium (5) uses the same
               // standard departing-age cumulative-M decay as the equilibrium
               // modes (Finit is 0 for mode 5).
               if((initMode == 1) | (initMode == 2) | (initMode == 3) | (initMode == 5)){
@@ -3390,7 +3391,7 @@ Type objective_function<Type>::operator() () {
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
-    // initMode 5 (FishedEquilibrium) fixes init_dev at 0 (off), like the
+    // initMode 5 (OffsetEquilibrium) fixes init_dev at 0 (off), like the
     // equilibrium modes, so it carries no init_dev penalty.
     if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {

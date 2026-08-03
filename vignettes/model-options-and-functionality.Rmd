@@ -67,6 +67,7 @@ Codes (also accept the string aliases listed):
 | `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
 | `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> is added to M inside geometric series |
 | `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub>|
+| `5` | `"OffsetEquilibrium"` | Unfished equilibrium, F<sub>init</sub> = 0, displaced by the year-1 recruitment deviation instead of sitting at R<sub>init</sub>; init devs off, no init-dev penalty (Cole Monnahan / AFSC GOA pollock convention) |
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 

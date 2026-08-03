@@ -378,7 +378,7 @@ run_config <- function(x, ...) {
 #' @return Invisibly, the `Rceattle_run_config` that was written.
 #' @seealso [load_config()], [run_config()], [model_config()], [fit_mod()].
 #' @examples
-#' cfg <- model_config(msmMode = 1, initMode = "FishedEquilibrium")
+#' cfg <- model_config(msmMode = 1, initMode = "OffsetEquilibrium")
 #' f <- file.path(tempdir(), "run.yaml")
 #' save_config(cfg, f)
 #' identical(load_config(f)$model_config$msmMode, 1)

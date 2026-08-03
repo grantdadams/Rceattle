@@ -338,15 +338,18 @@
 
 ## New features
 
-* **`initMode = "FishedEquilibrium"` (5).** A new initial-age-structure mode: an
+* **`initMode = "OffsetEquilibrium"` (5).** A new initial-age-structure mode: an
   F = 0 equilibrium seeded by the *first-year* recruitment
-  (`exp(rec_pars + rec_dev[year 1])`) decayed by natural mortality, with initial
-  deviates turned off and no init-dev penalty. Unlike `initMode = "Equilibrium"`
-  (which seeds off the mean-recruitment equilibrium `R0`), the initial numbers
-  track the year-1 recruitment deviation, matching the AFSC GOA pollock (Cole
-  Monnahan) convention — the first-year cohort and the initial age composition
-  share one deviation. Every other mode is unchanged (golden references
-  bit-identical).
+  (`R_init * exp(rec_dev[year 1])`) decayed by residual natural mortality `M1`,
+  with initial deviates turned off and no init-dev penalty. Unlike
+  `initMode = "Equilibrium"`, which sits at the initial equilibrium recruitment
+  `R_init`, the initial numbers track the year-1 recruitment deviation, matching
+  the AFSC GOA pollock (Cole Monnahan) convention — the first-year cohort and
+  the initial numbers-at-age share one deviation. The name refers to that
+  offset; the equilibrium itself is unfished. Note the deviation enters as a
+  single scalar on every age, so it moves the level of the initial numbers-at-age
+  without changing their proportions-at-age. Every other mode is unchanged
+  (golden references bit-identical).
 
 * **Priors on base selectivity parameters through the linkage grammar.** A
   selectivity linkage with an intercept-only formula and a `priors` entry now
