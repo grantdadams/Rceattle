@@ -393,3 +393,126 @@ merge_dsem_map <- function(map, dsem) {
   map$mapFactor <- c(map$mapFactor, dsem$tmb_inputs$map)
   map
 }
+
+
+# ---- Pre-fit DSEM spec screen ----
+# Moved from R/0-convergence.R during the dev-data-workflow (v5.0) merge so it
+# lives with the other DSEM builders. Depends on the .conv_record/.conv_overall
+# convergence internals -- reconcile with v5.0 R/0-convergence.R in Tier 3.
+#' Pre-fit screen of a DSEM recruitment specification
+#'
+#' Runs the Tier-1 (\code{"spec"}) convergence checks on a built DSEM and the
+#' model's \code{env_data}, returning the same \code{"Rceattle_convergence"}
+#' object as [convergence_diagnostics()]. \code{fit_mod()} runs this
+#' automatically after building the DSEM (results merged into
+#' \code{fit$convergence}); call it directly to screen a spec before fitting.
+#'
+#' Checks (tier \code{"spec"}):
+#' \itemize{
+#'   \item \code{rec_predictor_observability} -- recruitment predictors observed
+#'     in a low fraction of hindcast years (free latents may absorb recruitment
+#'     variance -> sigmaR collapse).
+#'   \item \code{rec_design_conditioning} -- condition number / max pairwise
+#'     correlation of the lag-aligned recruitment design matrix (collinear
+#'     predictors).
+#'   \item \code{covariate_scale} -- recruitment covariates spanning orders of
+#'     magnitude in SD (ill-conditioning; consider standardizing).
+#' }
+#'
+#' @param data_list A cleaned data list (must carry \code{env_data},
+#'   \code{styr}, \code{endyr}).
+#' @param dsem A built DSEM object (from [build_dsem_objects()]) carrying
+#'   \code{sem_full}.
+#'
+#' @return An object of class \code{"Rceattle_convergence"}.
+#' @export
+check_dsem_spec <- function(data_list, dsem) {
+  empty <- structure(list(status = "OK", checks = list()),
+                     class = "Rceattle_convergence")
+  sf <- tryCatch(dsem$sem_full, error = function(e) NULL)
+  ed <- data_list$env_data
+  if (is.null(sf) || is.null(ed) || is.null(ed$Year)) return(empty)
+
+  # Recruitment paths: one-headed (direction 1) arrows into a recdevs* node.
+  is_rec <- grepl("^recdevs", as.character(sf$second)) &
+            as.numeric(sf$direction) == 1
+  rec <- sf[is_rec, , drop = FALSE]
+  if (nrow(rec) == 0) return(empty)
+
+  preds <- intersect(unique(as.character(rec$first)), colnames(ed))
+  if (length(preds) == 0) return(empty)
+
+  styr <- data_list$styr; endyr <- data_list$endyr
+  yrs  <- styr:endyr
+  nyr  <- length(yrs)
+  edh  <- ed[ed$Year %in% yrs, , drop = FALSE]
+  out  <- list()
+
+  # T1.1 -- latent observability of recruitment predictors
+  cov_frac <- vapply(preds, function(p) sum(!is.na(edh[[p]])) / nyr, numeric(1))
+  low <- preds[cov_frac < 0.5]
+  if (length(low) > 0) {
+    sev <- if (any(cov_frac[low] < 0.25)) "WARN" else "NOTE"
+    out$rec_predictor_observability <- .conv_record(
+      "rec_predictor_observability", "spec", sev,
+      sprintf(paste0(
+        "Recruitment predictor(s) observed in <50%% of hindcast years: %s. ",
+        "Sparse latents can absorb recruitment variance and drive sigmaR to 0."),
+        paste(sprintf("%s (%.0f%%)", low, 100 * cov_frac[low]),
+              collapse = ", ")),
+      data.frame(predictor = preds, coverage = round(cov_frac, 3),
+                 row.names = NULL))
+  }
+
+  # T1.2 -- lag-aligned recruitment design conditioning
+  cols <- lapply(seq_len(nrow(rec)), function(i) {
+    p   <- as.character(rec$first[i]); lag <- as.numeric(rec$lag[i])
+    if (!p %in% colnames(ed)) return(NULL)
+    ed[[p]][match(yrs - lag, ed$Year)]   # predictor at the lag the SEM uses
+  })
+  names(cols) <- make.unique(paste0(rec$first, "_lag", rec$lag))
+  cols <- cols[!vapply(cols, is.null, logical(1))]
+  if (length(cols) >= 2) {
+    X  <- do.call(cbind, cols)
+    Xc <- X[stats::complete.cases(X), , drop = FALSE]
+    if (nrow(Xc) > ncol(Xc)) {
+      keep <- apply(Xc, 2, function(z) stats::sd(z) > 0)
+      Xc   <- Xc[, keep, drop = FALSE]
+      if (ncol(Xc) >= 2) {
+        R     <- stats::cor(Xc)
+        kap   <- tryCatch(kappa(R, exact = TRUE), error = function(e) NA_real_)
+        maxr  <- max(abs(R[upper.tri(R)]))
+        sev   <- if ((is.finite(kap) && kap > 100) || maxr > 0.9) "WARN"
+                 else if (maxr > 0.8) "NOTE" else "OK"
+        if (sev != "OK") {
+          out$rec_design_conditioning <- .conv_record(
+            "rec_design_conditioning", "spec", sev,
+            sprintf(paste0("Collinear lag-aligned recruitment design ",
+              "(condition number = %.3g, max |r| = %.2f over %d years)."),
+              kap, maxr, nrow(Xc)),
+            list(condition_number = kap, max_abs_cor = maxr, R = R))
+        }
+      }
+    }
+  }
+
+  # T1.5 -- covariate scale heterogeneity
+  sds <- vapply(preds, function(p) stats::sd(ed[[p]], na.rm = TRUE), numeric(1))
+  sds <- sds[is.finite(sds) & sds > 0]
+  if (length(sds) >= 2) {
+    ratio <- max(sds) / min(sds)
+    if (ratio > 20) {
+      out$covariate_scale <- .conv_record(
+        "covariate_scale", "spec", "NOTE",
+        sprintf(paste0("Recruitment covariates span %.0fx in SD (%s: %.3g; ",
+          "%s: %.3g); consider standardizing env_data."),
+          ratio, names(which.max(sds)), max(sds),
+          names(which.min(sds)), min(sds)),
+        data.frame(predictor = names(sds), sd = signif(sds, 3),
+                   row.names = NULL))
+    }
+  }
+
+  structure(list(status = .conv_overall(out), checks = out),
+            class = "Rceattle_convergence")
+}
