@@ -1,3 +1,39 @@
+# Rceattle 5.1.2
+
+## Bug fixes
+
+* **The diagnostic refit paths preserve catchability / selectivity / composition
+  linkages.** `.refit_like()` -- the engine behind `run_mse()`,
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, and `remove_F()` --
+  rebuilt the recruitment, M1, and growth specifications from the source model
+  but silently dropped the `build_catchability()` / `build_selectivity()` /
+  `build_composition()` linkages. On a model using any of them (e.g. a
+  Dirichlet-multinomial composition-weight prior), the reconstructed model
+  lacked the linkages' `beta_linkage` parameters while the warm-start values
+  still carried them, and `TMB::MakeADFun()` segfaulted on the length mismatch.
+  The three linkage constructors are now rebuilt from the stored `data_list`
+  fields (`q_linkages` / `sel_linkages` / `comp_linkages`), so these models run
+  through the MSE / retrospective / jitter loops.
+
+* **`run_mse()` extends the selectivity-deviation parameters at the model's own
+  sex dimension.** The projection-year extension of `log_sel_slp_dev` /
+  `sel_inf_dev` / `sel_coff_dev` hardcoded the sex dimension to 2, which for a
+  single-sex model both recycled the fitted values into a phantom second sex and
+  produced a warm-start whose length disagreed with the parameter template. Now
+  taken from the fitted arrays (`max_sex`).
+
+* **`fit_mod()` raises a clear error instead of crashing on mismatched
+  `inits`.** When the supplied `inits` omit a parameter the model declares, or
+  any parameter's length disagrees with the template implied by `data_list`
+  (a dropped linkage, or a warm start not extended to a later `endyr`),
+  `fit_mod()` now stops with a message naming the parameter and its lengths,
+  rather than letting `TMB::MakeADFun()` segfault in `getParameterOrder()`.
+
+* **The diagnostic refit paths preserve the `random_q` / `random_sel` switches.**
+  These are now stored on `data_list` (like `random_rec`) and forwarded by
+  `.refit_like()`, so a random-catchability or random-selectivity model keeps its
+  random-effect structure across MSE / retrospective / jitter refits instead of
+  silently reverting to fixed effects.
 # Rceattle 5.1.1
 
 ## New features
@@ -25,7 +61,6 @@
   default value is still applied silently in every case -- this only stops the messages
   nagging about inputs the configuration never consumes (e.g. weight-length parameters
   in a single-species age-based model).
-
 # Rceattle 5.1.0
 
 ## New features

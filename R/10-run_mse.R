@@ -439,10 +439,15 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns
-      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # -- Time-varing selectivity - Assume last year - filled by columns.
+      # Use the fitted arrays' own sex extent (max_sex), not a hardcoded 2: a
+      # single-sex model has sex-dim 1, and forcing 2 silently recycles the
+      # fitted values into a phantom second sex (and, since build_params sizes
+      # these by max_sex, mismatches the parameter template on the refit).
+      n_sex_om <- dim(om_use$estimated_params$log_sel_slp_dev)[3]
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_om, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
@@ -645,10 +650,13 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns
-      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # -- Time-varing selectivity - Assume last year - filled by columns.
+      # Sex extent from the fitted arrays (max_sex), not a hardcoded 2 -- see
+      # the OM extension above.
+      n_sex_em <- dim(em_use$estimated_params$log_sel_slp_dev)[3]
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_em, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev

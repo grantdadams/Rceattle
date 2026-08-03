@@ -313,6 +313,8 @@ fit_mod <-
 
     # Add switches from function call
     data_list$random_rec  <- as.numeric(random_rec)
+    data_list$random_q    <- as.numeric(random_q)
+    data_list$random_sel  <- as.numeric(random_sel)
     data_list$estimateMode <- estimateMode
     data_list$niter       <- niter
     data_list$avgnMode    <- avgnMode
@@ -502,6 +504,42 @@ fit_mod <-
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else {
       start_par <- inits
+
+      # Guard: catch `inits` that would make TMB::MakeADFun() segfault in
+      # getParameterOrder() instead of raising an R error, by comparing the
+      # supplied `inits` to the parameter template `build_params(data_list)`
+      # implies. Flagged when a declared parameter is absent, or when any
+      # parameter's length differs. Both are fatal: build_map() keeps the map
+      # consistent with `inits`, but the C++ still reads several parameters at
+      # data-driven bounds (linkage-table sizes for `*_linkage`; year bounds
+      # nyrs_hind / nyrs_proj for e.g. `index_q_dev`, `log_M1_dev`, `rec_dev`),
+      # so a too-short array reads out of bounds. The usual causes are `inits`
+      # from a fit that used build_catchability / build_selectivity /
+      # build_composition without the matching *Fun re-supplied (e.g. an older
+      # .refit_like()), or a warm start not extended to a later `endyr`.
+      .skel    <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      .missing <- setdiff(names(.skel), names(start_par))
+      .shared  <- intersect(names(.skel), names(start_par))
+      .badlen  <- .shared[vapply(.shared, function(nm)
+        length(unlist(start_par[[nm]])) != length(unlist(.skel[[nm]])), logical(1))]
+      if (length(.missing) || length(.badlen)) {
+        stop("`inits` do not match the parameters implied by `data_list`; ",
+             "TMB would crash on this. ",
+             if (length(.missing))
+               paste0("Missing: ", paste(.missing, collapse = ", "), ". ") else "",
+             if (length(.badlen))
+               paste0("Length mismatch: ",
+                      paste(sprintf("%s (inits %d, model %d)", .badlen,
+                        vapply(.badlen, function(nm) length(unlist(start_par[[nm]])), 1L),
+                        vapply(.badlen, function(nm) length(unlist(.skel[[nm]])), 1L)),
+                      collapse = "; "), ". ") else "",
+             "Rebuild `inits` for this `data_list` (inits = NULL builds them ",
+             "fresh); if these came from a fit at an earlier `endyr`, re-fit to ",
+             "extend the year-varying parameters, and if that fit used ",
+             "build_catchability() / build_selectivity() / build_composition(), ",
+             "pass the matching qFun / selFun / compFun.", call. = FALSE)
+      }
+      rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data |>

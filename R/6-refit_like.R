@@ -111,7 +111,17 @@
       linkages     = dl$M1_linkages)),
     growthFun = build_growth(fun      = dl$growth_fun,
                              linkages = dl$growth_linkages),
+    # Reconstruct the catchability / selectivity / composition-weight linkages
+    # so their beta_linkage parameters survive the refit. Without this the
+    # warm-start `inits` carry linkage betas the rebuilt model lacks, and
+    # MakeADFun segfaults on the length mismatch. Each build_*(NULL) is a no-op
+    # for models that do not use that linkage.
+    qFun       = build_catchability(linkages = dl$q_linkages),
+    selFun     = build_selectivity(linkages = dl$sel_linkages),
+    compFun    = build_composition(linkages = dl$comp_linkages),
     random_rec = dl$random_rec,
+    random_q   = isTRUE(as.logical(dl$random_q)),
+    random_sel = isTRUE(as.logical(dl$random_sel)),
     niter      = dl$niter,
     msmMode    = dl$msmMode,
     avgnMode   = dl$avgnMode,
