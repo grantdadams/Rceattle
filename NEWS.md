@@ -1,3 +1,31 @@
+# Rceattle 5.1.1
+
+## New features
+
+* **`Diet_distribution` accepts string aliases.** Like `Comp_distribution` and
+  `CAAL_distribution`, the per-predator diet composition likelihood switch now takes
+  `"Multinomial"` (0) or `"DirichletMultinomial"` (1) in addition to the integer code
+  -- previously it accepted only the integer. The diet likelihood has no AFSC variant,
+  so `"MultinomialAFSC"` / `-1` is rejected with a clear message.
+
+* **Clearer spec-tree printing for data objects and fits.** `print()`/`summary()` of an
+  `Rceattle_data` object or a fitted model now shows each switch by its string alias
+  (e.g. `srr_fun = mean`, `M1_model = fixed`, `msmMode = MSVPA`) rather than its raw
+  integer code, so the outline reads the same even if a code is renumbered. The fleet
+  section is laid out as aligned, `│`-separated columns with `sel:` / `q:` labels and a
+  `[shared: ...]` tag on mirrored selectivity/catchability blocks.
+
+## Bug fixes
+
+* **Optional-input default messages fire only when the model uses the input.** The
+  "not specified, assuming ..." messages for `alpha_wt_len`, `beta_wt_len`, and
+  `Selectivity_dimension` now print only when growth is estimated (`growth_model > 0`);
+  `CAAL_distribution` / `CAAL_weights` only when the model has CAAL data; and
+  `Sel_norm_bin_upper` only when a fleet normalizes selectivity at a specific bin. The
+  default value is still applied silently in every case -- this only stops the messages
+  nagging about inputs the configuration never consumes (e.g. weight-length parameters
+  in a single-species age-based model).
+
 # Rceattle 5.1.0
 
 ## New features
@@ -111,7 +139,7 @@
   `msmMode` now accept readable names alongside their integer codes:
   `estimateMode = "Estimate"` (0), `"Hindcast"` (1), `"Projection"` (2),
   `"DebugBuild"` (3), `"DebugOptimize"` (4); `msmMode = "SingleSpecies"` (0),
-  `"TypeIIMSVPA"` (1), `"TypeIIIMSVPA"` (2). The integer codes still work, and an
+  `"MSVPA"` (1), `"TypeIIIMSVPA"` (2). The integer codes still work, and an
   unrecognized string errors with the valid options listed.
 
 # Rceattle 5.0.2

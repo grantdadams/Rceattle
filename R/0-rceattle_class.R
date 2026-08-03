@@ -36,9 +36,11 @@ print.Rceattle <- function(x, ...) {
   cat(paste(tree, collapse = "\n"), "\n", sep = "")
 
   cat("  fit\n")
-  cat("  ├─ msmMode  :", dat$msmMode, "\n")
-  cat("  ├─ HCR      :", if (is.null(dat$HCR)) "(none)" else dat$HCR, "\n")
-  cat("  ├─ initMode :", if (is.null(dat$initMode)) NA else dat$initMode, "\n")
+  # Alias the integer switch codes to their string forms so the fit block reads the
+  # same regardless of the underlying code (matching the spec tree above).
+  cat("  ├─ msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
+  cat("  ├─ HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
+  cat("  ├─ initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
     cat("  -log L    :", signif(x$opt$objective, 6), "\n")
