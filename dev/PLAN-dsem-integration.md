@@ -26,6 +26,14 @@ everything else.
   check_dsem_spec`; untracked the `dev/` scratch scripts. **Loads + compiles at v5.0; DSEM
   present but INERT** (`fit_mod()` has no `dsem=` arg; `ceattle.cpp` does not `#include
   dsem.hpp` or call `calculate_dsem`).
+  - **Auto-merge leak caught & reset (commit after `b1275313`).** Several v5.0 files
+    auto-merged with dev-DSEM edits and moved the fit — `R/3-build_map.R` shifted the
+    BS2017SS golden objective ~18 units. Reset to **pure v5.0**: `R/3-build_map.R`,
+    `R/4-build_parameter_bounds.R`, `R/0-rceattle_class.R`, `R/0-read_write_excel_data.R`
+    (+ the auto-merged `tests/`, `man/`, examples). **BS2017SS now fits 10241.0304275
+    exactly.** The DSEM additions those four files carried on dev-DSEM must be re-applied
+    in Tier 1 (see the table below). The branch now equals v5.0 + the inert DSEM files
+    (diff vs `dev-data-workflow` is only DESCRIPTION/NAMESPACE/README + DSEM-new files).
 - [ ] Tier 1 — R wiring (`fit_mod`, params/map, data I/O)
 - [ ] Tier 2 — C++ re-wiring (`ceattle.cpp` recruitment path) — the crux
 - [ ] Tier 3 — tests, docs, verification
@@ -67,9 +75,14 @@ carried; verify the `helper_functions.hpp` DSEM helpers — v5.0's version was t
 - **`R/6-fit_mod.R`**: re-add the `dsem = build_DSEM()` arg and the DSEM-object build /
   `data_list$dsem_settings` threading (dev-DSEM `fit_mod` ~L104, L350–369), coexisting with
   the v5.0 `config=` overlay. Mirror how `recFun`/`M1Fun` flow.
-- **`R/2-build_params.R` / `R/3-build_map.R`**: re-add the DSEM parameters (latent states,
-  SEM path coefficients, obs-SD) and their map entries. dev-DSEM diffs: build_params `+4`,
-  build_map `+11` — small; graft onto the v5.0 builders.
+- **`R/2-build_params.R` / `R/3-build_map.R` / `R/4-build_parameter_bounds.R`**: re-add the
+  DSEM parameters (latent states, SEM path coefficients, obs-SD), their map entries, and
+  bounds. All were reset to pure v5.0 in Tier 0 — re-apply dev-DSEM's additions (get them via
+  `git diff <base> dev-DSEM -- R/2-build_params.R R/3-build_map.R R/4-build_parameter_bounds.R`).
+  **Gate each with the BS2017SS golden check — these are exactly the files whose auto-merge
+  moved the objective.**
+- **`R/0-rceattle_class.R`**: reset to v5.0; re-apply dev-DSEM's output-class additions
+  (the `$dsem` slot, print/summary of DSEM results) — `+126` lines on dev-DSEM.
 - **`R/0-read_write_excel_data.R`**: dev-DSEM added `env_data` / dsem-settings I/O (`+42`
   lines). It **auto-merged**, so verify `env_data` round-trips through `read_data`/`write_data`
   on the v5.0 schema (this is the "new element needs read/write support" trap from CLAUDE.md).
