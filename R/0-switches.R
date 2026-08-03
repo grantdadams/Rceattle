@@ -278,7 +278,7 @@ estimateMode_map <- c(
 # integer codes (Kinzey-Punt, Holling forms) are not yet implemented.
 msmMode_map <- c(
   "SingleSpecies" = 0,
-  "TypeIIMSVPA"   = 1,
+  "MSVPA"         = 1,
   "TypeIIIMSVPA"  = 2
 )
 

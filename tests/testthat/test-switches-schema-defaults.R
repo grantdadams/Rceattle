@@ -156,3 +156,11 @@ test_that("Diet_distribution accepts string and integer aliases (like Comp/CAAL)
   expect_error(suppressMessages(Rceattle:::switch_check(Rceattle:::clean_data(d))),
                "Diet_distribution")
 })
+
+test_that("the Type-II MSVPA msmMode alias is 'MSVPA'", {
+  expect_equal(unname(.map_switch("MSVPA", msmMode_map, "msmMode")), 1)
+  expect_equal(unname(.map_switch("SingleSpecies", msmMode_map, "msmMode")), 0)
+  # renamed from the pre-release "TypeIIMSVPA", which is no longer accepted
+  expect_false("TypeIIMSVPA" %in% names(msmMode_map))
+  expect_error(.map_switch("TypeIIMSVPA", msmMode_map, "msmMode"), "msmMode")
+})

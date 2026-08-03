@@ -132,7 +132,7 @@
   `msmMode` now accept readable names alongside their integer codes:
   `estimateMode = "Estimate"` (0), `"Hindcast"` (1), `"Projection"` (2),
   `"DebugBuild"` (3), `"DebugOptimize"` (4); `msmMode = "SingleSpecies"` (0),
-  `"TypeIIMSVPA"` (1), `"TypeIIIMSVPA"` (2). The integer codes still work, and an
+  `"MSVPA"` (1), `"TypeIIIMSVPA"` (2). The integer codes still work, and an
   unrecognized string errors with the valid options listed.
 
 # Rceattle 5.0.2

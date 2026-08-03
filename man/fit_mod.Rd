@@ -83,8 +83,9 @@ carrying any environmental linkages on q.}
 \item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
 
 \item{msmMode}{The predation-mortality mode, as a string alias or integer code:
-\code{"SingleSpecies"} (0, the default, no predation), \code{"TypeIIMSVPA"}
-(1, sensu Holsman et al. 2015) or \code{"TypeIIIMSVPA"} (2). Higher integer
+\code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
+(1, the Type-II MSVPA predation of Holsman et al. 2015) or
+\code{"TypeIIIMSVPA"} (2). Higher integer
 codes (Kinzey-Punt, Holling forms) are not yet implemented.}
 
 \item{avgnMode}{The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.}
