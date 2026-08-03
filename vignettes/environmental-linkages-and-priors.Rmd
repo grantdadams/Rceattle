@@ -89,8 +89,9 @@ linkage_spec(
   formula,
   param     = NULL,
   by        = ~ species,
-  species   = NULL,
+  species   = NULL,                 # ids or spnames
   sex       = NULL,
+  fleet     = NULL,                 # Fleet_codes or Fleet_names
   link      = "log",                # or "identity"
   init      = NULL,
   bounds    = NULL,
@@ -111,11 +112,15 @@ Key arguments (see `?linkage_spec` for the full list):
 * **`by`** -- stratifying factors (default `~species`); use
   `~species + sex` for per-(species, sex) coefficients, or `NULL`
   to share a single coefficient set.
-* **`species`** / **`sex`** -- restrict a spec to specific ids.
-  Use with the multi-spec form (*Per-species* / *Per-sex formulas*
-  below) to give different species or sexes different formulas.
-  `sex` accepts integers (`1L`, `2L`) or strings (`"Females"`/`"Males"`,
-  case-insensitive).
+* **`species`** / **`sex`** / **`fleet`** -- restrict a spec to specific
+  strata. Use with the multi-spec form (*Per-species* / *Per-sex formulas*
+  below) to give different species, sexes, or fleets different formulas.
+  `species` and `fleet` accept either 1-based ids or the model's own names
+  (`data_list$spnames` / `fleet_control$Fleet_name`); `sex` accepts
+  integers (`1L`, `2L`) or strings (`"Females"`/`"Males"`,
+  case-insensitive). Prefer names for fleets: an id that is wrong but in
+  range attaches the linkage to a different fleet and the model still fits,
+  while a misspelled name errors and lists the fleets you do have.
 * **`link`** -- relates the linear predictor to the natural-scale
   target. `"log"` (default) gives a multiplicative effect on natural
   `param`; `"identity"` gives an additive effect on natural `param`.
@@ -760,11 +765,14 @@ fit$quantities$q_linkage_offset      # [n_flt, nyrs]
 ```
 
 Restrict a spec to particular fleets with the `fleet` argument of
-`linkage_spec()`, and attach priors the same way as any other process:
+`linkage_spec()`, and attach priors the same way as any other process. Name
+the fleets rather than numbering them -- the names are checked against
+`fleet_control$Fleet_name` when the model is assembled, whereas a
+`Fleet_code` typo that stays in range quietly links the wrong survey:
 
 ```{r}
 build_catchability(linkages = list(
-  q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+  q = linkage_spec(~ temp, by = ~ fleet, fleet = c("Pollock", "EIT_Pollock"),
                    priors = list(temp = normal(0, 1)))))
 ```
 

@@ -463,9 +463,12 @@ fit_mod <-
                          sel         = data_list$sel_linkages,
                          comp        = data_list$comp_linkages),
       env_data    = data_list$env_data,
+      # The fleet / species levels carry the model's own names, so a spec built
+      # with `linkage_spec(fleet = "Shelikof")` can be resolved to an id.
       strata      = list(
-        fleet   = seq_len(nrow(data_list$fleet_control)),
-        species = seq_len(data_list$nspp),
+        fleet   = .label_strata(seq_len(nrow(data_list$fleet_control)),
+                                data_list$fleet_control$Fleet_name),
+        species = .label_strata(seq_len(data_list$nspp), data_list$spnames),
         sex     = if (length(data_list$nsex) > 1L &&
                       length(unique(data_list$nsex)) > 1L) {
           stats::setNames(lapply(seq_len(data_list$nspp),

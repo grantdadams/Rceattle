@@ -43,8 +43,13 @@ NULL
 #'   e.g. `~species + sex` for per-(species, sex) coefficients, or
 #'   `NULL` to share a single coefficient across every stratum. An
 #'   explicit `by` (including `NULL`) is always kept as given.
-#' @param species optional integer vector of 1-based species ids that
-#'   this spec applies to. `NULL` (default) means every species in
+#' @param species optional vector of species that this spec applies to,
+#'   given either as 1-based species ids (`c(1L, 2L)`) or as species
+#'   **names** matching `data_list$spnames` (`c("Pollock", "Cod")`).
+#'   Names are matched exactly, after trimming whitespace, when the model
+#'   is assembled in [fit_mod()]; an unrecognized name is an error that
+#'   lists the model's species. Give ids or names, not a mix -- R coerces
+#'   `c(1, "Cod")` to `c("1", "Cod")`. `NULL` (default) means every species in
 #'   `strata$species` at materialization time. Use this to give
 #'   different species different formulas, e.g. by registering
 #'   multiple specs against the same parameter -- see
@@ -58,11 +63,20 @@ NULL
 #'   filter is a no-op. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
-#' @param fleet optional integer vector of 1-based `Fleet_code`s this spec
-#'   applies to. `NULL` (default) means every fleet in `strata$fleet` at
-#'   materialization time. Only meaningful when `by` includes `fleet`;
-#'   otherwise the filter is a no-op. Used by catchability and selectivity
-#'   linkages to give different fleets different formulas.
+#' @param fleet optional vector of fleets this spec applies to, given
+#'   either as 1-based `Fleet_code`s (`c(1L, 3L)`) or as fleet **names**
+#'   matching `fleet_control$Fleet_name` (`c("Shelikof", "Summer BT")`).
+#'   Names are matched exactly, after trimming whitespace, when the model
+#'   is assembled in [fit_mod()]; an unrecognized name -- or one that is
+#'   not unique in `fleet_control` -- is an error that lists the model's
+#'   fleets. Prefer names: a `Fleet_code` that is wrong but in range
+#'   attaches the linkage to a different fleet and still fits, whereas a
+#'   misspelled name cannot. Give ids or names, not a mix -- R coerces
+#'   `c(7, "Pollock")` to `c("7", "Pollock")`. `NULL` (default) means every fleet in
+#'   `strata$fleet` at materialization time. Only meaningful when `by`
+#'   includes `fleet`; otherwise the filter is a no-op. Used by
+#'   catchability and selectivity linkages to give different fleets
+#'   different formulas.
 #' @param link link function relating the linear predictor to the
 #'   natural-scale target parameter. One of `"log"` (default) or
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
@@ -171,22 +185,19 @@ linkage_spec <- function(formula,
   if (!is.null(by) && !inherits(by, "formula")) {
     stop("`by` must be a one-sided formula (e.g. ~species + sex) or NULL")
   }
+  # `species` / `fleet` take either 1-based ids or the model's own names. A name
+  # cannot be resolved here -- linkage_spec() never sees a data_list, by design
+  # (capture is split from materialization) -- so it is carried through as a
+  # string and resolved in materialize_linkage() against the strata labels
+  # fit_mod() attaches. Ids are coerced now, exactly as before.
   if (!is.null(species)) {
-    species <- as.integer(species)
-    if (anyNA(species) || any(species < 1L)) {
-      stop("`species` must be a vector of positive 1-based species ids",
-           call. = FALSE)
-    }
+    species <- .coerce_stratum_arg(species, "species", "species ids")
   }
   if (!is.null(sex)) {
     sex <- .coerce_sex_arg(sex)
   }
   if (!is.null(fleet)) {
-    fleet <- as.integer(fleet)
-    if (anyNA(fleet) || any(fleet < 1L)) {
-      stop("`fleet` must be a vector of positive 1-based Fleet_code values",
-           call. = FALSE)
-    }
+    fleet <- .coerce_stratum_arg(fleet, "fleet", "Fleet_code values")
   }
   link <- match.arg(link, LINKAGE_LINKS)
   .check_link_implemented(link)
@@ -416,6 +427,152 @@ linkage_spec <- function(formula,
   sex
 }
 
+#' Coerce a `species` / `fleet` selector to ids-or-names.
+#'
+#' Unlike `sex` -- whose "Females"/"Males" mapping is universal and so can be
+#' resolved on the spot -- a species or fleet name only means something relative
+#' to a particular `data_list`. Character input is therefore validated for shape
+#' and returned as-is, to be resolved later by
+#' \code{.resolve_spec_strata_names()}. Numeric input is coerced to positive
+#' 1-based ids exactly as before.
+#'
+#' A factor is converted to its labels first: `as.integer()` on a factor
+#' silently returns level codes, which would attach the linkage to whichever
+#' fleet happens to sit at that position.
+#'
+#' @param x the user-supplied `species` / `fleet` argument (non-NULL).
+#' @param arg argument name, for error messages.
+#' @param id_label how to describe the integer form ("species ids").
+#' @return Either a positive integer vector or a character vector of names.
+#' @keywords internal
+#' @noRd
+.coerce_stratum_arg <- function(x, arg, id_label) {
+  if (is.factor(x)) x <- as.character(x)
+  if (is.character(x)) {
+    x <- trimws(x)
+    if (anyNA(x) || !all(nzchar(x))) {
+      stop(sprintf("`%s` names must be non-empty, non-NA strings.", arg),
+           call. = FALSE)
+    }
+    return(x)
+  }
+  x <- as.integer(x)
+  if (anyNA(x) || any(x < 1L)) {
+    stop(sprintf(paste0("`%s` must be a vector of positive 1-based %s, or the ",
+                        "corresponding name(s)."), arg, id_label),
+         call. = FALSE)
+  }
+  x
+}
+
+#' Resolve one character stratum selector against the model's own labels.
+#'
+#' Matching is exact after whitespace trimming (deliberately case-sensitive:
+#' `Fleet_name` is user data, and case-folding could make two genuinely distinct
+#' fleets collide). Both failure modes name the offender and print the valid set,
+#' because the alternative -- an id that is wrong but in range -- attaches the
+#' linkage to a different fleet and still fits.
+#'
+#' @param x the selector; returned untouched unless it is character.
+#' @param labels the stratum labels, or `NULL` when the caller supplied none.
+#' @param arg argument name, for error messages.
+#' @param source_label where the labels come from, for error messages.
+#' @return A positive integer vector of 1-based ids.
+#' @keywords internal
+#' @noRd
+.resolve_stratum_names <- function(x, labels, arg, source_label) {
+  if (is.null(x) || !is.character(x)) return(x)
+  # A blank or NA label is simply unmatchable (`NA == k` is NA, which `which()`
+  # drops), so only a wholly unusable label set is fatal -- one missing name
+  # must not stop the other strata being selected by theirs.
+  usable <- !is.null(labels) && any(!is.na(labels) & nzchar(labels))
+  if (!usable) {
+    stop(sprintf(paste0(
+      "`%s` was given as name(s) (%s), but this model carries no %s to match ",
+      "against. Supply 1-based ids instead."),
+      arg, paste(shQuote(x), collapse = ", "), source_label), call. = FALSE)
+  }
+  hits <- lapply(x, function(k) which(trimws(labels) == k))
+
+  bad <- x[lengths(hits) == 0L]
+  if (length(bad) > 0L) {
+    # `c(7L, "Pollock")` is coerced by R to `c("7", "Pollock")` before it ever
+    # reaches us, so a whole-number "name" almost always means the caller mixed
+    # ids and names in one vector. Say so -- otherwise the error reads as though
+    # a fleet really is called "7".
+    hint <- if (any(grepl("^[0-9]+$", bad))) sprintf(paste0(
+      "\n  %s looks like an id, not a name: `%s` takes ids or names but not ",
+      "both, and R coerces a mixed c(7, \"%s\") to c(\"7\", \"%s\"). Use all ",
+      "ids or all names."),
+      paste(shQuote(unique(bad[grepl("^[0-9]+$", bad)])), collapse = ", "),
+      arg, labels[1], labels[1]) else ""
+    stop(sprintf("unknown `%s` name(s): %s.\n  This model's %s: %s.%s",
+                 arg, paste(shQuote(unique(bad)), collapse = ", "),
+                 source_label, paste(shQuote(labels), collapse = ", "), hint),
+         call. = FALSE)
+  }
+  dup <- x[lengths(hits) > 1L]
+  if (length(dup) > 0L) {
+    stop(sprintf(paste0(
+      "`%s` name(s) %s match more than one entry in the model's %s, so they ",
+      "cannot identify a single stratum. Make the names unique, or select by ",
+      "1-based id."),
+      arg, paste(shQuote(unique(dup)), collapse = ", "), source_label),
+      call. = FALSE)
+  }
+  as.integer(unlist(hits))
+}
+
+#' Resolve a spec's `species` / `fleet` names against the strata labels.
+#'
+#' @param spec an `Rceattle_linkage_spec`.
+#' @param strata the `strata` list passed to [materialize_linkage()]; its
+#'   `species` / `fleet` elements may carry names (see [pool_linkages()]).
+#' @return `spec`, with `species` / `fleet` as 1-based integer ids.
+#' @keywords internal
+#' @noRd
+.resolve_spec_strata_names <- function(spec, strata) {
+  spec$species <- .resolve_stratum_names(
+    spec$species, names(strata$species), "species",
+    "species names (data_list$spnames)")
+  spec$fleet <- .resolve_stratum_names(
+    spec$fleet, names(strata$fleet), "fleet",
+    "fleet names (fleet_control$Fleet_name)")
+  spec
+}
+
+#' Drop the label names from atomic strata vectors.
+#'
+#' Names on `strata$species` / `strata$fleet` are labels for name resolution
+#' only; left in place they ride through `expand.grid()` into the level grid and
+#' out onto the materialized table's id columns. Species-keyed *lists*
+#' (`strata$sex`, `strata$age_bin`) keep their names, which are load-bearing.
+#'
+#' @param strata the `strata` list.
+#' @return `strata`, with names stripped from its atomic elements.
+#' @keywords internal
+#' @noRd
+.strata_drop_labels <- function(strata) {
+  lapply(strata, function(v) if (is.list(v)) v else unname(v))
+}
+
+#' Attach the model's labels to a stratum-level vector.
+#'
+#' Labels are what let a spec select a species / fleet by name. Missing or
+#' wrong-length labels are dropped rather than recycled: an unlabelled stratum
+#' gives a clear "this model carries no names" error at resolution time, whereas
+#' a recycled label would resolve to the wrong id.
+#'
+#' @param ids 1-based integer ids.
+#' @param labels the corresponding names, or `NULL`.
+#' @return `ids`, named by `labels` when usable.
+#' @keywords internal
+#' @noRd
+.label_strata <- function(ids, labels) {
+  if (is.null(labels) || length(labels) != length(ids)) return(ids)
+  stats::setNames(ids, as.character(labels))
+}
+
 
 .validate_linkage_init_arg <- function(init) {
   if (is.null(init)) return(list())
@@ -515,6 +672,9 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   if (!is.null(x$sex)) {
     cat("  sex:     ", paste(x$sex, collapse = ", "), "\n", sep = "")
   }
+  if (!is.null(x$fleet)) {
+    cat("  fleet:   ", paste(x$fleet, collapse = ", "), "\n", sep = "")
+  }
   cat("  link:    ", x$link, "\n", sep = "")
   cat("  phase:   ", x$est_phase, "\n", sep = "")
   if (!is.na(x$re_group)) {
@@ -548,6 +708,11 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   `by = ~species` the user must supply `strata = list(species = 1:3)`.
 #'   Each element should be a 1-based integer vector of stratum ids.
 #'   Allowed names are `"species"`, `"sex"`, `"age_bin"`, and `"fleet"`.
+#'   The `species` and `fleet` vectors may additionally be *named* with the
+#'   model's own labels (`data_list$spnames` /
+#'   `fleet_control$Fleet_name`); those labels are what a spec built with
+#'   `linkage_spec(fleet = "Shelikof")` is resolved against. Without them,
+#'   such a spec errors -- ids always work.
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
@@ -628,6 +793,16 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                    v))
     }
   }
+
+  # `species` / `fleet` may have been given as names rather than ids. Resolve
+  # them here -- this is the first point that knows the model -- so everything
+  # below, and every id column of the materialized table, stays integer.
+  # Resolution runs even when the corresponding filter is a no-op (`by` does not
+  # stratify by that factor), so a misspelled name is always an error rather
+  # than a silently ignored one.
+  spec   <- .resolve_spec_strata_names(spec, strata)
+  strata <- .strata_drop_labels(strata)
+
   if ("sex" %in% by_vars) {
     sex_levels_one <- FALSE
     if (is.list(strata$sex)) {
@@ -1068,7 +1243,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #'   model year, including any factor columns referenced by spec
 #'   formulas).
 #' @param strata named list of stratum-level integer vectors, e.g.
-#'   `list(species = 1:nspp, sex = 1:nsex)`.
+#'   `list(species = 1:nspp, sex = 1:nsex)`. `fit_mod()` names the `species`
+#'   and `fleet` vectors with `data_list$spnames` /
+#'   `fleet_control$Fleet_name`, which is how a spec that selects a species or
+#'   fleet by name is resolved to an id.
 #'
 #' @return A list with components:
 #' \describe{
