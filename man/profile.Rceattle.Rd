@@ -11,6 +11,7 @@
   values = NULL,
   transform = "log",
   cores = NULL,
+  getsd = NULL,
   ...
 )
 }
@@ -71,6 +72,11 @@ override this with \code{"log"}.}
 \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 running under \code{R CMD check} (which sets
 \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+
+\item{getsd}{whether each grid fit runs \code{TMB::sdreport}. The profile
+reads only the objective (\code{nll}), so \code{FALSE} is faster with no
+effect on the profile. Default \code{NULL} inherits the input model's
+setting (\code{TRUE} only if it carries an \code{sdrep}).}
 
 \item{...}{Unused; present for consistency with the \code{stats::profile}
 generic.}

@@ -22,6 +22,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Editing `src/TMB/*.cpp` or `*.hpp` has no effect until you reload** — `load_all()`
   recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes. Compiled
   artifacts (`*.o` ~77 MB, `*.so`) are gitignored — never commit them.
+- **Dev builds are compiled at `-O2` (fast), not pkgbuild's default `-O0`.** The repo
+  `.Rprofile` sets `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB
+  model with the same optimization as a production `R CMD INSTALL` — `fit_mod()` runs ~10x
+  faster than an unoptimized debug build, bit-identically (measured; see `dev/PERF-findings.md`).
+  A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
+  (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
+  timing must state its build** — an `-O0` number overstates real cost ~10x.
 - **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
   package namespace so internal (non-exported) helpers resolve, then source the shared
   helpers into it:
@@ -42,7 +49,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `1-*` data checks, `2..5-*` params/map/bounds/rearrange, `6-*` fit + rename output,
   `7-*` plotting, `8-*` sim, `9-*` retro/jitter, `10-*` MSE, `11-*` model averaging.
   **The numeric prefixes are meaningful — don't renumber or rename wholesale.**
-- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,810 lines, numbered section
+- **`src/TMB/`** — `ceattle.cpp` is the main model (~3,810 lines, numbered section
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
@@ -79,9 +86,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   Doxygen-documented header to emulate) and any `R/*.R` + its `tests/testthat/*` pair. The
   codebase favors explanatory section headers and Doxygen on the C++ — match local comment
   density; don't strip comments.
-- **`jnll_comp` likelihood rows are magic integers** in `ceattle_v01_11.cpp`; their names
-  live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by hand.
-  If you add/reorder a likelihood component, update both.
+- **`jnll_comp` likelihood rows are addressed by the `JnllRow` enum** in
+  `ceattle.cpp` (`JNLL_INDEX`=0 … `JNLL_LINKAGE_RE`=20, `JNLL_N_ROWS` dimensions
+  the matrix) — refer to a row by its constant, never a bare integer. Their **display
+  names** live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by
+  hand. If you add/reorder a likelihood component, update both the enum and the name vector.
 - **Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
   `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the
   group, so any per-fleet setting that differs within a group is silently taken from the
@@ -102,6 +111,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **A new `data_list` element needs `write_data()` / `read_data()` support too**, or it
   round-trips to nothing and the feature is silently lossy through the standard xlsx
   format — this is how `index_cov` was lost.
+- **A new `fleet_control` column is defined once, in `R/0-column_schema.R`.**
+  `.rce_column_schema()` is the single source of truth: its rows drive `switch_check()`
+  defaults, `write_data()`/`read_data()` ordering, the meta sheet, the field dictionary,
+  and (via `aliases`) the auto-upgrade of older column spellings on every entry into the
+  pipeline. Add the column there and consume it by its **canonical** name — don't hardcode
+  a default or a column order anywhere else. `test-schema-canonical.R` pins the aliases.
 - **A slow fit is the model, not a regression.** A full `BS2017SS`
   `estimateMode = 0, phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for
   phasing, +~14 s for `sdreport`. That single fit has needed ~500–700 `nlminb` iterations
@@ -122,8 +137,61 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `loopnum`, `newtonsteps`, `getJointPrecision`). Pass `getsd = FALSE` for fast dev/test fits
   (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty
   bands are NA.
+- **The diagnostic *refit* paths go through `.refit_like()` (`R/6-refit_like.R`) and are
+  NOT covered by `/golden-check`.** `retrospective()`, `jitter()`, `self_test()`,
+  `profile()`, `run_mse()`, and `remove_F()` all re-invoke `fit_mod()` via this one helper,
+  which rebuilds the HCR / SR / M1 / growth specs from a source `data_list` and exposes each
+  per-caller divergence as a named override. The four golden models exercise none of these
+  paths, so a change that could move a refit needs `dev/verify-refit-like.R` (before/after
+  bit-identity across all six entry functions, including a multispecies MSE) — golden-check
+  alone proves nothing here.
+- **`run_mse()` pins the OM's stock-recruit and suitability reference windows to the
+  pristine `om$`** (not the advancing `om_use$`) so the hindcast does not drift through the
+  projection — essential for multispecies, whose predation suitability must stay fixed. In
+  `.refit_like()` these are the `srr_mse_switchyr` / `srr_hat_styr` / `srr_hat_endyr` /
+  `suit_styr` / `suit_endyr` overrides; the EM instead advances `srr_mse_switchyr` to its
+  current assessment `endyr` each iteration. The invariant (MSE must not perturb the
+  hindcast, under any `simulate_data` / `sample_rec`) is checked by
+  `dev/verify-mse-hindcast-invariant.R`.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
+
+## Data assembly, configuration & the linkage grammar
+
+Three subsystems sit in front of `fit_mod()`. The **developer guide**
+(`vignettes/articles/developer-guide.Rmd`) is the deep-dive; the load-bearing facts:
+
+- **Assembling / editing a `data_list` in R:** `build_data()` + `model_config()`
+  (`R/0-build_data.R`) supply only what a configuration uses and print the model as a
+  readable outline; `data_requirements()` (`R/1-data_requirements.R`, table in
+  `R/1-data_requirements_table.R`) reports required/optional/ignored inputs *before*
+  fitting; `write_template()` writes a blank correctly-shaped workbook. All of this reads
+  the column schema (above) — the schema is authoritative, not these callers.
+- **Run configuration:** `save_config()` / `load_config()` / `run_config()`
+  (`R/0-save_config.R`) round-trip the full model + estimation + `fit_control()` setup to a
+  commented, default-omitting **YAML** file. Apply with
+  `fit_mod(data_list, config = load_config("run.yaml"))` — it fills only the args the caller
+  didn't pass (**explicit args always win**), and every fit records its own config in
+  `fit$run_config`. Formulas, `Rceattle_prior` objects, and nested `build_*()` specs all
+  serialize, so a saved config reproduces a non-default fit bit-identically.
+- **Linkage & priors grammar:** one formula system (`R/0-build_linkage.R`,
+  `linkage_encode.R`, `linkage_table.R`, `R/0-priors.R`) covers time-varying / covariate /
+  random-effect / prior structure on **every** process — recruitment, M, growth,
+  catchability, selectivity, and (prior-only) Dirichlet-multinomial composition weights —
+  attached through the `build_*()` constructors via `linkage_spec(formula, by, init,
+  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ block(Year)`),
+  random effect (`~ (1|Year)` IID, `rw()`, `ar1()`), or `~ 1` + `priors` for an
+  intercept-only prior (keyed `` `(Intercept)` ``). A **prior on a selectivity /
+  catchability / DM parameter** is the `~ 1` case. Inside `priors =`, the bare `normal()` /
+  `lognormal()` / `gamma()` / `beta()` resolve to the `prior_*()` constructors via a data
+  mask — intentional, don't "fix" them.
+- **C++ side of linkages:** `linkage.hpp` holds five per-process accumulators
+  (`rceattle_apply_{growth,M,recruitment,q,sel}_linkages`) whose process/param codes are in
+  **lockstep with `R/0-linkage_encode.R`** — change one, change both. Each REPORTs a
+  `*_linkage_offset` tensor; the constructive linkage tests
+  (e.g. `test-dynamics-recruitment-linkage.R`) pin those offsets, so they — not
+  `/golden-check` (whose 4 models carry no linkage rows) — are the regression net for any
+  linkage-path edit.
 
 ## Domain vocabulary (use these exact terms in plots/docs/messages)
 
@@ -180,7 +248,25 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-A multi-PR accessibility / code-review refactor is **planned but paused** (branch
-`accessibility-and-code-review`). The self-contained plan and locked decisions are in
-`~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming
-that work; do not start editing from scratch.
+- **Data-workflow + linkage-grammar effort** (PRs 0–7): **complete and merged onto
+  `dev-data-workflow`** (bumped to 5.0.0; not yet released to `main`). The linkage grammar,
+  column schema, `build_data()`/`model_config()`, `save_config()`/`load_config()` +
+  `fit_mod(config=)`, the C++ legibility pass + `JnllRow` enum, the
+  `build_growth(sd_plus_group=)` WHAM/SS3 feature, the `mse_summary()` per-entity reshape,
+  the `.refit_like()` collapse, and the developer-guide expansion all shipped. Tier D2 (the
+  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap + historical
+  record: `dev/PLAN-data-workflow-and-linkage-grammar.md`; forward backlog + archive index:
+  `dev/README.md`.
+- **Documentation-quality + roxygen-accuracy pass** (on `dev-data-workflow`): the PR 1–7
+  user-facing doc surface was reviewed against three criteria (not AI-verbose,
+  current-capabilities-not-changelog, scientist-legible), and a technical-accuracy audit
+  cross-checked the `fit_mod` / `build_srr` / `build_M1` / `build_growth` /
+  `build_catchability` / `build_selectivity` / `build_composition` / `linkage_spec` /
+  `build_hcr` roxygen math against the C++ — fixing accuracy issues incl. the `build_hcr`
+  SESSF/NPFMC/PFMC reference-point formula errors, the Ricker β/1e6 reparametrization note,
+  and the inert `avgnMode` switch. A companion **code fix** removed the HCR-4 `Fmult`
+  double-application (`ceattle.cpp` case 4). Doc-only otherwise.
+- **Older paused work:** a multi-PR accessibility / code-review refactor (branch
+  `accessibility-and-code-review`), plan in
+  `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
+  do not start from scratch.

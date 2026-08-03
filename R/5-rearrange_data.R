@@ -20,6 +20,14 @@
   as.integer(lead)
 }
 
+# Pull a `fleet_control` column as an integer vector. `.pull_int0()` additionally
+# shifts a 1-based R index to the 0-based index the C++ template expects -- the
+# single place that conversion happens, so an off-by-one can only be introduced
+# (or fixed) once. `.pull_int0()` keeps `- 1` (double), matching the original
+# `pull() %>% as.integer() - 1` result type exactly.
+.pull_int  <- function(fc, col) as.integer(fc[[col]])
+.pull_int0 <- function(fc, col) as.integer(fc[[col]]) - 1
+
 #' Effective selectivity start year, resolved across mirrored fleets
 #'
 #' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
@@ -65,6 +73,28 @@
 #' @importFrom tidyselect contains
 rearrange_data <- function(data_list, build_osa = FALSE){
 
+  # Upgrade any deprecated fleet_control column names to canonical, so the
+  # catchability/selectivity reads below see the canonical names even when
+  # rearrange_data() is called directly (build_params()/build_map() self-upgrade
+  # via switch_check(); this closes the same gap here). No-op in the fit_mod()
+  # pipeline, where switch_check() has already run.
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+
+  # Fail clearly on a malformed fleet_control rather than via a cryptic dplyr
+  # error deep in the reshaping below. These identity / structural columns are
+  # read by name (and by `$`) throughout; a missing one has no sensible default.
+  if (is.null(data_list$fleet_control) || nrow(data_list$fleet_control) == 0)
+    stop("rearrange_data(): 'fleet_control' is missing or empty.", call. = FALSE)
+  .required_fc <- c("Species", "Fleet_code", "Fleet_type", "Fleet_name",
+                    "Selectivity", "Selectivity_index", "Sel_start_year",
+                    "Catchability_init")
+  .missing_fc <- setdiff(.required_fc, names(data_list$fleet_control))
+  if (length(.missing_fc) > 0)
+    stop("rearrange_data(): 'fleet_control' is missing required column(s): ",
+         paste(.missing_fc, collapse = ", "),
+         ". Run switch_check() first to fill defaulted columns.", call. = FALSE)
+
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
 
@@ -79,24 +109,20 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # 1 - Fleet control ----
   # - 0) Vector to save  species
-  data_list$flt_spp <- data_list$fleet_control %>%
-    dplyr::pull(.data$Species) %>% as.integer() - 1
+  data_list$flt_spp <- .pull_int0(data_list$fleet_control, "Species")
 
   # - 1) Fleet pointer
-  data_list$flt_sel_ind <- data_list$fleet_control %>%
-    dplyr::pull(.data$Fleet_code) %>% as.integer() - 1
+  data_list$flt_sel_ind <- .pull_int0(data_list$fleet_control, "Fleet_code")
 
   # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-  data_list$flt_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Fleet_type) %>% as.integer()
+  data_list$flt_type <- .pull_int(data_list$fleet_control, "Fleet_type")
 
   # - 3) Month of observation
   data_list$flt_month <- data_list$fleet_control %>%
     dplyr::pull(.data$Month)
 
   # - 4) Selectivity type
-  data_list$flt_sel_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Selectivity) %>% as.integer()
+  data_list$flt_sel_type <- .pull_int(data_list$fleet_control, "Selectivity")
 
   # - 4b) Selectivity penalty "lead": 1 for the one fleet that carries each shared
   #       block's penalty, 0 for the fleets mirroring it, so a mirrored selectivity
@@ -134,8 +160,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$N_sel_bins) %>% as.integer()
 
   # - 6) Time-varying selectivity type.
-  data_list$flt_varying_sel <- data_list$fleet_control %>%
-    dplyr::pull(.data$Time_varying_sel) %>% as.integer()
+  data_list$flt_varying_sel <- .pull_int(data_list$fleet_control, "Time_varying_sel")
 
   # - 7) First age selected
   data_list$bin_first_selected <- data_list$fleet_control %>%
@@ -146,16 +171,16 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
-      Sel_norm_bin1 = .data$Sel_norm_bin1 - sel_bin_offset,
-      Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
-      Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
-    dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
+      Sel_norm_bin = .data$Sel_norm_bin - sel_bin_offset,
+      Sel_norm_bin = ifelse(.data$Sel_norm_bin < 0, -99, .data$Sel_norm_bin),         # Less than zero, normalize by max
+      Sel_norm_bin = ifelse(is.na(.data$Sel_norm_bin), -999, .data$Sel_norm_bin)) %>% # NA, do not normalize (unless type = 2)
+    dplyr::pull(.data$Sel_norm_bin) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - sel_bin_offset,
-                  Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
-    dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
+    dplyr::mutate(Sel_norm_bin_upper = .data$Sel_norm_bin_upper - sel_bin_offset,
+                  Sel_norm_bin_upper = ifelse(is.na(.data$Sel_norm_bin_upper), -999, .data$Sel_norm_bin_upper)) %>%
+    dplyr::pull(.data$Sel_norm_bin_upper) %>% as.integer()
 
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the
@@ -205,28 +230,37 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Sel_cap_bin) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
-  data_list$comp_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Comp_loglike) %>% as.integer()
-  data_list$caal_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$CAAL_loglike) %>% as.integer()
-  data_list$diet_ll_type <- data_list$Diet_loglike %>%
+  data_list$comp_ll_type <- .pull_int(data_list$fleet_control, "Comp_distribution")
+  data_list$caal_ll_type <- .pull_int(data_list$fleet_control, "CAAL_distribution")
+  data_list$diet_ll_type <- data_list$Diet_distribution %>%
     as.integer()
 
+  # - 10b) Composition young/old-tail accumulation bins (AFSC ac_yng / ac_old).
+  # Absent columns or NAs default to NO accumulation (young = 1; old = 0, which
+  # the cpp reads as "use the last bin"), so existing models are bit-identical.
+  .accum_col <- function(nm, default) {
+    v <- if (nm %in% names(data_list$fleet_control)) {
+      as.integer(dplyr::pull(data_list$fleet_control, nm))
+    } else {
+      rep(NA_integer_, nrow(data_list$fleet_control))
+    }
+    v[is.na(v)] <- default
+    v
+  }
+  data_list$comp_accum_young <- .accum_col("Comp_accum_young", 1L)
+  data_list$comp_accum_old   <- .accum_col("Comp_accum_old", 0L)
+
   # - 11) Index units (1 = weight, 2 = numbers)
-  data_list$flt_units <- data_list$fleet_control %>%
-    dplyr::pull(.data$Weight1_Numbers2) %>% as.integer()
+  data_list$flt_units <- .pull_int(data_list$fleet_control, "Observation_units")
 
   # - 12) Dim1 of weight (what weight-at-age data set)
-  data_list$flt_wt_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Weight_index) %>% as.integer() - 1
+  data_list$flt_wt_index <- .pull_int0(data_list$fleet_control, "Weight_index")
 
   # - 13) Dim3 of age transition matrix (what ALK to use)
-  data_list$flt_age_transition_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Age_transition_index) %>% as.integer() - 1
+  data_list$flt_age_transition_index <- .pull_int0(data_list$fleet_control, "Age_transition_index")
 
   # - 14) Parametric form of q
-  data_list$est_index_q <- data_list$fleet_control %>%
-    dplyr::pull(.data$Catchability) %>% as.integer()
+  data_list$est_index_q <- .pull_int(data_list$fleet_control, "Catchability")
 
   # - 15) Time varying q type
   #
@@ -242,26 +276,23 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$index_varying_q <- as.integer(.tv_q)
 
   # - 15b) Catchability "lead", the q analogue of flt_sel_lead. Fleets sharing a
-  #        Q_index estimate ONE catchability (and one deviate vector), so the q
-  #        prior and the deviate penalties are accumulated on the lead fleet only.
-  #        Without this they were applied once per sharing fleet to the same
-  #        parameter, e.g. counting a q prior twice for a mirrored pair.
-  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Q_index,
+  #        Catchability_index estimate ONE catchability (and one deviate vector),
+  #        so the q prior and the deviate penalties are accumulated on the lead
+  #        fleet only. Without this they were applied once per sharing fleet to
+  #        the same parameter, e.g. counting a q prior twice for a mirrored pair.
+  data_list$flt_q_lead <- .group_lead(data_list$fleet_control$Catchability_index,
                                       data_list$flt_type == 0)
 
   # - 16) Whether to estimate standard deviation of index time series
-  data_list$est_sigma_index <- data_list$fleet_control %>%
-    dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
+  data_list$est_sigma_index <- .pull_int(data_list$fleet_control, "Estimate_index_sd")
 
   # - 17) Whether to estimate standard deviation of fishery time series
-  data_list$est_sigma_fsh <- data_list$fleet_control %>%
-    dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
+  data_list$est_sigma_fsh <- .pull_int(data_list$fleet_control, "Estimate_catch_sd")
 
   # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
-  data_list$index_ll_type <- data_list$fleet_control %>%
-    dplyr::pull(.data$Index_loglike) %>% as.integer()
+  data_list$index_ll_type <- .pull_int(data_list$fleet_control, "Index_distribution")
 
-  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Catchability_init)
 
   # Species names
   data_list$spnames <- NULL
@@ -285,7 +316,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
-  # - Survey-index covariance matrices (Index_loglike == "MVN" or "MVNORM").
+  # - Survey-index covariance matrices (Index_distribution == "MVN" or "MVNORM").
   #   TMB evaluates TMB's density::MVNORM(Sigma) on each covariance fleet's fitted
   #   residual vector r = obs - q*pred, i.e. 0.5*(r' Sigma^-1 r + logdet(Sigma) +
   #   n*log(2*pi)). "MVN" reports the bare quadratic form 0.5 r' Sigma^-1 r (the
@@ -688,8 +719,12 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
+  # model_config is a code-side configuration slot (a nested list of build_*()
+  # spec objects), not TMB data; strip it here alongside the other list-of-spec
+  # objects so it does not ride into obj$env$data (inert to the objective, but it
+  # bloats the fit and relies on TMB's sanitizer tolerating an arbitrary list).
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
-                       "aLW", "diet_data", "index_cov", # "NByageFixed", "estDynamics", "Ceq",
+                       "aLW", "diet_data", "index_cov", "model_config", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 
@@ -819,7 +854,7 @@ check_caal_data <- function(data_list) {
 
     if (any(is.na(na_check))) {
       na_rows <- which(is.na(na_check))
-      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+      message(sprintf("CAAL data have NAs in row(s): %s. Converting to 0s.",
                       paste(na_rows, collapse = ", ")))
       data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
     }

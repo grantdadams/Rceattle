@@ -30,7 +30,7 @@
     dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
-    # ceattle_v01_11.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
+    # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
     # them so they are not drawn as fitted observations.
     keep <- dat$Species %in% species & dat$Fleet_code %in% codes & dat$Year > 0
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
@@ -132,6 +132,20 @@ plot_index <- function(Rceattle,
                          single_model = nlevels(df$Model) < 2L)
   .save_ggplot(p, file = file, suffix = "survey_indices",
                width = width, height = height)
+}
+
+
+#' Survey index fits on the log scale (deprecated)
+#'
+#' @description Deprecated. Use `plot_index(..., log = TRUE)`, which draws the
+#'   survey index on the log scale.
+#' @param ... Passed through to [plot_index()].
+#' @return A `ggplot` object.
+#' @keywords internal
+#' @export
+plot_logindex <- function(...) {
+  .Deprecated("plot_index")
+  plot_index(..., log = TRUE)
 }
 
 

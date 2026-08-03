@@ -143,7 +143,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
 
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
-  BS2017SS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+  BS2017SS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
 
   # inits
   ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -212,7 +212,7 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
 
   BS2017MS$srr_prior_mean <- 9
   BS2017MS$initMode  <- 2
-  BS2017MS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+  BS2017MS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
   # * Inits ----

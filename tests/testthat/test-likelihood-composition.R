@@ -3,6 +3,8 @@
 testthat::skip_on_cran()
 
 testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Multinomial)", {
+  # DM likelihood drifts ~1e-5 under covr's -O0 instrumentation vs the -O2 build.
+  testthat::skip_on_covr()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -25,7 +27,7 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   # TEST 1: MULTINOMIAL (comp_ll_type = 0)
   # ========================================================================
   simData_mn <- simData
-  simData_mn$fleet_control$Comp_loglike <- 0 # 0 = Multinomial
+  simData_mn$fleet_control$Comp_distribution <- 0 # 0 = Multinomial
   simData_mn$fleet_control$Comp_weights <- 0.75
 
   # * Inits ----
@@ -85,7 +87,7 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   # TEST 2: DIRICHLET-MULTINOMIAL (comp_ll_type = 1)
   # ========================================================================
   simData_dm <- simData
-  simData_dm$fleet_control$Comp_loglike <- 1 # 1 = Dirichlet-Multinomial
+  simData_dm$fleet_control$Comp_distribution <- 1 # 1 = Dirichlet-Multinomial
   # In Dirichlet-Multinomial, 'comp_weights' acts as log(theta). Set in
   # fleet_control so the value survives the second fit_mod() call.
   simData_dm$fleet_control$Comp_weights[flt_idx] <- log(5.0)
@@ -127,7 +129,11 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     hat_prop_offset <- hat_prop + 0.00001
 
     obs_num <- obs_prop_offset * samp_size
-    alpha <- samp_size * hat_prop_offset * theta
+    # The DM concentration's leading N is the offset-inflated observed total,
+    # sum(obs_num) = samp_size * (1 + n_ages * 0.00001) -- the same N the density
+    # itself uses -- matching the C++ `comp_obs_tmp.sum()` (Cole's goa_pk DM N setup),
+    # not the raw sample size.
+    alpha <- sum(obs_num) * hat_prop_offset * theta
 
     r_nll_dm <- r_nll_dm + calc_dirmultinom_nll(obs_num, alpha)
   }
@@ -142,7 +148,7 @@ testthat::test_that("Invalid comp_loglike", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Comp_loglike <- 9 # Not in scope
+  GOA2018SS$fleet_control$Comp_distribution <- 9 # Not in scope
 
   # Run
   testthat::expect_error(
@@ -162,7 +168,7 @@ testthat::test_that("Invalid caal_loglike", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$CAAL_loglike <- 9 # Not in scope
+  GOA2018SS$fleet_control$CAAL_distribution <- 9 # Not in scope
 
   # Run
   testthat::expect_error(
@@ -183,7 +189,7 @@ testthat::test_that("Integer to text multinomial comp_loglike", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Comp_loglike <- 0
+  GOA2018SS$fleet_control$Comp_distribution <- 0
 
   # Run
   mod <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -191,7 +197,7 @@ testthat::test_that("Integer to text multinomial comp_loglike", {
                            fit_control = fit_control(
                              verbose = 0))
 
-  testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
+  testthat::expect_equal(mod$data_list$fleet_control$Comp_distribution,
                          rep("Multinomial", nrow(mod$data_list$fleet_control))
   )
 
@@ -203,7 +209,7 @@ testthat::test_that("Integer to text DM comp_loglike", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Comp_loglike <- 1
+  GOA2018SS$fleet_control$Comp_distribution <- 1
 
   # Run
   mod <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -211,7 +217,7 @@ testthat::test_that("Integer to text DM comp_loglike", {
                            fit_control = fit_control(
                              verbose = 0))
 
-  testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
+  testthat::expect_equal(mod$data_list$fleet_control$Comp_distribution,
                          rep("DirichletMultinomial", nrow(mod$data_list$fleet_control))
   )
 

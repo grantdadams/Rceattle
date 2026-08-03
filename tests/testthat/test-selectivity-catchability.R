@@ -51,7 +51,7 @@ testthat::test_that("Estimated catchability", {
   nflt <- nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Catchability <- 1 # Estimated
   GOA2018SS$fleet_control$Time_varying_q <- "Off" # Estimated
-  GOA2018SS$fleet_control$Q_index <- 1:nflt
+  GOA2018SS$fleet_control$Catchability_index <- 1:nflt
 
   # Set params
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
@@ -94,7 +94,7 @@ testthat::test_that("Invalid catchability", {
   data("GOA2018SS")
   nflt <- nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Catchability <- 9 # Not in scope
-  GOA2018SS$fleet_control$Q_index <- 1:nflt
+  GOA2018SS$fleet_control$Catchability_index <- 1:nflt
 
   # Run
   testthat::expect_error(

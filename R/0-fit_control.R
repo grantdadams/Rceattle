@@ -62,7 +62,7 @@
 #'   `FALSE`.
 #' @param TMBfilename Optional character. Path (without `.cpp`) to an
 #'   alternate TMB template for development. Default `NULL` (use the
-#'   bundled `ceattle_v01_11`).
+#'   bundled `ceattle`).
 #' @param verbose `0` = silent, `1` = print updates of model fit, `2` =
 #'   print updates of model fit and TMB estimation progress. Default
 #'   `1`.

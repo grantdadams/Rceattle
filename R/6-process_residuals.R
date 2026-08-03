@@ -183,7 +183,7 @@ process_residuals <- function(fit,
   if (process %in% c("recruitment", "initial")) {
     R_sd <- exp(as.numeric(obj$env$parList()$R_log_sd))   # per species
     # rec_dev / init_dev prior mean is the lognormal bias correction
-    # -bias_adjust_proc * sigma^2/2 (matches ceattle_v01_11.cpp slots 9 & 10).
+    # -bias_adjust_proc * sigma^2/2 (matches ceattle.cpp slots 9 & 10).
     ba   <- obj$env$data$bias_adjust_proc
     if (is.null(ba)) ba <- 1
     sp   <- ai[, 1]

@@ -49,7 +49,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$comp_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$Comp_loglike[flt])
+        .ll <- as.character(dat_sim$fleet_control$Comp_distribution[flt])
 
         # --- Multinomial ---
         # "MultinomialAFSC" differs from "Multinomial" only in the likelihood's
@@ -75,7 +75,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
         } else {
           stop(sprintf(
-            "sim_mod(): unsupported Comp_loglike '%s' for fleet %s.",
+            "sim_mod(): unsupported Comp_distribution '%s' for fleet %s.",
             .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 
@@ -98,7 +98,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$caal_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$CAAL_loglike[flt])
+        .ll <- as.character(dat_sim$fleet_control$CAAL_distribution[flt])
 
         # --- Multinomial ---
         if(.ll %in% c("Multinomial", "MultinomialAFSC")){
@@ -122,7 +122,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
         } else {
           stop(sprintf(
-            "sim_mod(): unsupported CAAL_loglike '%s' for fleet %s.",
+            "sim_mod(): unsupported CAAL_distribution '%s' for fleet %s.",
             .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 

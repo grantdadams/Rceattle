@@ -67,10 +67,11 @@ void estimate_growth(
     const vector<int>&  minage,
     const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
-    matrix<Type> lengths,
+    const vector<int>&  growth_sd_style,   // Plus-group SD-at-age: 1 = WHAM (pin to exp(sd_Linf)), 2 = SS3 (interpolate by length)
+    matrix<Type>& lengths,
     array<Type>& growth_parameters,
     array<Type>& growth_log_sd,
-    matrix<Type> weight_length_pars,
+    matrix<Type>& weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
     array<Type> &weight_hat      // Modified by reference
@@ -212,10 +213,12 @@ void estimate_growth(
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
-          // Pin the plus group's SD to the upper anchor exp(sd_Linf), matching
-          // WHAM (SDAA plus group = SD_len(1)) and estimate_growth_within_yr(),
-          // instead of interpolating it by length.
-          } else if(age == (nages(sp) - 1)) {
+          // Plus-group SD-at-age. WHAM (growth_sd_style == 1) pins it to the
+          // upper anchor exp(sd_Linf) (SDAA plus group = SD_len(1), matching
+          // estimate_growth_within_yr()); SS3 (growth_sd_style == 2) falls
+          // through to the length interpolation below, treating the plus group
+          // like any interior age.
+          } else if(age == (nages(sp) - 1) && growth_sd_style(sp) == 1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
@@ -331,10 +334,11 @@ void estimate_growth_within_yr(
     const vector<int>&  minage,
     const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
-    matrix<Type> lengths,
-    array<Type> growth_parameters,
-    array<Type> growth_log_sd,
-    matrix<Type> weight_length_pars,
+    const vector<int>&  growth_sd_style,   // Plus-group SD-at-age: 1 = WHAM (pin to exp(sd_Linf)), 2 = SS3 (interpolate by length)
+    matrix<Type>& lengths,
+    array<Type>& growth_parameters,
+    array<Type>& growth_log_sd,
+    matrix<Type>& weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
     array<Type> &weight_hat      // Modified by reference
@@ -447,10 +451,12 @@ void estimate_growth_within_yr(
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
-          // Pin the plus group's SD to the upper anchor exp(sd_Linf), matching
-          // WHAM (SDAA plus group = SD_len(1)) and estimate_growth(), instead
-          // of interpolating it by length.
-          } else if(age == (nages(sp) - 1)) {
+          // Plus-group SD-at-age. WHAM (growth_sd_style == 1) pins it to the
+          // upper anchor exp(sd_Linf) (SDAA plus group = SD_len(1), matching
+          // estimate_growth()); SS3 (growth_sd_style == 2) falls through to the
+          // length interpolation below, treating the plus group like any
+          // interior age.
+          } else if(age == (nages(sp) - 1) && growth_sd_style(sp) == 1) {
             length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
@@ -536,8 +542,9 @@ void calculate_weight(
     array<Type> &weight_hat,   // Modified by reference
     array<Type> &length_hat,   // Modified by reference
     array<Type> &growth_matrix,// Modified by reference
-    array<Type> weight_obs,
+    array<Type>& weight_obs,
     const vector<int>&  growth_model,
+    const vector<int>&  growth_sd_style,
     const int& nspp,
     const int& nyrs,
     const int& nyrs_hind,
@@ -553,9 +560,9 @@ void calculate_weight(
     const vector<int>&  ssb_wt_index,
     const vector<int>&  flt_wt_index,
     vector<Type> spawn_month,
-    matrix<Type> lengths,
-    array<Type> growth_parameters,
-    array<Type> growth_log_sd,
+    matrix<Type>& lengths,
+    array<Type>& growth_parameters,
+    array<Type>& growth_log_sd,
     matrix<Type> weight_length_pars
 ) {
   int yr_ind;
@@ -602,6 +609,7 @@ void calculate_weight(
         minage,
         growth_age_L1,
         growth_model,
+        growth_sd_style,
         lengths,
         growth_parameters,
         growth_log_sd,
@@ -625,6 +633,7 @@ void calculate_weight(
         minage,
         growth_age_L1,
         growth_model,
+        growth_sd_style,
         lengths,
         growth_parameters,
         growth_log_sd,
@@ -672,6 +681,7 @@ void calculate_weight(
         minage,
         growth_age_L1,
         growth_model,
+        growth_sd_style,
         lengths,
         growth_parameters,
         growth_log_sd,

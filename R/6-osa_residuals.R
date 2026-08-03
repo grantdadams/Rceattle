@@ -33,6 +33,14 @@
 #' densities (the `osa_mode` switch); fleets fit with the AFSC `MultinomialAFSC`
 #' pseudo-likelihood are residualized under the full multinomial.
 #'
+#' Survey-index OSA residuals are supported for every index likelihood family
+#' (`Index_distribution`): lognormal IID (`"Lognormal"`) and natural-scale
+#' `"Normal"` residualize as independent normals on the log or natural scale; the
+#' correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened by the lower
+#' Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
+#' multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
+#' closed form [TMB::oneStepPredict()] reproduces for a Gaussian block.
+#'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of
 #'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`. Defaults to
@@ -71,8 +79,10 @@
 #'   (the age or length bin index), `length` (the conditioning length bin for
 #'   caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
-#'   `predicted` are on the model (log) scale; for compositions they are bin
-#'   counts. Carries `method` and `seed` attributes, and (when composition types
+#'   `predicted` are on the residualization scale -- log for lognormal catch/index,
+#'   natural scale for a `"Normal"` index, and the whitened (`L^-1`) scale for an
+#'   `"MVN"`/`"MVNORM"` index; for compositions they are bin counts. Carries
+#'   `method` and `seed` attributes, and (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
 #'   so [plot.rceattle_osa()] can show both. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].

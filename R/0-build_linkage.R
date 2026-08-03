@@ -29,15 +29,20 @@ NULL
 #'   (e.g. `"alpha"`, `"M1"`, `"K"`). May be `NULL` when the
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
-#' @param data (Optional) data frame for formula validation. Currently
-#'   validation happens at materialization time inside [fit_mod()].
+#' @param data Optional data frame for formula validation; validation is
+#'   performed at fit time inside [fit_mod()].
 #' @param by one-sided formula naming stratifying factors that should
 #'   each get their own coefficients. Allowed names are `species`,
-#'   `sex`, and `age_bin`. The default `~species` produces one
-#'   coefficient set per species (the typical multispecies
-#'   assessment use case); pass `~species + sex` for per-(species,
-#'   sex) coefficients, or `NULL` to share a single coefficient
-#'   set across every species/sex.
+#'   `sex`, `age_bin`, and `fleet` (`fleet` for catchability and
+#'   selectivity linkages). **When omitted, `by` defaults to the base
+#'   stratum of whichever process the spec is attached to** -- `~fleet`
+#'   for catchability, selectivity, and the fleet composition weights
+#'   (`theta_comp` / `theta_caal`), and `~species` for recruitment, M,
+#'   growth, and the diet weight (`theta_diet`) -- so you rarely need to
+#'   spell it out for the base case. Pass it explicitly to override:
+#'   e.g. `~species + sex` for per-(species, sex) coefficients, or
+#'   `NULL` to share a single coefficient across every stratum. An
+#'   explicit `by` (including `NULL`) is always kept as given.
 #' @param species optional integer vector of 1-based species ids that
 #'   this spec applies to. `NULL` (default) means every species in
 #'   `strata$species` at materialization time. Use this to give
@@ -53,30 +58,55 @@ NULL
 #'   filter is a no-op. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
+#' @param fleet optional integer vector of 1-based `Fleet_code`s this spec
+#'   applies to. `NULL` (default) means every fleet in `strata$fleet` at
+#'   materialization time. Only meaningful when `by` includes `fleet`;
+#'   otherwise the filter is a no-op. Used by catchability and selectivity
+#'   linkages to give different fleets different formulas.
 #' @param link link function relating the linear predictor to the
 #'   natural-scale target parameter. One of `"log"` (default) or
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
 #'   contributions are multiplicative on the natural-scale parameter. With `link = "identity"`,
 #'   `param = X * beta` -- slope contributions are additive on the
-#'   natural scale. All linkage targets currently expose log-scale TMB
-#'   parameters, so `"log"` is the natural default; `"identity"` is
-#'   reserved for future processes (e.g. logit for steepness).
+#'   natural scale. The linkage targets are estimated on the log scale,
+#'   so `"log"` is the default.
 #' @param init optional named numeric vector of initial values keyed by
 #'   the design-matrix column name (e.g.
 #'   `c(`(Intercept)` = 4, temp = 0)`). Missing entries default to `0`.
 #' @param bounds optional named list of `c(lower, upper)` keyed the same
 #'   way as `init`.
-#' @param priors optional named list whose entries are
-#'   [Rceattle_priors] objects, keyed by design-matrix column name.
-#'   Inside this argument the unprefixed shorthand `normal()`,
-#'   `lognormal()`, `gamma()`, and `beta()` resolves to the
-#'   corresponding `prior_*` constructors via a private data mask, so
-#'   `priors = list(temp = normal(0, 1))` works without masking
-#'   [base::gamma()] or [base::beta()] at the package level. Equivalent
-#'   to `priors = list(temp = prior_normal(0, 1))`.
+#' @param priors optional named list of [Rceattle_priors] objects, keyed by
+#'   design-matrix column name. Inside this argument you may write `normal()`,
+#'   `lognormal()`, `gamma()`, or `beta()` directly, e.g.
+#'   `priors = list(temp = normal(0, 1))` -- equivalent to
+#'   `priors = list(temp = prior_normal(0, 1))`.
 #' @param re_group optional character: name of a random-effect grouping
 #'   for these coefficients. `NA` (default) means fixed.
 #' @param est_phase optional integer estimation phase. Default `1L`.
+#' @param observe optional character: for an `ar1(1 | group)` term, the name of
+#'   an `env_data` column that measures the AR1 latent (a state-space covariate,
+#'   sensu Rogers et al. 2024). The latent enters the linked parameter through
+#'   an estimated effect size and is observed against this column. `NULL`
+#'   (default) leaves the AR1 as a plain random effect.
+#' @param obs_sd optional positive numeric: the measurement SD for the `observe`
+#'   covariate (one per observed group). Required with `observe`, unused
+#'   otherwise. Held **fixed** at this value by default (`obs_sd_est = FALSE`); it
+#'   is the *starting* value when `obs_sd_est = TRUE`.
+#' @param obs_sd_est optional single `TRUE`/`FALSE` (default `FALSE`): estimate the
+#'   `observe` measurement SD instead of holding it fixed, as the state-space
+#'   survey-catchability (GOA pollock) model does. **Caveat:** the effect size and
+#'   `obs_sd` are only jointly identified when the observed covariate is
+#'   informative; on a smooth series the AR1 latent can track it exactly and the
+#'   freely-estimated `obs_sd` collapses toward 0. Keep it fixed unless the
+#'   covariate is informative. Only used with `observe`.
+#'
+#' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
+#'   random-effect deviation SD and (for `ar1`) the correlation: e.g.
+#'   `init = list(sigma = 0.1)` fixes the SD, `priors = list(rho = normal(0,
+#'   0.3))` places a prior on the correlation. `sigma` means different things by
+#'   structure: for `rw()` it is the innovation (per-step) SD; for `ar1()` it is
+#'   the marginal (stationary) SD. The two are not directly comparable across
+#'   structures -- see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
 #' @export
@@ -87,15 +117,49 @@ linkage_spec <- function(formula,
                          by        = ~ species,
                          species   = NULL,
                          sex       = NULL,
+                         fleet     = NULL,
                          link      = "log",
                          init      = NULL,
                          bounds    = NULL,
                          priors    = NULL,
                          re_group  = NA_character_,
-                         est_phase = 1L) {
+                         est_phase = 1L,
+                         observe   = NULL,
+                         obs_sd    = NULL,
+                         obs_sd_est = FALSE) {
+  # Whether `by` was left to its default. If so, the process that the spec is
+  # later attached to (via build_*()) fills in its base stratum -- `~ fleet` for
+  # catchability / selectivity / fleet composition weights, `~ species` otherwise
+  # -- so users need not spell out `by = ~ fleet` / `by = ~ species` for the base
+  # case. An explicitly-passed `by` (including `NULL` for a shared coefficient) is
+  # always kept as given. Resolved in `.resolve_auto_by()`.
+  by_auto <- missing(by)
   priors_quo <- rlang::enquo(priors)
   priors_obj <- rlang::eval_tidy(priors_quo, data = .prior_dispatch_mask())
   priors_obj <- .validate_priors_arg(priors_obj)
+
+  # State-space (Rogers et al. 2024 QAR1) option: an ar1 latent that is also
+  # OBSERVED as an env_data column with a fixed measurement SD, and enters the
+  # linked parameter through an estimated effect size (beta). Only meaningful
+  # with an `ar1(1 | group)` term.
+  if (!is.null(observe)) {
+    if (!is.character(observe) || length(observe) != 1L || !nzchar(observe)) {
+      stop("`observe` must be a single env_data column name.", call. = FALSE)
+    }
+    if (is.null(obs_sd) || !is.numeric(obs_sd) || length(obs_sd) != 1L ||
+        !is.finite(obs_sd) || obs_sd <= 0) {
+      stop("`observe` requires a positive fixed `obs_sd` (the measurement SD).",
+           call. = FALSE)
+    }
+  } else if (!is.null(obs_sd)) {
+    stop("`obs_sd` is only used with `observe`.", call. = FALSE)
+  }
+  if (!is.logical(obs_sd_est) || length(obs_sd_est) != 1L || is.na(obs_sd_est)) {
+    stop("`obs_sd_est` must be a single TRUE/FALSE.", call. = FALSE)
+  }
+  if (obs_sd_est && is.null(observe)) {
+    stop("`obs_sd_est` is only used with `observe`.", call. = FALSE)
+  }
 
   if (!inherits(formula, "formula")) {
     stop("`formula` must be an R formula (e.g. ~ temp + PDO)")
@@ -117,6 +181,13 @@ linkage_spec <- function(formula,
   if (!is.null(sex)) {
     sex <- .coerce_sex_arg(sex)
   }
+  if (!is.null(fleet)) {
+    fleet <- as.integer(fleet)
+    if (anyNA(fleet) || any(fleet < 1L)) {
+      stop("`fleet` must be a vector of positive 1-based Fleet_code values",
+           call. = FALSE)
+    }
+  }
   link <- match.arg(link, LINKAGE_LINKS)
   .check_link_implemented(link)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
@@ -129,14 +200,19 @@ linkage_spec <- function(formula,
       formula   = formula,
       param     = param_str,
       by        = by,
+      by_auto   = by_auto,
       species   = species,
       sex       = sex,
+      fleet     = fleet,
       link      = link,
       init      = init,
       bounds    = bounds,
       priors    = priors_obj,
       re_group  = as.character(re_group),
-      est_phase = as.integer(est_phase)
+      est_phase = as.integer(est_phase),
+      observe   = observe,
+      obs_sd    = obs_sd,
+      obs_sd_est = obs_sd_est
     ),
     class = "Rceattle_linkage_spec"
   )
@@ -198,7 +274,7 @@ linkage_spec <- function(formula,
       "linkages$%s must be a linkage_spec() or a list of linkage_spec() objects.",
       nm), call. = FALSE)
   }
-  Map(.stamp_param, linkages, names(linkages))
+  Map(function(val, key) .stamp_param(val, key, process_label), linkages, names(linkages))
 }
 
 
@@ -423,9 +499,16 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
   cat("  param:   ", x$param, "\n", sep = "")
   cat("  formula: ", deparse(x$formula), "\n", sep = "")
-  cat("  by:      ",
-      if (is.null(x$by)) "(shared)" else deparse(x$by),
-      "\n", sep = "")
+  by_txt <- if (is.null(x$by)) {
+    "(shared)"
+  } else if (isTRUE(x$by_auto) && is.na(x$param)) {
+    "(process default)"            # unattached: resolves to ~fleet / ~species per process
+  } else if (isTRUE(x$by_auto)) {
+    paste0(deparse(x$by), " (default)")
+  } else {
+    deparse(x$by)
+  }
+  cat("  by:      ", by_txt, "\n", sep = "")
   if (!is.null(x$species)) {
     cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
   }
@@ -464,7 +547,7 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   stratifying factor named in `spec$by`. For example, for
 #'   `by = ~species` the user must supply `strata = list(species = 1:3)`.
 #'   Each element should be a 1-based integer vector of stratum ids.
-#'   Allowed names are `"species"`, `"sex"`, and `"age_bin"`.
+#'   Allowed names are `"species"`, `"sex"`, `"age_bin"`, and `"fleet"`.
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
@@ -482,16 +565,62 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   if (!is.data.frame(env_data)) {
     stop("`env_data` must be a data.frame")
   }
-  X <- stats::model.matrix(spec$formula, data = env_data)
+  # Split fixed from random before building the design matrix. Passing a
+  # formula containing a bar straight to model.matrix() evaluates `1 | Year`
+  # as a logical OR and yields a nonsense column ("1 | YearTRUE"), so the
+  # split has to happen first.
+  parsed <- .parse_linkage_formula(spec$formula)
+
+  # Fixed part: standard design matrix. Random parts (bar terms) are expanded
+  # into per-level indicator columns appended after the fixed columns, so the
+  # C++ accumulator adds beta[i] * indicator(level) exactly as for a fixed
+  # column -- the only differences are which beta vector supplies the
+  # coefficient (beta_linkage_re) and that a density is placed on it.
+  # Fixed-effect covariates must be finite over the model range: model.matrix()
+  # silently DROPS rows whose covariate is NA (e.g. a fixed-effect covariate with
+  # missing years after env_data extension), which would misalign X_fixed against
+  # the RE design and error cryptically in the cbind below. Reject a missing year
+  # up front with a clear message. A state-space `observe` covariate is NOT a
+  # fixed term, so it is not checked here (it is masked in the observation).
+  fixed_vars <- intersect(all.vars(parsed$fixed), names(env_data))
+  na_fixed <- fixed_vars[vapply(fixed_vars,
+                                function(v) anyNA(env_data[[v]]), logical(1))]
+  if (length(na_fixed) > 0) {
+    stop(sprintf(paste0(
+      "fixed-effect linkage covariate(s) have missing (NA) values over the ",
+      "model years: %s. Provide the covariate for every year styr:endyr (a ",
+      "state-space `observe` covariate may be partial, but a fixed-effect ",
+      "covariate may not)."), paste(na_fixed, collapse = ", ")), call. = FALSE)
+  }
+  X_fixed <- stats::model.matrix(parsed$fixed, data = env_data)
+  re <- .materialize_re_design(parsed$re_terms, parsed$re_structures, env_data)
+
+  X <- cbind(X_fixed, re$X)
   X_names <- colnames(X)
   n_cols  <- ncol(X)
+  # Per-column RE metadata, aligned with the columns of X (NA for fixed).
+  col_re_group  <- c(rep(NA_character_, ncol(X_fixed)), re$group)
+  col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
+  col_re_time   <- c(rep(NA_real_,      ncol(X_fixed)), re$time)
+
+  # State-space (Rogers QAR1) `observe` needs an ar1 term and a real column.
+  if (!is.null(spec$observe)) {
+    if (!"ar1" %in% re$struct) {
+      stop("`observe` (a state-space covariate observation) requires an ",
+           "`ar1(1 | group)` term in the formula.", call. = FALSE)
+    }
+    if (!spec$observe %in% names(env_data)) {
+      stop(sprintf("`observe` column `%s` is not in env_data.", spec$observe),
+           call. = FALSE)
+    }
+  }
 
   by_vars <- if (is.null(spec$by)) character(0) else all.vars(spec$by)
-  unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin"))
+  unknown_by <- setdiff(by_vars, c("species", "sex", "age_bin", "fleet"))
   if (length(unknown_by) > 0) {
     stop("unknown grouping variable(s) in `by`: ",
          paste(unknown_by, collapse = ", "),
-         "; allowed: species, sex, age_bin")
+         "; allowed: species, sex, age_bin, fleet")
   }
   for (v in by_vars) {
     if (is.null(strata[[v]])) {
@@ -585,6 +714,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     level_grid <- level_grid[level_grid$sex %in% spec$sex, ,
                              drop = FALSE]
   }
+  if (!is.null(spec$fleet) && "fleet" %in% names(level_grid)) {
+    level_grid <- level_grid[level_grid$fleet %in% spec$fleet, ,
+                             drop = FALSE]
+  }
   if (nrow(level_grid) == 0L) {
     return(.empty_materialized(X, X_names))
   }
@@ -601,12 +734,56 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       sp_id <- if ("species" %in% by_vars) level_grid$species[g] else NA_integer_
       sx_id <- if ("sex"     %in% by_vars) level_grid$sex[g]     else NA_integer_
       ab_id <- if ("age_bin" %in% by_vars) level_grid$age_bin[g] else NA_integer_
+      fl_id <- if ("fleet"   %in% by_vars) level_grid$fleet[g]   else NA_integer_
 
       prior <- .resolve_prior(prior_spec, sp_id, sx_id)
       if (is.null(prior)) {
         pf <- "none"; pp1 <- NA_real_; pp2 <- NA_real_
       } else {
         pf <- prior$family; pp1 <- prior$p1; pp2 <- prior$p2
+      }
+
+      # Per-group RE-SD (sigma) routing: only on random-effect columns. The
+      # reserved `sigma` key in the spec's init/priors sets the deviation SD's
+      # start value (or, with est_phase == 0, its fixed value) and an optional
+      # prior. Resolved per (species, sex) so a `by = ~ species` RE can carry a
+      # species-specific sigma prior; the fixed-effect columns keep NA.
+      if (!is.na(col_re_struct[col_idx])) {
+        s_init  <- spec$init[["sigma"]] %||% NA_real_
+        s_prior <- .resolve_prior(spec$priors[["sigma"]], sp_id, sx_id)
+        if (is.null(s_prior)) {
+          spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
+        } else {
+          spf <- s_prior$family; sp1 <- s_prior$p1; sp2 <- s_prior$p2
+        }
+        # rho routing + state-space observation apply only to ar1 columns.
+        if (col_re_struct[col_idx] == "ar1") {
+          r_init  <- spec$init[["rho"]] %||% NA_real_
+          r_prior <- .resolve_prior(spec$priors[["rho"]], sp_id, sx_id)
+          if (is.null(r_prior)) {
+            rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+          } else {
+            rpf <- r_prior$family; rp1 <- r_prior$p1; rp2 <- r_prior$p2
+          }
+          # Rogers QAR1: the latent ar1 deviate is observed as env_data[[observe]]
+          # at this level's time, with fixed SD obs_sd.
+          if (!is.null(spec$observe)) {
+            grp_col <- col_re_group[col_idx]
+            o_val <- env_data[[spec$observe]][
+              match(col_re_time[col_idx], env_data[[grp_col]])]
+            o_val <- if (length(o_val) == 1L) as.numeric(o_val) else NA_real_
+            r_obs_v <- o_val; r_obs_sd <- as.numeric(spec$obs_sd); r_obs_est <- isTRUE(spec$obs_sd_est)
+          } else {
+            r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
+          }
+        } else {
+          r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+          r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
+        }
+      } else {
+        s_init <- NA_real_; spf <- NA_character_; sp1 <- NA_real_; sp2 <- NA_real_
+        r_init <- NA_real_; rpf <- NA_character_; rp1 <- NA_real_; rp2 <- NA_real_
+        r_obs_v <- NA_real_; r_obs_sd <- NA_real_; r_obs_est <- NA
       }
 
       k <- k + 1L
@@ -617,6 +794,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         species       = sp_id,
         sex           = sx_id,
         age_bin       = ab_id,
+        fleet         = fl_id,
         design_col    = cn,
         link          = spec$link,
         init          = init_val,
@@ -626,7 +804,23 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         prior_family  = pf,
         prior_p1      = pp1,
         prior_p2      = pp2,
-        re_group      = spec$re_group,
+        # A random-effect column carries its own group id (made unique per
+        # process/param/stratum below in pool_linkages) and structure; a fixed
+        # column inherits the spec's re_group (usually NA).
+        re_group      = col_re_group[col_idx] %||% spec$re_group,
+        re_struct     = col_re_struct[col_idx],
+        re_time       = col_re_time[col_idx],
+        re_sigma_init = s_init,
+        re_sigma_prior_family = spf,
+        re_sigma_prior_p1     = sp1,
+        re_sigma_prior_p2     = sp2,
+        re_rho_init   = r_init,
+        re_rho_prior_family = rpf,
+        re_rho_prior_p1     = rp1,
+        re_rho_prior_p2     = rp2,
+        re_obs_value  = r_obs_v,
+        re_obs_sd     = r_obs_sd,
+        re_obs_est    = r_obs_est,
         est_phase     = spec$est_phase
       )
     }
@@ -635,6 +829,118 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   attr(out, "design_colnames") <- X_names
   attr(out, "design_matrix")   <- X
   out
+}
+
+
+#' Build the indicator design for random-effect (bar) terms
+#'
+#' @description
+#' Each bar term `struct(<lhs> | <group>)` becomes one indicator column per
+#' level of its grouping variable, so the deviation for that level enters the
+#' offset the same way a fixed coefficient does. This increment supports the
+#' unstructured / IID case (a plain `(1 | group)` bar, structure `"us"`);
+#' `rw()` / `ar1()` and other structures are recognised by the parser but
+#' rejected here until their densities are wired.
+#'
+#' @param re_terms list of bar expressions from [.parse_linkage_formula()].
+#' @param re_structures character vector of structure names, one per term.
+#' @param env_data the covariate/time table.
+#'
+#' @return A list with `X` (indicator design, 0 columns if no RE terms),
+#'   `group` (character, one per column: the grouping variable name), and
+#'   `struct` (character, one per column: the covariance structure).
+#' @keywords internal
+#' @noRd
+.materialize_re_design <- function(re_terms, re_structures, env_data) {
+  if (length(re_terms) == 0L) {
+    return(list(X = matrix(numeric(0), nrow = nrow(env_data), ncol = 0L),
+                group = character(0), struct = character(0),
+                time = numeric(0)))
+  }
+
+  not_wired <- setdiff(unique(re_structures), c("us", "rw", "ar1"))
+  if (length(not_wired) > 0) {
+    stop(sprintf(
+      paste0("random-effect structure(s) not yet wired: %s.\n",
+             "  Supported: `(1 | group)` (IID), `rw(1 | group)` (random walk), ",
+             "`ar1(1 | group)` (first-order autoregressive)."),
+      paste0(not_wired, "()", collapse = ", ")), call. = FALSE)
+  }
+
+  cols <- list(); groups <- character(0); structs <- character(0)
+  times <- numeric(0)
+  for (i in seq_along(re_terms)) {
+    # A bar expression `lhs | group`: the grouping variable is the RHS.
+    bar <- re_terms[[i]]
+    grp_var <- all.vars(bar[[3L]])
+    if (length(grp_var) != 1L) {
+      stop(sprintf("random-effect grouping must be a single variable; got `%s`",
+                   deparse1(bar)), call. = FALSE)
+    }
+    if (!grp_var %in% names(env_data)) {
+      stop(sprintf("random-effect grouping variable `%s` is not a column of env_data",
+                   grp_var), call. = FALSE)
+    }
+    # Only random intercepts `struct(1 | group)` are supported: the grouping
+    # variable indexes the deviations (one per level) and the structure runs
+    # over them. A random slope (a non-`1` bar LHS, e.g. `ar1(Year + 0 | fleet)`)
+    # is a different, unsupported model.
+    if (length(all.vars(bar[[2L]])) > 0L) {
+      stop(sprintf(
+        paste0("random-effect term `%s` is a random slope; only random ",
+               "intercepts `%s(1 | group)` are supported."),
+        deparse1(bar), re_structures[i]), call. = FALSE)
+    }
+    # rw()/ar1() couple deviations by elapsed time, so the grouping variable
+    # must be numeric (a real lag). IID is order-invariant, so it accepts any
+    # grouping (e.g. a regime label).
+    if (re_structures[i] != "us" &&
+        !is.numeric(env_data[[grp_var]]) &&
+        anyNA(suppressWarnings(as.numeric(as.character(env_data[[grp_var]]))))) {
+      stop(sprintf(
+        paste0("random-effect structure `%s(1 | %s)` needs a numeric grouping ",
+               "variable so deviations can be ordered in real elapsed time; ",
+               "`%s` is not numeric."),
+        re_structures[i], grp_var, grp_var), call. = FALSE)
+    }
+    # One indicator column per level (no reference dropped: the density pins
+    # them, so all levels are identifiable). model.matrix orders columns by
+    # sorted factor level, which is numeric order for a numeric grouping.
+    ind <- stats::model.matrix(
+      stats::as.formula(sprintf("~ 0 + factor(%s)", grp_var)), data = env_data)
+    lev <- sub(sprintf("^factor\\(%s\\)", grp_var), "", colnames(ind))
+    colnames(ind) <- sprintf("%s_re::%s", grp_var, lev)
+    # Numeric level value drives the elapsed-time ordering that rw()/ar1()
+    # require (the numeric-Year rule). A non-numeric grouping (e.g. a regime
+    # label) yields NA here; that is fine for IID (order-invariant) and is
+    # rejected for rw()/ar1() where a true lag is needed.
+    lev_num <- suppressWarnings(as.numeric(lev))
+    # rw()/ar1() couple CONSECUTIVE deviations with a unit lag, so the time
+    # points must be EQUALLY SPACED. A gap (e.g. a missing year) would be
+    # silently treated as a single step -- wrong variance (rw) / wrong
+    # correlation (ar1). Require equal spacing rather than mis-specify; a
+    # gap-aware (continuous-time) density is future work.
+    if (re_structures[i] != "us" && !anyNA(lev_num)) {
+      ts <- sort(unique(lev_num))
+      if (length(ts) >= 3L) {
+        dts <- diff(ts)
+        if (any(abs(dts - dts[1]) > 1e-8 * max(1, abs(dts[1])))) {
+          stop(sprintf(
+            paste0("random-effect structure `%s(1 | %s)` requires equally-spaced ",
+                   "time points (it couples consecutive deviations with a unit ",
+                   "lag); `%s` has gaps/irregular spacing. Fill the missing ",
+                   "levels or use `(1 | %s)` (IID)."),
+            re_structures[i], grp_var, grp_var, grp_var), call. = FALSE)
+        }
+      }
+    }
+    cols[[i]] <- ind
+    groups  <- c(groups,  rep(grp_var, ncol(ind)))
+    structs <- c(structs, rep(re_structures[i], ncol(ind)))
+    times   <- c(times,   lev_num)
+  }
+  list(X = do.call(cbind, cols), group = groups, struct = structs,
+       time = times)
 }
 
 
@@ -652,6 +958,90 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   attr(out, "design_colnames") <- X_names
   attr(out, "design_matrix")   <- X
   out
+}
+
+
+#' Extend env_data to start at the model start year (prepend + gap-fill with NA)
+#'
+#' Linkages align env_data POSITIONALLY (row r -> model year styr + r - 1). A
+#' state-space `observe` covariate (Rogers QAR1) commonly starts later than the
+#' model (e.g. a survey that began mid-series), which would misalign every row.
+#' Rather than force the user to hand-pad, prepend the missing leading years
+#' (styr .. first year - 1) and fill any interior gaps, with `NA` in the
+#' covariate columns. The QAR1 observation is applied only where the covariate is
+#' present (NA years are masked out), so no observation is fabricated. Years
+#' BEYOND the last supplied row are left alone (they keep the existing
+#' zero-offset-beyond-env_data behaviour). Malformed year columns (unsorted, NA,
+#' or starting before styr) are left untouched for `.check_env_data_years()` to
+#' reject.
+#'
+#' @param env_data the covariate/time table (or `NULL`).
+#' @param styr the model start year.
+#' @return the (possibly extended) env_data.
+#' @keywords internal
+#' @noRd
+.extend_env_data <- function(env_data, styr) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr)) {
+    return(env_data)
+  }
+  yrs <- env_data$Year
+  if (anyNA(yrs) || is.unsorted(yrs, strictly = TRUE) || yrs[1] < styr) {
+    return(env_data)
+  }
+  full <- styr:max(yrs)
+  if (identical(as.integer(yrs), as.integer(full))) return(env_data)  # already contiguous from styr
+  out <- merge(data.frame(Year = full), env_data, by = "Year",
+               all.x = TRUE, sort = TRUE)
+  message(sprintf(paste0(
+    "env_data extended to start at styr (%s) with NA for missing years; a ",
+    "state-space `observe` covariate is used only where present."), styr))
+  out
+}
+
+
+#' Validate that env_data aligns to the model years for linkages
+#'
+#' @description
+#' Linkages consume `env_data` positionally: row `r` supplies the offset for
+#' model year `styr + r - 1`, and years beyond the last row get a zero offset
+#' (env_data need not span the projection horizon). A misaligned `env_data`
+#' therefore applies a covariate or random-effect deviate to the wrong year. If
+#' `env_data` carries a `Year` column, require it to be sorted, start at `styr`,
+#' and be contiguous (no gaps), erroring loudly otherwise. Without a `Year`
+#' column the positional contract cannot be checked and is assumed.
+#'
+#' @param env_data the covariate/time table (or `NULL`).
+#' @param styr the model start year.
+#' @return invisibly `NULL`; errors on misalignment.
+#' @keywords internal
+#' @noRd
+.check_env_data_years <- function(env_data, styr) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr)) {
+    return(invisible())
+  }
+  yrs <- env_data$Year
+  if (anyNA(yrs) || is.unsorted(yrs, strictly = TRUE)) {
+    stop("env_data$Year must be sorted ascending with no duplicates or NA; ",
+         "linkages align each row to model year styr + (row - 1).",
+         call. = FALSE)
+  }
+  if (yrs[1] != styr) {
+    stop(sprintf(paste0(
+      "env_data$Year must start at the model start year styr (%s); it starts ",
+      "at %s. Linkages align by row position, so env_data must begin at styr."),
+      styr, yrs[1]), call. = FALSE)
+  }
+  if (length(yrs) > 1L && any(diff(yrs) != 1L)) {
+    bad <- yrs[which(diff(yrs) != 1L) + 1L]
+    stop(sprintf(paste0(
+      "env_data$Year has gaps (missing year(s) before %s); linkages align by ",
+      "row = styr + offset, so the years must be contiguous. Fill the missing ",
+      "rows (env_data may still stop short of the projection horizon)."),
+      paste(bad, collapse = ", ")), call. = FALSE)
+  }
+  invisible()
 }
 
 
@@ -774,9 +1164,99 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   }
 
   list(
-    table        = bind_linkage(remapped),
+    table        = .assign_re_registry(bind_linkage(remapped)),
     X            = global_X,
     design_names = global_names
+  )
+}
+
+
+#' Assign the random-effect registry on a pooled linkage table
+#'
+#' @description
+#' Fills the `re_index` and `sigma_index` columns for the materialized
+#' random-effect rows (those with a non-`NA` `re_struct`); fixed rows keep
+#' `NA`. A distinct **sigma group** is one unique
+#' `process|param|species|sex|age_bin|fleet|re_group|re_struct` combination --
+#' the same key `map_linkage_adjuster()` uses, extended by the RE group and
+#' structure so different fleets/params/groups each estimate their own variance.
+#' `re_index` (the 0-based slot in `beta_linkage_re`) is assigned in
+#' `(sigma group, elapsed time)` order, so each group's deviations are
+#' contiguous and time-ordered -- `rw()`/`ar1()` rely on the ordering; IID is
+#' order-invariant. The assignment is a bijection: `re_index` takes each value
+#' in `0:(n_re - 1)` exactly once.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table`.
+#' @return `tbl` with `re_index`/`sigma_index` filled on RE rows.
+#' @keywords internal
+#' @noRd
+.assign_re_registry <- function(tbl) {
+  if (nrow(tbl) == 0L) return(tbl)
+  is_re <- !is.na(tbl$re_struct)
+  if (!any(is_re)) return(tbl)          # no RE rows: leave the registry NA
+
+  re_rows <- which(is_re)
+  key <- paste(tbl$process, tbl$param,
+               ifelse(is.na(tbl$species), "*", tbl$species),
+               ifelse(is.na(tbl$sex),     "*", tbl$sex),
+               ifelse(is.na(tbl$age_bin), "*", tbl$age_bin),
+               ifelse(is.na(tbl$fleet),   "*", tbl$fleet),
+               tbl$re_group, tbl$re_struct, sep = "|")[re_rows]
+  uniq_keys <- unique(key)
+  tbl$sigma_index[re_rows] <- match(key, uniq_keys) - 1L
+
+  ord <- order(tbl$sigma_index[re_rows], tbl$re_time[re_rows],
+               method = "radix", na.last = TRUE)
+  tbl$re_index[re_rows[ord]] <- seq_along(re_rows) - 1L
+  tbl
+}
+
+
+#' Per-group random-effect SD (sigma) table
+#'
+#' @description
+#' Collapses the per-row RE registry to one row per sigma group (ordered by
+#' `sigma_index`, so row `i` is the 0-based group `i - 1`). The `sigma`-key
+#' routing on `linkage_spec()` is identical across a group's rows, so this is a
+#' plain de-duplication. Encodes the fix-vs-estimate contract:
+#' * `init = list(sigma = v)` **and no** sigma prior -> `sigma_fixed = TRUE`,
+#'   the SD is held at `v` (reproduces the reference `Time_varying_*_sd_prior`
+#'   fixed-input SD);
+#' * a sigma prior -> estimated with that prior (started from `init` if given);
+#' * neither -> estimated from a default start.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
+#' @return a data.frame with one row per group, or `NULL` if there are none.
+#' @keywords internal
+#' @noRd
+.re_group_table <- function(tbl) {
+  if (is.null(tbl) || nrow(tbl) == 0L) return(NULL)
+  re <- tbl[!is.na(tbl$sigma_index), , drop = FALSE]
+  if (nrow(re) == 0L) return(NULL)
+  g <- re[!duplicated(re$sigma_index), , drop = FALSE]
+  g <- g[order(g$sigma_index), , drop = FALSE]
+  has_prior <- !is.na(g$re_sigma_prior_family) & g$re_sigma_prior_family != "none"
+  has_rprior <- !is.na(g$re_rho_prior_family) & g$re_rho_prior_family != "none"
+  data.frame(
+    sigma_index  = as.integer(g$sigma_index),
+    re_struct    = as.character(g$re_struct),
+    sigma_start  = ifelse(is.na(g$re_sigma_init), 0.3, as.numeric(g$re_sigma_init)),
+    sigma_fixed  = !is.na(g$re_sigma_init) & !has_prior,
+    prior_family = ifelse(has_prior, g$re_sigma_prior_family, "none"),
+    prior_p1     = as.numeric(g$re_sigma_prior_p1),
+    prior_p2     = as.numeric(g$re_sigma_prior_p2),
+    # ar1 correlation, same fix-vs-estimate contract on the (-1,1) scale.
+    rho_start    = ifelse(is.na(g$re_rho_init), 0, as.numeric(g$re_rho_init)),
+    rho_fixed    = !is.na(g$re_rho_init) & !has_rprior,
+    rho_prior_family = ifelse(has_rprior, g$re_rho_prior_family, "none"),
+    rho_prior_p1 = as.numeric(g$re_rho_prior_p1),
+    rho_prior_p2 = as.numeric(g$re_rho_prior_p2),
+    # State-space (Rogers QAR1) observation: observed groups carry a fixed obs SD
+    # and an estimated effect size (beta) applied to the deviate.
+    observed     = !is.na(g$re_obs_sd),
+    obs_sd       = as.numeric(g$re_obs_sd),
+    obs_sd_est   = !is.na(g$re_obs_est) & g$re_obs_est,
+    stringsAsFactors = FALSE
   )
 }
 

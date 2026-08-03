@@ -2,7 +2,7 @@
 % Please edit documentation in R/6-fit_mod.R
 \name{fit_mod}
 \alias{fit_mod}
-\title{This function runs CEATTLE}
+\title{Fit the CEATTLE assessment model}
 \usage{
 fit_mod(
   data_list = NULL,
@@ -19,6 +19,9 @@ fit_mod(
   recFun = build_srr(),
   M1Fun = build_M1(),
   growthFun = build_growth(),
+  qFun = build_catchability(),
+  selFun = build_selectivity(),
+  compFun = build_composition(),
   msmMode = 0,
   avgnMode = 0,
   initMode = "NonEquilibrium",
@@ -26,6 +29,7 @@ fit_mod(
   suit_styr = NULL,
   suit_endyr = NULL,
   fit_control = NULL,
+  config = NULL,
   ...
 )
 }
@@ -44,22 +48,22 @@ from scratch via \code{\link{build_params}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{estimateMode}{0 = Fit the hindcast model and projection with HCR
-specified via \code{HCR}. 1 = Fit the hindcast model only (no projection).
-2 = Run the projection only with HCR specified via \code{HCR} given the
-initial parameters in \code{inits}. 3 = build only: runs the model through
-\code{MakeADFun} but not \code{nlminb}. The returned \code{obj} carries the
-real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are
-usable for diagnosing a model before committing to a fit. 4 = runs the
-model through \code{MakeADFun} and \code{nlminb} with all parameters
-mapped out; this is a plumbing smoke test and its objective is a
-placeholder (\code{dummy^2}), not a likelihood.}
+\item{estimateMode}{What to fit, given as a string alias or the integer code:
+\code{"Estimate"} (0) = fit the hindcast model and the HCR projection
+(\code{HCR}); \code{"Hindcast"} (1) = fit the hindcast only (no fitting BRPs/HCR/projection);
+\code{"Projection"} (2) = fit the BRPs/HCR/projection only, from the initial
+parameters in \code{inits}; \code{"DebugBuild"} (3) = build through
+\code{MakeADFun} but not \code{nlminb} -- the returned \code{obj} carries the
+real objective and gradient, so \code{obj$fn()} / \code{obj$gr()} are usable
+for diagnosing a model before committing to a fit; \code{"DebugOptimize"}
+(4) = optimize with all parameters mapped out, so the objective is a
+placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
+\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the laplace approximation.The default is FALSE.}
+\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the laplace approximation.The default is FALSE.}
+\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.}
 
 \item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
@@ -71,17 +75,27 @@ placeholder (\code{dummy^2}), not a likelihood.}
 
 \item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
 
-\item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
+\item{qFun}{Catchability specification from \code{\link{build_catchability}},
+carrying any environmental linkages on q.}
 
-\item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
+\item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
+\item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
 
-\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.}
+\item{msmMode}{The predation-mortality mode, as a string alias or integer code:
+\code{"SingleSpecies"} (0, the default, no predation), \code{"TypeIIMSVPA"}
+(1, sensu Holsman et al. 2015) or \code{"TypeIIIMSVPA"} (2). Higher integer
+codes (Kinzey-Punt, Holling forms) are not yet implemented.}
 
-\item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+\item{avgnMode}{The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.}
 
-\item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0; 5 = "FishedEquilibrium": F = 0 equilibrium age-structure seeded by the first-year recruitment (\code{exp(rec_pars + rec_dev[year 1])}) decayed by mortality (M1), with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention).}
+
+\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability. The length-based modes (1, 3, 5) are not yet implemented and are rejected by \code{data_check()}; use a weight-based mode (2, 4, 6) or empirical suitability (0).}
+
+\item{suit_styr}{The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length \code{nspp} sets a distinct start year per predator. Defaults to \code{styr} in \code{data_list}. Used when diet data were sampled from a subset of years.}
+
+\item{suit_endyr}{The last year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length \code{nspp} sets a distinct end year per predator. Defaults to \code{endyr} in \code{data_list}. Used when diet data were sampled from a subset of years.}
 
 \item{fit_control}{A list returned by \code{\link[=fit_control]{fit_control()}} that bundles the
 optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{getsd},
@@ -89,6 +103,13 @@ optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{g
 \code{loopnum}, \code{newtonsteps}, \code{TMBfilename}, \code{verbose}, \code{nlminb_control}).
 Defaults to \code{fit_control()}. See \code{\link[=fit_control]{fit_control()}} for the meaning and
 defaults of each field.}
+
+\item{config}{(Optional) An \code{Rceattle_run_config} from \code{\link[=load_config]{load_config()}} (or
+\code{\link[=run_config]{run_config()}}). Its stored \code{model_config} structure and estimation controls
+(\code{estimateMode}, \code{random_rec}/\code{random_q}/\code{random_sel}, \code{suit_styr}/
+\code{suit_endyr}, \code{fit_control}) overlay only the arguments the caller did \emph{not}
+pass -- an explicit argument always wins. \code{NULL} (default) applies no
+configuration. Example: \code{fit_mod(data_list, config = load_config("run.yaml"))}.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},
@@ -114,7 +135,8 @@ A list of class "Rceattle" including:
 }
 }
 \description{
-This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
+Estimate CEATTLE population parameters by maximum likelihood, and
+optionally project the stock and apply a harvest control rule.
 }
 \details{
 CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:

@@ -19,7 +19,7 @@ plot_data(GOA2018SS)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-# GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
+# GOA2018SS$fleet_control$Proj_F_proportion <- rep(1, nrow(GOA2018SS$fleet_control))
 ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save

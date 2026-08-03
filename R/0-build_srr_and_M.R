@@ -1,23 +1,23 @@
 #' Specify the stock-recruit relationship (SRR) for Rceattle
 #'
-#' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
+#' @param srr_fun Stock-recruit function used in the hindcast estimation (see the list below). Default = 0
 #' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
 #' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)
-#' @param srr_hat_styr Integer. The first year used for estimating the recruitment function as an additional penalty. It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
-#' @param srr_hat_endyr Integer. The last year used for estimating the recruitment function as an additional penalty. It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available for the full time-series, but projections are desired.
-#' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate R0, alpha, and/or beta (default), 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
+#' @param srr_hat_styr Integer. First year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}), starting at \code{styr + 1}. Defaults to \code{styr + 1} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship is not available until the terminal year but projections are still wanted.
+#' @param srr_hat_endyr Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.
+#' @param srr_est_mode Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
-#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty  (srr_fun = 0 and srr_pred_fun > 0). It tells the model in what year to switch to the stock recruit function.
+#' @param srr_mse_switchyr Year at which an MSE switches from the annual recruitment-penalty estimate to the stock-recruit function (the \code{srr_fun = 0}, \code{srr_pred_fun > 0} case).
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"R0"`, `"alpha"`, `"beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages-and-priors")` for details.
 #'
 #' @description
 #'
 #' **Stock recruitment relationships currently implemented in Rceattle:**
 #'
-#' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+#' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of \eqn{R0} (on the log scale) and annual deviates (i.e. steepness = 0.99).
 #'  \deqn{R_y = exp(R0 + R_{dev,y})}
 #'
 #' - \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
@@ -25,6 +25,13 @@
 #'
 #' - \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship
 #'   \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
+#'
+#' The Beverton-Holt and Ricker curves above are the deterministic mean; realized
+#' recruitment applies the annual log deviation, \eqn{R_y \cdot exp(R_{dev,y})}, as in the
+#' mean form. For numerical stability the Ricker \eqn{\beta_{srr}} is estimated on a scale
+#' divided by 1,000,000, so the fitted \code{beta} is 1e6 times the density-dependence
+#' coefficient in the equation above; \code{Bmsy_lim} (\eqn{\approx 1/\beta_{srr}}) carries
+#' the same scaling.
 #'
 #' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 #'
@@ -47,6 +54,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
   srr_fun      <- .coerce_srr_fun(srr_fun,      "srr_fun")
   srr_pred_fun <- .coerce_srr_fun(srr_pred_fun, "srr_pred_fun")
+  srr_est_mode <- .map_switch(srr_est_mode, srr_est_mode_map, "srr_est_mode")
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
@@ -86,10 +94,10 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #'
 #' Either form is accepted; the canonical integer code is what the
 #' TMB template ultimately consumes. Only the structural codes (0,
-#' 2, 4) get string aliases. The historical env-driven codes (1, 3,
+#' 2, 4) get string aliases. The env-driven codes (1, 3,
 #' 5) still work with a soft-deprecation warning -- their structural
 #' part is identical to 0 / 2 / 4 respectively, and the env effect
-#' is now expressed via the `linkages` argument to [build_srr()].
+#' is expressed via the `linkages` argument to [build_srr()].
 #'
 #' @keywords internal
 .SRR_FUNS <- c(
@@ -105,6 +113,66 @@ build_srr <- function(srr_fun = 0,  #srr_model
 .SRR_DEPRECATED_FUNS <- c(1L, 3L, 5L)
 
 
+#' Coerce a string/integer switch argument to its canonical integer code.
+#'
+#' Shared validation for the integer-returning `build_*()` switch arguments
+#' (`srr_fun`, `M1_model`). Accepts a canonical string key from `map` or a
+#' legacy integer code (a value of `map`, or a `deprecated` code); errors on
+#' anything else and calls `warn_fn(int)` when a deprecated code is supplied.
+#'
+#' @param x user input (length-1+ character or numeric).
+#' @param map named integer vector mapping canonical string -> integer code.
+#' @param what argument name, used in messages.
+#' @param deprecated integer codes that are accepted but soft-deprecated.
+#' @param warn_fn `function(int)` emitting the deprecation warning, or `NULL`.
+#' @param length_exact_one require length 1 (`srr_fun`) vs length >= 1 (`M1_model`).
+#' @param legacy_note text appended inside the integer-range error message.
+#' @keywords internal
+#' @noRd
+.coerce_switch_arg <- function(x, map, what,
+                               deprecated = integer(0),
+                               warn_fn = NULL,
+                               length_exact_one = FALSE,
+                               legacy_note = "") {
+  if (length_exact_one) {
+    if (length(x) != 1L) {
+      stop(sprintf("`%s` must be length 1", what), call. = FALSE)
+    }
+  } else if (length(x) == 0L) {
+    stop(sprintf("`%s` must have length >= 1", what), call. = FALSE)
+  }
+  if (is.numeric(x)) {
+    int <- as.integer(x)
+    allowed <- c(unname(map), deprecated)
+    if (anyNA(int) || any(!int %in% allowed)) {
+      stop(sprintf(
+        "integer `%s` must be one of: %s (= %s%s)",
+        what,
+        paste(map, collapse = ", "),
+        paste(names(map), collapse = "/"),
+        legacy_note), call. = FALSE)
+    }
+    if (length(deprecated) > 0L && any(int %in% deprecated) && !is.null(warn_fn)) {
+      warn_fn(int)
+    }
+    return(int)
+  }
+  if (is.character(x)) {
+    bad <- setdiff(x, names(map))
+    if (length(bad) > 0L) {
+      stop(sprintf(
+        "unknown `%s` value(s): %s; allowed: %s",
+        what,
+        paste(unique(bad), collapse = ", "),
+        paste(names(map), collapse = ", ")), call. = FALSE)
+    }
+    return(unname(map[x]))
+  }
+  stop(sprintf("`%s` must be a string or integer; got %s",
+               what, class(x)[1]), call. = FALSE)
+}
+
+
 #' Coerce an `srr_fun` / `srr_pred_fun` value to canonical integer.
 #'
 #' Accepts either a string from [.SRR_FUNS] (length-1) or a length-1
@@ -114,37 +182,12 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' @keywords internal
 #' @noRd
 .coerce_srr_fun <- function(x, what) {
-  if (length(x) != 1L) {
-    stop(sprintf("`%s` must be length 1", what), call. = FALSE)
-  }
-  if (is.numeric(x)) {
-    int <- as.integer(x)
-    allowed <- c(unname(.SRR_FUNS), .SRR_DEPRECATED_FUNS)
-    if (is.na(int) || !int %in% allowed) {
-      stop(sprintf(
-        "integer `%s` must be one of: %s (= %s, plus 1/3/5 for legacy env modes)",
-        what,
-        paste(.SRR_FUNS, collapse = ", "),
-        paste(names(.SRR_FUNS), collapse = "/")), call. = FALSE)
-    }
-    if (int %in% .SRR_DEPRECATED_FUNS) {
-      .warn_srr_fun_deprecation(int, what)
-    }
-    return(int)
-  }
-  if (is.character(x)) {
-    bad <- setdiff(x, names(.SRR_FUNS))
-    if (length(bad) > 0L) {
-      stop(sprintf(
-        "unknown `%s` value(s): %s; allowed: %s",
-        what,
-        paste(unique(bad), collapse = ", "),
-        paste(names(.SRR_FUNS), collapse = ", ")), call. = FALSE)
-    }
-    return(unname(.SRR_FUNS[x]))
-  }
-  stop(sprintf("`%s` must be a string or integer; got %s",
-               what, class(x)[1]), call. = FALSE)
+  .coerce_switch_arg(
+    x, map = .SRR_FUNS, what = what,
+    deprecated = .SRR_DEPRECATED_FUNS,
+    warn_fn = function(int) .warn_srr_fun_deprecation(int, what),
+    length_exact_one = TRUE,
+    legacy_note = ", plus 1/3/5 for legacy env modes")
 }
 
 
@@ -242,8 +285,8 @@ RECRUITMENT_LINKAGE_PARAMS <- c("R0", "alpha", "beta")
 #'
 #' Natural-scale names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
-#' `M1` -- with the default log link the offset is added on the log
-#' scale to `log_M1` (broadcast across age unless the linkage row
+#' `M1` -- with the default log link the offset is added to M1 on the
+#' log scale (applied across all ages unless the linkage row
 #' pins a specific `age_bin`).
 #'
 #' Note: predation mortality `M2` is a derived quantity in CEATTLE
@@ -259,10 +302,10 @@ M_LINKAGE_PARAMS <- c("M1")
 #' String<->integer mapping for `M1_model` in [build_M1()]
 #'
 #' Either form is accepted by [build_M1()]; the canonical integer
-#' code is what the TMB template ultimately consumes. The legacy
+#' code is what the TMB template ultimately consumes. The
 #' env-driven integer codes 4 and 5 still work with a deprecation
 #' warning -- their structural part is identical to 1 and 2
-#' respectively, and the env effect is now expressed via the
+#' respectively, and the env effect is expressed via the
 #' \code{linkages} argument to [build_M1()] (see
 #' `vignette("environmental-linkages-and-priors")`). No string alias is offered
 #' for 4 or 5 to discourage their use in new code.
@@ -286,8 +329,8 @@ M_LINKAGE_PARAMS <- c("M1")
 #'
 #' Either form is accepted by [build_M1()]; the canonical integer
 #' code is what the TMB template ultimately consumes. The
-#' env-driven options (4, 5) on M1_model are now better expressed
-#' through the `linkages` argument to [build_M1()] but the integer
+#' env-driven options (4, 5) on M1_model can also be expressed
+#' through the `linkages` argument to [build_M1()]; the integer
 #' codes continue to work for backwards compatibility.
 #'
 #' @keywords internal
@@ -309,7 +352,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' vector that is already in the allowed set. Errors loudly on
 #' anything else.
 #'
-#' For `M1_model` only, the historical env-driven integer codes 4
+#' For `M1_model` only, the env-driven integer codes 4
 #' and 5 (controlled by `M1_indices`) are accepted for backwards
 #' compatibility but emit a soft-deprecation warning pointing users
 #' at the linkage table -- see [build_M1()].
@@ -317,39 +360,12 @@ M_LINKAGE_PARAMS <- c("M1")
 #' @keywords internal
 #' @noRd
 .coerce_M1_arg <- function(x, map, what) {
-  if (length(x) == 0L) {
-    stop(sprintf("`%s` must have length >= 1", what), call. = FALSE)
-  }
-  if (is.numeric(x)) {
-    int <- as.integer(x)
-    extra <- if (identical(what, "M1_model")) .M1_DEPRECATED_MODELS else integer(0)
-    allowed <- c(unname(map), extra)
-    if (anyNA(int) || any(!int %in% allowed)) {
-      stop(sprintf(
-        "integer `%s` must be one of: %s (= %s)",
-        what,
-        paste(map, collapse = ", "),
-        paste(names(map), collapse = "/")), call. = FALSE)
-    }
-    if (length(extra) > 0L && any(int %in% extra)) {
-      .warn_M1_model_deprecation(int)
-    }
-    return(int)
-  }
-  if (is.character(x)) {
-    bad <- setdiff(x, names(map))
-    if (length(bad) > 0L) {
-      stop(sprintf(
-        "unknown `%s` value(s): %s; allowed: %s",
-        what,
-        paste(unique(bad), collapse = ", "),
-        paste(names(map), collapse = ", ")), call. = FALSE)
-    }
-    return(unname(map[x]))
-  }
-  stop(sprintf(
-    "`%s` must be a string or integer; got %s",
-    what, class(x)[1]), call. = FALSE)
+  deprecated <- if (identical(what, "M1_model")) .M1_DEPRECATED_MODELS else integer(0)
+  .coerce_switch_arg(
+    x, map = map, what = what,
+    deprecated = deprecated,
+    warn_fn = function(int) .warn_M1_model_deprecation(int),
+    length_exact_one = FALSE)
 }
 
 
@@ -433,7 +449,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Sex/age-invariant M with a temperature linkage on M1
 #' build_M1(
 #'   M1_model = "sex_age_invariant",
@@ -512,15 +528,26 @@ GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
 .GROWTH_FUN_TO_INT <- c(empirical = 0L, vonBertalanffy = 1L, Richards = 2L)
 
 
+#' Internal: plus-group SD-at-age treatment codes consumed by the TMB template
+#'
+#' `"WHAM"` (1) pins the oldest age class's SD-at-age to the upper anchor
+#' `exp(sd_Linf)` (the WHAM SDAA convention). `"SS3"` (2) instead interpolates
+#' it by length like any interior age. Only affects estimated growth
+#' (`growth_model > 0`); the default is WHAM.
+#' @keywords internal
+#' @noRd
+.GROWTH_SD_STYLE <- c(WHAM = 1L, SS3 = 2L)
+
+
 #' Allowed growth-parameter names for `linkages` in [build_growth()]
 #'
 #' Natural-scale names of the underlying growth-function parameters.
 #' Von Bertalanffy uses `K`, `L1`, `Linf`; Richards adds `m`.
 #' `sd_L1` / `sd_Linf` are the standard deviations of length-at-age
-#' anchored at `L1` and `Linf` (the SD-at-age interpolation endpoints
-#' from `growth.hpp`). Only intercept-only specs (`~ 1`) are honored
+#' anchored at `L1` and `Linf` (the SD-at-age interpolation endpoints).
+#' Only intercept-only specs (`~ 1`) are honored
 #' on the SD endpoints -- they thread through `init` / `bounds` /
-#' `priors` onto `growth_log_sd` but do not vary by year.
+#' `priors` onto the growth SD-at-age but do not vary by year.
 #' The empirical weight-at-age model admits no linkages.
 #'
 #' @keywords internal
@@ -566,25 +593,30 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #'   otherwise falls back to `max(0.5, minage[sp])` so `minage >= 1`
 #'   models stay backwards-compatible and `minage = 0` models pick up an
 #'   SS3-consistent half-year anchor.
+#' @param sd_plus_group How the oldest age class's SD-at-age is treated (only
+#'   affects estimated growth, `fun != "empirical"`). `"WHAM"` pins the
+#'   plus-group SD to the upper anchor `exp(sd_Linf)` (the WHAM SDAA
+#'   convention); `"SS3"` instead interpolates it by length like any interior
+#'   age. Accepts a string or the integer code (`1`/`2`), scalar or a
+#'   length-`nspp` vector. Default `NA` inherits `data_list$growth_sd_style`
+#'   if present (so a refit keeps the original choice), otherwise `"WHAM"`.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
 #'   The mean-growth keys (`K`, `L1`, `Linf`, `m`)
-#'   accept arbitrary one-sided formulas and produce year-varying
-#'   offsets applied inside `growth.hpp`. The SD-endpoint keys
+#'   accept arbitrary one-sided formulas and make that growth parameter
+#'   year-varying (a per-year offset around its mean). The SD-endpoint keys
 #'   (`sd_L1`, `sd_Linf`) only honor intercept-bearing
 #'   formulas (typically `~ 1`) -- they thread `init`, `bounds`, and
-#'   `priors` onto the underlying `growth_log_sd` parameter, giving
+#'   `priors` onto the growth SD-at-age, giving
 #'   the SDs the same prior/fix/initial-value contract as the mean
 #'   parameters. Slope rows on SD specs raise a warning and have no
 #'   effect; slope-only formulas (`~ 0 + temp`) error.
-#'   Materialization into the global linkage table happens inside
-#'   `fit_mod()` once `data_list$env_data` is in scope.
 #'
 #' @return A list of switches defining the growth model.
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Sex-specific von Bertalanffy with temperature on K, by species + sex
 #' build_growth(
 #'   fun = "vonBertalanffy",   # or fun = 1
@@ -599,8 +631,18 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #' }
 build_growth <- function(fun = "empirical",
                          growth_age_L1 = NA,
+                         sd_plus_group = NA,
                          linkages = NULL) {
   fun <- .coerce_growth_fun(fun)
+  # NA (the default) means "inherit": fit_mod() resolves it from
+  # data_list$growth_sd_style if present, else the WHAM fallback -- exactly like
+  # growth_age_L1. This keeps a refit that rebuilds growth via build_growth(fun=)
+  # from silently resetting an SS3 model to WHAM.
+  sd_style_int <- if (all(is.na(sd_plus_group))) {
+    NA_integer_
+  } else {
+    .coerce_switch_arg(sd_plus_group, .GROWTH_SD_STYLE, "sd_plus_group")
+  }
   linkages <- .validate_growth_linkages(linkages, fun)
   list(
     fun            = fun,
@@ -610,6 +652,13 @@ build_growth <- function(fun = "empirical",
     # growth functions (e.g. fun = c("vonBertalanffy", "Richards"))
     # propagate downstream as before.
     growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
+    # Plus-group SD-at-age treatment. Like `fun`/`growth_model`, the canonical
+    # string is kept under the argument name (for save_config round-trip) and
+    # the int code (1 = WHAM, 2 = SS3) feeds the TMB template. Per-species.
+    # NA_integer_ = inherit (resolved in fit_mod); the string field is NA too and
+    # is dropped from a saved config, so unspecified models re-derive on load.
+    sd_plus_group   = names(.GROWTH_SD_STYLE)[match(sd_style_int, .GROWTH_SD_STYLE)],
+    growth_sd_style = sd_style_int,
     # VB anchor age (= age at which `l1` is the length). Matches SS3's
     # `Growth_Age_for_L1` ctl input. Scalar or length-nspp; pass NA
     # (default) to inherit max(0.5, minage[sp]) downstream so old
@@ -728,9 +777,494 @@ build_growth <- function(fun = "empirical",
 
 #' @keywords internal
 #' @noRd
-.stamp_param <- function(val, param) {
-  if (inherits(val, "Rceattle_linkage_spec")) {
-    return(.set_linkage_param(val, param))
+# Base stratum a process uses when the user omits `by` in linkage_spec(): the
+# fleet-indexed processes key by fleet, everything else by species. Composition
+# is split -- the fleet DM weights (theta_comp / theta_caal) key by fleet, the
+# per-predator diet weight (theta_diet) by species.
+.default_stratum <- function(process_label, param) {
+  if (process_label %in% c("q", "sel")) return(~ fleet)
+  if (process_label == "comp") {
+    return(if (identical(as.character(param), "theta_diet")) ~ species else ~ fleet)
   }
-  lapply(val, .set_linkage_param, param = param)
+  ~ species                                    # recruitment, M, growth
+}
+
+# Fill an omitted `by` with the process's base stratum; an explicitly-set `by`
+# (a formula, or NULL for a single shared coefficient) is left as the user gave it.
+.resolve_auto_by <- function(spec, process_label, param) {
+  if (isTRUE(spec$by_auto)) spec$by <- .default_stratum(process_label, param)
+  spec
+}
+
+.stamp_param <- function(val, param, process_label = NULL) {
+  stamp1 <- function(s) {
+    s <- .set_linkage_param(s, param)
+    if (!is.null(process_label)) s <- .resolve_auto_by(s, process_label, param)
+    s
+  }
+  if (inherits(val, "Rceattle_linkage_spec")) return(stamp1(val))
+  lapply(val, stamp1)
+}
+
+
+#' Catchability parameters that accept a linkage
+#' @keywords internal
+#' @noRd
+Q_LINKAGE_PARAMS <- c("q")
+
+
+#' @keywords internal
+#' @noRd
+.validate_q_linkages <- function(linkages) {
+  .validate_process_linkages(linkages, Q_LINKAGE_PARAMS, "q")
+}
+
+
+#' Catchability specification
+#'
+#' @description
+#' Carry environmental linkages on survey/index catchability `q`. The effect of
+#' an `env_data` covariate is written as a formula and can carry priors, bounds,
+#' and an estimation phase like any other linkage.
+#'
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by
+#'   catchability parameter. The only parameter is `q`. Coefficients are per
+#'   fleet by default (`by = ~ fleet`); use the `fleet` argument of
+#'   [linkage_spec()] to restrict a spec to particular fleets.
+#'
+#' @return A list of catchability settings for [fit_mod()].
+#'
+#' @examples
+#' \donttest{
+#' # One temperature effect on q per fleet. `by = ~ fleet` is the default, and a
+#' # fleet without an estimated survey catchability is not linkable, so at fit time
+#' # restrict the linkage to the estimated-q fleets (here fleet 7 of BS2017SS).
+#' build_catchability(linkages = list(
+#'   q = linkage_spec(~ temp, fleet = 7)))
+#'
+#' # Restrict it to fleets 1 and 3, with a prior on the slope
+#' build_catchability(linkages = list(
+#'   q = linkage_spec(~ temp, fleet = c(1, 3),
+#'                    priors = list(temp = prior_normal(0, 1)))))
+#' }
+#'
+#' @export
+build_catchability <- function(linkages = NULL) {
+  list(linkages = .validate_q_linkages(linkages))
+}
+
+
+#' Selectivity parameters that accept a linkage
+#'
+#' Slot names shared across the parametric forms, plus DoubleNormal aliases.
+#' @keywords internal
+#' @noRd
+SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
+                        "sigma_asc", "sigma_desc", "peak", "right_floor")
+
+
+#' @keywords internal
+#' @noRd
+.validate_sel_linkages <- function(linkages) {
+  .validate_process_linkages(linkages, SEL_LINKAGE_PARAMS, "sel")
+}
+
+
+#' Selectivity specification
+#'
+#' @description
+#' Carries environmental linkages on selectivity parameters. The effect on a
+#' parameter is written as a formula and composes additively with any
+#' `Time_varying_sel` process error on the same fleet (the two are separate
+#' mechanisms: a covariate effect versus a deviation).
+#'
+#' The parameter names are the shape parameters of the parametric selectivity
+#' forms:
+#' \describe{
+#'   \item{`slp_asc`, `slp_desc`}{ascending / descending logistic slope (log
+#'     scale); for a double-normal the ascending / descending width, aliased
+#'     `sigma_asc` / `sigma_desc`.}
+#'   \item{`inf_asc`, `inf_desc`}{ascending / descending inflection age/length
+#'     (natural scale); for a double-normal the peak and the logit right-floor,
+#'     aliased `peak` / `right_floor`.}
+#'   \item{`coff`}{non-parametric selectivity-at-bin coefficients.}
+#' }
+#'
+#' Every parameter accepts `link = "log"` (multiplicative on the natural
+#' parameter) or `link = "identity"` (additive), like the other processes.
+#'
+#' **Priors on a selectivity parameter.** An intercept-only formula (`~ 1`) with
+#' a `priors` entry places a prior on the selectivity parameter itself (no
+#' year-to-year offset is added). Read the prior on the parameter's own scale:
+#' the slopes (`slp_asc` / `slp_desc`) are on the log scale (use `lognormal()`),
+#' the inflections (`inf_asc` / `inf_desc`) on the natural scale (use `normal()`).
+#' See Examples for a normal prior on the ascending inflection. This mirrors the
+#' prior-only [build_composition()] path.
+#'
+#' A selectivity prior targets one parameter, so in a two-sex model an
+#' unstratified `~ 1` prior constrains sex 1 only -- use `by = ~ sex` for a
+#' per-sex prior. An `init` on a selectivity intercept has no effect (the
+#' starting value comes from the data), and a prior on the double-normal
+#' `right_floor` is not supported.
+#' For a fleet that mirrors another fleet's selectivity (shared
+#' `Selectivity_index`), place the prior on the lead fleet so the shared
+#' parameter block is not penalised more than once.
+#'
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by
+#'   selectivity parameter. Coefficients are per fleet by default
+#'   (`by = ~ fleet`); use the `fleet` argument of [linkage_spec()] to restrict
+#'   a spec to particular fleets.
+#'
+#' @return A list of selectivity settings for [fit_mod()].
+#'
+#' @examples
+#' \donttest{
+#' # A cold-pool effect on the ascending inflection of a logistic fleet
+#' build_selectivity(linkages = list(
+#'   inf_asc = linkage_spec(~ cold_pool, by = ~ fleet)))
+#'
+#' # A normal prior on the ascending inflection (intercept-only formula)
+#' build_selectivity(linkages = list(
+#'   inf_asc = linkage_spec(~ 1, priors = list(`(Intercept)` = normal(0, 3)))))
+#' }
+#'
+#' @export
+build_selectivity <- function(linkages = NULL) {
+  list(linkages = .validate_sel_linkages(linkages))
+}
+
+
+#' @keywords internal
+#' @noRd
+COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
+
+
+#' @keywords internal
+#' @noRd
+.validate_comp_linkages <- function(linkages) {
+  .validate_process_linkages(linkages, COMP_LINKAGE_PARAMS, "comp")
+}
+
+
+#' Composition-weighting specification
+#'
+#' @description
+#' Carries **priors** on the Dirichlet-multinomial composition-weighting
+#' overdispersion. The DM weight (the "theta" that scales the effective sample
+#' size) is otherwise an unpenalised free parameter; a linkage lets you put a
+#' prior on it through the same grammar as every other parameter. The three
+#' parameters target the three DM likelihoods:
+#' \describe{
+#'   \item{`theta_comp`}{age / length composition weight (`comp_weights`), per
+#'     fleet.}
+#'   \item{`theta_caal`}{conditional-age-at-length weight (`caal_weights`), per
+#'     fleet.}
+#'   \item{`theta_diet`}{diet composition weight (`diet_comp_weights`), per
+#'     predator.}
+#' }
+#'
+#' This is a **prior-only** process: the DM weight is a scalar, not a
+#' year-varying quantity, so only intercept formulas (`~ 1`) with a `priors`
+#' entry are meaningful. The prior is placed on the natural-scale DM weight
+#' `theta = exp(weight)`, so a `gamma()` prior reads naturally. A linkage on a
+#' fleet whose `Comp_distribution` (or `CAAL_distribution`) is not
+#' `"DirichletMultinomial"` errors, since the weight has no effect there.
+#'
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by
+#'   `theta_comp` / `theta_caal` (per fleet by default, `by = ~ fleet`) or
+#'   `theta_diet` (per predator by default, `by = ~ species`).
+#'
+#' @return A list of composition-weighting settings for [fit_mod()].
+#'
+#' @examples
+#' \donttest{
+#' # A weak gamma prior on the DM overdispersion of every fleet's age comps
+#' build_composition(linkages = list(
+#'   theta_comp = linkage_spec(~ 1, by = ~ fleet,
+#'                             priors = list(`(Intercept)` = gamma(2, 0.5)))))
+#' }
+#'
+#' @export
+build_composition <- function(linkages = NULL) {
+  list(linkages = .validate_comp_linkages(linkages))
+}
+
+
+# Map a selectivity linkage param name to (array, 1-based slot). log_sel_slp
+# and sel_inf are [2, fleet, sex]; sel_coff is [fleet, sex, bin].
+.SEL_PARAM_TO_SLOT <- list(
+  slp_asc     = list(arr = "log_sel_slp", slot = 1L),
+  slp_desc    = list(arr = "log_sel_slp", slot = 2L),
+  sigma_asc   = list(arr = "log_sel_slp", slot = 1L),
+  sigma_desc  = list(arr = "log_sel_slp", slot = 2L),
+  inf_asc     = list(arr = "sel_inf",     slot = 1L),
+  inf_desc    = list(arr = "sel_inf",     slot = 2L),
+  peak        = list(arr = "sel_inf",     slot = 1L),
+  right_floor = list(arr = "sel_inf",     slot = 2L),
+  coff        = list(arr = "sel_coff",    slot = NA_integer_)
+)
+
+
+# Selectivity forms whose consume site reads the linkage offset: every
+# PARAMETRIC form. DoubleNormal reuses the slp/inf slots (peak/sigma/floor
+# aliases) and LogisticPM's multiplicative deviates carry the offset inside
+# their exp. The non-parametric forms are excluded on purpose -- see the
+# `coff` note in .check_sel_linkage_support().
+.SEL_LINKAGE_WIRED_FORMS <- c("Logistic", "DoubleLogistic", "DescendingLogistic",
+                              "DoubleNormal", "LogisticPM")
+.SEL_LINKAGE_WIRED_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc",
+                               "sigma_asc", "sigma_desc", "peak", "right_floor")
+
+
+#' Reject selectivity linkages the template does not yet consume
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param fleet_control the fleet control table.
+#' @return invisibly NULL; errors on an unsupported sel linkage.
+#' @keywords internal
+#' @noRd
+.check_sel_linkage_support <- function(linkage_table, fleet_control) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  sel <- linkage_table[linkage_table$process == "sel", , drop = FALSE]
+  if (nrow(sel) == 0L) return(invisible())
+
+  bad_param <- setdiff(unique(sel$param), .SEL_LINKAGE_WIRED_PARAMS)
+  if (length(bad_param) > 0) {
+    extra <- if ("coff" %in% bad_param) paste0(
+      "\n  `coff` (non-parametric selectivity) cannot carry a linkage: those ",
+      "forms mean-centre their coefficients each year, so a per-year offset ",
+      "applied across all bins cancels exactly. A meaningful effect would need ",
+      "a per-bin covariate, which the formula grammar does not express.") else ""
+    stop(sprintf(
+      paste0("selectivity linkage parameter(s) not supported: %s.\n",
+             "  Supported: %s.%s"),
+      paste(bad_param, collapse = ", "),
+      paste(.SEL_LINKAGE_WIRED_PARAMS, collapse = ", "), extra), call. = FALSE)
+  }
+
+  # Every fleet a sel row targets must use a wired selectivity form.
+  flts <- unique(sel$fleet)
+  flts <- flts[!is.na(flts)]
+  if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
+  forms <- as.character(fleet_control$Selectivity[flts])
+  bad_flt <- flts[!forms %in% .SEL_LINKAGE_WIRED_FORMS]
+  if (length(bad_flt) > 0) {
+    stop(sprintf(
+      paste0("selectivity linkage on fleet(s) %s whose form (%s) is not yet ",
+             "wired for linkages.\n  Wired forms: %s."),
+      paste(fleet_control$Fleet_name[bad_flt], collapse = ", "),
+      paste(unique(as.character(fleet_control$Selectivity[bad_flt])),
+            collapse = ", "),
+      paste(.SEL_LINKAGE_WIRED_FORMS, collapse = ", ")), call. = FALSE)
+  }
+
+  # A PRIOR on a selectivity intercept re-targets the base parameter, whose scale
+  # depends on the fleet's form and whose ownership depends on Selectivity_index.
+  # Two cases the re-target cannot yet express correctly are rejected up front
+  # (a covariate linkage on the same slot is fine -- only priors are affected).
+  prior_rows <- sel[!is.na(sel$prior_family) & sel$prior_family != "none", ,
+                    drop = FALSE]
+  if (nrow(prior_rows) > 0L) {
+    row_flt <- function(f) if (is.na(f)) 1L else as.integer(f)   # NA fleet = cell 1 (cpp default)
+
+    # (a) DoubleNormal stores sel_inf(1) as logit(right_floor), so a natural-scale
+    # prior on `inf_desc` / `right_floor` would be evaluated on the logit scale.
+    # Reject until the logit transform is wired -- the ascending peak (`inf_asc`)
+    # and the sigmas/slopes (log scale) are unaffected.
+    dn <- prior_rows[prior_rows$param %in% c("inf_desc", "right_floor"), , drop = FALSE]
+    dn_flt <- unique(vapply(dn$fleet, row_flt, integer(1)))
+    dn_flt <- dn_flt[as.character(fleet_control$Selectivity[dn_flt]) == "DoubleNormal"]
+    if (length(dn_flt) > 0L) {
+      stop(sprintf(paste0(
+        "prior on `inf_desc` / `right_floor` for DoubleNormal fleet(s) %s is not ",
+        "supported: that slot holds logit(right_floor), so a natural-scale prior ",
+        "would be applied on the logit scale. Prior the ascending peak / sigmas ",
+        "instead."),
+        paste(fleet_control$Fleet_name[dn_flt], collapse = ", ")), call. = FALSE)
+    }
+
+    # (b) Fleets that mirror another fleet's selectivity (Selectivity_index != own
+    # Fleet_code) share one parameter block; a prior on the mirror double-counts
+    # the block (cf. the shared-block penalty trap). Require the prior on the lead
+    # fleet (Selectivity_index == Fleet_code).
+    sidx <- fleet_control$Selectivity_index
+    mir_flt <- unique(vapply(prior_rows$fleet, row_flt, integer(1)))
+    mir_flt <- mir_flt[!is.na(sidx[mir_flt]) & sidx[mir_flt] != mir_flt]
+    if (length(mir_flt) > 0L) {
+      stop(sprintf(paste0(
+        "selectivity prior on fleet(s) %s that mirror another fleet's ",
+        "selectivity (Selectivity_index != Fleet_code): the shared block would be ",
+        "penalized once per sharing fleet. Place the prior on the lead fleet ",
+        "(the one whose Selectivity_index equals its Fleet_code)."),
+        paste(fleet_control$Fleet_name[mir_flt], collapse = ", ")), call. = FALSE)
+    }
+  }
+  invisible()
+}
+
+
+# Catchability forms that do NOT estimate q, so a q linkage must not attach:
+# "Fixed" holds index_log_q at its input (a linkage would silently turn a fixed
+# q time-varying, contrary to the assessor's Fixed setting), and
+# "Analytical"/"AnalyticalArith" solve q from the data (index_log_q is mapped
+# out, so a linkage targets a non-free parameter and does nothing). Both are
+# rejected up front rather than quietly changing q. See build_map_catchability.
+.Q_LINKAGE_UNESTIMATED_FORMS <- c("Fixed", "Analytical", "AnalyticalArith")
+
+
+#' Reject q linkages on fleets whose catchability is not estimated
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param fleet_control the fleet control table.
+#' @return invisibly NULL; errors on a q linkage targeting a fleet whose q is
+#'   fixed or analytically solved.
+#' @keywords internal
+#' @noRd
+# Informational one-time message: a catchability/selectivity linkage whose `by` was
+# auto-filled (the user omitted it) and that names no fleets applies to EVERY fleet
+# of that process -- one coefficient each. Tell the user so the per-fleet expansion
+# (and any resulting eligibility error) is not a surprise; naming fleets via
+# linkage_spec(fleet = ) restricts it.
+.message_auto_fleet_linkages <- function(spec_groups) {
+  labs <- c(q = "catchability", sel = "selectivity")
+  for (proc in names(labs)) {
+    specs <- spec_groups[[proc]]
+    if (is.null(specs)) next
+    for (nm in names(specs)) {
+      val <- specs[[nm]]
+      lst <- if (inherits(val, "Rceattle_linkage_spec")) list(val) else val
+      for (s in lst) {
+        if (isTRUE(s$by_auto) && is.null(s$fleet) && "fleet" %in% all.vars(s$by)) {
+          message(sprintf(
+            paste0("A %s linkage (`%s`) did not name fleets, so it applies to every ",
+                   "eligible fleet -- one coefficient each. Pass ",
+                   "linkage_spec(fleet = ) to restrict it to specific fleets."),
+            labs[[proc]], nm))
+        }
+      }
+    }
+  }
+  invisible()
+}
+
+.check_q_linkage_support <- function(linkage_table, fleet_control) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  q <- linkage_table[linkage_table$process == "q", , drop = FALSE]
+  if (nrow(q) == 0L) return(invisible())
+
+  flts <- unique(q$fleet)
+  flts <- flts[!is.na(flts)]
+  if (length(flts) == 0L) flts <- seq_len(nrow(fleet_control))  # NA = all fleets
+  forms <- as.character(fleet_control$Catchability[flts])
+  # A fleet does not estimate q if its Catchability holds q fixed / solves it from
+  # the data (Fixed / Analytical), or is absent (NA) -- a fleet with no survey index
+  # has no catchability to link. A linkage on any of these cannot be estimated.
+  bad <- flts[is.na(forms) | forms %in% .Q_LINKAGE_UNESTIMATED_FORMS]
+  if (length(bad) > 0) {
+    stop(sprintf(
+      paste0("catchability linkage on fleet(s) %s whose Catchability (%s) does ",
+             "not estimate q: index_log_q is held fixed (Fixed), solved from the ",
+             "data (Analytical), or absent (NA -- the fleet has no survey index), ",
+             "so a linkage would turn a fixed q time-varying or have no effect.\n",
+             "  Give the fleet an estimated survey catchability (\"Estimated\" / ",
+             "\"Estimated-with-prior\") with index data, or restrict the linkage to ",
+             "estimated-q fleets via linkage_spec(fleet = ...)."),
+      paste(fleet_control$Fleet_name[bad], collapse = ", "),
+      paste(unique(as.character(fleet_control$Catchability[bad])),
+            collapse = ", ")), call. = FALSE)
+  }
+  invisible()
+}
+
+
+#' Reject composition-weighting (comp) linkages that cannot take effect
+#'
+#' @description
+#' `comp` linkages are prior-only (the Dirichlet-multinomial weight is a scalar,
+#' not a year-varying quantity), so only intercept formulas are allowed; a
+#' covariate slope would be estimated to no effect. And the weight is only a
+#' free parameter under a `"DirichletMultinomial"` likelihood, so a prior on a
+#' non-DM fleet/predator would target a fixed parameter. Both error up front.
+#'
+#' @param linkage_table pooled linkage table (may be NULL / empty).
+#' @param data_list the data list (for `fleet_control` and `Diet_distribution`).
+#' @return invisibly NULL; errors on an unsupported comp linkage.
+#' @keywords internal
+#' @noRd
+.check_comp_linkage_support <- function(linkage_table, data_list) {
+  if (is.null(linkage_table) || nrow(linkage_table) == 0L) return(invisible())
+  cmp <- linkage_table[linkage_table$process == "comp", , drop = FALSE]
+  if (nrow(cmp) == 0L) return(invisible())
+  fc <- data_list$fleet_control
+
+  # (a) prior-only: only intercept rows (theta is a scalar; no accumulator).
+  if (any(cmp$design_col != "(Intercept)")) {
+    stop("composition-weighting (comp) linkages are prior-only: use an ",
+         "intercept formula `~ 1` with a `priors` entry (the DM weight is a ",
+         "scalar, not year-varying), not a covariate slope.", call. = FALSE)
+  }
+
+  # (a2) prior-only: `init` / `est_phase` do NOT re-target the DM weight -- the
+  # weight (comp_weights / caal_weights / diet_comp_weights) is estimated by the
+  # DM likelihood itself, so a start value or a fix belongs on `inits` /
+  # `map`, not the spec. Reject them loudly rather than silently ignoring, since
+  # the intercept coefficient they would touch is mapped out at 0 for comp.
+  if (any(cmp$init_supplied)) {
+    stop("composition-weighting (comp) linkages are prior-only: `init` on the ",
+         "spec does not set the DM weight (it is estimated by the ",
+         "DirichletMultinomial likelihood); set a starting value via `inits` ",
+         "instead.", call. = FALSE)
+  }
+  if (any(cmp$est_phase != 1L)) {
+    stop("composition-weighting (comp) linkages are prior-only: `est_phase` on ",
+         "the spec does not fix or phase the DM weight (the intercept ",
+         "coefficient it controls is mapped out at 0); fix the weight via ",
+         "`map` instead.", call. = FALSE)
+  }
+
+  # (b) each row must name the ONE weight it targets. The cpp prior loop runs
+  # once per linkage row and addresses a single weight -- comp/caal weights are
+  # fleet-indexed, diet weights predator(species)-indexed -- so a row must carry
+  # a concrete fleet (theta_comp / theta_caal) or species (theta_diet). There is
+  # NO "all fleets/species" broadcast: an unstratified sentinel (NA) collapses
+  # to the first index in the cpp, silently attaching the prior to fleet 1 /
+  # predator 1 (and dropping the rest). `theta_comp` / `theta_caal` therefore
+  # need `by = ~ fleet` (comp weights are not species-indexed); `theta_diet`
+  # needs `by = ~ species`. Reject the wrong / missing stratum up front.
+  dm_str <- function(v) as.character(v) == "DirichletMultinomial"
+  for (r in seq_len(nrow(cmp))) {
+    prm <- cmp$param[r]
+    fl  <- cmp$fleet[r]
+    sp  <- cmp$species[r]
+    if (prm %in% c("theta_comp", "theta_caal")) {
+      if (is.na(fl)) {
+        stop(sprintf(paste0(
+          "%s is a fleet-indexed DM weight: stratify the linkage by fleet ",
+          "(`by = ~ fleet`, naming fleets via `fleet = `). An unstratified ",
+          "spec would attach the prior to a single fleet only."), prm),
+          call. = FALSE)
+      }
+      col <- if (prm == "theta_comp") "Comp_distribution" else "CAAL_distribution"
+      if (!dm_str(fc[[col]][fl])) {
+        stop(sprintf(paste0(
+          "%s linkage on fleet %s whose %s is not 'DirichletMultinomial'; ",
+          "the DM weight is not estimated there, so the prior has no effect."),
+          prm, fc$Fleet_name[fl], col), call. = FALSE)
+      }
+    } else if (prm == "theta_diet") {
+      if (is.na(sp)) {
+        stop(paste0(
+          "theta_diet is a predator-indexed DM weight: stratify the linkage ",
+          "by species (`by = ~ species`). An unstratified spec would attach ",
+          "the prior to a single predator only."), call. = FALSE)
+      }
+      if (as.integer(data_list$Diet_distribution[sp]) != 1L) {
+        stop(sprintf(paste0(
+          "theta_diet linkage on predator %s whose Diet_distribution is not ",
+          "DirichletMultinomial; the DM weight is not estimated there."), sp),
+          call. = FALSE)
+      }
+    }
+  }
+  invisible()
 }

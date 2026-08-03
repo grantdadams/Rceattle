@@ -1,3 +1,647 @@
+# Rceattle 5.1.0
+
+## New features
+
+* **`linkage_spec()` fills in `by` from the process it is attached to.** Omitting
+  `by` now defaults to the base stratum of the process -- `~ fleet` for
+  catchability, selectivity, and the fleet composition weights (`theta_comp` /
+  `theta_caal`), and `~ species` for recruitment, M, growth, and the diet weight
+  (`theta_diet`) -- so a base-case linkage no longer needs an explicit
+  `by = ~ fleet` / `by = ~ species`. An explicit `by` (a formula, or `NULL` for a
+  single shared coefficient) is always kept as given, so code that passes `by`
+  explicitly -- as the bundled examples and real assessments do -- is unchanged.
+  A linkage that *omitted* `by` on a fleet-keyed process does change: it now spans
+  every fleet (with a separate coefficient each) rather than collapsing to fleet 1.
+  In particular a `~ 1` selectivity/catchability **prior** now applies per fleet, so
+  name the target fleet(s) via `linkage_spec(fleet = ...)` -- and note it will error
+  on a model with mirrored selectivity fleets unless a fleet is named. Restrict a
+  covariate or prior to the fleets you mean with the `fleet` argument. When `by` is
+  omitted on a catchability/selectivity linkage, `fit_mod()` now prints a one-time
+  message noting that it spans every eligible fleet, so the per-fleet expansion is
+  not a surprise.
+
+## Bug fixes
+
+* **A catchability linkage on a fleet with no survey index now errors.** A `q`
+  linkage only makes sense on a fleet whose catchability is estimated. Fleets that
+  hold q fixed or solve it analytically were already rejected; a fleet with **no
+  index data** (so `Catchability` is `NA` and there is no q to estimate) was not, so
+  an omitted-`by` linkage silently attached meaningless q coefficients to, e.g.,
+  fishery fleets. Such fleets are now rejected with the same clear error, naming them
+  and pointing to `linkage_spec(fleet = ...)` to restrict the linkage.
+
+# Rceattle 5.0.6
+
+## Bug fixes
+
+* **A `right_floor` selectivity linkage now applies its offset on the logit scale.**
+  For a double-normal fleet, `sel_inf(1)` parameterises the right-tail floor as
+  `logit(right_floor)`, but a log-link linkage offset was applied by multiplying the
+  already-transformed probability, which could push `right_floor` above 1 and corrupt the
+  descending limb. The offset now acts on the logit (additive and multiplicative), like the
+  peak and the other inflection slots, so `right_floor` stays in `[0, 1]` for any offset.
+  A fleet with no `right_floor` linkage is bit-identical (the four reference models are
+  unchanged).
+
+# Rceattle 5.0.5
+
+## Bug fixes
+
+* **Random-effect deviate SDs are now held during phasing.** The 5.0.4 phased
+  random-effect warm-up (deviates estimated as penalised fixed effects before the Laplace
+  step) held every process's variance hyperparameter fixed except three observation/deviate
+  SDs: `log_sigma_linkage` and `log_obs_sd_linkage` (the `~ (1 | Year)` / `rw()` / `ar1()`
+  and Rogers-2024 QAR1 SDs) and `index_q_log_sd` (the legacy `Catchability = "AR1"` q
+  observation SD). Left free, each was estimated jointly with its own penalised deviates and
+  could collapse toward 0, so a *phased* fit silently converged to the random-effect-*off*
+  solution -- the estimated time-variation vanished -- instead of the correct optimum. All
+  three are now held during phasing like every other process SD. Fits without these random
+  effects are unaffected (the four reference models stay bit-identical).
+
+## Internal
+
+* **The TMB model is now `src/TMB/ceattle.cpp`** (was `ceattle_v01_11.cpp`), and its
+  compiled DLL is `ceattle`. Internal rename only -- the model and results are
+  unchanged (the four reference models stay bit-identical), and `fit_mod()` loads the
+  renamed DLL automatically. A fit built with a custom `fit_control(TMBfilename = ...)`
+  is unaffected. Caveat: an object fitted by an earlier version stores
+  `TMBfilename = "ceattle_v01_11"`, so re-running `osa_residuals()` on such a saved fit
+  needs it re-fit under this version first (the old DLL name is no longer built).
+
+## Documentation
+
+* Moved the `?build_selectivity` prior example into `@examples` (it previously rendered
+  a broken `\verb{}`); corrected the `?build_hcr` PFMC notation to use the normal quantile
+  `qnorm()` rather than `Phi` (which denotes the CDF); and regrouped the 4.10.0 linkage
+  additions under New features. Minor vignette / README fixes.
+
+# Rceattle 5.0.4
+
+## Bug fixes
+
+* **Random-effect models phase without a flat-field NaN.** During phasing, the
+  deviates of a random effect (recruitment, selectivity, catchability, ...) are now
+  estimated as *penalised fixed effects* with their variance / correlation
+  hyperparameters held, and the Laplace approximation is switched on only in the
+  final hindcast fit. Previously the deviates were integrated out from the first
+  phase, so a random field started flat (all-zero); for a 2D AR1 selectivity
+  (`random_sel = TRUE`), integrating a flat field gives a `NaN` marginal objective
+  and the fit could not start without an external warm start. Phasing the deviates
+  as penalised effects first builds up realistic non-zero values, so the final
+  Laplace begins near the mode. Gated on the presence of random effects, so fits
+  without any are unchanged (the four reference models remain bit-identical).
+
+# Rceattle 5.0.3
+
+## New features
+
+* **OSA residuals now support every survey-index likelihood family.**
+  `osa_residuals()` previously produced one-step-ahead residuals only for the
+  lognormal IID index (`Index_distribution` `"Lognormal"`). It now covers all
+  families: natural-scale `"Normal"` residualizes as an independent normal on the
+  natural scale, and the correlated covariance families `"MVN"` / `"MVNORM"` are
+  whitened by the lower Cholesky of the fleet's survey covariance
+  `Sigma = L L'`, so the residuals are the multivariate-Gaussian one-step-ahead
+  innovations `L^-1 (obs - q*pred)` — the closed form `TMB::oneStepPredict()`
+  reproduces for a Gaussian block (Thygesen et al. 2017). This supersedes the
+  5.0.2 exclusion of these fleets. The ordinary model fit is unchanged (the
+  whitening applies only to the post-hoc OSA observation vector).
+
+* **String aliases for the `fit_mod()` mode switches.** `estimateMode` and
+  `msmMode` now accept readable names alongside their integer codes:
+  `estimateMode = "Estimate"` (0), `"Hindcast"` (1), `"Projection"` (2),
+  `"DebugBuild"` (3), `"DebugOptimize"` (4); `msmMode = "SingleSpecies"` (0),
+  `"TypeIIMSVPA"` (1), `"TypeIIIMSVPA"` (2). The integer codes still work, and an
+  unrecognized string errors with the valid options listed.
+
+# Rceattle 5.0.2
+
+## Bug fixes
+
+* **OSA residuals no longer silently mis-residualize non-lognormal index fleets.**
+  `osa_residuals()` / `build_osa_data()` previously laid MVN-covariance
+  (`Index_distribution` "MVN"/"MVNORM") and natural-scale "Normal" survey
+  observations into the one-step-ahead observation vector as if they were
+  independent lognormals, even though the C++ likelihood for those families does
+  not read the OSA observation vector — producing invalid residuals with no
+  warning. Those fleets are now excluded from the OSA residuals with a warning
+  naming them; lognormal (IID) index fleets in the same model are unaffected.
+  (Covariance-aware OSA residuals for the MVN families are a separate follow-up.)
+
+# Rceattle 5.0.1
+
+## New features
+
+* **OSA residuals now support composition tail accumulation.** When a fleet folds
+  its age/length composition tails via `Comp_accum_young` / `Comp_accum_old` (AFSC
+  `ac_yng`/`ac_old`), `osa_residuals()` now residualizes the folded composition
+  that was actually fit -- one residual per fitted (folded) bin per sex block,
+  rather than refusing the combination. `build_osa_data()` applies the same
+  per-sex-block young/old fold to the OSA observation vector, so the one-step-ahead
+  decomposition matches the fitted composition likelihood bin-for-bin. Fleets
+  without accumulation are unchanged.
+
+# Rceattle 5.0.0
+
+## Breaking changes
+
+* **`mse_summary()` now returns a per-entity list instead of one stacked
+  data.frame.** The result is `list(species, fleet, total, meta)`: `species`
+  (one row per species, keyed by `Species`) holds the conservation/status
+  metrics; `fleet` (one row per fishery fleet) holds average catch / catch IAV
+  / P(Closed); `total` is the across-fleet totals; `meta` carries run
+  provenance. This removes the NA padding and the ambiguity of the old shape,
+  where species, fleet, and "All" rows were stacked in one frame and a column
+  like `Average Catch` meant different things per row. The metric values are
+  unchanged. Update `summ$"<metric>"` call sites to `summ$species$"<metric>"`
+  or `summ$fleet$"<metric>"`.
+
+## Bug fixes
+
+* Fixed the `ConstantFSPR` harvest control rule (`HCR = 4`) applying `Fmult`
+  twice, which set the projected F to `Ftarget * Fmult^2`. It is now
+  `Ftarget * Fmult`. Only affects projections with `Fmult != 1` (the default
+  `Fmult = 1` is unchanged).
+* Corrected the documented reference-point formulas in `?build_hcr`: the SESSF
+  (Tier 1) and NPFMC (Tier 3) fishing-mortality ramps and the PFMC 40-10
+  buffer (the normal quantile function, not the CDF).
+* Restored `plot_logindex()` as a deprecated shim for `plot_index(log = TRUE)`.
+  It forwards to `plot_index()` with a `.Deprecated()` notice.
+
+## New features
+
+* **Plus-group SD-at-age convention (`build_growth(sd_plus_group=)`).** For
+  estimated growth, choose how the oldest age class's standard deviation of
+  length-at-age is set: `"WHAM"` (default) pins it to the upper anchor
+  `exp(sd_Linf)` (the WHAM SDAA convention, unchanged from prior releases);
+  `"SS3"` instead interpolates it by length like any interior age. Per-species
+  (scalar or length-`nspp`), round-trips through `save_config()`/`load_config()`,
+  and affects only `growth_model > 0` fits. Existing models are bit-identical
+  under the default.
+
+# Rceattle 4.13.1
+
+## Bug fixes
+
+* The NA-handling diagnostic in `check_caal_data()` now reports "CAAL data
+  have NAs ..." instead of mislabelling them as "Composition data" (the
+  message was copy-pasted from `check_composition_data()`). Message text only;
+  no change to the data or fit.
+
+* `model_average(uncertainty = TRUE)` no longer opens a plot device partway
+  through the computation. A stray `plot_ssb()` call fired before the averaged
+  `sdrep$sd` was populated, so it drew stale, pre-averaging confidence
+  intervals as an unrequested side effect; the averaged object it returns is
+  unchanged.
+
+# Rceattle 4.13.0
+
+## New features
+
+* **Save / load a run configuration (`save_config()` / `load_config()`).** A full
+  run configuration -- the [model_config()] structure plus the estimation controls
+  and `fit_control()` bundle -- round-trips to a documented, git-diffable YAML file
+  (each field carries its doc string as a comment; fields at their default are
+  omitted so two runs diff to only their real differences). Apply a saved config
+  with `fit_mod(data_list, config = load_config("run.yaml"))`; it fills only the
+  arguments the caller did not pass (an explicit argument always wins), and every
+  fit now records the run configuration it used (`fit$run_config`, also reachable
+  via `run_config(fit)`). Follows SAM's `saveConf`/`loadConf` and the
+  config-separate-from-weights idiom; adds a `yaml` dependency.
+
+* **Composition tail accumulation (AFSC `ac_yng` / `ac_old`).** Two new
+  `fleet_control` columns, `Comp_accum_young` and `Comp_accum_old`, fold the
+  young and old tails of a fleet's age/length composition into a boundary bin
+  before the composition likelihood (per sex block for joint-sex comps), for
+  every composition family including the default `MultinomialAFSC`. They are
+  1-based bin ordinals on the fleet's composition dimension; leaving them unset
+  (or `young = 1` / `old` at the last bin) applies no accumulation, so every
+  existing model is bit-identical. `data_check()` rejects out-of-range or
+  inverted (`young > old`) bins, and OSA residuals are not available for a fleet
+  with active accumulation (the residuals are built on the un-accumulated bins).
+
+## Bug fixes
+
+* **`self_test()` no longer errors with `object 'getsd' not found`.** Its
+  per-simulation refit closure referenced a `getsd` value that the function --
+  unlike `retrospective()`, `jitter()`, and `profile()` -- never defined, so
+  every simulation died on both the sequential and the parallel-cluster path.
+  `self_test()` now takes a `getsd` argument (default `NULL`, inheriting the
+  input model's setting) like its sibling functions.
+
+# Rceattle 4.12.0
+
+## New features
+
+* **Intuitive `fleet_control` / data column names.** The workbook and data-list
+  columns were renamed to say what they hold, each keeping a back-compat alias
+  that is upgraded on read, so existing data lists, `.rda`, workbooks, and
+  scripts keep working (with a one-time deprecation message) and fit
+  identically: `Q_index`/`Q_init`/`Q_sd_prior` →
+  `Catchability_index`/`Catchability_init`/`Catchability_prior_sd`;
+  `Comp_loglike`/`CAAL_loglike`/`Index_loglike` →
+  `Comp_distribution`/`CAAL_distribution`/`Index_distribution`;
+  `Sel_norm_bin1`/`Sel_norm_bin2` → `Sel_norm_bin`/`Sel_norm_bin_upper`;
+  `weight1_Numbers2` → `Observation_units`; `proj_F_prop` → `Proj_F_proportion`;
+  the control scalar `sigma_rec_prior` → `sigma_rec`; the bioenergetics
+  `Diet_loglike` → `Diet_distribution`; and the post-fit output column
+  `Est_weights_mcallister` → `Comp_weights_mcallister` (the old name is still
+  written for downstream readers).
+
+* **`write_template()`.** A new export that writes a minimal, structurally
+  complete single-species starter workbook on the canonical column names; it
+  round-trips through `read_data()` and builds under `fit_mod(estimateMode = 3)`.
+
+* **Single-source workbook schema.** The column dictionary now lives once in the
+  package (`R/0-column_schema.R`) and drives `switch_check()` defaults,
+  `write_data()` object order, the embedded `meta_data` documentation sheet, and
+  the roxygen field dictionary, which are kept in sync by guard tests. ~16
+  previously used-but-undocumented columns are now documented.
+
+## Bug fixes
+
+* **Robust workbook reads.** `read_data()` now errors clearly when a required
+  sheet (`control`, `fleet_control`) is missing and skips optional sheets when
+  absent, so a minimal single-species workbook reads cleanly instead of failing
+  with a cryptic error. A non-numeric cell in the control or bioenergetics rows
+  now errors by name instead of silently becoming `NA`. `rearrange_data()` fails
+  clearly on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
+
+* **Removed the dead accumulation-age feature.** `Accumulation_age_lower/upper`
+  were only range-validated and never applied to composition data; they are
+  dropped (with a soft-deprecation message if an old workbook carries them).
+
+# Rceattle 4.11.0
+
+## New features
+
+* **`initMode = "FishedEquilibrium"` (5).** A new initial-age-structure mode: an
+  F = 0 equilibrium seeded by the *first-year* recruitment
+  (`exp(rec_pars + rec_dev[year 1])`) decayed by natural mortality, with initial
+  deviates turned off and no init-dev penalty. Unlike `initMode = "Equilibrium"`
+  (which seeds off the mean-recruitment equilibrium `R0`), the initial numbers
+  track the year-1 recruitment deviation, matching the AFSC GOA pollock (Cole
+  Monnahan) convention — the first-year cohort and the initial age composition
+  share one deviation. Every other mode is unchanged (golden references
+  bit-identical).
+
+* **Priors on base selectivity parameters through the linkage grammar.** A
+  selectivity linkage with an intercept-only formula and a `priors` entry now
+  places a prior on the base logistic parameter that carries the level — the
+  ascending/descending slope (`slp_asc` / `slp_desc`, on `log_sel_slp`, log
+  scale) or inflection (`inf_asc` / `inf_desc`, on `sel_inf`, natural scale),
+  e.g. `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors =
+  list(\`(Intercept)\` = normal(0, 3)))))`. Use `lognormal()` for the log-scale
+  slopes and `normal()` for the natural-scale inflections. This mirrors the
+  prior-only `build_composition()` path and reproduces the AFSC GOA pollock
+  selectivity priors. (Previously such an intercept prior was silently inert for
+  selectivity — the `sel` process was missing from the prior re-targeting.)
+
+* **Per-predator suitability reference years** (`suit_styr` / `suit_endyr`).
+  These `fit_mod()` arguments (and the underlying `data_list` fields) now accept
+  a vector of length `nspp` so each predator can average its suitability over a
+  different set of years — e.g. a California Current model with hake 1980–2019,
+  arrowtooth 2013–2018, and sablefish 2005–2008. A single scalar is recycled to
+  every predator, exactly reproducing the previous global-window behaviour
+  (`BS2017MS` and the golden references are unchanged to numerical tolerance).
+  Internally `suit_styr` / `suit_endyr` became per-predator `DATA_IVECTOR`s and
+  the suitability-averaging and stomach-content prediction loops index them by
+  predator.
+
+* **`plot_diet_comp2()` and `plot_diet_comp1()`.** `plot_diet_comp2()` adds
+  aggregation-aware diet-composition diagnostics (line plots when prey- or
+  predator-age is aggregated, dodged bars when both are, bubble grids when fully
+  disaggregated), built on `residuals(source = "diet")`. `plot_diet_comp1()` is
+  an alias of `plot_diet_comp()` (the bubble/grid diagnostic).
+
+## Bug fixes
+
+* **`read_data()` tolerates trailing empty age columns in `NByageFixed`.** Older
+  writers pad the fixed numbers-at-age sheet to a wider age range than
+  `max(nages)`; the all-`NA` trailing columns are now dropped on read instead of
+  tripping the `data_check()` column-count validation.
+
+* **Parallel workers now run the in-session package.** `run_mse()`,
+  `retrospective()`, and `jitter()` use a FORK cluster on non-Windows platforms,
+  so workers run the parent's loaded namespace via copy-on-write. This fixes
+  silently running a stale *installed* package on the workers during
+  `pkgload::load_all()` development sessions, and removes the per-worker startup
+  cost. Parallel and serial runs stay bit-identical for a given seed; Windows
+  keeps the previous PSOCK path as a fallback.
+
+# Rceattle 4.10.0
+
+## New features
+
+* **Random-effect linkages (`~ (1 | group)`).** A linkage formula may now carry
+  an IID random effect, so a parameter can vary year to year (or over any
+  grouping) as a set of deviations damped by an estimated
+  `N(0, sigma)` density, rather than fixed covariate slopes:
+
+    ```r
+    fit_mod(...,
+      qFun = build_catchability(linkages = list(
+               q = linkage_spec(~ (1 | Year), by = ~ fleet))))
+    ```
+
+  Each level of the grouping variable gets one deviation (`beta_linkage_re`);
+  each distinct group estimates its own log-SD (`log_sigma_linkage`). The
+  density is reported in the new `jnll_comp` row *"Linkage random effects"*.
+  The deviation SD is routed through the same `linkage_spec()` arguments as
+  every other parameter: `init = list(sigma = v)` **fixes** it at an input
+  value (reproducing the legacy `Time_varying_*_sd_prior` fixed input), and
+  `priors = list(sigma = lognormal(...))` places a **prior** on it and
+  estimates it — the first prior on a deviation SD anywhere in the model.
+
+* **`data_requirements()` — see which inputs a model configuration needs.** A new
+  exported reader reports, for a given model spec, which top-level data inputs are
+  **Required**, **Optional** (used if supplied, otherwise default-filled by
+  `clean_data()`), or **Ignored** (not consulted because the feature is switched
+  off) — the same conditions `data_check()` enforces at fit time, surfaced up
+  front instead of buried in the validator:
+
+    ```r
+    data_requirements(msmMode = 1)          # multispecies: diet/ration/bioenergetics Required
+    data_requirements(BS2017SS, msmMode = 0) # preview a data object as single-species
+    ```
+
+  It accepts either an existing (possibly partial) data list or the convenience
+  switch arguments; an explicit switch argument overrides the data list's stored
+  value (matching `fit_mod()` precedence). Internally, `data_check()`'s conditional
+  presence-requirement gates were refactored to consume one declarative
+  requirement table, so the reader and the validator can never drift apart.
+
+* **`build_data()` — assemble a data list in R.** A code-first constructor
+  complementing `read_data()`: supply only the blocks a model uses and the
+  optional blocks a single-species model does not need are default-filled by
+  `clean_data()`. Three combinable entry points cover the workflows real
+  assessments use:
+
+    ```r
+    build_data(base = BS2017SS, projyr = 2060)          # copy-and-edit a dataset
+    build_data(file = "model.xlsx", fleet_control = fc) # read a workbook, override
+    build_data(nspp = 1, styr = 1977, endyr = 2023,     # assemble from blocks
+               fleet_control = fc, catch_data = catch, index_data = survey)
+    ```
+
+  Overrides are checked against the recognised schema, so a typo (`maturty`) is
+  caught at construction with a suggestion rather than surfacing later in a fit;
+  legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to
+  their canonical equivalents. Validation is deferred to `data_check()` at fit
+  time (one source of truth); `build_data()` runs only a light presence
+  pre-check so a missing required block is reported early. The result is the
+  same bare list `read_data()` returns and round-trips through `write_data()`
+  unchanged — a `build_data(base = X)` object fits bit-identically to `X`.
+
+* **`model_config()` — a model configuration that travels with the data.** The
+  model-structure arguments of `fit_mod()` (`msmMode`, `initMode`, the HCR and
+  the `build_*()` process specifications) can now be bundled into a slot on the
+  data list, so a data object records how it is meant to be fit:
+
+    ```r
+    dat <- build_data(base = BS2017MS, model_config = model_config(msmMode = 1))
+    fit_mod(dat)                     # fits as multispecies without passing msmMode
+    ```
+
+  `fit_mod()`'s signature and defaults are unchanged; when a data list carries a
+  `model_config`, `fit_mod()` reads each field only for arguments the caller did
+  **not** pass (detected with `missing()`), and an explicitly-passed argument
+  always overrides the slot. With no slot present the behaviour is byte-identical
+  (a `BS2017SS` fit is bit-identical). A call that passes an argument — even at
+  its default — overrides the slot, so omit the argument to let the configuration
+  take effect. The slot is code-side structure, not a workbook sheet, so it does
+  not persist through a `write_data()`/`read_data()` round-trip (a warning fires).
+
+* **Spec-tree `print()` / `summary()` for data objects and fits.** A
+  `build_data()` object now carries the class `"Rceattle_data"` and prints as an
+  indented specification tree — dimensions → fleets (with their selectivity /
+  catchability forms and mirroring) → configured processes → active linkages →
+  any attached `model_config()` — instead of dumping the ~40-element list. The
+  same tree is shown by `print()` on a fitted model above its fit statistics, so
+  "read 600 lines of switch tables" becomes "read the printout". The class is a
+  thin tag: every consumer still treats the object as a plain list, so it does
+  not change a fit.
+
+* **Random-walk linkages (`rw(1 | group)`).** A deviation that follows a random
+  walk — `N(0, sigma)` on successive first differences, the first deviate
+  pinned so the walk's level stays with the base parameter — reproducing the
+  Dorn-style `Time_varying_* = "RandomWalk"` process through the grammar. The
+  grouping variable must be numeric (a real elapsed-time lag).
+
+* **AR1 linkages (`ar1(1 | group)`).** A stationary first-order autoregressive
+  deviation, `SCALE(AR1(rho), sigma)` with `sigma` the marginal SD and `rho`
+  the correlation (the glmmTMB convention, and the same form as the Rogers et
+  al. (2024) QAR1 catchability process). The correlation is routed through the
+  same grammar as `sigma`: `init = list(rho = 0.7)` fixes it,
+  `priors = list(rho = normal(0, 0.3))` places a prior on it, else it is
+  estimated free. Reduces to the IID density at `rho = 0`.
+
+* **State-space environmental covariate (Rogers et al. 2024 QAR1).** An
+  `ar1(1 | Year)` term can be turned into a measured latent covariate via
+  `observe` / `obs_sd`: the AR1 latent is observed as an `env_data` column with
+  a fixed measurement SD, and enters the linked parameter through an estimated
+  effect size. This reproduces the Rogers-2024 QAR1 catchability model
+  (`Estimate_q = 6`) through the grammar:
+
+    ```r
+    build_catchability(linkages = list(
+      q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 1,
+                       observe = "QcovPol", obs_sd = 0.1)))
+    ```
+
+  The AR1 process, the covariate observation, and the effect size are all
+  carried by the one term; `observe` requires an `ar1` term and a positive
+  fixed `obs_sd`.
+
+* **Priors on Dirichlet-multinomial data weights (`build_composition()`).** The
+  DM likelihood self-tunes each composition dataset's effective sample size, but
+  that weight can be poorly identified when a fleet has few comp years. A new
+  `build_composition()` linkage attaches a prior to the DM weight, keeping the
+  implied effective sample size in a believable range without reverting to
+  Francis / McAllister–Ianelli hand-tuning:
+
+    ```r
+    fit_mod(...,
+      compFun = build_composition(linkages = list(
+                  theta_comp = linkage_spec(~ 1, by = ~ fleet, fleet = c(1, 2),
+                                 priors = list(`(Intercept)` = gamma(2, 0.5))))))
+    ```
+
+  Keys `theta_comp` / `theta_caal` / `theta_diet` cover age/length composition,
+  conditional age-at-length, and predator diet. The process is prior-only (the
+  weight is a scalar, not year-varying): a covariate, an `init`, or an
+  `est_phase` on a composition spec, or a linkage on a fleet/predator not fit
+  with the `DirichletMultinomial` likelihood, errors up front.
+
+* **Formula-linkage effect sizes are now reported.** The estimated linkage
+  coefficients (`beta_linkage`), the random-effect deviations (`beta_linkage_re`),
+  and the Rogers-2024 QAR1 effect size (`beta_linkage_obs`) appear in
+  `fit$quantities`, and the coefficients / effect size are `ADREPORT`'d so they
+  carry a standard error in the `sdreport`. Previously the QAR1 effect size — the
+  quantity the model exists to estimate — was buried in the raw parameter vector
+  with no readable exposure or uncertainty.
+
+* **QAR1 covariates need not span the whole series.** A state-space `observe`
+  covariate (e.g. a survey index that began mid-series) is now handled without
+  hand-padding: `env_data` is auto-extended to start at `styr` with `NA` for
+  missing years, the latent AR1 spans all hindcast years, and the observation is
+  applied **only** where the covariate is present (un-observed years are masked
+  out — no fabricated observations, unlike the legacy mean-fill). Fixed-effect
+  covariates must still be finite over the model range: a missing year in a
+  fixed-effect (non-`observe`) covariate now errors clearly rather than silently
+  producing an NaN.
+
+* **QAR1 observation SD can be fixed or estimated.** The Rogers-2024 `observe` /
+  `obs_sd` state-space covariate holds the measurement SD **fixed** by default;
+  pass `linkage_spec(..., obs_sd_est = TRUE)` to **estimate** it (one per observed
+  group, started from `obs_sd`), as the reference `Estimate_q = 6` / GOApollock
+  model does. Estimation is opt-in because a freely-estimated `obs_sd` collapses
+  toward 0 on a smooth covariate (the effect-size / `obs_sd` identifiability
+  degeneracy) — keep it fixed unless the covariate is informative (a prior on
+  `obs_sd` to regularise this is future work).
+
+* **Selectivity penalties can be given as standard deviations.** The cryptic
+  penalty *weights* in `Sel_curve_pen1/2/3` can instead be supplied as SDs via
+  `Sel_shape_sd` (+ `Sel_shape_dir` `"Decreasing"`/`"Increasing"` for the
+  directional sign), `Sel_curvature_sd`, and `Sel_devmag_sd`. Each penalty is a
+  Gaussian SSQ, so `switch_check()` converts `weight = 1/(2*sd^2)`. Legacy
+  `Sel_curve_pen` values are never overwritten (existing models are bit-identical);
+  a fleet supplying the SD columns fits equivalently. `Sel_shape_sd` /
+  `Sel_devmag_sd` apply to `NonParametric` (2/9) and `LogisticPM` (11);
+  `Sel_curvature_sd` is `NonParametric`-only (LogisticPM does not use
+  `Sel_curve_pen2`). Setting an SD column on a form that doesn't use that slot as a
+  weight (e.g. 2D/3D-AR1, which reuse `Sel_curve_pen` for logit-scale correlations),
+  or a non-positive SD, errors clearly.
+
+* **Readable string aliases for integer-coded switches.** Following the CIE
+  review's "rename options to improve interpretability" (e.g. *constant → not
+  estimated*), integer-only switches now also accept self-explanatory strings,
+  resolved by `switch_check()` (or `build_srr()`) to the same integer codes (so
+  fits are identical). New aliases follow a consistent convention — the
+  not-estimated value is `"Fixed"`, estimated is `"Estimated"`:
+    - `estDynamics`: `"Estimated"` (0) / `"Fixed"` (1) / `"FixedScaled"` (2) /
+      `"FixedScaledByAge"` (3);
+    - `Estimate_index_sd` / `Estimate_catch_sd`: `"Fixed"` (0) / `"Estimated"` (1) /
+      `"Analytical"` (2);
+    - `srr_est_mode` (via `build_srr()`): `"Fixed"` (0) / `"Estimated"` (1) /
+      `"LognormalPrior"` (2) / `"BetaPrior"` (3);
+    - `suitMode`: the documented string map (`"Empirical"`, `"GammaWeight"`, …) is
+      now actually applied (previously defined but never wired).
+
+## Bug fixes
+
+* **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its correlations.**
+  A gate bug in `build_map()` (`if(M1_re_model == 5)` inside a block reachable only
+  when the mode is 3 or 6) plus a reference to an undefined index left mode 6's age
+  and year AR1 correlations unmapped, so the separable AR1 silently collapsed to IID
+  (identical to `M1_re = 3`). Mode 6 now frees both `rho` hyperparameters, so it is a
+  genuine separable 2D-AR1. This changes results only for models using `M1_re = 6`
+  (none of the bundled examples do); golden references are unaffected.
+
+* **The deprecated `est_M1` name is now recognized everywhere `M1_model` is.**
+  The natural-mortality estimation switch was renamed `est_M1` → `M1_model`, but
+  the data dictionary still documented `est_M1` and no alias existed, so a data
+  list carrying `est_M1` was silently ignored — it fell through to the `M1_model`
+  default with no warning. `est_M1` is now folded into `M1_model` in `fit_mod()`
+  (before the `build_M1()` reconciliation), `switch_check()`, and `combine_data()`,
+  with a deprecation message. As with `M1_model`, the value set on the data list
+  is a default that an explicit `build_M1(M1_model = ...)` argument overrides — but
+  a data-list value that differs from the `build_M1()` setting now *warns* rather
+  than being dropped silently. The recommended way to request M1 estimation remains
+  `fit_mod(..., M1Fun = build_M1(M1_model = ...))`. The dictionary now documents
+  `M1_model`.
+
+* **A catchability linkage on a non-estimated q now errors.** A `q` linkage
+  (environmental or random-effect) on a fleet whose `Catchability` is `"Fixed"`
+  or an analytical form (`"Analytical"` / `"AnalyticalArith"`) is rejected up
+  front, naming the fleet. Previously only the analytical forms were caught, so
+  a linkage on a `"Fixed"` fleet silently turned a fixed catchability
+  time-varying — contrary to the assessor's setting. Set `Catchability` to
+  `"Estimated"` / `"Estimated-with-prior"` to link q.
+  This is the same statistical model as the existing `Time_varying_q`/`_sel`
+  deviate processes, expressed through the linkage grammar.
+
+## Deprecations
+
+* **`Selectivity_block` is now optional; `Q_block` is deprecated and ignored.** The
+  per-observation time-block columns in `index_data`/`catch_data` are read only for
+  `Time_varying_{sel,q} = "Block"`; every other configuration (including the
+  random-effect linkages) ignores them. `clean_data()` now default-fills a missing
+  `Selectivity_block` with `1` (a single block), so you need only supply it for
+  Block-mode fleets. `Q_block` was never read (q time-blocking reuses
+  `Selectivity_block`) — supplying it now warns, and it has been dropped from all
+  bundled example datasets (as has the unused `Selectivity_block`). Existing models
+  are bit-identical.
+
+* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour
+  of random-effect linkages.** `fit_mod()` now warns (naming the fleets/species and
+  the grammar equivalent) when a model uses these legacy time-variation switches,
+  pointing at `build_catchability()` / `build_selectivity()` / `build_M1()` with
+  `(1 | Year)` / `rw(1 | Year)` / `ar1(1 | Year)` — which additionally allow a prior
+  on, or free estimation of, the deviation SD. **The legacy switches still fit with
+  their exact numerics** (they keep their own C++ path); this is only a nudge. The
+  warning is not raised where no grammar equivalent exists yet: the environmental /
+  Rogers-AR1 catchability modes (which overload `Time_varying_q` to name env
+  columns), the non-parametric selectivity forms, and the separable `M1_re = 6`
+  (age × year).
+
+* **`fleet_control` columns `Q_prior` → `Q_init`, `Index_sd_prior` → `Index_sd`,
+  `Catch_sd_prior` → `Catch_sd`.** These are start/input values, not priors (the
+  prior on q lives in `Q_sd_prior`), so the names misled. As with the other
+  renames, the old names are accepted and upgraded in place by `switch_check()` /
+  `read_data()`, and the bundled datasets were regenerated — existing scripts keep
+  fitting identically.
+
+* **`fleet_control` columns `Time_varying_q_sd_prior` / `Time_varying_sel_sd_prior`
+  renamed to `Time_varying_q_sd` / `Time_varying_sel_sd`.** They hold the input
+  *value* of the time-varying deviate SD, not a prior on it (no density is placed
+  on the SD), so the `_prior` suffix was misleading. The old names are still
+  accepted — `switch_check()` and `read_data()` upgrade them in place with a
+  one-time message — so existing data lists, saved xlsx files, and the bundled
+  example datasets keep fitting identically. Update scripts to the new names at
+  your convenience.
+
+# Rceattle 4.9.0
+
+## New features
+
+* **Environmental linkages on catchability and selectivity.** The
+  formula-driven linkage grammar (`linkage_spec()`) now extends to survey
+  catchability and to the parametric selectivity forms, both indexed by a new
+  `fleet` stratum (`by = ~ fleet`):
+
+    ```r
+    fit_mod(...,
+      qFun   = build_catchability(linkages = list(
+                 q = linkage_spec(~ temp, by = ~ fleet))),
+      selFun = build_selectivity(linkages = list(
+                 inf_asc = linkage_spec(~ cold_pool, by = ~ fleet))))
+    ```
+
+  Selectivity keys are the shared parameter slots `slp_asc`/`slp_desc`/
+  `inf_asc`/`inf_desc`, with DoubleNormal aliases `sigma_asc`/`sigma_desc`/
+  `peak`/`right_floor`. Supported forms: `Logistic`, `DoubleLogistic`,
+  `DescendingLogistic`, `DoubleNormal`, `LogisticPM`. Every parameter accepts
+  `link = "log"` (multiplicative) or `link = "identity"` (additive). A linkage
+  on an unsupported form or the non-parametric `coff` errors at fit time
+  naming the fleet, rather than being estimated to no effect.
+
+* **`build_catchability()` and `build_selectivity()`** exported, mirroring
+  `build_growth()` / `build_M1()` / `build_srr()`, each carrying a `linkages`
+  argument for its process.
+
+* Linkage formulas are now parsed with the **`reformulas`** package (shared by
+  lme4 and glmmTMB), so `(1 | Year)` / `ar1(Year + 0 | fleet)` syntax is
+  recognised and an unknown covariance-structure wrapper errors instead of
+  silently degrading to unstructured.
+
+## Behavior changes
+
+* **`Catchability = "Environmental"` (`Estimate_q = 5`) is deprecated.** It
+  still fits with its existing numerics but emits a warning pointing at
+  `build_catchability(linkages = ...)`, which names covariates by formula and
+  carries priors, bounds, and an estimation phase.
+
 # Rceattle 4.8.0
 
 ## New features

@@ -1,5 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.Rprofile$
 ^\.Rhistory$
 ^\.claude$
 ^\.mcp\.json$
@@ -17,7 +18,7 @@
 ^.*/~\$.*$
 ^\.vscode$
 ^dev$
-^R/dev$
+^data-raw$
 ^src/TMB/Dev$
 ^src/TMB/Depricated$
 ^vignettes/.*[.]pptx$

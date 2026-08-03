@@ -118,8 +118,11 @@ articles:
 
 reference:
 - title: "Data input / output"
-  desc: Read, write, and manipulate Rceattle data lists.
+  desc: Read, write, build, and manipulate Rceattle data lists.
   contents:
+  - build_data
+  - data_requirements
+  - model_config
   - read_data
   - write_data
   - clean_data
@@ -268,7 +271,6 @@ reference:
   - get_growth_matrix_r
   - get_weight_at_age_r
   - rich.colors.short
-  - t_col
   - as.data.frame.Rceattle
   - coef.Rceattle
   - logLik.Rceattle

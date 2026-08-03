@@ -2,7 +2,7 @@
 #
 # A gold-standard "joint nll is numerically unchanged by the obsvec/keep
 # refactor" check (comparing against a DLL built from the pre-change source)
-# lives in R/dev/osa_phase1_check.R -- it is too slow for routine testing
+# lives in dev/osa_phase1_check.R -- it is too slow for routine testing
 # because it recompiles a second DLL. Here we test the parts that guarantee
 # correctness and are fast/CI-appropriate: the obsvec/obs_ctl construction and
 # the end-to-end osa_residuals() machinery.
@@ -423,7 +423,7 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
 
 
 # A small multispecies diet fixture reused by the two OSA-diet tests below.
-# Diet is multinomial (Diet_loglike = 0) with unit weights, so the OSA
+# Diet is multinomial (Diet_distribution = 0) with unit weights, so the OSA
 # (conditional-binomial) decomposition of the diet likelihood must reproduce the
 # ordinary multinomial diet likelihood slot exactly (see test (a)).
 .make_diet_osa_fixture <- function() {
@@ -521,4 +521,39 @@ testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted 
   # and produces a finite statistic.
   dg <- osa_diagnostics(osa)
   testthat::expect_true(is.finite(dg$sdnr[dg$group == "all"]))
+})
+
+testthat::test_that("OSA supports an MVN index fleet without warning (per-family coverage in test-likelihood-osa-index-families.R)", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # OSA residuals now cover every index family: the MVN covariance block is
+  # whitened by the Cholesky of its covariance so oneStepPredict() can residualize
+  # it (the correctness oracle lives in test-likelihood-osa-index-families.R). Here
+  # we only pin that build_osa_data() no longer excludes/ warns for an MVN fleet
+  # and that its index observations are laid into the OSA obsvec.
+  nyrs <- 8; nages <- 5
+  dat  <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
+  sds  <- rep(20, nyrs); Rho <- matrix(0.3, nyrs, nyrs); diag(Rho) <- 1
+  Sigma <- diag(sds) %*% Rho %*% diag(sds)
+  srv  <- dat$fleet_control$Fleet_name == "Survey"       # Survey == Fleet_code 1
+  dat$fleet_control$Index_distribution[srv] <- "MVN"
+  dat$fleet_control$Catchability[srv]       <- "AnalyticalArith"
+  dat$index_cov <- list(Survey = Sigma)
+
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # The OSA build no longer warns, and the MVN Survey's fitted observations get
+  # whitened obsvec entries (one per fitted year).
+  testthat::expect_no_warning(
+    osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE))
+  testthat::expect_equal(sum(osa_dat$obs_ctl$source == "index"), nyrs)
+  testthat::expect_true(all(osa_dat$index_obsvec_idx >= 0L))
+
+  osa <- suppressWarnings(osa_residuals(fit, source = c("index", "comp")))
+  testthat::expect_s3_class(osa, "rceattle_osa")
+  testthat::expect_true(all(is.finite(osa$residual)))
+  testthat::expect_true(any(osa$source == "index"))
 })

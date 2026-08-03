@@ -389,6 +389,64 @@ plot_timeseries <- function(Rceattle,
                width = width, height = height)
 }
 
+
+# Build a plot_timeseries() wrapper that pins the derived series (`output`) and
+# y-axis label for one quantity while exposing plot_timeseries()'s full argument
+# list unchanged. The six timeseries plotters below differ only in those two
+# strings, so they share one body through this factory.
+.ts_wrapper <- function(output, ylab) {
+  function(Rceattle,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           species = NULL,
+           spnames = NULL,
+           add_ci = FALSE,
+           lwd = 3,
+           save = FALSE,
+           right_adj = 0,
+           legend.pos = "topright",
+           width = 7,
+           height = 6.5,
+           minyr = NULL,
+           maxyr = NULL,
+           incl_proj = FALSE,
+           mod_cex = 1,
+           lty = rep(1, length(Rceattle)),
+           alpha = 0.4,
+           mod_avg = rep(FALSE, length(Rceattle)),
+           mse = FALSE,
+           OM = TRUE,
+           reference = NULL) {
+
+    plot_timeseries(Rceattle,
+                    output = output,
+                    ylab = ylab,
+                    file = file,
+                    model_names = model_names,
+                    line_col = line_col,
+                    species = species,
+                    spnames = spnames,
+                    add_ci = add_ci,
+                    lwd = lwd,
+                    save = save,
+                    right_adj = right_adj,
+                    legend.pos = legend.pos,
+                    width = width,
+                    height = height,
+                    minyr = minyr,
+                    maxyr = maxyr,
+                    incl_proj = incl_proj,
+                    mod_cex = mod_cex,
+                    lty = lty,
+                    alpha = alpha,
+                    mod_avg = mod_avg,
+                    mse = mse,
+                    OM = OM,
+                    reference = reference)
+  }
+}
+
 #' Plot biomass
 #'
 #' @description Plots the mean minage+ biomass (million mt) and 95\% CI trends as estimated from Rceattle.
@@ -398,56 +456,7 @@ plot_timeseries <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass trajectory.
-plot_biomass <- function(Rceattle,
-                         file = NULL,
-                         model_names = NULL,
-                         line_col = NULL,
-                         species = NULL,
-                         spnames = NULL,
-                         add_ci = FALSE,
-                         lwd = 3,
-                         save = FALSE,
-                         right_adj = 0,
-                         legend.pos = "topright",
-                         width = 7,
-                         height = 6.5,
-                         minyr = NULL,
-                         maxyr = NULL,
-                         incl_proj = FALSE,
-                         mod_cex = 1,
-                         lty = rep(1, length(Rceattle)),
-                         alpha = 0.4,
-                         mod_avg = rep(FALSE, length(Rceattle)),
-                         mse = FALSE,
-                         OM = TRUE,
-                         reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "biomass",
-                  ylab = "Age-1+ biomass (million mt)",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)")
 
 
 #' Plot recruitment
@@ -459,56 +468,7 @@ plot_biomass <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the recruitment trajectory.
-plot_recruitment <- function(Rceattle,
-                             file = NULL,
-                             model_names = NULL,
-                             line_col = NULL,
-                             species = NULL,
-                             spnames = NULL,
-                             add_ci = FALSE,
-                             lwd = 3,
-                             save = FALSE,
-                             right_adj = 0,
-                             legend.pos = "topright",
-                             width = 7,
-                             height = 6.5,
-                             minyr = NULL,
-                             maxyr = NULL,
-                             incl_proj = FALSE,
-                             mod_cex = 1,
-                             lty = rep(1, length(Rceattle)),
-                             alpha = 0.4,
-                             mod_avg = rep(FALSE, length(Rceattle)),
-                             mse = FALSE,
-                             OM = TRUE,
-                             reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "R",
-                  ylab = "Age-1 recruits (million)",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)")
 
 
 #' Plot spawning stock biomass (SSB)
@@ -520,56 +480,7 @@ plot_recruitment <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB trajectory.
-plot_ssb <- function(Rceattle,
-                     file = NULL,
-                     model_names = NULL,
-                     line_col = NULL,
-                     species = NULL,
-                     spnames = NULL,
-                     add_ci = FALSE,
-                     lwd = 3,
-                     save = FALSE,
-                     right_adj = 0,
-                     legend.pos = "topright",
-                     width = 7,
-                     height = 6.5,
-                     minyr = NULL,
-                     maxyr = NULL,
-                     incl_proj = FALSE,
-                     mod_cex = 1,
-                     lty = rep(1, length(Rceattle)),
-                     alpha = 0.4,
-                     mod_avg = rep(FALSE, length(Rceattle)),
-                     mse = FALSE,
-                     OM = TRUE,
-                     reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "ssb",
-                  ylab = "Age-1+ ssb (million mt)",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)")
 
 
 #' Plot exploitable biomass
@@ -581,56 +492,8 @@ plot_ssb <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the exploitable biomass trajectory.
-plot_exploitable_biomass <- function(Rceattle,
-                                     file = NULL,
-                                     model_names = NULL,
-                                     line_col = NULL,
-                                     species = NULL,
-                                     spnames = NULL,
-                                     add_ci = FALSE,
-                                     lwd = 3,
-                                     save = FALSE,
-                                     right_adj = 0,
-                                     legend.pos = "topright",
-                                     width = 7,
-                                     height = 6.5,
-                                     minyr = NULL,
-                                     maxyr = NULL,
-                                     incl_proj = FALSE,
-                                     mod_cex = 1,
-                                     lty = rep(1, length(Rceattle)),
-                                     alpha = 0.4,
-                                     mod_avg = rep(FALSE, length(Rceattle)),
-                                     mse = FALSE,
-                                     OM = TRUE,
-                                     reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "exploitable_biomass",
-                  ylab = "Max exploitable biomass (million mt)",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass",
+                                        "Max exploitable biomass (million mt)")
 
 #' Plot SSB depletion
 #'
@@ -642,56 +505,7 @@ plot_exploitable_biomass <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- function(Rceattle,
-                              file = NULL,
-                              model_names = NULL,
-                              line_col = NULL,
-                              species = NULL,
-                              spnames = NULL,
-                              add_ci = FALSE,
-                              lwd = 3,
-                              save = FALSE,
-                              right_adj = 0,
-                              legend.pos = "topright",
-                              width = 7,
-                              height = 6.5,
-                              minyr = NULL,
-                              maxyr = NULL,
-                              incl_proj = FALSE,
-                              mod_cex = 1,
-                              lty = rep(1, length(Rceattle)),
-                              alpha = 0.4,
-                              mod_avg = rep(FALSE, length(Rceattle)),
-                              mse = FALSE,
-                              OM = TRUE,
-                              reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "ssb_depletion",
-                  ylab = "SSB depletion",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_depletionSSB <- .ts_wrapper("ssb_depletion", "SSB depletion")
 
 #' Plot SSB depletion (deprecated name)
 #'
@@ -711,56 +525,7 @@ plot_ssb_depletion <- plot_depletionSSB
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass depletion trajectory.
-plot_depletion <- function(Rceattle,
-                           file = NULL,
-                           model_names = NULL,
-                           line_col = NULL,
-                           species = NULL,
-                           spnames = NULL,
-                           add_ci = FALSE,
-                           lwd = 3,
-                           save = FALSE,
-                           right_adj = 0,
-                           legend.pos = "topright",
-                           width = 7,
-                           height = 6.5,
-                           minyr = NULL,
-                           maxyr = NULL,
-                           incl_proj = FALSE,
-                           mod_cex = 1,
-                           lty = rep(1, length(Rceattle)),
-                           alpha = 0.4,
-                           mod_avg = rep(FALSE, length(Rceattle)),
-                           mse = FALSE,
-                           OM = TRUE,
-                           reference = NULL) {
-
-  plot_timeseries(Rceattle,
-                  output = "biomass_depletion",
-                  ylab = "Biomass depletion",
-                  file = file,
-                  model_names = model_names,
-                  line_col = line_col,
-                  species = species,
-                  spnames = spnames,
-                  add_ci = add_ci,
-                  lwd = lwd,
-                  save = save,
-                  right_adj = right_adj,
-                  legend.pos = legend.pos,
-                  width = width,
-                  height = height,
-                  minyr = minyr,
-                  maxyr = maxyr,
-                  incl_proj = incl_proj,
-                  mod_cex = mod_cex,
-                  lty = lty,
-                  alpha = alpha,
-                  mod_avg = mod_avg,
-                  mse = mse,
-                  OM = OM,
-                  reference = reference)
-}
+plot_depletion <- .ts_wrapper("biomass_depletion", "Biomass depletion")
 
 
 #' Plot selectivity

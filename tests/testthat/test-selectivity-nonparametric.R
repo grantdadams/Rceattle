@@ -16,9 +16,9 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 10
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA
   GOA2018SS$fleet_control$Time_varying_sel[rows_use] <- 0
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior[rows_use] <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
 
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
@@ -110,12 +110,12 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
   rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "2DAR1" # Age-based 2DAR1
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior[rows_use] <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
   GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Run
@@ -191,12 +191,12 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "3DAR1" # Age-based 2DAR1
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior[rows_use] <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
   GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Run
@@ -272,12 +272,12 @@ testthat::test_that("2DAR1/3DAR1 reject saturating Sel_curve_pen rho values", {
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "2DAR1" # Age-based 2DAR1
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior[rows_use] <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd[rows_use] <- 1
   GOA2018SS$fleet_control$Bin_first_selected[rows_use] <- 1
   GOA2018SS$fleet_control$N_sel_bins[rows_use] <- 8
   GOA2018SS$fleet_control$Sel_curve_pen1[rows_use] <- 0
   GOA2018SS$fleet_control$Sel_curve_pen2[rows_use] <- 0
-  GOA2018SS$fleet_control$Sel_norm_bin1[rows_use] <- NA # Do not normalize
+  GOA2018SS$fleet_control$Sel_norm_bin[rows_use] <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
   # Sel_curve_pen1 above the saturation threshold should error for 2DAR1

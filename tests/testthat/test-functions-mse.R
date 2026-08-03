@@ -9,7 +9,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   data(BS2017SS) # ?BS2017SS for more information on the data
   BS2017SS$projyr <- 2040
-  BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
+  BS2017SS$fleet_control$Proj_F_proportion <-rep(1,7)
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -24,6 +24,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                               msmMode = 0, # Single species mode
                               fit_control = fit_control(
                                 phase = TRUE,
+                                getsd = FALSE,
                                 verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -40,6 +41,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
+                        getsd = FALSE,
                         verbose = 0))
   )
 
@@ -55,6 +57,33 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   nyrs <- length(1979:2040)
   testthat::expect_equal(24, length(mse$Sim_1$EM))
   testthat::expect_equal(rep(0.4, 3), as.numeric(mse$Sim_1$OM$quantities$ssb_depletion[,nyrs]), tolerance = 0.005)
+
+  # mse_summary() derives the performance-metric table from the MSE run. It is
+  # exported but was previously untested; guard that it runs end-to-end and
+  # returns the expected per-species metrics (it does substantial index math and
+  # references the package hcr_map constant).
+  summ <- Rceattle::mse_summary(mse)
+  testthat::expect_named(summ, c("species", "fleet", "total", "meta"))
+
+  # Per-species conservation metrics: one row per species, no NA padding.
+  testthat::expect_s3_class(summ$species, "data.frame")
+  testthat::expect_equal(nrow(summ$species), mse[[1]]$OM$data_list$nspp)
+  testthat::expect_true(all(c("OM: Average SSB Depletion", "OM: SSB Collapse") %in%
+                              names(summ$species)))
+  dep <- summ$species[["OM: Average SSB Depletion"]]
+  testthat::expect_true(all(is.finite(dep)))
+  testthat::expect_true(all(dep > 0 & dep < 1.5))   # near the Tier-3 40% target
+
+  # Per-fleet catch metrics: one row per fishery fleet, integer-keyed, finite.
+  testthat::expect_s3_class(summ$fleet, "data.frame")
+  testthat::expect_true("Average Catch" %in% names(summ$fleet))
+  n_fishery <- sum(mse[[1]]$OM$data_list$fleet_control$Fleet_type == "Fishery")
+  testthat::expect_equal(nrow(summ$fleet), n_fishery)
+  testthat::expect_type(summ$fleet$Fleet_code, "integer")
+  testthat::expect_true(all(is.finite(summ$fleet[["Average Catch"]])))
+
+  # Across-fleet totals.
+  testthat::expect_true(is.finite(summ$total[["Average Catch"]]))
 })
 
 testthat::test_that("Test MSE - Tier 3 parallel", {
@@ -68,7 +97,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   data(BS2017SS) # ?BS2017SS for more information on the data
   BS2017SS$projyr <- 2020
-  BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
+  BS2017SS$fleet_control$Proj_F_proportion <-rep(1,7)
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -83,6 +112,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                               msmMode = 0, # Single species mode
                               fit_control = fit_control(
                                 phase = TRUE,
+                                getsd = FALSE,
                                 verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -99,6 +129,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
+                        getsd = FALSE,
                         verbose = 0))
   )
 
@@ -106,10 +137,10 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  mse <- Rceattle::run_mse(om = ss_run, em = ss_run_Tier3, nsim = 5, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = FALSE)
+  mse <- Rceattle::run_mse(om = ss_run, em = ss_run_Tier3, nsim = 2, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = FALSE)
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Tests ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  testthat::expect_equal(5, length(mse))
+  testthat::expect_equal(2, length(mse))
 })

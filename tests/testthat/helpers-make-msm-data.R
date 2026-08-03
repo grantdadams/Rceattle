@@ -339,7 +339,7 @@ make_msm_test_data <- function(
   simData$alpha_wt_len = rep(0.00001, nspp)
   simData$beta_wt_len = rep(3, nspp)
   simData$pop_age_transition_index <- rep(1, nspp)
-  simData$sigma_rec_prior = rep(1, nspp)
+  simData$sigma_rec = rep(1, nspp)
   simData$other_food <- rep(1e5, nspp)
   simData$estDynamics = rep(0, nspp)
 
@@ -357,29 +357,29 @@ make_msm_test_data <- function(
     Sel_curve_pen1 = NA,
     Sel_curve_pen2 = NA,
     Time_varying_sel = 0,
-    Time_varying_sel_sd_prior = 1,
+    Time_varying_sel_sd = 1,
     Bin_first_selected = 1,
-    Sel_norm_bin1 = NA,
-    Sel_norm_bin2 = NA,
-    Comp_loglike = "Multinomial",
+    Sel_norm_bin = NA,
+    Sel_norm_bin_upper = NA,
+    Comp_distribution = "Multinomial",
     Comp_weights = 1,
-    CAAL_loglike = 0,
-    Weight1_Numbers2 = 1,
+    CAAL_distribution = 0,
+    Observation_units = 1,
     Weight_index = rep(1:nspp, each = 2),
     Age_transition_index = 1,
-    Q_index = 1:(nspp * 2),
+    Catchability_index = 1:(nspp * 2),
     Catchability = rep(c(0, NA), nspp),
-    Q_prior = rep(c(1, NA), nspp),
-    Q_sd_prior = rep(c(0.2, NA), nspp),
+    Catchability_init = rep(c(1, NA), nspp),
+    Catchability_prior_sd = rep(c(0.2, NA), nspp),
     Time_varying_q = rep(c(0, NA), nspp),
-    Time_varying_q_sd_prior = rep(c(1, NA), nspp),
+    Time_varying_q_sd = rep(c(1, NA), nspp),
     Estimate_index_sd = rep(c(0, NA), nspp),
-    Index_sd_prior = rep(c(1, NA), nspp),
+    Index_sd = rep(c(1, NA), nspp),
     Estimate_catch_sd = rep(c(NA, 0), nspp),
-    Catch_sd_prior = rep(c(NA, 1), nspp),
-    proj_F_prop = rep(c(NA, 1), nspp),
+    Catch_sd = rep(c(NA, 1), nspp),
+    Proj_F_proportion = rep(c(NA, 1), nspp),
     CAAL_weights = 1,
-    Est_weights_mcallister = 1
+    Comp_weights_mcallister = 1
   )
 
   # * Index data
@@ -390,7 +390,6 @@ make_msm_test_data <- function(
     Year = rep(years, nspp),
     Month = 0,
     Selectivity_block = 1,
-    Q_block = 1,
     Observation = as.numeric(t(SrvIdx)),
     Log_sd = sigma_srv
   )
@@ -601,7 +600,7 @@ make_msm_test_data <- function(
   simData$Tcl <- rep(1, nspp)
   simData$CK1 <- rep(1, nspp)
   simData$CK4 <- rep(1, nspp)
-  simData$Diet_loglike <- rep(0,nspp)
+  simData$Diet_distribution <- rep(0,nspp)
   simData$Diet_comp_weights <- rep(1,nspp)
 
   # * Diet proportion ----

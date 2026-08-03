@@ -140,14 +140,15 @@ rename_output <- function(data_list = NULL, quantities = NULL){
     "Initial abundance deviates",
     "Recruitment deviates",
     "Stock-recruit penalty",
-    "Reference point penalities",
+    "Reference point penalties",
     "Zero n-at-age penalty",
     "M prior",
     "M random effects",
     "Ration",
     "Ration penalties",
     "Stomach content data",
-    "Linkage-table priors"
+    "Linkage-table priors",
+    "Linkage random effects"
   )
 
   return(quantities)
@@ -171,11 +172,18 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 
 
   # Loop fleets and take harmonic mean
-  data_list$fleet_control$Est_weights_mcallister <- NA
+  data_list$fleet_control$Comp_weights_mcallister <- NA
   for(flt in unique(data_list$comp_data$Fleet_code)){
     comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
-    data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
+    data_list$fleet_control$Comp_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
   }
+
+  # Back-compat: this output column was named `Est_weights_mcallister` before
+  # v4.12 (renamed to `Comp_weights_mcallister` for parity with the diet output).
+  # Mirror the old name so downstream reweighting scripts that read it off a
+  # fitted object keep working. Deprecated; prefer `Comp_weights_mcallister`.
+  data_list$fleet_control$Est_weights_mcallister <-
+    data_list$fleet_control$Comp_weights_mcallister
 
   return(data_list)
 }

@@ -1,3 +1,38 @@
+#' Parallel `lapply` over a cluster, using FORK where the platform allows.
+#'
+#' @description
+#' On non-Windows platforms a FORK cluster inherits the parent process's memory
+#' (the already-loaded `Rceattle` namespace and every local, including the large
+#' fitted OM/EM objects) via copy-on-write, so it needs neither a per-worker
+#' `library(Rceattle)` nor a `clusterExport()` of those objects. The PSOCK path
+#' pays both on every worker: a package load and serialization/transfer of the
+#' exported bindings. FORK therefore removes the dominant cluster-startup cost
+#' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
+#' fallback (Windows), reproducing the previous behaviour exactly.
+#'
+#' @param items Vector iterated over; each element is passed to `fun`.
+#' @param fun Worker closure.
+#' @param n_workers Number of cluster workers.
+#' @param export_env For the PSOCK fallback only, the environment whose bindings
+#'   are exported to the workers (the caller's `environment()`). Ignored for
+#'   FORK, where the workers inherit it directly.
+#' @return A list of `fun` applied to each element of `items`.
+#' @noRd
+.parallel_lapply <- function(items, fun, n_workers, export_env) {
+  fork <- .Platform$OS.type != "windows"
+  cl <- if (fork) {
+    parallel::makeCluster(n_workers, type = "FORK")
+  } else {
+    parallel::makeCluster(n_workers)
+  }
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+  if (!fork) {
+    parallel::clusterEvalQ(cl, suppressPackageStartupMessages(library(Rceattle)))
+    parallel::clusterExport(cl, varlist = ls(envir = export_env), envir = export_env)
+  }
+  parallel::parLapply(cl, items, fun)
+}
+
 #' Retrospective peels
 #'
 #' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
@@ -13,6 +48,12 @@
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
+#'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
+#'   effect on rho. Default \code{NULL} inherits the input model's setting
+#'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
+#'   \code{sdrep}); the returned peel models then carry standard errors only
+#'   when \code{getsd} is \code{TRUE}.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -27,10 +68,14 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL) {
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # Peels inherit the input model's sdreport setting unless overridden. Mohn's
+  # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Get objects
   Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
@@ -194,65 +239,19 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # * Refit ----
     newmod <- suppressWarnings(
       suppressMessages(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = inits,
-          map =  map,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder
-          ),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = TRUE, # Phasing or else the parameters dont wanna move
-            loopnum = data_list$loopnum,
-            getsd   = TRUE,
-            verbose = 0))
+        # Refit the peeled data_list, reusing its HCR / SR / M / growth
+        # configuration; clamp the SR-switch, SR-fit-end, and suitability-end
+        # years back to this peel's terminal year.
+        .refit_like(
+          data_list        = data_list,
+          inits            = inits,
+          map              = map,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+          srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
+          suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))
       )
     )
 
@@ -302,65 +301,18 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     newmod <- suppressMessages(
       suppressWarnings(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = peeled_pars,
-          map =  map,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder
-          ),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = TRUE, # Phasing or else the parameters dont wanna move
-            loopnum = data_list$loopnum,
-            getsd   = TRUE,
-            verbose = 0))
+        # Second refit: same peeled configuration, now started from the
+        # bias-adjusted peeled parameters with peeled-year F turned back on.
+        .refit_like(
+          data_list        = data_list,
+          inits            = peeled_pars,
+          map              = map,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+          srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
+          suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))
       )
     )
 
@@ -388,17 +340,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   # Dispatch peels (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, peels))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    peel_results <- parallel::parLapply(cl, 1:peels, run_one_peel)
+    peel_results <- .parallel_lapply(1:peels, run_one_peel, min(cores, peels), environment())
   } else {
     peel_results <- lapply(1:peels, run_one_peel)
   }
@@ -506,6 +448,10 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each jitter runs \code{TMB::sdreport}. Jitter compares
+#'   objectives and point estimates across starts, so \code{FALSE} is faster
+#'   with no effect on that comparison. Default \code{NULL} inherits the input
+#'   model's setting (\code{TRUE} only if it carries an \code{sdrep}).
 #'
 #' @return a list of Rceattle models
 #'
@@ -520,10 +466,14 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL) {
+jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # Jitters inherit the input model's sdreport setting unless overridden;
+  # multimodality is judged from objectives and point estimates, not sdrep.
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
   # (same approach as run_mse). Respect the CRAN core limit
@@ -565,65 +515,15 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
     newmod <-
       suppressMessages(
         suppressWarnings(
-          Rceattle::fit_mod(
-            data_list = data_list,
-            inits = inits,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-            HCR = build_hcr(HCR = data_list$HCR,
-                            DynamicHCR = data_list$DynamicHCR,
-                            Ftarget = data_list$Ftarget,
-                            Flimit = data_list$Flimit,
-                            Ptarget = data_list$Ptarget,
-                            Plimit = data_list$Plimit,
-                            Alpha = data_list$Alpha,
-                            Pstar = data_list$Pstar,
-                            Sigma = data_list$Sigma,
-                            Fmult = data_list$Fmult,
-                            HCRorder = data_list$HCRorder
-            ),
-            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-            recFun = suppressWarnings(build_srr(
-              srr_fun = data_list$srr_fun,
-              srr_pred_fun  = data_list$srr_pred_fun,
-              proj_mean_rec  = data_list$proj_mean_rec,
-              srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-              srr_hat_styr = data_list$srr_hat_styr,
-              srr_hat_endyr = data_list$srr_hat_endyr,
-              srr_est_mode  = data_list$srr_est_mode,
-              srr_prior  = data_list$srr_prior,
-              srr_prior_sd   = data_list$srr_prior_sd,
-              Bmsy_lim = data_list$Bmsy_lim,
-              srr_indices = data_list$srr_indices,
-              linkages = data_list$srr_linkages)),
-            # suppressWarnings: legacy M1_indices may travel via data_list.
-            M1Fun = suppressWarnings(build_M1(
-              M1_model = data_list$M1_model,
-              M1_re = data_list$M1_re,
-              updateM1 = FALSE,
-              M1_use_prior = data_list$M1_use_prior,
-              M2_use_prior = data_list$M2_use_prior,
-              M_prior = data_list$M_prior,
-              M_prior_sd = data_list$M_prior_sd,
-              M1_indices = data_list$M1_indices,
-              linkages = data_list$M1_linkages)),
-            growthFun = build_growth(fun = data_list$growth_fun,
-                                     linkages = data_list$growth_linkages),
-            random_rec = data_list$random_rec,
-            niter = data_list$niter,
-            msmMode = data_list$msmMode,
-            avgnMode = data_list$avgnMode,
-            suitMode = data_list$suitMode,
-            suit_styr = data_list$suit_styr,
-            suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
-            initMode = data_list$initMode,
-            fit_control = fit_control(
-              phase   = phase,
-              loopnum = data_list$loopnum,
-              getsd   = TRUE,
-              verbose = 0))
+          # Refit from the jittered starting values (map rebuilt from scratch).
+          .refit_like(
+            data_list        = data_list,
+            inits            = inits,
+            estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+            phase            = phase,
+            getsd            = getsd,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+            suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
         )
       )
 
@@ -641,17 +541,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
   # Dispatch jitters (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, njitter))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, 1:njitter, run_one_jitter)
+    mod_list <- .parallel_lapply(1:njitter, run_one_jitter, min(cores, njitter), environment())
   } else {
     mod_list <- lapply(1:njitter, run_one_jitter)
   }
@@ -688,6 +578,10 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each refit runs \code{TMB::sdreport}. Self-test compares
+#'   the refit point estimates to the operating model, so \code{FALSE} is faster
+#'   with no effect on that comparison. Default \code{NULL} inherits the input
+#'   model's setting (\code{TRUE} only if it carries an \code{sdrep}).
 #'
 #' @return a list of Rceattle models
 #'
@@ -702,10 +596,14 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' sims <- self_test(ss_run, nsim = 10)
 #' }
 #' @export
-self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL) {
+self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # rho/self-test read point estimates, so getsd = FALSE is faster and neutral;
+  # default inherits the input model's setting (matches retrospective/jitter).
+  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
   # (same approach as run_mse). Respect the CRAN core limit
@@ -741,65 +639,14 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     newmod <-
       suppressMessages(
         suppressWarnings(
-          Rceattle::fit_mod(
-            data_list = data_list,
-            inits = inits,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-            HCR = build_hcr(HCR = data_list$HCR,
-                            DynamicHCR = data_list$DynamicHCR,
-                            Ftarget = data_list$Ftarget,
-                            Flimit = data_list$Flimit,
-                            Ptarget = data_list$Ptarget,
-                            Plimit = data_list$Plimit,
-                            Alpha = data_list$Alpha,
-                            Pstar = data_list$Pstar,
-                            Sigma = data_list$Sigma,
-                            Fmult = data_list$Fmult,
-                            HCRorder = data_list$HCRorder
-            ),
-            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-            recFun = suppressWarnings(build_srr(
-              srr_fun = data_list$srr_fun,
-              srr_pred_fun  = data_list$srr_pred_fun,
-              proj_mean_rec  = data_list$proj_mean_rec,
-              srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-              srr_hat_styr = data_list$srr_hat_styr,
-              srr_hat_endyr = data_list$srr_hat_endyr,
-              srr_est_mode  = data_list$srr_est_mode,
-              srr_prior  = data_list$srr_prior,
-              srr_prior_sd   = data_list$srr_prior_sd,
-              Bmsy_lim = data_list$Bmsy_lim,
-              srr_indices = data_list$srr_indices,
-              linkages = data_list$srr_linkages)),
-            # suppressWarnings: legacy M1_indices may travel via data_list.
-            M1Fun = suppressWarnings(build_M1(
-              M1_model = data_list$M1_model,
-              M1_re = data_list$M1_re,
-              updateM1 = FALSE,
-              M1_use_prior = data_list$M1_use_prior,
-              M2_use_prior = data_list$M2_use_prior,
-              M_prior = data_list$M_prior,
-              M_prior_sd = data_list$M_prior_sd,
-              M1_indices = data_list$M1_indices,
-              linkages = data_list$M1_linkages)),
-            growthFun = build_growth(fun = data_list$growth_fun,
-                                     linkages = data_list$growth_linkages),
-            random_rec = data_list$random_rec,
-            niter = data_list$niter,
-            msmMode = data_list$msmMode,
-            avgnMode = data_list$avgnMode,
-            suitMode = data_list$suitMode,
-            suit_styr = data_list$suit_styr,
-            suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
-            initMode = data_list$initMode,
-            fit_control = fit_control(
-              phase   = FALSE,
-              loopnum = data_list$loopnum,
-              getsd   = TRUE,
-              verbose = 0))
+          # Refit the simulated data set from the operating-model parameters.
+          .refit_like(
+            data_list        = data_list,
+            inits            = inits,
+            estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
+            getsd            = getsd,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+            suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
         )
       )
 
@@ -817,17 +664,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # Dispatch sims (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, nsim))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, 1:nsim, run_one_sim)
+    mod_list <- .parallel_lapply(1:nsim, run_one_sim, min(cores, nsim), environment())
   } else {
     mod_list <- lapply(1:nsim, run_one_sim)
   }
@@ -911,6 +748,10 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each grid fit runs \code{TMB::sdreport}. The profile
+#'   reads only the objective (\code{nll}), so \code{FALSE} is faster with no
+#'   effect on the profile. Default \code{NULL} inherits the input model's
+#'   setting (\code{TRUE} only if it carries an \code{sdrep}).
 #' @param ... Unused; present for consistency with the \code{stats::profile}
 #'   generic.
 #'
@@ -975,12 +816,16 @@ profile.Rceattle <- function(fitted = NULL,
                           values = NULL,
                           transform = "log",
                           cores = NULL,
+                          getsd = NULL,
                           ...) {
 
   # -- Input validation ----
   if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  # Grid fits inherit the input model's sdreport setting unless overridden;
+  # the profile reads only the objective, not sdrep.
+  if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
   if (is.null(param) || !is.character(param) || length(param) != 1L) {
     stop("`param` must be a single character string naming a parameter slot.")
   }
@@ -1155,64 +1000,17 @@ profile.Rceattle <- function(fitted = NULL,
 
     newmod <-
       suppressMessages(suppressWarnings(
-        Rceattle::fit_mod(
-          data_list = data_list,
-          inits = inits,
-          map = map_obj,
-          bounds = NULL,
-          file = NULL,
-          estimateMode = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
-          HCR = build_hcr(HCR = data_list$HCR,
-                          DynamicHCR = data_list$DynamicHCR,
-                          Ftarget = data_list$Ftarget,
-                          Flimit = data_list$Flimit,
-                          Ptarget = data_list$Ptarget,
-                          Plimit = data_list$Plimit,
-                          Alpha = data_list$Alpha,
-                          Pstar = data_list$Pstar,
-                          Sigma = data_list$Sigma,
-                          Fmult = data_list$Fmult,
-                          HCRorder = data_list$HCRorder),
-          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-          recFun = suppressWarnings(build_srr(
-            srr_fun = data_list$srr_fun,
-            srr_pred_fun  = data_list$srr_pred_fun,
-            proj_mean_rec  = data_list$proj_mean_rec,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-            srr_hat_styr = data_list$srr_hat_styr,
-            srr_hat_endyr = data_list$srr_hat_endyr,
-            srr_est_mode  = data_list$srr_est_mode,
-            srr_prior  = data_list$srr_prior,
-            srr_prior_sd   = data_list$srr_prior_sd,
-            Bmsy_lim = data_list$Bmsy_lim,
-            srr_indices = data_list$srr_indices,
-            linkages = data_list$srr_linkages)),
-          # suppressWarnings: legacy M1_indices may travel via data_list.
-          M1Fun = suppressWarnings(build_M1(
-            M1_model = data_list$M1_model,
-            M1_re = data_list$M1_re,
-            updateM1 = FALSE,
-            M1_use_prior = data_list$M1_use_prior,
-            M2_use_prior = data_list$M2_use_prior,
-            M_prior = data_list$M_prior,
-            M_prior_sd = data_list$M_prior_sd,
-            M1_indices = data_list$M1_indices,
-            linkages = data_list$M1_linkages)),
-          growthFun = build_growth(fun = data_list$growth_fun,
-                                   linkages = data_list$growth_linkages),
-          random_rec = data_list$random_rec,
-          niter = data_list$niter,
-          msmMode = data_list$msmMode,
-          avgnMode = data_list$avgnMode,
-          suitMode = data_list$suitMode,
-          suit_styr = data_list$suit_styr,
-          suit_endyr = min(data_list$suit_endyr, data_list$endyr),
-          initMode = data_list$initMode,
-          fit_control = fit_control(
-            phase   = FALSE,
-            loopnum = data_list$loopnum,
-            getsd   = TRUE,
-            verbose = 0))
+        # Refit with the profiled parameter fixed at its grid value (mapped off
+        # in map_obj). estimateMode falls back to 1 -- profile the hindcast fit,
+        # not a projection.
+        .refit_like(
+          data_list        = data_list,
+          inits            = inits,
+          map              = map_obj,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+          suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
       ))
 
     if (!is.null(newmod$opt$Convergence_check)) {
@@ -1228,17 +1026,7 @@ profile.Rceattle <- function(fitted = NULL,
   # Dispatch (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, ngrid))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    mod_list <- parallel::parLapply(cl, seq_len(ngrid), run_one_point)
+    mod_list <- .parallel_lapply(seq_len(ngrid), run_one_point, min(cores, ngrid), environment())
   } else {
     mod_list <- lapply(seq_len(ngrid), run_one_point)
   }

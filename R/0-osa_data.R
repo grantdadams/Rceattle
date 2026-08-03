@@ -1,3 +1,27 @@
+# Fold a raw composition proportion row for tail accumulation, mirroring the
+# per-sex-block young/old fold in ceattle.cpp (Slot 2). `prop` is the raw
+# proportion vector of length `nblk * nbins_blk` (block-major: block 0's bins,
+# then block 1's for joint-sex). Bins below `yng` fold into the `yng` bin and
+# above `old` into the `old` bin, within each sex block, yielding an
+# `nblk * (old - yng + 1)` vector. yng/old are 1-based, already clamped by the
+# caller (1 <= yng <= old <= nbins_blk). Returns the folded raw proportions; the
+# caller adds the offset once per folded bin via append_composition(), matching
+# the cpp order (fold raw props, then += comp_prop_offset).
+.fold_comp_bins <- function(prop, nbins_blk, nblk, yng, old) {
+  nkeep  <- old - yng + 1L
+  folded <- numeric(nblk * nkeep)
+  for (b in seq_len(nblk) - 1L) {
+    for (j in seq_len(nbins_blk) - 1L) {   # 0-based source bin within the block
+      tgt <- j
+      if (j < yng - 1L) tgt <- yng - 1L    # fold young tail into the yng bin
+      if (j > old - 1L) tgt <- old - 1L    # fold old tail into the old bin
+      k <- b * nkeep + (tgt - (yng - 1L)) + 1L
+      folded[k] <- folded[k] + prop[b * nbins_blk + j + 1L]
+    }
+  }
+  folded
+}
+
 #' Build the flat observation vector and metadata for OSA residuals
 #'
 #' @description
@@ -54,9 +78,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 
   # Proportion offset added to comp/caal bins before the likelihood. It lives on
   # data_list (filled by switch_check(), overridable via fit_control(comp_offset=))
-  # TODO(review): on the exported rearrange_data() path switch_check() does not
-  # run -- comp_offset (and the bias_adjust_* scalars below) are actually filled
-  # here in build_osa_data(). Tidy this comment to say so.
+  # FIXME: on the exported rearrange_data() path switch_check() does not run --
+  # comp_offset (and the bias_adjust_* scalars below) are actually filled here in
+  # build_osa_data(), not by switch_check() as the line above implies. Left as-is
+  # for now: reword the "filled by switch_check()" note to say so.
   # so fitting and the OSA obsvec use the same value and internal re-fits inherit
   # it. Read it from data_list, defaulting to 1e-5, and keep it as a plain double
   # for the TMB DATA_SCALAR.
@@ -138,14 +163,73 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
                is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE)[1]
   }
 
-  # ---- Index (survey) observations: lognormal, stored as log(obs) ----
+  # ---- Index (survey) observations ----
   # TMB guard: Year in (0, endyr], fleet on (flt_type > 0), observation > 0.
+  # The value laid into obsvec depends on the index likelihood family
+  # (index_ll_type), matching what the cpp reads in OSA mode so oneStepPredict()
+  # residualizes the same model that was fit:
+  #   0 lognormal IID  -> log(obs)                     (dnorm on the log scale)
+  #   3 natural Normal -> obs                           (dnorm on the natural scale)
+  #   1/2 MVN / MVNORM -> z = L^-1 obs, whitened by the
+  #       lower Cholesky of the fleet's covariance Sigma = L L', so the correlated
+  #       block becomes independent standard normals (the cpp whitens the mean with
+  #       the same L). The innovation z - L^-1(q*pred) is the multivariate-Gaussian
+  #       one-step-ahead residual (Thygesen et al. 2017; the SAM/TMB construction).
+  # The per-family scale is only needed for the OSA build; the ordinary fit reads
+  # obsvec only for family 0 (and reads index_obs directly for 1/2/3), so the fast
+  # path (build_osa == FALSE) keeps the original log(obs) layout for every fleet.
   index_ctl <- data_list$index_ctl
   index_obs <- data_list$index_obs
   index_obsvec_idx <- rep(-1L, nrow(index_obs))
   if (nrow(index_obs) > 0) {
     inc <- which(index_ctl[, 3] > 0 & index_ctl[, 3] <= endyr &
                    flt_type[index_ctl[, 1]] > 0 & index_obs[, 1] > 0)
+    ill <- data_list$index_ll_type
+    if (build_osa && !is.null(ill) && length(inc) > 0) {
+      # MVN / MVNORM (families 1, 2): whiten each fleet's fitted observation block
+      # with the lower Cholesky of its covariance. Rows are taken in ascending
+      # index_obs order, matching Sigma's row order (.align_index_cov() builds
+      # Sigma in this order) and the cpp residual assembly. The lower-triangular
+      # whitening conditions observation k on rows 1..k, so this row order is also
+      # the one-step-ahead conditioning order; CEATTLE index_obs is chronological,
+      # making it the chronological order. A fleet whose fitted years are NOT in
+      # ascending order is excluded (rather than given a non-chronological, and
+      # potentially Sigma-misaligned, decomposition).
+      for (f in sort(unique(index_ctl[inc, 1][ill[index_ctl[inc, 1]] %in% c(1L, 2L)]))) {
+        rows <- inc[index_ctl[inc, 1] == f]
+        Sigma <- tryCatch(as.matrix(data_list$index_cov_mat[[f]]), error = function(e) NULL)
+        chrono <- !is.unsorted(index_ctl[rows, 3], strictly = FALSE)
+        L <- if (!is.null(Sigma) && nrow(Sigma) == length(rows) && chrono)
+          tryCatch(t(chol(Sigma)), error = function(e) NULL) else NULL
+        if (is.null(L)) {
+          # Malformed / non-PD / mis-dimensioned covariance, or non-chronological
+          # rows: fall back to excluding this fleet from the OSA residuals rather
+          # than emit a wrong or ambiguously-ordered residual.
+          warning(sprintf(paste0(
+            "OSA residuals: index fleet %d has a missing / non-positive-definite / ",
+            "non-%dx%d covariance matrix or non-chronological survey rows; ",
+            "excluding it from the OSA residuals."), f, length(rows), length(rows)))
+        } else {
+          z <- as.numeric(forwardsolve(L, index_obs[rows, 1]))   # L^-1 obs (whitened)
+          index_obsvec_idx[rows] <- append_obs(
+            value = z, source = "index", data_row = rows,
+            fleet_code = index_ctl[rows, 1], species = index_ctl[rows, 2],
+            year = index_ctl[rows, 3])
+        }
+        inc <- setdiff(inc, rows)
+      }
+      # Natural-scale Normal (family 3): store the untransformed observation.
+      rows3 <- inc[ill[index_ctl[inc, 1]] == 3L]
+      if (length(rows3) > 0) {
+        index_obsvec_idx[rows3] <- append_obs(
+          value = index_obs[rows3, 1], source = "index", data_row = rows3,
+          fleet_code = index_ctl[rows3, 1], species = index_ctl[rows3, 2],
+          year = index_ctl[rows3, 3])
+        inc <- setdiff(inc, rows3)
+      }
+    }
+    # Lognormal IID (family 0) -- and every fleet on the fast fitting path -- as
+    # log(obs).
     if (length(inc) > 0) {
       index_obsvec_idx[inc] <- append_obs(
         value = log(index_obs[inc, 1]), source = "index", data_row = inc,
@@ -180,14 +264,33 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   comp_n   <- data_list$comp_n
   comp_obsvec_idx <- rep(-1L, nrow(comp_obs))
   if (build_osa && nrow(comp_obs) > 0) {
+    accum_yng <- data_list$comp_accum_young; accum_old <- data_list$comp_accum_old
     for (r in seq_len(nrow(comp_obs))) {
       fleet     <- comp_ctl[r, 1]; sp <- comp_ctl[r, 2]; sex <- comp_ctl[r, 3]
       comp_type <- comp_ctl[r, 4]; yr <- comp_ctl[r, 5]; Neff <- comp_n[r, 2]
       if (!(yr > 0 && yr <= endyr && flt_type[fleet] > 0 && Neff > 0)) next
       joint_adjust <- if (sex == 3) 2L else 1L          # joint-sex doubles the bins
-      n_comp <- (if (comp_type == 0) nages[sp] else nlengths[sp]) * joint_adjust
+      nbins_blk <- if (comp_type == 0) nages[sp] else nlengths[sp]
+      # Composition tail accumulation (Comp_accum_young/old): fold the RAW
+      # proportion row exactly as the fitting path does (ceattle.cpp Slot 2)
+      # BEFORE append_composition() adds the offset, so the OSA obsvec matches the
+      # folded comp_hat_tmp / n_comp the un-gated cpp fold now produces on the OSA
+      # path too. yng/old clamp mirrors the cpp; the default (yng == 1, old >=
+      # nbins_blk) is a no-op, leaving non-accumulating fleets bit-identical.
+      obs_row <- comp_obs[r, ]
+      n_comp  <- nbins_blk * joint_adjust
+      yng <- if (!is.null(accum_yng)) accum_yng[fleet] else 1L
+      old <- if (!is.null(accum_old)) accum_old[fleet] else 0L
+      if (is.na(yng) || yng < 1L) yng <- 1L                 # NA/0 -> no young accum
+      if (is.na(old) || old < 1L || old > nbins_blk) old <- nbins_blk  # NA/0/>=nbins -> no old accum
+      if (yng > old) yng <- old
+      if (yng > 1L || old < nbins_blk) {
+        obs_row <- .fold_comp_bins(as.numeric(obs_row[seq_len(n_comp)]),
+                                   nbins_blk, joint_adjust, yng, old)
+        n_comp  <- joint_adjust * (old - yng + 1L)
+      }
       comp_obsvec_idx[r] <- append_composition(
-        "comp", comp_obs[r, ], n_comp, Neff, fleet, sp, sex, yr, r,
+        "comp", obs_row, n_comp, Neff, fleet, sp, sex, yr, r,
         comp_type = comp_type)
     }
   }
@@ -226,7 +329,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
       # TODO(review): which() is order-independent, but the C++ diet likelihood
       # counts prey via a contiguous scan of stomach_id; keep both consistent
-      # (see the matching TODO in ceattle_v01_11.cpp) or non-contiguous ids
+      # (see the matching TODO in ceattle.cpp) or non-contiguous ids
       # would misalign the diet OSA "other prey" bin.
       rows   <- which(stomach_id == i)
       n_prey <- length(rows)

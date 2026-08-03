@@ -122,13 +122,13 @@ $$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,
 
 
 ## Selectivity parameterizations
-Multiple age-based selectivity functions are supported by Rceattle. They are controlled by `Selectivity_index`, `Selectivity`, `N_sel_bins`, `Time_varying_sel`, `Time_varying_sel_sd_prior`, and `Bin_first_selected` in fleet_control sheet of an Rceattle data file. They are defined as follows:
+Multiple age-based selectivity functions are supported by Rceattle. They are controlled by `Selectivity_index`, `Selectivity`, `N_sel_bins`, `Time_varying_sel`, `Time_varying_sel_sd`, and `Bin_first_selected` in fleet_control sheet of an Rceattle data file. They are defined as follows:
 
 * `Selectivity_index`:	index to use if selectivities of different surveys are to be the same
 * `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake), 6 or "2DAR1" for age by year, 7 or "3DAR1" sensu Cheng et al (2025).
 * `N_sel_bins`:	Number of ages to estimate non-parametric selectivity. For example, if `minage = 1` and selectivity parameters are estimated up till age-6, `N_sel_bins = 6` and if `minage = 0` and selectivity parameters are estimated up till age-6, `N_sel_bins = 7`.  Not used otherwise
 * `Time_varying_sel`:	Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, descending logistic, or non-parametric selectivity (`Selectivity = 5 or "Hake"`). 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3 = time blocks with no penalty, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. 
-* `Time_varying_sel_sd_prior`:	The sd to use for the random walk of time varying selectivity if set to 1. 
+* `Time_varying_sel_sd`:	The sd to use for the random walk of time varying selectivity if set to 1. 
 * `Bin_first_selected`:	Age/length bin at which selectivity is non-zero. Selectivity before this age will be set to 0.
 
 ### Fixed selectivity
@@ -139,19 +139,21 @@ Input:
 Input:
 `Selectivity = 2 or "NonParametric"`, `N_sel_bins = 6`, `Sel_curve_pen1 = 12.5`, `Sel_curve_pen2 = 200`, and `Bin_first_selected = 1`
 
+The `Sel_curve_pen1/2/3` are penalty *weights*. Each penalty is a Gaussian sum-of-squares ($\text{weight}\cdot x^2 = x^2 / (2\sigma^2)$), so you may instead supply them as **standard deviations** — `Sel_shape_sd` (with `Sel_shape_dir = "Decreasing"`/`"Increasing"` for the directional sign), `Sel_curvature_sd`, and `Sel_devmag_sd` — which are converted to the weights via $\text{weight} = 1/(2\sigma^2)$. Supplying an SD sets the matching `Sel_curve_pen` column; a `Sel_curve_pen` value you provide directly is never overwritten. `Sel_shape_sd` and `Sel_devmag_sd` apply to both `NonParametric` (2/9) and `LogisticPM` (11); `Sel_curvature_sd` is `NonParametric`-only (LogisticPM does not use `Sel_curve_pen2`). LogisticPM's shape penalty is two-sided, so its weight is always positive (`Sel_shape_dir = "Increasing"` is rejected there). The 2D/3D-AR1 forms reuse `Sel_curve_pen` for logit-scale correlations and keep those columns.
+
 Equation:
 $$sel_{f_i sa}=e^{\phi_{f_isa}}$$
 
 ### Logistic
 Input:
-`Selectivity = 1 or "Logistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd_prior = NA`
+`Selectivity = 1 or "Logistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd = NA`
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-Slp_{f_i} (a-Inf_{f_i} ) } )$$
 
 ### Time-varying logistic
 Input:
-`Selectivity = 1 or "Logistic"`, `N_sel_bins = NA`, and `Time_varying_sel_sd_prior = 0.1` or other desired value. 
+`Selectivity = 1 or "Logistic"`, `N_sel_bins = NA`, and `Time_varying_sel_sd = 0.1` or other desired value. 
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-(Slp_{f_i}+e^{\phi_{f_i sy}^{slp} } ) (a-(Inf_{f_i}+\phi_{f_i sy}^{Inf} ) ) } )$$
@@ -166,7 +168,7 @@ $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
 ### Double logistic
 Input:
-`Selectivity = 3 or "DoubleLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd_prior = NA`
+`Selectivity = 3 or "DoubleLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd = NA`
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-Slp1_{f_i} (a-Inf1_{f_i} ) } )(1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } ))$$
@@ -185,7 +187,7 @@ $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
 ### Time-varying double logistic 2	(random walk ascending-time varying parameters)
 Input:
-`Selectivity = 3 or "DoubleLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 5`, and `Time_varying_sel_sd_prior = NA`
+`Selectivity = 3 or "DoubleLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 5`, and `Time_varying_sel_sd = NA`
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-(Slp1_{f_i}+e^{\phi_{f_i sy}^{slp1} } ) (a-(Inf1_{f_i}+\phi_{f_i sy}^{Inf1} ) ) } )(1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } ))$$
@@ -194,14 +196,14 @@ $$\phi_{f_i sy} - \phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
 ### Descending logistic
 Input:
-`Selectivity = 4 or "DescendingLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd_prior = NA`
+`Selectivity = 4 or "DescendingLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 0`, and `Time_varying_sel_sd = NA`
 
 Equation:
 $$sel_{f_i sa}=1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } )$$
 
 ### Time-varying descending logistic	
 Input:
-`Selectivity = 4 or "DescendingLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 1` or `2` , and `Time_varying_sel_sd_prior = NA`
+`Selectivity = 4 or "DescendingLogistic"`, `N_sel_bins = NA`, `Time_varying_sel = 1` or `2` , and `Time_varying_sel_sd = NA`
 
 Equation:
 $$sel_{f_i sa}=1-1/(1+e^{-(Slp2_{f_i}+e^{\phi_{f_i sy}^{slp2} } ) (a-(Inf2_{f_i}+\phi_{f_i sy}^{Inf2} ) ) } )$$
@@ -224,14 +226,14 @@ $$ sel^{`}_{f_i sa} = \sum_{i=A_{min}}^a p_{f_i sa}$$
 Selectivity is fixed at $sel_{f_i sa} = 0$ for $a < A_{min}$ and $p_{f_i sa} = 0$ for ages above `minage + N_sel_bins`, giving constant selectivity beyond the last estimated value. `minage` is specified in the data and is the minimum age of the modeled population.
 
 Input:
-`Selectivity = 5 or "Hake"`, `N_sel_bins = 6`, `Time_varying_sel = NA`,  `Time_varying_sel_sd_prior = NA`, and `Bin_first_selected = `$A_{min}$
+`Selectivity = 5 or "Hake"`, `N_sel_bins = 6`, `Time_varying_sel = NA`,  `Time_varying_sel_sd = NA`, and `Bin_first_selected = `$A_{min}$
 
 ### Time-varying non-parametric (Type 2 for hake)
 As above, but a set of deviations on $p_a$ is used  to control annual changes in selectivity given a fixed or estimated standard deviation ($\sigma^{\phi}_{f_i}$):
 $$p_{f_i say}=p_{f_i sa}+\phi_{f_i say}$$
 
 Input:
-`Selectivity = 5 or "Hake"`, `N_sel_bins = 6`, `Time_varying_sel = NA`,  `Time_varying_sel_sd_prior = NA`, and `Bin_first_selected = `$A_{min}$
+`Selectivity = 5 or "Hake"`, `N_sel_bins = 6`, `Time_varying_sel = NA`,  `Time_varying_sel_sd = NA`, and `Bin_first_selected = `$A_{min}$
 
 Penalized likelihood: `Time_varying_sel = 1`
 $$\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) $$
@@ -240,20 +242,20 @@ $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
 
 
 ## Catchability parameterizations
-Separate selectivity and catchability functions can be estimated for each survey or fishery. Additionally, catchability can be set the same for multiple surveys by setting `Q_index` to the same value. Catchability is controlled by the following parameters in the `fleet_control` sheet of the data
+Separate selectivity and catchability functions can be estimated for each survey or fishery. Additionally, catchability can be set the same for multiple surveys by setting `Catchability_index` to the same value. Catchability is controlled by the following parameters in the `fleet_control` sheet of the data
 
-* `Q_index`	index to use if catchability coefficients are to be set the same
+* `Catchability_index`	index to use if catchability coefficients are to be set the same
 * `Catchability`	Text or integer switch specifying catchability. 0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994; 4 or "PowerEquation" = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y); 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025.
-* `Q_prior`	Starting value or fixed value for catchability
-* `Q_sd_prior`	Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)
+* `Catchability_init`	Starting value or fixed value for catchability
+* `Catchability_prior_sd`	Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)
 * `Time_varying_q`	Whether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y
-* `Time_varying_q_sd_prior`	The sd to use for the random walk of time varying q if set to 1
+* `Time_varying_q_sd`	The sd to use for the random walk of time varying q if set to 1
 
 ### Linear time-invariant catchability formulations
 `Time_varying_q = 0` for all formulations
 `Catchability = 0`
 
-$q_{f_i} =$ `Q_prior` from data
+$q_{f_i} =$ `Catchability_init` from data
 
 `Catchability = 1` A freely estimated catchability parameter $\hat{q}_{f_i}$ is estimated for survey/index fleet $f_i$
 
@@ -279,7 +281,7 @@ $$\hat{q}_{f_i} = \exp\left( \sum_y \left( log \left[ \frac{CPUE:I_{{f_i},y}}  {
 NOTE: If `Catchability = 2` a prior will be put on mean catchability as above.
 `Catchability %in% c(1:2)` and `Time_varying_q %in% c(1:2)`
 $$\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}$$
-$\omega_{f_iy} \sim N(0,$`Time_varying_q_sd_prior`$)$ where `Time_varying_q_sd_prior` is either fixed `Time_varying_q = 1` or estimated `Time_varying_q = 2` & `random_q = TRUE` in \function{fit_mod}
+$\omega_{f_iy} \sim N(0,$`Time_varying_q_sd`$)$ where `Time_varying_q_sd` is either fixed `Time_varying_q = 1` or estimated `Time_varying_q = 2` & `random_q = TRUE` in \function{fit_mod}
 
 *Catchability time-blocks*
 
@@ -290,5 +292,5 @@ $$\hat{q}_{f_iy} = e^{\omega_{f_i block_y}}$$
 
 `Catchability %in% c(1:2)`, `Time_varying_q = 4`
 $$\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}$$
-$\omega_{f_iy} \sim N(\omega_{f_iy-1},$`Time_varying_q_sd_prior`$)$
+$\omega_{f_iy} \sim N(\omega_{f_iy-1},$`Time_varying_q_sd`$)$
 

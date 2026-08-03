@@ -53,7 +53,7 @@
 #'   \item{\code{tv_q_map}}{Time-varying catchability structure
 #'     (\code{fleet_control$Time_varying_q}).}
 #'   \item{\code{comp_loglike_map}}{Composition likelihood
-#'     (\code{fleet_control$Comp_loglike} and \code{CAAL_loglike}).}
+#'     (\code{fleet_control$Comp_distribution} and \code{CAAL_distribution}).}
 #'   \item{\code{fleet_map}}{Fleet type (\code{fleet_control$Fleet_type}).}
 #'   \item{\code{initMode_map}}{Initial age-structure mode
 #'     (\code{data_list$initMode}; see \code{\link{fit_mod}}).}
@@ -152,12 +152,16 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
+# 5 = FishedEquilibrium: F = 0 equilibrium seeded by first-year recruitment
+#     (exp(rec_pars + rec_dev[year 1])), init devs off, no init-dev penalty
+#     (Cole Monnahan / AFSC GOA pollock convention).
 initMode_map <- c(
   "FreeParams"           = 0,
   "Equilibrium"          = 1,
   "NonEquilibrium"       = 2,
   "FishedNonEquilibrium"       = 3,
-  "FishedNonEquilibriumScaled" = 4
+  "FishedNonEquilibriumScaled" = 4,
+  "FishedEquilibrium"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)
@@ -184,6 +188,92 @@ hcr_map <- c(
   "SESSF"        = 7
 )
 
+# Numbers-at-age estimation mode, per species (data_list$estDynamics).
+# 0 = estimate the population dynamics; 1 = use fixed input numbers-at-age from
+# NByageFixed; 2 = scale the fixed input by one estimated coefficient; 3 = scale
+# it by an age-specific estimated coefficient. Named per the Fixed/Estimated
+# convention so "0 = not estimated" reads plainly.
+estDynamics_map <- c(
+  "Estimated"        = 0,
+  "Fixed"            = 1,
+  "FixedScaled"      = 2,
+  "FixedScaledByAge" = 3
+)
+
+# Apply a string->integer switch map to a (possibly character) switch value,
+# passing integers through unchanged and erroring clearly on an unknown string.
+# Used for switches consumed as bare integers before convert_switches() runs
+# (e.g. estDynamics is read numerically by build_map()), so the string must be
+# resolved early, in switch_check().
+.map_switch <- function(x, map, name) {
+  if (is.null(x) || !is.character(x)) return(x)
+  bad <- setdiff(x[!is.na(x)], names(map))
+  if (length(bad) > 0) {
+    stop(sprintf("Invalid '%s' value(s): %s. Options: %s (or the integer codes %s).",
+                 name, paste(unique(bad), collapse = ", "),
+                 paste(names(map), collapse = ", "),
+                 paste(unname(map), collapse = ", ")), call. = FALSE)
+  }
+  unname(map[x])   # map[NA] is NA, so off-fleet NAs pass through
+}
+
+# `est_M1` was renamed to `M1_model`. Fold the deprecated name into `M1_model`
+# so it is honoured everywhere `M1_model` is (fit_mod's M1Fun reconciliation,
+# switch_check's default, combine_data). Only fires when `M1_model` is unset and
+# `est_M1` carries a real (non-all-NA) value -- an all-NA `est_M1` (e.g. the
+# GOA2018SS placeholder) means "not specified" and must fall through to the
+# `M1_model` default, not pin it to NA.
+.alias_est_M1 <- function(data_list) {
+  if (is.null(data_list$M1_model) && !is.null(data_list$est_M1) &&
+      !all(is.na(data_list$est_M1))) {
+    data_list$M1_model <- data_list$est_M1
+    message("'est_M1' is deprecated; use 'M1_model'.")
+  }
+  data_list
+}
+
+# Observation-SD estimation mode for a survey index or catch series
+# (fleet_control$Estimate_index_sd / Estimate_catch_sd). 0 = use the fixed SD
+# implied by the data CV (not estimated); 1 = estimate; 2 = analytical
+# (Ludwig-Walters 1994). "Fixed" reads plainly for the 0 = not-estimated case.
+estimate_sd_map <- c(
+  "Fixed"      = 0,
+  "Estimated"  = 1,
+  "Analytical" = 2
+)
+
+# Stock-recruit hyperparameter estimation mode (data_list$srr_est_mode; set via
+# build_srr()). 0 = fix alpha/steepness at its prior mean (not estimated);
+# 1 = freely estimate; 2 = lognormal prior; 3 = beta prior.
+srr_est_mode_map <- c(
+  "Fixed"          = 0,
+  "Estimated"      = 1,
+  "LognormalPrior" = 2,
+  "BetaPrior"      = 3
+)
+
+# What fit_mod() does with the model (the `estimateMode` argument).
+# 0 = fit the hindcast and the HCR projection; 1 = fit the hindcast only;
+# 2 = project only, from the supplied inits; 3 = build MakeADFun without
+# optimizing (returns the real objective, for pre-fit diagnostics); 4 = optimize
+# with every hindcast parameter mapped out (a plumbing smoke test).
+estimateMode_map <- c(
+  "Estimate"      = 0,
+  "Hindcast"      = 1,
+  "Projection"    = 2,
+  "DebugBuild"    = 3,
+  "DebugOptimize" = 4
+)
+
+# Predation-mortality mode (the `msmMode` argument). 0 = single-species (no
+# predation); 1 = Type II MSVPA (Holsman et al. 2015); 2 = Type III MSVPA. Higher
+# integer codes (Kinzey-Punt, Holling forms) are not yet implemented.
+msmMode_map <- c(
+  "SingleSpecies" = 0,
+  "TypeIIMSVPA"   = 1,
+  "TypeIIIMSVPA"  = 2
+)
+
 
 #' Function to check for missing switches for map and parameter functions
 #'
@@ -203,6 +293,39 @@ switch_check <- function(data_list){
     return(val)
   }
 
+  # Upgrade any deprecated fleet_control column names to their canonical
+  # spellings from the single schema-driven migration (`aliases` field), here
+  # at the top of switch_check() so the rename lands before build_params()
+  # reads the columns and before the non-parametric penalty migration below.
+  # Legacy names accepted: Q_prior, Index_sd_prior/Survey_sd_prior,
+  # Catch_sd_prior, Time_varying_{q,sel}_sd_prior, Sel_sd_prior, Nselages,
+  # Estimate_q, Estimate_survey_sd, Age_first_selected, Age_max_selected(_upper).
+  data_list$fleet_control <-
+    .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
+  # ...and the deprecated control / bioenergetics element names (e.g.
+  # `sigma_rec_prior` -> `sigma_rec`, `Diet_loglike` -> `Diet_distribution`).
+  data_list <- .rce_upgrade_data_list_aliases(data_list)
+
+  # `Accumulation_age_lower` / `Accumulation_age_upper` are removed. They were
+  # only ever range-validated and never applied (no composition-age grouping
+  # exists anywhere in the R pipeline or the C++ template), so the columns did
+  # nothing. Drop them -- once, with a soft-deprecation message -- if an old
+  # workbook / data list still carries either spelling, so a stale column does
+  # not silently propagate.
+  drop_deprecated_col <- function(fc, old) {
+    if (!is.null(fc[[old]])) {
+      fc[[old]] <- NULL
+      message(sprintf(
+        "'%s' is deprecated and ignored; it was never applied to composition data and has been removed.",
+        old))
+    }
+    fc
+  }
+  data_list$fleet_control <- drop_deprecated_col(
+    data_list$fleet_control, "Accumulation_age_lower")
+  data_list$fleet_control <- drop_deprecated_col(
+    data_list$fleet_control, "Accumulation_age_upper")
+
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0
     data_list$srr_pred_fun <- 0
@@ -212,10 +335,24 @@ switch_check <- function(data_list){
 
   # Model and multi-species switches
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
+  # Resolve readable strings ("Fixed"/"Estimated"/...) to integer codes now --
+  # build_map()/build_params() read estDynamics numerically, before
+  # convert_switches() runs.
+  data_list$estDynamics <- .map_switch(data_list$estDynamics, estDynamics_map, "estDynamics")
+  data_list$suitMode <- .map_switch(data_list$suitMode, suitMode_map, "suitMode")
+  if (!is.null(data_list$fleet_control$Estimate_index_sd)) {
+    data_list$fleet_control$Estimate_index_sd <-
+      .map_switch(data_list$fleet_control$Estimate_index_sd, estimate_sd_map, "Estimate_index_sd")
+  }
+  if (!is.null(data_list$fleet_control$Estimate_catch_sd)) {
+    data_list$fleet_control$Estimate_catch_sd <-
+      .map_switch(data_list$fleet_control$Estimate_catch_sd, estimate_sd_map, "Estimate_catch_sd")
+  }
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
-  data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
+  data_list$Diet_distribution <- set_default(data_list$Diet_distribution, rep(0, data_list$nspp), "'Diet_distribution' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
+  data_list <- .alias_est_M1(data_list)
   data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
   data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
@@ -250,43 +387,112 @@ switch_check <- function(data_list){
   }
 
   # 1. Fleet Control defaults ----
-  data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
-  data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
+  # Per-column defaults + messages come from the canonical schema
+  # (R/0-column_schema.R) via .rce_apply_default(), so they live in one place
+  # instead of being hand-copied here. The order of the calls (and thus the
+  # message order) is unchanged.
+  .sch <- .rce_column_schema()
+  data_list$fleet_control$Sel_norm_bin <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin, "Sel_norm_bin", .sch)
+  data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch)
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
   # logistic-only models).
   .np_hake <- any(data_list$fleet_control$Selectivity %in%
                     c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 5, "Hake", 11, "LogisticPM"))
-  data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, if(.np_hake) "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
-  # Back-compatibility: these were named *_age before they were generalised to
-  # work on either the age or the length dimension. Accept the old names.
-  for(.old in c("Sel_pen_first_age", "Sel_pen_last_age", "Sel_cap_age")){
-    .new <- sub("_age$", "_bin", .old)
-    if(!is.null(data_list$fleet_control[[.old]]) && is.null(data_list$fleet_control[[.new]])){
-      data_list$fleet_control[[.new]] <- data_list$fleet_control[[.old]]
-      data_list$fleet_control[[.old]] <- NULL
-      message("Renaming '", .old, "' to '", .new, "'")
+  # Intuitive alternative to the cryptic selectivity penalty WEIGHTS: express each
+  # as a standard deviation. Every such penalty is a Gaussian SSQ
+  # `weight * x^2 = x^2 / (2*sd^2)`, so `weight = 1/(2*sd^2)`. A fleet may supply
+  # the SD column instead of the raw `Sel_curve_pen` weight; convert it here (only
+  # where the legacy weight is not already supplied, so legacy models are untouched
+  # / bit-identical). Each SD column applies to the selectivity FORMS that use its
+  # `Sel_curve_pen` slot as a penalty weight -- on any other form the slot is a
+  # logit-scale correlation (2D/3D-AR1) or unused, so setting the SD there is
+  # rejected rather than silently converted. A non-positive/non-finite SD (sd = 0
+  # would give an Inf penalty; a negative SD squares to a spurious weight) is also
+  # rejected.
+  .fc  <- data_list$fleet_control
+  .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
+  .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
+  .lpm <- c(11, "LogisticPM")
+  # SD column -> (target Sel_curve_pen slot, forms that use it as a weight). Both
+  # NonParametric (2/9) and LogisticPM (11) use pen1 (shape) and pen3 (dev-mag) as
+  # Gaussian weights; only NonParametric uses pen2 (curvature) -- LogisticPM leaves
+  # it unused.
+  .sd_specs <- list(
+    Sel_shape_sd     = list(pen = "Sel_curve_pen1", forms = c(.np, .lpm)),
+    Sel_curvature_sd = list(pen = "Sel_curve_pen2", forms = .np),
+    Sel_devmag_sd    = list(pen = "Sel_curve_pen3", forms = c(.np, .lpm))
+  )
+  .pen <- list(Sel_curve_pen1 = .col("Sel_curve_pen1"),
+               Sel_curve_pen2 = .col("Sel_curve_pen2"),
+               Sel_curve_pen3 = .col("Sel_curve_pen3"))
+  .dir <- if (is.null(.fc$Sel_shape_dir)) rep("Decreasing", nrow(.fc)) else as.character(.fc$Sel_shape_dir)
+  .is_incr <- .dir %in% c("Increasing", "increasing", "-1")
+  for (nm in names(.sd_specs)) {
+    v <- .col(nm)
+    if (all(is.na(v))) next
+    spec <- .sd_specs[[nm]]
+    bad_form <- which(!is.na(v) & !(.fc$Selectivity %in% spec$forms))
+    if (length(bad_form) > 0) {
+      stop(sprintf(paste0(
+        "'%s' (a penalty-SD column) is set on fleet(s) %s whose Selectivity does ",
+        "not use that penalty slot as a weight; it applies to %s only (use ",
+        "Sel_curve_pen for other forms)."), nm, paste(bad_form, collapse = ", "),
+        if (identical(spec$forms, .np)) "NonParametric/NonParametricPM"
+        else "NonParametric/NonParametricPM/LogisticPM"), call. = FALSE)
     }
+    bad_val <- which(!is.na(v) & !(is.finite(v) & v > 0))
+    if (length(bad_val) > 0) {
+      stop(sprintf(paste0(
+        "'%s' must be a positive standard deviation; fleet(s) %s are non-positive ",
+        "or non-finite."), nm, paste(bad_val, collapse = ", ")), call. = FALSE)
+    }
+    w <- 1 / (2 * v^2)
+    # The shape penalty is DIRECTIONAL for the non-parametric forms only (the sign
+    # of pen1 sets penalize-decreasing vs -increasing); LogisticPM's shape term is
+    # two-sided (d^2), so its weight must stay positive.
+    if (nm == "Sel_shape_sd") {
+      np_here <- .fc$Selectivity %in% .np
+      bad_dir <- which(!is.na(v) & !np_here & .is_incr)
+      if (length(bad_dir) > 0) {
+        stop(sprintf(paste0(
+          "Sel_shape_dir = 'Increasing' on fleet(s) %s, but their (LogisticPM) ",
+          "shape penalty is two-sided -- the weight must be positive."),
+          paste(bad_dir, collapse = ", ")), call. = FALSE)
+      }
+      w <- ifelse(np_here & .is_incr, -w, w)
+    }
+    u <- !is.na(v) & is.na(.pen[[spec$pen]])
+    .pen[[spec$pen]][u] <- w[u]
   }
-
-  data_list$fleet_control$Sel_pen_first_bin <- set_default(data_list$fleet_control$Sel_pen_first_bin, NA)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
-  data_list$fleet_control$Sel_pen_last_bin <- set_default(data_list$fleet_control$Sel_pen_last_bin, NA)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
-  data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
-  data_list$fleet_control$Sel_avgsel_pen <- set_default(data_list$fleet_control$Sel_avgsel_pen, 0)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
-  data_list$fleet_control$Sel_cap_bin <- set_default(data_list$fleet_control$Sel_cap_bin, NA)  # NonParametricRPM bin cap (NA -> no cap)
-  data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
-  data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
-  data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
-  data_list$fleet_control$Index_loglike <- set_default(data_list$fleet_control$Index_loglike, "Lognormal")  # survey index likelihood family; default preserves the historical lognormal fit
-  # Also fill per-element NAs: setting Index_loglike for one fleet (e.g. only the
+  data_list$fleet_control$Sel_curve_pen1 <- .pen$Sel_curve_pen1
+  data_list$fleet_control$Sel_curve_pen2 <- .pen$Sel_curve_pen2
+  data_list$fleet_control$Sel_curve_pen3 <- .pen$Sel_curve_pen3
+  data_list$fleet_control$Sel_curve_pen1 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen1, "Sel_curve_pen1", .sch, .np_hake)
+  data_list$fleet_control$Sel_curve_pen2 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen2, "Sel_curve_pen2", .sch, .np_hake)
+  data_list$fleet_control$Sel_curve_pen3 <- .rce_apply_default(data_list$fleet_control$Sel_curve_pen3, "Sel_curve_pen3", .sch, .np_hake)
+  data_list$fleet_control$Sel_start_year <- .rce_apply_default(data_list$fleet_control$Sel_start_year, "Sel_start_year", .sch)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
+  # The `Sel_pen_first_age` / `Sel_pen_last_age` / `Sel_cap_age` back-compat
+  # renames (these bins were named *_age before they were generalised to work on
+  # either dimension) are handled by .rce_upgrade_fleet_control_aliases() at the
+  # top of switch_check(), from the schema `aliases` field.
+  data_list$fleet_control$Sel_pen_first_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_first_bin, "Sel_pen_first_bin", .sch)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
+  data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
+  data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
+  data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
+  data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
+  data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch)
+  data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
+  data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch)
+  data_list$fleet_control$Index_distribution <- .rce_apply_default(data_list$fleet_control$Index_distribution, "Index_distribution", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
+  # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only the
   # covariance survey) leaves the other rows NA, which should default to Lognormal.
-  data_list$fleet_control$Index_loglike[is.na(data_list$fleet_control$Index_loglike)] <- "Lognormal"
-  data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
-  data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
+  data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <- "Lognormal"
+  data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch)
+  data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
+  data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
+  data_list$fleet_control$Month <- .rce_apply_default(data_list$fleet_control$Month, "Month", .sch)
 
   # Format adjustment for NonParametric
   np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
@@ -294,9 +500,9 @@ switch_check <- function(data_list){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(
         Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd_prior, Sel_curve_pen2),
+        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd, Sel_curve_pen2),
         Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel),
-        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd_prior)
+        Time_varying_sel_sd = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd)
       )
     message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
@@ -316,15 +522,15 @@ switch_check <- function(data_list){
                       data_list$nlengths[sp_idx])
 
     # - Sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin1[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin1[flt] <- max_bin
-      message(paste0("'Sel_norm_bin1' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    if(any(data_list$fleet_control$Sel_norm_bin[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin[flt] <- max_bin
+      message(paste0("'Sel_norm_bin' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
     }
 
     # - Upper sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin2[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin2[flt] <- max_bin
-      message(paste0("'Sel_norm_bin2' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    if(any(data_list$fleet_control$Sel_norm_bin_upper[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin_upper[flt] <- max_bin
+      message(paste0("'Sel_norm_bin_upper' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
     }
 
     # - N bins
@@ -433,11 +639,11 @@ revert_switches <- function(data_list) {
   }
 
   # - Fleet switches
-  # Guard: Index_loglike is a newer column; a hand-built fleet_control (or a
+  # Guard: Index_distribution is a newer column; a hand-built fleet_control (or a
   # data_list passed straight to rearrange_data(), bypassing switch_check) may
   # lack it. Default to Lognormal so the conversion below works without it.
-  if(is.null(data_list$fleet_control$Index_loglike)){
-    data_list$fleet_control$Index_loglike <- "Lognormal"
+  if(is.null(data_list$fleet_control$Index_distribution)){
+    data_list$fleet_control$Index_distribution <- "Lognormal"
   }
   data_list$fleet_control <- data_list$fleet_control |>
     dplyr::mutate(
@@ -445,9 +651,9 @@ revert_switches <- function(data_list) {
       Selectivity = .conv(.data$Selectivity, sel_map),
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
       Catchability = .conv(.data$Catchability, q_map),
-      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map),
-      Index_loglike = .conv(.data$Index_loglike, index_loglike_map)
+      Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
+      CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
+      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
     )
 
   # Time_varying_q doubles as an environmental-index column when Catchability
@@ -492,13 +698,13 @@ validate_switches <- function(data_list = NULL){
     dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
   invalid_comp_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_caal_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_index_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_loglike %in% c(index_loglike_map, names(index_loglike_map)))
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_loglike_map, names(index_loglike_map)))
 
   # Throw clear errors to guide the user
   if(nrow(invalid_flt_type) > 0) {
@@ -537,21 +743,21 @@ validate_switches <- function(data_list = NULL){
   }
 
   if(nrow(invalid_comp_ll) > 0) {
-    errors <- c(errors, paste("Invalid 'Comp_loglike' specified for fleets:",
+    errors <- c(errors, paste("Invalid 'Comp_distribution' specified for fleets:",
                               paste(invalid_comp_ll$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
                               paste(names(comp_loglike_map), collapse = ", ")))
   }
 
   if(nrow(invalid_caal_ll) > 0) {
-    errors <- c(errors, paste("Invalid 'CAAL_loglike' specified for fleets:",
+    errors <- c(errors, paste("Invalid 'CAAL_distribution' specified for fleets:",
                               paste(invalid_caal_ll$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
                               paste(names(comp_loglike_map), collapse = ", ")))
   }
 
   if(nrow(invalid_index_ll) > 0) {
-    errors <- c(errors, paste("Invalid 'Index_loglike' specified for fleets:",
+    errors <- c(errors, paste("Invalid 'Index_distribution' specified for fleets:",
                               paste(invalid_index_ll$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ", paste(range(index_loglike_map), collapse = ":")," or one of:",
                               paste(names(index_loglike_map), collapse = ", ")))
@@ -600,11 +806,11 @@ convert_switches <- function(data_list) {
   .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
 
   # Fleet controls ----
-  # Guard: default the newer Index_loglike column when a caller (e.g. a direct
+  # Guard: default the newer Index_distribution column when a caller (e.g. a direct
   # rearrange_data() unit test) supplies a fleet_control that never went through
   # switch_check.
-  if(is.null(data_list$fleet_control$Index_loglike)){
-    data_list$fleet_control$Index_loglike <- "Lognormal"
+  if(is.null(data_list$fleet_control$Index_distribution)){
+    data_list$fleet_control$Index_distribution <- "Lognormal"
   }
   # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
@@ -614,9 +820,9 @@ convert_switches <- function(data_list) {
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
       Catchability = .conv(.data$Catchability, q_map),
       Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
-      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map),
-      Index_loglike = .conv(.data$Index_loglike, index_loglike_map)
+      Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
+      CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
+      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
@@ -624,9 +830,9 @@ convert_switches <- function(data_list) {
       Selectivity = as.integer(.data$Selectivity),
       Time_varying_sel = as.integer(.data$Time_varying_sel),
       Catchability = as.integer(.data$Catchability),
-      Comp_loglike = as.integer(.data$Comp_loglike),
-      CAAL_loglike = as.integer(.data$CAAL_loglike),
-      Index_loglike = as.integer(.data$Index_loglike)
+      Comp_distribution = as.integer(.data$Comp_distribution),
+      CAAL_distribution = as.integer(.data$CAAL_distribution),
+      Index_distribution = as.integer(.data$Index_distribution)
     )
 
   # `Time_varying_q` is excluded from the blanket coercion above: for "AR1" (6)

@@ -138,10 +138,10 @@ Time-varying behavior is set by `Time_varying_sel` (per fleet):
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over `N_sel_bins`.
 
-Selectivity can be normalized relative to a specific age by setting `Sel_norm_bin1 != NA` or 
-to the max (non-differentiable) by setting `Sel_norm_bin1 < 0`. Selectivity can also be normalized
+Selectivity can be normalized relative to a specific age by setting `Sel_norm_bin != NA` or 
+to the max (non-differentiable) by setting `Sel_norm_bin < 0`. Selectivity can also be normalized
 relative to the average across an age-range by specifying the lower
-(`Sel_norm_bin1`) and upper (`Sel_norm_bin2`) bound.
+(`Sel_norm_bin`) and upper (`Sel_norm_bin_upper`) bound.
 
 ## 4. Catchability (per fleet)
 
@@ -156,7 +156,7 @@ Set the `Catchability` column of `fleet_control`:
 | `2` | `"Estimated-with-prior"` | Estimated with a Normal prior |
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>) |
-| `5` | `"Environmental"` | q linked to an environmental index (`Q_index`) |
+| `5` | `"Environmental"` | q linked to an environmental index (`Catchability_index`) |
 | `6` | `"AR1"` | Annual AR(1) deviations on log-q fit to a single index (Rogers et al. 2024) |
 
 Time-varying behavior is set by `Time_varying_q` (per fleet):
@@ -174,7 +174,7 @@ specifying the environmental series in `env_data` to use (e.g. `Time_varying_q =
 
 ## 5. Composition likelihoods
 
-Set `Comp_loglike` (or `CAAL_loglike`) per fleet:
+Set `Comp_distribution` (or `CAAL_distribution`) per fleet:
 
 | Value | String |
 |:---:|---|
@@ -183,7 +183,7 @@ Set `Comp_loglike` (or `CAAL_loglike`) per fleet:
 | `1` | `"DirichletMultinomial"` |
 
 Diet composition uses an analogous switch on the bioenergetics control
-sheet: `Diet_loglike = 0` (multinomial) or `1` (Dirichlet-multinomial).
+sheet: `Diet_distribution = 0` (multinomial) or `1` (Dirichlet-multinomial).
 
 Conditional age-at-length (CAAL) data go through their own data path
 and are weighted via `CAAL_weights` per fleet.

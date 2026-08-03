@@ -26,13 +26,19 @@ print.Rceattle <- function(x, ...) {
 
   cat("<Rceattle model>\n")
   cat("  Rceattle  :", pkg_ver, "\n")
-  cat("  Species   :", paste(dat$spnames, collapse = ", "), "\n")
-  cat("  Years     :", dat$styr, "-", dat$endyr,
-      if (!is.null(dat$projyr)) paste0(" (projyr ", dat$projyr, ")") else "",
-      "\n")
-  cat("  msmMode   :", dat$msmMode, "\n")
-  cat("  HCR       :", if (is.null(dat$HCR)) "(none)" else dat$HCR, "\n")
-  cat("  initMode  :", if (is.null(dat$initMode)) NA else dat$initMode, "\n")
+
+  # Model specification as an indented spec tree (dimensions -> fleets ->
+  # processes -> linkages -> config), shared with print.Rceattle_data(). Guarded
+  # so a rendering edge case can never break auto-printing a fitted model.
+  tree <- tryCatch(.rce_spec_tree(dat),
+                   error = function(e) paste0("  (spec tree unavailable: ",
+                                              conditionMessage(e), ")"))
+  cat(paste(tree, collapse = "\n"), "\n", sep = "")
+
+  cat("  fit\n")
+  cat("  ├─ msmMode  :", dat$msmMode, "\n")
+  cat("  ├─ HCR      :", if (is.null(dat$HCR)) "(none)" else dat$HCR, "\n")
+  cat("  ├─ initMode :", if (is.null(dat$initMode)) NA else dat$initMode, "\n")
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
     cat("  -log L    :", signif(x$opt$objective, 6), "\n")

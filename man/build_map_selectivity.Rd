@@ -43,7 +43,7 @@ right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
 \code{0} = 'None'
 \code{1} = 'IID' penalized deviates given \code{sel_sd_prior}
 \code{3} = 'Block' time blocks with no penalty
-\code{4} = 'RandomWalk' random walk following Dorn
+\code{4} = 'RandomWalk' random walk
 \code{5} = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 }

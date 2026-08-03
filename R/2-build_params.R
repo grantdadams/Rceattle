@@ -53,7 +53,7 @@ build_params <- function(data_list) {
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
                               dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
-  param_list$R_log_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
+  param_list$R_log_sd = log(as.numeric(data_list$sigma_rec))  # Standard deviation of recruitment deviations; n = [1, nspp]
   names(param_list$R_log_sd) <- data_list$spnames
 
   # * 1.3. Initial age-structure parameters ----
@@ -131,7 +131,7 @@ build_params <- function(data_list) {
   names(param_list$log_Finit) <- data_list$spnames
 
   # - Proportion of future fishing mortality for projections for each fleet
-  param_list$proj_F_prop = data_list$fleet_control$proj_F_prop
+  param_list$proj_F_prop = data_list$fleet_control$Proj_F_proportion
   names(param_list$proj_F_prop) <- data_list$fleet_control$Fleet_name
 
   # - Annual fishing mortality deviations
@@ -202,6 +202,51 @@ build_params <- function(data_list) {
     param_list$beta_linkage <- numeric(0)
   }
 
+  # Random-effect linkage machinery, sized from the RE registry that
+  # pool_linkages() wrote onto the table. beta_linkage_re holds the deviation
+  # coefficients that enter the Laplace approximation (one per RE row, indexed
+  # by `re_index`); log_sigma_linkage is one log-SD per RE group (`sigma_index`);
+  # trans_rho_linkage is one transformed correlation per autocorrelated (ar1)
+  # group. All length-0 until a random linkage spec is supplied, so a model
+  # without one is numerically unchanged.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L &&
+      any(!is.na(data_list$linkage_table$re_index))) {
+    lt      <- data_list$linkage_table
+    gt      <- .re_group_table(lt)
+    n_re    <- sum(!is.na(lt$re_index))
+    # ar1 groups get a rho; us/rw groups do not. (rho estimation lands with
+    # ar1() -- until then no group is ar1 and this stays length 0.)
+    n_ar1   <- sum(gt$re_struct == "ar1")
+    param_list$beta_linkage_re   <- numeric(n_re)            # deviations, init 0
+    # One log-SD per group; start from linkage_spec(init = list(sigma = )) when
+    # supplied (fixed there via build_map), else a default. gt is ordered by
+    # sigma_index so element g is group g - 1.
+    param_list$log_sigma_linkage <- log(gt$sigma_start)
+    # One transformed correlation per ar1 group (ar1 groups in gt order, matching
+    # linkage_re_rho). trans is the rho_trans pre-image atanh(rho) of the start
+    # correlation (default 0). rho_trans(x) = 2/(1+exp(-2x)) - 1, so x=atanh(rho).
+    if (n_ar1 > 0L) {
+      rho_start <- gt$rho_start[gt$re_struct == "ar1"]
+      param_list$trans_rho_linkage <- atanh(pmin(pmax(rho_start, -0.999), 0.999))
+    } else {
+      param_list$trans_rho_linkage <- numeric(0)
+    }
+    # Rogers QAR1 effect size: one estimated beta per observed group (the latent
+    # ar1 deviate enters the target as beta * deviate). Init 0 (no effect).
+    param_list$beta_linkage_obs <- numeric(sum(gt$observed))
+    # Rogers QAR1 observation SD: one log-SD per observed group, estimated by
+    # default (matching the reference Estimate_q = 6 / GOApollock, which estimates
+    # the measurement SD), started from the `obs_sd` value supplied on the spec.
+    param_list$log_obs_sd_linkage <- log(gt$obs_sd[gt$observed])
+  } else {
+    param_list$beta_linkage_re   <- numeric(0)
+    param_list$log_sigma_linkage <- numeric(0)
+    param_list$trans_rho_linkage <- numeric(0)
+    param_list$beta_linkage_obs  <- numeric(0)
+    param_list$log_obs_sd_linkage <- numeric(0)
+  }
+
   # * 1.3c. Push (Intercept) inits to the base parameter ----
   # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits
   # an "(Intercept)" row whose coefficient stays fixed at 0 (mapped
@@ -267,7 +312,7 @@ build_params <- function(data_list) {
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
-  param_list$index_log_q = log(data_list$fleet_control$Q_prior)
+  param_list$index_log_q = log(data_list$fleet_control$Catchability_init)
   names(param_list$index_log_q) <- data_list$fleet_control$Fleet_name
 
   # - Regression coefficients for environment-q linkage
@@ -285,11 +330,11 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
   # - Log standard deviation prior on Q (maybe should be data...)
-  param_list$index_q_log_sd <- log(data_list$fleet_control$Q_sd_prior)
+  param_list$index_q_log_sd <- log(data_list$fleet_control$Catchability_prior_sd)
   names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation for survey selectivity random walk - used for logistic
-  param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
+  param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd)
   names(param_list$index_q_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 
@@ -367,17 +412,17 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
+  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd)
   names(param_list$sel_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 
   # * 2.3. Variance of survey and fishery time series ----
   # - Log standard deviation of survey index time-series
-  param_list$index_log_sd = log(data_list$fleet_control$Index_sd_prior)
+  param_list$index_log_sd = log(data_list$fleet_control$Index_sd)
   names(param_list$index_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation of fishery catch time-series
-  param_list$catch_log_sd = log(data_list$fleet_control$Catch_sd_prior)
+  param_list$catch_log_sd = log(data_list$fleet_control$Catch_sd)
   names(param_list$catch_log_sd) <- data_list$fleet_control$Fleet_name
 
   # * 2.4. Comp weighting ----

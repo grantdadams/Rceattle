@@ -25,7 +25,7 @@ weight-at-age, or control file.
 > `UobsWtAge` → `diet_data`, `fsh_biom` → `catch_data`,
 > `srv_biom` → `index_data`, `Nselages` → `N_sel_bins`,
 > `Age_first_selected` → `Bin_first_selected`,
-> `Age_max_selected` / `_upper` → `Sel_norm_bin1` / `Sel_norm_bin2`).
+> `Age_max_selected` / `_upper` → `Sel_norm_bin` / `Sel_norm_bin_upper`).
 > The instructions below use the current names. The sheet
 > `meta_data` inside the Rceattle Excel template is the authoritative
 > column reference.
@@ -83,10 +83,10 @@ The CPUE / survey configuration is split across two Rceattle sheets:
 
 | SS / behaviour | Rceattle (`fleet_control`) | Notes |
 |---|---|---|
-| Units (numbers / biomass) | `Weight1_Numbers2` | `1` = biomass, `2` = numbers |
+| Units (numbers / biomass) | `Observation_units` | `1` = biomass, `2` = numbers |
 | (estimate index SD?) | `Estimate_index_sd` | `0` = supplied, `1` = estimated |
-| Q estimation | `Catchability`, `Q_prior`, `Q_sd_prior` | See vignette 0 §4 for the option table |
-| Time-varying q | `Time_varying_q`, `Time_varying_q_sd_prior` | |
+| Q estimation | `Catchability`, `Catchability_init`, `Catchability_prior_sd` | See vignette 0 §4 for the option table |
+| Time-varying q | `Time_varying_q`, `Time_varying_q_sd` | |
 
 * `index_data` for the year-level *observations*:
 
@@ -113,8 +113,8 @@ distinguishes them).
 |---|---|---|
 | `_N_lbins` (26) | `nlengths` (on `control` sheet) | Number of length bins |
 | Sex aggregation | `Sex` column on `comp_data` | Hake is single-sex |
-| Comp likelihood | `Comp_loglike` | `0` = multinomial, `1` = Dirichlet-multinomial. (`-1` = legacy AFSC convention.) |
-| Selectivity bin range | `Sel_norm_bin1`, `Sel_norm_bin2`, `Bin_first_selected` | Replaces the old `Age_max_selected` / `Age_first_selected` columns |
+| Comp likelihood | `Comp_distribution` | `0` = multinomial, `1` = Dirichlet-multinomial. (`-1` = legacy AFSC convention.) |
+| Selectivity bin range | `Sel_norm_bin`, `Sel_norm_bin_upper`, `Bin_first_selected` | First selected bin and the bin(s) at which selectivity is normalized to 1 |
 
 `comp_data`:
 
@@ -129,7 +129,7 @@ distinguishes them).
 | — | `Age0_Length1` | `0` = age comp, `1` = length comp |
 
 If the SS comp data covers fewer ages than `nages` (e.g. comps to age 15
-in a 20-age model), set `Sel_norm_bin1` / `Sel_norm_bin2` and
+in a 20-age model), set `Sel_norm_bin` / `Sel_norm_bin_upper` and
 `N_sel_bins` to control how the missing ages are accumulated. Check the
 assessment document or contact the authors before deciding whether to
 zero-pad or accumulate at the upper age.

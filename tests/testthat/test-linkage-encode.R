@@ -90,7 +90,7 @@ testthat::test_that("encode_linkage_for_tmb rejects bad inputs", {
 testthat::test_that("LINKAGE_PROCESS_CODES has stable assignments", {
   testthat::expect_equal(
     Rceattle:::LINKAGE_PROCESS_CODES,
-    c(recruitment = 0L, M = 1L, growth = 2L, q = 3L, sel = 4L)
+    c(recruitment = 0L, M = 1L, growth = 2L, q = 3L, sel = 4L, comp = 5L)
   )
 })
 

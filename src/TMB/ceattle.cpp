@@ -111,17 +111,16 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( projyr );                 // End year of projection
 
   DATA_INTEGER( srr_mse_switchyr );             // The last year used to calculate average recruitment. Used for MSE runs.
-  DATA_INTEGER( suit_styr );              // The first year used to calculate suitability averages.
-  DATA_INTEGER( suit_endyr );             // The last year used to calculate suitability averages.
+  DATA_IVECTOR( suit_styr );              // The first year (per predator species) used to calculate suitability averages.
+  DATA_IVECTOR( suit_endyr );             // The last year (per predator species) used to calculate suitability averages.
   DATA_INTEGER( srr_hat_styr );           // The first year used to calculate stock-recuitment penalties or env-rec relationship.
   DATA_INTEGER( srr_hat_endyr );          // The last year used to calculate stock-recuitment penalties or env-rec relationship.
 
   int nyrs = projyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
 
-  suit_endyr = suit_endyr - styr;
-  suit_styr = suit_styr - styr;
-  int nyrs_suit = suit_endyr - suit_styr + 1;
+  // suit_styr / suit_endyr are per-predator (offset to model-year indices below,
+  // once `nspp` is available).
   int nyrs_srrmean = srr_mse_switchyr - styr + 1;
 
   srr_hat_styr = srr_hat_styr - styr;
@@ -131,6 +130,16 @@ Type objective_function<Type>::operator() () {
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
+
+  // Offset per-predator suitability reference years to model-year indices and
+  // count the averaging window length for each predator species.
+  vector<int> nyrs_suit(nspp);
+  for(int sp = 0; sp < nspp; sp++){
+    suit_endyr(sp) = suit_endyr(sp) - styr;
+    suit_styr(sp)  = suit_styr(sp) - styr;
+    nyrs_suit(sp)  = suit_endyr(sp) - suit_styr(sp) + 1;
+  }
+
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of weight to use for population dynamics
   DATA_IVECTOR( ssb_wt_index );           // Dim 3 of weight to use for spawning stock biomass calculation
   DATA_IVECTOR( pop_age_transition_index );// Dim 3 of weight to use for age_transition_matrix
@@ -166,7 +175,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.6. MODEL OBJECTS
-  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
+  // 1.6.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
   // age = age, ln = length, yr = year
   int sp, sex, age, ln, yr;
   int index, flt;                                                         // Survey and fishery indices
@@ -207,6 +216,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
+  DATA_IVECTOR(growth_sd_style); // Plus-group SD-at-age treatment [sp]: 1 = WHAM (pin to exp(sd_Linf)), 2 = SS3 (interpolate by length)
   DATA_VECTOR(growth_age_L1); // VB anchor age (= SS3 Growth_Age_for_L1) per sp; defaults to max(0.5, minage[sp]) in R-side fit_mod()
 
   // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
@@ -219,8 +229,23 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
   DATA_IVECTOR(linkage_sex);           // 1-based sex id; 0 = all
   DATA_IVECTOR(linkage_age_bin);       // 1-based age id; 0 = all
+  DATA_IVECTOR(linkage_fleet);         // 1-based Fleet_code; 0 = all
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
+  DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
+  DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_struct);     // per RE group: covariance structure (0=us/IID, 1=rw, 2=ar1)
+  DATA_IVECTOR(linkage_re_rho);        // per RE group: 0-based slot in trans_rho_linkage (ar1 only; -1 otherwise)
+  DATA_IVECTOR(linkage_re_sigma_prior_family); // per RE group: prior on the SD (0=none,1=normal,2=lognormal,3=gamma,4=beta)
+  DATA_IVECTOR(linkage_re_rho_prior_family);   // per RE group: prior on rho (natural (-1,1) scale)
+  DATA_VECTOR(linkage_re_rho_prior_p1);        // per RE group: rho prior param 1
+  DATA_VECTOR(linkage_re_rho_prior_p2);        // per RE group: rho prior param 2
+  DATA_IVECTOR(linkage_re_obs);        // per RE group: 0-based slot in beta_linkage_obs (Rogers QAR1 observed ar1; -1 otherwise)
+  DATA_VECTOR(linkage_re_obs_sd);      // per RE group: fixed measurement SD (0 if unobserved)
+  DATA_VECTOR(linkage_re_obs_value);   // per beta_linkage_re slot: observed covariate value (0 if unobserved)
+  DATA_IVECTOR(linkage_re_obs_mask);   // per beta_linkage_re slot: 1 if the covariate is observed that year, 0 otherwise
+  DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
+  DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
   DATA_IVECTOR(linkage_prior_family);  // none=0, normal=1, lognormal=2, gamma=3, beta=4
   DATA_VECTOR(linkage_prior_p1);       // family-specific prior param 1
@@ -247,6 +272,8 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
   DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
+  DATA_IVECTOR(comp_accum_young);         // Per-fleet age/length-composition young-tail accumulation bin (1-based ordinal on the comp dimension); bins below it fold into it. 1 (or <1) = no young accumulation (AFSC ac_yng).
+  DATA_IVECTOR(comp_accum_old);           // Per-fleet age/length-composition old-tail accumulation bin (1-based); bins above it fold into it. 0/NA or >= nbins = no old accumulation (AFSC ac_old).
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
   DATA_IVECTOR(flt_wt_index);             // Vector to save 1st dim of weight to use for weight-at-age
@@ -377,6 +404,16 @@ Type objective_function<Type>::operator() () {
   //          row-for-row with the linkage_* DATA vectors above. May
   //          be length 0 (no linkages supplied).
   PARAMETER_VECTOR(beta_linkage);
+
+  // Random-effect linkage coefficients and their hyperparameters. All length 0
+  // unless a `~ (1|group)` / rw() / ar1() linkage was supplied; when present,
+  // beta_linkage_re enters the Laplace approximation (added to random=) and the
+  // density on it is accumulated into jnll_comp row 20.
+  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients
+  PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
+  PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
+  PARAMETER_VECTOR(beta_linkage_obs);    // Rogers QAR1 effect size: one per observed ar1 group
+  PARAMETER_VECTOR(log_obs_sd_linkage);  // Rogers QAR1 observation log-SD: one per observed ar1 group (estimated)
 
   // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( log_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
@@ -610,10 +647,54 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // Effective linkage coefficient per table row. Fixed rows use their
+  // beta_linkage(i); random-effect rows (linkage_re_index >= 0) instead draw
+  // their deviation from beta_linkage_re, which carries the density in row 20.
+  // The accumulators below are agnostic to the split -- they see one beta
+  // vector. With no RE rows every linkage_re_index is -1, so beta_linkage_eff
+  // is an element-wise copy of beta_linkage and the fit is bit-identical.
+  vector<Type> beta_linkage_eff = beta_linkage;
+  for (int i = 0; i < beta_linkage_eff.size(); ++i) {
+    if (linkage_re_index(i) >= 0) {
+      Type z = beta_linkage_re(linkage_re_index(i));
+      // Rogers QAR1: an observed ar1 latent enters the target scaled by an
+      // estimated effect size beta. Unobserved groups (the common case) keep
+      // the deviate as-is, so those fits stay bit-identical.
+      int grp = linkage_re_sigma(linkage_re_index(i));
+      if (linkage_re_obs(grp) >= 0) z *= beta_linkage_obs(linkage_re_obs(grp));
+      beta_linkage_eff(i) = z;
+    }
+  }
+
+
   // 5.3. CATCHABILITY
+  // Environmental linkage offsets, one pass per link scale. Zero unless a
+  // q linkage was supplied, so models without one are unaffected.
+  matrix<Type> q_linkage_offset(n_flt, nyrs_hind);     q_linkage_offset.setZero();
+  matrix<Type> q_linkage_offset_nat(n_flt, nyrs_hind); q_linkage_offset_nat.setZero();
+
+  rceattle_apply_q_linkages(
+    q_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage_eff, n_flt, nyrs_hind);
+
+  rceattle_apply_q_linkages(
+    q_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage_eff, n_flt, nyrs_hind);
+
+  REPORT(q_linkage_offset);
+  REPORT(q_linkage_offset_nat);
+
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
-      index_q(flt, yr) = exp(index_log_q(flt) + index_q_dev(flt, yr));                 // Exponentiate
+      index_q(flt, yr) = exp(index_log_q(flt) + index_q_dev(flt, yr)
+                               + q_linkage_offset(flt, yr))
+                           + q_linkage_offset_nat(flt, yr);              // Exponentiate
 
       // Q as a function of environmental index
       if(est_index_q(flt) == 5){
@@ -639,8 +720,8 @@ Type objective_function<Type>::operator() () {
   matrix<Type> mature_females = maturity;
   for( sp = 0; sp < nspp ; sp++) {
 
-    if(initMode < 3){
-      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
+    if(initMode < 3 || initMode == 5){
+      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (FishedEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
     }
 
     // Sex ratio for SSB derivation
@@ -675,6 +756,7 @@ Type objective_function<Type>::operator() () {
   recruitment_linkage_offset_nat.setZero();
   rceattle_apply_recruitment_linkages(
     recruitment_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -683,12 +765,13 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nyrs
   );
-  rceattle_apply_recruitment_linkages_natural(
+  rceattle_apply_recruitment_linkages(
     recruitment_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -697,7 +780,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nyrs
   );
@@ -711,6 +794,7 @@ Type objective_function<Type>::operator() () {
   M_linkage_offset_nat.setZero();
   rceattle_apply_M_linkages(
     M_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -719,14 +803,15 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nages,
     nyrs
   );
-  rceattle_apply_M_linkages_natural(
+  rceattle_apply_M_linkages(
     M_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -735,7 +820,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nages,
@@ -752,6 +837,7 @@ Type objective_function<Type>::operator() () {
   growth_linkage_offset_nat.setZero();
   rceattle_apply_growth_linkages(
     growth_linkage_offset,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -760,13 +846,14 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nyrs
   );
-  rceattle_apply_growth_linkages_natural(
+  rceattle_apply_growth_linkages(
     growth_linkage_offset_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensor
     linkage_process,
     linkage_param,
     linkage_species,
@@ -775,7 +862,7 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    beta_linkage,
+    beta_linkage_eff,
     nspp,
     nsex,
     nyrs
@@ -827,6 +914,7 @@ Type objective_function<Type>::operator() () {
     growth_matrix,
     weight_obs,
     growth_model,
+    growth_sd_style,
     nspp,
     nyrs,
     nyrs_hind,
@@ -850,6 +938,29 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.8. SELECTIVITY
+  // Environmental-linkage offsets. Two tensors per parameter family (log and
+  // natural scale), all zero unless a selectivity linkage was supplied.
+  array<Type> sel_slp_off (2, n_flt, max_sex, nyrs);            sel_slp_off.setZero();
+  array<Type> sel_slp_off_nat (2, n_flt, max_sex, nyrs);        sel_slp_off_nat.setZero();
+  array<Type> sel_inf_off (2, n_flt, max_sex, nyrs);            sel_inf_off.setZero();
+  array<Type> sel_inf_off_nat (2, n_flt, max_sex, nyrs);        sel_inf_off_nat.setZero();
+  array<Type> sel_coff_off (n_flt, max_sex, max_bin, nyrs);     sel_coff_off.setZero();
+  array<Type> sel_coff_off_nat (n_flt, max_sex, max_bin, nyrs); sel_coff_off_nat.setZero();
+
+  rceattle_apply_sel_linkages(
+    sel_slp_off, sel_inf_off, sel_coff_off,
+    /*link_code=*/ 1,   // log-link rows -> log-scale tensors
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
+
+  rceattle_apply_sel_linkages(
+    sel_slp_off_nat, sel_inf_off_nat, sel_coff_off_nat,
+    /*link_code=*/ 0,   // identity-link rows -> natural-scale tensors
+    linkage_process, linkage_param, linkage_species, linkage_sex,
+    linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+    linkage_X, beta_linkage_eff, n_flt, max_sex, max_bin, nyrs);
+
   // "sel_at_age" and "sel_at_length" modified via pass-by-reference
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   calculate_selectivity(
@@ -883,7 +994,10 @@ Type objective_function<Type>::operator() () {
     non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
     sel_at_length,        // [Modified] Final length-based selectivity
     sel_at_age,           // [Modified] Final age-based selectivity
-    growth_matrix         // Length to age transition matrix
+    growth_matrix,        // Length to age transition matrix
+    sel_slp_off, sel_slp_off_nat,   // selectivity linkage offsets (log / natural)
+    sel_inf_off, sel_inf_off_nat,
+    sel_coff_off, sel_coff_off_nat
   );
 
 
@@ -1208,8 +1322,22 @@ Type objective_function<Type>::operator() () {
             // Finit is set to 0 when initMode != 2
             if(initMode > 0){
 
-              // Sum M1 until age - 1
-              if((initMode == 1) | (initMode == 2) | (initMode == 3)){
+              // FishedEquilibrium (initMode 5): seed the initial age-structure
+              // off the FIRST-YEAR recruitment exp(rec_pars + rec_dev(sp, 0))
+              // rather than the mean-recruitment equilibrium R0, with init devs
+              // off (Cole Monnahan / AFSC GOA pollock convention). Scaling R_init
+              // by exp(rec_dev(sp, 0)) injects the year-0 recruitment deviation
+              // so the initial numbers track it under free estimation. All other
+              // modes leave this scalar at 0 (no change).
+              Type init_log_scalar = 0.0;
+              if(initMode == 5){
+                init_log_scalar = rec_dev(sp, 0);
+              }
+
+              // Sum M1 until age - 1. FishedEquilibrium (5) uses the same
+              // standard departing-age cumulative-M decay as the equilibrium
+              // modes (Finit is 0 for mode 5).
+              if((initMode == 1) | (initMode == 2) | (initMode == 3) | (initMode == 5)){
                 mort_sum(sp, age) = 0;
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0) + Finit(sp);
@@ -1228,10 +1356,10 @@ Type objective_function<Type>::operator() () {
               if((age > 0) & (age < nages(sp) - 1)) {
 
                 if(sex == 0){
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) * sex_ratio(sp, 0);
                 }
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) * (1-sex_ratio(sp, 0));
                 }
               }
 
@@ -1239,11 +1367,11 @@ Type objective_function<Type>::operator() () {
               if(age == (nages(sp) - 1)) {
 
                 if(sex == 0){// NOTE: This solves for the geometric series
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
                 }
 
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1) + init_log_scalar) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
                 }
               }
             }
@@ -1506,23 +1634,22 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 1: // CMSY
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 2: // Constant F
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 3: // Constant F to acheive X% of SB0
-          proj_F(sp, yr) = proj_F(sp, yr);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 4: // Constant Fspr with multiplier
-          proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
+          // proj_F(sp, yr) retains its incoming value
           break;
 
         case 5: // NPFMC Tier 3 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SBF){
             proj_F(sp, yr) = Ftarget(sp) * (((ssb(sp, yr-1)/ref_SBF)-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
           }
@@ -1532,7 +1659,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 6: // PFMC Category 1 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SB0 * Ptarget(sp)){
             proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (ref_SB0 * Ptarget(sp) * (ssb(sp, yr-1) - ref_SB0 * Plimit(sp))) / (ssb(sp, yr-1) * (ref_SB0 * (Ptarget(sp) - Plimit(sp))));
           }
@@ -1542,7 +1668,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 7: // SESSF Tier 1 HCR
-          proj_F(sp, yr) = proj_F(sp, yr);
           if(ssb(sp, yr-1) < ref_SB0 * Ptarget(sp)){
             proj_F(sp, yr) = Ftarget(sp) * ((ssb(sp, yr-1)/(ref_SB0 * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
           }
@@ -2140,7 +2265,7 @@ Type objective_function<Type>::operator() () {
     } // End estimated growth loop
 
 
-    // 10.1.1. Empirical weight-at-age
+    // 10.1.2. Empirical weight-at-age
     if(growth_model(sp) == 0){
       for(age = 0; age < nages(sp); age++) {
 
@@ -2313,7 +2438,7 @@ Type objective_function<Type>::operator() () {
       Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
-    // 12.2.1. Calculate CAAL
+    // 10.2. Calculate CAAL (predicted conditional age-at-length)
     for(age = 0; age < nages(sp); age++) {
 
       switch(flt_type(flt)){
@@ -2397,9 +2522,36 @@ Type objective_function<Type>::operator() () {
 
   // 13.0. OBJECTIVE FUNCTION
   int n_col = std::max(n_flt, nspp);
-  // Slot 19 reserved for linkage-table prior contributions (per-row).
-  matrix<Type> jnll_comp(20, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components
-  matrix<Type> unweighted_jnll_comp(20, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
+  // Named rows of jnll_comp / unweighted_jnll_comp. These integer codes are
+  // "magic" -- they MUST stay in sync with the row labels assigned in
+  // R/6-rename_output.R (rownames of quantities$jnll_comp). Add/reorder a row
+  // here and there in lockstep.
+  enum JnllRow {
+    JNLL_INDEX          = 0,   // Index data
+    JNLL_CATCH          = 1,   // Catch data
+    JNLL_COMP           = 2,   // Composition data
+    JNLL_CAAL           = 3,   // CAAL data
+    JNLL_SEL_NONPARAM   = 4,   // Non-parametric selectivity
+    JNLL_SEL_DEV        = 5,   // Selectivity deviates
+    JNLL_Q_PRIOR        = 6,   // Catchability prior
+    JNLL_Q_DEV          = 7,   // Catchability deviates
+    JNLL_SRR_PRIOR      = 8,   // Stock-recruit prior
+    JNLL_INIT_DEV       = 9,   // Initial abundance deviates
+    JNLL_REC_DEV        = 10,  // Recruitment deviates
+    JNLL_SRR_PENALTY    = 11,  // Stock-recruit penalty
+    JNLL_REFPT_PENALTY  = 12,  // Reference point penalties
+    JNLL_ZERO_N_PENALTY = 13,  // Zero n-at-age penalty
+    JNLL_M_PRIOR        = 14,  // M prior
+    JNLL_M_RE           = 15,  // M random effects
+    JNLL_RATION         = 16,  // Ration
+    JNLL_RATION_PENALTY = 17,  // Ration penalties
+    JNLL_STOMACH        = 18,  // Stomach content data
+    JNLL_LINKAGE_PRIOR  = 19,  // Linkage-table priors (per-row)
+    JNLL_LINKAGE_RE     = 20,  // Linkage random effects
+    JNLL_N_ROWS         = 21   // total row count (for dimensioning)
+  };
+  matrix<Type> jnll_comp(JNLL_N_ROWS, n_col); jnll_comp.setZero();  // negative log-likelihood components
+  matrix<Type> unweighted_jnll_comp(JNLL_N_ROWS, n_col); unweighted_jnll_comp.setZero();  // same, without likelihood weights
 
   // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass
@@ -2460,25 +2612,34 @@ Type objective_function<Type>::operator() () {
         // Read the (log) observation from obsvec and gate it with keep so that
         // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
         // fitting) and obsvec(pos) == log(index_obs) this equals the original
-        // lognormal likelihood exactly.
-        // TODO(review): unlike comp/caal/diet (which guard `if(start >= 0)`),
-        // the index and catch OSA reads below have no `pos >= 0` guard. Safe
-        // today because the R build_osa_data() inclusion guard matches this
-        // branch exactly, but a future divergence would make obsvec(pos) an
-        // out-of-bounds read. Add a defensive `if(pos >= 0)` for parity.
+        // lognormal likelihood exactly. The `pos >= 0` guard matches comp/caal/
+        // diet and the MVN/Normal OSA branches: safe today because the R
+        // build_osa_data() inclusion set is identical to this predicate, and
+        // defensive against a future divergence making obsvec(pos) out of bounds.
         int pos = index_obsvec_idx(index_ind);
-        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+        if(pos >= 0){
+          jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+        }
       }
     }
 
     // Natural-scale normal (Index_loglike == "Normal", index_ll_type == 3): the
     // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
     // observation sd on the natural scale, not a log-scale CV), matching the AMAK
-    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term and
-    // no OSA (obsvec holds log-scale observations).
+    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term.
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
       if(index_obs(index_ind, 0) > 0){
-        jnll_comp(0, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+        if(osa_mode == 0){
+          jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+        } else {
+          // OSA: read the natural-scale observation from obsvec (build_osa_data()
+          // stores the untransformed obs for this family), keep-gated, so
+          // oneStepPredict() residualizes it as an independent normal.
+          int pos = index_obsvec_idx(index_ind);
+          if(pos >= 0){
+            jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
+          }
+        }
       }
     }
   }
@@ -2486,11 +2647,21 @@ Type objective_function<Type>::operator() () {
   // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
   // DoCovBTS covariance survey likelihood 0.5 * r' Sigma^-1 r applied to each MVN
   // fleet's fitted residual vector r = obs - q*pred (arithmetic, natural scale;
-  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma^-1 is the
-  // precomputed precision matrix index_cov_prec(index). The residual vector is
-  // assembled in index_obs row order to match the rows/cols of Sigma. Reuses
-  // jnll_comp row 0. Note: OSA residuals are not defined for this multivariate
-  // block, so it does not read obsvec/keep.
+  // pair with est_index_q == 7 for the AMAK arithmetic-mean q). Sigma is the
+  // per-fleet covariance index_cov_mat(index). The residual vector is assembled in
+  // index_obs row order to match the rows/cols of Sigma. Reuses jnll_comp row 0.
+  //
+  // OSA (osa_mode == 1): the correlated block is whitened into independent standard
+  // normals so oneStepPredict() can residualize each survey observation. With the
+  // lower Cholesky Sigma = L L', build_osa_data() stores the whitened observation
+  // z = L^-1 obs in obsvec, and here the whitened predicted mean m = L^-1 mu (mu =
+  // index_hat) is formed with the SAME L; z_k ~ N(m_k, 1) are independent and the
+  // innovation z_k - m_k = (L^-1(obs - mu))_k is the multivariate-Gaussian
+  // one-step-ahead residual (Thygesen et al. 2017, the SAM/TMB OSA construction).
+  // Sigma is fixed data, so L is a constant factorization; the whitened negative
+  // log-density differs from the fitting density only by the constant
+  // 0.5*logdet(Sigma) (family 1 also drops n/2*log(2*pi)), which does not affect
+  // oneStepPredict's residuals.
   for(index = 0; index < n_flt; index++){
     if((flt_type(index) > 0) && (index_ll_type(index) == 1 || index_ll_type(index) == 2)){   // 1 = MVN (bare quadratic form), 2 = MVNORM (full density) ONLY -- other families (0 lognormal, 3 normal) carry a 1x1 dummy Sigma and must not enter here
       int n_mvn = 0;
@@ -2502,24 +2673,45 @@ Type objective_function<Type>::operator() () {
       }
       if(n_mvn > 0){
         vector<Type> resid(n_mvn);
+        vector<Type> mu(n_mvn);
+        vector<int>  posv(n_mvn);
         int k = 0;
         for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
           if((index_ctl(index_ind, 0) - 1) == index){
             flt_yr = index_ctl(index_ind, 2);
             if((flt_yr > 0) && (flt_yr <= endyr) && (index_obs(index_ind, 0) > 0)){
               resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
+              mu(k)    = index_hat(index_ind);
+              posv(k)  = index_obsvec_idx(index_ind);
               k++;
             }
           }
         }
-        // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
-        // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
-        // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
-        Type dens = MVNORM(index_cov_mat(index))(resid);
-        // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
-        // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
-        // full density. Both give an identical fit (the constant has zero gradient).
-        jnll_comp(0, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
+        if(osa_mode == 0){
+          // TMB-native multivariate normal: density::MVNORM(Sigma) factorizes Sigma
+          // internally (robust; no explicit inverse). MVNORM(Sigma)(r) returns the full
+          // negative log-density 0.5*(r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)).
+          Type dens = MVNORM(index_cov_mat(index))(resid);
+          // "MVN" (1) reports the bare quadratic form 0.5 r' Sigma^-1 r (the AMAK/ebswp
+          // value) by removing the fixed normalizing constant; "MVNORM" (2) keeps the
+          // full density. Both give an identical fit (the constant has zero gradient).
+          jnll_comp(JNLL_INDEX, index) += (index_ll_type(index) == 2) ? dens : (dens - index_cov_const(index));
+        } else {
+          // OSA: whiten with the lower Cholesky of Sigma (same unique factor
+          // build_osa_data() uses to whiten the observations), then score each
+          // whitened observation as an independent standard normal.
+          Eigen::LLT<Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic> > llt(index_cov_mat(index));
+          matrix<Type> Lmat = llt.matrixL();
+          matrix<Type> muc(n_mvn, 1);
+          for(k = 0; k < n_mvn; k++) muc(k, 0) = mu(k);
+          matrix<Type> mwhite = Lmat.template triangularView<Eigen::Lower>().solve(muc);  // m = L^-1 mu
+          for(k = 0; k < n_mvn; k++){
+            int pos = posv(k);
+            if(pos >= 0){
+              jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), mwhite(k, 0), Type(1.0), true);
+            }
+          }
+        }
       }
     }
   }
@@ -2553,11 +2745,15 @@ Type objective_function<Type>::operator() () {
       if(catch_obs(fsh_ind, 0) > 0){
         // Read the (log) observation from obsvec and gate it with keep for OSA
         // residuals (see the index slot above). With keep == 1 and
-        // obsvec(pos) == log(catch_obs) this equals the original likelihood.
+        // obsvec(pos) == log(catch_obs) this equals the original likelihood. The
+        // `pos >= 0` guard matches the index/comp/caal/diet reads (defensive
+        // parity; the R inclusion set makes pos valid for every fitted row today).
         int pos = catch_obsvec_idx(fsh_ind);
-        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        if(pos >= 0){
+          jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        }
         // Martin's
-        // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
+        // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
   }
@@ -2569,12 +2765,13 @@ Type objective_function<Type>::operator() () {
   // rearrange_data()/fit_control(); default 1e-5. The OSA obsvec is built with the same
   // offset, so fitting and OSA residuals stay consistent.
   Type comp_prop_offset = comp_offset;
-  // TODO(review): case 0 now routes fitting through dmultinom_osa(), which
-  // renormalizes p; the previous dmultinom() did not, so the *reported* case-0
-  // multinomial NLL shifts by a per-row constant Neff*log(1 + n_comp*offset).
-  // The gradient and MLE are unchanged, but wording that says this only "changes
-  // the decomposition, not the value" is imprecise -- the value shifts by that
-  // constant. Reword, or subtract the constant so the reported NLL is comparable.
+  // FIXME: case 0 fitting routes through dmultinom_osa(), which renormalizes p;
+  // the previous dmultinom() did not, so the *reported* case-0 multinomial NLL
+  // shifts by a per-row constant Neff*log(1 + n_comp*offset). The gradient and MLE
+  // are unchanged (additive constant) -- only the reported value moves. Left as-is
+  // for now: either reword the "changes the decomposition, not the value" note to
+  // admit the constant, or subtract it so the reported NLL is comparable across
+  // versions.
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -2603,14 +2800,65 @@ Type objective_function<Type>::operator() () {
     vector<Type> comp_obs_tmp = comp_obs.row(comp_ind).segment(0, n_comp); // Observed proportion
     vector<Type> comp_hat_tmp = comp_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
 
+    // Composition young/old accumulation (AFSC ac_yng / ac_old): fold the bins
+    // below `yng` into the `yng` bin and above `old` into the `old` bin, then
+    // restrict the likelihood to [yng, old]. Done PER SEX BLOCK for joint-sex
+    // comps (joint_adjust == 2) so a fold never crosses the sex boundary. yng/old
+    // are 1-based bin ordinals on the fleet's comp dimension (age or length); the
+    // default (yng = 1, old >= nbins) is a no-op, so models without accumulation
+    // stay bit-identical. Applied on BOTH the ordinary-fitting path and the OSA
+    // path (osa_mode == 1): OSA residuals must correspond to the folded model that
+    // was fit, so the OSA branch below reads a folded obsvec (built identically in
+    // build_osa_data()) against this folded comp_hat_tmp / n_comp.
+    {
+      int nbins_blk = (comp_type == 0) ? nages(sp) : nlengths(sp);
+      int yng = comp_accum_young(flt);
+      int old = comp_accum_old(flt);
+      if (yng < 1) yng = 1;
+      if (old < 1 || old > nbins_blk) old = nbins_blk;
+      if (yng > old) yng = old;   // defensive: keep 1 <= yng <= old (data_check() validates)
+      if (yng > 1 || old < nbins_blk) {
+        int nkeep = old - yng + 1;
+        int nblk  = joint_adjust(comp_ind);
+        vector<Type> obs_acc(nblk * nkeep); obs_acc.setZero();
+        vector<Type> hat_acc(nblk * nkeep); hat_acc.setZero();
+        for (int b = 0; b < nblk; b++) {
+          for (int j = 0; j < nbins_blk; j++) {
+            int tgt = j;
+            if (j < yng - 1) tgt = yng - 1;   // fold young tail into the yng bin
+            if (j > old - 1) tgt = old - 1;   // fold old tail into the old bin
+            obs_acc(b * nkeep + tgt - (yng - 1)) += comp_obs_tmp(b * nbins_blk + j);
+            hat_acc(b * nkeep + tgt - (yng - 1)) += comp_hat_tmp(b * nbins_blk + j);
+          }
+        }
+        comp_obs_tmp = obs_acc;
+        comp_hat_tmp = hat_acc;
+        n_comp = nblk * nkeep;
+      }
+    }
+
+    // Folded proportions (pre-offset, pre-numbers) for the AFSC pseudo-likelihood
+    // (comp_ll_type == -1), which reads proportions directly rather than the
+    // numbers vector built below. Copying here -- after the fold -- keeps case -1
+    // consistent with cases 0/1 (which use comp_obs_tmp/comp_hat_tmp). With no
+    // accumulation these equal comp_obs.row(comp_ind)/comp_hat.row(comp_ind), so
+    // the no-op path stays bit-identical.
+    vector<Type> comp_obs_prop = comp_obs_tmp;
+    vector<Type> comp_hat_prop = comp_hat_tmp;
+
     // Add offset (for some reason can't do above in single line....)
     comp_obs_tmp += comp_prop_offset;
     comp_hat_tmp += comp_prop_offset;
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
-    vector<Type> alphas = comp_n(comp_ind, 1) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
-    vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
+    // Dirichlet-multinomial concentration. Use the observed-count total
+    // comp_obs_tmp.sum() = N*(1 + offset*nbins) as the effective sample size,
+    // matching the N that ddirmultinom() reads from obs.sum() (so the alpha and
+    // the density use a consistent N), the CAAL DM (which uses sum(caal_obs_tmp)),
+    // and the AFSC linear-DM parameterization. Previously used the raw comp_n.
+    vector<Type> alphas = comp_obs_tmp.sum() * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
+    vector<Type> unweighted_alphas = comp_obs_tmp.sum() * comp_hat_tmp;          // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (comp_n(comp_ind, 1) > 0)){
@@ -2621,22 +2869,23 @@ Type objective_function<Type>::operator() () {
 
         case -1:
           for(ln = 0; ln < n_comp; ln++) {
-            // Martin's
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset)) ;
-            unweighted_jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + comp_prop_offset) * log((comp_hat(comp_ind, ln)+comp_prop_offset) / (comp_obs(comp_ind, ln) + comp_prop_offset));
+            // Martin's -- read the folded proportions (comp_*_prop), so an active
+            // Comp_accum_young/old actually accumulates the tails here too.
+            jnll_comp(JNLL_COMP, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset)) ;
+            unweighted_jnll_comp(JNLL_COMP, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs_prop(ln) + comp_prop_offset) * log((comp_hat_prop(ln)+comp_prop_offset) / (comp_obs_prop(ln) + comp_prop_offset));
           }
           break;
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(comp_obs_tmp, true);
-          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
-          unweighted_jnll_comp(2, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          jnll_comp(JNLL_COMP, flt) -= comp_weights(flt) * dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(comp_obs_tmp, comp_hat_tmp, keep_ones, 1, 1);
           break;
         }
 
         case 1:  // Dirichlet-multinomial
-          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
+          jnll_comp(JNLL_COMP, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(JNLL_COMP, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
           break;
         default:
           error("Invalid 'comp_ll_type'");
@@ -2650,9 +2899,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_comp);
           if(comp_ll_type(flt) == 1){     // Dirichlet-multinomial (uses fitted DM par)
-            jnll_comp(2, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
+            jnll_comp(JNLL_COMP, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
           } else {                        // multinomial (cases 0 and -1)
-            jnll_comp(2, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
+            jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
           }
         }
       }
@@ -2702,14 +2951,14 @@ Type objective_function<Type>::operator() () {
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);
-          jnll_comp(3, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
-          unweighted_jnll_comp(3, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          jnll_comp(JNLL_CAAL, flt) -= caal_weights(flt) * dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
+          unweighted_jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(caal_obs_tmp, caal_hat_tmp, keep_ones, 1, 1);
           break;
         }
 
         case 1:  // Dirichlet-multinomial
-          jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
+          jnll_comp(JNLL_CAAL, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+          unweighted_jnll_comp(JNLL_CAAL, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
           break;
         default:
           error("Invalid 'caal_ll_type'");
@@ -2721,9 +2970,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_caal);
           if(caal_ll_type(flt) == 1){     // Dirichlet-multinomial
-            jnll_comp(3, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
+            jnll_comp(JNLL_CAAL, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
           } else {                        // multinomial
-            jnll_comp(3, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
+            jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
           }
         }
       }
@@ -2739,8 +2988,8 @@ Type objective_function<Type>::operator() () {
   // penalties cover a sub-range; penalizing all deviations would pin the
   // unidentified directions and remove the need to index by bin and year.
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
-    jnll_comp(4, flt) = 0;
-    jnll_comp(5, flt) = 0;
+    jnll_comp(JNLL_SEL_NONPARAM, flt) = 0;
+    jnll_comp(JNLL_SEL_DEV, flt) = 0;
     sp = flt_spp(flt);
 
     // Non-parametric penalties act over the fleet's selectivity dimension:
@@ -2773,7 +3022,7 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
               Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
-              jnll_comp(4, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
+              jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
           }
 
@@ -2789,7 +3038,7 @@ Type objective_function<Type>::operator() () {
             // Second difference computed once (matches the type-9 branch).
             vector<Type> sel_d2 = first_difference( first_difference( sel_tmp ) );
             for(int a2 = 0; a2 < sel_d2.size(); a2++) {
-              jnll_comp(4, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
+              jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 1) * sel_d2(a2) * sel_d2(a2);
             }
           }
 
@@ -2797,14 +3046,14 @@ Type objective_function<Type>::operator() () {
           if(yr > 0){
             for(sex = 0; sex < nsex(sp); sex++){
               for(age = 0; age < (nbins - 1); age++) {
-                jnll_comp(5, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
               }
             }
           }
 
           // 4. Survey selectivity normalization (non-parametric)
           for(sex = 0; sex < nsex(sp); sex++){
-            jnll_comp(4, flt) += 2.0 * square(avg_sel(flt, sex, yr));
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
         }
       }
@@ -2850,11 +3099,11 @@ Type objective_function<Type>::operator() () {
             for(age = shape_a0; age <= shape_a1; age++) {
               Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
               if(shape_mode == 1)
-                jnll_comp(4, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
               else if(sel_curve_pen(flt, 0) >= 0)
-                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
               else
-                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
+                jnll_comp(JNLL_SEL_NONPARAM, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
             }
 
             // (2) Curvature (2nd-difference) penalty  [ADMB term 2/3]. Includes the
@@ -2865,14 +3114,14 @@ Type objective_function<Type>::operator() () {
               vector<Type> ls(nbins); ls.setZero();
               for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
               vector<Type> d2 = first_difference( first_difference( ls ) );
-              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(5, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
+              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
             }
 
             // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
             if(yr > start_yr){
               for(age = 0; age < nbins; age++) {
                 Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
-                jnll_comp(5, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
+                jnll_comp(JNLL_SEL_DEV, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
               }
             }
           }
@@ -2882,7 +3131,7 @@ Type objective_function<Type>::operator() () {
           //     = RTMB norm2(sel_devs)). Increments are 0 at non-change years.
           for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
             for(yr = start_yr; yr < nyrs_tmp; yr++){
-              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
+              jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
             }
           }
 
@@ -2899,7 +3148,7 @@ Type objective_function<Type>::operator() () {
               msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
             }
             Type avgsel = log(msum / nb);
-            jnll_comp(4, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
+            jnll_comp(JNLL_SEL_NONPARAM, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
           }
         }
       }
@@ -2914,15 +3163,15 @@ Type objective_function<Type>::operator() () {
             // Logistic / ascending-limb deviates (types 1, 3, 8)
             // For DoubleNormal (8): sel_inf_dev(0) = peak deviate, log_sel_slp_dev(0) = ascending-SD deviate
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic / descending-limb deviates (types 3, 4, 8)
             // For DoubleNormal (8): sel_inf_dev(1) = right-floor logit deviate; log_sel_slp_dev(1) = descending-SD deviate
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
           }
         }
@@ -2935,14 +3184,14 @@ Type objective_function<Type>::operator() () {
 
             // Logistic / ascending-limb random walk (types 1, 3, 8)
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic / descending-limb random walk (types 3, 4, 8)
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
           }
         }
@@ -2974,11 +3223,11 @@ Type objective_function<Type>::operator() () {
               Type s_now  = sel_is_length ? sel_at_length(flt, sex, age, yr)     : sel_at_age(flt, sex, age, yr);
               Type s_prev = sel_is_length ? sel_at_length(flt, sex, age, yr - 1) : sel_at_age(flt, sex, age, yr - 1);
               Type d = log(s_now) - log(s_prev);
-              jnll_comp(5, flt) += sel_curve_pen(flt, 0) * d * d;
+              jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 0) * d * d;
             }
             // (2) free age-1 parameter-deviate random walk
             Type da1 = sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr - 1);
-            jnll_comp(5, flt) += sel_curve_pen(flt, 2) * da1 * da1;
+            jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 2) * da1 * da1;
           }
         }
       }
@@ -2989,7 +3238,7 @@ Type objective_function<Type>::operator() () {
         for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
-              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
             }
           }
         }
@@ -3013,7 +3262,7 @@ Type objective_function<Type>::operator() () {
           Type rho_y = rho_trans(sel_curve_pen(flt, 1));
 
           Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
-          jnll_comp(5, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
         } // end sex loop
       }
 
@@ -3052,7 +3301,7 @@ Type objective_function<Type>::operator() () {
               tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
             }
           }
-          jnll_comp(5, flt) += GMRF(Q_sparse)(tmp_AR2);
+          jnll_comp(JNLL_SEL_DEV, flt) += GMRF(Q_sparse)(tmp_AR2);
         }
       }
     }
@@ -3067,7 +3316,7 @@ Type objective_function<Type>::operator() () {
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
-      jnll_comp(6, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
+      jnll_comp(JNLL_Q_PRIOR, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
@@ -3076,13 +3325,13 @@ Type objective_function<Type>::operator() () {
       // AR1 process error
       Type rho=rho_trans(index_q_rho(flt));
       vector<Type> index_q_dev_tmp = index_q_dev.row(flt);
-      jnll_comp(6, flt) = SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
+      jnll_comp(JNLL_Q_PRIOR, flt) = SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
 
       // Observation error
       // - Fit to environmental index
       int q_index = index_varying_q(flt) - 1;
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
       }
     }
 
@@ -3091,7 +3340,7 @@ Type objective_function<Type>::operator() () {
          && (flt_type(flt) > 0) &&                                    // - If survey or fishery CPUE
            ((est_index_q(flt) == 1) || (est_index_q(flt) == 2))){        // - Time_varying_q  = 1 (penalized deviate) or 2 (random effect)
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
 
@@ -3101,7 +3350,7 @@ Type objective_function<Type>::operator() () {
        ((est_index_q(flt) == 1) || (est_index_q(flt) == 2)))   // - Time_varying_q  = 4
     {
       for(yr = 1; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
+        jnll_comp(JNLL_Q_DEV, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
    } // End q lead gate
@@ -3115,7 +3364,7 @@ Type objective_function<Type>::operator() () {
     // -- Lognormal. Bias correction centered at -sigma^2/2 so E[steepness] =
     //    srr_prior (mean-unbiased), matching the rec/init-dev convention.
     if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
-      jnll_comp(8, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm(log(steepness(sp, 0)), log(srr_prior(sp)) - bias_adjust_proc*square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
@@ -3123,40 +3372,42 @@ Type objective_function<Type>::operator() () {
       // Convert mean and SD to beta params
       Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
       Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
-      jnll_comp(8, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dbeta(steepness(sp, 0), beta_alpha, beta_beta, true);
     }
 
     // Slot 9 -- stock-recruit prior for Ricker
     if((srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
-      jnll_comp(8, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
+      jnll_comp(JNLL_SRR_PRIOR, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
     if((!isNA(Bmsy_lim(sp))) && ((srr_pred_fun == 4) || (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
-      jnll_comp(8, sp) += 100 * penalty;
+      jnll_comp(JNLL_SRR_PRIOR, sp) += 100 * penalty;
     }
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
-    if(initMode > 1){
+    // initMode 5 (FishedEquilibrium) fixes init_dev at 0 (off), like the
+    // equilibrium modes, so it carries no init_dev penalty.
+    if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
-        jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
+        jnll_comp(JNLL_INIT_DEV, sp) -= dnorm( init_dev(sp, age - 1), -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if((srr_fun == 0) & (srr_pred_fun  > 0)){
       for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
-        jnll_comp(11, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
+        jnll_comp(JNLL_SRR_PENALTY, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
       }
     }
   }
@@ -3184,7 +3435,7 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    jnll_comp(12, 0) = - square(CMSY/1000000.0); // CMSY is ll
+    jnll_comp(JNLL_REFPT_PENALTY, 0) = - square(CMSY/1000000.0); // CMSY is ll
 
 
     // --- Add biomass_depletion constraint
@@ -3192,7 +3443,7 @@ Type objective_function<Type>::operator() () {
       if((forecast(sp) == 1) && (estDynamics(sp) == 0)){
         penalty = 0.0;
         Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty); (void) nothing_useful;
-        jnll_comp(12, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
+        jnll_comp(JNLL_REFPT_PENALTY, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
       }
     }
   }
@@ -3204,19 +3455,19 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
       }
 
       // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
         // Using ssb rather than SBF because of multi-species interactions arent in SBF
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
-        jnll_comp(12, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
       }
     }
 
@@ -3225,20 +3476,20 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
       }
 
       for(yr = 1; yr < nyrs; yr++){ // No initial abundance
         // F that acheives Ftarget% of SSB0y
         if(HCR == 3){
-          jnll_comp(12, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-Ftarget_percent(sp));
+          jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-Ftarget_percent(sp));
         }
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(12, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
-        jnll_comp(12, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-Ftarget_percent(sp));
       }
     }
 
@@ -3248,17 +3499,17 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
       }
 
       // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Ftarget_percent(sp));
       }
 
       // Tiered HCRs with Limit and Targets
       if(HCR == 6){
-        jnll_comp(12, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
+        jnll_comp(JNLL_REFPT_PENALTY, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-Flimit_percent(sp));
       }
     }
   }
@@ -3267,7 +3518,7 @@ Type objective_function<Type>::operator() () {
   // Slot 13 -- N-at-age < 0 penalty. See "posfun"
   for(sp = 0; sp < nspp; sp++){
     if(estDynamics(sp) == 0){
-      jnll_comp(13, sp) += zero_N_pen(sp);
+      jnll_comp(JNLL_ZERO_N_PENALTY, sp) += zero_N_pen(sp);
     }
   }
 
@@ -3294,7 +3545,7 @@ Type objective_function<Type>::operator() () {
 
       for(int sex = 0; sex < nsex_tmp; sex++) {
         for(int age = 0; age < nage_tmp; age++) {
-          jnll_comp(14, sp) -= dnorm(log_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
+          jnll_comp(JNLL_M_PRIOR, sp) -= dnorm(log_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
         }
       }
     }
@@ -3305,7 +3556,7 @@ Type objective_function<Type>::operator() () {
       for(int sex = 0; sex < nsex(sp); sex++) {
         for(int age = 0; age < nages(sp); age++) {
           for(int yr = 0; yr < nyrs_hind; yr++) {
-            jnll_comp(14, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), M_prior_mean, M_prior_sd(sp), true);
+            jnll_comp(JNLL_M_PRIOR, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), M_prior_mean, M_prior_sd(sp), true);
           }
         }
       }
@@ -3339,7 +3590,7 @@ Type objective_function<Type>::operator() () {
         for(int age = 0; age < nages(sp); age++) {
           M_re_age(age) = log_M1_dev(sp, sex, age, 0);
         }
-        jnll_comp(15, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
       }
     }
 
@@ -3354,7 +3605,7 @@ Type objective_function<Type>::operator() () {
         for(int yr = 0; yr < nyrs_hind; yr++) {
           M_re_yr(yr) = log_M1_dev(sp, sex, 0, yr);
         }
-        jnll_comp(15, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
       }
     }
 
@@ -3372,7 +3623,7 @@ Type objective_function<Type>::operator() () {
             M_re_a_yr(age, yr) = log_M1_dev(sp, sex, age, yr);
           }
         }
-        jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
+        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
       }
     }
   }
@@ -3404,6 +3655,12 @@ Type objective_function<Type>::operator() () {
     if (slot_col >= n_col) slot_col = 0;
 
     Type b = beta_linkage(i);
+    // Whether the intercept's base parameter lives on the log scale (so
+    // b_nat = exp(b)). True for every log-scale base (rec_pars, log_M1,
+    // log_growth_pars, index_log_q, comp_weights); set false for a
+    // natural-scale base (the selectivity inflection sel_inf), whose prior is
+    // read on the natural scale directly.
+    bool base_is_log = true;
     if (linkage_is_intercept(i) == 1) {
       // Re-target the prior to the base parameter that this intercept
       // row stands in for. Sentinel 0 in species/sex/age_bin means
@@ -3433,33 +3690,73 @@ Type objective_function<Type>::operator() () {
         } else {
           b = growth_log_sd(sp_idx, sx_idx, param - RCEATTLE_N_GROWTH_PARAMS);
         }
+      } else if (proc == RCEATTLE_PROC_Q) {
+        // Catchability is fleet- not species-indexed. The intercept
+        // stands in for the base log-catchability index_log_q(fleet).
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        b = index_log_q(fl_idx);
+      } else if (proc == RCEATTLE_PROC_COMP) {
+        // Dirichlet-multinomial overdispersion. comp/caal weights are
+        // fleet-indexed, diet weights predator(species)-indexed; all stored on
+        // the log scale (theta = exp(weight)), so b_nat = exp(b) is the natural
+        // DM scalar the prior targets. param: theta_comp=0, theta_caal=1,
+        // theta_diet=2.
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        if (param == 0)      b = comp_weights(fl_idx);
+        else if (param == 1) b = caal_weights(fl_idx);
+        else if (param == 2) b = diet_comp_weights(sp_idx);
+      } else if (proc == RCEATTLE_PROC_SEL) {
+        // Parametric selectivity base parameters are (slot, fleet, sex).
+        // param: slp_asc=0 / slp_desc=1 -> log_sel_slp (log scale, exp -> slope);
+        //        inf_asc=2 / inf_desc=3 -> sel_inf    (natural scale, the
+        //        inflection age / peak). asc -> slot 0, desc -> slot 1. The
+        //        (Intercept) beta_linkage row is pinned at 0, so it adds no
+        //        offset to selectivity -- the base parameter carries the mean
+        //        and this prior regularizes it (Cole Monnahan's GOA pollock
+        //        selectivity priors: lognormal on the log-slope, normal on the
+        //        natural inflection). coff (param 4) has no scalar base
+        //        parameter and cannot carry a linkage (see
+        //        .check_sel_linkage_support), so it is not reachable here.
+        int fl_in  = linkage_fleet(i);
+        int fl_idx = (fl_in == 0) ? 0 : (fl_in - 1);
+        int slot   = param % 2;   // asc -> 0, desc -> 1
+        if (param == 0 || param == 1) {
+          b = log_sel_slp(slot, fl_idx, sx_idx);
+        } else if (param == 2 || param == 3) {
+          b = sel_inf(slot, fl_idx, sx_idx);
+          base_is_log = false;    // inflection is natural-scale, not log
+        }
       }
     }
 
     // Back-transform to natural scale when this is
-    // an intercept row (b holds the log-scale parameter).
-    // For all slope rows, b_nat == b already.
-    Type b_nat = (linkage_is_intercept(i) == 1) ? exp(b) : b;
+    // an intercept row on a log-scale base parameter (b holds the log-scale
+    // parameter). For all slope rows, and for a natural-scale intercept base
+    // (sel_inf), b_nat == b already.
+    Type b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? exp(b) : b;
 
     if (fam == 1) {                         // normal(p1, p2) on natural scale
-      jnll_comp(19, slot_col)            -= dnorm(b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(b_nat, p1, p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(b_nat, p1, p2, true);
     } else if (fam == 2) {                  // lognormal: normal on log of natural scale
-      // For log-link intercept: log(b_nat) = b (efficient form avoids log(exp(b)))
-      Type log_b_nat = (linkage_is_intercept(i) == 1) ? b : log(b_nat);
-      jnll_comp(19, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(log_b_nat, p1, p2, true);
+      // For a log-scale intercept base: log(b_nat) = b (efficient form avoids
+      // log(exp(b))). A natural-scale intercept base (sel_inf) takes log(b_nat).
+      Type log_b_nat = (linkage_is_intercept(i) == 1 && base_is_log) ? b : log(b_nat);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dnorm(log_b_nat, p1, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale
-      jnll_comp(19, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
     } else if (fam == 4) {                  // beta(p1=shape1, p2=shape2) on natural scale
-      jnll_comp(19, slot_col)            -= dbeta(b_nat, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dbeta(b_nat, p1, p2, true);
+      jnll_comp(JNLL_LINKAGE_PRIOR, slot_col)            -= dbeta(b_nat, p1, p2, true);
+      unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, slot_col) -= dbeta(b_nat, p1, p2, true);
     }
   }
 
 
-  // 14.3. Diet likelihood components
+  // 13.2. Diet likelihood components
   if((msmMode > 2) || (imax(suitMode) > 0)) {
 
     int current_j = 0; // Track position in diet_ctl
@@ -3531,16 +3828,16 @@ Type objective_function<Type>::operator() () {
         case 0:  // Full multinomial
           stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
 
-          unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+          unweighted_jnll_comp(JNLL_STOMACH, rsp) -= stomach_log_likelihood;
+          jnll_comp(JNLL_STOMACH, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
           break;
         case 1:  // Dirichlet-multinomial
           // Calculate the log-likelihood
           stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
           unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
 
-          unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
-          jnll_comp(18, rsp) -= stomach_log_likelihood;
+          unweighted_jnll_comp(JNLL_STOMACH, rsp) -= unweighted_stomach_log_likelihood;
+          jnll_comp(JNLL_STOMACH, rsp) -= stomach_log_likelihood;
           break;
 
         default:
@@ -3555,9 +3852,9 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_prey + 1);
           if(diet_ll_type(rsp) == 1){   // Dirichlet-multinomial (fitted DM par)
-            jnll_comp(18, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
+            jnll_comp(JNLL_STOMACH, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
           } else {                      // multinomial
-            jnll_comp(18, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
+            jnll_comp(JNLL_STOMACH, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
           }
         }
       }
@@ -3575,7 +3872,7 @@ Type objective_function<Type>::operator() () {
    for(age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
    if(ration(sp, sex, age, yr) > 0){
    if(ration_hat(sp, sex, age, yr) > 0){
-   jnll_comp(16, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
+   jnll_comp(JNLL_RATION, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
    }
    }
    }
@@ -3590,7 +3887,7 @@ Type objective_function<Type>::operator() () {
    for(age = 0; age < nages(sp); age++) {
    for(yr = 0; yr < nyrs_hind; yr++) {
    if(ration_hat(sp, sex, age, yr) > 0){
-   //jnll_comp(17, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
+   //jnll_comp(JNLL_RATION_PENALTY, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
    }
    }
    }
@@ -3698,6 +3995,18 @@ Type objective_function<Type>::operator() () {
   vector<Type>  log_index_hat = index_hat;  log_index_hat = log(index_hat.array());// Fixed n-at-age scaling coefficient
   REPORT( log_index_hat );
   ADREPORT( log_index_hat );
+
+  // -- 14.4b. Formula-linkage effect sizes. Expose the estimated linkage
+  // coefficients, the random-effect deviations, and the Rogers-2024 QAR1
+  // effect size so a user can read the *effect* (and, via ADREPORT, its
+  // uncertainty) -- not just the realized parameter (index_q above). All are
+  // PARAMETER_VECTORs and may be length 0 (no linkages), in which case these
+  // report nothing and do not affect the objective.
+  REPORT( beta_linkage );
+  ADREPORT( beta_linkage );
+  REPORT( beta_linkage_re );
+  REPORT( beta_linkage_obs );
+  ADREPORT( beta_linkage_obs );
   /*
    REPORT( index_q_analytical );
    REPORT( index_q_sd );
@@ -3727,6 +4036,130 @@ Type objective_function<Type>::operator() () {
   REPORT( caal_obs );
   REPORT( pred_CAAL );
 
+
+  // -- 14.6a. Random-effect SD priors (jnll_comp row 19). A prior on a group's
+  // deviation SD, routed from linkage_spec(priors = list(sigma = ...)). Applied
+  // once per group (not per level -- the loop is over groups, so the "once"
+  // property is structural). Shares the linkage-prior row and the same families
+  // as the fixed-beta prior loop above, on the natural-scale SD exp(log_sigma).
+  // FIXME(jacobian): the normal/gamma/beta families place the prior on the
+  // natural-scale SD while the free parameter is log_sigma, WITHOUT the change-
+  // of-variables Jacobian d(sd)/d(log_sigma) = sd. This is a penalized-likelihood
+  // prior, not a proper Bayesian prior on the SD (it matches the existing
+  // fixed-beta prior loop's convention). `lognormal` is exempt: dnorm(log(sd),..)
+  // has a constant Jacobian w.r.t. log_sigma. Add `+ log_sigma` to the log-prior
+  // for the natural-scale families if a proper density is wanted.
+  if (log_sigma_linkage.size() > 0) {
+    for (int g = 0; g < log_sigma_linkage.size(); ++g) {
+      int fam = linkage_re_sigma_prior_family(g);
+      if (fam == 0) continue;
+      Type sd = exp(log_sigma_linkage(g));
+      Type p1 = linkage_re_sigma_prior_p1(g);
+      Type p2 = linkage_re_sigma_prior_p2(g);
+      if (fam == 1) {                         // normal(p1, p2) on the SD
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(sd, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(sd, p1, p2, true);
+      } else if (fam == 2) {                  // lognormal: normal on log(SD)
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(log(sd), p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(log(sd), p1, p2, true);
+      } else if (fam == 3) {                  // gamma(shape, rate)
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dgamma(sd, p1, Type(1.0)/p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dgamma(sd, p1, Type(1.0)/p2, true);
+      } else if (fam == 4) {                  // beta(shape1, shape2)
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dbeta(sd, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dbeta(sd, p1, p2, true);
+      }
+    }
+  }
+
+  // -- 14.6a'. Random-effect AR1 correlation priors (jnll_comp row 19), routed
+  // from linkage_spec(priors = list(rho = ...)) on an ar1 group. On the natural
+  // (-1, 1) correlation rho = rho_trans(trans_rho_linkage): normal(p1, p2)
+  // directly, or beta(p1, p2) on (rho + 1) / 2. Once per group.
+  // FIXME(jacobian): as with the sigma priors above, the prior is on the natural
+  // rho while the free parameter is trans_rho_linkage, without the rho_trans
+  // Jacobian -- a penalized-likelihood prior, not a proper density on rho.
+  if (trans_rho_linkage.size() > 0) {
+    for (int g = 0; g < linkage_re_rho.size(); ++g) {
+      int fam = linkage_re_rho_prior_family(g);
+      if (fam == 0) continue;
+      Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(g)));
+      Type p1 = linkage_re_rho_prior_p1(g);
+      Type p2 = linkage_re_rho_prior_p2(g);
+      if (fam == 1) {                         // normal(p1, p2) on rho
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dnorm(rho, p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dnorm(rho, p1, p2, true);
+      } else if (fam == 4) {                  // beta(p1, p2) on (rho + 1) / 2
+        jnll_comp(JNLL_LINKAGE_PRIOR, 0)            -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+        unweighted_jnll_comp(JNLL_LINKAGE_PRIOR, 0) -= dbeta((rho + Type(1)) / Type(2), p1, p2, true);
+      }
+    }
+  }
+
+  // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
+  // Group-oriented so each covariance structure couples its deviations
+  // correctly. For each RE group, gather its beta_linkage_re slots in ascending
+  // slot order -- which the registry assigns in real elapsed-time order -- then
+  // dispatch on the group's structure:
+  //   us  (IID)        : sum of N(0, sigma) densities (the index_q_dev idiom);
+  //   rw  (RandomWalk) : N(0, sigma) on successive first differences, the first
+  //                      deviate pinned at 0 by the map (as legacy index_q_dev);
+  //   ar1 (AR1)        : stationary AR1 with MARGINAL SD sigma and correlation
+  //                      rho = rho_trans(trans_rho_linkage), the glmmTMB /
+  //                      Rogers-QAR1 convention SCALE(AR1(rho), sigma).
+  // Guarded on size so row 20 stays exactly 0 for every model without a random
+  // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
+  // the density that jnll_comp.sum() also carries.
+  if (log_sigma_linkage.size() > 0) {
+    int n_re = beta_linkage_re.size();
+    for (int grp = 0; grp < log_sigma_linkage.size(); ++grp) {
+      Type sigma = exp(log_sigma_linkage(grp));
+      // Collect this group's slots in slot (= time) order.
+      int len = 0;
+      for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) len++;
+      if (len == 0) continue;
+      vector<Type> re(len), obs(len);
+      vector<int> obs_mask(len);
+      int j = 0;
+      for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
+        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g);
+        obs_mask(j) = linkage_re_obs_mask(g); j++;
+      }
+
+      int st = linkage_re_struct(grp);
+      if (st == 1) {                                   // rw / RandomWalk
+        for (int t = 1; t < len; ++t) {
+          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
+          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(re(t) - re(t - 1), Type(0), sigma, true);
+        }
+      } else if (st == 2) {                            // ar1 / first-order AR
+        // Stationary AR1 with marginal SD sigma and correlation rho. SCALE(...)
+        // returns the negative log density, so it is ADDED (unlike the -= dnorm
+        // forms). Reduces to the IID sum at rho = 0.
+        Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(grp)));
+        jnll_comp(JNLL_LINKAGE_RE, 0)            += SCALE(AR1(rho), sigma)(re);
+        unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) += SCALE(AR1(rho), sigma)(re);
+      } else {                                         // us / IID (default)
+        jnll_comp(JNLL_LINKAGE_RE, 0)            -= sum(dnorm(re, Type(0), sigma, true));
+        unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= sum(dnorm(re, Type(0), sigma, true));
+      }
+
+      // Rogers QAR1 observation: the ar1 latent re(t) is measured as
+      // linkage_re_obs_value(t) with SD exp(log_obs_sd_linkage(obs_slot)). The
+      // observation SD is ESTIMATED (one per observed group, matching the
+      // reference Estimate_q = 6 / GOApollock), started from the spec's obs_sd.
+      // This term pins the latent to the observed env series and, with the beta
+      // scaling in beta_linkage_eff, identifies the effect size.
+      if (linkage_re_obs(grp) >= 0) {
+        Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
+        for (int t = 0; t < len; ++t) {
+          if (obs_mask(t) == 0) continue;   // year absent from env_data: latent exists, but no observation
+          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
+          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
+        }
+      }
+    }
+  }
 
   // -- 14.7. Likelihood components
   REPORT( jnll_comp );
