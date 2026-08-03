@@ -1,3 +1,24 @@
+# Rceattle 5.2.0
+
+## New features
+
+* **`linkage_spec()` selects species and fleets by name.** `species =` now accepts
+  species names matching `data_list$spnames`, and `fleet =` accepts fleet names
+  matching `fleet_control$Fleet_name`, in place of 1-based ids:
+
+  ```r
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = "Shelikof")
+  M1 = linkage_spec(~ temp, by = ~ species, species = c("Pollock", "Cod"))
+  ```
+
+  Ids continue to work unchanged. Names are resolved when the model is assembled
+  in `fit_mod()`; an unrecognized name -- or one that is not unique in
+  `fleet_control` -- errors and lists the model's own names, whereas a
+  `Fleet_code` that is wrong but in range silently attaches the linkage to a
+  different fleet and still fits. Matching is exact after trimming whitespace, and
+  a misspelled name is rejected even when the corresponding filter would be a
+  no-op. Named specs round-trip through `save_config()` / `load_config()`.
+
 # Rceattle 5.1.1
 
 ## New features

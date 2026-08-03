@@ -48,8 +48,13 @@ e.g. \code{~species + sex} for per-(species, sex) coefficients, or
 \code{NULL} to share a single coefficient across every stratum. An
 explicit \code{by} (including \code{NULL}) is always kept as given.}
 
-\item{species}{optional integer vector of 1-based species ids that
-this spec applies to. \code{NULL} (default) means every species in
+\item{species}{optional vector of species that this spec applies to,
+given either as 1-based species ids (\code{c(1L, 2L)}) or as species
+\strong{names} matching \code{data_list$spnames} (\code{c("Pollock", "Cod")}).
+Names are matched exactly, after trimming whitespace, when the model
+is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name is an error that
+lists the model's species. Give ids or names, not a mix -- R coerces
+\code{c(1, "Cod")} to \code{c("1", "Cod")}. \code{NULL} (default) means every species in
 \code{strata$species} at materialization time. Use this to give
 different species different formulas, e.g. by registering
 multiple specs against the same parameter -- see
@@ -65,11 +70,20 @@ filter is a no-op. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
-\item{fleet}{optional integer vector of 1-based \code{Fleet_code}s this spec
-applies to. \code{NULL} (default) means every fleet in \code{strata$fleet} at
-materialization time. Only meaningful when \code{by} includes \code{fleet};
-otherwise the filter is a no-op. Used by catchability and selectivity
-linkages to give different fleets different formulas.}
+\item{fleet}{optional vector of fleets this spec applies to, given
+either as 1-based \code{Fleet_code}s (\code{c(1L, 3L)}) or as fleet \strong{names}
+matching \code{fleet_control$Fleet_name} (\code{c("Shelikof", "Summer BT")}).
+Names are matched exactly, after trimming whitespace, when the model
+is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name -- or one that is
+not unique in \code{fleet_control} -- is an error that lists the model's
+fleets. Prefer names: a \code{Fleet_code} that is wrong but in range
+attaches the linkage to a different fleet and still fits, whereas a
+misspelled name cannot. Give ids or names, not a mix -- R coerces
+\code{c(7, "Pollock")} to \code{c("7", "Pollock")}. \code{NULL} (default) means every fleet in
+\code{strata$fleet} at materialization time. Only meaningful when \code{by}
+includes \code{fleet}; otherwise the filter is a no-op. Used by
+catchability and selectivity linkages to give different fleets
+different formulas.}
 
 \item{link}{link function relating the linear predictor to the
 natural-scale target parameter. One of \code{"log"} (default) or

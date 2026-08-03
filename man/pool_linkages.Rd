@@ -17,7 +17,10 @@ model year, including any factor columns referenced by spec
 formulas).}
 
 \item{strata}{named list of stratum-level integer vectors, e.g.
-\code{list(species = 1:nspp, sex = 1:nsex)}.}
+\code{list(species = 1:nspp, sex = 1:nsex)}. \code{fit_mod()} names the \code{species}
+and \code{fleet} vectors with \code{data_list$spnames} /
+\code{fleet_control$Fleet_name}, which is how a spec that selects a species or
+fleet by name is resolved to an id.}
 }
 \value{
 A list with components:
