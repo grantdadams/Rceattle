@@ -39,9 +39,8 @@ build_bounds <- function(param_list = NULL, data_list) {
 
 
   # Recruitment ----
-  # rec_dev was removed from the model (replaced by DSEM latent states); bounds no longer apply
-  # lower_bnd$rec_dev <- replace(lower_bnd$rec_dev, values = rep(-15, length(lower_bnd$rec_dev)))
-  # upper_bnd$rec_dev <- replace(upper_bnd$rec_dev, values = rep(15, length(upper_bnd$rec_dev)))
+  lower_bnd$rec_dev <- replace(lower_bnd$rec_dev, values = rep(-15, length(lower_bnd$rec_dev)))
+  upper_bnd$rec_dev <- replace(upper_bnd$rec_dev, values = rep(15, length(upper_bnd$rec_dev)))
 
   lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-1000, length(lower_bnd$init_dev)))
   upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(23, length(upper_bnd$init_dev)))

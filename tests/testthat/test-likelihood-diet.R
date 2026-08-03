@@ -55,7 +55,8 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:simData$nspp] <- sim$model_quantities$rec_devs
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   mod <- Rceattle::fit_mod(data_list = simData,

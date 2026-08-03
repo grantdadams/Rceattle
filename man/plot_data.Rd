@@ -7,7 +7,7 @@
 plot_data(
   Rceattle,
   file = NULL,
-  subplots = 1:3,
+  subplots = 1:2,
   datatypes = "all",
   fleets = "all",
   species = "all",
@@ -23,8 +23,7 @@ plot_data(
   maxsize = 1,
   alphasize = 1,
   mainTitle = FALSE,
-  cex.main = 1,
-  env_standardize = NULL
+  cex.main = 1
 )
 }
 \arguments{
@@ -42,9 +41,6 @@ the bubble subplot).}
 \item 1 — equal-size points showing presence/absence by year/fleet
 \item 2 — points scaled to relative quantity / precision within each
 data type (catch tonnage, 1/SE for indices, sample size for comps)
-\item 3 — line plot of the environmental covariate value(s) in
-\code{data_list$env_data} over time (one line per covariate column).
-Skipped silently when the model has no \code{env_data}.
 }}
 
 \item{datatypes}{Either \code{"all"} or a subset of
@@ -83,12 +79,6 @@ long fleet names are clipped.}
 \item{mainTitle}{Logical; if \code{TRUE} add a default title.}
 
 \item{cex.main}{Title character expansion.}
-
-\item{env_standardize}{Logical or \code{NULL} controlling subplot 3. If \code{TRUE}
-each environmental covariate is z-scored so multiple covariates share a
-common y-axis; if \code{FALSE} raw values are drawn. \code{NULL} (default) chooses
-automatically: raw for a single covariate, standardized for two or more
-(which are typically on different scales).}
 }
 \value{
 Invisibly, a list with \code{typetable} — the long data frame underlying

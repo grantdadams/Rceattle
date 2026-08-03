@@ -24,6 +24,7 @@ testthat::test_that("Basic index and index likelihood", {
 
   # * Set params ----
   inits$rec_pars[,1] <- R0
+  inits$R_log_sd <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 
@@ -34,7 +35,7 @@ testthat::test_that("Basic index and index likelihood", {
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters = 0
-                              map = ss_run$map,
+                              file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode

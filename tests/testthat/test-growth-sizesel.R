@@ -47,7 +47,8 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:simData$nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
   inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
@@ -57,7 +58,7 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   # Fit Rceattle -------------------------------------------------------------
   ss_run_init <- Rceattle::fit_mod(data_list = simData,
                                    inits = inits, # Initial parameters from sim
-                                   map = mod0$map,
+                                   file = NULL, # Don't save
                                    estimateMode = 3, # Don't estimate
                                    growthFun = build_growth(fun = "vonBertalanffy"), # Von bertalanffy growth
                                    random_rec = FALSE, # No random recruitment
@@ -140,7 +141,8 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:simData$nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
   inits$log_growth_pars[,1,] = log(growth_params)
@@ -148,7 +150,7 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
   # Fit Rceattle -------------------------------------------------------------
   ss_run_init <- Rceattle::fit_mod(data_list = simData,
                                    inits = inits, # Initial parameters from sim
-                                   map = mod0$map,
+                                   file = NULL, # Don't save
                                    estimateMode = 3, # Don't estimate
                                    growthFun = build_growth(fun = "Richards"), # Richard's growth
                                    random_rec = FALSE, # No random recruitment

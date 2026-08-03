@@ -113,15 +113,16 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     }
   }
 
-  # # * 2. Stock-Recruitment Parameters ----
-  # # col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
-  # if (!is.null(yrs_proj)) {
-  #   map_list$rec_dev[, yrs_proj] <- NA
-  # }
-  #
-  # if (!random_rec) {
-  #   map_list$R_log_sd[] <- NA
-  # }
+
+  # * 2. Stock-Recruitment Parameters ----
+  # col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
+  if (!is.null(yrs_proj)) {
+    map_list$rec_dev[, yrs_proj] <- NA
+  }
+
+  if (!random_rec) {
+    map_list$R_log_sd[] <- NA
+  }
 
   # Null model (mean-R)
   # - Turning off 2nd and 3rd par if only using mean rec
@@ -1372,9 +1373,10 @@ build_map_fixed_natage <- function(map_list, data_list) {
 
       # Population parameters
       map_list$rec_pars[sp,] <- NA
-      #map_list$R_log_sd[sp] <- NA
+      map_list$R_log_sd[sp] <- NA
       map_list$log_Finit[sp] <- NA
-      #map_list$rec_dev[sp,] <- NA
+      # map_list$sex_ratio_log_sd[sp] <- NA
+      map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
       map_list$log_M1[sp,,] <- NA
       map_list$log_M1_dev[sp,,,] <- NA

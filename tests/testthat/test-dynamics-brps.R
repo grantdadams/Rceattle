@@ -23,18 +23,19 @@ testthat::test_that("Test SB0 under mean recruitment", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
+  inits$R_log_sd <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
   inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
-  inits$x_tj[] <- 0.02 # Adding .1 to R0
+  inits$rec_dev[] <- 0.02 # Adding .1 to R0
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters from starting
-                              map = ss_run$map,
+                              file = NULL, # Don't save
                               recFun = build_srr(
                                 proj_mean_rec = TRUE, # Project using mean rec over hindcast
                               ),
@@ -83,18 +84,19 @@ testthat::test_that("Test SB0 under R0", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
+  inits$R_log_sd <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
   inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
-  inits$x_tj[] <- 0.02 # Adding .1 to R0
+  inits$rec_dev[] <- 0.02 # Adding .1 to R0
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters from starting
-                              map = ss_run$map,
+                              file = NULL, # Don't save
                               recFun = build_srr(
                                 proj_mean_rec = FALSE, # Project using R0 or SRR over hindcast
                               ),
@@ -439,12 +441,13 @@ testthat::test_that("Test mean recruitment calculation", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:simData$nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ss_run <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters from inits
-                              map = ss_run$map,
+                              file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               growthFun = build_growth(fun = "vonBertalanffy"),
                               recFun = build_srr(

@@ -2,7 +2,7 @@
 % Please edit documentation in R/0-rceattle_class.R
 \name{summary.Rceattle}
 \alias{summary.Rceattle}
-\title{Summary method for Rceattle fits}
+\title{Compact summary method for Rceattle fits}
 \usage{
 \method{summary}{Rceattle}(object, ...)
 }
@@ -11,28 +11,6 @@
 
 \item{...}{Currently unused.}
 }
-\value{
-Invisibly returns either:
-\itemize{
-\item a list with elements \code{coefficients} and \code{recruitment_sd}
-(when the fit contains a DSEM). \code{coefficients} is a data.frame of
-DSEM path coefficients with columns: \code{path}, \code{lag},
-\code{name}, \code{start}, \code{parameter}, \code{first},
-\code{second}, \code{direction}, \code{Estimate}, and (when \code{sdrep}
-is available) \code{Std_Error}, \code{z_value}, \code{p_value}.
-\code{recruitment_sd} is a data.frame with one row per species and
-columns \code{Species}, \code{R_sd} (the recruitment SD used by the
-model), \code{Estimated} (logical; whether it was estimated via
-\code{random_rec} rather than fixed), and \code{Std_Error} when an
-\code{sdreport} is available; or
-\item the input \code{object}, when no DSEM is attached.
-}
-}
 \description{
-Prints the compact model overview (via \code{\link[=print.Rceattle]{print.Rceattle()}}) and, if the
-fit includes a dynamic structural equation model (DSEM) for recruitment
-deviates, also returns a data.frame of estimated path coefficients with
-standard errors, z-values, and Wald p-values when an \code{sdreport} is
-available. Adapted from \code{summary.dsem} for Rceattle-DSEM; see
-\code{?dsem::summary.dsem} for the underlying parameterization.
+Compact summary method for Rceattle fits
 }

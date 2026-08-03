@@ -52,7 +52,7 @@ testthat::test_that("recruitment_linkage_offset propagates into R0", {
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   inits$beta_linkage[is_temp] <- beta_temp
   # Set rec_devs to zero to isolate the linkage effect.
-  inits$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  inits$rec_dev[] <- 0
 
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
@@ -79,7 +79,7 @@ testthat::test_that("recruitment_linkage_offset propagates into R0", {
   # base_run also had rec_dev != 0 (estimated zeros). Re-fit base
   # with rec_dev = 0 so the comparison is clean.
   inits_base <- base_run$estimated_params
-  inits_base$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  inits_base$rec_dev[] <- 0
   base_dev0 <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = inits_base,
@@ -119,7 +119,7 @@ testthat::test_that("intercept-bearing R0 linkage: base rec_pars carries the lev
   testthat::expect_s3_class(base_run, "Rceattle")
 
   base_inits <- base_run$estimated_params
-  base_inits$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  base_inits$rec_dev[] <- 0
   base_dev0 <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = base_inits,
@@ -134,7 +134,7 @@ testthat::test_that("intercept-bearing R0 linkage: base rec_pars carries the lev
   # (the base R0 parameter) instead. Year-0 R uses R0 directly when the
   # linkage's only term is the intercept.
   pert_inits <- base_run$estimated_params
-  pert_inits$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  pert_inits$rec_dev[] <- 0
   pert_inits$rec_pars[, 1] <- pert_inits$rec_pars[, 1] + 0.75
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
@@ -186,7 +186,7 @@ testthat::test_that("linked R0 offsets propagate into recruitment for later year
   beta_temp <- 0.3
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   inits$beta_linkage[is_temp] <- beta_temp
-  inits$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  inits$rec_dev[] <- 0
 
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
@@ -199,7 +199,7 @@ testthat::test_that("linked R0 offsets propagate into recruitment for later year
   ))
 
   inits_base <- base_run$estimated_params
-  inits_base$x_tj[] <- 0   # recruitment devs are the DSEM latent state (x_tj)
+  inits_base$rec_dev[] <- 0
   base_dev0 <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = inits_base,

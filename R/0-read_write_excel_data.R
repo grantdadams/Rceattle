@@ -430,38 +430,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     message("Adding 'Month' column to 'fleet_control' with default value of 0")
   }
 
-
-  if(length(data_list$fleet_control$Nselages) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::rename(N_sel_bins = Nselages)
-    print("Renaming 'Nselages' to 'N_sel_bins'")
-  }
-
-
-  if(length(data_list$fleet_control$Age_first_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::rename(Bin_first_selected = Age_first_selected)
-    print("Renaming 'Age_first_selected' to 'Bin_first_selected'")
-  }
-
-  if(length(data_list$fleet_control$Age_max_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::rename(Sel_norm_bin1 = Age_max_selected)
-    print("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
-  }
-
-  if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
-    print("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
-  }
-
-  if(!is.null(data_list$fleet_control$Month)){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::mutate(Month = 0)
-    print("Adding 'Month' column to 'fleet_control' with default value of 0")
-  }
-
   # Index and catch data ----
   # (sheetnames was hoisted to the top of read_data)
 
@@ -491,16 +459,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$index_data <- sheet
     message("Renaming 'srv_biom' to 'index_data'")
-  }
-
-  # -- CAAL
-  if("caal_data" %in% sheetnames){
-    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "caal_data"))
-    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
-    data_list$caal_data <- sheet
-  } else{
-    data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 11))
-    colnames(data_list$caal_data) <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1", "CAAL_2", "CAAL_3", "CAAL_4")
   }
 
   # -- CAAL

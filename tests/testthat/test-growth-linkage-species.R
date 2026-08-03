@@ -484,7 +484,8 @@ testthat::test_that("Test internal K-linked growth", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
   inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
@@ -624,7 +625,8 @@ testthat::test_that("Test internal L1-linked growth", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
   inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
@@ -764,7 +766,8 @@ testthat::test_that("Test internal Linf-linked growth", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$x_tj[1:30, 1:nspp] <- t(sim$model_quantities$rec_devs)
+  inits$R_log_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
   inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
