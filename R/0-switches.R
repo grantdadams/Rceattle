@@ -116,6 +116,14 @@ comp_loglike_map <- c(
   "DirichletMultinomial" = 1
 )
 
+# Diet (stomach-content) composition likelihood family, per predator species. The
+# diet likelihood supports the multinomial and Dirichlet-multinomial only -- there
+# is no AFSC variant -- so this is comp_loglike_map without the -1 case.
+diet_loglike_map <- c(
+  "Multinomial" = 0,
+  "DirichletMultinomial" = 1
+)
+
 # Survey/index biomass observation likelihood family (per fleet). MVN/MVNORM use
 # a user-supplied full variance-covariance matrix (e.g. a VAST-derived Sigma) on
 # the natural-scale residual vector (obs - q*pred); see `index_cov`, and pair with
@@ -350,6 +358,9 @@ switch_check <- function(data_list){
   }
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
   data_list$Diet_distribution <- set_default(data_list$Diet_distribution, rep(0, data_list$nspp), "'Diet_distribution' are not included in data, assuming 'Multinomial'")
+  # Resolve readable strings ("Multinomial" / "DirichletMultinomial") to the integer
+  # codes the C++ diet likelihood reads; integer input passes through unchanged.
+  data_list$Diet_distribution <- .map_switch(data_list$Diet_distribution, diet_loglike_map, "Diet_distribution")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
   data_list <- .alias_est_M1(data_list)

@@ -1,3 +1,13 @@
+# Rceattle 5.1.1
+
+## New features
+
+* **`Diet_distribution` accepts string aliases.** Like `Comp_distribution` and
+  `CAAL_distribution`, the per-predator diet composition likelihood switch now takes
+  `"Multinomial"` (0) or `"DirichletMultinomial"` (1) in addition to the integer code
+  -- previously it accepted only the integer. The diet likelihood has no AFSC variant,
+  so `"MultinomialAFSC"` / `-1` is rejected with a clear message.
+
 # Rceattle 5.1.0
 
 ## New features

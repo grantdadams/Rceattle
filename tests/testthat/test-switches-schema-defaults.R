@@ -113,3 +113,21 @@ test_that(".rce_apply_default gates the Sel_curve_pen message on np_hake", {
   expect_silent(
     expect_equal(.rce_apply_default(5, "Sel_curve_pen1", schema, np_hake = TRUE), 5))
 })
+
+test_that("Diet_distribution accepts string and integer aliases (like Comp/CAAL)", {
+  skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017MS
+  res <- function(v) {
+    d$Diet_distribution <- v
+    suppressMessages(Rceattle:::switch_check(Rceattle:::clean_data(d)))$Diet_distribution
+  }
+  # string aliases resolve to the integer codes the C++ diet likelihood reads
+  expect_equal(as.numeric(res(rep("DirichletMultinomial", d$nspp))), rep(1, d$nspp))
+  expect_equal(as.numeric(res(rep("Multinomial", d$nspp))),          rep(0, d$nspp))
+  # integer codes pass through unchanged
+  expect_equal(as.numeric(res(rep(1L, d$nspp))), rep(1, d$nspp))
+  # the diet likelihood has no AFSC variant, so -1 / "MultinomialAFSC" is rejected
+  d$Diet_distribution <- rep("MultinomialAFSC", d$nspp)
+  expect_error(suppressMessages(Rceattle:::switch_check(Rceattle:::clean_data(d))),
+               "Diet_distribution")
+})

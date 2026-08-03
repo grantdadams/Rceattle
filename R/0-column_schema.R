@@ -185,7 +185,7 @@
     .rce_col("CK4", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
     # Per-predator-species vectors defaulted by switch_check
     # (rep(0, nspp) / rep(1, nspp)); their defaulting stays imperative there.
-    .rce_col("Diet_distribution", "bioenergetics_control", "Diet composition likelihood distribution per predator species (0 = multinomial).", type = "switch", meta = TRUE, aliases = "Diet_loglike"),
+    .rce_col("Diet_distribution", "bioenergetics_control", "Diet composition likelihood distribution per predator species:\r\n0 = multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "diet_loglike_map", meta = TRUE, aliases = "Diet_loglike"),
     .rce_col("Diet_comp_weights", "bioenergetics_control", "Diet composition weight (multinomial multiplier) per predator species.", meta = TRUE)
   )
 
