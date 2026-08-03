@@ -34,6 +34,18 @@
   `.refit_like()`, so a random-catchability or random-selectivity model keeps its
   random-effect structure across MSE / retrospective / jitter refits instead of
   silently reverting to fixed effects.
+
+* **`build_params()` no longer pads `init_dev` behind a string comparison.** The
+  `-999` padding of the unused `init_dev` columns was partly gated on
+  `initMode > 0`, evaluated against the canonical `initMode` *string* that
+  `switch_check()` has already resolved — `"FreeParams" > "0"` is `TRUE`, so the
+  gate was always open. The padding is unconditional now, which is what the C++
+  requires (every mode reads only columns `1:(nages - 1)`). No fit changes:
+  `build_params()` is bit-identical for all six modes on `BS2017SS` and
+  `BS2017MS`, from both string and integer input. This was the only place whose
+  behaviour depended on the lexicographic value of a switch alias, so an alias
+  beginning with a digit can no longer flip it.
+
 # Rceattle 5.1.1
 
 ## New features

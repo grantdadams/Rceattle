@@ -62,15 +62,21 @@ build_params <- function(data_list) {
 
   for(sp in 1:data_list$nspp){
 
-    # Fill in ages above max age with -999
-    if(data_list$nages[sp] != max_age){
-      param_list$init_dev[sp,(data_list$nages[sp]+1):max_age] = -999
-    }
-
-    # Estimate as devs (fill in ages above max age w/ -999)
-    if(data_list$initMode > 0){
-      param_list$init_dev[sp,data_list$nages[sp]] = -999
-    }
+    # Pad every column the cpp never reads with the -999 sentinel. init_dev is
+    # indexed as init_dev(sp, age - 1) over age = 1:(nages - 1) by EVERY
+    # initMode -- the free-parameter branch, the equilibrium / non-equilibrium
+    # branches, and the init_dev penalty alike (ceattle.cpp sections 6.4/6.5 and
+    # slot 9) -- so columns nages:max_age are unused for all six modes.
+    #
+    # This padding used to be split in two, with the nages column gated on
+    # `data_list$initMode > 0`. That compared against the canonical initMode
+    # *string* that switch_check() has already resolved above, and
+    # "FreeParams" > "0" is TRUE, so the gate was always open. It is removed
+    # rather than repaired: the padding is correct for every mode, and the
+    # comparison was the one place in the package whose behaviour depended on
+    # the lexicographic value of an alias name (an alias beginning with a digit
+    # would have silently flipped it).
+    param_list$init_dev[sp, data_list$nages[sp]:max_age] = -999
   }
 
 
