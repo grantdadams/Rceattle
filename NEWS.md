@@ -8,6 +8,13 @@
   -- previously it accepted only the integer. The diet likelihood has no AFSC variant,
   so `"MultinomialAFSC"` / `-1` is rejected with a clear message.
 
+* **Clearer spec-tree printing for data objects and fits.** `print()`/`summary()` of an
+  `Rceattle_data` object or a fitted model now shows each switch by its string alias
+  (e.g. `srr_fun = mean`, `M1_model = fixed`, `msmMode = MSVPA`) rather than its raw
+  integer code, so the outline reads the same even if a code is renumbered. The fleet
+  section is laid out as aligned, `│`-separated columns with `sel:` / `q:` labels and a
+  `[shared: ...]` tag on mirrored selectivity/catchability blocks.
+
 ## Bug fixes
 
 * **Optional-input default messages fire only when the model uses the input.** The
