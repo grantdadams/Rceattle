@@ -61,11 +61,11 @@ em <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
 
 # Digest: the operating model trajectory plus the catch advice the estimation
 # models produced, which together determine everything an MSE reports.
-digest_one <- function(simulate) {
+digest_one <- function(simulate, resample = simulate) {
   t0 <- proc.time()[["elapsed"]]
   mse <- suppressWarnings(suppressMessages(Rceattle::run_mse(
     om = om, em = em, nsim = 1, assessment_period = 1, sampling_period = 1,
-    simulate_data = simulate, sample_rec = simulate, seed = 42)))
+    simulate_data = simulate, sample_rec = resample, seed = 42)))
   sec <- proc.time()[["elapsed"]] - t0
   sim <- mse$Sim_1
   list(
@@ -78,7 +78,14 @@ digest_one <- function(simulate) {
     use_sim   = sim$use_sim)
 }
 
-digest <- list(sim_off = digest_one(FALSE), sim_on = digest_one(TRUE))
+digest <- list(
+  sim_off = digest_one(FALSE),
+  # Resampled recruitment with no observation error: still no random draws
+  # inside the assessment loop, so this must also be bit-identical -- and it is
+  # the scenario that exercises the rec_dev trim/restore with a projection whose
+  # recruitment deviations actually vary from year to year.
+  sim_off_resampled = digest_one(FALSE, resample = TRUE),
+  sim_on  = digest_one(TRUE))
 
 saveRDS(digest, out_path)
 cat("wrote digest ->", out_path, "\n")
@@ -94,12 +101,15 @@ if (do_compare && !is.null(compare_path) && file.exists(compare_path)) {
   # Timing is expected to move; drop it before testing equality.
   strip <- function(x) { x$sec <- NULL; x }
 
-  off_ok <- identical(strip(digest$sim_off), strip(ref$sim_off))
-  cat(if (off_ok) "PASS" else "FAIL",
-      ": sim=FALSE bit-identical (no RNG consumed; must match exactly)\n", sep = "")
-  if (!off_ok) {
-    for (f in names(strip(digest$sim_off))) {
-      if (!identical(digest$sim_off[[f]], ref$sim_off[[f]])) cat("   DIFF:", f, "\n")
+  for (sc in c("sim_off", "sim_off_resampled")) {
+    ok <- identical(strip(digest[[sc]]), strip(ref[[sc]]))
+    cat(if (ok) "PASS" else "FAIL", ": ", sc,
+        " bit-identical (no RNG consumed in the loop; must match exactly)\n",
+        sep = "")
+    if (!ok) {
+      for (f in names(strip(digest[[sc]]))) {
+        if (!identical(digest[[sc]][[f]], ref[[sc]][[f]])) cat("   DIFF:", f, "\n")
+      }
     }
   }
 
