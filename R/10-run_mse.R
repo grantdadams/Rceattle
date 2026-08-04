@@ -694,15 +694,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       })
 
       if(kill_sim$kill_sim){
-        # The refit did not run, so undo just the horizon shortening before the
-        # operating model is returned with the failed simulation. Only projyr
-        # and the projection-length blocks are put back: the year extensions
-        # applied above belong to this assessment's endyr, which stands.
-        if (om_shortened) {
-          om_use$data_list$projyr <- om_dl_full$projyr
-          om_use$estimated_params <- .mse_restore_proj_params(
-            om_use$estimated_params, om_params_full)
-        }
+        # Nothing to put back: a killed simulation returns only its failure
+        # marker, so the partially advanced operating model is discarded.
         break()
       }
 
@@ -899,11 +892,18 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
 
     # - Rename models
-    sim_list$use_sim <- !kill_sim$kill_sim
-    sim_list$failure = kill_sim$failure
-    sim_list$OM <- om_use # OM
-    sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
-    if(!kill_sim$kill_sim){
+    if (kill_sim$kill_sim) {
+      # A simulation that broke off part way through never reached the terminal
+      # assessment year, so its operating and estimation models describe a state
+      # the MSE did not arrive at. Return only the marker: there is nothing here
+      # a summary should average over, and keeping the partial models invites
+      # them being read as if the simulation had run to completion.
+      sim_list <- list(use_sim = FALSE, failure = kill_sim$failure)
+    } else {
+      sim_list$use_sim <- TRUE
+      sim_list$failure <- NA
+      sim_list$OM <- om_use # OM
+      sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
 

@@ -101,12 +101,23 @@ if (do_compare && !is.null(compare_path) && file.exists(compare_path)) {
   # Timing is expected to move; drop it before testing equality.
   strip <- function(x) { x$sec <- NULL; x }
 
+  failures <- 0L
   for (sc in c("sim_off", "sim_off_resampled")) {
+    # A scenario missing from either side would compare NULL with NULL and read
+    # as a pass, so require both to be present before comparing.
+    if (is.null(digest[[sc]]) || is.null(ref[[sc]])) {
+      cat("FAIL: ", sc, " is absent from ",
+          if (is.null(ref[[sc]])) "the baseline" else "this run",
+          " -- rebuild the baseline before trusting this comparison.\n", sep = "")
+      failures <- failures + 1L
+      next
+    }
     ok <- identical(strip(digest[[sc]]), strip(ref[[sc]]))
     cat(if (ok) "PASS" else "FAIL", ": ", sc,
         " bit-identical (no RNG consumed in the loop; must match exactly)\n",
         sep = "")
     if (!ok) {
+      failures <- failures + 1L
       for (f in names(strip(digest[[sc]]))) {
         if (!identical(digest[[sc]][[f]], ref[[sc]][[f]])) cat("   DIFF:", f, "\n")
       }
@@ -126,4 +137,11 @@ if (do_compare && !is.null(compare_path) && file.exists(compare_path)) {
               100 * (digest$sim_off$sec / ref$sim_off$sec - 1),
               ref$sim_on$sec, digest$sim_on$sec,
               100 * (digest$sim_on$sec / ref$sim_on$sec - 1)))
+
+  # Exit non-zero so this can gate a script or a hook, rather than needing
+  # someone to read stdout.
+  if (failures) {
+    cat("\n", failures, " scenario(s) FAILED.\n", sep = "")
+    quit(status = 1L)
+  }
 }

@@ -40,6 +40,21 @@ mse_summary <- function(mse, om_only = FALSE){
     else {return(rep(x, nspp))}
   }
 
+  ## Drop simulations that did not run to completion ----
+  # run_mse() returns only a failure marker for those (no OM, no EMs), so there
+  # is nothing to summarise and averaging over them would mix a partial
+  # trajectory into every performance metric.
+  failed <- vapply(mse, function(x) isFALSE(x$use_sim), logical(1))
+  if (any(failed)) {
+    warning(sum(failed), " of ", length(mse), " simulations did not complete ",
+            "and are excluded: ",
+            paste(names(mse)[failed], collapse = ", "), call. = FALSE)
+    mse <- mse[!failed]
+  }
+  if (!length(mse)) {
+    stop("No simulations completed; there is nothing to summarise.", call. = FALSE)
+  }
+
   ## OM dimensions ----
   # - determined from OM sim 1
   # - should be the same as for the EM
