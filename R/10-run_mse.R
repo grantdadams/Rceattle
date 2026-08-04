@@ -918,15 +918,34 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   } # End run_one_sim closure
 
 
+  # Contain a simulation's failure to that simulation. The refits are already
+  # guarded, but the surrounding data reshaping is not, and neither the
+  # sequential nor the parallel dispatch has a per-item handler -- so one
+  # unguarded error would discard every other simulation of the run. Anything
+  # that escapes is reported as a failed simulation, keeping the message so the
+  # cause is still visible.
+  run_one_sim_guarded <- function(sim) {
+    tryCatch(run_one_sim(sim), error = function(e) {
+      marker <- list(use_sim = FALSE, failure = conditionMessage(e))
+      if (!is.null(dir)) {
+        dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+        saveRDS(marker,
+                file = paste0(dir, "/", file, "EMs_from_OM_Sim_", sim, ".rds"))
+        return(NULL)
+      }
+      marker
+    })
+  }
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch sims (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
     # FORK where possible (inherits the loaded package + the large OM/EM objects
     # via copy-on-write); PSOCK fallback exports them. See .parallel_lapply().
-    sim_list <- .parallel_lapply(start_sim:nsim, run_one_sim, min(cores, nsim), environment())
+    sim_list <- .parallel_lapply(start_sim:nsim, run_one_sim_guarded, min(cores, nsim), environment())
   } else {
-    sim_list <- lapply(start_sim:nsim, run_one_sim)
+    sim_list <- lapply(start_sim:nsim, run_one_sim_guarded)
   }
 
   names(sim_list) <- paste0("Sim_", start_sim:nsim)
