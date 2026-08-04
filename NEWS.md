@@ -22,6 +22,18 @@
   With `simulate_data = FALSE`, where no random numbers are drawn, results are
   unchanged to the bit.
 
+## Behaviour changes
+
+* **A simulation that does not run to completion now returns only a marker.**
+  `run_mse()` previously returned the partially advanced operating and estimation
+  models alongside `use_sim = FALSE`. Those models describe a state the
+  simulation never reached, and nothing downstream filtered on `use_sim`, so they
+  could be averaged into performance metrics as though the simulation had
+  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
+  with no models attached, and `mse_summary()` drops such simulations up front
+  with a warning naming them, or errors if none completed. Code that reached into
+  `mse$Sim_n$OM` without checking `use_sim` should now check it.
+
 ## Bug fixes
 
 * **`sample_rec(update_model = TRUE)` works on models carrying catchability,
