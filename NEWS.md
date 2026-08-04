@@ -1,3 +1,12 @@
+# Rceattle 5.2.2
+
+## Bug fixes
+
+* **The "invalid switch" errors for `initMode` and `HCR` now name the offending
+  value.** They previously read `Invalid 'initMode' specified: .` with the value
+  dropped; they now echo what was passed (e.g. a since-renamed alias), alongside
+  the list of accepted names and integer codes.
+
 # Rceattle 5.2.1
 
 ## Bug fixes

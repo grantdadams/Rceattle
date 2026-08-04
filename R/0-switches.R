@@ -803,8 +803,9 @@ validate_switches <- function(data_list = NULL){
   invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
 
   if(sum(invalid_initMode) > 0) {
-    errors <- c(errors, paste("Invalid 'initMode' specified:",
-                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'initMode' specified: ",
+                              paste(unique(data_list$initMode[invalid_initMode]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":"), " or one of: ",
                               paste(names(initMode_map), collapse = ", ")))
   }
 
@@ -812,8 +813,9 @@ validate_switches <- function(data_list = NULL){
   invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
 
   if(sum(invalid_hcr) > 0) {
-    errors <- c(errors, paste("Invalid 'HCR' specified:",
-                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'HCR' specified: ",
+                              paste(unique(data_list$HCR[invalid_hcr]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":"), " or one of: ",
                               paste(names(hcr_map), collapse = ", ")))
   }
 
