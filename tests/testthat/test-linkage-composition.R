@@ -78,6 +78,10 @@ testthat::test_that("theta_diet prior is evaluated on exp(diet_comp_weights) per
   # Predator diet is keyed by species, not fleet, so theta_diet exercises the
   # per-predator (sp_idx) branch that theta_comp / theta_caal (fleet-keyed) do
   # not. make_msm_test_data() carries diet_data; switch its likelihood to DM.
+  # The diet DM weight is only estimated where the diet composition is actually
+  # fit -- i.e. a parametric suitability (suitMode > 0); with empirical
+  # suitability (suitMode = 0) build_map() maps diet_comp_weights out and the
+  # prior would have nothing to attach to, so fit with a weight-based mode.
   d <- make_msm_test_data()$data_list
   d$Diet_distribution <- rep(1L, d$nspp)   # 1 = DirichletMultinomial for diet
 
@@ -88,7 +92,7 @@ testthat::test_that("theta_diet prior is evaluated on exp(diet_comp_weights) per
       priors = list(`(Intercept)` = gamma(shape, rate)))))
 
   fit <- suppressMessages(Rceattle::fit_mod(
-    data_list = d, estimateMode = 3, msmMode = 1, compFun = cf,
+    data_list = d, estimateMode = 3, msmMode = 1, suitMode = 4, compFun = cf,
     fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))
 
   b_nat    <- exp(as.numeric(fit$estimated_params$diet_comp_weights))
