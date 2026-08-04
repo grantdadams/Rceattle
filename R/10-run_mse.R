@@ -34,11 +34,11 @@
 # Data frames carried out to projyr, each paired with the reported quantities
 # that are indexed by its rows.
 .mse_proj_tables <- list(
-  index_data  = c("index_hat", "log_index_sd"),
-  comp_data   = "comp_hat",
-  caal_data   = "caal_hat",
+  index_data  = c("index_hat", "log_index_hat", "log_index_sd"),
+  comp_data   = c("comp_hat", "comp_obs", "age_hat", "age_obs_hat"),
+  caal_data   = c("caal_hat", "caal_obs"),
   catch_data  = c("catch_hat", "max_catch_hat", "log_catch_sd"),
-  diet_data   = character(0),
+  diet_data   = c("diet_hat", "diet_obs"),
   NByageFixed = character(0),
   emp_sel     = character(0),
   weight      = character(0),
@@ -107,6 +107,17 @@
            " returned).", call. = FALSE)
     }
 
+    # clean_data() renumbers diet_data's stomach_id from the rows it is given,
+    # so a table that actually lost rows would come back with the shortened
+    # numbering spliced into the full-horizon one. No bundled model stratifies
+    # diet by projection year, so this never fires -- but it must not pass
+    # silently if one ever does.
+    if (identical(nm, "diet_data") && !all(keep)) {
+      stop("run_mse(): diet_data is stratified past the shortened operating-model ",
+           "horizon; its stomach_id would be renumbered. Widen the horizon or ",
+           "drop diet_data from .mse_proj_tables.", call. = FALSE)
+    }
+
     restored <- full
     restored[keep, ] <- short
     fit$data_list[[nm]] <- restored
@@ -115,8 +126,15 @@
       x <- fit$quantities[[q]]
       if (is.null(x)) next
       fit$quantities[[q]] <- if (is.null(dim(x))) {
+        # Keep any per-row labels rename_output() attached, so a name-based
+        # lookup on the restored vector still resolves.
         out <- rep(NA_real_, nrow(full))
         out[keep] <- x
+        if (!is.null(names(x))) {
+          nms <- rep(NA_character_, nrow(full))
+          nms[keep] <- names(x)
+          names(out) <- nms
+        }
         out
       } else {
         out <- matrix(NA_real_, nrow(full), ncol(x),
@@ -676,11 +694,14 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       })
 
       if(kill_sim$kill_sim){
-        # The refit did not run, so put the operating model back on its full
-        # horizon before returning it with the failed simulation.
+        # The refit did not run, so undo just the horizon shortening before the
+        # operating model is returned with the failed simulation. Only projyr
+        # and the projection-length blocks are put back: the year extensions
+        # applied above belong to this assessment's endyr, which stands.
         if (om_shortened) {
-          om_use$data_list       <- om_dl_full
-          om_use$estimated_params <- om_params_full
+          om_use$data_list$projyr <- om_dl_full$projyr
+          om_use$estimated_params <- .mse_restore_proj_params(
+            om_use$estimated_params, om_params_full)
         }
         break()
       }
