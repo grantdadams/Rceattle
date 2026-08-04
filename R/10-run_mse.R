@@ -924,7 +924,10 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     if(!is.null(dir)){
       dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
       saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
-      sim_list <- NULL
+      # Hand back only the outcome, not the models: run_mse() returns NULL in
+      # this mode, and the dispatcher needs to report attrition without reading
+      # every saved simulation back off disk.
+      list(use_sim = sim_list$use_sim, failure = sim_list$failure)
     } else{
       sim_list # Return simlist
     }
@@ -956,7 +959,6 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
           warning("Sim ", sim, ": could not record the failure (",
                   conditionMessage(e2), ").", call. = FALSE)
         })
-        return(NULL)
       }
       marker
     })
@@ -979,14 +981,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # With `dir` set the return value is NULL, so a run in which every simulation
   # failed would otherwise be indistinguishable from one in which every
   # simulation succeeded -- the same number of files either way.
-  n_failed <- sum(vapply(seq_along(sim_list), function(i) {
-    x <- sim_list[[i]]
-    if (!is.null(dir)) {
-      f <- paste0(dir, "/", file, "EMs_from_OM_Sim_", (start_sim:nsim)[i], ".rds")
-      x <- if (file.exists(f)) readRDS(f) else NULL
-    }
-    isFALSE(x$use_sim)
-  }, logical(1)))
+  n_failed <- sum(vapply(sim_list, function(x) isFALSE(x$use_sim), logical(1)))
   if (n_failed) {
     warning(n_failed, " of ", length(sim_list),
             " simulations did not complete; they carry use_sim = FALSE and no ",
