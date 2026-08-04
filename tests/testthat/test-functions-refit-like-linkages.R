@@ -101,17 +101,23 @@ testthat::test_that("sample_rec(update_model = TRUE) keeps the model's linkages"
   # sample_rec() rebuilds the model to propagate the new projection
   # recruitment, and routes that rebuild through .refit_like().
   fit <- .refit_linkage_fit()
+  # sample_rec() rebuilds at estimateMode = 3 internally and restores the
+  # source value afterwards; label the source differently so that restore is
+  # actually observable rather than trivially equal to the build-only mode.
+  fit$data_list$estimateMode <- 1L
+
   resampled <- suppressWarnings(suppressMessages(
     Rceattle::sample_rec(fit, sample_rec = FALSE, update_model = TRUE)))
 
   for (nm in c("q_linkages", "sel_linkages", "comp_linkages")) {
+    # Guard the fixture too: without this, a model that silently lost its
+    # linkages would compare NULL to NULL and pass while covering nothing.
+    testthat::expect_false(is.null(fit$data_list[[nm]]), info = nm)
     testthat::expect_equal(resampled$data_list[[nm]], fit$data_list[[nm]],
                            info = nm)
   }
   testthat::expect_identical(lengths(resampled$estimated_params),
                              lengths(fit$estimated_params))
-  # estimateMode is restored to the source model's value, not left at the
-  # build-only 3 used internally.
-  testthat::expect_equal(resampled$data_list$estimateMode,
-                         fit$data_list$estimateMode)
+  testthat::expect_gt(length(resampled$estimated_params$beta_linkage), 0)
+  testthat::expect_equal(resampled$data_list$estimateMode, 1L)
 })

@@ -24,18 +24,27 @@
 
 ## Bug fixes
 
-* **`sample_rec(update_model = TRUE)` no longer discards catchability,
-  selectivity, and composition linkages.** `.refit_like()` reconstructs the
+* **`sample_rec(update_model = TRUE)` works on models carrying catchability,
+  selectivity, or composition linkages.** `.refit_like()` reconstructs the
   `build_catchability()` / `build_selectivity()` / `build_composition()`
   specifications from the source model, but `sample_rec()` still re-invoked
   `fit_mod()` through its own hand-written copy of that block, and so omitted all
   three. Because `fit_mod()` treats those arguments as the source of truth for
-  `q_linkages` / `sel_linkages` / `comp_linkages`, re-simulating recruitment
-  silently replaced them with the empty defaults: any environmental linkage or
-  prior on catchability, a selectivity parameter, or a Dirichlet-multinomial
-  composition weight was dropped, and the `beta_linkage` block no longer matched
-  the parameters carried over from the source model. `sample_rec()` now routes
-  through `.refit_like()` like every other refit.
+  `q_linkages` / `sel_linkages` / `comp_linkages`, the rebuilt model had no
+  linkage table and therefore no `beta_linkage` parameters, which no longer
+  matched the parameters carried over from the source model. The `inits` check in
+  `fit_mod()` caught that and stopped with a length-mismatch error, so
+  `sample_rec(update_model = TRUE)` failed outright on any model using an
+  environmental linkage or a prior on catchability, on a selectivity parameter,
+  or on a Dirichlet-multinomial composition weight — it did not return quietly
+  wrong dynamics. `sample_rec()` now routes through `.refit_like()` like every
+  other refit.
+
+  Routing through `.refit_like()` also means `sample_rec(update_model = TRUE)`
+  now carries the source model's `random_q` and `random_sel` settings into the
+  rebuild, where the hand-written block left them at `FALSE`. For a model that
+  estimates time-varying catchability or selectivity as random effects, the
+  rebuilt object now keeps those random effects instead of dropping them.
 
 # Rceattle 5.2.3
 

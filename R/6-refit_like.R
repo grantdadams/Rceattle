@@ -111,11 +111,12 @@
       linkages     = dl$M1_linkages)),
     growthFun = build_growth(fun      = dl$growth_fun,
                              linkages = dl$growth_linkages),
-    # Reconstruct the catchability / selectivity / composition-weight linkages
-    # so their beta_linkage parameters survive the refit. Without this the
-    # warm-start `inits` carry linkage betas the rebuilt model lacks, and
-    # MakeADFun segfaults on the length mismatch. Each build_*(NULL) is a no-op
-    # for models that do not use that linkage.
+    # fit_mod() takes these three specifications as the source of truth for
+    # data_list$q_linkages / sel_linkages / comp_linkages, so they are rebuilt
+    # from the source model like the HCR / recruitment / M / growth specs above.
+    # That holds the linkage table -- and with it the size of the beta_linkage
+    # block the warm-start `inits` carry -- fixed across the refit. Each
+    # build_*(NULL) is a no-op for a model that uses no such linkage.
     qFun       = build_catchability(linkages = dl$q_linkages),
     selFun     = build_selectivity(linkages = dl$sel_linkages),
     compFun    = build_composition(linkages = dl$comp_linkages),
