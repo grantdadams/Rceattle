@@ -1,20 +1,23 @@
-#' Run TMB using phases
+#' Run TMB with ADMB-style phased estimation
 #'
-#' This function runs TMB with ADMB-like phasing of parameter estimation.
-#' Function with normal inputs, passed via "...", plus two additional arguments, "phase"
-#' Optimizer by default is nlminb
-#' phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
+#' Fits a TMB model in phases, like ADMB: parameters are switched on in stages
+#' rather than all at once, which stabilizes a difficult optimization. The
+#' optimizer (nlminb by default) runs once per phase; at each phase the map holds
+#' fixed any parameter whose phase is greater than the current phase, so
+#' parameters turn on progressively as the phase counter advances. `phases` is a
+#' tagged list giving each named parameter its integer phase; parameters not
+#' listed are estimated from the first phase onward.
 #'
 #' @param  data A list to be passed to TMB
 #' @param  parameters A list of parameters of the model
 #' @param  map a list of map object from the model
 #' @param  random A character vector of names of parameters that are random effects
-#' @param  phases A list of the phases for the parameters of the model (same structure as your parameter list)
+#' @param  phases Tagged list assigning each named parameter its integer phase (as returned by [set_phases()]).
 #' @param silent logical. If TRUE, suppresses output from TMB (default = TRUE).
 #' @param use_gradient logical. If TRUE, uses gradient in optimization (default = TRUE).
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param  model_name A string describing the model name. Must be the name of your .cpp file
-#' @return A list of parameter estimates and their standard errors
+#' @return The parameter list estimated in the final phase, with a per-phase convergence log attached as the `phase_log` attribute.
 #' @author Gavin Fay https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R
 #' @export
 #'
@@ -95,9 +98,9 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
   return(last_par)
 }
 
-#' Function to set phasing order
+#' Default phasing order for CEATTLE parameters
 #'
-#' @returns list of parameter names with associated phase
+#' @returns Tagged list mapping each parameter name to its estimation phase.
 #' @export
 #'
 set_phases <- function(){

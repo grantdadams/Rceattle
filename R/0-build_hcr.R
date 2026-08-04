@@ -1,6 +1,6 @@
 ##' @title Specify the harvest control rule (HCR) used for Rceattle
 ##'
-##' @description Defines the harvest control rule and associated reference points used in the Rceattle model.
+##' @description Defines the harvest control rule and its associated reference points.
 ##'
 ##' @param HCR Harvest control rule to use. Accepts an integer or equivalent string alias. Default = 0. See Details for the full list of available options.
 ##' @param DynamicHCR TRUE/FALSE. Whether to use static or dynamic reference points (default = FALSE).

@@ -1,3 +1,19 @@
+# Rceattle 5.2.3
+
+## Documentation
+
+* **Clarity pass across the help pages, code comments, and vignettes.** Function
+  documentation and vignette prose were rewritten to read more plainly for
+  fisheries scientists and ecologists, trimming filler without dropping any
+  caveats. No code or model behavior changed.
+
+* **A few documentation descriptions were corrected to match the code.** The
+  `jitter()` help now states that starting values are perturbed around the
+  model's initial (pre-fit) parameters, not the fitted values; the `build_params()`
+  and `TMBphase()` `@return` descriptions were fixed (they had described a map
+  object and standard errors respectively); and a mislabeled comment now correctly
+  attributes the time-varying survey catchability SD.
+
 # Rceattle 5.2.2
 
 ## Bug fixes

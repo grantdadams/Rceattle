@@ -40,9 +40,9 @@ One row is produced for every combination of:
 \code{by = ~species}).
 }
 
-The \code{X_col} column is initially set to a \emph{local} column index into
-the per-spec design matrix; it is the caller's responsibility (in
-\code{fit_mod()}'s pooling step) to remap these to global column indices
-once all specs have been combined into a single shared \code{X} matrix.
+The \code{X_col} column starts as a \emph{local} column index into the
+per-spec design matrix; the caller (\code{fit_mod()}'s pooling step)
+remaps these to global column indices once all specs have been
+combined into a single shared \code{X} matrix.
 }
 \keyword{internal}

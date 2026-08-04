@@ -30,12 +30,11 @@ estimated / Pearson residual).
 }
 
 The observed proportions, fitted proportions and Pearson residuals come from
-dev's diet data path (\code{quantities$diet_hat} / \code{residuals(source = "diet")} /
-\code{data_list$diet_data}) via the internal \code{.diet_plot_data()} helper -- not from
-the \code{Hake_test} \code{match_diet_preds()} / \code{diet_prop_hat} array. Observed 95\% CI
-ribbons are a normal approximation to the binomial proportion from
+the diet data path (\code{quantities$diet_hat} / \code{residuals(source = "diet")} /
+\code{data_list$diet_data}) via the internal \code{.diet_plot_data()} helper. Observed
+95\% CI ribbons are a normal approximation to the binomial proportion from
 \code{Sample_size}. Estimated 95\% CI ribbons are drawn only when the \code{sdreport}
-exposes a \code{diet_hat} standard error; dev's C++ template \code{REPORT()}s but does
+exposes a \code{diet_hat} standard error; the C++ template \code{REPORT()}s but does
 not \code{ADREPORT()} \code{diet_hat}, so the estimated ribbon is unavailable unless the
 template is changed to \code{ADREPORT(diet_hat)} (the code path is retained so it
 activates automatically if that ever happens, or when \code{sdrep} is \code{NULL}).

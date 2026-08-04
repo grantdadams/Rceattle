@@ -1,10 +1,11 @@
 #' Build parameter list from cpp file
 #'
-#' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
+#' @description Construct the TMB parameter list, with every parameter set to its
+#'   starting value, for an Rceattle model.
 #'
 #' @param data_list an Rceattle data_list
 #'
-#' @return a list of map arguments for each parameter
+#' @return a named list of model parameters at their starting values
 #' @export
 build_params <- function(data_list) {
 
@@ -49,7 +50,7 @@ build_params <- function(data_list) {
     message("Warning: alpha was not initialized to `srr_prior` from `build_srr`")
   }
 
-  # - Rec devs
+  # - Recruitment deviations
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
                               dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
@@ -339,7 +340,7 @@ build_params <- function(data_list) {
   param_list$index_q_log_sd <- log(data_list$fleet_control$Catchability_prior_sd)
   names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
-  # - Log standard deviation for survey selectivity random walk - used for logistic
+  # - Log SD of the time-varying survey catchability deviations
   param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd)
   names(param_list$index_q_dev_log_sd) <- data_list$fleet_control$Fleet_name
 

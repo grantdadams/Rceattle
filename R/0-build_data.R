@@ -51,7 +51,8 @@
 
 #' Build an Rceattle data list in R
 #'
-#' A code-first constructor for the Rceattle data list. Supply only the data
+#' Assemble (or edit) an Rceattle data list in R code rather than from an xlsx
+#' workbook. Supply only the data
 #' blocks a model uses -- dimensions, biology (`weight`, `maturity`,
 #' `sex_ratio`, `M1_base`), a `fleet_control`, and the observation tables
 #' (`catch_data`, `index_data`, `comp_data`, ...) -- and the optional blocks a

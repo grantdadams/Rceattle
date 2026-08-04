@@ -83,8 +83,9 @@ Codes (also accept the string aliases listed):
 
 `random_rec`, `random_q`, and `random_sel` move log-recruitment, the
 log-catchability deviations, and the time-varying selectivity
-deviations (respectively) from penalised fixed effects to random
-effects marginalised via the Laplace approximation and estimate their associated distribution parameters.
+deviations, respectively, from penalised fixed effects to random
+effects. The deviations are marginalised via the Laplace approximation,
+and their distribution parameters are estimated.
 
 ## 2. Predation: `suitMode` (per predator)
 

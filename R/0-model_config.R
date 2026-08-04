@@ -26,11 +26,9 @@
 #' The defaults are exactly [fit_mod()]'s own argument defaults, so a data list
 #' carrying `model_config()` fits identically to one with no slot at all. When a
 #' data list has a `model_config`, [fit_mod()] reads each field only for
-#' arguments the caller did **not** pass explicitly; an argument passed to
-#' [fit_mod()] always overrides the stored value (matching how [fit_mod()]
-#' already treats its arguments). A script that passes an argument explicitly --
-#' even at its default -- overrides the slot for that field; omit the argument to
-#' let the configuration take effect.
+#' arguments the caller did **not** pass explicitly -- an argument passed to
+#' [fit_mod()] always wins, even when passed at its default. Omit an argument to
+#' let the stored configuration take effect for that field.
 #'
 #' @param msmMode Predation-mortality mode (see [fit_mod()]). Default `0`.
 #' @param initMode Population initialization (see [fit_mod()]). Default

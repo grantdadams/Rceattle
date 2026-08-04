@@ -22,7 +22,7 @@ build_srr(
 \arguments{
 \item{srr_fun}{Stock-recruit function used in the hindcast estimation (see the list below). Default = 0}
 
-\item{srr_pred_fun}{stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.}
+\item{srr_pred_fun}{Stock-recruit function used for projection, reference points, and penalties (see below). When \code{srr_fun == 0}, the stock-recruit curve is added as a penalty on the annually estimated hindcast recruitment (following AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0}, then \code{srr_pred_fun = srr_fun} and no extra penalty is added.}
 
 \item{proj_mean_rec}{Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)}
 

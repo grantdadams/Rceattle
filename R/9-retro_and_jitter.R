@@ -436,7 +436,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
 #' Jitter analysis
 #'
-#' @description Run's the Rceattle model at initial values that are +- N(0, sd) from the initial parameters.
+#' @description Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param njitter the number of jitters to run
@@ -563,9 +563,9 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 
 
 
-#' Self test simulation analysis analysis
+#' Self-test simulation analysis
 #'
-#' @description Simulates data from an Rceattle model and refits the model to the simulated data. TODO add process variation (i.e. random devs) to simulation.
+#' @description Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param seed random number seed. Each simulation \code{i} uses \code{seed + i}

@@ -160,12 +160,11 @@ linkage_spec(
 )
 ```
 
-**Prior semantics.** For `(Intercept)` rows,
-Priors are evaluated on the *natural-scale* 
-(e.g. `normal(0.3, 0.1)` on `K` means `dnorm(K_natural, 0.3, 0.1)`).
-Use `lognormal(meanlog, sdlog)` to put a normal directly on the log
-scale. For covariate rows, the prior applies
-to the coefficient as-is regardless of link function.
+**Prior semantics.** On `(Intercept)` rows the prior is evaluated on the
+*natural scale* (e.g. `normal(0.3, 0.1)` on `K` means
+`dnorm(K_natural, 0.3, 0.1)`). Use `lognormal(meanlog, sdlog)` to put a normal
+directly on the log scale. On covariate rows the prior applies to the
+coefficient as-is, regardless of link function.
 
 For programmatic prior assembly (e.g. species-specific priors built in
 a loop) call the `prior_*` constructors directly:
@@ -422,7 +421,7 @@ build_growth(
 ```
 
 
-Linkages can accepts both forms under each parameter key:
+Each parameter key accepts both forms:
 
 ```r
 linkages = list(K = single_spec)             # one formula for all sp
@@ -925,14 +924,14 @@ growth_spec <- build_growth(
 )
 ```
 
-The pooler will:
+At fit time these specs are pooled. The result:
 
-* compute one shared `X = model.matrix(~ temp + PDO, env_data)` of
+* one shared design matrix `X = model.matrix(~ temp + PDO, env_data)` of
   three columns,
-* emit 4 (sp × sex) + 3 (Linf cols) × 3 (sp) + 3 (m intercepts) = 16
-  rows in the linkage table,
-* match same-named columns (`(Intercept)`, `temp`) across specs so
-  there's no duplication in `X`.
+* 16 linkage-table rows: 4 (sp × sex) + 3 (Linf cols) × 3 (sp) + 3
+  (m intercepts),
+* same-named columns (`(Intercept)`, `temp`) matched across specs, so
+  nothing is duplicated in `X`.
 
 Per-process logic (vB has no `m`; only Richards does) is enforced at
 build time:

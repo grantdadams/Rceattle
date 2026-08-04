@@ -2,7 +2,7 @@
 % Please edit documentation in R/0-build_srr_and_M.R
 \name{build_M1}
 \alias{build_M1}
-\title{Define M1 specifications}
+\title{Specify the residual natural mortality (M1) model for Rceattle}
 \usage{
 build_M1(
   M1_model = 0,
@@ -66,7 +66,7 @@ that age slice.}
 A list of switches for defining the M1 model.
 }
 \description{
-Define M1 specifications
+Specify the residual natural mortality (M1) model for Rceattle
 }
 \examples{
 \donttest{

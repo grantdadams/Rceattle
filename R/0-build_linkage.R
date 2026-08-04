@@ -189,7 +189,7 @@ linkage_spec <- function(formula,
   # cannot be resolved here -- linkage_spec() never sees a data_list, by design
   # (capture is split from materialization) -- so it is carried through as a
   # string and resolved in materialize_linkage() against the strata labels
-  # fit_mod() attaches. Ids are coerced now, exactly as before.
+  # fit_mod() attaches. Ids are coerced here.
   if (!is.null(species)) {
     species <- .coerce_stratum_arg(species, "species", "species ids")
   }
@@ -434,7 +434,7 @@ linkage_spec <- function(formula,
 #' to a particular `data_list`. Character input is therefore validated for shape
 #' and returned as-is, to be resolved later by
 #' \code{.resolve_spec_strata_names()}. Numeric input is coerced to positive
-#' 1-based ids exactly as before.
+#' 1-based ids.
 #'
 #' A factor is converted to its labels first: `as.integer()` on a factor
 #' silently returns level codes, which would attach the linkage to whichever
@@ -482,7 +482,7 @@ linkage_spec <- function(formula,
 #' @noRd
 .resolve_stratum_names <- function(x, labels, arg, source_label) {
   if (is.null(x) || !is.character(x)) return(x)
-  # A blank or NA label is simply unmatchable (`NA == k` is NA, which `which()`
+  # A blank or NA label is unmatchable (`NA == k` is NA, which `which()`
   # drops), so only a wholly unusable label set is fatal -- one missing name
   # must not stop the other strata being selected by theirs.
   usable <- !is.null(labels) && any(!is.na(labels) & nzchar(labels))
@@ -693,10 +693,10 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   * stratum implied by `spec$by` (e.g. one per species when
 #'     `by = ~species`).
 #'
-#' The `X_col` column is initially set to a *local* column index into
-#' the per-spec design matrix; it is the caller's responsibility (in
-#' `fit_mod()`'s pooling step) to remap these to global column indices
-#' once all specs have been combined into a single shared `X` matrix.
+#' The `X_col` column starts as a *local* column index into the
+#' per-spec design matrix; the caller (`fit_mod()`'s pooling step)
+#' remaps these to global column indices once all specs have been
+#' combined into a single shared `X` matrix.
 #'
 #' @param spec an `Rceattle_linkage_spec`.
 #' @param process one of [LINKAGE_PROCESSES].
@@ -1122,9 +1122,9 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' Empty materialized table that still carries design metadata.
 #'
 #' Used by `materialize_linkage()` when a `species` filter on the spec
-#' eliminates every row of the level grid. We still need to expose the
-#' design matrix in the attributes so the pooler can union columns
-#' across specs that did emit rows.
+#' eliminates every row of the level grid. The design matrix stays in
+#' the attributes so the pooler can union columns across specs that did
+#' emit rows.
 #'
 #' @keywords internal
 #' @noRd

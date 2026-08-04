@@ -13,7 +13,7 @@
 
 #' Run a management strategy evaluation
 #'
-#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
+#' @description Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
 #'
 #' @param om CEATTLE model object exported from \code{Rceattle}
 #' @param em CEATTLE model object exported from \code{Rceattle}
@@ -23,7 +23,7 @@
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
 #' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
-#' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL
@@ -185,7 +185,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     em$data_list$comp_data <- sim_dat$comp_data
     em$data_list$caal_data <- sim_dat$caal_data
 
-    # Restimate
+    # Re-estimate
     em <- .refit_like(
       data_list    = em$data_list,
       inits        = em$estimated_params,
@@ -436,18 +436,18 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       #FIXME - simulate
       # om_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- om_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
-      # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
+      # -- Time-varying survey catchability - assume last year, filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns.
+      # -- Time-varying selectivity - assume last year, filled by columns.
       # Use the fitted arrays' own sex extent (max_sex), not a hardcoded 2: a
       # single-sex model has sex-dim 1, and forcing 2 silently recycles the
       # fitted values into a phantom second sex (and, since build_params sizes
       # these by max_sex, mismatches the parameter template on the refit).
       n_sex_om <- dim(om_use$estimated_params$log_sel_slp_dev)[3]
-      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, n_sex_om, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_om, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for non-parametric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
@@ -647,16 +647,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # # -- log_M1_dev
       # em_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- em_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
-      # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
+      # -- Time-varying survey catchability - assume last year, filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns.
+      # -- Time-varying selectivity - assume last year, filled by columns.
       # Sex extent from the fitted arrays (max_sex), not a hardcoded 2 -- see
       # the OM extension above.
       n_sex_em <- dim(em_use$estimated_params$log_sel_slp_dev)[3]
-      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, n_sex_em, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_em, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for non-parametric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
@@ -672,7 +672,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
-      # Restimate
+      # Re-estimate
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           suppressMessages(

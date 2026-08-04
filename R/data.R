@@ -1,6 +1,7 @@
 #' Data inputs for single species CEATTLE of the Bering Sea from 1979 to 2017
 #'
-#' A dataset containing the inputs used for CEATTLE
+#' A data list of inputs for the single-species Eastern Bering Sea CEATTLE model
+#' (walleye pollock, Pacific cod, and arrowtooth flounder), covering 1979-2017.
 #'
 #' @format
 #' Control
@@ -9,7 +10,7 @@
 #' \item{styr}{Start year of the hindcast}
 #' \item{endyr}{End year of the hindcast}
 #' \item{projyr}{End year of the forecast}
-#' \item{nsex}{Number of sexes to model in the population (1 = combined/1sex, 2 = models both female/male)}
+#' \item{nsex}{Number of sexes to model in the population (1 = sexes combined, 2 = females and males modelled separately)}
 #' \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 #' \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 #' \item{nages}{Number of ages of each species included in the hindcast}
@@ -79,7 +80,7 @@
 #' \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
 #' \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum.}
 #' \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
-#' \item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction.}
+#' \item{Observation_units}{Units of the observation: 1 = weight (kg), 2 = numbers caught. Drives both catch and index prediction.}
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 #' \item{Catchability_index}{index to use if catchability coefficients are to be set the same.}

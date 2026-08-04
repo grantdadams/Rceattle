@@ -61,11 +61,9 @@ travels with the data instead of living only in the \code{\link[=fit_mod]{fit_mo
 The defaults are exactly \code{\link[=fit_mod]{fit_mod()}}'s own argument defaults, so a data list
 carrying \code{model_config()} fits identically to one with no slot at all. When a
 data list has a \code{model_config}, \code{\link[=fit_mod]{fit_mod()}} reads each field only for
-arguments the caller did \strong{not} pass explicitly; an argument passed to
-\code{\link[=fit_mod]{fit_mod()}} always overrides the stored value (matching how \code{\link[=fit_mod]{fit_mod()}}
-already treats its arguments). A script that passes an argument explicitly --
-even at its default -- overrides the slot for that field; omit the argument to
-let the configuration take effect.
+arguments the caller did \strong{not} pass explicitly -- an argument passed to
+\code{\link[=fit_mod]{fit_mod()}} always wins, even when passed at its default. Omit an argument to
+let the stored configuration take effect for that field.
 }
 \section{Persistence}{
 

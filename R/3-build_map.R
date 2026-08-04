@@ -1,13 +1,14 @@
 #' @title Main function to construct the TMB map argument for CEATTLE
 #'
-#' @description Orchestrates the building of the TMB map object by calling
-#'   specialized helper functions for each parameter block (Recruitment, M1,
-#'   Predation, Selectivity, Catchability, etc.).
+#' @description Builds the TMB map, which tells TMB which parameters to estimate
+#'   and which to hold fixed (a fixed parameter is mapped to `NA`), and which
+#'   parameters share a single estimated value. One helper handles each process
+#'   block (recruitment, M1, predation, selectivity, catchability, ...).
 #'
 #' @param data_list an Rceattle data_list
 #' @param params A parameter list created from \code{\link{build_params}}.
-#' @param debug Logical. If TRUE, sets all map values to NA except the dummy
-#'   parameter, running the model without parameter estimation.
+#' @param debug Logical. If TRUE, fixes every parameter except the dummy
+#'   (maps all to `NA`), so the model runs with no parameters estimated.
 #' @param random_rec Logical. If TRUE, treats recruitment deviations as random effects,
 #'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
@@ -18,7 +19,7 @@
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
 
-  # Check data list format (Assuming this is a necessary internal utility)
+  # Fill in defaulted switches and upgrade any deprecated column names
   data_list <- Rceattle::switch_check(data_list)
 
   # --- Setup Data and Initial Map ---
@@ -26,7 +27,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   nyrs_proj <- data_list$projyr - data_list$styr + 1
   # yrs_hind is calculated inside helpers as needed
 
-  # Convert parameters to map object (assigning sequential index for all parameters initially)
+  # Start every parameter estimated: give each element its own index. The
+  # per-process helpers below then fix (NA) or share indices as needed.
   map_list <- lapply(params, function(x) {
     if (length(x) == 0) return(x)
     replace(x, values = seq_along(x))
@@ -1316,7 +1318,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
-    # Standard deviation of fishery time series If not estimating turn of
+    # Fishery catch time-series SD: fix it unless it is being estimated
     if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
       map_list$catch_log_sd[flt] <- NA
     }
@@ -1377,10 +1379,11 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 build_map_fixed_natage <- function(map_list, data_list) {
 
-  # - I.E. turn off all parameters besides for species
+  # For any species whose numbers-at-age are fixed (estDynamics > 0), fix its
+  # population and fleet parameters -- there is nothing to estimate for it.
   for(sp in 1:data_list$nspp){
 
-    # Fixed n-at-age: Turn off most parameters
+    # Fixed numbers-at-age: fix (map out) most parameters for this species
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters

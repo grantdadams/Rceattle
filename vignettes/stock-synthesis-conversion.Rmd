@@ -8,10 +8,9 @@ vignette: >
 ---
 
 This vignette is a working guide for converting a Stock Synthesis (SS3)
-model into the Rceattle data structure. It is written from the
-perspective of reading the SS files top-to-bottom and copying each block
-into the corresponding Rceattle data sheet. Rceattle column / sheet
-names are shown in `code` font.
+model into the Rceattle data structure. It follows the SS files
+top-to-bottom, copying each block into the corresponding Rceattle data
+sheet. Rceattle column / sheet names are shown in `code` font.
 
 The example below references the 2019 Pacific hake assessment, which is
 publicly available on Nis Sand Jacobsen's
