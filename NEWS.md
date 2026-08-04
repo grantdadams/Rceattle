@@ -1,3 +1,20 @@
+# Rceattle 5.2.4
+
+## Bug fixes
+
+* **`sample_rec(update_model = TRUE)` no longer discards catchability,
+  selectivity, and composition linkages.** `.refit_like()` reconstructs the
+  `build_catchability()` / `build_selectivity()` / `build_composition()`
+  specifications from the source model, but `sample_rec()` still re-invoked
+  `fit_mod()` through its own hand-written copy of that block, and so omitted all
+  three. Because `fit_mod()` treats those arguments as the source of truth for
+  `q_linkages` / `sel_linkages` / `comp_linkages`, re-simulating recruitment
+  silently replaced them with the empty defaults: any environmental linkage or
+  prior on catchability, a selectivity parameter, or a Dirichlet-multinomial
+  composition weight was dropped, and the `beta_linkage` block no longer matched
+  the parameters carried over from the source model. `sample_rec()` now routes
+  through `.refit_like()` like every other refit.
+
 # Rceattle 5.2.3
 
 ## Documentation
