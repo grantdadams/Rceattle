@@ -61,10 +61,12 @@ em <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
 
 # Digest: the operating model trajectory plus the catch advice the estimation
 # models produced, which together determine everything an MSE reports.
-digest_one <- function(simulate, resample = simulate) {
+digest_one <- function(simulate, resample = simulate,
+                       assessment_period = 1, sampling_period = 1) {
   t0 <- proc.time()[["elapsed"]]
   mse <- suppressWarnings(suppressMessages(Rceattle::run_mse(
-    om = om, em = em, nsim = 1, assessment_period = 1, sampling_period = 1,
+    om = om, em = em, nsim = 1,
+    assessment_period = assessment_period, sampling_period = sampling_period,
     simulate_data = simulate, sample_rec = resample, seed = 42)))
   sec <- proc.time()[["elapsed"]] - t0
   sim <- mse$Sim_1
@@ -85,6 +87,13 @@ digest <- list(
   # the scenario that exercises the rec_dev trim/restore with a projection whose
   # recruitment deviations actually vary from year to year.
   sim_off_resampled = digest_one(FALSE, resample = TRUE),
+  # Several years advance per assessment, and the survey fleet is sampled every
+  # other year. This is the case where `new_years` spans more than one year, so
+  # it is the one that tests whether the one-assessment-step look-ahead really
+  # covers every year whose exploitable biomass the next iteration reads.
+  sim_off_multiyear = digest_one(FALSE, resample = TRUE,
+                                 assessment_period = 2,
+                                 sampling_period = c(1, 2)),
   sim_on  = digest_one(TRUE))
 
 saveRDS(digest, out_path)
@@ -102,7 +111,7 @@ if (do_compare && !is.null(compare_path) && file.exists(compare_path)) {
   strip <- function(x) { x$sec <- NULL; x }
 
   failures <- 0L
-  for (sc in c("sim_off", "sim_off_resampled")) {
+  for (sc in c("sim_off", "sim_off_resampled", "sim_off_multiyear")) {
     # A scenario missing from either side would compare NULL with NULL and read
     # as a pass, so require both to be present before comparing.
     if (is.null(digest[[sc]]) || is.null(ref[[sc]])) {

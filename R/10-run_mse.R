@@ -31,19 +31,21 @@
 .mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L,
                            log_growth_par_devs = 3L)
 
-# Data frames carried out to projyr, each paired with the reported quantities
-# that are indexed by its rows.
-.mse_proj_tables <- list(
-  index_data  = c("index_hat", "log_index_hat", "log_index_sd"),
-  comp_data   = c("comp_hat", "comp_obs", "age_hat", "age_obs_hat"),
-  caal_data   = c("caal_hat", "caal_obs"),
-  catch_data  = c("catch_hat", "max_catch_hat", "log_catch_sd"),
-  diet_data   = c("diet_hat", "diet_obs"),
-  NByageFixed = character(0),
-  emp_sel     = character(0),
-  weight      = character(0),
-  ration_data = character(0)
-)
+# Data frames carried out to projyr -- exactly the ones clean_data() filters to
+# styr:projyr, so exactly the ones a shortened horizon truncates.
+.mse_proj_tables <- c("index_data", "comp_data", "caal_data", "catch_data",
+                      "diet_data", "NByageFixed", "emp_sel", "weight",
+                      "ration_data")
+
+# Between assessments the loop reads two reported quantities off the operating
+# model, both indexed by catch_data's rows: max_catch_hat, to cap the next TAC
+# at exploitable biomass, and catch_hat, for the catch the operating model
+# actually took. Those are lifted back onto the full-length table; the rest of
+# the fit's quantities are left as the shortened refit produced them. Nothing
+# else reads them -- sim_mod() works off the un-restored fit, a completed
+# simulation returns the terminal full-horizon fit, and a failed one returns no
+# model at all.
+.mse_proj_catch_quantities <- c("catch_hat", "max_catch_hat")
 
 # Replace the year dimension of an array with `keep`, whatever its rank.
 .mse_slice_year_dim <- function(x, yr_dim, keep) {
@@ -81,12 +83,12 @@
 
 # Put a shortened-horizon fit back on the full projection horizon: data frames
 # regain their future rows, projection-length parameter blocks regain their
-# future slices, and every quantity indexed by a restored data frame's rows is
-# re-expanded to match (NA in the years the refit did not cover).
+# future slices, and the two catch quantities the loop reads are re-expanded to
+# match (NA in the years the refit did not cover).
 .mse_restore_om_horizon <- function(fit, data_list_full, params_full) {
   short_projyr <- fit$data_list$projyr
 
-  for (nm in names(.mse_proj_tables)) {
+  for (nm in .mse_proj_tables) {
     full  <- data_list_full[[nm]]
     short <- fit$data_list[[nm]]
     if (is.null(full) || is.null(short) || !nrow(full)) next
@@ -122,12 +124,12 @@
     restored[keep, ] <- short
     fit$data_list[[nm]] <- restored
 
-    for (q in .mse_proj_tables[[nm]]) {
-      x <- fit$quantities[[q]]
-      if (is.null(x)) next
-      fit$quantities[[q]] <- if (is.null(dim(x))) {
-        # Keep any per-row labels rename_output() attached, so a name-based
-        # lookup on the restored vector still resolves.
+    if (identical(nm, "catch_data")) {
+      for (q in .mse_proj_catch_quantities) {
+        x <- fit$quantities[[q]]
+        if (is.null(x)) next
+        # NA outside the refit's horizon: those years have not been projected,
+        # and the loop only ever indexes rows at or before it.
         out <- rep(NA_real_, nrow(full))
         out[keep] <- x
         if (!is.null(names(x))) {
@@ -135,12 +137,7 @@
           nms[keep] <- names(x)
           names(out) <- nms
         }
-        out
-      } else {
-        out <- matrix(NA_real_, nrow(full), ncol(x),
-                      dimnames = list(NULL, colnames(x)))
-        out[keep, ] <- x
-        out
+        fit$quantities[[q]] <- out
       }
     }
   }
@@ -866,8 +863,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         return(list(kill_sim = TRUE, failure = "EM"))
       })
 
-      if(is.null(em_use)){
-        return(list(kill_sim = TRUE, failure = "EM"))
+      # A failed re-assessment leaves em_use holding the PREVIOUS year's model,
+      # so the simulation cannot carry on: it would store that stale assessment
+      # under this year's name and hand its catch advice to the next iteration.
+      # Stop the simulation the same way a failed operating-model refit does.
+      if(kill_sim$kill_sim){
         break()
       }
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
