@@ -732,17 +732,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
+      # sample_yrs pairs each fleet with the years THAT fleet is sampled, so the
+      # rows to add are the (fleet, year) pairs it lists -- not every fleet in
+      # every year. Matching the year set and the fleet set separately is the
+      # same thing only when one year advances per assessment; with a longer
+      # assessment period it also admits an every-other-year fleet in its off
+      # years, giving the estimation model survey and composition data the
+      # sampling design says were never collected.
+      sampled_key <- paste(years_include$Fleet_code, years_include$Year)
+
       # -- Add newly simulated survey data to EM and OM
       # - Get simulated survey data
       new_index_data <- sim_dat$index_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       # - Add to EM and OM
       om_use$data_list$index_data <- om_use$data_list$index_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_index_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))
@@ -755,8 +762,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Add newly simulated comp data to EM & OM
       # - Simulated comp data
       new_comp_data <- sim_dat$comp_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(dplyr::select(new_comp_data, dplyr::contains("Comp_"))) > 0) # Set sample size to 0 if catch is 0
@@ -765,8 +771,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       # - Add to EM and OM
       om_use$data_list$comp_data <- om_use$data_list$comp_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_comp_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))
@@ -778,8 +783,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Add newly simulated CAAL to EM & OM
       # - Simulated caal data
       new_caal_data <- sim_dat$caal_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       new_caal_data$Sample_size <- new_caal_data$Sample_size * as.numeric(rowSums(dplyr::select(new_caal_data, dplyr::contains("CAAL_"))) > 0) # Set sample size to 0 if catch is 0
@@ -788,8 +792,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       # - Add to EM and OM
       om_use$data_list$caal_data <- om_use$data_list$caal_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_caal_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))

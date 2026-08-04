@@ -22,6 +22,22 @@
   With `simulate_data = FALSE`, where no random numbers are drawn, results are
   unchanged to the bit.
 
+## Bug fixes
+
+* **`sampling_period` is now honoured per fleet when more than one year advances
+  per assessment.** `run_mse()` selected the newly sampled rows by testing the
+  year set and the fleet set separately, which is the same as matching
+  fleet-year pairs only while `years_include` spans a single year. With
+  `assessment_period > 1` and fleets on different sampling periods, the two
+  tests together admitted every fleet in every year of the step: a fleet
+  surveyed every second year was given observations in its off years as well.
+  The estimation model was therefore fit to more survey and composition data
+  than the sampling design specifies, understating terminal-year uncertainty and
+  making a data-poor design perform like a data-rich one. Rows are now matched on
+  the fleet and year together. Runs with `assessment_period = 1` -- the default
+  -- are unaffected; results move for any run combining a longer assessment
+  period with per-fleet sampling periods.
+
 ## Behaviour changes
 
 * **A simulation that does not run to completion now returns only a marker.**
