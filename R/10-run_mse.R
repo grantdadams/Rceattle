@@ -11,6 +11,128 @@
   "B_eaten", "B_eaten_as_prey", "Flimit"
 )
 
+# Shortening the operating model's projection horizon -------------------------
+#
+# Between assessments the operating model only has to reach one assessment step
+# past its terminal year: run_mse() reads `max_catch_hat` in the upcoming
+# assessment year to cap the TAC at exploitable biomass, and nothing looks
+# further ahead than that. `projyr` is what sizes the AD tape, so refitting on
+# the shorter horizon keeps each refit proportional to the years realized so
+# far rather than to the whole projection.
+#
+# clean_data() filters every data frame to styr:projyr, so the shorter horizon
+# also drops the projection-year placeholder rows run_mse() appends once up
+# front. Those rows are only ever rewritten for years at or before the current
+# assessment year -- inside the shortened horizon -- so the dropped ones still
+# hold the values they were created with and are restored verbatim.
+
+# Parameter blocks build_params() dimensions by styr:projyr, with the position
+# of their year dimension. Every other block is hindcast-length.
+.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L,
+                           log_growth_par_devs = 3L)
+
+# Data frames carried out to projyr, each paired with the reported quantities
+# that are indexed by its rows.
+.mse_proj_tables <- list(
+  index_data  = c("index_hat", "log_index_sd"),
+  comp_data   = "comp_hat",
+  caal_data   = "caal_hat",
+  catch_data  = c("catch_hat", "max_catch_hat", "log_catch_sd"),
+  diet_data   = character(0),
+  NByageFixed = character(0),
+  emp_sel     = character(0),
+  weight      = character(0),
+  ration_data = character(0)
+)
+
+# Replace the year dimension of an array with `keep`, whatever its rank.
+.mse_slice_year_dim <- function(x, yr_dim, keep) {
+  idx <- lapply(dim(x), seq_len)
+  idx[[yr_dim]] <- keep
+  do.call(`[`, c(list(x), idx, list(drop = FALSE)))
+}
+
+.mse_trim_proj_params <- function(params, nyrs_keep) {
+  for (nm in names(.mse_proj_param_yrdim)) {
+    if (is.null(params[[nm]])) next
+    params[[nm]] <- .mse_slice_year_dim(params[[nm]],
+                                        .mse_proj_param_yrdim[[nm]],
+                                        seq_len(nyrs_keep))
+  }
+  params
+}
+
+# Write the shortened blocks back over the head of the full-horizon ones, so
+# the projection years the refit did not cover keep their existing values --
+# for rec_dev those are the recruitment deviations sample_rec() drew for this
+# simulation.
+.mse_restore_proj_params <- function(params, params_full) {
+  for (nm in names(.mse_proj_param_yrdim)) {
+    short <- params[[nm]]
+    full  <- params_full[[nm]]
+    if (is.null(short) || is.null(full)) next
+    yr_dim <- .mse_proj_param_yrdim[[nm]]
+    idx <- lapply(dim(full), seq_len)
+    idx[[yr_dim]] <- seq_len(dim(short)[yr_dim])
+    params[[nm]] <- do.call(`[<-`, c(list(full), idx, list(value = short)))
+  }
+  params
+}
+
+# Put a shortened-horizon fit back on the full projection horizon: data frames
+# regain their future rows, projection-length parameter blocks regain their
+# future slices, and every quantity indexed by a restored data frame's rows is
+# re-expanded to match (NA in the years the refit did not cover).
+.mse_restore_om_horizon <- function(fit, data_list_full, params_full) {
+  short_projyr <- fit$data_list$projyr
+
+  for (nm in names(.mse_proj_tables)) {
+    full  <- data_list_full[[nm]]
+    short <- fit$data_list[[nm]]
+    if (is.null(full) || is.null(short) || !nrow(full)) next
+
+    keep <- abs(full$Year) <= short_projyr
+    # The refit sees the full-horizon table and only filters it, so its rows are
+    # the kept rows in the same order and its columns are unchanged. Check
+    # rather than assume: either mismatch would silently misalign the rows or
+    # columns written back below, and with them every row-indexed quantity.
+    # Compare years by value -- clean_data() may return them as integer where
+    # the source table held doubles.
+    yrs_full  <- as.numeric(abs(full$Year))[keep]
+    yrs_short <- as.numeric(abs(short$Year))
+    if (length(yrs_full) != length(yrs_short) || any(yrs_full != yrs_short) ||
+        !identical(names(full), names(short))) {
+      stop("run_mse(): '", nm, "' did not survive the shortened operating-model ",
+           "horizon unchanged (", sum(keep), " rows expected, ", nrow(short),
+           " returned).", call. = FALSE)
+    }
+
+    restored <- full
+    restored[keep, ] <- short
+    fit$data_list[[nm]] <- restored
+
+    for (q in .mse_proj_tables[[nm]]) {
+      x <- fit$quantities[[q]]
+      if (is.null(x)) next
+      fit$quantities[[q]] <- if (is.null(dim(x))) {
+        out <- rep(NA_real_, nrow(full))
+        out[keep] <- x
+        out
+      } else {
+        out <- matrix(NA_real_, nrow(full), ncol(x),
+                      dimnames = list(NULL, colnames(x)))
+        out[keep, ] <- x
+        out
+      }
+    }
+  }
+
+  fit$data_list$projyr <- data_list_full$projyr
+  fit$estimated_params <- .mse_restore_proj_params(fit$estimated_params,
+                                                   params_full)
+  fit
+}
+
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
@@ -428,6 +550,23 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
+      # * Shorten the projection horizon for this refit ----
+      # Reach one assessment step past the new terminal year -- far enough for
+      # the next iteration's exploitable-biomass cap -- so the AD tape covers
+      # the realized years plus that look-ahead instead of the whole projection.
+      # The last assessment keeps the full horizon, so the operating model that
+      # is returned (and handed to remove_F) is built exactly as before.
+      om_dl_full     <- om_use$data_list
+      om_params_full <- om_use$estimated_params
+      om_projyr_use  <- if (k < length(assess_yrs)) assess_yrs[k + 1] else om_dl_full$projyr
+      om_shortened   <- om_projyr_use < om_dl_full$projyr
+      if (om_shortened) {
+        om_use$data_list$projyr <- om_projyr_use
+        om_use$estimated_params <- .mse_trim_proj_params(
+          om_use$estimated_params,
+          om_projyr_use - om_use$data_list$styr + 1)
+      }
+
       # * Update parameters ----
       # -- log_F
       om_use$estimated_params$log_F <- cbind(om_use$estimated_params$log_F, matrix(0, nrow= nrow(om_use$estimated_params$log_F), ncol = length(new_years)))
@@ -537,11 +676,25 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       })
 
       if(kill_sim$kill_sim){
+        # The refit did not run, so put the operating model back on its full
+        # horizon before returning it with the failed simulation.
+        if (om_shortened) {
+          om_use$data_list       <- om_dl_full
+          om_use$estimated_params <- om_params_full
+        }
         break()
       }
 
       # -- Set estimate mode back to original
       om_use$data_list$estimateMode <- estimate_mode_base
+
+      # sim_mod() reads the operating model's quantities positionally against
+      # its own data frames, so it works from the fitted object; the assessment
+      # loop below works from the full-horizon one.
+      om_fit <- om_use
+      if (om_shortened) {
+        om_use <- .mse_restore_om_horizon(om_use, om_dl_full, om_params_full)
+      }
 
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -564,7 +717,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # 4. Simulate data from OM ----
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
-      sim_dat <- Rceattle::sim_mod(om_use, simulate = simulate_data)
+      sim_dat <- Rceattle::sim_mod(om_fit, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 

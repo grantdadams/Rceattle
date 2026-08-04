@@ -1,5 +1,27 @@
 # Rceattle 5.2.4
 
+## Performance
+
+* **`run_mse()` refits the operating model only as far ahead as the next
+  assessment needs.** Between assessments the operating model has to reach one
+  assessment step past its terminal year -- far enough for the exploitable-biomass
+  cap on the next TAC -- but it was rebuilt over the whole projection every time.
+  Since `projyr` sizes the AD tape, and the tape costs roughly a fixed amount per
+  model year, most of each refit was spent on years that never influenced the
+  result. The refit now runs on the shortened horizon and the operating model is
+  restored to the full projection afterwards; the final assessment keeps the full
+  horizon, so the returned operating model is built exactly as before. Measured
+  at ~7% off a Bering Sea multispecies MSE projecting to 2040, and the saving
+  grows with the length of the projection. Single-species models see little
+  change, as their tape cost barely varies with the number of years.
+
+  Because the operating model now carries fewer projection rows while the refit
+  runs, `sim_mod()` draws a different number of random values, so a run with
+  `simulate_data = TRUE` will not reproduce results generated before this
+  version. Runs remain fully reproducible from a given `seed` within a version.
+  With `simulate_data = FALSE`, where no random numbers are drawn, results are
+  unchanged to the bit.
+
 ## Bug fixes
 
 * **`sample_rec(update_model = TRUE)` no longer discards catchability,
