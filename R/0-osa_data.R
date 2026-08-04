@@ -254,6 +254,27 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     }
   }
 
+  # ---- Environmental-covariate (Rogers QAR1) observations ----
+  # A linkage random-effect group with an observed covariate (observe=) fits a
+  # Gaussian state-space measurement dnorm(obs, latent_re, obs_sd) per observed
+  # year (ceattle.cpp, row JNLL_LINKAGE_RE). Lay each observed slot into obsvec so
+  # oneStepPredict() can residualize it, matching WHAM's Ecov OSA. The RE slots
+  # are one-per-year in ascending (time) order over the model span, so slot g
+  # (1-based) maps to model year styr + g - 1; unobserved slots (obs_mask == 0)
+  # carry a latent state but no observation, so they get no obsvec entry.
+  n_re <- length(data_list$linkage_re_obs_value)
+  linkage_re_obsvec_idx <- rep(-1L, n_re)
+  if (n_re > 0 && !is.null(data_list$linkage_re_obs_mask)) {
+    obs_mask  <- data_list$linkage_re_obs_mask
+    slot_year <- data_list$styr + seq_len(n_re) - 1L
+    for (g in which(obs_mask == 1L)) {
+      linkage_re_obsvec_idx[g] <- append_obs(
+        value = data_list$linkage_re_obs_value[g], source = "ecov",
+        data_row = g, fleet_code = NA_integer_, species = 1L,
+        year = slot_year[g])
+    }
+  }
+
   # ---- Age/length composition: bin counts (proportion + 1e-5) * N ----
   # TMB guard: Year in (0, endyr], fleet on, Sample_size > 0. Bins per row:
   # nages (age comp) or nlengths (length comp), doubled for joint-sex (Sex==3).
@@ -373,6 +394,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$comp_obsvec_idx  <- as.integer(comp_obsvec_idx)
   data_list$caal_obsvec_idx  <- as.integer(caal_obsvec_idx)
   data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
+  data_list$linkage_re_obsvec_idx <- as.integer(linkage_re_obsvec_idx)
   data_list$osa_mode         <- 0L
   data_list$comp_offset      <- comp_offset       # read by the TMB DATA_SCALAR
   data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR

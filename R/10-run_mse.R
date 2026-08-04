@@ -906,7 +906,17 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       sim_list$use_sim <- TRUE
       sim_list$failure <- NA
       sim_list$OM <- om_use # OM
-      sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
+      # The unfished reference run is a separate numerical problem and can fail
+      # on its own (it sdreports a model with F pinned off across the
+      # projection). The simulation itself is complete at this point, and its
+      # assessments are the catch-advice record, so a failure here must not
+      # discard it: dropping these would remove simulations in a
+      # stock-state-dependent way and bias every performance metric.
+      sim_list$OM_no_F <- tryCatch(remove_F(om_use), error = function(e) {
+        warning("Sim ", sim, ": unfished reference run failed (",
+                conditionMessage(e), "); OM_no_F is NULL.", call. = FALSE)
+        NULL
+      })
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
 
@@ -929,11 +939,23 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # cause is still visible.
   run_one_sim_guarded <- function(sim) {
     tryCatch(run_one_sim(sim), error = function(e) {
-      marker <- list(use_sim = FALSE, failure = conditionMessage(e))
+      # Tagged so this stays distinguishable from the enumerated "OM"/"EM"
+      # failures the assessment loop reports: those are expected outcomes, this
+      # is a bug or a bad input.
+      marker <- list(use_sim = FALSE,
+                     failure = paste0("unexpected: ", conditionMessage(e)))
+      message("Sim ", sim, " FAILED: ", conditionMessage(e))
       if (!is.null(dir)) {
-        dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
-        saveRDS(marker,
-                file = paste0(dir, "/", file, "EMs_from_OM_Sim_", sim, ".rds"))
+        # Writing the marker must not itself escape, or the containment this
+        # handler exists for is lost for every other simulation.
+        tryCatch({
+          dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+          saveRDS(marker,
+                  file = paste0(dir, "/", file, "EMs_from_OM_Sim_", sim, ".rds"))
+        }, error = function(e2) {
+          warning("Sim ", sim, ": could not record the failure (",
+                  conditionMessage(e2), ").", call. = FALSE)
+        })
         return(NULL)
       }
       marker
@@ -952,6 +974,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   }
 
   names(sim_list) <- paste0("Sim_", start_sim:nsim)
+
+  # Report attrition here rather than leaving it to whatever reads the results.
+  # With `dir` set the return value is NULL, so a run in which every simulation
+  # failed would otherwise be indistinguishable from one in which every
+  # simulation succeeded -- the same number of files either way.
+  n_failed <- sum(vapply(seq_along(sim_list), function(i) {
+    x <- sim_list[[i]]
+    if (!is.null(dir)) {
+      f <- paste0(dir, "/", file, "EMs_from_OM_Sim_", (start_sim:nsim)[i], ".rds")
+      x <- if (file.exists(f)) readRDS(f) else NULL
+    }
+    isFALSE(x$use_sim)
+  }, logical(1)))
+  if (n_failed) {
+    warning(n_failed, " of ", length(sim_list),
+            " simulations did not complete; they carry use_sim = FALSE and no ",
+            "models. Filter on use_sim before summarising.", call. = FALSE)
+  }
 
   if(is.null(dir)){
     return(sim_list)

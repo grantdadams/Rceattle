@@ -244,6 +244,7 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR(linkage_re_obs_sd);      // per RE group: fixed measurement SD (0 if unobserved)
   DATA_VECTOR(linkage_re_obs_value);   // per beta_linkage_re slot: observed covariate value (0 if unobserved)
   DATA_IVECTOR(linkage_re_obs_mask);   // per beta_linkage_re slot: 1 if the covariate is observed that year, 0 otherwise
+  DATA_IVECTOR(linkage_re_obsvec_idx); // per beta_linkage_re slot: 0-based obsvec position for OSA (-1 if unobserved / not built)
   DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
   DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
@@ -4120,11 +4121,11 @@ Type objective_function<Type>::operator() () {
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) len++;
       if (len == 0) continue;
       vector<Type> re(len), obs(len);
-      vector<int> obs_mask(len);
+      vector<int> obs_mask(len), obs_slot(len);
       int j = 0;
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
         obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g);
-        obs_mask(j) = linkage_re_obs_mask(g); j++;
+        obs_mask(j) = linkage_re_obs_mask(g); obs_slot(j) = g; j++;
       }
 
       int st = linkage_re_struct(grp);
@@ -4155,8 +4156,19 @@ Type objective_function<Type>::operator() () {
         Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
           if (obs_mask(t) == 0) continue;   // year absent from env_data: latent exists, but no observation
-          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
-          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
+          if (osa_mode == 0) {
+            jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
+            unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
+          } else {
+            // OSA: read the covariate observation from obsvec, keep-gated, so
+            // oneStepPredict() residualizes it against the latent AR1 state re(t)
+            // (WHAM's Ecov OSA). build_osa_data() lays each observed slot in.
+            int pos = linkage_re_obsvec_idx(obs_slot(t));
+            if (pos >= 0) {
+              jnll_comp(JNLL_LINKAGE_RE, 0)            -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
+              unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
+            }
+          }
         }
       }
     }

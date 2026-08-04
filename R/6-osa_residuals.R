@@ -101,7 +101,7 @@
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
 #' @export
 osa_residuals <- function(fit,
-                          source   = c("index", "catch", "comp", "caal"),
+                          source   = c("ecov", "index", "catch", "comp", "caal"),
                           method   = "oneStepGaussianOffMode",
                           discrete = FALSE,
                           parallel = TRUE,
@@ -131,9 +131,9 @@ osa_residuals <- function(fit,
   # "diet" is supported but opt-in: it applies only to multispecies models with
   # estimated suitability and can be expensive, so it is not in the default set.
   # "all" is a synonym for every source including diet.
-  valid_sources <- c("index", "catch", "comp", "caal", "diet", "all")
+  valid_sources <- c("ecov", "index", "catch", "comp", "caal", "diet", "all")
   source <- match.arg(source, choices = valid_sources, several.ok = TRUE)
-  if ("all" %in% source) source <- c("index", "catch", "comp", "caal", "diet")
+  if ("all" %in% source) source <- c("ecov", "index", "catch", "comp", "caal", "diet")
 
   # Build the full OSA observation data (comp / caal / diet segments) on demand.
   # This works from any fit and no longer requires fitting with
@@ -174,10 +174,13 @@ osa_residuals <- function(fit,
   # sel <- sel[order(sel$year, match(sel$source, source), sel$fleet_code,
   #                 sel$bin_index, na.last = TRUE), , drop = FALSE]
 
-  # WHAM-style -- type-blocked: source first (aggregate index/catch, then comp,
-  # then caal), then year, then fleet, then bin. This reproduces
-  # WHAM's make_osa_residuals() conditioning (aggregate -> comp -> CAAL,
-  # each conditional on the previous types).
+  # WHAM-style -- type-blocked: source first (Ecov, then aggregate index/catch,
+  # then comp, then caal), then year, then fleet, then bin. This reproduces
+  # WHAM's make_osa_residuals() conditioning: the environmental covariate is
+  # residualized FIRST and standalone (a one-step-ahead of its own AR1 series),
+  # then aggregate -> comp -> CAAL each conditional on the previous types
+  # (including the Ecov residuals), matching make_osa_residuals()'s Ecov-first
+  # ordering (`conditional. <- c(conditional., subset.ecov)`).
   sel <- sel[order(match(sel$source, source), sel$year, sel$fleet_code,
                     sel$bin_index, na.last = TRUE), , drop = FALSE]
 

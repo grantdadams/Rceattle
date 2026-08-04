@@ -143,4 +143,10 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   # Tests ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   testthat::expect_equal(2, length(mse))
+  # length() alone holds whether the simulations ran or came back as failure
+  # markers, and a failure no longer propagates out of the dispatch -- so assert
+  # they actually completed. This is the only nsim > 1 case, and therefore the
+  # only one that exercises the parallel path.
+  testthat::expect_true(all(vapply(mse, function(x) isTRUE(x$use_sim), logical(1))))
+  testthat::expect_true(all(vapply(mse, function(x) !is.null(x$OM), logical(1))))
 })
