@@ -22,6 +22,8 @@ The data-workflow + linkage-grammar effort (PRs 0–7) is **complete and merged 
 | `golden-ref.rds` | Pinned 4-model golden reference (see the `/golden-check` skill). |
 | `verify-refit-like.R` | Before/after equivalence harness for the `.refit_like` collapse (runs every refit entry function incl. SS + MS MSE; compares bit-identical). |
 | `verify-mse-hindcast-invariant.R` | Checks the MSE does not perturb the hindcast (OM SSB over styr:endyr fixed under simulate_data/sample_rec, SS + MS). |
+| `verify-mse-om-horizon.R` | Equivalence + timing for the shortened operating-model refit horizon. Requires bit-identity in the scenarios where `sim_mod()` draws nothing; reports how far the observation-error stream moved in the one where it does. Takes `ss`/`ms` as a fourth argument. |
+| `NOTES-mse-runtime-hake.md` | Measured attribution of `run_mse()` on the Pacific hake multispecies DM model: build-vs-eval split, per-phase share of the assessment-year loop, and a ranked lever list. Closes out `sim_mod()` and the R-side data prep as non-issues. |
 
 ## archive/
 
