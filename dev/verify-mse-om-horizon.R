@@ -87,13 +87,14 @@ digest <- list(
   # the scenario that exercises the rec_dev trim/restore with a projection whose
   # recruitment deviations actually vary from year to year.
   sim_off_resampled = digest_one(FALSE, resample = TRUE),
-  # Several years advance per assessment, and the survey fleet is sampled every
-  # other year. This is the case where `new_years` spans more than one year, so
-  # it is the one that tests whether the one-assessment-step look-ahead really
-  # covers every year whose exploitable biomass the next iteration reads.
-  sim_off_multiyear = digest_one(FALSE, resample = TRUE,
-                                 assessment_period = 2,
-                                 sampling_period = c(1, 2)),
+  # Two years advance per assessment, and alternate fleets are sampled every
+  # other year (sampling_period is per fleet, so it must be length 1 or nflts).
+  # This is the case where `new_years` spans more than one year, so it is the
+  # one that tests whether the one-assessment-step look-ahead really covers
+  # every year whose exploitable biomass the next iteration reads.
+  sim_off_multiyear = digest_one(
+    FALSE, resample = TRUE, assessment_period = 2,
+    sampling_period = rep_len(c(1, 2), nrow(om$data_list$fleet_control))),
   sim_on  = digest_one(TRUE))
 
 saveRDS(digest, out_path)
