@@ -28,11 +28,24 @@
 #'   passed explicitly by every caller (retro/jitter refit at 0, profile at 1,
 #'   the MSE OM rebuild at 3, the input-F EM at 2, ...), so it has no default.
 #' @param map Parameter map, or `NULL` to let [fit_mod()] build it.
+#'
+#'   There is deliberately no `bounds` counterpart. Bounds are always rebuilt
+#'   from the source `data_list`, which reproduces them exactly for every bound
+#'   the schema or the linkage table drives (`linkage_spec(bounds = )`) -- the
+#'   documented way to set them. A raw `fit_mod(bounds = )` hand-override is
+#'   therefore the one thing a refit does not carry, and carrying it would not be
+#'   safe: [run_mse()] grows `log_F` and re-dimensions the selectivity deviation
+#'   blocks at every assessment, so the source fit's bounds no longer line up
+#'   with the parameters they would be indexed against.
 #' @param HCR A pre-built [build_hcr()] object to use instead of reconstructing
 #'   one from `data_list` (used for [run_mse()]'s input-F EM refit, whose HCR is
 #'   a freshly computed average F rather than the stored rule).
 #' @param phase,getsd,loopnum [fit_control()] knobs. `getsd` defaults to `FALSE`
 #'   (diagnostics rarely need `sdreport`); `remove_F()` overrides it to `TRUE`.
+#'   The bias-adjustment settings are recovered from `data_list` rather than
+#'   taken from a caller (see below); every other [fit_control()] field falls
+#'   back to its default, so a source model fitted with non-default optimizer
+#'   settings (`newtonsteps`, `nlminb_control`, ...) refits under the defaults.
 #' @param proj_mean_rec Recruitment projection mode; defaults to the source's.
 #'   [run_mse()]'s OM refit pins it to `TRUE` (project on the mean across sims).
 #' @param srr_mse_switchyr,srr_hat_styr,srr_hat_endyr Stock-recruit reference
@@ -134,5 +147,40 @@
       phase   = phase,
       loopnum = loopnum,
       getsd   = getsd,
-      verbose = 0))
+      verbose = 0,
+      # Bias adjustment defines the LIKELIHOOD, not the optimizer, so a model
+      # fitted with it off has to refit with it off or the diagnostic compares
+      # two different objectives. It cannot be left to the default: fit_mod()
+      # resets data_list's copies to 1 and then re-applies fit_control's, whose
+      # defaults are TRUE, so a freshly built control silently switches it back
+      # on (worth ~880 jnll units on BS2017SS). The resolved values ride on the
+      # data_list, so read them back from there -- the same way `loopnum` above
+      # recovers its value -- which covers every call site without one of them
+      # having to remember to pass it.
+      bias_adjust_obs  = .refit_bias_adjust(dl$bias_adjust_obs),
+      bias_adjust_proc = .refit_bias_adjust(dl$bias_adjust_proc)))
+}
+
+
+#' Recover a bias-adjustment multiplier from a fitted `data_list`.
+#'
+#' Returned unchanged rather than coerced to a logical. The cpp reads these as
+#' `DATA_SCALAR` and uses them as a plain multiplier on the correction
+#' (`bias_adjust_obs * sigma^2 / 2`), so a fractional value is a partial
+#' bias-adjustment ramp, not a malformed flag -- `as.logical()` would quantize
+#' 0.5 up to 1 and reintroduce a smaller version of the bug this recovers from.
+#' `DATA_SCALAR` also means a vector would fail in `MakeADFun`, so taking the
+#' first element cannot silently pick the wrong one.
+#'
+#' `NULL` means the `data_list` carries no resolved value -- it never went
+#' through [fit_mod()], or it came from a fit predating the field being recorded.
+#' In the second case a model fitted with the correction off refits with it on,
+#' which is not recoverable from the object; [fit_control()]'s own default is the
+#' only available answer.
+#'
+#' @keywords internal
+#' @noRd
+.refit_bias_adjust <- function(x) {
+  if (is.null(x) || !length(x) || anyNA(x)) return(TRUE)
+  x[[1]]
 }

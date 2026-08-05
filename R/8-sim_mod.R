@@ -18,6 +18,20 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
 
+  # Observation bias-adjustment multiplier (default 1). The index/catch
+  # lognormal likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2
+  # (ceattle.cpp, JNLL_INDEX / JNLL_CATCH), so the simulator has to apply the
+  # SAME offset or the estimation model is fitted to data drawn from a different
+  # mean than its own likelihood assumes -- a systematic bias in scale (and so in
+  # catchability), not noise, which no number of simulations averages away.
+  # Mirrors residuals.Rceattle(), which resolves the flag the same way.
+  ba_obs <- dat_sim$bias_adjust_obs
+  if (is.null(ba_obs) && !is.null(Rceattle$obj)) {
+    ba_obs <- Rceattle$obj$env$data$bias_adjust_obs
+  }
+  if (is.null(ba_obs)) ba_obs <- 1
+  ba_obs <- as.numeric(ba_obs)[1]
+
 
   # Indices of abundance/biomass ----
   log_index_sd <- quantities$log_index_sd
@@ -27,7 +41,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # Log-normal simulation with bias correction
     dat_sim$index_data$Observation <- exp(stats::rnorm(
       n = length(index_hat),
-      mean = log(index_hat) - (log_index_sd^2) / 2,
+      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
       sd = log_index_sd
     ))
   } else {
@@ -144,7 +158,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # Log-normal simulation with bias correction
     dat_sim$catch_data$Catch <- exp(stats::rnorm(
       n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - (log_catch_sd^2) / 2,
+      mean = log(catch_hat) - ba_obs * (log_catch_sd^2) / 2,
       sd = log_catch_sd
     ))
   } else {
