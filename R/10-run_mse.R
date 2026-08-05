@@ -284,8 +284,13 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # - Set up years of data we are sampling for each fleet
   sample_yrs <- lapply(sampling_period, function(x) seq(from = em$data_list$endyr + x, to = em$data_list$projyr,  by = x))
   fleet_id <- sample_yrs
+  # sampling_period is given per fleet in fleet_control row order, but the table
+  # built here is matched against the data's Fleet_code column. Carry the fleet's
+  # own code rather than its row position: data_check() does require the two to
+  # agree, but nothing here should depend on that silently.
+  fleet_codes <- em$data_list$fleet_control$Fleet_code
   for(i in 1:length(sample_yrs)){
-    fleet_id[[i]] <- replace(fleet_id[[i]], values = i)
+    fleet_id[[i]] <- replace(fleet_id[[i]], values = fleet_codes[i])
   }
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
@@ -922,7 +927,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
     # - Save
     if(!is.null(dir)){
-      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      dir.create(dir, showWarnings = FALSE, recursive = TRUE)
       saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
       # Hand back only the outcome, not the models: run_mse() returns NULL in
       # this mode, and the dispatcher needs to report attrition without reading
@@ -952,7 +957,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         # Writing the marker must not itself escape, or the containment this
         # handler exists for is lost for every other simulation.
         tryCatch({
-          dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+          dir.create(dir, showWarnings = FALSE, recursive = TRUE)
           saveRDS(marker,
                   file = paste0(dir, "/", file, "EMs_from_OM_Sim_", sim, ".rds"))
         }, error = function(e2) {
