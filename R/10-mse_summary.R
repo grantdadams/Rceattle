@@ -687,14 +687,20 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
     mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% .mse_keep_quantities] <- NULL
 
 
-    # Only use these bits for OM no F
-    mse_tmp[[i]]$OM_no_F$initial_params <- NULL
-    mse_tmp[[i]]$OM_no_F$bounds <- NULL
-    mse_tmp[[i]]$OM_no_F$map <- NULL
-    mse_tmp[[i]]$OM_no_F$obj <- NULL
-    mse_tmp[[i]]$OM_no_F$opt <- NULL
-    mse_tmp[[i]]$OM_no_F$sdrep <- NULL
-    mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% .mse_keep_quantities] <- NULL
+    # Only use these bits for OM no F.
+    # Guarded: run_mse() leaves OM_no_F present and NULL when the unfished run
+    # failed, and `NULL$field <- NULL` DELETES the element -- which would undo
+    # that, so a simulation read back off disk would lose the marker that says
+    # its reference run was attempted and failed.
+    if (!is.null(mse_tmp[[i]]$OM_no_F)) {
+      mse_tmp[[i]]$OM_no_F$initial_params <- NULL
+      mse_tmp[[i]]$OM_no_F$bounds <- NULL
+      mse_tmp[[i]]$OM_no_F$map <- NULL
+      mse_tmp[[i]]$OM_no_F$obj <- NULL
+      mse_tmp[[i]]$OM_no_F$opt <- NULL
+      mse_tmp[[i]]$OM_no_F$sdrep <- NULL
+      mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% .mse_keep_quantities] <- NULL
+    }
 
     # - Return
     mse_tmp[[i]]$name <- mse_files[i]

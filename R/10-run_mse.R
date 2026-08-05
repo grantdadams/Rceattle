@@ -917,14 +917,18 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # assessments are the catch-advice record, so a failure here must not
       # discard it: dropping these would remove simulations in a
       # stock-state-dependent way and bias every performance metric.
-      sim_list$OM_no_F <- tryCatch(remove_F(om_use), error = function(e) {
+      # Assigned through `[` rather than `$` so a failure leaves OM_no_F present
+      # and NULL: `sim_list$OM_no_F <- NULL` would DELETE the element, and the
+      # simulation would then be indistinguishable by name from one that never
+      # attempted the unfished run.
+      sim_list["OM_no_F"] <- list(tryCatch(remove_F(om_use), error = function(e) {
         # Recorded on the object, not just warned about: this runs in a parallel
         # worker, whose warnings are discarded, and the simulation is still
         # usable for everything that does not compare against the unfished run.
         # mse_summary() drops these from the no-F metrics only.
         sim_list$failure <<- paste0("OM_no_F: ", conditionMessage(e))
         NULL
-      })
+      }))
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
 
