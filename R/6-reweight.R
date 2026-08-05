@@ -13,6 +13,11 @@
 #' with that estimate; those fleets are named and skipped, as are any requested
 #' through `fleets` that have no fitted composition data.
 #'
+#' Only the age/length composition weight (`Comp_weights`) is tuned. The
+#' conditional age-at-length and diet weights have McAllister-Ianelli analogues
+#' of their own (`CAAL_weights`, `Diet_comp_weights`), but they are not tuned
+#' here; set them by hand if needed.
+#'
 #' Tuning stops when the largest relative change in any weight falls below
 #' `tol`. Hitting `n_iter` first gives a warning, not an error -- the partly
 #' tuned fit is returned either way, and `$reweight$history` shows whether the
@@ -20,11 +25,13 @@
 #'
 #' The weight is a parameter, not a data input, so each pass carries it to the
 #' next through `inits`; `fleet_control$Comp_weights` supplies the value only
-#' when a model is built from scratch. Editing that column and refitting from
-#' an existing fit therefore has no effect. The tuned weights are written back
-#' to it so that saving the data and rebuilding reproduces the tuned model.
+#' when a model is built from scratch, and editing that column then refitting
+#' from an existing fit has no effect (`fit_mod()` warns when it detects this).
+#' Each pass writes the new weight to both, so the returned model's data list
+#' rebuilds the tuned model from scratch.
 #'
-#' @param fit A fitted `Rceattle` model, fitted with `estimateMode` 0 or 1.
+#' @param fit An `Rceattle` model fitted at `estimateMode` `"Estimate"` (0) or
+#'   `"Hindcast"` (1) -- the modes that optimize the hindcast.
 #' @param n_iter Maximum number of iterations (default 10).
 #' @param tol Relative change in the weights below which to stop (default 0.01).
 #' @param fleets Fleet codes to tune. Default `NULL` tunes every eligible fleet.
@@ -147,11 +154,19 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
 
     # Apply and refit even on the final pass, so the model returned is the one
     # fitted with the converged weights rather than the one that implied them.
-    # The weight is a parameter, so it travels in `inits`, not the data column.
+    # The weight the fit reads is the parameter, so it travels in `inits`; the
+    # column is moved with it so the two never disagree. Keeping them in step
+    # every pass -- rather than only writing the column back at the end -- means
+    # a data_list taken from any iteration rebuilds that iteration's model, and
+    # it keeps fit_mod()'s "this column is being ignored" warning quiet, which
+    # here would fire once per fleet per pass on a weighting the loop is setting
+    # deliberately.
     inits <- fit$estimated_params
     inits$comp_weights[eligible] <- implied
+    data_list <- fit$data_list
+    data_list$fleet_control$Comp_weights[eligible] <- implied
 
-    fit <- .refit_like(data_list = fit$data_list, inits = inits,
+    fit <- .refit_like(data_list = data_list, inits = inits,
                        map = fit_map, estimateMode = estimate_mode,
                        phase = fit_phase, getsd = fit_getsd)
 
@@ -164,9 +179,10 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
             "Inspect `$reweight$history`.", call. = FALSE)
   }
 
-  # The tuned weights are parameters, but the column is where a model rebuilt
-  # from this data_list starts. Writing them back keeps the two in step, so
-  # saving the data and refitting reproduces the tuned model.
+  # The loop carries the column along with the parameter, so the two already
+  # agree; re-assert it from the returned fit rather than relying on that, since
+  # this is the guarantee the docs make -- saving this data_list and refitting
+  # from scratch reproduces the tuned model.
   fit$data_list$fleet_control$Comp_weights[eligible] <-
     fit$estimated_params$comp_weights[eligible]
 

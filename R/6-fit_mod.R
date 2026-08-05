@@ -756,6 +756,64 @@ fit_mod <-
     # build_params() on a fresh build; re-reading them here would discard the
     # estimate a refit was handed, which is not what a starting value means.
     # A reweighting workflow therefore updates the parameter, not the column.
+    #
+    # That makes editing a column and re-fitting from an existing fit a silent
+    # no-op, which is how composition weights were tuned by hand for years. Warn
+    # where the edit cannot possibly take effect: a weight the map holds fixed
+    # under a multinomial likelihood is a pure data-weighting input, so `inits`
+    # and the column disagreeing means the column is being ignored and nothing
+    # in the fit will show it. A Dirichlet-multinomial weight is deliberately
+    # excluded -- the likelihood estimates it, so a refit's `inits` differing
+    # from the column is the normal, correct state and warning on it would fire
+    # on every diagnostic refit.
+    if (!is.null(inits)) {
+      .weight_blocks <- list(
+        comp_weights      = list(col = data_list$fleet_control$Comp_weights,
+                                 dist = data_list$fleet_control$Comp_distribution,
+                                 label = "fleet_control$Comp_weights"),
+        caal_weights      = list(col = data_list$fleet_control$CAAL_weights,
+                                 dist = data_list$fleet_control$CAAL_distribution,
+                                 label = "fleet_control$CAAL_weights"),
+        diet_comp_weights = list(col = data_list$Diet_comp_weights,
+                                 dist = data_list$Diet_distribution,
+                                 label = "Diet_comp_weights"))
+      for (.nm in names(.weight_blocks)) {
+        .b   <- .weight_blocks[[.nm]]
+        .par <- start_par[[.nm]]
+        .fix <- map$mapList[[.nm]]
+        if (is.null(.b$col) || is.null(.par) || is.null(.fix)) next
+        if (length(.b$col) != length(.par) || length(.fix) != length(.par)) next
+        # NA == NA counts as agreement; only a real numeric difference is a
+        # discarded edit.
+        # Coerce only a non-numeric column (read.csv with stringsAsFactors can
+        # hand back a factor, which would compare as NA and poison `if()`
+        # below). A numeric column is compared as-is: routing it through
+        # as.character() would round it to 15 significant digits on one side of
+        # the comparison only, making a value that IS equal read as different.
+        .col <- .b$col
+        if (is.factor(.col) || is.character(.col)) {
+          .col <- suppressWarnings(as.numeric(as.character(.col)))
+        }
+        .differs <- !is.na(.col) & !is.na(.par) & .col != as.numeric(.par)
+        # A Dirichlet-multinomial weight is exempt. The likelihood estimates it,
+        # so a fit's parameter having moved away from its column is the normal
+        # state -- and under the debug map run_mse() / retrospective() supply,
+        # every weight reads as fixed, so without this the warning would fire
+        # once per fleet per assessment year of every simulation.
+        .stuck <- .differs & is.na(.fix) &
+          !as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        if (isTRUE(any(.stuck, na.rm = TRUE))) {
+          warning("`", .b$label, "` differs from the supplied `inits$", .nm,
+                  "` at ", if (identical(.nm, "diet_comp_weights")) "species " else "fleet ",
+                  paste(which(.stuck), collapse = ", "),
+                  ", and the fit reads `inits`. The column is only read when a ",
+                  "model is built from scratch (`inits = NULL`), so this edit ",
+                  "has no effect. Set `inits$", .nm, "` instead, or see ",
+                  "?reweight_comps.", call. = FALSE)
+        }
+      }
+      rm(.weight_blocks)
+    }
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species
