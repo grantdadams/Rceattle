@@ -133,6 +133,46 @@ testthat::test_that("obs_sd_est = TRUE makes the QAR1 observation SD an estimate
   testthat::expect_true("log_obs_sd_linkage" %in% names(fit$obj$par))
 })
 
+testthat::test_that("an observed QAR1 group still builds the debug map", {
+  # Regression: build_map_linkages() stored log_obs_sd_linkage's map as a
+  # factor() while every other entry of mapList is a raw integer/array. The
+  # debug map -- build_map(debug = TRUE), which retrospective() and run_mse()
+  # build for every peel / assessment -- maps the whole list out with
+  # replace(x, values = NA); on a factor that dispatches to `[<-.factor`, which
+  # forces the missing subscript and aborts with 'argument "list" is missing,
+  # with no default'. Every peel of a model carrying an observed (state-space
+  # covariate) linkage therefore died, and under the parallel dispatch it
+  # surfaced only as "5 nodes produced errors".
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  d <- Rceattle::BS2017SS
+  nyr <- d$endyr - d$styr + 1
+  set.seed(11)
+  d$env_data <- data.frame(Year = d$styr:d$endyr, qcov = stats::rnorm(nyr))
+  qflt <- which(d$fleet_control$Catchability %in% c(1L, 2L))[1]
+  cf <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = qflt,
+                               observe = "qcov", obs_sd = 0.5)))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, qFun = cf, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+  testthat::expect_equal(length(fit$estimated_params$log_obs_sd_linkage), 1L)
+
+  testthat::expect_no_error(
+    dbg <- Rceattle::build_map(data_list = fit$data_list,
+                               params    = fit$estimated_params,
+                               debug     = TRUE))
+  testthat::expect_true(all(is.na(dbg$mapList$log_obs_sd_linkage)))
+
+  # mapList holds raw maps; build_map() derives mapFactor from them with the
+  # single factor() pass. Nothing in mapList may arrive pre-classed.
+  for (nm in names(dbg$mapList)) {
+    testthat::expect_null(attr(dbg$mapList[[nm]], "class"), info = nm)
+  }
+})
+
 testthat::test_that("obs_sd_est is rejected without observe", {
   testthat::skip_if_not_installed("Rceattle")
   testthat::expect_error(
