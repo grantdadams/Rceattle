@@ -405,6 +405,105 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+#' Is a `sel_inf` slot held on the natural scale for this selectivity form?
+#'
+#' `sel_inf` is dual-purpose. Slot 1 (`inf_asc` / `peak`) is always an age or
+#' length midpoint. Slot 2 is an inflection for the logistic family, but
+#' DoubleNormal reuses it as `logit(right_floor)` and LogisticPM as a log
+#' age-1 selectivity override. A value written on the wrong one of those is
+#' silently wrong -- `right_floor = 0.2` would become `plogis(0.2) = 0.55` --
+#' so the transformed slots are refused rather than guessed at.
+#'
+#' @param param linkage parameter name; `slot` its `.SEL_PARAM_TO_SLOT` index.
+#' @param form the fleet's `Selectivity` value.
+#' @keywords internal
+#' @noRd
+.sel_inf_is_natural <- function(slot, form) {
+  if (identical(as.integer(slot), 1L)) return(TRUE)
+  as.character(form) %in% c("Logistic", "DoubleLogistic", "DescendingLogistic")
+}
+
+
+#' Is this fleet a follower in a shared selectivity / catchability block?
+#'
+#' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
+#' fleets carrying the same value estimate ONE parameter block, and
+#' `adjust_map_shared_params()` copies the group's donor slice over the rest.
+#' The donor is the first estimated fleet in the group -- the same rule
+#' `.group_lead()` applies for `flt_sel_lead` / `flt_q_lead`, and the reason an
+#' `Off` fleet (whose slice is all NA) never leads. A value set on the donor is
+#' what the whole group uses; one set on any other member is overwritten.
+#'
+#' A group of one is not shared, whatever its key happens to be -- a survey
+#' catchability counter runs 1..n_survey and rarely matches the fleet code.
+#'
+#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of
+#'   the donor whose value would win.
+#' @keywords internal
+#' @noRd
+.shared_block_lead <- function(data_list, flt, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  if (is.null(col)) return(NA_integer_)
+  fc  <- data_list$fleet_control
+  idx <- fc[[col]]
+  if (is.null(idx) || is.na(idx[flt])) return(NA_integer_)
+
+  rows <- which(!is.na(idx) & idx == idx[flt])
+  if (length(rows) < 2L) return(NA_integer_)
+
+  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else fc$Fleet_type == "Off"
+  est  <- rows[!off[rows]]
+  lead <- if (length(est)) est[1] else rows[1]
+  if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)
+}
+
+
+#' Guards shared by the intercept init and bounds pushes
+#'
+#' @keywords internal
+#' @noRd
+.stop_if_shared_block <- function(data_list, flt, process, param) {
+  # Only a fleet the user NAMED is checked. An unstratified linkage expands to
+  # every fleet, where setting the whole group is unambiguous and the followers
+  # take the donor's value anyway.
+  if (length(flt) != 1L || is.na(flt)) return(invisible())
+  lead <- .shared_block_lead(data_list, flt, process)
+  if (is.na(lead)) return(invisible())
+  stop(sprintf(
+    paste0("linkage `%s` names fleet %d, which mirrors fleet %d's %s. One ",
+           "block is estimated for the group and fleet %d's value is the one ",
+           "used, so a value set here would be overwritten. Put it on fleet %d."),
+    param, as.integer(flt), lead,
+    if (identical(process, "q")) "catchability" else "selectivity", lead, lead),
+    call. = FALSE)
+  invisible()
+}
+
+.stop_unless_positive <- function(value, param, target) {
+  if (!(value > 0)) {
+    stop(sprintf(
+      paste0("linkage `%s` intercept value %g is not > 0, and %s is stored on ",
+             "the log scale, so it has no logarithm."),
+      param, value, target), call. = FALSE)
+  }
+  invisible()
+}
+
+.stop_unless_natural_sel_inf <- function(data_list, flt, slot, param) {
+  form <- data_list$fleet_control$Selectivity[flt]
+  if (!.sel_inf_is_natural(slot, form)) {
+    stop(sprintf(
+      paste0("linkage `%s` on fleet %d (%s selectivity) targets a sel_inf slot ",
+             "that is not on the natural scale -- DoubleNormal stores ",
+             "logit(right_floor) there and LogisticPM a log age-1 selectivity. ",
+             "Setting it from a natural-scale value would silently mis-scale ",
+             "it; set that parameter through `inits` instead."),
+      param, flt, as.character(form)), call. = FALSE)
+  }
+  invisible()
+}
+
+
 #' Row-bind one or more linkage tables, preserving the schema
 #'
 #' Wraps `rbind` and re-applies validation and class. Accepts either a

@@ -732,19 +732,13 @@ fit_mod <-
     data_list_reorganized$linkage_prior_p2     <- .linkage_enc$linkage_prior_p2
     data_list_reorganized$linkage_X            <- .linkage_enc$linkage_X
 
-    # Update comp weights, future F (if input), and F_prop from data
-    # Age/length composition
-    if (!is.null(data_list$fleet_control$Comp_weights)) {
-      start_par$comp_weights <- data_list$fleet_control$Comp_weights
-    }
-    # CAAL
-    if (!is.null(data_list$fleet_control$CAAL_weights)) {
-      start_par$caal_weights <- data_list$fleet_control$CAAL_weights
-    }
-    # Diet composition
-    if (!is.null(data_list$Diet_comp_weights)) {
-      start_par$diet_comp_weights <- data_list$Diet_comp_weights
-    }
+    # The composition weights are estimated parameters -- the Dirichlet-
+    # multinomial likelihood fits them, which is why they can carry a prior --
+    # so they warm-start from `inits` like every other parameter. Their
+    # fleet_control columns are their STARTING values and are read by
+    # build_params() on a fresh build; re-reading them here would discard the
+    # estimate a refit was handed, which is not what a starting value means.
+    # A reweighting workflow therefore updates the parameter, not the column.
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     # Fixed fishing mortality for projections for each species

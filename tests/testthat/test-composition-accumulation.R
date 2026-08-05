@@ -35,7 +35,7 @@
   dat <- f$obj$env$data
   obs <- f$quantities$comp_obs; hat <- f$quantities$comp_hat
   ctl <- dat$comp_ctl; cn <- dat$comp_n[, 2]
-  cw  <- f$estimated_params$comp_weights[fleet]
+  cw  <- unname(f$estimated_params$comp_weights[fleet])
   off <- dat$comp_offset; endyr <- f$data_list$endyr; flt_type <- dat$flt_type
   nll <- 0
   for (i in seq_len(nrow(ctl))) {
@@ -102,7 +102,7 @@ testthat::test_that("MultinomialAFSC (case -1) folds the exact hand-computed bin
   dat <- f$obj$env$data
   obs <- f$quantities$comp_obs; hat <- f$quantities$comp_hat
   ctl <- dat$comp_ctl; cn <- dat$comp_n[, 2]
-  cw  <- f$estimated_params$comp_weights[fleet]
+  cw  <- unname(f$estimated_params$comp_weights[fleet])
   off <- dat$comp_offset; endyr <- f$data_list$endyr; flt_type <- dat$flt_type
   nll <- 0
   for (i in seq_len(nrow(ctl))) {

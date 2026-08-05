@@ -1204,17 +1204,11 @@ build_composition <- function(linkages = NULL) {
          "scalar, not year-varying), not a covariate slope.", call. = FALSE)
   }
 
-  # (a2) prior-only: `init` / `est_phase` do NOT re-target the DM weight -- the
-  # weight (comp_weights / caal_weights / diet_comp_weights) is estimated by the
-  # DM likelihood itself, so a start value or a fix belongs on `inits` /
-  # `map`, not the spec. Reject them loudly rather than silently ignoring, since
-  # the intercept coefficient they would touch is mapped out at 0 for comp.
-  if (any(cmp$init_supplied)) {
-    stop("composition-weighting (comp) linkages are prior-only: `init` on the ",
-         "spec does not set the DM weight (it is estimated by the ",
-         "DirichletMultinomial likelihood); set a starting value via `inits` ",
-         "instead.", call. = FALSE)
-  }
+  # (a2) `est_phase` still does not apply: the intercept coefficient it would
+  # control is mapped out at 0 for comp, so phasing it does nothing. `init` and
+  # `bounds` DO apply -- they re-target the DM weight itself, the same contract
+  # every other process gives the intercept (see build_params() "Push
+  # (Intercept) inits to the base parameter").
   if (any(cmp$est_phase != 1L)) {
     stop("composition-weighting (comp) linkages are prior-only: `est_phase` on ",
          "the spec does not fix or phase the DM weight (the intercept ",

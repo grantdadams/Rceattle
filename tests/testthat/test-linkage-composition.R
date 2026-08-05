@@ -170,7 +170,7 @@ testthat::test_that("an explicit by = ~ species on theta_comp is rejected (fleet
     "fleet-indexed")
 })
 
-testthat::test_that("`init` / `est_phase` on a comp spec are rejected as prior-only", {
+testthat::test_that("`init` sets the DM weight; `est_phase` is still rejected", {
   testthat::skip_if_not_installed("Rceattle")
   d <- Rceattle::BS2017SS
   comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
@@ -181,12 +181,16 @@ testthat::test_that("`init` / `est_phase` on a comp spec are rejected as prior-o
   make <- function(...) Rceattle::build_composition(linkages = list(
     theta_comp = Rceattle::linkage_spec(~ 1, by = ~ fleet, fleet = comp_flts, ...)))
 
-  testthat::expect_error(
-    suppressMessages(Rceattle::fit_mod(
-      data_list = d, estimateMode = 3, msmMode = 0,
-      compFun = make(init = list(`(Intercept)` = 3)),
-      fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0))),
-    "init")
+  # `init` now re-targets the DM weight itself, the same contract the intercept
+  # gives every other process: the weight is exp(parameter), so a natural-scale
+  # 3 is stored as log(3).
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, estimateMode = 3, msmMode = 0,
+    compFun = make(init = list(`(Intercept)` = 3)),
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0))))
+  testthat::expect_equal(
+    unname(fit$estimated_params$comp_weights[comp_flts]),
+    rep(log(3), length(comp_flts)))
   testthat::expect_error(
     suppressMessages(Rceattle::fit_mod(
       data_list = d, estimateMode = 3, msmMode = 0,

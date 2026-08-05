@@ -2,6 +2,42 @@
 
 ## New features
 
+* **`reweight_comps()` runs the iterative McAllister-Ianelli tuning loop.**
+  Every fit already reports the implied weights in
+  `fleet_control$Comp_weights_mcallister`; tuning them has meant copying those
+  into `Comp_weights` and re-fitting by hand, repeatedly. `reweight_comps(fit)`
+  closes the loop: it re-fits until the largest relative change in any weight
+  falls below `tol`, returns the model fitted with the converged weights, and
+  attaches the per-iteration history as `fit$reweight`. Fleets whose
+  composition likelihood estimates its own weight -- the Dirichlet-multinomial
+  ones -- are reported and left alone rather than fought.
+
+* **`intercept` is accepted wherever `` `(Intercept)` `` is.** The key naming a
+  linkage's intercept came from `model.matrix()`, so setting an init, bounds or a
+  prior on it meant writing `` list(`(Intercept)` = ...) `` -- backticks, capital
+  I, parentheses, and no error if any of it was wrong. `intercept` now means the
+  same thing in `init`, `bounds` and `priors` across every process. The original
+  spelling still works, and a covariate genuinely named `intercept` still resolves
+  to itself.
+
+* **An `init`, `bounds` or `priors` key that names nothing is now an error.** A
+  misspelled key was silently ignored: the model fit, from a starting value or
+  under a prior the user did not ask for. Keys are now checked against the
+  linkage's own design columns (plus `sigma` / `rho` where the structure has them)
+  and an unrecognized one stops the fit, listing what was available.
+
+* **An intercept `init` or `bounds` reaches the base parameter for all six
+  processes.** Setting the intercept of a recruitment, natural-mortality or growth
+  linkage set the underlying parameter's starting value and bounds, but the same
+  key on a catchability, selectivity or composition linkage was accepted and
+  dropped. All six now behave alike, each writing on the parameter's own scale --
+  logged for `log_M1`, `rec_pars`, growth, `index_log_q`, the composition weights
+  and the selectivity slopes; natural-scale for the selectivity inflections that
+  are stored that way. A value that cannot be written -- a non-positive number on
+  a logged parameter, a natural-scale value for a `sel_inf` slot that holds
+  something else, or a fleet that mirrors another's shared parameter block -- is
+  refused by name rather than written wrongly.
+
 * **OSA residuals now cover the state-space environmental covariate.** When a
   linkage carries an observed covariate (`build_catchability(..., observe=)`, the
   Rogers et al. 2024 QAR1 form), `osa_residuals()` gains an `"ecov"` source that
@@ -82,20 +118,6 @@
   -- are unaffected; results move for any run combining a longer assessment
   period with per-fleet sampling periods.
 
-## Behaviour changes
-
-* **A simulation that does not run to completion now returns only a marker.**
-  `run_mse()` previously returned the partially advanced operating and estimation
-  models alongside `use_sim = FALSE`. Those models describe a state the
-  simulation never reached, and nothing downstream filtered on `use_sim`, so they
-  could be averaged into performance metrics as though the simulation had
-  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
-  with no models attached, and `mse_summary()` drops such simulations up front
-  with a warning naming them, or errors if none completed. Code that reached into
-  `mse$Sim_n$OM` without checking `use_sim` should now check it.
-
-## Bug fixes
-
 * **`sample_rec(update_model = TRUE)` works on models carrying catchability,
   selectivity, or composition linkages.** `.refit_like()` reconstructs the
   `build_catchability()` / `build_selectivity()` / `build_composition()`
@@ -117,6 +139,43 @@
   rebuild, where the hand-written block left them at `FALSE`. For a model that
   estimates time-varying catchability or selectivity as random effects, the
   rebuilt object now keeps those random effects instead of dropping them.
+
+## Behaviour changes
+
+* **Composition weights now warm-start from `inits` like every other
+  parameter.** `fit_mod()` re-read `comp_weights`, `caal_weights` and
+  `diet_comp_weights` from their `fleet_control` columns on every fit, even when
+  `inits` was supplied, so a weight handed to a refit was discarded. These are
+  estimated parameters -- the Dirichlet-multinomial likelihood fits them, which
+  is why they can carry a prior -- and their columns are starting values, read
+  when a model is built from scratch. A refit now keeps the estimate it was
+  given, which is what makes iterative reweighting possible and what every other
+  parameter already did.
+
+  Which models this moves depends on whether the weight is estimated. Under a
+  multinomial likelihood it is a fixed multiplier that never leaves its column
+  value, so those models -- including the bundled examples -- are unaffected, and
+  an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
+  estimated and can move a long way: fitting `BS2017SS` with DM composition puts
+  the weights between -0.6 and 12.7 on the log scale, all from a column value of
+  1. Every `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and
+  `profile()` refit previously discarded those estimates and restarted from the
+  column, so results move for any DM model, and the earlier behaviour was
+  throwing away a fitted quantity rather than merely re-seeding it.
+
+  Editing a `Comp_weights` column and re-fitting from an existing fit no longer
+  has an effect; build from `inits = NULL`, or set the parameter.
+
+
+* **A simulation that does not run to completion now returns only a marker.**
+  `run_mse()` previously returned the partially advanced operating and estimation
+  models alongside `use_sim = FALSE`. Those models describe a state the
+  simulation never reached, and nothing downstream filtered on `use_sim`, so they
+  could be averaged into performance metrics as though the simulation had
+  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
+  with no models attached, and `mse_summary()` drops such simulations up front
+  with a warning naming them, or errors if none completed. Code that reached into
+  `mse$Sim_n$OM` without checking `use_sim` should now check it.
 
 # Rceattle 5.2.3
 
