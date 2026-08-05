@@ -90,7 +90,7 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   estimate_mode <- fit$data_list$estimateMode
   if (!is.null(estimate_mode) && estimate_mode > 1) {
     stop("`fit` was run at estimateMode ", estimate_mode, ", which does not ",
-         "optimise the hindcast, so the weights cannot be tuned: every pass ",
+         "optimize the hindcast, so the weights cannot be tuned: every pass ",
          "would return the same value and report convergence. Refit at ",
          "\"Estimate\" or \"Hindcast\" first.", call. = FALSE)
   }
