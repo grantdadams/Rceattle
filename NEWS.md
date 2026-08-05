@@ -45,15 +45,33 @@
   linkage carries an observed covariate (`build_catchability(..., observe=)`, the
   Rogers et al. 2024 QAR1 form), `osa_residuals()` gains an `"ecov"` source that
   one-step-ahead residualizes the Gaussian covariate observation via
-  [TMB::oneStepPredict()]. It is included in the default `source` and is placed
+  `TMB::oneStepPredict()`. It is included in the default `source` and is placed
   first, so the covariate is residualized against its own series alone (the AR1
   process density stays in the objective, the latent state is integrated out with
   its full prior) -- matching WHAM's `make_osa_residuals()`, which residualizes
   `Ecov` observations the same way. An ordinary (non-OSA) fit is bit-identical;
   only the residual computation reads the covariate observation from the flat OSA
-  vector. Note that the AR1 latent is zero-mean (it has no estimated level
-  parameter, unlike WHAM's `Ecov_mu`), so the observed covariate is expected to
-  be standardized to mean 0; `build_catchability()` warns otherwise.
+  vector. The AR1 latent is zero-mean (it has no estimated level parameter,
+  unlike WHAM's `Ecov_mu`), so the observed covariate is expected to be
+  standardized to mean 0; `build_catchability()` warns otherwise.
+
+
+* **`linkage_spec()` selects species and fleets by name.** `species =` now accepts
+  species names matching `data_list$spnames`, and `fleet =` accepts fleet names
+  matching `fleet_control$Fleet_name`, in place of 1-based ids:
+
+  ```r
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = "Shelikof")
+  M1 = linkage_spec(~ temp, by = ~ species, species = c("Pollock", "Cod"))
+  ```
+
+  Ids continue to work unchanged. Names are resolved when the model is assembled
+  in `fit_mod()`; an unrecognized name -- or one that is not unique in
+  `fleet_control` -- errors and lists the model's own names, whereas a
+  `Fleet_code` that is wrong but in range silently attaches the linkage to a
+  different fleet and still fits. Matching is exact after trimming whitespace, and
+  a misspelled name is rejected even when the corresponding filter would be a
+  no-op. Named specs round-trip through `save_config()` / `load_config()`.
 
 ## Performance
 
@@ -66,9 +84,10 @@
   result. The refit now runs on the shortened horizon and the operating model is
   restored to the full projection afterwards; the final assessment keeps the full
   horizon, so the returned operating model is built exactly as before. Measured
-  at ~7% off a Bering Sea multispecies MSE projecting to 2040, and the saving
-  grows with the length of the projection. Single-species models see little
-  change, as their tape cost barely varies with the number of years.
+  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040
+  (`dev/NOTES-mse-runtime-hake.md`), and the saving grows with the length of the
+  projection. Single-species models see little change, as their tape cost barely
+  varies with the number of years.
 
   Because the operating model now carries fewer projection rows while the refit
   runs, `sim_mod()` draws a different number of random values, so a run with
@@ -78,6 +97,48 @@
   unchanged to the bit.
 
 ## Bug fixes
+
+* **A diagnostic refit keeps the source model's bias adjustment.** `fit_mod()`
+  resets `data_list`'s `bias_adjust_obs` / `bias_adjust_proc` and then re-applies
+  the values from `fit_control()`, whose defaults are `TRUE`. `.refit_like()`
+  built a fresh `fit_control()`, so a model fitted with bias adjustment off
+  refitted with it back on -- worth ~880 jnll units on `BS2017SS`. Bias
+  adjustment defines the likelihood rather than the optimizer, so this made
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()` and `sample_rec()` compare two different objectives: a Mohn's rho
+  or a jitter spread computed this way was not measuring what it reported. The
+  resolved settings are now recovered from the `data_list`, which covers every
+  caller. Only models fitted with a non-default `bias_adjust_*` are affected;
+  `comp_offset` was already carried correctly and is now pinned by a test.
+
+  The optimizer and `sdreport` fields -- `newtonsteps`, `use_gradient`,
+  `rel_tol`, `nlminb_control`, `getJointPrecision` and the rest -- still fall
+  back to their defaults in a refit. Those choose how the optimizer runs rather
+  than what it optimizes, so they do not change the model, but a source fit that
+  needed non-default optimizer settings will refit without them. `TMBfilename` is
+  the exception worth naming: it selects the compiled template, so a model fitted
+  against an alternate template refits against the bundled `ceattle` and is not
+  the same likelihood. Refitting such a model through any of these diagnostics is
+  not supported.
+
+* **`sim_mod()` simulates with the model's own observation bias adjustment.** It
+  hardcoded the `-sigma^2/2` offset on the simulated index and catch, which
+  agreed with the estimator only because a refit used to force bias adjustment
+  back on. With the refit now keeping the source setting, a model fitted at
+  `bias_adjust_obs = FALSE` would be simulated with the offset and then fitted by
+  a likelihood expecting none -- a systematic bias in scale, and so in
+  catchability, that no number of simulations averages away. `self_test()` and
+  `run_mse(simulate_data = TRUE)` on such a model would report that artifact as
+  estimation error. The simulator now reads the flag the same way
+  `residuals.Rceattle()` already did. Models on the default bias adjustment are
+  unaffected.
+
+* **A simulation whose unfished reference run fails keeps an `OM_no_F` entry.**
+  `run_mse()` assigned the failure result with `sim_list$OM_no_F <- NULL`, which
+  *removes* a list element rather than setting it to `NULL`, so the simulation
+  came back without the name at all. `is.null()` tests were unaffected, but code
+  keying on `names()` saw something different from what the documentation
+  described. The element is now present and `NULL`, as stated.
 
 * **A failed re-assessment now stops its simulation instead of being absorbed.**
   When an estimation-model refit failed, `run_mse()` could not assign to
@@ -143,71 +204,12 @@
   estimates time-varying catchability or selectivity as random effects, the
   rebuilt object now keeps those random effects instead of dropping them.
 
-## Behaviour changes
-
-* **Composition weights now warm-start from `inits` like every other
-  parameter.** `fit_mod()` re-read `comp_weights`, `caal_weights` and
-  `diet_comp_weights` from their `fleet_control` columns on every fit, even when
-  `inits` was supplied, so a weight handed to a refit was discarded. These are
-  estimated parameters -- the Dirichlet-multinomial likelihood fits them, which
-  is why they can carry a prior -- and their columns are starting values, read
-  when a model is built from scratch. A refit now keeps the estimate it was
-  given, which is what makes iterative reweighting possible and what every other
-  parameter already did.
-
-  Which models this moves depends on whether the weight is estimated. Under a
-  multinomial likelihood it is a fixed multiplier that never leaves its column
-  value, so those models -- including the bundled examples -- are unaffected, and
-  an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
-  estimated and can move a long way: fitting `BS2017SS` with DM composition puts
-  the weights between -0.6 and 12.7 on the log scale, all from a column value of
-  1. Every `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and
-  `profile()` refit previously discarded those estimates and restarted from the
-  column, so results move for any DM model, and the earlier behaviour was
-  throwing away a fitted quantity rather than merely re-seeding it.
-
-  Editing a `Comp_weights` column and re-fitting from an existing fit no longer
-  has an effect; build from `inits = NULL`, or set the parameter.
-
-
-* **A simulation that does not run to completion now returns only a marker.**
-  `run_mse()` previously returned the partially advanced operating and estimation
-  models alongside `use_sim = FALSE`. Those models describe a state the
-  simulation never reached, and nothing downstream filtered on `use_sim`, so they
-  could be averaged into performance metrics as though the simulation had
-  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
-  with no models attached, and `mse_summary()` drops such simulations up front
-  with a warning naming them, or errors if none completed. Code that reached into
-  `mse$Sim_n$OM` without checking `use_sim` should now check it.
-
-# Rceattle 5.2.3
-
-## Documentation
-
-* **Clarity pass across the help pages, code comments, and vignettes.** Function
-  documentation and vignette prose were rewritten to read more plainly for
-  fisheries scientists and ecologists, trimming filler without dropping any
-  caveats. No code or model behavior changed.
-
-* **A few documentation descriptions were corrected to match the code.** The
-  `jitter()` help now states that starting values are perturbed around the
-  model's initial (pre-fit) parameters, not the fitted values; the `build_params()`
-  and `TMBphase()` `@return` descriptions were fixed (they had described a map
-  object and standard errors respectively); and a mislabeled comment now correctly
-  attributes the time-varying survey catchability SD.
-
-# Rceattle 5.2.2
-
-## Bug fixes
 
 * **The "invalid switch" errors for `initMode` and `HCR` now name the offending
   value.** They previously read `Invalid 'initMode' specified: .` with the value
   dropped; they now echo what was passed (e.g. a since-renamed alias), alongside
   the list of accepted names and integer codes.
 
-# Rceattle 5.2.1
-
-## Bug fixes
 
 * **The diet Dirichlet-multinomial weight is no longer estimated where there is
   no diet likelihood.** `build_map()` freed `diet_comp_weights` for any predator
@@ -245,30 +247,6 @@
   are unchanged. The warning now fires only for a mode the `"Hake"` form cannot
   represent, and names `'Off'` rather than the non-existent `'None'`.
 
-# Rceattle 5.2.0
-
-## New features
-
-* **`linkage_spec()` selects species and fleets by name.** `species =` now accepts
-  species names matching `data_list$spnames`, and `fleet =` accepts fleet names
-  matching `fleet_control$Fleet_name`, in place of 1-based ids:
-
-  ```r
-  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = "Shelikof")
-  M1 = linkage_spec(~ temp, by = ~ species, species = c("Pollock", "Cod"))
-  ```
-
-  Ids continue to work unchanged. Names are resolved when the model is assembled
-  in `fit_mod()`; an unrecognized name -- or one that is not unique in
-  `fleet_control` -- errors and lists the model's own names, whereas a
-  `Fleet_code` that is wrong but in range silently attaches the linkage to a
-  different fleet and still fits. Matching is exact after trimming whitespace, and
-  a misspelled name is rejected even when the corresponding filter would be a
-  no-op. Named specs round-trip through `save_config()` / `load_config()`.
-
-# Rceattle 5.1.2
-
-## Bug fixes
 
 * **The diagnostic refit paths preserve catchability / selectivity / composition
   linkages.** `.refit_like()` -- the engine behind `run_mse()`,
@@ -314,6 +292,64 @@
   behaviour depended on the lexicographic value of a switch alias, so an alias
   beginning with a digit can no longer flip it.
 
+## Behavior changes
+
+* **Composition weights now warm-start from `inits` like every other
+  parameter.** `fit_mod()` re-read `comp_weights`, `caal_weights` and
+  `diet_comp_weights` from their `fleet_control` columns on every fit, even when
+  `inits` was supplied, so a weight handed to a refit was discarded. These are
+  estimated parameters -- the Dirichlet-multinomial likelihood fits them, which
+  is why they can carry a prior -- and their columns are starting values, read
+  when a model is built from scratch. A refit now keeps the estimate it was
+  given, which is what makes iterative reweighting possible and what every other
+  parameter already did.
+
+  Which models this moves depends on whether the weight is estimated. Under a
+  multinomial likelihood it is a fixed multiplier that never leaves its column
+  value, so those models -- including the bundled examples -- are unaffected, and
+  an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
+  estimated and can move a long way: fitting `BS2017SS` with DM composition puts
+  the weights between -0.6 and 12.7, starting from the default column value of 1.
+  (Both figures are on the log scale, which is the scale the column itself holds
+  under a Dirichlet-multinomial -- the model uses `exp(Comp_weights)`. Under a
+  multinomial the column is the natural-scale multiplier instead.) Every
+  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()` refit
+  previously discarded those estimates and restarted from the column, so results
+  move for any DM model, and the earlier behaviour was throwing away a fitted
+  quantity rather than merely re-seeding it.
+
+  Editing a `Comp_weights` column and re-fitting from an existing fit no longer
+  has an effect. Either build the model afresh (`inits = NULL`), or set the
+  parameter the fit actually reads -- `inits$comp_weights[flt] <- w` (likewise
+  `caal_weights` / `diet_comp_weights`) -- which is what `reweight_comps()` does.
+  `fit_mod()` now warns when supplied `inits` disagree with the columns, so an
+  edit that would once have taken effect silently is no longer silent.
+
+
+* **A simulation that does not run to completion now returns only a marker.**
+  `run_mse()` previously returned the partially advanced operating and estimation
+  models alongside `use_sim = FALSE`. Those models describe a state the
+  simulation never reached, and nothing downstream filtered on `use_sim`, so they
+  could be averaged into performance metrics as though the simulation had
+  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
+  with no models attached, and `mse_summary()` drops such simulations up front
+  with a warning naming them, or errors if none completed. Code that reached into
+  `mse$Sim_n$OM`, `$EM` or `$OM_no_F` without checking `use_sim` should now check
+  it -- filter first with
+  `mse <- mse[vapply(mse, function(x) isTRUE(x$use_sim), logical(1))]`.
+
+## Documentation
+
+* **Help pages, code comments, and vignettes were rewritten for clarity.** No
+  code or model behavior changed.
+
+* **Four help pages that disagreed with the code were corrected.** `jitter()`
+  now states that starting values are perturbed around the model's initial
+  (pre-fit) parameters, not the fitted values; the `build_params()` and
+  `TMBphase()` `@return` descriptions were fixed (they had described a map object
+  and standard errors respectively); and a mislabeled comment now correctly
+  attributes the time-varying survey catchability SD.
+
 # Rceattle 5.1.1
 
 ## New features
@@ -341,6 +377,7 @@
   default value is still applied silently in every case -- this only stops the messages
   nagging about inputs the configuration never consumes (e.g. weight-length parameters
   in a single-species age-based model).
+
 # Rceattle 5.1.0
 
 ## New features

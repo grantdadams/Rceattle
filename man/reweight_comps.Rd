@@ -7,7 +7,8 @@
 reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
 }
 \arguments{
-\item{fit}{A fitted \code{Rceattle} model, fitted with \code{estimateMode} 0 or 1.}
+\item{fit}{An \code{Rceattle} model fitted at \code{estimateMode} \code{"Estimate"} (0) or
+\code{"Hindcast"} (1) -- the modes that optimize the hindcast.}
 
 \item{n_iter}{Maximum number of iterations (default 10).}
 
@@ -36,6 +37,11 @@ its own weight within the likelihood, so tuning it externally would compete
 with that estimate; those fleets are named and skipped, as are any requested
 through \code{fleets} that have no fitted composition data.
 
+Only the age/length composition weight (\code{Comp_weights}) is tuned. The
+conditional age-at-length and diet weights have McAllister-Ianelli analogues
+of their own (\code{CAAL_weights}, \code{Diet_comp_weights}), but they are not tuned
+here; set them by hand if needed.
+
 Tuning stops when the largest relative change in any weight falls below
 \code{tol}. Hitting \code{n_iter} first gives a warning, not an error -- the partly
 tuned fit is returned either way, and \verb{$reweight$history} shows whether the
@@ -43,9 +49,10 @@ weights were still settling.
 
 The weight is a parameter, not a data input, so each pass carries it to the
 next through \code{inits}; \code{fleet_control$Comp_weights} supplies the value only
-when a model is built from scratch. Editing that column and refitting from
-an existing fit therefore has no effect. The tuned weights are written back
-to it so that saving the data and rebuilding reproduces the tuned model.
+when a model is built from scratch, and editing that column then refitting
+from an existing fit has no effect (\code{fit_mod()} warns when it detects this).
+Each pass writes the new weight to both, so the returned model's data list
+rebuilds the tuned model from scratch.
 }
 \examples{
 \dontrun{

@@ -562,8 +562,8 @@ plot_data(simData)
 #               2 = equilibrium, F_init = 0, with init deviations (default)
 #               3 = non-equilibrium: F_init estimated, init devs included
 #               4 = non-equilibrium: F_init scales R0
-#               5 = equilibrium, F_init = 0, seeded by the first-year
-#                   recruitment instead of R_init, no init deviations
+#               5 = equilibrium, F_init = 0, seeded by R_init displaced by the
+#                   year-1 recruitment deviation, no init deviations
 #
 # phase:        TRUE = use parameter phasing for improved convergence (recommended)
 

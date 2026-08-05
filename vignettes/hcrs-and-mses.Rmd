@@ -49,7 +49,7 @@ om <- Rceattle::fit_mod(
 
 ## Fitting the estimation model (Tier 3 HCR)
 
-The `HCR = build_hcr()` argument to `fit_mod()` sets the harvest control rule and its biological reference points (BRPs). Here we use the NPFMC Tier 3 rule: fishing at F40% (the max FABC proxy), an F35% overfishing limit (FOFL), and no fishing once spawning biomass drops below 20% of unfished. See `?build_hcr` for the full set of rules and reference points.
+The `HCR = build_hcr()` argument to `fit_mod()` sets the harvest control rule and its biological reference points (BRPs). Here we use the NPFMC Tier 3 rule: fishing at F40%, the maxFABC rate (an Amendment-56 SPR proxy for FMSY), with an F35% overfishing limit (FOFL). Below the B40% target, F is ramped down linearly, reaching zero when spawning-stock biomass falls to `Alpha = 0.05` of that target. `Plimit = 0.2` is a separate shutoff: fishing stops when the stock is assessed as overfished relative to 20% of unfished SSB. See `?build_hcr` for the available rules and reference points.
 
 ```{r, message = FALSE, echo = TRUE}
 em <- Rceattle::fit_mod(
@@ -160,7 +160,7 @@ The runs below vary one element of the strategy at a time — the reference poin
 
 ## Different reference points
 
-Here the EM uses a more aggressive rule (F30% target, F10% limit, no biomass cutoff) to contrast with the Tier 3 run above.
+Here the EM uses a more aggressive rule (F30% target, F10% limit, and `Plimit = 0`, i.e. no SSB cutoff) to contrast with the Tier 3 run above.
 
 ```{r, message = FALSE, echo = TRUE}
 em2 <- Rceattle::fit_mod(
@@ -213,7 +213,7 @@ mse3 <- run_mse(
 
 ## 4-year assessment cycle and reduced survey coverage
 
-Here the EM is re-fitted only every fourth year (`assessment_period = 4`) and `fut_sample = 0.5` halves the future sampling effort — a lower-cost monitoring scenario.
+Here the EM is re-fitted only every fourth year (`assessment_period = 4`) and `fut_sample = 0.5` halves future sampling effort on both data streams: composition sample sizes are halved and the index log-SD is doubled (`Log_sd * 1 / fut_sample`). A lower-cost monitoring scenario.
 
 ```{r, message = FALSE, echo = TRUE, eval = FALSE}
 mse4 <- run_mse(

@@ -149,12 +149,17 @@ correctly specified model the residuals are iid standard normal (Thygesen et al.
 Trijoulet et al. 2023). This makes them suitable for objective goodness-of-fit testing.
 
 `osa_residuals()` computes them *post hoc* for any combination of the fitted data
-types -- survey indices, fishery catch, age/length composition (`"comp"`),
-conditional age-at-length (`"caal"`), and predator diet (`"diet"`). Composition
-data use the conditional binomial / beta-binomial decomposition. Because OSA
-re-optimizes the random effects for each observation it is expensive, so run it
-on a converged fit (`estimateMode < 3`). All sources are available from any fit;
-`osa_residuals()` builds the required observation data on demand.
+types -- survey indices (`"index"`), fishery catch (`"catch"`), age/length
+composition (`"comp"`), conditional age-at-length (`"caal"`), predator diet
+(`"diet"`), and, where a linkage carries an observed state-space covariate, the
+covariate observation itself (`"ecov"`). Composition data use the conditional
+binomial / beta-binomial decomposition. Because OSA re-optimizes the random
+effects for each observation it is expensive, so run it on a converged fit
+(`estimateMode < 3`). All sources are available from any fit; `osa_residuals()`
+builds the required observation data on demand and skips a requested source the
+model has no observations for (it errors only if *none* of them do). `"diet"` is
+the one source not in the default set -- it applies only to multispecies models
+and can be slow -- so pass `source = "all"` to include it.
 
 ```{r osa, eval = FALSE}
 # Aggregate (catch + index) residuals
@@ -260,7 +265,7 @@ plot_biomass(jitters$Rceattle_list)
 length(jitters$Rceattle_list)
 ```
 
-Non-converging runs are dropped from `Rceattle_list`, so if `length(jitters$Rceattle_list)` is well below `njitter`, convergence is fragile.
+Non-converging runs are silently dropped from `Rceattle_list`, so if `length(jitters$Rceattle_list)` is well below `njitter`, convergence may be fragile.
 
 `retrospective()` and `jitter()` both fit peels / starts in parallel by default. Pass `cores = 1` to force sequential execution; otherwise the call uses a PSOCK cluster sized at `parallel::detectCores() - 6` (capped at 2 under `R CMD check`).
 
