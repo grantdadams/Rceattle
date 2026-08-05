@@ -7,9 +7,9 @@
 reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
 }
 \arguments{
-\item{fit}{A fitted \code{Rceattle} model.}
+\item{fit}{A fitted \code{Rceattle} model, fitted with \code{estimateMode} 0 or 1.}
 
-\item{n_iter}{Maximum number of reweighting iterations (default 10).}
+\item{n_iter}{Maximum number of iterations (default 10).}
 
 \item{tol}{Relative change in the weights below which to stop (default 0.01).}
 
@@ -18,38 +18,34 @@ reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
 \item{verbose}{Print the weights each iteration (default \code{TRUE}).}
 }
 \value{
-The refitted \code{Rceattle} model, fitted with the final weights, and
-carrying a \code{reweight} element holding the weight history (one row per
-iteration), the number of iterations run, and whether it converged. The
-last row of the history is the weight the returned model was fitted with.
+The model refitted with the final weights, carrying a \code{reweight}
+element: \code{history} (one row per fleet per iteration), \code{iterations}, and
+\code{converged}. The last rows of \code{history} are the weights the returned model
+was fitted with.
 }
 \description{
-Refits a model, each time setting each fleet's composition weight to the
-McAllister & Ianelli (1997) weight implied by the previous fit, until the
-weights stop moving. This is the standard iterative tuning loop for
-multinomial composition likelihoods: the weight multiplies the input sample
-size, so fitting once and reading \code{Comp_weights_mcallister} gives a better
-weight, which changes the fit, which changes the weight.
-
-Every fit already reports the implied weights in
-\code{fit$data_list$fleet_control$Comp_weights_mcallister}. This function closes
-the loop around them.
-
-The weight is a \strong{parameter} (\code{comp_weights}), not a data column, so each
-iteration carries it forward through \code{inits}. The \code{Comp_weights} column is
-the starting value used to build a model from scratch; editing it and
-re-fitting from an existing fit would have no effect.
+Tunes multinomial composition weights by refitting: each pass sets a fleet's
+weight to the McAllister & Ianelli (1997) weight implied by the previous fit,
+and stops once the weights settle. The weight multiplies the input sample
+size, so changing it changes the fit and hence the next implied weight --
+which is why the weights are tuned iteratively rather than in one step.
 }
 \details{
-Only fleets whose \code{Comp_distribution} is a multinomial family are tuned.
-A Dirichlet-multinomial fleet estimates its own weight inside the
-likelihood -- that is the point of the DM -- so an external tuning loop
-would fight the estimate; those fleets are reported and left alone.
+Only multinomial fleets are tuned. A Dirichlet-multinomial fleet estimates
+its own weight within the likelihood, so tuning it externally would compete
+with that estimate; those fleets are named and skipped, as are any requested
+through \code{fleets} that have no fitted composition data.
 
-Convergence is on the largest relative change in any tuned weight between
-iterations. Reaching \code{n_iter} without meeting \code{tol} is a warning, not an
-error: the partially tuned fit is still returned, and the weight history
-shows whether it was converging.
+Tuning stops when the largest relative change in any weight falls below
+\code{tol}. Hitting \code{n_iter} first gives a warning, not an error -- the partly
+tuned fit is returned either way, and \verb{$reweight$history} shows whether the
+weights were still settling.
+
+The weight is a parameter, not a data input, so each pass carries it to the
+next through \code{inits}; \code{fleet_control$Comp_weights} supplies the value only
+when a model is built from scratch. Editing that column and refitting from
+an existing fit therefore has no effect. The tuned weights are written back
+to it so that saving the data and rebuilding reproduces the tuned model.
 }
 \examples{
 \dontrun{

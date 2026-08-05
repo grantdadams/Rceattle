@@ -3,40 +3,43 @@
 ## New features
 
 * **`reweight_comps()` runs the iterative McAllister-Ianelli tuning loop.**
-  Every fit already reports the implied weights in
-  `fleet_control$Comp_weights_mcallister`; tuning them has meant copying those
-  into `Comp_weights` and re-fitting by hand, repeatedly. `reweight_comps(fit)`
-  closes the loop: it re-fits until the largest relative change in any weight
-  falls below `tol`, returns the model fitted with the converged weights, and
-  attaches the per-iteration history as `fit$reweight`. Fleets whose
-  composition likelihood estimates its own weight -- the Dirichlet-multinomial
-  ones -- are reported and left alone rather than fought.
+  Every fit reports the implied weights in
+  `fleet_control$Comp_weights_mcallister`, but tuning on them has meant copying
+  them across and refitting by hand, over and over. `reweight_comps(fit)` does
+  that loop: it refits until the largest relative change in any weight falls
+  below `tol`, returns the model fitted with the settled weights, and attaches
+  the per-iteration history as `fit$reweight`. Dirichlet-multinomial fleets
+  estimate their own weight, so they are named and skipped.
 
 * **`intercept` is accepted wherever `` `(Intercept)` `` is.** The key naming a
-  linkage's intercept came from `model.matrix()`, so setting an init, bounds or a
-  prior on it meant writing `` list(`(Intercept)` = ...) `` -- backticks, capital
-  I, parentheses, and no error if any of it was wrong. `intercept` now means the
-  same thing in `init`, `bounds` and `priors` across every process. The original
-  spelling still works, and a covariate genuinely named `intercept` still resolves
-  to itself.
+  linkage's intercept came straight from `model.matrix()`, so setting an init,
+  bounds or a prior on it meant writing `` list(`(Intercept)` = ...) `` --
+  backticks, a capital I, and parentheses, with no error if any of it was wrong.
+  `intercept` now means the same thing in `init`, `bounds` and `priors` on every
+  process. The original spelling still works, and a covariate actually named
+  `intercept` still refers to itself.
 
 * **An `init`, `bounds` or `priors` key that names nothing is now an error.** A
-  misspelled key was silently ignored: the model fit, from a starting value or
-  under a prior the user did not ask for. Keys are now checked against the
-  linkage's own design columns (plus `sigma` / `rho` where the structure has them)
-  and an unrecognized one stops the fit, listing what was available.
+  misspelled key was ignored without complaint, and the model went on to fit from
+  a starting value, or under a prior, that was not the one asked for. Keys are
+  now checked against the linkage's own design columns (plus `sigma` / `rho`
+  where the structure has them); an unrecognized key stops the fit and lists the
+  keys that were available.
 
 * **An intercept `init` or `bounds` reaches the base parameter for all six
-  processes.** Setting the intercept of a recruitment, natural-mortality or growth
-  linkage set the underlying parameter's starting value and bounds, but the same
-  key on a catchability, selectivity or composition linkage was accepted and
-  dropped. All six now behave alike, each writing on the parameter's own scale --
-  logged for `log_M1`, `rec_pars`, growth, `index_log_q`, the composition weights
-  and the selectivity slopes; natural-scale for the selectivity inflections that
-  are stored that way. A value that cannot be written -- a non-positive number on
-  a logged parameter, a natural-scale value for a `sel_inf` slot that holds
-  something else, or a fleet that mirrors another's shared parameter block -- is
-  refused by name rather than written wrongly.
+  processes.** Setting the intercept of a recruitment, natural-mortality or
+  growth linkage set that parameter's starting value and bounds, but the same key
+  on a catchability, selectivity or composition linkage was accepted and then
+  dropped. All six now behave alike. Values are given on the parameter's natural
+  scale and stored on whichever scale the parameter uses, so a catchability of
+  0.8 or a von Bertalanffy K of 0.25 is written as given.
+
+  Three cases cannot be honoured, and each now stops the fit with a message
+  naming the linkage: a value of zero or less on a parameter held as a log; a
+  natural-scale value for a `sel_inf` slot that holds a logit or a log instead of
+  an inflection (DoubleNormal, LogisticPM); and a fleet that mirrors another's
+  selectivity or catchability, where the value would be overwritten by the fleet
+  leading the shared block.
 
 * **OSA residuals now cover the state-space environmental covariate.** When a
   linkage carries an observed covariate (`build_catchability(..., observe=)`, the

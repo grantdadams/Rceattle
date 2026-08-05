@@ -1,43 +1,39 @@
 #' Iteratively reweight composition data (McAllister-Ianelli)
 #'
 #' @description
-#' Refits a model, each time setting each fleet's composition weight to the
-#' McAllister & Ianelli (1997) weight implied by the previous fit, until the
-#' weights stop moving. This is the standard iterative tuning loop for
-#' multinomial composition likelihoods: the weight multiplies the input sample
-#' size, so fitting once and reading `Comp_weights_mcallister` gives a better
-#' weight, which changes the fit, which changes the weight.
-#'
-#' Every fit already reports the implied weights in
-#' `fit$data_list$fleet_control$Comp_weights_mcallister`. This function closes
-#' the loop around them.
-#'
-#' The weight is a **parameter** (`comp_weights`), not a data column, so each
-#' iteration carries it forward through `inits`. The `Comp_weights` column is
-#' the starting value used to build a model from scratch; editing it and
-#' re-fitting from an existing fit would have no effect.
+#' Tunes multinomial composition weights by refitting: each pass sets a fleet's
+#' weight to the McAllister & Ianelli (1997) weight implied by the previous fit,
+#' and stops once the weights settle. The weight multiplies the input sample
+#' size, so changing it changes the fit and hence the next implied weight --
+#' which is why the weights are tuned iteratively rather than in one step.
 #'
 #' @details
-#' Only fleets whose `Comp_distribution` is a multinomial family are tuned.
-#' A Dirichlet-multinomial fleet estimates its own weight inside the
-#' likelihood -- that is the point of the DM -- so an external tuning loop
-#' would fight the estimate; those fleets are reported and left alone.
+#' Only multinomial fleets are tuned. A Dirichlet-multinomial fleet estimates
+#' its own weight within the likelihood, so tuning it externally would compete
+#' with that estimate; those fleets are named and skipped, as are any requested
+#' through `fleets` that have no fitted composition data.
 #'
-#' Convergence is on the largest relative change in any tuned weight between
-#' iterations. Reaching `n_iter` without meeting `tol` is a warning, not an
-#' error: the partially tuned fit is still returned, and the weight history
-#' shows whether it was converging.
+#' Tuning stops when the largest relative change in any weight falls below
+#' `tol`. Hitting `n_iter` first gives a warning, not an error -- the partly
+#' tuned fit is returned either way, and `$reweight$history` shows whether the
+#' weights were still settling.
 #'
-#' @param fit A fitted `Rceattle` model.
-#' @param n_iter Maximum number of reweighting iterations (default 10).
+#' The weight is a parameter, not a data input, so each pass carries it to the
+#' next through `inits`; `fleet_control$Comp_weights` supplies the value only
+#' when a model is built from scratch. Editing that column and refitting from
+#' an existing fit therefore has no effect. The tuned weights are written back
+#' to it so that saving the data and rebuilding reproduces the tuned model.
+#'
+#' @param fit A fitted `Rceattle` model, fitted with `estimateMode` 0 or 1.
+#' @param n_iter Maximum number of iterations (default 10).
 #' @param tol Relative change in the weights below which to stop (default 0.01).
 #' @param fleets Fleet codes to tune. Default `NULL` tunes every eligible fleet.
 #' @param verbose Print the weights each iteration (default `TRUE`).
 #'
-#' @return The refitted `Rceattle` model, fitted with the final weights, and
-#'   carrying a `reweight` element holding the weight history (one row per
-#'   iteration), the number of iterations run, and whether it converged. The
-#'   last row of the history is the weight the returned model was fitted with.
+#' @return The model refitted with the final weights, carrying a `reweight`
+#'   element: `history` (one row per fleet per iteration), `iterations`, and
+#'   `converged`. The last rows of `history` are the weights the returned model
+#'   was fitted with.
 #'
 #' @references
 #' McAllister, M.K. and Ianelli, J.N. (1997) Bayesian stock assessment using
@@ -59,11 +55,11 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   }
   fc <- fit$data_list$fleet_control
 
-  # Fleets the loop can tune: they have composition data, and their likelihood
-  # takes the weight as a multiplier rather than estimating it.
-  # Negative years mark rows carried but not fitted, and calc_mcall_ianelli()
-  # averages over fitted rows only. A fleet with no fitted rows yields a NaN
-  # weight, so it must not be eligible in the first place.
+  # Fleets the loop can tune: they carry composition data that is actually
+  # fitted, and their likelihood takes the weight as a multiplier rather than
+  # estimating it. A negative year marks a row carried but not fitted, and the
+  # McAllister-Ianelli weight averages over fitted rows alone, so a fleet with
+  # none of them has no weight to tune towards.
   cd <- fit$data_list$comp_data
   has_comp <- unique(cd$Fleet_code[cd$Fleet_code > 0 & cd$Year > 0])
   dist <- as.character(fc$Comp_distribution)
@@ -76,9 +72,8 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
             ": their composition likelihood estimates its own weight.")
   }
   if (!is.null(fleets)) {
-    # A fleet the caller named and did not get back is worth saying out loud:
-    # tuning a subset silently would report success for a weighting the caller
-    # did not actually ask for.
+    # A fleet the caller named but cannot be tuned is reported: quietly tuning
+    # the remainder would return a weighting that was never asked for.
     dropped <- setdiff(fleets, eligible)
     if (length(dropped)) {
       warning("Not tuning requested fleet(s) ", paste(dropped, collapse = ", "),
@@ -99,12 +94,11 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
          "would return the same value and report convergence. Refit at ",
          "\"Estimate\" or \"Hindcast\" first.", call. = FALSE)
   }
-  # Refit the way the input fit was produced. .refit_like() otherwise defaults
-  # to map = NULL, phase = FALSE, getsd = FALSE, which would rebuild a
-  # user-supplied map, drop phasing the model may need to reach its optimum,
-  # and return the tuned fit with no standard errors.
-  # `phase` may be a named list of per-parameter phases, so it is carried
-  # through verbatim rather than coerced to a flag.
+  # Refit the way the input fit was produced. Left to .refit_like()'s defaults
+  # (map = NULL, phase = FALSE, getsd = FALSE) the loop would rebuild a
+  # user-supplied map, drop phasing the model may need to reach its optimum, and
+  # return the tuned fit without standard errors. `phase` may be a named list of
+  # per-parameter phases, so it travels verbatim rather than as a flag.
   fc_cfg     <- fit$run_config$fit_control
   fit_phase  <- if (is.null(fc_cfg$phase)) FALSE else fc_cfg$phase
   fit_getsd  <- if (is.null(fc_cfg$getsd)) FALSE else fc_cfg$getsd
@@ -124,9 +118,9 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
       stop("The fit carries no McAllister-Ianelli weights; it must be fitted ",
            "with composition data before it can be reweighted.", call. = FALSE)
     }
-    # A non-finite or non-positive weight cannot be applied: zero would delete
-    # the fleet's composition data from the likelihood, and NaN would poison
-    # every later warm start while making convergence unreachable.
+    # The weight has to be finite and positive to be usable: zero drops the
+    # fleet's composition data from the likelihood, and a NaN carries into every
+    # later warm start, leaving the loop unable to converge.
     bad <- !is.finite(implied) | implied <= 0
     if (any(bad)) {
       stop("McAllister-Ianelli weight is ",
@@ -170,9 +164,9 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
             "Inspect `$reweight$history`.", call. = FALSE)
   }
 
-  # The tuned weights are parameters, but the column is what a model rebuilt
-  # from this data_list starts from -- write it back so saving the data and
-  # re-fitting reproduces the tuned model rather than the untuned one.
+  # The tuned weights are parameters, but the column is where a model rebuilt
+  # from this data_list starts. Writing them back keeps the two in step, so
+  # saving the data and refitting reproduces the tuned model.
   fit$data_list$fleet_control$Comp_weights[eligible] <-
     fit$estimated_params$comp_weights[eligible]
 
