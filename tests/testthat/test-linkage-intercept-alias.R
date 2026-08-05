@@ -48,42 +48,38 @@ testthat::test_that("`intercept` keys the same prior as `(Intercept)`", {
 })
 
 
-testthat::test_that("`intercept` keys init and bounds, not just priors", {
+testthat::test_that("`intercept` keys init as well as priors", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
-  # init and bounds go through the same translation, and an intercept init is
-  # pushed into the base parameter (2-build_params.R), so a dropped one moves
-  # where the fit starts. Composition linkages are prior-only, so this uses a
-  # catchability linkage. Assert against the built design table rather than the
-  # spec: keying the spec is not what matters, reaching the row is.
+  # An intercept init sets the BASE parameter's starting value -- the intercept
+  # coefficient itself is mapped out at 0 (2-build_params.R "Push (Intercept)
+  # inits to the base parameter"). Asserting on the base parameter rather than
+  # the linkage table is what makes this witness the aliasing: the table records
+  # the value whether or not it goes anywhere.
   d <- Rceattle::BS2017SS
   yrs <- d$styr:d$projyr
   d$env_data <- data.frame(Year = yrs,
                            temp = as.numeric(scale(sin(seq_along(yrs) / 4))))
-  built <- function(arg, value) {
-    args <- list(~ temp, by = ~ fleet, fleet = 7L)   # fleet 7 = the estimated-q survey
-    args[[arg]] <- stats::setNames(list(value), "intercept")
+  log_M1_with <- function(key) {
+    args <- list(~ temp, by = ~ species, species = 1L)
+    if (!is.null(key)) args$init <- stats::setNames(list(0.25), key)
     fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
       data_list = d,
-      qFun = Rceattle::build_catchability(linkages = list(
-        q = do.call(Rceattle::linkage_spec, args))),
+      M1Fun = Rceattle::build_M1(M1_model = 1, linkages = list(
+        M1 = do.call(Rceattle::linkage_spec, args))),
       estimateMode = 3, msmMode = 0, random_rec = FALSE,
       fit_control = Rceattle::fit_control(getsd = FALSE, phase = FALSE,
                                           verbose = 0))))
-    as.data.frame(fit$data_list$linkage_table)
+    as.numeric(fit$estimated_params$log_M1[1, 1, 1])
   }
 
-  tb <- built("init", 0.25)
-  is_int <- tb$design_col == "(Intercept)"
-  testthat::expect_true(any(is_int))
-  testthat::expect_true(all(tb$init[is_int] == 0.25))
-  testthat::expect_true(all(tb$init_supplied[is_int]))
-
-  tb <- built("bounds", c(-2, 2))
-  is_int <- tb$design_col == "(Intercept)"
-  testthat::expect_true(all(tb$lower[is_int] == -2))
-  testthat::expect_true(all(tb$upper[is_int] ==  2))
+  # Guard the fixture: the init must actually move the base parameter, or the
+  # comparison below would hold for a reason that has nothing to do with keying.
+  testthat::expect_false(isTRUE(all.equal(log_M1_with(NULL),
+                                          log_M1_with("(Intercept)"))))
+  testthat::expect_equal(log_M1_with("(Intercept)"), log(0.25))
+  testthat::expect_equal(log_M1_with("intercept"),   log(0.25))
 })
 
 
