@@ -75,7 +75,18 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
     message("Not tuning fleet(s) ", paste(skipped, collapse = ", "),
             ": their composition likelihood estimates its own weight.")
   }
-  if (!is.null(fleets)) eligible <- intersect(eligible, fleets)
+  if (!is.null(fleets)) {
+    # A fleet the caller named and did not get back is worth saying out loud:
+    # tuning a subset silently would report success for a weighting the caller
+    # did not actually ask for.
+    dropped <- setdiff(fleets, eligible)
+    if (length(dropped)) {
+      warning("Not tuning requested fleet(s) ", paste(dropped, collapse = ", "),
+              ": they have no fitted composition data, or their likelihood ",
+              "estimates its own weight.", call. = FALSE)
+    }
+    eligible <- intersect(eligible, fleets)
+  }
   if (!length(eligible)) {
     stop("No fleets to reweight: none have composition data fitted with a ",
          "multinomial likelihood.", call. = FALSE)

@@ -106,3 +106,30 @@ testthat::test_that("Dirichlet-multinomial fleets are left alone", {
   testthat::expect_false(comp_flts[1] %in% tuned$reweight$fleets)
   testthat::expect_true(all(comp_flts[-1] %in% tuned$reweight$fleets))
 })
+
+
+testthat::test_that("a requested fleet that cannot be tuned is named", {
+  testthat::skip_on_cran(); testthat::skip_if_not_installed("TMB")
+
+  # Asking for a fleet and quietly getting a subset would report a weighting
+  # the caller never asked for -- the failure mode this loop exists to avoid.
+  # A Dirichlet-multinomial fleet is ineligible by construction, so requesting
+  # one alongside a tunable fleet is the case to catch.
+  d <- Rceattle::BS2017SS
+  comp_flts <- sort(unique(d$comp_data$Fleet_code[d$comp_data$Fleet_code > 0]))
+  testthat::skip_if(length(comp_flts) < 2)
+  d$fleet_control$Comp_distribution <- "MultinomialAFSC"
+  d$fleet_control$Comp_distribution[comp_flts[1]] <- "DirichletMultinomial"
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1, msmMode = 0,
+    random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = TRUE, getsd = FALSE,
+                                        verbose = 0))))
+
+  testthat::expect_warning(
+    tuned <- Rceattle::reweight_comps(fit, fleets = comp_flts[1:2],
+                                      n_iter = 1, tol = 1, verbose = FALSE),
+    "Not tuning requested fleet")
+  testthat::expect_equal(tuned$reweight$fleets, comp_flts[2])
+})
