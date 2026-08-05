@@ -40,6 +40,34 @@
 
 ## Bug fixes
 
+* **A failed re-assessment now stops its simulation instead of being absorbed.**
+  When an estimation-model refit failed, `run_mse()` could not assign to
+  `em_use`, so it still held the *previous* year's assessment; the guard that
+  followed tested `is.null(em_use)`, which such a failure never produces. The
+  simulation carried on, stored that stale assessment under the failed year's
+  name, handed its catch advice to the next iteration, and was reported as
+  successful once a later iteration reset the failure flag. A simulation whose
+  assessment fails is now stopped and marked like one whose operating-model
+  refit fails. Any earlier run is worth re-checking: a failed assessment left no
+  trace in `use_sim`.
+
+* **A simulation whose unfished reference run fails is no longer counted as
+  "did not collapse".** `remove_F()` is a separate fit and can fail on its own.
+  The simulation is kept, since its assessments are the catch-advice record, but
+  `OM_no_F` is then `NULL` -- and `sum(NULL < 1000) > 0` is `FALSE` in R, so
+  `mse_summary()` scored it as a non-collapse while keeping it in the
+  denominator. Because `remove_F()` fails preferentially at low stock sizes, that
+  biased the collapse metrics low, in the direction that flatters a harvest rule.
+  Such simulations are now excluded from the `OM no F` and `SSB Collapse from F`
+  metrics -- numerator and denominator both -- which report `NA` when none has an
+  unfished run; every other metric still uses them. Under `msmMode > 0` a single
+  such simulation previously threw and took the whole summary with it.
+
+* **`run_mse(dir = )` accepts an absolute path.** The save built its target as
+  `file.path(getwd(), dir)`, which turns an absolute `dir` into
+  `<cwd>/<abs path>`, so the directory was never created and the run died with
+  "cannot open the connection". Relative paths were unaffected.
+
 * **`sampling_period` is now honoured per fleet when more than one year advances
   per assessment.** `run_mse()` selected the newly sampled rows by testing the
   year set and the fleet set separately, which is the same as matching
