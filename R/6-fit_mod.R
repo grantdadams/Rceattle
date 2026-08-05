@@ -596,17 +596,31 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Turns on laplace approximation
+    # Turns on laplace approximation.
+    #
+    # What the two "is it free?" guards below are and are NOT for. They are NOT
+    # protecting MakeADFun: TMB resolves `random` AFTER applying `map`, so a
+    # block whose map is entirely NA contributes no indices and TMB drops it
+    # (`random <- NULL`). Naming a fully-mapped parameter is a no-op there --
+    # verified: `random = "init_dev"` on an initMode = "Equilibrium" fit gives
+    # the same objective and gradient, and the same zero-length random vector,
+    # as `random = NULL`. It does not yield NaN.
+    #
+    # What DOES read this vector's emptiness is TMBphase() (R/6-phaser.R): when
+    # `length(random) > 0` it pins the twelve RE variance / correlation
+    # hyperparameters to NA in every phase. So whether a fully-mapped block is
+    # listed here decides how a phased fit treats those hyperparameters, and
+    # that -- not a NaN -- is why the guards are kept.
+    #
+    # build_map() returns a list with $mapList (the raw per-parameter maps,
+    # NA = fixed); that is what the guards read.
     random_vars <- c()
     if (random_rec) {
       random_vars <- c(random_vars, "rec_dev")
-      # init_dev is a random effect only when it is actually estimated. For
-      # initMode = "Equilibrium" build_map() maps ALL of init_dev to NA (the
-      # initial age structure is the deterministic equilibrium, init_dev fixed at
-      # 0), so adding it to `random` would ask TMB to integrate a fully-mapped
-      # parameter -- producing an NA/NaN gradient. Only treat it as random when
-      # at least one element is free. build_map() returns a list with $mapList
-      # (the raw per-parameter maps, NA = fixed); the init_dev map lives there.
+      # initMode = "Equilibrium" maps ALL of init_dev to NA (the initial age
+      # structure is the deterministic equilibrium, init_dev fixed at 0). This
+      # guard cannot change the TMBphase() branch -- `rec_dev` is already in the
+      # vector whenever it runs -- so it is presentational only.
       if (any(!is.na(map$mapList$init_dev))) {
         random_vars <- c(random_vars, "init_dev")
       }
@@ -620,9 +634,12 @@ fit_mod <-
     if (sum(data_list$M1_re) > 0) {
       random_vars <- c(random_vars, "log_M1_dev")
     }
-    # Random-effect linkage deviations enter the Laplace approximation. Only add
-    # them when at least one is actually free (mirrors the init_dev guard above):
-    # integrating a fully-mapped / length-0 parameter yields an NA/NaN gradient.
+    # Random-effect linkage deviations enter the Laplace approximation. Unlike
+    # the init_dev guard above this one is load-bearing: a linkage random effect
+    # can be the ONLY random effect, so listing a fully-mapped `beta_linkage_re`
+    # would make `random_vars` non-empty and send a phased fit down TMBphase()'s
+    # hyperparameter-pinning branch for a model that has no random effects at
+    # all. Changing it therefore changes results -- it is not cosmetic.
     if (any(!is.na(map$mapList$beta_linkage_re))) {
       random_vars <- c(random_vars, "beta_linkage_re")
     }
