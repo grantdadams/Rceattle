@@ -318,6 +318,11 @@ linkage_spec <- function(formula,
 }
 
 
+# The design-matrix column name model.matrix() gives the intercept. A constant
+# because it is compared against in several places and is easy to mistype.
+.INTERCEPT_COL <- "(Intercept)"
+
+
 #' Validate the `priors` argument once it has been NSE-evaluated.
 #'
 #' Accepts `NULL` or a named list keyed by design-matrix column name.
@@ -338,7 +343,6 @@ linkage_spec <- function(formula,
 #'
 #' Returns the canonicalized list (always a named list, possibly
 #' empty).
-#'
 #' @keywords internal
 #' @noRd
 .validate_priors_arg <- function(priors) {
@@ -396,6 +400,35 @@ linkage_spec <- function(formula,
       nm), call. = FALSE)
   }
   priors
+}
+
+
+#' Accept `intercept` as a spelling of the design column `(Intercept)`
+#'
+#' `init` / `bounds` / `priors` are keyed by design-matrix column name. Every
+#' covariate keys by a name the user wrote (`temp`), but the intercept keys by
+#' the name `model.matrix()` gives it, which needs backticks. Both spellings are
+#' accepted and stored canonically so lookups stay a single exact match.
+#'
+#' @keywords internal
+#' @noRd
+.canonical_intercept_names <- function(x, X_names) {
+  if (is.null(x) || !length(x) || is.null(names(x))) return(x)
+  if (!(.INTERCEPT_COL %in% X_names)) return(x)
+  # Never translate a key that already names a design column: a covariate can be
+  # called `intercept` (or `Intercept`), and there the key means that covariate.
+  # Translating it would move the prior onto a different coefficient -- silently,
+  # since both names are then valid. Keying by an existing column always wins.
+  alias <- names(x) %in% c("intercept", "Intercept") & !(names(x) %in% X_names)
+  if (any(alias)) {
+    if (any(names(x) == .INTERCEPT_COL)) {
+      stop("give the intercept prior/init/bounds once: both `",
+           .INTERCEPT_COL, "` and `", names(x)[alias][1], "` were supplied.",
+           call. = FALSE)
+    }
+    names(x)[alias] <- .INTERCEPT_COL
+  }
+  x
 }
 
 #' Coerce a `sex` argument to 1-based integer ids.
@@ -767,6 +800,40 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   X <- cbind(X_fixed, re$X)
   X_names <- colnames(X)
   n_cols  <- ncol(X)
+
+  # Translate the backtick-free intercept spelling now that the design columns
+  # are known (see .canonical_intercept_names: a covariate named `intercept`
+  # keeps its own meaning).
+  spec$init   <- .canonical_intercept_names(spec$init,   X_names)
+  spec$bounds <- .canonical_intercept_names(spec$bounds, X_names)
+  spec$priors <- .canonical_intercept_names(spec$priors, X_names)
+
+  # `init` / `bounds` / `priors` are looked up by exact design-column name, so a
+  # key that matches no column is simply never read -- the prior or starting
+  # value is dropped with no sign that it was. Reject those here instead: an
+  # unapplied prior is indistinguishable from an unpenalised model, and on the
+  # models where a prior is load-bearing that is the difference between a fit
+  # that converges and one that runs to a boundary.
+  # `sigma` is read only for random-effect columns and `rho` only for ar1 ones,
+  # so accepting them on a spec without those terms would reinstate exactly the
+  # silent drop this check exists to close.
+  .reserved <- c(if (length(re$struct)) "sigma",
+                 if (any(re$struct == "ar1")) "rho")
+  for (.arg in c("init", "bounds", "priors")) {
+    .given <- names(spec[[.arg]])
+    .bad   <- setdiff(.given, c(X_names, .reserved))
+    if (length(.bad)) {
+      stop(sprintf(
+        paste0("unknown `%s` name(s) for this linkage: %s.\n",
+               "  This formula's design columns: %s.%s"),
+        .arg, paste(sQuote(.bad), collapse = ", "),
+        paste(sQuote(X_names), collapse = ", "),
+        if (any(.bad %in% c("intercept", "Intercept")))
+          paste0("\n  This formula has no intercept to key to -- `~ 0 + ...` and ",
+                 "`~ ... - 1` suppress it. Drop the `0 +`/`- 1` to add one.")
+        else ""), call. = FALSE)
+    }
+  }
   # Per-column RE metadata, aligned with the columns of X (NA for fixed).
   col_re_group  <- c(rep(NA_character_, ncol(X_fixed)), re$group)
   col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
