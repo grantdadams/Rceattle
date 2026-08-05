@@ -1145,6 +1145,15 @@ auto-extended to `styr` with `NA` for the missing years and the observation is
 applied **only** where the covariate is present — the latent AR1 still runs over
 all years, but no observation is fabricated for the un-surveyed ones.
 
+The AR1 latent is **zero-mean** — it carries no estimated level parameter (unlike
+WHAM's `Ecov_mu`), so its mean is confounded with the linked parameter's
+intercept. **Standardize the observed covariate to mean 0** (a z-score is
+typical); `build_catchability()` warns if it is not, since a non-zero-mean series
+otherwise shifts the state-space observation likelihood. One-step-ahead residuals
+of the covariate observation are available from `osa_residuals(fit, source =
+"ecov")` (included by default), residualized first and against the covariate
+series alone to match WHAM's `make_osa_residuals()`.
+
 `rw()` / `ar1()` couple *consecutive* deviations with a unit lag, so their time
 points must be **equally spaced** -- a gap (a missing year) would be silently
 treated as a single step. A grid with gaps errors rather than mis-specifying

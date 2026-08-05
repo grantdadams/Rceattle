@@ -1,4 +1,20 @@
-# Rceattle 5.2.4
+# Rceattle 5.3.0
+
+## New features
+
+* **OSA residuals now cover the state-space environmental covariate.** When a
+  linkage carries an observed covariate (`build_catchability(..., observe=)`, the
+  Rogers et al. 2024 QAR1 form), `osa_residuals()` gains an `"ecov"` source that
+  one-step-ahead residualizes the Gaussian covariate observation via
+  [TMB::oneStepPredict()]. It is included in the default `source` and is placed
+  first, so the covariate is residualized against its own series alone (the AR1
+  process density stays in the objective, the latent state is integrated out with
+  its full prior) -- matching WHAM's `make_osa_residuals()`, which residualizes
+  `Ecov` observations the same way. An ordinary (non-OSA) fit is bit-identical;
+  only the residual computation reads the covariate observation from the flat OSA
+  vector. Note that the AR1 latent is zero-mean (it has no estimated level
+  parameter, unlike WHAM's `Ecov_mu`), so the observed covariate is expected to
+  be standardized to mean 0; `build_catchability()` warns otherwise.
 
 ## Performance
 

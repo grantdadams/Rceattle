@@ -6,7 +6,7 @@
 \usage{
 osa_residuals(
   fit,
-  source = c("index", "catch", "comp", "caal"),
+  source = c("ecov", "index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   parallel = TRUE,
@@ -19,9 +19,12 @@ osa_residuals(
 \item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
 \item{source}{Character vector of observation sources to residualize: any of
-\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}, or \code{"all"}. Defaults to
-the four non-diet sources (\code{diet} is opt-in because it applies only to
-multispecies models and can be expensive); pass \code{"all"} to include \code{diet}.
+\code{"ecov"}, \code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}, or \code{"all"}.
+Defaults to the five non-diet sources (\code{diet} is opt-in because it applies
+only to multispecies models and can be expensive); pass \code{"all"} to include
+\code{diet}. \code{"ecov"} residualizes the state-space environmental covariate
+(Rogers QAR1 \verb{observe=} term) and is placed first so it is one-step-ahead of
+the covariate series alone, matching WHAM's \code{make_osa_residuals()}.
 Sources with no observations in the model are silently skipped. Mirrors the
 \code{source} argument of \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 

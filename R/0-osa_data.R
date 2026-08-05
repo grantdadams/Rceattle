@@ -261,7 +261,12 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # oneStepPredict() can residualize it, matching WHAM's Ecov OSA. The RE slots
   # are one-per-year in ascending (time) order over the model span, so slot g
   # (1-based) maps to model year styr + g - 1; unobserved slots (obs_mask == 0)
-  # carry a latent state but no observation, so they get no obsvec entry.
+  # carry a latent state but no observation, so they get no obsvec entry. The
+  # obsvec index keys off the absolute slot (which(obs_mask == 1)), so interior
+  # gaps do not shift later years. slot_year is a display label only and assumes
+  # the annual, contiguous, styr-anchored grouping that build_linkage() enforces
+  # for observe= (ar1 on Year, extended to styr); the residual VALUES key off the
+  # slot, not this label.
   n_re <- length(data_list$linkage_re_obs_value)
   linkage_re_obsvec_idx <- rep(-1L, n_re)
   if (n_re > 0 && !is.null(data_list$linkage_re_obs_mask)) {

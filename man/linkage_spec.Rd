@@ -115,7 +115,11 @@ for these coefficients. \code{NA} (default) means fixed.}
 an \code{env_data} column that measures the AR1 latent (a state-space covariate,
 sensu Rogers et al. 2024). The latent enters the linked parameter through
 an estimated effect size and is observed against this column. \code{NULL}
-(default) leaves the AR1 as a plain random effect.}
+(default) leaves the AR1 as a plain random effect. The latent AR1 state is
+zero-mean -- it carries no estimated level parameter (unlike WHAM's \code{Ecov},
+which estimates \code{Ecov_mu}) -- so the observed covariate is expected to be
+\strong{standardized to mean 0}; a non-zero-mean column has its level confounded
+with the linked parameter's intercept and triggers a warning.}
 
 \item{obs_sd}{optional positive numeric: the measurement SD for the \code{observe}
 covariate (one per observed group). Required with \code{observe}, unused

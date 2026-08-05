@@ -43,9 +43,12 @@
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of
-#'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`. Defaults to
-#'   the four non-diet sources (`diet` is opt-in because it applies only to
-#'   multispecies models and can be expensive); pass `"all"` to include `diet`.
+#'   `"ecov"`, `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`.
+#'   Defaults to the five non-diet sources (`diet` is opt-in because it applies
+#'   only to multispecies models and can be expensive); pass `"all"` to include
+#'   `diet`. `"ecov"` residualizes the state-space environmental covariate
+#'   (Rogers QAR1 `observe=` term) and is placed first so it is one-step-ahead of
+#'   the covariate series alone, matching WHAM's `make_osa_residuals()`.
 #'   Sources with no observations in the model are silently skipped. Mirrors the
 #'   `source` argument of [residuals.Rceattle()] and [plot.rceattle_osa()].
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
