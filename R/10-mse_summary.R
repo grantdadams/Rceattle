@@ -55,6 +55,21 @@ mse_summary <- function(mse, om_only = FALSE){
     stop("No simulations completed; there is nothing to summarise.", call. = FALSE)
   }
 
+  ## Simulations whose unfished reference run failed ----
+  # The unfished run is a separate fit and can fail on its own, in which case
+  # run_mse() keeps the simulation but leaves OM_no_F NULL. Such a simulation is
+  # valid for everything except the no-F comparisons, so it is excluded from
+  # those specifically -- numerator and denominator both. Left in,
+  # `sum(NULL < 1000) > 0` answers FALSE, counting a missing reference run as
+  # "did not collapse" and biasing the collapse metrics low.
+  has_no_f <- vapply(mse, function(x) !is.null(x$OM_no_F), logical(1))
+  mse_no_f <- mse[has_no_f]
+  if (any(!has_no_f)) {
+    warning(sum(!has_no_f), " of ", length(mse), " simulations have no unfished ",
+            "reference run; the 'OM no F' and 'SSB Collapse from F' metrics are ",
+            "over the remaining ", length(mse_no_f), ".", call. = FALSE)
+  }
+
   ## OM dimensions ----
   # - determined from OM sim 1
   # - should be the same as for the EM
@@ -489,7 +504,9 @@ mse_summary <- function(mse, om_only = FALSE){
 
     if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
       terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp]) # FIXME: SBO is adjusted in wrapper function
-      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
+      terminal_dynamic_sb0_om <- if (length(mse_no_f)) {
+        sapply(mse_no_f, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
+      } else NA_real_
     }
 
     mse_summary$`OM: Terminal B`[sp] <- mean(terminal_b_om)
@@ -505,13 +522,17 @@ mse_summary <- function(mse, om_only = FALSE){
     mse_summary$`OM: Average SSB Depletion`[sp] <- mean(sb_depletion)
 
     # * OM: Collapse ----
-    mse_summary$`OM no F: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) > 0))
+    mse_summary$`OM no F: SSB Collapse`[sp] <- if (length(mse_no_f)) {
+      sum(sapply(mse_no_f, function(x) sum(x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) > 0))
+    } else NA_integer_
     mse_summary$`OM: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) > 0))
 
     # -- OM without F is above cutoff, but OM with F is below
-    mse_summary$`OM: SSB Collapse from F`[sp] <- sum(sapply(mse,
-                                                            function(x) sum((x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) *
-                                                                              (x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] > 1000)) > 0))
+    mse_summary$`OM: SSB Collapse from F`[sp] <- if (length(mse_no_f)) {
+      sum(sapply(mse_no_f,
+                 function(x) sum((x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) *
+                                   (x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] > 1000)) > 0))
+    } else NA_integer_
   }
 
   ############################################

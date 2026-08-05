@@ -918,8 +918,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # discard it: dropping these would remove simulations in a
       # stock-state-dependent way and bias every performance metric.
       sim_list$OM_no_F <- tryCatch(remove_F(om_use), error = function(e) {
-        warning("Sim ", sim, ": unfished reference run failed (",
-                conditionMessage(e), "); OM_no_F is NULL.", call. = FALSE)
+        # Recorded on the object, not just warned about: this runs in a parallel
+        # worker, whose warnings are discarded, and the simulation is still
+        # usable for everything that does not compare against the unfished run.
+        # mse_summary() drops these from the no-F metrics only.
+        sim_list$failure <<- paste0("OM_no_F: ", conditionMessage(e))
         NULL
       })
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
@@ -991,6 +994,17 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     warning(n_failed, " of ", length(sim_list),
             " simulations did not complete; they carry use_sim = FALSE and no ",
             "models. Filter on use_sim before summarising.", call. = FALSE)
+  }
+  # Worker warnings are discarded by the parallel cluster, so a completed
+  # simulation whose unfished reference run failed is reported from here.
+  n_no_f <- sum(vapply(sim_list, function(x) {
+    isTRUE(x$use_sim) && grepl("^OM_no_F: ", paste(x$failure))
+  }, logical(1)))
+  if (n_no_f) {
+    warning(n_no_f, " of ", length(sim_list),
+            " simulations completed but their unfished reference run failed; ",
+            "these carry use_sim = TRUE and OM_no_F = NULL, and are excluded ",
+            "from the no-F metrics only.", call. = FALSE)
   }
 
   if(is.null(dir)){
