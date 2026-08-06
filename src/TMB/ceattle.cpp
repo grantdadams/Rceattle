@@ -648,16 +648,24 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // Slot-space view of the random-effect deviations, indexed by RE slot. Both
+  // readers of the slot space -- the effective-beta loop just below and the
+  // row-20 density in 14.6b -- address deviations through this vector, so
+  // neither needs to know which parameter vector a given slot is stored in.
+  // Today every slot lives in beta_linkage_re and this is an element-wise copy.
+  vector<Type> beta_linkage_re_all = beta_linkage_re;
+
   // Effective linkage coefficient per table row. Fixed rows use their
   // beta_linkage(i); random-effect rows (linkage_re_index >= 0) instead draw
-  // their deviation from beta_linkage_re, which carries the density in row 20.
-  // The accumulators below are agnostic to the split -- they see one beta
-  // vector. With no RE rows every linkage_re_index is -1, so beta_linkage_eff
-  // is an element-wise copy of beta_linkage and the fit is bit-identical.
+  // their deviation from the slot-space vector, which carries the density in
+  // row 20. The accumulators below are agnostic to the split -- they see one
+  // beta vector. With no RE rows every linkage_re_index is -1, so
+  // beta_linkage_eff is an element-wise copy of beta_linkage and the fit is
+  // bit-identical.
   vector<Type> beta_linkage_eff = beta_linkage;
   for (int i = 0; i < beta_linkage_eff.size(); ++i) {
     if (linkage_re_index(i) >= 0) {
-      Type z = beta_linkage_re(linkage_re_index(i));
+      Type z = beta_linkage_re_all(linkage_re_index(i));
       // Rogers QAR1: an observed ar1 latent enters the target scaled by an
       // estimated effect size beta. Unobserved groups (the common case) keep
       // the deviate as-is, so those fits stay bit-identical.
@@ -4110,7 +4118,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
   // Group-oriented so each covariance structure couples its deviations
-  // correctly. For each RE group, gather its beta_linkage_re slots in ascending
+  // correctly. For each RE group, gather its slot-space deviations in ascending
   // slot order -- which the registry assigns in real elapsed-time order -- then
   // dispatch on the group's structure:
   //   us  (IID)        : sum of N(0, sigma) densities (the index_q_dev idiom);
@@ -4123,7 +4131,7 @@ Type objective_function<Type>::operator() () {
   // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
   // the density that jnll_comp.sum() also carries.
   if (log_sigma_linkage.size() > 0) {
-    int n_re = beta_linkage_re.size();
+    int n_re = beta_linkage_re_all.size();
     for (int grp = 0; grp < log_sigma_linkage.size(); ++grp) {
       Type sigma = exp(log_sigma_linkage(grp));
       // Collect this group's slots in slot (= time) order.
@@ -4134,7 +4142,7 @@ Type objective_function<Type>::operator() () {
       vector<int> obs_mask(len), obs_slot(len);
       int j = 0;
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
-        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g);
+        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re_all(g);
         obs_mask(j) = linkage_re_obs_mask(g); obs_slot(j) = g; j++;
       }
 
