@@ -255,18 +255,13 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   }
 
   # ---- Environmental-covariate (Rogers QAR1) observations ----
-  # A linkage random-effect group with an observed covariate (observe=) fits a
-  # Gaussian state-space measurement dnorm(obs, latent_re, obs_sd) per observed
-  # year (ceattle.cpp, row JNLL_LINKAGE_RE). Lay each observed slot into obsvec so
-  # oneStepPredict() can residualize it, matching WHAM's Ecov OSA. The RE slots
-  # are one-per-year in ascending (time) order over the model span, so slot g
-  # (1-based) maps to model year styr + g - 1; unobserved slots (obs_mask == 0)
-  # carry a latent state but no observation, so they get no obsvec entry. The
-  # obsvec index keys off the absolute slot (which(obs_mask == 1)), so interior
-  # gaps do not shift later years. slot_year is a display label only and assumes
-  # the annual, contiguous, styr-anchored grouping that build_linkage() enforces
-  # for observe= (ar1 on Year, extended to styr); the residual VALUES key off the
-  # slot, not this label.
+  # An observed covariate (observe=) is a Gaussian measurement of the latent
+  # state, dnorm(obs, latent_re, obs_sd) per observed year (ceattle.cpp row
+  # JNLL_LINKAGE_RE). Lay each observed slot into obsvec so oneStepPredict() can
+  # residualize it. Slots are one per year over the model span, so slot g maps to
+  # year styr + g - 1; unobserved years (obs_mask == 0) get no obsvec entry.
+  # Indexing keys off the absolute slot, so interior gaps do not shift later
+  # years. slot_year is a display label only (observe= grouping is annual).
   n_re <- length(data_list$linkage_re_obs_value)
   linkage_re_obsvec_idx <- rep(-1L, n_re)
   if (n_re > 0 && !is.null(data_list$linkage_re_obs_mask)) {

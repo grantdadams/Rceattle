@@ -41,19 +41,13 @@
   selectivity or catchability, where the value would be overwritten by the fleet
   leading the shared block.
 
-* **OSA residuals now cover the state-space environmental covariate.** When a
-  linkage carries an observed covariate (`build_catchability(..., observe=)`, the
-  Rogers et al. 2024 QAR1 form), `osa_residuals()` gains an `"ecov"` source that
-  one-step-ahead residualizes the Gaussian covariate observation via
-  `TMB::oneStepPredict()`. It is included in the default `source` and is placed
-  first, so the covariate is residualized against its own series alone (the AR1
-  process density stays in the objective, the latent state is integrated out with
-  its full prior) -- matching WHAM's `make_osa_residuals()`, which residualizes
-  `Ecov` observations the same way. An ordinary (non-OSA) fit is bit-identical;
-  only the residual computation reads the covariate observation from the flat OSA
-  vector. The AR1 latent is zero-mean (it has no estimated level parameter,
-  unlike WHAM's `Ecov_mu`), so the observed covariate is expected to be
-  standardized to mean 0; `build_catchability()` warns otherwise.
+* **`osa_residuals()` gains an `"ecov"` source** for the state-space covariate of
+  a QAR1 catchability (`build_catchability(..., observe=)`, Rogers et al. 2024).
+  It one-step-ahead residualizes the covariate observation with
+  `TMB::oneStepPredict()`, first and against its own series, as in WHAM's
+  `make_osa_residuals()`; the fit itself is unchanged. The AR1 latent is
+  zero-mean, so standardize the covariate -- `build_catchability()` warns
+  otherwise.
 
 
 * **`linkage_spec()` selects species and fleets by name.** `species =` now accepts

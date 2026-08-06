@@ -46,9 +46,9 @@
 #'   `"ecov"`, `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`.
 #'   Defaults to the five non-diet sources (`diet` is opt-in because it applies
 #'   only to multispecies models and can be expensive); pass `"all"` to include
-#'   `diet`. `"ecov"` residualizes the state-space environmental covariate
-#'   (Rogers QAR1 `observe=` term) and is placed first so it is one-step-ahead of
-#'   the covariate series alone, matching WHAM's `make_osa_residuals()`.
+#'   `diet`. `"ecov"` is the state-space covariate (QAR1 `observe=` term),
+#'   residualized first against its own series, as in WHAM's
+#'   `make_osa_residuals()`.
 #'   Sources with no observations in the model are silently skipped. Mirrors the
 #'   `source` argument of [residuals.Rceattle()] and [plot.rceattle_osa()].
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
@@ -177,13 +177,10 @@ osa_residuals <- function(fit,
   # sel <- sel[order(sel$year, match(sel$source, source), sel$fleet_code,
   #                 sel$bin_index, na.last = TRUE), , drop = FALSE]
 
-  # WHAM-style -- type-blocked: source first (Ecov, then aggregate index/catch,
-  # then comp, then caal), then year, then fleet, then bin. This reproduces
-  # WHAM's make_osa_residuals() conditioning: the environmental covariate is
-  # residualized FIRST and standalone (a one-step-ahead of its own AR1 series),
-  # then aggregate -> comp -> CAAL each conditional on the previous types
-  # (including the Ecov residuals), matching make_osa_residuals()'s Ecov-first
-  # ordering (`conditional. <- c(conditional., subset.ecov)`).
+  # Order by source, then year, fleet, bin. This reproduces WHAM's
+  # make_osa_residuals() conditioning: the covariate (ecov) is residualized first
+  # and standalone, then index/catch -> comp -> CAAL each conditional on the
+  # earlier types.
   sel <- sel[order(match(sel$source, source), sel$year, sel$fleet_code,
                     sel$bin_index, na.last = TRUE), , drop = FALSE]
 

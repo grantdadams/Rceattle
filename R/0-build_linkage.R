@@ -101,11 +101,9 @@ NULL
 #'   an `env_data` column that measures the AR1 latent (a state-space covariate,
 #'   sensu Rogers et al. 2024). The latent enters the linked parameter through
 #'   an estimated effect size and is observed against this column. `NULL`
-#'   (default) leaves the AR1 as a plain random effect. The latent AR1 state is
-#'   zero-mean -- it carries no estimated level parameter (unlike WHAM's `Ecov`,
-#'   which estimates `Ecov_mu`) -- so the observed covariate is expected to be
-#'   **standardized to mean 0**; a non-zero-mean column has its level confounded
-#'   with the linked parameter's intercept and triggers a warning.
+#'   (default) leaves the AR1 as a plain random effect. The latent is zero-mean
+#'   (no estimated level), so standardize the observed covariate to mean 0; a
+#'   non-zero-mean column confounds its level with the intercept and warns.
 #' @param obs_sd optional positive numeric: the measurement SD for the `observe`
 #'   covariate (one per observed group). Required with `observe`, unused
 #'   otherwise. Held **fixed** at this value by default (`obs_sd_est = FALSE`); it
@@ -849,11 +847,8 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       stop(sprintf("`observe` column `%s` is not in env_data.", spec$observe),
            call. = FALSE)
     }
-    # The latent ar1 state is zero-mean (no estimated level, unlike WHAM's
-    # Ecov_mu), so a non-standardized covariate has its mean confounded with the
-    # linked parameter's intercept and its state-space observation likelihood
-    # differs from a mean-estimating one. Warn if the observed column is not
-    # ~zero-mean; standardizing (mean 0) is the expected practice.
+    # Latent ar1 is zero-mean (no estimated level), so a non-zero-mean covariate
+    # confounds its mean with the linked parameter's intercept. Warn; standardize.
     obs_present <- env_data[[spec$observe]][is.finite(env_data[[spec$observe]])]
     if (length(obs_present) > 1L &&
         abs(mean(obs_present)) > 0.1 * stats::sd(obs_present)) {
