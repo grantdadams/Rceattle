@@ -12,7 +12,30 @@
 
 # Readable labels for the small fixed set of integer-coded fleet columns, used
 # only when switch_check() could not normalise a (partial) object to strings.
-.RCE_FLEET_TYPE_LABEL <- c("0" = "off", "1" = "fishery", "2" = "survey")
+# Casing matches fleet_map ("Off"/"Fishery"/"Survey") so the fallback prints the
+# same tokens as a switch-checked object.
+.RCE_FLEET_TYPE_LABEL <- c("0" = "Off", "1" = "Fishery", "2" = "Survey")
+
+# Show a switch value by its string alias, so the tree reads the same regardless of
+# the underlying integer code (and keeps meaning if a code is ever renumbered). `map`
+# is a name(string) -> integer vector; `x` may be strings (kept as-is) or integers
+# (reverse-mapped). Unmapped values fall back to their raw form.
+.rce_alias <- function(x, map) {
+  vapply(x, function(v) {
+    if (is.na(v)) return(NA_character_)
+    v <- as.character(v)
+    if (v %in% names(map)) return(v)                    # already a string alias
+    hit <- names(map)[match(v, as.character(map))]      # integer code -> string
+    if (!is.na(hit)) hit else v                         # fall back to the raw value
+  }, character(1))
+}
+
+# Alias a (possibly per-species) switch vector for display: collapse to one token
+# when every element is the same, else list them comma-separated.
+.rce_alias_show <- function(x, map) {
+  s <- .rce_alias(x, map)
+  if (length(unique(s)) == 1L) s[1] else paste(s, collapse = ", ")
+}
 
 #' Render an Rceattle data list as an indented spec tree
 #'
@@ -79,34 +102,45 @@
     # Accept the legacy `Q_index` spelling for display of an un-upgraded list.
     q_col <- if ("Catchability_index" %in% colnames(fc)) "Catchability_index" else "Q_index"
     sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
-    for (i in seq_len(nrow(fc))) {
-      last <- i == nrow(fc)
-      elbow <- if (last) "  └─ " else "  ├─ "
-      ftype <- lab("Fleet_type", i)
+    n <- nrow(fc)
+    # Two fixed left-hand columns -- "[code] name" and fleet type -- are padded to a
+    # common width so the " │ "-separated form fields line up down the block; the
+    # optional sel:/q:/mirror fields trail unpadded.
+    id_col   <- vapply(seq_len(n),
+                       function(i) paste0("[", fc$Fleet_code[i] %||% i, "] ", fc$Fleet_name[i] %||% ""),
+                       character(1))
+    type_col <- vapply(seq_len(n),
+                       function(i) { t <- lab("Fleet_type", i); if (is.na(t)) "" else t },
+                       character(1))
+    idw   <- max(nchar(id_col))
+    typew <- max(nchar(type_col))
+    for (i in seq_len(n)) {
+      elbow <- if (i == n) "  └─ " else "  ├─ "
       sel   <- lab("Selectivity", i)
       qform <- lab("Catchability", i)
-      parts <- c(
-        paste0("[", fc$Fleet_code[i] %||% i, "] ", fc$Fleet_name[i]),
-        if (!is.na(ftype)) ftype,
-        if (!is.na(sel))   paste0("sel ", sel),
-        if (!is.na(qform)) paste0("q ", qform)
-      )
-      # Mirror annotations.
+      cells <- c(formatC(id_col[i],   width = -idw),
+                 formatC(type_col[i], width = -typew))
+      if (!is.na(sel))   cells <- c(cells, paste0("sel: ", sel))
+      if (!is.na(qform)) cells <- c(cells, paste0("q: ",   qform))
+      # Mirror annotations: fleets that share a selectivity / catchability block.
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA
       qi <- if (q_col %in% colnames(fc)) fc[[q_col]][i] else NA
       if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel↔", si))
       if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q↔", qi))
-      if (length(mir)) parts <- c(parts, paste0("[", paste(mir, collapse = ", "), "]"))
-      add(elbow, paste(parts, collapse = "   "))
+      if (length(mir)) cells <- c(cells, paste0("[shared: ", paste(mir, collapse = ", "), "]"))
+      add(elbow, paste(cells, collapse = " │ "))
     }
   }
 
   # ---- processes (present on a configured / fitted object) ------------------
+  # Show each switch by its string alias (via .rce_alias_show) so the form is legible
+  # and stable if the underlying integer code is ever renumbered. A per-species vector
+  # that is constant collapses to a single token, else lists one entry per species.
   procs <- c()
-  if (!is.null(dl2$srr_fun))      procs <- c(procs, paste0("recruitment  srr_fun = ", paste(dl2$srr_fun, collapse = ", ")))
-  if (!is.null(dl2$M1_model))     procs <- c(procs, paste0("M1           M1_model = ", paste(dl2$M1_model, collapse = ", ")))
-  if (!is.null(dl2$growth_model)) procs <- c(procs, paste0("growth       growth_model = ", paste(dl2$growth_model, collapse = ", ")))
+  if (!is.null(dl2$srr_fun))      procs <- c(procs, paste0("recruitment  srr_fun      = ", .rce_alias_show(dl2$srr_fun, .SRR_FUNS)))
+  if (!is.null(dl2$M1_model))     procs <- c(procs, paste0("M1           M1_model     = ", .rce_alias_show(dl2$M1_model, .M1_MODELS)))
+  if (!is.null(dl2$growth_model)) procs <- c(procs, paste0("growth       growth_model = ", .rce_alias_show(dl2$growth_model, .GROWTH_FUN_TO_INT)))
   if (length(procs)) {
     add("  processes")
     for (k in seq_along(procs)) {
@@ -137,11 +171,14 @@
   }
 
   # ---- model_config ---------------------------------------------------------
+  # msmMode / initMode / HCR are aliased for the same reason as the processes above.
   cfg <- dl2$model_config
   if (!is.null(cfg)) {
-    add("  model_config : msmMode ", cfg$msmMode %||% "?",
-        " · initMode ", cfg$initMode %||% "?",
-        if (!is.null(cfg$HCR$HCR)) paste0(" · HCR ", cfg$HCR$HCR) else "")
+    add("  model_config : msmMode ",
+        if (!is.null(cfg$msmMode)) .rce_alias_show(cfg$msmMode, msmMode_map) else "?",
+        " · initMode ",
+        if (!is.null(cfg$initMode)) .rce_alias_show(cfg$initMode, initMode_map) else "?",
+        if (!is.null(cfg$HCR$HCR)) paste0(" · HCR ", .rce_alias_show(cfg$HCR$HCR, hcr_map)) else "")
   }
 
   L

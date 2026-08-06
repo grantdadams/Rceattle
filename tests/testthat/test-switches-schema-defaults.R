@@ -70,22 +70,47 @@ test_that("schema-driven defaults fill the documented values", {
   expect_true(all(out$fleet_control$Index_distribution == "Lognormal"))
 })
 
-test_that("default messages fire for messaged columns and stay silent otherwise", {
-  d <- BS2017SS
+test_that("default messages fire for ungated messaged columns and stay silent otherwise", {
+  d <- BS2017SS   # single-species, no estimated growth, no CAAL data
   for (col in c("Selectivity_dimension", "Comp_distribution", "Month",
                 "Sel_avgsel_pen", "Sel_shape_mode"))
     d$fleet_control[[col]] <- NULL
 
   msgs <- capture_messages(switch_check(d))
 
-  # Messaged columns announce their default.
-  expect_true(any(grepl("'Selectivity_dimension' not specified", msgs, fixed = TRUE)))
+  # Ungated messaged columns always announce their default.
   expect_true(any(grepl("'Comp_distribution' not specified", msgs, fixed = TRUE)))
   expect_true(any(grepl("'Month' not specified", msgs, fixed = TRUE)))
+
+  # Selectivity_dimension's message is gated on estimated growth (growth_model > 0);
+  # BS2017SS estimates none, so it stays silent (the default is still applied).
+  expect_false(any(grepl("'Selectivity_dimension' not specified", msgs, fixed = TRUE)))
 
   # Silent-default columns (default_msg = NULL) never announce.
   expect_false(any(grepl("Sel_avgsel_pen", msgs)))
   expect_false(any(grepl("Sel_shape_mode", msgs)))
+})
+
+test_that(".rce_apply_default gates optional-input messages on named conditions", {
+  schema <- .rce_column_schema()
+  gated <- list(
+    Selectivity_dimension = "growth_estimated",
+    CAAL_distribution     = "has_caal",
+    CAAL_weights          = "has_caal",
+    Sel_norm_bin_upper    = "sel_norm_upper"
+  )
+  for (col in names(gated)) {
+    cond <- gated[[col]]
+    # condition FALSE -> value still filled, but no message
+    expect_silent(v_off <- .rce_apply_default(NULL, col, schema,
+                                              conditions = stats::setNames(list(FALSE), cond)))
+    expect_equal(v_off, schema[[col]]$default)
+    # condition TRUE -> the default message fires
+    msg <- capture_messages(.rce_apply_default(NULL, col, schema,
+                                               conditions = stats::setNames(list(TRUE), cond)))
+    expect_true(any(grepl(col, msg, fixed = TRUE)),
+                info = paste("expected default message for", col, "when", cond, "is TRUE"))
+  }
 })
 
 test_that(".rce_apply_default gates the Sel_curve_pen message on np_hake", {
@@ -112,4 +137,30 @@ test_that(".rce_apply_default gates the Sel_curve_pen message on np_hake", {
   # A present value is returned unchanged, no message, either way.
   expect_silent(
     expect_equal(.rce_apply_default(5, "Sel_curve_pen1", schema, np_hake = TRUE), 5))
+})
+
+test_that("Diet_distribution accepts string and integer aliases (like Comp/CAAL)", {
+  skip_if_not_installed("Rceattle")
+  d <- Rceattle::BS2017MS
+  res <- function(v) {
+    d$Diet_distribution <- v
+    suppressMessages(Rceattle:::switch_check(Rceattle:::clean_data(d)))$Diet_distribution
+  }
+  # string aliases resolve to the integer codes the C++ diet likelihood reads
+  expect_equal(as.numeric(res(rep("DirichletMultinomial", d$nspp))), rep(1, d$nspp))
+  expect_equal(as.numeric(res(rep("Multinomial", d$nspp))),          rep(0, d$nspp))
+  # integer codes pass through unchanged
+  expect_equal(as.numeric(res(rep(1L, d$nspp))), rep(1, d$nspp))
+  # the diet likelihood has no AFSC variant, so -1 / "MultinomialAFSC" is rejected
+  d$Diet_distribution <- rep("MultinomialAFSC", d$nspp)
+  expect_error(suppressMessages(Rceattle:::switch_check(Rceattle:::clean_data(d))),
+               "Diet_distribution")
+})
+
+test_that("the Type-II MSVPA msmMode alias is 'MSVPA'", {
+  expect_equal(unname(.map_switch("MSVPA", msmMode_map, "msmMode")), 1)
+  expect_equal(unname(.map_switch("SingleSpecies", msmMode_map, "msmMode")), 0)
+  # renamed from the pre-release "TypeIIMSVPA", which is no longer accepted
+  expect_false("TypeIIMSVPA" %in% names(msmMode_map))
+  expect_error(.map_switch("TypeIIMSVPA", msmMode_map, "msmMode"), "msmMode")
 })

@@ -34,8 +34,9 @@
 #' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
 #' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
 #' @param msmMode The predation-mortality mode, as a string alias or integer code:
-#'   \code{"SingleSpecies"} (0, the default, no predation), \code{"TypeIIMSVPA"}
-#'   (1, sensu Holsman et al. 2015) or \code{"TypeIIIMSVPA"} (2). Higher integer
+#'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
+#'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
+#'   \code{"TypeIIIMSVPA"} (2). Higher integer
 #'   codes (Kinzey-Punt, Holling forms) are not yet implemented.
 #' @param avgnMode The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0; 5 = "FishedEquilibrium": F = 0 equilibrium age-structure seeded by the first-year recruitment (\code{exp(rec_pars + rec_dev[year 1])}) decayed by mortality (M1), with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention).

@@ -125,6 +125,7 @@ reference:
   - model_config
   - read_data
   - write_data
+  - write_template
   - clean_data
   - combine_data
   - rearrange_data
@@ -139,10 +140,22 @@ reference:
   - build_M1
   - build_growth
   - build_srr
+  - build_selectivity
+  - build_catchability
+  - build_composition
   - build_hcr
   - build_hcr_map
   - fit_control
   - linkage_spec
+
+- title: "Run configuration"
+  desc: >
+    Save, load, and inspect the full model + estimation setup as a YAML run
+    configuration.
+  contents:
+  - save_config
+  - load_config
+  - run_config
 
 - title: "Map helpers"
   desc: Low-level helpers called by `build_map()` to configure parameter estimation.
@@ -231,6 +244,8 @@ reference:
   - plot_b_eaten
   - plot_b_eaten_prop
   - plot_diet_comp
+  - plot_diet_comp1
+  - plot_diet_comp2
   - plot_ration
 
 - title: "Plotting — biology"
@@ -267,6 +282,7 @@ reference:
   contents:
   - print.Rceattle
   - summary.Rceattle
+  - print.Rceattle_data
   - switch_check
   - get_growth_matrix_r
   - get_weight_at_age_r
