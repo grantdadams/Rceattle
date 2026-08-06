@@ -768,27 +768,11 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("  param:   ", x$param, "\n", sep = "")
   cat("  formula: ", deparse(x$formula), "\n", sep = "")
   if (length(x$priors)) {
-    fl <- if (!is.null(x$fleet)) {
-      paste0("  [fleets: ", paste(x$fleet, collapse = ", "), "]")
-    } else {
-      "  [all fleets]"
-    }
     for (cn in names(x$priors)) {
       p <- x$priors[[cn]]
-      cat(sprintf("  prior:    %s ~ %s(%g, %g)%s\n",
-                  cn, p$family, p$p1, p$p2, fl))
+      cat(sprintf("  prior:    %s ~ %s(%g, %g)\n", cn, p$family, p$p1, p$p2))
     }
   }
-  by_txt <- if (is.null(x$by)) {
-    "(shared)"
-  } else if (isTRUE(x$by_auto) && is.na(x$param)) {
-    "(process default)"            # unattached: resolves to ~fleet / ~species per process
-  } else if (isTRUE(x$by_auto)) {
-    paste0(deparse(x$by), " (default)")
-  } else {
-    deparse(x$by)
-  }
-  cat("  by:      ", by_txt, "\n", sep = "")
   if (!is.null(x$species)) {
     cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
   }
@@ -797,11 +781,6 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   }
   if (!is.null(x$fleet)) {
     cat("  fleet:   ", paste(x$fleet, collapse = ", "), "\n", sep = "")
-  }
-  cat("  link:    ", x$link, "\n", sep = "")
-  cat("  phase:   ", x$est_phase, "\n", sep = "")
-  if (!is.na(x$re_group)) {
-    cat("  re_group:", x$re_group, "\n", sep = "")
   }
   invisible(x)
 }
