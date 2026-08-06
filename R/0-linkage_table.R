@@ -71,7 +71,11 @@ LINKAGE_COLS <- c(
   # and enters the target through an estimated effect size. NA when not observed.
   re_obs_value  = "numeric",       # observed covariate value at this row's time
   re_obs_sd     = "numeric",       # measurement SD start/fixed value (NA = not observed)
-  re_obs_est    = "logical"        # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
+  re_obs_est    = "logical",       # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
+  # Laplace-integrated vs penalized fixed effect, from linkage_spec(integrate =).
+  # Constant within a sigma group (the registry key includes it, so a group cannot
+  # straddle both). NA on fixed rows.
+  re_integrate  = "logical"        # TRUE/NA = integrated; FALSE = penalized fixed effect
 )
 
 
@@ -295,6 +299,11 @@ validate_linkage_table <- function(x) {
 #' @param re_obs_value,re_obs_sd state-space (Rogers QAR1) observation from
 #'   `linkage_spec(observe = , obs_sd = )`: the observed covariate value at this
 #'   row's time and the fixed measurement SD. `NA` when the group is unobserved.
+#' @param re_obs_est `TRUE` to estimate the QAR1 measurement SD; `FALSE`/`NA`
+#'   holds it fixed.
+#' @param re_integrate `FALSE` when the deviations are estimated as a penalized
+#'   fixed effect rather than integrated out by the Laplace approximation, from
+#'   `linkage_spec(integrate = FALSE)`. `TRUE`/`NA` = integrated.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -327,7 +336,8 @@ linkage_row <- function(process, param, X_col,
                         re_rho_prior_p2     = NA_real_,
                         re_obs_value  = NA_real_,
                         re_obs_sd     = NA_real_,
-                        re_obs_est    = NA) {
+                        re_obs_est    = NA,
+                        re_integrate  = NA) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -362,7 +372,8 @@ linkage_row <- function(process, param, X_col,
     re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
     re_obs_value  = as.numeric(re_obs_value),
     re_obs_sd     = as.numeric(re_obs_sd),
-    re_obs_est    = as.logical(re_obs_est)
+    re_obs_est    = as.logical(re_obs_est),
+    re_integrate  = as.logical(re_integrate)
   )
   validate_linkage_table(out)
   out

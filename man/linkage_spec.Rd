@@ -20,7 +20,8 @@ linkage_spec(
   est_phase = 1L,
   observe = NULL,
   obs_sd = NULL,
-  obs_sd_est = FALSE
+  obs_sd_est = FALSE,
+  integrate = TRUE
 )
 }
 \arguments{
@@ -131,6 +132,20 @@ survey-catchability (GOA pollock) model does. \strong{Caveat:} the effect size a
 informative; on a smooth series the AR1 latent can track it exactly and the
 freely-estimated \code{obs_sd} collapses toward 0. Keep it fixed unless the
 covariate is informative. Only used with \code{observe}.}
+
+\item{integrate}{single \code{TRUE}/\code{FALSE} (default \code{TRUE}): whether the random
+effect's deviations are integrated out by the Laplace approximation.
+\code{integrate = FALSE} instead estimates them as a \strong{penalized fixed effect} --
+the deviations stay in the objective as a plain penalty and are reported
+with standard errors like any other fixed effect. This reproduces the
+ADMB/AMAK convention behind the legacy \code{Time_varying_sel} /
+\code{Time_varying_q} switches, which a Laplace-integrated \code{rw()} cannot match
+(the marginal likelihood carries a log-determinant term the penalized form
+has no counterpart for). Permitted \strong{only with a fixed SD} --
+\code{init = list(sigma = )} and no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1} --
+because estimating deviations and their SD jointly as fixed effects is
+degenerate. Cannot be combined with \code{observe}: an observed latent state must
+stay integrated.}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.

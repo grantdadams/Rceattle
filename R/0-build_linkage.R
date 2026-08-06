@@ -115,6 +115,19 @@ NULL
 #'   informative; on a smooth series the AR1 latent can track it exactly and the
 #'   freely-estimated `obs_sd` collapses toward 0. Keep it fixed unless the
 #'   covariate is informative. Only used with `observe`.
+#' @param integrate single `TRUE`/`FALSE` (default `TRUE`): whether the random
+#'   effect's deviations are integrated out by the Laplace approximation.
+#'   `integrate = FALSE` instead estimates them as a **penalized fixed effect** --
+#'   the deviations stay in the objective as a plain penalty and are reported
+#'   with standard errors like any other fixed effect. This reproduces the
+#'   ADMB/AMAK convention behind the legacy `Time_varying_sel` /
+#'   `Time_varying_q` switches, which a Laplace-integrated `rw()` cannot match
+#'   (the marginal likelihood carries a log-determinant term the penalized form
+#'   has no counterpart for). Permitted **only with a fixed SD** --
+#'   `init = list(sigma = )` and no `sigma` prior, plus a fixed `rho` for `ar1` --
+#'   because estimating deviations and their SD jointly as fixed effects is
+#'   degenerate. Cannot be combined with `observe`: an observed latent state must
+#'   stay integrated.
 #'
 #' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
 #'   random-effect deviation SD and (for `ar1`) the correlation: e.g.
@@ -142,7 +155,8 @@ linkage_spec <- function(formula,
                          est_phase = 1L,
                          observe   = NULL,
                          obs_sd    = NULL,
-                         obs_sd_est = FALSE) {
+                         obs_sd_est = FALSE,
+                         integrate = TRUE) {
   # Whether `by` was left to its default. If so, the process that the spec is
   # later attached to (via build_*()) fills in its base stratum -- `~ fleet` for
   # catchability / selectivity / fleet composition weights, `~ species` otherwise
@@ -208,6 +222,41 @@ linkage_spec <- function(formula,
   init   <- .validate_linkage_init_arg(init)
   bounds <- .validate_linkage_bounds_arg(bounds)
 
+  # Penalized fixed-effect deviations. A variance is only consistently estimated
+  # by integrating the deviations out; estimating the deviations AND their SD
+  # jointly as fixed effects is degenerate, since the likelihood is driven up by
+  # sending both to zero. So `integrate = FALSE` demands that every
+  # hyperparameter of the structure it declares be pinned. This mirrors the
+  # reference models it exists to reproduce, which fix the deviation SD (the
+  # legacy `Time_varying_*_sd` columns) precisely because those deviates are
+  # penalized rather than integrated.
+  if (!is.logical(integrate) || length(integrate) != 1L || is.na(integrate)) {
+    stop("`integrate` must be a single TRUE/FALSE.", call. = FALSE)
+  }
+  if (!integrate) {
+    re_structs <- .parse_linkage_formula(formula)$re_structures
+    if (length(re_structs) == 0L) {
+      stop("`integrate = FALSE` applies to a random-effect term, but `formula` ",
+           "has none (e.g. ~ rw(1 | Year)).", call. = FALSE)
+    }
+    if (!is.null(observe)) {
+      stop("`integrate = FALSE` cannot be combined with `observe`: an observed ",
+           "latent state must stay integrated.", call. = FALSE)
+    }
+    .has_prior <- function(key) !is.null(priors_obj[[key]])
+    if (is.null(init$sigma) || .has_prior("sigma")) {
+      stop("`integrate = FALSE` requires a fixed deviation SD: supply ",
+           "`init = list(sigma = ...)` with no `sigma` prior. Estimating the ",
+           "deviations and their SD jointly as fixed effects is degenerate.",
+           call. = FALSE)
+    }
+    if (any(re_structs == "ar1") && (is.null(init$rho) || .has_prior("rho"))) {
+      stop("`integrate = FALSE` on an ar1 term also requires a fixed ",
+           "correlation: supply `init = list(rho = ...)` with no `rho` prior.",
+           call. = FALSE)
+    }
+  }
+
   structure(
     list(
       formula   = formula,
@@ -225,7 +274,8 @@ linkage_spec <- function(formula,
       est_phase = as.integer(est_phase),
       observe   = observe,
       obs_sd    = obs_sd,
-      obs_sd_est = obs_sd_est
+      obs_sd_est = obs_sd_est,
+      integrate = integrate
     ),
     class = "Rceattle_linkage_spec"
   )
@@ -1077,6 +1127,11 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_obs_value  = r_obs_v,
         re_obs_sd     = r_obs_sd,
         re_obs_est    = r_obs_est,
+        # Integrated vs penalized, on RE columns only. Read defensively so a spec
+        # built before `integrate` existed (an older saved config) still reads as
+        # integrated rather than as a missing field.
+        re_integrate  = if (is.na(col_re_struct[col_idx])) NA
+                        else !identical(spec$integrate, FALSE),
         est_phase     = spec$est_phase
       )
     }
@@ -1461,6 +1516,21 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
                ifelse(is.na(tbl$age_bin), "*", tbl$age_bin),
                ifelse(is.na(tbl$fleet),   "*", tbl$fleet),
                tbl$re_group, tbl$re_struct, sep = "|")[re_rows]
+
+  # A sigma group's deviations live in exactly one parameter vector, so a group
+  # cannot be half Laplace-integrated and half penalized. Two specs that pool to
+  # the same key but disagree on `integrate` are therefore refused rather than
+  # silently split into two groups -- splitting would quietly give one
+  # user-visible random effect two separate SDs. NA (a fixed row, or a spec built
+  # before `integrate` existed) reads as integrated.
+  integ <- is.na(tbl$re_integrate[re_rows]) | tbl$re_integrate[re_rows]
+  for (k in unique(key)) {
+    if (length(unique(integ[key == k])) > 1L) {
+      stop("a random-effect group cannot be both integrated and penalized, ",
+           "but specs for '", k, "' disagree on `integrate`.", call. = FALSE)
+    }
+  }
+
   uniq_keys <- unique(key)
   tbl$sigma_index[re_rows] <- match(key, uniq_keys) - 1L
 
@@ -1484,6 +1554,11 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
 #' * a sigma prior -> estimated with that prior (started from `init` if given);
 #' * neither -> estimated from a default start.
 #'
+#' Also carries the group's `integrate` flag and enforces the contract that a
+#' penalized group (`integrate = FALSE`) must have a fixed SD -- and, for `ar1`,
+#' a fixed correlation. `linkage_spec()` checks this per spec; this is the
+#' authoritative check, because only here is the pooled group visible.
+#'
 #' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
 #' @return a data.frame with one row per group, or `NULL` if there are none.
 #' @keywords internal
@@ -1496,7 +1571,7 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   g <- g[order(g$sigma_index), , drop = FALSE]
   has_prior <- !is.na(g$re_sigma_prior_family) & g$re_sigma_prior_family != "none"
   has_rprior <- !is.na(g$re_rho_prior_family) & g$re_rho_prior_family != "none"
-  data.frame(
+  out <- data.frame(
     sigma_index  = as.integer(g$sigma_index),
     re_struct    = as.character(g$re_struct),
     sigma_start  = ifelse(is.na(g$re_sigma_init), 0.3, as.numeric(g$re_sigma_init)),
@@ -1515,8 +1590,34 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     observed     = !is.na(g$re_obs_sd),
     obs_sd       = as.numeric(g$re_obs_sd),
     obs_sd_est   = !is.na(g$re_obs_est) & g$re_obs_est,
+    # Laplace-integrated (the default) or estimated as a penalized fixed effect.
+    integrate    = is.na(g$re_integrate) | g$re_integrate,
     stringsAsFactors = FALSE
   )
+
+  # Authoritative fixed-hyperparameter gate. linkage_spec() checks this too, but
+  # only per spec: a group is a KEY, so two specs that pool together -- one with
+  # a fixed sigma and integrate = FALSE, one carrying a sigma prior -- would slip
+  # past the constructor and leave the group's SD estimated. Estimating penalized
+  # deviations and their SD jointly is degenerate, so refuse it here, where the
+  # pooled group is finally visible.
+  bad <- !out$integrate & !out$sigma_fixed
+  if (any(bad)) {
+    stop("penalized random-effect linkages (`integrate = FALSE`) require a ",
+         "fixed deviation SD, but sigma group(s) ",
+         paste(out$sigma_index[bad], collapse = ", "),
+         " estimate theirs. Supply `init = list(sigma = ...)` with no `sigma` ",
+         "prior.", call. = FALSE)
+  }
+  bad_rho <- !out$integrate & out$re_struct == "ar1" & !out$rho_fixed
+  if (any(bad_rho)) {
+    stop("penalized `ar1` linkages (`integrate = FALSE`) require a fixed ",
+         "correlation, but sigma group(s) ",
+         paste(out$sigma_index[bad_rho], collapse = ", "),
+         " estimate theirs. Supply `init = list(rho = ...)` with no `rho` prior.",
+         call. = FALSE)
+  }
+  out
 }
 
 

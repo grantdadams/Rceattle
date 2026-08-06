@@ -100,7 +100,8 @@ print.Rceattle_run_config <- function(x, ...) {
 # the constructor picks up the same defaults.
 .RCE_LINKAGE_SPEC_ARGS <- c("formula", "param", "by", "species", "sex", "fleet",
                             "link", "init", "bounds", "priors", "re_group",
-                            "est_phase", "observe", "obs_sd", "obs_sd_est")
+                            "est_phase", "observe", "obs_sd", "obs_sd_est",
+                            "integrate")
 
 .rce_spec_to_list <- function(spec) {
   # A reference spec for default-omission (formula/by differ and are handled

@@ -37,7 +37,8 @@ linkage_row(
   re_rho_prior_p2 = NA_real_,
   re_obs_value = NA_real_,
   re_obs_sd = NA_real_,
-  re_obs_est = NA
+  re_obs_est = NA,
+  re_integrate = NA
 )
 }
 \arguments{
@@ -82,6 +83,13 @@ on the natural scale; the prior triple places a prior on that SD.}
 \item{re_obs_value, re_obs_sd}{state-space (Rogers QAR1) observation from
 \code{linkage_spec(observe = , obs_sd = )}: the observed covariate value at this
 row's time and the fixed measurement SD. \code{NA} when the group is unobserved.}
+
+\item{re_obs_est}{\code{TRUE} to estimate the QAR1 measurement SD; \code{FALSE}/\code{NA}
+holds it fixed.}
+
+\item{re_integrate}{\code{FALSE} when the deviations are estimated as a penalized
+fixed effect rather than integrated out by the Laplace approximation, from
+\code{linkage_spec(integrate = FALSE)}. \code{TRUE}/\code{NA} = integrated.}
 }
 \value{
 A one-row \code{Rceattle_linkage_table}.
