@@ -233,7 +233,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
-  DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_sigma);      // per RE slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_integrate);  // per RE slot: 1 = Laplace-integrated, 0 = penalized
+  DATA_IVECTOR(linkage_re_slot);       // per RE slot: 0-based position within its own parameter vector
   DATA_IVECTOR(linkage_re_struct);     // per RE group: covariance structure (0=us/IID, 1=rw, 2=ar1)
   DATA_IVECTOR(linkage_re_rho);        // per RE group: 0-based slot in trans_rho_linkage (ar1 only; -1 otherwise)
   DATA_IVECTOR(linkage_re_sigma_prior_family); // per RE group: prior on the SD (0=none,1=normal,2=lognormal,3=gamma,4=beta)
@@ -410,7 +412,14 @@ Type objective_function<Type>::operator() () {
   // unless a `~ (1|group)` / rw() / ar1() linkage was supplied; when present,
   // beta_linkage_re enters the Laplace approximation (added to random=) and the
   // density on it is accumulated into jnll_comp row 20.
-  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients
+  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients (Laplace-integrated)
+  // Penalized RE deviations: same row-20 density as beta_linkage_re, but NOT in
+  // the `random` set, so the density acts as a plain penalty instead of being
+  // integrated out. Two vectors rather than one flag because TMB selects random
+  // effects by parameter NAME, and one model may mix both. Permitted only with a
+  // fixed SD -- estimating deviations and their SD jointly as fixed effects is
+  // degenerate (see .re_group_table()).
+  PARAMETER_VECTOR(beta_linkage_re_pen);
   PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
   PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
   PARAMETER_VECTOR(beta_linkage_obs);    // Rogers QAR1 effect size: one per observed ar1 group
@@ -652,8 +661,17 @@ Type objective_function<Type>::operator() () {
   // readers of the slot space -- the effective-beta loop just below and the
   // row-20 density in 14.6b -- address deviations through this vector, so
   // neither needs to know which parameter vector a given slot is stored in.
-  // Today every slot lives in beta_linkage_re and this is an element-wise copy.
-  vector<Type> beta_linkage_re_all = beta_linkage_re;
+  // A slot lives in beta_linkage_re when it is Laplace-integrated, or in
+  // beta_linkage_re_pen when it is a penalized fixed effect; linkage_re_slot
+  // gives its position within whichever that is. With no penalized group every
+  // linkage_re_integrate is 1 and this is an element-wise copy of
+  // beta_linkage_re, so those fits stay bit-identical.
+  vector<Type> beta_linkage_re_all(linkage_re_sigma.size());
+  for (int s = 0; s < beta_linkage_re_all.size(); ++s) {
+    beta_linkage_re_all(s) = linkage_re_integrate(s)
+        ? beta_linkage_re(linkage_re_slot(s))
+        : beta_linkage_re_pen(linkage_re_slot(s));
+  }
 
   // Effective linkage coefficient per table row. Fixed rows use their
   // beta_linkage(i); random-effect rows (linkage_re_index >= 0) instead draw
@@ -4025,6 +4043,10 @@ Type objective_function<Type>::operator() () {
   REPORT( beta_linkage );
   ADREPORT( beta_linkage );
   REPORT( beta_linkage_re );
+  REPORT( beta_linkage_re_pen );
+  // Slot-ordered deviations across both vectors, so a caller can read a group's
+  // walk without knowing how it is stored.
+  REPORT( beta_linkage_re_all );
   REPORT( beta_linkage_obs );
   ADREPORT( beta_linkage_obs );
   /*

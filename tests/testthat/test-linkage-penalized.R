@@ -53,6 +53,26 @@ testthat::test_that("integrate = FALSE on ar1 also requires a fixed rho", {
   testthat::expect_false(spec$integrate)
 })
 
+testthat::test_that("est_phase cannot silently fail to fix a random-effect term", {
+  # est_phase reaches only beta_linkage; a random effect's deviations live in
+  # beta_linkage_re / beta_linkage_re_pen, so est_phase = 0 used to leave every
+  # deviation estimated -- the opposite of what the caller asked for.
+  for (spec_fn in list(
+    function() Rceattle::linkage_spec(~ rw(1 | Year), init = list(sigma = 0.05),
+                                      integrate = FALSE, est_phase = 0L),
+    function() Rceattle::linkage_spec(~ (1 | Year), est_phase = 0L),
+    function() Rceattle::linkage_spec(~ temp + rw(1 | Year), est_phase = 0L))) {
+    testthat::expect_error(spec_fn(), "cannot fix a random-effect term")
+  }
+
+  # A purely fixed-effect linkage still honours est_phase = 0, and a phase of 1
+  # (or above) is accepted on a random-effect term.
+  testthat::expect_equal(
+    Rceattle::linkage_spec(~ temp, est_phase = 0L)$est_phase, 0L)
+  testthat::expect_equal(
+    Rceattle::linkage_spec(~ rw(1 | Year), est_phase = 2L)$est_phase, 2L)
+})
+
 testthat::test_that("integrate = FALSE is rejected without a random-effect term", {
   testthat::expect_error(
     Rceattle::linkage_spec(~ temp, init = list(sigma = 0.05), integrate = FALSE),
@@ -154,6 +174,170 @@ testthat::test_that("a group cannot be both integrated and penalized", {
   tbl$re_integrate[re[1]] <- TRUE        # straddle one row across both vectors
   testthat::expect_error(Rceattle:::.assign_re_registry(tbl),
                          "both integrated and penalized")
+})
+
+# ---- end-to-end: the penalized path reproduces the legacy penalized fit ------
+
+# Both models are built at estimateMode = 3 and evaluated at the SAME deviations,
+# so the comparison is exact and free of optimizer noise.
+.pen_build <- function(dat, qfun = NULL) {
+  suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = dat, file = NULL, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0, qFun = qfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+}
+
+testthat::test_that("a penalized rw() reproduces legacy random-walk catchability", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Legacy Time_varying_q = "RandomWalk" IS a penalized fixed effect with a fixed
+  # SD: index_q_dev_log_sd is estimable only for Catchability == "AR1", the first
+  # deviate is pinned, the density is a first difference, and the deviate enters
+  # additively on the log scale exactly where q_linkage_offset does. So the two
+  # formulations are the same model and must agree exactly -- this is the check
+  # that the penalized density is neither double-counted nor dropped.
+  FLT   <- 7L        # EIT_Pollock, the only Estimated-q survey in BS2017SS
+  SIGMA <- 0.05
+  d0    <- Rceattle::BS2017SS
+  nyr   <- length(d0$styr:d0$endyr)
+
+  d_leg <- d0
+  d_leg$fleet_control$Time_varying_q[FLT]    <- "RandomWalk"
+  d_leg$fleet_control$Time_varying_q_sd[FLT] <- SIGMA
+  f_leg <- .pen_build(d_leg)
+
+  d_gr <- d0
+  d_gr$fleet_control$Time_varying_q[FLT] <- "Off"
+  f_gr <- .pen_build(d_gr, Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = FLT,
+                               link = "log", init = list(sigma = SIGMA),
+                               integrate = FALSE))))
+
+  # The penalized deviations are ordinary fixed effects, not random effects.
+  testthat::expect_true("beta_linkage_re_pen" %in% names(f_gr$obj$par))
+  testthat::expect_false("beta_linkage_re" %in% names(f_gr$obj$par))
+  testthat::expect_length(f_gr$obj$env$random, 0)
+  testthat::expect_equal(length(f_gr$obj$par), length(f_leg$obj$par))
+
+  set.seed(7)
+  dev <- c(0, stats::rnorm(nyr - 1, 0, SIGMA))   # both pin the first deviate
+
+  p_leg <- f_leg$obj$par
+  p_gr  <- f_gr$obj$par
+  i_leg <- names(p_leg) == "index_q_dev"
+  i_gr  <- names(p_gr)  == "beta_linkage_re_pen"
+  testthat::expect_equal(sum(i_leg), nyr - 1L)
+  testthat::expect_equal(sum(i_gr),  nyr - 1L)
+  p_leg[i_leg] <- dev[-1]
+  p_gr[i_gr]   <- dev[-1]
+
+  testthat::expect_equal(f_gr$obj$fn(p_gr), f_leg$obj$fn(p_leg), tolerance = 1e-12)
+
+  # ... and the density lands in the linkage row at the value written by hand.
+  expected <- -sum(stats::dnorm(diff(dev), 0, SIGMA, log = TRUE))
+  r_gr <- f_gr$obj$report(p_gr)
+  testthat::expect_equal(sum(r_gr$jnll_comp[nrow(r_gr$jnll_comp), ]), expected,
+                         tolerance = 1e-10)
+})
+
+testthat::test_that("integrating or penalizing changes the objective, not the density", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The single clearest statement of what the feature is: both treatments carry
+  # the SAME row-20 density; they differ only in whether TMB integrates it out.
+  FLT   <- 7L
+  SIGMA <- 0.05
+  d     <- Rceattle::BS2017SS
+  spec  <- function(integrate) Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = FLT,
+                               link = "log", init = list(sigma = SIGMA),
+                               integrate = integrate)))
+  f_int <- .pen_build(d, spec(TRUE))
+  f_pen <- .pen_build(d, spec(FALSE))
+
+  testthat::expect_true("beta_linkage_re" %in% names(f_int$obj$env$par[f_int$obj$env$random]))
+  testthat::expect_length(f_pen$obj$env$random, 0)
+
+  nyr <- length(d$styr:d$endyr)
+  set.seed(11)
+  dev <- c(0, stats::rnorm(nyr - 1, 0, SIGMA))
+
+  # last.par omits the map-pinned first deviate, which stays at its init of 0 --
+  # so supply the remaining nyr - 1 and let the pin carry dev[1] = 0.
+  fill <- function(obj, nm) {
+    p <- obj$env$last.par
+    testthat::expect_equal(sum(names(p) == nm), length(dev) - 1L)
+    p[names(p) == nm] <- dev[-1]
+    p
+  }
+  r_int <- f_int$obj$report(fill(f_int$obj, "beta_linkage_re"))
+  r_pen <- f_pen$obj$report(fill(f_pen$obj, "beta_linkage_re_pen"))
+
+  row <- nrow(r_int$jnll_comp)
+  testthat::expect_equal(sum(r_int$jnll_comp[row, ]),
+                         sum(r_pen$jnll_comp[row, ]), tolerance = 1e-12)
+  testthat::expect_equal(sum(r_pen$jnll_comp[row, ]),
+                         -sum(stats::dnorm(diff(dev), 0, SIGMA, log = TRUE)),
+                         tolerance = 1e-10)
+})
+
+testthat::test_that("one model can mix an integrated and a penalized group", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The motivating requirement: TMB selects random effects by parameter NAME, so
+  # mixing the two treatments in one fit is exactly what the second parameter
+  # vector exists for.
+  d <- Rceattle::BS2017SS
+  SIG_Q <- 0.05
+  SIG_S <- 0.10
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 7L,
+                               link = "log", init = list(sigma = SIG_Q),
+                               integrate = FALSE)))
+  selfun <- Rceattle::build_selectivity(linkages = list(
+    inf_asc = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 4L,
+                                     init = list(sigma = SIG_S))))
+  f <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0, qFun = qfun, selFun = selfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  n_int <- length(f$estimated_params$beta_linkage_re)
+  n_pen <- length(f$estimated_params$beta_linkage_re_pen)
+  testthat::expect_gt(n_int, 0)
+  testthat::expect_gt(n_pen, 0)
+  # Every slot is stored exactly once, across the two vectors.
+  testthat::expect_equal(n_int + n_pen,
+                         sum(!is.na(f$data_list$linkage_table$re_index)))
+
+  # Only the integrated vector is in the random set; only the penalized one is a
+  # free fixed effect.
+  testthat::expect_true("beta_linkage_re" %in%
+                        names(f$obj$env$par[f$obj$env$random]))
+  testthat::expect_false("beta_linkage_re_pen" %in%
+                         names(f$obj$env$par[f$obj$env$random]))
+  testthat::expect_true("beta_linkage_re_pen" %in% names(f$obj$par))
+
+  # Row 20 carries both groups' densities: fill both vectors and check the total
+  # against the two hand-written random-walk densities.
+  set.seed(3)
+  p <- f$obj$env$last.par
+  d_int <- c(0, stats::rnorm(n_int - 1, 0, SIG_S))
+  d_pen <- c(0, stats::rnorm(n_pen - 1, 0, SIG_Q))
+  # Both walks pin their first deviate, so last.par holds n - 1 of each.
+  p[names(p) == "beta_linkage_re"]     <- d_int[-1]
+  p[names(p) == "beta_linkage_re_pen"] <- d_pen[-1]
+  rep <- f$obj$report(p)
+  testthat::expect_equal(
+    sum(rep$jnll_comp[nrow(rep$jnll_comp), ]),
+    -sum(stats::dnorm(diff(d_int), 0, SIG_S, log = TRUE)) -
+      sum(stats::dnorm(diff(d_pen), 0, SIG_Q, log = TRUE)),
+    tolerance = 1e-8)
 })
 
 testthat::test_that("integrate survives a save_config round trip", {

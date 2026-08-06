@@ -1126,6 +1126,39 @@ arguments as every other parameter: `init = list(sigma = 0.1)` fixes the SD
 `priors = list(rho = normal(...))` place priors. `rw()` / `ar1()` need a
 numeric grouping variable (a real elapsed-time lag).
 
+### Integrated or penalized
+
+By default the deviations are **integrated out** by the Laplace approximation --
+they are random effects in the usual sense. Many reference assessments instead
+treat time-varying deviations as **penalized fixed effects**: the deviations stay
+in the objective as a plain penalty with a *fixed* SD and are never integrated.
+That is what ADMB/AMAK models do, and what Rceattle's own legacy
+`Time_varying_sel` / `Time_varying_q` switches do. The two are genuinely
+different models -- the marginal likelihood carries a log-determinant term the
+penalized form has no counterpart for -- so an integrated `rw()` will not
+reproduce a penalized reference fit.
+
+`integrate = FALSE` asks for the penalized treatment:
+
+```{r eval = FALSE}
+build_selectivity(linkages = list(
+  slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
+                         init = list(sigma = 0.05), integrate = FALSE)))
+```
+
+It is permitted **only with a fixed SD** (and, for `ar1`, a fixed correlation).
+A variance is consistently estimated only by integrating the deviations out;
+estimating the deviations *and* their SD jointly as fixed effects is degenerate,
+since the objective improves without bound as both go to zero. This is the same
+reason `goa_pk` fixes `sigmaR` when it treats recruitment deviations as
+penalized. It cannot be combined with `observe = ` -- an observed latent state
+must stay integrated for the observation to identify it.
+
+One model may mix the two treatments: an integrated state-space catchability
+alongside a penalized selectivity walk is fine. Penalized deviations are ordinary
+fixed effects, so `sdreport()` gives them standard errors, which an integrated
+term does not get.
+
 An `ar1(1 | Year)` term can additionally be a **state-space covariate** (the
 Rogers et al. 2024 QAR1 catchability model): with `observe = "<env column>",
 obs_sd = <value>` the AR1 latent is observed as an `env_data` column with a
@@ -1167,7 +1200,13 @@ rather than applying a covariate/deviate to the wrong year.
 * **Time-variation switches are not auto-translated.** The soft-deprecated
   `Time_varying_q` / `Time_varying_sel` / `M1_re` switches (above) are not
   rewritten into the grammar for you -- rewrite the spec by hand when you want the
-  grammar's features. No grammar equivalent exists yet for the environmental /
+  grammar's features. The switches estimate their deviations as penalized fixed
+  effects with a fixed SD, so a faithful rewrite pairs `rw()` with
+  `integrate = FALSE` and `init = list(sigma = )` set to the switch's
+  `Time_varying_*_sd`; an integrated `rw()` is a different model. Note the legacy
+  `RandomWalkAscending` selectivity mode penalizes the ascending inflection at
+  **4x** the fleet's `Time_varying_sel_sd`, so the two limbs need different
+  `sigma` values. No grammar equivalent exists yet for the environmental /
   Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
   separable `M1_re = 6` (age × year), which keep using the switch-based path
   without a nudge.

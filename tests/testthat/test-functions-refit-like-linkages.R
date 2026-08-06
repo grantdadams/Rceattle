@@ -121,3 +121,45 @@ testthat::test_that("sample_rec(update_model = TRUE) keeps the model's linkages"
   testthat::expect_gt(length(resampled$estimated_params$beta_linkage), 0)
   testthat::expect_equal(resampled$data_list$estimateMode, 1L)
 })
+
+
+testthat::test_that("a refit preserves a penalized (integrate = FALSE) linkage", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # .refit_like() rebuilds qFun/selFun/compFun from the stored spec objects, so
+  # `integrate` rides along as a spec field. If it did not, a refit would quietly
+  # switch the deviations from a penalized fixed effect to an integrated random
+  # effect -- a different model -- and every diagnostic that re-fits
+  # (retrospective, jitter, self_test, profile, run_mse, remove_F) would be
+  # comparing against something the user never asked for.
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 7L,
+                               link = "log", init = list(sigma = 0.05),
+                               integrate = FALSE)))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0, qFun = qfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  refit <- suppressWarnings(suppressMessages(Rceattle:::.refit_like(
+    data_list = fit$data_list, inits = fit$estimated_params,
+    estimateMode = 1)))
+
+  # Still penalized: the flag survived, the deviations are still a fixed effect,
+  # and nothing migrated into the Laplace approximation.
+  testthat::expect_false(refit$data_list$q_linkages$q$integrate)
+  testthat::expect_length(refit$obj$env$random, 0)
+  testthat::expect_true("beta_linkage_re_pen" %in% names(refit$obj$par))
+  testthat::expect_equal(
+    length(refit$estimated_params$beta_linkage_re_pen),
+    length(fit$estimated_params$beta_linkage_re_pen))
+
+  # And it is the same model numerically. Compare the OPTIMIZED objectives, not
+  # obj$fn(obj$par): obj$par holds the start values, and the refit starts from
+  # the source model's MLEs while the source started from the defaults.
+  testthat::expect_equal(refit$opt$objective, fit$opt$objective,
+                         tolerance = 1e-8)
+})

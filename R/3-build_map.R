@@ -1501,12 +1501,21 @@ build_map_linkages <- function(map_list, data_list) {
   # re-targets, exactly as the legacy RandomWalk fixes index_q_dev[flt, 1].
   rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
   if (length(rw_rows) > 0L) {
-    m_re <- map_list$beta_linkage_re
     # first slot of each rw group = smallest re_index (earliest time, since
-    # re_index is assigned in (group, elapsed-time) order).
-    first_slot <- tapply(tbl$re_index[rw_rows], tbl$sigma_index[rw_rows], min)
-    m_re[as.integer(first_slot) + 1L] <- NA
-    map_list$beta_linkage_re <- m_re
+    # re_index is assigned in (group, elapsed-time) order). The slot is a GLOBAL
+    # index, so translate it to the vector that actually holds it -- pinning
+    # position n of beta_linkage_re when the walk is penalized would fix an
+    # unrelated deviation and leave this walk's level unidentified.
+    first_slot <- as.integer(tapply(tbl$re_index[rw_rows],
+                                    tbl$sigma_index[rw_rows], min))
+    rt <- .re_slot_routing(tbl)
+    for (s in first_slot) {
+      r <- rt[rt$slot == s, , drop = FALSE]
+      nm <- if (r$integrate) "beta_linkage_re" else "beta_linkage_re_pen"
+      m_re <- map_list[[nm]]
+      m_re[r$pos + 1L] <- NA
+      map_list[[nm]] <- m_re
+    }
   }
 
   # A group's log_sigma_linkage is estimable unless the spec supplied a fixed

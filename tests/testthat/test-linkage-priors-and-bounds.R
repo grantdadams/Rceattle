@@ -224,3 +224,37 @@ testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth
   testthat::expect_true(all(tbl$design_col[sd_rows] == "(Intercept)"))
   testthat::expect_true(all(is.na(fit$map$beta_linkage[sd_rows])))
 })
+
+
+testthat::test_that("a linkage coefficient's bounds are applied to that coefficient", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Regression test for a silent misalignment: fit_mod assembles lower/upper by
+  # walking build_params()'s parameter order, but TMB orders obj$par by the
+  # sequence the PARAMETER_* macros appear in the template -- and build_params()
+  # lists the linkage coefficients AFTER log_F while ceattle.cpp declares them
+  # BEFORE it. The two vectors are the same LENGTH either way, so nothing
+  # downstream can notice; the constraints simply land on the wrong parameters,
+  # putting the user's coefficient bounds on log_F and log_F's [-1000, 10] rail
+  # on the coefficient. Any model carrying a linkage was affected.
+  d <- Rceattle::BS2017SS
+  yrs <- d$styr:d$endyr
+  d$env_data <- data.frame(Year = yrs, temp = as.numeric(scale(seq_along(yrs))))
+
+  cap <- 0.02
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    qFun = Rceattle::build_catchability(linkages = list(
+      q = Rceattle::linkage_spec(~ temp, by = ~ fleet, fleet = 7L,
+                                 bounds = list(temp = c(-cap, cap))))),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  beta <- as.numeric(fit$estimated_params$beta_linkage)
+  beta <- beta[fit$data_list$linkage_table$design_col == "temp"]
+  testthat::expect_length(beta, 1L)
+  testthat::expect_lte(beta, cap + 1e-8)
+  testthat::expect_gte(beta, -cap - 1e-8)
+})

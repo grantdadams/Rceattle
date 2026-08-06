@@ -1,3 +1,62 @@
+# Rceattle 5.4.0
+
+## New features
+
+* **`linkage_spec(integrate = FALSE)` estimates a random-effect linkage term as a
+  penalized fixed effect.** A `~ (1|Year)` / `rw(1|Year)` / `ar1(1|Year)` term is
+  normally integrated out by the Laplace approximation. Many reference
+  assessments -- ADMB/AMAK, `goa_pk`, and Rceattle's own legacy
+  `Time_varying_sel` / `Time_varying_q` switches -- instead treat such deviations
+  as *penalized fixed effects*: the deviations sit in the objective as a plain
+  penalty with a fixed SD and are not integrated. The two are different models,
+  not a reparametrization, so a `rw()` could not reproduce them; on the GOA
+  pollock fishery selectivity walk, integrating moved the fit by ~119 jnll units
+  (the marginal likelihood carries a Laplace log-determinant the penalized form
+  has no counterpart for) and shifted SSB ~14%.
+
+  ```r
+  build_selectivity(linkages = list(
+    slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
+                           init = list(sigma = 0.05), integrate = FALSE)))
+  ```
+
+  Permitted **only with a fixed SD** (`init = list(sigma = )` and no `sigma`
+  prior; plus a fixed `rho` for `ar1`), because a variance is consistently
+  estimated only by integrating -- estimating the deviations and their SD jointly
+  as fixed effects is degenerate, with the objective improving without bound as
+  both go to zero. This is the same reason `goa_pk` fixes `sigmaR` when it treats
+  recruitment deviations as penalized. Rejected with `observe = `, whose latent
+  state must stay integrated to be identified by its observation. A model may mix
+  both treatments -- an integrated state-space catchability alongside a penalized
+  selectivity walk -- and penalized deviations get standard errors from
+  `sdreport()` like any other fixed effect. Verified against the legacy
+  random-walk catchability, which is itself a penalized fixed effect with a fixed
+  SD: the two agree exactly.
+
+## Bug fixes
+
+* **Parameter bounds are applied to the parameter they were written for.**
+  `fit_mod()` assembled `lower`/`upper` in `build_params()`'s parameter order,
+  but TMB orders `obj$par` by the sequence the `PARAMETER_*` macros appear in the
+  template -- and `build_params()` lists the linkage coefficients after `log_F`
+  while `ceattle.cpp` declares them before it. Both vectors have the same length
+  either way, so nothing downstream could notice: the box constraints simply
+  landed on the wrong parameters. Any model carrying a linkage was affected --
+  a `linkage_spec(bounds = )` on a covariate coefficient was applied to `log_F`,
+  and `log_F`'s `[-1000, 10]` rail to the coefficient, so 1 of 117 `log_F`
+  elements lost the guard that stops fishing mortality running away in a
+  poorly-conditioned fit. The bounds are now aligned against `names(obj$par)`
+  after `MakeADFun()`, with an assertion. Models with no linkage were never
+  affected, and the reference fits are unchanged.
+
+* **`est_phase` no longer silently fails to fix a random-effect term.**
+  `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient vector; a
+  random effect's deviations live in a separate vector it never touches, so
+  `est_phase = 0` on a formula containing `(1|g)` / `rw()` / `ar1()` left every
+  deviation estimated -- the opposite of the documented "fix at `init`" contract.
+  It is now an error naming the supported alternatives (drop the term, or fix a
+  small SD). Values above `1` remain inert for every linkage row.
+
 # Rceattle 5.3.0
 
 ## New features

@@ -222,10 +222,16 @@ build_params <- function(data_list) {
     lt      <- data_list$linkage_table
     gt      <- .re_group_table(lt)
     n_re    <- sum(!is.na(lt$re_index))
+    # Split the slot space across the two destination vectors. Only
+    # beta_linkage_re joins TMB's `random` set; beta_linkage_re_pen stays a fixed
+    # effect whose density is a plain penalty. Both are sized from the same
+    # routing the encoder and build_map use.
+    rt      <- .re_slot_routing(lt)
     # ar1 groups get a rho; us/rw groups do not. (rho estimation lands with
     # ar1() -- until then no group is ar1 and this stays length 0.)
     n_ar1   <- sum(gt$re_struct == "ar1")
-    param_list$beta_linkage_re   <- numeric(n_re)            # deviations, init 0
+    param_list$beta_linkage_re     <- numeric(sum(rt$integrate))   # integrated, init 0
+    param_list$beta_linkage_re_pen <- numeric(sum(!rt$integrate))  # penalized, init 0
     # One log-SD per group; start from linkage_spec(init = list(sigma = )) when
     # supplied (fixed there via build_map), else a default. gt is ordered by
     # sigma_index so element g is group g - 1.
@@ -247,7 +253,8 @@ build_params <- function(data_list) {
     # the measurement SD), started from the `obs_sd` value supplied on the spec.
     param_list$log_obs_sd_linkage <- log(gt$obs_sd[gt$observed])
   } else {
-    param_list$beta_linkage_re   <- numeric(0)
+    param_list$beta_linkage_re     <- numeric(0)
+    param_list$beta_linkage_re_pen <- numeric(0)
     param_list$log_sigma_linkage <- numeric(0)
     param_list$trans_rho_linkage <- numeric(0)
     param_list$beta_linkage_obs  <- numeric(0)

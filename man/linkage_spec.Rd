@@ -110,7 +110,13 @@ design-matrix column name. Inside this argument you may write \code{normal()},
 \item{re_group}{optional character: name of a random-effect grouping
 for these coefficients. \code{NA} (default) means fixed.}
 
-\item{est_phase}{optional integer estimation phase. Default \code{1L}.}
+\item{est_phase}{optional integer estimation phase. Default \code{1L}; \code{0} fixes
+the coefficient at its \code{init}. Applies to \strong{fixed-effect} rows only -- the
+coefficients in \code{beta_linkage}. A random-effect term's deviations are held
+in a separate vector that \code{est_phase} does not reach, so \code{est_phase < 1} on
+a formula containing one is an error rather than a silent no-op; drop the
+term, or fix a small SD via \code{init = list(sigma = )}, to remove the time
+variation. Values above \code{1} are currently inert for every linkage row.}
 
 \item{observe}{optional character: for an \code{ar1(1 | group)} term, the name of
 an \code{env_data} column that measures the AR1 latent (a state-space covariate,

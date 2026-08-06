@@ -640,6 +640,12 @@ fit_mod <-
     # would make `random_vars` non-empty and send a phased fit down TMBphase()'s
     # hyperparameter-pinning branch for a model that has no random effects at
     # all. Changing it therefore changes results -- it is not cosmetic.
+    # beta_linkage_re_pen is deliberately absent: it holds the deviations a spec
+    # asked to keep OUT of the Laplace approximation (integrate = FALSE), so it
+    # is an ordinary fixed effect carrying a penalty. Adding it here would
+    # integrate exactly what the user asked not to integrate. A purely penalized
+    # model leaves beta_linkage_re length 0, so the guard below is FALSE and
+    # `random` is correctly empty.
     if (any(!is.na(map$mapList$beta_linkage_re))) {
       random_vars <- c(random_vars, "beta_linkage_re")
     }
@@ -731,6 +737,8 @@ fit_mod <-
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
     data_list_reorganized$linkage_re_index     <- .linkage_enc$linkage_re_index
     data_list_reorganized$linkage_re_sigma      <- .linkage_enc$linkage_re_sigma
+    data_list_reorganized$linkage_re_integrate  <- .linkage_enc$linkage_re_integrate
+    data_list_reorganized$linkage_re_slot       <- .linkage_enc$linkage_re_slot
     data_list_reorganized$linkage_re_struct     <- .linkage_enc$linkage_re_struct
     data_list_reorganized$linkage_re_rho        <- .linkage_enc$linkage_re_rho
     data_list_reorganized$linkage_re_sigma_prior_family <- .linkage_enc$linkage_re_sigma_prior_family
@@ -854,6 +862,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
+    L_block <- c()   # which parameter each bound belongs to, for the reorder below
     for (i in 1:length(map$mapFactor)) {
       nm <- names(map$mapFactor)[i]
       if (!nm %in% random_vars) { # no bounds for random effects
@@ -861,6 +870,7 @@ fit_mod <-
         keep <- which(!is.na(mf) & !duplicated(mf))
         L <- c(L, unlist(bounds$lower[[nm]])[keep])
         U <- c(U, unlist(bounds$upper[[nm]])[keep])
+        L_block <- c(L_block, rep(nm, length(keep)))
       }
     }
 
@@ -929,6 +939,25 @@ fit_mod <-
       random     = random_vars,
       silent     = verbose != 2
     )
+
+    # Align the bounds with obj$par. They were assembled in build_params() order,
+    # but TMB orders obj$par by the sequence the PARAMETER_* macros appear in the
+    # template -- and the two disagree: build_params() lists the linkage
+    # coefficients after log_F, ceattle.cpp declares them before it. The lengths
+    # match either way, so a mismatch is silent: box constraints simply land on
+    # the wrong parameters (log_F losing its upper rail to a linkage coefficient,
+    # say). Reorder blockwise, then assert, because getting this wrong is
+    # undetectable downstream.
+    if (length(L)) {
+      blocks <- rle(names(obj$par))$values
+      stopifnot(setequal(blocks, unique(L_block)))
+      L <- unlist(split(L, factor(L_block, levels = blocks))[blocks], use.names = FALSE)
+      U <- unlist(split(U, factor(L_block, levels = blocks))[blocks], use.names = FALSE)
+      if (length(L) != length(obj$par)) {
+        stop("Parameter bounds could not be aligned with obj$par (",
+             length(L), " vs ", length(obj$par), ").")
+      }
+    }
 
     mod_objects <- c(
       list(

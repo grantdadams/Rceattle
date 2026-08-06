@@ -96,7 +96,13 @@ NULL
 #'   `priors = list(temp = prior_normal(0, 1))`.
 #' @param re_group optional character: name of a random-effect grouping
 #'   for these coefficients. `NA` (default) means fixed.
-#' @param est_phase optional integer estimation phase. Default `1L`.
+#' @param est_phase optional integer estimation phase. Default `1L`; `0` fixes
+#'   the coefficient at its `init`. Applies to **fixed-effect** rows only -- the
+#'   coefficients in `beta_linkage`. A random-effect term's deviations are held
+#'   in a separate vector that `est_phase` does not reach, so `est_phase < 1` on
+#'   a formula containing one is an error rather than a silent no-op; drop the
+#'   term, or fix a small SD via `init = list(sigma = )`, to remove the time
+#'   variation. Values above `1` are currently inert for every linkage row.
 #' @param observe optional character: for an `ar1(1 | group)` term, the name of
 #'   an `env_data` column that measures the AR1 latent (a state-space covariate,
 #'   sensu Rogers et al. 2024). The latent enters the linked parameter through
@@ -221,6 +227,23 @@ linkage_spec <- function(formula,
 
   init   <- .validate_linkage_init_arg(init)
   bounds <- .validate_linkage_bounds_arg(bounds)
+
+  # `est_phase` reaches only beta_linkage, the FIXED-effect coefficient vector
+  # (see build_map_linkages). A random-effect term's deviations are held in
+  # beta_linkage_re / beta_linkage_re_pen, which it never touches, so
+  # `est_phase = 0` on such a term would silently estimate the very deviations
+  # the caller asked to hold at their init. Refuse it rather than ignore it.
+  # Only values below 1 are singled out: 0 is the sole value with an implemented
+  # meaning, and a phase above 1 is inert for every linkage row, random or not.
+  .phase <- suppressWarnings(as.integer(est_phase))
+  if (length(.phase) == 1L && !is.na(.phase) && .phase < 1L &&
+      length(.parse_linkage_formula(formula)$re_structures) > 0L) {
+    stop("`est_phase` cannot fix a random-effect term: its deviations live in ",
+         "beta_linkage_re / beta_linkage_re_pen, which `est_phase` does not ",
+         "reach. To remove the time variation, drop the random-effect term from ",
+         "`formula`; to shrink it hard instead, fix a small SD with ",
+         "`init = list(sigma = ...)`.", call. = FALSE)
+  }
 
   # Penalized fixed-effect deviations. A variance is only consistently estimated
   # by integrating the deviations out; estimating the deviations AND their SD
@@ -1618,6 +1641,55 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
          call. = FALSE)
   }
   out
+}
+
+
+#' Which parameter vector holds each random-effect slot
+#'
+#' @description
+#' RE deviations occupy one global 0-based **slot** space (`re_index`), but are
+#' stored in one of two parameter vectors: `beta_linkage_re` for the
+#' Laplace-integrated groups (the `random` set) and `beta_linkage_re_pen` for the
+#' penalized ones. TMB's `random` argument selects whole parameters by name, so a
+#' model that mixes both -- an integrated state-space catchability alongside a
+#' penalized selectivity walk, say -- needs the two vectors.
+#'
+#' This is the single definition of that mapping. `encode_linkage_for_tmb()`,
+#' `build_params()` and `build_map_linkages()` all derive from it rather than
+#' recomputing it, because a disagreement between them would attach a deviation's
+#' density to the wrong parameter, or pin the wrong element of a random walk,
+#' with nothing to signal the error.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
+#' @return A data.frame with one row per slot in ascending slot order:
+#'   `slot` (global 0-based `re_index`), `sigma_index`, `integrate` (logical),
+#'   and `pos`, the dense 0-based position within its own parameter vector.
+#'   `NULL` when the table carries no random effect.
+#' @keywords internal
+#' @noRd
+.re_slot_routing <- function(tbl) {
+  if (is.null(tbl) || nrow(tbl) == 0L) return(NULL)
+  re_rows <- which(!is.na(tbl$re_index))
+  if (length(re_rows) == 0L) return(NULL)
+  gt <- .re_group_table(tbl)
+
+  n <- length(re_rows)
+  slot_of <- as.integer(tbl$re_index[re_rows]) + 1L    # 1-based position
+  sigma_index <- integer(n)
+  sigma_index[slot_of] <- as.integer(tbl$sigma_index[re_rows])
+  integrate <- gt$integrate[match(sigma_index, gt$sigma_index)]
+
+  # Dense position within each destination, assigned in ascending slot order so
+  # a group's deviations stay contiguous and in elapsed-time order -- rw() and
+  # ar1() both depend on that ordering.
+  pos <- integer(n)
+  for (want in c(TRUE, FALSE)) {
+    sel <- integrate == want
+    if (any(sel)) pos[sel] <- seq_len(sum(sel)) - 1L
+  }
+
+  data.frame(slot = seq_len(n) - 1L, sigma_index = sigma_index,
+             integrate = integrate, pos = pos, stringsAsFactors = FALSE)
 }
 
 
