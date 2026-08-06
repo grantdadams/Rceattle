@@ -92,6 +92,35 @@
 
 ## Bug fixes
 
+* **`Time_varying_sel = "RandomWalkAscending"` no longer penalizes the descending
+  limb it never estimates.** The random-walk selectivity penalty was gated on the
+  selectivity *type* alone, so on a double-logistic fleet the descending-limb term
+  was accumulated under mode 5 as well as mode 4. Mode 5 varies the ascending limb
+  only -- `build_map()` estimates no descending deviate under it for any
+  selectivity type -- so those deviates sat at their init of 0 and the term
+  contributed a pure constant, shifting the reported objective while leaving every
+  gradient untouched. **No estimate, reference point or catch advice changes**;
+  only the objective's absolute level does. On `GOA2018SS` (fleet 8,
+  `Time_varying_sel_sd = 0.05`, 42 years, one sex) the objective rises by exactly
+  `41 * (dnorm(0, 0, 0.05, log = TRUE) + dnorm(0, 0, 0.20, log = TRUE))` =
+  113.4590179027, verified as a constant by an unchanged gradient at two
+  independent parameter vectors. Models with no mode-5 fleet -- including
+  `BS2017SS` / `BS2017MS` -- are bit-identical.
+
+  All four pinned reference objectives are nevertheless restated, because the
+  reference recipe now Newton-polishes each fit. Previously they stopped on
+  `nlminb`'s objective-*relative* tolerance rather than at a stationary point, so
+  each sat slightly above its optimum -- harmlessly for the Bering Sea fits (~3e-7)
+  but badly for the Gulf of Alaska ones, whose gradients were ~3e-3 against the
+  package's own 1e-4 convergence threshold. A reference pinned at a non-stationary
+  point moves under changes that cannot alter the model: offsetting the objective
+  by a constant was enough to let `goa_ss` run on to a point 52.9 units lower. The
+  reference fits now reach true optima (gradients ~1e-11) and
+  `test-golden-regression.R` asserts convergence alongside each pinned value, so
+  the constants no longer record wherever the optimizer happened to stop.
+  `fit_control()`'s `newtonsteps = 0` default is unchanged; this affects the
+  reference recipe only, not any user fit.
+
 * **`retrospective()` and `run_mse()` run again on a model with an observed
   (state-space covariate) linkage.** The map for the QAR1 observation SD
   (`log_obs_sd_linkage`) was stored as a factor, where every other entry of

@@ -3179,7 +3179,9 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
+      // Random walk: 
+      // - Type 4 = random walk on ascending and descending for double logistic
+      // - Type 5 = ascending only for double logistics
       if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
@@ -3190,8 +3192,16 @@ Type objective_function<Type>::operator() () {
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
-            // Double logistic / descending-limb random walk (types 3, 4, 8)
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
+            // Double logistic / descending-limb random walk (types 3, 4, 8).
+            // Gated on mode 4 as well as the type: mode 5 (RandomWalkAscending)
+            // varies the ascending limb ONLY, and build_map() estimates no
+            // descending deviate under mode 5 for any selectivity type -- type 3
+            // restricts to j = 1, and types 4 and 8 exclude mode 5 outright. Those
+            // deviates therefore sit at their init of 0, so penalizing them here
+            // adds a pure constant: it shifts the reported objective while leaving
+            // every gradient untouched.
+            if((flt_varying_sel(flt) == 4) &&
+               ((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8))){
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
