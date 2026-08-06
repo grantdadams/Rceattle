@@ -45,6 +45,16 @@
 
 ## Bug fixes
 
+* **`osa_residuals()` falls back to serial when the parallel loop fails.**
+  `TMB::oneStepPredict(parallel = TRUE)` forks via `mclapply`, and on some
+  model/observation combinations a worker aborts rather than returning. The dead
+  worker left an error object where a gradient belonged, which surfaced from deep
+  inside TMB as `non-numeric argument to mathematical function` -- a message with
+  no visible connection to the cause. The parallel loop is now retried serially,
+  reporting that it did so, so the call returns residuals instead of failing.
+  Seen on the GOA pollock model's index residuals; the other sources, and every
+  model tested with a linkage on catchability, run in parallel unaffected.
+
 * **A selectivity prior on a limb the fleet's curve does not have is now
   rejected.** A Logistic fleet has no descending limb and a DescendingLogistic
   fleet no ascending one, so those slots never reach selectivity-at-age -- they

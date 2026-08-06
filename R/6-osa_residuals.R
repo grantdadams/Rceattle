@@ -223,17 +223,31 @@ osa_residuals <- function(fit,
     # generic (CDF-based) method, which supports randomized quantile residuals.
     # Parallelize only the continuous group; the discrete path uses the seeded
     # RNG, so keep it serial to stay bit-reproducible across runs.
-    res <- TMB::oneStepPredict(
+    osp <- function(par) TMB::oneStepPredict(
       obj                 = obj_osa,
       observation.name    = "obsvec",
       data.term.indicator = "keep",
       method              = if (dsc) "oneStepGeneric" else method,
       subset              = sel$obs_pos[rows] + 1L,
       discrete            = dsc,
-      parallel            = parallel_ok && !dsc,
+      parallel            = par,
       seed                = seed,
       trace               = trace,
       ...)
+
+    # oneStepPredict(parallel = TRUE) forks via mclapply. A worker that dies --
+    # some model/observation combinations abort the child rather than return --
+    # leaves an error object where a gradient should be, which surfaces from deep
+    # inside TMB as "non-numeric argument to mathematical function". Retry
+    # serially instead: slower, but it returns residuals rather than a message
+    # that points nowhere near the cause.
+    want_par <- parallel_ok && !dsc
+    res <- if (!want_par) osp(FALSE) else
+      tryCatch(osp(TRUE), error = function(e) {
+        message("osa_residuals(): the parallel one-step-ahead loop failed (",
+                conditionMessage(e), "); recomputing serially.")
+        osp(FALSE)
+      })
     data.frame(.row = rows, observed = get_col(res, "observation"),
                predicted = get_col(res, "mean"), sd = get_col(res, "sd"),
                residual = res$residual)
