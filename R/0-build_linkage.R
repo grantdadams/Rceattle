@@ -767,6 +767,18 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
   cat("  param:   ", x$param, "\n", sep = "")
   cat("  formula: ", deparse(x$formula), "\n", sep = "")
+  if (length(x$priors)) {
+    fl <- if (!is.null(x$fleet)) {
+      paste0("  [fleets: ", paste(x$fleet, collapse = ", "), "]")
+    } else {
+      "  [all fleets]"
+    }
+    for (cn in names(x$priors)) {
+      p <- x$priors[[cn]]
+      cat(sprintf("  prior:    %s ~ %s(%g, %g)%s\n",
+                  cn, p$family, p$p1, p$p2, fl))
+    }
+  }
   by_txt <- if (is.null(x$by)) {
     "(shared)"
   } else if (isTRUE(x$by_auto) && is.na(x$param)) {
@@ -1563,6 +1575,17 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   ord <- order(tbl$sigma_index[re_rows], tbl$re_time[re_rows],
                method = "radix", na.last = TRUE)
   tbl$re_index[re_rows[ord]] <- seq_along(re_rows) - 1L
+
+  # Where each deviation actually lives. re_index is the global slot; with the
+  # deviations split across beta_linkage_re and beta_linkage_re_pen, the position
+  # within the holding vector is a different number whenever both are populated.
+  # Carried on the table so callers writing `inits` by hand do not have to
+  # rebuild the split -- indexing a mixed model by re_index silently writes to
+  # the wrong deviation.
+  rt <- .re_slot_routing(tbl)
+  if (!is.null(rt)) {
+    tbl$re_pos[re_rows] <- rt$pos[match(tbl$re_index[re_rows], rt$slot)]
+  }
   tbl
 }
 

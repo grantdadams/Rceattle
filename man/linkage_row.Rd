@@ -38,7 +38,8 @@ linkage_row(
   re_obs_value = NA_real_,
   re_obs_sd = NA_real_,
   re_obs_est = NA,
-  re_integrate = NA
+  re_integrate = NA,
+  re_pos = NA_integer_
 )
 }
 \arguments{
@@ -90,6 +91,10 @@ holds it fixed.}
 \item{re_integrate}{\code{FALSE} when the deviations are estimated as a penalized
 fixed effect rather than integrated out by the Laplace approximation, from
 \code{linkage_spec(integrate = FALSE)}. \code{TRUE}/\code{NA} = integrated.}
+
+\item{re_pos}{0-based position of this row's deviation within the parameter
+vector that holds it (\code{beta_linkage_re} when \code{re_integrate}, else
+\code{beta_linkage_re_pen}). Distinct from \code{re_index}, which is the global slot.}
 }
 \value{
 A one-row \code{Rceattle_linkage_table}.

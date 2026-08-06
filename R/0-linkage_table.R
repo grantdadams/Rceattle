@@ -75,7 +75,13 @@ LINKAGE_COLS <- c(
   # Laplace-integrated vs penalized fixed effect, from linkage_spec(integrate =).
   # Constant within a sigma group (the registry key includes it, so a group cannot
   # straddle both). NA on fixed rows.
-  re_integrate  = "logical"        # TRUE/NA = integrated; FALSE = penalized fixed effect
+  re_integrate  = "logical",       # TRUE/NA = integrated; FALSE = penalized fixed effect
+  # Where this row's deviation actually sits. `re_index` is the GLOBAL slot; the
+  # deviations are stored in two vectors, so the position within the one that
+  # holds it is a different number. Supplied so a caller setting `inits` by hand
+  # can write beta_linkage_re[re_pos + 1] / beta_linkage_re_pen[re_pos + 1]
+  # without having to reconstruct the split. NA on fixed rows.
+  re_pos        = "integer"        # 0-based position within its own parameter vector
 )
 
 
@@ -304,6 +310,9 @@ validate_linkage_table <- function(x) {
 #' @param re_integrate `FALSE` when the deviations are estimated as a penalized
 #'   fixed effect rather than integrated out by the Laplace approximation, from
 #'   `linkage_spec(integrate = FALSE)`. `TRUE`/`NA` = integrated.
+#' @param re_pos 0-based position of this row's deviation within the parameter
+#'   vector that holds it (`beta_linkage_re` when `re_integrate`, else
+#'   `beta_linkage_re_pen`). Distinct from `re_index`, which is the global slot.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -337,7 +346,8 @@ linkage_row <- function(process, param, X_col,
                         re_obs_value  = NA_real_,
                         re_obs_sd     = NA_real_,
                         re_obs_est    = NA,
-                        re_integrate  = NA) {
+                        re_integrate  = NA,
+                        re_pos        = NA_integer_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -373,7 +383,8 @@ linkage_row <- function(process, param, X_col,
     re_obs_value  = as.numeric(re_obs_value),
     re_obs_sd     = as.numeric(re_obs_sd),
     re_obs_est    = as.logical(re_obs_est),
-    re_integrate  = as.logical(re_integrate)
+    re_integrate  = as.logical(re_integrate),
+    re_pos        = as.integer(re_pos)
   )
   validate_linkage_table(out)
   out

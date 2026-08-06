@@ -347,3 +347,49 @@ testthat::test_that("integrate survives a save_config round trip", {
   testthat::expect_false(lst$integrate)
   testthat::expect_false(Rceattle:::.rce_spec_from_list(lst)$integrate)
 })
+
+
+testthat::test_that("re_pos locates a deviation in the vector that holds it", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # re_index is the GLOBAL slot across both parameter vectors; re_pos is the
+  # position within the one that actually holds the deviation. In a model with
+  # only one treatment they coincide, which is exactly why indexing by re_index
+  # looks correct until a mixed model appears -- and then silently writes to the
+  # wrong deviation. Pin the divergence so the two cannot be conflated again.
+  d <- Rceattle::BS2017SS
+  f <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0,
+    qFun = Rceattle::build_catchability(linkages = list(
+      q = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 7L,
+                                 link = "log"))),                     # integrated
+    selFun = Rceattle::build_selectivity(linkages = list(
+      inf_asc = Rceattle::linkage_spec(~ rw(1 | Year), by = ~ fleet, fleet = 4L,
+                                       init = list(sigma = 0.1),
+                                       integrate = FALSE))),          # penalized
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  tb <- as.data.frame(f$data_list$linkage_table)
+  tb <- tb[!is.na(tb$re_index), ]
+  int <- tb[tb$re_integrate, ]
+  pen <- tb[!tb$re_integrate, ]
+  testthat::expect_gt(nrow(int), 0)
+  testthat::expect_gt(nrow(pen), 0)
+
+  # Each vector is indexed densely from 0 by re_pos ...
+  testthat::expect_setequal(int$re_pos, seq_len(nrow(int)) - 1L)
+  testthat::expect_setequal(pen$re_pos, seq_len(nrow(pen)) - 1L)
+  testthat::expect_equal(max(int$re_pos) + 1L,
+                         length(f$estimated_params$beta_linkage_re))
+  testthat::expect_equal(max(pen$re_pos) + 1L,
+                         length(f$estimated_params$beta_linkage_re_pen))
+
+  # ... and for the penalized group that is NOT the global slot, which is the
+  # whole point: re_index would run past the end of beta_linkage_re_pen.
+  testthat::expect_false(identical(pen$re_pos, pen$re_index))
+  testthat::expect_gt(max(pen$re_index) + 1L,
+                      length(f$estimated_params$beta_linkage_re_pen))
+})

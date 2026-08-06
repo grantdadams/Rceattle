@@ -33,6 +33,16 @@
   random-walk catchability, which is itself a penalized fixed effect with a fixed
   SD: the two agree exactly.
 
+* **The linkage table records where each deviation is stored (`re_pos`).**
+  `re_index` is the deviation's slot in the *global* random-effect numbering, but
+  the deviations are split across `beta_linkage_re` and `beta_linkage_re_pen`, so
+  the position within the vector that actually holds one is a different number as
+  soon as a model uses both treatments. `re_pos` gives that position, alongside
+  `re_integrate` for which vector, so setting `inits` by hand is
+  `beta_linkage_re_pen[re_pos + 1]` rather than a reconstruction of the split.
+  Indexing a mixed model by `re_index` writes to the wrong deviation without
+  erroring.
+
 ## Bug fixes
 
 * **Parameter bounds are applied to the parameter they were written for.**
