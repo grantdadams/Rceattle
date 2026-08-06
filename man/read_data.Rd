@@ -7,7 +7,7 @@
 read_data(file = "Rceattle_data.xlsx")
 }
 \arguments{
-\item{file}{Filname to be used. Must end with '.xlsx'}
+\item{file}{Filename to read. Must end in '.xlsx'}
 }
 \description{
 Read a CEATTLE excel data file

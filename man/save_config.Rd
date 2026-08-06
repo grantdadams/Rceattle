@@ -28,7 +28,7 @@ differences. The parameter values (\code{inits}/\code{map}/\code{bounds}) are NO
 pair the config with a saved fit for those.
 }
 \examples{
-cfg <- model_config(msmMode = 1, initMode = "FishedEquilibrium")
+cfg <- model_config(msmMode = 1, initMode = "OffsetEquilibrium")
 f <- file.path(tempdir(), "run.yaml")
 save_config(cfg, f)
 identical(load_config(f)$model_config$msmMode, 1)

@@ -39,7 +39,13 @@
 #'   \code{"TypeIIIMSVPA"} (2). Higher integer
 #'   codes (Kinzey-Punt, Holling forms) are not yet implemented.
 #' @param avgnMode The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.
-#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0; 5 = "FishedEquilibrium": F = 0 equilibrium age-structure seeded by the first-year recruitment (\code{exp(rec_pars + rec_dev[year 1])}) decayed by mortality (M1), with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention).
+#' @param initMode how the population is initialized, as a string alias or integer code.
+#'   \code{"FreeParams"} (0) = initial age-structure estimated as free parameters;
+#'   \code{"Equilibrium"} (1) = unfished (Finit = 0) equilibrium age-structure estimated out from R0 + mortality (M1);
+#'   \code{"NonEquilibrium"} (2, the default) = non-equilibrium age-structure estimated out from R0, mortality (M1), and initial population deviates;
+#'   \code{"FishedNonEquilibrium"} (3) = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0, mortality (M1), and initial population deviates;
+#'   \code{"FishedNonEquilibriumScaled"} (4) = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0;
+#'   \code{"OffsetEquilibrium"} (5) = unfished (Finit = 0) equilibrium age-structure seeded by the first-year recruitment (\code{R_init * exp(rec_dev[year 1])}) decayed by residual natural mortality M1, closed with the usual geometric plus group at the maximum age, with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention). Mode 5 differs from \code{"Equilibrium"} by exactly one term: both start from the initial equilibrium recruitment \code{R_init}, but 5 displaces it by the year-1 recruitment deviation. Under a random-about-mean stock-recruit relationship \code{R_init} equals \code{R0}; under Beverton-Holt or Ricker it is the equilibrium recruitment implied by the curve. Note the decay uses M1 only, so in multispecies mode predation mortality (M2) does not enter the initial age structure.
 #' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability. The length-based modes (1, 3, 5) are not yet implemented and are rejected by `data_check()`; use a weight-based mode (2, 4, 6) or empirical suitability (0).
 #' @param suit_styr The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct start year per predator. Defaults to `styr` in `data_list`. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr The last year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct end year per predator. Defaults to `endyr` in `data_list`. Used when diet data were sampled from a subset of years.
@@ -313,6 +319,8 @@ fit_mod <-
 
     # Add switches from function call
     data_list$random_rec  <- as.numeric(random_rec)
+    data_list$random_q    <- as.numeric(random_q)
+    data_list$random_sel  <- as.numeric(random_sel)
     data_list$estimateMode <- estimateMode
     data_list$niter       <- niter
     data_list$avgnMode    <- avgnMode
@@ -455,9 +463,12 @@ fit_mod <-
                          sel         = data_list$sel_linkages,
                          comp        = data_list$comp_linkages),
       env_data    = data_list$env_data,
+      # The fleet / species levels carry the model's own names, so a spec built
+      # with `linkage_spec(fleet = "Shelikof")` can be resolved to an id.
       strata      = list(
-        fleet   = seq_len(nrow(data_list$fleet_control)),
-        species = seq_len(data_list$nspp),
+        fleet   = .label_strata(seq_len(nrow(data_list$fleet_control)),
+                                data_list$fleet_control$Fleet_name),
+        species = .label_strata(seq_len(data_list$nspp), data_list$spnames),
         sex     = if (length(data_list$nsex) > 1L &&
                       length(unique(data_list$nsex)) > 1L) {
           stats::setNames(lapply(seq_len(data_list$nspp),
@@ -503,6 +514,42 @@ fit_mod <-
     } else {
       start_par <- inits
 
+      # Guard: catch `inits` that would make TMB::MakeADFun() segfault in
+      # getParameterOrder() instead of raising an R error, by comparing the
+      # supplied `inits` to the parameter template `build_params(data_list)`
+      # implies. Flagged when a declared parameter is absent, or when any
+      # parameter's length differs. Both are fatal: build_map() keeps the map
+      # consistent with `inits`, but the C++ still reads several parameters at
+      # data-driven bounds (linkage-table sizes for `*_linkage`; year bounds
+      # nyrs_hind / nyrs_proj for e.g. `index_q_dev`, `log_M1_dev`, `rec_dev`),
+      # so a too-short array reads out of bounds. The usual causes are `inits`
+      # from a fit that used build_catchability / build_selectivity /
+      # build_composition without the matching *Fun re-supplied (e.g. an older
+      # .refit_like()), or a warm start not extended to a later `endyr`.
+      .skel    <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      .missing <- setdiff(names(.skel), names(start_par))
+      .shared  <- intersect(names(.skel), names(start_par))
+      .badlen  <- .shared[vapply(.shared, function(nm)
+        length(unlist(start_par[[nm]])) != length(unlist(.skel[[nm]])), logical(1))]
+      if (length(.missing) || length(.badlen)) {
+        stop("`inits` do not match the parameters implied by `data_list`; ",
+             "TMB would crash on this. ",
+             if (length(.missing))
+               paste0("Missing: ", paste(.missing, collapse = ", "), ". ") else "",
+             if (length(.badlen))
+               paste0("Length mismatch: ",
+                      paste(sprintf("%s (inits %d, model %d)", .badlen,
+                        vapply(.badlen, function(nm) length(unlist(start_par[[nm]])), 1L),
+                        vapply(.badlen, function(nm) length(unlist(.skel[[nm]])), 1L)),
+                      collapse = "; "), ". ") else "",
+             "Rebuild `inits` for this `data_list` (inits = NULL builds them ",
+             "fresh); if these came from a fit at an earlier `endyr`, re-fit to ",
+             "extend the year-varying parameters, and if that fit used ",
+             "build_catchability() / build_selectivity() / build_composition(), ",
+             "pass the matching qFun / selFun / compFun.", call. = FALSE)
+      }
+      rm(.skel, .missing, .shared, .badlen)
+
       # Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data |>
         dplyr::filter(.data$Year <= data_list$endyr &
@@ -531,6 +578,11 @@ fit_mod <-
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
+    # Now that the map is known, drop any composition-weighting prior whose DM
+    # weight is fixed in this configuration -- it would only add a constant.
+    data_list$linkage_table <- .neutralize_inert_comp_priors(
+      data_list$linkage_table, map, verbose = verbose)
+
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 4: Get bounds ----
@@ -544,17 +596,31 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Turns on laplace approximation
+    # Turns on laplace approximation.
+    #
+    # What the two "is it free?" guards below are and are NOT for. They are NOT
+    # protecting MakeADFun: TMB resolves `random` AFTER applying `map`, so a
+    # block whose map is entirely NA contributes no indices and TMB drops it
+    # (`random <- NULL`). Naming a fully-mapped parameter is a no-op there --
+    # verified: `random = "init_dev"` on an initMode = "Equilibrium" fit gives
+    # the same objective and gradient, and the same zero-length random vector,
+    # as `random = NULL`. It does not yield NaN.
+    #
+    # What DOES read this vector's emptiness is TMBphase() (R/6-phaser.R): when
+    # `length(random) > 0` it pins the twelve RE variance / correlation
+    # hyperparameters to NA in every phase. So whether a fully-mapped block is
+    # listed here decides how a phased fit treats those hyperparameters, and
+    # that -- not a NaN -- is why the guards are kept.
+    #
+    # build_map() returns a list with $mapList (the raw per-parameter maps,
+    # NA = fixed); that is what the guards read.
     random_vars <- c()
     if (random_rec) {
       random_vars <- c(random_vars, "rec_dev")
-      # init_dev is a random effect only when it is actually estimated. For
-      # initMode = "Equilibrium" build_map() maps ALL of init_dev to NA (the
-      # initial age structure is the deterministic equilibrium, init_dev fixed at
-      # 0), so adding it to `random` would ask TMB to integrate a fully-mapped
-      # parameter -- producing an NA/NaN gradient. Only treat it as random when
-      # at least one element is free. build_map() returns a list with $mapList
-      # (the raw per-parameter maps, NA = fixed); the init_dev map lives there.
+      # initMode = "Equilibrium" maps ALL of init_dev to NA (the initial age
+      # structure is the deterministic equilibrium, init_dev fixed at 0). This
+      # guard cannot change the TMBphase() branch -- `rec_dev` is already in the
+      # vector whenever it runs -- so it is presentational only.
       if (any(!is.na(map$mapList$init_dev))) {
         random_vars <- c(random_vars, "init_dev")
       }
@@ -568,9 +634,18 @@ fit_mod <-
     if (sum(data_list$M1_re) > 0) {
       random_vars <- c(random_vars, "log_M1_dev")
     }
-    # Random-effect linkage deviations enter the Laplace approximation. Only add
-    # them when at least one is actually free (mirrors the init_dev guard above):
-    # integrating a fully-mapped / length-0 parameter yields an NA/NaN gradient.
+    # Random-effect linkage deviations enter the Laplace approximation. Unlike
+    # the init_dev guard above this one is load-bearing: a linkage random effect
+    # can be the ONLY random effect, so listing a fully-mapped `beta_linkage_re`
+    # would make `random_vars` non-empty and send a phased fit down TMBphase()'s
+    # hyperparameter-pinning branch for a model that has no random effects at
+    # all. Changing it therefore changes results -- it is not cosmetic.
+    # beta_linkage_re_pen is deliberately absent: it holds the deviations a spec
+    # asked to keep OUT of the Laplace approximation (integrate = FALSE), so it
+    # is an ordinary fixed effect carrying a penalty. Adding it here would
+    # integrate exactly what the user asked not to integrate. A purely penalized
+    # model leaves beta_linkage_re length 0, so the guard below is FALSE and
+    # `random` is correctly empty.
     if (any(!is.na(map$mapList$beta_linkage_re))) {
       random_vars <- c(random_vars, "beta_linkage_re")
     }
@@ -662,6 +737,8 @@ fit_mod <-
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
     data_list_reorganized$linkage_re_index     <- .linkage_enc$linkage_re_index
     data_list_reorganized$linkage_re_sigma      <- .linkage_enc$linkage_re_sigma
+    data_list_reorganized$linkage_re_integrate  <- .linkage_enc$linkage_re_integrate
+    data_list_reorganized$linkage_re_slot       <- .linkage_enc$linkage_re_slot
     data_list_reorganized$linkage_re_struct     <- .linkage_enc$linkage_re_struct
     data_list_reorganized$linkage_re_rho        <- .linkage_enc$linkage_re_rho
     data_list_reorganized$linkage_re_sigma_prior_family <- .linkage_enc$linkage_re_sigma_prior_family
@@ -680,18 +757,70 @@ fit_mod <-
     data_list_reorganized$linkage_prior_p2     <- .linkage_enc$linkage_prior_p2
     data_list_reorganized$linkage_X            <- .linkage_enc$linkage_X
 
-    # Update comp weights, future F (if input), and F_prop from data
-    # Age/length composition
-    if (!is.null(data_list$fleet_control$Comp_weights)) {
-      start_par$comp_weights <- data_list$fleet_control$Comp_weights
-    }
-    # CAAL
-    if (!is.null(data_list$fleet_control$CAAL_weights)) {
-      start_par$caal_weights <- data_list$fleet_control$CAAL_weights
-    }
-    # Diet composition
-    if (!is.null(data_list$Diet_comp_weights)) {
-      start_par$diet_comp_weights <- data_list$Diet_comp_weights
+    # The composition weights are estimated parameters -- the Dirichlet-
+    # multinomial likelihood fits them, which is why they can carry a prior --
+    # so they warm-start from `inits` like every other parameter. Their
+    # fleet_control columns are their STARTING values and are read by
+    # build_params() on a fresh build; re-reading them here would discard the
+    # estimate a refit was handed, which is not what a starting value means.
+    # A reweighting workflow therefore updates the parameter, not the column.
+    #
+    # That makes editing a column and re-fitting from an existing fit a silent
+    # no-op, which is how composition weights were tuned by hand for years. Warn
+    # where the edit cannot possibly take effect: a weight the map holds fixed
+    # under a multinomial likelihood is a pure data-weighting input, so `inits`
+    # and the column disagreeing means the column is being ignored and nothing
+    # in the fit will show it. A Dirichlet-multinomial weight is deliberately
+    # excluded -- the likelihood estimates it, so a refit's `inits` differing
+    # from the column is the normal, correct state and warning on it would fire
+    # on every diagnostic refit.
+    if (!is.null(inits)) {
+      .weight_blocks <- list(
+        comp_weights      = list(col = data_list$fleet_control$Comp_weights,
+                                 dist = data_list$fleet_control$Comp_distribution,
+                                 label = "fleet_control$Comp_weights"),
+        caal_weights      = list(col = data_list$fleet_control$CAAL_weights,
+                                 dist = data_list$fleet_control$CAAL_distribution,
+                                 label = "fleet_control$CAAL_weights"),
+        diet_comp_weights = list(col = data_list$Diet_comp_weights,
+                                 dist = data_list$Diet_distribution,
+                                 label = "Diet_comp_weights"))
+      for (.nm in names(.weight_blocks)) {
+        .b   <- .weight_blocks[[.nm]]
+        .par <- start_par[[.nm]]
+        .fix <- map$mapList[[.nm]]
+        if (is.null(.b$col) || is.null(.par) || is.null(.fix)) next
+        if (length(.b$col) != length(.par) || length(.fix) != length(.par)) next
+        # NA == NA counts as agreement; only a real numeric difference is a
+        # discarded edit.
+        # Coerce only a non-numeric column (read.csv with stringsAsFactors can
+        # hand back a factor, which would compare as NA and poison `if()`
+        # below). A numeric column is compared as-is: routing it through
+        # as.character() would round it to 15 significant digits on one side of
+        # the comparison only, making a value that IS equal read as different.
+        .col <- .b$col
+        if (is.factor(.col) || is.character(.col)) {
+          .col <- suppressWarnings(as.numeric(as.character(.col)))
+        }
+        .differs <- !is.na(.col) & !is.na(.par) & .col != as.numeric(.par)
+        # A Dirichlet-multinomial weight is exempt. The likelihood estimates it,
+        # so a fit's parameter having moved away from its column is the normal
+        # state -- and under the debug map run_mse() / retrospective() supply,
+        # every weight reads as fixed, so without this the warning would fire
+        # once per fleet per assessment year of every simulation.
+        .stuck <- .differs & is.na(.fix) &
+          !as.character(.b$dist) %in% c("1", "DirichletMultinomial")
+        if (isTRUE(any(.stuck, na.rm = TRUE))) {
+          warning("`", .b$label, "` differs from the supplied `inits$", .nm,
+                  "` at ", if (identical(.nm, "diet_comp_weights")) "species " else "fleet ",
+                  paste(which(.stuck), collapse = ", "),
+                  ", and the fit reads `inits`. The column is only read when a ",
+                  "model is built from scratch (`inits = NULL`), so this edit ",
+                  "has no effect. Set `inits$", .nm, "` instead, or see ",
+                  "?reweight_comps.", call. = FALSE)
+        }
+      }
+      rm(.weight_blocks)
     }
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
@@ -733,13 +862,21 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
+    L_block <- c()   # which parameter each bound belongs to, for the reorder below
     for (i in 1:length(map$mapFactor)) {
       nm <- names(map$mapFactor)[i]
       if (!nm %in% random_vars) { # no bounds for random effects
         mf   <- unlist(map$mapFactor[[i]])
-        keep <- which(!is.na(mf) & !duplicated(mf))
+        if (!is.factor(mf)) mf <- factor(mf)
+        # One bound per distinct map index, in FACTOR-LEVEL order -- the order
+        # TMB collapses a mapped block in (TMB:::updateMap uses tapply over the
+        # map factor). First-occurrence order diverges wherever mirrored fleets
+        # share indices out of order (adjust_map_shared_params), swapping their
+        # bounds.
+        keep <- match(levels(droplevels(mf)), as.character(mf))
         L <- c(L, unlist(bounds$lower[[nm]])[keep])
         U <- c(U, unlist(bounds$upper[[nm]])[keep])
+        L_block <- c(L_block, rep(nm, length(keep)))
       }
     }
 
@@ -808,6 +945,33 @@ fit_mod <-
       random     = random_vars,
       silent     = verbose != 2
     )
+
+    # Align the bounds with obj$par. They were assembled in build_params() order,
+    # but TMB orders obj$par by the sequence the PARAMETER_* macros appear in the
+    # template -- and the two disagree: build_params() lists the linkage
+    # coefficients after log_F, ceattle.cpp declares them before it. The lengths
+    # match either way, so a mismatch is silent: box constraints simply land on
+    # the wrong parameters (log_F losing its upper rail to a linkage coefficient,
+    # say). Reorder blockwise, then assert, because getting this wrong is
+    # undetectable downstream.
+    if (length(L)) {
+      blocks <- rle(names(obj$par))$values
+      stopifnot(setequal(blocks, unique(L_block)))
+      L <- unlist(split(L, factor(L_block, levels = blocks))[blocks], use.names = FALSE)
+      U <- unlist(split(U, factor(L_block, levels = blocks))[blocks], use.names = FALSE)
+      if (length(L) != length(obj$par)) {
+        stop("Parameter bounds could not be aligned with obj$par (",
+             length(L), " vs ", length(obj$par), ").")
+      }
+      # A short bounds entry would leave NAs here, and nlminb accepts an NA bound
+      # silently -- returning convergence = 0 with objective = Inf and par = NA
+      # rather than erroring. Also catches split() having recycled a short vector
+      # up to the right length, which the check above cannot see.
+      if (anyNA(L) || anyNA(U)) {
+        stop("Parameter bounds contain NA after alignment; a bounds entry is ",
+             "shorter than its parameter.")
+      }
+    }
 
     mod_objects <- c(
       list(

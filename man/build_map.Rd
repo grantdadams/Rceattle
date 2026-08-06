@@ -17,8 +17,8 @@ build_map(
 
 \item{params}{A parameter list created from \code{\link{build_params}}.}
 
-\item{debug}{Logical. If TRUE, sets all map values to NA except the dummy
-parameter, running the model without parameter estimation.}
+\item{debug}{Logical. If TRUE, fixes every parameter except the dummy
+(maps all to \code{NA}), so the model runs with no parameters estimated.}
 
 \item{random_rec}{Logical. If TRUE, treats recruitment deviations as random effects,
 meaning the variance parameter (\code{R_log_sd}) is estimated.}
@@ -31,7 +31,8 @@ A list containing the factorized TMB map (\code{mapFactor}) and the
 original map matrix/array list (\code{mapList}).
 }
 \description{
-Orchestrates the building of the TMB map object by calling
-specialized helper functions for each parameter block (Recruitment, M1,
-Predation, Selectivity, Catchability, etc.).
+Builds the TMB map, which tells TMB which parameters to estimate
+and which to hold fixed (a fixed parameter is mapped to \code{NA}), and which
+parameters share a single estimated value. One helper handles each process
+block (recruitment, M1, predation, selectivity, catchability, ...).
 }

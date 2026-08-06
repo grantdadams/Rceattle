@@ -2,7 +2,7 @@
 % Please edit documentation in R/6-phaser.R
 \name{TMBphase}
 \alias{TMBphase}
-\title{Run TMB using phases}
+\title{Run TMB with ADMB-style phased estimation}
 \usage{
 TMBphase(
   data,
@@ -25,7 +25,7 @@ TMBphase(
 
 \item{random}{A character vector of names of parameters that are random effects}
 
-\item{phases}{A list of the phases for the parameters of the model (same structure as your parameter list)}
+\item{phases}{Tagged list assigning each named parameter its integer phase (as returned by \code{\link[=set_phases]{set_phases()}}).}
 
 \item{model_name}{A string describing the model name. Must be the name of your .cpp file}
 
@@ -36,13 +36,16 @@ TMBphase(
 \item{control}{A list of control parameters. For details see \code{?nlminb}}
 }
 \value{
-A list of parameter estimates and their standard errors
+The parameter list estimated in the final phase, with a per-phase convergence log attached as the \code{phase_log} attribute.
 }
 \description{
-This function runs TMB with ADMB-like phasing of parameter estimation.
-Function with normal inputs, passed via "...", plus two additional arguments, "phase"
-Optimizer by default is nlminb
-phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
+Fits a TMB model in phases, like ADMB: parameters are switched on in stages
+rather than all at once, which stabilizes a difficult optimization. The
+optimizer (nlminb by default) runs once per phase; at each phase the map holds
+fixed any parameter whose phase is greater than the current phase, so
+parameters turn on progressively as the phase counter advances. \code{phases} is a
+tagged list giving each named parameter its integer phase; parameters not
+listed are estimated from the first phase onward.
 }
 \author{
 Gavin Fay https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R

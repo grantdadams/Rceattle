@@ -127,7 +127,27 @@ build_bounds <- function(param_list = NULL, data_list) {
         row <- tbl[ri, , drop = FALSE]
         idx <- .linkage_row_indices(row, data_list)
         lo  <- as.numeric(row$lower); hi <- as.numeric(row$upper)
-        if (!(lo > 0)) {
+        sel_slot <- if (identical(row$process, "sel")) .SEL_PARAM_TO_SLOT[[row$param]] else NULL
+        if (!is.null(sel_slot)) {
+          .stop_if_shared_block(data_list, row$fleet, "sel", row$param)
+          # sel_inf holds a natural-scale inflection only for the logistic
+          # family; DoubleNormal stores logit(right_floor) there and LogisticPM
+          # a log, so those are refused rather than bounded on the wrong scale.
+          if (identical(sel_slot$arr, "sel_inf")) {
+            for (f in idx$fleet) {
+              .stop_unless_natural_sel_inf(data_list, f, sel_slot$slot, row$param)
+            }
+          }
+        }
+        if (identical(row$process, "q")) {
+          .stop_if_shared_block(data_list, row$fleet, "q", row$param)
+        }
+        # Bounds are given on the natural scale. Every base parameter here is
+        # stored logged except sel_inf, whose inflections are ages or length
+        # midpoints held unlogged -- a lower bound of 0 is ordinary there, and
+        # impossible to carry across anywhere else.
+        logged   <- !(identical(sel_slot$arr, "sel_inf"))
+        if (logged && !(lo > 0)) {
           warning(sprintf("Linkage (Intercept) bound lower = %g <= 0 for ",
                           lo),
                   "process '", row$process, "' param '", row$param,
@@ -166,6 +186,40 @@ build_bounds <- function(param_list = NULL, data_list) {
                  if (!is.na(par_idx)) {
                    lower_bnd$rec_pars[idx$species, par_idx] <- log(lo)
                    upper_bnd$rec_pars[idx$species, par_idx] <- log(hi)
+                 }
+               },
+               q = {
+                 lower_bnd$index_log_q[idx$fleet] <- log(lo)
+                 upper_bnd$index_log_q[idx$fleet] <- log(hi)
+               },
+               comp = {
+                 # DM weight is exp(parameter), so natural-scale bounds log.
+                 switch(row$param,
+                   theta_comp = {
+                     lower_bnd$comp_weights[idx$fleet] <- log(lo)
+                     upper_bnd$comp_weights[idx$fleet] <- log(hi)
+                   },
+                   theta_caal = {
+                     lower_bnd$caal_weights[idx$fleet] <- log(lo)
+                     upper_bnd$caal_weights[idx$fleet] <- log(hi)
+                   },
+                   theta_diet = {
+                     lower_bnd$diet_comp_weights[idx$species] <- log(lo)
+                     upper_bnd$diet_comp_weights[idx$species] <- log(hi)
+                   })
+               },
+               sel = {
+                 if (!is.null(sel_slot)) {
+                   for (s in idx$species) {
+                     sx <- idx$per_sp[[as.character(s)]]$sex
+                     if (identical(sel_slot$arr, "log_sel_slp")) {
+                       lower_bnd$log_sel_slp[sel_slot$slot, idx$fleet, sx] <- log(lo)
+                       upper_bnd$log_sel_slp[sel_slot$slot, idx$fleet, sx] <- log(hi)
+                     } else if (identical(sel_slot$arr, "sel_inf")) {
+                       lower_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- lo
+                       upper_bnd$sel_inf[sel_slot$slot, idx$fleet, sx] <- hi
+                     }
+                   }
                  }
                }
         )

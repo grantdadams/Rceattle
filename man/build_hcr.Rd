@@ -45,7 +45,7 @@ build_hcr(
 A \code{list} containing the harvest control rule and associated biological reference points.
 }
 \description{
-Defines the harvest control rule and associated reference points used in the Rceattle model.
+Defines the harvest control rule and its associated reference points.
 }
 \details{
 \strong{Harvest control rule formulations currently implemented in Rceattle:}

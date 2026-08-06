@@ -16,7 +16,7 @@
       bounds = list("(Intercept)" = c(-5, 5)),
       est_phase = 2L)))
   mc <- Rceattle::model_config(
-    msmMode = 1, initMode = "FishedEquilibrium",
+    msmMode = 1, initMode = "OffsetEquilibrium",
     HCR = Rceattle::build_hcr(HCR = "NPFMC", Ptarget = 0.4),
     selFun = sel)
   Rceattle:::.rce_run_config(
@@ -44,7 +44,7 @@ testthat::test_that("a real YAML file round-trips the config losslessly", {
 
   # Scalars.
   testthat::expect_equal(rc2$model_config$msmMode, 1)
-  testthat::expect_equal(rc2$model_config$initMode, "FishedEquilibrium")
+  testthat::expect_equal(rc2$model_config$initMode, "OffsetEquilibrium")
   testthat::expect_equal(rc2$estimateMode, 1)
   testthat::expect_true(rc2$random_rec)
   testthat::expect_false(rc2$fit_control$getsd)

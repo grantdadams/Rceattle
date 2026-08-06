@@ -224,3 +224,79 @@ testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth
   testthat::expect_true(all(tbl$design_col[sd_rows] == "(Intercept)"))
   testthat::expect_true(all(is.na(fit$map$beta_linkage[sd_rows])))
 })
+
+
+testthat::test_that("a linkage coefficient's bounds are applied to that coefficient", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Regression test for a silent misalignment: fit_mod assembles lower/upper by
+  # walking build_params()'s parameter order, but TMB orders obj$par by the
+  # sequence the PARAMETER_* macros appear in the template -- and build_params()
+  # lists the linkage coefficients AFTER log_F while ceattle.cpp declares them
+  # BEFORE it. The two vectors are the same LENGTH either way, so nothing
+  # downstream can notice; the constraints simply land on the wrong parameters,
+  # putting the user's coefficient bounds on log_F and log_F's [-1000, 10] rail
+  # on the coefficient. Any model carrying a linkage was affected.
+  d <- Rceattle::BS2017SS
+  yrs <- d$styr:d$endyr
+  d$env_data <- data.frame(Year = yrs, temp = as.numeric(scale(seq_along(yrs))))
+
+  cap <- 0.02
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    qFun = Rceattle::build_catchability(linkages = list(
+      q = Rceattle::linkage_spec(~ temp, by = ~ fleet, fleet = 7L,
+                                 bounds = list(temp = c(-cap, cap))))),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  beta <- as.numeric(fit$estimated_params$beta_linkage)
+  beta <- beta[fit$data_list$linkage_table$design_col == "temp"]
+  testthat::expect_length(beta, 1L)
+  testthat::expect_lte(beta, cap + 1e-8)
+  testthat::expect_gte(beta, -cap - 1e-8)
+})
+
+
+testthat::test_that("shared map indices take their own bounds, in TMB's order", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # fit_mod picks one bound per distinct map index. TMB collapses a mapped block
+  # in FACTOR-LEVEL order (TMB:::updateMap uses tapply over the map factor),
+  # which is not first-occurrence order wherever mirrored fleets share indices
+  # out of order -- adjust_map_shared_params() produces exactly that on
+  # GOA2018SS (selectivity 1&7, selectivity + q 9&10). Enumerating by first
+  # occurrence would hand two mirrored fleets each other's bounds. Harmless while
+  # those blocks carry +/-Inf, but it would bite the moment per-fleet selectivity
+  # bounds are switched on, and nothing else would catch it.
+  testthat::skip_if_not(exists("GOA2018SS"))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = Rceattle::GOA2018SS, file = NULL, inits = NULL,
+    estimateMode = 3, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  shared <- character(0)
+  for (nm in names(fit$map$mapFactor)) {
+    mf <- unlist(fit$map$mapFactor[[nm]])
+    if (!is.factor(mf)) mf <- factor(mf)
+    if (!any(!is.na(mf))) next
+    by_level <- match(levels(droplevels(mf)), as.character(mf))
+    by_first <- which(!is.na(mf) & !duplicated(mf))
+    if (!identical(by_level, by_first)) shared <- c(shared, nm)
+  }
+  # GOA2018SS must actually exercise the divergence, or the test proves nothing.
+  testthat::expect_true(length(shared) > 0)
+
+  # And the two orders must select the same NUMBER of elements, so the block
+  # length is unchanged either way -- which is why the length check cannot see it.
+  for (nm in shared) {
+    mf <- unlist(fit$map$mapFactor[[nm]])
+    if (!is.factor(mf)) mf <- factor(mf)
+    testthat::expect_equal(length(match(levels(droplevels(mf)), as.character(mf))),
+                           length(which(!is.na(mf) & !duplicated(mf))), info = nm)
+  }
+})

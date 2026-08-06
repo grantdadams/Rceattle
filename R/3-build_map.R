@@ -1,13 +1,14 @@
 #' @title Main function to construct the TMB map argument for CEATTLE
 #'
-#' @description Orchestrates the building of the TMB map object by calling
-#'   specialized helper functions for each parameter block (Recruitment, M1,
-#'   Predation, Selectivity, Catchability, etc.).
+#' @description Builds the TMB map, which tells TMB which parameters to estimate
+#'   and which to hold fixed (a fixed parameter is mapped to `NA`), and which
+#'   parameters share a single estimated value. One helper handles each process
+#'   block (recruitment, M1, predation, selectivity, catchability, ...).
 #'
 #' @param data_list an Rceattle data_list
 #' @param params A parameter list created from \code{\link{build_params}}.
-#' @param debug Logical. If TRUE, sets all map values to NA except the dummy
-#'   parameter, running the model without parameter estimation.
+#' @param debug Logical. If TRUE, fixes every parameter except the dummy
+#'   (maps all to `NA`), so the model runs with no parameters estimated.
 #' @param random_rec Logical. If TRUE, treats recruitment deviations as random effects,
 #'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
@@ -18,7 +19,7 @@
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
 
-  # Check data list format (Assuming this is a necessary internal utility)
+  # Fill in defaulted switches and upgrade any deprecated column names
   data_list <- Rceattle::switch_check(data_list)
 
   # --- Setup Data and Initial Map ---
@@ -26,7 +27,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   nyrs_proj <- data_list$projyr - data_list$styr + 1
   # yrs_hind is calculated inside helpers as needed
 
-  # Convert parameters to map object (assigning sequential index for all parameters initially)
+  # Start every parameter estimated: give each element its own index. The
+  # per-process helpers below then fix (NA) or share indices as needed.
   map_list <- lapply(params, function(x) {
     if (length(x) == 0) return(x)
     replace(x, values = seq_along(x))
@@ -98,15 +100,16 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 1) Equilibrium with no devs. FishedEquilibrium (5) likewise turns init_dev
+    # 1) Equilibrium with no devs. OffsetEquilibrium (5) likewise turns init_dev
     # off entirely -- the initial age-structure is the deterministic equilibrium
-    # seeded by first-year recruitment, so every element is fixed at 0.
-    if (data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
+    # seeded by first-year recruitment, so every element the cpp reads (columns
+    # 1:(nages-1)) is fixed at its build_params() value of 0.
+    if (data_list$initMode %in% c("Equilibrium", "OffsetEquilibrium")) {
       map_list$init_dev[sp, ] <- NA
     }
 
     # 0, 2-3) Equilibrium or non-equilibrium with no devs
-    if (!data_list$initMode %in% c("Equilibrium", "FishedEquilibrium")) {
+    if (!data_list$initMode %in% c("Equilibrium", "OffsetEquilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -523,8 +526,12 @@ build_map_predation <- function(map_list, data_list) {
         map_list$log_phi[, sp] <- NA
       }
 
-      if(data_list$Diet_distribution[sp] == 1){
-        map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
+      # Dirichlet-multinomial overdispersion for the diet composition. Only
+      # estimated where the diet likelihood is actually fit: empirical
+      # suitability (suitMode = 0) takes the diet proportions as given and the
+      # cpp skips that predator, leaving nothing to inform the weight.
+      if (data_list$suitMode[sp] > 0 && data_list$Diet_distribution[sp] == 1) {
+        map_list$diet_comp_weights[sp] <- sp
       }
     }
   }
@@ -561,7 +568,7 @@ build_map_predation <- function(map_list, data_list) {
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' `0` = 'None'
+#' `0` = 'Off'
 #' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
 #' `3` = 'Block' time blocks with no penalty
 #' `4` = 'RandomWalk' random walk
@@ -717,7 +724,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM")) {
         if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'Off'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -905,8 +912,15 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric Hake-like ----
       # ---- sel_type = 5 (age-based), 12 (length-based)
       if (sel_type == "Hake") {
-        if (tv_sel != "IID") {
-          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 'None' (0), or 'IID' (1)). Current value:", tv_sel))
+        # "Off" (0) is legal here -- the bin coefficients are estimated with no
+        # annual deviates -- and data_check() enforces exactly {"Off", "IID"}
+        # for this form. Warn only on a mode the Hake form cannot represent
+        # ("Block", "AR1", "RandomWalk", ...); the old `tv_sel != "IID"` guard
+        # fired on "Off" too, which is why a valid Time_varying_sel = 0 fleet
+        # warned about itself. Guard NA explicitly -- `NA != "IID"` is NA, which
+        # errors inside `if()` rather than falling through.
+        if (!is.na(tv_sel) && !tv_sel %in% c("Off", "IID")) {
+          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select 'Off' (0) or 'IID' (1)). Current value:", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -1060,7 +1074,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # Time- varying q parameters "Time_varying_q"
-      # - 0 = "None",
+      # - 0 = "Off",
       # - 1 = "IID" penalized deviate or random effect
       # - 2 = "AR1"
       # - 3 = "Block" time blocks with no penalty
@@ -1304,7 +1318,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
-    # Standard deviation of fishery time series If not estimating turn of
+    # Fishery catch time-series SD: fix it unless it is being estimated
     if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
       map_list$catch_log_sd[flt] <- NA
     }
@@ -1365,10 +1379,11 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 build_map_fixed_natage <- function(map_list, data_list) {
 
-  # - I.E. turn off all parameters besides for species
+  # For any species whose numbers-at-age are fixed (estDynamics > 0), fix its
+  # population and fleet parameters -- there is nothing to estimate for it.
   for(sp in 1:data_list$nspp){
 
-    # Fixed n-at-age: Turn off most parameters
+    # Fixed numbers-at-age: fix (map out) most parameters for this species
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
@@ -1481,17 +1496,30 @@ build_map_linkages <- function(map_list, data_list) {
   m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
   # beta_linkage_re keeps the blanket "all estimable" map (the density damps
-  # it), except a random walk pins its FIRST deviate at 0 for identifiability:
-  # the walk's mean level is carried by the base parameter the intercept
-  # re-targets, exactly as the legacy RandomWalk fixes index_q_dev[flt, 1].
+  # it), except a random walk fixes its FIRST deviate for identifiability: the
+  # walk's mean level is carried by the base parameter the intercept re-targets,
+  # exactly as the legacy RandomWalk fixes index_q_dev[flt, 1]. Fixed means held
+  # at its `inits` value, which is 0 by default but need not be -- supplying a
+  # non-zero first deviate is how a caller reproduces a reference model that
+  # estimates it freely, without shifting the level into the base (which would
+  # move the point any prior on that base is evaluated at).
   rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
   if (length(rw_rows) > 0L) {
-    m_re <- map_list$beta_linkage_re
     # first slot of each rw group = smallest re_index (earliest time, since
-    # re_index is assigned in (group, elapsed-time) order).
-    first_slot <- tapply(tbl$re_index[rw_rows], tbl$sigma_index[rw_rows], min)
-    m_re[as.integer(first_slot) + 1L] <- NA
-    map_list$beta_linkage_re <- m_re
+    # re_index is assigned in (group, elapsed-time) order). The slot is a GLOBAL
+    # index, so translate it to the vector that actually holds it -- pinning
+    # position n of beta_linkage_re when the walk is penalized would fix an
+    # unrelated deviation and leave this walk's level unidentified.
+    first_slot <- as.integer(tapply(tbl$re_index[rw_rows],
+                                    tbl$sigma_index[rw_rows], min))
+    rt <- .re_slot_routing(tbl)
+    for (s in first_slot) {
+      r <- rt[rt$slot == s, , drop = FALSE]
+      nm <- if (r$integrate) "beta_linkage_re" else "beta_linkage_re_pen"
+      m_re <- map_list[[nm]]
+      m_re[r$pos + 1L] <- NA
+      map_list[[nm]] <- m_re
+    }
   }
 
   # A group's log_sigma_linkage is estimable unless the spec supplied a fixed
@@ -1524,7 +1552,7 @@ build_map_linkages <- function(map_list, data_list) {
     obs_est <- gt$obs_sd_est[gt$observed]
     m <- rep(NA_integer_, length(obs_est))
     if (any(obs_est)) m[obs_est] <- seq_len(sum(obs_est))
-    map_list$log_obs_sd_linkage <- factor(m)
+    map_list$log_obs_sd_linkage <- m
   }
   map_list
 }

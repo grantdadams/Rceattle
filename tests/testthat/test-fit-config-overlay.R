@@ -25,12 +25,12 @@ testthat::test_that("fit records its resolved run_config; config fills omitted a
   # fit_mod() directly, omitting initMode and random_rec, so the config -- not a
   # helper default -- supplies them.
   cfg <- Rceattle:::.rce_run_config(
-    mc = Rceattle::model_config(initMode = "FishedEquilibrium"),
+    mc = Rceattle::model_config(initMode = "OffsetEquilibrium"),
     estimateMode = 3, random_rec = TRUE)
   f_cfg <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
     d, file = NULL, estimateMode = 3, msmMode = 0, config = cfg,
     fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
-  testthat::expect_equal(f_cfg$run_config$model_config$initMode, "FishedEquilibrium")
+  testthat::expect_equal(f_cfg$run_config$model_config$initMode, "OffsetEquilibrium")
   testthat::expect_true(f_cfg$run_config$random_rec)
 
   # An explicitly-passed argument beats the config (explicit initMode + the
@@ -54,7 +54,7 @@ testthat::test_that("load_config(save_config(fit)) reproduces a non-default fit 
   # fits must be bit-identical (objective and SSB), the standard from the plan.
   fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
   fit1 <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
-    BS2017SS, file = NULL, estimateMode = 1, initMode = "FishedEquilibrium",
+    BS2017SS, file = NULL, estimateMode = 1, initMode = "OffsetEquilibrium",
     random_rec = TRUE, fit_control = fc)))
 
   tf <- tempfile(fileext = ".yaml")

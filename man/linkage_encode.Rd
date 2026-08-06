@@ -6,15 +6,11 @@
 \description{
 The TMB template consumes the pooled linkage table as a set of
 parallel \code{IVECTOR} / \code{VECTOR} inputs plus a dense design matrix.
-R encodes string-valued columns (\code{process}, \code{param}, \code{link},
-\code{prior_family}) as 0-based integer codes (TMB-friendly); converts
+R encodes the string-valued columns (\code{process}, \code{param}, \code{link},
+\code{prior_family}) as 0-based integer codes; converts the
 \code{NA} stratum ids (\code{species}, \code{sex}, \code{age_bin}, \code{fleet}) to a sentinel \code{0}
 meaning "applies to all levels" (TMB-side dispatch expands the
-shared rows over the relevant 1-based levels); converts the 1-based
+shared rows over the relevant 1-based levels); and converts the 1-based
 \code{X_col} to 0-based.
-}
-\details{
-Encodes the pooled linkage table into the integer/vector inputs and
-design matrix the TMB template consumes.
 }
 \keyword{internal}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/0-clean_data.R
 \name{clean_data}
 \alias{clean_data}
-\title{Function to clean data prior to Rceattle runs}
+\title{Default-fill and tidy a data list before fitting}
 \usage{
 clean_data(data_list)
 }
@@ -10,5 +10,8 @@ clean_data(data_list)
 \item{data_list}{Rceattle data list}
 }
 \description{
-Function to clean data prior to Rceattle runs
+Fills optional blocks with correctly-shaped empties, filters observations to
+the model's year range, extends catch to the projection years, and re-keys
+any survey-index covariance matrices. Whether a missing block is actually a
+problem is left to \code{\link[=data_check]{data_check()}}, which knows the model configuration.
 }

@@ -82,7 +82,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
   }
 
   # --------------------------------------------------------------------------------------------
-  # Sample uncertainty across derived quantities weighted bootstrap from the asymptotic intervals
+  # Sample uncertainty across derived quantities via a weighted bootstrap from the asymptotic intervals
   # --------------------------------------------------------------------------------------------
 
   if(uncertainty){

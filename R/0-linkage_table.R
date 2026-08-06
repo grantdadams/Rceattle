@@ -71,7 +71,17 @@ LINKAGE_COLS <- c(
   # and enters the target through an estimated effect size. NA when not observed.
   re_obs_value  = "numeric",       # observed covariate value at this row's time
   re_obs_sd     = "numeric",       # measurement SD start/fixed value (NA = not observed)
-  re_obs_est    = "logical"        # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
+  re_obs_est    = "logical",       # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
+  # Laplace-integrated vs penalized fixed effect, from linkage_spec(integrate =).
+  # Constant within a sigma group (the registry key includes it, so a group cannot
+  # straddle both). NA on fixed rows.
+  re_integrate  = "logical",       # TRUE/NA = integrated; FALSE = penalized fixed effect
+  # Where this row's deviation actually sits. `re_index` is the GLOBAL slot; the
+  # deviations are stored in two vectors, so the position within the one that
+  # holds it is a different number. Supplied so a caller setting `inits` by hand
+  # can write beta_linkage_re[re_pos + 1] / beta_linkage_re_pen[re_pos + 1]
+  # without having to reconstruct the split. NA on fixed rows.
+  re_pos        = "integer"        # 0-based position within its own parameter vector
 )
 
 
@@ -295,6 +305,14 @@ validate_linkage_table <- function(x) {
 #' @param re_obs_value,re_obs_sd state-space (Rogers QAR1) observation from
 #'   `linkage_spec(observe = , obs_sd = )`: the observed covariate value at this
 #'   row's time and the fixed measurement SD. `NA` when the group is unobserved.
+#' @param re_obs_est `TRUE` to estimate the QAR1 measurement SD; `FALSE`/`NA`
+#'   holds it fixed.
+#' @param re_integrate `FALSE` when the deviations are estimated as a penalized
+#'   fixed effect rather than integrated out by the Laplace approximation, from
+#'   `linkage_spec(integrate = FALSE)`. `TRUE`/`NA` = integrated.
+#' @param re_pos 0-based position of this row's deviation within the parameter
+#'   vector that holds it (`beta_linkage_re` when `re_integrate`, else
+#'   `beta_linkage_re_pen`). Distinct from `re_index`, which is the global slot.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
@@ -327,7 +345,9 @@ linkage_row <- function(process, param, X_col,
                         re_rho_prior_p2     = NA_real_,
                         re_obs_value  = NA_real_,
                         re_obs_sd     = NA_real_,
-                        re_obs_est    = NA) {
+                        re_obs_est    = NA,
+                        re_integrate  = NA,
+                        re_pos        = NA_integer_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -362,7 +382,9 @@ linkage_row <- function(process, param, X_col,
     re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
     re_obs_value  = as.numeric(re_obs_value),
     re_obs_sd     = as.numeric(re_obs_sd),
-    re_obs_est    = as.logical(re_obs_est)
+    re_obs_est    = as.logical(re_obs_est),
+    re_integrate  = as.logical(re_integrate),
+    re_pos        = as.integer(re_pos)
   )
   validate_linkage_table(out)
   out
@@ -402,6 +424,105 @@ linkage_row <- function(process, param, X_col,
   }
 
   list(species = spp, per_sp = per_sp, fleet = flt)
+}
+
+
+#' Is a `sel_inf` slot held on the natural scale for this selectivity form?
+#'
+#' `sel_inf` is dual-purpose. Slot 1 (`inf_asc` / `peak`) is always an age or
+#' length midpoint. Slot 2 is an inflection for the logistic family, but
+#' DoubleNormal reuses it as `logit(right_floor)` and LogisticPM as a log
+#' age-1 selectivity override. A value written on the wrong one of those is
+#' silently wrong -- `right_floor = 0.2` would become `plogis(0.2) = 0.55` --
+#' so the transformed slots are refused rather than guessed at.
+#'
+#' @param param linkage parameter name; `slot` its `.SEL_PARAM_TO_SLOT` index.
+#' @param form the fleet's `Selectivity` value.
+#' @keywords internal
+#' @noRd
+.sel_inf_is_natural <- function(slot, form) {
+  if (identical(as.integer(slot), 1L)) return(TRUE)
+  as.character(form) %in% c("Logistic", "DoubleLogistic", "DescendingLogistic")
+}
+
+
+#' Is this fleet a follower in a shared selectivity / catchability block?
+#'
+#' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
+#' fleets carrying the same value estimate ONE parameter block, and
+#' `adjust_map_shared_params()` copies the group's donor slice over the rest.
+#' The donor is the first estimated fleet in the group -- the same rule
+#' `.group_lead()` applies for `flt_sel_lead` / `flt_q_lead`, and the reason an
+#' `Off` fleet (whose slice is all NA) never leads. A value set on the donor is
+#' what the whole group uses; one set on any other member is overwritten.
+#'
+#' A group of one is not shared, whatever its key happens to be -- a survey
+#' catchability counter runs 1..n_survey and rarely matches the fleet code.
+#'
+#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of
+#'   the donor whose value would win.
+#' @keywords internal
+#' @noRd
+.shared_block_lead <- function(data_list, flt, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  if (is.null(col)) return(NA_integer_)
+  fc  <- data_list$fleet_control
+  idx <- fc[[col]]
+  if (is.null(idx) || is.na(idx[flt])) return(NA_integer_)
+
+  rows <- which(!is.na(idx) & idx == idx[flt])
+  if (length(rows) < 2L) return(NA_integer_)
+
+  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else fc$Fleet_type == "Off"
+  est  <- rows[!off[rows]]
+  lead <- if (length(est)) est[1] else rows[1]
+  if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)
+}
+
+
+#' Guards shared by the intercept init and bounds pushes
+#'
+#' @keywords internal
+#' @noRd
+.stop_if_shared_block <- function(data_list, flt, process, param) {
+  # Only a fleet the user NAMED is checked. An unstratified linkage expands to
+  # every fleet, where setting the whole group is unambiguous and the followers
+  # take the donor's value anyway.
+  if (length(flt) != 1L || is.na(flt)) return(invisible())
+  lead <- .shared_block_lead(data_list, flt, process)
+  if (is.na(lead)) return(invisible())
+  stop(sprintf(
+    paste0("linkage `%s` names fleet %d, which mirrors fleet %d's %s. One ",
+           "block is estimated for the group and fleet %d's value is the one ",
+           "used, so a value set here would be overwritten. Put it on fleet %d."),
+    param, as.integer(flt), lead,
+    if (identical(process, "q")) "catchability" else "selectivity", lead, lead),
+    call. = FALSE)
+  invisible()
+}
+
+.stop_unless_positive <- function(value, param, target) {
+  if (!(value > 0)) {
+    stop(sprintf(
+      paste0("linkage `%s` intercept value %g is not > 0, and %s is stored on ",
+             "the log scale, so it has no logarithm."),
+      param, value, target), call. = FALSE)
+  }
+  invisible()
+}
+
+.stop_unless_natural_sel_inf <- function(data_list, flt, slot, param) {
+  form <- data_list$fleet_control$Selectivity[flt]
+  if (!.sel_inf_is_natural(slot, form)) {
+    stop(sprintf(
+      paste0("linkage `%s` on fleet %d (%s selectivity) targets a sel_inf slot ",
+             "that is not on the natural scale -- DoubleNormal stores ",
+             "logit(right_floor) there and LogisticPM a log age-1 selectivity. ",
+             "Setting it from a natural-scale value would silently mis-scale ",
+             "it; set that parameter through `inits` instead."),
+      param, flt, as.character(form)), call. = FALSE)
+  }
+  invisible()
 }
 
 

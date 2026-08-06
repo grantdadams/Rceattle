@@ -160,16 +160,21 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
-# 5 = FishedEquilibrium: F = 0 equilibrium seeded by first-year recruitment
-#     (exp(rec_pars + rec_dev[year 1])), init devs off, no init-dev penalty
-#     (Cole Monnahan / AFSC GOA pollock convention).
+# 5 = OffsetEquilibrium: F = 0 equilibrium seeded by first-year recruitment
+#     (R_init * exp(rec_dev[year 1])), init devs off, no init-dev penalty
+#     (Cole Monnahan / AFSC GOA pollock convention). Named for the recruitment
+#     offset that seeds it: modes 1 and 5 both start from the initial
+#     equilibrium recruitment R_init, but 5 displaces it by the year-1
+#     recruitment deviation (the ONLY term separating them in the cpp -- see
+#     init_log_scalar in ceattle.cpp). It is an *unfished* (Finit = 0)
+#     equilibrium, so "Fished*" would misdescribe it.
 initMode_map <- c(
-  "FreeParams"           = 0,
-  "Equilibrium"          = 1,
-  "NonEquilibrium"       = 2,
+  "FreeParams"                 = 0,
+  "Equilibrium"                = 1,
+  "NonEquilibrium"             = 2,
   "FishedNonEquilibrium"       = 3,
   "FishedNonEquilibriumScaled" = 4,
-  "FishedEquilibrium"          = 5
+  "OffsetEquilibrium"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)
@@ -798,8 +803,9 @@ validate_switches <- function(data_list = NULL){
   invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
 
   if(sum(invalid_initMode) > 0) {
-    errors <- c(errors, paste("Invalid 'initMode' specified:",
-                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'initMode' specified: ",
+                              paste(unique(data_list$initMode[invalid_initMode]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":"), " or one of: ",
                               paste(names(initMode_map), collapse = ", ")))
   }
 
@@ -807,8 +813,9 @@ validate_switches <- function(data_list = NULL){
   invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
 
   if(sum(invalid_hcr) > 0) {
-    errors <- c(errors, paste("Invalid 'HCR' specified:",
-                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'HCR' specified: ",
+                              paste(unique(data_list$HCR[invalid_hcr]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":"), " or one of: ",
                               paste(names(hcr_map), collapse = ", ")))
   }
 

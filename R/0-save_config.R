@@ -100,7 +100,8 @@ print.Rceattle_run_config <- function(x, ...) {
 # the constructor picks up the same defaults.
 .RCE_LINKAGE_SPEC_ARGS <- c("formula", "param", "by", "species", "sex", "fleet",
                             "link", "init", "bounds", "priors", "re_group",
-                            "est_phase", "observe", "obs_sd", "obs_sd_est")
+                            "est_phase", "observe", "obs_sd", "obs_sd_est",
+                            "integrate")
 
 .rce_spec_to_list <- function(spec) {
   # A reference spec for default-omission (formula/by differ and are handled
@@ -378,7 +379,7 @@ run_config <- function(x, ...) {
 #' @return Invisibly, the `Rceattle_run_config` that was written.
 #' @seealso [load_config()], [run_config()], [model_config()], [fit_mod()].
 #' @examples
-#' cfg <- model_config(msmMode = 1, initMode = "FishedEquilibrium")
+#' cfg <- model_config(msmMode = 1, initMode = "OffsetEquilibrium")
 #' f <- file.path(tempdir(), "run.yaml")
 #' save_config(cfg, f)
 #' identical(load_config(f)$model_config$msmMode, 1)

@@ -2,13 +2,13 @@
 % Please edit documentation in R/6-phaser.R
 \name{set_phases}
 \alias{set_phases}
-\title{Function to set phasing order}
+\title{Default phasing order for CEATTLE parameters}
 \usage{
 set_phases()
 }
 \value{
-list of parameter names with associated phase
+Tagged list mapping each parameter name to its estimation phase.
 }
 \description{
-Function to set phasing order
+Default phasing order for CEATTLE parameters
 }
