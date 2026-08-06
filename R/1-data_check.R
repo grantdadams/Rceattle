@@ -647,19 +647,19 @@ data_check <- function(data_list) {
     }
 
 
-    # Mirroring (informational)
-    mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
-      dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
-    if(nrow(mirror_sel) > 0){
-      message(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "),
-                     " is mirrored with another fleet"))
-    }
-    mirror_q <- fc |> dplyr::filter(!is.na(Catchability)) |>
-      dplyr::group_by(Catchability_index) |> dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
-    if(nrow(mirror_q) > 0){
-      message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "),
-                     " is mirrored with another fleet"))
-    }
+    # Mirroring (informational) NOW in configuration
+    # mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
+    #   dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
+    # if(nrow(mirror_sel) > 0){
+    #   message(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "),
+    #                  " is mirrored with another fleet"))
+    # }
+    # mirror_q <- fc |> dplyr::filter(!is.na(Catchability)) |>
+    #   dplyr::group_by(Catchability_index) |> dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
+    # if(nrow(mirror_q) > 0){
+    #   message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "),
+    #                  " is mirrored with another fleet"))
+    # }
   }
 
   # =======================================================================
