@@ -1539,7 +1539,7 @@ build_map_linkages <- function(map_list, data_list) {
     obs_est <- gt$obs_sd_est[gt$observed]
     m <- rep(NA_integer_, length(obs_est))
     if (any(obs_est)) m[obs_est] <- seq_len(sum(obs_est))
-    map_list$log_obs_sd_linkage <- factor(m)
+    map_list$log_obs_sd_linkage <- m
   }
   map_list
 }

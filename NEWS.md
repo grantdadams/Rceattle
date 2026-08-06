@@ -92,6 +92,16 @@
 
 ## Bug fixes
 
+* **`retrospective()` and `run_mse()` run again on a model with an observed
+  (state-space covariate) linkage.** The map for the QAR1 observation SD
+  (`log_obs_sd_linkage`) was stored as a factor, where every other entry of
+  `mapList` is a raw integer. Both diagnostics build a debug map for each peel /
+  assessment, which maps the whole list out at once, and on a factor that step
+  aborted with `argument "list" is missing, with no default` -- so every peel of
+  such a model failed, reported under the parallel dispatch only as `5 nodes
+  produced errors`. Models with no `linkage_spec(observe = )` group were never
+  affected, and no fit changes: the map TMB receives is identical.
+
 * **A diagnostic refit keeps the source model's bias adjustment.** `fit_mod()`
   resets `data_list`'s `bias_adjust_obs` / `bias_adjust_proc` and then re-applies
   the values from `fit_control()`, whose defaults are `TRUE`. `.refit_like()`
