@@ -393,3 +393,19 @@ testthat::test_that("re_pos locates a deviation in the vector that holds it", {
   testthat::expect_gt(max(pen$re_index) + 1L,
                       length(f$estimated_params$beta_linkage_re_pen))
 })
+
+
+testthat::test_that("printing a spec shows link and the penalized treatment", {
+  # Both change the model: `link` decides whether an offset is added to the
+  # target or multiplies it, and `integrate` whether the deviations are
+  # integrated out or penalized. Neither should have to be read off the call.
+  pen <- Rceattle::linkage_spec(~ rw(1 | Year), init = list(sigma = 0.05),
+                                integrate = FALSE)
+  testthat::expect_output(print(pen), "link:")
+  testthat::expect_output(print(pen), "penalized fixed effect")
+
+  int <- Rceattle::linkage_spec(~ rw(1 | Year))
+  testthat::expect_output(print(int), "link:")
+  out <- utils::capture.output(print(int))
+  testthat::expect_false(any(grepl("penalized", out)))
+})

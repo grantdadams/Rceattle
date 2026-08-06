@@ -868,12 +868,11 @@ fit_mod <-
       if (!nm %in% random_vars) { # no bounds for random effects
         mf   <- unlist(map$mapFactor[[i]])
         if (!is.factor(mf)) mf <- factor(mf)
-        # One bound per distinct map index, enumerated in FACTOR-LEVEL order --
-        # the order TMB itself collapses a mapped block in (TMB:::updateMap uses
-        # tapply over the map factor). First-occurrence order looks equivalent
-        # and usually is, but diverges wherever indices are shared out of order,
-        # which is exactly what mirrored fleets produce (adjust_map_shared_params):
-        # the bounds of two mirrored fleets would then be swapped.
+        # One bound per distinct map index, in FACTOR-LEVEL order -- the order
+        # TMB collapses a mapped block in (TMB:::updateMap uses tapply over the
+        # map factor). First-occurrence order diverges wherever mirrored fleets
+        # share indices out of order (adjust_map_shared_params), swapping their
+        # bounds.
         keep <- match(levels(droplevels(mf)), as.character(mf))
         L <- c(L, unlist(bounds$lower[[nm]])[keep])
         U <- c(U, unlist(bounds$upper[[nm]])[keep])

@@ -782,6 +782,13 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   if (!is.null(x$fleet)) {
     cat("  fleet:   ", paste(x$fleet, collapse = ", "), "\n", sep = "")
   }
+  # link decides whether an offset is added to the target or multiplies it, and
+  # integrate decides whether the deviations are integrated out or penalized --
+  # both change the model, so neither should have to be read off the call.
+  cat("  link:    ", x$link, "\n", sep = "")
+  if (identical(x$integrate, FALSE)) {
+    cat("  estimate: penalized fixed effect (integrate = FALSE)\n")
+  }
   invisible(x)
 }
 

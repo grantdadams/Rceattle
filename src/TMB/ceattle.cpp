@@ -657,15 +657,11 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
-  // Slot-space view of the random-effect deviations, indexed by RE slot. Both
-  // readers of the slot space -- the effective-beta loop just below and the
-  // row-20 density in 14.6b -- address deviations through this vector, so
-  // neither needs to know which parameter vector a given slot is stored in.
-  // A slot lives in beta_linkage_re when it is Laplace-integrated, or in
-  // beta_linkage_re_pen when it is a penalized fixed effect; linkage_re_slot
-  // gives its position within whichever that is. With no penalized group every
-  // linkage_re_integrate is 1 and this is an element-wise copy of
-  // beta_linkage_re, so those fits stay bit-identical.
+  // Every deviation in one vector, indexed by RE slot: integrated deviations live
+  // in beta_linkage_re, penalized ones in beta_linkage_re_pen, and
+  // linkage_re_slot gives the position within whichever holds it. With no
+  // penalized group this is an element-wise copy of beta_linkage_re, so those
+  // fits stay bit-identical.
   vector<Type> beta_linkage_re_all(linkage_re_sigma.size());
   for (int s = 0; s < beta_linkage_re_all.size(); ++s) {
     beta_linkage_re_all(s) = linkage_re_integrate(s)
@@ -3205,7 +3201,7 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Random walk: 
+      // Random walk:
       // - Type 4 = random walk on ascending and descending for double logistic
       // - Type 5 = ascending only for double logistics
       if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
@@ -3223,9 +3219,11 @@ Type objective_function<Type>::operator() () {
             // varies the ascending limb ONLY, and build_map() estimates no
             // descending deviate under mode 5 for any selectivity type -- type 3
             // restricts to j = 1, and types 4 and 8 exclude mode 5 outright. Those
-            // deviates therefore sit at their init of 0, so penalizing them here
-            // adds a pure constant: it shifts the reported objective while leaving
-            // every gradient untouched.
+            // deviates therefore sit at their init of 0. With random_sel = FALSE
+            // that makes the penalty a pure constant -- it shifts the reported
+            // objective and leaves every gradient untouched. With random_sel =
+            // TRUE, sel_dev_log_sd is estimated, so the term is 2n log(sigma) +
+            // const and biases that SD downward.
             if((flt_varying_sel(flt) == 4) &&
                ((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8))){
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);

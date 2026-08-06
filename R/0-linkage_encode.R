@@ -268,8 +268,9 @@ encode_linkage_for_tmb <- function(table, X) {
     for (want in c(TRUE, FALSE)) {
       p <- rt$pos[rt$integrate == want]
       if (length(p) && !setequal(p, seq_along(p) - 1L)) {
-        stop("encode_linkage_for_tmb: random-effect slot positions are not a ",
-             "bijection onto 0:(k-1) within a destination vector.", call. = FALSE)
+        stop("internal error: a random-effect deviation is stored twice, or not ",
+             "at all. Please report this with the linkage specification that ",
+             "produced it.", call. = FALSE)
       }
     }
   }

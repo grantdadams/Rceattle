@@ -1098,6 +1098,33 @@ build_composition <- function(linkages = NULL) {
         "(the one whose Selectivity_index equals its Fleet_code)."),
         paste(fleet_control$Fleet_name[mir_flt], collapse = ", ")), call. = FALSE)
     }
+
+    # (c) A prior on a limb the fleet's own curve never uses. Logistic reads only
+    # the ascending slots, DescendingLogistic only the descending ones; the other
+    # pair stays at its build default and never enters selectivity-at-age. The
+    # prior would still be added to the objective -- a constant that shifts the
+    # reported likelihood and moves with an unrelated default, while doing
+    # nothing to the fit. Silently accepting it is how a reconciliation against
+    # another model picks up an unexplained offset.
+    used <- list(Logistic           = c("slp_asc", "inf_asc"),
+                 DescendingLogistic = c("slp_desc", "inf_desc"))
+    for (form in names(used)) {
+      f_rows <- prior_rows[vapply(prior_rows$fleet, function(f)
+        as.character(fleet_control$Selectivity[row_flt(f)]) == form,
+        logical(1)), , drop = FALSE]
+      unused <- f_rows[!f_rows$param %in% used[[form]], , drop = FALSE]
+      if (nrow(unused) > 0L) {
+        stop(sprintf(paste0(
+          "selectivity prior on `%s` for %s fleet(s) %s: that %s curve does not ",
+          "use those parameters, so the prior would add a constant to the ",
+          "objective without affecting the fit. Prior %s instead, or drop the ",
+          "fleet from this prior's fleet list."),
+          paste(unique(unused$param), collapse = "`, `"), form,
+          paste(unique(fleet_control$Fleet_name[
+            vapply(unused$fleet, row_flt, integer(1))]), collapse = ", "),
+          form, paste(used[[form]], collapse = " / ")), call. = FALSE)
+      }
+    }
   }
   invisible()
 }

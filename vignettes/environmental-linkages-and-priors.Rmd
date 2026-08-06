@@ -1204,10 +1204,13 @@ rather than applying a covariate/deviate to the wrong year.
   grammar's features. The switches estimate their deviations as penalized fixed
   effects with a fixed SD, so a faithful rewrite pairs `rw()` with
   `integrate = FALSE` and `init = list(sigma = )` set to the switch's
-  `Time_varying_*_sd`; an integrated `rw()` is a different model. Note the legacy
-  `RandomWalkAscending` selectivity mode penalizes the ascending inflection at
-  **4x** the fleet's `Time_varying_sel_sd`, so the two limbs need different
-  `sigma` values. No grammar equivalent exists yet for the environmental /
+  `Time_varying_*_sd`; an integrated `rw()` is a different model. Two traps when
+  rewriting a selectivity switch: the legacy penalty weights the *inflection*
+  deviate at **4x** the *slope* deviate (and swaps which limb gets the 4x between
+  `RandomWalk` and `RandomWalkAscending`), so read the sigmas off
+  `ceattle.cpp`'s penalty block rather than assuming; and an inflection linkage
+  needs `link = "identity"`, because the legacy deviate is added to the
+  inflection whereas the default log link multiplies it. No grammar equivalent exists yet for the environmental /
   Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
   separable `M1_re = 6` (age × year), which keep using the switch-based path
   without a nudge.

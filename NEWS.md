@@ -45,6 +45,16 @@
 
 ## Bug fixes
 
+* **A selectivity prior on a limb the fleet's curve does not have is now
+  rejected.** A Logistic fleet has no descending limb and a DescendingLogistic
+  fleet no ascending one, so those slots never reach selectivity-at-age -- they
+  sit at their `build_params()` defaults. A prior on them was still added to the
+  objective, shifting the reported likelihood by a constant that moved with an
+  unrelated default while doing nothing to the fit. `fit_mod()` now names the
+  fleet and parameter and says which limb to prior instead. This is how a
+  reconciliation against another model picks up an unexplained offset: on the GOA
+  pollock bridge it was worth 13.19 likelihood units.
+
 * **Parameter bounds are applied to the parameter they were written for.**
   `fit_mod()` assembled `lower`/`upper` in `build_params()`'s parameter order,
   but TMB orders `obj$par` by the sequence the `PARAMETER_*` macros appear in the
@@ -189,10 +199,10 @@
   changes where it halts and which local optimum it reaches. `GOA2018SS` has at
   least two converged optima 52.9 apart; the fit now lands on the better one
   (12868.005 rather than 12920.897 measured on the same surface), and its derived
-  quantities move with it -- **terminal GOA Pacific cod SSB falls 14.1%**
-  (395,627 to 339,897 t), with SSB, recruitment and F differing by up to 40%,
-  39% and 230% across the series. Anyone carrying GOA numbers forward should
-  refit. Newton-polishing the reference pins a stationary point but does not make
+  quantities move with it -- **GOA Pacific cod SSB in the final projection year
+  (2050) falls 14.1%** (395,627 to 339,897 t), while SSB, recruitment and F
+  differ by up to 40%, 39% and 230% across the hindcast. Anyone carrying GOA
+  numbers forward should refit. Newton-polishing the reference pins a stationary point but does not make
   it surface-invariant: polishing both surfaces still lands on the two different
   optima, so `max|gradient| < 1e-4` certifies convergence, not uniqueness. A
   jitter or multi-start check is the tool for that.
