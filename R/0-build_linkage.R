@@ -236,7 +236,10 @@ linkage_spec <- function(formula,
   # Only values below 1 are singled out: 0 is the sole value with an implemented
   # meaning, and a phase above 1 is inert for every linkage row, random or not.
   .phase <- suppressWarnings(as.integer(est_phase))
-  if (length(.phase) == 1L && !is.na(.phase) && .phase < 1L &&
+  if (length(.phase) != 1L || is.na(.phase)) {
+    stop("`est_phase` must be a single non-NA integer.", call. = FALSE)
+  }
+  if (.phase < 1L &&
       length(.parse_linkage_formula(formula)$re_structures) > 0L) {
     stop("`est_phase` cannot fix a random-effect term: its deviations live in ",
          "beta_linkage_re / beta_linkage_re_pen, which `est_phase` does not ",
@@ -294,7 +297,7 @@ linkage_spec <- function(formula,
       bounds    = bounds,
       priors    = priors_obj,
       re_group  = as.character(re_group),
-      est_phase = as.integer(est_phase),
+      est_phase = .phase,
       observe   = observe,
       obs_sd    = obs_sd,
       obs_sd_est = obs_sd_est,

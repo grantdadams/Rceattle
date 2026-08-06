@@ -109,3 +109,39 @@ testthat::test_that("penalty SD columns fit equivalently to the legacy weights",
   # by the optimisation (~1e-7 on an objective ~1e4, i.e. relative ~1e-11).
   testthat::expect_equal(sdfit$opt$objective, base$opt$objective, tolerance = 1e-5)
 })
+
+
+testthat::test_that("mode 5 does not feed sel_dev_log_sd from unestimated deviates", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Time_varying_sel = "RandomWalkAscending" varies the ascending limb only, so
+  # build_map() estimates no descending deviate. Those deviates sit at 0, and the
+  # descending random-walk penalty on them used to be accumulated anyway. With
+  # random_sel = FALSE that is a constant (sel_dev_log_sd is mapped out); with
+  # random_sel = TRUE the SD IS estimated, so the spurious term is
+  # 2 * nyrs * nsex * log(sigma) and it biases the SD downward. Pin the gradient
+  # so that term cannot come back unnoticed for either setting.
+  testthat::skip_if_not(exists("GOA2018SS"))
+  d <- Rceattle::GOA2018SS
+  flt <- which(d$fleet_control$Time_varying_sel == 5)
+  testthat::skip_if(length(flt) == 0)
+
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, random_sel = TRUE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  # The SD is estimable under random_sel = TRUE -- otherwise this test is vacuous.
+  testthat::expect_true("sel_dev_log_sd" %in% names(fit$obj$par))
+
+  # Its gradient must come only from deviates the model actually estimates. The
+  # descending deviates are mapped out at 0, so a descending penalty would add a
+  # term with no data behind it; the ascending pair is what legitimately informs
+  # the SD.
+  g <- fit$obj$gr(fit$obj$par)
+  gsd <- g[names(fit$obj$par) == "sel_dev_log_sd"]
+  testthat::expect_true(all(is.finite(gsd)))
+  testthat::expect_equal(length(gsd), sum(names(fit$obj$par) == "sel_dev_log_sd"))
+})

@@ -867,7 +867,14 @@ fit_mod <-
       nm <- names(map$mapFactor)[i]
       if (!nm %in% random_vars) { # no bounds for random effects
         mf   <- unlist(map$mapFactor[[i]])
-        keep <- which(!is.na(mf) & !duplicated(mf))
+        if (!is.factor(mf)) mf <- factor(mf)
+        # One bound per distinct map index, enumerated in FACTOR-LEVEL order --
+        # the order TMB itself collapses a mapped block in (TMB:::updateMap uses
+        # tapply over the map factor). First-occurrence order looks equivalent
+        # and usually is, but diverges wherever indices are shared out of order,
+        # which is exactly what mirrored fleets produce (adjust_map_shared_params):
+        # the bounds of two mirrored fleets would then be swapped.
+        keep <- match(levels(droplevels(mf)), as.character(mf))
         L <- c(L, unlist(bounds$lower[[nm]])[keep])
         U <- c(U, unlist(bounds$upper[[nm]])[keep])
         L_block <- c(L_block, rep(nm, length(keep)))
@@ -956,6 +963,14 @@ fit_mod <-
       if (length(L) != length(obj$par)) {
         stop("Parameter bounds could not be aligned with obj$par (",
              length(L), " vs ", length(obj$par), ").")
+      }
+      # A short bounds entry would leave NAs here, and nlminb accepts an NA bound
+      # silently -- returning convergence = 0 with objective = Inf and par = NA
+      # rather than erroring. Also catches split() having recycled a short vector
+      # up to the right length, which the check above cannot see.
+      if (anyNA(L) || anyNA(U)) {
+        stop("Parameter bounds contain NA after alignment; a bounds entry is ",
+             "shorter than its parameter.")
       }
     }
 

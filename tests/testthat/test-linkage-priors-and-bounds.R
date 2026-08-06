@@ -258,3 +258,45 @@ testthat::test_that("a linkage coefficient's bounds are applied to that coeffici
   testthat::expect_lte(beta, cap + 1e-8)
   testthat::expect_gte(beta, -cap - 1e-8)
 })
+
+
+testthat::test_that("shared map indices take their own bounds, in TMB's order", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # fit_mod picks one bound per distinct map index. TMB collapses a mapped block
+  # in FACTOR-LEVEL order (TMB:::updateMap uses tapply over the map factor),
+  # which is not first-occurrence order wherever mirrored fleets share indices
+  # out of order -- adjust_map_shared_params() produces exactly that on
+  # GOA2018SS (selectivity 1&7, selectivity + q 9&10). Enumerating by first
+  # occurrence would hand two mirrored fleets each other's bounds. Harmless while
+  # those blocks carry +/-Inf, but it would bite the moment per-fleet selectivity
+  # bounds are switched on, and nothing else would catch it.
+  testthat::skip_if_not(exists("GOA2018SS"))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = Rceattle::GOA2018SS, file = NULL, inits = NULL,
+    estimateMode = 3, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  shared <- character(0)
+  for (nm in names(fit$map$mapFactor)) {
+    mf <- unlist(fit$map$mapFactor[[nm]])
+    if (!is.factor(mf)) mf <- factor(mf)
+    if (!any(!is.na(mf))) next
+    by_level <- match(levels(droplevels(mf)), as.character(mf))
+    by_first <- which(!is.na(mf) & !duplicated(mf))
+    if (!identical(by_level, by_first)) shared <- c(shared, nm)
+  }
+  # GOA2018SS must actually exercise the divergence, or the test proves nothing.
+  testthat::expect_true(length(shared) > 0)
+
+  # And the two orders must select the same NUMBER of elements, so the block
+  # length is unchanged either way -- which is why the length check cannot see it.
+  for (nm in shared) {
+    mf <- unlist(fit$map$mapFactor[[nm]])
+    if (!is.factor(mf)) mf <- factor(mf)
+    testthat::expect_equal(length(match(levels(droplevels(mf)), as.character(mf))),
+                           length(which(!is.na(mf) & !duplicated(mf))), info = nm)
+  }
+})

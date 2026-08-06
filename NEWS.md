@@ -41,13 +41,22 @@
   template -- and `build_params()` lists the linkage coefficients after `log_F`
   while `ceattle.cpp` declares them before it. Both vectors have the same length
   either way, so nothing downstream could notice: the box constraints simply
-  landed on the wrong parameters. Any model carrying a linkage was affected --
-  a `linkage_spec(bounds = )` on a covariate coefficient was applied to `log_F`,
-  and `log_F`'s `[-1000, 10]` rail to the coefficient, so 1 of 117 `log_F`
-  elements lost the guard that stops fishing mortality running away in a
-  poorly-conditioned fit. The bounds are now aligned against `names(obj$par)`
-  after `MakeADFun()`, with an assertion. Models with no linkage were never
-  affected, and the reference fits are unchanged.
+  landed on the wrong parameters. The orders disagree in four places, so this
+  reaches well beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
+  `log_Flimit`...`log_F`, `index_q_beta`/`index_q_rho`, and
+  `sel_curve_pen`/`sel_coff_dev`. A `linkage_spec(bounds = )` on a covariate
+  coefficient was applied to `log_F` and `log_F`'s `[-1000, 10]` rail to the
+  coefficient; on a growth-estimating model with no linkage at all, 5 of 12
+  `log_F` elements lost that rail while `log_growth_pars` and `growth_log_sd`
+  were wrongly capped at `[-1000, 10]`. **Fits of growth-estimating and
+  linkage-carrying models can therefore change**, since bounds that previously
+  bound the wrong parameter now bind the right one. The reference fits are
+  unaffected (their misplaced bounds never bound). Bounds are now aligned against
+  `names(obj$par)` after `MakeADFun()`, enumerated in the map's factor-level
+  order -- the order TMB itself collapses a mapped block in, which differs from
+  first-occurrence order exactly where mirrored fleets share indices out of
+  order -- and asserted non-`NA`, since `nlminb` accepts an `NA` bound silently
+  and returns `objective = Inf` with `par = NA` rather than erroring.
 
 * **`est_phase` no longer silently fails to fix a random-effect term.**
   `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient vector; a
@@ -156,15 +165,35 @@
   selectivity *type* alone, so on a double-logistic fleet the descending-limb term
   was accumulated under mode 5 as well as mode 4. Mode 5 varies the ascending limb
   only -- `build_map()` estimates no descending deviate under it for any
-  selectivity type -- so those deviates sat at their init of 0 and the term
-  contributed a pure constant, shifting the reported objective while leaving every
-  gradient untouched. **No estimate, reference point or catch advice changes**;
-  only the objective's absolute level does. On `GOA2018SS` (fleet 8,
+  selectivity type -- so with `random_sel = FALSE` those deviates sat at their
+  init of 0 and the term contributed a pure constant, shifting the reported
+  objective while leaving every gradient untouched. On `GOA2018SS` (fleet 8,
   `Time_varying_sel_sd = 0.05`, 42 years, one sex) the objective rises by exactly
   `41 * (dnorm(0, 0, 0.05, log = TRUE) + dnorm(0, 0, 0.20, log = TRUE))` =
   113.4590179027, verified as a constant by an unchanged gradient at two
   independent parameter vectors. Models with no mode-5 fleet -- including
   `BS2017SS` / `BS2017MS` -- are bit-identical.
+
+  **A constant shift can still move the fit, and on `GOA2018SS` it does.**
+  `nlminb` stops on an objective-*relative* tolerance, so an additive constant
+  changes where it halts and which local optimum it reaches. `GOA2018SS` has at
+  least two converged optima 52.9 apart; the fit now lands on the better one
+  (12868.005 rather than 12920.897 measured on the same surface), and its derived
+  quantities move with it -- **terminal GOA Pacific cod SSB falls 14.1%**
+  (395,627 to 339,897 t), with SSB, recruitment and F differing by up to 40%,
+  39% and 230% across the series. Anyone carrying GOA numbers forward should
+  refit. Newton-polishing the reference pins a stationary point but does not make
+  it surface-invariant: polishing both surfaces still lands on the two different
+  optima, so `max|gradient| < 1e-4` certifies convergence, not uniqueness. A
+  jitter or multi-start check is the tool for that.
+
+  With `random_sel = TRUE` the removed term is **not** constant: `sel_dev_log_sd`
+  is estimated for a mode-5 fleet, so the term is `2n log(sigma) + const` and its
+  removal shifts that gradient by `-2 * nyrs * nsex` (-82 on `GOA2018SS`). The
+  estimated selectivity-deviation SD therefore moves -- upward, since the old term
+  pushed it down -- which rescales shrinkage on the ascending walk mode 5 does
+  estimate. The change is in the right direction (penalizing a deviate pinned at 0
+  is a spurious `-log sigma`), but it is a behaviour change for such models.
 
   All four pinned reference objectives are nevertheless restated, because the
   reference recipe now Newton-polishes each fit. Previously they stopped on
