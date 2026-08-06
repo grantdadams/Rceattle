@@ -63,17 +63,17 @@
   spn <- dl2$spnames %||% (if (!is.null(dl2$nspp)) seq_len(dl2$nspp) else NULL)
   nspp <- dl2$nspp %||% length(spn)
   add("  dimensions")
-  add("  ├─ species  : ", nspp %||% "?",
+  add("  \u251c\u2500 species  : ", nspp %||% "?",
       if (!is.null(spn)) paste0("  (", paste(spn, collapse = ", "), ")") else "")
-  yr <- paste0(dl2$styr %||% "?", "–", dl2$endyr %||% "?")
+  yr <- paste0(dl2$styr %||% "?", "\u2013", dl2$endyr %||% "?")
   if (!is.null(dl2$projyr) && !identical(dl2$projyr, dl2$endyr)) {
-    yr <- paste0(yr, "  (projection → ", dl2$projyr, ")")
+    yr <- paste0(yr, "  (projection \u2192 ", dl2$projyr, ")")
   }
-  add("  ├─ years    : ", yr)
+  add("  \u251c\u2500 years    : ", yr)
   agr <- if (!is.null(dl2$minage) && !is.null(dl2$nages)) {
-    paste0(dl2$minage, "–", dl2$minage + dl2$nages - 1)
+    paste0(dl2$minage, "\u2013", dl2$minage + dl2$nages - 1)
   } else as.character(dl2$nages %||% "?")
-  add("  └─ ages     : ", paste(agr, collapse = ", "),
+  add("  \u2514\u2500 ages     : ", paste(agr, collapse = ", "),
       "  |  lengths ", paste(dl2$nlengths %||% "?", collapse = ", "),
       "  |  sexes ", paste(dl2$nsex %||% "?", collapse = ", "))
 
@@ -104,7 +104,7 @@
     sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
     n <- nrow(fc)
     # Two fixed left-hand columns -- "[code] name" and fleet type -- are padded to a
-    # common width so the " │ "-separated form fields line up down the block; the
+    # common width so the " - "-separated form fields line up down the block; the
     # optional sel:/q:/mirror fields trail unpadded.
     id_col   <- vapply(seq_len(n),
                        function(i) paste0("[", fc$Fleet_code[i] %||% i, "] ", fc$Fleet_name[i] %||% ""),
@@ -115,7 +115,7 @@
     idw   <- max(nchar(id_col))
     typew <- max(nchar(type_col))
     for (i in seq_len(n)) {
-      elbow <- if (i == n) "  └─ " else "  ├─ "
+      elbow <- if (i == n) "  \u2514\u2500 " else "  \u251c\u2500 "
       sel   <- lab("Selectivity", i)
       qform <- lab("Catchability", i)
       cells <- c(formatC(id_col[i],   width = -idw),
@@ -126,10 +126,10 @@
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA
       qi <- if (q_col %in% colnames(fc)) fc[[q_col]][i] else NA
-      if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel↔", si))
-      if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q↔", qi))
+      if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel\u2194", si))
+      if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q\u2194", qi))
       if (length(mir)) cells <- c(cells, paste0("[shared: ", paste(mir, collapse = ", "), "]"))
-      add(elbow, paste(cells, collapse = " │ "))
+      add(elbow, paste(cells, collapse = " \u2502 "))
     }
   }
 
@@ -144,7 +144,7 @@
   if (length(procs)) {
     add("  processes")
     for (k in seq_along(procs)) {
-      add(if (k == length(procs)) "  └─ " else "  ├─ ", procs[k])
+      add(if (k == length(procs)) "  \u2514\u2500 " else "  \u251c\u2500 ", procs[k])
     }
   }
 
@@ -166,7 +166,7 @@
   if (length(link_lines)) {
     add("  linkages (", length(link_lines), ")")
     for (k in seq_along(link_lines)) {
-      add(if (k == length(link_lines)) "  └─ " else "  ├─ ", link_lines[k])
+      add(if (k == length(link_lines)) "  \u2514\u2500 " else "  \u251c\u2500 ", link_lines[k])
     }
   }
 
@@ -176,9 +176,9 @@
   if (!is.null(cfg)) {
     add("  model_config : msmMode ",
         if (!is.null(cfg$msmMode)) .rce_alias_show(cfg$msmMode, msmMode_map) else "?",
-        " · initMode ",
+        " \u00b7 initMode ",
         if (!is.null(cfg$initMode)) .rce_alias_show(cfg$initMode, initMode_map) else "?",
-        if (!is.null(cfg$HCR$HCR)) paste0(" · HCR ", .rce_alias_show(cfg$HCR$HCR, hcr_map)) else "")
+        if (!is.null(cfg$HCR$HCR)) paste0(" \u00b7 HCR ", .rce_alias_show(cfg$HCR$HCR, hcr_map)) else "")
   }
 
   L

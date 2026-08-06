@@ -30,7 +30,6 @@ Imports:
     readxl,
     TMB (>= 1.7.16),
     writexl,
-    reshape2,
     parallel,
     tidyr,
     R.utils,
