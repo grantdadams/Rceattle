@@ -30,10 +30,28 @@ everything else.
     auto-merged with dev-DSEM edits and moved the fit — `R/3-build_map.R` shifted the
     BS2017SS golden objective ~18 units. Reset to **pure v5.0**: `R/3-build_map.R`,
     `R/4-build_parameter_bounds.R`, `R/0-rceattle_class.R`, `R/0-read_write_excel_data.R`
-    (+ the auto-merged `tests/`, `man/`, examples). **BS2017SS now fits 10241.0304275
-    exactly.** The DSEM additions those four files carried on dev-DSEM must be re-applied
-    in Tier 1 (see the table below). The branch now equals v5.0 + the inert DSEM files
-    (diff vs `dev-data-workflow` is only DESCRIPTION/NAMESPACE/README + DSEM-new files).
+    (+ the auto-merged `tests/`, `man/`, examples). The branch now equals v5.0 + the inert
+    DSEM files (diff vs `dev-data-workflow` is only DESCRIPTION/NAMESPACE/README +
+    DSEM-new files).
+    - **Correction (2026-08-05):** the note above said dev-DSEM's additions to
+      `R/2-build_params.R` / `R/3-build_map.R` / `R/4-build_parameter_bounds.R` "must be
+      re-applied in Tier 1". They must **not**. Those diffs are pure *deletions* —
+      `param_list$rec_dev` and `param_list$R_log_sd` are commented out, as are their map
+      and bounds blocks, and `rec_dev` becomes a local `matrix<Type>`
+      (`dev-DSEM:ceattle_v01_11.cpp:420`) rather than a `PARAMETER_MATRIX`. On dev-DSEM,
+      DSEM is a **hard replacement** of the recruitment-deviation parameterization, not an
+      optional feature: `fit_mod()` defaults to `dsem = build_DSEM()` and *overwrites*
+      `random_vars`. There is no "DSEM off" path there, which is why dev-DSEM cannot
+      reproduce a v5.0 golden fit. Tier 1 is a redesign into an opt-in path, not a port.
+      Keep `rec_dev` and `R_log_sd` as parameters; default `dsem = NULL`.
+- [x] **Tier 0b — synced with `dev` (2026-08-05).** Merged `origin/dev` (through
+  `3a321ef0`); zero conflicts, as the branch's diff vs `dev` is purely additive. Moved
+  `dsem (== 3.0.0)` from `Imports:` to `Suggests:` (the runtime version guard already lives
+  in `build_dsem_objects()`, and a hard `==` pin on a released package would tax every user
+  and every CI job); rewrote the README note; marked `test-dsem-recruitment.R` skipped with
+  a pointer to Tier 3. **BS2017SS golden re-pinned — see the verification gates below; the
+  earlier `10241.0304275` predates the `mse-debug` work and the move to `newtonsteps = 3`.**
+  The `mse-debug` PR was still open at this point; a second merge is needed once it lands.
 - [ ] Tier 1 — R wiring (`fit_mod`, params/map, data I/O)
 - [ ] Tier 2 — C++ re-wiring (`ceattle.cpp` recruitment path) — the crux
 - [ ] Tier 3 — tests, docs, verification
@@ -53,7 +71,38 @@ Decide how they coexist in the rewritten recruitment path:
 - **(B) Unified** — express DSEM as a linkage-grammar backend so it composes with other
   linkages. *Much larger; defer.*
 
-Everything in Tier 2 depends on this. Start with (A).
+**Resolved 2026-08-05: (A) now, (B) when expanding to growth and mortality.** The fall
+workflows need a working recruitment DSEM on v5.0, so the first landing is bespoke. But (B)
+is the committed target, because DSEM is wanted on growth and M too — and repeating (A)'s
+glue per process would mean neutering each process's own density and mapping age/sex-
+structured deviations onto `x_tj`'s one-column-per-series layout.
+
+**(B) is cheaper than this file previously assumed, and the seam already exists.**
+`calculate_dsem()` takes 17 arguments, *none* recruitment-specific — `dsem.hpp` contains zero
+occurrences of `rec_` and knows only an `n_t x n_j` stacked state space plus a RAM. All
+recruitment semantics are ~12 lines of glue (`ceattle_v01_11.cpp:888-899`) and five hardcoded
+`recdevs<sp>` sites in `R/0-build_DSEM.R`. Meanwhile commit `131e6b31` routes every
+random-effect read through one slot-space vector (`beta_linkage_re_all` -> `beta_linkage_eff`),
+and that single vector feeds all five `rceattle_apply_*_linkages` accumulators. **A joint GMRF
+density attached at slot space would therefore drive growth, M, recruitment, q and sel with no
+accumulator changes at all.** (B) needs exactly three things the grammar lacks: multi-
+`(process, param)` RE groups with a within-group variable axis (`.assign_re_registry()` currently
+keys on `process|param|...`, forcing them apart), a `GMRF(Q)` branch in the density dispatch
+(`ceattle.cpp` ~L4171, today a 3-way `us`/`rw`/`ar1` scalar switch), and a path-coefficient
+parameter vector (nothing analogous to `trans_rho_linkage` exists for cross-variable paths).
+
+**Requirements on the (A) landing so (B) is not a rewrite:**
+- Leave `dsem.hpp` generic — no recruitment-specific arguments on `calculate_dsem()`.
+- Collapse the five hardcoded `recdevs<sp>` sites into one registry (default-sem generation
+  L112-121, column injection L128-141, the `^recdevs[0-9]+$` family regex L164, the SD
+  self-loop lookup L253-283, the `rec_dev_col` match L300, plus `check_dsem_spec()` L438).
+  Highest-value cheap thing in the landing.
+- Isolate the recruitment glue in `ceattle.cpp` to one marked block.
+- Give DSEM its own `JnllRow` slot; do not repurpose slot 10 (on v5.0 `JNLL_REC_DEV = 10` is
+  the live standard recdev density).
+- Keep `dsem = NULL` opt-in and the standard recruitment path textually intact.
+- Fix `R/8-sim_mod.R` L206-225, which indexes `x_tj[, sp]` by species number and so assumes
+  recdev column == species index — false the moment M/growth columns are added.
 
 ## Where DSEM's hooks live (to re-apply) — `dev-DSEM:src/TMB/ceattle_v01_11.cpp`
 
@@ -107,14 +156,62 @@ recruitment path when DSEM is off. Recompile (`/recompile`), iterate.
 ### Verification gates
 1. **`/golden-check` bit-identical** on the 4 non-DSEM models — DSEM being present must not
    move them (with DSEM off, the recruitment path must be byte-for-byte the v5.0 path).
-2. **DSEM equivalence** — run `examples/DSEM_example.R` on this branch and confirm the same
-   solution as `dev-DSEM` today (objective / SSB / R / recruitment latents), the same
-   before/after method used for the GOA-ATF vs main check. Build `dev-DSEM` in a throwaway
-   worktree (`git worktree add … dev-DSEM`), fit both at `-O2`, diff.
-3. Constructive linkage tests, OSA suites, `dev/verify-refit-like.R`.
+   Read the pinned objectives off `tests/testthat/test-golden-regression.R` rather than any
+   value quoted in this file; they were restated when `mse-debug` moved the golden fits to
+   `newtonsteps = 3`.
+2. **DSEM equivalence — REVISED 2026-08-05.** The original gate ("confirm the same solution
+   as `dev-DSEM` today") is **not achievable and must not be chased.** v5.0's 316 commits
+   moved the surrounding likelihood substantially (bias adjustment alone is worth several
+   hundred jnll units on BS2017SS), and the DSEM GMRF carries normalizing constants the
+   standard `dnorm` recdev density does not. Replace with:
+   - **2a. DSEM-off = `dev`** (the strong gate): `dsem = NULL` reproduces all four golden
+     values bit-identically. This is what proves the Tier-2 surgery is clean.
+   - **2b. DSEM-IID ~ standard `random_rec`** (the primary DSEM gate, single-branch): fit the
+     same model with `dsem = NULL, random_rec = TRUE` and with `dsem = build_DSEM()` (the
+     synthesized IID sem). Recruitment deviations, SSB and R should agree closely; objectives
+     differ by the GMRF normalizing constant.
+   - **2c. `dev-DSEM` cross-check — sanity only.** Build `dev-DSEM` in a throwaway worktree
+     and fit in a *separate* `Rscript` process (only one Rceattle DLL loads at a time, and the
+     branches even have different cpp filenames). Compare recdev series shape, `R_sd`, and the
+     estimated path coefficients. **Do not compare objectives.**
+3. Constructive linkage tests, OSA suites, `dev/verify-refit-like.R`. Note the linkage tests
+   are the regression net for the recruitment/linkage path — the 4 golden models carry no
+   linkage rows. `tests/testthat/test-linkage-random-effects.R` L103/L288 address the
+   linkage-RE row as `jnll_comp[nrow(jnll_comp), ]`, so adding a `JNLL_DSEM` row silently
+   re-points them; repair to an explicit index.
+4. `dev/verify-mse-hindcast-invariant.R` + `dev/verify-mse-om-horizon.R`. `x_tj` is
+   year-dimensioned, so `.mse_proj_param_yrdim` in `R/10-run_mse.R` needs `x_tj = 1L` or a
+   shortened OM refit misaligns. Whether `run_mse()` supports DSEM at all is a separate
+   decision: `rec_dev` is derived from `x_tj`, so `sample_rec()` must draw into
+   `x_tj[, rec_dev_col]`, not `rec_dev`.
 
 ## Notes / traps
 - The **`JnllRow` enum changed** — the recruitment/linkage rows moved; don't index `jnll_comp`
   by old row numbers. Give DSEM its own row if it carries a distinct density.
 - Keep decision (A) simple first; only pursue (B) unification once DSEM lands and is verified.
-- `dsem (== 3.0.0)` is a hard pin — the branch needs dsem 3.0.0 installed (it is on this box).
+  Resist starting (B) at Tier 2 just because the slot-space seam is visible.
+- `dsem (== 3.0.0)` is now in **`Suggests:`**, not `Imports:` — `build_dsem_objects()` already
+  carries the `requireNamespace` + `packageVersion != "3.0.0"` guard with an install hint.
+- `src/TMB/dsem.hpp` carries dead code: the `nyrs_hind` and `proj_mean_rec` arguments are never
+  referenced in the body, and the `dsem_hindcast_positions` / `dsem_subset_vec` helpers are never
+  called. Delete them rather than carrying them into (B).
+- `helper_functions.hpp` on this branch is pure v5.0 and is **missing** the `sign()`, `dlnorm()`
+  and `devresid_tweedie()` that `dsem.hpp` calls (L543/553/563, L578, L593). Nothing compiles the
+  moment `ceattle.cpp` includes `dsem.hpp`. Put them in `dsem.hpp` itself, not in the shared
+  header — they are DSEM-only, and a template named `sign` in a header included by every
+  translation unit is a needless overload-resolution hazard. Keeping them local also means the
+  fix cannot move the fit.
+- `env_data` alignment is inconsistent between the two subsystems: the linkage grammar aligns
+  **positionally** (`R/0-build_linkage.R`, row r -> year `styr + r - 1`, with
+  `.extend_env_data()` gap-filling) while `build_dsem_objects()` aligns **by `Year`** (a
+  `full_join`). Benign when `env_data$Year` is complete and sorted (all bundled datasets),
+  dangerous otherwise. (B) needs one contract; routing DSEM through `.extend_env_data()` is it.
+- `dsem_settings` is a run specification, not data — persist it on `data_list$dsem_settings`
+  (read back by `.refit_like()`) and through `save_config()`/`load_config()`. Do **not** add a
+  workbook sheet; `env_data` already round-trips on v5.0, so the CLAUDE.md read/write trap does
+  not apply here.
+- The six diagnostic refit paths collapsed into `.refit_like()` on v5.0, so DSEM needs **one**
+  `dsem = data_list$dsem_settings` override there, not dev-DSEM's per-caller edits to
+  `9-retro_and_jitter.R` / `OPT-phaser.R` / `10-run_mse.R`. Pass the *settings*, never a prebuilt
+  object: `x_tj`/`eps_tj`/`y_tj` are dimensioned over `styr:projyr` and every refit changes the
+  horizon.

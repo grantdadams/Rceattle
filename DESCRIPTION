@@ -45,14 +45,14 @@ Imports:
     magrittr,
     Matrix,
     yaml,
-    utils,
-    dsem (== 3.0.0)
+    utils
 LinkingTo:
     TMB,
     RcppEigen
 Suggests:
     testthat (>= 3.1.5),
     covr,
+    dsem (== 3.0.0),
     rmarkdown,
     knitr,
     mvtnorm,
