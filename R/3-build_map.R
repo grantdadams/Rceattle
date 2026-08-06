@@ -1496,9 +1496,13 @@ build_map_linkages <- function(map_list, data_list) {
   m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
   # beta_linkage_re keeps the blanket "all estimable" map (the density damps
-  # it), except a random walk pins its FIRST deviate at 0 for identifiability:
-  # the walk's mean level is carried by the base parameter the intercept
-  # re-targets, exactly as the legacy RandomWalk fixes index_q_dev[flt, 1].
+  # it), except a random walk fixes its FIRST deviate for identifiability: the
+  # walk's mean level is carried by the base parameter the intercept re-targets,
+  # exactly as the legacy RandomWalk fixes index_q_dev[flt, 1]. Fixed means held
+  # at its `inits` value, which is 0 by default but need not be -- supplying a
+  # non-zero first deviate is how a caller reproduces a reference model that
+  # estimates it freely, without shifting the level into the base (which would
+  # move the point any prior on that base is evaluated at).
   rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
   if (length(rw_rows) > 0L) {
     # first slot of each rw group = smallest re_index (earliest time, since

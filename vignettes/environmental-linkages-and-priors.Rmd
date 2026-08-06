@@ -1086,7 +1086,8 @@ estimated density rather than fixed covariate slopes:
 
 * `~ (1 | Year)` -- **IID** deviations, `N(0, sigma)`;
 * `rw(1 | Year)` -- a **random walk**, `N(0, sigma)` on first differences
-  (first deviate pinned so the base parameter carries the level);
+  (first deviate fixed so the base parameter carries the level -- fixed at its
+  `inits` value, 0 unless you supply another);
 * `ar1(1 | Year)` -- a stationary **AR1**, `SCALE(AR1(rho), sigma)` with
   `sigma` the marginal SD and `rho` the correlation.
 
