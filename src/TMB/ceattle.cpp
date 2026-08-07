@@ -1248,28 +1248,36 @@ Type objective_function<Type>::operator() () {
 
       case 2: // Beverton-Holt
         {
-          // Steepness and unfished recruitment implied by the curve, for every
-          // year -- alpha and Beta may be time-varying through a recruitment
-          // linkage. Reported quantities only: Beverton-Holt recruitment is a
-          // function of alpha, Beta and SSB, not of R0.
+          // Steepness for every year -- alpha may be time-varying through a
+          // recruitment linkage.
           for(yr = 0; yr < nyrs; yr++){
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
-            R0(sp, yr) = (alpha(sp, yr) - 1.0/SPR0(sp)) / Beta(sp, yr); // (Alpha-1/SPR0)/beta
           }
+          // Unfished recruitment implied by the curve, first year only. Filling
+          // it for every year makes R0 an AD function of alpha and Beta across
+          // the whole series, which feeds the reference-point and projection
+          // recruitment calls and costs ~6x in fit time for a value that is
+          // reported rather than used: Beverton-Holt recruitment is a function
+          // of alpha, Beta and SSB, not of R0.
+          R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
           R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
         }
         break;
 
       case 3: // Beverton-Holt with environmental impacts on alpha
         {
-          // Steepness and unfished recruitment implied by the curve, for every
-          // year -- alpha and Beta may be time-varying through a recruitment
-          // linkage. Reported quantities only: Beverton-Holt recruitment is a
-          // function of alpha, Beta and SSB, not of R0.
+          // Steepness for every year -- alpha may be time-varying through a
+          // recruitment linkage.
           for(yr = 0; yr < nyrs; yr++){
             steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
-            R0(sp, yr) = (alpha(sp, yr) - 1.0/SPR0(sp)) / Beta(sp, yr); // (Alpha-1/SPR0)/beta
           }
+          // Unfished recruitment implied by the curve, first year only. Filling
+          // it for every year makes R0 an AD function of alpha and Beta across
+          // the whole series, which feeds the reference-point and projection
+          // recruitment calls and costs ~6x in fit time for a value that is
+          // reported rather than used: Beverton-Holt recruitment is a function
+          // of alpha, Beta and SSB, not of R0.
+          R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
           R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
         }
         break;
