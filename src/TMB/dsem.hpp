@@ -461,9 +461,11 @@ void calculate_dsem(
       Eigen::SparseMatrix<Type> M_uu = dsem_get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
       // Compute C
       Eigen::SparseMatrix<Type> Mt_ou = M_ou.transpose();
-      // Materialize via a typed temporary, as above, rather than .eval():
-      // R's Rinternals.h does `#define eval Rf_eval`, which clobbers Eigen's
-      // .eval() member the moment this header is included in a TMB model.
+      // Materialize via a typed temporary, as above, rather than .eval().
+      // R's Rinternals.h does `#define eval Rf_eval`. Under the TMBad framework
+      // this package builds with (src/TMB/compile.R), tmbutils/newton.hpp
+      // #undefs it, so upstream's .eval() would compile -- but under CppAD it
+      // does not. Materializing keeps the header framework-independent.
       Eigen::SparseMatrix<Type> Mt_uu = M_uu.transpose();
       Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseMt_uu;
       inverseMt_uu.compute( Mt_uu );
