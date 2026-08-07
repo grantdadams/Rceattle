@@ -35,7 +35,15 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 when \code{getsd} is \code{TRUE}.}
 }
 \value{
-a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
+a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
+each species.
+
+A peel that did not converge is dropped, so \code{Rceattle_list} can be
+shorter than \code{peels + 1} (a message reports how many). Each entry is
+named for its own terminal year (\code{Year_2017}, ...) rather than by
+position, so index it by name -- \code{Rceattle_list[[3]]} is not
+necessarily the 3-year peel. With no peel left, Mohn's rho is \code{NaN}
+and the function warns.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:

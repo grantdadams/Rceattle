@@ -11,7 +11,8 @@ jitter(
   phase = FALSE,
   seed = 123,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  timeout = Inf
 )
 }
 \arguments{
@@ -21,7 +22,11 @@ jitter(
 
 \item{sd}{standard deviation for jitter (default = 0.2)}
 
-\item{phase}{as in \code{\link{fit_mod}} default = FALSE}
+\item{phase}{as in \code{\link{fit_mod}} default = FALSE. Jitters restart from
+perturbed \emph{starting} values, so a model that needed phasing to fit its
+real data needs it here too; leave this at \code{FALSE} for such a model and
+the jitters end far from any optimum and are dropped as non-converged, which
+reads as multimodality rather than as an unphased fit.}
 
 \item{seed}{random number seed. Each jitter \code{i} uses \code{seed + i}
 so results are reproducible under both sequential and parallel execution.}
@@ -35,9 +40,22 @@ running under \code{R CMD check} (which sets
 objectives and point estimates across starts, so \code{FALSE} is faster
 with no effect on that comparison. Default \code{NULL} inherits the input
 model's setting (\code{TRUE} only if it carries an \code{sdrep}).}
+
+\item{timeout}{elapsed-second limit per jitter, \code{Inf} (default) for none.
+A jitter is a deliberately perturbed start and the optimizer runs with no
+iteration cap, so this is the diagnostic most likely to send one somewhere
+pathological and stall the whole run -- a hang no convergence check can
+catch, because the fit never returns. One that exceeds the limit is stopped,
+counted as non-converged and reported separately. Approximate: the limit is
+checked when control returns to R, so it fires between the optimizer's
+function evaluations rather than inside one.}
 }
 \value{
-a list of Rceattle models
+a list of 1. \code{Rceattle_list}, the converged jitters, and
+2. \code{nll}, their objective values. Non-converged (or timed-out) starts
+are dropped and reported in a message, so both can be shorter than
+\code{njitter} -- and that count is itself the result, since the whole point
+is what fraction of random starts reach the same optimum.
 }
 \description{
 Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.

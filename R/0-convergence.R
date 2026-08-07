@@ -130,6 +130,198 @@
 }
 
 
+#' Did a diagnostic re-fit converge well enough to keep?
+#'
+#' @description
+#' The shared keep/drop gate for the re-fitting diagnostics --
+#' [retrospective()], [jitter()], [self_test()] and [profile.Rceattle()] -- each
+#' of which silently drops the runs that did not converge.
+#'
+#' These call sites used to test `opt$Convergence_check` against the string
+#' `TMBhelper::fit_tmb()` uses for a non-invertible Hessian. `fit_tmb()` assigns
+#' that particular string in exactly one place -- when `sdreport` returns
+#' `pdHess = FALSE` -- and the test could not work in either direction:
+#'
+#' * with `getsd = TRUE`, `fit_tmb()` returns early when the Hessian fails
+#'   `chol()`, so it never reaches that assignment, and the shape it returns
+#'   instead carries no `Convergence_check` at all -- the run was dropped by the
+#'   enclosing `is.null()` guard, by accident rather than by the test;
+#' * with `getsd = FALSE` the assignment is unreachable, so *nothing* was ever
+#'   dropped -- a run that ended with a maximum gradient of 1e13 counted as
+#'   converged. (`Convergence_check` is still set, but to one of the two gradient
+#'   verdicts, neither of which the test matched.)
+#'
+#' So judge the gradient, which is available either way.
+#' `.capture_opt_convergence()` recomputes it from the objective function when
+#' the optimizer did not report one, and `fit_mod()` captures that snapshot from
+#' the *hindcast* optimization, before any projection re-optimization overwrites
+#' `opt`.
+#'
+#' This judges the model it is handed, so a caller that re-fits more than once
+#' has to call it more than once: [retrospective()] runs a second, F-only refit
+#' whose gradient says nothing about whether the peeled hindcast converged, and
+#' gates on both.
+#'
+#' The threshold is [convergence_diagnostics()]'s own `max_gradient` FAIL tier
+#' and compares the same way (`>`, not `>=`), so the two cannot disagree at the
+#' boundary. Deliberately the FAIL tier and not the tighter WARN tier (1e-3):
+#' dropping a run is destroying it, so the bar for that is "this fit is broken",
+#' not "this fit is worth a look".
+#'
+#' Two consequences worth being explicit about, since dropping is silent to
+#' anything that only reads `length()`:
+#'
+#' * this is an OPTIMIZER gate, not the whole battery. A kept run can still
+#'   carry a WARN (gradient between 1e-3 and 1) or even a FAIL from one of the
+#'   other checks -- a non-positive-definite Hessian, a non-identifiable
+#'   parameter, a stock-recruit curve under the replacement line. Read
+#'   `$convergence` on what comes back; do not treat "returned" as "clean";
+#' * the one case that drops without a matching battery record is a non-finite
+#'   gradient. `.check_optimizer()` emits nothing at all then (it guards on
+#'   `is.finite`), so the battery can say OK for a run this drops. A `NaN`
+#'   gradient is a diverged fit, which is exactly what the gate is for.
+#'
+#' This is the gate for the diagnostics that DROP runs. [run_mse()] also re-fits
+#' through `.refit_like()` and is deliberately not gated: an MSE cannot skip an
+#' assessment year, so a bad estimation-model fit has to propagate rather than
+#' vanish.
+#'
+#' @param newmod A fitted `Rceattle`, or `NULL`.
+#' @param max_grad Drop the run above this maximum absolute marginal gradient.
+#'   Defaults to 1, `.check_optimizer()`'s FAIL tier.
+#' @return `TRUE` to keep the run, `FALSE` to drop it.
+#' @noRd
+.refit_converged <- function(newmod, max_grad = 1) {
+  if (is.null(newmod)) return(FALSE)
+
+  ch <- newmod[[".conv_hindcast"]]
+  if (is.null(ch)) {
+    # No hindcast snapshot, so no gradient to judge: fit_mod() captures one only
+    # for estimateMode 0 and 1. Defer to the optimizer's own verdict, which is
+    # what these call sites did before. All four rewrite estimateMode to 0/1/2,
+    # so in practice this branch is only reached at >= 3, where `opt` is never
+    # stored either and the run drops. It is NOT a safe general rule: at mode 2
+    # `opt` is attached from the PROJECTION optimization, so a fifth caller
+    # would be keeping a run on a verdict about its reference points.
+    cc <- newmod[["opt"]][["Convergence_check"]]
+    return(!is.null(cc) && cc != "The model is definitely not converged")
+  }
+
+  mg <- ch[["max_gradient"]]
+  if (length(mg) != 1L || !is.finite(mg) || mg > max_grad) return(FALSE)
+
+  # A Hessian that is not positive definite -- the condition the old string test
+  # was reaching for. Keep dropping on it, but only when an sdreport was actually
+  # asked for, since otherwise there is nothing to judge.
+  #
+  # Both ways it can present: TMBhelper::fit_tmb() bails at its own chol() and
+  # never returns an SD at all, while the in-package .fit_tmb() fallback calls
+  # TMB::sdreport() directly -- which does NOT error on a singular Hessian, it
+  # returns an object with pdHess = FALSE. Testing only for a missing SD would
+  # keep on the fallback path exactly what it drops on the TMBhelper path.
+  if (isTRUE(ch[["sd_requested"]]) &&
+      (!isTRUE(ch[["sd_present"]]) || isFALSE(ch[["pdHess"]]))) {
+    return(FALSE)
+  }
+
+  TRUE
+}
+
+
+#' Tell the user that a diagnostic dropped runs
+#'
+#' @description
+#' The re-fitting diagnostics drop non-converged runs and return a short list.
+#' While the keep/drop gate could not actually drop anything (see
+#' `.refit_converged()`) that silence cost nothing; now that it can, a caller
+#' who does not think to compare `length()` against what they asked for would
+#' read a thinned list as a complete one -- and for `jitter()` and `self_test()`
+#' a thinned list is a biased sample, since the runs that failed are exactly the
+#' ones that would have shown the spread.
+#'
+#' @param n_dropped,n_total Counts for the message.
+#' @param what Singular noun for the unit, e.g. `"peel"`.
+#' @return `invisible(NULL)`, called for the message.
+#' @noRd
+.report_dropped <- function(n_dropped, n_total, what) {
+  if (!isTRUE(n_dropped > 0)) return(invisible(NULL))
+  message(sprintf(
+    "%d of %d %s%s dropped as non-converged (max|gradient| > 1, or sdreport failed); %d returned.",
+    n_dropped, n_total, what, if (n_dropped == 1L) "" else "s",
+    n_total - n_dropped))
+  invisible(NULL)
+}
+
+
+#' Run one diagnostic re-fit under an optional wall-clock limit
+#'
+#' @description
+#' `.fit_tmb()` optimizes with `eval.max = iter.max = 1e9`, so a re-fit that
+#' wanders somewhere pathological has no bound and one replicate can stall a
+#' whole `jitter()` or `self_test()` run -- the failure this is for is a hang,
+#' which no convergence check can reach because the fit never returns.
+#'
+#' The limit is approximate by construction: [setTimeLimit()] is checked when
+#' control returns to R, so it fires between the optimizer's function
+#' evaluations rather than inside one. That is enough here (`nlminb` re-enters R
+#' every evaluation) but a single very long evaluation can overrun it.
+#'
+#' Errors -- including the timeout -- are returned rather than thrown, so one bad
+#' replicate cannot abort the run and, under a cluster, take every other
+#' replicate with it.
+#'
+#' @param expr The re-fit, evaluated lazily.
+#' @param timeout Elapsed-second limit, or `Inf` for none.
+#' @return The fitted model, or the `condition` if it errored or timed out.
+#' @noRd
+.refit_with_timeout <- function(expr, timeout = Inf) {
+  if (is.finite(timeout) && timeout > 0) {
+    # transient = FALSE plus an explicit reset: `transient = TRUE` would restore
+    # the limit only at the end of the whole top-level call (the lapply over all
+    # replicates), not at the end of this one, so every replicate after the first
+    # would inherit a clock that started before it did.
+    setTimeLimit(elapsed = timeout, transient = FALSE)
+    on.exit(setTimeLimit(cpu = Inf, elapsed = Inf), add = TRUE)
+  }
+  tryCatch(expr, error = function(e) e)
+}
+
+
+#' Is this condition a `.refit_with_timeout()` timeout rather than a model error?
+#' @noRd
+.is_timeout <- function(e) {
+  inherits(e, "condition") &&
+    grepl("reached elapsed time limit|reached CPU time limit", conditionMessage(e))
+}
+
+
+#' Report replicates that errored or timed out
+#'
+#' Separate from `.report_dropped()` on purpose: a hang or a hard error is a
+#' different problem from a bad gradient, and the fix is different too (raise
+#' `timeout`, versus look at the model).
+#'
+#' @param errs Character vector of messages, `NA` where the replicate ran.
+#' @param what Singular noun for the unit.
+#' @return `invisible(NULL)`, called for the message.
+#' @noRd
+.report_errors <- function(errs, what) {
+  bad <- errs[!is.na(errs)]
+  if (length(bad) == 0L) return(invisible(NULL))
+  n_to <- sum(grepl("reached elapsed time limit|reached CPU time limit", bad))
+  if (n_to > 0L) {
+    message(sprintf("%d %s%s exceeded `timeout` and were stopped; raise it to let them finish.",
+                    n_to, what, if (n_to == 1L) "" else "s"))
+  }
+  if (length(bad) > n_to) {
+    message(sprintf("%d %s%s errored; first: %s",
+                    length(bad) - n_to, what, if (length(bad) - n_to == 1L) "" else "s",
+                    bad[!grepl("reached elapsed time limit|reached CPU time limit", bad)][1]))
+  }
+  invisible(NULL)
+}
+
+
 # --- checks ------------------------------------------------------------------
 
 # Optimizer convergence: max |gradient| (+ the parameter carrying it) and

@@ -1,3 +1,101 @@
+# Rceattle 5.6.0
+
+## New features
+
+* **`self_test(debug = TRUE)` returns every simulation, not just the converged
+  ones.** When a self-test comes back short, the dropped runs are the ones worth
+  looking at, and each already carries its own `$convergence` diagnostics --
+  they were simply discarded. Under `debug`, `Sim_i` is simulation `i` (so it
+  pairs with the seed `seed + i` that produced it) and the verdicts are in
+  `attr(sims, "converged")`. The default return is unchanged. A refit that
+  errors outright is now caught and returned as its condition rather than
+  aborting the whole call (and, under a cluster, every other replicate with
+  it) -- previously the hardest failures were the ones you could not inspect.
+
+* **`jitter(timeout = )` and `self_test(timeout = )` bound a single run.**
+  `.fit_tmb()` optimizes with `eval.max = iter.max = 1e9`, so a replicate that
+  wanders somewhere pathological has no bound and one stall blocks the whole
+  run -- a failure no convergence check can reach, because the fit never
+  returns. A run past the limit is stopped, counted as non-converged, and
+  reported separately from the gradient drops, since the fix is different
+  (raise the limit, versus look at the model). The limit is approximate:
+  `setTimeLimit()` is checked when control returns to R, so it fires between the
+  optimizer's function evaluations rather than inside one. Both functions now
+  also trap errors per run, so one bad replicate cannot abort the rest.
+
+* **`self_test(start = )` chooses the starting values.** `"initial"` (the
+  default, and the previous behavior) starts each refit from
+  `initial_params` -- what the original fit started from -- so the estimator
+  covers the same ground on simulated data that it did on the real data.
+  `"estimated"` warm starts from `estimated_params`, which is faster and far
+  more likely to converge but asks the estimator to travel no distance: it tests
+  that the optimum is stable under resampling, not that it is reachable.
+
+## Bug fixes
+
+* **`self_test()` can now phase its refits, and inherits the setting by
+  default.**
+  Every refit starts from the source model's *starting* values, so it covers the
+  same ground the original fit did -- but `self_test()` had no way to phase it.
+  `retrospective()` fixes `phase = TRUE` ("phasing, or the parameters dont wanna
+  move") and `jitter()` exposes the argument; `self_test()` took
+  `.refit_like()`'s `phase = FALSE` default with no argument to change it. A
+  model that needed phasing to fit its real data therefore had to reach the same
+  optimum in one unphased pass for every simulated one. On a GOA pollock
+  configuration that fits at a maximum gradient of 2e-4, 5 of 6 simulations
+  ended between 4e9 and 2e13; with phasing all 6 converged to ~1e-4. (That model
+  carries an `sdrep`, so the self-test ran at `getsd = TRUE` and those five were
+  dropped through the non-positive-definite path below -- under `getsd = FALSE`
+  the old gate would have returned all six and counted them as converged.)
+  `phase` reads the setting `fit_mod()` recorded on the source fit, so a model
+  fitted under the package default is still refitted unphased; pass
+  `phase = TRUE` for a model that needs phasing but was not fitted with it.
+
+* **The re-fitting diagnostics' convergence gate now tests the gradient.**
+  `retrospective()`, `jitter()`, `self_test()` and `profile()` each drop the runs
+  that did not converge, by comparing `opt$Convergence_check` against the string
+  `TMBhelper::fit_tmb()` uses for a non-invertible Hessian. That comparison could
+  not work in either direction. With `getsd = TRUE`, `fit_tmb()` returns *before*
+  assigning that string when the Hessian fails `chol()` -- so runs were dropped
+  by the enclosing `is.null()` guard, incidentally rather than by the test, and
+  by a criterion (positive-definiteness) that is not the one intended. With
+  `getsd = FALSE` that assignment is unreachable, so nothing was ever dropped
+  and a run ending at a maximum gradient of 1e13 counted as converged.
+  (`Convergence_check` itself is always set, but to one of the two gradient
+  verdicts, neither of which the comparison matched.)
+  Both paths now go through one gate that reads the hindcast maximum gradient,
+  using `convergence_diagnostics()`'s own FAIL threshold. Because the gate can
+  now actually drop, all three report how many runs they dropped rather than
+  returning a thinned list in silence -- for `jitter()` and `self_test()` a
+  thinned list is a biased sample, since the failures are exactly the runs that
+  would have shown the spread.
+
+* **`retrospective()` survives a dropped peel.** It named its output
+  `Year_(endyr - peels):endyr` -- always `peels + 1` labels -- and looped
+  `1:(length(mod_list) - 1)`, both of which assume every peel converged. One
+  dropped peel errored with `'names' attribute [3] must be the same length as
+  the vector [2]`; all of them dropped made `1:0` count down and index past the
+  end. The assumption held only because the old gate could not drop anything
+  (above). Entries are now labelled from each model's own `endyr_peel`, so a
+  dropped peel leaves a gap rather than shifting every later label onto the
+  wrong model.
+
+* **`retrospective()` now judges the peeled hindcast, not just the F refit.**
+  Each peel fits twice: the peeled hindcast, then a refit with only the peeled
+  years' `log_F` free. Only the second was gated, and its gradient says nothing
+  about whether the hindcast converged -- so a peel whose hindcast diverged was
+  kept as long as the handful of F parameters settled, and its parameters went
+  into Mohn's rho. Both refits are now gated.
+
+* **A non-positive-definite fit no longer returns a malformed `fit$opt`.**
+  On that early return `TMBhelper::fit_tmb()` hands back
+  `list(opt = , h = )` rather than the estimates, so `fit$opt$objective`,
+  `$max_gradient` and `$Convergence_check` were all `NULL`. `fit_mod()` now
+  unwraps it, keeps the Hessian as `$hessian`, and records the verdict
+  `fit_tmb()` gives when `sdreport` reports `pdHess = FALSE`. `fit$sdrep` stays
+  `NULL`, so the `sdreport_failed` diagnostic is unaffected. A no-op for every
+  converged fit.
+
 # Rceattle 5.5.1
 
 ## Bug fixes

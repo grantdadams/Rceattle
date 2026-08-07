@@ -10,7 +10,11 @@ self_test(
   simulate = TRUE,
   seed = 123,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  phase = NULL,
+  start = c("initial", "estimated"),
+  debug = FALSE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -34,13 +38,77 @@ running under \code{R CMD check} (which sets
 the refit point estimates to the operating model, so \code{FALSE} is faster
 with no effect on that comparison. Default \code{NULL} inherits the input
 model's setting (\code{TRUE} only if it carries an \code{sdrep}).}
+
+\item{phase}{as in \code{\link{fit_mod}}. Under the default
+\code{start = "initial"} each refit covers the same ground the original fit
+did, so a model that needed phasing to fit its real data needs it again for
+every simulated one -- without it such a model's refits can end many orders
+of magnitude from a zero gradient and be dropped as non-converged. Default
+\code{NULL} reads the setting \code{fit_mod()} recorded on the source fit
+(\code{fit$run_config$fit_control$phase}), so a model fitted under the
+package default of \code{phase = FALSE} is refitted unphased; pass
+\code{TRUE} for a model that needs phasing but was not fitted with it.}
+
+\item{start}{which of the input model's parameter sets each refit starts
+from. \code{"initial"} (default) uses \code{initial_params}, the values the
+original fit itself started from, so the estimator has to travel the same
+distance to the optimum on simulated data that it did on the real data.
+\code{"estimated"} starts from \code{estimated_params} instead: much faster
+and far more likely to converge, but the fixed effects -- and, with
+\code{random_rec = TRUE}, the inner Laplace problem too -- begin at the
+generating values, so on a multimodal or weakly identified surface the
+optimizer never leaves the basin containing them and recovery is close to
+guaranteed by construction. Read it as optimistic about recovery, not
+merely less powerful. (Nor is it a complete warm start: \code{fit_mod()}
+resets \code{log_Ftarget}, \code{proj_F_prop}, and the stock-recruit
+\eqn{\alpha}/\eqn{\beta} from the model's own specification under either
+setting.) Non-identifiability shows up in the curvature and so is visible
+either way -- via \code{$convergence}'s Hessian conditioning and
+estimability checks -- it is \emph{reachability} that a warm start stops
+testing.}
+
+\item{debug}{return every simulation rather than the converged ones. The
+dropped runs are the interesting ones when a self-test comes back short, and
+each carries its own \code{$convergence} diagnostics. See \strong{Value}.}
+
+\item{timeout}{elapsed-second limit per simulation, \code{Inf} (default) for
+none. The optimizer runs with no iteration cap, so a replicate that wanders
+somewhere pathological can stall the whole run -- a hang that no convergence
+check can catch, because the fit never returns. One that exceeds the limit
+is stopped, counted as non-converged and reported separately. Approximate:
+the limit is checked when control returns to R, so it fires between the
+optimizer's function evaluations rather than inside one.}
 }
 \value{
-a list of Rceattle models
+A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
+By default only the converged simulations, renumbered contiguously; a
+message reports how many were dropped.
+
+With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
+simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
+logical vector of the convergence verdicts in \code{attr(, "converged")}.
+Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
+refit errored outright is returned as the condition object rather than a
+model, so it cannot abort the run.
 }
 \description{
 Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
 }
+\section{Interpreting the spread}{
+
+\code{\link{sim_mod}} redraws the observations only -- indices, catch,
+compositions and CAAL. It does not redraw recruitment, so with
+\code{random_rec = TRUE} every replicate shares the operating model's single
+recruitment realization, and that realization is its shrunk empirical-Bayes
+modes rather than a draw from N(0, sigmaR). Two consequences: the spread
+across replicates carries observation error only and is a lower bound on
+estimation uncertainty in SSB and recruitment (do not read it against the
+model's own uncertainty bands, which include process error); and sigmaR is
+re-estimated from deviations that were shrunk toward zero the same way in
+every replicate, a downward bias that averaging over simulations does not
+remove.
+}
+
 \examples{
 \donttest{
 data(BS2017SS)
