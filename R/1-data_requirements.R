@@ -9,7 +9,7 @@
 #' [data_check()] enforces at fit time (they share one declarative table).
 #'
 #' The configuration can be given either as an existing (possibly partial)
-#' `data_list` -- its switches are normalised through [clean_data()] /
+#' `data_list` -- its switches are normalized through [clean_data()] /
 #' [switch_check()] so the conditions evaluate against filled defaults -- or,
 #' when no `data_list` is supplied, built from the convenience arguments.
 #'

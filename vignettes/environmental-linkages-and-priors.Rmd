@@ -27,9 +27,10 @@ a formula-driven helper -- and pass the result to the relevant
 `build_*()` function. Each process then applies its environmental
 offset to the linked parameter, year by year.
 
-The linkage path is wired for **growth** (von Bertalanffy and
-Richards), **natural mortality** (`M1`), and **recruitment**
-(`R0`, `alpha`, `beta`).
+The linkage path is wired for **growth** (von Bertalanffy and Richards),
+**natural mortality** (`M1`), **recruitment** (`R0`, `alpha`, `beta`),
+**catchability** (`q`), **selectivity** (each form's own parameters), and --
+prior-only -- the **Dirichlet-multinomial composition weights**.
 
 ## A first example: temperature on `K`
 
@@ -48,7 +49,7 @@ whamGrowthData$fleet_control$Selectivity_dimension <- "Length"
 
 # 1. Attach an env_data table to the data list. Must include `Year`
 #    plus whatever covariates show up in your formulas. Here `temp` is
-#    a placeholder; in real use it would be a standardised SST series,
+#    a placeholder; in real use it would be a standardized SST series,
 #    PDO index, etc.
 yrs <- whamGrowthData$styr:whamGrowthData$endyr
 whamGrowthData$env_data <- data.frame(
@@ -544,7 +545,7 @@ the same string -- backticks let you write it as a name.
 
 **Splines.** Natural cubic splines via `splines::ns()` work
 out-of-the-box and are often a better choice than high-order
-polynomials when you want flexibility without strong tail behaviour:
+polynomials when you want flexibility without strong tail behavior:
 
 ```{r}
 linkage_spec(
@@ -604,7 +605,7 @@ log-likelihood.
 `build_M1()` supports the same `linkages` argument. The valid
 parameter key is `M1`; the offset enters additively on the log
 scale, so a coefficient of `0.3` on
-a normalised temperature index multiplies `M1` by `exp(0.3 *
+a normalized temperature index multiplies `M1` by `exp(0.3 *
 temp[yr])` each year.
 
 **Why `M1` and not `M`?** CEATTLE decomposes total natural mortality
@@ -842,7 +843,7 @@ link the log-space slope and the natural-space inflection independently.
 `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal`, and `LogisticPM`.
 A linkage on any other form errors at fit time naming the fleet, rather than
 being estimated to no effect. The non-parametric forms (`coff`) are
-excluded on principle: they mean-centre their coefficients every year, so a
+excluded on principle: they mean-center their coefficients every year, so a
 per-year offset applied across all bins cancels exactly -- a per-bin
 covariate would be needed, which the formula grammar does not express.
 `Time_varying_sel` process-error deviates are a separate mechanism and
@@ -851,7 +852,8 @@ compose additively with a selectivity linkage.
 ## Data weighting (Dirichlet-multinomial)
 
 The Dirichlet-multinomial (DM) likelihood (Thorson et al. 2017) is a
-self-weighting alternative to Francis or McAllister–Ianelli tuning: instead of
+self-weighting alternative to Francis (2011) or McAllister-Ianelli (1997)
+tuning: instead of
 iterating an external weight, it estimates each composition dataset's
 **effective sample size** as part of the fit. That works well when a fleet has
 many comp years, but the weight can be poorly identified when a fleet has only
@@ -984,7 +986,7 @@ table(fit$data_list$linkage_table$process)
 A few diagnostics worth knowing:
 
 ```{r}
-# The materialised table -- one row per estimated coefficient.
+# The materialized table -- one row per estimated coefficient.
 fit$data_list$linkage_table
 
 # The shared design matrix -- one column per unique RHS term.
@@ -1041,7 +1043,7 @@ base parameter** rather than to the linkage row. The linkage row's
 This is the recommended way to set a sensible starting value for
 intercept-bearing linkages -- it composes naturally with phasing
 (the base parameter goes through the existing per-process phase
-logic) and keeps the optimiser grounded.
+logic) and keeps the optimizer grounded.
 
 ```{r}
 # Start M1 at 0.06 without estimating an extra intercept beta.

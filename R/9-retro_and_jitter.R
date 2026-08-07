@@ -8,7 +8,7 @@
 #' pays both on every worker: a package load and serialization/transfer of the
 #' exported bindings. FORK therefore removes the dominant cluster-startup cost
 #' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
-#' fallback (Windows), reproducing the previous behaviour exactly.
+#' fallback (Windows), reproducing the previous behavior exactly.
 #'
 #' @param items Vector iterated over; each element is passed to `fun`.
 #' @param fun Worker closure.

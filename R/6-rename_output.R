@@ -4,7 +4,7 @@
 #'
 #' Attaches dimension names (species, sex, age, length bin, year, fleet) to the
 #' report objects returned by the TMB model, and names the rows/columns of the
-#' likelihood-component matrices, so the fitted quantities read as labelled
+#' likelihood-component matrices, so the fitted quantities read as labeled
 #' arrays rather than bare numbers.
 #'
 #' @param data_list an Rceattle data_list

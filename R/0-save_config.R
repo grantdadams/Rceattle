@@ -342,7 +342,7 @@ print.Rceattle_run_config <- function(x, ...) {
 #' rc$estimateMode
 #'
 #' # Optimizer and uncertainty settings belong inside fit_control(), not here;
-#' # an unrecognised field is an error rather than a silent no-op.
+#' # an unrecognized field is an error rather than a silent no-op.
 #' rc <- run_config(rc, fit_control = fit_control(getsd = FALSE))
 #' @seealso [save_config()], [load_config()], [model_config()].
 #' @export

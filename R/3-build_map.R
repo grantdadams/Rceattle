@@ -567,7 +567,7 @@ build_map_predation <- function(map_list, data_list) {
 #' `8` = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 #'     Parameters: `sel_inf[1]` = peak; `sel_inf[2]` = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 #'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
-#'     right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+#'     right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
 #'
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
@@ -816,7 +816,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Double Normal ----
       # Parameters reuse existing arrays (same dimensions as DoubleLogistic):
       #   sel_inf[1]     = peak bin/length (mode)
-      #   sel_inf[2]     = logit(right_floor) — right-tail floor (analogous to SS3 P6 / end_logit)
+      #   sel_inf[2]     = logit(right_floor) -- right-tail floor (analogous to SS3 P6 / end_logit)
       #   log_sel_slp[1] = log(sigma_ascending)
       #   log_sel_slp[2] = log(sigma_descending)
       if (sel_type == "DoubleNormal") {
@@ -867,7 +867,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
             ind_slp <- ind_slp + max_block
 
-            # Fix base parameters — blocks fully replace them (deviates are absolute values)
+            # Fix base parameters -- blocks fully replace them (deviates are absolute values)
             map_list$sel_inf[1, flt, sex]     <- NA
             map_list$sel_inf[2, flt, sex]     <- NA
             map_list$log_sel_slp[1, flt, sex] <- NA

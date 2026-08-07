@@ -693,7 +693,7 @@ linkage_spec <- function(formula,
 #' Attach the model's labels to a stratum-level vector.
 #'
 #' Labels are what let a spec select a species / fleet by name. Missing or
-#' wrong-length labels are dropped rather than recycled: an unlabelled stratum
+#' wrong-length labels are dropped rather than recycled: an unlabeled stratum
 #' gives a clear "this model carries no names" error at resolution time, whereas
 #' a recycled label would resolve to the wrong id.
 #'
@@ -1197,7 +1197,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' level of its grouping variable, so the deviation for that level enters the
 #' offset the same way a fixed coefficient does. This increment supports the
 #' unstructured / IID case (a plain `(1 | group)` bar, structure `"us"`);
-#' `rw()` / `ar1()` and other structures are recognised by the parser but
+#' `rw()` / `ar1()` and other structures are recognized by the parser but
 #' rejected here until their densities are wired.
 #'
 #' @param re_terms list of bar expressions from [.parse_linkage_formula()].
@@ -1329,7 +1329,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' covariate columns. The QAR1 observation is applied only where the covariate is
 #' present (NA years are masked out), so no observation is fabricated. Years
 #' BEYOND the last supplied row are left alone (they keep the existing
-#' zero-offset-beyond-env_data behaviour). Malformed year columns (unsorted, NA,
+#' zero-offset-beyond-env_data behavior). Malformed year columns (unsorted, NA,
 #' or starting before styr) are left untouched for `.check_env_data_years()` to
 #' reject.
 #'

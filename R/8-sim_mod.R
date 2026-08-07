@@ -292,7 +292,7 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #' @param operating_mod CEATTLE model object exported from \code{Rceattle} to be used as the operating model
 #' @param simulation_mods List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data
 #' @param object character string specifying which part of the model to compare (default = "quantities")
-#' @return A data frame summarising simulation performance metrics
+#' @return A data frame summarizing simulation performance metrics
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update

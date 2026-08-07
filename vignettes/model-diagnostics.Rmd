@@ -237,7 +237,7 @@ residuals(model_1, type = "process")
 
 ## Retrospective analysis
 
-A retrospective analysis removes the most recent years of data one peel at a time and re-fits the model. Mohn's rho summarises how the terminal estimates shift across peels; for SSB, a rho outside ±0.2 generally signals a problem worth investigating.
+A retrospective analysis removes the most recent years of data one peel at a time and re-fits the model. Mohn's rho summarizes how the terminal estimates shift across peels; for SSB, a rho outside ±0.2 generally signals a problem worth investigating.
 
 ```{r}
 model_1_retro <- retrospective(Rceattle = model_1, peels = 5)

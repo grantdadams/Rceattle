@@ -42,7 +42,7 @@
   `srr_prior` when `srr_prior` is a steepness.** `srr_prior` is not the same
   quantity for every curve: for Ricker it is a prior on \eqn{\alpha}, but for
   Beverton-Holt it is a prior on **steepness** and must lie in (0, 1). Seeding
-  \eqn{\alpha} with `log(steepness)` started the optimiser at a near-zero
+  \eqn{\alpha} with `log(steepness)` started the optimizer at a near-zero
   recruits-per-spawner. The seeding is now applied only where `srr_prior` is
   genuinely an \eqn{\alpha}, matching the prior gates in `ceattle.cpp`.
 
@@ -157,11 +157,10 @@
   assessments -- ADMB/AMAK, `goa_pk`, and Rceattle's own legacy
   `Time_varying_sel` / `Time_varying_q` switches -- instead treat such deviations
   as *penalized fixed effects*: the deviations sit in the objective as a plain
-  penalty with a fixed SD and are not integrated. The two are different models,
-  not a reparametrization, so a `rw()` could not reproduce them; on the GOA
-  pollock fishery selectivity walk, integrating moved the fit by ~119 jnll units
-  (the marginal likelihood carries a Laplace log-determinant the penalized form
-  has no counterpart for) and shifted SSB ~14%.
+  penalty with a fixed SD and are not integrated. These are different models, not
+  a reparametrization, so a `rw()` could not reproduce them. On the GOA pollock
+  fishery selectivity walk, integrating moved the fit by ~119 jnll units and
+  shifted SSB ~14%.
 
   ```r
   build_selectivity(linkages = list(
@@ -169,18 +168,9 @@
                            init = list(sigma = 0.05), integrate = FALSE)))
   ```
 
-  Permitted **only with a fixed SD** (`init = list(sigma = )` and no `sigma`
-  prior; plus a fixed `rho` for `ar1`), because a variance is consistently
-  estimated only by integrating -- estimating the deviations and their SD jointly
-  as fixed effects is degenerate, with the objective improving without bound as
-  both go to zero. This is the same reason `goa_pk` fixes `sigmaR` when it treats
-  recruitment deviations as penalized. Rejected with `observe = `, whose latent
-  state must stay integrated to be identified by its observation. A model may mix
-  both treatments -- an integrated state-space catchability alongside a penalized
-  selectivity walk -- and penalized deviations get standard errors from
-  `sdreport()` like any other fixed effect. Verified against the legacy
-  random-walk catchability, which is itself a penalized fixed effect with a fixed
-  SD: the two agree exactly.
+  Permitted only with a fixed SD, and rejected with `observe = `. See
+  `?linkage_spec` for the restrictions and
+  `vignette("environmental-linkages-and-priors")` for when to prefer it.
 
 * **The linkage table records where each deviation is stored (`re_pos`).**
   `re_index` is the deviation's slot in the *global* random-effect numbering, but
@@ -219,23 +209,17 @@
   but TMB orders `obj$par` by the sequence the `PARAMETER_*` macros appear in the
   template -- and `build_params()` lists the linkage coefficients after `log_F`
   while `ceattle.cpp` declares them before it. Both vectors have the same length
-  either way, so nothing downstream could notice: the box constraints simply
-  landed on the wrong parameters. The orders disagree in four places, so this
-  reaches well beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
+  either way, so nothing downstream could notice: the box constraints landed on
+  the wrong parameters. The orders disagree in four places, so this reaches well
+  beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
   `log_Flimit`...`log_F`, `index_q_beta`/`index_q_rho`, and
-  `sel_curve_pen`/`sel_coff_dev`. A `linkage_spec(bounds = )` on a covariate
-  coefficient was applied to `log_F` and `log_F`'s `[-1000, 10]` rail to the
-  coefficient; on a growth-estimating model with no linkage at all, 5 of 12
-  `log_F` elements lost that rail while `log_growth_pars` and `growth_log_sd`
-  were wrongly capped at `[-1000, 10]`. **Fits of growth-estimating and
+  `sel_curve_pen`/`sel_coff_dev`. **Fits of growth-estimating and
   linkage-carrying models can therefore change**, since bounds that previously
-  bound the wrong parameter now bind the right one. The reference fits are
-  unaffected (their misplaced bounds never bound). Bounds are now aligned against
-  `names(obj$par)` after `MakeADFun()`, enumerated in the map's factor-level
-  order -- the order TMB itself collapses a mapped block in, which differs from
-  first-occurrence order exactly where mirrored fleets share indices out of
-  order -- and asserted non-`NA`, since `nlminb` accepts an `NA` bound silently
-  and returns `objective = Inf` with `par = NA` rather than erroring.
+  bound the wrong parameter now bind the right one; refit them. The reference
+  fits are unaffected (their misplaced bounds never bound). Bounds are now
+  aligned against `names(obj$par)` after `MakeADFun()` and asserted non-`NA`,
+  since `nlminb` accepts an `NA` bound silently and returns `objective = Inf`
+  with `par = NA` rather than erroring.
 
 * **`est_phase` no longer silently fails to fix a random-effect term.**
   `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient vector; a
@@ -319,22 +303,19 @@
 * **`run_mse()` refits the operating model only as far ahead as the next
   assessment needs.** Between assessments the operating model has to reach one
   assessment step past its terminal year -- far enough for the exploitable-biomass
-  cap on the next TAC -- but it was rebuilt over the whole projection every time.
-  Since `projyr` sizes the AD tape, and the tape costs roughly a fixed amount per
-  model year, most of each refit was spent on years that never influenced the
-  result. The refit now runs on the shortened horizon and the operating model is
+  cap on the next TAC -- but it was rebuilt over the whole projection every time,
+  and `projyr` sizes the AD tape, which costs roughly a fixed amount per model
+  year. The refit now runs on the shortened horizon and the operating model is
   restored to the full projection afterwards; the final assessment keeps the full
-  horizon, so the returned operating model is built exactly as before. Measured
-  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040, and the
-  saving grows with the length of the projection. Single-species models see
-  little change, as their tape cost barely varies with the number of years.
+  horizon, so the returned operating model is unchanged. Measured at a 9%
+  saving on a Bering Sea multispecies MSE projecting to 2040, growing with the
+  length of the projection. Single-species models see little change.
 
-  Because the operating model now carries fewer projection rows while the refit
-  runs, `sim_mod()` draws a different number of random values, so a run with
-  `simulate_data = TRUE` will not reproduce results generated before this
-  version. Runs remain fully reproducible from a given `seed` within a version.
-  With `simulate_data = FALSE`, where no random numbers are drawn, results are
-  unchanged to the bit.
+  **A run with `simulate_data = TRUE` will not reproduce results generated before
+  this version**, because the operating model carries fewer projection rows while
+  the refit runs and `sim_mod()` therefore draws a different number of random
+  values. Runs remain fully reproducible from a given `seed` within a version.
+  With `simulate_data = FALSE` results are unchanged to the bit.
 
 ## Bug fixes
 
@@ -342,48 +323,32 @@
   limb it never estimates.** The random-walk selectivity penalty was gated on the
   selectivity *type* alone, so on a double-logistic fleet the descending-limb term
   was accumulated under mode 5 as well as mode 4. Mode 5 varies the ascending limb
-  only -- `build_map()` estimates no descending deviate under it for any
-  selectivity type -- so with `random_sel = FALSE` those deviates sat at their
-  init of 0 and the term contributed a pure constant, shifting the reported
-  objective while leaving every gradient untouched. On `GOA2018SS` (fleet 8,
-  `Time_varying_sel_sd = 0.05`, 42 years, one sex) the objective rises by exactly
-  `41 * (dnorm(0, 0, 0.05, log = TRUE) + dnorm(0, 0, 0.20, log = TRUE))` =
-  113.4590179027, verified as a constant by an unchanged gradient at two
-  independent parameter vectors. Models with no mode-5 fleet -- including
+  only, so with `random_sel = FALSE` those deviates sat at their init of 0 and the
+  term contributed a pure constant -- on `GOA2018SS` (fleet 8, 42 years, one sex)
+  exactly 113.459 objective units. Models with no mode-5 fleet -- including
   `BS2017SS` / `BS2017MS` -- are bit-identical.
 
   **A constant shift can still move the fit, and on `GOA2018SS` it does.**
   `nlminb` stops on an objective-*relative* tolerance, so an additive constant
-  changes where it halts and which local optimum it reaches. `GOA2018SS` has at
-  least two converged optima 52.9 apart; the fit now lands on the better one
-  (12868.005 rather than 12920.897 measured on the same surface), and its derived
-  quantities move with it -- **GOA Pacific cod SSB in the final projection year
-  (2050) falls 14.1%** (395,627 to 339,897 t), while SSB, recruitment and F
-  differ by up to 40%, 39% and 230% across the hindcast. Anyone carrying GOA
-  numbers forward should refit. Newton-polishing the reference pins a stationary point but does not make
-  it surface-invariant: polishing both surfaces still lands on the two different
-  optima, so `max|gradient| < 1e-4` certifies convergence, not uniqueness. A
-  jitter or multi-start check is the tool for that.
+  changes where it halts and which local optimum it reaches. The fit now lands on
+  a converged optimum 52.9 units better (12868.005 rather than 12920.897 on the
+  same surface), and the derived quantities move with it:
+  **GOA Pacific cod SSB in the final projection year (2050) falls 14.1%**
+  (395,627 to 339,897 t), while SSB, recruitment and F differ by up to 40%, 39%
+  and 230% across the hindcast. **Anyone carrying GOA numbers forward should
+  refit.**
 
   With `random_sel = TRUE` the removed term is **not** constant: `sel_dev_log_sd`
-  is estimated for a mode-5 fleet, so the term is `2n log(sigma) + const` and its
-  removal shifts that gradient by `-2 * nyrs * nsex` (-82 on `GOA2018SS`). The
-  estimated selectivity-deviation SD therefore moves -- upward, since the old term
-  pushed it down -- which rescales shrinkage on the ascending walk mode 5 does
-  estimate. The change is in the right direction (penalizing a deviate pinned at 0
-  is a spurious `-log sigma`), but it is a behaviour change for such models.
+  is estimated for a mode-5 fleet, so removing the term moves the estimated
+  selectivity-deviation SD upward and rescales shrinkage on the ascending walk.
+  The direction is right -- penalizing a deviate pinned at 0 is a spurious
+  `-log sigma` -- but it is a behavior change for such models.
 
-  All four pinned reference objectives are nevertheless restated, because the
-  reference recipe now Newton-polishes each fit. Previously they stopped on
-  `nlminb`'s objective-*relative* tolerance rather than at a stationary point, so
-  each sat slightly above its optimum -- harmlessly for the Bering Sea fits (~3e-7)
-  but badly for the Gulf of Alaska ones, whose gradients were ~3e-3 against the
-  package's own 1e-4 convergence threshold. A reference pinned at a non-stationary
-  point moves under changes that cannot alter the model: offsetting the objective
-  by a constant was enough to let `goa_ss` run on to a point 52.9 units lower. The
-  reference fits now reach true optima (gradients ~1e-11) and
-  `test-golden-regression.R` asserts convergence alongside each pinned value, so
-  the constants no longer record wherever the optimizer happened to stop.
+  All four pinned reference objectives are restated: the reference recipe now
+  Newton-polishes each fit to a stationary point (gradients ~1e-11) instead of
+  stopping on `nlminb`'s relative tolerance, and `test-golden-regression.R`
+  asserts convergence alongside each pinned value. Note this certifies
+  convergence, not uniqueness -- use a jitter or multi-start check for that.
   `fit_control()`'s `newtonsteps = 0` default is unchanged; this affects the
   reference recipe only, not any user fit.
 
@@ -588,7 +553,7 @@
   requires (every mode reads only columns `1:(nages - 1)`). No fit changes:
   `build_params()` is bit-identical for all six modes on `BS2017SS` and
   `BS2017MS`, from both string and integer input. This was the only place whose
-  behaviour depended on the lexicographic value of a switch alias, so an alias
+  behavior depended on the lexicographic value of a switch alias, so an alias
   beginning with a digit can no longer flip it.
 
 ## Behavior changes
@@ -608,14 +573,11 @@
   value, so those models -- including the bundled examples -- are unaffected, and
   an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
   estimated and can move a long way: fitting `BS2017SS` with DM composition puts
-  the weights between -0.6 and 12.7, starting from the default column value of 1.
-  (Both figures are on the log scale, which is the scale the column itself holds
-  under a Dirichlet-multinomial -- the model uses `exp(Comp_weights)`. Under a
-  multinomial the column is the natural-scale multiplier instead.) Every
-  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()` refit
-  previously discarded those estimates and restarted from the column, so results
-  move for any DM model, and the earlier behaviour was throwing away a fitted
-  quantity rather than merely re-seeding it.
+  the weights between -0.6 and 12.7 (log scale), starting from the default column
+  value of 1. **Results therefore move for any DM model** under every
+  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()`
+  refit, each of which previously discarded the fitted estimate and restarted
+  from the column.
 
   Editing a `Comp_weights` column and re-fitting from an existing fit no longer
   has an effect. Either build the model afresh (`inits = NULL`), or set the
@@ -727,11 +689,11 @@
 ## Bug fixes
 
 * **Random-effect deviate SDs are now held during phasing.** The 5.0.4 phased
-  random-effect warm-up (deviates estimated as penalised fixed effects before the Laplace
+  random-effect warm-up (deviates estimated as penalized fixed effects before the Laplace
   step) held every process's variance hyperparameter fixed except three observation/deviate
   SDs: `log_sigma_linkage` and `log_obs_sd_linkage` (the `~ (1 | Year)` / `rw()` / `ar1()`
   and Rogers-2024 QAR1 SDs) and `index_q_log_sd` (the legacy `Catchability = "AR1"` q
-  observation SD). Left free, each was estimated jointly with its own penalised deviates and
+  observation SD). Left free, each was estimated jointly with its own penalized deviates and
   could collapse toward 0, so a *phased* fit silently converged to the random-effect-*off*
   solution -- the estimated time-variation vanished -- instead of the correct optimum. All
   three are now held during phasing like every other process SD. Fits without these random
@@ -760,13 +722,13 @@
 
 * **Random-effect models phase without a flat-field NaN.** During phasing, the
   deviates of a random effect (recruitment, selectivity, catchability, ...) are now
-  estimated as *penalised fixed effects* with their variance / correlation
+  estimated as *penalized fixed effects* with their variance / correlation
   hyperparameters held, and the Laplace approximation is switched on only in the
   final hindcast fit. Previously the deviates were integrated out from the first
   phase, so a random field started flat (all-zero); for a 2D AR1 selectivity
   (`random_sel = TRUE`), integrating a flat field gives a `NaN` marginal objective
   and the fit could not start without an external warm start. Phasing the deviates
-  as penalised effects first builds up realistic non-zero values, so the final
+  as penalized effects first builds up realistic non-zero values, so the final
   Laplace begins near the mode. Gated on the presence of random effects, so fits
   without any are unchanged (the four reference models remain bit-identical).
 
@@ -863,7 +825,7 @@
 ## Bug fixes
 
 * The NA-handling diagnostic in `check_caal_data()` now reports "CAAL data
-  have NAs ..." instead of mislabelling them as "Composition data" (the
+  have NAs ..." instead of mislabeling them as "Composition data" (the
   message was copy-pasted from `check_composition_data()`). Message text only;
   no change to the data or fit.
 
@@ -939,12 +901,12 @@
 
 ## Bug fixes
 
-* **Robust workbook reads.** `read_data()` now errors clearly when a required
-  sheet (`control`, `fleet_control`) is missing and skips optional sheets when
-  absent, so a minimal single-species workbook reads cleanly instead of failing
-  with a cryptic error. A non-numeric cell in the control or bioenergetics rows
-  now errors by name instead of silently becoming `NA`. `rearrange_data()` fails
-  clearly on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
+* **`read_data()` names the offending sheet or cell instead of failing
+  cryptically.** A required sheet (`control`, `fleet_control`) is named when
+  absent, and optional sheets are skipped, so a minimal single-species workbook
+  reads cleanly. A non-numeric cell in the control or bioenergetics rows is named
+  rather than silently becoming `NA`. `rearrange_data()` likewise fails clearly
+  on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
 
 * **Removed the dead accumulation-age feature.** `Accumulation_age_lower/upper`
   were only range-validated and never applied to composition data; they are
@@ -984,7 +946,7 @@
   a vector of length `nspp` so each predator can average its suitability over a
   different set of years — e.g. a California Current model with hake 1980–2019,
   arrowtooth 2013–2018, and sablefish 2005–2008. A single scalar is recycled to
-  every predator, exactly reproducing the previous global-window behaviour
+  every predator, exactly reproducing the previous global-window behavior
   (`BS2017MS` and the golden references are unchanged to numerical tolerance).
   Internally `suit_styr` / `suit_endyr` became per-predator `DATA_IVECTOR`s and
   the suitability-averaging and stomach-content prediction loops index them by
@@ -1066,7 +1028,7 @@
                fleet_control = fc, catch_data = catch, index_data = survey)
     ```
 
-  Overrides are checked against the recognised schema, so a typo (`maturty`) is
+  Overrides are checked against the recognized schema, so a typo (`maturty`) is
   caught at construction with a suggestion rather than surfacing later in a fit;
   legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to
   their canonical equivalents. Validation is deferred to `data_check()` at fit
@@ -1088,7 +1050,7 @@
   `fit_mod()`'s signature and defaults are unchanged; when a data list carries a
   `model_config`, `fit_mod()` reads each field only for arguments the caller did
   **not** pass (detected with `missing()`), and an explicitly-passed argument
-  always overrides the slot. With no slot present the behaviour is byte-identical
+  always overrides the slot. With no slot present the behavior is byte-identical
   (a `BS2017SS` fit is bit-identical). A call that passes an argument — even at
   its default — overrides the slot, so omit the argument to let the configuration
   take effect. The slot is code-side structure, not a workbook sheet, so it does
@@ -1255,7 +1217,7 @@
   bundled example datasets (as has the unused `Selectivity_block`). Existing models
   are bit-identical.
 
-* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour
+* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favor
   of random-effect linkages.** `fit_mod()` now warns (naming the fleets/species and
   the grammar equivalent) when a model uses these legacy time-variation switches,
   pointing at `build_catchability()` / `build_selectivity()` / `build_M1()` with
@@ -1314,7 +1276,7 @@
 
 * Linkage formulas are now parsed with the **`reformulas`** package (shared by
   lme4 and glmmTMB), so `(1 | Year)` / `ar1(Year + 0 | fleet)` syntax is
-  recognised and an unknown covariance-structure wrapper errors instead of
+  recognized and an unknown covariance-structure wrapper errors instead of
   silently degrading to unstructured.
 
 ## Behavior changes

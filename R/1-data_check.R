@@ -306,7 +306,7 @@ data_check <- function(data_list) {
          ncol() < data_list$nages)){
     errors <- c(errors, "`age_error` observed ages do not span range of ages")
   }
-  # ALK & age_error: per-species age coverage (fillable with 0s downstream — message-level)
+  # ALK & age_error: per-species age coverage (fillable with 0s downstream -- message-level)
   for(sp in 1:data_list$nspp){
     expected_ages <- data_list$minage[sp]:(data_list$minage[sp] + data_list$nages[sp] - 1)
 
@@ -322,7 +322,7 @@ data_check <- function(data_list) {
       message(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
     }
   }
-  # ALK / age_error: row sums (warning — rearrange may renormalize)
+  # ALK / age_error: row sums (warning -- rearrange may renormalize)
   if(has_data(data_list$age_error)){
     ae_cols <- setdiff(colnames(data_list$age_error), c("Species", "True_age"))
     if(length(ae_cols) > 0){
@@ -913,7 +913,7 @@ data_check <- function(data_list) {
   # 7. Environmental data ----
   # =======================================================================
 
-  # env_data may have just a Year column (no indices) — clean_data fills that
+  # env_data may have just a Year column (no indices) -- clean_data fills that
   # default. Downstream checks (Cindex when Ceq > 1, env-q catchability,
   # srr_indices, M1_indices) report when an index is actually needed but
   # missing.

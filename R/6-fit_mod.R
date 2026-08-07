@@ -379,7 +379,7 @@ fit_mod <-
 
     # FIXME: may want to pull from data here too??
     data_list$M1_model     <- extend_length(M1Fun$M1_model)
-    data_list$M1_model     <- ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # sex-specific → sex-invariant for 1-sex model
+    data_list$M1_model     <- ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # sex-specific -> sex-invariant for 1-sex model
     data_list$M1_re        <- extend_length(M1Fun$M1_re)
     updateM1               <- M1Fun$updateM1
     data_list$M1_use_prior <- extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # 0 when M1 is fixed

@@ -23,7 +23,7 @@
 #'   density dependence in \eqn{R = \alpha S / (1 + \beta S)}, so it must be on
 #'   the order of \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or
 #'   smaller for a stock measured in tonnes. Starting three orders of magnitude
-#'   away drives predicted recruitment to near zero and the optimiser returns
+#'   away drives predicted recruitment to near zero and the optimizer returns
 #'   \code{NA/NaN gradient evaluation}. For a Beverton-Holt seeded from a
 #'   steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
 #'   \deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
@@ -991,7 +991,7 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `right_floor` is not supported.
 #' For a fleet that mirrors another fleet's selectivity (shared
 #' `Selectivity_index`), place the prior on the lead fleet so the shared
-#' parameter block is not penalised more than once.
+#' parameter block is not penalized more than once.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Coefficients are per fleet by default
@@ -1034,7 +1034,7 @@ COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
 #' @description
 #' Carries **priors** on the Dirichlet-multinomial composition-weighting
 #' overdispersion. The DM weight (the "theta" that scales the effective sample
-#' size) is otherwise an unpenalised free parameter; a linkage lets you put a
+#' size) is otherwise an unpenalized free parameter; a linkage lets you put a
 #' prior on it through the same grammar as every other parameter. The three
 #' parameters target the three DM likelihoods:
 #' \describe{
@@ -1390,7 +1390,7 @@ build_composition <- function(linkages = NULL) {
 #' ignored rather than rejected.
 #'
 #' Inertness is read off the finished `map` so it stays in step with
-#' [build_map()] and honours a user-supplied `map`. Rows are kept, not dropped:
+#' [build_map()] and honors a user-supplied `map`. Rows are kept, not dropped:
 #' `beta_linkage` is dimensioned by `nrow(linkage_table)`, so dropping them
 #' would break `inits` reuse between fits sharing a `compFun`.
 #'
