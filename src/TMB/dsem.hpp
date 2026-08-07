@@ -12,11 +12,15 @@
  *
  * Adapted from the standalone TMB `objective_function::operator()` into a helper
  * `calculate_dsem()` that updates `jnll` by reference, for use inside
- * ceattle_v01_11.cpp. Changes vs upstream:
+ * ceattle.cpp. Changes vs upstream:
  *   - DATA and PARAMETER inputs are passed as function arguments (incl. obs_idx
  *     and unobs_idx, which upstream reads via DATA_IVECTOR inside option blocks).
  *   - REPORT()/ADREPORT()/SIMULATE{} removed (they require `this`; unused here).
- *   - get_submatrix renamed dsem_get_submatrix to avoid symbol clashes.
+ *   - get_submatrix renamed dsem_get_submatrix to avoid symbol clashes; the three
+ *     distribution helpers below carry the same dsem_ prefix for the same reason.
+ *     They live here rather than in helper_functions.hpp because only DSEM uses
+ *     them, and `sign` in particular is too common a name to publish to every
+ *     header in the model.
  * The R-side input assembly is the live dsem::dsem(run_model = FALSE) harvest in
  * R/0-build_DSEM.R (build_dsem_objects), pinned to dsem 3.0.0.
  *
@@ -26,12 +30,44 @@
  * options(3) -> moderator variance scale on Gamma: 0: natural;  1: log-space (exp)
  */
 
+// Sign of a value. Used only to orient deviance residuals, which are REPORTed
+// rather than differentiated, so the kink at x = 0 is harmless here.
+template<class Type>
+Type dsem_sign( Type x ){
+  return x / pow(pow(x,2),0.5);
+}
+
+// Lognormal density. TMB ships dnorm but not dlnorm.
+template<class Type>
+Type dsem_dlnorm( Type x,
+                  Type meanlog,
+                  Type sdlog,
+                  int give_log=0 ){
+  Type logres = dnorm( log(x), meanlog, sdlog, true) - log(x);
+  if(give_log) return logres; else return exp(logres);
+}
+
+// Deviance residual for the Tweedie.
+// https://en.wikipedia.org/wiki/Tweedie_distribution#Properties
+template<class Type>
+Type dsem_devresid_tweedie( Type y,
+                            Type mu,
+                            Type p ){
+
+  Type c1 = pow( y, 2.0-p ) / (1.0-p) / (2.0-p);
+  Type c2 = y * pow( mu, 1.0-p ) / (1.0-p);
+  Type c3 = pow( mu, 2.0-p ) / (2.0-p);
+  Type deviance = 2 * (c1 - c2 + c3 );
+  Type devresid = dsem_sign( y - mu ) * pow( deviance, 0.5 );
+  return devresid;
+}
+
 // Get sparse submatrix, for use in dgmrf_conditional
 // Modified from chatGPT-5
 template<class Type>
-Eigen::SparseMatrix<Type> get_submatrix( Eigen::SparseMatrix<Type> A,
-                                         vector<int> row_idx,
-                                         vector<int> col_idx ){
+Eigen::SparseMatrix<Type> dsem_get_submatrix( Eigen::SparseMatrix<Type> A,
+                                              vector<int> row_idx,
+                                              vector<int> col_idx ){
 
   // Build submatrix manually
   Eigen::SparseMatrix<Type> sub(row_idx.size(), col_idx.size());
@@ -51,34 +87,19 @@ Eigen::SparseMatrix<Type> get_submatrix( Eigen::SparseMatrix<Type> A,
   return sub;
 }
 
-// Positions (0-based, into `node_k`) whose time index t = node_k(p) % n_t is
-// < nyrs_hind. Used to restrict the DSEM likelihood to hindcast years when
-// proj_mean_rec == 0 (projection recruitment set to mean recruitment).
-inline vector<int> dsem_hindcast_positions( vector<int> node_k, int n_t, int nyrs_hind ){
-  int m = 0;
-  for(int p = 0; p < node_k.size(); p++){ if( (node_k(p) % n_t) < nyrs_hind ) m++; }
-  vector<int> pos( m );
-  int h = 0;
-  for(int p = 0; p < node_k.size(); p++){ if( (node_k(p) % n_t) < nyrs_hind ){ pos(h) = p; h++; } }
-  return pos;
-}
-
-// Subset a vector by 0-based positions.
-template<class Type>
-vector<Type> dsem_subset_vec( vector<Type> v, vector<int> pos ){
-  vector<Type> out( pos.size() );
-  for(int i = 0; i < pos.size(); i++){ out(i) = v(pos(i)); }
-  return out;
-}
-
+// NOTE: an earlier draft carried dsem_hindcast_positions() and dsem_subset_vec()
+// here, plus nyrs_hind / proj_mean_rec arguments below, to restrict the DSEM
+// likelihood to hindcast years. Nothing ever called them -- projection years are
+// handled R-side instead, by blanking the projection rows of mapList$x_tj in
+// build_dsem_objects() (see build_DSEM(estimate_projection =)). Removed rather
+// than carried forward, so the header stays a clean generic GMRF over an
+// n_t x n_j state space with no CEATTLE-specific surface.
 
 template<class Type>
 void calculate_dsem(
     Type &jnll,                    // Modified by reference
 
     // Data
-    int nyrs_hind,                 // Number of hindcast years (endyr - styr + 1)
-    int proj_mean_rec,             // 0 = mean-rec projection, 1 = SRR projection
     vector<int> options,
     // options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional krigging
     // options(1) -> 0: constant conditional variance;  1: constant marginal variance
@@ -300,7 +321,7 @@ void calculate_dsem(
 
     // Get Sigma components
     Eigen::SparseMatrix<Type> Sigma_kk = inverseIminusRho_kk.solve( tmp2_kk );
-    Eigen::SparseMatrix<Type> Sigma_oo = get_submatrix( Sigma_kk, obs_idx, obs_idx );
+    Eigen::SparseMatrix<Type> Sigma_oo = dsem_get_submatrix( Sigma_kk, obs_idx, obs_idx );
     matrix<Type> V_oo = matrix<Type>(Sigma_oo);
     //REPORT( Sigma_kk );
 
@@ -327,7 +348,7 @@ void calculate_dsem(
     Eigen::SimplicialLDLT< Eigen::SparseMatrix<Type> > inverseSigma_oo;
     inverseSigma_oo.compute(Sigma_oo);
     Eigen::SparseMatrix<Type> tmp_o1 = inverseSigma_oo.solve(x_o1);
-    Eigen::SparseMatrix<Type> Sigma_uo = get_submatrix( Sigma_kk, unobs_idx, obs_idx );
+    Eigen::SparseMatrix<Type> Sigma_uo = dsem_get_submatrix( Sigma_kk, unobs_idx, obs_idx );
     matrix<Type> mu_u1 = Sigma_uo * tmp_o1;
 
     // Get variance and Cholesky for remaining terms
@@ -336,7 +357,7 @@ void calculate_dsem(
       Eigen::SparseMatrix<Type> Vprime_uu( unobs_idx.size(), unobs_idx.size() );
       Eigen::SparseMatrix<Type> Sigma_ou = Sigma_uo.transpose();
       Eigen::SparseMatrix<Type> tmp_ou = inverseSigma_oo.solve(Sigma_ou);
-      Eigen::SparseMatrix<Type> Sigma_uu = get_submatrix( Sigma_kk, unobs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> Sigma_uu = dsem_get_submatrix( Sigma_kk, unobs_idx, unobs_idx );
 
       // CRASHING
       //Vprime_uu = Sigma_uu - (Sigma_uo * tmp_ou);   // CRASHES
@@ -430,18 +451,22 @@ void calculate_dsem(
       }
       // Extract V components
       Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
-      Eigen::SparseMatrix<Type> V_oo = get_submatrix( V_kk, obs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> V_uo = get_submatrix( V_kk, unobs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> V_ou = get_submatrix( V_kk, obs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> V_oo = dsem_get_submatrix( V_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_uo = dsem_get_submatrix( V_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_ou = dsem_get_submatrix( V_kk, obs_idx, unobs_idx );
       // Extract M components
-      Eigen::SparseMatrix<Type> M_oo = get_submatrix( IminusRho_kk, obs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> M_uo = get_submatrix( IminusRho_kk, unobs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> M_ou = get_submatrix( IminusRho_kk, obs_idx, unobs_idx );
-      Eigen::SparseMatrix<Type> M_uu = get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> M_oo = dsem_get_submatrix( IminusRho_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_uo = dsem_get_submatrix( IminusRho_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_ou = dsem_get_submatrix( IminusRho_kk, obs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> M_uu = dsem_get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
       // Compute C
       Eigen::SparseMatrix<Type> Mt_ou = M_ou.transpose();
+      // Materialize via a typed temporary, as above, rather than .eval():
+      // R's Rinternals.h does `#define eval Rf_eval`, which clobbers Eigen's
+      // .eval() member the moment this header is included in a TMB model.
+      Eigen::SparseMatrix<Type> Mt_uu = M_uu.transpose();
       Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseMt_uu;
-      inverseMt_uu.compute( M_uu.transpose().eval() );
+      inverseMt_uu.compute( Mt_uu );
       Eigen::SparseMatrix<Type> Ct = inverseMt_uu.solve(Mt_ou);
       // Mtilda_oo
       Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseM_uu;
@@ -540,7 +565,7 @@ void calculate_dsem(
         // SIMULATE{
         //   y_tj(t,j) = rbinom( Type(1), mu_tj(t,j) );
         // }
-        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(-2*(((1-y_tj(t,j))*log(1-mu_tj(t,j)) + y_tj(t,j)*log(mu_tj(t,j)))), 0.5);
+        devresid_tj(t,j) = dsem_sign(y_tj(t,j) - mu_tj(t,j)) * pow(-2*(((1-y_tj(t,j))*log(1-mu_tj(t,j)) + y_tj(t,j)*log(mu_tj(t,j)))), 0.5);
       }
       if( familycode_j(j)==3 ){
         // familycode = 3 :  Poisson
@@ -550,7 +575,7 @@ void calculate_dsem(
         // SIMULATE{
         //   y_tj(t,j) = rpois( mu_tj(t,j) );
         // }
-        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2*(y_tj(t,j)*log((Type(1e-10) + y_tj(t,j))/mu_tj(t,j)) - (y_tj(t,j)-mu_tj(t,j))), 0.5);
+        devresid_tj(t,j) = dsem_sign(y_tj(t,j) - mu_tj(t,j)) * pow(2*(y_tj(t,j)*log((Type(1e-10) + y_tj(t,j))/mu_tj(t,j)) - (y_tj(t,j)-mu_tj(t,j))), 0.5);
       }
       if( familycode_j(j)==4 ){
         // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
@@ -560,7 +585,7 @@ void calculate_dsem(
         // SIMULATE{
         //   y_tj(t,j) = rgamma( pow(sigma_z(sigmastart_j(j)),-2), mu_tj(t,j)*pow(sigma_z(sigmastart_j(j)),2) );
         // }
-        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2 * ( (y_tj(t,j)-mu_tj(t,j))/mu_tj(t,j) - log(y_tj(t,j)/mu_tj(t,j)) ), 0.5);
+        devresid_tj(t,j) = dsem_sign(y_tj(t,j) - mu_tj(t,j)) * pow(2 * ( (y_tj(t,j)-mu_tj(t,j))/mu_tj(t,j) - log(y_tj(t,j)/mu_tj(t,j)) ), 0.5);
       }
       if( familycode_j(j)==5 ){
         // familycode = 5 :  normal with known standard deviation
@@ -575,7 +600,7 @@ void calculate_dsem(
       if( familycode_j(j)==6 ){
         // familycode = 6 :  lognormal
         if(R_FINITE(asDouble(y_tj(t,j)))){
-          loglik_tj(t,j) = dlnorm( y_tj(t,j), log(mu_tj(t,j)), sigma_z(sigmastart_j(j)), true );
+          loglik_tj(t,j) = dsem_dlnorm( y_tj(t,j), log(mu_tj(t,j)), sigma_z(sigmastart_j(j)), true );
         }
         // SIMULATE{
         //   y_tj(t,j) = exp(rnorm( log(mu_tj(t,j)), sigma_z(sigmastart_j(j)) ));
@@ -590,7 +615,7 @@ void calculate_dsem(
         // SIMULATE{
         //   y_tj(t,j) = rtweedie( mu_tj(t,j), exp(sigma_z(sigmastart_j(j))), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
         // }
-        devresid_tj(t,j) = devresid_tweedie( y_tj(t,j), mu_tj(t,j), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
+        devresid_tj(t,j) = dsem_devresid_tweedie( y_tj(t,j), mu_tj(t,j), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
       }
     }}
   jnll -= loglik_tj.sum();
