@@ -1,3 +1,111 @@
+# Rceattle 4.9.0
+
+## New features
+
+* **`build_srr(srr_alpha_init = , srr_beta_init = )` sets the stock-recruit
+  starting values.** The package defaults (\eqn{\alpha = e^3}, \eqn{\beta = 3})
+  are placeholders that carry no knowledge of the stock's scale. \eqn{\beta} sets
+  the density dependence in \eqn{R = \alpha S / (1 + \beta S)} and needs to be of
+  order \eqn{(\alpha - 1/\phi_0)/R_0} -- typically \eqn{10^{-3}} or smaller for a
+  stock in tonnes -- so the default sits three orders of magnitude away and
+  Beverton-Holt fits returned `NA/NaN gradient evaluation` before reaching a
+  first useful step. Both arguments take natural-scale values, one per species,
+  and are applied whether or not the caller supplies `inits`.
+
+  ```r
+  alpha <- 4 * h / (phi0 * (1 - h))
+  build_srr(srr_fun = "BevertonHolt",
+            srr_alpha_init = alpha,
+            srr_beta_init  = (alpha - 1 / phi0) / R0)
+  ```
+
+## Bug fixes
+
+* **`init_dev` is no longer declared a random effect under
+  `initMode = "FreeParams"` (0).** The C++ applies the initial-deviate density
+  `dnorm(init_dev, -sigma^2/2, R_sd)` only when `initMode > 1`, but `fit_mod()`
+  added `init_dev` to the Laplace random block whenever any element was free.
+  Under mode 0 that made the approximation integrate over an improper (flat)
+  prior rather than estimate the initial age structure as fixed effects, which is
+  what mode 0 means and what comparable platforms (WHAM's `N1_model = 0`, FIMS's
+  `log_init_naa`) do. Only `initMode = 0` combined with `random_rec = TRUE` was
+  affected. The R-side test now mirrors the C++ gate exactly; it previously
+  compared the canonical `initMode` *string* against a number, which resolves
+  lexicographically and was therefore true for every mode.
+
+* **`build_params()` no longer seeds the stock-recruit \eqn{\alpha} from
+  `srr_prior` when `srr_prior` is a steepness.** `srr_prior` is not the same
+  quantity for every curve: for Ricker it is a prior on \eqn{\alpha}, but for
+  Beverton-Holt it is a prior on **steepness** and must lie in (0, 1). Seeding
+  \eqn{\alpha} with `log(steepness)` started the optimiser at a near-zero
+  recruits-per-spawner. The seeding is now applied only where `srr_prior` is
+  genuinely an \eqn{\alpha}, matching the prior gates in the C++.
+
+  **This changes results for Beverton-Holt models with `srr_est_mode` 2 or 3**,
+  which are the only configurations where `srr_prior` is a steepness. Six of the
+  24 `srr_est_mode` x `srr_pred_fun` combinations move; the other 18 are
+  byte-identical. In the ecosystem that is BSAI Atka mackerel
+  (`srr_est_mode = 2`, `srr_prior = 0.8`), where the starting \eqn{\alpha} goes
+  from \eqn{\log(0.8) = -0.22} to the package default and the fit moves by
+  ~6e-4 in relative SSB. Refit affected models rather than assuming the old
+  numbers carry over.
+
+
+* **Removed the spurious "alpha was not initialized to `srr_prior`" message.**
+  `fit_mod()` copies `recFun$srr_prior` into the `data_list` only after the
+  caller has already built parameters, so the message fired on the documented
+  workflow and was not actionable.
+
+* **`srr_est_mode = 0` ("fix alpha to prior mean") now works for Beverton-Holt.**
+  The gate in `fit_mod()` was Ricker-only, so a Beverton-Holt fit that supplied
+  `inits` -- the normal warm-start workflow -- had \eqn{\alpha} mapped out by
+  `build_map()` but never set to the prior mean, leaving it pinned at
+  `build_params()`' placeholder \eqn{e^3}. `build_params()` and `fit_mod()` now
+  share one rule (`.srr_prior_is_alpha()`) so the two paths cannot disagree.
+
+* **`build_srr()` validates the steepness prior instead of failing silently.**
+  For a Beverton-Holt curve, `srr_est_mode` 2 and 3 put the prior on steepness,
+  so `srr_prior` must lie in (0, 1) -- this is now checked. The beta prior
+  (`srr_est_mode = 3`) additionally converts (mean, sd) to shape parameters by
+  moments, which are positive only when \eqn{sd^2 < \mu(1-\mu)}; outside that
+  range the shapes go negative and the prior is meaningless. It failed silently
+  rather than loudly, because TMB's `lgamma`-based `dbeta` returns a finite
+  value for negative shapes where R's `dbeta` returns `NaN`. Note the package
+  default `srr_prior_sd = 1` is never valid for a steepness and now errors with
+  the largest permissible value.
+
+* **`fit$initial_params` now records the parameters the model actually started
+  from.** It was captured before the blocks that overwrite `proj_F_prop`,
+  `log_Ftarget`, `log_M1` and the stock-recruit alpha / beta, so it reported
+  values no fit ever used. This was not only cosmetic: `retrospective()` and
+  `jitter()` reuse `initial_params` as their refit starting values
+  (`R/9-retro_and_jitter.R`). Those overrides are deterministic functions of the
+  `data_list` / `HCR` and are re-applied on every refit, so no fit changes.
+
+* **`steepness` and `R0` are reported for every year, not just the first.** Both
+  are declared `[nspp, nyrs]` but only column 1 was ever assigned, so
+  `fit$quantities$steepness` was a value followed by structural zeros, and under
+  Beverton-Holt `fit$quantities$R0` reported the curve-derived value in year 1
+  and the inert `exp(rec_pars)` placeholder in every year after it -- an apparent
+  jump that was an artefact of the reporting. Both are now filled from the
+  per-year alpha and beta, which also generalizes to a time-varying recruitment
+  linkage. Column 1 is unchanged in every case, so the common
+  `quantities$R0[sp]` linear index returns exactly what it did before. Two
+  deliberate exceptions: the Ianelli penalty configuration (`srr_fun = 0` with
+  `srr_pred_fun > 0`) keeps `R0`'s `exp(rec_pars)` values, which recruitment
+  genuinely uses; and Ricker's `R0` stays year-0-only because its intercept needs
+  `posfun()`, which accumulates into the objective.
+
+* **New `stock_recruit` convergence check.** Rceattle parameterizes
+  Beverton-Holt by \eqn{\alpha} and \eqn{\beta} and derives steepness as
+  \eqn{h = \alpha \phi_0/(4 + \alpha \phi_0)}, with no lower bound -- unlike
+  WHAM, which builds \eqn{h} on (0.2, 1) by construction. Since `rec_pars`
+  carries no default bounds, the optimizer can reach \eqn{\alpha < 1/\phi_0},
+  where the stock cannot replace itself and the implied unfished recruitment
+  \eqn{R_0 = (\alpha - 1/\phi_0)/\beta} turns **negative**, propagating into the
+  initial age structure as `NaN`. `fit$convergence` now reports this as a `FAIL`
+  naming the species and the offending steepness / \eqn{R_0}.
+
 # Rceattle 4.8.0
 
 ## New features

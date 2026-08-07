@@ -31,7 +31,6 @@ Type calculate_recruitment(int srr_fun,
                            Type rec_dev,
                            Type spr0) {
   Type R = 0;
-  Type ricker_intercept;
 
   switch(srr_fun) {
   case 0: // Random about mean
@@ -44,27 +43,29 @@ Type calculate_recruitment(int srr_fun,
 
   case 2: // Beverton-Holt
     R = srr_alpha * ssb * exp(rec_dev) / (Type(1.0) + srr_beta * ssb);
-    R0 = (srr_alpha - 1.0/spr0) / srr_beta; // (Alpha-1/SPR0)/beta
+    // Recruitment depends only on alpha, beta and SSB. The implied unfished
+    // recruitment, (alpha - 1/spr0)/beta, is derived by the caller.
     break;
 
   case 3: // Beverton-Holt with environmental impacts on alpha
     R = srr_alpha * ssb * exp(rec_dev) / (Type(1.0) + srr_beta * ssb);
-    R0 = (srr_alpha - 1.0/spr0) / srr_beta; // (Alpha-1/SPR0)/beta
+    // Recruitment depends only on alpha, beta and SSB. The implied unfished
+    // recruitment, (alpha - 1/spr0)/beta, is derived by the caller.
     break;
 
   case 4: // Ricker
     // Beta is divided by 1,000,000 for estimation stability
     R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
+    // Recruitment depends only on alpha, beta and SSB. The implied unfished
+    // recruitment is derived by the caller, which guards the log() with posfun().
 
-    ricker_intercept = srr_alpha * spr0 - 1.0;
-    R0 = log(ricker_intercept)/(srr_beta * spr0/1000000.0);
     break;
 
   case 5: // Ricker with environmental impacts on alpha
     R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
+    // Recruitment depends only on alpha, beta and SSB. The implied unfished
+    // recruitment is derived by the caller, which guards the log() with posfun().
 
-    ricker_intercept = srr_alpha * spr0 - 1.0;
-    R0 = log(ricker_intercept)/(srr_beta * spr0/1000000.0);
     break;
 
   default:

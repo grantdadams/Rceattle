@@ -286,6 +286,8 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
               srr_est_mode  = Rceattle$data_list$srr_est_mode ,
               srr_prior  = Rceattle$data_list$srr_prior,
               srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
+              srr_alpha_init = Rceattle$data_list$srr_alpha_init,
+              srr_beta_init  = Rceattle$data_list$srr_beta_init,
               Bmsy_lim = Rceattle$data_list$Bmsy_lim,
               srr_indices = Rceattle$data_list$srr_indices,
               linkages = Rceattle$data_list$srr_linkages)),

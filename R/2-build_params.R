@@ -43,10 +43,24 @@ build_params <- function(data_list) {
   param_list$rec_pars[,3] <- log(3) # Starting low here for beta
   param_list$rec_pars[,2] <- 3
 
-  if(!is.null(data_list$srr_prior)){
+  # srr_prior is a prior on alpha for Ricker but on steepness for Beverton-Holt,
+  # so it is a valid alpha starting value only in the former case
+  # (see .srr_prior_is_alpha).
+  #
+  # No warning in the `else`: fit_mod() copies recFun$srr_prior into data_list
+  # only after the caller has already built parameters with this function, so a
+  # warning here fires on the documented workflow and is not actionable.
+  if(!is.null(data_list$srr_prior) && .srr_prior_is_alpha(data_list)){
     param_list$rec_pars[,2] <- log(data_list$srr_prior)
-  } else{
-    message("Warning: alpha was not initialized to `srr_prior` from `build_srr`")
+  }
+
+  # Explicit starting values from build_srr(). The defaults above carry no
+  # information about the stock's scale; see ?build_srr.
+  if(!is.null(data_list$srr_alpha_init)){
+    param_list$rec_pars[,2] <- log(data_list$srr_alpha_init)
+  }
+  if(!is.null(data_list$srr_beta_init)){
+    param_list$rec_pars[,3] <- log(data_list$srr_beta_init)
   }
 
   # - Rec devs

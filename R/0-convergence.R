@@ -293,6 +293,64 @@
   out
 }
 
+# Stock-recruit curve sanity. Beverton-Holt steepness is derived as
+# h = alpha * SPR0 / (4 + alpha * SPR0), and alpha carries no lower bound, so the
+# optimizer can reach alpha < 1/SPR0 -- below the replacement line. Steepness
+# then falls under 0.2, the stock cannot replace itself, and the implied unfished
+# recruitment (alpha - 1/SPR0)/beta is negative, which carries into the initial
+# age structure.
+.check_stock_recruit <- function(object) {
+  dl <- object[["data_list"]]
+  q  <- object[["quantities"]]
+  if (is.null(dl) || is.null(q)) return(list())
+  # Keyed on srr_fun, the curve the hindcast is actually fit with. Under the
+  # Ianelli configuration (srr_fun = 0, srr_pred_fun > 0) recruitment is annual
+  # deviates about mean R and the reported steepness / R0 describe that, not the
+  # penalty curve, so there is nothing here to check.
+  srr_fun <- suppressWarnings(as.integer(dl[["srr_fun"]])[1])
+  if (is.na(srr_fun) || srr_fun < 2) return(list())
+
+  # Both are [nspp, nyrs]; the stock-recruit curve is summarised by its first
+  # year, so read column 1.
+  col1 <- function(x) {
+    if (is.null(x)) return(numeric(0))
+    if (is.matrix(x)) as.numeric(x[, 1]) else as.numeric(x)
+  }
+  h  <- suppressWarnings(col1(q[["steepness"]]))
+  r0 <- suppressWarnings(col1(q[["R0"]]))
+  if (!length(h) && !length(r0)) return(list())
+
+  bad_r0 <- which(is.finite(r0) & r0 <= 0)
+  bad_h  <- if (srr_fun %in% c(2L, 3L)) which(is.finite(h) & h < 0.2) else integer(0)
+  if (!length(bad_r0) && !length(bad_h)) {
+    return(list(stock_recruit = .conv_record(
+      "stock_recruit", "fit", "OK",
+      sprintf("Stock-recruit curve is well posed (steepness %s).",
+              paste(sprintf("%.3f", h), collapse = ", ")),
+      list(steepness = h, R0 = r0))))
+  }
+
+  spp <- dl[["spnames"]]
+  nm  <- function(i) if (length(spp) >= max(i)) paste(spp[i], collapse = ", ") else paste(i, collapse = ", ")
+  msg <- character(0)
+  if (length(bad_h)) {
+    msg <- c(msg, sprintf(
+      "Beverton-Holt steepness below 0.2 for %s (h = %s): alpha is under the replacement line 1/SPR0, so the stock cannot replace itself.",
+      nm(bad_h), paste(sprintf("%.3f", h[bad_h]), collapse = ", ")))
+  }
+  if (length(bad_r0)) {
+    msg <- c(msg, sprintf(
+      "Implied unfished recruitment R0 is non-positive for %s (R0 = %s).",
+      nm(bad_r0), paste(signif(r0[bad_r0], 4), collapse = ", ")))
+  }
+  msg <- c(msg, "Refit from stock-recruit starting values on the right scale -- see build_srr(srr_alpha_init =, srr_beta_init =).")
+
+  list(stock_recruit = .conv_record(
+    "stock_recruit", "fit", "FAIL", paste(msg, collapse = " "),
+    list(steepness = h, R0 = r0)))
+}
+
+
 
 #' Convergence diagnostics for a fitted Rceattle model
 #'
@@ -322,7 +380,8 @@ convergence_diagnostics <- function(object, ...) {
     .check_sdreport_failed(object),
     .check_hessian_eigen(object),
     .check_bounds(object),
-    .check_estimability_record(object)
+    .check_estimability_record(object),
+    .check_stock_recruit(object)
   )
   structure(
     list(status = .conv_overall(checks), checks = checks),

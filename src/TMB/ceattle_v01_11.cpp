@@ -1095,14 +1095,14 @@ Type objective_function<Type>::operator() () {
     for( sp = 0; sp < nspp ; sp++) {
       switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
-        steepness(sp, 0) = 0.99;
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.99; }  // no compensation
         {
           R_init(sp) = R0(sp, 0);
         }
         break;
 
       case 1: // Random about mean with environmental linkage
-        steepness(sp, 0) = 0.99;
+        for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.99; }  // no compensation
         {
           R_init(sp) = R0(sp, 0);
         }
@@ -1110,27 +1110,39 @@ Type objective_function<Type>::operator() () {
 
       case 2: // Beverton-Holt
         {
-          steepness(sp, 0) = alpha(sp, 0) * SPR0(sp)/(4.0 + alpha(sp, 0) * SPR0(sp));
-          // will NOT overwrite when doing Ianelli penalty, srr_fun vs srr_pred_fun
-          // FIXME: calc for future years
-          R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
+          // Steepness and unfished recruitment implied by the curve, for every
+          // year -- alpha and Beta may be time-varying through a recruitment
+          // linkage. Reported quantities only: Beverton-Holt recruitment is a
+          // function of alpha, Beta and SSB, not of R0.
+          for(yr = 0; yr < nyrs; yr++){
+            steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
+            R0(sp, yr) = (alpha(sp, yr) - 1.0/SPR0(sp)) / Beta(sp, yr);
+          }
           R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
         }
         break;
 
       case 3: // Beverton-Holt with environmental impacts on alpha
         {
-          steepness(sp, 0) = alpha(sp, 0) * SPR0(sp)/(4.0 + alpha(sp, 0) * SPR0(sp));
-          // will NOT overwrite when doing Ianelli penalty, srr_fun vs srr_pred_fun
-          // FIXME: calc for future years
-          R0(sp, 0) = (alpha(sp, 0) - 1.0/SPR0(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
+          // Steepness and unfished recruitment implied by the curve, for every
+          // year -- alpha and Beta may be time-varying through a recruitment
+          // linkage. Reported quantities only: Beverton-Holt recruitment is a
+          // function of alpha, Beta and SSB, not of R0.
+          for(yr = 0; yr < nyrs; yr++){
+            steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
+            R0(sp, yr) = (alpha(sp, yr) - 1.0/SPR0(sp)) / Beta(sp, yr);
+          }
           R_init(sp) = (alpha(sp, 0) - 1.0/SPRFinit(sp)) / Beta(sp, 0); // (Alpha-1/SPR0)/beta
         }
         break;
 
       case 4: // Ricker
         {
-          steepness(sp, 0) = 0.2 * exp(0.8*log(alpha(sp, 0) * SPR0(sp)));
+          // Steepness for every year -- alpha may be time-varying through a
+          // recruitment linkage. R0 is year 0 only: the Ricker intercept is
+          // kept positive by posfun(), which accumulates a penalty into the
+          // objective, so it is evaluated once.
+          for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp))); }
 
           // - R at F0
           ricker_intercept = alpha(sp, 0) * SPR0(sp) - 1.0;
@@ -1149,7 +1161,11 @@ Type objective_function<Type>::operator() () {
 
       case 5: // Ricker with environmental impacts on alpha
         {
-          steepness(sp, 0) = 0.2 * exp(0.8*log(alpha(sp, 0) * SPR0(sp)));
+          // Steepness for every year -- alpha may be time-varying through a
+          // recruitment linkage. R0 is year 0 only: the Ricker intercept is
+          // kept positive by posfun(), which accumulates a penalty into the
+          // objective, so it is evaluated once.
+          for(yr = 0; yr < nyrs; yr++){ steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp))); }
 
           // - R at F0
           ricker_intercept = alpha(sp, 0) * SPR0(sp) - 1.0;
@@ -1168,6 +1184,27 @@ Type objective_function<Type>::operator() () {
 
       default:
         error("Invalid 'srr_fun'");
+      }
+
+      // Steepness belongs to the stock-recruit curve, which under the Ianelli
+      // configuration (srr_fun = 0 or 1, srr_pred_fun > 1) is estimated as a
+      // recruitment penalty rather than driving the hindcast. The switch above
+      // keys on srr_fun and so leaves steepness at the mean-recruitment
+      // constant; derive it from the penalty curve's alpha instead. The
+      // stock-recruit prior is evaluated on this, so without it a prior on
+      // steepness has no parameter to act on.
+      //
+      // R0 is deliberately NOT re-derived here: recruitment in this
+      // configuration is R0 * exp(rec_dev), so R0 keeps its estimated value.
+      if((srr_fun < 2) & (srr_pred_fun > 1)){
+        for(yr = 0; yr < nyrs; yr++){
+          if((srr_pred_fun == 2) | (srr_pred_fun == 3)){
+            steepness(sp, yr) = alpha(sp, yr) * SPR0(sp)/(4.0 + alpha(sp, yr) * SPR0(sp));
+          }
+          if((srr_pred_fun == 4) | (srr_pred_fun == 5)){
+            steepness(sp, yr) = 0.2 * exp(0.8*log(alpha(sp, yr) * SPR0(sp)));
+          }
+        }
       }
     }
 
