@@ -31,9 +31,9 @@ ss_run_reweighted <- Rceattle::reweight_comps(ss_run, n_iter = 10, tol = 0.01)
 ss_run_reweighted$reweight$history
 ss_run_reweighted$reweight$converged
 
-# Tune only selected fleets. `fleets` takes Fleet_code values, not names
-# (unlike linkage_spec(fleet = ), which accepts either):
+# Tune only selected fleets, by Fleet_code or by name:
 # Rceattle::reweight_comps(ss_run, fleets = c(1, 2))
+# Rceattle::reweight_comps(ss_run, fleets = c("Pollock", "BT_Pollock"))
 
 
 # Doing one pass by hand, for reference. Note the weight has to be set on the

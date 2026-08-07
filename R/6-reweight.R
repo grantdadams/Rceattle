@@ -34,7 +34,10 @@
 #'   `"Hindcast"` (1) -- the modes that optimize the hindcast.
 #' @param n_iter Maximum number of iterations (default 10).
 #' @param tol Relative change in the weights below which to stop (default 0.01).
-#' @param fleets Fleet codes to tune. Default `NULL` tunes every eligible fleet.
+#' @param fleets Fleets to tune, as `Fleet_code` values or as names matching
+#'   `fleet_control$Fleet_name` (as in [linkage_spec()]). Give ids or names, not
+#'   a mix -- R coerces `c(1, "Survey")` to `c("1", "Survey")`. Default `NULL`
+#'   tunes every eligible fleet.
 #' @param verbose Print the weights each iteration (default `TRUE`).
 #'
 #' @return The model refitted with the final weights, carrying a `reweight`
@@ -84,11 +87,24 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
             ": their composition likelihood estimates its own weight.")
   }
   if (!is.null(fleets)) {
+    # Accept names as well as codes, matching linkage_spec(fleet = ). The shared
+    # resolver reports an unknown name against the model's own fleet list; left
+    # unresolved, a name would fall through as "not eligible" and surface as the
+    # misleading "no fitted composition data" warning below.
+    requested <- fleets
+    if (is.character(fleets)) {
+      pos <- .resolve_stratum_names(fleets, fc$Fleet_name, "fleets",
+                                    "fleet names (fleet_control$Fleet_name)")
+      # The resolver returns row positions; this function works in Fleet_code.
+      fleets <- fc$Fleet_code[pos]
+    }
     # A fleet the caller named but cannot be tuned is reported: quietly tuning
-    # the remainder would return a weighting that was never asked for.
-    dropped <- setdiff(fleets, eligible)
-    if (length(dropped)) {
-      warning("Not tuning requested fleet(s) ", paste(dropped, collapse = ", "),
+    # the remainder would return a weighting that was never asked for. Report it
+    # the way the caller wrote it.
+    drop_idx <- !fleets %in% eligible
+    if (any(drop_idx)) {
+      warning("Not tuning requested fleet(s) ",
+              paste(requested[drop_idx], collapse = ", "),
               ": they have no fitted composition data, or their likelihood ",
               "estimates its own weight.", call. = FALSE)
     }
