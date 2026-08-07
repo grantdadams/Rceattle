@@ -49,3 +49,6 @@ tests/comparison/WHAM_growth_comparison/rce_osa.RDS
 # Scratchpad / working-tool artifacts (created by dev tooling, not part of the package)
 scratchpad_loaded.flag
 scratchpad/
+
+# FIMS comparison-run artifact
+fims.log
