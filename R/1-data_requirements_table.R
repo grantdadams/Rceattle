@@ -10,9 +10,9 @@
 # the same condition live in three places (drifting apart over time), it lives
 # once here, and both `data_check()` and `data_requirements()` *consume* it.
 #
-# Scope, deliberately narrow (see dev/PLAN-data-workflow-and-linkage-grammar.md,
-# PR 4): this table drives only the **pure presence-requirement** gates in
-# `data_check()`. Dimension / value / referential / structural checks and the
+# Scope, deliberately narrow: this table drives only the **pure
+# presence-requirement** gates in `data_check()`. Dimension / value /
+# referential / structural checks and the
 # two mirroring-dependent *adequacy* gates (index_cov-MVN, comp/caal-vs-estimated-
 # selectivity) stay imperative in `data_check()` -- they depend on per-fleet row
 # counts and cross-fleet lookups that do not reduce to a declarative row. Rows
@@ -70,17 +70,60 @@
   "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"
 )
 
-# TRUE when any fleet requests an MVN survey covariance.
+# TRUE when any fleet requests an MVN survey covariance. Tolerates the integer
+# code as well as the canonical string, for the same reason .rce_is_fixed_sel()
+# does: this layer also classifies objects switch_check() has not yet seen.
 .rce_any_mvn <- function(dl) {
   fc <- dl$fleet_control
-  !is.null(fc) && "Index_distribution" %in% colnames(fc) &&
-    any(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
+  if (is.null(fc) || !"Index_distribution" %in% colnames(fc)) return(FALSE)
+  v <- as.character(fc$Index_distribution)
+  num <- suppressWarnings(as.numeric(v))
+  v[!is.na(num)] <- as.character(num[!is.na(num)])
+  any(!is.na(v) & v %in% c("MVN", "MVNORM", "1", "2"))
+}
+
+# TRUE for each Selectivity entry naming the "Fixed" (empirical) form, whether
+# the column still holds the integer code or the canonical string. switch_check()
+# converts 0 -> "Fixed", but this layer also classifies raw build_data() objects
+# that have not been through it, and workbook reads can leave the code as a
+# numeric-looking string. Mirrors the code/string tolerance .rce_any_mvn() has.
+.rce_is_fixed_sel <- function(x) {
+  num <- suppressWarnings(as.numeric(as.character(x)))
+  !is.na(x) & (as.character(x) == "Fixed" | (!is.na(num) & num == 0))
 }
 
 # TRUE when any fleet fixes selectivity to an empirical curve.
 .rce_any_fixed_sel <- function(dl) {
   fc <- dl$fleet_control
-  !is.null(fc) && any(!is.na(fc$Selectivity) & fc$Selectivity == "Fixed")
+  !is.null(fc) && "Selectivity" %in% colnames(fc) && any(.rce_is_fixed_sel(fc$Selectivity))
+}
+
+# Normalize a data list for requirement classification.
+#
+# A model_config() slot carries the model switches, but the requirement
+# predicates read the top-level slots. fit_mod() resolves the config and writes
+# the result back onto data_list, so the requirement report has to see the same
+# object the fit will, or print() and data_requirements() disagree about the
+# same data list.
+#
+# Overlay, not fill: an attached config wins over a stored top-level value,
+# matching fit_mod(). Scope is limited to what model_config() actually carries --
+# it has no estDynamics or Ceq field, so NByageFixed and the bioenergetics
+# inputs still classify from the top-level slots alone.
+.rce_classify_view <- function(dl) {
+  cfg <- dl$model_config
+  # Absent, or a malformed non-list slot: classify from the top-level switches.
+  # build_data() does not type-check a `model_config` override, so an atomic can
+  # reach here and `cfg[[nm]]` would abort with "subscript out of bounds".
+  if (!is.list(cfg)) return(dl)
+  for (nm in c("msmMode", "initMode", "avgnMode", "suitMode", "niter")) {
+    if (!is.null(cfg[[nm]])) dl[[nm]] <- cfg[[nm]]
+  }
+  # fit_mod() overwrites growth_model from growthFun unconditionally, so a
+  # default model_config() (empirical growth) genuinely does make caal_data
+  # optional. Match the fit rather than second-guessing it.
+  if (!is.null(cfg$growthFun$growth_model)) dl$growth_model <- cfg$growthFun$growth_model
+  dl
 }
 
 #' Full data-element catalogue: requirement conditions + classification metadata
@@ -161,8 +204,7 @@
       adequate       = function(dl) .rce_has_data(dl$emp_sel),
       message        = function(dl) {
         fc <- dl$fleet_control
-        fixed_flts <- fc[!is.na(fc$Selectivity) & fc$Selectivity == "Fixed",
-                         , drop = FALSE]
+        fixed_flts <- fc[.rce_is_fixed_sel(fc$Selectivity), , drop = FALSE]
         paste0(
           "Fleet(s) with Selectivity = 'Fixed' (",
           paste(fixed_flts$Fleet_name, collapse = ", "),

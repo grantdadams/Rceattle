@@ -16,6 +16,18 @@
 # same tokens as a switch-checked object.
 .RCE_FLEET_TYPE_LABEL <- c("0" = "Off", "1" = "Fishery", "2" = "Survey")
 
+# Tag a data list so print()/summary() render the spec tree instead of dumping
+# the ~40-element list. Applied by every constructor (build_data, read_data,
+# clean_data, combine_data) so the tag survives a write_data()/read_data()
+# round-trip. Idempotent, and inert: the object is still a plain list to every
+# consumer, and the tag is dropped before anything reaches TMB::MakeADFun(), so
+# it cannot change a fit.
+.rce_as_data <- function(dl) {
+  if (!is.list(dl)) return(dl)
+  class(dl) <- unique(c("Rceattle_data", class(dl)))
+  dl
+}
+
 # Show a switch value by its string alias, so the tree reads the same regardless of
 # the underlying integer code (and keeps meaning if a code is ever renumbered). `map`
 # is a name(string) -> integer vector; `x` may be strings (kept as-is) or integers
@@ -41,10 +53,11 @@
 #'
 #' @param dl A data list (from build_data()/read_data(), or a fitted model's
 #'   `$data_list`).
+#' @param config Append the attached [model_config()] block, when present.
 #' @return A character vector, one element per line (invisibly printable).
 #' @keywords internal
 #' @noRd
-.rce_spec_tree <- function(dl) {
+.rce_spec_tree <- function(dl, config = TRUE) {
   `%||%` <- function(a, b) if (is.null(a)) b else a
 
   # Normalise switches to their canonical string forms so the tree is readable
@@ -173,7 +186,7 @@
   # ---- model_config ---------------------------------------------------------
   # msmMode / initMode / HCR are aliased for the same reason as the processes above.
   cfg <- dl2$model_config
-  if (!is.null(cfg)) {
+  if (isTRUE(config) && !is.null(cfg)) {
     add("  model_config : msmMode ",
         if (!is.null(cfg$msmMode)) .rce_alias_show(cfg$msmMode, msmMode_map) else "?",
         " \u00b7 initMode ",
@@ -191,13 +204,19 @@
 #' linkages, and any attached [model_config()] -- rather than dumping the full
 #' data list.
 #'
+#' `print()` includes the configuration block; `summary()` omits it and reports
+#' the data structure alone. Either can be overridden with `config`.
+#'
 #' @param x An `"Rceattle_data"` object from [build_data()].
+#' @param config Show the attached [model_config()] block. Defaults to `TRUE`
+#'   for `print()` and `FALSE` for `summary()`. Has no effect on an object that
+#'   carries no configuration.
 #' @param ... Currently unused.
 #' @return `x`, invisibly.
 #' @export
-print.Rceattle_data <- function(x, ...) {
+print.Rceattle_data <- function(x, config = TRUE, ...) {
   cat("<Rceattle data>\n")
-  tree <- tryCatch(.rce_spec_tree(x),
+  tree <- tryCatch(.rce_spec_tree(x, config = config),
                    error = function(e) paste0("  (spec tree unavailable: ",
                                               conditionMessage(e), ")"))
   cat(paste(tree, collapse = "\n"), "\n", sep = "")
@@ -207,7 +226,9 @@ print.Rceattle_data <- function(x, ...) {
 #' @rdname print.Rceattle_data
 #' @param object An `"Rceattle_data"` object.
 #' @export
-summary.Rceattle_data <- function(object, ...) {
-  print(object, ...)
+summary.Rceattle_data <- function(object, config = FALSE, ...) {
+  # Forward `config` explicitly: it is matched by this method's own formal, so
+  # it never reaches `...` and print() would otherwise fall back to its default.
+  print(object, config = config, ...)
   invisible(object)
 }

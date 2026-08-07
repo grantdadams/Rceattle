@@ -158,3 +158,17 @@ testthat::test_that("an explicit by = ~ species on a fleet process survives the 
   sp2 <- Rceattle::load_config(f2)$model_config$qFun$linkages$q
   testthat::expect_identical(all.vars(sp2$by), "fleet")
 })
+
+testthat::test_that("run_config() rejects an unrecognised field name", {
+  mc <- model_config(msmMode = 1)
+  # The realistic mistake: an optimizer knob that belongs in fit_control().
+  testthat::expect_error(run_config(mc, getsd = FALSE), "Unrecognised")
+  testthat::expect_error(run_config(mc, getsd = FALSE), "fit_control")
+  # Names are validated, values are not -- fit_mod() checks those.
+  testthat::expect_no_error(run_config(mc, estimateMode = 9))
+  testthat::expect_identical(run_config(mc, estimateMode = 1)$estimateMode, 1)
+  # Clearing a field must not make it unrecognisable afterwards: assigning NULL
+  # drops the element, so validating against names(rc) would reject this.
+  cleared <- run_config(mc, suit_styr = NULL)
+  testthat::expect_identical(run_config(cleared, suit_styr = 1990)$suit_styr, 1990)
+})

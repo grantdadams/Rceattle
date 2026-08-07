@@ -32,9 +32,9 @@
 #' @param selectivity Optional character vector of per-fleet selectivity forms
 #'   (used only when `data_list` is `NULL`) so the `emp_sel` requirement
 #'   (`Selectivity = "Fixed"`) can be evaluated.
-#' @param index_loglike Optional character vector of per-fleet index likelihoods
-#'   (used only when `data_list` is `NULL`) so the `index_cov` requirement
-#'   (`"MVN"`) can be evaluated.
+#' @param index_distribution Optional character vector of per-fleet index
+#'   likelihood families (used only when `data_list` is `NULL`) so the
+#'   `index_cov` requirement (`Index_distribution = "MVN"`) can be evaluated.
 #' @param Ceq Optional per-species consumption-equation codes (used only when
 #'   `data_list` is `NULL`); `> 1` requires an environmental temperature index.
 #'
@@ -64,7 +64,7 @@
 #' @export
 data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
                               estDynamics = 0, selectivity = NULL,
-                              index_loglike = NULL, Ceq = NULL) {
+                              index_distribution = NULL, Ceq = NULL) {
 
   `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -77,15 +77,15 @@ data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
     )
   } else {
     fc <- NULL
-    if (!is.null(selectivity) || !is.null(index_loglike)) {
-      n <- max(length(selectivity), length(index_loglike), 1L)
+    if (!is.null(selectivity) || !is.null(index_distribution)) {
+      n <- max(length(selectivity), length(index_distribution), 1L)
       fc <- data.frame(
         Fleet_name    = paste0("Fleet_", seq_len(n)),
         Fleet_code    = seq_len(n),
         Selectivity   = if (is.null(selectivity)) NA_character_
                         else rep_len(as.character(selectivity), n),
-        Index_distribution = if (is.null(index_loglike)) "Lognormal"
-                        else rep_len(as.character(index_loglike), n),
+        Index_distribution = if (is.null(index_distribution)) "Lognormal"
+                        else rep_len(as.character(index_distribution), n),
         stringsAsFactors = FALSE
       )
     }
@@ -95,6 +95,10 @@ data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
       fleet_control = fc, nspp = 1L
     )
   }
+
+  # Let an attached model_config() supply the switches, as fit_mod() does, so
+  # this report and print(dl) describe the same model.
+  dl <- .rce_classify_view(dl)
 
   # Explicitly-supplied switch arguments override whatever the data list stored,
   # matching fit_mod()'s "arg overrides the data slot" precedence -- so a user

@@ -310,12 +310,24 @@ fit_mod <-
       if (missing(compFun)   && !is.null(cfg$compFun))   compFun   <- cfg$compFun
     }
 
+    # Validate the mode switches HERE, before any work happens. model_config()
+    # re-checks them when the run configuration is recorded, but that call runs
+    # after the optimization and sdreport -- a throw there would discard a
+    # converged fit over a typo in an argument the model never reads.
+    .check_switch(initMode, initMode_map, "initMode")
+    .check_switch(suitMode, suitMode_map, "suitMode")
+    if (!is.null(avgnMode) && length(avgnMode) &&
+        !all(is.na(avgnMode) | avgnMode %in% 0:2)) {
+      stop("`avgnMode` must be 0, 1, or 2 (only 0 is implemented).", call. = FALSE)
+    }
+
     # Resolve string aliases for the model-mode switches (e.g. "Hindcast" -> 1,
     # "SingleSpecies" -> 0); integers pass through unchanged and an unknown string
     # errors clearly. Done here, after the config overlay, so every downstream
     # integer test on estimateMode / msmMode still applies.
     estimateMode <- .map_switch(estimateMode, estimateMode_map, "estimateMode")
     msmMode      <- .map_switch(msmMode,      msmMode_map,      "msmMode")
+    .check_switch(msmMode, msmMode_map, "msmMode")
 
     # Add switches from function call
     data_list$random_rec  <- as.numeric(random_rec)
@@ -1223,14 +1235,23 @@ fit_mod <-
     # Record the resolved run configuration so save_config(fit) / run_config(fit)
     # reproduce this fit without re-deriving it. Built from the arguments as
     # actually used (after any config= / model_config overlay).
-    mod_objects$run_config <- .rce_run_config(
-      mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
-                        suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
-                        M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
-                        selFun = selFun, compFun = compFun),
-      estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
-      random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
-      fc = fit_control)
+    # Recording the configuration must never cost the caller a converged fit:
+    # this runs after the optimization and sdreport, so a failure here is
+    # reported and the run_config dropped, not raised.
+    mod_objects$run_config <- tryCatch(
+      .rce_run_config(
+        mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
+                          suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
+                          M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
+                          selFun = selFun, compFun = compFun),
+        estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
+        random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
+        fc = fit_control),
+      error = function(e) {
+        warning("Could not record the run configuration on this fit: ",
+                conditionMessage(e), call. = FALSE)
+        NULL
+      })
 
     if (estimateMode < 3) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F

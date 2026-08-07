@@ -354,8 +354,22 @@ run_config <- function(x, ...) {
       rc <- .rce_run_config(mc = mc, estimateMode = dl$estimateMode %||% 0)
     }
   }
-  # Apply any explicit overrides.
-  for (nm in intersect(names(ov), names(rc))) rc[[nm]] <- ov[[nm]]
+  # Apply any explicit overrides. Validate the NAMES against the fixed field set
+  # rather than names(rc): assigning NULL drops an element, so a config that has
+  # already had a field cleared would otherwise reject a later legitimate
+  # override of it. Values are not validated here -- fit_mod() does that.
+  valid <- c("model_config", names(.RCE_RUN_ESTIMATION_FIELDS), "fit_control")
+  if (length(ov) && (is.null(names(ov)) || any(!nzchar(names(ov))))) {
+    stop("All `...` arguments to run_config() must be named.", call. = FALSE)
+  }
+  bad <- setdiff(names(ov), valid)
+  if (length(bad)) {
+    stop("Unrecognised run_config() field(s): ", paste(bad, collapse = ", "),
+         ".\nValid fields: ", paste(valid, collapse = ", "),
+         ".\n(Optimizer and uncertainty settings go inside fit_control().)",
+         call. = FALSE)
+  }
+  for (nm in names(ov)) rc[[nm]] <- ov[[nm]]
   rc
 }
 

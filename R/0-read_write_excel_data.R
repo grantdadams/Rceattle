@@ -620,5 +620,5 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   # aliases were already upgraded above.
   data_list <- .rce_upgrade_data_list_aliases(data_list)
 
-  return(data_list)
+  return(.rce_as_data(data_list))
 }

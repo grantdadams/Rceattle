@@ -43,9 +43,9 @@ testthat::test_that("conditional requirements respond to the switches", {
   testthat::expect_identical(r$status[r$element == "emp_sel"], "Ignored")
 
   # MVN index -> index_cov Required; else Ignored
-  r <- data_requirements(index_loglike = c("Lognormal", "MVN"))
+  r <- data_requirements(index_distribution = c("Lognormal", "MVN"))
   testthat::expect_identical(r$status[r$element == "index_cov"], "Required")
-  r <- data_requirements(index_loglike = c("Lognormal", "Lognormal"))
+  r <- data_requirements(index_distribution = c("Lognormal", "Lognormal"))
   testthat::expect_identical(r$status[r$element == "index_cov"], "Ignored")
 
   # Ceq > 1 -> env_data Required; else Optional
@@ -86,4 +86,57 @@ testthat::test_that("accepts a real (bundled) data list", {
   st0 <- setNames(r0$status, r0$element)
   testthat::expect_identical(unname(st0["diet_data"]), "Ignored")
   testthat::expect_identical(unname(st0["bioenergetics"]), "Ignored")
+})
+
+testthat::test_that("an attached model_config() drives the requirement report", {
+  testthat::skip_if_not_installed("Rceattle")
+  # fit_mod() resolves model_config onto the data list, so data_requirements()
+  # and print() must describe the same model. The stored slot must DISAGREE with
+  # the config for this to test anything -- BS2017MS already stores msmMode = 1,
+  # so start from a copy that stores 0 and attach a multispecies config.
+  base <- BS2017MS
+  base$msmMode <- 0
+  dm <- suppressWarnings(suppressMessages(
+    build_data(base = base, model_config = model_config(msmMode = 1),
+               .check = FALSE)))
+  st <- setNames(data_requirements(dm)$status, data_requirements(dm)$element)
+  testthat::expect_identical(unname(st["diet_data"]), "Required")
+
+  # Without the config the same object classifies single-species, which is what
+  # made the report disagree with print() before.
+  d0 <- suppressWarnings(suppressMessages(build_data(base = base, .check = FALSE)))
+  s0 <- setNames(data_requirements(d0)$status, data_requirements(d0)$element)
+  testthat::expect_identical(unname(s0["diet_data"]), "Ignored")
+
+  # An explicit argument still wins over the stored configuration.
+  r0 <- data_requirements(dm, msmMode = 0)
+  testthat::expect_identical(r0$status[r0$element == "diet_data"], "Ignored")
+})
+
+testthat::test_that("a malformed model_config slot does not crash classification", {
+  testthat::skip_if_not_installed("Rceattle")
+  # build_data() does not type-check the override, so an atomic can reach the
+  # classifier; it must fall back to the top-level switches, not abort.
+  testthat::expect_no_error(
+    data_requirements(list(model_config = 5, nspp = 1L, msmMode = 0)))
+  testthat::expect_no_error(
+    data_requirements(list(model_config = "a", nspp = 1L, msmMode = 0)))
+})
+
+testthat::test_that("an integer-coded fleet_control classifies like the string form", {
+  testthat::skip_if_not_installed("Rceattle")
+  # switch_check() turns Selectivity 0 into "Fixed", but build_data()'s
+  # pre-check runs before it, so the predicate has to accept the raw code.
+  testthat::expect_true(all(.rce_is_fixed_sel(c(0, "0", "0.000000000", "Fixed"))))
+  testthat::expect_false(any(.rce_is_fixed_sel(c(1, "Logistic", NA))))
+
+  fc <- data.frame(Fleet_name = c("a", "b"), Fleet_code = 1:2,
+                   Selectivity = c(0, 1), stringsAsFactors = FALSE)
+  r <- data_requirements(list(fleet_control = fc, nspp = 1L, msmMode = 0))
+  testthat::expect_identical(r$status[r$element == "emp_sel"], "Required")
+
+  # ...and the pre-check trips on it too, naming the offending fleet.
+  testthat::expect_error(
+    .rce_build_precheck(list(fleet_control = fc, nspp = 1L, msmMode = 0)),
+    "emp_sel")
 })

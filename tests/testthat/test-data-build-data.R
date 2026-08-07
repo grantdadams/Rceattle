@@ -1,13 +1,25 @@
 # build_data() -- the code-first data-list constructor. Fast unit behaviour is
 # unguarded; the golden-equivalence fit is skipped on CRAN.
 
-testthat::test_that("base + no overrides equals clean_data(base) (up to the class tag)", {
+testthat::test_that("base + no overrides equals clean_data(base)", {
   testthat::skip_if_not_installed("Rceattle")
   a <- suppressWarnings(suppressMessages(build_data(base = BS2017SS, .check = FALSE)))
   b <- suppressWarnings(suppressMessages(Rceattle::clean_data(BS2017SS)))
-  # build_data tags the object "Rceattle_data"; content is otherwise identical.
+  # Both constructors tag the object "Rceattle_data"; content is identical too.
   testthat::expect_s3_class(a, "Rceattle_data")
-  testthat::expect_identical(unclass(a), b)
+  testthat::expect_s3_class(b, "Rceattle_data")
+  testthat::expect_identical(unclass(a), unclass(b))
+})
+
+testthat::test_that("every data-list constructor carries the class tag", {
+  testthat::skip_if_not_installed("Rceattle")
+  cleaned <- suppressWarnings(suppressMessages(Rceattle::clean_data(BS2017SS)))
+  testthat::expect_s3_class(cleaned, "Rceattle_data")
+  # Idempotent -- re-cleaning must not stack the class.
+  recleaned <- suppressWarnings(suppressMessages(Rceattle::clean_data(cleaned)))
+  testthat::expect_identical(class(recleaned), class(cleaned))
+  # Inert: still a plain list to every consumer.
+  testthat::expect_true(is.list(cleaned))
 })
 
 testthat::test_that("print/summary render an Rceattle_data spec tree", {
@@ -17,8 +29,24 @@ testthat::test_that("print/summary render an Rceattle_data spec tree", {
   testthat::expect_true(any(grepl("<Rceattle data>", out)))
   testthat::expect_true(any(grepl("dimensions", out)))
   testthat::expect_true(any(grepl("fleets", out)))
-  # summary() delegates to print().
+  # With no model_config attached the two methods agree.
   testthat::expect_identical(utils::capture.output(summary(d)), out)
+})
+
+testthat::test_that("summary() omits the model_config block that print() shows", {
+  testthat::skip_if_not_installed("Rceattle")
+  d <- suppressWarnings(suppressMessages(
+    build_data(base = BS2017SS, model_config = model_config(msmMode = 0),
+               .check = FALSE)))
+  p <- utils::capture.output(print(d))
+  s <- utils::capture.output(summary(d))
+  testthat::expect_true(any(grepl("model_config", p)))
+  testthat::expect_false(any(grepl("model_config", s)))
+  # The configuration block is the ONLY difference.
+  testthat::expect_identical(s, p[!grepl("model_config", p)])
+  # Both defaults are overridable.
+  testthat::expect_identical(utils::capture.output(summary(d, config = TRUE)), p)
+  testthat::expect_identical(utils::capture.output(print(d, config = FALSE)), s)
 })
 
 testthat::test_that("named overrides are applied", {

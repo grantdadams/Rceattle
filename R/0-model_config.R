@@ -83,6 +83,19 @@ model_config <- function(msmMode = 0,
   if (length(niter) != 1 || !is.numeric(niter) || niter < 1) {
     stop("`niter` must be a single positive integer.", call. = FALSE)
   }
+  # Catch a mistyped switch here, at the point it was written, rather than
+  # several functions later inside fit_mod(). Values are checked against the
+  # switch maps but not converted -- the config records what the caller wrote.
+  # suitMode is legitimately per-species, so these accept vectors.
+  .check_switch(msmMode,  msmMode_map,  "msmMode")
+  .check_switch(initMode, initMode_map, "initMode")
+  .check_switch(suitMode, suitMode_map, "suitMode")
+  # avgnMode has no string aliases -- it is inert in the C++ (only 0 is
+  # implemented), so there is nothing to name.
+  if (!is.null(avgnMode) && length(avgnMode) &&
+      !all(is.na(avgnMode) | avgnMode %in% 0:2)) {
+    stop("`avgnMode` must be 0, 1, or 2 (only 0 is implemented).", call. = FALSE)
+  }
 
   cfg <- list(
     msmMode   = msmMode,

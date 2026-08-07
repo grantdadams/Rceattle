@@ -160,7 +160,7 @@
     .rce_col("Index_sd", "fleet_control", "Starting value to be used if \"Estimate_index_sd\" = 1", aliases = c("Survey_sd_prior", "Index_sd_prior")),
     .rce_col("Estimate_catch_sd", "fleet_control", "0 = use input \"Log_sd\" from catch_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map"),
     .rce_col("Catch_sd", "fleet_control", "Starting value to be used if Estimate_catch_sd = 1", aliases = "Catch_sd_prior"),
-    .rce_col("Index_distribution", "fleet_control", "Survey/index biomass observation likelihood family. 0 or \"Lognormal\" (default) = independent lognormal; \"MVN\"/\"MVNORM\" use a multivariate normal with a user-supplied covariance in index_cov.", type = "switch", allowed = "index_loglike_map", meta = TRUE, has_default = TRUE, default = "Lognormal", aliases = "Index_loglike"),
+    .rce_col("Index_distribution", "fleet_control", "Survey/index biomass observation likelihood family. 0 or \"Lognormal\" (default) = independent lognormal; \"MVN\"/\"MVNORM\" use a multivariate normal with a user-supplied covariance in index_cov.", type = "switch", allowed = "index_distribution_map", meta = TRUE, has_default = TRUE, default = "Lognormal", aliases = "Index_loglike"),
     .rce_col("Month", "fleet_control", "Observation month for the fleet (0 = not specified).", type = "integer", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Month' not specified in 'fleet_control', assuming 0"),
     .rce_col("Proj_F_proportion", "fleet_control", "The proportion of future fishing mortality assigned to this fleet", aliases = "proj_F_prop"),
 

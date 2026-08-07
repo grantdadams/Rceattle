@@ -227,7 +227,7 @@ clean_data <- function(data_list){
       dplyr::arrange(stomach_id)
   }
 
-  return(data_list)
+  return(.rce_as_data(data_list))
 }
 
 

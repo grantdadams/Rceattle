@@ -141,7 +141,7 @@ diet_loglike_map <- c(
 #               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
 #               cpue_like. No lognormal bias correction; pair with a solved q
 #               (Analytical / AnalyticalArith) or an estimated q as needed.
-index_loglike_map <- c(
+index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
   "MVNORM" = 2,
@@ -212,6 +212,33 @@ estDynamics_map <- c(
   "FixedScaled"      = 2,
   "FixedScaledByAge" = 3
 )
+
+# Validate a switch value against its map WITHOUT converting it, so a typo is
+# reported where it was written rather than several functions later.
+#
+# model_config() stores what the caller wrote, and fit_mod() rebuilds a
+# model_config() from already-resolved values after the fit completes. This must
+# therefore accept every legal form: the canonical string, the integer code,
+# either as a per-species vector, and NULL/NA for an unset switch. Anything
+# stricter would throw on a finished fit and discard it.
+.check_switch <- function(x, map, name) {
+  if (is.null(x) || !length(x)) return(invisible(x))
+  vals <- as.character(x[!is.na(x)])
+  if (!length(vals)) return(invisible(x))
+  # Treat 2, 2L and "2" alike: normalise anything numeric-looking to its
+  # canonical numeric string before matching.
+  num <- suppressWarnings(as.numeric(vals))
+  vals[!is.na(num)] <- as.character(num[!is.na(num)])
+  bad <- unique(vals[!vals %in% c(names(map), as.character(as.numeric(map)))])
+  if (length(bad)) {
+    stop(sprintf(
+      "Invalid `%s` value(s): %s.\nUse one of: %s (or the integer codes %s).",
+      name, paste(bad, collapse = ", "),
+      paste(names(map), collapse = ", "),
+      paste(unname(map), collapse = ", ")), call. = FALSE)
+  }
+  invisible(x)
+}
 
 # Apply a string->integer switch map to a (possibly character) switch value,
 # passing integers through unchanged and erroring clearly on an unknown string.
@@ -688,7 +715,7 @@ revert_switches <- function(data_list) {
       Catchability = .conv(.data$Catchability, q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
-      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
+      Index_distribution = .conv(.data$Index_distribution, index_distribution_map)
     )
 
   # Time_varying_q doubles as an environmental-index column when Catchability
@@ -739,7 +766,7 @@ validate_switches <- function(data_list = NULL){
     dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_index_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_loglike_map, names(index_loglike_map)))
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
 
   # Throw clear errors to guide the user
   if(nrow(invalid_flt_type) > 0) {
@@ -794,8 +821,8 @@ validate_switches <- function(data_list = NULL){
   if(nrow(invalid_index_ll) > 0) {
     errors <- c(errors, paste("Invalid 'Index_distribution' specified for fleets:",
                               paste(invalid_index_ll$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(index_loglike_map), collapse = ":")," or one of:",
-                              paste(names(index_loglike_map), collapse = ", ")))
+                              ".\nPlease use an integer code ", paste(range(index_distribution_map), collapse = ":")," or one of:",
+                              paste(names(index_distribution_map), collapse = ", ")))
   }
 
   # Validate pop dy controls ----
@@ -859,7 +886,7 @@ convert_switches <- function(data_list) {
       Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
-      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
+      Index_distribution = .conv(.data$Index_distribution, index_distribution_map)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
