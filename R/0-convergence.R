@@ -303,12 +303,17 @@
   dl <- object[["data_list"]]
   q  <- object[["quantities"]]
   if (is.null(dl) || is.null(q)) return(list())
-  # Keyed on srr_fun, the curve the hindcast is actually fit with. Under the
-  # Ianelli configuration (srr_fun = 0, srr_pred_fun > 0) recruitment is annual
-  # deviates about mean R and the reported steepness / R0 describe that, not the
-  # penalty curve, so there is nothing here to check.
-  srr_fun <- suppressWarnings(as.integer(dl[["srr_fun"]])[1])
-  if (is.na(srr_fun) || srr_fun < 2) return(list())
+  # Read the curve whose parameters are being estimated. Normally that is
+  # srr_fun, the curve the hindcast is fit with. Under the Ianelli
+  # configuration (srr_fun < 2 with srr_pred_fun > 1) the hindcast is annual
+  # deviates about mean recruitment and the curve enters as a penalty, but its
+  # alpha is still estimated and can still fall below the replacement line --
+  # so check srr_pred_fun there rather than skipping the fit.
+  srr_fun      <- suppressWarnings(as.integer(dl[["srr_fun"]])[1])
+  srr_pred_fun <- suppressWarnings(as.integer(dl[["srr_pred_fun"]])[1])
+  ianelli <- is.na(srr_fun) || srr_fun < 2
+  curve   <- if (ianelli) srr_pred_fun else srr_fun
+  if (is.na(curve) || curve < 2) return(list())
 
   # Both are [nspp, nyrs]; the stock-recruit curve is summarised by its first
   # year, so read column 1.
@@ -317,11 +322,15 @@
     if (is.matrix(x)) as.numeric(x[, 1]) else as.numeric(x)
   }
   h  <- suppressWarnings(col1(q[["steepness"]]))
-  r0 <- suppressWarnings(col1(q[["R0"]]))
+  # Under Ianelli the reported R0 is the mean-recruitment level, not the value
+  # the penalty curve implies, so it says nothing about that curve. Steepness
+  # is the complete test in any case: for Beverton-Holt,
+  # h = alpha*SPR0/(4 + alpha*SPR0), so alpha < 1/SPR0 is exactly h < 0.2.
+  r0 <- if (ianelli) numeric(0) else suppressWarnings(col1(q[["R0"]]))
   if (!length(h) && !length(r0)) return(list())
 
   bad_r0 <- which(is.finite(r0) & r0 <= 0)
-  bad_h  <- if (srr_fun %in% c(2L, 3L)) which(is.finite(h) & h < 0.2) else integer(0)
+  bad_h  <- if (curve %in% c(2L, 3L)) which(is.finite(h) & h < 0.2) else integer(0)
   if (!length(bad_r0) && !length(bad_h)) {
     return(list(stock_recruit = .conv_record(
       "stock_recruit", "fit", "OK",

@@ -1,3 +1,29 @@
+# Rceattle 4.9.1
+
+## Bug fixes
+
+* **The stock-recruit convergence check now runs under the Ianelli
+  configuration.** `.check_stock_recruit()` was keyed on `srr_fun`, so with
+  `srr_fun = 0` and `srr_pred_fun > 1` it returned no result at all -- the case
+  where 4.9.0 made \eqn{\alpha} estimable against a steepness prior, and so
+  exactly the case most in need of checking. It now reads `srr_pred_fun` there.
+  Steepness is the complete test: for Beverton-Holt
+  \eqn{h = \alpha \phi_0 / (4 + \alpha \phi_0)}, so \eqn{\alpha < 1/\phi_0} is
+  precisely \eqn{h < 0.2}. The reported \eqn{R_0} is not checked in that
+  configuration, because there it is the mean-recruitment level rather than a
+  value the penalty curve implies.
+
+* **`build_srr()` warns when a steepness is passed as `srr_est_mode = 0`'s
+  \eqn{\alpha}.** `srr_prior` means steepness for `srr_est_mode` 2 and 3 but
+  \eqn{\alpha} for mode 0. Since 4.9.0 fixes \eqn{\alpha} at that value under
+  the Ianelli configuration, a steepness supplied by mistake is now pinned
+  rather than merely used as a starting value, putting the curve under the
+  replacement line with a negative implied \eqn{R_0}. A Beverton-Holt
+  `srr_prior` in (0, 1) under mode 0 now warns and gives the conversion
+  \eqn{\alpha = 4h / (\phi_0 (1 - h))}. It warns rather than errors because
+  \eqn{1/\phi_0} is not known until the model is built, and a small
+  \eqn{\alpha} is legitimate for a stock with a large \eqn{\phi_0}.
+
 # Rceattle 4.9.0
 
 ## New features
@@ -56,12 +82,37 @@
   caller has already built parameters, so the message fired on the documented
   workflow and was not actionable.
 
+* **A prior on steepness is now applied under the Ianelli configuration.**
+  Steepness belongs to the stock-recruit curve, but it was only ever derived
+  inside the `switch(srr_fun)` block, so with `srr_fun = 0` and
+  `srr_pred_fun > 1` -- the AMAK/Ianelli setup, where the curve is estimated as a
+  recruitment penalty -- it stayed at the mean-recruitment constant 0.99. The
+  stock-recruit prior (`srr_est_mode` 2 or 3) is evaluated on steepness, so it
+  was being applied to a constant: no gradient, no effect on \eqn{\alpha}, and a
+  large fixed offset added to the objective. Steepness is now derived from the
+  penalty curve's \eqn{\alpha} in that configuration. \eqn{R_0} is deliberately
+  left alone, since recruitment there is \eqn{R_0 \exp(\mathrm{rec\_dev})}.
+
+  **This changes results for any model combining `srr_fun = 0`,
+  `srr_pred_fun` 2 / 3, and `srr_est_mode` 2 / 3** -- in the ecosystem that is
+  BSAI Atka mackerel (`srr_prior = 0.8`, `srr_prior_sd = 0.0001`), whose
+  steepness prior previously contributed a constant ~2.27e6 to the objective and
+  did nothing else. It now constrains \eqn{\alpha} as intended. Refit and expect
+  the reported objective to change substantially, mostly through the removal of
+  that offset. Models with `srr_est_mode = 1` (no prior) are unaffected, as are
+  models whose hindcast already uses the curve (`srr_fun > 1`), where steepness
+  was always derived.
+
 * **`srr_est_mode = 0` ("fix alpha to prior mean") now works for Beverton-Holt.**
   The gate in `fit_mod()` was Ricker-only, so a Beverton-Holt fit that supplied
   `inits` -- the normal warm-start workflow -- had \eqn{\alpha} mapped out by
   `build_map()` but never set to the prior mean, leaving it pinned at
   `build_params()`' placeholder \eqn{e^3}. `build_params()` and `fit_mod()` now
   share one rule (`.srr_prior_is_alpha()`) so the two paths cannot disagree.
+  `build_map()` now keys the \eqn{\alpha} mapping on `srr_pred_fun`, the curve
+  \eqn{\alpha} belongs to, so `srr_est_mode = 0` also fixes it under the Ianelli
+  configuration. \eqn{R_0} stays keyed on `srr_fun` and remains estimated there.
+  No model in the ecosystem currently uses `srr_est_mode = 0`.
 
 * **`build_srr()` validates the steepness prior instead of failing silently.**
   For a Beverton-Holt curve, `srr_est_mode` 2 and 3 put the prior on steepness,
