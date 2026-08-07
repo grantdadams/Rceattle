@@ -103,6 +103,23 @@ testthat::test_that("srr_est_mode = 0 fixes alpha to the prior mean for every cu
       unname(exp(mod$obj$env$parList()$rec_pars[1, 2])), alpha,
       info = paste0("srr_fun = ", fun))
   }
+
+  # Under the Ianelli configuration the curve is estimated as a recruitment
+  # penalty rather than driving the hindcast, but alpha is a free parameter of it
+  # just the same, so srr_est_mode = 0 must fix it there too. R0 stays estimated:
+  # recruitment is R0 * exp(rec_dev) in that configuration.
+  mod <- Rceattle::fit_mod(
+    data_list = dat, msmMode = 0,
+    recFun = Rceattle::build_srr(srr_fun = 0, srr_pred_fun = 2,
+                                 srr_est_mode = 0, srr_prior = alpha),
+    estimateMode = 3,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))
+  map_rec <- mod$map$mapList$rec_pars[1, ]
+  testthat::expect_true(is.na(map_rec[2]))    # alpha fixed
+  testthat::expect_false(is.na(map_rec[1]))   # R0 still estimated
+  testthat::expect_false(is.na(map_rec[3]))   # beta still estimated
+  testthat::expect_equal(
+    unname(exp(mod$obj$env$parList()$rec_pars[1, 2])), alpha)
 })
 
 testthat::test_that("build_srr() rejects an invalid steepness prior", {
