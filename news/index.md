@@ -105,21 +105,20 @@
   functions of the `data_list` / `HCR` and are re-applied on every
   refit, so no fit changes.
 
-- **`steepness` and `R0` are reported for every year, not just the
-  first.** Both are declared `[nspp, nyrs]` but only column 1 was ever
-  assigned, so `fit$quantities$steepness` was a value followed by
-  structural zeros, and under Beverton-Holt `fit$quantities$R0` reported
-  the curve-derived value in year 1 and the inert `exp(rec_pars)`
-  placeholder in every year after it – an apparent jump that was an
-  artefact of the reporting. Both are now filled from the per-year alpha
-  and beta, which also generalizes to a time-varying recruitment
-  linkage. Column 1 is unchanged in every case, so the common
-  `quantities$R0[sp]` linear index returns exactly what it did before.
-  Two deliberate exceptions: the Ianelli penalty configuration
-  (`srr_fun = 0` with `srr_pred_fun > 0`) keeps `R0`’s `exp(rec_pars)`
-  values, which recruitment genuinely uses; and Ricker’s `R0` stays
-  year-0-only because its intercept needs `posfun()`, which accumulates
-  into the objective.
+- **`steepness` is reported for every year, not just the first.** It is
+  declared `[nspp, nyrs]` but only column 1 was ever assigned, so
+  `fit$quantities$steepness` was a value followed by structural zeros.
+  It is now filled from the per-year alpha, which also generalizes to a
+  time-varying recruitment linkage.
+
+  `R0` is deliberately left as it was – column 1 carries the
+  curve-derived value under Beverton-Holt and the later columns the
+  `exp(rec_pars)` level. Filling it per-year makes `R0` an AD function
+  of alpha and beta across the whole series, which feeds the
+  reference-point and projection recruitment calls and costs roughly 6x
+  in fit time (a random-effects fit on a 30-year, 12-age model went from
+  14 s to 91 s, with an identical objective) for a quantity that
+  Beverton-Holt recruitment does not use.
 
 - **New `stock_recruit` convergence check.** Rceattle parameterizes
   Beverton-Holt by and and derives steepness as , with no lower bound –
