@@ -49,7 +49,7 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
   peak        <- 8
   sigma_asc   <- 3
   sigma_desc  <- 6
-  logit_floor <- -10  # right_floor ≈ 0 → fully dome-shaped
+  logit_floor <- -10  # right_floor ~ 0 -> fully dome-shaped
   ages        <- 1:21
   expected    <- double_normal_sel(ages, peak, sigma_asc, sigma_desc, logit_floor)
 
@@ -111,7 +111,7 @@ testthat::test_that("Age-based double-normal: logit_floor=+10 produces near-logi
   peak        <- 8
   sigma_asc   <- 3
   sigma_desc  <- 6
-  logit_floor <- 10  # right_floor ≈ 1 → descending side flat at 1 (logistic)
+  logit_floor <- 10  # right_floor ~ 1 -> descending side flat at 1 (logistic)
   ages        <- 1:21
   expected    <- double_normal_sel(ages, peak, sigma_asc, sigma_desc, logit_floor)
 
