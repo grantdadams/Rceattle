@@ -18,11 +18,13 @@ Invisibly, either:
 when the fit contains a DSEM. \code{coefficients} is a data.frame of path
 coefficients with columns \code{path}, \code{lag}, \code{name},
 \code{start}, \code{parameter}, \code{first}, \code{second},
-\code{direction}, \code{Estimate}, and — when \code{sdrep} is available —
-\code{Std_Error}, \code{z_value}, \code{p_value}. \code{recruitment_sd}
-has one row per species with columns \code{Species}, \code{R_sd},
-\code{Estimated} (whether it was estimated rather than fixed), and
-\code{Std_Error} when available; or
+\code{direction}, \code{Estimate}, \code{Std_Error}, \code{z_value} and
+\code{p_value}. The last three are \code{NA} when the fit carries no
+\code{sdreport}, but the columns are always present so that tables from
+several fits can be row-bound. \code{recruitment_sd} has one row per
+species with columns \code{Species}, \code{R_sd}, \code{Estimated}
+(whether it was estimated rather than fixed) and \code{Std_Error}
+(\code{NA} for a fixed SD); or
 \item the input \code{object}, when no DSEM is attached.
 }
 }
@@ -34,3 +36,20 @@ errors, z-values and Wald p-values when an \code{sdreport} is available — plus
 per-species recruitment SD. Adapted from \code{summary.dsem}; see
 \code{?dsem::summary.dsem} for the underlying parameterization.
 }
+\section{Reading the variance rows}{
+
+Two-headed (\code{<->}) paths are variance parameters, and their reported
+statistics follow \code{summary.dsem} rather than being rewritten here. Two
+consequences are worth knowing when quoting these tables:
+\itemize{
+\item Their sign is not identified — the model uses \eqn{|beta_z|} (the C++
+takes \code{sqrt(square(.))}), so a variance row's \code{Estimate} may
+appear negative while \code{recruitment_sd$R_sd} reports the same
+quantity as positive. Compare magnitudes, not signs.
+\item \code{z_value} / \code{p_value} on a variance are a test against a
+boundary of the parameter space, so the usual Wald interpretation does not
+apply; they are typically extreme regardless of evidence. Do not read a
+small p-value on a \code{<->} row as support for that variance term.
+}
+}
+

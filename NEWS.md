@@ -1,3 +1,17 @@
+# Rceattle 5.5.0
+
+## New features
+
+* **`summary()` reports DSEM path coefficients and the recruitment SD.** When a
+  fit carries a dynamic structural equation model on recruitment deviations,
+  `summary()` now returns a list with `coefficients` -- one row per SEM path,
+  with `Estimate`, `Std_Error`, `z_value` and `p_value` -- and `recruitment_sd`,
+  one row per species giving the SD the model used, whether it was estimated or
+  fixed, and its standard error. `Std_Error` / `z_value` / `p_value` are always
+  present, `NA` when the fit carries no `sdreport`, so tables from several fits
+  can be row-bound. Fits without a DSEM are unaffected: `summary()` prints the
+  model overview and returns the fit invisibly, exactly as before.
+
 # Rceattle 5.4.0
 
 ## New features

@@ -81,12 +81,29 @@ print.Rceattle <- function(x, ...) {
 #'     when the fit contains a DSEM. \code{coefficients} is a data.frame of path
 #'     coefficients with columns \code{path}, \code{lag}, \code{name},
 #'     \code{start}, \code{parameter}, \code{first}, \code{second},
-#'     \code{direction}, \code{Estimate}, and — when \code{sdrep} is available —
-#'     \code{Std_Error}, \code{z_value}, \code{p_value}. \code{recruitment_sd}
-#'     has one row per species with columns \code{Species}, \code{R_sd},
-#'     \code{Estimated} (whether it was estimated rather than fixed), and
-#'     \code{Std_Error} when available; or
+#'     \code{direction}, \code{Estimate}, \code{Std_Error}, \code{z_value} and
+#'     \code{p_value}. The last three are \code{NA} when the fit carries no
+#'     \code{sdreport}, but the columns are always present so that tables from
+#'     several fits can be row-bound. \code{recruitment_sd} has one row per
+#'     species with columns \code{Species}, \code{R_sd}, \code{Estimated}
+#'     (whether it was estimated rather than fixed) and \code{Std_Error}
+#'     (\code{NA} for a fixed SD); or
 #'   \item the input \code{object}, when no DSEM is attached.
+#' }
+#'
+#' @section Reading the variance rows:
+#' Two-headed (\code{<->}) paths are variance parameters, and their reported
+#' statistics follow `summary.dsem` rather than being rewritten here. Two
+#' consequences are worth knowing when quoting these tables:
+#' \itemize{
+#'   \item Their sign is not identified — the model uses \eqn{|beta_z|} (the C++
+#'     takes \code{sqrt(square(.))}), so a variance row's \code{Estimate} may
+#'     appear negative while \code{recruitment_sd$R_sd} reports the same
+#'     quantity as positive. Compare magnitudes, not signs.
+#'   \item \code{z_value} / \code{p_value} on a variance are a test against a
+#'     boundary of the parameter space, so the usual Wald interpretation does not
+#'     apply; they are typically extreme regardless of evidence. Do not read a
+#'     small p-value on a \code{<->} row as support for that variance term.
 #' }
 #'
 #' @export
@@ -102,26 +119,44 @@ summary.Rceattle <- function(object, ...) {
     return(invisible(object))
   }
 
-  model  <- object$dsem$sem_full
+  # sem_full is a data.frame from dsem::dsem(); as.data.frame() keeps it one if a
+  # future dsem returns a matrix, whose columns would otherwise all coerce to
+  # character and silently change every downstream column's type.
+  model  <- as.data.frame(object$dsem$sem_full, stringsAsFactors = FALSE)
   beta_z <- object$estimated_params$beta_z
+  par_idx <- as.numeric(model[, "parameter"])
 
   # sem_full$parameter is a 1-based index into beta_z, or 0 for a path fixed at
-  # its start value. Prepending NA lets index 0 select it, and the start value
-  # then replaces it.
-  coefs <- data.frame(
-    model,
-    Estimate = c(NA, beta_z)[as.numeric(model[, "parameter"]) + 1]
-  )
-  coefs$Estimate <- ifelse(is.na(coefs$Estimate),
-                           as.numeric(model[, 4]),
-                           coefs$Estimate)
+  # its start value. Refuse to guess if beta_z is missing or too short: without
+  # it every estimate silently falls back to its start value, which looks like a
+  # converged table of zeros rather than an error.
+  if (is.null(beta_z)) {
+    stop("The fit has no estimated_params$beta_z, so DSEM path coefficients ",
+         "cannot be reported. Was this fit produced with a `dsem` argument?")
+  }
+  if (length(beta_z) < max(par_idx, 0, na.rm = TRUE)) {
+    stop("estimated_params$beta_z has ", length(beta_z), " entries but the SEM ",
+         "references parameter index ", max(par_idx, na.rm = TRUE), ".")
+  }
 
+  # Prepending NA lets index 0 select it; the start value then replaces it.
+  # Keyed on `parameter == 0` rather than is.na(Estimate): is.na(NaN) is TRUE, so
+  # testing the estimate would rewrite a path whose MLE came back NaN (diverged
+  # fit, non-PD Hessian) into its start value and report it as if it were fixed.
+  coefs <- data.frame(model, Estimate = c(NA, beta_z)[par_idx + 1])
+  fixed_path <- !is.na(par_idx) & par_idx == 0
+  coefs$Estimate[fixed_path] <- as.numeric(model[, "start"])[fixed_path]
+
+  # Std_Error / z_value / p_value are always present, NA when no sdreport was
+  # run. Making them conditional changes the column count between fits, and the
+  # consumer scripts rbind() several models' tables together.
+  coefs$Std_Error <- NA_real_
   if (!is.null(object$sdrep)) {
     SE <- as.list(object$sdrep, report = FALSE, what = "Std. Error")
-    coefs$Std_Error <- c(NA, SE$beta_z)[as.numeric(model[, "parameter"]) + 1]
-    coefs$z_value   <- coefs$Estimate / coefs$Std_Error
-    coefs$p_value   <- stats::pnorm(-abs(coefs$z_value)) * 2
+    if (!is.null(SE$beta_z)) coefs$Std_Error <- c(NA, SE$beta_z)[par_idx + 1]
   }
+  coefs$z_value <- coefs$Estimate / coefs$Std_Error
+  coefs$p_value <- stats::pnorm(-abs(coefs$z_value)) * 2
 
   # Drop paths whose beta_z entry is mapped off. The map is indexed by beta_z
   # entry while coefs is indexed by sem row; those coincide only when every sem
@@ -199,13 +234,12 @@ summary.Rceattle <- function(object, ...) {
     }, logical(1))
   }
 
-  out <- data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
-                    stringsAsFactors = FALSE)
-  if (any(!is.na(se))) {
-    se[!estimated] <- NA_real_   # fixed SDs carry no estimation uncertainty
-    out$Std_Error <- se
-  }
-  out
+  # Fixed SDs carry no estimation uncertainty. Mask first, then attach the column
+  # unconditionally: testing any(!is.na(se)) beforehand made the column's very
+  # presence depend on the fit, which destabilizes downstream rbind()s.
+  se[!estimated] <- NA_real_
+  data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
+             Std_Error = se, stringsAsFactors = FALSE)
 }
 
 
