@@ -4,7 +4,12 @@
 \alias{build_DSEM}
 \title{Function to fit a dynamic structural equation model related to recruitment}
 \usage{
-build_DSEM(sem = NULL, family = "fixed", estimate_projection = FALSE)
+build_DSEM(
+  sem = NULL,
+  family = "fixed",
+  sigmaR_prior_sd = NA,
+  estimate_projection = FALSE
+)
 }
 \arguments{
 \item{sem}{Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.}
@@ -25,6 +30,15 @@ objects that \code{dsem::dsem} (>= 3.0.0) expects. You may also pass
 SD): a single object is recycled across env variables, and a vector or list
 mixing strings and objects is matched to env variables by name when named,
 otherwise by position.}
+
+\item{sigmaR_prior_sd}{Optional log-scale SD of a lognormal prior placed on
+each species' estimated recruitment SD, centered at the assessment value
+\code{data_list$sigma_rec_prior}. Default \code{NA} = no prior (recruitment
+SD estimated freely). Supplying a finite value (e.g. 0.5--1) regularizes the
+recruitment SD away from the \eqn{1/\sigma_R^2} collapse that occurs when
+environmental covariates over-explain the recruitment deviations, while
+still estimating it. The prior applies only where the SD is estimated (it is
+ignored for species whose SD is fixed in the \code{sem}).}
 
 \item{estimate_projection}{latent variables for projection time period are turned off. Default = FALSE.}
 }

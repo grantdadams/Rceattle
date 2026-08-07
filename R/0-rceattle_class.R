@@ -65,13 +65,147 @@ print.Rceattle <- function(x, ...) {
 
 #' Compact summary method for Rceattle fits
 #'
+#' Prints the compact model overview (via [print.Rceattle()]). When the fit
+#' carries a dynamic structural equation model (DSEM) on recruitment deviations,
+#' also prints and returns the estimated SEM path coefficients — with standard
+#' errors, z-values and Wald p-values when an `sdreport` is available — plus the
+#' per-species recruitment SD. Adapted from `summary.dsem`; see
+#' `?dsem::summary.dsem` for the underlying parameterization.
+#'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
-#' @param ... Currently unused.
+#' @param ... Passed to [print.Rceattle()].
+#'
+#' @return Invisibly, either:
+#' \itemize{
+#'   \item a list with elements \code{coefficients} and \code{recruitment_sd},
+#'     when the fit contains a DSEM. \code{coefficients} is a data.frame of path
+#'     coefficients with columns \code{path}, \code{lag}, \code{name},
+#'     \code{start}, \code{parameter}, \code{first}, \code{second},
+#'     \code{direction}, \code{Estimate}, and — when \code{sdrep} is available —
+#'     \code{Std_Error}, \code{z_value}, \code{p_value}. \code{recruitment_sd}
+#'     has one row per species with columns \code{Species}, \code{R_sd},
+#'     \code{Estimated} (whether it was estimated rather than fixed), and
+#'     \code{Std_Error} when available; or
+#'   \item the input \code{object}, when no DSEM is attached.
+#' }
 #'
 #' @export
 summary.Rceattle <- function(object, ...) {
+  if (!inherits(object, "Rceattle")) {
+    stop("Input is not an Rceattle model.")
+  }
+
   print(object, ...)
-  invisible(object)
+
+  # No DSEM attached: behave exactly as the non-DSEM summary always has.
+  if (is.null(object$dsem) || is.null(object$dsem$sem_full)) {
+    return(invisible(object))
+  }
+
+  model  <- object$dsem$sem_full
+  beta_z <- object$estimated_params$beta_z
+
+  # sem_full$parameter is a 1-based index into beta_z, or 0 for a path fixed at
+  # its start value. Prepending NA lets index 0 select it, and the start value
+  # then replaces it.
+  coefs <- data.frame(
+    model,
+    Estimate = c(NA, beta_z)[as.numeric(model[, "parameter"]) + 1]
+  )
+  coefs$Estimate <- ifelse(is.na(coefs$Estimate),
+                           as.numeric(model[, 4]),
+                           coefs$Estimate)
+
+  if (!is.null(object$sdrep)) {
+    SE <- as.list(object$sdrep, report = FALSE, what = "Std. Error")
+    coefs$Std_Error <- c(NA, SE$beta_z)[as.numeric(model[, "parameter"]) + 1]
+    coefs$z_value   <- coefs$Estimate / coefs$Std_Error
+    coefs$p_value   <- stats::pnorm(-abs(coefs$z_value)) * 2
+  }
+
+  # Drop paths whose beta_z entry is mapped off. The map is indexed by beta_z
+  # entry while coefs is indexed by sem row; those coincide only when every sem
+  # row owns a distinct estimated parameter. Guard rather than let a mismatch
+  # recycle silently into the wrong rows.
+  bmap <- object$map$mapList$beta_z
+  if (!is.null(bmap)) {
+    if (length(bmap) == nrow(coefs)) {
+      coefs <- coefs[!is.na(bmap), , drop = FALSE]
+    } else {
+      warning("DSEM path/parameter counts differ (", nrow(coefs), " sem rows vs ",
+              length(bmap), " beta_z entries); reporting all paths unfiltered.",
+              call. = FALSE)
+    }
+  }
+
+  if (nrow(coefs) > 0) {
+    cat("\n<DSEM path coefficients>\n")
+    print(coefs, row.names = FALSE)
+  }
+
+  rec_sd <- .rceattle_rec_sd(object)
+  if (!is.null(rec_sd)) {
+    cat("\n<Recruitment SD (R_sd)>\n")
+    rec_sd_print <- rec_sd
+    num <- vapply(rec_sd_print, is.numeric, logical(1))
+    rec_sd_print[num] <- lapply(rec_sd_print[num], round, 4)
+    print(rec_sd_print, row.names = FALSE)
+  }
+
+  invisible(list(coefficients = coefs, recruitment_sd = rec_sd))
+}
+
+
+# Per-species recruitment SD (R_sd) for summary.Rceattle(): the value the model
+# used, whether it was estimated or fixed, and its Std_Error when an sdreport is
+# available. Returns NULL if R_sd cannot be located.
+#
+# R_sd(sp) = |beta_z(rec_sd_idx(sp))| when estimated, else the fixed sem value;
+# see build_dsem_objects() and the DSEM block in ceattle.cpp.
+.rceattle_rec_sd <- function(object) {
+  d <- object$data_list
+  nspp <- d$nspp
+  if (is.null(nspp) || nspp < 1) return(NULL)
+  spnames <- if (!is.null(d$spnames)) d$spnames else as.character(seq_len(nspp))
+
+  # Prefer the ADREPORTed R_sd (carries an SE), then quantities, then a report().
+  rsd <- rep(NA_real_, nspp)
+  se  <- rep(NA_real_, nspp)
+  sdr <- object$sdrep
+  if (!is.null(sdr) && !is.null(sdr$value)) {
+    i <- which(names(sdr$value) == "R_sd")
+    if (length(i) == nspp) {
+      rsd <- as.numeric(sdr$value[i])
+      se  <- as.numeric(sdr$sd[i])
+    }
+  }
+  if (all(is.na(rsd)) && !is.null(object$quantities$R_sd)) {
+    rsd <- as.numeric(object$quantities$R_sd)[seq_len(nspp)]
+  }
+  if (all(is.na(rsd)) && !is.null(object$obj)) {
+    rsd <- tryCatch(as.numeric(object$obj$report()$R_sd)[seq_len(nspp)],
+                    error = function(e) rep(NA_real_, nspp))
+  }
+  if (all(is.na(rsd))) return(NULL)
+
+  # Estimated per species when that species' recruitment-SD beta_z entry is
+  # mapped on; fall back to the model-level random_rec flag.
+  estimated <- rep(isTRUE(as.logical(d$random_rec)), nspp)
+  idx  <- object$dsem$tmb_inputs$data$rec_sd_idx
+  bmap <- object$map$mapList$beta_z
+  if (!is.null(idx) && !is.null(bmap) && length(idx) == nspp) {
+    estimated <- vapply(seq_len(nspp), function(sp) {
+      isTRUE(idx[sp] >= 1) && !is.na(bmap[idx[sp]])
+    }, logical(1))
+  }
+
+  out <- data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
+                    stringsAsFactors = FALSE)
+  if (any(!is.na(se))) {
+    se[!estimated] <- NA_real_   # fixed SDs carry no estimation uncertainty
+    out$Std_Error <- se
+  }
+  out
 }
 
 

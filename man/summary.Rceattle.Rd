@@ -9,8 +9,28 @@
 \arguments{
 \item{object}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
 
-\item{...}{Currently unused.}
+\item{...}{Passed to \code{\link[=print.Rceattle]{print.Rceattle()}}.}
+}
+\value{
+Invisibly, either:
+\itemize{
+\item a list with elements \code{coefficients} and \code{recruitment_sd},
+when the fit contains a DSEM. \code{coefficients} is a data.frame of path
+coefficients with columns \code{path}, \code{lag}, \code{name},
+\code{start}, \code{parameter}, \code{first}, \code{second},
+\code{direction}, \code{Estimate}, and — when \code{sdrep} is available —
+\code{Std_Error}, \code{z_value}, \code{p_value}. \code{recruitment_sd}
+has one row per species with columns \code{Species}, \code{R_sd},
+\code{Estimated} (whether it was estimated rather than fixed), and
+\code{Std_Error} when available; or
+\item the input \code{object}, when no DSEM is attached.
+}
 }
 \description{
-Compact summary method for Rceattle fits
+Prints the compact model overview (via \code{\link[=print.Rceattle]{print.Rceattle()}}). When the fit
+carries a dynamic structural equation model (DSEM) on recruitment deviations,
+also prints and returns the estimated SEM path coefficients — with standard
+errors, z-values and Wald p-values when an \code{sdreport} is available — plus the
+per-species recruitment SD. Adapted from \code{summary.dsem}; see
+\code{?dsem::summary.dsem} for the underlying parameterization.
 }
