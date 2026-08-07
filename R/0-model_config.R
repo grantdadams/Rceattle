@@ -26,11 +26,9 @@
 #' The defaults are exactly [fit_mod()]'s own argument defaults, so a data list
 #' carrying `model_config()` fits identically to one with no slot at all. When a
 #' data list has a `model_config`, [fit_mod()] reads each field only for
-#' arguments the caller did **not** pass explicitly; an argument passed to
-#' [fit_mod()] always overrides the stored value (matching how [fit_mod()]
-#' already treats its arguments). A script that passes an argument explicitly --
-#' even at its default -- overrides the slot for that field; omit the argument to
-#' let the configuration take effect.
+#' arguments the caller did **not** pass explicitly -- an argument passed to
+#' [fit_mod()] always wins, even when passed at its default. Omit an argument to
+#' let the stored configuration take effect for that field.
 #'
 #' @param msmMode Predation-mortality mode (see [fit_mod()]). Default `0`.
 #' @param initMode Population initialization (see [fit_mod()]). Default
@@ -84,6 +82,19 @@ model_config <- function(msmMode = 0,
   }
   if (length(niter) != 1 || !is.numeric(niter) || niter < 1) {
     stop("`niter` must be a single positive integer.", call. = FALSE)
+  }
+  # Catch a mistyped switch here, at the point it was written, rather than
+  # several functions later inside fit_mod(). Values are checked against the
+  # switch maps but not converted -- the config records what the caller wrote.
+  # suitMode is legitimately per-species, so these accept vectors.
+  .check_switch(msmMode,  msmMode_map,  "msmMode")
+  .check_switch(initMode, initMode_map, "initMode")
+  .check_switch(suitMode, suitMode_map, "suitMode")
+  # avgnMode has no string aliases -- it is inert in the C++ (only 0 is
+  # implemented), so there is nothing to name.
+  if (!is.null(avgnMode) && length(avgnMode) &&
+      !all(is.na(avgnMode) | avgnMode %in% 0:2)) {
+    stop("`avgnMode` must be 0, 1, or 2 (only 0 is implemented).", call. = FALSE)
   }
 
   cfg <- list(

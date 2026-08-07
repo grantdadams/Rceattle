@@ -11,7 +11,7 @@ Control
 \item{styr}{Start year of the hindcast}
 \item{endyr}{End year of the hindcast}
 \item{projyr}{End year of the forecast}
-\item{nsex}{Number of sexes to model in the population (1 = combined/1sex, 2 = models both female/male)}
+\item{nsex}{Number of sexes to model in the population (1 = sexes combined, 2 = females and males modelled separately)}
 \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 \item{nages}{Number of ages of each species included in the hindcast}
@@ -81,7 +81,7 @@ fleet_control: controls for survey and fisheries data
 \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
 \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum.}
 \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
-\item{Observation_units}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2. Drives both catch and index prediction.}
+\item{Observation_units}{Units of the observation: 1 = weight (kg), 2 = numbers caught. Drives both catch and index prediction.}
 \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 \item{Catchability_index}{index to use if catchability coefficients are to be set the same.}
@@ -96,9 +96,9 @@ fleet_control: controls for survey and fisheries data
 \item{Catch_sd}{Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated".}
 \item{Index_distribution}{Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q\emph{pred) with a user-supplied full variance-covariance matrix in \code{index_cov} (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (matching the survey likelihood reported by AMAK/ebswp and ADMB); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n}log(2*pi)). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".}
 \item{Comp_distribution}{Age/length composition data distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" (default) = AFSC multinomial; 0 or "Multinomial" = full multinomial; 1 or "DirichletMultinomial".}
-\item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
+\item{Comp_weights}{Composition weight. Its scale follows \code{Comp_distribution}: under a multinomial it is the natural-scale multiplier on the input sample size, while under a Dirichlet-multinomial the model uses \code{exp(Comp_weights)}, so the column holds the \emph{log} of the starting weight -- the template default of 1 is a starting weight of \eqn{e}, not 1; use 0 for a weight of 1. It is read when a model is built from scratch, so a refit keeps whatever weight it is given. A fit reports the weight its residuals imply -- a harmonic mean of the ratio of effective to input sample size (McAllister & Ianelli 1997) -- in \code{Comp_weights_mcallister}; \code{\link{reweight_comps}} tunes towards it.}
 \item{CAAL_distribution}{Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial".}
-\item{CAAL_weights}{Composition weights for the conditional age-at-length (CAAL) likelihood.}
+\item{CAAL_weights}{Conditional age-at-length (CAAL) composition weight. Its scale follows \code{CAAL_distribution} exactly as \code{Comp_weights} follows \code{Comp_distribution}: a natural-scale sample-size multiplier under a multinomial, the \emph{log} of the starting weight under a Dirichlet-multinomial.}
 \item{Comp_accum_young}{Young-tail composition accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; age/length bins below it are folded into it before the likelihood. NA (default) or 1 = no young accumulation.}
 \item{Comp_accum_old}{Old-tail composition accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; age/length bins above it are folded into it before the likelihood. NA (default), 0, or a value at/above the number of bins = no old accumulation.}
 \item{Month}{Observation month for the fleet (0 = not specified).}
@@ -109,6 +109,7 @@ fleet_control: controls for survey and fisheries data
 BS2017SS
 }
 \description{
-A dataset containing the inputs used for CEATTLE
+A data list of inputs for the single-species Eastern Bering Sea CEATTLE model
+(walleye pollock, Pacific cod, and arrowtooth flounder), covering 1979-2017.
 }
 \keyword{datasets}

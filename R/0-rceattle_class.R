@@ -38,9 +38,9 @@ print.Rceattle <- function(x, ...) {
   cat("  fit\n")
   # Alias the integer switch codes to their string forms so the fit block reads the
   # same regardless of the underlying code (matching the spec tree above).
-  cat("  ├─ msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
-  cat("  ├─ HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
-  cat("  ├─ initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
+  cat("  \u251c\u2500 msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
+  cat("  \u251c\u2500 HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
+  cat("  \u251c\u2500 initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
     cat("  -log L    :", signif(x$opt$objective, 6), "\n")
@@ -150,7 +150,7 @@ coef.Rceattle <- function(object, ...) {
 #' Variance-covariance matrix for an Rceattle fit
 #'
 #' Returns the fixed-effect covariance matrix produced by
-#' [TMB::sdreport()]. Random-effect covariance is not returned here —
+#' [TMB::sdreport()]. Random-effect covariance is not returned here --
 #' use `object$sdrep` for the full report.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].

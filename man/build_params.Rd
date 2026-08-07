@@ -10,8 +10,9 @@ build_params(data_list)
 \item{data_list}{an Rceattle data_list}
 }
 \value{
-a list of map arguments for each parameter
+a named list of model parameters at their starting values
 }
 \description{
-Function to read a TMB cpp file and construct parameter list object for Rceattle
+Construct the TMB parameter list, with every parameter set to its
+starting value, for an Rceattle model.
 }

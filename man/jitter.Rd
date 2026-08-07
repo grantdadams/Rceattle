@@ -40,7 +40,7 @@ model's setting (\code{TRUE} only if it carries an \code{sdrep}).}
 a list of Rceattle models
 }
 \description{
-Run's the Rceattle model at initial values that are +- N(0, sd) from the initial parameters.
+Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 }
 \examples{
 \donttest{

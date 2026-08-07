@@ -1,4 +1,4 @@
-# dev/verify-mse-repro.R
+# tools/verify/verify-mse-repro.R
 # Full-MSE reproduction digest. verify-refit-like.R exercises a single tiny
 # seeded refit per entry function; it does NOT capture a multi-year MSE
 # TRAJECTORY (OM advanced + EM re-assessed over several assessment years, with
@@ -13,12 +13,16 @@
 # Determinism: cores = 1 (no scheduler reorder) and each sim self-seeds from
 # seed + sim, so simulate_data / sample_rec stay reproducible.
 #
+# Output defaults into dev/ (gitignored scratch, created if absent) so the digest
+# survives between the two runs you need to compare.
+#
 # Usage:
 #   export PATH=/usr/bin:$PATH
-#   NOT_CRAN=true Rscript dev/verify-mse-repro.R dev/mse-repro-before.rds
-#   NOT_CRAN=true Rscript dev/verify-mse-repro.R dev/mse-repro-after.rds compare dev/mse-repro-before.rds
+#   NOT_CRAN=true Rscript tools/verify/verify-mse-repro.R dev/mse-repro-before.rds
+#   NOT_CRAN=true Rscript tools/verify/verify-mse-repro.R dev/mse-repro-after.rds compare dev/mse-repro-before.rds
 
 args         <- commandArgs(trailingOnly = TRUE)
+dir.create("dev", showWarnings = FALSE)
 out_path     <- if (length(args) >= 1) args[1] else "dev/mse-repro-digest.rds"
 do_compare   <- length(args) >= 2 && args[2] == "compare"
 compare_path <- if (length(args) >= 3) args[3] else NULL

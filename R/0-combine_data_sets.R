@@ -98,5 +98,5 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   # Add new species
   data_list_new$nspp <- data_list1$nspp + data_list2$nspp
 
-  return(data_list_new)
+  return(.rce_as_data(data_list_new))
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/9-retro_and_jitter.R
 \name{self_test}
 \alias{self_test}
-\title{Self test simulation analysis analysis}
+\title{Self-test simulation analysis}
 \usage{
 self_test(
   Rceattle = NULL,
@@ -39,7 +39,7 @@ model's setting (\code{TRUE} only if it carries an \code{sdrep}).}
 a list of Rceattle models
 }
 \description{
-Simulates data from an Rceattle model and refits the model to the simulated data. TODO add process variation (i.e. random devs) to simulation.
+Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
 }
 \examples{
 \donttest{

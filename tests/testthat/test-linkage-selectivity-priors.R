@@ -95,3 +95,42 @@ testthat::test_that("a covariate (non-prior) sel linkage on a mirror fleet is al
                    prior_family = "none", stringsAsFactors = FALSE)
   testthat::expect_silent(Rceattle:::.check_sel_linkage_support(lt, fc))
 })
+
+
+testthat::test_that("a prior on a limb the fleet's curve lacks is rejected", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # A Logistic fleet has no descending limb, so sel_inf[2] / log_sel_slp[2] never
+  # reach selectivity-at-age: they sit at their build defaults. A prior on them is
+  # still added to the objective, so it shifts the reported likelihood by a
+  # constant that moves with an unrelated default while doing nothing to the fit.
+  # That is how a reconciliation against another model picks up an unexplained
+  # offset, so refuse it rather than accept it silently.
+  d  <- Rceattle::BS2017SS
+  fc <- Rceattle::switch_check(Rceattle::clean_data(d))$fleet_control
+  logistic <- fc$Fleet_name[fc$Selectivity == "Logistic"][1]
+  testthat::skip_if(is.na(logistic))
+
+  run <- function(selfun) suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, file = NULL, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0, selFun = selfun,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  testthat::expect_error(run(Rceattle::build_selectivity(linkages = list(
+    inf_desc = Rceattle::linkage_spec(~ 1, fleet = logistic,
+                                      priors = list(intercept = normal(10, 3)))))),
+    "does not use those")
+
+  testthat::expect_error(run(Rceattle::build_selectivity(linkages = list(
+    slp_desc = Rceattle::linkage_spec(~ 1, fleet = logistic,
+                                      priors = list(intercept = lognormal(-1, 1.5)))))),
+    "does not use those")
+
+  # The limb the curve does have is unaffected.
+  testthat::expect_s3_class(run(Rceattle::build_selectivity(linkages = list(
+    inf_asc = Rceattle::linkage_spec(~ 1, fleet = logistic,
+                                     priors = list(intercept = normal(0, 3)))))),
+    "Rceattle")
+})

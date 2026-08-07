@@ -67,6 +67,7 @@ Codes (also accept the string aliases listed):
 | `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
 | `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> is added to M inside geometric series |
 | `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub>|
+| `5` | `"OffsetEquilibrium"` | Unfished equilibrium, F<sub>init</sub> = 0, displaced by the year-1 recruitment deviation instead of sitting at R<sub>init</sub>; init devs off, no init-dev penalty (Cole Monnahan / AFSC GOA pollock convention) |
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 
@@ -82,8 +83,9 @@ Codes (also accept the string aliases listed):
 
 `random_rec`, `random_q`, and `random_sel` move log-recruitment, the
 log-catchability deviations, and the time-varying selectivity
-deviations (respectively) from penalised fixed effects to random
-effects marginalised via the Laplace approximation and estimate their associated distribution parameters.
+deviations, respectively, from penalised fixed effects to random
+effects. The deviations are marginalised via the Laplace approximation,
+and their distribution parameters are estimated.
 
 ## 2. Predation: `suitMode` (per predator)
 

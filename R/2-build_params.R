@@ -1,10 +1,11 @@
 #' Build parameter list from cpp file
 #'
-#' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
+#' @description Construct the TMB parameter list, with every parameter set to its
+#'   starting value, for an Rceattle model.
 #'
 #' @param data_list an Rceattle data_list
 #'
-#' @return a list of map arguments for each parameter
+#' @return a named list of model parameters at their starting values
 #' @export
 build_params <- function(data_list) {
 
@@ -49,7 +50,7 @@ build_params <- function(data_list) {
     message("Warning: alpha was not initialized to `srr_prior` from `build_srr`")
   }
 
-  # - Rec devs
+  # - Recruitment deviations
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
                               dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
@@ -62,15 +63,21 @@ build_params <- function(data_list) {
 
   for(sp in 1:data_list$nspp){
 
-    # Fill in ages above max age with -999
-    if(data_list$nages[sp] != max_age){
-      param_list$init_dev[sp,(data_list$nages[sp]+1):max_age] = -999
-    }
-
-    # Estimate as devs (fill in ages above max age w/ -999)
-    if(data_list$initMode > 0){
-      param_list$init_dev[sp,data_list$nages[sp]] = -999
-    }
+    # Pad every column the cpp never reads with the -999 sentinel. init_dev is
+    # indexed as init_dev(sp, age - 1) over age = 1:(nages - 1) by EVERY
+    # initMode -- the free-parameter branch, the equilibrium / non-equilibrium
+    # branches, and the init_dev penalty alike (ceattle.cpp sections 6.4/6.5 and
+    # slot 9) -- so columns nages:max_age are unused for all six modes.
+    #
+    # This padding used to be split in two, with the nages column gated on
+    # `data_list$initMode > 0`. That compared against the canonical initMode
+    # *string* that switch_check() has already resolved above, and
+    # "FreeParams" > "0" is TRUE, so the gate was always open. It is removed
+    # rather than repaired: the padding is correct for every mode, and the
+    # comparison was the one place in the package whose behaviour depended on
+    # the lexicographic value of an alias name (an alias beginning with a digit
+    # would have silently flipped it).
+    param_list$init_dev[sp, data_list$nages[sp]:max_age] = -999
   }
 
 
@@ -215,10 +222,16 @@ build_params <- function(data_list) {
     lt      <- data_list$linkage_table
     gt      <- .re_group_table(lt)
     n_re    <- sum(!is.na(lt$re_index))
+    # Split the slot space across the two destination vectors. Only
+    # beta_linkage_re joins TMB's `random` set; beta_linkage_re_pen stays a fixed
+    # effect whose density is a plain penalty. Both are sized from the same
+    # routing the encoder and build_map use.
+    rt      <- .re_slot_routing(lt)
     # ar1 groups get a rho; us/rw groups do not. (rho estimation lands with
     # ar1() -- until then no group is ar1 and this stays length 0.)
     n_ar1   <- sum(gt$re_struct == "ar1")
-    param_list$beta_linkage_re   <- numeric(n_re)            # deviations, init 0
+    param_list$beta_linkage_re     <- numeric(sum(rt$integrate))   # integrated, init 0
+    param_list$beta_linkage_re_pen <- numeric(sum(!rt$integrate))  # penalized, init 0
     # One log-SD per group; start from linkage_spec(init = list(sigma = )) when
     # supplied (fixed there via build_map), else a default. gt is ordered by
     # sigma_index so element g is group g - 1.
@@ -240,68 +253,12 @@ build_params <- function(data_list) {
     # the measurement SD), started from the `obs_sd` value supplied on the spec.
     param_list$log_obs_sd_linkage <- log(gt$obs_sd[gt$observed])
   } else {
-    param_list$beta_linkage_re   <- numeric(0)
+    param_list$beta_linkage_re     <- numeric(0)
+    param_list$beta_linkage_re_pen <- numeric(0)
     param_list$log_sigma_linkage <- numeric(0)
     param_list$trans_rho_linkage <- numeric(0)
     param_list$beta_linkage_obs  <- numeric(0)
     param_list$log_obs_sd_linkage <- numeric(0)
-  }
-
-  # * 1.3c. Push (Intercept) inits to the base parameter ----
-  # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits
-  # an "(Intercept)" row whose coefficient stays fixed at 0 (mapped
-  # out by `build_map_linkages()`); the base parameter -- `log_M1`,
-  # `rec_pars[, 1]`, `log_growth_pars[, , k]` -- carries the level and
-  # remains estimable. If the user supplied an `init` value for the
-  # intercept column on the spec, push it to the base parameter here
-  # so phasing and priors operate from a sensible starting point.
-  # Without `init`, the base keeps its `build_params()` default.
-  #
-  # Slope-only formulas (`~ 0 + temp`) emit no (Intercept) row and
-  # are handled entirely by `map_linkage_adjuster()`, which maps the
-  # base parameter out so it stays at its default.
-  if (!is.null(data_list$linkage_table) &&
-      nrow(data_list$linkage_table) > 0L) {
-    intercepts <- data_list$linkage_table[
-      data_list$linkage_table$design_col == "(Intercept)" &
-        data_list$linkage_table$init_supplied, , drop = FALSE]
-    if(any(intercepts$init < 0)){stop("Initial value provided for '(Intercept)' is < 0")}
-    for (i in seq_len(nrow(intercepts))) {
-      row <- intercepts[i, , drop = FALSE]
-      idx <- .linkage_row_indices(row, data_list)
-      init_val <- as.numeric(row$init)
-      switch(row$process,
-        growth = {
-          # Mean-growth params live on log_growth_pars[sp, sex, k];
-          # SD endpoints live on growth_log_sd[sp, sex, k']. Both expose
-          # the same intercept-init contract -- dispatch on the param
-          # name once and write into the right tensor.
-          mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
-          sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
-          if (!is.na(mean_idx)) {
-            for (s in idx$species) {
-              param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- log(init_val)
-            }
-          } else if (!is.na(sd_idx)) {
-            for (s in idx$species) {
-              param_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- log(init_val)
-            }
-          }
-        },
-        M = {
-          for (s in idx$species) {
-            sx <- idx$per_sp[[as.character(s)]]$sex
-            ag <- idx$per_sp[[as.character(s)]]$age
-            param_list$log_M1[s, sx, ag] <- log(init_val)
-          }
-        },
-        recruitment = {
-          par_idx <- .REC_PARAM_TO_INDEX[row$param]
-          if (is.na(par_idx)) next
-          param_list$rec_pars[idx$species, par_idx] <- log(init_val)
-        }
-      )
-    }
   }
 
   #TODO variance and AR1 parameters
@@ -333,7 +290,7 @@ build_params <- function(data_list) {
   param_list$index_q_log_sd <- log(data_list$fleet_control$Catchability_prior_sd)
   names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
-  # - Log standard deviation for survey selectivity random walk - used for logistic
+  # - Log SD of the time-varying survey catchability deviations
   param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd)
   names(param_list$index_q_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
@@ -464,6 +421,125 @@ build_params <- function(data_list) {
   param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
                               dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
 
+
+
+  # * Push (Intercept) inits to the base parameter ----
+  # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits an
+  # "(Intercept)" row whose coefficient stays fixed at 0 (mapped out by
+  # `build_map_linkages()`); the base parameter carries the level and remains
+  # estimable. An `init` supplied for the intercept column therefore sets the
+  # BASE parameter's starting value, so phasing and priors operate from a
+  # sensible point. Without `init`, the base keeps its `build_params()` default.
+  #
+  # This runs at the end of build_params() because the base parameters it writes
+  # span the whole function -- log_M1 and rec_pars are built in section 1,
+  # index_log_q / sel_* / *_weights in section 2 -- and every process must be
+  # able to reach its own.
+  #
+  # Values are supplied on the parameter's NATURAL scale. Base parameters that
+  # are stored logged (log_M1, rec_pars, log_growth_pars, index_log_q, the DM
+  # weights, log_sel_slp) take log(init); ones stored as-is (sel_inf) take it
+  # directly.
+  #
+  # Slope-only formulas (`~ 0 + temp`) emit no (Intercept) row and are handled
+  # entirely by `map_linkage_adjuster()`, which maps the base parameter out so
+  # it stays at its default.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L) {
+    intercepts <- data_list$linkage_table[
+      data_list$linkage_table$design_col == "(Intercept)" &
+        data_list$linkage_table$init_supplied, , drop = FALSE]
+    if (any(is.na(intercepts$init))) {
+      stop("Initial value provided for '(Intercept)' is NA.", call. = FALSE)
+    }
+    for (i in seq_len(nrow(intercepts))) {
+      row <- intercepts[i, , drop = FALSE]
+      idx <- .linkage_row_indices(row, data_list)
+      init_val <- as.numeric(row$init)
+      switch(row$process,
+        growth = {
+          .stop_unless_positive(init_val, row$param, "the growth parameter")
+          # Mean-growth params live on log_growth_pars[sp, sex, k];
+          # SD endpoints live on growth_log_sd[sp, sex, k']. Both expose
+          # the same intercept-init contract -- dispatch on the param
+          # name once and write into the right tensor.
+          mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+          sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
+          if (!is.na(mean_idx)) {
+            for (s in idx$species) {
+              param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- log(init_val)
+            }
+          } else if (!is.na(sd_idx)) {
+            for (s in idx$species) {
+              param_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- log(init_val)
+            }
+          }
+        },
+        M = {
+          .stop_unless_positive(init_val, row$param, "log_M1")
+          for (s in idx$species) {
+            sx <- idx$per_sp[[as.character(s)]]$sex
+            ag <- idx$per_sp[[as.character(s)]]$age
+            param_list$log_M1[s, sx, ag] <- log(init_val)
+          }
+        },
+        recruitment = {
+          .stop_unless_positive(init_val, row$param, "rec_pars")
+          par_idx <- .REC_PARAM_TO_INDEX[row$param]
+          if (is.na(par_idx)) next
+          param_list$rec_pars[idx$species, par_idx] <- log(init_val)
+        },
+        q = {
+          # index_log_q is log catchability, one entry per fleet.
+          .stop_if_shared_block(data_list, row$fleet, "q", row$param)
+          .stop_unless_positive(init_val, row$param, "index_log_q")
+          param_list$index_log_q[idx$fleet] <- log(init_val)
+        },
+        comp = {
+          # The Dirichlet-multinomial weight is exp(<weight parameter>), so an
+          # init given as the weight itself is stored logged. theta_comp and
+          # theta_caal are fleet-indexed, theta_diet predator(species)-indexed.
+          #
+          # The log is correct only for the DM reading of this slot: a
+          # multinomial likelihood uses comp_weights raw, as a constant
+          # multiplier on the sample size (ceattle.cpp JNLL_COMP). That case
+          # cannot arrive here because .check_comp_linkage_support() rejects a
+          # comp linkage on a non-DM fleet -- if that ever relaxes, this needs
+          # to branch on the fleet's Comp_distribution.
+          .stop_unless_positive(init_val, row$param, "the DM weight")
+          switch(row$param,
+            theta_comp = { param_list$comp_weights[idx$fleet]      <- log(init_val) },
+            theta_caal = { param_list$caal_weights[idx$fleet]      <- log(init_val) },
+            theta_diet = { param_list$diet_comp_weights[idx$species] <- log(init_val) })
+        },
+        sel = {
+          slot <- .SEL_PARAM_TO_SLOT[[row$param]]
+          if (is.null(slot)) next
+          .stop_if_shared_block(data_list, row$fleet, "sel", row$param)
+          if (identical(slot$arr, "log_sel_slp")) {
+            .stop_unless_positive(init_val, row$param, "log_sel_slp")
+            for (s in idx$species) {
+              param_list$log_sel_slp[slot$slot, idx$fleet,
+                                     idx$per_sp[[as.character(s)]]$sex] <- log(init_val)
+            }
+          } else if (identical(slot$arr, "sel_inf")) {
+            # Slot 2 is an inflection only for the logistic family; DoubleNormal
+            # and LogisticPM store a logit and a log there instead.
+            for (f in idx$fleet) {
+              .stop_unless_natural_sel_inf(data_list, f, slot$slot, row$param)
+            }
+            for (s in idx$species) {
+              param_list$sel_inf[slot$slot, idx$fleet,
+                                 idx$per_sp[[as.character(s)]]$sex] <- init_val
+            }
+          }
+          # `coff` is a per-bin vector with no single level to set, so an
+          # intercept init has no well-defined target; rejected up front by
+          # .check_sel_linkage_support() rather than guessed at here.
+        }
+      )
+    }
+  }
 
   return(param_list)
 }

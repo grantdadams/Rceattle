@@ -1,6 +1,11 @@
 
 
-#' Function to rename derived quantities from Rceattle
+#' Label the derived quantities reported by a CEATTLE fit
+#'
+#' Attaches dimension names (species, sex, age, length bin, year, fleet) to the
+#' report objects returned by the TMB model, and names the rows/columns of the
+#' likelihood-component matrices, so the fitted quantities read as labelled
+#' arrays rather than bare numbers.
 #'
 #' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle.
@@ -155,7 +160,7 @@ rename_output <- function(data_list = NULL, quantities = NULL){
 }
 
 
-#' Function to calculate McAllister-Ianelli weights
+#' Calculate McAllister-Ianelli composition weights
 #'
 #' @param data_list an Rceattle data_list
 #' @param data_list_reorganized reorganized data_list
@@ -192,7 +197,7 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 
 
 
-#' Function to calculate McAllister-Ianelli weights for diet data
+#' Calculate McAllister-Ianelli weights for diet composition data
 #'
 #' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle, including diet_hat predictions

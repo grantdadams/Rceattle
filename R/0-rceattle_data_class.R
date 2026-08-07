@@ -16,6 +16,18 @@
 # same tokens as a switch-checked object.
 .RCE_FLEET_TYPE_LABEL <- c("0" = "Off", "1" = "Fishery", "2" = "Survey")
 
+# Tag a data list so print()/summary() render the spec tree instead of dumping
+# the ~40-element list. Applied by every constructor (build_data, read_data,
+# clean_data, combine_data) so the tag survives a write_data()/read_data()
+# round-trip. Idempotent, and inert: the object is still a plain list to every
+# consumer, and the tag is dropped before anything reaches TMB::MakeADFun(), so
+# it cannot change a fit.
+.rce_as_data <- function(dl) {
+  if (!is.list(dl)) return(dl)
+  class(dl) <- unique(c("Rceattle_data", class(dl)))
+  dl
+}
+
 # Show a switch value by its string alias, so the tree reads the same regardless of
 # the underlying integer code (and keeps meaning if a code is ever renumbered). `map`
 # is a name(string) -> integer vector; `x` may be strings (kept as-is) or integers
@@ -41,10 +53,11 @@
 #'
 #' @param dl A data list (from build_data()/read_data(), or a fitted model's
 #'   `$data_list`).
+#' @param config Append the attached [model_config()] block, when present.
 #' @return A character vector, one element per line (invisibly printable).
 #' @keywords internal
 #' @noRd
-.rce_spec_tree <- function(dl) {
+.rce_spec_tree <- function(dl, config = TRUE) {
   `%||%` <- function(a, b) if (is.null(a)) b else a
 
   # Normalise switches to their canonical string forms so the tree is readable
@@ -63,17 +76,17 @@
   spn <- dl2$spnames %||% (if (!is.null(dl2$nspp)) seq_len(dl2$nspp) else NULL)
   nspp <- dl2$nspp %||% length(spn)
   add("  dimensions")
-  add("  ├─ species  : ", nspp %||% "?",
+  add("  \u251c\u2500 species  : ", nspp %||% "?",
       if (!is.null(spn)) paste0("  (", paste(spn, collapse = ", "), ")") else "")
-  yr <- paste0(dl2$styr %||% "?", "–", dl2$endyr %||% "?")
+  yr <- paste0(dl2$styr %||% "?", "\u2013", dl2$endyr %||% "?")
   if (!is.null(dl2$projyr) && !identical(dl2$projyr, dl2$endyr)) {
-    yr <- paste0(yr, "  (projection → ", dl2$projyr, ")")
+    yr <- paste0(yr, "  (projection \u2192 ", dl2$projyr, ")")
   }
-  add("  ├─ years    : ", yr)
+  add("  \u251c\u2500 years    : ", yr)
   agr <- if (!is.null(dl2$minage) && !is.null(dl2$nages)) {
-    paste0(dl2$minage, "–", dl2$minage + dl2$nages - 1)
+    paste0(dl2$minage, "\u2013", dl2$minage + dl2$nages - 1)
   } else as.character(dl2$nages %||% "?")
-  add("  └─ ages     : ", paste(agr, collapse = ", "),
+  add("  \u2514\u2500 ages     : ", paste(agr, collapse = ", "),
       "  |  lengths ", paste(dl2$nlengths %||% "?", collapse = ", "),
       "  |  sexes ", paste(dl2$nsex %||% "?", collapse = ", "))
 
@@ -104,7 +117,7 @@
     sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
     n <- nrow(fc)
     # Two fixed left-hand columns -- "[code] name" and fleet type -- are padded to a
-    # common width so the " │ "-separated form fields line up down the block; the
+    # common width so the " - "-separated form fields line up down the block; the
     # optional sel:/q:/mirror fields trail unpadded.
     id_col   <- vapply(seq_len(n),
                        function(i) paste0("[", fc$Fleet_code[i] %||% i, "] ", fc$Fleet_name[i] %||% ""),
@@ -115,7 +128,7 @@
     idw   <- max(nchar(id_col))
     typew <- max(nchar(type_col))
     for (i in seq_len(n)) {
-      elbow <- if (i == n) "  └─ " else "  ├─ "
+      elbow <- if (i == n) "  \u2514\u2500 " else "  \u251c\u2500 "
       sel   <- lab("Selectivity", i)
       qform <- lab("Catchability", i)
       cells <- c(formatC(id_col[i],   width = -idw),
@@ -126,10 +139,10 @@
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA
       qi <- if (q_col %in% colnames(fc)) fc[[q_col]][i] else NA
-      if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel↔", si))
-      if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q↔", qi))
+      if (!is.na(si) && si %in% sel_mir) mir <- c(mir, paste0("sel\u2194", si))
+      if (!is.na(qi) && qi %in% q_mir)   mir <- c(mir, paste0("q\u2194", qi))
       if (length(mir)) cells <- c(cells, paste0("[shared: ", paste(mir, collapse = ", "), "]"))
-      add(elbow, paste(cells, collapse = " │ "))
+      add(elbow, paste(cells, collapse = " \u2502 "))
     }
   }
 
@@ -144,7 +157,7 @@
   if (length(procs)) {
     add("  processes")
     for (k in seq_along(procs)) {
-      add(if (k == length(procs)) "  └─ " else "  ├─ ", procs[k])
+      add(if (k == length(procs)) "  \u2514\u2500 " else "  \u251c\u2500 ", procs[k])
     }
   }
 
@@ -166,19 +179,19 @@
   if (length(link_lines)) {
     add("  linkages (", length(link_lines), ")")
     for (k in seq_along(link_lines)) {
-      add(if (k == length(link_lines)) "  └─ " else "  ├─ ", link_lines[k])
+      add(if (k == length(link_lines)) "  \u2514\u2500 " else "  \u251c\u2500 ", link_lines[k])
     }
   }
 
   # ---- model_config ---------------------------------------------------------
   # msmMode / initMode / HCR are aliased for the same reason as the processes above.
   cfg <- dl2$model_config
-  if (!is.null(cfg)) {
+  if (isTRUE(config) && !is.null(cfg)) {
     add("  model_config : msmMode ",
         if (!is.null(cfg$msmMode)) .rce_alias_show(cfg$msmMode, msmMode_map) else "?",
-        " · initMode ",
+        " \u00b7 initMode ",
         if (!is.null(cfg$initMode)) .rce_alias_show(cfg$initMode, initMode_map) else "?",
-        if (!is.null(cfg$HCR$HCR)) paste0(" · HCR ", .rce_alias_show(cfg$HCR$HCR, hcr_map)) else "")
+        if (!is.null(cfg$HCR$HCR)) paste0(" \u00b7 HCR ", .rce_alias_show(cfg$HCR$HCR, hcr_map)) else "")
   }
 
   L
@@ -191,13 +204,19 @@
 #' linkages, and any attached [model_config()] -- rather than dumping the full
 #' data list.
 #'
+#' `print()` includes the configuration block; `summary()` omits it and reports
+#' the data structure alone. Either can be overridden with `config`.
+#'
 #' @param x An `"Rceattle_data"` object from [build_data()].
+#' @param config Show the attached [model_config()] block. Defaults to `TRUE`
+#'   for `print()` and `FALSE` for `summary()`. Has no effect on an object that
+#'   carries no configuration.
 #' @param ... Currently unused.
 #' @return `x`, invisibly.
 #' @export
-print.Rceattle_data <- function(x, ...) {
+print.Rceattle_data <- function(x, config = TRUE, ...) {
   cat("<Rceattle data>\n")
-  tree <- tryCatch(.rce_spec_tree(x),
+  tree <- tryCatch(.rce_spec_tree(x, config = config),
                    error = function(e) paste0("  (spec tree unavailable: ",
                                               conditionMessage(e), ")"))
   cat(paste(tree, collapse = "\n"), "\n", sep = "")
@@ -207,7 +226,9 @@ print.Rceattle_data <- function(x, ...) {
 #' @rdname print.Rceattle_data
 #' @param object An `"Rceattle_data"` object.
 #' @export
-summary.Rceattle_data <- function(object, ...) {
-  print(object, ...)
+summary.Rceattle_data <- function(object, config = FALSE, ...) {
+  # Forward `config` explicitly: it is matched by this method's own formal, so
+  # it never reaches `...` and print() would otherwise fall back to its default.
+  print(object, config = config, ...)
   invisible(object)
 }

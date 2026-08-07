@@ -266,9 +266,9 @@ plot_timeseries <- function(Rceattle,
 
 
   ## Assemble tidy data ----
-  # Build one row per (species, year, model) holding exactly the quantities the
-  # base version plotted (same arrays, just reshaped) so the returned ggplot's
-  # `$data` can be tested against the model's source quantities.
+  # Build one row per (species, year, model) holding exactly the plotted
+  # quantities (the same arrays, reshaped) so the returned ggplot's `$data` can
+  # be tested against the model's source quantities.
   model_names_use <- .model_labels(Rceattle, model_names)
   df_list <- list()
   for (k in seq_len(dim(quantity)[3])) {

@@ -43,8 +43,13 @@ NULL
 #'   e.g. `~species + sex` for per-(species, sex) coefficients, or
 #'   `NULL` to share a single coefficient across every stratum. An
 #'   explicit `by` (including `NULL`) is always kept as given.
-#' @param species optional integer vector of 1-based species ids that
-#'   this spec applies to. `NULL` (default) means every species in
+#' @param species optional vector of species that this spec applies to,
+#'   given either as 1-based species ids (`c(1L, 2L)`) or as species
+#'   **names** matching `data_list$spnames` (`c("Pollock", "Cod")`).
+#'   Names are matched exactly, after trimming whitespace, when the model
+#'   is assembled in [fit_mod()]; an unrecognized name is an error that
+#'   lists the model's species. Give ids or names, not a mix -- R coerces
+#'   `c(1, "Cod")` to `c("1", "Cod")`. `NULL` (default) means every species in
 #'   `strata$species` at materialization time. Use this to give
 #'   different species different formulas, e.g. by registering
 #'   multiple specs against the same parameter -- see
@@ -58,11 +63,20 @@ NULL
 #'   filter is a no-op. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
-#' @param fleet optional integer vector of 1-based `Fleet_code`s this spec
-#'   applies to. `NULL` (default) means every fleet in `strata$fleet` at
-#'   materialization time. Only meaningful when `by` includes `fleet`;
-#'   otherwise the filter is a no-op. Used by catchability and selectivity
-#'   linkages to give different fleets different formulas.
+#' @param fleet optional vector of fleets this spec applies to, given
+#'   either as 1-based `Fleet_code`s (`c(1L, 3L)`) or as fleet **names**
+#'   matching `fleet_control$Fleet_name` (`c("Shelikof", "Summer BT")`).
+#'   Names are matched exactly, after trimming whitespace, when the model
+#'   is assembled in [fit_mod()]; an unrecognized name -- or one that is
+#'   not unique in `fleet_control` -- is an error that lists the model's
+#'   fleets. Prefer names: a `Fleet_code` that is wrong but in range
+#'   attaches the linkage to a different fleet and still fits, whereas a
+#'   misspelled name cannot. Give ids or names, not a mix -- R coerces
+#'   `c(7, "Pollock")` to `c("7", "Pollock")`. `NULL` (default) means every fleet in
+#'   `strata$fleet` at materialization time. Only meaningful when `by`
+#'   includes `fleet`; otherwise the filter is a no-op. Used by
+#'   catchability and selectivity linkages to give different fleets
+#'   different formulas.
 #' @param link link function relating the linear predictor to the
 #'   natural-scale target parameter. One of `"log"` (default) or
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
@@ -82,12 +96,20 @@ NULL
 #'   `priors = list(temp = prior_normal(0, 1))`.
 #' @param re_group optional character: name of a random-effect grouping
 #'   for these coefficients. `NA` (default) means fixed.
-#' @param est_phase optional integer estimation phase. Default `1L`.
+#' @param est_phase optional integer estimation phase. Default `1L`; `0` fixes
+#'   the coefficient at its `init`. Applies to **fixed-effect** rows only -- the
+#'   coefficients in `beta_linkage`. A random-effect term's deviations are held
+#'   in a separate vector that `est_phase` does not reach, so `est_phase < 1` on
+#'   a formula containing one is an error rather than a silent no-op; drop the
+#'   term, or fix a small SD via `init = list(sigma = )`, to remove the time
+#'   variation. Values above `1` are currently inert for every linkage row.
 #' @param observe optional character: for an `ar1(1 | group)` term, the name of
 #'   an `env_data` column that measures the AR1 latent (a state-space covariate,
 #'   sensu Rogers et al. 2024). The latent enters the linked parameter through
 #'   an estimated effect size and is observed against this column. `NULL`
-#'   (default) leaves the AR1 as a plain random effect.
+#'   (default) leaves the AR1 as a plain random effect. The latent is zero-mean
+#'   (no estimated level), so standardize the observed covariate to mean 0; a
+#'   non-zero-mean column confounds its level with the intercept and warns.
 #' @param obs_sd optional positive numeric: the measurement SD for the `observe`
 #'   covariate (one per observed group). Required with `observe`, unused
 #'   otherwise. Held **fixed** at this value by default (`obs_sd_est = FALSE`); it
@@ -99,6 +121,19 @@ NULL
 #'   informative; on a smooth series the AR1 latent can track it exactly and the
 #'   freely-estimated `obs_sd` collapses toward 0. Keep it fixed unless the
 #'   covariate is informative. Only used with `observe`.
+#' @param integrate single `TRUE`/`FALSE` (default `TRUE`): whether the random
+#'   effect's deviations are integrated out by the Laplace approximation.
+#'   `integrate = FALSE` instead estimates them as a **penalized fixed effect** --
+#'   the deviations stay in the objective as a plain penalty and are reported
+#'   with standard errors like any other fixed effect. This reproduces the
+#'   ADMB/AMAK convention behind the legacy `Time_varying_sel` /
+#'   `Time_varying_q` switches, which a Laplace-integrated `rw()` cannot match
+#'   (the marginal likelihood carries a log-determinant term the penalized form
+#'   has no counterpart for). Permitted **only with a fixed SD** --
+#'   `init = list(sigma = )` and no `sigma` prior, plus a fixed `rho` for `ar1` --
+#'   because estimating deviations and their SD jointly as fixed effects is
+#'   degenerate. Cannot be combined with `observe`: an observed latent state must
+#'   stay integrated.
 #'
 #' @details The reserved keys `sigma` and `rho` in `init` / `priors` route the
 #'   random-effect deviation SD and (for `ar1`) the correlation: e.g.
@@ -126,7 +161,8 @@ linkage_spec <- function(formula,
                          est_phase = 1L,
                          observe   = NULL,
                          obs_sd    = NULL,
-                         obs_sd_est = FALSE) {
+                         obs_sd_est = FALSE,
+                         integrate = TRUE) {
   # Whether `by` was left to its default. If so, the process that the spec is
   # later attached to (via build_*()) fills in its base stratum -- `~ fleet` for
   # catchability / selectivity / fleet composition weights, `~ species` otherwise
@@ -171,22 +207,19 @@ linkage_spec <- function(formula,
   if (!is.null(by) && !inherits(by, "formula")) {
     stop("`by` must be a one-sided formula (e.g. ~species + sex) or NULL")
   }
+  # `species` / `fleet` take either 1-based ids or the model's own names. A name
+  # cannot be resolved here -- linkage_spec() never sees a data_list, by design
+  # (capture is split from materialization) -- so it is carried through as a
+  # string and resolved in materialize_linkage() against the strata labels
+  # fit_mod() attaches. Ids are coerced here.
   if (!is.null(species)) {
-    species <- as.integer(species)
-    if (anyNA(species) || any(species < 1L)) {
-      stop("`species` must be a vector of positive 1-based species ids",
-           call. = FALSE)
-    }
+    species <- .coerce_stratum_arg(species, "species", "species ids")
   }
   if (!is.null(sex)) {
     sex <- .coerce_sex_arg(sex)
   }
   if (!is.null(fleet)) {
-    fleet <- as.integer(fleet)
-    if (anyNA(fleet) || any(fleet < 1L)) {
-      stop("`fleet` must be a vector of positive 1-based Fleet_code values",
-           call. = FALSE)
-    }
+    fleet <- .coerce_stratum_arg(fleet, "fleet", "Fleet_code values")
   }
   link <- match.arg(link, LINKAGE_LINKS)
   .check_link_implemented(link)
@@ -194,6 +227,61 @@ linkage_spec <- function(formula,
 
   init   <- .validate_linkage_init_arg(init)
   bounds <- .validate_linkage_bounds_arg(bounds)
+
+  # `est_phase` reaches only beta_linkage, the FIXED-effect coefficient vector
+  # (see build_map_linkages). A random-effect term's deviations are held in
+  # beta_linkage_re / beta_linkage_re_pen, which it never touches, so
+  # `est_phase = 0` on such a term would silently estimate the very deviations
+  # the caller asked to hold at their init. Refuse it rather than ignore it.
+  # Only values below 1 are singled out: 0 is the sole value with an implemented
+  # meaning, and a phase above 1 is inert for every linkage row, random or not.
+  .phase <- suppressWarnings(as.integer(est_phase))
+  if (length(.phase) != 1L || is.na(.phase)) {
+    stop("`est_phase` must be a single non-NA integer.", call. = FALSE)
+  }
+  if (.phase < 1L &&
+      length(.parse_linkage_formula(formula)$re_structures) > 0L) {
+    stop("`est_phase` cannot fix a random-effect term: its deviations live in ",
+         "beta_linkage_re / beta_linkage_re_pen, which `est_phase` does not ",
+         "reach. To remove the time variation, drop the random-effect term from ",
+         "`formula`; to shrink it hard instead, fix a small SD with ",
+         "`init = list(sigma = ...)`.", call. = FALSE)
+  }
+
+  # Penalized fixed-effect deviations. A variance is only consistently estimated
+  # by integrating the deviations out; estimating the deviations AND their SD
+  # jointly as fixed effects is degenerate, since the likelihood is driven up by
+  # sending both to zero. So `integrate = FALSE` demands that every
+  # hyperparameter of the structure it declares be pinned. This mirrors the
+  # reference models it exists to reproduce, which fix the deviation SD (the
+  # legacy `Time_varying_*_sd` columns) precisely because those deviates are
+  # penalized rather than integrated.
+  if (!is.logical(integrate) || length(integrate) != 1L || is.na(integrate)) {
+    stop("`integrate` must be a single TRUE/FALSE.", call. = FALSE)
+  }
+  if (!integrate) {
+    re_structs <- .parse_linkage_formula(formula)$re_structures
+    if (length(re_structs) == 0L) {
+      stop("`integrate = FALSE` applies to a random-effect term, but `formula` ",
+           "has none (e.g. ~ rw(1 | Year)).", call. = FALSE)
+    }
+    if (!is.null(observe)) {
+      stop("`integrate = FALSE` cannot be combined with `observe`: an observed ",
+           "latent state must stay integrated.", call. = FALSE)
+    }
+    .has_prior <- function(key) !is.null(priors_obj[[key]])
+    if (is.null(init$sigma) || .has_prior("sigma")) {
+      stop("`integrate = FALSE` requires a fixed deviation SD: supply ",
+           "`init = list(sigma = ...)` with no `sigma` prior. Estimating the ",
+           "deviations and their SD jointly as fixed effects is degenerate.",
+           call. = FALSE)
+    }
+    if (any(re_structs == "ar1") && (is.null(init$rho) || .has_prior("rho"))) {
+      stop("`integrate = FALSE` on an ar1 term also requires a fixed ",
+           "correlation: supply `init = list(rho = ...)` with no `rho` prior.",
+           call. = FALSE)
+    }
+  }
 
   structure(
     list(
@@ -209,10 +297,11 @@ linkage_spec <- function(formula,
       bounds    = bounds,
       priors    = priors_obj,
       re_group  = as.character(re_group),
-      est_phase = as.integer(est_phase),
+      est_phase = .phase,
       observe   = observe,
       obs_sd    = obs_sd,
-      obs_sd_est = obs_sd_est
+      obs_sd_est = obs_sd_est,
+      integrate = integrate
     ),
     class = "Rceattle_linkage_spec"
   )
@@ -303,6 +392,11 @@ linkage_spec <- function(formula,
 }
 
 
+# The design-matrix column name model.matrix() gives the intercept. A constant
+# because it is compared against in several places and is easy to mistype.
+.INTERCEPT_COL <- "(Intercept)"
+
+
 #' Validate the `priors` argument once it has been NSE-evaluated.
 #'
 #' Accepts `NULL` or a named list keyed by design-matrix column name.
@@ -323,7 +417,6 @@ linkage_spec <- function(formula,
 #'
 #' Returns the canonicalized list (always a named list, possibly
 #' empty).
-#'
 #' @keywords internal
 #' @noRd
 .validate_priors_arg <- function(priors) {
@@ -383,6 +476,35 @@ linkage_spec <- function(formula,
   priors
 }
 
+
+#' Accept `intercept` as a spelling of the design column `(Intercept)`
+#'
+#' `init` / `bounds` / `priors` are keyed by design-matrix column name. Every
+#' covariate keys by a name the user wrote (`temp`), but the intercept keys by
+#' the name `model.matrix()` gives it, which needs backticks. Both spellings are
+#' accepted and stored canonically so lookups stay a single exact match.
+#'
+#' @keywords internal
+#' @noRd
+.canonical_intercept_names <- function(x, X_names) {
+  if (is.null(x) || !length(x) || is.null(names(x))) return(x)
+  if (!(.INTERCEPT_COL %in% X_names)) return(x)
+  # Never translate a key that already names a design column: a covariate can be
+  # called `intercept` (or `Intercept`), and there the key means that covariate.
+  # Translating it would move the prior onto a different coefficient -- silently,
+  # since both names are then valid. Keying by an existing column always wins.
+  alias <- names(x) %in% c("intercept", "Intercept") & !(names(x) %in% X_names)
+  if (any(alias)) {
+    if (any(names(x) == .INTERCEPT_COL)) {
+      stop("give the intercept prior/init/bounds once: both `",
+           .INTERCEPT_COL, "` and `", names(x)[alias][1], "` were supplied.",
+           call. = FALSE)
+    }
+    names(x)[alias] <- .INTERCEPT_COL
+  }
+  x
+}
+
 #' Coerce a `sex` argument to 1-based integer ids.
 #'
 #' Accepts numeric (1, 2) or character ("female"/"females",
@@ -414,6 +536,152 @@ linkage_spec <- function(formula,
          call. = FALSE)
   }
   sex
+}
+
+#' Coerce a `species` / `fleet` selector to ids-or-names.
+#'
+#' Unlike `sex` -- whose "Females"/"Males" mapping is universal and so can be
+#' resolved on the spot -- a species or fleet name only means something relative
+#' to a particular `data_list`. Character input is therefore validated for shape
+#' and returned as-is, to be resolved later by
+#' \code{.resolve_spec_strata_names()}. Numeric input is coerced to positive
+#' 1-based ids.
+#'
+#' A factor is converted to its labels first: `as.integer()` on a factor
+#' silently returns level codes, which would attach the linkage to whichever
+#' fleet happens to sit at that position.
+#'
+#' @param x the user-supplied `species` / `fleet` argument (non-NULL).
+#' @param arg argument name, for error messages.
+#' @param id_label how to describe the integer form ("species ids").
+#' @return Either a positive integer vector or a character vector of names.
+#' @keywords internal
+#' @noRd
+.coerce_stratum_arg <- function(x, arg, id_label) {
+  if (is.factor(x)) x <- as.character(x)
+  if (is.character(x)) {
+    x <- trimws(x)
+    if (anyNA(x) || !all(nzchar(x))) {
+      stop(sprintf("`%s` names must be non-empty, non-NA strings.", arg),
+           call. = FALSE)
+    }
+    return(x)
+  }
+  x <- as.integer(x)
+  if (anyNA(x) || any(x < 1L)) {
+    stop(sprintf(paste0("`%s` must be a vector of positive 1-based %s, or the ",
+                        "corresponding name(s)."), arg, id_label),
+         call. = FALSE)
+  }
+  x
+}
+
+#' Resolve one character stratum selector against the model's own labels.
+#'
+#' Matching is exact after whitespace trimming (deliberately case-sensitive:
+#' `Fleet_name` is user data, and case-folding could make two genuinely distinct
+#' fleets collide). Both failure modes name the offender and print the valid set,
+#' because the alternative -- an id that is wrong but in range -- attaches the
+#' linkage to a different fleet and still fits.
+#'
+#' @param x the selector; returned untouched unless it is character.
+#' @param labels the stratum labels, or `NULL` when the caller supplied none.
+#' @param arg argument name, for error messages.
+#' @param source_label where the labels come from, for error messages.
+#' @return A positive integer vector of 1-based ids.
+#' @keywords internal
+#' @noRd
+.resolve_stratum_names <- function(x, labels, arg, source_label) {
+  if (is.null(x) || !is.character(x)) return(x)
+  # A blank or NA label is unmatchable (`NA == k` is NA, which `which()`
+  # drops), so only a wholly unusable label set is fatal -- one missing name
+  # must not stop the other strata being selected by theirs.
+  usable <- !is.null(labels) && any(!is.na(labels) & nzchar(labels))
+  if (!usable) {
+    stop(sprintf(paste0(
+      "`%s` was given as name(s) (%s), but this model carries no %s to match ",
+      "against. Supply 1-based ids instead."),
+      arg, paste(shQuote(x), collapse = ", "), source_label), call. = FALSE)
+  }
+  hits <- lapply(x, function(k) which(trimws(labels) == k))
+
+  bad <- x[lengths(hits) == 0L]
+  if (length(bad) > 0L) {
+    # `c(7L, "Pollock")` is coerced by R to `c("7", "Pollock")` before it ever
+    # reaches us, so a whole-number "name" almost always means the caller mixed
+    # ids and names in one vector. Say so -- otherwise the error reads as though
+    # a fleet really is called "7".
+    hint <- if (any(grepl("^[0-9]+$", bad))) sprintf(paste0(
+      "\n  %s looks like an id, not a name: `%s` takes ids or names but not ",
+      "both, and R coerces a mixed c(7, \"%s\") to c(\"7\", \"%s\"). Use all ",
+      "ids or all names."),
+      paste(shQuote(unique(bad[grepl("^[0-9]+$", bad)])), collapse = ", "),
+      arg, labels[1], labels[1]) else ""
+    stop(sprintf("unknown `%s` name(s): %s.\n  This model's %s: %s.%s",
+                 arg, paste(shQuote(unique(bad)), collapse = ", "),
+                 source_label, paste(shQuote(labels), collapse = ", "), hint),
+         call. = FALSE)
+  }
+  dup <- x[lengths(hits) > 1L]
+  if (length(dup) > 0L) {
+    stop(sprintf(paste0(
+      "`%s` name(s) %s match more than one entry in the model's %s, so they ",
+      "cannot identify a single stratum. Make the names unique, or select by ",
+      "1-based id."),
+      arg, paste(shQuote(unique(dup)), collapse = ", "), source_label),
+      call. = FALSE)
+  }
+  as.integer(unlist(hits))
+}
+
+#' Resolve a spec's `species` / `fleet` names against the strata labels.
+#'
+#' @param spec an `Rceattle_linkage_spec`.
+#' @param strata the `strata` list passed to [materialize_linkage()]; its
+#'   `species` / `fleet` elements may carry names (see [pool_linkages()]).
+#' @return `spec`, with `species` / `fleet` as 1-based integer ids.
+#' @keywords internal
+#' @noRd
+.resolve_spec_strata_names <- function(spec, strata) {
+  spec$species <- .resolve_stratum_names(
+    spec$species, names(strata$species), "species",
+    "species names (data_list$spnames)")
+  spec$fleet <- .resolve_stratum_names(
+    spec$fleet, names(strata$fleet), "fleet",
+    "fleet names (fleet_control$Fleet_name)")
+  spec
+}
+
+#' Drop the label names from atomic strata vectors.
+#'
+#' Names on `strata$species` / `strata$fleet` are labels for name resolution
+#' only; left in place they ride through `expand.grid()` into the level grid and
+#' out onto the materialized table's id columns. Species-keyed *lists*
+#' (`strata$sex`, `strata$age_bin`) keep their names, which are load-bearing.
+#'
+#' @param strata the `strata` list.
+#' @return `strata`, with names stripped from its atomic elements.
+#' @keywords internal
+#' @noRd
+.strata_drop_labels <- function(strata) {
+  lapply(strata, function(v) if (is.list(v)) v else unname(v))
+}
+
+#' Attach the model's labels to a stratum-level vector.
+#'
+#' Labels are what let a spec select a species / fleet by name. Missing or
+#' wrong-length labels are dropped rather than recycled: an unlabelled stratum
+#' gives a clear "this model carries no names" error at resolution time, whereas
+#' a recycled label would resolve to the wrong id.
+#'
+#' @param ids 1-based integer ids.
+#' @param labels the corresponding names, or `NULL`.
+#' @return `ids`, named by `labels` when usable.
+#' @keywords internal
+#' @noRd
+.label_strata <- function(ids, labels) {
+  if (is.null(labels) || length(labels) != length(ids)) return(ids)
+  stats::setNames(ids, as.character(labels))
 }
 
 
@@ -499,26 +767,27 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("<Rceattle linkage spec>\n")
   cat("  param:   ", x$param, "\n", sep = "")
   cat("  formula: ", deparse(x$formula), "\n", sep = "")
-  by_txt <- if (is.null(x$by)) {
-    "(shared)"
-  } else if (isTRUE(x$by_auto) && is.na(x$param)) {
-    "(process default)"            # unattached: resolves to ~fleet / ~species per process
-  } else if (isTRUE(x$by_auto)) {
-    paste0(deparse(x$by), " (default)")
-  } else {
-    deparse(x$by)
+  if (length(x$priors)) {
+    for (cn in names(x$priors)) {
+      p <- x$priors[[cn]]
+      cat(sprintf("  prior:    %s ~ %s(%g, %g)\n", cn, p$family, p$p1, p$p2))
+    }
   }
-  cat("  by:      ", by_txt, "\n", sep = "")
   if (!is.null(x$species)) {
     cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
   }
   if (!is.null(x$sex)) {
     cat("  sex:     ", paste(x$sex, collapse = ", "), "\n", sep = "")
   }
+  if (!is.null(x$fleet)) {
+    cat("  fleet:   ", paste(x$fleet, collapse = ", "), "\n", sep = "")
+  }
+  # link decides whether an offset is added to the target or multiplies it, and
+  # integrate decides whether the deviations are integrated out or penalized --
+  # both change the model, so neither should have to be read off the call.
   cat("  link:    ", x$link, "\n", sep = "")
-  cat("  phase:   ", x$est_phase, "\n", sep = "")
-  if (!is.na(x$re_group)) {
-    cat("  re_group:", x$re_group, "\n", sep = "")
+  if (identical(x$integrate, FALSE)) {
+    cat("  estimate: penalized fixed effect (integrate = FALSE)\n")
   }
   invisible(x)
 }
@@ -533,10 +802,10 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   * stratum implied by `spec$by` (e.g. one per species when
 #'     `by = ~species`).
 #'
-#' The `X_col` column is initially set to a *local* column index into
-#' the per-spec design matrix; it is the caller's responsibility (in
-#' `fit_mod()`'s pooling step) to remap these to global column indices
-#' once all specs have been combined into a single shared `X` matrix.
+#' The `X_col` column starts as a *local* column index into the
+#' per-spec design matrix; the caller (`fit_mod()`'s pooling step)
+#' remaps these to global column indices once all specs have been
+#' combined into a single shared `X` matrix.
 #'
 #' @param spec an `Rceattle_linkage_spec`.
 #' @param process one of [LINKAGE_PROCESSES].
@@ -548,6 +817,11 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 #'   `by = ~species` the user must supply `strata = list(species = 1:3)`.
 #'   Each element should be a 1-based integer vector of stratum ids.
 #'   Allowed names are `"species"`, `"sex"`, `"age_bin"`, and `"fleet"`.
+#'   The `species` and `fleet` vectors may additionally be *named* with the
+#'   model's own labels (`data_list$spnames` /
+#'   `fleet_control$Fleet_name`); those labels are what a spec built with
+#'   `linkage_spec(fleet = "Shelikof")` is resolved against. Without them,
+#'   such a spec errors -- ids always work.
 #'
 #' @return An `Rceattle_linkage_table` with one row per coefficient.
 #' @keywords internal
@@ -598,6 +872,40 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   X <- cbind(X_fixed, re$X)
   X_names <- colnames(X)
   n_cols  <- ncol(X)
+
+  # Translate the backtick-free intercept spelling now that the design columns
+  # are known (see .canonical_intercept_names: a covariate named `intercept`
+  # keeps its own meaning).
+  spec$init   <- .canonical_intercept_names(spec$init,   X_names)
+  spec$bounds <- .canonical_intercept_names(spec$bounds, X_names)
+  spec$priors <- .canonical_intercept_names(spec$priors, X_names)
+
+  # `init` / `bounds` / `priors` are looked up by exact design-column name, so a
+  # key that matches no column is simply never read -- the prior or starting
+  # value is dropped with no sign that it was. Reject those here instead: an
+  # unapplied prior is indistinguishable from an unpenalised model, and on the
+  # models where a prior is load-bearing that is the difference between a fit
+  # that converges and one that runs to a boundary.
+  # `sigma` is read only for random-effect columns and `rho` only for ar1 ones,
+  # so accepting them on a spec without those terms would reinstate exactly the
+  # silent drop this check exists to close.
+  .reserved <- c(if (length(re$struct)) "sigma",
+                 if (any(re$struct == "ar1")) "rho")
+  for (.arg in c("init", "bounds", "priors")) {
+    .given <- names(spec[[.arg]])
+    .bad   <- setdiff(.given, c(X_names, .reserved))
+    if (length(.bad)) {
+      stop(sprintf(
+        paste0("unknown `%s` name(s) for this linkage: %s.\n",
+               "  This formula's design columns: %s.%s"),
+        .arg, paste(sQuote(.bad), collapse = ", "),
+        paste(sQuote(X_names), collapse = ", "),
+        if (any(.bad %in% c("intercept", "Intercept")))
+          paste0("\n  This formula has no intercept to key to -- `~ 0 + ...` and ",
+                 "`~ ... - 1` suppress it. Drop the `0 +`/`- 1` to add one.")
+        else ""), call. = FALSE)
+    }
+  }
   # Per-column RE metadata, aligned with the columns of X (NA for fixed).
   col_re_group  <- c(rep(NA_character_, ncol(X_fixed)), re$group)
   col_re_struct <- c(rep(NA_character_, ncol(X_fixed)), re$struct)
@@ -612,6 +920,18 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     if (!spec$observe %in% names(env_data)) {
       stop(sprintf("`observe` column `%s` is not in env_data.", spec$observe),
            call. = FALSE)
+    }
+    # Latent ar1 is zero-mean (no estimated level), so a non-zero-mean covariate
+    # confounds its mean with the linked parameter's intercept. Warn; standardize.
+    obs_present <- env_data[[spec$observe]][is.finite(env_data[[spec$observe]])]
+    if (length(obs_present) > 1L &&
+        abs(mean(obs_present)) > 0.1 * stats::sd(obs_present)) {
+      warning(sprintf(
+        paste0("`observe` covariate `%s` is not ~zero-mean (mean %.3g); the ",
+               "latent ar1 state carries no estimated level, so its mean is ",
+               "confounded with the linked parameter's intercept. Standardize ",
+               "the covariate (mean 0) unless this is intended."),
+        spec$observe, mean(obs_present)), call. = FALSE)
     }
   }
 
@@ -628,6 +948,16 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                    v))
     }
   }
+
+  # `species` / `fleet` may have been given as names rather than ids. Resolve
+  # them here -- this is the first point that knows the model -- so everything
+  # below, and every id column of the materialized table, stays integer.
+  # Resolution runs even when the corresponding filter is a no-op (`by` does not
+  # stratify by that factor), so a misspelled name is always an error rather
+  # than a silently ignored one.
+  spec   <- .resolve_spec_strata_names(spec, strata)
+  strata <- .strata_drop_labels(strata)
+
   if ("sex" %in% by_vars) {
     sex_levels_one <- FALSE
     if (is.list(strata$sex)) {
@@ -821,6 +1151,11 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         re_obs_value  = r_obs_v,
         re_obs_sd     = r_obs_sd,
         re_obs_est    = r_obs_est,
+        # Integrated vs penalized, on RE columns only. Read defensively so a spec
+        # built before `integrate` existed (an older saved config) still reads as
+        # integrated rather than as a missing field.
+        re_integrate  = if (is.na(col_re_struct[col_idx])) NA
+                        else !identical(spec$integrate, FALSE),
         est_phase     = spec$est_phase
       )
     }
@@ -947,9 +1282,9 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' Empty materialized table that still carries design metadata.
 #'
 #' Used by `materialize_linkage()` when a `species` filter on the spec
-#' eliminates every row of the level grid. We still need to expose the
-#' design matrix in the attributes so the pooler can union columns
-#' across specs that did emit rows.
+#' eliminates every row of the level grid. The design matrix stays in
+#' the attributes so the pooler can union columns across specs that did
+#' emit rows.
 #'
 #' @keywords internal
 #' @noRd
@@ -1068,7 +1403,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #'   model year, including any factor columns referenced by spec
 #'   formulas).
 #' @param strata named list of stratum-level integer vectors, e.g.
-#'   `list(species = 1:nspp, sex = 1:nsex)`.
+#'   `list(species = 1:nspp, sex = 1:nsex)`. `fit_mod()` names the `species`
+#'   and `fleet` vectors with `data_list$spnames` /
+#'   `fleet_control$Fleet_name`, which is how a spec that selects a species or
+#'   fleet by name is resolved to an id.
 #'
 #' @return A list with components:
 #' \describe{
@@ -1202,12 +1540,38 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
                ifelse(is.na(tbl$age_bin), "*", tbl$age_bin),
                ifelse(is.na(tbl$fleet),   "*", tbl$fleet),
                tbl$re_group, tbl$re_struct, sep = "|")[re_rows]
+
+  # A sigma group's deviations live in exactly one parameter vector, so a group
+  # cannot be half Laplace-integrated and half penalized. Two specs that pool to
+  # the same key but disagree on `integrate` are therefore refused rather than
+  # silently split into two groups -- splitting would quietly give one
+  # user-visible random effect two separate SDs. NA (a fixed row, or a spec built
+  # before `integrate` existed) reads as integrated.
+  integ <- is.na(tbl$re_integrate[re_rows]) | tbl$re_integrate[re_rows]
+  for (k in unique(key)) {
+    if (length(unique(integ[key == k])) > 1L) {
+      stop("a random-effect group cannot be both integrated and penalized, ",
+           "but specs for '", k, "' disagree on `integrate`.", call. = FALSE)
+    }
+  }
+
   uniq_keys <- unique(key)
   tbl$sigma_index[re_rows] <- match(key, uniq_keys) - 1L
 
   ord <- order(tbl$sigma_index[re_rows], tbl$re_time[re_rows],
                method = "radix", na.last = TRUE)
   tbl$re_index[re_rows[ord]] <- seq_along(re_rows) - 1L
+
+  # Where each deviation actually lives. re_index is the global slot; with the
+  # deviations split across beta_linkage_re and beta_linkage_re_pen, the position
+  # within the holding vector is a different number whenever both are populated.
+  # Carried on the table so callers writing `inits` by hand do not have to
+  # rebuild the split -- indexing a mixed model by re_index silently writes to
+  # the wrong deviation.
+  rt <- .re_slot_routing(tbl)
+  if (!is.null(rt)) {
+    tbl$re_pos[re_rows] <- rt$pos[match(tbl$re_index[re_rows], rt$slot)]
+  }
   tbl
 }
 
@@ -1225,6 +1589,11 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
 #' * a sigma prior -> estimated with that prior (started from `init` if given);
 #' * neither -> estimated from a default start.
 #'
+#' Also carries the group's `integrate` flag and enforces the contract that a
+#' penalized group (`integrate = FALSE`) must have a fixed SD -- and, for `ar1`,
+#' a fixed correlation. `linkage_spec()` checks this per spec; this is the
+#' authoritative check, because only here is the pooled group visible.
+#'
 #' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
 #' @return a data.frame with one row per group, or `NULL` if there are none.
 #' @keywords internal
@@ -1237,7 +1606,7 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   g <- g[order(g$sigma_index), , drop = FALSE]
   has_prior <- !is.na(g$re_sigma_prior_family) & g$re_sigma_prior_family != "none"
   has_rprior <- !is.na(g$re_rho_prior_family) & g$re_rho_prior_family != "none"
-  data.frame(
+  out <- data.frame(
     sigma_index  = as.integer(g$sigma_index),
     re_struct    = as.character(g$re_struct),
     sigma_start  = ifelse(is.na(g$re_sigma_init), 0.3, as.numeric(g$re_sigma_init)),
@@ -1256,8 +1625,83 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     observed     = !is.na(g$re_obs_sd),
     obs_sd       = as.numeric(g$re_obs_sd),
     obs_sd_est   = !is.na(g$re_obs_est) & g$re_obs_est,
+    # Laplace-integrated (the default) or estimated as a penalized fixed effect.
+    integrate    = is.na(g$re_integrate) | g$re_integrate,
     stringsAsFactors = FALSE
   )
+
+  # Authoritative fixed-hyperparameter gate. linkage_spec() checks this too, but
+  # only per spec: a group is a KEY, so two specs that pool together -- one with
+  # a fixed sigma and integrate = FALSE, one carrying a sigma prior -- would slip
+  # past the constructor and leave the group's SD estimated. Estimating penalized
+  # deviations and their SD jointly is degenerate, so refuse it here, where the
+  # pooled group is finally visible.
+  bad <- !out$integrate & !out$sigma_fixed
+  if (any(bad)) {
+    stop("penalized random-effect linkages (`integrate = FALSE`) require a ",
+         "fixed deviation SD, but sigma group(s) ",
+         paste(out$sigma_index[bad], collapse = ", "),
+         " estimate theirs. Supply `init = list(sigma = ...)` with no `sigma` ",
+         "prior.", call. = FALSE)
+  }
+  bad_rho <- !out$integrate & out$re_struct == "ar1" & !out$rho_fixed
+  if (any(bad_rho)) {
+    stop("penalized `ar1` linkages (`integrate = FALSE`) require a fixed ",
+         "correlation, but sigma group(s) ",
+         paste(out$sigma_index[bad_rho], collapse = ", "),
+         " estimate theirs. Supply `init = list(rho = ...)` with no `rho` prior.",
+         call. = FALSE)
+  }
+  out
+}
+
+
+#' Which parameter vector holds each random-effect slot
+#'
+#' @description
+#' RE deviations occupy one global 0-based **slot** space (`re_index`), but are
+#' stored in one of two parameter vectors: `beta_linkage_re` for the
+#' Laplace-integrated groups (the `random` set) and `beta_linkage_re_pen` for the
+#' penalized ones. TMB's `random` argument selects whole parameters by name, so a
+#' model that mixes both -- an integrated state-space catchability alongside a
+#' penalized selectivity walk, say -- needs the two vectors.
+#'
+#' This is the single definition of that mapping. `encode_linkage_for_tmb()`,
+#' `build_params()` and `build_map_linkages()` all derive from it rather than
+#' recomputing it, because a disagreement between them would attach a deviation's
+#' density to the wrong parameter, or pin the wrong element of a random walk,
+#' with nothing to signal the error.
+#'
+#' @param tbl a pooled `Rceattle_linkage_table` (post-registry).
+#' @return A data.frame with one row per slot in ascending slot order:
+#'   `slot` (global 0-based `re_index`), `sigma_index`, `integrate` (logical),
+#'   and `pos`, the dense 0-based position within its own parameter vector.
+#'   `NULL` when the table carries no random effect.
+#' @keywords internal
+#' @noRd
+.re_slot_routing <- function(tbl) {
+  if (is.null(tbl) || nrow(tbl) == 0L) return(NULL)
+  re_rows <- which(!is.na(tbl$re_index))
+  if (length(re_rows) == 0L) return(NULL)
+  gt <- .re_group_table(tbl)
+
+  n <- length(re_rows)
+  slot_of <- as.integer(tbl$re_index[re_rows]) + 1L    # 1-based position
+  sigma_index <- integer(n)
+  sigma_index[slot_of] <- as.integer(tbl$sigma_index[re_rows])
+  integrate <- gt$integrate[match(sigma_index, gt$sigma_index)]
+
+  # Dense position within each destination, assigned in ascending slot order so
+  # a group's deviations stay contiguous and in elapsed-time order -- rw() and
+  # ar1() both depend on that ordering.
+  pos <- integer(n)
+  for (want in c(TRUE, FALSE)) {
+    sel <- integrate == want
+    if (any(sel)) pos[sel] <- seq_len(sum(sel)) - 1L
+  }
+
+  data.frame(slot = seq_len(n) - 1L, sigma_index = sigma_index,
+             integrate = integrate, pos = pos, stringsAsFactors = FALSE)
 }
 
 

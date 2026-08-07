@@ -23,7 +23,8 @@ to form the starting object. Supply at most one of \code{base} / \code{file}.}
 An Rceattle data list (a bare \code{list}, as from \code{\link[=read_data]{read_data()}}).
 }
 \description{
-A code-first constructor for the Rceattle data list. Supply only the data
+Assemble (or edit) an Rceattle data list in R code rather than from an xlsx
+workbook. Supply only the data
 blocks a model uses -- dimensions, biology (\code{weight}, \code{maturity},
 \code{sex_ratio}, \code{M1_base}), a \code{fleet_control}, and the observation tables
 (\code{catch_data}, \code{index_data}, \code{comp_data}, ...) -- and the optional blocks a

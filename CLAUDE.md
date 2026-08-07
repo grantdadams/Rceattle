@@ -25,7 +25,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Dev builds are compiled at `-O2` (fast), not pkgbuild's default `-O0`.** The repo
   `.Rprofile` sets `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB
   model with the same optimization as a production `R CMD INSTALL` — `fit_mod()` runs ~10x
-  faster than an unoptimized debug build, bit-identically (measured; see `dev/PERF-findings.md`).
+  faster than an unoptimized debug build, bit-identically (measured).
   A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
   (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
   timing must state its build** — an `-O0` number overstates real cost ~10x.
@@ -39,9 +39,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   plain `R CMD check` / `devtools::test()` stay fast (only `NOT_CRAN=true` runs them); leave
   fast unit tests unguarded.
 - CI = `.github/workflows/R-CMD-check.yaml` (r-lib actions, multi-OS matrix) +
-  `pkgdown.yaml`. There is **no lint config** and no coverage gate.
+  `pkgdown.yaml` + `test-coverage.yaml`. There is **no lint config** and no coverage gate.
+  `pkgdown.yaml` runs on push to `main` and on PRs targeting `main` — **not** on `dev`, so a
+  pkgdown break only surfaces once the PR is open.
 - **Slash commands** wrap these: `/recompile`, `/test [file]`, `/document`, `/check`,
-  `/golden-check` (defined in `.claude/commands/`).
+  `/golden-check` (local, not tracked in the repo).
 
 ## Layout
 
@@ -138,13 +140,15 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty
   bands are NA.
 - **The diagnostic *refit* paths go through `.refit_like()` (`R/6-refit_like.R`) and are
-  NOT covered by `/golden-check`.** `retrospective()`, `jitter()`, `self_test()`,
-  `profile()`, `run_mse()`, and `remove_F()` all re-invoke `fit_mod()` via this one helper,
-  which rebuilds the HCR / SR / M1 / growth specs from a source `data_list` and exposes each
-  per-caller divergence as a named override. The four golden models exercise none of these
-  paths, so a change that could move a refit needs `dev/verify-refit-like.R` (before/after
-  bit-identity across all six entry functions, including a multispecies MSE) — golden-check
-  alone proves nothing here.
+  NOT covered by `/golden-check`.** Eight entry points re-invoke `fit_mod()` via this one
+  helper — `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()`, `sample_rec()`, and `reweight_comps()` — which rebuilds the HCR / SR / M1 /
+  growth specs from a source `data_list` and exposes each per-caller divergence as a named
+  override. The four golden models exercise none of these paths, so a change that could move
+  a refit needs `tools/verify/verify-refit-like.R` (before/after bit-identity, including a
+  multispecies MSE) — golden-check alone proves nothing here. **That harness covers six of
+  the eight**: `sample_rec(update_model = TRUE)` and `reweight_comps()` are not in it and
+  must be checked by hand.
 - **`run_mse()` pins the OM's stock-recruit and suitability reference windows to the
   pristine `om$`** (not the advancing `om_use$`) so the hindcast does not drift through the
   projection — essential for multispecies, whose predation suitability must stay fixed. In
@@ -152,7 +156,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `suit_styr` / `suit_endyr` overrides; the EM instead advances `srr_mse_switchyr` to its
   current assessment `endyr` each iteration. The invariant (MSE must not perturb the
   hindcast, under any `simulate_data` / `sample_rec`) is checked by
-  `dev/verify-mse-hindcast-invariant.R`.
+  `tools/verify/verify-mse-hindcast-invariant.R`.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
 
@@ -254,9 +258,9 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
   `fit_mod(config=)`, the C++ legibility pass + `JnllRow` enum, the
   `build_growth(sd_plus_group=)` WHAM/SS3 feature, the `mse_summary()` per-entity reshape,
   the `.refit_like()` collapse, and the developer-guide expansion all shipped. Tier D2 (the
-  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap + historical
-  record: `dev/PLAN-data-workflow-and-linkage-grammar.md`; forward backlog + archive index:
-  `dev/README.md`.
+  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap and historical
+  record: the commit log and `NEWS.md` 4.9.0 onward. The planning documents are kept
+  locally under the untracked `dev/`.
 - **Documentation-quality + roxygen-accuracy pass** (on `dev-data-workflow`): the PR 1–7
   user-facing doc surface was reviewed against three criteria (not AI-verbose,
   current-capabilities-not-changelog, scientist-legible), and a technical-accuracy audit

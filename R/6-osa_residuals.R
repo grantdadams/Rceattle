@@ -43,9 +43,12 @@
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of
-#'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`. Defaults to
-#'   the four non-diet sources (`diet` is opt-in because it applies only to
-#'   multispecies models and can be expensive); pass `"all"` to include `diet`.
+#'   `"ecov"`, `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`.
+#'   Defaults to the five non-diet sources (`diet` is opt-in because it applies
+#'   only to multispecies models and can be expensive); pass `"all"` to include
+#'   `diet`. `"ecov"` is the state-space covariate (QAR1 `observe=` term),
+#'   residualized first against its own series, as in WHAM's
+#'   `make_osa_residuals()`.
 #'   Sources with no observations in the model are silently skipped. Mirrors the
 #'   `source` argument of [residuals.Rceattle()] and [plot.rceattle_osa()].
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
@@ -101,7 +104,7 @@
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
 #' @export
 osa_residuals <- function(fit,
-                          source   = c("index", "catch", "comp", "caal"),
+                          source   = c("ecov", "index", "catch", "comp", "caal"),
                           method   = "oneStepGaussianOffMode",
                           discrete = FALSE,
                           parallel = TRUE,
@@ -131,9 +134,9 @@ osa_residuals <- function(fit,
   # "diet" is supported but opt-in: it applies only to multispecies models with
   # estimated suitability and can be expensive, so it is not in the default set.
   # "all" is a synonym for every source including diet.
-  valid_sources <- c("index", "catch", "comp", "caal", "diet", "all")
+  valid_sources <- c("ecov", "index", "catch", "comp", "caal", "diet", "all")
   source <- match.arg(source, choices = valid_sources, several.ok = TRUE)
-  if ("all" %in% source) source <- c("index", "catch", "comp", "caal", "diet")
+  if ("all" %in% source) source <- c("ecov", "index", "catch", "comp", "caal", "diet")
 
   # Build the full OSA observation data (comp / caal / diet segments) on demand.
   # This works from any fit and no longer requires fitting with
@@ -174,10 +177,10 @@ osa_residuals <- function(fit,
   # sel <- sel[order(sel$year, match(sel$source, source), sel$fleet_code,
   #                 sel$bin_index, na.last = TRUE), , drop = FALSE]
 
-  # WHAM-style -- type-blocked: source first (aggregate index/catch, then comp,
-  # then caal), then year, then fleet, then bin. This reproduces
-  # WHAM's make_osa_residuals() conditioning (aggregate -> comp -> CAAL,
-  # each conditional on the previous types).
+  # Order by source, then year, fleet, bin. This reproduces WHAM's
+  # make_osa_residuals() conditioning: the covariate (ecov) is residualized first
+  # and standalone, then index/catch -> comp -> CAAL each conditional on the
+  # earlier types.
   sel <- sel[order(match(sel$source, source), sel$year, sel$fleet_code,
                     sel$bin_index, na.last = TRUE), , drop = FALSE]
 
@@ -220,17 +223,31 @@ osa_residuals <- function(fit,
     # generic (CDF-based) method, which supports randomized quantile residuals.
     # Parallelize only the continuous group; the discrete path uses the seeded
     # RNG, so keep it serial to stay bit-reproducible across runs.
-    res <- TMB::oneStepPredict(
+    osp <- function(par) TMB::oneStepPredict(
       obj                 = obj_osa,
       observation.name    = "obsvec",
       data.term.indicator = "keep",
       method              = if (dsc) "oneStepGeneric" else method,
       subset              = sel$obs_pos[rows] + 1L,
       discrete            = dsc,
-      parallel            = parallel_ok && !dsc,
+      parallel            = par,
       seed                = seed,
       trace               = trace,
       ...)
+
+    # oneStepPredict(parallel = TRUE) forks via mclapply. A worker that dies --
+    # some model/observation combinations abort the child rather than return --
+    # leaves an error object where a gradient should be, which surfaces from deep
+    # inside TMB as "non-numeric argument to mathematical function". Retry
+    # serially instead: slower, but it returns residuals rather than a message
+    # that points nowhere near the cause.
+    want_par <- parallel_ok && !dsc
+    res <- if (!want_par) osp(FALSE) else
+      tryCatch(osp(TRUE), error = function(e) {
+        message("osa_residuals(): the parallel one-step-ahead loop failed (",
+                conditionMessage(e), "); recomputing serially.")
+        osp(FALSE)
+      })
     data.frame(.row = rows, observed = get_col(res, "observation"),
                predicted = get_col(res, "mean"), sd = get_col(res, "sd"),
                residual = res$residual)

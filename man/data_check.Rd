@@ -2,7 +2,7 @@
 % Please edit documentation in R/1-data_check.R
 \name{data_check}
 \alias{data_check}
-\title{Function to check data for errors. Does not update the data set!}
+\title{Check an Rceattle data list for errors. Does not modify the data.}
 \usage{
 data_check(data_list)
 }
@@ -10,6 +10,6 @@ data_check(data_list)
 \item{data_list}{Rceattle data list}
 }
 \description{
-Function to check data for errors. Does not update the data set!
+Check an Rceattle data list for errors. Does not modify the data.
 }
 \keyword{internal}

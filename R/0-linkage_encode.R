@@ -2,15 +2,12 @@
 #'
 #' The TMB template consumes the pooled linkage table as a set of
 #' parallel `IVECTOR` / `VECTOR` inputs plus a dense design matrix.
-#' R encodes string-valued columns (`process`, `param`, `link`,
-#' `prior_family`) as 0-based integer codes (TMB-friendly); converts
+#' R encodes the string-valued columns (`process`, `param`, `link`,
+#' `prior_family`) as 0-based integer codes; converts the
 #' `NA` stratum ids (`species`, `sex`, `age_bin`, `fleet`) to a sentinel `0`
 #' meaning "applies to all levels" (TMB-side dispatch expands the
-#' shared rows over the relevant 1-based levels); converts the 1-based
+#' shared rows over the relevant 1-based levels); and converts the 1-based
 #' `X_col` to 0-based.
-#'
-#' Encodes the pooled linkage table into the integer/vector inputs and
-#' design matrix the TMB template consumes.
 #'
 #' @keywords internal
 #' @name linkage_encode
@@ -254,6 +251,30 @@ encode_linkage_for_tmb <- function(table, X) {
     re_obs_sd <- ifelse(gt$observed, as.numeric(gt$obs_sd), 0)
   }
 
+  # Per-slot destination routing: whether a slot is Laplace-integrated (and so
+  # stored in beta_linkage_re) or penalized (beta_linkage_re_pen), plus its dense
+  # 0-based position within that vector. Same shape as linkage_re_rho above -- a
+  # dense sub-index over a subset. For every model without a penalized spec these
+  # are all 1 and 0:(n_re - 1), i.e. the identity, so the C++ read is unchanged.
+  rt <- .re_slot_routing(table)
+  if (is.null(rt)) {
+    re_integrate_int <- integer(0)
+    re_slot_int      <- integer(0)
+  } else {
+    re_integrate_int <- as.integer(rt$integrate)
+    re_slot_int      <- as.integer(rt$pos)
+    # Each destination's positions must be a bijection onto 0:(k-1); otherwise a
+    # deviation would share a parameter with another, or leave one unreferenced.
+    for (want in c(TRUE, FALSE)) {
+      p <- rt$pos[rt$integrate == want]
+      if (length(p) && !setequal(p, seq_along(p) - 1L)) {
+        stop("internal error: a random-effect deviation is stored twice, or not ",
+             "at all. Please report this with the linkage specification that ",
+             "produced it.", call. = FALSE)
+      }
+    }
+  }
+
   # NA stratum ids => sentinel 0 ("applies to all"); else 1-based
   to_stratum <- function(v) {
     out <- as.integer(v)
@@ -273,6 +294,8 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_link          = link_int,
     linkage_re_index      = re_index_int,
     linkage_re_sigma      = re_sigma_int,
+    linkage_re_integrate  = re_integrate_int,
+    linkage_re_slot       = re_slot_int,
     n_re_group            = n_re_group,
     linkage_re_struct     = re_struct_codes,
     linkage_re_rho        = re_rho_idx,
@@ -311,6 +334,8 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_link          = integer(0),
     linkage_re_index      = integer(0),
     linkage_re_sigma      = integer(0),
+    linkage_re_integrate  = integer(0),
+    linkage_re_slot       = integer(0),
     n_re_group            = 0L,
     linkage_re_struct     = integer(0),
     linkage_re_rho        = integer(0),

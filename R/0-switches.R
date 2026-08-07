@@ -141,7 +141,7 @@ diet_loglike_map <- c(
 #               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
 #               cpue_like. No lognormal bias correction; pair with a solved q
 #               (Analytical / AnalyticalArith) or an estimated q as needed.
-index_loglike_map <- c(
+index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
   "MVNORM" = 2,
@@ -160,16 +160,21 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
-# 5 = FishedEquilibrium: F = 0 equilibrium seeded by first-year recruitment
-#     (exp(rec_pars + rec_dev[year 1])), init devs off, no init-dev penalty
-#     (Cole Monnahan / AFSC GOA pollock convention).
+# 5 = OffsetEquilibrium: F = 0 equilibrium seeded by first-year recruitment
+#     (R_init * exp(rec_dev[year 1])), init devs off, no init-dev penalty
+#     (Cole Monnahan / AFSC GOA pollock convention). Named for the recruitment
+#     offset that seeds it: modes 1 and 5 both start from the initial
+#     equilibrium recruitment R_init, but 5 displaces it by the year-1
+#     recruitment deviation (the ONLY term separating them in the cpp -- see
+#     init_log_scalar in ceattle.cpp). It is an *unfished* (Finit = 0)
+#     equilibrium, so "Fished*" would misdescribe it.
 initMode_map <- c(
-  "FreeParams"           = 0,
-  "Equilibrium"          = 1,
-  "NonEquilibrium"       = 2,
+  "FreeParams"                 = 0,
+  "Equilibrium"                = 1,
+  "NonEquilibrium"             = 2,
   "FishedNonEquilibrium"       = 3,
   "FishedNonEquilibriumScaled" = 4,
-  "FishedEquilibrium"          = 5
+  "OffsetEquilibrium"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)
@@ -207,6 +212,33 @@ estDynamics_map <- c(
   "FixedScaled"      = 2,
   "FixedScaledByAge" = 3
 )
+
+# Validate a switch value against its map WITHOUT converting it, so a typo is
+# reported where it was written rather than several functions later.
+#
+# model_config() stores what the caller wrote, and fit_mod() rebuilds a
+# model_config() from already-resolved values after the fit completes. This must
+# therefore accept every legal form: the canonical string, the integer code,
+# either as a per-species vector, and NULL/NA for an unset switch. Anything
+# stricter would throw on a finished fit and discard it.
+.check_switch <- function(x, map, name) {
+  if (is.null(x) || !length(x)) return(invisible(x))
+  vals <- as.character(x[!is.na(x)])
+  if (!length(vals)) return(invisible(x))
+  # Treat 2, 2L and "2" alike: normalise anything numeric-looking to its
+  # canonical numeric string before matching.
+  num <- suppressWarnings(as.numeric(vals))
+  vals[!is.na(num)] <- as.character(num[!is.na(num)])
+  bad <- unique(vals[!vals %in% c(names(map), as.character(as.numeric(map)))])
+  if (length(bad)) {
+    stop(sprintf(
+      "Invalid `%s` value(s): %s.\nUse one of: %s (or the integer codes %s).",
+      name, paste(bad, collapse = ", "),
+      paste(names(map), collapse = ", "),
+      paste(unname(map), collapse = ", ")), call. = FALSE)
+  }
+  invisible(x)
+}
 
 # Apply a string->integer switch map to a (possibly character) switch value,
 # passing integers through unchanged and erroring clearly on an unknown string.
@@ -683,7 +715,7 @@ revert_switches <- function(data_list) {
       Catchability = .conv(.data$Catchability, q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
-      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
+      Index_distribution = .conv(.data$Index_distribution, index_distribution_map)
     )
 
   # Time_varying_q doubles as an environmental-index column when Catchability
@@ -734,7 +766,7 @@ validate_switches <- function(data_list = NULL){
     dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_index_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_loglike_map, names(index_loglike_map)))
+    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
 
   # Throw clear errors to guide the user
   if(nrow(invalid_flt_type) > 0) {
@@ -789,8 +821,8 @@ validate_switches <- function(data_list = NULL){
   if(nrow(invalid_index_ll) > 0) {
     errors <- c(errors, paste("Invalid 'Index_distribution' specified for fleets:",
                               paste(invalid_index_ll$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(index_loglike_map), collapse = ":")," or one of:",
-                              paste(names(index_loglike_map), collapse = ", ")))
+                              ".\nPlease use an integer code ", paste(range(index_distribution_map), collapse = ":")," or one of:",
+                              paste(names(index_distribution_map), collapse = ", ")))
   }
 
   # Validate pop dy controls ----
@@ -798,8 +830,9 @@ validate_switches <- function(data_list = NULL){
   invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
 
   if(sum(invalid_initMode) > 0) {
-    errors <- c(errors, paste("Invalid 'initMode' specified:",
-                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'initMode' specified: ",
+                              paste(unique(data_list$initMode[invalid_initMode]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":"), " or one of: ",
                               paste(names(initMode_map), collapse = ", ")))
   }
 
@@ -807,8 +840,9 @@ validate_switches <- function(data_list = NULL){
   invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
 
   if(sum(invalid_hcr) > 0) {
-    errors <- c(errors, paste("Invalid 'HCR' specified:",
-                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":")," or one of:",
+    errors <- c(errors, paste0("Invalid 'HCR' specified: ",
+                              paste(unique(data_list$HCR[invalid_hcr]), collapse = ", "),
+                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":"), " or one of: ",
                               paste(names(hcr_map), collapse = ", ")))
   }
 
@@ -852,7 +886,7 @@ convert_switches <- function(data_list) {
       Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
-      Index_distribution = .conv(.data$Index_distribution, index_loglike_map)
+      Index_distribution = .conv(.data$Index_distribution, index_distribution_map)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(

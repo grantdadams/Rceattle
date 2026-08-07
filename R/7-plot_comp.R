@@ -269,7 +269,7 @@ plot_diet_comp <-
 
           # * Get sex for legend ----
           if(data_list$nsex[pred] > 1){
-            # Fixed: sex variable was undefined in your original snippet
+            # Sex-specific predator label for the legend (1 = female, 2 = male)
             pred_legend <- paste("Pred-", species[pred], ifelse(pred_sex_idx == 1, "female", "male"))
             current_pred_sex = pred_sex_idx - 1
           } else{
@@ -348,13 +348,11 @@ plot_diet_comp <-
 #' Plot diet composition fits (bubble/grid diagnostic)
 #'
 #' @description
-#' `plot_diet_comp1()` is a thin alias of [plot_diet_comp()]: it produces the
+#' `plot_diet_comp1()` is an alias of [plot_diet_comp()]: it produces the
 #' predator-age x prey-age bubble grids (observed / estimated / Pearson residual)
-#' for each predator-prey-year interaction. It exists so collaborator scripts
-#' that call `plot_diet_comp1()` for the bubble/grid diagnostic and
-#' [plot_diet_comp2()] for the aggregation-aware line/bar/bubble plots have both
-#' entry points. The `Hake_test` branch had no `plot_diet_comp1`; aliasing dev's
-#' [plot_diet_comp()] preserves that call site without duplicating logic.
+#' for each predator-prey-year interaction. It is provided as a named entry point
+#' alongside [plot_diet_comp2()] (the aggregation-aware line / bar / bubble plots)
+#' for scripts that call both by name.
 #'
 #' @param Rceattle Single Rceattle model object exported from \code{Rceattle}.
 #' @param file Optional file-name prefix for saved figures.
@@ -375,24 +373,19 @@ plot_diet_comp1 <- plot_diet_comp
 #'
 #' @description
 #' Internal helper that builds the tidy data frame consumed by
-#' [plot_diet_comp2()] from dev's diet quantities. Observed proportions, fitted
-#' proportions and the Pearson residual all come from
-#' `residuals(type = "pearson", source = "diet")` (the single source of truth);
-#' the fitted value is `quantities$diet_hat[, 2]`, matched row-for-row to
-#' `data_list$diet_data`, so any prey-age / year aggregation is already resolved
-#' in the C++ model. This is dev's analogue of the `Hake_test`
-#' `match_diet_preds()` helper, adapted to dev's data path (which surfaces the
-#' fitted diet through `diet_hat` / `residuals()` rather than a `diet_prop_hat`
-#' array).
+#' [plot_diet_comp2()]. Observed proportions, fitted proportions and the Pearson
+#' residual all come from `residuals(type = "pearson", source = "diet")` (the
+#' single source of truth); the fitted value is `quantities$diet_hat[, 2]`,
+#' matched row-for-row to `data_list$diet_data`, so any prey-age / year
+#' aggregation is already resolved in the C++ model.
 #'
-#' Observed 95% intervals (`lower_95` / `upper_95`) are computed as a
-#' normal approximation to the binomial proportion,
-#' \eqn{\hat p \pm 1.96\sqrt{p(1-p)/N}}, consistent with the Sample_size used in
-#' dev's Pearson denominator (dev's `diet_data` carries no stored CI columns).
-#' Estimated 95% intervals (`Est_Lower` / `Est_Upper`) are added only when the
-#' `sdrep` exposes a `diet_hat` standard error; dev's C++ template `REPORT()`s
-#' but does not `ADREPORT()` `diet_hat`, so these are unavailable unless the
-#' template is changed to `ADREPORT(diet_hat)`.
+#' Observed 95% intervals (`lower_95` / `upper_95`) are a normal approximation to
+#' the binomial proportion, \eqn{\hat p \pm 1.96\sqrt{p(1-p)/N}}, using the same
+#' Sample_size as the Pearson denominator (`diet_data` carries no stored CI
+#' columns). Estimated 95% intervals (`Est_Lower` / `Est_Upper`) are added only
+#' when the `sdrep` exposes a `diet_hat` standard error; the C++ template
+#' `REPORT()`s but does not `ADREPORT()` `diet_hat`, so these are unavailable
+#' unless the template is changed to `ADREPORT(diet_hat)`.
 #'
 #' @param Rceattle A single Rceattle model object.
 #' @return A data frame with `Pred`, `Prey`, `Pred_sex`, `Prey_sex`, `Pred_age`,
@@ -407,7 +400,7 @@ plot_diet_comp1 <- plot_diet_comp
     return(NULL)
   }
 
-  # residuals(source = "diet") is dev's single source of truth for observed,
+  # residuals(source = "diet") is the single source of truth for observed,
   # fitted (diet_hat[, 2]) and Pearson; rows align 1:1 with diet_data.
   r <- stats::residuals(Rceattle, type = "pearson", source = "diet")
 
@@ -433,10 +426,10 @@ plot_diet_comp1 <- plot_diet_comp
   plot_data$lower_95 <- pmax(0, plot_data$Observed - 1.96 * se_obs)
   plot_data$upper_95 <- pmin(1, plot_data$Observed + 1.96 * se_obs)
 
-  # Estimated 95% CI from the sdreport, if diet_hat was ADREPORT'd. dev's
-  # template only REPORT()s diet_hat, so this branch is normally skipped; the
-  # length handling mirrors Hake_test (a vector gives n SDs, an n x 2 matrix
-  # gives 2n, of which the second column -- the fitted proportion -- is used).
+  # Estimated 95% CI from the sdreport, if diet_hat was ADREPORT'd. The template
+  # only REPORT()s diet_hat, so this branch is normally skipped. Both shapes are
+  # handled: a vector gives n SDs, an n x 2 matrix gives 2n, of which the second
+  # column (the fitted proportion) is used.
   if (!is.null(Rceattle$sdrep)) {
     sd_indices <- which(names(Rceattle$sdrep$value) == "diet_hat")
     if (length(sd_indices) > 0) {
@@ -476,12 +469,11 @@ plot_diet_comp1 <- plot_diet_comp
 #' }
 #'
 #' The observed proportions, fitted proportions and Pearson residuals come from
-#' dev's diet data path (`quantities$diet_hat` / `residuals(source = "diet")` /
-#' `data_list$diet_data`) via the internal `.diet_plot_data()` helper -- not from
-#' the `Hake_test` `match_diet_preds()` / `diet_prop_hat` array. Observed 95% CI
-#' ribbons are a normal approximation to the binomial proportion from
+#' the diet data path (`quantities$diet_hat` / `residuals(source = "diet")` /
+#' `data_list$diet_data`) via the internal `.diet_plot_data()` helper. Observed
+#' 95% CI ribbons are a normal approximation to the binomial proportion from
 #' `Sample_size`. Estimated 95% CI ribbons are drawn only when the `sdreport`
-#' exposes a `diet_hat` standard error; dev's C++ template `REPORT()`s but does
+#' exposes a `diet_hat` standard error; the C++ template `REPORT()`s but does
 #' not `ADREPORT()` `diet_hat`, so the estimated ribbon is unavailable unless the
 #' template is changed to `ADREPORT(diet_hat)` (the code path is retained so it
 #' activates automatically if that ever happens, or when `sdrep` is `NULL`).

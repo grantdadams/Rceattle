@@ -51,7 +51,8 @@
 
 #' Build an Rceattle data list in R
 #'
-#' A code-first constructor for the Rceattle data list. Supply only the data
+#' Assemble (or edit) an Rceattle data list in R code rather than from an xlsx
+#' workbook. Supply only the data
 #' blocks a model uses -- dimensions, biology (`weight`, `maturity`,
 #' `sex_ratio`, `M1_base`), a `fleet_control`, and the observation tables
 #' (`catch_data`, `index_data`, `comp_data`, ...) -- and the optional blocks a
@@ -79,9 +80,10 @@
 #'
 #' Full validation runs at fit time in [data_check()]. `build_data()` runs only
 #' a light presence pre-check (`.check = TRUE`) so a missing *required* block is
-#' reported at construction with a clear message. Requirements that depend on fit-time
-#' configuration not stored on the data list (e.g. `caal_data` when growth is
-#' estimated via `build_growth()`) are not knowable here and are left to
+#' reported at construction with a clear message. The pre-check reads an attached
+#' [model_config()], so a configuration carried on the object is accounted for.
+#' Requirements that depend on fit-time settings passed directly to [fit_mod()]
+#' and stored nowhere on the data list are not knowable here and are left to
 #' [data_check()]; see [data_requirements()] to preview them.
 #'
 #' @param base Optional existing Rceattle data list to start from and override.
@@ -211,11 +213,7 @@ build_data <- function(base = NULL, file = NULL, ..., .check = TRUE) {
     dl
   })
 
-  # Tag the object so print()/summary() show the spec tree. A thin class tag:
-  # every consumer (clean_data/data_check/fit_mod/write_data) treats it as a
-  # plain list, so this cannot change a fit.
-  class(dl) <- unique(c("Rceattle_data", class(dl)))
-  dl
+  .rce_as_data(dl)
 }
 
 #' Presence pre-check for build_data()
@@ -231,6 +229,10 @@ build_data <- function(base = NULL, file = NULL, ..., .check = TRUE) {
 #' @keywords internal
 #' @noRd
 .rce_build_precheck <- function(dl) {
+  # Classify against the configuration the fit will actually use: an attached
+  # model_config() supplies the switches, and fleet_control may still hold
+  # integer codes at this point (this runs before switch_check()).
+  dl <- .rce_classify_view(dl)
   present <- function(x) {
     if (is.null(x)) return(FALSE)
     # A data.frame is present when it has rows; any other element (scalar,

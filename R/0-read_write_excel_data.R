@@ -1,12 +1,12 @@
 
 
-#' Write data file
+#' Write a data list to a CEATTLE xlsx workbook
 #'
 #' @param data_list Rceattle data_list object
-#' @param file Filname to be used. Must end with '.xlsx'
+#' @param file Filename to write. Must end in '.xlsx'
 #'
 #' @seealso [build_data()] to assemble or edit a data list in R, [read_data()]
-#'   to read one back. Note a [model_config()] slot is not written to the
+#'   to read one back. A [model_config()] slot is not written to the
 #'   workbook and does not survive the round-trip (a warning is issued); persist
 #'   it separately with [save_config()] / [load_config()].
 #'
@@ -317,7 +317,7 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
 
 #' Read a CEATTLE excel data file
 #'
-#' @param file Filname to be used. Must end with '.xlsx'
+#' @param file Filename to read. Must end in '.xlsx'
 #'
 #' @seealso [build_data()] to assemble or edit a data list in R (and to read a
 #'   workbook then override blocks in one call, `build_data(file = ...)`),
@@ -342,7 +342,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   # Sheet inventory, hoisted so every read below can check presence. The two
   # required sheets error clearly if absent; every other sheet is optional and
-  # simply skipped when missing (defaulted downstream by clean_data() /
+  # skipped when missing (defaulted downstream by clean_data() /
   # switch_check()), so a minimal single-species workbook reads cleanly instead
   # of failing with a cryptic readxl error.
   sheetnames <- readxl::excel_sheets(file)
@@ -620,5 +620,5 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   # aliases were already upgraded above.
   data_list <- .rce_upgrade_data_list_aliases(data_list)
 
-  return(data_list)
+  return(.rce_as_data(data_list))
 }

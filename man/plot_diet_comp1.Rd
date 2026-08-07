@@ -18,13 +18,11 @@ Invisibly returns a list of the printed plot grids (see
 \code{\link[=plot_diet_comp]{plot_diet_comp()}}).
 }
 \description{
-\code{plot_diet_comp1()} is a thin alias of \code{\link[=plot_diet_comp]{plot_diet_comp()}}: it produces the
+\code{plot_diet_comp1()} is an alias of \code{\link[=plot_diet_comp]{plot_diet_comp()}}: it produces the
 predator-age x prey-age bubble grids (observed / estimated / Pearson residual)
-for each predator-prey-year interaction. It exists so collaborator scripts
-that call \code{plot_diet_comp1()} for the bubble/grid diagnostic and
-\code{\link[=plot_diet_comp2]{plot_diet_comp2()}} for the aggregation-aware line/bar/bubble plots have both
-entry points. The \code{Hake_test} branch had no \code{plot_diet_comp1}; aliasing dev's
-\code{\link[=plot_diet_comp]{plot_diet_comp()}} preserves that call site without duplicating logic.
+for each predator-prey-year interaction. It is provided as a named entry point
+alongside \code{\link[=plot_diet_comp2]{plot_diet_comp2()}} (the aggregation-aware line / bar / bubble plots)
+for scripts that call both by name.
 }
 \examples{
 \dontrun{

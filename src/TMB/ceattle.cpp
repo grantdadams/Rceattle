@@ -233,7 +233,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
   DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
   DATA_IVECTOR(linkage_re_index);      // -1 = fixed row; else 0-based slot in beta_linkage_re
-  DATA_IVECTOR(linkage_re_sigma);      // per beta_linkage_re slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_sigma);      // per RE slot: its 0-based log_sigma_linkage group
+  DATA_IVECTOR(linkage_re_integrate);  // per RE slot: 1 = Laplace-integrated, 0 = penalized
+  DATA_IVECTOR(linkage_re_slot);       // per RE slot: 0-based position within its own parameter vector
   DATA_IVECTOR(linkage_re_struct);     // per RE group: covariance structure (0=us/IID, 1=rw, 2=ar1)
   DATA_IVECTOR(linkage_re_rho);        // per RE group: 0-based slot in trans_rho_linkage (ar1 only; -1 otherwise)
   DATA_IVECTOR(linkage_re_sigma_prior_family); // per RE group: prior on the SD (0=none,1=normal,2=lognormal,3=gamma,4=beta)
@@ -244,6 +246,7 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR(linkage_re_obs_sd);      // per RE group: fixed measurement SD (0 if unobserved)
   DATA_VECTOR(linkage_re_obs_value);   // per beta_linkage_re slot: observed covariate value (0 if unobserved)
   DATA_IVECTOR(linkage_re_obs_mask);   // per beta_linkage_re slot: 1 if the covariate is observed that year, 0 otherwise
+  DATA_IVECTOR(linkage_re_obsvec_idx); // per beta_linkage_re slot: 0-based obsvec position for OSA (-1 if unobserved / not built)
   DATA_VECTOR(linkage_re_sigma_prior_p1);      // per RE group: prior param 1
   DATA_VECTOR(linkage_re_sigma_prior_p2);      // per RE group: prior param 2
   DATA_IVECTOR(linkage_is_intercept);  // 1 if design_col == "(Intercept)", 0 otherwise
@@ -409,7 +412,14 @@ Type objective_function<Type>::operator() () {
   // unless a `~ (1|group)` / rw() / ar1() linkage was supplied; when present,
   // beta_linkage_re enters the Laplace approximation (added to random=) and the
   // density on it is accumulated into jnll_comp row 20.
-  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients
+  PARAMETER_VECTOR(beta_linkage_re);     // RE deviation coefficients (Laplace-integrated)
+  // Penalized RE deviations: same row-20 density as beta_linkage_re, but NOT in
+  // the `random` set, so the density acts as a plain penalty instead of being
+  // integrated out. Two vectors rather than one flag because TMB selects random
+  // effects by parameter NAME, and one model may mix both. Permitted only with a
+  // fixed SD -- estimating deviations and their SD jointly as fixed effects is
+  // degenerate (see .re_group_table()).
+  PARAMETER_VECTOR(beta_linkage_re_pen);
   PARAMETER_VECTOR(log_sigma_linkage);   // one log-SD per RE group
   PARAMETER_VECTOR(trans_rho_linkage);   // one transformed rho per AR1 group
   PARAMETER_VECTOR(beta_linkage_obs);    // Rogers QAR1 effect size: one per observed ar1 group
@@ -647,16 +657,29 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // Every deviation in one vector, indexed by RE slot: integrated deviations live
+  // in beta_linkage_re, penalized ones in beta_linkage_re_pen, and
+  // linkage_re_slot gives the position within whichever holds it. With no
+  // penalized group this is an element-wise copy of beta_linkage_re, so those
+  // fits stay bit-identical.
+  vector<Type> beta_linkage_re_all(linkage_re_sigma.size());
+  for (int s = 0; s < beta_linkage_re_all.size(); ++s) {
+    beta_linkage_re_all(s) = linkage_re_integrate(s)
+        ? beta_linkage_re(linkage_re_slot(s))
+        : beta_linkage_re_pen(linkage_re_slot(s));
+  }
+
   // Effective linkage coefficient per table row. Fixed rows use their
   // beta_linkage(i); random-effect rows (linkage_re_index >= 0) instead draw
-  // their deviation from beta_linkage_re, which carries the density in row 20.
-  // The accumulators below are agnostic to the split -- they see one beta
-  // vector. With no RE rows every linkage_re_index is -1, so beta_linkage_eff
-  // is an element-wise copy of beta_linkage and the fit is bit-identical.
+  // their deviation from the slot-space vector, which carries the density in
+  // row 20. The accumulators below are agnostic to the split -- they see one
+  // beta vector. With no RE rows every linkage_re_index is -1, so
+  // beta_linkage_eff is an element-wise copy of beta_linkage and the fit is
+  // bit-identical.
   vector<Type> beta_linkage_eff = beta_linkage;
   for (int i = 0; i < beta_linkage_eff.size(); ++i) {
     if (linkage_re_index(i) >= 0) {
-      Type z = beta_linkage_re(linkage_re_index(i));
+      Type z = beta_linkage_re_all(linkage_re_index(i));
       // Rogers QAR1: an observed ar1 latent enters the target scaled by an
       // estimated effect size beta. Unobserved groups (the common case) keep
       // the deviate as-is, so those fits stay bit-identical.
@@ -721,7 +744,7 @@ Type objective_function<Type>::operator() () {
   for( sp = 0; sp < nspp ; sp++) {
 
     if(initMode < 3 || initMode == 5){
-      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (FishedEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
+      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same). initMode 5 (OffsetEquilibrium) is an F = 0 equilibrium seeded by first-year recruitment.
     }
 
     // Sex ratio for SSB derivation
@@ -1319,10 +1342,11 @@ Type objective_function<Type>::operator() () {
             }
 
             // - Equilibrium or non-equilibrium estimated as function of Rinit, Finit, mortality, and init devs
-            // Finit is set to 0 when initMode != 2
+            // Finit is 0 for initMode 0, 1, 2, and 5; it is estimated only for
+            // the fished non-equilibrium modes 3 and 4 (see section 6.1).
             if(initMode > 0){
 
-              // FishedEquilibrium (initMode 5): seed the initial age-structure
+              // OffsetEquilibrium (initMode 5): seed the initial age-structure
               // off the FIRST-YEAR recruitment exp(rec_pars + rec_dev(sp, 0))
               // rather than the mean-recruitment equilibrium R0, with init devs
               // off (Cole Monnahan / AFSC GOA pollock convention). Scaling R_init
@@ -1334,7 +1358,7 @@ Type objective_function<Type>::operator() () {
                 init_log_scalar = rec_dev(sp, 0);
               }
 
-              // Sum M1 until age - 1. FishedEquilibrium (5) uses the same
+              // Sum M1 until age - 1. OffsetEquilibrium (5) uses the same
               // standard departing-age cumulative-M decay as the equilibrium
               // modes (Finit is 0 for mode 5).
               if((initMode == 1) | (initMode == 2) | (initMode == 3) | (initMode == 5)){
@@ -3177,7 +3201,9 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
+      // Random walk:
+      // - Type 4 = random walk on ascending and descending for double logistic
+      // - Type 5 = ascending only for double logistics
       if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
@@ -3188,8 +3214,18 @@ Type objective_function<Type>::operator() () {
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
-            // Double logistic / descending-limb random walk (types 3, 4, 8)
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
+            // Double logistic / descending-limb random walk (types 3, 4, 8).
+            // Gated on mode 4 as well as the type: mode 5 (RandomWalkAscending)
+            // varies the ascending limb ONLY, and build_map() estimates no
+            // descending deviate under mode 5 for any selectivity type -- type 3
+            // restricts to j = 1, and types 4 and 8 exclude mode 5 outright. Those
+            // deviates therefore sit at their init of 0. With random_sel = FALSE
+            // that makes the penalty a pure constant -- it shifts the reported
+            // objective and leaves every gradient untouched. With random_sel =
+            // TRUE, sel_dev_log_sd is estimated, so the term is 2n log(sigma) +
+            // const and biases that SD downward.
+            if((flt_varying_sel(flt) == 4) &&
+               ((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8))){
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
@@ -3390,7 +3426,7 @@ Type objective_function<Type>::operator() () {
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[N_init] = deterministic equilibrium.
-    // initMode 5 (FishedEquilibrium) fixes init_dev at 0 (off), like the
+    // initMode 5 (OffsetEquilibrium) fixes init_dev at 0 (off), like the
     // equilibrium modes, so it carries no init_dev penalty.
     if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
@@ -4005,6 +4041,10 @@ Type objective_function<Type>::operator() () {
   REPORT( beta_linkage );
   ADREPORT( beta_linkage );
   REPORT( beta_linkage_re );
+  REPORT( beta_linkage_re_pen );
+  // Slot-ordered deviations across both vectors, so a caller can read a group's
+  // walk without knowing how it is stored.
+  REPORT( beta_linkage_re_all );
   REPORT( beta_linkage_obs );
   ADREPORT( beta_linkage_obs );
   /*
@@ -4098,7 +4138,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 14.6b. Random-effect linkage density (jnll_comp row 20)
   // Group-oriented so each covariance structure couples its deviations
-  // correctly. For each RE group, gather its beta_linkage_re slots in ascending
+  // correctly. For each RE group, gather its slot-space deviations in ascending
   // slot order -- which the registry assigns in real elapsed-time order -- then
   // dispatch on the group's structure:
   //   us  (IID)        : sum of N(0, sigma) densities (the index_q_dev idiom);
@@ -4111,7 +4151,7 @@ Type objective_function<Type>::operator() () {
   // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
   // the density that jnll_comp.sum() also carries.
   if (log_sigma_linkage.size() > 0) {
-    int n_re = beta_linkage_re.size();
+    int n_re = beta_linkage_re_all.size();
     for (int grp = 0; grp < log_sigma_linkage.size(); ++grp) {
       Type sigma = exp(log_sigma_linkage(grp));
       // Collect this group's slots in slot (= time) order.
@@ -4119,11 +4159,11 @@ Type objective_function<Type>::operator() () {
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) len++;
       if (len == 0) continue;
       vector<Type> re(len), obs(len);
-      vector<int> obs_mask(len);
+      vector<int> obs_mask(len), obs_slot(len);
       int j = 0;
       for (int g = 0; g < n_re; ++g) if (linkage_re_sigma(g) == grp) {
-        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re(g);
-        obs_mask(j) = linkage_re_obs_mask(g); j++;
+        obs(j) = linkage_re_obs_value(g); re(j) = beta_linkage_re_all(g);
+        obs_mask(j) = linkage_re_obs_mask(g); obs_slot(j) = g; j++;
       }
 
       int st = linkage_re_struct(grp);
@@ -4154,8 +4194,19 @@ Type objective_function<Type>::operator() () {
         Type osd = exp(log_obs_sd_linkage(linkage_re_obs(grp)));
         for (int t = 0; t < len; ++t) {
           if (obs_mask(t) == 0) continue;   // year absent from env_data: latent exists, but no observation
-          jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
-          unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
+          if (osa_mode == 0) {
+            jnll_comp(JNLL_LINKAGE_RE, 0)            -= dnorm(obs(t), re(t), osd, true);
+            unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= dnorm(obs(t), re(t), osd, true);
+          } else {
+            // OSA: read the covariate observation from obsvec, keep-gated, so
+            // oneStepPredict() residualizes it against the latent AR1 state re(t)
+            // (WHAM's Ecov OSA). build_osa_data() lays each observed slot in.
+            int pos = linkage_re_obsvec_idx(obs_slot(t));
+            if (pos >= 0) {
+              jnll_comp(JNLL_LINKAGE_RE, 0)            -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
+              unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
+            }
+          }
         }
       }
     }

@@ -1,3 +1,505 @@
+# Rceattle 5.4.0
+
+## New features
+
+* **`linkage_spec(integrate = FALSE)` estimates a random-effect linkage term as a
+  penalized fixed effect.** A `~ (1|Year)` / `rw(1|Year)` / `ar1(1|Year)` term is
+  normally integrated out by the Laplace approximation. Many reference
+  assessments -- ADMB/AMAK, `goa_pk`, and Rceattle's own legacy
+  `Time_varying_sel` / `Time_varying_q` switches -- instead treat such deviations
+  as *penalized fixed effects*: the deviations sit in the objective as a plain
+  penalty with a fixed SD and are not integrated. The two are different models,
+  not a reparametrization, so a `rw()` could not reproduce them; on the GOA
+  pollock fishery selectivity walk, integrating moved the fit by ~119 jnll units
+  (the marginal likelihood carries a Laplace log-determinant the penalized form
+  has no counterpart for) and shifted SSB ~14%.
+
+  ```r
+  build_selectivity(linkages = list(
+    slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
+                           init = list(sigma = 0.05), integrate = FALSE)))
+  ```
+
+  Permitted **only with a fixed SD** (`init = list(sigma = )` and no `sigma`
+  prior; plus a fixed `rho` for `ar1`), because a variance is consistently
+  estimated only by integrating -- estimating the deviations and their SD jointly
+  as fixed effects is degenerate, with the objective improving without bound as
+  both go to zero. This is the same reason `goa_pk` fixes `sigmaR` when it treats
+  recruitment deviations as penalized. Rejected with `observe = `, whose latent
+  state must stay integrated to be identified by its observation. A model may mix
+  both treatments -- an integrated state-space catchability alongside a penalized
+  selectivity walk -- and penalized deviations get standard errors from
+  `sdreport()` like any other fixed effect. Verified against the legacy
+  random-walk catchability, which is itself a penalized fixed effect with a fixed
+  SD: the two agree exactly.
+
+* **The linkage table records where each deviation is stored (`re_pos`).**
+  `re_index` is the deviation's slot in the *global* random-effect numbering, but
+  the deviations are split across `beta_linkage_re` and `beta_linkage_re_pen`, so
+  the position within the vector that actually holds one is a different number as
+  soon as a model uses both treatments. `re_pos` gives that position, alongside
+  `re_integrate` for which vector, so setting `inits` by hand is
+  `beta_linkage_re_pen[re_pos + 1]` rather than a reconstruction of the split.
+  Indexing a mixed model by `re_index` writes to the wrong deviation without
+  erroring.
+
+## Bug fixes
+
+* **`osa_residuals()` falls back to serial when the parallel loop fails.**
+  `TMB::oneStepPredict(parallel = TRUE)` forks via `mclapply`, and on some
+  model/observation combinations a worker aborts rather than returning. The dead
+  worker left an error object where a gradient belonged, which surfaced from deep
+  inside TMB as `non-numeric argument to mathematical function` -- a message with
+  no visible connection to the cause. The parallel loop is now retried serially,
+  reporting that it did so, so the call returns residuals instead of failing.
+  Seen on the GOA pollock model's index residuals; the other sources, and every
+  model tested with a linkage on catchability, run in parallel unaffected.
+
+* **A selectivity prior on a limb the fleet's curve does not have is now
+  rejected.** A Logistic fleet has no descending limb and a DescendingLogistic
+  fleet no ascending one, so those slots never reach selectivity-at-age -- they
+  sit at their `build_params()` defaults. A prior on them was still added to the
+  objective, shifting the reported likelihood by a constant that moved with an
+  unrelated default while doing nothing to the fit. `fit_mod()` now names the
+  fleet and parameter and says which limb to prior instead. This is how a
+  reconciliation against another model picks up an unexplained offset: on the GOA
+  pollock bridge it was worth 13.19 likelihood units.
+
+* **Parameter bounds are applied to the parameter they were written for.**
+  `fit_mod()` assembled `lower`/`upper` in `build_params()`'s parameter order,
+  but TMB orders `obj$par` by the sequence the `PARAMETER_*` macros appear in the
+  template -- and `build_params()` lists the linkage coefficients after `log_F`
+  while `ceattle.cpp` declares them before it. Both vectors have the same length
+  either way, so nothing downstream could notice: the box constraints simply
+  landed on the wrong parameters. The orders disagree in four places, so this
+  reaches well beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
+  `log_Flimit`...`log_F`, `index_q_beta`/`index_q_rho`, and
+  `sel_curve_pen`/`sel_coff_dev`. A `linkage_spec(bounds = )` on a covariate
+  coefficient was applied to `log_F` and `log_F`'s `[-1000, 10]` rail to the
+  coefficient; on a growth-estimating model with no linkage at all, 5 of 12
+  `log_F` elements lost that rail while `log_growth_pars` and `growth_log_sd`
+  were wrongly capped at `[-1000, 10]`. **Fits of growth-estimating and
+  linkage-carrying models can therefore change**, since bounds that previously
+  bound the wrong parameter now bind the right one. The reference fits are
+  unaffected (their misplaced bounds never bound). Bounds are now aligned against
+  `names(obj$par)` after `MakeADFun()`, enumerated in the map's factor-level
+  order -- the order TMB itself collapses a mapped block in, which differs from
+  first-occurrence order exactly where mirrored fleets share indices out of
+  order -- and asserted non-`NA`, since `nlminb` accepts an `NA` bound silently
+  and returns `objective = Inf` with `par = NA` rather than erroring.
+
+* **`est_phase` no longer silently fails to fix a random-effect term.**
+  `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient vector; a
+  random effect's deviations live in a separate vector it never touches, so
+  `est_phase = 0` on a formula containing `(1|g)` / `rw()` / `ar1()` left every
+  deviation estimated -- the opposite of the documented "fix at `init`" contract.
+  It is now an error naming the supported alternatives (drop the term, or fix a
+  small SD). Values above `1` remain inert for every linkage row.
+
+# Rceattle 5.3.0
+
+## New features
+
+* **`reweight_comps()` runs the iterative McAllister-Ianelli tuning loop.**
+  Every fit reports the implied weights in
+  `fleet_control$Comp_weights_mcallister`, but tuning on them has meant copying
+  them across and refitting by hand, over and over. `reweight_comps(fit)` does
+  that loop: it refits until the largest relative change in any weight falls
+  below `tol`, returns the model fitted with the settled weights, and attaches
+  the per-iteration history as `fit$reweight`. Dirichlet-multinomial fleets
+  estimate their own weight, so they are named and skipped.
+
+* **`intercept` is accepted wherever `` `(Intercept)` `` is.** The key naming a
+  linkage's intercept came straight from `model.matrix()`, so setting an init,
+  bounds or a prior on it meant writing `` list(`(Intercept)` = ...) `` --
+  backticks, a capital I, and parentheses, with no error if any of it was wrong.
+  `intercept` now means the same thing in `init`, `bounds` and `priors` on every
+  process. The original spelling still works, and a covariate actually named
+  `intercept` still refers to itself.
+
+* **An `init`, `bounds` or `priors` key that names nothing is now an error.** A
+  misspelled key was ignored without complaint, and the model went on to fit from
+  a starting value, or under a prior, that was not the one asked for. Keys are
+  now checked against the linkage's own design columns (plus `sigma` / `rho`
+  where the structure has them); an unrecognized key stops the fit and lists the
+  keys that were available.
+
+* **An intercept `init` or `bounds` reaches the base parameter for all six
+  processes.** Setting the intercept of a recruitment, natural-mortality or
+  growth linkage set that parameter's starting value and bounds, but the same key
+  on a catchability, selectivity or composition linkage was accepted and then
+  dropped. All six now behave alike. Values are given on the parameter's natural
+  scale and stored on whichever scale the parameter uses, so a catchability of
+  0.8 or a von Bertalanffy K of 0.25 is written as given.
+
+  Three cases cannot be honoured, and each now stops the fit with a message
+  naming the linkage: a value of zero or less on a parameter held as a log; a
+  natural-scale value for a `sel_inf` slot that holds a logit or a log instead of
+  an inflection (DoubleNormal, LogisticPM); and a fleet that mirrors another's
+  selectivity or catchability, where the value would be overwritten by the fleet
+  leading the shared block.
+
+* **`osa_residuals()` gains an `"ecov"` source** for the state-space covariate of
+  a QAR1 catchability (`build_catchability(..., observe=)`, Rogers et al. 2024).
+  It one-step-ahead residualizes the covariate observation with
+  `TMB::oneStepPredict()`, first and against its own series, as in WHAM's
+  `make_osa_residuals()`; the fit itself is unchanged. The AR1 latent is
+  zero-mean, so standardize the covariate -- `build_catchability()` warns
+  otherwise.
+
+
+* **`linkage_spec()` selects species and fleets by name.** `species =` now accepts
+  species names matching `data_list$spnames`, and `fleet =` accepts fleet names
+  matching `fleet_control$Fleet_name`, in place of 1-based ids:
+
+  ```r
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = "Shelikof")
+  M1 = linkage_spec(~ temp, by = ~ species, species = c("Pollock", "Cod"))
+  ```
+
+  Ids continue to work unchanged. Names are resolved when the model is assembled
+  in `fit_mod()`; an unrecognized name -- or one that is not unique in
+  `fleet_control` -- errors and lists the model's own names, whereas a
+  `Fleet_code` that is wrong but in range silently attaches the linkage to a
+  different fleet and still fits. Matching is exact after trimming whitespace, and
+  a misspelled name is rejected even when the corresponding filter would be a
+  no-op. Named specs round-trip through `save_config()` / `load_config()`.
+
+## Performance
+
+* **`run_mse()` refits the operating model only as far ahead as the next
+  assessment needs.** Between assessments the operating model has to reach one
+  assessment step past its terminal year -- far enough for the exploitable-biomass
+  cap on the next TAC -- but it was rebuilt over the whole projection every time.
+  Since `projyr` sizes the AD tape, and the tape costs roughly a fixed amount per
+  model year, most of each refit was spent on years that never influenced the
+  result. The refit now runs on the shortened horizon and the operating model is
+  restored to the full projection afterwards; the final assessment keeps the full
+  horizon, so the returned operating model is built exactly as before. Measured
+  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040, and the
+  saving grows with the length of the projection. Single-species models see
+  little change, as their tape cost barely varies with the number of years.
+
+  Because the operating model now carries fewer projection rows while the refit
+  runs, `sim_mod()` draws a different number of random values, so a run with
+  `simulate_data = TRUE` will not reproduce results generated before this
+  version. Runs remain fully reproducible from a given `seed` within a version.
+  With `simulate_data = FALSE`, where no random numbers are drawn, results are
+  unchanged to the bit.
+
+## Bug fixes
+
+* **`Time_varying_sel = "RandomWalkAscending"` no longer penalizes the descending
+  limb it never estimates.** The random-walk selectivity penalty was gated on the
+  selectivity *type* alone, so on a double-logistic fleet the descending-limb term
+  was accumulated under mode 5 as well as mode 4. Mode 5 varies the ascending limb
+  only -- `build_map()` estimates no descending deviate under it for any
+  selectivity type -- so with `random_sel = FALSE` those deviates sat at their
+  init of 0 and the term contributed a pure constant, shifting the reported
+  objective while leaving every gradient untouched. On `GOA2018SS` (fleet 8,
+  `Time_varying_sel_sd = 0.05`, 42 years, one sex) the objective rises by exactly
+  `41 * (dnorm(0, 0, 0.05, log = TRUE) + dnorm(0, 0, 0.20, log = TRUE))` =
+  113.4590179027, verified as a constant by an unchanged gradient at two
+  independent parameter vectors. Models with no mode-5 fleet -- including
+  `BS2017SS` / `BS2017MS` -- are bit-identical.
+
+  **A constant shift can still move the fit, and on `GOA2018SS` it does.**
+  `nlminb` stops on an objective-*relative* tolerance, so an additive constant
+  changes where it halts and which local optimum it reaches. `GOA2018SS` has at
+  least two converged optima 52.9 apart; the fit now lands on the better one
+  (12868.005 rather than 12920.897 measured on the same surface), and its derived
+  quantities move with it -- **GOA Pacific cod SSB in the final projection year
+  (2050) falls 14.1%** (395,627 to 339,897 t), while SSB, recruitment and F
+  differ by up to 40%, 39% and 230% across the hindcast. Anyone carrying GOA
+  numbers forward should refit. Newton-polishing the reference pins a stationary point but does not make
+  it surface-invariant: polishing both surfaces still lands on the two different
+  optima, so `max|gradient| < 1e-4` certifies convergence, not uniqueness. A
+  jitter or multi-start check is the tool for that.
+
+  With `random_sel = TRUE` the removed term is **not** constant: `sel_dev_log_sd`
+  is estimated for a mode-5 fleet, so the term is `2n log(sigma) + const` and its
+  removal shifts that gradient by `-2 * nyrs * nsex` (-82 on `GOA2018SS`). The
+  estimated selectivity-deviation SD therefore moves -- upward, since the old term
+  pushed it down -- which rescales shrinkage on the ascending walk mode 5 does
+  estimate. The change is in the right direction (penalizing a deviate pinned at 0
+  is a spurious `-log sigma`), but it is a behaviour change for such models.
+
+  All four pinned reference objectives are nevertheless restated, because the
+  reference recipe now Newton-polishes each fit. Previously they stopped on
+  `nlminb`'s objective-*relative* tolerance rather than at a stationary point, so
+  each sat slightly above its optimum -- harmlessly for the Bering Sea fits (~3e-7)
+  but badly for the Gulf of Alaska ones, whose gradients were ~3e-3 against the
+  package's own 1e-4 convergence threshold. A reference pinned at a non-stationary
+  point moves under changes that cannot alter the model: offsetting the objective
+  by a constant was enough to let `goa_ss` run on to a point 52.9 units lower. The
+  reference fits now reach true optima (gradients ~1e-11) and
+  `test-golden-regression.R` asserts convergence alongside each pinned value, so
+  the constants no longer record wherever the optimizer happened to stop.
+  `fit_control()`'s `newtonsteps = 0` default is unchanged; this affects the
+  reference recipe only, not any user fit.
+
+* **`retrospective()` and `run_mse()` run again on a model with an observed
+  (state-space covariate) linkage.** The map for the QAR1 observation SD
+  (`log_obs_sd_linkage`) was stored as a factor, where every other entry of
+  `mapList` is a raw integer. Both diagnostics build a debug map for each peel /
+  assessment, which maps the whole list out at once, and on a factor that step
+  aborted with `argument "list" is missing, with no default` -- so every peel of
+  such a model failed, reported under the parallel dispatch only as `5 nodes
+  produced errors`. Models with no `linkage_spec(observe = )` group were never
+  affected, and no fit changes: the map TMB receives is identical.
+
+* **A diagnostic refit keeps the source model's bias adjustment.** `fit_mod()`
+  resets `data_list`'s `bias_adjust_obs` / `bias_adjust_proc` and then re-applies
+  the values from `fit_control()`, whose defaults are `TRUE`. `.refit_like()`
+  built a fresh `fit_control()`, so a model fitted with bias adjustment off
+  refitted with it back on -- worth ~880 jnll units on `BS2017SS`. Bias
+  adjustment defines the likelihood rather than the optimizer, so this made
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()` and `sample_rec()` compare two different objectives: a Mohn's rho
+  or a jitter spread computed this way was not measuring what it reported. The
+  resolved settings are now recovered from the `data_list`, which covers every
+  caller. Only models fitted with a non-default `bias_adjust_*` are affected;
+  `comp_offset` was already carried correctly and is now pinned by a test.
+
+  The optimizer and `sdreport` fields -- `newtonsteps`, `use_gradient`,
+  `rel_tol`, `nlminb_control`, `getJointPrecision` and the rest -- still fall
+  back to their defaults in a refit. Those choose how the optimizer runs rather
+  than what it optimizes, so they do not change the model, but a source fit that
+  needed non-default optimizer settings will refit without them. `TMBfilename` is
+  the exception worth naming: it selects the compiled template, so a model fitted
+  against an alternate template refits against the bundled `ceattle` and is not
+  the same likelihood. Refitting such a model through any of these diagnostics is
+  not supported.
+
+* **`sim_mod()` simulates with the model's own observation bias adjustment.** It
+  hardcoded the `-sigma^2/2` offset on the simulated index and catch, which
+  agreed with the estimator only because a refit used to force bias adjustment
+  back on. With the refit now keeping the source setting, a model fitted at
+  `bias_adjust_obs = FALSE` would be simulated with the offset and then fitted by
+  a likelihood expecting none -- a systematic bias in scale, and so in
+  catchability, that no number of simulations averages away. `self_test()` and
+  `run_mse(simulate_data = TRUE)` on such a model would report that artifact as
+  estimation error. The simulator now reads the flag the same way
+  `residuals.Rceattle()` already did. Models on the default bias adjustment are
+  unaffected.
+
+* **A simulation whose unfished reference run fails keeps an `OM_no_F` entry.**
+  `run_mse()` assigned the failure result with `sim_list$OM_no_F <- NULL`, which
+  *removes* a list element rather than setting it to `NULL`, so the simulation
+  came back without the name at all. `is.null()` tests were unaffected, but code
+  keying on `names()` saw something different from what the documentation
+  described. The element is now present and `NULL`, as stated.
+
+* **A failed re-assessment now stops its simulation instead of being absorbed.**
+  When an estimation-model refit failed, `run_mse()` could not assign to
+  `em_use`, so it still held the *previous* year's assessment; the guard that
+  followed tested `is.null(em_use)`, which such a failure never produces. The
+  simulation carried on, stored that stale assessment under the failed year's
+  name, handed its catch advice to the next iteration, and was reported as
+  successful once a later iteration reset the failure flag. A simulation whose
+  assessment fails is now stopped and marked like one whose operating-model
+  refit fails. Any earlier run is worth re-checking: a failed assessment left no
+  trace in `use_sim`.
+
+* **A simulation whose unfished reference run fails is no longer counted as
+  "did not collapse".** `remove_F()` is a separate fit and can fail on its own.
+  The simulation is kept, since its assessments are the catch-advice record, but
+  `OM_no_F` is then `NULL` -- and `sum(NULL < 1000) > 0` is `FALSE` in R, so
+  `mse_summary()` scored it as a non-collapse while keeping it in the
+  denominator. Because `remove_F()` fails preferentially at low stock sizes, that
+  biased the collapse metrics low, in the direction that flatters a harvest rule.
+  Such simulations are now excluded from the `OM no F` and `SSB Collapse from F`
+  metrics -- numerator and denominator both -- which report `NA` when none has an
+  unfished run; every other metric still uses them. Under `msmMode > 0` a single
+  such simulation previously threw and took the whole summary with it.
+
+* **`run_mse(dir = )` accepts an absolute path.** The save built its target as
+  `file.path(getwd(), dir)`, which turns an absolute `dir` into
+  `<cwd>/<abs path>`, so the directory was never created and the run died with
+  "cannot open the connection". Relative paths were unaffected.
+
+* **`sampling_period` is now honoured per fleet when more than one year advances
+  per assessment.** `run_mse()` selected the newly sampled rows by testing the
+  year set and the fleet set separately, which is the same as matching
+  fleet-year pairs only while `years_include` spans a single year. With
+  `assessment_period > 1` and fleets on different sampling periods, the two
+  tests together admitted every fleet in every year of the step: a fleet
+  surveyed every second year was given observations in its off years as well.
+  The estimation model was therefore fit to more survey and composition data
+  than the sampling design specifies, understating terminal-year uncertainty and
+  making a data-poor design perform like a data-rich one. Rows are now matched on
+  the fleet and year together. Runs with `assessment_period = 1` -- the default
+  -- are unaffected; results move for any run combining a longer assessment
+  period with per-fleet sampling periods.
+
+* **`sample_rec(update_model = TRUE)` works on models carrying catchability,
+  selectivity, or composition linkages.** `.refit_like()` reconstructs the
+  `build_catchability()` / `build_selectivity()` / `build_composition()`
+  specifications from the source model, but `sample_rec()` still re-invoked
+  `fit_mod()` through its own hand-written copy of that block, and so omitted all
+  three. Because `fit_mod()` treats those arguments as the source of truth for
+  `q_linkages` / `sel_linkages` / `comp_linkages`, the rebuilt model had no
+  linkage table and therefore no `beta_linkage` parameters, which no longer
+  matched the parameters carried over from the source model. The `inits` check in
+  `fit_mod()` caught that and stopped with a length-mismatch error, so
+  `sample_rec(update_model = TRUE)` failed outright on any model using an
+  environmental linkage or a prior on catchability, on a selectivity parameter,
+  or on a Dirichlet-multinomial composition weight — it did not return quietly
+  wrong dynamics. `sample_rec()` now routes through `.refit_like()` like every
+  other refit.
+
+  Routing through `.refit_like()` also means `sample_rec(update_model = TRUE)`
+  now carries the source model's `random_q` and `random_sel` settings into the
+  rebuild, where the hand-written block left them at `FALSE`. For a model that
+  estimates time-varying catchability or selectivity as random effects, the
+  rebuilt object now keeps those random effects instead of dropping them.
+
+
+* **The "invalid switch" errors for `initMode` and `HCR` now name the offending
+  value.** They previously read `Invalid 'initMode' specified: .` with the value
+  dropped; they now echo what was passed (e.g. a since-renamed alias), alongside
+  the list of accepted names and integer codes.
+
+
+* **The diet Dirichlet-multinomial weight is no longer estimated where there is
+  no diet likelihood.** `build_map()` freed `diet_comp_weights` for any predator
+  with `Diet_distribution = "DirichletMultinomial"` whenever `msmMode > 0`, but
+  the template only fits the diet composition for predators with
+  `suitMode > 0` -- under empirical suitability (`suitMode = 0`) the diet
+  proportions are taken as given. A multispecies run with empirical suitability
+  therefore carried one free, wholly uninformed overdispersion parameter per
+  predator, inflating the parameter count and risking a rank-deficient Hessian
+  under `getsd = TRUE`. The weight is now estimated only where the diet
+  composition is fit. Fits that did not use a DM diet are unchanged.
+
+* **A composition-weighting prior on a fixed DM weight is now ignored instead of
+  adding a constant.** A `theta_comp` / `theta_caal` / `theta_diet` prior from
+  `build_composition(linkages = )` is prior-only, so when the map fixes the
+  weight it targets -- a single-species fit, empirical suitability, an `"Off"`
+  fleet, a fleet with no composition data, or a user-supplied `map` -- the prior
+  contributed a constant that shifted the reported `jnll` without moving any
+  estimate, making likelihoods non-comparable across configurations. Such priors
+  are now dropped with a message. The linkage rows themselves are kept, so
+  `beta_linkage` keeps its length and `inits` remain portable between fits that
+  share one `compFun`. `linkage_spec()` still errors up front on a prior that
+  can never apply to the data at hand (a non-DM `Comp_distribution` /
+  `Diet_distribution`).
+
+* **`Hake` selectivity no longer warns about a valid `Time_varying_sel = 0`.**
+  `build_map_selectivity()` warned "Time_varying_sel for fleet N is not
+  compatible ... Current value: Off" on every fleet that was not `"IID"` --
+  including `"Off"` (0), which its own message and `data_check()` both list as
+  valid for the `"Hake"` (Taylor et al. 2014) form. Because `fit_mod()` wraps
+  `build_map()` in `suppressWarnings()`, the spurious warning surfaced only in
+  the callers that build the map directly, notably `run_mse()` and
+  `retrospective()`, where it appeared once per iteration. The map itself was
+  always correct (no coefficient deviates are estimated for `"Off"`), so fits
+  are unchanged. The warning now fires only for a mode the `"Hake"` form cannot
+  represent, and names `'Off'` rather than the non-existent `'None'`.
+
+
+* **The diagnostic refit paths preserve catchability / selectivity / composition
+  linkages.** `.refit_like()` -- the engine behind `run_mse()`,
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, and `remove_F()` --
+  rebuilt the recruitment, M1, and growth specifications from the source model
+  but silently dropped the `build_catchability()` / `build_selectivity()` /
+  `build_composition()` linkages. On a model using any of them (e.g. a
+  Dirichlet-multinomial composition-weight prior), the reconstructed model
+  lacked the linkages' `beta_linkage` parameters while the warm-start values
+  still carried them, and `TMB::MakeADFun()` segfaulted on the length mismatch.
+  The three linkage constructors are now rebuilt from the stored `data_list`
+  fields (`q_linkages` / `sel_linkages` / `comp_linkages`), so these models run
+  through the MSE / retrospective / jitter loops.
+
+* **`run_mse()` extends the selectivity-deviation parameters at the model's own
+  sex dimension.** The projection-year extension of `log_sel_slp_dev` /
+  `sel_inf_dev` / `sel_coff_dev` hardcoded the sex dimension to 2, which for a
+  single-sex model both recycled the fitted values into a phantom second sex and
+  produced a warm-start whose length disagreed with the parameter template. Now
+  taken from the fitted arrays (`max_sex`).
+
+* **`fit_mod()` raises a clear error instead of crashing on mismatched
+  `inits`.** When the supplied `inits` omit a parameter the model declares, or
+  any parameter's length disagrees with the template implied by `data_list`
+  (a dropped linkage, or a warm start not extended to a later `endyr`),
+  `fit_mod()` now stops with a message naming the parameter and its lengths,
+  rather than letting `TMB::MakeADFun()` segfault in `getParameterOrder()`.
+
+* **The diagnostic refit paths preserve the `random_q` / `random_sel` switches.**
+  These are now stored on `data_list` (like `random_rec`) and forwarded by
+  `.refit_like()`, so a random-catchability or random-selectivity model keeps its
+  random-effect structure across MSE / retrospective / jitter refits instead of
+  silently reverting to fixed effects.
+
+* **`build_params()` no longer pads `init_dev` behind a string comparison.** The
+  `-999` padding of the unused `init_dev` columns was partly gated on
+  `initMode > 0`, evaluated against the canonical `initMode` *string* that
+  `switch_check()` has already resolved — `"FreeParams" > "0"` is `TRUE`, so the
+  gate was always open. The padding is unconditional now, which is what the C++
+  requires (every mode reads only columns `1:(nages - 1)`). No fit changes:
+  `build_params()` is bit-identical for all six modes on `BS2017SS` and
+  `BS2017MS`, from both string and integer input. This was the only place whose
+  behaviour depended on the lexicographic value of a switch alias, so an alias
+  beginning with a digit can no longer flip it.
+
+## Behavior changes
+
+* **Composition weights now warm-start from `inits` like every other
+  parameter.** `fit_mod()` re-read `comp_weights`, `caal_weights` and
+  `diet_comp_weights` from their `fleet_control` columns on every fit, even when
+  `inits` was supplied, so a weight handed to a refit was discarded. These are
+  estimated parameters -- the Dirichlet-multinomial likelihood fits them, which
+  is why they can carry a prior -- and their columns are starting values, read
+  when a model is built from scratch. A refit now keeps the estimate it was
+  given, which is what makes iterative reweighting possible and what every other
+  parameter already did.
+
+  Which models this moves depends on whether the weight is estimated. Under a
+  multinomial likelihood it is a fixed multiplier that never leaves its column
+  value, so those models -- including the bundled examples -- are unaffected, and
+  an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
+  estimated and can move a long way: fitting `BS2017SS` with DM composition puts
+  the weights between -0.6 and 12.7, starting from the default column value of 1.
+  (Both figures are on the log scale, which is the scale the column itself holds
+  under a Dirichlet-multinomial -- the model uses `exp(Comp_weights)`. Under a
+  multinomial the column is the natural-scale multiplier instead.) Every
+  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()` refit
+  previously discarded those estimates and restarted from the column, so results
+  move for any DM model, and the earlier behaviour was throwing away a fitted
+  quantity rather than merely re-seeding it.
+
+  Editing a `Comp_weights` column and re-fitting from an existing fit no longer
+  has an effect. Either build the model afresh (`inits = NULL`), or set the
+  parameter the fit actually reads -- `inits$comp_weights[flt] <- w` (likewise
+  `caal_weights` / `diet_comp_weights`) -- which is what `reweight_comps()` does.
+  `fit_mod()` now warns when supplied `inits` disagree with the columns, so an
+  edit that would once have taken effect silently is no longer silent.
+
+
+* **A simulation that does not run to completion now returns only a marker.**
+  `run_mse()` previously returned the partially advanced operating and estimation
+  models alongside `use_sim = FALSE`. Those models describe a state the
+  simulation never reached, and nothing downstream filtered on `use_sim`, so they
+  could be averaged into performance metrics as though the simulation had
+  finished. A failed simulation is now `list(use_sim = FALSE, failure = ...)`
+  with no models attached, and `mse_summary()` drops such simulations up front
+  with a warning naming them, or errors if none completed. Code that reached into
+  `mse$Sim_n$OM`, `$EM` or `$OM_no_F` without checking `use_sim` should now check
+  it -- filter first with
+  `mse <- mse[vapply(mse, function(x) isTRUE(x$use_sim), logical(1))]`.
+
+## Documentation
+
+* **Help pages, code comments, and vignettes were rewritten for clarity.** No
+  code or model behavior changed.
+
+* **Four help pages that disagreed with the code were corrected.** `jitter()`
+  now states that starting values are perturbed around the model's initial
+  (pre-fit) parameters, not the fitted values; the `build_params()` and
+  `TMBphase()` `@return` descriptions were fixed (they had described a map object
+  and standard errors respectively); and a mislabeled comment now correctly
+  attributes the time-varying survey catchability SD.
+
 # Rceattle 5.1.1
 
 ## New features
@@ -303,15 +805,18 @@
 
 ## New features
 
-* **`initMode = "FishedEquilibrium"` (5).** A new initial-age-structure mode: an
+* **`initMode = "OffsetEquilibrium"` (5).** A new initial-age-structure mode: an
   F = 0 equilibrium seeded by the *first-year* recruitment
-  (`exp(rec_pars + rec_dev[year 1])`) decayed by natural mortality, with initial
-  deviates turned off and no init-dev penalty. Unlike `initMode = "Equilibrium"`
-  (which seeds off the mean-recruitment equilibrium `R0`), the initial numbers
-  track the year-1 recruitment deviation, matching the AFSC GOA pollock (Cole
-  Monnahan) convention — the first-year cohort and the initial age composition
-  share one deviation. Every other mode is unchanged (golden references
-  bit-identical).
+  (`R_init * exp(rec_dev[year 1])`) decayed by residual natural mortality `M1`,
+  with initial deviates turned off and no init-dev penalty. Unlike
+  `initMode = "Equilibrium"`, which sits at the initial equilibrium recruitment
+  `R_init`, the initial numbers track the year-1 recruitment deviation, matching
+  the AFSC GOA pollock (Cole Monnahan) convention — the first-year cohort and
+  the initial numbers-at-age share one deviation. The name refers to that
+  offset; the equilibrium itself is unfished. Note the deviation enters as a
+  single scalar on every age, so it moves the level of the initial numbers-at-age
+  without changing their proportions-at-age. Every other mode is unchanged
+  (golden references bit-identical).
 
 * **Priors on base selectivity parameters through the linkage grammar.** A
   selectivity linkage with an intercept-only formula and a `priors` entry now

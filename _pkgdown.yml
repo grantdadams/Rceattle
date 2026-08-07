@@ -175,6 +175,7 @@ reference:
   desc: Fit single- or multi-species CEATTLE models and manage output.
   contents:
   - fit_mod
+  - reweight_comps
   - set_phases
   - TMBphase
   - TMBAIC

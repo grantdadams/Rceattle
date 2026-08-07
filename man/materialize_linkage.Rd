@@ -19,7 +19,12 @@ model year). Must contain every variable named on the RHS of
 stratifying factor named in \code{spec$by}. For example, for
 \code{by = ~species} the user must supply \code{strata = list(species = 1:3)}.
 Each element should be a 1-based integer vector of stratum ids.
-Allowed names are \code{"species"}, \code{"sex"}, \code{"age_bin"}, and \code{"fleet"}.}
+Allowed names are \code{"species"}, \code{"sex"}, \code{"age_bin"}, and \code{"fleet"}.
+The \code{species} and \code{fleet} vectors may additionally be \emph{named} with the
+model's own labels (\code{data_list$spnames} /
+\code{fleet_control$Fleet_name}); those labels are what a spec built with
+\code{linkage_spec(fleet = "Shelikof")} is resolved against. Without them,
+such a spec errors -- ids always work.}
 }
 \value{
 An \code{Rceattle_linkage_table} with one row per coefficient.
@@ -35,9 +40,9 @@ One row is produced for every combination of:
 \code{by = ~species}).
 }
 
-The \code{X_col} column is initially set to a \emph{local} column index into
-the per-spec design matrix; it is the caller's responsibility (in
-\code{fit_mod()}'s pooling step) to remap these to global column indices
-once all specs have been combined into a single shared \code{X} matrix.
+The \code{X_col} column starts as a \emph{local} column index into the
+per-spec design matrix; the caller (\code{fit_mod()}'s pooling step)
+remaps these to global column indices once all specs have been
+combined into a single shared \code{X} matrix.
 }
 \keyword{internal}

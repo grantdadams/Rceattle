@@ -20,7 +20,8 @@ linkage_spec(
   est_phase = 1L,
   observe = NULL,
   obs_sd = NULL,
-  obs_sd_est = FALSE
+  obs_sd_est = FALSE,
+  integrate = TRUE
 )
 }
 \arguments{
@@ -48,8 +49,13 @@ e.g. \code{~species + sex} for per-(species, sex) coefficients, or
 \code{NULL} to share a single coefficient across every stratum. An
 explicit \code{by} (including \code{NULL}) is always kept as given.}
 
-\item{species}{optional integer vector of 1-based species ids that
-this spec applies to. \code{NULL} (default) means every species in
+\item{species}{optional vector of species that this spec applies to,
+given either as 1-based species ids (\code{c(1L, 2L)}) or as species
+\strong{names} matching \code{data_list$spnames} (\code{c("Pollock", "Cod")}).
+Names are matched exactly, after trimming whitespace, when the model
+is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name is an error that
+lists the model's species. Give ids or names, not a mix -- R coerces
+\code{c(1, "Cod")} to \code{c("1", "Cod")}. \code{NULL} (default) means every species in
 \code{strata$species} at materialization time. Use this to give
 different species different formulas, e.g. by registering
 multiple specs against the same parameter -- see
@@ -65,11 +71,20 @@ filter is a no-op. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
-\item{fleet}{optional integer vector of 1-based \code{Fleet_code}s this spec
-applies to. \code{NULL} (default) means every fleet in \code{strata$fleet} at
-materialization time. Only meaningful when \code{by} includes \code{fleet};
-otherwise the filter is a no-op. Used by catchability and selectivity
-linkages to give different fleets different formulas.}
+\item{fleet}{optional vector of fleets this spec applies to, given
+either as 1-based \code{Fleet_code}s (\code{c(1L, 3L)}) or as fleet \strong{names}
+matching \code{fleet_control$Fleet_name} (\code{c("Shelikof", "Summer BT")}).
+Names are matched exactly, after trimming whitespace, when the model
+is assembled in \code{\link[=fit_mod]{fit_mod()}}; an unrecognized name -- or one that is
+not unique in \code{fleet_control} -- is an error that lists the model's
+fleets. Prefer names: a \code{Fleet_code} that is wrong but in range
+attaches the linkage to a different fleet and still fits, whereas a
+misspelled name cannot. Give ids or names, not a mix -- R coerces
+\code{c(7, "Pollock")} to \code{c("7", "Pollock")}. \code{NULL} (default) means every fleet in
+\code{strata$fleet} at materialization time. Only meaningful when \code{by}
+includes \code{fleet}; otherwise the filter is a no-op. Used by
+catchability and selectivity linkages to give different fleets
+different formulas.}
 
 \item{link}{link function relating the linear predictor to the
 natural-scale target parameter. One of \code{"log"} (default) or
@@ -95,13 +110,21 @@ design-matrix column name. Inside this argument you may write \code{normal()},
 \item{re_group}{optional character: name of a random-effect grouping
 for these coefficients. \code{NA} (default) means fixed.}
 
-\item{est_phase}{optional integer estimation phase. Default \code{1L}.}
+\item{est_phase}{optional integer estimation phase. Default \code{1L}; \code{0} fixes
+the coefficient at its \code{init}. Applies to \strong{fixed-effect} rows only -- the
+coefficients in \code{beta_linkage}. A random-effect term's deviations are held
+in a separate vector that \code{est_phase} does not reach, so \code{est_phase < 1} on
+a formula containing one is an error rather than a silent no-op; drop the
+term, or fix a small SD via \code{init = list(sigma = )}, to remove the time
+variation. Values above \code{1} are currently inert for every linkage row.}
 
 \item{observe}{optional character: for an \code{ar1(1 | group)} term, the name of
 an \code{env_data} column that measures the AR1 latent (a state-space covariate,
 sensu Rogers et al. 2024). The latent enters the linked parameter through
 an estimated effect size and is observed against this column. \code{NULL}
-(default) leaves the AR1 as a plain random effect.}
+(default) leaves the AR1 as a plain random effect. The latent is zero-mean
+(no estimated level), so standardize the observed covariate to mean 0; a
+non-zero-mean column confounds its level with the intercept and warns.}
 
 \item{obs_sd}{optional positive numeric: the measurement SD for the \code{observe}
 covariate (one per observed group). Required with \code{observe}, unused
@@ -115,6 +138,20 @@ survey-catchability (GOA pollock) model does. \strong{Caveat:} the effect size a
 informative; on a smooth series the AR1 latent can track it exactly and the
 freely-estimated \code{obs_sd} collapses toward 0. Keep it fixed unless the
 covariate is informative. Only used with \code{observe}.}
+
+\item{integrate}{single \code{TRUE}/\code{FALSE} (default \code{TRUE}): whether the random
+effect's deviations are integrated out by the Laplace approximation.
+\code{integrate = FALSE} instead estimates them as a \strong{penalized fixed effect} --
+the deviations stay in the objective as a plain penalty and are reported
+with standard errors like any other fixed effect. This reproduces the
+ADMB/AMAK convention behind the legacy \code{Time_varying_sel} /
+\code{Time_varying_q} switches, which a Laplace-integrated \code{rw()} cannot match
+(the marginal likelihood carries a log-determinant term the penalized form
+has no counterpart for). Permitted \strong{only with a fixed SD} --
+\code{init = list(sigma = )} and no \code{sigma} prior, plus a fixed \code{rho} for \code{ar1} --
+because estimating deviations and their SD jointly as fixed effects is
+degenerate. Cannot be combined with \code{observe}: an observed latent state must
+stay integrated.}
 }
 \value{
 An \code{Rceattle_linkage_spec} object.

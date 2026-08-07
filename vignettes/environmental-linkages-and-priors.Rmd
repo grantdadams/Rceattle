@@ -89,8 +89,9 @@ linkage_spec(
   formula,
   param     = NULL,
   by        = ~ species,
-  species   = NULL,
+  species   = NULL,                 # ids or spnames
   sex       = NULL,
+  fleet     = NULL,                 # Fleet_codes or Fleet_names
   link      = "log",                # or "identity"
   init      = NULL,
   bounds    = NULL,
@@ -111,11 +112,15 @@ Key arguments (see `?linkage_spec` for the full list):
 * **`by`** -- stratifying factors (default `~species`); use
   `~species + sex` for per-(species, sex) coefficients, or `NULL`
   to share a single coefficient set.
-* **`species`** / **`sex`** -- restrict a spec to specific ids.
-  Use with the multi-spec form (*Per-species* / *Per-sex formulas*
-  below) to give different species or sexes different formulas.
-  `sex` accepts integers (`1L`, `2L`) or strings (`"Females"`/`"Males"`,
-  case-insensitive).
+* **`species`** / **`sex`** / **`fleet`** -- restrict a spec to specific
+  strata. Use with the multi-spec form (*Per-species* / *Per-sex formulas*
+  below) to give different species, sexes, or fleets different formulas.
+  `species` and `fleet` accept either 1-based ids or the model's own names
+  (`data_list$spnames` / `fleet_control$Fleet_name`); `sex` accepts
+  integers (`1L`, `2L`) or strings (`"Females"`/`"Males"`,
+  case-insensitive). Prefer names for fleets: an id that is wrong but in
+  range attaches the linkage to a different fleet and the model still fits,
+  while a misspelled name errors and lists the fleets you do have.
 * **`link`** -- relates the linear predictor to the natural-scale
   target. `"log"` (default) gives a multiplicative effect on natural
   `param`; `"identity"` gives an additive effect on natural `param`.
@@ -155,12 +160,11 @@ linkage_spec(
 )
 ```
 
-**Prior semantics.** For `(Intercept)` rows,
-Priors are evaluated on the *natural-scale* 
-(e.g. `normal(0.3, 0.1)` on `K` means `dnorm(K_natural, 0.3, 0.1)`).
-Use `lognormal(meanlog, sdlog)` to put a normal directly on the log
-scale. For covariate rows, the prior applies
-to the coefficient as-is regardless of link function.
+**Prior semantics.** On `(Intercept)` rows the prior is evaluated on the
+*natural scale* (e.g. `normal(0.3, 0.1)` on `K` means
+`dnorm(K_natural, 0.3, 0.1)`). Use `lognormal(meanlog, sdlog)` to put a normal
+directly on the log scale. On covariate rows the prior applies to the
+coefficient as-is, regardless of link function.
 
 For programmatic prior assembly (e.g. species-specific priors built in
 a loop) call the `prior_*` constructors directly:
@@ -417,7 +421,7 @@ build_growth(
 ```
 
 
-Linkages can accepts both forms under each parameter key:
+Each parameter key accepts both forms:
 
 ```r
 linkages = list(K = single_spec)             # one formula for all sp
@@ -760,11 +764,14 @@ fit$quantities$q_linkage_offset      # [n_flt, nyrs]
 ```
 
 Restrict a spec to particular fleets with the `fleet` argument of
-`linkage_spec()`, and attach priors the same way as any other process:
+`linkage_spec()`, and attach priors the same way as any other process. Name
+the fleets rather than numbering them -- the names are checked against
+`fleet_control$Fleet_name` when the model is assembled, whereas a
+`Fleet_code` typo that stays in range quietly links the wrong survey:
 
 ```{r}
 build_catchability(linkages = list(
-  q = linkage_spec(~ temp, by = ~ fleet, fleet = c(1, 3),
+  q = linkage_spec(~ temp, by = ~ fleet, fleet = c("Pollock", "EIT_Pollock"),
                    priors = list(temp = normal(0, 1)))))
 ```
 
@@ -917,14 +924,14 @@ growth_spec <- build_growth(
 )
 ```
 
-The pooler will:
+At fit time these specs are pooled. The result:
 
-* compute one shared `X = model.matrix(~ temp + PDO, env_data)` of
+* one shared design matrix `X = model.matrix(~ temp + PDO, env_data)` of
   three columns,
-* emit 4 (sp × sex) + 3 (Linf cols) × 3 (sp) + 3 (m intercepts) = 16
-  rows in the linkage table,
-* match same-named columns (`(Intercept)`, `temp`) across specs so
-  there's no duplication in `X`.
+* 16 linkage-table rows: 4 (sp × sex) + 3 (Linf cols) × 3 (sp) + 3
+  (m intercepts),
+* same-named columns (`(Intercept)`, `temp`) matched across specs, so
+  nothing is duplicated in `X`.
 
 Per-process logic (vB has no `m`; only Richards does) is enforced at
 build time:
@@ -1079,7 +1086,8 @@ estimated density rather than fixed covariate slopes:
 
 * `~ (1 | Year)` -- **IID** deviations, `N(0, sigma)`;
 * `rw(1 | Year)` -- a **random walk**, `N(0, sigma)` on first differences
-  (first deviate pinned so the base parameter carries the level);
+  (first deviate fixed so the base parameter carries the level -- fixed at its
+  `inits` value, 0 unless you supply another);
 * `ar1(1 | Year)` -- a stationary **AR1**, `SCALE(AR1(rho), sigma)` with
   `sigma` the marginal SD and `rho` the correlation.
 
@@ -1119,6 +1127,39 @@ arguments as every other parameter: `init = list(sigma = 0.1)` fixes the SD
 `priors = list(rho = normal(...))` place priors. `rw()` / `ar1()` need a
 numeric grouping variable (a real elapsed-time lag).
 
+### Integrated or penalized
+
+By default the deviations are **integrated out** by the Laplace approximation --
+they are random effects in the usual sense. Many reference assessments instead
+treat time-varying deviations as **penalized fixed effects**: the deviations stay
+in the objective as a plain penalty with a *fixed* SD and are never integrated.
+That is what ADMB/AMAK models do, and what Rceattle's own legacy
+`Time_varying_sel` / `Time_varying_q` switches do. The two are genuinely
+different models -- the marginal likelihood carries a log-determinant term the
+penalized form has no counterpart for -- so an integrated `rw()` will not
+reproduce a penalized reference fit.
+
+`integrate = FALSE` asks for the penalized treatment:
+
+```{r eval = FALSE}
+build_selectivity(linkages = list(
+  slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
+                         init = list(sigma = 0.05), integrate = FALSE)))
+```
+
+It is permitted **only with a fixed SD** (and, for `ar1`, a fixed correlation).
+A variance is consistently estimated only by integrating the deviations out;
+estimating the deviations *and* their SD jointly as fixed effects is degenerate,
+since the objective improves without bound as both go to zero. This is the same
+reason `goa_pk` fixes `sigmaR` when it treats recruitment deviations as
+penalized. It cannot be combined with `observe = ` -- an observed latent state
+must stay integrated for the observation to identify it.
+
+One model may mix the two treatments: an integrated state-space catchability
+alongside a penalized selectivity walk is fine. Penalized deviations are ordinary
+fixed effects, so `sdreport()` gives them standard errors, which an integrated
+term does not get.
+
 An `ar1(1 | Year)` term can additionally be a **state-space covariate** (the
 Rogers et al. 2024 QAR1 catchability model): with `observe = "<env column>",
 obs_sd = <value>` the AR1 latent is observed as an `env_data` column with a
@@ -1138,6 +1179,12 @@ auto-extended to `styr` with `NA` for the missing years and the observation is
 applied **only** where the covariate is present — the latent AR1 still runs over
 all years, but no observation is fabricated for the un-surveyed ones.
 
+The AR1 latent is **zero-mean** (no estimated level), so its mean is confounded
+with the linked parameter's intercept. **Standardize the observed covariate to
+mean 0** (a z-score), or `build_catchability()` warns. One-step-ahead residuals
+of the covariate observation come from `osa_residuals(fit, source = "ecov")`,
+residualized first against its own series as in WHAM.
+
 `rw()` / `ar1()` couple *consecutive* deviations with a unit lag, so their time
 points must be **equally spaced** -- a gap (a missing year) would be silently
 treated as a single step. A grid with gaps errors rather than mis-specifying
@@ -1154,7 +1201,16 @@ rather than applying a covariate/deviate to the wrong year.
 * **Time-variation switches are not auto-translated.** The soft-deprecated
   `Time_varying_q` / `Time_varying_sel` / `M1_re` switches (above) are not
   rewritten into the grammar for you -- rewrite the spec by hand when you want the
-  grammar's features. No grammar equivalent exists yet for the environmental /
+  grammar's features. The switches estimate their deviations as penalized fixed
+  effects with a fixed SD, so a faithful rewrite pairs `rw()` with
+  `integrate = FALSE` and `init = list(sigma = )` set to the switch's
+  `Time_varying_*_sd`; an integrated `rw()` is a different model. Two traps when
+  rewriting a selectivity switch: the legacy penalty weights the *inflection*
+  deviate at **4x** the *slope* deviate (and swaps which limb gets the 4x between
+  `RandomWalk` and `RandomWalkAscending`), so read the sigmas off
+  `ceattle.cpp`'s penalty block rather than assuming; and an inflection linkage
+  needs `link = "identity"`, because the legacy deviate is added to the
+  inflection whereas the default log link multiplies it. No grammar equivalent exists yet for the environmental /
   Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
   separable `M1_re = 6` (age × year), which keep using the switch-based path
   without a nudge.

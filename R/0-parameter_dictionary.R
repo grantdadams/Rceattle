@@ -69,6 +69,8 @@
       "Coefficients of the formula-driven environmental linkages; one per row of the linkage table.", "[n_linkage]"),
     r("beta_linkage_re", "linkage random-effect deviations", "linkage",
       "Random-effect deviation coefficients for `~ (1|group)` / rw() / ar1() linkage terms; entered into the Laplace approximation. Length 0 without a random linkage.", "[n_linkage_re]"),
+    r("beta_linkage_re_pen", "penalized linkage deviations", "linkage",
+      "Deviation coefficients for linkage terms declared `linkage_spec(integrate = FALSE)`: estimated as penalized fixed effects rather than integrated out, so they carry the same density as `beta_linkage_re` but as a plain penalty and are reported with standard errors. Requires a fixed SD. Length 0 without a penalized random linkage.", "[n_linkage_re_pen]"),
     r("log_sigma_linkage", "linkage RE log-SD", "linkage",
       "Log standard deviation of each random-effect linkage group; the variance of the time-varying deviations. Can be input (init) or given a prior. Length 0 without a random linkage.", "[n_re_group]"),
     r("trans_rho_linkage", "linkage RE correlation", "linkage",
