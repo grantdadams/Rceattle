@@ -260,24 +260,28 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-- **Data-workflow + linkage-grammar effort** (PRs 0–7): **complete and merged onto
-  `dev-data-workflow`** (bumped to 5.0.0; not yet released to `main`). The linkage grammar,
-  column schema, `build_data()`/`model_config()`, `save_config()`/`load_config()` +
-  `fit_mod(config=)`, the C++ legibility pass + `JnllRow` enum, the
-  `build_growth(sd_plus_group=)` WHAM/SS3 feature, the `mse_summary()` per-entity reshape,
-  the `.refit_like()` collapse, and the developer-guide expansion all shipped. Tier D2 (the
-  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap and historical
-  record: the commit log and `NEWS.md` 4.9.0 onward. The planning documents are kept
-  locally under the untracked `dev/`.
-- **Documentation-quality + roxygen-accuracy pass** (on `dev-data-workflow`): the PR 1–7
-  user-facing doc surface was reviewed against three criteria (not AI-verbose,
-  current-capabilities-not-changelog, scientist-legible), and a technical-accuracy audit
-  cross-checked the `fit_mod` / `build_srr` / `build_M1` / `build_growth` /
-  `build_catchability` / `build_selectivity` / `build_composition` / `linkage_spec` /
-  `build_hcr` roxygen math against the C++ — fixing accuracy issues incl. the `build_hcr`
-  SESSF/NPFMC/PFMC reference-point formula errors, the Ricker β/1e6 reparametrization note,
-  and the inert `avgnMode` switch. A companion **code fix** removed the HCR-4 `Fmult`
-  double-application (`ceattle.cpp` case 4). Doc-only otherwise.
+- **Preparing the `dev` → `main` release PR.** `main` is still 4.8.0; `dev` carries
+  everything from 4.9.0 onward — the linkage grammar, column schema,
+  `build_data()`/`model_config()`, `save_config()`/`load_config()` + `fit_mod(config=)`,
+  the `JnllRow` enum, `build_growth(sd_plus_group=)`, the `mse_summary()` per-entity
+  reshape, the `.refit_like()` collapse, `reweight_comps()`, and the recruitment /
+  stock-recruit work. Roadmap and historical record: the commit log and `NEWS.md`.
+  Planning documents are kept locally under the untracked `dev/`.
+  - **Release-readiness pass in progress.** Done: the pkgdown reference index, the
+    `tools/verify/` move + `dev/` untracking, six data-workflow API fixes, the new
+    exports' documentation, and a NEWS/house-style pass. Remaining: NEWS entries for
+    those API fixes, notes for the two version gaps below, `devtools::document()`, and
+    `/golden-check`.
+  - **Two version gaps are deliberate, not lost entries.** `4.14.0` was a real
+    `DESCRIPTION` version whose NEWS was folded into the 5.0.0 section; `5.2.0`–`5.2.4`
+    likewise folded into 5.3.0. Nothing was dropped, and no tag exists above 4.8.0, so
+    nobody could have installed an intermediate. Note the folding rather than renumbering.
+  - **Result-changing changes that are not labelled breaking** — carry these into the PR
+    body: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%), parameter
+    bounds previously applied to the wrong parameters, composition weights warm-starting
+    from `inits`, failed `run_mse()` simulations returning only a marker, the
+    `mse_summary()` reshape, and the recruitment fixes (`initMode = 0` random effects, the
+    α-seeding fix, the Ianelli steepness prior).
 - **Older paused work:** a multi-PR accessibility / code-review refactor (branch
   `accessibility-and-code-review`), plan in
   `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
