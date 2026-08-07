@@ -1,4 +1,4 @@
-# dev/verify-mse-hindcast-invariant.R
+# tools/verify/verify-mse-hindcast-invariant.R
 # Correctness invariant (independent of the .refit_like refactor): an MSE must
 # not perturb the hindcast. With regenerate_past = FALSE, the operating model's
 # spawning biomass over styr:endyr is fixed history and must be reproduced by the
@@ -12,7 +12,7 @@
 # the assessment advances, so only the OM figure is the strict invariant.
 #
 #   export PATH=/usr/bin:$PATH
-#   NOT_CRAN=true Rscript dev/verify-mse-hindcast-invariant.R
+#   NOT_CRAN=true Rscript tools/verify/verify-mse-hindcast-invariant.R
 
 suppressMessages(pkgload::load_all(".", quiet = TRUE))
 

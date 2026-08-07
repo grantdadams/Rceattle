@@ -13,7 +13,7 @@ tmb_flags <- paste(tmb_flags, collapse = " ")
 
 # Under covr (covr::package_coverage()), the model would otherwise be built with
 # covr's coverage flags, which force -O0 -- making every fit_mod() optimization ~10x
-# slower than the -O2 production build (see dev/PERF-findings.md). covr injects those
+# slower than the -O2 production build (measured, bit-identical). covr injects those
 # flags through a temporary `R_MAKEVARS_USER` (`CXXFLAGS += -O0 --coverage`) whose
 # -O0 lands in CXXFLAGS, after any PKG_CXXFLAGS, so it cannot be overridden on the
 # compile line. covr reports R-line coverage, NOT C++ coverage, so instrumenting this

@@ -176,10 +176,9 @@
   result. The refit now runs on the shortened horizon and the operating model is
   restored to the full projection afterwards; the final assessment keeps the full
   horizon, so the returned operating model is built exactly as before. Measured
-  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040
-  (`dev/NOTES-mse-runtime-hake.md`), and the saving grows with the length of the
-  projection. Single-species models see little change, as their tape cost barely
-  varies with the number of years.
+  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040, and the
+  saving grows with the length of the projection. Single-species models see
+  little change, as their tape cost barely varies with the number of years.
 
   Because the operating model now carries fewer projection rows while the refit
   runs, `sim_mod()` draws a different number of random values, so a run with

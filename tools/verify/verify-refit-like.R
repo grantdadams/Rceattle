@@ -1,18 +1,26 @@
-# dev/verify-refit-like.R
-# Before/after equivalence harness for the .refit_like() collapse (Tier E).
-# Runs every entry function that contains a copy-pasted fit_mod() refit block
-# (retrospective/jitter/self_test/profile [9-retro_and_jitter.R], run_mse
-# [10-run_mse.R], remove_F [10-project-no-F.R]) on one tiny seeded model, and
-# writes a numeric digest. Golden-check does NOT cover these paths, so this is
-# the regression net: capture on the clean baseline, then require bit-identical
-# after the refactor.
+# tools/verify/verify-refit-like.R
+# Before/after equivalence harness for the .refit_like() refit path. Runs six of
+# the eight .refit_like() callers -- retrospective / jitter / self_test / profile
+# (9-retro_and_jitter.R), run_mse (10-run_mse.R), remove_F (10-project-no-F.R) --
+# on one tiny seeded model and writes a numeric digest. Golden-check does NOT
+# cover these paths, so this is the regression net: capture on the clean
+# baseline, then require bit-identical after the change.
+#
+# NOT covered here: sample_rec(update_model = TRUE) (8-sim_mod.R) and
+# reweight_comps() (6-reweight.R). They also refit through .refit_like(), so a
+# change to that helper needs them checked separately. run_mse() calls
+# sample_rec() with update_model = FALSE, so it does not exercise that path.
+#
+# Output defaults into dev/ (gitignored scratch, created if absent) so the digest
+# survives between the two runs you need to compare.
 #
 # Usage:
 #   export PATH=/usr/bin:$PATH
-#   NOT_CRAN=true Rscript dev/verify-refit-like.R dev/refit-before.rds
-#   NOT_CRAN=true Rscript dev/verify-refit-like.R dev/refit-after.rds compare dev/refit-before.rds
+#   NOT_CRAN=true Rscript tools/verify/verify-refit-like.R dev/refit-before.rds
+#   NOT_CRAN=true Rscript tools/verify/verify-refit-like.R dev/refit-after.rds compare dev/refit-before.rds
 
 args <- commandArgs(trailingOnly = TRUE)
+dir.create("dev", showWarnings = FALSE)
 out_path     <- if (length(args) >= 1) args[1] else "dev/refit-digest.rds"
 do_compare   <- length(args) >= 2 && args[2] == "compare"
 compare_path <- if (length(args) >= 3) args[3] else NULL
