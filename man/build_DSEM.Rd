@@ -40,7 +40,20 @@ environmental covariates over-explain the recruitment deviations, while
 still estimating it. The prior applies only where the SD is estimated (it is
 ignored for species whose SD is fixed in the \code{sem}).}
 
-\item{estimate_projection}{latent variables for projection time period are turned off. Default = FALSE.}
+\item{estimate_projection}{Whether the SEM extends over the projection period.
+Default \code{FALSE}, which builds the latent state space over the hindcast
+(\code{styr:endyr}) only, so the projection years are absent from the DSEM
+likelihood entirely and projection recruitment comes from the usual
+projection method (mean recruitment or the stock-recruit relationship).
+\code{TRUE} extends the state space to \code{projyr} and projects
+recruitment through the SEM itself; pair it with \code{proj_mean_rec = TRUE}
+or the projection states are estimated and then never used.
+
+Note that \code{FALSE} means \emph{absent}, not \emph{fixed}. Retaining the projection
+rows and merely pinning them would leave them in the GMRF quadratic form,
+where lagged paths couple them to the terminal hindcast years and add a
+spurious shrinkage pull on the terminal recruitment deviations -- which
+propagate to terminal SSB and the ABC.}
 }
 \description{
 The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.

@@ -89,11 +89,19 @@ Eigen::SparseMatrix<Type> dsem_get_submatrix( Eigen::SparseMatrix<Type> A,
 
 // NOTE: an earlier draft carried dsem_hindcast_positions() and dsem_subset_vec()
 // here, plus nyrs_hind / proj_mean_rec arguments below, to restrict the DSEM
-// likelihood to hindcast years. Nothing ever called them -- projection years are
-// handled R-side instead, by blanking the projection rows of mapList$x_tj in
-// build_dsem_objects() (see build_DSEM(estimate_projection =)). Removed rather
-// than carried forward, so the header stays a clean generic GMRF over an
-// n_t x n_j state space with no CEATTLE-specific surface.
+// likelihood to hindcast years. Nothing ever called them, and the restriction
+// belongs R-side anyway: build_dsem_objects() now sizes the state space to
+// styr:endyr when build_DSEM(estimate_projection = FALSE), so projection years
+// are simply absent from y_tj / x_tj and hence from this density. (Pinning them
+// via the map would NOT have been equivalent -- fixed states still sit in the
+// quadratic form and couple to the terminal hindcast years through lagged RAM
+// paths.) Removed rather than carried forward, so the header stays a generic
+// GMRF over an n_t x n_j state space with no CEATTLE-specific surface.
+//
+// CALL-SITE CONTRACT: n_t is whatever y_tj has, which may be SHORTER than the
+// model's nyrs. The caller must copy recruitment deviations with
+// rec_dev.row(sp).head(nyrs_dsem), never a whole-row assignment; nyrs_dsem is
+// supplied in the DSEM data list.
 
 template<class Type>
 void calculate_dsem(

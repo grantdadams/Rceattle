@@ -26,7 +26,20 @@
 #'   environmental covariates over-explain the recruitment deviations, while
 #'   still estimating it. The prior applies only where the SD is estimated (it is
 #'   ignored for species whose SD is fixed in the \code{sem}).
-#' @param estimate_projection latent variables for projection time period are turned off. Default = FALSE.
+#' @param estimate_projection Whether the SEM extends over the projection period.
+#'   Default \code{FALSE}, which builds the latent state space over the hindcast
+#'   (\code{styr:endyr}) only, so the projection years are absent from the DSEM
+#'   likelihood entirely and projection recruitment comes from the usual
+#'   projection method (mean recruitment or the stock-recruit relationship).
+#'   \code{TRUE} extends the state space to \code{projyr} and projects
+#'   recruitment through the SEM itself; pair it with \code{proj_mean_rec = TRUE}
+#'   or the projection states are estimated and then never used.
+#'
+#'   Note that \code{FALSE} means *absent*, not *fixed*. Retaining the projection
+#'   rows and merely pinning them would leave them in the GMRF quadratic form,
+#'   where lagged paths couple them to the terminal hindcast years and add a
+#'   spurious shrinkage pull on the terminal recruitment deviations -- which
+#'   propagate to terminal SSB and the ABC.
 #'
 #' @description
 #' The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.
@@ -118,11 +131,30 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     dsem_settings$sem <- sem
   }
 
+  # DSEM time span. With estimate_projection = FALSE the state space is built
+  # over the HINDCAST ONLY, so projection years are absent from the GMRF
+  # entirely rather than present-but-pinned.
+  #
+  # This matters: the density is a quadratic form over the stacked [t, j] state
+  # space, and lagged RAM paths couple each row to its predecessors. Merely
+  # mapping the projection rows off (the previous behavior) fixes those states
+  # at their initial value but leaves them in the quadratic form, so their
+  # cross-terms with the terminal hindcast years are still not constant in the
+  # estimated states -- the terminal recruitment deviations pick up an extra
+  # shrinkage pull toward whatever makes the pinned projection states likely.
+  # Terminal recdevs feed terminal SSB and hence the ABC, so this is not a
+  # cosmetic difference. Truncating the span removes the coupling at the source.
+  dsem_endyr <- if (isTRUE(dsem_settings$estimate_projection)) {
+    data_list$projyr
+  } else {
+    data_list$endyr
+  }
+
   # DSEM data
   dsem_data <- data_list$env_data %>%
     # Adding NA in missing years (match assessment begining)
-    dplyr::full_join(data.frame(Year=c(data_list$styr:data_list$projyr)), by = dplyr::join_by(Year)) %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr) %>% # FIXME: if including init devs, adjust
+    dplyr::full_join(data.frame(Year=c(data_list$styr:dsem_endyr)), by = dplyr::join_by(Year)) %>%
+    dplyr::filter(Year >= data_list$styr & Year <= dsem_endyr) %>% # FIXME: if including init devs, adjust
     dplyr::arrange(Year)
 
   # - Add column for recdev of each species
@@ -305,27 +337,25 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
   # estimate_projection (DSEM latent projection states) overlaps with
   # proj_mean_rec (SRR projection method). It is contradictory to estimate
-  # projection-period DSEM states while projecting recruitment from mean rec
-  # (proj_mean_rec == 0 / FALSE), because those states are then unused and the
-  # DSEM likelihood excludes the projection years (see src/TMB/dsem.hpp).
+  # projection-period DSEM states while projecting recruitment from mean
+  # recruitment (proj_mean_rec == 0 / FALSE), because those states are then
+  # never used.
   if( isTRUE(dsem_settings$estimate_projection) &&
       !is.null(data_list$proj_mean_rec) &&
       !isTRUE(as.logical(data_list$proj_mean_rec)) ){
     warning("`estimate_projection = TRUE` with `proj_mean_rec = FALSE` is ",
             "inconsistent: projection recruitment uses mean recruitment, so the ",
-            "estimated projection DSEM states are unused and the DSEM likelihood ",
-            "covers hindcast years only. Set `proj_mean_rec = TRUE` to project ",
-            "via the SEM, or `estimate_projection = FALSE`.")
+            "estimated projection DSEM states are never used. Set ",
+            "`proj_mean_rec = TRUE` to project via the SEM, or ",
+            "`estimate_projection = FALSE`.")
   }
 
-  # Turn off latent states for the projection period (only when projection
-  # years actually exist, i.e. projyr > endyr; otherwise there is nothing to
-  # map out and (nyrs_hind+1):nyrs_hind would be an out-of-bounds range).
-  if(!dsem_settings$estimate_projection && data_list$projyr > data_list$endyr){
-    hind_years <- data_list$styr:data_list$endyr
-    all_years  <- data_list$styr:data_list$projyr
-    mapList$x_tj[(length(hind_years) + 1):length(all_years), ] <- NA
-  }
+  # Number of DSEM time steps, and whether they cover the projection. The C++
+  # call site needs this: with estimate_projection = FALSE the latent state
+  # matrix is SHORTER than nyrs, so the recruitment-deviation copy must be
+  # rec_dev.row(sp).head(nyrs_dsem), not a whole-row assignment.
+  fit_dsem$tmb_inputs$data$nyrs_dsem <- as.integer(length(data_list$styr:dsem_endyr))
+  fit_dsem$covers_projection <- isTRUE(dsem_settings$estimate_projection)
 
   # Return
   fit_dsem$tmb_inputs$map <- sapply(mapList, function(x) factor(x))

@@ -2,6 +2,17 @@
 
 ## New features
 
+* **`build_DSEM(estimate_projection = FALSE)` now excludes the projection years
+  from the DSEM likelihood outright.** The latent state space is built over
+  `styr:endyr`, so projection years are absent from the GMRF rather than present
+  and pinned, and projection recruitment comes from the usual projection method.
+  Previously those rows were retained and mapped off, which fixes their values
+  but leaves them in the quadratic form, where lagged SEM paths couple them to
+  the terminal hindcast years and exert a spurious shrinkage pull on the terminal
+  recruitment deviations -- and so on terminal SSB and the ABC.
+  `estimate_projection = TRUE` still extends the state space to `projyr` and
+  projects recruitment through the SEM.
+
 * **`summary()` reports DSEM path coefficients and the recruitment SD.** When a
   fit carries a dynamic structural equation model on recruitment deviations,
   `summary()` now returns a list with `coefficients` -- one row per SEM path,
