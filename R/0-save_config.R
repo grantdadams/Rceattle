@@ -335,6 +335,15 @@ print.Rceattle_run_config <- function(x, ...) {
 #'   (`estimateMode`, `random_rec`, `random_q`, `random_sel`, `suit_styr`,
 #'   `suit_endyr`, `fit_control`).
 #' @return An `Rceattle_run_config`.
+#' @examples
+#' # Coerce a model_config() into a full run configuration, overriding the
+#' # estimation controls. A fitted model or a data list works the same way.
+#' rc <- run_config(model_config(msmMode = 1), estimateMode = "Hindcast")
+#' rc$estimateMode
+#'
+#' # Optimizer and uncertainty settings belong inside fit_control(), not here;
+#' # an unrecognised field is an error rather than a silent no-op.
+#' rc <- run_config(rc, fit_control = fit_control(getsd = FALSE))
 #' @seealso [save_config()], [load_config()], [model_config()].
 #' @export
 run_config <- function(x, ...) {
@@ -426,6 +435,14 @@ save_config <- function(x, file = "Rceattle_config.yaml", ...) {
 #'
 #' @param file Path to a YAML file written by [save_config()].
 #' @return An `Rceattle_run_config`.
+#' @examples
+#' f <- file.path(tempdir(), "run.yaml")
+#' save_config(model_config(msmMode = 1, initMode = "Equilibrium"), f)
+#'
+#' cfg <- load_config(f)
+#' cfg$model_config$msmMode
+#' # Apply with fit_mod(data_list, config = cfg).
+#' unlink(f)
 #' @seealso [save_config()], [fit_mod()].
 #' @export
 load_config <- function(file) {

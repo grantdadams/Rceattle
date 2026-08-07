@@ -7,8 +7,10 @@
 #' \describe{
 #'   \item{Fixed}{Anything outside a `( | )` bar: `~ temp`, `~ Year` (a linear
 #'     trend), `~ factor(Year)` (annual deviates as fixed effects),
-#'     `~ block(Year, breaks = ...)`. These have no standard deviation
-#'     parameter; attach a prior to shrink them.}
+#'     `~ cut(Year, breaks = ...)` (time blocks). The RHS is passed to
+#'     [stats::model.matrix()], so any function that works there works here.
+#'     These have no standard deviation parameter; attach a prior to shrink
+#'     them.}
 #'   \item{Random}{Anything inside a bar: `(1 | Year)` for independent annual
 #'     deviations, or a covariance structure such as `ar1(Year + 0 | fleet)`.
 #'     These get a standard deviation (and correlation, where the structure has

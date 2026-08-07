@@ -210,6 +210,14 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 #' @param minage Minimum age (recruitment age; default 1).
 #'
 #' @return Invisibly, the minimal \code{data_list} that was written.
+#' @examples
+#' f <- file.path(tempdir(), "template.xlsx")
+#' dat <- write_template(f, nages = 8, nyrs = 20)
+#'
+#' # The workbook is correctly shaped but carries placeholder observations;
+#' # data_requirements() reports what a given configuration still needs.
+#' head(data_requirements(dat), 4)
+#' unlink(f)
 #' @export
 write_template <- function(file = "Rceattle_data_template.xlsx",
                            nages = 10, nyrs = 30, nprojyrs = 12, minage = 1) {

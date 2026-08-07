@@ -47,6 +47,11 @@
 #' catch-age data and the sampling-importance resampling algorithm.
 #' \emph{Canadian Journal of Fisheries and Aquatic Sciences} 54:284-300.
 #'
+#' Francis, R.I.C.C. (2011) Data weighting in statistical fisheries stock
+#' assessment models. \emph{Canadian Journal of Fisheries and Aquatic Sciences}
+#' 68:1124-1138. (The main alternative; applied by hand rather than by this
+#' function.)
+#'
 #' @examples
 #' \dontrun{
 #' fit  <- fit_mod(BS2017SS, estimateMode = "Hindcast")

@@ -3,13 +3,13 @@
 #' @description
 #' Internal engine behind the repeated [fit_mod()] re-invocations in
 #' [retrospective()], [jitter()], [self_test()], [profile.Rceattle()],
-#' [run_mse()], and [remove_F()]. Each of those diagnostics re-fits a model that
-#' shares a source model's structure but changes a few things (a data peel, a
-#' jittered start, a projection year). They all rebuilt the harvest-control-rule,
-#' stock-recruit, natural-mortality, and growth specifications from the source
-#' `data_list` by hand -- the same ~60-line block copied at eleven call sites.
+#' [run_mse()], [remove_F()], [sample_rec()], and [reweight_comps()]. Each of
+#' those re-fits a model that shares a source model's structure but changes a few
+#' things (a data peel, a jittered start, a projection year, a set of
+#' composition weights).
 #'
-#' This helper reconstructs those four `build_*()` specifications and the shared
+#' This helper reconstructs the harvest-control-rule, stock-recruit,
+#' natural-mortality and growth specifications and the shared
 #' process switches (`msmMode`, `suitMode`, `random_rec`, ...) from `data_list`
 #' (the "...like" part), then calls [fit_mod()]. Every field that genuinely
 #' varies across the callers is a named argument that defaults to the

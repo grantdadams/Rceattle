@@ -509,8 +509,8 @@ plot_depletionSSB <- .ts_wrapper("ssb_depletion", "SSB depletion")
 
 #' Plot SSB depletion (deprecated name)
 #'
-#' @description Deprecated alias for \code{\link{plot_ssb_depletion}}. Please use
-#'   \code{plot_ssb_depletion()} instead.
+#' @description Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
+#'   \code{plot_depletionSSB()} instead.
 #'
 #' @inheritParams plot_timeseries
 #' @export

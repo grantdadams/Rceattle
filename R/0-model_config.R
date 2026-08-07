@@ -12,7 +12,7 @@
 # fit_mod()'s signature is unchanged. When a data list carries a model_config,
 # fit_mod() uses each stored field ONLY for arguments the caller did not supply
 # (detected with missing()); an explicitly-passed argument always wins. With no
-# model_config present, fit_mod() behaves exactly as before.
+# model_config present, fit_mod() reads every setting from its own arguments.
 
 #' Build a model-configuration slot for a data list
 #'

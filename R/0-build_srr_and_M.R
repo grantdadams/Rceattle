@@ -732,8 +732,8 @@ build_growth <- function(fun = "empirical",
     linkages       = linkages,
     # Internal integer code consumed by the TMB template until the
     # linkage-driven path replaces it. Vectorized so per-species
-    # growth functions (e.g. fun = c("vonBertalanffy", "Richards"))
-    # propagate downstream as before.
+    # growth functions (e.g. fun = c("vonBertalanffy", "Richards")) each
+    # propagate their own code downstream.
     growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
     # Plus-group SD-at-age treatment. Like `fun`/`growth_model`, the canonical
     # string is kept under the argument name (for save_config round-trip) and

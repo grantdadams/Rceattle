@@ -180,7 +180,8 @@ the user entry point, attached through the per-process builders:
 
 The same formula grammar covers every way a parameter can vary. The
 right-hand side can be a covariate (`~ temp`), a set of time blocks
-(`~ block(Year)`), or a year-to-year random effect — independent
+(`~ cut(Year, ...)` — the fixed part goes straight to `model.matrix()`, so
+there is no bespoke block helper), or a year-to-year random effect — independent
 (`~ (1|Year)`), a random walk (`rw(1|Year)`), or first-order autoregressive
 (`ar1(1|Year)`). `~ 1` with a `priors` list leaves the parameter at one value but
 places a prior on it. Use `by =` to say what the effect varies over —

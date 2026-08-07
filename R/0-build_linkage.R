@@ -144,6 +144,29 @@ NULL
 #'   structures -- see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
+#' @examples
+#' # A covariate on a growth parameter, one coefficient per species. Attach to a
+#' # parametric build_growth(); the default "empirical" form consumes no linkages.
+#' linkage_spec(~ temp, param = "K")
+#'
+#' # A covariate on catchability for one fleet, named rather than numbered.
+#' # `by` defaults to ~ fleet for catchability, so it need not be given.
+#' linkage_spec(~ temp, fleet = "Pollock_survey_1_shelikof_acoustic")
+#'
+#' # A separate coefficient per year, the fixed-effect alternative to rw()/ar1().
+#' linkage_spec(~ factor(Year), fleet = "Pollock_survey_1_shelikof_acoustic")
+#'
+#' # IID annual deviations; rw() for a random walk, ar1() for AR1.
+#' linkage_spec(~ (1 | Year))
+#'
+#' # A random walk estimated as a penalized fixed effect, which requires a
+#' # fixed SD -- the ADMB/AMAK convention behind the legacy Time_varying_*
+#' # switches.
+#' linkage_spec(~ rw(1 | Year), init = list(sigma = 0.05), integrate = FALSE)
+#'
+#' # Intercept-only: a prior on the base parameter itself. The bare normal()
+#' # resolves to prior_normal() inside `priors`.
+#' linkage_spec(~ 1, priors = list(`(Intercept)` = normal(0, 1)))
 #' @export
 #' @importFrom rlang enquo eval_tidy
 linkage_spec <- function(formula,

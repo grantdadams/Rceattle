@@ -199,6 +199,21 @@ Following Stewart and Monnahan (2025), a practical workflow is:
 5. **Revise the model or data weighting** where misspecification is found, using
    this together with the other diagnostics rather than as an accept/reject test.
 
+When the diagnosis is a weighting problem rather than a structural one,
+`reweight_comps()` runs the McAllister-Ianelli (1997) tuning loop: it refits the
+model the way it was fitted, updating each fleet's `Comp_weights` until the
+implied weights settle.
+
+```{r}
+tuned <- reweight_comps(model_1, n_iter = 10, tol = 0.01)
+tuned$reweight$history    # weight per fleet, per iteration
+```
+
+The alternatives are Francis (2011) reweighting, applied by hand, and estimating
+the weights directly with a Dirichlet-multinomial likelihood
+(`Comp_distribution = "DirichletMultinomial"`), which avoids the iteration
+entirely.
+
 Because OSA residuals for discrete composition data are randomized quantile
 residuals, they are stochastic; `osa_residuals()` takes a `seed` for
 reproducibility.

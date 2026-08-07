@@ -290,7 +290,7 @@ fit_mod <-
     # Overlay a stored model_config (if any) onto arguments the caller did not
     # supply. An explicitly-passed argument always wins (missing() is FALSE); an
     # argument the caller omitted falls back to the stored field. With no
-    # model_config slot this is a no-op, so fit_mod() behaves exactly as before.
+    # model_config slot this is a no-op.
     # Detected with missing() rather than a sentinel so 0 / FALSE / "" stored
     # values are honoured. NOTE: a call that passes one of these arguments --
     # even at its default -- overrides the slot; omit it to let the config win.

@@ -575,7 +575,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # the next iteration's exploitable-biomass cap -- so the AD tape covers
       # the realized years plus that look-ahead instead of the whole projection.
       # The last assessment keeps the full horizon, so the operating model that
-      # is returned (and handed to remove_F) is built exactly as before.
+      # is returned (and handed to remove_F) is built over the whole projection,
+      # exactly as if the horizon had never been shortened.
       om_dl_full     <- om_use$data_list
       om_params_full <- om_use$estimated_params
       om_projyr_use  <- if (k < length(assess_yrs)) assess_yrs[k + 1] else om_dl_full$projyr

@@ -29,6 +29,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
   (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
   timing must state its build** — an `-O0` number overstates real cost ~10x.
+- **After a `.cpp`/`.hpp` edit, recompile before testing and run the suite serially.**
+  `DESCRIPTION` sets `Config/testthat/parallel: true`, and the parallel workers cannot load
+  a freshly rebuilt DLL — `devtools::test()` aborts before running anything with
+  `testthat subprocess failed to start … getDLLRegisteredRoutines.DLLInfo`. That is a
+  toolchain failure, not a test failure. Run `pkgload::load_all(".")` first, then test with
+  `TESTTHAT_PARALLEL=false`. (`test-coverage.yaml` forces serial for a related reason.)
 - **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
   package namespace so internal (non-exported) helpers resolve, then source the shared
   helpers into it:
@@ -69,10 +75,10 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
 - Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
-  repo was documented with roxygen2 7.3.3 (`DESCRIPTION: RoxygenNote: 7.3.3`), but a newer
-  local roxygen2 (e.g. 8.0.0) rewrites *every* `man/*.Rd` and swaps `RoxygenNote:` for
-  `Config/roxygen2/version:` — a huge spurious diff. After `document()`, `git checkout`
-  the unrelated `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  repo is documented with roxygen2 **8.0.0** (`DESCRIPTION: Config/roxygen2/version: 8.0.0`).
+  An *older* local roxygen2 (e.g. 7.3.3) rewrites *every* `man/*.Rd` and swaps the key back
+  to `RoxygenNote:` — a huge spurious diff. After `document()`, `git checkout` the unrelated
+  `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
   Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
   **Second trap:** never insert a helper between a function's roxygen block and its
   definition. Contiguous `#'` lines are ONE block and bind to whichever object follows, so
@@ -183,7 +189,9 @@ Three subsystems sit in front of `fit_mod()`. The **developer guide**
   random-effect / prior structure on **every** process — recruitment, M, growth,
   catchability, selectivity, and (prior-only) Dirichlet-multinomial composition weights —
   attached through the `build_*()` constructors via `linkage_spec(formula, by, init,
-  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ block(Year)`),
+  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ cut(Year, ...)`;
+  the fixed part is passed straight to `model.matrix()`, so there is no bespoke
+  `block()` helper),
   random effect (`~ (1|Year)` IID, `rw()`, `ar1()`), or `~ 1` + `priors` for an
   intercept-only prior (keyed `` `(Intercept)` ``). A **prior on a selectivity /
   catchability / DM parameter** is the `~ 1` case. Inside `priors =`, the bare `normal()` /
