@@ -1,3 +1,29 @@
+# Rceattle 5.5.1
+
+## Bug fixes
+
+* **The stock-recruit convergence check now runs under the Ianelli
+  configuration.** `.check_stock_recruit()` was keyed on `srr_fun`, so with
+  `srr_fun = 0` and `srr_pred_fun > 1` it returned no result at all -- the case
+  where 5.5.0 made \eqn{\alpha} estimable against a steepness prior, and so
+  exactly the case most in need of checking. It now reads `srr_pred_fun` there.
+  Steepness is the complete test: for Beverton-Holt
+  \eqn{h = \alpha \phi_0 / (4 + \alpha \phi_0)}, so \eqn{\alpha < 1/\phi_0} is
+  precisely \eqn{h < 0.2}. The reported \eqn{R_0} is not checked in that
+  configuration, because there it is the mean-recruitment level rather than a
+  value the penalty curve implies.
+
+* **`build_srr()` warns when a steepness is passed as `srr_est_mode = 0`'s
+  \eqn{\alpha}.** `srr_prior` means steepness for `srr_est_mode` 2 and 3 but
+  \eqn{\alpha} for mode 0. Since 5.5.0 fixes \eqn{\alpha} at that value under
+  the Ianelli configuration, a steepness supplied by mistake is now pinned
+  rather than merely used as a starting value, putting the curve under the
+  replacement line with a negative implied \eqn{R_0}. A Beverton-Holt
+  `srr_prior` in (0, 1) under mode 0 now warns and gives the conversion
+  \eqn{\alpha = 4h / (\phi_0 (1 - h))}. It warns rather than errors because
+  \eqn{1/\phi_0} is not known until the model is built, and a small
+  \eqn{\alpha} is legitimate for a stock with a large \eqn{\phi_0}.
+
 # Rceattle 5.5.0
 
 ## New features

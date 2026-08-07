@@ -119,6 +119,27 @@ build_srr <- function(srr_fun = 0,  #srr_model
     }
   }
 
+  # With srr_est_mode = 0 the alpha parameter is fixed AT srr_prior, so here
+  # srr_prior is an alpha and not a steepness -- the opposite of modes 2 and 3
+  # above. A Beverton-Holt alpha below 1/SPR0 puts the curve under the
+  # replacement line, and a value in (0, 1) is nearly always a steepness passed
+  # to the wrong mode. Warn rather than stop: 1/SPR0 is not known until the
+  # model is built, and a genuinely small alpha is legitimate for a stock with
+  # a large SPR0.
+  if (isTRUE(srr_est_mode == 0) && srr_pred_fun %in% c(2, 3)) {
+    looks_like_h <- !is.na(srr_prior) & srr_prior > 0 & srr_prior < 1
+    if (any(looks_like_h)) {
+      warning("`srr_est_mode = 0` fixes alpha at `srr_prior`, so `srr_prior` ",
+              "is an alpha here, not a steepness. Got ",
+              paste(srr_prior[looks_like_h], collapse = ", "),
+              ", which is below the replacement line 1/SPR0 for most stocks ",
+              "and would give a steepness under 0.2.\n  If you meant a ",
+              "steepness h, either use `srr_est_mode = 2` / `3` (which do put ",
+              "the prior on steepness) or convert it: ",
+              "alpha = 4h / (SPR0 * (1 - h)).", call. = FALSE)
+    }
+  }
+
   linkages <- .validate_recruitment_linkages(linkages, srr_pred_fun)
 
   # `srr_indices` is soft-deprecated in favour of `linkages = list(R0
