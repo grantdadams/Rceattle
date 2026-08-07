@@ -1,5 +1,30 @@
 # Changelog
 
+## Rceattle 4.9.1
+
+### Bug fixes
+
+- **The stock-recruit convergence check now runs under the Ianelli
+  configuration.** `.check_stock_recruit()` was keyed on `srr_fun`, so
+  with `srr_fun = 0` and `srr_pred_fun > 1` it returned no result at all
+  – the case where 4.9.0 made estimable against a steepness prior, and
+  so exactly the case most in need of checking. It now reads
+  `srr_pred_fun` there. Steepness is the complete test: for
+  Beverton-Holt , so is precisely . The reported is not checked in that
+  configuration, because there it is the mean-recruitment level rather
+  than a value the penalty curve implies.
+
+- **[`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
+  warns when a steepness is passed as `srr_est_mode = 0`’s .**
+  `srr_prior` means steepness for `srr_est_mode` 2 and 3 but for mode 0.
+  Since 4.9.0 fixes at that value under the Ianelli configuration, a
+  steepness supplied by mistake is now pinned rather than merely used as
+  a starting value, putting the curve under the replacement line with a
+  negative implied . A Beverton-Holt `srr_prior` in (0, 1) under mode 0
+  now warns and gives the conversion . It warns rather than errors
+  because is not known until the model is built, and a small is
+  legitimate for a stock with a large .
+
 ## Rceattle 4.9.0
 
 ### New features
@@ -64,6 +89,29 @@
   has already built parameters, so the message fired on the documented
   workflow and was not actionable.
 
+- **A prior on steepness is now applied under the Ianelli
+  configuration.** Steepness belongs to the stock-recruit curve, but it
+  was only ever derived inside the `switch(srr_fun)` block, so with
+  `srr_fun = 0` and `srr_pred_fun > 1` – the AMAK/Ianelli setup, where
+  the curve is estimated as a recruitment penalty – it stayed at the
+  mean-recruitment constant 0.99. The stock-recruit prior
+  (`srr_est_mode` 2 or 3) is evaluated on steepness, so it was being
+  applied to a constant: no gradient, no effect on , and a large fixed
+  offset added to the objective. Steepness is now derived from the
+  penalty curve’s in that configuration. is deliberately left alone,
+  since recruitment there is .
+
+  **This changes results for any model combining `srr_fun = 0`,
+  `srr_pred_fun` 2 / 3, and `srr_est_mode` 2 / 3** – in the ecosystem
+  that is BSAI Atka mackerel (`srr_prior = 0.8`,
+  `srr_prior_sd = 0.0001`), whose steepness prior previously contributed
+  a constant ~2.27e6 to the objective and did nothing else. It now
+  constrains as intended. Refit and expect the reported objective to
+  change substantially, mostly through the removal of that offset.
+  Models with `srr_est_mode = 1` (no prior) are unaffected, as are
+  models whose hindcast already uses the curve (`srr_fun > 1`), where
+  steepness was always derived.
+
 - **`srr_est_mode = 0` (“fix alpha to prior mean”) now works for
   Beverton-Holt.** The gate in
   [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
@@ -78,6 +126,11 @@
   [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
   now share one rule (`.srr_prior_is_alpha()`) so the two paths cannot
   disagree.
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  now keys the mapping on `srr_pred_fun`, the curve belongs to, so
+  `srr_est_mode = 0` also fixes it under the Ianelli configuration.
+  stays keyed on `srr_fun` and remains estimated there. No model in the
+  ecosystem currently uses `srr_est_mode = 0`.
 
 - **[`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
   validates the steepness prior instead of failing silently.** For a
