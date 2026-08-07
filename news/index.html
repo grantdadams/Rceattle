@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,9 +51,37 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.8.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.9.0" id="rceattle-490">Rceattle 4.9.0<a class="anchor" aria-label="anchor" href="#rceattle-490"></a></h2>
+<div class="section level3">
+<h3 id="new-features-4-9-0">New features<a class="anchor" aria-label="anchor" href="#new-features-4-9-0"></a></h3>
+<ul><li>
+<p><strong><code>build_srr(srr_alpha_init = , srr_beta_init = )</code> sets the stock-recruit starting values.</strong> The package defaults (, ) are placeholders that carry no knowledge of the stock’s scale.  sets the density dependence in  and needs to be of order  – typically  or smaller for a stock in tonnes – so the default sits three orders of magnitude away and Beverton-Holt fits returned <code>NA/NaN gradient evaluation</code> before reaching a first useful step. Both arguments take natural-scale values, one per species, and are applied whether or not the caller supplies <code>inits</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">h</span> <span class="op">/</span> <span class="op">(</span><span class="va">phi0</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">h</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span>srr_fun <span class="op">=</span> <span class="st">"BevertonHolt"</span>,</span>
+<span>          srr_alpha_init <span class="op">=</span> <span class="va">alpha</span>,</span>
+<span>          srr_beta_init  <span class="op">=</span> <span class="op">(</span><span class="va">alpha</span> <span class="op">-</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">phi0</span><span class="op">)</span> <span class="op">/</span> <span class="va">R0</span><span class="op">)</span></span></code></pre></div>
+</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-4-9-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-4-9-0"></a></h3>
+<ul><li><p><strong><code>init_dev</code> is no longer declared a random effect under <code>initMode = "FreeParams"</code> (0).</strong> The C++ applies the initial-deviate density <code>dnorm(init_dev, -sigma^2/2, R_sd)</code> only when <code>initMode &gt; 1</code>, but <code><a href="../reference/fit_mod.html">fit_mod()</a></code> added <code>init_dev</code> to the Laplace random block whenever any element was free. Under mode 0 that made the approximation integrate over an improper (flat) prior rather than estimate the initial age structure as fixed effects, which is what mode 0 means and what comparable platforms (WHAM’s <code>N1_model = 0</code>, FIMS’s <code>log_init_naa</code>) do. Only <code>initMode = 0</code> combined with <code>random_rec = TRUE</code> was affected. The R-side test now mirrors the C++ gate exactly; it previously compared the canonical <code>initMode</code> <em>string</em> against a number, which resolves lexicographically and was therefore true for every mode.</p></li>
+<li>
+<p><strong><code><a href="../reference/build_params.html">build_params()</a></code> no longer seeds the stock-recruit  from <code>srr_prior</code> when <code>srr_prior</code> is a steepness.</strong> <code>srr_prior</code> is not the same quantity for every curve: for Ricker it is a prior on , but for Beverton-Holt it is a prior on <strong>steepness</strong> and must lie in (0, 1). Seeding  with <code>log(steepness)</code> started the optimiser at a near-zero recruits-per-spawner. The seeding is now applied only where <code>srr_prior</code> is genuinely an , matching the prior gates in the C++.</p>
+<p><strong>This changes results for Beverton-Holt models with <code>srr_est_mode</code> 2 or 3</strong>, which are the only configurations where <code>srr_prior</code> is a steepness. Six of the 24 <code>srr_est_mode</code> x <code>srr_pred_fun</code> combinations move; the other 18 are byte-identical. In the ecosystem that is BSAI Atka mackerel (<code>srr_est_mode = 2</code>, <code>srr_prior = 0.8</code>), where the starting  goes from  to the package default and the fit moves by ~6e-4 in relative SSB. Refit affected models rather than assuming the old numbers carry over.</p>
+</li>
+<li><p><strong>Removed the spurious “alpha was not initialized to <code>srr_prior</code>” message.</strong> <code><a href="../reference/fit_mod.html">fit_mod()</a></code> copies <code>recFun$srr_prior</code> into the <code>data_list</code> only after the caller has already built parameters, so the message fired on the documented workflow and was not actionable.</p></li>
+<li><p><strong><code>srr_est_mode = 0</code> (“fix alpha to prior mean”) now works for Beverton-Holt.</strong> The gate in <code><a href="../reference/fit_mod.html">fit_mod()</a></code> was Ricker-only, so a Beverton-Holt fit that supplied <code>inits</code> – the normal warm-start workflow – had  mapped out by <code><a href="../reference/build_map.html">build_map()</a></code> but never set to the prior mean, leaving it pinned at <code><a href="../reference/build_params.html">build_params()</a></code>’ placeholder . <code><a href="../reference/build_params.html">build_params()</a></code> and <code><a href="../reference/fit_mod.html">fit_mod()</a></code> now share one rule (<code>.srr_prior_is_alpha()</code>) so the two paths cannot disagree.</p></li>
+<li><p><strong><code><a href="../reference/build_srr.html">build_srr()</a></code> validates the steepness prior instead of failing silently.</strong> For a Beverton-Holt curve, <code>srr_est_mode</code> 2 and 3 put the prior on steepness, so <code>srr_prior</code> must lie in (0, 1) – this is now checked. The beta prior (<code>srr_est_mode = 3</code>) additionally converts (mean, sd) to shape parameters by moments, which are positive only when ; outside that range the shapes go negative and the prior is meaningless. It failed silently rather than loudly, because TMB’s <code>lgamma</code>-based <code>dbeta</code> returns a finite value for negative shapes where R’s <code>dbeta</code> returns <code>NaN</code>. Note the package default <code>srr_prior_sd = 1</code> is never valid for a steepness and now errors with the largest permissible value.</p></li>
+<li><p><strong><code>fit$initial_params</code> now records the parameters the model actually started from.</strong> It was captured before the blocks that overwrite <code>proj_F_prop</code>, <code>log_Ftarget</code>, <code>log_M1</code> and the stock-recruit alpha / beta, so it reported values no fit ever used. This was not only cosmetic: <code><a href="../reference/retrospective.html">retrospective()</a></code> and <code><a href="../reference/jitter.html">jitter()</a></code> reuse <code>initial_params</code> as their refit starting values (<code>R/9-retro_and_jitter.R</code>). Those overrides are deterministic functions of the <code>data_list</code> / <code>HCR</code> and are re-applied on every refit, so no fit changes.</p></li>
+<li><p><strong><code>steepness</code> and <code>R0</code> are reported for every year, not just the first.</strong> Both are declared <code>[nspp, nyrs]</code> but only column 1 was ever assigned, so <code>fit$quantities$steepness</code> was a value followed by structural zeros, and under Beverton-Holt <code>fit$quantities$R0</code> reported the curve-derived value in year 1 and the inert <code>exp(rec_pars)</code> placeholder in every year after it – an apparent jump that was an artefact of the reporting. Both are now filled from the per-year alpha and beta, which also generalizes to a time-varying recruitment linkage. Column 1 is unchanged in every case, so the common <code>quantities$R0[sp]</code> linear index returns exactly what it did before. Two deliberate exceptions: the Ianelli penalty configuration (<code>srr_fun = 0</code> with <code>srr_pred_fun &gt; 0</code>) keeps <code>R0</code>’s <code>exp(rec_pars)</code> values, which recruitment genuinely uses; and Ricker’s <code>R0</code> stays year-0-only because its intercept needs <code>posfun()</code>, which accumulates into the objective.</p></li>
+<li><p><strong>New <code>stock_recruit</code> convergence check.</strong> Rceattle parameterizes Beverton-Holt by  and  and derives steepness as , with no lower bound – unlike WHAM, which builds  on (0.2, 1) by construction. Since <code>rec_pars</code> carries no default bounds, the optimizer can reach , where the stock cannot replace itself and the implied unfished recruitment  turns <strong>negative</strong>, propagating into the initial age structure as <code>NaN</code>. <code>fit$convergence</code> now reports this as a <code>FAIL</code> naming the species and the offending steepness / .</p></li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.8.0" id="rceattle-480">Rceattle 4.8.0<a class="anchor" aria-label="anchor" href="#rceattle-480"></a></h2>
 <div class="section level3">
@@ -315,7 +343,7 @@
 <li>
 <strong>Selectivity block indexing</strong>: Renamed the within-loop <code>biom_yrs</code> index vector to <code>block_yrs</code> in the selectivity and catchability block branches of <code>build_map_*()</code>. The previous name was a leftover from the index-data path and shadowed nothing, but read as if it referred to biomass-observation years.</li>
 <li>
-<strong><code><a href="../reference/plot_index.html">plot_index()</a></code> / <code><a href="../reference/plot_catch.html">plot_catch()</a></code> / <code>plot_logindex()</code> warnings</strong>: Wrapped the internal <code><a href="https://talgalili.github.io/gplots/reference/plotCI.html" class="external-link">gplots::plotCI()</a></code> calls in <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings()</a></code> so plotting a fit no longer prints the recurring <code>"In arrows(...): zero-length arrow is of indeterminate angle and so skipped"</code> noise when CI half-widths are zero.</li>
+<strong><code><a href="../reference/plot_index.html">plot_index()</a></code> / <code><a href="../reference/plot_catch.html">plot_catch()</a></code> / <code>plot_logindex()</code> warnings</strong>: Wrapped the internal <code>gplots::plotCI()</code> calls in <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings()</a></code> so plotting a fit no longer prints the recurring <code>"In arrows(...): zero-length arrow is of indeterminate angle and so skipped"</code> noise when CI half-widths are zero.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="data-checks-4-4-0">Data checks<a class="anchor" aria-label="anchor" href="#data-checks-4-4-0"></a></h3>
@@ -413,7 +441,7 @@
 <li><p><strong>Bounds.</strong> Per-row <code>lower</code> / <code>upper</code> flow into <code>build_bounds()$lower$beta_linkage</code> / <code>build_bounds()$upper$beta_linkage</code>.</p></li>
 <li>
 <p><strong>Growth</strong> (von Bertalanffy / Richards) is the first process fully wired to the new pipeline. <code><a href="../reference/build_growth.html">build_growth()</a></code> gains a <code>linkages</code> argument and a string-named <code>fun</code> (<code>"empirical"</code> / <code>"vonBertalanffy"</code> / <code>"Richards"</code>); integer codes still work (<code>fun = 1</code> is shorthand for <code>fun = "vonBertalanffy"</code>) so existing scripts don’t need to be rewritten apart from substituting <code>fun =</code> for <code>growth_model =</code>.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -429,7 +457,7 @@
 <li><p><strong>Documentation.</strong> New vignette <code>vignette("environmental-linkages", package = "Rceattle")</code> walks through the API, prior families, species-keyed priors, per-species formulas, basis-expansion formulas, and the underlying pipeline.</p></li>
 <li>
 <p><strong>Natural mortality</strong> is the second process wired to the pipeline. <code><a href="../reference/build_M1.html">build_M1()</a></code> gains a <code>linkages</code> argument keyed by <code>log_M1</code>; the offset is added on the log scale to <code>log_M1</code> inside the <code>M1_at_age</code> compute. A row’s <code>age_bin == NA</code> broadcasts the offset across ages; specific values pin it to that age slice. <code><a href="../reference/build_M1.html">build_M1()</a></code> also gains string-form acceptance for <code>M1_model</code> and <code>M1_re</code> (parity with <code>build_growth(fun)</code>):</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span>M1_model <span class="op">=</span> <span class="st">"sex_age_invariant"</span>,   <span class="co"># or 1</span></span>
 <span>         M1_re    <span class="op">=</span> <span class="st">"ar1_age"</span>,             <span class="co"># or 4</span></span>
 <span>         linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -439,7 +467,7 @@
 </li>
 <li>
 <p><strong>Per-(species, sex) priors.</strong> In addition to scalar and species-keyed priors, each <code>priors[[col]]</code> value may be a two-level nested list keyed first by species id then by sex id:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">priors</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  temp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    `1` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`1` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.1</span><span class="op">)</span>,</span>
@@ -452,7 +480,7 @@
 <li><p><strong>Default <code>by = ~ species</code>.</strong> <code><a href="../reference/linkage_spec.html">linkage_spec()</a></code> now defaults the <code>by</code> argument to <code>~ species</code>, so each linkage produces one coefficient per species without the user having to spell it out. Pass <code>~ species + sex</code> for per-(species, sex) coefficients, or <code>by = NULL</code> to share a single coefficient across every species/sex (the prior default). This matches the typical multispecies assessment use case where each stock has its own environmental sensitivity.</p></li>
 <li>
 <p><strong>Recruitment</strong> is the third process wired to the pipeline. <code><a href="../reference/build_srr.html">build_srr()</a></code> gains a <code>linkages</code> argument keyed by <code>log_R0</code>, <code>log_alpha</code>, or <code>log_beta</code>; the offset is added on the log scale to the corresponding parameter at every recruitment compute call site (hindcast, BRPs, projections, expected R). <code>log_R0</code> is meaningful for any <code>srr_fun</code>; <code>log_alpha</code> and <code>log_beta</code> only do work for SRRs that consume them (<code>srr_fun in c(2, 3, 4, 5)</code> – Beverton-Holt and Ricker).</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span></span>
 <span>  srr_fun  <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -514,7 +542,7 @@
 <h3 id="api-4-0-3">API<a class="anchor" aria-label="anchor" href="#api-4-0-3"></a></h3>
 <ul><li>
 <p>New <code><a href="../reference/fit_control.html">fit_control()</a></code> constructor bundles the optimizer / sdreport / phasing knobs that previously cluttered <code><a href="../reference/fit_mod.html">fit_mod()</a></code>’s signature (<code>phase</code>, <code>getsd</code>, <code>bias.correct</code>, <code>use_gradient</code>, <code>rel_tol</code>, <code>loopnum</code>, <code>newtonsteps</code>, <code>getJointPrecision</code>, <code>getReportCovariance</code>, <code>verbose</code>, <code>TMBfilename</code>, <code>nlminb_control</code>). Pass the result via the new <code>fit_control</code> argument:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list   <span class="op">=</span> <span class="va">BS2017SS</span>,</span>
 <span>  msmMode     <span class="op">=</span> <span class="fl">0</span>,</span>
