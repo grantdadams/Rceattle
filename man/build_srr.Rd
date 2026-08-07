@@ -14,6 +14,8 @@ build_srr(
   srr_est_mode = 1,
   srr_prior = 4,
   srr_prior_sd = 1,
+  srr_alpha_init = NULL,
+  srr_beta_init = NULL,
   srr_indices = NA,
   Bmsy_lim = NA,
   linkages = NULL
@@ -34,9 +36,30 @@ build_srr(
 
 \item{srr_est_mode}{Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.}
 
-\item{srr_prior}{mean for normally distributed prior for stock-recruit parameter}
+\item{srr_prior}{mean for normally distributed prior for stock-recruit parameter.
+Note this is not the same quantity for every curve: for Ricker
+(\code{srr_pred_fun} 4 / 5) it is a prior on \eqn{\alpha} itself, while for
+Beverton-Holt (2 / 3) it is a prior on \strong{steepness} and so must lie in
+(0, 1). See \code{srr_est_mode}.}
 
 \item{srr_prior_sd}{Prior standard deviation for stock-recruit parameter}
+
+\item{srr_alpha_init, srr_beta_init}{Optional starting values for the
+stock-recruit \eqn{\alpha} and \eqn{\beta} parameters, on the natural
+(not log) scale, one value per species. Only used when the curve actually
+estimates them (\code{srr_fun} or \code{srr_pred_fun} above 1); ignored for
+mean recruitment, where both are mapped out.
+
+The package defaults (\eqn{\alpha = e^3}, \eqn{\beta = 3}) are placeholders
+with no knowledge of the stock's scale. \eqn{\beta} in particular sets the
+density dependence in \eqn{R = \alpha S / (1 + \beta S)}, so it must be on
+the order of \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or
+smaller for a stock measured in tonnes. Starting three orders of magnitude
+away drives predicted recruitment to near zero and the optimiser returns
+\code{NA/NaN gradient evaluation}. For a Beverton-Holt seeded from a
+steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
+\deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
+        \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}}
 
 \item{srr_indices}{Soft-deprecated. Use the \code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.}
 

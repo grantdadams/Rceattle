@@ -134,14 +134,18 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   }
 
   # Stock recruit models (Ricker & Beverton)
-  # - Turning off mean-R if using SRR
+  # - Turning off mean-R if the hindcast itself uses the SRR, where R0 is derived
+  #   from alpha and beta rather than estimated.
   if (data_list$srr_fun > 1) {
     map_list$rec_pars[, 1] <- NA
+  }
 
-    # - Fix first parameter of SRR if fixed (if SRR not used, will be NA anyway)
-    if (data_list$srr_est_mode == 0) {
-      map_list$rec_pars[, 2] <- NA
-    }
+  # - Fix alpha at the prior mean. Keyed on srr_pred_fun, the curve alpha belongs
+  #   to, so it also covers the Ianelli configuration (srr_fun = 0,
+  #   srr_pred_fun > 1), where the curve is estimated as a recruitment penalty
+  #   and alpha is a free parameter just the same.
+  if (data_list$srr_pred_fun > 1 && data_list$srr_est_mode == 0) {
+    map_list$rec_pars[, 2] <- NA
   }
 
   return(map_list)

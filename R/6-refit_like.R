@@ -108,6 +108,8 @@
       srr_est_mode     = dl$srr_est_mode,
       srr_prior        = dl$srr_prior,
       srr_prior_sd     = dl$srr_prior_sd,
+      srr_alpha_init   = dl$srr_alpha_init,
+      srr_beta_init    = dl$srr_beta_init,
       Bmsy_lim         = dl$Bmsy_lim,
       srr_indices      = dl$srr_indices,
       linkages         = dl$srr_linkages)),
