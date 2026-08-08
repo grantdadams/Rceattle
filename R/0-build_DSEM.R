@@ -20,7 +20,7 @@
 #'   otherwise by position.
 #' @param sigmaR_prior_sd Optional log-scale SD of a lognormal prior placed on
 #'   each species' estimated recruitment SD, centered at the assessment value
-#'   \code{data_list$sigma_rec_prior}. Default \code{NA} = no prior (recruitment
+#'   \code{data_list$sigma_rec}. Default \code{NA} = no prior (recruitment
 #'   SD estimated freely). Supplying a finite value (e.g. 0.5--1) regularizes the
 #'   recruitment SD away from the \eqn{1/\sigma_R^2} collapse that occurs when
 #'   environmental covariates over-explain the recruitment deviations, while
@@ -144,6 +144,14 @@ dsem_family_object <- function( fam ){
     )
   )
 }
+
+# The DSEM parameter block names, as dsem::dsem() emits them. Used by fit_mod()
+# to strip a DSEM warm start when the current fit has no DSEM: these are absent
+# from build_params(), so the inits shape guard passes them through as unflagged
+# extras and MakeADFun then rejects parameters the template never declares.
+# Kept as a constant rather than derived from a built object, because the scrub
+# has to happen precisely when no DSEM object exists.
+.DSEM_PARAM_NAMES <- c("beta_z", "lnsigma_z", "mu_j", "delta0_j", "x_tj")
 
 # The sem variable-name stems, one per drivable process. Deliberately separate
 # from the registry above: the stems are a property of the grammar, not of any
@@ -351,7 +359,17 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   sf_start <- suppressWarnings(as.numeric(sf$start))
   sf_par   <- suppressWarnings(as.numeric(sf$parameter))
   sf_dir   <- abs(suppressWarnings(as.numeric(sf$direction)))
-  sigma_rec_prior <- rep_len(data_list$sigma_rec_prior, data_list$nspp)
+  # v5.0 renamed this control element sigma_rec_prior -> sigma_rec (the schema
+  # keeps the old spelling as an alias and upgrades it on entry to the pipeline),
+  # so reading the old name yields NULL and rep_len() then fails. Accept either,
+  # preferring the canonical one.
+  sigma_rec_in <- data_list$sigma_rec
+  if (is.null(sigma_rec_in)) sigma_rec_in <- data_list$sigma_rec_prior
+  if (is.null(sigma_rec_in)) {
+    stop("`data_list` carries neither `sigma_rec` nor `sigma_rec_prior`; the ",
+         "DSEM needs a recruitment-SD starting value.", call. = FALSE)
+  }
+  sigma_rec_prior <- rep_len(sigma_rec_in, data_list$nspp)
 
   rec_sd_idx   <- integer(data_list$nspp)   # 1-based beta_z index; 0 if SD is fixed in the sem
   rec_sd_fixed <- numeric(data_list$nspp)   # fixed SD value used when rec_sd_idx == 0

@@ -33,6 +33,13 @@
 #'   carrying any environmental linkages on q.
 #' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
 #' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
+#' @param dsem Optional dynamic structural equation model on the recruitment
+#'   deviations, from \code{\link{build_DSEM}}. The recruitment deviations
+#'   become latent states of a GMRF, so environmental covariates and
+#'   lagged/simultaneous paths drive recruitment. \code{NULL} (the default)
+#'   fits the standard recruitment-deviation parameterization and is a complete
+#'   no-op. A DSEM and a recruitment linkage (\code{recFun = build_srr(linkages
+#'   = ...)}) both structure the recruitment deviations and cannot be combined.
 #' @param msmMode The predation-mortality mode, as a string alias or integer code:
 #'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 #'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
@@ -132,6 +139,7 @@ fit_mod <-
     qFun = build_catchability(),
     selFun = build_selectivity(),
     compFun = build_composition(),
+    dsem = NULL,
     msmMode = 0,
     avgnMode = 0,
     initMode = "NonEquilibrium",
@@ -308,6 +316,7 @@ fit_mod <-
       if (missing(qFun)      && !is.null(cfg$qFun))      qFun      <- cfg$qFun
       if (missing(selFun)    && !is.null(cfg$selFun))    selFun    <- cfg$selFun
       if (missing(compFun)   && !is.null(cfg$compFun))   compFun   <- cfg$compFun
+      if (missing(dsem)      && !is.null(cfg$dsem))      dsem      <- cfg$dsem
     }
 
     # Validate the mode switches HERE, before any work happens. model_config()
@@ -520,6 +529,61 @@ fit_mod <-
     # the N(0, sigma) density. Correlated structures (rw()/ar1()) are still
     # rejected upstream in .materialize_re_design() until their densities land.
 
+    # * DSEM ----
+    # A dynamic structural equation model on the recruitment deviations: the
+    # recdevs become latent states of a GMRF, so environmental covariates and
+    # lagged/simultaneous paths drive recruitment. Built after the recruitment
+    # switches (build_dsem_objects() reads random_rec and proj_mean_rec) and
+    # after the linkage pool, keeping the structure specs contiguous.
+    #
+    # dsem = NULL is the default and must stay completely inert: with no DSEM
+    # attached, every path below is skipped and the model is textually the
+    # non-DSEM model. That is what lets /golden-check gate this change.
+    if (!is.null(dsem)) {
+      # The build_*() specs are plain unclassed lists in this package, so tell a
+      # specification from already-built objects structurally: built objects
+      # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else
+      # is a mistake worth naming -- without this, a bare list with a $sem
+      # element would be silently accepted and its family / estimate_projection
+      # quietly defaulted.
+      if (is.list(dsem) && !is.null(dsem$tmb_inputs)) {
+        mod_objects$dsem <- dsem
+      } else if (is.list(dsem) && "sem" %in% names(dsem)) {
+        data_list$dsem_settings <- dsem
+        mod_objects$dsem <- build_dsem_objects(
+          dsem_settings = dsem,
+          debug         = estimateMode %in% c(3, 4),
+          data_list     = data_list)
+        data_list$dsem_settings$sem <- mod_objects$dsem$sem
+      } else {
+        stop("`dsem` must be a specification from build_DSEM() (or built ",
+             "objects from build_dsem_objects()); got ",
+             paste(class(dsem), collapse = "/"), ".", call. = FALSE)
+      }
+
+      # DSEM and a recruitment linkage both claim the recruitment deviations.
+      # Reject the combination up front rather than silently applying both.
+      # linkage_table$process holds the process NAME (see LINKAGE_COLS), not the
+      # integer code -- comparing against LINKAGE_PROCESS_CODES coerces to "0"
+      # and never matches, which would let the two structures stack silently
+      # once the C++ lands.
+      if (!is.null(data_list$linkage_table) &&
+          any(data_list$linkage_table$process == "recruitment")) {
+        stop("A DSEM and a recruitment linkage both structure the recruitment ",
+             "deviations; they cannot be combined. Supply either `dsem` or ",
+             "`recFun = build_srr(linkages = ...)`, not both.", call. = FALSE)
+      }
+
+      # The C++ side has not landed yet: ceattle.cpp neither includes dsem.hpp
+      # nor declares the DSEM DATA/PARAMETER blocks, so handing these objects to
+      # MakeADFun would fail deep inside TMB with an opaque message about
+      # unknown data names. Fail here instead, with somewhere to go.
+      stop("DSEM is not yet wired into the compiled model: the R-side inputs ",
+           "build correctly, but the TMB template does not yet carry the DSEM ",
+           "blocks. Use the `dev-DSEM` branch to fit a DSEM model in the ",
+           "meantime.", call. = FALSE)
+    }
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -576,6 +640,24 @@ fit_mod <-
 
       # Update proj F prop
       start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
+    }
+
+    # Drop DSEM parameters from a warm start when this fit has no DSEM. They are
+    # not in build_params(), so the shape guard above passes them through as
+    # unflagged extras; build_map() then propagates the extra names into
+    # mapFactor and TMB rejects the map ("Names in map must correspond to
+    # parameter names"). Reached whenever `inits` come from a DSEM fit
+    # (including one produced on the dev-DSEM branch) and `dsem` is left NULL.
+    if (is.null(mod_objects$dsem) && !is.null(start_par)) {
+      .stale_dsem <- intersect(names(start_par), .DSEM_PARAM_NAMES)
+      if (length(.stale_dsem) > 0) {
+        if (verbose > 0) {
+          message("Dropping DSEM parameters from `inits` (no `dsem` supplied): ",
+                  paste(.stale_dsem, collapse = ", "))
+        }
+        start_par[.stale_dsem] <- NULL
+      }
+      rm(.stale_dsem)
     }
 
     if (verbose > 0) { message("Step 1: Parameter build complete") }
@@ -1273,7 +1355,7 @@ fit_mod <-
         mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
                           suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
                           M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
-                          selFun = selFun, compFun = compFun),
+                          selFun = selFun, compFun = compFun, dsem = dsem),
         estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
         random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
         fc = fit_control),

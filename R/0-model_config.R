@@ -43,6 +43,7 @@
 #' @param qFun A catchability specification from [build_catchability()].
 #' @param selFun A selectivity specification from [build_selectivity()].
 #' @param compFun A composition specification from [build_composition()].
+#' @param dsem An optional DSEM specification from [build_DSEM()], or `NULL`.
 #'
 #' @return An object of class `"Rceattle_model_config"` (a named list) to be
 #'   stored as `data_list$model_config`.
@@ -73,7 +74,8 @@ model_config <- function(msmMode = 0,
                          growthFun = build_growth(),
                          qFun = build_catchability(),
                          selFun = build_selectivity(),
-                         compFun = build_composition()) {
+                         compFun = build_composition(),
+                         dsem = NULL) {
 
   # Light validation of the scalar switches; the build_*() objects validate
   # themselves at construction.
@@ -109,7 +111,8 @@ model_config <- function(msmMode = 0,
     growthFun = growthFun,
     qFun      = qFun,
     selFun    = selFun,
-    compFun   = compFun
+    compFun   = compFun,
+    dsem      = dsem
   )
   class(cfg) <- c("Rceattle_model_config", "list")
   cfg
@@ -120,7 +123,7 @@ model_config <- function(msmMode = 0,
 # the spec-tree printer.
 .RCE_MODEL_CONFIG_FIELDS <- c(
   "msmMode", "initMode", "avgnMode", "suitMode", "niter",
-  "HCR", "recFun", "M1Fun", "growthFun", "qFun", "selFun", "compFun"
+  "HCR", "recFun", "M1Fun", "growthFun", "qFun", "selFun", "compFun", "dsem"
 )
 
 #' @export

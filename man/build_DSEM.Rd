@@ -33,7 +33,7 @@ otherwise by position.}
 
 \item{sigmaR_prior_sd}{Optional log-scale SD of a lognormal prior placed on
 each species' estimated recruitment SD, centered at the assessment value
-\code{data_list$sigma_rec_prior}. Default \code{NA} = no prior (recruitment
+\code{data_list$sigma_rec}. Default \code{NA} = no prior (recruitment
 SD estimated freely). Supplying a finite value (e.g. 0.5--1) regularizes the
 recruitment SD away from the \eqn{1/\sigma_R^2} collapse that occurs when
 environmental covariates over-explain the recruitment deviations, while

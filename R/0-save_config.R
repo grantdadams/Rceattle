@@ -30,7 +30,8 @@
 .RCE_CONFIG_BUILDERS <- c(
   HCR = "build_hcr", recFun = "build_srr", M1Fun = "build_M1",
   growthFun = "build_growth", qFun = "build_catchability",
-  selFun = "build_selectivity", compFun = "build_composition"
+  selFun = "build_selectivity", compFun = "build_composition",
+  dsem = "build_DSEM"
 )
 
 #' Assemble an Rceattle run-configuration object.
@@ -277,6 +278,7 @@ print.Rceattle_run_config <- function(x, ...) {
     niter    = d("Number of predation iterations"),
     HCR      = d("Harvest control rule (build_hcr)"),
     recFun   = d("Stock-recruit specification (build_srr)"),
+    dsem     = d("DSEM on recruitment deviations (build_DSEM)"),
     M1Fun    = d("Natural-mortality specification (build_M1)"),
     growthFun= d("Growth specification (build_growth)"),
     qFun     = d("Catchability specification (build_catchability)"),

@@ -72,6 +72,20 @@
                         suit_endyr       = data_list$suit_endyr) {
   dl <- data_list
 
+  # DSEM is not forwarded yet. Every diagnostic refit funnels through here, so
+  # silently dropping it would make retrospective(), jitter(), self_test(),
+  # profile(), run_mse(), remove_F(), sample_rec() and reweight_comps() refit a
+  # DIFFERENT model than the one being diagnosed -- Mohn's rho, MSE output and
+  # likelihood profiles computed without the recruitment structure they are
+  # supposed to be testing. Refuse rather than mislead until the override lands.
+  if (!is.null(dl$dsem_settings)) {
+    stop("This diagnostic refits the model, and the DSEM specification is not ",
+         "yet carried through the refit path -- the refit would silently drop ",
+         "it and report results for a different model. DSEM diagnostics are ",
+         "not available yet.", call. = FALSE)
+  }
+
+
   # Reconstruct the harvest control rule from the source unless the caller
   # supplied one (the input-F EM refit builds its own from a computed average F).
   if (is.null(HCR)) {

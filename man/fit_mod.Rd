@@ -22,6 +22,7 @@ fit_mod(
   qFun = build_catchability(),
   selFun = build_selectivity(),
   compFun = build_composition(),
+  dsem = NULL,
   msmMode = 0,
   avgnMode = 0,
   initMode = "NonEquilibrium",
@@ -81,6 +82,14 @@ carrying any environmental linkages on q.}
 \item{selFun}{Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.}
 
 \item{compFun}{Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.}
+
+\item{dsem}{Optional dynamic structural equation model on the recruitment
+deviations, from \code{\link{build_DSEM}}. The recruitment deviations
+become latent states of a GMRF, so environmental covariates and
+lagged/simultaneous paths drive recruitment. \code{NULL} (the default)
+fits the standard recruitment-deviation parameterization and is a complete
+no-op. A DSEM and a recruitment linkage (\code{recFun = build_srr(linkages
+= ...)}) both structure the recruitment deviations and cannot be combined.}
 
 \item{msmMode}{The predation-mortality mode, as a string alias or integer code:
 \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}

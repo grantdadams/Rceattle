@@ -16,7 +16,8 @@ model_config(
   growthFun = build_growth(),
   qFun = build_catchability(),
   selFun = build_selectivity(),
-  compFun = build_composition()
+  compFun = build_composition(),
+  dsem = NULL
 )
 }
 \arguments{
@@ -44,6 +45,8 @@ model_config(
 \item{selFun}{A selectivity specification from \code{\link[=build_selectivity]{build_selectivity()}}.}
 
 \item{compFun}{A composition specification from \code{\link[=build_composition]{build_composition()}}.}
+
+\item{dsem}{An optional DSEM specification from \code{\link[=build_DSEM]{build_DSEM()}}, or \code{NULL}.}
 }
 \value{
 An object of class \code{"Rceattle_model_config"} (a named list) to be
