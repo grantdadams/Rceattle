@@ -10,6 +10,22 @@
 #' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
 #' fallback (Windows), reproducing the previous behavior exactly.
 #'
+#' A cluster that dies takes the whole call with it, which is worth guarding
+#' because the cluster is where the platforms differ: each worker fits complete
+#' models, so several large ones at once can exhaust memory and the operating
+#' system kills a worker. The parent then reports only what it noticed --
+#' `Error in unserialize(node$con) : error reading from connection` -- and every
+#' peel or simulation computed so far is lost. Rather than fail, fall back to
+#' running the items sequentially, as `osa_residuals()` does when its parallel
+#' one-step-ahead loop fails. The run is slower but finishes, and the message
+#' names `cores` so the next call can skip the wasted attempt. Note the fallback
+#' restarts the work from the beginning: cluster results are not recoverable
+#' once a worker has gone.
+#'
+#' An error raised by `fun` itself propagates out of the sequential retry
+#' unchanged, so a real bug still surfaces as itself rather than as a cluster
+#' failure.
+#'
 #' @param items Vector iterated over; each element is passed to `fun`.
 #' @param fun Worker closure.
 #' @param n_workers Number of cluster workers.
@@ -20,17 +36,29 @@
 #' @noRd
 .parallel_lapply <- function(items, fun, n_workers, export_env) {
   fork <- .Platform$OS.type != "windows"
-  cl <- if (fork) {
-    parallel::makeCluster(n_workers, type = "FORK")
-  } else {
-    parallel::makeCluster(n_workers)
+
+  run_clustered <- function() {
+    cl <- if (fork) {
+      parallel::makeCluster(n_workers, type = "FORK")
+    } else {
+      parallel::makeCluster(n_workers)
+    }
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    if (!fork) {
+      parallel::clusterEvalQ(cl, suppressPackageStartupMessages(library(Rceattle)))
+      parallel::clusterExport(cl, varlist = ls(envir = export_env), envir = export_env)
+    }
+    parallel::parLapply(cl, items, fun)
   }
-  on.exit(parallel::stopCluster(cl), add = TRUE)
-  if (!fork) {
-    parallel::clusterEvalQ(cl, suppressPackageStartupMessages(library(Rceattle)))
-    parallel::clusterExport(cl, varlist = ls(envir = export_env), envir = export_env)
-  }
-  parallel::parLapply(cl, items, fun)
+
+  tryCatch(run_clustered(), error = function(e) {
+    message("Parallel execution failed (", conditionMessage(e), "); ",
+            "running the ", length(items), " tasks sequentially instead. ",
+            "A worker that dies this way has usually run out of memory -- ",
+            "each one fits a full model. Pass cores = 1 (or a smaller cores) ",
+            "to go straight to this path.")
+    lapply(items, fun)
+  })
 }
 
 #' Retrospective peels
