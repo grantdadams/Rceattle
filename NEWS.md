@@ -176,27 +176,17 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
-* **`retrospective()` peels report their own terminal year, so retrospective
-  plots show the peels.** Every plot builds its year axis per model as
-  `styr:endyr`, and `endyr_peel` is not read outside `retrospective()` -- so each
-  peel reported the *full* model's `endyr` and was drawn all the way to it,
-  leaving the peels indistinguishable. Each peel now carries
-  `data_list$endyr = data_list$endyr_peel`, and
-  `plot_biomass(retro$Rceattle_list)` gives the usual fanned retrospective
-  without any extra arguments. The peel's parameters, quantities, and
-  `catch_data` still span the full hindcast, because the peeled years are its
-  retrospective *forecast*: `endyr` marks what was fit, not what was estimated,
-  and `incl_proj = TRUE` plots the forecast years. **Mohn's rho is unchanged** --
-  it is computed from `endyr_peel` and the unpeeled model's `endyr`, never from a
-  peel's `endyr` (verified bit-identical, along with every peel's SSB series).
+* **Each `retrospective()` peel reports its own terminal year, so the peels show
+  up in a plot.** Every peel carried the terminal year of the unpeeled model, and
+  plots take their year axis from it, so each peel was drawn across the full
+  series and they all lay on top of one another.
+  `plot_biomass(retro$Rceattle_list)` now gives the usual fan with no extra
+  arguments. Mohn's rho is unchanged.
 
-  Because `endyr` and `endyr_peel` now agree, every model in `Rceattle_list`
-  also carries `data_list$endyr_full`, the terminal year of the model that was
-  peeled. A peel taken on its own therefore still separates its retrospective
-  forecast years -- those after `endyr_peel` through `endyr_full` -- from the
-  true projection after `endyr_full`. Build them as
-  `endyr_peel + seq_len(endyr_full - endyr_peel)`, which is correctly empty for
-  the unpeeled entry.
+  A peel still estimates the years it dropped -- they are its retrospective
+  forecast, fit to the observed catch -- so `endyr` marks what the peel was fit
+  through, not how far it was estimated. `incl_proj = TRUE` plots those years,
+  and `data_list$endyr_full` gives the unpeeled terminal year where they end.
 
 * **`?osa_residuals` no longer carries a broken link to `parallel::mclapply()`.**
   The `parallel` argument's cross-reference had been generated with a

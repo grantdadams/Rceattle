@@ -45,24 +45,29 @@ position, so index it by name -- \code{Rceattle_list[[3]]} is not
 necessarily the 3-year peel. With no peel left, Mohn's rho is \code{NaN}
 and the function warns.
 
-Each peel reports its own terminal year as \code{data_list$endyr} (equal to
-\code{data_list$endyr_peel}), so \code{plot_biomass(retro$Rceattle_list)}
-and the other plots draw every peel to the year it was fit through instead
-of to the full model's terminal year. The peel's parameters, quantities,
-and \code{catch_data} still span the full hindcast, because the peeled
-years are its retrospective \emph{forecast} -- \code{endyr} marks what was
-fit, not what was estimated. Pass \code{incl_proj = TRUE} to a plot to see
-the forecast years. Mohn's rho is computed from \code{endyr_peel} and is
-unaffected.
+Each peel reports its own terminal year as \code{data_list$endyr}, so plots
+draw it only as far as it was fit and the peels fan out.
 
-Every entry also carries \code{data_list$endyr_full}, the terminal year of
-the model that was peeled, so a peel taken on its own still distinguishes
-its retrospective forecast years -- those after \code{endyr_peel} through
-\code{endyr_full} -- from the true projection, after \code{endyr_full}
-through \code{projyr}. Build the forecast years as
-\code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for
-the unpeeled model; \code{(endyr_peel + 1):endyr_full} would count
+A peel still estimates the years it dropped: they are its retrospective
+forecast, fit to the observed catch with recruitment held at the peel's mean
+and the survey and composition data withheld. Three years therefore matter,
+and each peel carries all three:
+\describe{
+\item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
+was fit through. Equal to each other.}
+\item{\code{endyr_full}}{the unpeeled model's terminal year, where the
+retrospective forecast ends.}
+\item{\code{projyr}}{the end of the harvest-control-rule projection.}
+}
+So the forecast years are those after \code{endyr_peel} through
+\code{endyr_full}, and the projection follows through \code{projyr};
+\code{incl_proj = TRUE} plots both. Take the forecast years as
+\code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for the
+unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
 \emph{down} there.
+
+Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
+this.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
