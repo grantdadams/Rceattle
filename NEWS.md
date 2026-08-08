@@ -31,6 +31,13 @@
   more likely to converge but asks the estimator to travel no distance: it tests
   that the optimum is stable under resampling, not that it is reachable.
 
+* **`reweight_comps(fleets = )` accepts fleet names as well as codes,** matching
+  `linkage_spec(fleet = )`. Passing a name previously did not error: it fell
+  through as ineligible and surfaced as a warning about having no fitted
+  composition data, followed by "No fleets to reweight". An unknown name is now
+  reported against the model's own fleet list, and mixing ids and names in one
+  vector is caught with the coercion hint.
+
 ## Bug fixes
 
 * **`self_test()` can now phase its refits, and inherits the setting by
@@ -95,6 +102,79 @@
   `fit_tmb()` gives when `sdreport` reports `pdHess = FALSE`. `fit$sdrep` stays
   `NULL`, so the `sdreport_failed` diagnostic is unaffected. A no-op for every
   converged fit.
+
+* **`data_requirements()` and `build_data()`'s pre-check read an attached
+  `model_config()`.** They classified from the top-level switches only, so an
+  object carrying `model_config(msmMode = 1)` reported the predation inputs as
+  Ignored while `print()` on the same object showed it as multispecies.
+  `fit_mod()` resolves the configuration onto the data list, and the requirement
+  layer now sees the same thing. The overlay covers what `model_config()` carries:
+  `estDynamics` and `Ceq` have no field there, so `NByageFixed` and the
+  bioenergetics inputs still classify from the top-level slots.
+
+* **The pre-check classifies an integer-coded `fleet_control`.** It runs before
+  `switch_check()`, so a `Selectivity` still holding the code `0` never matched
+  the string `"Fixed"` and `emp_sel` was not required. The predicates now accept
+  the code, the canonical string, and the numeric-looking string a workbook read
+  can leave behind.
+
+* **A mistyped mode switch is caught before the fit, not after it.**
+  `model_config()` validates `initMode`, `avgnMode` and `suitMode` against the
+  switch maps, and `fit_mod()` checks them before doing any work. `fit_mod()`
+  rebuilds a `model_config()` after the optimization to record the run
+  configuration, so validating only there meant `avgnMode = 3` -- a switch the
+  model never reads -- threw away a converged fit and its `sdreport`. That call
+  is now guarded as well, so recording the configuration can never cost a caller
+  a fit. The checks accept a per-species vector and an integer code, since
+  `.refit_like()` feeds resolved values back.
+
+* **`run_config()` errors on an unrecognized field** instead of silently dropping
+  it, naming the valid set and pointing at `fit_control()`, where the mistake
+  usually belongs -- `run_config(fit, getsd = FALSE)` was a no-op. Names are
+  validated, not values.
+
+* **The linkage grammar documented a term that does not exist.** A time block was
+  described as `~ block(Year)` in the roxygen, the developer guide and the
+  vignettes, but there is no `block()`: the fixed part of a linkage formula is
+  passed to `model.matrix()`, so a model carrying that term failed at fit time
+  with `could not find function "block"`. Documented as `~ cut(Year, ...)`, with
+  a note that anything `model.matrix()` accepts will work.
+
+## Behavior changes
+
+* **`summary()` on a data object no longer prints the `model_config` block.**
+  `print()` still does, and both take `config =` to override, so
+  `summary(dat, config = TRUE)` and `print(dat, config = FALSE)` give the other
+  behavior. An object with no configuration prints identically either way.
+
+* **`read_data()`, `clean_data()` and `combine_data()` return an
+  `"Rceattle_data"` object.** A data list keeps its spec-tree printer through a
+  `write_data()` / `read_data()` round trip instead of only when it came from
+  `build_data()`. The visible consequence is that these now print an indented
+  specification tree at the prompt rather than dumping the ~40-element list. The
+  tag is inert: every consumer treats the object as a plain list, and it is
+  stripped before anything reaches `MakeADFun()`, so no fit changes.
+
+* **`data_requirements(index_loglike = )` is now `index_distribution = `,**
+  matching the canonical `fleet_control` column. The function has not been
+  released, so there is no deprecation path.
+
+## Documentation
+
+* Runnable examples for `linkage_spec()`, `write_template()`, `load_config()`
+  and `run_config()`, none of which had one. `linkage_spec()` is the entry point
+  to the whole linkage grammar; its examples show the covariate, per-year,
+  penalized random walk and intercept-prior forms.
+
+* `reweight_comps()` is in the reference index (its absence aborted the pkgdown
+  build), is referenced from the composition-diagnostics workflow in
+  `vignette("model-diagnostics")`, and cites Francis (2011) as the alternative.
+  `examples/McAllister-Ianelli-reweighting.R` now uses it rather than teaching a
+  hand-rolled tuning loop.
+
+* Reference documentation describes current behavior rather than narrating past
+  refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
+  changed, who is affected, and what to do about it.
 
 # Rceattle 5.5.1
 
@@ -354,6 +434,9 @@
   small SD). Values above `1` remain inert for every linkage row.
 
 # Rceattle 5.3.0
+
+*Also covers the unreleased 5.2.0-5.2.4 development increments, whose entries
+were folded into this section.*
 
 ## New features
 
@@ -907,6 +990,9 @@
   without accumulation are unchanged.
 
 # Rceattle 5.0.0
+
+*Also covers the unreleased 4.14.0 development increment, whose entries were
+folded into this section.*
 
 ## Breaking changes
 
