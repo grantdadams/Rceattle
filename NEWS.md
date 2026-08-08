@@ -178,6 +178,9 @@
 
 # Rceattle 5.5.1
 
+*Released from `main` as 4.9.1, before this development line was merged back.
+The two sections carry the same changes under different version numbers.*
+
 ## Bug fixes
 
 * **The stock-recruit convergence check now runs under the Ianelli
@@ -203,6 +206,9 @@
   \eqn{\alpha} is legitimate for a stock with a large \eqn{\phi_0}.
 
 # Rceattle 5.5.0
+
+*Released from `main` as 4.9.0, before this development line was merged back.
+The two sections carry the same changes under different version numbers.*
 
 ## New features
 
