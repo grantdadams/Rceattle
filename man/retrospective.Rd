@@ -44,6 +44,16 @@ named for its own terminal year (\code{Year_2017}, ...) rather than by
 position, so index it by name -- \code{Rceattle_list[[3]]} is not
 necessarily the 3-year peel. With no peel left, Mohn's rho is \code{NaN}
 and the function warns.
+
+Each peel reports its own terminal year as \code{data_list$endyr} (equal to
+\code{data_list$endyr_peel}), so \code{plot_biomass(retro$Rceattle_list)}
+and the other plots draw every peel to the year it was fit through instead
+of to the full model's terminal year. The peel's parameters, quantities,
+and \code{catch_data} still span the full hindcast, because the peeled
+years are its retrospective \emph{forecast} -- \code{endyr} marks what was
+fit, not what was estimated. Pass \code{incl_proj = TRUE} to a plot to see
+the forecast years. Mohn's rho is computed from \code{endyr_peel} and is
+unaffected.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:

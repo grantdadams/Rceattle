@@ -182,6 +182,59 @@ testthat::test_that("retrospective survives dropped peels (regression)", {
 })
 
 
+testthat::test_that("each peel reports its own terminal year, and rho is unmoved", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Every plot builds its year axis per model as `styr:endyr`, and nothing
+  # outside retrospective() reads `endyr_peel` -- so while each peel reported the
+  # FULL model's `endyr`, all the peels were drawn to the same terminal year and
+  # were indistinguishable, which is the opposite of what a retrospective plot
+  # is for.
+  #
+  # The assignment must happen AFTER both refits. `endyr` sizes the model, and
+  # the forecast refit turns F back on over `(nyrs_peel+1):nyrs` against the FULL
+  # nyrs, so peeling `endyr` any earlier indexes off the end of log_F. The
+  # projection-width check below is what catches a regression that moves it.
+  d <- make_test_data()
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, file = NULL, estimateMode = 0,
+    fit_control = fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
+
+  r <- suppressMessages(suppressWarnings(
+    retrospective(fit, peels = 2, cores = 1, getsd = FALSE)))
+
+  full_endyr <- fit$data_list$endyr
+  endyrs <- vapply(r$Rceattle_list,
+                   function(x) as.numeric(x$data_list$endyr), numeric(1))
+  peels  <- vapply(r$Rceattle_list,
+                   function(x) as.numeric(x$data_list$endyr_peel), numeric(1))
+
+  # The point of the change.
+  testthat::expect_equal(unname(endyrs), unname(peels))
+
+  # The peels really do differ, or plotting gains nothing; and the unpeeled
+  # model (last, after the rev()) keeps the true terminal year.
+  testthat::expect_true(any(endyrs < full_endyr))
+  testthat::expect_equal(unname(endyrs[length(endyrs)]), full_endyr)
+
+  # `endyr` is output metadata only: each peel still carries its retrospective
+  # forecast, so its quantities span the full projection. This is the assertion
+  # that fails if the assignment is moved ahead of the refits.
+  for (m in r$Rceattle_list) {
+    testthat::expect_equal(ncol(m$quantities$ssb),
+                           m$data_list$projyr - m$data_list$styr + 1L)
+  }
+
+  # Mohn's rho reads `endyr_peel` and the full model's `endyr` from the calling
+  # frame, never a peel's `data_list$endyr`, so it is still computed over every
+  # surviving peel rather than collapsing to NaN.
+  scored <- r$mohns[r$mohns$N > 0, , drop = FALSE]
+  testthat::expect_true(nrow(scored) > 0)
+  testthat::expect_false(any(is.na(unlist(scored[, -(1:3)]))))
+})
+
+
 testthat::test_that("self_test inherits the source model's phasing", {
   # self_test() refits from `initial_params`, so it has to cover the same ground
   # the original fit did -- but it was the only refitting diagnostic that never

@@ -176,6 +176,20 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **`retrospective()` peels report their own terminal year, so retrospective
+  plots show the peels.** Every plot builds its year axis per model as
+  `styr:endyr`, and `endyr_peel` is not read outside `retrospective()` -- so each
+  peel reported the *full* model's `endyr` and was drawn all the way to it,
+  leaving the peels indistinguishable. Each peel now carries
+  `data_list$endyr = data_list$endyr_peel`, and
+  `plot_biomass(retro$Rceattle_list)` gives the usual fanned retrospective
+  without any extra arguments. The peel's parameters, quantities, and
+  `catch_data` still span the full hindcast, because the peeled years are its
+  retrospective *forecast*: `endyr` marks what was fit, not what was estimated,
+  and `incl_proj = TRUE` plots the forecast years. **Mohn's rho is unchanged** --
+  it is computed from `endyr_peel` and the unpeeled model's `endyr`, never from a
+  peel's `endyr` (verified bit-identical, along with every peel's SSB series).
+
 * **`?osa_residuals` no longer carries a broken link to `parallel::mclapply()`.**
   The `parallel` argument's cross-reference had been generated with a
   Windows-specific file anchor (`parallel:mcdummies`, where Windows documents the

@@ -252,6 +252,8 @@ plot_biomass(model_1_retro$Rceattle_list)
 plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 ```
 
+Each peel carries its own terminal year as `data_list$endyr`, so the first plot draws every peel only as far as it was fit and the peels fan out in the usual way. The peeled years are still estimated — they are the peel's retrospective *forecast*, fit to the observed catch — so `incl_proj = TRUE` extends each line through them and shows how the forecast changes. Mohn's rho reads `endyr_peel` and is unaffected by either.
+
 The `retrospective()` function returns a list with two elements:
 
 | Element | Description |

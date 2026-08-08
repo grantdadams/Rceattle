@@ -65,6 +65,16 @@
 #'   necessarily the 3-year peel. With no peel left, Mohn's rho is \code{NaN}
 #'   and the function warns.
 #'
+#'   Each peel reports its own terminal year as \code{data_list$endyr} (equal to
+#'   \code{data_list$endyr_peel}), so \code{plot_biomass(retro$Rceattle_list)}
+#'   and the other plots draw every peel to the year it was fit through instead
+#'   of to the full model's terminal year. The peel's parameters, quantities,
+#'   and \code{catch_data} still span the full hindcast, because the peeled
+#'   years are its retrospective \emph{forecast} -- \code{endyr} marks what was
+#'   fit, not what was estimated. Pass \code{incl_proj = TRUE} to a plot to see
+#'   the forecast years. Mohn's rho is computed from \code{endyr_peel} and is
+#'   unaffected.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
@@ -341,6 +351,29 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     #   check[j] <- sum(map$mapFactor[[j]] != newmod$map$mapFactor[[j]], na.rm = TRUE)
     #   check_na[j] <- sum(is.na(map$mapFactor[[j]]) != is.na(newmod$map$mapFactor[[j]]), na.rm = TRUE)
     # }
+
+    # * Report the peel's own terminal year ----
+    # Set here, AFTER both refits, and never before: `endyr` sizes the model,
+    # and the forecast refit above turns F back on over `(nyrs_peel+1):nyrs`
+    # against the FULL nyrs, so peeling it earlier would index off the end of
+    # log_F. At this point it is output metadata only.
+    #
+    # Every plot builds its year axis per model as `styr:endyr`
+    # (`R/7-plot_ceattle.R`), and nothing outside this file reads `endyr_peel`.
+    # Without this each peel was drawn to the full model's terminal year, so
+    # the peels were indistinguishable -- the opposite of what a retrospective
+    # plot is for.
+    #
+    # Mohn's rho is unaffected: it reads `endyr_peel` off each peel and the
+    # full model's `endyr` from this function's enclosing scope, never a peel's
+    # `data_list$endyr`.
+    #
+    # Note this makes the returned peel deliberately inconsistent: its
+    # parameters, quantities, and `catch_data` still span the full hindcast,
+    # because the peeled years are its retrospective FORECAST. `endyr` marks
+    # what was fit, not what was estimated. Plot with `incl_proj = TRUE` to see
+    # the forecast years.
+    newmod$data_list$endyr <- endyr_peel
 
     # Return model only if BOTH refits converged, else NULL (dropped
     # post-dispatch)
