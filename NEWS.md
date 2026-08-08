@@ -190,6 +190,14 @@
   it is computed from `endyr_peel` and the unpeeled model's `endyr`, never from a
   peel's `endyr` (verified bit-identical, along with every peel's SSB series).
 
+  Because `endyr` and `endyr_peel` now agree, every model in `Rceattle_list`
+  also carries `data_list$endyr_full`, the terminal year of the model that was
+  peeled. A peel taken on its own therefore still separates its retrospective
+  forecast years -- those after `endyr_peel` through `endyr_full` -- from the
+  true projection after `endyr_full`. Build them as
+  `endyr_peel + seq_len(endyr_full - endyr_peel)`, which is correctly empty for
+  the unpeeled entry.
+
 * **`?osa_residuals` no longer carries a broken link to `parallel::mclapply()`.**
   The `parallel` argument's cross-reference had been generated with a
   Windows-specific file anchor (`parallel:mcdummies`, where Windows documents the

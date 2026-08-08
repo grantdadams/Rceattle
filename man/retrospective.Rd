@@ -54,6 +54,15 @@ years are its retrospective \emph{forecast} -- \code{endyr} marks what was
 fit, not what was estimated. Pass \code{incl_proj = TRUE} to a plot to see
 the forecast years. Mohn's rho is computed from \code{endyr_peel} and is
 unaffected.
+
+Every entry also carries \code{data_list$endyr_full}, the terminal year of
+the model that was peeled, so a peel taken on its own still distinguishes
+its retrospective forecast years -- those after \code{endyr_peel} through
+\code{endyr_full} -- from the true projection, after \code{endyr_full}
+through \code{projyr}. Build the forecast years as
+\code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for
+the unpeeled model; \code{(endyr_peel + 1):endyr_full} would count
+\emph{down} there.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:

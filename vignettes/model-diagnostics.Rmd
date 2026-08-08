@@ -254,6 +254,8 @@ plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 
 Each peel carries its own terminal year as `data_list$endyr`, so the first plot draws every peel only as far as it was fit and the peels fan out in the usual way. The peeled years are still estimated — they are the peel's retrospective *forecast*, fit to the observed catch — so `incl_proj = TRUE` extends each line through them and shows how the forecast changes. Mohn's rho reads `endyr_peel` and is unaffected by either.
 
+Each model also carries `data_list$endyr_full`, the terminal year of the model that was peeled, so the retrospective forecast years stay distinguishable from the true projection even when a peel is inspected on its own — the forecast runs after `endyr_peel` through `endyr_full`, the projection after `endyr_full`. Build the forecast years as `endyr_peel + seq_len(endyr_full - endyr_peel)`; it is correctly empty for the unpeeled model, where `(endyr_peel + 1):endyr_full` would count down instead.
+
 The `retrospective()` function returns a list with two elements:
 
 | Element | Description |

@@ -75,6 +75,15 @@
 #'   the forecast years. Mohn's rho is computed from \code{endyr_peel} and is
 #'   unaffected.
 #'
+#'   Every entry also carries \code{data_list$endyr_full}, the terminal year of
+#'   the model that was peeled, so a peel taken on its own still distinguishes
+#'   its retrospective forecast years -- those after \code{endyr_peel} through
+#'   \code{endyr_full} -- from the true projection, after \code{endyr_full}
+#'   through \code{projyr}. Build the forecast years as
+#'   \code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for
+#'   the unpeeled model; \code{(endyr_peel + 1):endyr_full} would count
+#'   \emph{down} there.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
@@ -97,6 +106,15 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
   # Get objects
   Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
+  # Terminal year of the model being peeled. Each peel reports its OWN terminal
+  # year as `endyr` (see run_one_peel), which makes the plots fan out but leaves
+  # `endyr` and `endyr_peel` holding the same value -- so without this the
+  # unpeeled terminal year is unrecoverable from a peel, and with it the boundary
+  # between the retrospective FORECAST years, (endyr_peel + 1):endyr_full, and
+  # the true projection, (endyr_full + 1):projyr. Set once here: run_one_peel
+  # copies this data_list, and extra fields survive the refits the same way
+  # `endyr_peel` already does.
+  Rceattle$data_list$endyr_full <- Rceattle$data_list$endyr
   data_list <- Rceattle$data_list # used by Mohn's rho block below
   endyr <- Rceattle$data_list$endyr
   styr <- Rceattle$data_list$styr
@@ -372,7 +390,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # parameters, quantities, and `catch_data` still span the full hindcast,
     # because the peeled years are its retrospective FORECAST. `endyr` marks
     # what was fit, not what was estimated. Plot with `incl_proj = TRUE` to see
-    # the forecast years.
+    # the forecast years, and read `endyr_full` (carried through from the source
+    # model) for where those forecast years end.
     newmod$data_list$endyr <- endyr_peel
 
     # Return model only if BOTH refits converged, else NULL (dropped

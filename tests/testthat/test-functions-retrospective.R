@@ -232,6 +232,17 @@ testthat::test_that("each peel reports its own terminal year, and rho is unmoved
   scored <- r$mohns[r$mohns$N > 0, , drop = FALSE]
   testthat::expect_true(nrow(scored) > 0)
   testthat::expect_false(any(is.na(unlist(scored[, -(1:3)]))))
+
+  # Setting `endyr` to the peel makes it duplicate `endyr_peel`, which would
+  # otherwise lose the unpeeled terminal year -- and with it the boundary
+  # between the retrospective forecast and the true projection. `endyr_full`
+  # keeps that recoverable from a peel on its own.
+  fulls <- vapply(r$Rceattle_list,
+                  function(x) as.numeric(x$data_list$endyr_full), numeric(1))
+  testthat::expect_equal(unname(fulls), rep(full_endyr, length(fulls)))
+  testthat::expect_true(all(fulls >= peels))
+  testthat::expect_true(all(fulls <= vapply(r$Rceattle_list,
+    function(x) as.numeric(x$data_list$projyr), numeric(1))))
 })
 
 
