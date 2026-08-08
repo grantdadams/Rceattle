@@ -131,10 +131,25 @@ testthat::test_that(".parallel_lapply falls back to sequential when a worker die
   out <- NULL
   testthat::expect_message(
     out <- Rceattle:::.parallel_lapply(1:3, function(i) i^2, 2, environment()),
-    "running the 3 tasks sequentially")
+    "computing the 3 tasks sequentially")
 
   # Falling back has to give the same answer as the cluster would have.
   testthat::expect_equal(out, list(1, 4, 9))
+})
+
+
+testthat::test_that(".parallel_lapply agrees with lapply on a real cluster", {
+  testthat::skip_on_cran()
+
+  # Nothing else in the suite passes cores > 1, so without this the cluster
+  # itself -- makeCluster, the FORK/PSOCK branch, parLapply -- is never run, and
+  # only the fallback around it would be covered. Kept to a pure function so it
+  # stays fast and cannot flake on a model fit.
+  items <- 1:4
+  f <- function(i) list(sq = i^2, chr = letters[i])
+  testthat::expect_equal(
+    Rceattle:::.parallel_lapply(items, f, 2, environment()),
+    lapply(items, f))
 })
 
 

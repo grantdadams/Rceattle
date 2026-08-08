@@ -10,21 +10,20 @@
 #' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
 #' fallback (Windows), reproducing the previous behavior exactly.
 #'
-#' A cluster that dies takes the whole call with it, which is worth guarding
-#' because the cluster is where the platforms differ: each worker fits complete
-#' models, so several large ones at once can exhaust memory and the operating
-#' system kills a worker. The parent then reports only what it noticed --
-#' `Error in unserialize(node$con) : error reading from connection` -- and every
-#' peel or simulation computed so far is lost. Rather than fail, fall back to
-#' running the items sequentially, as `osa_residuals()` does when its parallel
-#' one-step-ahead loop fails. The run is slower but finishes, and the message
-#' names `cores` so the next call can skip the wasted attempt. Note the fallback
-#' restarts the work from the beginning: cluster results are not recoverable
-#' once a worker has gone.
+#' Each worker fits whole models, so several large ones at once can exhaust
+#' memory and the operating system kills one. All the parent sees is
+#' `Error in unserialize(node$con) : error reading from connection`, and every
+#' item finished up to that point is lost with it. Fall back to running the items
+#' sequentially instead, as `osa_residuals()` does when its parallel
+#' one-step-ahead loop fails.
 #'
-#' An error raised by `fun` itself propagates out of the sequential retry
-#' unchanged, so a real bug still surfaces as itself rather than as a cluster
-#' failure.
+#' Two things follow. The retry starts from the beginning -- results from a
+#' cluster that has lost a worker cannot be recovered -- so a caller with side
+#' effects repeats them; `run_mse()` re-writes the `.rds` of any simulation that
+#' had already finished, which is safe only because it seeds each simulation
+#' separately and so reproduces it exactly. And an error raised by `fun` itself
+#' propagates out of the retry unchanged, so a real bug still surfaces as itself
+#' rather than as a cluster failure.
 #'
 #' @param items Vector iterated over; each element is passed to `fun`.
 #' @param fun Worker closure.
@@ -52,11 +51,11 @@
   }
 
   tryCatch(run_clustered(), error = function(e) {
-    message("Parallel execution failed (", conditionMessage(e), "); ",
-            "running the ", length(items), " tasks sequentially instead. ",
-            "A worker that dies this way has usually run out of memory -- ",
-            "each one fits a full model. Pass cores = 1 (or a smaller cores) ",
-            "to go straight to this path.")
+    message("Parallel run failed (", conditionMessage(e), "); computing the ",
+            length(items), " tasks sequentially instead. A worker most often ",
+            "dies because it ran out of memory, since each one fits a full ",
+            "model -- try a lower cores, or cores = 1 to skip the parallel ",
+            "attempt.")
     lapply(items, fun)
   })
 }
