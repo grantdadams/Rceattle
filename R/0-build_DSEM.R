@@ -112,6 +112,62 @@ dsem_family_object <- function( fam ){
 }
 
 
+#' Registry of the CEATTLE process deviations DSEM can drive
+#'
+#' DSEM works by making a process's deviations the latent states of the SEM, so
+#' several places need to agree on what those states are *called*: the default
+#' sem, the columns injected into the tsdata, the regex that gives them the
+#' `fixed` family, the SD self-loop lookup, the column-index map handed to the
+#' C++, and the pre-fit spec check. This function is the single place that
+#' decides, so adding a process is one edit here rather than a hunt through six
+#' `paste0()`s and regexes.
+#'
+#' Each entry carries the sem variable-name `prefix` users write (e.g.
+#' `recdevs` in `recdevs1 <-> recdevs1, 0, sigmaR1, 1`), the number of latent
+#' series `n` that process contributes, and the resulting `columns` in model
+#' order.
+#'
+#' Only recruitment is wired today. Growth and M become additional entries when
+#' they land -- but note the recruitment-SD and prior machinery further down is
+#' still recruitment-specific and needs its own generalization at that point;
+#' this registry settles naming, not the per-process statistics.
+#'
+#' @param data_list a data_list; only `nspp` is used.
+#' @noRd
+.dsem_latent_registry <- function(data_list) {
+  list(
+    recruitment = list(
+      prefix  = .DSEM_LATENT_PREFIXES[["recruitment"]],
+      n       = data_list$nspp,
+      columns = paste0(.DSEM_LATENT_PREFIXES[["recruitment"]],
+                       seq_len(data_list$nspp))
+    )
+  )
+}
+
+# The sem variable-name stems, one per drivable process. Deliberately separate
+# from the registry above: the stems are a property of the grammar, not of any
+# particular model, so the pattern below can be built without a data_list.
+# Folding them together made check_dsem_spec() -- which needs only the stems --
+# start requiring data_list$nspp, and error on inputs it used to accept.
+.DSEM_LATENT_PREFIXES <- c(recruitment = "recdevs")
+
+# Latent column names across the whole registry, in model order.
+#' @noRd
+.dsem_latent_columns <- function(data_list) {
+  unlist(lapply(.dsem_latent_registry(data_list), `[[`, "columns"),
+         use.names = FALSE)
+}
+
+# Regex matching any latent column name. These are states, never observations,
+# so they take dsem's `fixed` family regardless of what the user asked for.
+# Takes no arguments by design -- see the note on .DSEM_LATENT_PREFIXES.
+#' @noRd
+.dsem_latent_pattern <- function() {
+  paste0("^(", paste(unique(.DSEM_LATENT_PREFIXES), collapse = "|"), ")[0-9]+$")
+}
+
+
 #' Function to build the map and parameter objects for DSEM recruitment linkages
 #'
 #' @param dsem_settings dsem specifications from \code{\link{build_DSEM}}.
@@ -121,11 +177,15 @@ dsem_family_object <- function( fam ){
 #' @export
 build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = NULL){
 
+  latent_cols <- .dsem_latent_columns(data_list)
+  rec_cols    <- .dsem_latent_registry(data_list)$recruitment$columns
+
   # Build IID sem if NULL
   if(is.null(dsem_settings$sem)){
     sem = c()
-    for(sp in 1:data_list$nspp){
-      sem <- c(sem, paste0("recdevs", sp, " <-> recdevs", sp, ", 0, sigmaR", sp,", 1\n")) # No space after
+    for(sp in seq_len(data_list$nspp)){
+      nm <- rec_cols[sp]
+      sem <- c(sem, paste0(nm, " <-> ", nm, ", 0, sigmaR", sp,", 1\n")) # No space after
     }
     sem <- paste0(sem, collapse = " ")
     dsem_settings$sem <- sem
@@ -157,12 +217,12 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     dplyr::filter(Year >= data_list$styr & Year <= dsem_endyr) %>% # FIXME: if including init devs, adjust
     dplyr::arrange(Year)
 
-  # - Add column for recdev of each species
-  for(sp in data_list$nspp:1){
+  # - Prepend one all-NA latent column per registry entry, in model order. All-NA
+  #   is what marks them as states rather than observations downstream.
+  for(nm in rev(latent_cols)){
     dsem_data <- dsem_data %>%
-      dplyr::mutate(recdevs = NA_real_) %>%
-      dplyr::relocate("recdevs")
-    colnames(dsem_data)[1] <- paste0("recdevs", sp)
+      dplyr::mutate(!!nm := NA_real_) %>%
+      dplyr::relocate(dplyr::all_of(nm))
   }
 
   # - Drop the Year column once all recdev columns are added
@@ -199,7 +259,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   #   * a vector/list of strings and/or `family` objects, one per env variable,
   #     matched to env columns by name when named, otherwise by position.
   var_names <- colnames(dsem_data)
-  is_recdev <- grepl("^recdevs[0-9]+$", var_names)
+  is_recdev <- grepl(.dsem_latent_pattern(), var_names)
   env_names <- var_names[!is_recdev]
 
   fam_in <- dsem_settings$family
@@ -296,7 +356,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   rec_sd_idx   <- integer(data_list$nspp)   # 1-based beta_z index; 0 if SD is fixed in the sem
   rec_sd_fixed <- numeric(data_list$nspp)   # fixed SD value used when rec_sd_idx == 0
   for(sp in seq_len(data_list$nspp)){
-    nm   <- paste0("recdevs", sp)
+    nm   <- rec_cols[sp]
     rows <- which(sf$first == nm & sf$second == nm & sf_dir == 2)
     pn   <- unique(sf_par[rows]); pn <- pn[!is.na(pn) & pn > 0]
     if(length(pn) > 0){
@@ -329,9 +389,11 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$rec_sd_use_prior <- as.integer(rec_sd_use_prior)
 
   # x_tj column of each species' recdevs (0-based for the cpp).
-  rec_dev_col <- match(paste0("recdevs", seq_len(data_list$nspp)), colnames(dsem_data)) - 1L
+  rec_dev_col <- match(rec_cols, colnames(dsem_data)) - 1L
   if(any(is.na(rec_dev_col))){
-    stop("Could not locate a 'recdevs<sp>' column for every species in the DSEM data")
+    stop("Could not locate a latent column (",
+         paste(rec_cols, collapse = ", "),
+         ") for every species in the DSEM data")
   }
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
@@ -463,8 +525,8 @@ check_dsem_spec <- function(data_list, dsem) {
   ed <- data_list$env_data
   if (is.null(sf) || is.null(ed) || is.null(ed$Year)) return(empty)
 
-  # Recruitment paths: one-headed (direction 1) arrows into a recdevs* node.
-  is_rec <- grepl("^recdevs", as.character(sf$second)) &
+  # Recruitment paths: one-headed (direction 1) arrows into a latent node.
+  is_rec <- grepl(.dsem_latent_pattern(), as.character(sf$second)) &
             as.numeric(sf$direction) == 1
   rec <- sf[is_rec, , drop = FALSE]
   if (nrow(rec) == 0) return(empty)

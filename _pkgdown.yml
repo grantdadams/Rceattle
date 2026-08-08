@@ -146,6 +146,9 @@ reference:
   - build_hcr_map
   - fit_control
   - linkage_spec
+  - build_DSEM
+  - build_dsem_objects
+  - check_dsem_spec
 
 - title: "Run configuration"
   desc: >
