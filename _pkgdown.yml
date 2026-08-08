@@ -129,7 +129,6 @@ reference:
   - clean_data
   - combine_data
   - rearrange_data
-  - data_check
 
 - title: "Model setup"
   desc: Build parameter lists, map objects, bounds, and biological inputs.
