@@ -69,4 +69,3 @@ Config/testthat/start-first: functions-profile-param, functions-mse,
     dynamics-brps, functions-retrospective, likelihood-osa-residuals,
     selectivity-normalization, dynamics-recruitment-linkage
 Config/roxygen2/version: 8.1.0
-RoxygenNote: 7.3.3

@@ -75,7 +75,7 @@ LINKAGE_STRUCTURES <- c(
 #' difference.
 #'
 #' So check the wrappers ourselves before handing the formula over. Anything
-#' that wraps a bar and is not in [LINKAGE_STRUCTURES] is an error naming both
+#' that wraps a bar and is not in `LINKAGE_STRUCTURES` is an error naming both
 #' the offending term and the available structures.
 #'
 #' @param formula a one-sided formula.

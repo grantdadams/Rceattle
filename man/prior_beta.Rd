@@ -13,7 +13,7 @@ prior_beta(shape1, shape2)
 An \code{Rceattle_prior} of family \code{"beta"}.
 }
 \description{
-Standard Beta(shape1, shape2) on (0, 1), matching \code{\link[stats:dbeta]{stats::dbeta()}}.
+Standard Beta(shape1, shape2) on (0, 1), matching \code{\link[stats:Beta]{stats::dbeta()}}.
 For priors on stock-recruit steepness on the standard (0.2, 1)
 interval, transform inside the model and use \code{\link[=prior_beta]{prior_beta()}} on the
 rescaled quantity.

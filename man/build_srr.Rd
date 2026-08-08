@@ -55,7 +55,7 @@ with no knowledge of the stock's scale. \eqn{\beta} in particular sets the
 density dependence in \eqn{R = \alpha S / (1 + \beta S)}, so it must be on
 the order of \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or
 smaller for a stock measured in tonnes. Starting three orders of magnitude
-away drives predicted recruitment to near zero and the optimiser returns
+away drives predicted recruitment to near zero and the optimizer returns
 \code{NA/NaN gradient evaluation}. For a Beverton-Holt seeded from a
 steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
 \deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad

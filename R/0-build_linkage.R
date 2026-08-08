@@ -1200,7 +1200,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' `rw()` / `ar1()` and other structures are recognized by the parser but
 #' rejected here until their densities are wired.
 #'
-#' @param re_terms list of bar expressions from [.parse_linkage_formula()].
+#' @param re_terms list of bar expressions from `.parse_linkage_formula()`.
 #' @param re_structures character vector of structure names, one per term.
 #' @param env_data the covariate/time table.
 #'

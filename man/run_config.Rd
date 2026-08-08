@@ -24,6 +24,16 @@ Rceattle object, a data list carrying \verb{$model_config}, an
 \code{Rceattle_run_config}, or an \code{Rceattle_model_config}. Estimation controls and
 \code{fit_control} supplied via \code{...} override any found on the object.
 }
+\examples{
+# Coerce a model_config() into a full run configuration, overriding the
+# estimation controls. A fitted model or a data list works the same way.
+rc <- run_config(model_config(msmMode = 1), estimateMode = "Hindcast")
+rc$estimateMode
+
+# Optimizer and uncertainty settings belong inside fit_control(), not here;
+# an unrecognized field is an error rather than a silent no-op.
+rc <- run_config(rc, fit_control = fit_control(getsd = FALSE))
+}
 \seealso{
 \code{\link[=save_config]{save_config()}}, \code{\link[=load_config]{load_config()}}, \code{\link[=model_config]{model_config()}}.
 }

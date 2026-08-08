@@ -36,3 +36,12 @@ always in sync with the current schema. The template round-trips through
 \code{fit_mod(estimateMode = 3)}; replace the placeholder observations with
 real data before fitting.
 }
+\examples{
+f <- file.path(tempdir(), "template.xlsx")
+dat <- write_template(f, nages = 8, nyrs = 20)
+
+# The workbook is correctly shaped but carries placeholder observations;
+# data_requirements() reports what a given configuration still needs.
+head(data_requirements(dat), 4)
+unlink(f)
+}

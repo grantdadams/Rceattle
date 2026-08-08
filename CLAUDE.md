@@ -75,10 +75,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
 - Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
-  repo is documented with roxygen2 **8.0.0** (`DESCRIPTION: Config/roxygen2/version: 8.0.0`).
-  An *older* local roxygen2 (e.g. 7.3.3) rewrites *every* `man/*.Rd` and swaps the key back
-  to `RoxygenNote:` — a huge spurious diff. After `document()`, `git checkout` the unrelated
-  `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  repo is documented with roxygen2 **8.1.0** (`DESCRIPTION: Config/roxygen2/version`).
+  A *different* local roxygen2 rewrites *every* `man/*.Rd` — an older one also swaps the
+  key back to the legacy `RoxygenNote:`, leaving both present and contradicting each other.
+  After `document()`, check `git diff DESCRIPTION` first: if the version key moved, the
+  `man/` churn is the version, not your change. Either regenerate everything under one
+  version deliberately, or `git checkout` the unrelated churn and keep only the `.Rd` you
+  meant to change.
   Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
   **Second trap:** never insert a helper between a function's roxygen block and its
   definition. Contiguous `#'` lines are ONE block and bind to whichever object follows, so

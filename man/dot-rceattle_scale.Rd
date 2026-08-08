@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_helpers.R
 \name{.rceattle_scale}
 \alias{.rceattle_scale}
-\title{Add the standard colourblind-safe scales to a plot}
+\title{Add the standard colorblind-safe scales to a plot}
 \usage{
 .rceattle_scale(p, discrete = TRUE, aesthetics = c("colour", "fill"))
 }
@@ -16,6 +16,6 @@
 \description{
 Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
 qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
-use viridis. Both are colourblind-safe.
+use viridis. Both are colorblind-safe.
 }
 \keyword{internal}

@@ -15,7 +15,7 @@ Two surfaces are provided:
 \enumerate{
 \item \strong{Programmatic constructors} -- exported with the \code{prior_}
 prefix (\code{prior_normal()}, \code{prior_lognormal()}, ...), safe to
-call anywhere without masking \code{\link[base:gamma]{base::gamma()}}/\code{\link[base:beta]{base::beta()}}.
+call anywhere without masking \code{\link[base:Special]{base::gamma()}}/\code{\link[base:Special]{base::beta()}}.
 \item \strong{Inline form} inside \code{linkage_spec(priors = ...)}. There the
 argument is captured unevaluated and resolved with a private
 data mask that makes \code{normal()}, \code{lognormal()}, \code{gamma()}, and

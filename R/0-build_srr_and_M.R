@@ -1403,7 +1403,7 @@ build_composition <- function(linkages = NULL) {
 #' an estimate, and makes likelihoods non-comparable across configurations.
 #' Such rows are set to `prior_family = "none"`, which the template skips.
 #'
-#' [.check_comp_linkage_support()] rejects a prior that can never apply to the
+#' `.check_comp_linkage_support()` rejects a prior that can never apply to the
 #' data at hand (a non-DM `Comp_distribution` / `Diet_distribution`). Whether a
 #' weight is estimated *in a given fit* also depends on `msmMode`, `suitMode`,
 #' and the fleet setup, and one `compFun` is routinely shared across the

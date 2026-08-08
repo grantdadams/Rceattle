@@ -51,7 +51,7 @@ starting value comes from the data), and a prior on the double-normal
 \code{right_floor} is not supported.
 For a fleet that mirrors another fleet's selectivity (shared
 \code{Selectivity_index}), place the prior on the lead fleet so the shared
-parameter block is not penalised more than once.
+parameter block is not penalized more than once.
 }
 \examples{
 \donttest{

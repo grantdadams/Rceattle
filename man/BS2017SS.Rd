@@ -11,7 +11,7 @@ Control
 \item{styr}{Start year of the hindcast}
 \item{endyr}{End year of the hindcast}
 \item{projyr}{End year of the forecast}
-\item{nsex}{Number of sexes to model in the population (1 = sexes combined, 2 = females and males modelled separately)}
+\item{nsex}{Number of sexes to model in the population (1 = sexes combined, 2 = females and males modeled separately)}
 \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 \item{nages}{Number of ages of each species included in the hindcast}
@@ -86,7 +86,7 @@ fleet_control: controls for survey and fisheries data
 \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 \item{Catchability_index}{index to use if catchability coefficients are to be set the same.}
 \item{Catchability}{Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Ludwig and Walters 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates fit to an environmental index (Rogers et al. 2024); 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.}
-\item{Catchability_init}{Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centres the q prior.}
+\item{Catchability_init}{Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centers the q prior.}
 \item{Catchability_prior_sd}{Standard deviation of the q prior: dnorm(log_q, log_q_prior, Catchability_prior_sd). Used only when Catchability = "Estimated-with-prior".}
 \item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (not yet implemented), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
 \item{Time_varying_q_sd}{The sd to use for the random walk of time varying q if set to 1}

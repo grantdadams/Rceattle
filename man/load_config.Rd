@@ -19,6 +19,15 @@ The inverse of \code{\link[=save_config]{save_config()}}: reads a run-config YAM
 \code{fit_mod(data_list, config = load_config("run.yaml"))}, or read
 \verb{$model_config} off it to attach to a data list.
 }
+\examples{
+f <- file.path(tempdir(), "run.yaml")
+save_config(model_config(msmMode = 1, initMode = "Equilibrium"), f)
+
+cfg <- load_config(f)
+cfg$model_config$msmMode
+# Apply with fit_mod(data_list, config = cfg).
+unlink(f)
+}
 \seealso{
 \code{\link[=save_config]{save_config()}}, \code{\link[=fit_mod]{fit_mod()}}.
 }
