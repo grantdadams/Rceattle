@@ -190,6 +190,29 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     stop("`em` must be an Rceattle model object (see ?fit_mod).")
   }
 
+  # DSEM inside an MSE is a real design question, not plumbing, so refuse rather
+  # than produce a quietly wrong projection. Two things are unresolved:
+  #
+  #  * Under a DSEM the recruitment deviations are DERIVED from the latent
+  #    states, so sample_rec()'s draws would have to be written into
+  #    x_tj[, rec_dev_col], not into rec_dev. Writing rec_dev (what the code
+  #    does today) is simply overwritten on the next evaluation.
+  #  * .mse_trim_proj_params() / .mse_restore_proj_params() slice the parameter
+  #    blocks that span styr:projyr. Whether x_tj is one of those depends on
+  #    build_DSEM(estimate_projection): FALSE (the default) builds it over the
+  #    hindcast only, so trimming it would corrupt it; TRUE spans projyr, so NOT
+  #    trimming it misaligns the shortened refit. .mse_proj_param_yrdim is a
+  #    static table and cannot express that conditional.
+  #
+  # Neither of the assessments driving this work uses run_mse() with a DSEM, so
+  # this is deferred rather than guessed at.
+  if (.has_dsem(om) || .has_dsem(em)) {
+    stop("run_mse() does not yet support a DSEM. Recruitment deviations are ",
+         "derived from the DSEM latent states, so the recruitment sampling and ",
+         "projection-horizon handling an MSE needs are not defined for it yet.",
+         call. = FALSE)
+  }
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

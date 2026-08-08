@@ -10,6 +10,7 @@
 #' @export
 #'
 remove_F <- function(Rceattle){
+  .stop_if_dsem(Rceattle, "remove_F")
 
   # * Years for F = 0 ----
   # - don't want hindcast or it will bias suitability in Multi-species models

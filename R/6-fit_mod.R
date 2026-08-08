@@ -548,6 +548,10 @@ fit_mod <-
       # quietly defaulted.
       if (is.list(dsem) && !is.null(dsem$tmb_inputs)) {
         mod_objects$dsem <- dsem
+        # Record the specification alongside the built objects. .refit_like()
+        # and the diagnostic guards read data_list$dsem_settings, so a fit built
+        # from pre-built objects would otherwise look DSEM-free to them.
+        data_list$dsem_settings <- dsem$dsem_settings
       } else if (is.list(dsem) && "sem" %in% names(dsem)) {
         data_list$dsem_settings <- dsem
         mod_objects$dsem <- build_dsem_objects(

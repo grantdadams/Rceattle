@@ -154,17 +154,14 @@ testthat::test_that("dsem must be a build_DSEM() specification", {
   )
 })
 
-testthat::test_that("a diagnostic refit refuses to silently drop a DSEM", {
-  # Regression: .refit_like() rebuilds every other spec from the data list but
-  # not the DSEM, so retrospective()/jitter()/profile()/run_mse() etc. would
-  # refit without it and report diagnostics for a different model.
-  dl <- Rceattle::BS2017SS
-  dl$dsem_settings <- Rceattle::build_DSEM(sem = "recdevs1 <-> recdevs1, 0, sigmaR1, 1")
-
-  testthat::expect_error(
-    Rceattle:::.refit_like(data_list = dl, inits = NULL, estimateMode = 3),
-    "not yet carried through the refit path"
-  )
+testthat::test_that("a diagnostic refit inherits the DSEM from the data list", {
+  # .refit_like() rebuilds every spec from the data list; the DSEM must be among
+  # them, or retrospective()/jitter()/profile() etc. would refit without it and
+  # report diagnostics for a different model. Covered in depth in
+  # test-functions-refit-like-dsem.R; this pins the wiring from this side.
+  fmls <- formals(Rceattle:::.refit_like)
+  testthat::expect_true("dsem" %in% names(fmls))
+  testthat::expect_identical(deparse(fmls$dsem), "data_list$dsem_settings")
 })
 
 testthat::test_that("build_dsem_objects accepts the v5.0 sigma_rec spelling", {

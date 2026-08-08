@@ -19,9 +19,8 @@ An object of class \code{"Rceattle_convergence"}.
 \description{
 Runs the Tier-1 (\code{"spec"}) convergence checks on a built DSEM and the
 model's \code{env_data}, returning the same \code{"Rceattle_convergence"}
-object as \code{\link[=convergence_diagnostics]{convergence_diagnostics()}}. \code{fit_mod()} runs this
-automatically after building the DSEM (results merged into
-\code{fit$convergence}); call it directly to screen a spec before fitting.
+object as \code{\link[=convergence_diagnostics]{convergence_diagnostics()}}. Call it directly to screen a
+specification before fitting; \code{fit_mod()} does \strong{not} run it for you.
 }
 \details{
 Checks (tier \code{"spec"}):

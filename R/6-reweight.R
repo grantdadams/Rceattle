@@ -68,6 +68,7 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   if (!inherits(fit, "Rceattle")) {
     stop("`fit` must be a fitted Rceattle model.", call. = FALSE)
   }
+  .stop_if_dsem(fit, "reweight_comps")
   fc <- fit$data_list$fleet_control
 
   # Fleets the loop can tune: they carry composition data that is actually

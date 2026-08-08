@@ -54,6 +54,8 @@
 #' @param suit_styr,suit_endyr Suitability window; default to the source's,
 #'   clamped to a peel year or pinned to the pristine OM by some callers.
 #'
+#' @param dsem DSEM specification to carry into the refit. Defaults to the
+#'   source `data_list`'s stored `dsem_settings`, so a refit inherits it.
 #' @return The fitted `Rceattle` object returned by [fit_mod()].
 #' @noRd
 .refit_like <- function(data_list,
@@ -69,21 +71,20 @@
                         srr_hat_styr     = data_list$srr_hat_styr,
                         srr_hat_endyr    = data_list$srr_hat_endyr,
                         suit_styr        = data_list$suit_styr,
-                        suit_endyr       = data_list$suit_endyr) {
+                        suit_endyr       = data_list$suit_endyr,
+                        dsem             = data_list$dsem_settings) {
   dl <- data_list
 
-  # DSEM is not forwarded yet. Every diagnostic refit funnels through here, so
-  # silently dropping it would make retrospective(), jitter(), self_test(),
-  # profile(), run_mse(), remove_F(), sample_rec() and reweight_comps() refit a
-  # DIFFERENT model than the one being diagnosed -- Mohn's rho, MSE output and
-  # likelihood profiles computed without the recruitment structure they are
-  # supposed to be testing. Refuse rather than mislead until the override lands.
-  if (!is.null(dl$dsem_settings)) {
-    stop("This diagnostic refits the model, and the DSEM specification is not ",
-         "yet carried through the refit path -- the refit would silently drop ",
-         "it and report results for a different model. DSEM diagnostics are ",
-         "not available yet.", call. = FALSE)
-  }
+  # The DSEM travels as the SPECIFICATION, never as built objects. Its latent
+  # states x_tj (and eps_tj / y_tj / the map) are dimensioned over the model's
+  # year span, and every caller here changes that span: retrospective() peels
+  # endyr, run_mse() shortens projyr. Rebuilding from the spec against each
+  # refit's own data_list re-derives the right dimensions; forwarding a built
+  # object would hand MakeADFun a latent-state matrix of the wrong length.
+  #
+  # This is also why the DSEM is not in the `if (is.null(HCR))` style block
+  # below: build_dsem_objects() is called by fit_mod(), after it has resolved
+  # the refit's own styr/endyr/projyr.
 
 
   # Reconstruct the harvest control rule from the source unless the caller
@@ -111,6 +112,7 @@
     file         = NULL,
     estimateMode = estimateMode,
     HCR          = HCR,
+    dsem = dsem,
     # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
     recFun = suppressWarnings(build_srr(
       srr_fun          = dl$srr_fun,
@@ -200,3 +202,34 @@
   if (is.null(x) || !length(x) || anyNA(x)) return(TRUE)
   x[[1]]
 }
+
+
+# True when a model carries a DSEM. A DSEM can live in three places, and a check
+# that looks in only one is silent on exactly the objects it exists for:
+#   fit$data_list$dsem_settings  -- the specification, set by fit_mod()
+#   fit$dsem                     -- the built objects, the canonical slot on a
+#                                   fitted object (what summary.Rceattle reads),
+#                                   and all that is set when fit_mod() is handed
+#                                   pre-built objects
+#   fit$data_list$model_config$dsem -- carried by a stored run configuration
+.has_dsem <- function(x) {
+  !is.null(x$dsem) ||
+    !is.null(x$data_list$dsem_settings) ||
+    !is.null(x$data_list$model_config$dsem)
+}
+
+# Diagnostics that refit a DSEM model are not supported yet. They fail in
+# assorted opaque ways rather than saying so: retrospective() dies zeroing
+# `inits$rec_dev`, which is length 0 under a DSEM because the deviations live in
+# the latent states; jitter() reports "0 of N returned" with the real cause
+# buried; self_test() throws "argument is of length zero". One directed message
+# instead, at the entry point.
+.stop_if_dsem <- function(Rceattle, what) {
+  if (.has_dsem(Rceattle)) {
+    stop(what, "() does not yet support a DSEM: the recruitment deviations are ",
+         "derived from the DSEM latent states, so the refit machinery this ",
+         "diagnostic relies on does not apply to them yet.", call. = FALSE)
+  }
+  invisible(NULL)
+}
+

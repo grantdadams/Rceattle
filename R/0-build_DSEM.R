@@ -441,6 +441,11 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$map <- sapply(mapList, function(x) factor(x))
   fit_dsem$mapList <- mapList
   fit_dsem$sem <- dsem_settings$sem
+  # Carry the specification the objects were built from. fit_mod() records it on
+  # data_list$dsem_settings, which is what .refit_like() forwards and what the
+  # diagnostic guards look for -- so a fit handed pre-built objects would
+  # otherwise look DSEM-free to both.
+  fit_dsem$dsem_settings <- dsem_settings
   return(fit_dsem = fit_dsem)
 }
 
@@ -513,9 +518,8 @@ merge_dsem_map <- function(map, dsem) {
 #'
 #' Runs the Tier-1 (\code{"spec"}) convergence checks on a built DSEM and the
 #' model's \code{env_data}, returning the same \code{"Rceattle_convergence"}
-#' object as [convergence_diagnostics()]. \code{fit_mod()} runs this
-#' automatically after building the DSEM (results merged into
-#' \code{fit$convergence}); call it directly to screen a spec before fitting.
+#' object as [convergence_diagnostics()]. Call it directly to screen a
+#' specification before fitting; \code{fit_mod()} does **not** run it for you.
 #'
 #' Checks (tier \code{"spec"}):
 #' \itemize{

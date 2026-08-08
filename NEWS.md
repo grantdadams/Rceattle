@@ -2,6 +2,20 @@
 
 ## New features
 
+* **`fit_mod(dsem = build_DSEM(...))` threads a DSEM specification through the
+  model, and diagnostics inherit it.** `.refit_like()` -- the engine behind
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()`, `sample_rec()` and `reweight_comps()` -- now carries the
+  specification into every refit, so a diagnostic cannot silently report results
+  for a model without the recruitment structure under test. The specification
+  also round-trips through `save_config()` / `load_config()` and is recorded on
+  `fit$run_config`. `dsem = NULL` (the default) leaves the model unchanged.
+
+  The compiled model does not yet carry the DSEM blocks, so a DSEM fit stops
+  with a directed message rather than an opaque TMB error, and the diagnostics
+  that cannot support one yet (all of the above) refuse explicitly instead of
+  failing in assorted obscure ways.
+
 * **`build_DSEM(estimate_projection = FALSE)` now excludes the projection years
   from the DSEM likelihood outright.** The latent state space is built over
   `styr:endyr`, so projection years are absent from the GMRF rather than present

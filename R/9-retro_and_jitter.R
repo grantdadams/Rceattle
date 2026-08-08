@@ -104,6 +104,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  .stop_if_dsem(Rceattle, "retrospective")
 
   # Peels inherit the input model's sdreport setting unless overridden. Mohn's
   # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
@@ -577,6 +578,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  .stop_if_dsem(Rceattle, "jitter")
 
   # Jitters inherit the input model's sdreport setting unless overridden;
   # multimodality is judged from objectives and point estimates, not sdrep.
@@ -773,6 +775,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  .stop_if_dsem(Rceattle, "self_test")
 
   start <- match.arg(start)
   if (is.null(Rceattle[[paste0(start, "_params")]])) {
@@ -1040,6 +1043,7 @@ profile.Rceattle <- function(fitted = NULL,
   if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  .stop_if_dsem(fitted, "profile")
   # Grid fits inherit the input model's sdreport setting unless overridden;
   # the profile reads only the objective, not sdrep.
   if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)

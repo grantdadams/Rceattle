@@ -217,6 +217,16 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 #'
 sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0){
 
+  # Under a DSEM the recruitment deviations are derived from the latent states
+  # x_tj, so a draw written into rec_dev is overwritten on the next evaluation
+  # of the objective -- the sampled recruitment would silently not be used.
+  # Drawing into x_tj[, rec_dev_col] instead is the open design question.
+  if (.has_dsem(Rceattle)) {
+    stop("sample_rec() does not yet support a DSEM: recruitment deviations are ",
+         "derived from the DSEM latent states, so a draw into rec_dev would ",
+         "not be used.", call. = FALSE)
+  }
+
   # Years for simulations
   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
   hind_nyrs <- length(hind_yrs)
