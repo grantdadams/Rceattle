@@ -215,6 +215,16 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **A parallel worker that dies no longer aborts `retrospective()`, `jitter()`
+  or `run_mse()`.** Each worker fits whole models, so running several at once can
+  exhaust memory and the machine kills one. The call then stopped with
+  `Error in unserialize(node$con) : error reading from connection`, discarding
+  every peel or simulation finished up to that point. The tasks are now
+  recomputed sequentially instead -- slower, but the call returns -- and the
+  message suggests a lower `cores`. An error raised inside a worker still
+  surfaces as itself. These functions parallelize differently on Windows than on
+  macOS and Linux, so the same model can hit this on one and not the other.
+
 * **Each `retrospective()` peel reports its own terminal year, so the peels show
   up in a plot.** Every peel carried the terminal year of the unpeeled model, and
   plots take their year axis from it, so each peel was drawn across the full

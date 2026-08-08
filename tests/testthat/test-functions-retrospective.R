@@ -112,6 +112,63 @@ testthat::test_that("self_test resolves getsd and completes (regression)", {
 })
 
 
+testthat::test_that(".parallel_lapply falls back to sequential when a worker dies", {
+  # Each worker fits whole models, so several large ones at once can exhaust
+  # memory and the OS kills one. All the parent sees is
+  # "Error in unserialize(node$con) : error reading from connection", and every
+  # peel or simulation finished up to that point is thrown away. That is a
+  # non-Windows-only failure: retrospective(), jitter() and run_mse() take a FORK
+  # cluster there and PSOCK on Windows, so the platforms do not fail alike.
+  #
+  # Stub the cluster constructor rather than trying to starve a real worker --
+  # the point is what .parallel_lapply() does with the error, not how the OS
+  # produced it.
+  boom <- function(...) stop("error reading from connection")
+
+  testthat::local_mocked_bindings(
+    makeCluster = boom, .package = "parallel")
+
+  out <- NULL
+  testthat::expect_message(
+    out <- Rceattle:::.parallel_lapply(1:3, function(i) i^2, 2, environment()),
+    "computing the 3 tasks sequentially")
+
+  # Falling back has to give the same answer as the cluster would have.
+  testthat::expect_equal(out, list(1, 4, 9))
+})
+
+
+testthat::test_that(".parallel_lapply agrees with lapply on a real cluster", {
+  testthat::skip_on_cran()
+
+  # Nothing else in the suite passes cores > 1, so without this the cluster
+  # itself -- makeCluster, the FORK/PSOCK branch, parLapply -- is never run, and
+  # only the fallback around it would be covered. Kept to a pure function so it
+  # stays fast and cannot flake on a model fit.
+  items <- 1:4
+  f <- function(i) list(sq = i^2, chr = letters[i])
+  testthat::expect_equal(
+    Rceattle:::.parallel_lapply(items, f, 2, environment()),
+    lapply(items, f))
+})
+
+
+testthat::test_that(".parallel_lapply still surfaces a genuine error in fun()", {
+  # The fallback must not turn a real bug into a silent serial re-run that
+  # reports the cluster as the problem. A failure inside the worker closure
+  # propagates out of the sequential retry as itself.
+  testthat::local_mocked_bindings(
+    makeCluster = function(...) stop("error reading from connection"),
+    .package = "parallel")
+
+  testthat::expect_error(
+    suppressMessages(
+      Rceattle:::.parallel_lapply(1:2, function(i) stop("bug in the peel"), 2,
+                                  environment())),
+    "bug in the peel")
+})
+
+
 testthat::test_that("retrospective survives dropped peels (regression)", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
