@@ -141,6 +141,101 @@ dsem_family_object <- function( fam ){
   )
 }
 
+# TMB requires every DATA_ and PARAMETER_ macro in the template to be supplied,
+# whether or not the model uses it. These are the stand-ins for a fit with no
+# DSEM: zero-length everywhere, dsem_on = 0. That keeps fit_mod() on one code
+# path -- the switch is the only branch -- and keeps the non-DSEM objective
+# untouched, since nothing zero-length can contribute to it.
+#' @noRd
+.dsem_null_inputs <- function() {
+  list(
+    data = list(
+      dsem_on           = 0L,
+      nyrs_dsem         = 0L,
+      dsem_options      = integer(4),
+      dsem_RAM          = matrix(0L, 0, 6),
+      dsem_RAMstart     = numeric(0),
+      dsem_familycode_j = integer(0),
+      dsem_linkcode_j   = integer(0),
+      dsem_sigmastart_j = integer(0),
+      dsem_eps_tj       = array(0, dim = c(0, 0)),
+      dsem_y_tj         = array(0, dim = c(0, 0)),
+      dsem_obs_idx      = integer(0),
+      dsem_unobs_idx    = integer(0),
+      rec_dev_col       = integer(0),
+      rec_sd_idx        = integer(0),
+      rec_sd_fixed      = numeric(0),
+      rec_sd_prior      = numeric(0),
+      rec_sd_prior_sd   = numeric(0),
+      rec_sd_use_prior  = integer(0)
+    ),
+    parameters = list(
+      dsem_beta_z    = numeric(0),
+      dsem_lnsigma_z = numeric(0),
+      dsem_mu_j      = numeric(0),
+      dsem_delta0_j  = numeric(0),
+      dsem_x_tj      = array(0, dim = c(0, 0))
+    )
+  )
+}
+
+# DSEM map entries, renamed onto the template's dsem_-prefixed parameter names.
+# build_dsem_objects() names them as dsem::dsem() does (beta_z, x_tj, ...); the
+# CEATTLE template prefixes them so they cannot collide with anything already in
+# the model. The rename has to happen in one place or the map silently fails to
+# match the parameters.
+#' @noRd
+.dsem_map_entries <- function(dsem) {
+  if (is.null(dsem)) return(list(mapList = list(), mapFactor = list()))
+  ren <- function(x) { names(x) <- paste0("dsem_", names(x)); x }
+  list(mapList   = ren(dsem$mapList),
+       mapFactor = ren(dsem$tmb_inputs$map))
+}
+
+# The DSEM parameter blocks for a fit, in the template's naming. Zero-length
+# when there is no DSEM.
+#' @noRd
+.dsem_par_template <- function(dsem) {
+  if (is.null(dsem)) .dsem_null_inputs()$parameters else .dsem_tmb_inputs(dsem)$parameters
+}
+
+# The same objects for a fit that HAS a DSEM, mapped from build_dsem_objects()
+# onto the template's dsem_-prefixed names.
+#' @noRd
+.dsem_tmb_inputs <- function(dsem) {
+  d <- dsem$tmb_inputs$data
+  p <- dsem$tmb_inputs$parameters
+  list(
+    data = list(
+      dsem_on           = 1L,
+      nyrs_dsem         = as.integer(d$nyrs_dsem),
+      dsem_options      = as.integer(d$options),
+      dsem_RAM          = matrix(as.integer(as.matrix(d$RAM)), ncol = 6),
+      dsem_RAMstart     = as.numeric(d$RAMstart),
+      dsem_familycode_j = as.integer(d$familycode_j),
+      dsem_linkcode_j   = as.integer(d$linkcode_j),
+      dsem_sigmastart_j = as.integer(d$sigmastart_j),
+      dsem_eps_tj       = array(as.numeric(d$eps_tj), dim = dim(d$eps_tj)),
+      dsem_y_tj         = array(as.numeric(d$y_tj),   dim = dim(d$y_tj)),
+      dsem_obs_idx      = if (is.null(d$obs_idx))   integer(0) else as.integer(d$obs_idx),
+      dsem_unobs_idx    = if (is.null(d$unobs_idx)) integer(0) else as.integer(d$unobs_idx),
+      rec_dev_col       = as.integer(d$rec_dev_col),
+      rec_sd_idx        = as.integer(d$rec_sd_idx),
+      rec_sd_fixed      = as.numeric(d$rec_sd_fixed),
+      rec_sd_prior      = as.numeric(d$rec_sd_prior),
+      rec_sd_prior_sd   = as.numeric(d$rec_sd_prior_sd),
+      rec_sd_use_prior  = as.integer(d$rec_sd_use_prior)
+    ),
+    parameters = list(
+      dsem_beta_z    = as.numeric(p$beta_z),
+      dsem_lnsigma_z = as.numeric(p$lnsigma_z),
+      dsem_mu_j      = as.numeric(p$mu_j),
+      dsem_delta0_j  = as.numeric(p$delta0_j),
+      dsem_x_tj      = array(as.numeric(p$x_tj), dim = dim(p$x_tj))
+    )
+  )
+}
+
 # The DSEM parameter block names, as dsem::dsem() emits them. Used by fit_mod()
 # to strip a DSEM warm start when the current fit has no DSEM: these are absent
 # from build_params(), so the inits shape guard passes them through as unflagged
@@ -401,6 +496,19 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$rec_sd_prior     <- as.numeric(sigma_rec_prior)
   fit_dsem$tmb_inputs$data$rec_sd_prior_sd  <- as.numeric(ifelse(is.finite(prior_sd), prior_sd, 0))
   fit_dsem$tmb_inputs$data$rec_sd_use_prior <- as.integer(rec_sd_use_prior)
+  # The recruitment-SD prior is applied per species, which is what a sem with a
+  # sigmaR<sp> per species gives. A sem that SHARES one SD parameter across
+  # species is different: the prior then lands on that one parameter once per
+  # species (tightening it by sqrt(n)), and the per-species prior centres and
+  # initial values collide. Warn rather than let either happen silently.
+  .shared <- rec_sd_idx[rec_sd_idx >= 1]
+  if (anyDuplicated(.shared)) {
+    warning("Species share a recruitment-SD parameter in the sem. The ",
+            "recruitment-SD prior is applied per species, so it is applied ",
+            "once per species to that one parameter; and only one species' ",
+            "`sigma_rec` sets its starting value. Give each species its own ",
+            "sigmaR term if that is not what you intend.", call. = FALSE)
+  }
 
   # x_tj column of each species' recdevs (0-based for the cpp).
   rec_dev_col <- match(rec_cols, colnames(dsem_data)) - 1L
@@ -417,20 +525,27 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # recruitment (proj_mean_rec == 0 / FALSE), because those states are then
   # never used.
   if( isTRUE(dsem_settings$estimate_projection) &&
-      !is.null(data_list$proj_mean_rec) &&
-      !isTRUE(as.logical(data_list$proj_mean_rec)) ){
-    warning("`estimate_projection = TRUE` with `proj_mean_rec = FALSE` is ",
-            "inconsistent: projection recruitment uses mean recruitment, so the ",
-            "estimated projection DSEM states are never used. Set ",
-            "`proj_mean_rec = TRUE` to project via the SEM, or ",
-            "`estimate_projection = FALSE`.")
+      isTRUE(as.logical(data_list$proj_mean_rec)) ){
+    warning("`estimate_projection = TRUE` with `proj_mean_rec = TRUE` is ",
+            "inconsistent: projected recruitment is then set to mean ",
+            "recruitment and the estimated projection SEM states are never ",
+            "used. Set `proj_mean_rec = FALSE` to project recruitment through ",
+            "the SEM, or `estimate_projection = FALSE`.", call. = FALSE)
   }
 
   # Number of DSEM time steps, and whether they cover the projection. The C++
   # call site needs this: with estimate_projection = FALSE the latent state
   # matrix is SHORTER than nyrs, so the recruitment-deviation copy must be
   # rec_dev.row(sp).head(nyrs_dsem), not a whole-row assignment.
-  fit_dsem$tmb_inputs$data$nyrs_dsem <- as.integer(length(data_list$styr:dsem_endyr))
+  # Take the span from the BUILT data, not the year range: a duplicated year in
+  # env_data makes them differ, and the C++ then copies latent states into the
+  # wrong assessment years with no error.
+  if (nrow(dsem_data) != length(data_list$styr:dsem_endyr)) {
+    stop("env_data resolves to ", nrow(dsem_data), " rows over ",
+         data_list$styr, ":", dsem_endyr, " (", length(data_list$styr:dsem_endyr),
+         " years) -- check for duplicated or missing years.", call. = FALSE)
+  }
+  fit_dsem$tmb_inputs$data$nyrs_dsem <- as.integer(nrow(dsem_data))
   fit_dsem$covers_projection <- isTRUE(dsem_settings$estimate_projection)
 
   # Return

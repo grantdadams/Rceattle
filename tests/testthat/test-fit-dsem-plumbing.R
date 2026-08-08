@@ -61,7 +61,7 @@ testthat::test_that("a DSEM warm start is scrubbed when the fit has no DSEM", {
   testthat::expect_identical(refit$obj$fn(), base$obj$fn())
 })
 
-testthat::test_that("supplying a dsem builds its inputs, then reports the C++ gap", {
+testthat::test_that("supplying a dsem builds its inputs and fits", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("dsem")
@@ -71,17 +71,15 @@ testthat::test_that("supplying a dsem builds its inputs, then reports the C++ ga
   d$env_data <- data.frame(Year = d$styr:d$endyr,
                            BT = as.numeric(scale(seq_len(nyr))))
 
-  # Reaching this error means build_dsem_objects() succeeded on a v5.0 data
-  # list -- which is the point of the check, since the DSEM builder read the
-  # pre-v5.0 `sigma_rec_prior` name and used to fail before getting here.
-  testthat::expect_error(
-    suppressWarnings(suppressMessages(Rceattle::fit_mod(
-      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
-      random_rec = TRUE, msmMode = 0,
-      dsem = Rceattle::build_DSEM(sem = sem_for(d$nspp)),
-      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0)))),
-    "not yet wired into the TMB template"
-  )
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0,
+    dsem = Rceattle::build_DSEM(sem = sem_for(d$nspp)),
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
+
+  testthat::expect_s3_class(fit, "Rceattle")
+  testthat::expect_false(is.null(fit$dsem))
+  testthat::expect_true(is.finite(fit$obj$fn()))
 })
 
 testthat::test_that("the DSEM spec round-trips through a run configuration", {

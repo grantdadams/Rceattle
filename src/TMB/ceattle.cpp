@@ -27,6 +27,7 @@
 #include "predation.hpp"
 #include "diet_data.hpp"
 #include "linkage.hpp"
+#include "dsem.hpp"
 
 // List-of-matrices data structure: reads an R list() of numeric matrices into a
 // vector<matrix<Type>>. Used for the per-fleet survey-index covariance matrices
@@ -255,6 +256,33 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR(linkage_prior_p2);       // family-specific prior param 2
   DATA_MATRIX(linkage_X);              // dense design matrix [nyrs, n_design_cols]
 
+  // -- 2.3.8. DSEM on the recruitment deviations
+  // A dynamic structural equation model makes the recruitment deviations the
+  // latent states of a GMRF, so environmental covariates and lagged or
+  // simultaneous paths drive recruitment. Everything here is inert when
+  // dsem_on = 0: build_dsem_objects() supplies zero-length stand-ins, and the
+  // single block in section 5 that reads them is guarded on the switch, so a
+  // model without a DSEM follows exactly the same path it did before.
+  // Assembled R-side from dsem::dsem(run_model = FALSE); see R/0-build_DSEM.R.
+  DATA_INTEGER(dsem_on);               // 1 if a DSEM structures the recruitment deviations
+  DATA_INTEGER(nyrs_dsem);             // DSEM time steps; may be < nyrs (hindcast only)
+  DATA_IVECTOR(dsem_options);          // dsem parameterization switches; see dsem.hpp
+  DATA_IMATRIX(dsem_RAM);              // path structure [n_path, 6]
+  DATA_VECTOR(dsem_RAMstart);          // fixed value per RAM row (used where parameter == 0)
+  DATA_IVECTOR(dsem_familycode_j);     // per variable: measurement distribution
+  DATA_IVECTOR(dsem_linkcode_j);       // per variable: link function
+  DATA_IVECTOR(dsem_sigmastart_j);     // per variable: index into lnsigma_z
+  DATA_ARRAY(dsem_eps_tj);             // per variable: known measurement SD where used
+  DATA_ARRAY(dsem_y_tj);               // observations; latent columns are NA
+  DATA_IVECTOR(dsem_obs_idx);          // stacked-space partition, projecting parameterizations
+  DATA_IVECTOR(dsem_unobs_idx);
+  DATA_IVECTOR(rec_dev_col);           // 0-based x_tj column carrying each species' recdevs
+  DATA_IVECTOR(rec_sd_idx);            // 1-based beta_z index of each species' recruitment SD (0 if fixed)
+  DATA_VECTOR(rec_sd_fixed);           // fixed recruitment SD, used where rec_sd_idx == 0
+  DATA_VECTOR(rec_sd_prior);           // prior centre for the recruitment SD
+  DATA_VECTOR(rec_sd_prior_sd);        // prior log-scale SD (0 where no prior)
+  DATA_IVECTOR(rec_sd_use_prior);      // 1 if the recruitment-SD prior applies to this species
+
   // -- 2.4. Fleet controls (i.e. how to assign data to objects)
   DATA_IVECTOR(flt_type);                 // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
   DATA_VECTOR(flt_month);
@@ -388,6 +416,16 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   PARAMETER_VECTOR( R_log_sd );                    // Standard deviation of recruitment deviations
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
+
+  // DSEM parameters. All zero-length and mapped out when dsem_on = 0, so they
+  // add nothing to the objective. rec_dev and R_log_sd above stay parameters
+  // either way -- under a DSEM the deviations are overwritten from the latent
+  // states rather than estimated, which is what keeps the non-DSEM path intact.
+  PARAMETER_VECTOR( dsem_beta_z );                 // SEM path coefficients
+  PARAMETER_VECTOR( dsem_lnsigma_z );              // log measurement SDs
+  PARAMETER_VECTOR( dsem_mu_j );                   // per-variable mean
+  PARAMETER_VECTOR( dsem_delta0_j );               // initial-condition offset (may be empty)
+  PARAMETER_ARRAY( dsem_x_tj );                    // latent states [nyrs_dsem, n_var]
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age # NOTE: Need to figure out how to best vectorize this
 
   // -- 3.2. Natural mortality (M1)
@@ -893,6 +931,52 @@ Type objective_function<Type>::operator() () {
   REPORT(growth_linkage_offset);
   REPORT(growth_linkage_offset_nat);
 
+
+  // 5.5b. DSEM ON THE RECRUITMENT DEVIATIONS
+  // Where a DSEM is supplied, the recruitment deviations are the latent states
+  // of a GMRF rather than free parameters: calculate_dsem() supplies the
+  // density, and rec_dev is OVERWRITTEN from those states. Everything
+  // downstream -- the recruitment build below, initial abundance, projections --
+  // reads rec_dev and R_sd exactly as before, so nothing else needs to know.
+  //
+  // Placed here, before rec_dev and R_sd are first read, and guarded on
+  // dsem_on: with no DSEM this block does not execute and the standard
+  // parameterization is untouched.
+  Type jnll_dsem = 0;
+  if(dsem_on == 1){
+    calculate_dsem(jnll_dsem, dsem_options, dsem_RAM, dsem_RAMstart,
+                   dsem_familycode_j, dsem_linkcode_j, dsem_sigmastart_j,
+                   dsem_eps_tj, dsem_y_tj, dsem_obs_idx, dsem_unobs_idx,
+                   dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
+                   dsem_x_tj);
+
+    for(sp = 0; sp < nspp; sp++){
+      // R_sd FIRST -- the bias correction below uses it. The recruitment SD is
+      // the SEM's two-headed self-loop on this species' recdevs; its sign is not
+      // identified (it is a Cholesky factor), hence the absolute value.
+      if(rec_sd_idx(sp) >= 1){
+        R_sd(sp) = sqrt(square( dsem_beta_z(rec_sd_idx(sp) - 1) ));
+      } else {
+        R_sd(sp) = rec_sd_fixed(sp);
+      }
+
+      // The latent states span nyrs_dsem, which is the hindcast only unless
+      // build_DSEM(estimate_projection = TRUE). Copy just that span -- a
+      // whole-row assignment would be a dimension error, or worse would
+      // misalign if the lengths happened to match.
+      //
+      // The GMRF centres the latent states at 0; the standard recruitment
+      // density centres the deviations at -sigma^2/2 so that E[R] = R0
+      // (lognormal bias correction). Apply the same offset, or a model would
+      // change its shrinkage target -- and its recruitment, SSB and ABC --
+      // purely by being given a DSEM, while init_dev below kept its correction.
+      // bias_adjust_proc = 0 turns both off together.
+      for(yr = 0; yr < nyrs_dsem; yr++){
+        rec_dev(sp, yr) = dsem_x_tj(yr, rec_dev_col(sp))
+                          - bias_adjust_proc*square(R_sd(sp))/2.0;
+      }
+    }
+  }
 
   // 5.6. RECRUITMENT PARAMETERS
   // Linkage offsets combine log-link (multiplicative) and identity-link
@@ -2620,7 +2704,8 @@ Type objective_function<Type>::operator() () {
     JNLL_STOMACH        = 18,  // Stomach content data
     JNLL_LINKAGE_PRIOR  = 19,  // Linkage-table priors (per-row)
     JNLL_LINKAGE_RE     = 20,  // Linkage random effects
-    JNLL_N_ROWS         = 21   // total row count (for dimensioning)
+    JNLL_DSEM           = 21,  // DSEM latent-state GMRF (recruitment)
+    JNLL_N_ROWS         = 22   // total row count (for dimensioning)
   };
   matrix<Type> jnll_comp(JNLL_N_ROWS, n_col); jnll_comp.setZero();  // negative log-likelihood components
   matrix<Type> unweighted_jnll_comp(JNLL_N_ROWS, n_col); unweighted_jnll_comp.setZero();  // same, without likelihood weights
@@ -3484,8 +3569,18 @@ Type objective_function<Type>::operator() () {
 
     // Slot 10 -- Tau -- Annual recruitment deviation
     // Lognormal bias correction: dev ~ N(-sigma^2/2, sigma) so E[R] = R0 (mean-unbiased).
-    for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+    // Skipped under a DSEM: the GMRF in section 5.5b is already the density for
+    // these deviations, and applying both would count them twice.
+    if(dsem_on == 0){
+      for(yr = 0; yr < nyrs_hind; yr++) {
+        jnll_comp(JNLL_REC_DEV, sp) -= dnorm( rec_dev(sp, yr),  -bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      }
+    } else if(rec_sd_use_prior(sp) == 1){
+      // Optional lognormal prior on the estimated recruitment SD, centred on the
+      // assessment value. Regularizes R_sd away from the 1/sigma^2 collapse that
+      // occurs when the covariates over-explain the deviations.
+      jnll_comp(JNLL_DSEM, sp) -= dnorm( log(R_sd(sp)), log(rec_sd_prior(sp)),
+                                         rec_sd_prior_sd(sp), true );
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
@@ -4198,6 +4293,20 @@ Type objective_function<Type>::operator() () {
   // Guarded on size so row 20 stays exactly 0 for every model without a random
   // linkage. Placed before REPORT(jnll_comp) so the reported matrix reflects
   // the density that jnll_comp.sum() also carries.
+
+  // The DSEM GMRF density, computed back in section 5.5b. Routed through
+  // jnll_comp rather than added straight to jnll so it appears in the reported
+  // breakdown like every other component; row 21 stays exactly 0 without a DSEM.
+  // Column 0 because the density is joint over all species, not separable.
+  if (dsem_on == 1) {
+    jnll_comp(JNLL_DSEM, 0) += jnll_dsem;
+    // The unweighted copy is built from rows < 19 only, so mirror this one too:
+    // a diagnostic reading unweighted_jnll_comp as "the objective without data
+    // weights" would otherwise be short by the whole DSEM density.
+    unweighted_jnll_comp(JNLL_DSEM, 0) += jnll_dsem;
+  }
+  REPORT(jnll_dsem);
+
   if (log_sigma_linkage.size() > 0) {
     int n_re = beta_linkage_re_all.size();
     for (int grp = 0; grp < log_sigma_linkage.size(); ++grp) {

@@ -138,6 +138,53 @@ void calculate_dsem(
   int n_k = n_t * n_j;      // data
   int k = 0;
 
+  // Check the inputs line up. Most of the arguments below are positional and
+  // same-typed -- five vector<int>, three array<Type>, four vector<Type> -- so a
+  // caller that swaps a pair still compiles. The worst is eps_tj <-> y_tj: both
+  // are [n_t x n_j] and n_t/n_j are derived from y_tj, so a swap fits the
+  // known-SD array as the observations, converges, and returns a wrong
+  // likelihood with no dimension error to show for it. These catch that.
+  if( (eps_tj.rows() != n_t) || (eps_tj.cols() != n_j) )
+    Rf_error("calculate_dsem: eps_tj is [%d x %d], expected [%d x %d] to match y_tj",
+             (int)eps_tj.rows(), (int)eps_tj.cols(), n_t, n_j);
+  if( (x_tj.rows() != n_t) || (x_tj.cols() != n_j) )
+    Rf_error("calculate_dsem: x_tj is [%d x %d], expected [%d x %d] to match y_tj",
+             (int)x_tj.rows(), (int)x_tj.cols(), n_t, n_j);
+  if( familycode_j.size() != n_j )
+    Rf_error("calculate_dsem: familycode_j has %d entries, expected %d (one per variable)",
+             (int)familycode_j.size(), n_j);
+  if( linkcode_j.size() != n_j )
+    Rf_error("calculate_dsem: linkcode_j has %d entries, expected %d (one per variable)",
+             (int)linkcode_j.size(), n_j);
+  if( sigmastart_j.size() != n_j )
+    Rf_error("calculate_dsem: sigmastart_j has %d entries, expected %d (one per variable)",
+             (int)sigmastart_j.size(), n_j);
+  if( mu_j.size() != n_j )
+    Rf_error("calculate_dsem: mu_j has %d entries, expected %d (one per variable)",
+             (int)mu_j.size(), n_j);
+  // delta0_j is OPTIONAL -- zero-length means no initial-condition offset is
+  // estimated, which is dsem's default and is handled below. Only a wrong
+  // non-zero length is an error.
+  if( (delta0_j.size() != 0) && (delta0_j.size() != n_j) )
+    Rf_error("calculate_dsem: delta0_j has %d entries, expected 0 or %d (one per variable)",
+             (int)delta0_j.size(), n_j);
+  if( RAM.cols() != 6 )
+    Rf_error("calculate_dsem: RAM has %d columns, expected 6 (heads, to, from, parameter, to_t, to_j)",
+             (int)RAM.cols());
+  if( RAMstart.size() != RAM.rows() )
+    Rf_error("calculate_dsem: RAMstart has %d entries, expected %d (one per RAM row)",
+             (int)RAMstart.size(), (int)RAM.rows());
+  if( options.size() < 4 )
+    Rf_error("calculate_dsem: options has %d entries, expected at least 4",
+             (int)options.size());
+  // obs_idx / unobs_idx partition the stacked k-space, but only the projecting
+  // parameterizations use them -- options(0) 0 and 1 leave them empty. Check the
+  // partition only where it is read.
+  if( ((options(0)==2) || (options(0)==3)) &&
+      ((obs_idx.size() + unobs_idx.size()) != n_k) )
+    Rf_error("calculate_dsem: obs_idx + unobs_idx cover %d nodes, expected %d (n_t * n_j) for options(0) = %d",
+             (int)(obs_idx.size() + unobs_idx.size()), n_k, (int)options(0));
+
   // globals
   Type jnll_gmrf = 0;
   matrix<Type> loglik_tj( n_t, n_j );
@@ -524,6 +571,13 @@ void calculate_dsem(
     //REPORT( dev_o );
     jnll_gmrf = GMRF( Q_oo )( dev_o );
   }
+  // The four branches above are independent ifs and jnll_gmrf starts at zero, so
+  // an unrecognized value would leave the latent states with NO process density
+  // -- free parameters, a converged fit, and no warning. Upstream dsem has an
+  // explicit fallback here; match it.
+  if( (options(0)<0) || (options(0)>3) )
+    Rf_error("calculate_dsem: unrecognized options(0) = %d (expected 0-3)",
+             (int)options(0));
 
   // Distribution for data
   // Simulates new data even for NA values, which can then be excluded during simulate.dsem

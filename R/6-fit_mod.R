@@ -556,7 +556,7 @@ fit_mod <-
         data_list$dsem_settings <- dsem
         mod_objects$dsem <- build_dsem_objects(
           dsem_settings = dsem,
-          debug         = estimateMode %in% c(3, 4),
+          debug         = estimateMode %in% c(2, 4),   # match build_map()
           data_list     = data_list)
         data_list$dsem_settings$sem <- mod_objects$dsem$sem
       } else {
@@ -582,9 +582,6 @@ fit_mod <-
       # nor declares the DSEM DATA/PARAMETER blocks, so handing these objects to
       # MakeADFun would fail deep inside TMB with an opaque message about
       # unknown data names. Fail here instead, with somewhere to go.
-      stop("DSEM is not yet wired into the TMB template. The specification is ",
-           "valid -- its inputs built -- but the model cannot fit it yet. Use ",
-           "the dev-DSEM branch in the meantime.", call. = FALSE)
     }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -663,6 +660,18 @@ fit_mod <-
       rm(.stale_dsem)
     }
 
+    # DSEM parameters. Added after build_params() rather than inside it, so they
+    # cannot collide with the "(Intercept)" init push that runs at the end of
+    # that function. Zero-length when there is no DSEM, which is what makes the
+    # non-DSEM objective identical.
+    # Assign by name, not append: `inits` from a previous DSEM fit already carry
+    # these blocks, and c() would add a second copy of each. That is what every
+    # .refit_like() caller does -- retrospective(), jitter(), run_mse() -- and it
+    # surfaces as "Map and parameter objects are not the same size".
+    for (nm in names(.dsem_par_template(mod_objects$dsem))) {
+      start_par[[nm]] <- .dsem_par_template(mod_objects$dsem)[[nm]]
+    }
+
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
 
@@ -673,6 +682,27 @@ fit_mod <-
       map <- suppressWarnings(build_map(data_list, start_par,
                                         debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
                                         random_rec = random_rec, random_sel = random_sel))
+
+      # DSEM map entries, if any. Assigned by name rather than concatenated:
+      # this block can run more than once in a fit, and c() would append a second
+      # copy of every DSEM block. The bounds loop iterates mapFactor, so a
+      # duplicate silently produces more bounds than obj$par has parameters.
+      .dsem_map <- .dsem_map_entries(mod_objects$dsem)
+      for (nm in names(.dsem_map$mapList))   map$mapList[[nm]]   <- .dsem_map$mapList[[nm]]
+      for (nm in names(.dsem_map$mapFactor)) map$mapFactor[[nm]] <- .dsem_map$mapFactor[[nm]]
+
+      # Under a DSEM the template OVERWRITES rec_dev from the latent states and
+      # R_sd from beta_z, so both blocks have exactly zero gradient. Left
+      # estimated they would be free parameters that cannot move the objective:
+      # flat directions, a singular Hessian, and no standard errors. Map them
+      # out. (They stay declared as parameters either way -- that is what keeps
+      # the non-DSEM path textually unchanged.)
+      if (!is.null(mod_objects$dsem)) {
+        for (nm in c("rec_dev", "R_log_sd")) {
+          map$mapList[[nm]][]   <- NA
+          map$mapFactor[[nm]]   <- factor(rep(NA, length(map$mapList[[nm]])))
+        }
+      }
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
@@ -713,8 +743,27 @@ fit_mod <-
     # build_map() returns a list with $mapList (the raw per-parameter maps,
     # NA = fixed); that is what the guards read.
     random_vars <- c()
+
+    # Under a DSEM the recruitment deviations are DERIVED from the latent states,
+    # so it is dsem_x_tj that gets integrated out, not rec_dev -- rec_dev is
+    # overwritten in the template and carries no density of its own. Appended,
+    # never assigned over the top: doing the latter would silently drop
+    # init_dev, index_q_dev, log_M1_dev and beta_linkage_re from the Laplace
+    # approximation.
+    if (!is.null(mod_objects$dsem)) {
+      # Take the random declaration from the DSEM itself rather than naming
+      # x_tj here: dsem::dsem() decides which blocks are integrated out (it
+      # declares mu_j random alongside x_tj), and hardcoding one of them
+      # estimates the other as a fixed effect -- a different model, which shows
+      # up as a non-positive-definite Hessian rather than an error.
+      .dsem_re <- paste0("dsem_", mod_objects$dsem$tmb_inputs$random)
+      for (nm in .dsem_re) {
+        if (any(!is.na(map$mapList[[nm]]))) random_vars <- c(random_vars, nm)
+      }
+    }
+
     if (random_rec) {
-      random_vars <- c(random_vars, "rec_dev")
+      if (is.null(mod_objects$dsem)) random_vars <- c(random_vars, "rec_dev")
       # init_dev is integrated out only where it carries a density. The initial
       # deviate penalty dnorm(init_dev, -sigma^2/2, R_sd) applies when
       # initMode > 1 and != 5 (ceattle.cpp, JNLL_INIT_DEV); keep this in lockstep
@@ -796,6 +845,12 @@ fit_mod <-
     # here (build_osa = FALSE, the rearrange_data() default).
     data_list_reorganized <- Rceattle::rearrange_data(data_list)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
+
+    # DSEM inputs. The template declares these unconditionally, so every fit has
+    # to supply them; with no DSEM they are zero-length and dsem_on = 0.
+    .dsem_in <- if (is.null(mod_objects$dsem)) .dsem_null_inputs() else
+      .dsem_tmb_inputs(mod_objects$dsem)
+    data_list_reorganized <- c(data_list_reorganized, .dsem_in$data)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
     # Scrub fields that TMB's dataSanitize cannot recurse into (data

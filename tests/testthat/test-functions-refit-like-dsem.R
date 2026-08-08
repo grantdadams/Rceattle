@@ -29,11 +29,17 @@ testthat::test_that("the DSEM spec actually reaches fit_mod() through the refit"
     fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0))))
 
   dl <- base$data_list
+  dl$env_data <- data.frame(Year = dl$styr:dl$endyr, BT = 0)
   dl$dsem_settings <- Rceattle::build_DSEM()   # default IID sem
-  testthat::expect_error(
-    suppressWarnings(suppressMessages(Rceattle:::.refit_like(
-      data_list = dl, inits = base$estimated_params, estimateMode = 3))),
-    "not yet wired into the TMB template")
+  refit <- suppressWarnings(suppressMessages(Rceattle:::.refit_like(
+    data_list = dl, inits = base$estimated_params, estimateMode = 3)))
+  # The refit rebuilt the DSEM from the spec against its own data list. This is
+  # the case that used to fail with "Map and parameter objects are not the same
+  # size": `inits` from a DSEM fit already carry the dsem_* blocks, so appending
+  # the template added a second copy of each.
+  testthat::expect_s3_class(refit, "Rceattle")
+  testthat::expect_false(is.null(refit$dsem))
+  testthat::expect_gt(sum(refit$quantities$jnll_comp[22L, ]), 0)
 
   # ...and an explicit dsem = NULL overrides the data list, so a caller can opt
   # out. This is what makes the default a default rather than a hard-wire.
