@@ -153,7 +153,7 @@ plot_logindex <- function(...) {
 #'
 #' Plots fitted fishery catch: observed points with lognormal 95% intervals and
 #' the model-predicted catch, faceted by fishery fleet. For MSE objects the
-#' projection period is summarised with 50% / 95% ribbons across simulations.
+#' projection period is summarized with 50% / 95% ribbons across simulations.
 #'
 #' @inheritParams plot_index
 #' @param maxyr Last year to plot.

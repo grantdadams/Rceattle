@@ -16,5 +16,5 @@ An \code{Rceattle_prior} of family \code{"lognormal"}.
 }
 \description{
 Parameterized on the log scale (mean and sd of the log of the
-coefficient), matching \code{\link[stats:dlnorm]{stats::dlnorm()}}.
+coefficient), matching \code{\link[stats:Lognormal]{stats::dlnorm()}}.
 }

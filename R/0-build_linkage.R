@@ -144,6 +144,29 @@ NULL
 #'   structures -- see `vignette("environmental-linkages-and-priors")`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
+#' @examples
+#' # A covariate on a growth parameter, one coefficient per species. Attach to a
+#' # parametric build_growth(); the default "empirical" form consumes no linkages.
+#' linkage_spec(~ temp, param = "K")
+#'
+#' # A covariate on catchability for one fleet, named rather than numbered.
+#' # `by` defaults to ~ fleet for catchability, so it need not be given.
+#' linkage_spec(~ temp, fleet = "Pollock_survey_1_shelikof_acoustic")
+#'
+#' # A separate coefficient per year, the fixed-effect alternative to rw()/ar1().
+#' linkage_spec(~ factor(Year), fleet = "Pollock_survey_1_shelikof_acoustic")
+#'
+#' # IID annual deviations; rw() for a random walk, ar1() for AR1.
+#' linkage_spec(~ (1 | Year))
+#'
+#' # A random walk estimated as a penalized fixed effect, which requires a
+#' # fixed SD -- the ADMB/AMAK convention behind the legacy Time_varying_*
+#' # switches.
+#' linkage_spec(~ rw(1 | Year), init = list(sigma = 0.05), integrate = FALSE)
+#'
+#' # Intercept-only: a prior on the base parameter itself. The bare normal()
+#' # resolves to prior_normal() inside `priors`.
+#' linkage_spec(~ 1, priors = list(`(Intercept)` = normal(0, 1)))
 #' @export
 #' @importFrom rlang enquo eval_tidy
 linkage_spec <- function(formula,
@@ -670,7 +693,7 @@ linkage_spec <- function(formula,
 #' Attach the model's labels to a stratum-level vector.
 #'
 #' Labels are what let a spec select a species / fleet by name. Missing or
-#' wrong-length labels are dropped rather than recycled: an unlabelled stratum
+#' wrong-length labels are dropped rather than recycled: an unlabeled stratum
 #' gives a clear "this model carries no names" error at resolution time, whereas
 #' a recycled label would resolve to the wrong id.
 #'
@@ -1174,10 +1197,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' level of its grouping variable, so the deviation for that level enters the
 #' offset the same way a fixed coefficient does. This increment supports the
 #' unstructured / IID case (a plain `(1 | group)` bar, structure `"us"`);
-#' `rw()` / `ar1()` and other structures are recognised by the parser but
+#' `rw()` / `ar1()` and other structures are recognized by the parser but
 #' rejected here until their densities are wired.
 #'
-#' @param re_terms list of bar expressions from [.parse_linkage_formula()].
+#' @param re_terms list of bar expressions from `.parse_linkage_formula()`.
 #' @param re_structures character vector of structure names, one per term.
 #' @param env_data the covariate/time table.
 #'
@@ -1306,7 +1329,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' covariate columns. The QAR1 observation is applied only where the covariate is
 #' present (NA years are masked out), so no observation is fabricated. Years
 #' BEYOND the last supplied row are left alone (they keep the existing
-#' zero-offset-beyond-env_data behaviour). Malformed year columns (unsorted, NA,
+#' zero-offset-beyond-env_data behavior). Malformed year columns (unsorted, NA,
 #' or starting before styr) are left untouched for `.check_env_data_years()` to
 #' reject.
 #'

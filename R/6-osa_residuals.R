@@ -64,7 +64,7 @@
 #'   applied correctly per type (the discrete group uses the generic CDF-based
 #'   method rather than `method`).
 #' @param parallel Logical; compute the per-observation OSA loop in parallel via
-#'   [parallel::mclapply()]. Default `TRUE`. This is the main speedup for models
+#'   \code{\link[parallel]{mclapply}}. Default `TRUE`. This is the main speedup for models
 #'   with random effects, where each observation triggers a Laplace
 #'   re-evaluation -- it gives a near-linear speedup across cores (set
 #'   `options(mc.cores = )` to choose how many; forking falls back to serial on

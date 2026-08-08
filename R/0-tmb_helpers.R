@@ -17,7 +17,7 @@
                      quiet = TRUE) {
 
   if (requireNamespace("TMBhelper", quietly = TRUE)) {
-    return(
+    return(.normalize_fit_tmb(
       TMBhelper::fit_tmb(
         obj                 = obj,
         fn                  = obj$fn,
@@ -35,7 +35,7 @@
         getReportCovariance = getReportCovariance,
         quiet               = quiet
       )
-    )
+    ))
   }
 
   # Fallback: plain nlminb + sdreport
@@ -104,6 +104,52 @@
   }
 
   best
+}
+
+
+#' Normalize `TMBhelper::fit_tmb()`'s non-positive-definite early return
+#'
+#' @description
+#' With `getsd = TRUE`, `TMBhelper::fit_tmb()` factorizes the fixed-effect
+#' Hessian before calling `sdreport`. If that `chol()` fails it warns and
+#' returns `list(opt = <estimates>, h = <Hessian>)` -- a *different shape* from
+#' its documented return, with no `$objective`, `$max_gradient` or
+#' `$Convergence_check` at the top level.
+#'
+#' Everything downstream expects the documented shape, so a non-positive-definite
+#' fit otherwise arrives as a malformed `fit$opt`: `fit$opt$objective` is `NULL`,
+#' and the convergence gate the diagnostic re-fitters share
+#' (`.refit_converged()`) sees no verdict at all rather than the failure that
+#' actually occurred.
+#'
+#' Unwrap it back to the estimates and record the verdict `fit_tmb()` itself
+#' uses when `sdreport` returns `pdHess = FALSE` -- what it would have said had
+#' it not returned early. `$SD` stays absent, so `fit_mod()` still records
+#' `sdrep = NULL` and `.check_sdreport_failed()` still fires.
+#'
+#' The Hessian is carried over as `$hessian`, the name
+#' `fit_tmb(getHessian = TRUE)` gives it. Nothing in the package reads it; it is
+#' kept only so the unwrap does not discard something the malformed shape used
+#' to expose (as `$opt$h`), since it is the one artifact that says *how* the
+#' factorization failed.
+#'
+#' A no-op for every converged fit and for the whole `getsd = FALSE` path.
+#'
+#' Indexes with `[[` throughout, so the guard reads exactly the names it means
+#' -- `$` partially matches on lists, and this discriminates between two shapes
+#' by which names are present.
+#'
+#' @param x The value returned by [TMBhelper::fit_tmb()].
+#' @return `x` in the documented `fit_tmb()` shape.
+#' @keywords internal
+#' @noRd
+.normalize_fit_tmb <- function(x) {
+  if (!is.list(x) || !is.null(x[["objective"]])) return(x)
+  inner <- x[["opt"]]
+  if (!is.list(inner) || is.null(inner[["objective"]])) return(x)
+  inner[["hessian"]] <- x[["h"]]
+  inner[["Convergence_check"]] <- "The model is definitely not converged"
+  inner
 }
 
 

@@ -6,8 +6,28 @@
 #' @param srr_hat_styr Integer. First year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}), starting at \code{styr + 1}. Defaults to \code{styr + 1} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship is not available until the terminal year but projections are still wanted.
 #' @param srr_hat_endyr Integer. Last year used to estimate the recruitment-penalty function (the AMAK/Ianelli penalty, active when \code{srr_pred_fun > 0} and \code{srr_fun = 0}). Defaults to \code{endyr} in \code{data_list}. Useful when the environmental data conditioning the stock-recruit relationship does not span the full time series but projections are still wanted.
 #' @param srr_est_mode Switch to determine estimation mode. Accepts integer codes or the equivalent readable strings: 0 / "Fixed" = fix alpha to prior mean; 1 / "Estimated" = freely estimate R0, alpha, and/or beta (default); 2 / "LognormalPrior" = lognormally distributed prior for alpha (Ricker) or steepness (Beverton); 3 / "BetaPrior" = beta distributed prior for steepness (Beverton) given mean and sd.
-#' @param srr_prior mean for normally distributed prior for stock-recruit parameter
+#' @param srr_prior mean for normally distributed prior for stock-recruit parameter.
+#'   Note this is not the same quantity for every curve: for Ricker
+#'   (\code{srr_pred_fun} 4 / 5) it is a prior on \eqn{\alpha} itself, while for
+#'   Beverton-Holt (2 / 3) it is a prior on \strong{steepness} and so must lie in
+#'   (0, 1). See \code{srr_est_mode}.
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
+#' @param srr_alpha_init,srr_beta_init Optional starting values for the
+#'   stock-recruit \eqn{\alpha} and \eqn{\beta} parameters, on the natural
+#'   (not log) scale, one value per species. Only used when the curve actually
+#'   estimates them (\code{srr_fun} or \code{srr_pred_fun} above 1); ignored for
+#'   mean recruitment, where both are mapped out.
+#'
+#'   The package defaults (\eqn{\alpha = e^3}, \eqn{\beta = 3}) are placeholders
+#'   with no knowledge of the stock's scale. \eqn{\beta} in particular sets the
+#'   density dependence in \eqn{R = \alpha S / (1 + \beta S)}, so it must be on
+#'   the order of \eqn{(\alpha - 1/\phi_0) / R_0} -- typically \eqn{10^{-3}} or
+#'   smaller for a stock measured in tonnes. Starting three orders of magnitude
+#'   away drives predicted recruitment to near zero and the optimizer returns
+#'   \code{NA/NaN gradient evaluation}. For a Beverton-Holt seeded from a
+#'   steepness \eqn{h} and unfished spawning biomass per recruit \eqn{\phi_0}:
+#'   \deqn{\alpha = \frac{4h}{\phi_0 (1 - h)}, \qquad
+#'         \beta  = \frac{\alpha - 1/\phi_0}{R_0}.}
 #' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #' @param srr_mse_switchyr Year at which an MSE switches from the annual recruitment-penalty estimate to the stock-recruit function (the \code{srr_fun = 0}, \code{srr_pred_fun > 0} case).
@@ -48,6 +68,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
                       srr_est_mode = 1,
                       srr_prior = 4,
                       srr_prior_sd = 1,
+                      srr_alpha_init = NULL,
+                      srr_beta_init = NULL,
                       srr_indices = NA,
                       Bmsy_lim = NA,
                       linkages = NULL){
@@ -63,6 +85,59 @@ build_srr <- function(srr_fun = 0,  #srr_model
 
   if(!srr_pred_fun %in% c(4,5, "Ricker")){
     Bmsy_lim = -999
+  }
+
+  # For a Beverton-Holt curve, srr_est_mode 2 and 3 put the prior on steepness,
+  # which must lie in (0, 1). The beta prior converts (mean, sd) to shape
+  # parameters by moments,
+  #   a = ((1 - mu)/sd^2 - 1/mu) * mu^2,   b = a * (1/mu - 1),
+  # which are positive only when sd^2 < mu * (1 - mu). Outside that range the
+  # prior is not a density; TMB's dbeta returns a finite value for negative
+  # shapes rather than NaN, so it would otherwise pass unnoticed.
+  if (srr_est_mode %in% c(2, 3) && srr_pred_fun %in% c(2, 3)) {
+    bad_h <- !is.na(srr_prior) & (srr_prior <= 0 | srr_prior >= 1)
+    if (any(bad_h)) {
+      stop("For a Beverton-Holt curve, `srr_est_mode = ", srr_est_mode,
+           "` puts the prior on steepness, so `srr_prior` must be in (0, 1). ",
+           "Got: ", paste(srr_prior[bad_h], collapse = ", "),
+           ".\n  (For Ricker, `srr_prior` is a prior on alpha instead.)",
+           call. = FALSE)
+    }
+    if (srr_est_mode == 3) {
+      max_sd <- sqrt(srr_prior * (1 - srr_prior))
+      bad_sd <- !is.na(srr_prior) & !is.na(srr_prior_sd) & (srr_prior_sd >= max_sd)
+      if (any(bad_sd)) {
+        stop("`srr_est_mode = 3` (beta prior on steepness) needs ",
+             "`srr_prior_sd` < sqrt(srr_prior * (1 - srr_prior)) = ",
+             paste(signif(max_sd[bad_sd], 4), collapse = ", "),
+             ", otherwise the beta shape parameters are negative and the prior ",
+             "is silently meaningless. Got srr_prior_sd = ",
+             paste(srr_prior_sd[bad_sd], collapse = ", "),
+             ".\n  Note the default srr_prior_sd = 1 is never valid here; ",
+             "supply a smaller value.", call. = FALSE)
+      }
+    }
+  }
+
+  # With srr_est_mode = 0 the alpha parameter is fixed AT srr_prior, so here
+  # srr_prior is an alpha and not a steepness -- the opposite of modes 2 and 3
+  # above. A Beverton-Holt alpha below 1/SPR0 puts the curve under the
+  # replacement line, and a value in (0, 1) is nearly always a steepness passed
+  # to the wrong mode. Warn rather than stop: 1/SPR0 is not known until the
+  # model is built, and a genuinely small alpha is legitimate for a stock with
+  # a large SPR0.
+  if (isTRUE(srr_est_mode == 0) && srr_pred_fun %in% c(2, 3)) {
+    looks_like_h <- !is.na(srr_prior) & srr_prior > 0 & srr_prior < 1
+    if (any(looks_like_h)) {
+      warning("`srr_est_mode = 0` fixes alpha at `srr_prior`, so `srr_prior` ",
+              "is an alpha here, not a steepness. Got ",
+              paste(srr_prior[looks_like_h], collapse = ", "),
+              ", which is below the replacement line 1/SPR0 for most stocks ",
+              "and would give a steepness under 0.2.\n  If you meant a ",
+              "steepness h, either use `srr_est_mode = 2` / `3` (which do put ",
+              "the prior on steepness) or convert it: ",
+              "alpha = 4h / (SPR0 * (1 - h)).", call. = FALSE)
+    }
   }
 
   linkages <- .validate_recruitment_linkages(linkages, srr_pred_fun)
@@ -82,10 +157,39 @@ build_srr <- function(srr_fun = 0,  #srr_model
        srr_est_mode = srr_est_mode,
        srr_prior = srr_prior,
        srr_prior_sd = srr_prior_sd,
+       srr_alpha_init = srr_alpha_init,
+       srr_beta_init = srr_beta_init,
        srr_indices = srr_indices,
        Bmsy_lim = Bmsy_lim,
        linkages = linkages
   )
+}
+
+
+#' Is `srr_prior` an alpha, or a steepness?
+#'
+#' `srr_prior` is a prior on **steepness** where the model consumes it as one:
+#' the lognormal (`srr_est_mode` 2) and beta (`srr_est_mode` 3) priors on a
+#' Beverton-Holt curve (`srr_pred_fun` 2 or 3). Everywhere else -- Ricker at any
+#' `srr_est_mode`, and `srr_est_mode` 0 ("fix alpha to prior mean") or 1
+#' ("estimate") for any curve -- it is an alpha, and so is a valid starting
+#' value for `rec_pars[, "Alpha"]`.
+#'
+#' `build_params()` and `fit_mod()` both seed alpha and share this rule.
+#'
+#' @param data_list A `data_list` carrying `srr_est_mode` / `srr_pred_fun`.
+#' @return `TRUE` when `srr_prior` may be used as an alpha starting value.
+#' @keywords internal
+#' @noRd
+.srr_prior_is_alpha <- function(data_list) {
+  as_int <- function(x) {
+    if (is.null(x)) return(NA_integer_)
+    suppressWarnings(as.integer(x)[1])
+  }
+  steepness_case <-
+    isTRUE(as_int(data_list$srr_est_mode) %in% c(2L, 3L)) &&
+    isTRUE(as_int(data_list$srr_pred_fun) %in% c(2L, 3L))
+  !steepness_case
 }
 
 
@@ -649,8 +753,8 @@ build_growth <- function(fun = "empirical",
     linkages       = linkages,
     # Internal integer code consumed by the TMB template until the
     # linkage-driven path replaces it. Vectorized so per-species
-    # growth functions (e.g. fun = c("vonBertalanffy", "Richards"))
-    # propagate downstream as before.
+    # growth functions (e.g. fun = c("vonBertalanffy", "Richards")) each
+    # propagate their own code downstream.
     growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
     # Plus-group SD-at-age treatment. Like `fun`/`growth_model`, the canonical
     # string is kept under the argument name (for save_config round-trip) and
@@ -908,7 +1012,7 @@ SEL_LINKAGE_PARAMS <- c("slp_asc", "slp_desc", "inf_asc", "inf_desc", "coff",
 #' `right_floor` is not supported.
 #' For a fleet that mirrors another fleet's selectivity (shared
 #' `Selectivity_index`), place the prior on the lead fleet so the shared
-#' parameter block is not penalised more than once.
+#' parameter block is not penalized more than once.
 #'
 #' @param linkages Optional named list of [linkage_spec()] objects keyed by
 #'   selectivity parameter. Coefficients are per fleet by default
@@ -951,7 +1055,7 @@ COMP_LINKAGE_PARAMS <- c("theta_comp", "theta_caal", "theta_diet")
 #' @description
 #' Carries **priors** on the Dirichlet-multinomial composition-weighting
 #' overdispersion. The DM weight (the "theta" that scales the effective sample
-#' size) is otherwise an unpenalised free parameter; a linkage lets you put a
+#' size) is otherwise an unpenalized free parameter; a linkage lets you put a
 #' prior on it through the same grammar as every other parameter. The three
 #' parameters target the three DM likelihoods:
 #' \describe{
@@ -1299,7 +1403,7 @@ build_composition <- function(linkages = NULL) {
 #' an estimate, and makes likelihoods non-comparable across configurations.
 #' Such rows are set to `prior_family = "none"`, which the template skips.
 #'
-#' [.check_comp_linkage_support()] rejects a prior that can never apply to the
+#' `.check_comp_linkage_support()` rejects a prior that can never apply to the
 #' data at hand (a non-DM `Comp_distribution` / `Diet_distribution`). Whether a
 #' weight is estimated *in a given fit* also depends on `msmMode`, `suitMode`,
 #' and the fleet setup, and one `compFun` is routinely shared across the
@@ -1307,7 +1411,7 @@ build_composition <- function(linkages = NULL) {
 #' ignored rather than rejected.
 #'
 #' Inertness is read off the finished `map` so it stays in step with
-#' [build_map()] and honours a user-supplied `map`. Rows are kept, not dropped:
+#' [build_map()] and honors a user-supplied `map`. Rows are kept, not dropped:
 #' `beta_linkage` is dimensioned by `nrow(linkage_table)`, so dropping them
 #' would break `inits` reuse between fits sharing a `compFun`.
 #'

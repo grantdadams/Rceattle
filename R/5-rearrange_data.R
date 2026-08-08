@@ -469,7 +469,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) %>%
       dplyr::mutate_all(as.integer)
 
-    # Create diet_obs as before
+    # The observations themselves, in the same row order as diet_ctl
     data_list$diet_obs <- diet_dat %>%
       dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
       dplyr::mutate_all(as.numeric)

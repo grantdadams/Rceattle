@@ -10,7 +10,7 @@
 \item{base_size}{Base font size.}
 }
 \description{
-Clean, legible, and colourblind-friendly: \code{theme_classic} with bold facet
+Clean, legible, and colorblind-friendly: \code{theme_classic} with bold facet
 strips, a light panel border, and the legend along the bottom.
 }
 \keyword{internal}

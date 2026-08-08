@@ -133,3 +133,42 @@ testthat::test_that("a requested fleet that cannot be tuned is named", {
     "Not tuning requested fleet")
   testthat::expect_equal(tuned$reweight$fleets, comp_flts[2])
 })
+
+
+testthat::test_that("fleets = accepts names as well as codes", {
+  testthat::skip_on_cran()
+  fit <- .rw_fit()
+  fc  <- fit$data_list$fleet_control
+  cd  <- fit$data_list$comp_data
+  elig <- intersect(unique(cd$Fleet_code[cd$Fleet_code > 0 & cd$Year > 0]),
+                    fc$Fleet_code[as.character(fc$Comp_distribution) %in%
+                                    c("Multinomial", "MultinomialAFSC")])
+  testthat::skip_if(length(elig) < 2)
+  nms <- fc$Fleet_name[match(elig[1:2], fc$Fleet_code)]
+
+  by_code <- suppressWarnings(suppressMessages(
+    Rceattle::reweight_comps(fit, fleets = elig[1:2], n_iter = 1, tol = 1,
+                             verbose = FALSE)))
+  by_name <- suppressWarnings(suppressMessages(
+    Rceattle::reweight_comps(fit, fleets = nms, n_iter = 1, tol = 1,
+                             verbose = FALSE)))
+  # Selecting by name must pick exactly the fleets the codes do.
+  testthat::expect_identical(by_name$reweight$fleets, by_code$reweight$fleets)
+})
+
+testthat::test_that("an unknown fleet name is reported against the model's fleets", {
+  testthat::skip_on_cran()
+  fit <- .rw_fit()
+  # Before names were resolved, an unknown name fell through as "not eligible"
+  # and surfaced as a misleading "no fitted composition data" warning.
+  testthat::expect_error(
+    Rceattle::reweight_comps(fit, fleets = "NotAFleet"),
+    "unknown `fleets` name")
+  testthat::expect_error(
+    Rceattle::reweight_comps(fit, fleets = "NotAFleet"),
+    fit$data_list$fleet_control$Fleet_name[1], fixed = TRUE)
+  # Mixing ids and names is the trap R's coercion sets; it must be named.
+  testthat::expect_error(
+    Rceattle::reweight_comps(fit, fleets = c(1, "Pollock")),
+    "looks like an id")
+})

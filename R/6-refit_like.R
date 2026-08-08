@@ -3,13 +3,13 @@
 #' @description
 #' Internal engine behind the repeated [fit_mod()] re-invocations in
 #' [retrospective()], [jitter()], [self_test()], [profile.Rceattle()],
-#' [run_mse()], and [remove_F()]. Each of those diagnostics re-fits a model that
-#' shares a source model's structure but changes a few things (a data peel, a
-#' jittered start, a projection year). They all rebuilt the harvest-control-rule,
-#' stock-recruit, natural-mortality, and growth specifications from the source
-#' `data_list` by hand -- the same ~60-line block copied at eleven call sites.
+#' [run_mse()], [remove_F()], [sample_rec()], and [reweight_comps()]. Each of
+#' those re-fits a model that shares a source model's structure but changes a few
+#' things (a data peel, a jittered start, a projection year, a set of
+#' composition weights).
 #'
-#' This helper reconstructs those four `build_*()` specifications and the shared
+#' This helper reconstructs the harvest-control-rule, stock-recruit,
+#' natural-mortality and growth specifications and the shared
 #' process switches (`msmMode`, `suitMode`, `random_rec`, ...) from `data_list`
 #' (the "...like" part), then calls [fit_mod()]. Every field that genuinely
 #' varies across the callers is a named argument that defaults to the
@@ -108,6 +108,8 @@
       srr_est_mode     = dl$srr_est_mode,
       srr_prior        = dl$srr_prior,
       srr_prior_sd     = dl$srr_prior_sd,
+      srr_alpha_init   = dl$srr_alpha_init,
+      srr_beta_init    = dl$srr_beta_init,
       Bmsy_lim         = dl$Bmsy_lim,
       srr_indices      = dl$srr_indices,
       linkages         = dl$srr_linkages)),

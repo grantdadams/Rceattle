@@ -40,10 +40,5 @@ Useful links:
 \author{
 \strong{Maintainer}: Grant Adams \email{grant.adams@noaa.gov} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
 
-Authors:
-\itemize{
-  \item Grant Adams \email{grant.adams@noaa.gov} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
-}
-
 }
 \keyword{internal}

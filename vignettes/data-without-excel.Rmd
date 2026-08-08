@@ -55,7 +55,7 @@ dat <- build_data(nspp = 1, styr = 1977, endyr = 2023,
                   comp_data = ages)
 ```
 
-`build_data()` checks each block name against the recognised schema, so a typo (`maturty`) or a case-slip (`Maturity`) is caught at construction with a suggestion — not much later inside a fit — and legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to their canonical equivalents. Printing the result shows an indented specification tree rather than the raw list:
+`build_data()` checks each block name against the recognized schema, so a typo (`maturty`) or a case-slip (`Maturity`) is caught at construction with a suggestion — not much later inside a fit — and legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to their canonical equivalents. Printing the result shows an indented specification tree rather than the raw list:
 
 ```{r}
 dat            # <Rceattle data>: dimensions -> fleets -> processes -> ...
@@ -84,7 +84,7 @@ The conditional requirements it encodes:
 | `ration_data`                            | `msmMode > 0`                                  |
 | Bioenergetics scalars (`Ceq`, `CA`, `CB`, `Tco`, ...) | `msmMode > 0`                     |
 
-In default single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list.
+In default single-species mode (`msmMode = 0`) you can omit any of these by leaving the field unset.
 
 ## Building the list by hand
 
@@ -152,16 +152,16 @@ simData$beta_wt_len  <- rep(3, nspp)
 # strength of the recruitment penalty in penalized-likelihood mode.
 simData$sigma_rec <- rep(1, nspp)
 
-# Non-modelled ("other") prey biomass available to predators. Used in
+# Non-modeled ("other") prey biomass available to predators. Used in
 # multi-species mode to prevent unrealistically high predation mortality when
-# modelled prey are scarce. Setting this too low forces predators to over-eat
-# modelled prey; too high dilutes the predation signal.
+# modeled prey are scarce. Setting this too low forces predators to over-eat
+# modeled prey; too high dilutes the predation signal.
 simData$other_food <- rep(1e5, nspp)
 ```
 
 ## 2. Fleet control table
 
-Each row defines one fleet (fishery or survey) and controls how it is modelled. Multiple fleets can target the same species.
+Each row defines one fleet (fishery or survey) and controls how it is modeled. Multiple fleets can target the same species.
 
 ```{r}
 # Fleet_type:
@@ -224,7 +224,7 @@ simData$fleet_control <- data.frame(
   Time_varying_sel          = 0,
   Time_varying_sel_sd = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
-  Sel_norm_bin             = NA,    # bin to normalise selectivity from (optional)
+  Sel_norm_bin             = NA,    # bin to normalize selectivity from (optional)
   Sel_norm_bin_upper             = NA,
 
   # Composition likelihoods
@@ -310,7 +310,7 @@ simData$catch_data <- data.frame(
 
 ## 5. Composition data (optional)
 
-Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalises internally.
+Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalizes internally.
 
 Skip this section entirely (don't set `simData$comp_data`) if no composition data are available — `clean_data()` will fill it with an empty data.frame.
 

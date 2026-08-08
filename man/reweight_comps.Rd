@@ -14,7 +14,10 @@ reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
 
 \item{tol}{Relative change in the weights below which to stop (default 0.01).}
 
-\item{fleets}{Fleet codes to tune. Default \code{NULL} tunes every eligible fleet.}
+\item{fleets}{Fleets to tune, as \code{Fleet_code} values or as names matching
+\code{fleet_control$Fleet_name} (as in \code{\link[=linkage_spec]{linkage_spec()}}). Give ids or names, not
+a mix -- R coerces \code{c(1, "Survey")} to \code{c("1", "Survey")}. Default \code{NULL}
+tunes every eligible fleet.}
 
 \item{verbose}{Print the weights each iteration (default \code{TRUE}).}
 }
@@ -65,4 +68,9 @@ tuned$reweight$history      # weight per fleet, per iteration
 McAllister, M.K. and Ianelli, J.N. (1997) Bayesian stock assessment using
 catch-age data and the sampling-importance resampling algorithm.
 \emph{Canadian Journal of Fisheries and Aquatic Sciences} 54:284-300.
+
+Francis, R.I.C.C. (2011) Data weighting in statistical fisheries stock
+assessment models. \emph{Canadian Journal of Fisheries and Aquatic Sciences}
+68:1124-1138. (The main alternative; applied by hand rather than by this
+function.)
 }

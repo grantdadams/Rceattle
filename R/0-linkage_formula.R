@@ -7,8 +7,10 @@
 #' \describe{
 #'   \item{Fixed}{Anything outside a `( | )` bar: `~ temp`, `~ Year` (a linear
 #'     trend), `~ factor(Year)` (annual deviates as fixed effects),
-#'     `~ block(Year, breaks = ...)`. These have no standard deviation
-#'     parameter; attach a prior to shrink them.}
+#'     `~ cut(Year, breaks = ...)` (time blocks). The RHS is passed to
+#'     [stats::model.matrix()], so any function that works there works here.
+#'     These have no standard deviation parameter; attach a prior to shrink
+#'     them.}
 #'   \item{Random}{Anything inside a bar: `(1 | Year)` for independent annual
 #'     deviations, or a covariance structure such as `ar1(Year + 0 | fleet)`.
 #'     These get a standard deviation (and correlation, where the structure has
@@ -18,7 +20,7 @@
 #' }
 #'
 #' The split is the same one `lme4` and `glmmTMB` use, and the parsing is done
-#' by `reformulas` — the package both of those rely on — so the syntax behaves
+#' by `reformulas` -- the package both of those rely on -- so the syntax behaves
 #' the way a user of either would expect.
 #'
 #' @param formula a one-sided formula.
@@ -63,17 +65,17 @@ LINKAGE_STRUCTURES <- c(
 )
 
 
-#' Reject unrecognised covariance-structure wrappers
+#' Reject unrecognized covariance-structure wrappers
 #'
 #' @description
-#' `reformulas::splitForm()` silently treats an unrecognised wrapper as the
+#' `reformulas::splitForm()` silently treats an unrecognized wrapper as the
 #' default structure: `bogus(Year + 0 | fleet)` comes back as `"us"` with no
 #' warning. A user would then get an unstructured term while believing they
 #' had asked for something else, and nothing downstream could tell the
 #' difference.
 #'
 #' So check the wrappers ourselves before handing the formula over. Anything
-#' that wraps a bar and is not in [LINKAGE_STRUCTURES] is an error naming both
+#' that wraps a bar and is not in `LINKAGE_STRUCTURES` is an error naming both
 #' the offending term and the available structures.
 #'
 #' @param formula a one-sided formula.

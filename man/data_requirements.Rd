@@ -10,7 +10,7 @@ data_requirements(
   growth_model = 0,
   estDynamics = 0,
   selectivity = NULL,
-  index_loglike = NULL,
+  index_distribution = NULL,
   Ceq = NULL
 )
 }
@@ -32,9 +32,9 @@ numbers-at-age and requires \code{NByageFixed}.}
 (used only when \code{data_list} is \code{NULL}) so the \code{emp_sel} requirement
 (\code{Selectivity = "Fixed"}) can be evaluated.}
 
-\item{index_loglike}{Optional character vector of per-fleet index likelihoods
-(used only when \code{data_list} is \code{NULL}) so the \code{index_cov} requirement
-(\code{"MVN"}) can be evaluated.}
+\item{index_distribution}{Optional character vector of per-fleet index
+likelihood families (used only when \code{data_list} is \code{NULL}) so the
+\code{index_cov} requirement (\code{Index_distribution = "MVN"}) can be evaluated.}
 
 \item{Ceq}{Optional per-species consumption-equation codes (used only when
 \code{data_list} is \code{NULL}); \verb{> 1} requires an environmental temperature index.}
@@ -64,7 +64,7 @@ having to read \code{\link[=data_check]{data_check()}} or the switch tables -- t
 }
 \details{
 The configuration can be given either as an existing (possibly partial)
-\code{data_list} -- its switches are normalised through \code{\link[=clean_data]{clean_data()}} /
+\code{data_list} -- its switches are normalized through \code{\link[=clean_data]{clean_data()}} /
 \code{\link[=switch_check]{switch_check()}} so the conditions evaluate against filled defaults -- or,
 when no \code{data_list} is supplied, built from the convenience arguments.
 

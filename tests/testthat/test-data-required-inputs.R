@@ -1,4 +1,4 @@
-# data_requirements() — the exported introspection reader over the requirement
+# data_requirements() -- the exported introspection reader over the requirement
 # table. Pure classification (no fit), so unguarded/fast.
 
 testthat::test_that("single-species: predation Ignored, comp/caal Optional", {

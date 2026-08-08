@@ -35,7 +35,39 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 when \code{getsd} is \code{TRUE}.}
 }
 \value{
-a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
+a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
+each species.
+
+A peel that did not converge is dropped, so \code{Rceattle_list} can be
+shorter than \code{peels + 1} (a message reports how many). Each entry is
+named for its own terminal year (\code{Year_2017}, ...) rather than by
+position, so index it by name -- \code{Rceattle_list[[3]]} is not
+necessarily the 3-year peel. With no peel left, Mohn's rho is \code{NaN}
+and the function warns.
+
+Each peel reports its own terminal year as \code{data_list$endyr}, so plots
+draw it only as far as it was fit and the peels fan out.
+
+A peel still estimates the years it dropped: they are its retrospective
+forecast, fit to the observed catch with recruitment held at the peel's mean
+and the survey and composition data withheld. Three years therefore matter,
+and each peel carries all three:
+\describe{
+\item{\code{endyr}, \code{endyr_peel}}{the peel's terminal year -- what it
+was fit through. Equal to each other.}
+\item{\code{endyr_full}}{the unpeeled model's terminal year, where the
+retrospective forecast ends.}
+\item{\code{projyr}}{the end of the harvest-control-rule projection.}
+}
+So the forecast years are those after \code{endyr_peel} through
+\code{endyr_full}, and the projection follows through \code{projyr};
+\code{incl_proj = TRUE} plots both. Take the forecast years as
+\code{endyr_peel + seq_len(endyr_full - endyr_peel)}, which is empty for the
+unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
+\emph{down} there.
+
+Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
+this.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:

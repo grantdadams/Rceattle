@@ -11,6 +11,6 @@ Returned as a named list rather than an environment so it can be
 passed straight to \code{\link[rlang:eval_tidy]{rlang::eval_tidy()}} as a \code{data} mask. Names are
 bound to the corresponding \verb{prior_*} constructors so user code such
 as \code{priors = list(temp = normal(0, 1))} resolves correctly without
-masking \code{\link[base:gamma]{base::gamma()}} or \code{\link[base:beta]{base::beta()}} at the package level.
+masking \code{\link[base:Special]{base::gamma()}} or \code{\link[base:Special]{base::beta()}} at the package level.
 }
 \keyword{internal}

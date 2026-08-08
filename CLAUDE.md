@@ -29,6 +29,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
   (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
   timing must state its build** — an `-O0` number overstates real cost ~10x.
+- **After a `.cpp`/`.hpp` edit, recompile before testing and run the suite serially.**
+  `DESCRIPTION` sets `Config/testthat/parallel: true`, and the parallel workers cannot load
+  a freshly rebuilt DLL — `devtools::test()` aborts before running anything with
+  `testthat subprocess failed to start … getDLLRegisteredRoutines.DLLInfo`. That is a
+  toolchain failure, not a test failure. Run `pkgload::load_all(".")` first, then test with
+  `TESTTHAT_PARALLEL=false`. (`test-coverage.yaml` forces serial for a related reason.)
 - **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
   package namespace so internal (non-exported) helpers resolve, then source the shared
   helpers into it:
@@ -69,10 +75,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
 - Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
-  repo was documented with roxygen2 7.3.3 (`DESCRIPTION: RoxygenNote: 7.3.3`), but a newer
-  local roxygen2 (e.g. 8.0.0) rewrites *every* `man/*.Rd` and swaps `RoxygenNote:` for
-  `Config/roxygen2/version:` — a huge spurious diff. After `document()`, `git checkout`
-  the unrelated `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  repo is documented with roxygen2 **8.1.0** (`DESCRIPTION: Config/roxygen2/version`).
+  A *different* local roxygen2 rewrites *every* `man/*.Rd` — an older one also swaps the
+  key back to the legacy `RoxygenNote:`, leaving both present and contradicting each other.
+  After `document()`, check `git diff DESCRIPTION` first: if the version key moved, the
+  `man/` churn is the version, not your change. Either regenerate everything under one
+  version deliberately, or `git checkout` the unrelated churn and keep only the `.Rd` you
+  meant to change.
   Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
   **Second trap:** never insert a helper between a function's roxygen block and its
   definition. Contiguous `#'` lines are ONE block and bind to whichever object follows, so
@@ -183,7 +192,9 @@ Three subsystems sit in front of `fit_mod()`. The **developer guide**
   random-effect / prior structure on **every** process — recruitment, M, growth,
   catchability, selectivity, and (prior-only) Dirichlet-multinomial composition weights —
   attached through the `build_*()` constructors via `linkage_spec(formula, by, init,
-  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ block(Year)`),
+  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ cut(Year, ...)`;
+  the fixed part is passed straight to `model.matrix()`, so there is no bespoke
+  `block()` helper),
   random effect (`~ (1|Year)` IID, `rw()`, `ar1()`), or `~ 1` + `priors` for an
   intercept-only prior (keyed `` `(Intercept)` ``). A **prior on a selectivity /
   catchability / DM parameter** is the `~ 1` case. Inside `priors =`, the bare `normal()` /
@@ -252,24 +263,28 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-- **Data-workflow + linkage-grammar effort** (PRs 0–7): **complete and merged onto
-  `dev-data-workflow`** (bumped to 5.0.0; not yet released to `main`). The linkage grammar,
-  column schema, `build_data()`/`model_config()`, `save_config()`/`load_config()` +
-  `fit_mod(config=)`, the C++ legibility pass + `JnllRow` enum, the
-  `build_growth(sd_plus_group=)` WHAM/SS3 feature, the `mse_summary()` per-entity reshape,
-  the `.refit_like()` collapse, and the developer-guide expansion all shipped. Tier D2 (the
-  `linkage.hpp` accumulator merge) was **declined** (net-negative). Roadmap and historical
-  record: the commit log and `NEWS.md` 4.9.0 onward. The planning documents are kept
-  locally under the untracked `dev/`.
-- **Documentation-quality + roxygen-accuracy pass** (on `dev-data-workflow`): the PR 1–7
-  user-facing doc surface was reviewed against three criteria (not AI-verbose,
-  current-capabilities-not-changelog, scientist-legible), and a technical-accuracy audit
-  cross-checked the `fit_mod` / `build_srr` / `build_M1` / `build_growth` /
-  `build_catchability` / `build_selectivity` / `build_composition` / `linkage_spec` /
-  `build_hcr` roxygen math against the C++ — fixing accuracy issues incl. the `build_hcr`
-  SESSF/NPFMC/PFMC reference-point formula errors, the Ricker β/1e6 reparametrization note,
-  and the inert `avgnMode` switch. A companion **code fix** removed the HCR-4 `Fmult`
-  double-application (`ceattle.cpp` case 4). Doc-only otherwise.
+- **Preparing the `dev` → `main` release PR.** `main` is still 4.8.0; `dev` carries
+  everything from 4.9.0 onward — the linkage grammar, column schema,
+  `build_data()`/`model_config()`, `save_config()`/`load_config()` + `fit_mod(config=)`,
+  the `JnllRow` enum, `build_growth(sd_plus_group=)`, the `mse_summary()` per-entity
+  reshape, the `.refit_like()` collapse, `reweight_comps()`, and the recruitment /
+  stock-recruit work. Roadmap and historical record: the commit log and `NEWS.md`.
+  Planning documents are kept locally under the untracked `dev/`.
+  - **Release-readiness pass in progress.** Done: the pkgdown reference index, the
+    `tools/verify/` move + `dev/` untracking, six data-workflow API fixes, the new
+    exports' documentation, and a NEWS/house-style pass. Remaining: NEWS entries for
+    those API fixes, notes for the two version gaps below, `devtools::document()`, and
+    `/golden-check`.
+  - **Two version gaps are deliberate, not lost entries.** `4.14.0` was a real
+    `DESCRIPTION` version whose NEWS was folded into the 5.0.0 section; `5.2.0`–`5.2.4`
+    likewise folded into 5.3.0. Nothing was dropped, and no tag exists above 4.8.0, so
+    nobody could have installed an intermediate. Note the folding rather than renumbering.
+  - **Result-changing changes that are not labelled breaking** — carry these into the PR
+    body: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%), parameter
+    bounds previously applied to the wrong parameters, composition weights warm-starting
+    from `inits`, failed `run_mse()` simulations returning only a marker, the
+    `mse_summary()` reshape, and the recruitment fixes (`initMode = 0` random effects, the
+    α-seeding fix, the Ianelli steepness prior).
 - **Older paused work:** a multi-PR accessibility / code-review refactor (branch
   `accessibility-and-code-review`), plan in
   `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;

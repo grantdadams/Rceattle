@@ -290,7 +290,7 @@ fit_mod <-
     # Overlay a stored model_config (if any) onto arguments the caller did not
     # supply. An explicitly-passed argument always wins (missing() is FALSE); an
     # argument the caller omitted falls back to the stored field. With no
-    # model_config slot this is a no-op, so fit_mod() behaves exactly as before.
+    # model_config slot this is a no-op.
     # Detected with missing() rather than a sentinel so 0 / FALSE / "" stored
     # values are honoured. NOTE: a call that passes one of these arguments --
     # even at its default -- overrides the slot; omit it to let the config win.
@@ -360,6 +360,8 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior    <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
+    data_list$srr_alpha_init <- if (is.null(recFun$srr_alpha_init)) NULL else extend_length(recFun$srr_alpha_init)
+    data_list$srr_beta_init  <- if (is.null(recFun$srr_beta_init))  NULL else extend_length(recFun$srr_beta_init)
     data_list$srr_linkages <- recFun$linkages
     data_list$Bmsy_lim     <- extend_length(recFun$Bmsy_lim)
 
@@ -377,7 +379,7 @@ fit_mod <-
 
     # FIXME: may want to pull from data here too??
     data_list$M1_model     <- extend_length(M1Fun$M1_model)
-    data_list$M1_model     <- ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # sex-specific → sex-invariant for 1-sex model
+    data_list$M1_model     <- ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # sex-specific -> sex-invariant for 1-sex model
     data_list$M1_re        <- extend_length(M1Fun$M1_re)
     updateM1               <- M1Fun$updateM1
     data_list$M1_use_prior <- extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # 0 when M1 is fixed
@@ -576,7 +578,6 @@ fit_mod <-
       start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     }
 
-    mod_objects$initial_params <- start_par
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
 
@@ -629,11 +630,22 @@ fit_mod <-
     random_vars <- c()
     if (random_rec) {
       random_vars <- c(random_vars, "rec_dev")
-      # initMode = "Equilibrium" maps ALL of init_dev to NA (the initial age
-      # structure is the deterministic equilibrium, init_dev fixed at 0). This
-      # guard cannot change the TMBphase() branch -- `rec_dev` is already in the
-      # vector whenever it runs -- so it is presentational only.
-      if (any(!is.na(map$mapList$init_dev))) {
+      # init_dev is integrated out only where it carries a density. The initial
+      # deviate penalty dnorm(init_dev, -sigma^2/2, R_sd) applies when
+      # initMode > 1 and != 5 (ceattle.cpp, JNLL_INIT_DEV); keep this in lockstep
+      # with that gate. Under "FreeParams" the initial age structure is estimated
+      # as fixed effects, and the equilibrium modes hold init_dev at 0.
+      #
+      # initMode is a canonical string here, so resolve it to its integer code
+      # before comparing -- a character/numeric comparison sorts lexicographically.
+      init_mode_int <- if (is.character(data_list$initMode)) {
+        unname(initMode_map[data_list$initMode])
+      } else {
+        as.integer(data_list$initMode)
+      }
+      init_dev_has_density <- !is.na(init_mode_int) &&
+        init_mode_int > 1 && init_mode_int != 5
+      if (init_dev_has_density && any(!is.na(map$mapList$init_dev))) {
         random_vars <- c(random_vars, "init_dev")
       }
     }
@@ -861,10 +873,28 @@ fit_mod <-
       start_par$log_M1 <- log(m1)
     }
 
-    # Update alpha for stock-recruit if fixed/prior and initial parameter values input
-    if (data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 3) {
+    # Fix alpha at the prior mean, where srr_prior is an alpha rather than a
+    # steepness (see .srr_prior_is_alpha). build_params() applies the same rule;
+    # this covers the case where the caller supplied `inits` instead.
+    if (data_list$srr_est_mode %in% c(0, 2) & data_list$srr_pred_fun > 1 &&
+        .srr_prior_is_alpha(data_list) && !is.null(data_list$srr_prior)) {
       start_par$rec_pars[, 2] <- log(data_list$srr_prior)
     }
+
+    # Explicit stock-recruit starting values from build_srr(), which override
+    # both the defaults and the prior mean.
+    if (!is.null(data_list$srr_alpha_init)) {
+      start_par$rec_pars[, 2] <- log(data_list$srr_alpha_init)
+    }
+    if (!is.null(data_list$srr_beta_init)) {
+      start_par$rec_pars[, 3] <- log(data_list$srr_beta_init)
+    }
+
+    # Starting parameters as the model uses them: the blocks above set
+    # proj_F_prop, log_Ftarget, log_M1 and the stock-recruit alpha / beta.
+    # retrospective() and jitter() reuse this as their refit starting values.
+    # Taken before TMBphase() replaces start_par with a fitted state.
+    mod_objects$initial_params <- start_par
 
     if (verbose > 0) { message("Step 4: Data rearrange complete") }
 

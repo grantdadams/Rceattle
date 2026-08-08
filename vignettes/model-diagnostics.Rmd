@@ -199,6 +199,21 @@ Following Stewart and Monnahan (2025), a practical workflow is:
 5. **Revise the model or data weighting** where misspecification is found, using
    this together with the other diagnostics rather than as an accept/reject test.
 
+When the diagnosis is a weighting problem rather than a structural one,
+`reweight_comps()` runs the McAllister-Ianelli (1997) tuning loop: it refits the
+model the way it was fitted, updating each fleet's `Comp_weights` until the
+implied weights settle.
+
+```{r}
+tuned <- reweight_comps(model_1, n_iter = 10, tol = 0.01)
+tuned$reweight$history    # weight per fleet, per iteration
+```
+
+The alternatives are Francis (2011) reweighting, applied by hand, and estimating
+the weights directly with a Dirichlet-multinomial likelihood
+(`Comp_distribution = "DirichletMultinomial"`), which avoids the iteration
+entirely.
+
 Because OSA residuals for discrete composition data are randomized quantile
 residuals, they are stochastic; `osa_residuals()` takes a `seed` for
 reproducibility.
@@ -222,7 +237,7 @@ residuals(model_1, type = "process")
 
 ## Retrospective analysis
 
-A retrospective analysis removes the most recent years of data one peel at a time and re-fits the model. Mohn's rho summarises how the terminal estimates shift across peels; for SSB, a rho outside ±0.2 generally signals a problem worth investigating.
+A retrospective analysis removes the most recent years of data one peel at a time and re-fits the model. Mohn's rho summarizes how the terminal estimates shift across peels; for SSB, a rho outside ±0.2 generally signals a problem worth investigating.
 
 ```{r}
 model_1_retro <- retrospective(Rceattle = model_1, peels = 5)
@@ -237,14 +252,28 @@ plot_biomass(model_1_retro$Rceattle_list)
 plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 ```
 
+Each peel carries its own terminal year as `data_list$endyr`, so the first plot draws every peel only as far as it was fit and the peels fan out.
+
+A peel still estimates the years it dropped: they are its retrospective forecast, fit to the observed catch with recruitment held at the peel's mean and the survey and composition data withheld. Fishing mortality is estimated through the unpeeled terminal year and the harvest control rule takes over after it, so each peel carries three years:
+
+| Field | Meaning |
+|---|---|
+| `endyr`, `endyr_peel` | the peel's terminal year — what it was fit through |
+| `endyr_full` | the unpeeled terminal year, where the retrospective forecast ends |
+| `projyr` | the end of the projection |
+
+`incl_proj = TRUE` plots the forecast and projection years. Take the forecast years as `endyr_peel + seq_len(endyr_full - endyr_peel)` — empty for the unpeeled model, where `(endyr_peel + 1):endyr_full` would count down instead.
+
 The `retrospective()` function returns a list with two elements:
 
 | Element | Description |
 |---|---|
-| `Rceattle_list` | List of fitted models, ordered from full run to most-peeled |
+| `Rceattle_list` | List of fitted models, ordered from most-peeled to full run, each named for its own terminal year (`Year_2013`, …, `Year_2017`) |
 | `mohns` | Data frame with columns `Object` (quantity, e.g. `"Biomass"`, `"SSB"`), `Forecast year` (0 = terminal year bias; 1+ = forecast skill), `N` (number of peels), and one column per species with mean relative error (Mohn's rho) |
 
 The `nyrs_forecast` argument (default 3) also evaluates rho for years projected beyond each terminal peel, so a single call quantifies forecast skill alongside retrospective bias.
+
+A peel that did not converge is dropped and a message reports how many, so `Rceattle_list` can be shorter than `peels + 1`. Index it by name rather than position — with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, Mohn's rho is `NaN` and the call warns.
 
 ## Jitter testing
 
@@ -265,7 +294,9 @@ plot_biomass(jitters$Rceattle_list)
 length(jitters$Rceattle_list)
 ```
 
-Non-converging runs are silently dropped from `Rceattle_list`, so if `length(jitters$Rceattle_list)` is well below `njitter`, convergence may be fragile.
+Non-converging runs are dropped from `Rceattle_list` and reported in a message, so if `length(jitters$Rceattle_list)` is well below `njitter`, convergence is fragile. Read that count as part of the result, not as a nuisance: the dropped starts are the ones that wandered off, so a jitter test that returns only its successes understates the spread.
+
+A run is dropped when its maximum absolute gradient exceeds 1 — the same threshold `convergence_diagnostics()` calls `FAIL` — or when an `sdreport` that was requested did not come back.
 
 `retrospective()` and `jitter()` both fit peels / starts in parallel by default. Pass `cores = 1` to force sequential execution; otherwise the call uses a PSOCK cluster sized at `parallel::detectCores() - 6` (capped at 2 under `R CMD check`).
 
@@ -286,6 +317,19 @@ plot_ssb(c(list(model_1), sims),     model_names = c("fit", names(sims)))
 ```
 
 Each simulation uses `seed + i` as its RNG seed, so results are reproducible whether or not `cores > 1`. Set `simulate = FALSE` to refit against the model's *expected* values (no observation error) rather than draws from the observation likelihood — useful for confirming that the estimator returns the generating parameters in the noise-free limit. `cores` behaves the same way as in `retrospective()` and `jitter()`.
+
+Every refit starts from the fitted model's *starting* values, not its estimates, so it covers the same ground the original fit did. `phase` therefore defaults to whatever the input model was fit with — pass `phase = TRUE` explicitly if you fit the model some other way and the refits are being dropped, since a model that needed phasing once needs it for every simulated data set too. `start = "estimated"` starts from the fitted estimates instead: much faster, but the optimizer then begins inside the basin containing the generating values and recovery is close to guaranteed by construction, so read it as optimistic about recovery rather than simply less powerful.
+
+Two things to keep in mind when reading the result. Non-converged refits are dropped and reported in a message, and they are dropped *because* they behaved badly — so the returned replicates are a favourable subset, and any spread or bias computed over them (including `compare_sim()`'s CV) understates the truth. And `sim_mod()` redraws the observations only: with `random_rec = TRUE` every replicate shares the operating model's single recruitment realization, so the spread across replicates is observation error alone — a lower bound on estimation uncertainty in SSB and recruitment, not comparable to the model's own uncertainty bands.
+
+When the returned list is shorter than `nsim`, `debug = TRUE` returns *every* simulation so the failures can be read directly rather than inferred:
+
+```{r}
+sims <- self_test(model_1, nsim = 10, debug = TRUE)
+
+failed <- names(which(!attr(sims, "converged")))
+sims[[failed[1]]]$convergence          # which check failed, and on which parameter
+```
 
 ## Likelihood profile
 

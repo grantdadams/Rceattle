@@ -83,15 +83,15 @@ Codes (also accept the string aliases listed):
 
 `random_rec`, `random_q`, and `random_sel` move log-recruitment, the
 log-catchability deviations, and the time-varying selectivity
-deviations, respectively, from penalised fixed effects to random
-effects. The deviations are marginalised via the Laplace approximation,
+deviations, respectively, from penalized fixed effects to random
+effects. The deviations are marginalized via the Laplace approximation,
 and their distribution parameters are estimated.
 
 ## 2. Predation: `suitMode` (per predator)
 
 > Equations: see vignette 8 [§Predation sub-model](model-parameterizations.html#predation-sub-model) (suitability, predation mortality, consumption / bioenergetics).
 
-`suitMode` chooses how prey preference is modelled. Length 1 (same for
+`suitMode` chooses how prey preference is modeled. Length 1 (same for
 all predators) or length `nspp`.
 
 | Value | String | Description | Available? |
@@ -264,7 +264,7 @@ from the estimated growth model (`growth_model > 0`).
 | `HCR` | String | Description | Multi-species? |
 |:---:|---|---|:---:|
 | `0` | `"NoFishing"` | No fishing — estimate hindcast only | Yes |
-| `1` | `"CMSY"` | Maximise joint catch across species (option to keep depletion ≥ `Plimit`) | Yes |
+| `1` | `"CMSY"` | Maximize joint catch across species (option to keep depletion ≥ `Plimit`) | Yes |
 | `2` | `"ConstantF"` | Constant F set at `Ftarget` per species | Yes |
 | `3` | `"ConstantFSSB"` | F that achieves `Ftarget`% of SB<sub>0</sub> at the end of the projection | Yes |
 | `4` | `"ConstantFSPR"` | F<sub>SPR</sub> at `Ftarget` (NEFSC convention; scale via `Fmult`) | No |
@@ -289,7 +289,7 @@ See `?build_hcr` for more details.
 | `check_mse()` | Validate which OM/EM simulations converged |
 | `mse_summary()` | Per-fleet performance metrics: mean catch, IAV, P(closed), P(F > Flimit), P(SSB < SSBlimit), terminal depletion |
 
-`run_mse()` parallelises over simulations on a PSOCK cluster. See the
+`run_mse()` parallelizes over simulations on a PSOCK cluster. See the
 [MSE vignette](hcrs-and-mses.html) for the
 seed plumbing and reproducibility guarantees.
 
@@ -317,9 +317,9 @@ quantity they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`,
 `plot_stock_recruit`, `plot_timeseries`. Most accept a single fitted
 model or a list of models with `model_names`.
 
-These are built with **ggplot2** (colourblind-safe viridis palette,
+These are built with **ggplot2** (colorblind-safe viridis palette,
 `theme_classic`) and **return the `ggplot` object**, so they print when
-called interactively and can be further customised by adding ggplot2 layers
+called interactively and can be further customized by adding ggplot2 layers
 (e.g. `plot_biomass(fit) + ggplot2::ggtitle("My title")`). Pass `file = "stem"`
 to also write the figure to `stem_<plot>.png`.
 

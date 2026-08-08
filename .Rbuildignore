@@ -32,3 +32,5 @@
 ^Rplots\.pdf$
 ^_pkgdown\.yml$
 ^docs$
+^covr$
+^fims\.log$

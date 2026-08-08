@@ -22,7 +22,7 @@
   est_M1         = "M1_model"
 )
 
-#' Recognised top-level data-list element names
+#' Recognized top-level data-list element names
 #'
 #' Union of the requirement-table catalogue, the bioenergetics scalars, and the
 #' auxiliary / configuration / legacy names that legitimately appear on a data
@@ -72,7 +72,7 @@
 #'     copy-and-edit / combine-and-restamp workflow.
 #' }
 #'
-#' Element names are checked against the recognised schema: an override whose
+#' Element names are checked against the recognized schema: an override whose
 #' name is a near-miss of a known element (e.g. `maturty`) errors with a
 #' suggestion, so a typo is caught here rather than surfacing much later in a
 #' fit. Legacy top-level names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`)

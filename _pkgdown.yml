@@ -129,7 +129,6 @@ reference:
   - clean_data
   - combine_data
   - rearrange_data
-  - data_check
 
 - title: "Model setup"
   desc: Build parameter lists, map objects, bounds, and biological inputs.
@@ -218,7 +217,6 @@ reference:
   - plot_depletion
   - plot_depletionSSB
   - plot_exploitable_biomass
-  - plot_ssb_depletion
 
 - title: "Plotting — fishing and natural mortality"
   desc: Visualize fishing mortality, catch, and total mortality.
@@ -298,3 +296,11 @@ reference:
   - prior_gamma
   - prior_lognormal
   - prior_normal
+
+- title: "Deprecated"
+  desc: >
+    Superseded functions kept for backward compatibility. They still work but
+    emit a deprecation message; use the named replacement in new code.
+  contents:
+  - plot_logindex
+  - plot_ssb_depletion

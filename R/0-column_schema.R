@@ -2,13 +2,6 @@
 # Canonical workbook-column schema
 # =============================================================================
 #
-# The Rceattle data workbook's column dictionary historically lived in FOUR
-# unsynchronized, hand-maintained copies (with a literal "kept in sync by eye"
-# note): the `R/data.R` roxygen `@format`, the embedded `meta_data_names.xlsx`,
-# `write_data()`'s ordered `row_labels` / `bioenergetics_control` vectors, and
-# `switch_check()`'s per-column defaults. They drifted -- ~20 used-but-
-# undocumented columns, stale entries, a case mismatch, legacy names.
-#
 # This file is the single source of truth for "what a workbook column is": one
 # row per column (or per control-sheet / bioenergetics-sheet scalar), carrying
 # its name, sheet, type, default, allowed values, TMB target, documentation, and
@@ -243,8 +236,7 @@
 #' field, and this walks them, renaming any present old name to the canonical
 #' one. Both `read_data()` (on the xlsx path) and `switch_check()` (on every
 #' fit path) call it, so a data list built either way is upgraded identically
-#' from the one schema -- the hand-coded rename cascades that used to live in
-#' both are gone.
+#' from the one schema.
 #'
 #' Double-fire-safe: a no-op when the old name is absent (so re-running on an
 #' already-upgraded list is silent), and it never clobbers an existing

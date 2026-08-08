@@ -80,7 +80,7 @@ The CPUE / survey configuration is split across two Rceattle sheets:
 * `fleet_control` for the *fleet-level* options (units, SD estimation,
   catchability formulation):
 
-| SS / behaviour | Rceattle (`fleet_control`) | Notes |
+| SS / behavior | Rceattle (`fleet_control`) | Notes |
 |---|---|---|
 | Units (numbers / biomass) | `Observation_units` | `1` = biomass, `2` = numbers |
 | (estimate index SD?) | `Estimate_index_sd` | `0` = supplied, `1` = estimated |

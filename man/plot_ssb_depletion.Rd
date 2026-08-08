@@ -79,6 +79,6 @@ function.}
 \item{reference}{Reference model}
 }
 \description{
-Deprecated alias for \code{\link{plot_ssb_depletion}}. Please use
-\code{plot_ssb_depletion()} instead.
+Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
+\code{plot_depletionSSB()} instead.
 }

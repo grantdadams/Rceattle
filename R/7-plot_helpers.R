@@ -55,7 +55,7 @@
 
 #' Standard Rceattle ggplot theme
 #'
-#' Clean, legible, and colourblind-friendly: `theme_classic` with bold facet
+#' Clean, legible, and colorblind-friendly: `theme_classic` with bold facet
 #' strips, a light panel border, and the legend along the bottom.
 #' @param base_size Base font size.
 #' @keywords internal
@@ -71,7 +71,7 @@
     )
 }
 
-#' Okabe-Ito colourblind-safe qualitative palette
+#' Okabe-Ito colorblind-safe qualitative palette
 #'
 #' Eight fixed hues in a fixed order, reordered so the strongest-contrast,
 #' best-separated hues come first (2-4 model overlays are the common case) and
@@ -95,11 +95,11 @@
   grDevices::colorRampPalette(.okabe_ito)(n)
 }
 
-#' Add the standard colourblind-safe scales to a plot
+#' Add the standard colorblind-safe scales to a plot
 #'
 #' Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
 #' qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
-#' use viridis. Both are colourblind-safe.
+#' use viridis. Both are colorblind-safe.
 #'
 #' @param p A ggplot.
 #' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.

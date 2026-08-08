@@ -45,7 +45,7 @@ result) and overrides the named blocks. This is the common
 copy-and-edit / combine-and-restamp workflow.
 }
 
-Element names are checked against the recognised schema: an override whose
+Element names are checked against the recognized schema: an override whose
 name is a near-miss of a known element (e.g. \code{maturty}) errors with a
 suggestion, so a typo is caught here rather than surfacing much later in a
 fit. Legacy top-level names (\code{fsh_biom}, \code{srv_biom}, \code{wt}, \code{pmature}, \code{Pyrs})
@@ -53,9 +53,10 @@ are mapped to their canonical equivalents.
 
 Full validation runs at fit time in \code{\link[=data_check]{data_check()}}. \code{build_data()} runs only
 a light presence pre-check (\code{.check = TRUE}) so a missing \emph{required} block is
-reported at construction with a clear message. Requirements that depend on fit-time
-configuration not stored on the data list (e.g. \code{caal_data} when growth is
-estimated via \code{build_growth()}) are not knowable here and are left to
+reported at construction with a clear message. The pre-check reads an attached
+\code{\link[=model_config]{model_config()}}, so a configuration carried on the object is accounted for.
+Requirements that depend on fit-time settings passed directly to \code{\link[=fit_mod]{fit_mod()}}
+and stored nowhere on the data list are not knowable here and are left to
 \code{\link[=data_check]{data_check()}}; see \code{\link[=data_requirements]{data_requirements()}} to preview them.
 }
 \examples{

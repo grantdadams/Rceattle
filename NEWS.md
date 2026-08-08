@@ -1,4 +1,4 @@
-# Rceattle 5.5.0
+# Rceattle 5.7.0
 
 ## New features
 
@@ -23,6 +23,385 @@
   can be row-bound. Fits without a DSEM are unaffected: `summary()` prints the
   model overview and returns the fit invisibly, exactly as before.
 
+# Rceattle 5.6.0
+
+## New features
+
+* **`self_test(debug = TRUE)` returns every simulation, not just the converged
+  ones.** When a self-test comes back short, the dropped runs are the ones worth
+  looking at, and each already carries its own `$convergence` diagnostics --
+  they were simply discarded. Under `debug`, `Sim_i` is simulation `i` (so it
+  pairs with the seed `seed + i` that produced it) and the verdicts are in
+  `attr(sims, "converged")`. The default return is unchanged. A refit that
+  errors outright is now caught and returned as its condition rather than
+  aborting the whole call (and, under a cluster, every other replicate with
+  it) -- previously the hardest failures were the ones you could not inspect.
+
+* **`jitter(timeout = )` and `self_test(timeout = )` bound a single run.**
+  `.fit_tmb()` optimizes with `eval.max = iter.max = 1e9`, so a replicate that
+  wanders somewhere pathological has no bound and one stall blocks the whole
+  run -- a failure no convergence check can reach, because the fit never
+  returns. A run past the limit is stopped, counted as non-converged, and
+  reported separately from the gradient drops, since the fix is different
+  (raise the limit, versus look at the model). The limit is approximate:
+  `setTimeLimit()` is checked when control returns to R, so it fires between the
+  optimizer's function evaluations rather than inside one. Both functions now
+  also trap errors per run, so one bad replicate cannot abort the rest.
+
+* **`self_test(start = )` chooses the starting values.** `"initial"` (the
+  default, and the previous behavior) starts each refit from
+  `initial_params` -- what the original fit started from -- so the estimator
+  covers the same ground on simulated data that it did on the real data.
+  `"estimated"` warm starts from `estimated_params`, which is faster and far
+  more likely to converge but asks the estimator to travel no distance: it tests
+  that the optimum is stable under resampling, not that it is reachable.
+
+* **`reweight_comps(fleets = )` accepts fleet names as well as codes,** matching
+  `linkage_spec(fleet = )`. Passing a name previously did not error: it fell
+  through as ineligible and surfaced as a warning about having no fitted
+  composition data, followed by "No fleets to reweight". An unknown name is now
+  reported against the model's own fleet list, and mixing ids and names in one
+  vector is caught with the coercion hint.
+
+## Bug fixes
+
+* **`self_test()` can now phase its refits, and inherits the setting by
+  default.**
+  Every refit starts from the source model's *starting* values, so it covers the
+  same ground the original fit did -- but `self_test()` had no way to phase it.
+  `retrospective()` fixes `phase = TRUE` ("phasing, or the parameters dont wanna
+  move") and `jitter()` exposes the argument; `self_test()` took
+  `.refit_like()`'s `phase = FALSE` default with no argument to change it. A
+  model that needed phasing to fit its real data therefore had to reach the same
+  optimum in one unphased pass for every simulated one. On a GOA pollock
+  configuration that fits at a maximum gradient of 2e-4, 5 of 6 simulations
+  ended between 4e9 and 2e13; with phasing all 6 converged to ~1e-4. (That model
+  carries an `sdrep`, so the self-test ran at `getsd = TRUE` and those five were
+  dropped through the non-positive-definite path below -- under `getsd = FALSE`
+  the old gate would have returned all six and counted them as converged.)
+  `phase` reads the setting `fit_mod()` recorded on the source fit, so a model
+  fitted under the package default is still refitted unphased; pass
+  `phase = TRUE` for a model that needs phasing but was not fitted with it.
+
+* **The re-fitting diagnostics' convergence gate now tests the gradient.**
+  `retrospective()`, `jitter()`, `self_test()` and `profile()` each drop the runs
+  that did not converge, by comparing `opt$Convergence_check` against the string
+  `TMBhelper::fit_tmb()` uses for a non-invertible Hessian. That comparison could
+  not work in either direction. With `getsd = TRUE`, `fit_tmb()` returns *before*
+  assigning that string when the Hessian fails `chol()` -- so runs were dropped
+  by the enclosing `is.null()` guard, incidentally rather than by the test, and
+  by a criterion (positive-definiteness) that is not the one intended. With
+  `getsd = FALSE` that assignment is unreachable, so nothing was ever dropped
+  and a run ending at a maximum gradient of 1e13 counted as converged.
+  (`Convergence_check` itself is always set, but to one of the two gradient
+  verdicts, neither of which the comparison matched.)
+  Both paths now go through one gate that reads the hindcast maximum gradient,
+  using `convergence_diagnostics()`'s own FAIL threshold. Because the gate can
+  now actually drop, all three report how many runs they dropped rather than
+  returning a thinned list in silence -- for `jitter()` and `self_test()` a
+  thinned list is a biased sample, since the failures are exactly the runs that
+  would have shown the spread.
+
+* **`retrospective()` survives a dropped peel.** It named its output
+  `Year_(endyr - peels):endyr` -- always `peels + 1` labels -- and looped
+  `1:(length(mod_list) - 1)`, both of which assume every peel converged. One
+  dropped peel errored with `'names' attribute [3] must be the same length as
+  the vector [2]`; all of them dropped made `1:0` count down and index past the
+  end. The assumption held only because the old gate could not drop anything
+  (above). Entries are now labelled from each model's own `endyr_peel`, so a
+  dropped peel leaves a gap rather than shifting every later label onto the
+  wrong model.
+
+* **`retrospective()` now judges the peeled hindcast, not just the F refit.**
+  Each peel fits twice: the peeled hindcast, then a refit with only the peeled
+  years' `log_F` free. Only the second was gated, and its gradient says nothing
+  about whether the hindcast converged -- so a peel whose hindcast diverged was
+  kept as long as the handful of F parameters settled, and its parameters went
+  into Mohn's rho. Both refits are now gated.
+
+* **A non-positive-definite fit no longer returns a malformed `fit$opt`.**
+  On that early return `TMBhelper::fit_tmb()` hands back
+  `list(opt = , h = )` rather than the estimates, so `fit$opt$objective`,
+  `$max_gradient` and `$Convergence_check` were all `NULL`. `fit_mod()` now
+  unwraps it, keeps the Hessian as `$hessian`, and records the verdict
+  `fit_tmb()` gives when `sdreport` reports `pdHess = FALSE`. `fit$sdrep` stays
+  `NULL`, so the `sdreport_failed` diagnostic is unaffected. A no-op for every
+  converged fit.
+
+* **`data_requirements()` and `build_data()`'s pre-check read an attached
+  `model_config()`.** They classified from the top-level switches only, so an
+  object carrying `model_config(msmMode = 1)` reported the predation inputs as
+  Ignored while `print()` on the same object showed it as multispecies.
+  `fit_mod()` resolves the configuration onto the data list, and the requirement
+  layer now sees the same thing. The overlay covers what `model_config()` carries:
+  `estDynamics` and `Ceq` have no field there, so `NByageFixed` and the
+  bioenergetics inputs still classify from the top-level slots.
+
+* **The pre-check classifies an integer-coded `fleet_control`.** It runs before
+  `switch_check()`, so a `Selectivity` still holding the code `0` never matched
+  the string `"Fixed"` and `emp_sel` was not required. The predicates now accept
+  the code, the canonical string, and the numeric-looking string a workbook read
+  can leave behind.
+
+* **A mistyped mode switch is caught before the fit, not after it.**
+  `model_config()` validates `initMode`, `avgnMode` and `suitMode` against the
+  switch maps, and `fit_mod()` checks them before doing any work. `fit_mod()`
+  rebuilds a `model_config()` after the optimization to record the run
+  configuration, so validating only there meant `avgnMode = 3` -- a switch the
+  model never reads -- threw away a converged fit and its `sdreport`. That call
+  is now guarded as well, so recording the configuration can never cost a caller
+  a fit. The checks accept a per-species vector and an integer code, since
+  `.refit_like()` feeds resolved values back.
+
+* **`run_config()` errors on an unrecognized field** instead of silently dropping
+  it, naming the valid set and pointing at `fit_control()`, where the mistake
+  usually belongs -- `run_config(fit, getsd = FALSE)` was a no-op. Names are
+  validated, not values.
+
+* **The linkage grammar documented a term that does not exist.** A time block was
+  described as `~ block(Year)` in the roxygen, the developer guide and the
+  vignettes, but there is no `block()`: the fixed part of a linkage formula is
+  passed to `model.matrix()`, so a model carrying that term failed at fit time
+  with `could not find function "block"`. Documented as `~ cut(Year, ...)`, with
+  a note that anything `model.matrix()` accepts will work.
+
+## Behavior changes
+
+* **`summary()` on a data object no longer prints the `model_config` block.**
+  `print()` still does, and both take `config =` to override, so
+  `summary(dat, config = TRUE)` and `print(dat, config = FALSE)` give the other
+  behavior. An object with no configuration prints identically either way.
+
+* **`read_data()`, `clean_data()` and `combine_data()` return an
+  `"Rceattle_data"` object.** A data list keeps its spec-tree printer through a
+  `write_data()` / `read_data()` round trip instead of only when it came from
+  `build_data()`. The visible consequence is that these now print an indented
+  specification tree at the prompt rather than dumping the ~40-element list. The
+  tag is inert: every consumer treats the object as a plain list, and it is
+  stripped before anything reaches `MakeADFun()`, so no fit changes.
+
+* **`data_requirements(index_loglike = )` is now `index_distribution = `,**
+  matching the canonical `fleet_control` column. The function has not been
+  released, so there is no deprecation path.
+
+## Documentation
+
+* Runnable examples for `linkage_spec()`, `write_template()`, `load_config()`
+  and `run_config()`, none of which had one. `linkage_spec()` is the entry point
+  to the whole linkage grammar; its examples show the covariate, per-year,
+  penalized random walk and intercept-prior forms.
+
+* `reweight_comps()` is in the reference index (its absence aborted the pkgdown
+  build), is referenced from the composition-diagnostics workflow in
+  `vignette("model-diagnostics")`, and cites Francis (2011) as the alternative.
+  `examples/McAllister-Ianelli-reweighting.R` now uses it rather than teaching a
+  hand-rolled tuning loop.
+
+* Reference documentation describes current behavior rather than narrating past
+  refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
+  changed, who is affected, and what to do about it.
+
+* **Each `retrospective()` peel reports its own terminal year, so the peels show
+  up in a plot.** Every peel carried the terminal year of the unpeeled model, and
+  plots take their year axis from it, so each peel was drawn across the full
+  series and they all lay on top of one another.
+  `plot_biomass(retro$Rceattle_list)` now gives the usual fan with no extra
+  arguments. Mohn's rho is unchanged.
+
+  A peel still estimates the years it dropped -- they are its retrospective
+  forecast, fit to the observed catch -- so `endyr` marks what the peel was fit
+  through, not how far it was estimated. `incl_proj = TRUE` plots those years,
+  and `data_list$endyr_full` gives the unpeeled terminal year where they end.
+
+* **`?osa_residuals` no longer carries a broken link to `parallel::mclapply()`.**
+  The `parallel` argument's cross-reference had been generated with a
+  Windows-specific file anchor (`parallel:mcdummies`, where Windows documents the
+  forking dummies); `mclapply` lives in `mclapply.Rd` on Unix, so the link
+  resolved nowhere on macOS or Linux and `R CMD check` reported it as a missing
+  link. It now points at the topic rather than a platform's file, so it resolves
+  everywhere.
+
+# Rceattle 5.5.1
+
+*Released from `main` as 4.9.1, before this development line was merged back.
+The two sections carry the same changes under different version numbers.*
+
+## Bug fixes
+
+* **The stock-recruit convergence check now runs under the Ianelli
+  configuration.** `.check_stock_recruit()` was keyed on `srr_fun`, so with
+  `srr_fun = 0` and `srr_pred_fun > 1` it returned no result at all -- the case
+  where 5.5.0 made \eqn{\alpha} estimable against a steepness prior, and so
+  exactly the case most in need of checking. It now reads `srr_pred_fun` there.
+  Steepness is the complete test: for Beverton-Holt
+  \eqn{h = \alpha \phi_0 / (4 + \alpha \phi_0)}, so \eqn{\alpha < 1/\phi_0} is
+  precisely \eqn{h < 0.2}. The reported \eqn{R_0} is not checked in that
+  configuration, because there it is the mean-recruitment level rather than a
+  value the penalty curve implies.
+
+* **`build_srr()` warns when a steepness is passed as `srr_est_mode = 0`'s
+  \eqn{\alpha}.** `srr_prior` means steepness for `srr_est_mode` 2 and 3 but
+  \eqn{\alpha} for mode 0. Since 5.5.0 fixes \eqn{\alpha} at that value under
+  the Ianelli configuration, a steepness supplied by mistake is now pinned
+  rather than merely used as a starting value, putting the curve under the
+  replacement line with a negative implied \eqn{R_0}. A Beverton-Holt
+  `srr_prior` in (0, 1) under mode 0 now warns and gives the conversion
+  \eqn{\alpha = 4h / (\phi_0 (1 - h))}. It warns rather than errors because
+  \eqn{1/\phi_0} is not known until the model is built, and a small
+  \eqn{\alpha} is legitimate for a stock with a large \eqn{\phi_0}.
+
+# Rceattle 5.5.0
+
+*Released from `main` as 4.9.0, before this development line was merged back.
+The two sections carry the same changes under different version numbers.*
+
+## New features
+
+* **`build_srr(srr_alpha_init = , srr_beta_init = )` sets the stock-recruit
+  starting values.** The package defaults (\eqn{\alpha = e^3}, \eqn{\beta = 3})
+  are placeholders that carry no knowledge of the stock's scale. \eqn{\beta} sets
+  the density dependence in \eqn{R = \alpha S / (1 + \beta S)} and needs to be of
+  order \eqn{(\alpha - 1/\phi_0)/R_0} -- typically \eqn{10^{-3}} or smaller for a
+  stock in tonnes -- so the default sits three orders of magnitude away and
+  Beverton-Holt fits returned `NA/NaN gradient evaluation` before reaching a
+  first useful step. Both arguments take natural-scale values, one per species.
+  For a Beverton-Holt seeded from steepness \eqn{h} and unfished spawning biomass
+  per recruit \eqn{\phi_0}:
+
+  ```r
+  alpha <- 4 * h / (phi0 * (1 - h))
+  build_srr(srr_fun = "BevertonHolt",
+            srr_alpha_init = alpha,
+            srr_beta_init  = (alpha - 1 / phi0) / R0)
+  ```
+
+## Bug fixes
+
+* **`init_dev` is no longer declared a random effect under
+  `initMode = "FreeParams"` (0).** `ceattle.cpp` applies the initial-deviate
+  density `dnorm(init_dev, -sigma^2/2, R_sd)` only when
+  `initMode > 1 && initMode != 5`, but `fit_mod()` added `init_dev` to the
+  Laplace random block whenever any element was free. Under mode 0 that made the
+  approximation integrate over an improper (flat) prior rather than estimate the
+  initial age structure as fixed effects, which is what mode 0 means and what
+  comparable platforms (WHAM's `N1_model = 0`, FIMS's `log_init_naa`) do.
+
+  Only `initMode = 0` combined with `random_rec = TRUE` is affected, but **for
+  that combination results move substantially** -- on a small test model the
+  objective went from -91.6 to -83.3 and SSB by ~59%, because a flat prior and a
+  fixed effect are different models. No assessment in the ecosystem uses that
+  combination (every `initMode = 0` model sets `random_rec = FALSE`), so nothing
+  in practice changes; refit if you do use it.
+
+* **`build_params()` no longer seeds the stock-recruit \eqn{\alpha} from
+  `srr_prior` when `srr_prior` is a steepness.** `srr_prior` is not the same
+  quantity for every curve: for Ricker it is a prior on \eqn{\alpha}, but for
+  Beverton-Holt it is a prior on **steepness** and must lie in (0, 1). Seeding
+  \eqn{\alpha} with `log(steepness)` started the optimizer at a near-zero
+  recruits-per-spawner. The seeding is now applied only where `srr_prior` is
+  genuinely an \eqn{\alpha}, matching the prior gates in `ceattle.cpp`.
+
+  **This changes results for Beverton-Holt models with `srr_est_mode` 2 or 3**,
+  which are the only configurations where `srr_prior` is a steepness. Six of the
+  24 `srr_est_mode` x `srr_pred_fun` combinations move; the other 18 are
+  byte-identical. In the ecosystem that is BSAI Atka mackerel
+  (`srr_est_mode = 2`, `srr_prior = 0.8`), where the starting \eqn{\alpha} goes
+  from \eqn{\log(0.8) = -0.22} to the package default and the fit moves by
+  ~6e-4 in relative SSB. Refit affected models rather than assuming the old
+  numbers carry over.
+
+* **Removed the spurious "alpha was not initialized to `srr_prior`" message.**
+  `fit_mod()` copies `recFun$srr_prior` into the `data_list` only after the
+  caller has already built parameters, so the message fired on the documented
+  workflow and was not actionable.
+
+* **A prior on steepness is now applied under the Ianelli configuration.**
+  Steepness belongs to the stock-recruit curve, but it was only ever derived
+  inside the `switch(srr_fun)` block, so with `srr_fun = 0` and
+  `srr_pred_fun > 1` -- the AMAK/Ianelli setup, where the curve is estimated as a
+  recruitment penalty -- it stayed at the mean-recruitment constant 0.99. The
+  stock-recruit prior (`srr_est_mode` 2 or 3) is evaluated on steepness, so it
+  was being applied to a constant: no gradient, no effect on \eqn{\alpha}, and a
+  large fixed offset added to the objective. Steepness is now derived from the
+  penalty curve's \eqn{\alpha} in that configuration. \eqn{R_0} is deliberately
+  left alone, since recruitment there is \eqn{R_0 \exp(\mathrm{rec\_dev})}.
+
+  **This changes results for any model combining `srr_fun = 0`,
+  `srr_pred_fun` 2 / 3, and `srr_est_mode` 2 / 3** -- in the ecosystem that is
+  BSAI Atka mackerel (`srr_prior = 0.8`, `srr_prior_sd = 0.0001`), whose
+  steepness prior previously contributed a constant ~2.27e6 to the objective and
+  did nothing else. It now constrains \eqn{\alpha} as intended. Refit and expect
+  the reported objective to change substantially, mostly through the removal of
+  that offset. Models with `srr_est_mode = 1` (no prior) are unaffected, as are
+  models whose hindcast already uses the curve (`srr_fun > 1`), where steepness
+  was always derived.
+
+* **`srr_est_mode = 0` ("fix alpha to prior mean") now works for Beverton-Holt.**
+  The gate in `fit_mod()` was Ricker-only, so a Beverton-Holt fit that supplied
+  `inits` -- the normal warm-start workflow -- had \eqn{\alpha} mapped out by
+  `build_map()` but never set to the prior mean, leaving it pinned at
+  `build_params()`' placeholder \eqn{e^3}. `build_params()` and `fit_mod()` now
+  share one rule (`.srr_prior_is_alpha()`) so the two paths cannot disagree.
+  `build_map()` now keys the \eqn{\alpha} mapping on `srr_pred_fun`, the curve
+  \eqn{\alpha} belongs to, so `srr_est_mode = 0` also fixes it under the Ianelli
+  configuration. \eqn{R_0} stays keyed on `srr_fun` and remains estimated there.
+  No model in the ecosystem currently uses `srr_est_mode = 0`.
+
+* **`srr_alpha_init` / `srr_beta_init` survive a refit.** `.refit_like()`, which
+  backs `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()`, `sample_rec()` and `reweight_comps()`, rebuilds the
+  stock-recruit specification from the stored `data_list` and now carries both
+  starting values through. Note they override a supplied `inits`, so
+  warm-starting from a previous fit's `estimated_params` restarts
+  \eqn{\alpha}/\eqn{\beta} at the specified values rather than the fitted ones;
+  leave them `NULL` to warm-start from the fit.
+
+* **`build_srr()` validates the steepness prior instead of failing silently.**
+  For a Beverton-Holt curve, `srr_est_mode` 2 and 3 put the prior on steepness,
+  so `srr_prior` must lie in (0, 1) -- this is now checked. The beta prior
+  (`srr_est_mode = 3`) additionally converts (mean, sd) to shape parameters by
+  moments, which are positive only when \eqn{sd^2 < \mu(1-\mu)}; outside that
+  range the shapes go negative and the prior is meaningless. It failed silently
+  rather than loudly, because TMB's `lgamma`-based `dbeta` returns a finite
+  value for negative shapes where R's `dbeta` returns `NaN`. Note the package
+  default `srr_prior_sd = 1` is never valid for a steepness and now errors with
+  the largest permissible value.
+
+* **`fit$initial_params` now records the parameters the model actually started
+  from.** It was captured before the blocks that overwrite `proj_F_prop`,
+  `log_Ftarget`, `log_M1` and the stock-recruit alpha / beta, so it reported
+  values no fit ever used. This was not only cosmetic: `retrospective()` and
+  `jitter()` reuse `initial_params` as their refit starting values
+  (`R/9-retro_and_jitter.R`). Those overrides are deterministic functions of the
+  `data_list` / `HCR` and are re-applied on every refit, so no fit changes --
+  confirmed bit-identical across `retrospective`, `jitter`, `self_test`,
+  `profile`, `remove_F` and three `run_mse` variants via
+  `tools/verify/verify-refit-like.R`.
+
+* **`steepness` is reported for every year, not just the first.** It is declared
+  `[nspp, nyrs]` but only column 1 was ever assigned, so
+  `fit$quantities$steepness` was a value followed by structural zeros. It is now
+  filled from the per-year alpha, which also generalizes to a time-varying
+  recruitment linkage.
+
+  `R0` is deliberately left as it was -- column 1 carries the curve-derived value
+  under Beverton-Holt and the later columns the `exp(rec_pars)` level. Filling it
+  per-year makes `R0` an AD function of alpha and beta across the whole series,
+  which feeds the reference-point and projection recruitment calls and costs
+  roughly 6x in fit time (a random-effects fit on a 30-year, 12-age model went
+  from 14 s to 91 s, with an identical objective) for a quantity that
+  Beverton-Holt recruitment does not use.
+
+* **New `stock_recruit` convergence check.** Rceattle parameterizes
+  Beverton-Holt by \eqn{\alpha} and \eqn{\beta} and derives steepness as
+  \eqn{h = \alpha \phi_0/(4 + \alpha \phi_0)}, with no lower bound -- unlike
+  WHAM, which builds \eqn{h} on (0.2, 1) by construction. Since `rec_pars`
+  carries no default bounds, the optimizer can reach \eqn{\alpha < 1/\phi_0},
+  where the stock cannot replace itself and the implied unfished recruitment
+  \eqn{R_0 = (\alpha - 1/\phi_0)/\beta} turns **negative**, propagating into the
+  initial age structure as `NaN`. `fit$convergence` now reports this as a `FAIL`
+  naming the species and the offending steepness / \eqn{R_0}.
+
 # Rceattle 5.4.0
 
 ## New features
@@ -33,11 +412,10 @@
   assessments -- ADMB/AMAK, `goa_pk`, and Rceattle's own legacy
   `Time_varying_sel` / `Time_varying_q` switches -- instead treat such deviations
   as *penalized fixed effects*: the deviations sit in the objective as a plain
-  penalty with a fixed SD and are not integrated. The two are different models,
-  not a reparametrization, so a `rw()` could not reproduce them; on the GOA
-  pollock fishery selectivity walk, integrating moved the fit by ~119 jnll units
-  (the marginal likelihood carries a Laplace log-determinant the penalized form
-  has no counterpart for) and shifted SSB ~14%.
+  penalty with a fixed SD and are not integrated. These are different models, not
+  a reparametrization, so a `rw()` could not reproduce them. On the GOA pollock
+  fishery selectivity walk, integrating moved the fit by ~119 jnll units and
+  shifted SSB ~14%.
 
   ```r
   build_selectivity(linkages = list(
@@ -45,18 +423,9 @@
                            init = list(sigma = 0.05), integrate = FALSE)))
   ```
 
-  Permitted **only with a fixed SD** (`init = list(sigma = )` and no `sigma`
-  prior; plus a fixed `rho` for `ar1`), because a variance is consistently
-  estimated only by integrating -- estimating the deviations and their SD jointly
-  as fixed effects is degenerate, with the objective improving without bound as
-  both go to zero. This is the same reason `goa_pk` fixes `sigmaR` when it treats
-  recruitment deviations as penalized. Rejected with `observe = `, whose latent
-  state must stay integrated to be identified by its observation. A model may mix
-  both treatments -- an integrated state-space catchability alongside a penalized
-  selectivity walk -- and penalized deviations get standard errors from
-  `sdreport()` like any other fixed effect. Verified against the legacy
-  random-walk catchability, which is itself a penalized fixed effect with a fixed
-  SD: the two agree exactly.
+  Permitted only with a fixed SD, and rejected with `observe = `. See
+  `?linkage_spec` for the restrictions and
+  `vignette("environmental-linkages-and-priors")` for when to prefer it.
 
 * **The linkage table records where each deviation is stored (`re_pos`).**
   `re_index` is the deviation's slot in the *global* random-effect numbering, but
@@ -95,23 +464,17 @@
   but TMB orders `obj$par` by the sequence the `PARAMETER_*` macros appear in the
   template -- and `build_params()` lists the linkage coefficients after `log_F`
   while `ceattle.cpp` declares them before it. Both vectors have the same length
-  either way, so nothing downstream could notice: the box constraints simply
-  landed on the wrong parameters. The orders disagree in four places, so this
-  reaches well beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
+  either way, so nothing downstream could notice: the box constraints landed on
+  the wrong parameters. The orders disagree in four places, so this reaches well
+  beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
   `log_Flimit`...`log_F`, `index_q_beta`/`index_q_rho`, and
-  `sel_curve_pen`/`sel_coff_dev`. A `linkage_spec(bounds = )` on a covariate
-  coefficient was applied to `log_F` and `log_F`'s `[-1000, 10]` rail to the
-  coefficient; on a growth-estimating model with no linkage at all, 5 of 12
-  `log_F` elements lost that rail while `log_growth_pars` and `growth_log_sd`
-  were wrongly capped at `[-1000, 10]`. **Fits of growth-estimating and
+  `sel_curve_pen`/`sel_coff_dev`. **Fits of growth-estimating and
   linkage-carrying models can therefore change**, since bounds that previously
-  bound the wrong parameter now bind the right one. The reference fits are
-  unaffected (their misplaced bounds never bound). Bounds are now aligned against
-  `names(obj$par)` after `MakeADFun()`, enumerated in the map's factor-level
-  order -- the order TMB itself collapses a mapped block in, which differs from
-  first-occurrence order exactly where mirrored fleets share indices out of
-  order -- and asserted non-`NA`, since `nlminb` accepts an `NA` bound silently
-  and returns `objective = Inf` with `par = NA` rather than erroring.
+  bound the wrong parameter now bind the right one; refit them. The reference
+  fits are unaffected (their misplaced bounds never bound). Bounds are now
+  aligned against `names(obj$par)` after `MakeADFun()` and asserted non-`NA`,
+  since `nlminb` accepts an `NA` bound silently and returns `objective = Inf`
+  with `par = NA` rather than erroring.
 
 * **`est_phase` no longer silently fails to fix a random-effect term.**
   `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient vector; a
@@ -122,6 +485,9 @@
   small SD). Values above `1` remain inert for every linkage row.
 
 # Rceattle 5.3.0
+
+*Also covers the unreleased 5.2.0-5.2.4 development increments, whose entries
+were folded into this section.*
 
 ## New features
 
@@ -195,22 +561,19 @@
 * **`run_mse()` refits the operating model only as far ahead as the next
   assessment needs.** Between assessments the operating model has to reach one
   assessment step past its terminal year -- far enough for the exploitable-biomass
-  cap on the next TAC -- but it was rebuilt over the whole projection every time.
-  Since `projyr` sizes the AD tape, and the tape costs roughly a fixed amount per
-  model year, most of each refit was spent on years that never influenced the
-  result. The refit now runs on the shortened horizon and the operating model is
+  cap on the next TAC -- but it was rebuilt over the whole projection every time,
+  and `projyr` sizes the AD tape, which costs roughly a fixed amount per model
+  year. The refit now runs on the shortened horizon and the operating model is
   restored to the full projection afterwards; the final assessment keeps the full
-  horizon, so the returned operating model is built exactly as before. Measured
-  at a 9% saving on a Bering Sea multispecies MSE projecting to 2040, and the
-  saving grows with the length of the projection. Single-species models see
-  little change, as their tape cost barely varies with the number of years.
+  horizon, so the returned operating model is unchanged. Measured at a 9%
+  saving on a Bering Sea multispecies MSE projecting to 2040, growing with the
+  length of the projection. Single-species models see little change.
 
-  Because the operating model now carries fewer projection rows while the refit
-  runs, `sim_mod()` draws a different number of random values, so a run with
-  `simulate_data = TRUE` will not reproduce results generated before this
-  version. Runs remain fully reproducible from a given `seed` within a version.
-  With `simulate_data = FALSE`, where no random numbers are drawn, results are
-  unchanged to the bit.
+  **A run with `simulate_data = TRUE` will not reproduce results generated before
+  this version**, because the operating model carries fewer projection rows while
+  the refit runs and `sim_mod()` therefore draws a different number of random
+  values. Runs remain fully reproducible from a given `seed` within a version.
+  With `simulate_data = FALSE` results are unchanged to the bit.
 
 ## Bug fixes
 
@@ -218,48 +581,32 @@
   limb it never estimates.** The random-walk selectivity penalty was gated on the
   selectivity *type* alone, so on a double-logistic fleet the descending-limb term
   was accumulated under mode 5 as well as mode 4. Mode 5 varies the ascending limb
-  only -- `build_map()` estimates no descending deviate under it for any
-  selectivity type -- so with `random_sel = FALSE` those deviates sat at their
-  init of 0 and the term contributed a pure constant, shifting the reported
-  objective while leaving every gradient untouched. On `GOA2018SS` (fleet 8,
-  `Time_varying_sel_sd = 0.05`, 42 years, one sex) the objective rises by exactly
-  `41 * (dnorm(0, 0, 0.05, log = TRUE) + dnorm(0, 0, 0.20, log = TRUE))` =
-  113.4590179027, verified as a constant by an unchanged gradient at two
-  independent parameter vectors. Models with no mode-5 fleet -- including
+  only, so with `random_sel = FALSE` those deviates sat at their init of 0 and the
+  term contributed a pure constant -- on `GOA2018SS` (fleet 8, 42 years, one sex)
+  exactly 113.459 objective units. Models with no mode-5 fleet -- including
   `BS2017SS` / `BS2017MS` -- are bit-identical.
 
   **A constant shift can still move the fit, and on `GOA2018SS` it does.**
   `nlminb` stops on an objective-*relative* tolerance, so an additive constant
-  changes where it halts and which local optimum it reaches. `GOA2018SS` has at
-  least two converged optima 52.9 apart; the fit now lands on the better one
-  (12868.005 rather than 12920.897 measured on the same surface), and its derived
-  quantities move with it -- **GOA Pacific cod SSB in the final projection year
-  (2050) falls 14.1%** (395,627 to 339,897 t), while SSB, recruitment and F
-  differ by up to 40%, 39% and 230% across the hindcast. Anyone carrying GOA
-  numbers forward should refit. Newton-polishing the reference pins a stationary point but does not make
-  it surface-invariant: polishing both surfaces still lands on the two different
-  optima, so `max|gradient| < 1e-4` certifies convergence, not uniqueness. A
-  jitter or multi-start check is the tool for that.
+  changes where it halts and which local optimum it reaches. The fit now lands on
+  a converged optimum 52.9 units better (12868.005 rather than 12920.897 on the
+  same surface), and the derived quantities move with it:
+  **GOA Pacific cod SSB in the final projection year (2050) falls 14.1%**
+  (395,627 to 339,897 t), while SSB, recruitment and F differ by up to 40%, 39%
+  and 230% across the hindcast. **Anyone carrying GOA numbers forward should
+  refit.**
 
   With `random_sel = TRUE` the removed term is **not** constant: `sel_dev_log_sd`
-  is estimated for a mode-5 fleet, so the term is `2n log(sigma) + const` and its
-  removal shifts that gradient by `-2 * nyrs * nsex` (-82 on `GOA2018SS`). The
-  estimated selectivity-deviation SD therefore moves -- upward, since the old term
-  pushed it down -- which rescales shrinkage on the ascending walk mode 5 does
-  estimate. The change is in the right direction (penalizing a deviate pinned at 0
-  is a spurious `-log sigma`), but it is a behaviour change for such models.
+  is estimated for a mode-5 fleet, so removing the term moves the estimated
+  selectivity-deviation SD upward and rescales shrinkage on the ascending walk.
+  The direction is right -- penalizing a deviate pinned at 0 is a spurious
+  `-log sigma` -- but it is a behavior change for such models.
 
-  All four pinned reference objectives are nevertheless restated, because the
-  reference recipe now Newton-polishes each fit. Previously they stopped on
-  `nlminb`'s objective-*relative* tolerance rather than at a stationary point, so
-  each sat slightly above its optimum -- harmlessly for the Bering Sea fits (~3e-7)
-  but badly for the Gulf of Alaska ones, whose gradients were ~3e-3 against the
-  package's own 1e-4 convergence threshold. A reference pinned at a non-stationary
-  point moves under changes that cannot alter the model: offsetting the objective
-  by a constant was enough to let `goa_ss` run on to a point 52.9 units lower. The
-  reference fits now reach true optima (gradients ~1e-11) and
-  `test-golden-regression.R` asserts convergence alongside each pinned value, so
-  the constants no longer record wherever the optimizer happened to stop.
+  All four pinned reference objectives are restated: the reference recipe now
+  Newton-polishes each fit to a stationary point (gradients ~1e-11) instead of
+  stopping on `nlminb`'s relative tolerance, and `test-golden-regression.R`
+  asserts convergence alongside each pinned value. Note this certifies
+  convergence, not uniqueness -- use a jitter or multi-start check for that.
   `fit_control()`'s `newtonsteps = 0` default is unchanged; this affects the
   reference recipe only, not any user fit.
 
@@ -464,7 +811,7 @@
   requires (every mode reads only columns `1:(nages - 1)`). No fit changes:
   `build_params()` is bit-identical for all six modes on `BS2017SS` and
   `BS2017MS`, from both string and integer input. This was the only place whose
-  behaviour depended on the lexicographic value of a switch alias, so an alias
+  behavior depended on the lexicographic value of a switch alias, so an alias
   beginning with a digit can no longer flip it.
 
 ## Behavior changes
@@ -484,14 +831,11 @@
   value, so those models -- including the bundled examples -- are unaffected, and
   an MSE over them is bit-identical. Under a Dirichlet-multinomial it is
   estimated and can move a long way: fitting `BS2017SS` with DM composition puts
-  the weights between -0.6 and 12.7, starting from the default column value of 1.
-  (Both figures are on the log scale, which is the scale the column itself holds
-  under a Dirichlet-multinomial -- the model uses `exp(Comp_weights)`. Under a
-  multinomial the column is the natural-scale multiplier instead.) Every
-  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()` refit
-  previously discarded those estimates and restarted from the column, so results
-  move for any DM model, and the earlier behaviour was throwing away a fitted
-  quantity rather than merely re-seeding it.
+  the weights between -0.6 and 12.7 (log scale), starting from the default column
+  value of 1. **Results therefore move for any DM model** under every
+  `run_mse()`, `retrospective()`, `jitter()`, `self_test()` and `profile()`
+  refit, each of which previously discarded the fitted estimate and restarted
+  from the column.
 
   Editing a `Comp_weights` column and re-fitting from an existing fit no longer
   has an effect. Either build the model afresh (`inits = NULL`), or set the
@@ -603,11 +947,11 @@
 ## Bug fixes
 
 * **Random-effect deviate SDs are now held during phasing.** The 5.0.4 phased
-  random-effect warm-up (deviates estimated as penalised fixed effects before the Laplace
+  random-effect warm-up (deviates estimated as penalized fixed effects before the Laplace
   step) held every process's variance hyperparameter fixed except three observation/deviate
   SDs: `log_sigma_linkage` and `log_obs_sd_linkage` (the `~ (1 | Year)` / `rw()` / `ar1()`
   and Rogers-2024 QAR1 SDs) and `index_q_log_sd` (the legacy `Catchability = "AR1"` q
-  observation SD). Left free, each was estimated jointly with its own penalised deviates and
+  observation SD). Left free, each was estimated jointly with its own penalized deviates and
   could collapse toward 0, so a *phased* fit silently converged to the random-effect-*off*
   solution -- the estimated time-variation vanished -- instead of the correct optimum. All
   three are now held during phasing like every other process SD. Fits without these random
@@ -636,13 +980,13 @@
 
 * **Random-effect models phase without a flat-field NaN.** During phasing, the
   deviates of a random effect (recruitment, selectivity, catchability, ...) are now
-  estimated as *penalised fixed effects* with their variance / correlation
+  estimated as *penalized fixed effects* with their variance / correlation
   hyperparameters held, and the Laplace approximation is switched on only in the
   final hindcast fit. Previously the deviates were integrated out from the first
   phase, so a random field started flat (all-zero); for a 2D AR1 selectivity
   (`random_sel = TRUE`), integrating a flat field gives a `NaN` marginal objective
   and the fit could not start without an external warm start. Phasing the deviates
-  as penalised effects first builds up realistic non-zero values, so the final
+  as penalized effects first builds up realistic non-zero values, so the final
   Laplace begins near the mode. Gated on the presence of random effects, so fits
   without any are unchanged (the four reference models remain bit-identical).
 
@@ -698,6 +1042,9 @@
 
 # Rceattle 5.0.0
 
+*Also covers the unreleased 4.14.0 development increment, whose entries were
+folded into this section.*
+
 ## Breaking changes
 
 * **`mse_summary()` now returns a per-entity list instead of one stacked
@@ -739,7 +1086,7 @@
 ## Bug fixes
 
 * The NA-handling diagnostic in `check_caal_data()` now reports "CAAL data
-  have NAs ..." instead of mislabelling them as "Composition data" (the
+  have NAs ..." instead of mislabeling them as "Composition data" (the
   message was copy-pasted from `check_composition_data()`). Message text only;
   no change to the data or fit.
 
@@ -815,12 +1162,12 @@
 
 ## Bug fixes
 
-* **Robust workbook reads.** `read_data()` now errors clearly when a required
-  sheet (`control`, `fleet_control`) is missing and skips optional sheets when
-  absent, so a minimal single-species workbook reads cleanly instead of failing
-  with a cryptic error. A non-numeric cell in the control or bioenergetics rows
-  now errors by name instead of silently becoming `NA`. `rearrange_data()` fails
-  clearly on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
+* **`read_data()` names the offending sheet or cell instead of failing
+  cryptically.** A required sheet (`control`, `fleet_control`) is named when
+  absent, and optional sheets are skipped, so a minimal single-species workbook
+  reads cleanly. A non-numeric cell in the control or bioenergetics rows is named
+  rather than silently becoming `NA`. `rearrange_data()` likewise fails clearly
+  on a malformed `fleet_control` rather than via a cryptic `dplyr` error.
 
 * **Removed the dead accumulation-age feature.** `Accumulation_age_lower/upper`
   were only range-validated and never applied to composition data; they are
@@ -860,7 +1207,7 @@
   a vector of length `nspp` so each predator can average its suitability over a
   different set of years — e.g. a California Current model with hake 1980–2019,
   arrowtooth 2013–2018, and sablefish 2005–2008. A single scalar is recycled to
-  every predator, exactly reproducing the previous global-window behaviour
+  every predator, exactly reproducing the previous global-window behavior
   (`BS2017MS` and the golden references are unchanged to numerical tolerance).
   Internally `suit_styr` / `suit_endyr` became per-predator `DATA_IVECTOR`s and
   the suitability-averaging and stomach-content prediction loops index them by
@@ -942,7 +1289,7 @@
                fleet_control = fc, catch_data = catch, index_data = survey)
     ```
 
-  Overrides are checked against the recognised schema, so a typo (`maturty`) is
+  Overrides are checked against the recognized schema, so a typo (`maturty`) is
   caught at construction with a suggestion rather than surfacing later in a fit;
   legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to
   their canonical equivalents. Validation is deferred to `data_check()` at fit
@@ -964,7 +1311,7 @@
   `fit_mod()`'s signature and defaults are unchanged; when a data list carries a
   `model_config`, `fit_mod()` reads each field only for arguments the caller did
   **not** pass (detected with `missing()`), and an explicitly-passed argument
-  always overrides the slot. With no slot present the behaviour is byte-identical
+  always overrides the slot. With no slot present the behavior is byte-identical
   (a `BS2017SS` fit is bit-identical). A call that passes an argument — even at
   its default — overrides the slot, so omit the argument to let the configuration
   take effect. The slot is code-side structure, not a workbook sheet, so it does
@@ -1131,7 +1478,7 @@
   bundled example datasets (as has the unused `Selectivity_block`). Existing models
   are bit-identical.
 
-* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favour
+* **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are soft-deprecated in favor
   of random-effect linkages.** `fit_mod()` now warns (naming the fleets/species and
   the grammar equivalent) when a model uses these legacy time-variation switches,
   pointing at `build_catchability()` / `build_selectivity()` / `build_M1()` with
@@ -1190,7 +1537,7 @@
 
 * Linkage formulas are now parsed with the **`reformulas`** package (shared by
   lme4 and glmmTMB), so `(1 | Year)` / `ar1(Year + 0 | fleet)` syntax is
-  recognised and an unknown covariance-structure wrapper errors instead of
+  recognized and an unknown covariance-structure wrapper errors instead of
   silently degrading to unstructured.
 
 ## Behavior changes

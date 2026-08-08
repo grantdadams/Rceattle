@@ -2,12 +2,12 @@
 #'
 #' Plots a timeline of presence/absence (and optionally relative quantity) of
 #' the data sources contributing to an Rceattle model's likelihood, by year and
-#' fleet. Modelled after Stock Synthesis's `r4ss::SSplotData()`.
+#' fleet. Modeled after Stock Synthesis's `r4ss::SSplotData()`.
 #'
 #' Years with `Year > 0` contribute to the likelihood; rows with `Year < 0`
 #' (kept for fitting comparison only) are shown when `ghost = TRUE`. Diet data
 #' uses `Year == 0` for the fixed reference stomach composition; those entries
-#' are plotted at the model `endyr` and labelled per predator species.
+#' are plotted at the model `endyr` and labeled per predator species.
 #'
 #' @param Rceattle Either a single Rceattle model object exported from
 #'   \code{Rceattle::fit_mod()}, or a raw `data_list` (e.g. one of the
@@ -18,8 +18,8 @@
 #'   the bubble subplot).
 #' @param subplots Integer vector controlling which subplots are produced:
 #'   \itemize{
-#'     \item 1 — equal-size points showing presence/absence by year/fleet
-#'     \item 2 — points scaled to relative quantity / precision within each
+#'     \item 1 -- equal-size points showing presence/absence by year/fleet
+#'     \item 2 -- points scaled to relative quantity / precision within each
 #'       data type (catch tonnage, 1/SE for indices, sample size for comps)
 #'   }
 #' @param datatypes Either `"all"` or a subset of
@@ -41,11 +41,11 @@
 #' @param cex Character expansion for points showing isolated years.
 #' @param lwd Line width for runs of consecutive years (subplot 1).
 #' @param maxsize Max bubble radius (in plot units) for subplot 2.
-#' @param alphasize Bubble fill transparency (0–1).
+#' @param alphasize Bubble fill transparency (0-1).
 #' @param mainTitle Logical; if `TRUE` add a default title.
 #' @param cex.main Title character expansion.
 #'
-#' @return Invisibly, a list with `typetable` — the long data frame underlying
+#' @return Invisibly, a list with `typetable` -- the long data frame underlying
 #'   the plot (year, fleet, data type, relative size).
 #'
 #' @export

@@ -15,5 +15,5 @@ prior_gamma(shape, rate)
 An \code{Rceattle_prior} of family \code{"gamma"}.
 }
 \description{
-Shape-rate parameterization, matching \code{\link[stats:dgamma]{stats::dgamma()}}.
+Shape-rate parameterization, matching \code{\link[stats:GammaDist]{stats::dgamma()}}.
 }
