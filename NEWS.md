@@ -176,6 +176,14 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **`?osa_residuals` no longer carries a broken link to `parallel::mclapply()`.**
+  The `parallel` argument's cross-reference had been generated with a
+  Windows-specific file anchor (`parallel:mcdummies`, where Windows documents the
+  forking dummies); `mclapply` lives in `mclapply.Rd` on Unix, so the link
+  resolved nowhere on macOS or Linux and `R CMD check` reported it as a missing
+  link. It now points at the topic rather than a platform's file, so it resolves
+  everywhere.
+
 # Rceattle 5.5.1
 
 *Released from `main` as 4.9.1, before this development line was merged back.
