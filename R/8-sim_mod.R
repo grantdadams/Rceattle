@@ -222,9 +222,9 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
   # of the objective -- the sampled recruitment would silently not be used.
   # Drawing into x_tj[, rec_dev_col] instead is the open design question.
   if (.has_dsem(Rceattle)) {
-    stop("sample_rec() does not yet support a DSEM: recruitment deviations are ",
-         "derived from the DSEM latent states, so a draw into rec_dev would ",
-         "not be used.", call. = FALSE)
+    stop("sample_rec() does not yet support a DSEM: the recruitment deviations ",
+         "come from the latent states, so a draw into rec_dev is not used.",
+         call. = FALSE)
   }
 
   # Years for simulations

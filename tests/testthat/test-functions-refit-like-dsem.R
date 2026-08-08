@@ -33,7 +33,7 @@ testthat::test_that("the DSEM spec actually reaches fit_mod() through the refit"
   testthat::expect_error(
     suppressWarnings(suppressMessages(Rceattle:::.refit_like(
       data_list = dl, inits = base$estimated_params, estimateMode = 3))),
-    "not yet wired into the compiled model")
+    "not yet wired into the TMB template")
 
   # ...and an explicit dsem = NULL overrides the data list, so a caller can opt
   # out. This is what makes the default a default rather than a hard-wire.

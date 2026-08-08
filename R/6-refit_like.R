@@ -226,9 +226,8 @@
 # instead, at the entry point.
 .stop_if_dsem <- function(Rceattle, what) {
   if (.has_dsem(Rceattle)) {
-    stop(what, "() does not yet support a DSEM: the recruitment deviations are ",
-         "derived from the DSEM latent states, so the refit machinery this ",
-         "diagnostic relies on does not apply to them yet.", call. = FALSE)
+    stop(what, "() does not yet support a DSEM. Use the dev-DSEM branch for ",
+         "DSEM diagnostics.", call. = FALSE)
   }
   invisible(NULL)
 }

@@ -2,40 +2,37 @@
 
 ## New features
 
-* **`fit_mod(dsem = build_DSEM(...))` threads a DSEM specification through the
-  model, and diagnostics inherit it.** `.refit_like()` -- the engine behind
-  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
-  `remove_F()`, `sample_rec()` and `reweight_comps()` -- now carries the
-  specification into every refit, so a diagnostic cannot silently report results
-  for a model without the recruitment structure under test. The specification
-  also round-trips through `save_config()` / `load_config()` and is recorded on
-  `fit$run_config`. `dsem = NULL` (the default) leaves the model unchanged.
+* **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model on
+  the recruitment deviations.** The deviations become latent states of a GMRF, so
+  environmental covariates and lagged or simultaneous paths drive recruitment.
+  The specification round-trips through `save_config()` / `load_config()` and is
+  recorded on `fit$run_config`; `retrospective()`, `jitter()`, `profile()` and
+  the other refitting diagnostics inherit it, so they cannot report results for a
+  model without the recruitment structure being tested. `dsem = NULL` (the
+  default) is unchanged.
 
-  The compiled model does not yet carry the DSEM blocks, so a DSEM fit stops
-  with a directed message rather than an opaque TMB error, and the diagnostics
-  that cannot support one yet (all of the above) refuse explicitly instead of
-  failing in assorted obscure ways.
+  The TMB template does not yet carry the DSEM blocks, so a DSEM fit stops with
+  a message saying so, and the diagnostics that cannot support one yet refuse
+  outright rather than failing obscurely. Use the `dev-DSEM` branch to fit a DSEM
+  model in the meantime.
 
-* **`build_DSEM(estimate_projection = FALSE)` now excludes the projection years
-  from the DSEM likelihood outright.** The latent state space is built over
-  `styr:endyr`, so projection years are absent from the GMRF rather than present
-  and pinned, and projection recruitment comes from the usual projection method.
-  Previously those rows were retained and mapped off, which fixes their values
-  but leaves them in the quadratic form, where lagged SEM paths couple them to
-  the terminal hindcast years and exert a spurious shrinkage pull on the terminal
-  recruitment deviations -- and so on terminal SSB and the ABC.
-  `estimate_projection = TRUE` still extends the state space to `projyr` and
-  projects recruitment through the SEM.
+* **`summary()` reports the SEM path coefficients and the recruitment SD** for a
+  DSEM fit: `coefficients` (one row per path, with `Estimate`, `Std_Error`,
+  `z_value`, `p_value`) and `recruitment_sd` (per species, with whether the SD
+  was estimated or fixed). The three uncertainty columns are always present and
+  `NA` without an `sdreport`, so tables from several fits can be row-bound. Note
+  that a two-headed (`<->`) variance row's sign is not identified and its Wald
+  p-value is a boundary test, so neither is interpretable in the usual way. Fits
+  without a DSEM are unaffected.
 
-* **`summary()` reports DSEM path coefficients and the recruitment SD.** When a
-  fit carries a dynamic structural equation model on recruitment deviations,
-  `summary()` now returns a list with `coefficients` -- one row per SEM path,
-  with `Estimate`, `Std_Error`, `z_value` and `p_value` -- and `recruitment_sd`,
-  one row per species giving the SD the model used, whether it was estimated or
-  fixed, and its standard error. `Std_Error` / `z_value` / `p_value` are always
-  present, `NA` when the fit carries no `sdreport`, so tables from several fits
-  can be row-bound. Fits without a DSEM are unaffected: `summary()` prints the
-  model overview and returns the fit invisibly, exactly as before.
+## Bug fixes
+
+* **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
+  of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
+  They were previously built to `projyr` and held fixed, which still leaves them
+  in the GMRF, where lagged paths tie them to the last hindcast years and pull on
+  the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
+  with `projyr > endyr` will change; that difference is the bias being removed.
 
 # Rceattle 5.6.0
 

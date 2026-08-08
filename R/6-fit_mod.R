@@ -582,10 +582,9 @@ fit_mod <-
       # nor declares the DSEM DATA/PARAMETER blocks, so handing these objects to
       # MakeADFun would fail deep inside TMB with an opaque message about
       # unknown data names. Fail here instead, with somewhere to go.
-      stop("DSEM is not yet wired into the compiled model: the R-side inputs ",
-           "build correctly, but the TMB template does not yet carry the DSEM ",
-           "blocks. Use the `dev-DSEM` branch to fit a DSEM model in the ",
-           "meantime.", call. = FALSE)
+      stop("DSEM is not yet wired into the TMB template. The specification is ",
+           "valid -- its inputs built -- but the model cannot fit it yet. Use ",
+           "the dev-DSEM branch in the meantime.", call. = FALSE)
     }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

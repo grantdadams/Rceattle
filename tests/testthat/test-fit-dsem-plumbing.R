@@ -80,7 +80,7 @@ testthat::test_that("supplying a dsem builds its inputs, then reports the C++ ga
       random_rec = TRUE, msmMode = 0,
       dsem = Rceattle::build_DSEM(sem = sem_for(d$nspp)),
       fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0)))),
-    "not yet wired into the compiled model"
+    "not yet wired into the TMB template"
   )
 })
 

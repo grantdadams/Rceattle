@@ -207,9 +207,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # Neither of the assessments driving this work uses run_mse() with a DSEM, so
   # this is deferred rather than guessed at.
   if (.has_dsem(om) || .has_dsem(em)) {
-    stop("run_mse() does not yet support a DSEM. Recruitment deviations are ",
-         "derived from the DSEM latent states, so the recruitment sampling and ",
-         "projection-horizon handling an MSE needs are not defined for it yet.",
+    stop("run_mse() does not yet support a DSEM. Fit the operating and ",
+         "estimation models without one, or use the dev-DSEM branch.",
          call. = FALSE)
   }
 
