@@ -16,12 +16,11 @@ testthat::test_that("single-species DSEM models converge with phase = TRUE", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("dsem")
   testthat::skip_on_cran()
-  # DSEM is present on this branch but not yet wired into the model: fit_mod()
-  # has no `dsem` argument and ceattle.cpp does not include dsem.hpp. Both
-  # reference objectives below predate the v5.0 likelihood and will move once
-  # DSEM lands. Re-pin them and drop this skip at Stage D of
-  # dev/PLAN-dsem-integration.md.
-  testthat::skip("DSEM not yet wired into fit_mod() on this branch")
+  # Reference objectives below were pinned on dev-DSEM and predate the v5.0
+  # likelihood (bias adjustment alone moves it by hundreds of units), so they
+  # cannot hold here. The DSEM path is covered by test-dsem-recruitment-hook.R;
+  # re-pin these against a converged v5.0 fit before relying on them.
+  testthat::skip("reference objectives predate v5.0; see test-dsem-recruitment-hook.R")
 
   data("GOApollock", package = "Rceattle")
   GOApollock$projyr <- 2020

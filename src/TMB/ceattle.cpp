@@ -943,12 +943,25 @@ Type objective_function<Type>::operator() () {
   // dsem_on: with no DSEM this block does not execute and the standard
   // parameterization is untouched.
   Type jnll_dsem = 0;
+  array<Type> dsem_z_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_z_tj.setZero();
   if(dsem_on == 1){
     calculate_dsem(jnll_dsem, dsem_options, dsem_RAM, dsem_RAMstart,
                    dsem_familycode_j, dsem_linkcode_j, dsem_sigmastart_j,
                    dsem_eps_tj, dsem_y_tj, dsem_obs_idx, dsem_unobs_idx,
                    dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
-                   dsem_x_tj);
+                   dsem_x_tj, dsem_z_tj);
+
+    // Dimension contract for THIS call site. calculate_dsem() checks its own
+    // inputs against each other; nyrs_dsem and rec_dev_col are ours.
+    if(nyrs_dsem > rec_dev.cols())
+      Rf_error("DSEM spans %d years but rec_dev has %d columns -- the DSEM was built for a different model",
+               (int)nyrs_dsem, (int)rec_dev.cols());
+    if(nyrs_dsem > dsem_z_tj.rows())
+      Rf_error("DSEM spans %d years but the latent states have %d rows",
+               (int)nyrs_dsem, (int)dsem_z_tj.rows());
+    if(rec_dev_col.size() != nspp)
+      Rf_error("rec_dev_col has %d entries, expected %d (one per species)",
+               (int)rec_dev_col.size(), nspp);
 
     for(sp = 0; sp < nspp; sp++){
       // R_sd FIRST -- the bias correction below uses it. The recruitment SD is
@@ -965,15 +978,18 @@ Type objective_function<Type>::operator() () {
       // whole-row assignment would be a dimension error, or worse would
       // misalign if the lengths happened to match.
       //
-      // The GMRF centres the latent states at 0; the standard recruitment
-      // density centres the deviations at -sigma^2/2 so that E[R] = R0
-      // (lognormal bias correction). Apply the same offset, or a model would
-      // change its shrinkage target -- and its recruitment, SSB and ABC --
-      // purely by being given a DSEM, while init_dev below kept its correction.
-      // bias_adjust_proc = 0 turns both off together.
+      // TODO: lognormal bias correction. The GMRF centres the latent states at
+      // 0, while the standard recruitment density centres the deviations at
+      // -sigma^2/2 so that E[R] = R0. A DSEM model therefore has a different
+      // shrinkage target from the equivalent non-DSEM model, and init_dev keeps
+      // its correction either way. Not applied yet because the naive
+      // -bias_adjust_proc*R_sd^2/2 is only right for an IID sem: R_sd here is
+      // the GMRF's CONDITIONAL (innovation) SD, and the correction needs the
+      // MARGINAL SD of the recruitment-deviation column, which for a lagged sem
+      // (rho) is sigma/sqrt(1-rho^2) and is not stationary under
+      // constant_variance = "conditional". Deriving it from Sigma_kk is the fix.
       for(yr = 0; yr < nyrs_dsem; yr++){
-        rec_dev(sp, yr) = dsem_x_tj(yr, rec_dev_col(sp))
-                          - bias_adjust_proc*square(R_sd(sp))/2.0;
+        rec_dev(sp, yr) = dsem_z_tj(yr, rec_dev_col(sp));
       }
     }
   }

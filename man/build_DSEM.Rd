@@ -46,7 +46,8 @@ Default \code{FALSE} builds the latent states over the hindcast
 likelihood; projection recruitment then comes from the usual method (mean
 recruitment or the stock-recruit relationship). \code{TRUE} extends them to
 \code{projyr} and projects recruitment through the SEM -- pair it with
-\code{proj_mean_rec = TRUE}, or those states are estimated and never used.
+\code{proj_mean_rec = FALSE}, or projected recruitment is set to mean
+recruitment and the estimated projection states are never used.
 \code{FALSE} leaves the projection years out, rather than holding them
 fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 the last hindcast years and pull on the terminal recruitment deviations.}

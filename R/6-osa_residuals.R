@@ -116,6 +116,7 @@ osa_residuals <- function(fit,
   if (!inherits(fit, "Rceattle")) {
     stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
   }
+  .stop_if_dsem(fit, "osa_residuals")
   if (is.null(fit$obj)) {
     stop("'fit' has no TMB object ($obj); OSA residuals require the fitted ",
          "model object.")

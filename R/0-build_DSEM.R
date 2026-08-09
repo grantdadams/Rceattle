@@ -32,7 +32,9 @@
 #'   likelihood; projection recruitment then comes from the usual method (mean
 #'   recruitment or the stock-recruit relationship). \code{TRUE} extends them to
 #'   \code{projyr} and projects recruitment through the SEM -- pair it with
-#'   \code{proj_mean_rec = TRUE}, or those states are estimated and never used.
+#'   \code{proj_mean_rec = FALSE} (required): under mean-recruitment projection
+#'   the projected recruitment is \code{avg_R} and the SEM's projection states
+#'   reach only the dynamic B0/BF reference series.
 #'   \code{FALSE} leaves the projection years out, rather than holding them
 #'   fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 #'   the last hindcast years and pull on the terminal recruitment deviations.
@@ -179,6 +181,40 @@ dsem_family_object <- function( fam ){
   )
 }
 
+# The DSEM parameter blocks in a shape merge_dsem_params() can consume: named
+# for the template, with the built starting values.
+#' @noRd
+.dsem_par_shape <- function(dsem) {
+  list(tmb_inputs = list(parameters = .dsem_par_template(dsem)))
+}
+
+# A warm start must match the DSEM this fit is building. inits from another fit
+# -- a different year span, a different sem -- would otherwise be reinterpreted
+# silently against the new dimensions.
+#' @noRd
+.dsem_check_shape <- function(param_list, dsem) {
+  if (is.null(dsem)) return(param_list)
+  want <- .dsem_par_template(dsem)
+  for (nm in names(want)) {
+    got <- param_list[[nm]]
+    # Absent, or present-but-empty (a warm start from a non-DSEM fit carries the
+    # zero-length blocks): nothing to conflict with, take the template's.
+    if (is.null(got) || length(got) == 0L) {
+      param_list[[nm]] <- want[[nm]]
+      next
+    }
+    if (!identical(dim(got), dim(want[[nm]])) || length(got) != length(want[[nm]])) {
+      stop("`inits` carries a `", nm, "` of ",
+           paste(dim(got) %||% length(got), collapse = "x"),
+           " but this DSEM needs ",
+           paste(dim(want[[nm]]) %||% length(want[[nm]]), collapse = "x"),
+           ". Rebuild the starting values for this model (inits = NULL).",
+           call. = FALSE)
+    }
+  }
+  param_list
+}
+
 # DSEM map entries, renamed onto the template's dsem_-prefixed parameter names.
 # build_dsem_objects() names them as dsem::dsem() does (beta_z, x_tj, ...); the
 # CEATTLE template prefixes them so they cannot collide with anything already in
@@ -242,7 +278,8 @@ dsem_family_object <- function( fam ){
 # extras and MakeADFun then rejects parameters the template never declares.
 # Kept as a constant rather than derived from a built object, because the scrub
 # has to happen precisely when no DSEM object exists.
-.DSEM_PARAM_NAMES <- c("beta_z", "lnsigma_z", "mu_j", "delta0_j", "x_tj")
+.DSEM_PARAM_NAMES <- paste0("dsem_", c("beta_z", "lnsigma_z", "mu_j",
+                                       "delta0_j", "x_tj"))
 
 # The sem variable-name stems, one per drivable process. Deliberately separate
 # from the registry above: the stems are a property of the grammar, not of any
@@ -526,11 +563,13 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # never used.
   if( isTRUE(dsem_settings$estimate_projection) &&
       isTRUE(as.logical(data_list$proj_mean_rec)) ){
-    warning("`estimate_projection = TRUE` with `proj_mean_rec = TRUE` is ",
-            "inconsistent: projected recruitment is then set to mean ",
-            "recruitment and the estimated projection SEM states are never ",
-            "used. Set `proj_mean_rec = FALSE` to project recruitment through ",
-            "the SEM, or `estimate_projection = FALSE`.", call. = FALSE)
+    warning("`estimate_projection = TRUE` with `proj_mean_rec = TRUE`: ",
+            "projected recruitment is set to avg_R, so the SEM's projection ",
+            "states do not drive it -- they reach only the dynamic B0/BF ",
+            "reference series (which does set the ABC under DynamicHCR = 1). ",
+            "Set `proj_mean_rec = FALSE` to project recruitment through the ",
+            "SEM, or `estimate_projection = FALSE` to leave the projection ",
+            "years out of the DSEM.", call. = FALSE)
   }
 
   # Number of DSEM time steps, and whether they cover the projection. The C++

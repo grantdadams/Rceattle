@@ -46,18 +46,20 @@ testthat::test_that("a DSEM warm start is scrubbed when the fit has no DSEM", {
     estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fc)))
 
   poisoned <- base$estimated_params
-  poisoned$beta_z    <- c(0.5, 0.8)
-  poisoned$lnsigma_z <- 0
-  poisoned$mu_j      <- c(0, 0)
-  poisoned$delta0_j  <- c(0, 0)
-  poisoned$x_tj      <- matrix(0, 5, 2)
+  # The names a DSEM fit on this branch actually carries (the template prefixes
+  # them); an unprefixed set would not be scrubbed and is not what occurs.
+  poisoned$dsem_beta_z    <- c(0.5, 0.8)
+  poisoned$dsem_lnsigma_z <- 0
+  poisoned$dsem_mu_j      <- c(0, 0)
+  poisoned$dsem_delta0_j  <- c(0, 0)
+  poisoned$dsem_x_tj      <- matrix(0, 5, 2)
 
   refit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
     data_list = Rceattle::BS2017SS, inits = poisoned, file = NULL,
     estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fc)))
 
-  testthat::expect_false(any(c("beta_z", "lnsigma_z", "mu_j", "delta0_j", "x_tj")
-                             %in% names(refit$initial_params)))
+  testthat::expect_true(all(lengths(refit$initial_params[
+    c("dsem_beta_z", "dsem_lnsigma_z", "dsem_mu_j", "dsem_delta0_j", "dsem_x_tj")]) == 0))
   testthat::expect_identical(refit$obj$fn(), base$obj$fn())
 })
 

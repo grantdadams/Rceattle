@@ -127,7 +127,14 @@ void calculate_dsem(
     vector<Type> lnsigma_z,
     vector<Type> mu_j,
     vector<Type> delta0_j,
-    array<Type> x_tj
+    array<Type> x_tj,
+
+    // Output. The latent STATE, which is not always x_tj: under the projecting
+    // parameterizations a node with no exogenous variance is deterministic, its
+    // x_tj entry is mapped out, and its value is computed here. A caller that
+    // reads x_tj for such a node silently gets 0. Passed by reference, so it
+    // cannot be confused with the by-value arrays above.
+    array<Type> &z_tj_out
 ) {
   using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
@@ -571,6 +578,9 @@ void calculate_dsem(
     //REPORT( dev_o );
     jnll_gmrf = GMRF( Q_oo )( dev_o );
   }
+  // Hand the resolved states back before the observation loop consumes them.
+  z_tj_out = z_tj;
+
   // The four branches above are independent ifs and jnll_gmrf starts at zero, so
   // an unrecognized value would leave the latent states with NO process density
   // -- free parameters, a converged fit, and no warning. Upstream dsem has an

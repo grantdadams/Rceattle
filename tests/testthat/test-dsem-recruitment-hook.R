@@ -58,34 +58,11 @@ testthat::test_that("a base DSEM equals a non-DSEM fit with bias correction off"
   testthat::expect_gt(sum(a$jnll_comp[22L, ]), 0)   # and it is not trivially zero
 })
 
-testthat::test_that("bias correction is applied to the deviations under a DSEM", {
-  testthat::skip_on_cran()
-  testthat::skip_if_not_installed("TMB")
-  testthat::skip_if_not_installed("dsem")
-
-  # Without this the GMRF would centre the deviations at 0 while the standard
-  # density centres them at -sigma^2/2 -- so giving a model a DSEM would change
-  # its shrinkage target, and its recruitment, SSB and ABC, silently. init_dev
-  # keeps its correction either way, so the two must not disagree.
-  d <- Rceattle::BS2017SS
-  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
-
-  on  <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
-    data_list = d, inits = NULL, file = NULL, estimateMode = 3, random_rec = TRUE,
-    msmMode = 0, dsem = Rceattle::build_DSEM(),
-    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0))))
-  off <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
-    data_list = d, inits = NULL, file = NULL, estimateMode = 3, random_rec = TRUE,
-    msmMode = 0, dsem = Rceattle::build_DSEM(),
-    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0,
-                                        bias_adjust_proc = FALSE))))
-
-  # At x_tj = 0 the deviations differ by exactly -sigma^2/2 per species.
-  sd_on <- on$quantities$R_sd
-  testthat::expect_equal(as.numeric(on$quantities$R), 
-                         as.numeric(off$quantities$R) * exp(-sd_on^2 / 2)[1],
-                         tolerance = 1e-6)
-})
+# NOTE: lognormal bias correction is NOT applied to the DSEM deviations yet --
+# see the TODO in ceattle.cpp section 5.5b. The naive -R_sd^2/2 is only right for
+# an IID sem; R_sd there is the GMRF's conditional SD, not the marginal one a
+# lagged sem needs. So a DSEM model and its non-DSEM analogue agree only with
+# bias_adjust_proc = FALSE, which is what the equivalence above uses.
 
 testthat::test_that("the density is exercised away from x_tj = 0, and never double counted", {
   testthat::skip_on_cran()

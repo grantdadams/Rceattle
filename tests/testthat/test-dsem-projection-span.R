@@ -16,7 +16,7 @@ dsem_test_data <- function(styr = 1990, endyr = 2010, projyr = 2020) {
     spnames = "spp1",
     sigma_rec_prior = 1,
     random_rec = TRUE,
-    proj_mean_rec = TRUE,
+    proj_mean_rec = FALSE,   # SEM-driven projection; required by estimate_projection = TRUE
     env_data = data.frame(Year = styr:projyr,
                           BT = as.numeric(scale(seq_len(projyr - styr + 1))))
   )
@@ -90,17 +90,28 @@ testthat::test_that("a model with no projection years is unaffected by the switc
   testthat::expect_equal(on$tmb_inputs$data$nyrs_dsem, nyrs)
 })
 
-testthat::test_that("estimate_projection = TRUE with proj_mean_rec = FALSE warns", {
+testthat::test_that("estimate_projection = TRUE with proj_mean_rec = TRUE warns", {
   testthat::skip_if_not_installed("dsem")
 
   d <- dsem_test_data()
-  d$proj_mean_rec <- FALSE
+  d$proj_mean_rec <- TRUE
 
+  # Under proj_mean_rec the projection is R = avg_R, so the SEM's projection
+  # states do not drive projected recruitment (they reach only the dynamic
+  # B0/BF series). Estimating them for that is a configuration mistake worth
+  # refusing rather than letting the SEM look active in the projection.
   testthat::expect_warning(
     build_dsem_objects(
       dsem_settings = build_DSEM(sem = "recdevs1 <-> recdevs1, 0, sigmaR1, 1",
                                  estimate_projection = TRUE),
       data_list = d),
-    "never used"
+    "do not drive it"
   )
+  # ...and stays silent on the pairing that actually projects through the SEM.
+  d2 <- dsem_test_data(); d2$proj_mean_rec <- FALSE
+  testthat::expect_silent(
+    build_dsem_objects(
+      dsem_settings = build_DSEM(sem = "recdevs1 <-> recdevs1, 0, sigmaR1, 1",
+                                 estimate_projection = TRUE),
+      data_list = d2))
 })

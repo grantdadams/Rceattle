@@ -128,10 +128,10 @@
 #' }
 #' @export
 retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
+  .stop_if_dsem(Rceattle, "retrospective")
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
-  .stop_if_dsem(Rceattle, "retrospective")
 
   # Peels inherit the input model's sdreport setting unless overridden. Mohn's
   # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
@@ -602,10 +602,10 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' }
 #' @export
 jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf) {
+  .stop_if_dsem(Rceattle, "jitter")
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
-  .stop_if_dsem(Rceattle, "jitter")
 
   # Jitters inherit the input model's sdreport setting unless overridden;
   # multimodality is judged from objectives and point estimates, not sdrep.

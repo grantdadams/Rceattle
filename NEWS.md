@@ -2,19 +2,21 @@
 
 ## New features
 
-* **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model on
-  the recruitment deviations.** The deviations become latent states of a GMRF, so
-  environmental covariates and lagged or simultaneous paths drive recruitment.
-  The specification round-trips through `save_config()` / `load_config()` and is
-  recorded on `fit$run_config`; `retrospective()`, `jitter()`, `profile()` and
-  the other refitting diagnostics inherit it, so they cannot report results for a
-  model without the recruitment structure being tested. `dsem = NULL` (the
-  default) is unchanged.
+* **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model
+  on the recruitment deviations.** The deviations become the latent states of a
+  GMRF, so environmental covariates and lagged or simultaneous paths drive
+  recruitment. `summary()` reports the SEM path coefficients and the recruitment
+  SD; the specification round-trips through `save_config()` / `load_config()`.
+  `dsem = NULL` (the default) is unchanged and bit-identical to previous
+  versions.
 
-  The TMB template does not yet carry the DSEM blocks, so a DSEM fit stops with
-  a message saying so, and the diagnostics that cannot support one yet refuse
-  outright rather than failing obscurely. Use the `dev-DSEM` branch to fit a DSEM
-  model in the meantime.
+  The refitting diagnostics do not support a DSEM yet -- `retrospective()`,
+  `jitter()`, `self_test()`, `profile()`, `run_mse()`, `remove_F()`,
+  `sample_rec()`, `reweight_comps()`, `process_residuals()` and
+  `osa_residuals()` each stop with a message rather than silently refit a model
+  without the recruitment structure being tested. Lognormal bias correction is
+  not applied to the DSEM deviations yet, so a DSEM fit and its non-DSEM
+  analogue agree exactly only with `bias_adjust_proc = FALSE`.
 
 * **`summary()` reports the SEM path coefficients and the recruitment SD** for a
   DSEM fit: `coefficients` (one row per path, with `Estimate`, `Std_Error`,

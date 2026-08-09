@@ -29,8 +29,10 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( x_tj );
 
   Type jnll = 0;
+  array<Type> z_tj( y_tj.rows(), y_tj.cols() ); z_tj.setZero();
   calculate_dsem( jnll, options, RAM, RAMstart, familycode_j, linkcode_j,
                   sigmastart_j, eps_tj, y_tj, obs_idx, unobs_idx,
-                  beta_z, lnsigma_z, mu_j, delta0_j, x_tj );
+                  beta_z, lnsigma_z, mu_j, delta0_j, x_tj, z_tj );
+  REPORT( z_tj );
   return jnll;
 }

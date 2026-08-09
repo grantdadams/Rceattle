@@ -664,13 +664,20 @@ fit_mod <-
     # cannot collide with the "(Intercept)" init push that runs at the end of
     # that function. Zero-length when there is no DSEM, which is what makes the
     # non-DSEM objective identical.
-    # Assign by name, not append: `inits` from a previous DSEM fit already carry
-    # these blocks, and c() would add a second copy of each. That is what every
-    # .refit_like() caller does -- retrospective(), jitter(), run_mse() -- and it
-    # surfaces as "Map and parameter objects are not the same size".
-    for (nm in names(.dsem_par_template(mod_objects$dsem))) {
-      start_par[[nm]] <- .dsem_par_template(mod_objects$dsem)[[nm]]
-    }
+    # Add the DSEM blocks that `inits` does not already carry, and leave the ones
+    # it does alone. Appending with c() duplicated them for a warm start from a
+    # DSEM fit ("Map and parameter objects are not the same size"); overwriting
+    # them unconditionally was worse -- it silently reset x_tj to 0 and beta_z to
+    # its start value, so estimateMode = 2 reprojected from a different model
+    # than the one it was handed (measured: 47% SSB error, no warning).
+    # merge_dsem_params() has exactly the right semantics.
+    start_par <- merge_dsem_params(start_par, .dsem_par_shape(mod_objects$dsem))
+
+    # A warm start whose DSEM blocks do not match this model's shape is a
+    # different model, not a starting value -- e.g. a retrospective peel that
+    # shortens nyrs_dsem while inits carries the full-length x_tj. Fail rather
+    # than let TMB reinterpret it.
+    start_par <- .dsem_check_shape(start_par, mod_objects$dsem)
 
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
