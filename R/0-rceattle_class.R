@@ -552,6 +552,11 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' @param observed,fitted Observed and fitted proportions.
 #' @param n Input sample size.
 #' @keywords internal
+.pearson_proportion <- function(observed, fitted, n) {
+  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
+}
+
+
 #' Fold composition proportions onto the bins the likelihood actually fit
 #'
 #' Tail accumulation (`Comp_accum_young` / `Comp_accum_old`) folds the tails of a
@@ -643,11 +648,6 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
        obs = unlist(lapply(parts, `[[`, "obs"), use.names = FALSE),
        hat = unlist(lapply(parts, `[[`, "hat"), use.names = FALSE),
        acc = unlist(lapply(parts, `[[`, "acc"), use.names = FALSE))
-}
-
-
-.pearson_proportion <- function(observed, fitted, n) {
-  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
 }
 
 
