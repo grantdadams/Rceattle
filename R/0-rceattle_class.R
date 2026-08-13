@@ -354,10 +354,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Bin          = rep(NA_real_, n),
       Age0_Length1 = rep(NA_integer_, n),
       Sample_size  = rep(NA_real_, n),
-      # TRUE only where composition tail accumulation folded neighbouring bins
-      # into this one, so `Bin` names a range rather than the single age or
-      # length it appears to. FALSE everywhere else, including every source that
-      # cannot accumulate.
+      # TRUE where tail accumulation folded neighbouring bins into this one, so
+      # `Bin` names a range rather than the single age or length it appears to.
       Accumulated  = rep(FALSE, n),
       Observed     = numeric(n),
       Fitted       = numeric(n),
@@ -452,13 +450,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     n_obs <- nrow(cd); n_bin <- length(bin_cols)
     a0l1 <- if (!is.null(cd$Age0_Length1)) cd$Age0_Length1 else NA_integer_
 
-    # Tail accumulation (Comp_accum_young / Comp_accum_old) folds the tails into
-    # a boundary bin and restricts the likelihood to [yng, old]. Residuals have
-    # to describe what was fit: without this a fleet folding ages 1-2 into age 3
-    # still reports residuals for ages 1 and 2 against a model that never saw
-    # them separately. `.fold_comp_props()` returns NULL when no fleet
-    # accumulates, which keeps the vectorized path (and every existing model)
-    # exactly as it was.
+    # Fold the tails onto the bins the likelihood fit (see .fold_comp_props()).
+    # NULL means no fleet accumulates, so the rectangular path below is used and
+    # every existing model is unchanged.
     folded <- .fold_comp_props(d, cd, obs_prop, hat_prop, a0l1, n_bin)
 
     if (is.null(folded)) {
@@ -559,14 +553,13 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
 #' Fold composition proportions onto the bins the likelihood actually fit
 #'
-#' Tail accumulation (`Comp_accum_young` / `Comp_accum_old`) folds the tails of a
-#' composition into a boundary bin and restricts the likelihood to
-#' `[yng, old]`, per fleet and per sex block. Residuals computed on the unfolded
-#' row therefore describe bins the model never fit separately.
+#' Tail accumulation (`Comp_accum_young` / `Comp_accum_old`) folds a
+#' composition's tails into a boundary bin and fits only `[yng, old]`, per fleet
+#' and per sex block. A residual taken on the unfolded row therefore describes
+#' bins the model never fit separately.
 #'
-#' Mirrors the fold in [build_osa_data()] exactly -- same clamp, same
-#' [.fold_comp_bins()] helper, same per-sex-block treatment -- so the Pearson and
-#' OSA residuals of one fleet cover the same bins and carry the same labels.
+#' Reuses [build_osa_data()]'s fold, so the Pearson and OSA residuals of a fleet
+#' cover the same bins with the same labels.
 #'
 #' @param d The model's `data_list`.
 #' @param cd Its `comp_data`.
@@ -612,10 +605,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   parts <- lapply(seq_len(nrow(cd)), function(r) {
     w <- win[[r]]
     n_use <- w$blk * w$nb
-    # A row whose declared shape (sex blocks x bin dimension) exceeds the bin
-    # columns present is internally inconsistent -- data_check() is the place
-    # that judges it. Report the raw bins rather than indexing past the end and
-    # failing with "subscript out of bounds" from in here.
+    # A row declaring more bins than it has columns is inconsistent, and
+    # data_check() is where that is judged. Report its raw bins rather than
+    # index past the end.
     if (n_use > n_bin) {
       o <- as.numeric(obs_prop[r, seq_len(n_bin)])
       h <- as.numeric(hat_prop[r, seq_len(n_bin)])

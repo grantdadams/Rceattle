@@ -155,11 +155,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # (proportion + comp_offset) * Neff, one decomposition group, final bin
   # flagged. Returns the obsvec start position of the row's first bin.
   # `bin_label` is the age/length ordinal each element of `obs_row` stands for.
-  # It matters only when tail accumulation has folded the row: the folded vector
-  # is shorter than the fleet's bin dimension, so numbering it 1..n_bins reports
-  # a residual against a bin the value does not represent. Defaults to
-  # 1..n_bins, which is what an unfolded row means anyway, so unaccumulated
-  # fleets are unchanged.
+  # It matters once tail accumulation has folded the row: the folded vector is
+  # shorter than the fleet's bin dimension, so numbering it 1..n_bins labels
+  # each residual with a bin it does not represent. Defaults to 1..n_bins,
+  # which is what an unfolded row means.
   append_composition <- function(source, obs_row, n_bins, Neff, fleet, sp, sex,
                                  yr, data_row, comp_type = NA_integer_,
                                  length = NA_integer_, bin_label = NULL,
@@ -317,10 +316,8 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       if (is.na(yng) || yng < 1L) yng <- 1L                 # NA/0 -> no young accum
       if (is.na(old) || old < 1L || old > nbins_blk) old <- nbins_blk  # NA/0/>=nbins -> no old accum
       if (yng > old) yng <- old
-      # Bin labels follow the fleet's own bin dimension, offset by sex block, so
-      # a folded row still reports the ordinal each value stands for rather than
-      # its position in the shortened vector. Unfolded rows give
-      # `block*nbins + 1..nbins`, exactly the previous numbering.
+      # Label by the fleet's own bin dimension, offset by sex block. Unfolded
+      # rows give `block*nbins + 1..nbins`, the previous numbering.
       blk_off <- rep((seq_len(joint_adjust) - 1L) * nbins_blk,
                      each = old - yng + 1L)
       bin_label <- blk_off + rep(seq.int(yng, old), times = joint_adjust)

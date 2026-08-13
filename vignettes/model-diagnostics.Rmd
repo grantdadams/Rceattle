@@ -192,11 +192,11 @@ ages 1 to 3 combined, and the `accumulated` column (`Accumulated` from
 `residuals()`) marks it, since it stands for a range rather than the single age
 it is named for. Expect fewer residual bins than raw age bins for such a fleet.
 
-One asymmetry is worth knowing when comparing the two. The one-step-ahead
-decomposition drops each composition's last bin, which is fixed by the
-sum-to-sample-size constraint. Under an *old*-tail accumulation that dropped bin
-is the upper accumulated one, so the fleet's upper boundary bin appears in the
-Pearson residuals and not in the OSA residuals.
+The two differ in one place. The one-step-ahead decomposition drops each
+composition's last bin, which is fixed by the sum-to-sample-size constraint.
+Under an *old*-tail accumulation that dropped bin is the upper accumulated one,
+so the fleet's upper boundary bin appears in the Pearson residuals and not in
+the OSA residuals.
 
 Following Stewart and Monnahan (2025), a practical workflow is:
 
