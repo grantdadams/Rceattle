@@ -176,6 +176,22 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **`sim_mod()` draws the survey index under the fleet's own
+  `Index_distribution`.** It drew every fleet as an independent lognormal
+  whatever the fleet was set to, so an `MVN`/`MVNORM` survey was simulated on the
+  wrong scale, with the wrong spread, and with none of the correlation its
+  covariance carries: for a survey with an absolute sd of 20 and correlation 0.6,
+  the draws came back with a log-scale sd of 0.1 and no correlation at all. A
+  `Normal` fleet was likewise drawn on the log scale rather than the natural one.
+  Nothing errored, so `self_test()` ran and reported recovery against a
+  data-generating process the likelihood never assumed. `MVN`/`MVNORM` now draw
+  \eqn{\hat{I} + L z} from the supplied covariance and `Normal` on the natural
+  scale, matching `ceattle.cpp`. **Affects `self_test()`, `jitter()` and
+  `run_mse(simulate_data = TRUE)` for MVN/MVNORM/Normal surveys only** --
+  all-lognormal models draw exactly as before, bit for bit. A natural-scale draw
+  that comes out non-positive now warns, because those rows silently leave the
+  fitted set on the refit.
+
 * **A parallel worker that dies no longer aborts `retrospective()`, `jitter()`
   or `run_mse()`.** Each worker fits whole models, so running several at once can
   exhaust memory and the machine kills one. The call then stopped with

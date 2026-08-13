@@ -1,9 +1,148 @@
+#' Resolve `Index_distribution` to its integer family code
+#'
+#' Accepts either spelling a `fleet_control` column can hold -- the name
+#' (`"MVN"`) or the code (`1`) -- because `index_ll_type` is built inside
+#' `rearrange_data()` and is not carried on a fitted model's `data_list`.
+#' Anything unrecognized falls back to lognormal, matching the column default.
+#'
+#' @param x The `Index_distribution` column.
+#' @return Integer vector of codes, one per fleet. See `index_distribution_map`.
+#' @noRd
+.index_family_codes <- function(x) {
+  if (is.null(x)) return(integer(0))
+  chr <- trimws(as.character(x))
+  num <- suppressWarnings(as.integer(chr))
+  nmd <- as.integer(index_distribution_map[chr])
+  out <- ifelse(!is.na(num), num, nmd)
+  out[is.na(out)] <- 0L
+  as.integer(out)
+}
+
+
+#' Draw survey-index observations under each fleet's own likelihood
+#'
+#' A simulator has to draw from the observation model the likelihood assumes, or
+#' `self_test()` measures recovery under a data-generating process the estimation
+#' model never saw -- and reports it as if it had. The four families need three
+#' different draws (`ceattle.cpp`, section 8.2):
+#'
+#' * `Lognormal` (0): log scale, `exp(N(log(hat) - ba * sd^2 / 2, sd))`.
+#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`. No lognormal
+#'   bias term -- the likelihood has none.
+#' * `MVN` (1) / `MVNORM` (2): natural scale and correlated,
+#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the likelihood,
+#'   so they simulate identically.
+#'
+#' Sigma is positional: its rows follow the fleet's *fitted* observations
+#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order -- the same
+#' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
+#' set are left as they are, because Sigma says nothing about them.
+#'
+#' A natural-scale draw can come out non-positive, which no index can be. Those
+#' rows fail the `Observation > 0` gate on the refit and drop out of the fitted
+#' set (`.align_index_cov()` re-keys Sigma around them, so nothing errors), which
+#' would quietly shrink the data a self-test is scored on. Warn instead.
+#'
+#' @param data_list Data list being simulated into.
+#' @param index_hat Predicted index, one per `index_data` row.
+#' @param log_index_sd Per-row observation sd, as `ceattle.cpp` reports it: a
+#'   log-scale sd for `Lognormal`, an absolute one for `Normal`.
+#' @param ba_obs Observation bias-adjustment multiplier.
+#' @return Numeric vector of simulated observations, in `index_data` row order.
+#' @noRd
+.sim_index_obs <- function(data_list, index_hat, log_index_sd, ba_obs) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  obs <- as.numeric(index_hat)
+  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(obs)
+
+  fam <- .index_family_codes(fc$Index_distribution)
+  if (!length(fam)) fam <- rep(0L, nrow(fc))
+
+  # Every fleet lognormal -- the column default, and the only family that existed
+  # before MVN/MVNORM/Normal. Draw all rows in one call, exactly as this did
+  # before the per-family dispatch, so a seeded self_test(), jitter() or
+  # run_mse(simulate_data = TRUE) on an existing model reproduces bit for bit.
+  # The per-fleet loop below consumes the RNG stream in a different order, which
+  # would silently change every simulated data set with more than one index fleet
+  # while leaving single-survey models looking unaffected.
+  if (all(fam == 0L)) {
+    return(exp(stats::rnorm(
+      n    = length(obs),
+      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
+      sd   = log_index_sd)))
+  }
+
+  nonpos <- character(0)
+
+  for (i in seq_len(nrow(fc))) {
+    code <- fc$Fleet_code[i]
+    rows <- which(idx$Fleet_code == code)
+    if (!length(rows)) next
+    f <- fam[i]
+
+    if (f %in% c(1L, 2L)) {
+      fit_rows <- rows[idx$Year[rows] > 0 &
+                         idx$Year[rows] <= data_list$endyr &
+                         idx$Observation[rows] > 0]
+      if (!length(fit_rows)) next
+      nm    <- as.character(fc$Fleet_name[i])
+      Sigma <- data_list$index_cov[[nm]]
+      if (is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(code)]]
+      if (is.null(Sigma)) {
+        stop(sprintf(paste0("Fleet '%s' uses an %s index likelihood but no covariance ",
+                            "matrix was supplied in index_cov, so its observations ",
+                            "cannot be simulated."),
+                     nm, c("MVN", "MVNORM")[f]), call. = FALSE)
+      }
+      Sigma <- as.matrix(Sigma)
+      Sigma <- (Sigma + t(Sigma)) / 2   # as rearrange_data() does
+      if (nrow(Sigma) != length(fit_rows)) {
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the ",
+                            "fleet has %d fitted survey observations to simulate."),
+                     nm, nrow(Sigma), ncol(Sigma), length(fit_rows)), call. = FALSE)
+      }
+      L <- tryCatch(t(chol(Sigma)), error = function(e) {
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is not positive ",
+                            "definite (%s), so it cannot be simulated from."),
+                     nm, conditionMessage(e)), call. = FALSE)
+      })
+      obs[fit_rows] <- index_hat[fit_rows] +
+        as.numeric(L %*% stats::rnorm(length(fit_rows)))
+      if (any(obs[fit_rows] <= 0)) nonpos <- c(nonpos, nm)
+
+    } else if (f == 3L) {
+      obs[rows] <- stats::rnorm(length(rows), mean = index_hat[rows],
+                                sd = log_index_sd[rows])
+      if (any(obs[rows] <= 0)) nonpos <- c(nonpos, as.character(fc$Fleet_name[i]))
+
+    } else {
+      obs[rows] <- exp(stats::rnorm(
+        n    = length(rows),
+        mean = log(index_hat[rows]) - ba_obs * (log_index_sd[rows]^2) / 2,
+        sd   = log_index_sd[rows]))
+    }
+  }
+
+  if (length(nonpos)) {
+    warning("Simulated a non-positive survey index for fleet(s) ",
+            paste(unique(nonpos), collapse = ", "),
+            ". Those observations are dropped when the model is refitted, so a ",
+            "self-test is scored on less data than the original fit. The ",
+            "observation error is large relative to the index.", call. = FALSE)
+  }
+  obs
+}
+
+
 #' Simulate Rceattle data
 #'
 #' @description Simulates data used in Rceattle from the expected values estimated
 #' from an existing Rceattle model. The variances and uncertainty are consistent
 #' with those used in the operating model. The function simulates: survey biomass
-#' (log-normal), catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
+#' (under the fleet's own \code{Index_distribution} -- lognormal, natural-scale
+#' normal, or the correlated MVN/MVNORM draw from the supplied covariance),
+#' catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 #' and total catch (log-normal).
 #'
 #' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
@@ -38,12 +177,13 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   index_hat <- quantities$index_hat
 
   if (simulate) {
-    # Log-normal simulation with bias correction
-    dat_sim$index_data$Observation <- exp(stats::rnorm(
-      n = length(index_hat),
-      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
-      sd = log_index_sd
-    ))
+    # Per fleet, under its own Index_distribution: lognormal, natural-scale
+    # normal, or a correlated MVN/MVNORM draw from the supplied covariance.
+    # Drawing every fleet as lognormal (as this did) simulates from an
+    # observation model the likelihood does not assume, which a self-test then
+    # reports as if it had.
+    dat_sim$index_data$Observation <-
+      .sim_index_obs(dat_sim, index_hat, log_index_sd, ba_obs)
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat
