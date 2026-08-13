@@ -176,6 +176,16 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **A negative expected composition count now warns** (issue #108). `predicted`
+  is an expected bin count and cannot be negative, but it goes slightly negative
+  when the effective sample size is small enough that the counts sit near zero:
+  at `Sample_size <= 2` with the default method, and up to 5 with
+  `"oneStepGeneric"`. The counts are `(proportion + comp_offset) * N` and so
+  already fractional, and the one-step-ahead conditional mean is numerical. The
+  affected years are named; treat `predicted` there as uninformative, though the
+  residuals may still be usable. Not clamped, since the negative value is the
+  signal that the sample size is too small for the decomposition.
+
 * **OSA residuals on an accumulated composition are labelled by the age they
   represent** (reported as issue #108). Tail accumulation folds the tails into a
   boundary bin, so a fleet with `Comp_accum_young = 3` on a 10-age model is fit
@@ -204,20 +214,17 @@
   holding.
 
 * **`sim_mod()` draws the survey index under the fleet's own
-  `Index_distribution`.** It drew every fleet as an independent lognormal
-  whatever the fleet was set to, so an `MVN`/`MVNORM` survey was simulated on the
-  wrong scale, with the wrong spread, and with none of the correlation its
-  covariance carries: for a survey with an absolute sd of 20 and correlation 0.6,
-  the draws came back with a log-scale sd of 0.1 and no correlation at all. A
-  `Normal` fleet was likewise drawn on the log scale rather than the natural one.
-  Nothing errored, so `self_test()` ran and reported recovery against a
-  data-generating process the likelihood never assumed. `MVN`/`MVNORM` now draw
-  \eqn{\hat{I} + L z} from the supplied covariance and `Normal` on the natural
-  scale, matching `ceattle.cpp`. **Affects `self_test()`, `jitter()` and
+  `Index_distribution`.** Every fleet was drawn as an independent lognormal
+  whatever it was set to, so an `MVN`/`MVNORM` survey was simulated on the wrong
+  scale and without the correlation its covariance carries: a survey with an
+  absolute sd of 20 and correlation 0.6 came back with a log-scale sd of 0.1 and
+  no correlation. `Normal` was likewise drawn on the log scale. Nothing errored,
+  so `self_test()` reported recovery against a data-generating process the
+  likelihood never assumed. **Affects `self_test()`, `jitter()` and
   `run_mse(simulate_data = TRUE)` for MVN/MVNORM/Normal surveys only** --
-  all-lognormal models draw exactly as before, bit for bit. A natural-scale draw
-  that comes out non-positive now warns, because those rows silently leave the
-  fitted set on the refit.
+  all-lognormal models draw exactly as before. A natural-scale draw can come out
+  non-positive, which `data_check()` rejects; that now warns, since otherwise
+  the refit simply fails and the run is reported as not converged.
 
 * **A parallel worker that dies no longer aborts `retrospective()`, `jitter()`
   or `run_mse()`.** Each worker fits whole models, so running several at once can

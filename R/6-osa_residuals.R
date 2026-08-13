@@ -330,6 +330,28 @@ osa_residuals <- function(fit,
             "degenerate compositions (common for conditional age-at-length); ",
             "check model convergence before interpreting the residuals.")
   }
+
+  # A composition `predicted` is an expected bin count, so it cannot be negative.
+  # It goes slightly negative anyway when the effective sample size is small
+  # enough that the bin counts are near zero -- the counts are already fractional
+  # ((proportion + comp_offset) * N), and oneStepPredict()'s conditional mean is
+  # numerical. Seen at N <= 2 with the default method and N <= 5 with
+  # "oneStepGeneric". The residual can still be informative, so report rather
+  # than clamp -- clamping would hide the one signal that the sample size is too
+  # small for the decomposition to describe.
+  is_comp <- out$source %in% c("comp", "caal", "diet")
+  n_neg <- sum(is_comp & is.finite(out$predicted) & out$predicted < 0)
+  if (n_neg > 0) {
+    yrs <- sort(unique(out$year[is_comp & is.finite(out$predicted) &
+                                  out$predicted < 0]))
+    warning(n_neg, " composition `predicted` value(s) are negative, in year(s) ",
+            paste(utils::head(yrs, 5), collapse = ", "),
+            if (length(yrs) > 5) ", ..." else "",
+            ". An expected count cannot be negative; this means the effective ",
+            "sample size there is too small for the one-step-ahead ",
+            "decomposition to describe, so treat `predicted` in those rows as ",
+            "uninformative. The residuals may still be usable.", call. = FALSE)
+  }
   out
 }
 

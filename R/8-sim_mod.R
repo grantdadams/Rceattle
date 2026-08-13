@@ -22,29 +22,26 @@
 #' Draw survey-index observations under each fleet's own likelihood
 #'
 #' A simulator has to draw from the observation model the likelihood assumes, or
-#' `self_test()` measures recovery under a data-generating process the estimation
-#' model never saw -- and reports it as if it had. The four families need three
-#' different draws (`ceattle.cpp`, section 8.2):
+#' `self_test()` measures recovery against a data-generating process the
+#' estimation model never saw. The four families need three different draws
+#' (`ceattle.cpp`, section 8.2):
 #'
 #' * `Lognormal` (0): log scale, `exp(N(log(hat) - ba * sd^2 / 2, sd))`.
-#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`. No lognormal
-#'   bias term -- the likelihood has none.
+#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`, and no
+#'   lognormal bias term -- the likelihood has none.
 #' * `MVN` (1) / `MVNORM` (2): natural scale and correlated,
-#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the likelihood,
-#'   so they simulate identically.
+#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the
+#'   likelihood, so they simulate identically.
 #'
 #' Sigma is positional: its rows follow the fleet's *fitted* observations
-#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order -- the same
+#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order, the same
 #' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
-#' set keep the observation they came in with, because Sigma says nothing about
-#' them and writing a prediction there would turn a row excluded on purpose
-#' (`Observation == 0`) into a fitted one on the refit.
+#' set -- projection years, since `data_check()` rejects a non-positive
+#' observation -- keep the values they came in with.
 #'
-#' A natural-scale draw can come out non-positive, which no index can be.
-#' `data_check()` rejects `Observation <= 0` outright, so such a data set does not
-#' refit at all and `self_test()` just counts the run as not converged -- which
-#' looks like a convergence problem rather than a simulation one. Warn, so the
-#' cause is visible.
+#' A natural-scale draw can come out non-positive, which no index can be and
+#' `data_check()` rejects. The refit then fails and `self_test()` reports the run
+#' as not converged, which reads as a convergence problem, so warn instead.
 #'
 #' @param data_list Data list being simulated into.
 #' @param index_hat Predicted index, one per `index_data` row.
