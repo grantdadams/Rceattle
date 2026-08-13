@@ -65,9 +65,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   x <- x[x$source %in% keep_types, , drop = FALSE]
   if (!is.null(species)) x <- x[x$species %in% species, , drop = FALSE]
   if (!is.null(pearson)) {
-    pearson <- pearson[pearson$Source %in% keep_types, , drop = FALSE]
+    pearson <- pearson[pearson$source %in% keep_types, , drop = FALSE]
     if (!is.null(species)) {
-      pearson <- pearson[pearson$Species %in% species, , drop = FALSE]
+      pearson <- pearson[pearson$species %in% species, , drop = FALSE]
     }
   }
 
@@ -129,24 +129,16 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   comp$.side  <- .osa_bin_side(comp$index_label)
   comp        <- .osa_jointsex(comp, nages, nlengths)
 
-  # Reshape the attached Pearson residuals (common residual schema from
-  # residuals(type = "pearson")) into the OSA bubble columns.
+  # The attached Pearson residuals already carry the OSA column names
+  # (osa_residuals() renames them once, where the attribute is attached), so
+  # only the derived index label is added here.
   pear <- NULL
   if (!is.null(pearson) && nrow(pearson) > 0) {
-    idx_lab <- ifelse(pearson$Source == "caal", "age",
-                      ifelse(!is.na(pearson$Age0_Length1) &
-                               pearson$Age0_Length1 == 1, "length", "age"))
-    pear <- data.frame(
-      source         = pearson$Source,
-      fleet          = pearson$Fleet_code,
-      fleet_name     = pearson$Fleet_name,
-      species        = pearson$Species,
-      sex            = pearson$Sex,
-      year           = pearson$Year,
-      age_length_bin = pearson$Bin,
-      index_label    = idx_lab,
-      residual       = pearson$Residual,
-      stringsAsFactors = FALSE)
+    pear <- pearson
+    pear$index_label <- ifelse(pear$source == "caal", "age",
+                               ifelse(!is.na(pear$index_label_code) &
+                                        pear$index_label_code == 1,
+                                      "length", "age"))
     pear <- pear[is.finite(pear$residual), , drop = FALSE]
     pear$source <- .osa_source_label(pear)
     pear$.side  <- .osa_bin_side(pear$index_label)

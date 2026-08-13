@@ -62,15 +62,22 @@ of randomized-quantile residuals. Default \code{123}.}
 A data frame of class \code{rceattle_osa} with one row per residualized
 observation and columns \code{source} (the data source: index/catch/comp/caal/
 diet), \code{fleet}, \code{fleet_name}, \code{species}, \code{sex}, \code{year}, \code{age_length_bin}
-(the age or length bin index), \code{length} (the conditioning length bin for
-caal; \code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
+(the age or length bin the value stands for), \code{accumulated} (\code{TRUE} where
+tail accumulation folded neighbouring bins into this one, so it covers a
+range of ages rather than the one named), \code{length} (the conditioning length
+bin for caal; \code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
 \code{predicted}, \code{sd}, and \code{residual}. For aggregate series \code{observed} and
 \code{predicted} are on the residualization scale -- log for lognormal catch/index,
 natural scale for a \code{"Normal"} index, and the whitened (\code{L^-1}) scale for an
 \code{"MVN"}/\code{"MVNORM"} index; for compositions they are bin counts. Carries
 \code{method} and \code{seed} attributes, and (when composition types
 are present) a \code{"pearson"} attribute holding the matching Pearson residuals
-so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. Summarize it with
+so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data
+frame's column names rather than the data-sheet names
+\code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns, so the two halves of one object read alike.
+Note the Pearson residuals are computed on the unfolded composition, so a
+fleet with tail accumulation has bins there that the OSA residuals -- and
+the likelihood -- do not. Summarize it with
 \code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
 }
 \description{

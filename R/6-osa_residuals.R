@@ -79,15 +79,22 @@
 #' @return A data frame of class `rceattle_osa` with one row per residualized
 #'   observation and columns `source` (the data source: index/catch/comp/caal/
 #'   diet), `fleet`, `fleet_name`, `species`, `sex`, `year`, `age_length_bin`
-#'   (the age or length bin index), `length` (the conditioning length bin for
-#'   caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
+#'   (the age or length bin the value stands for), `accumulated` (`TRUE` where
+#'   tail accumulation folded neighbouring bins into this one, so it covers a
+#'   range of ages rather than the one named), `length` (the conditioning length
+#'   bin for caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
 #'   `predicted` are on the residualization scale -- log for lognormal catch/index,
 #'   natural scale for a `"Normal"` index, and the whitened (`L^-1`) scale for an
 #'   `"MVN"`/`"MVNORM"` index; for compositions they are bin counts. Carries
 #'   `method` and `seed` attributes, and (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
-#'   so [plot.rceattle_osa()] can show both. Summarize it with
+#'   so [plot.rceattle_osa()] can show both. The attribute uses this data
+#'   frame's column names rather than the data-sheet names
+#'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
+#'   Note the Pearson residuals are computed on the unfolded composition, so a
+#'   fleet with tail accumulation has bins there that the OSA residuals -- and
+#'   the likelihood -- do not. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references
@@ -269,6 +276,7 @@ osa_residuals <- function(fit,
     sex            = sel$sex,
     year           = sel$year,
     age_length_bin = sel$age_length_bin,
+    accumulated    = if (is.null(sel$accumulated)) FALSE else sel$accumulated,
     length         = sel$length,
     index_label    = index_label,
     observed      = osa$observed,
@@ -290,9 +298,25 @@ osa_residuals <- function(fit,
   # plot() method can show OSA and Pearson bubbles side by side.
   comp_types <- intersect(unique(out$source), c("comp", "caal"))
   if (length(comp_types) > 0) {
-    attr(out, "pearson") <- tryCatch(
+    pear <- tryCatch(
       stats::residuals(fit, type = "pearson", source = comp_types),
       error = function(e) NULL)
+    # residuals() is a general-purpose method and names its columns in the
+    # data-sheet style (Fleet_code, Year, Observed, ...); this data frame names
+    # them in the style of the object it is attached to. Carrying both
+    # conventions on one object means a reader has to know which half they are
+    # holding, so rename to match here.
+    if (!is.null(pear)) {
+      nm <- c(Source = "source", Fleet_code = "fleet", Fleet_name = "fleet_name",
+              Species = "species", Sex = "sex", Year = "year",
+              Age0_Length1 = "index_label_code", Bin = "age_length_bin",
+              Length = "length", Sample_size = "sample_size",
+              Observed = "observed", Fitted = "predicted",
+              Residual = "residual")
+      hit <- names(pear) %in% names(nm)
+      names(pear)[hit] <- unname(nm[names(pear)[hit]])
+    }
+    attr(out, "pearson") <- pear
   }
 
   n_bad <- sum(!is.finite(out$residual))

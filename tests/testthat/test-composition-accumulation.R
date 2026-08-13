@@ -452,3 +452,64 @@ testthat::test_that("osa_residuals() runs end-to-end with an active accumulation
   n_comp_groups <- length(unique(ctl$group_id[ctl$source == "comp"]))
   testthat::expect_equal(nrow(osa), n_comp_bins - n_comp_groups)   # one dropped / group
 })
+
+
+testthat::test_that("folded OSA bins are labelled by the age they represent", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Reported as issue #108 against GOA pollock, where the Shelikof survey folds
+  # ages 1-2 into age 3 (Comp_accum_young = 3) on a 10-age model: the OSA output
+  # came back with 8 bins numbered 1..8, so a residual on the fold boundary was
+  # labelled "age 1" when it stands for ages 1-3 combined, and every other bin
+  # was off by two. Nothing errored -- the numbering was positional, so the
+  # residuals were right and their labels were not.
+  nages <- 10L
+  yng   <- 3L
+  d <- make_test_data(nages = nages)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  d$fleet_control$Comp_accum_young  <- yng
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+
+  ctl  <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+  cmp  <- ctl[ctl$source == "comp", , drop = FALSE]
+  grp1 <- cmp[cmp$group_id == cmp$group_id[1], , drop = FALSE]
+
+  # The fold leaves nages - yng + 1 bins, labelled by the ages they represent
+  # (yng..nages), not 1..n.
+  testthat::expect_equal(nrow(grp1), nages - yng + 1L)
+  testthat::expect_equal(grp1$age_length_bin, seq.int(yng, nages))
+
+  # Only the boundary bin carries folded tails, and it is flagged as such.
+  testthat::expect_true(grp1$accumulated[1])
+  testthat::expect_false(any(grp1$accumulated[-1]))
+
+  # The flag reaches the user-facing object.
+  osa <- osa_residuals(fit, source = "comp")
+  testthat::expect_true("accumulated" %in% names(osa))
+  testthat::expect_true(all(osa$age_length_bin >= yng))
+})
+
+testthat::test_that("no accumulation leaves the OSA bin labels unchanged", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The relabelling must be a no-op without a fold, or it silently moves every
+  # existing model's residual labels.
+  d <- make_test_data(nages = 6L)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+
+  ctl  <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+  cmp  <- ctl[ctl$source == "comp", , drop = FALSE]
+  grp1 <- cmp[cmp$group_id == cmp$group_id[1], , drop = FALSE]
+
+  testthat::expect_equal(grp1$age_length_bin, seq_len(nrow(grp1)))
+  testthat::expect_false(any(grp1$accumulated))
+})

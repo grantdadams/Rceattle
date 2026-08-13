@@ -176,6 +176,24 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **OSA residuals on an accumulated composition are labelled by the age they
+  represent** (reported as issue #108). Tail accumulation folds the tails into a
+  boundary bin, so a fleet with `Comp_accum_young = 3` on a 10-age model is fit
+  on 8 bins -- but those were numbered 1 to 8, which labels the boundary residual
+  "age 1" when it stands for ages 1-3 combined and puts every other bin two ages
+  out. The residuals themselves were right; only the labels were positional.
+  `age_length_bin` now gives the age or length each residual belongs to, and a
+  new `accumulated` column marks the bins that carry a folded tail. A fleet
+  without accumulation is unchanged.
+
+* **The `"pearson"` attribute of an `osa_residuals()` result uses the same
+  column names as the result itself.** It came from `residuals()`, which names
+  columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
+  object carried two conventions and a reader had to know which half they were
+  holding. Note the Pearson residuals are computed on the *unfolded*
+  composition, so a fleet with tail accumulation has bins there that the OSA
+  residuals -- and the likelihood -- do not.
+
 * **`sim_mod()` draws the survey index under the fleet's own
   `Index_distribution`.** It drew every fleet as an independent lognormal
   whatever the fleet was set to, so an `MVN`/`MVNORM` survey was simulated on the
