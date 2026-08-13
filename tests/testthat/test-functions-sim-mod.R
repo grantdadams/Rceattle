@@ -130,9 +130,10 @@ testthat::test_that("sim_mod draws the survey index under each Index_distributio
 testthat::test_that("sim_mod warns when a natural-scale index draw is non-positive", {
   testthat::skip_if_not_installed("TMB")
 
-  # A natural-scale draw can go negative, which no index can be. Those rows fail
-  # the Observation > 0 gate on the refit and silently leave the fitted set, so
-  # a self-test would be scored on less data than the original fit.
+  # A natural-scale draw can go negative, which no index can be. data_check()
+  # rejects Observation <= 0, so the data set does not refit at all and
+  # self_test() just counts the run as not converged -- which reads as a
+  # convergence problem rather than a simulation one unless this warns.
   fit <- .sim_index_fixture("Normal", sd = 500)   # index_hat is 100
   set.seed(1)
   testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
@@ -146,4 +147,28 @@ testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw 
   fit$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
   testthat::expect_error(Rceattle::sim_mod(fit, simulate = TRUE),
                          "no covariance matrix was supplied")
+})
+
+
+testthat::test_that("sim_mod does not simulate diet data, and says so", {
+  testthat::skip_if_not_installed("TMB")
+
+  # Diet (stomach content) observations are carried through unchanged, so a
+  # multispecies self_test() refits against the same diet data every time and
+  # recovery of suitability is optimistic. That must not be silent.
+  fit <- .sim_index_fixture("Lognormal")
+  fit$data_list$diet_data <- data.frame(
+    Pred = 1L, Prey = 1L, Pred_sex = 0L, Prey_sex = 0L,
+    Pred_age = 1L, Prey_age = 1L, Year = fit$data_list$styr,
+    Sample_size = 10, Stomach_proportion_by_weight = 0.5)
+
+  testthat::expect_warning(
+    sim <- Rceattle::sim_mod(fit, simulate = TRUE),
+    "does not simulate diet")
+  # Carried through unchanged, not dropped or blanked.
+  testthat::expect_equal(sim$diet_data, fit$data_list$diet_data)
+
+  # No warning when there are no diet data to miss.
+  fit$data_list$diet_data <- fit$data_list$diet_data[0, ]
+  testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
 })

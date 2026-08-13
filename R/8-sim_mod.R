@@ -36,12 +36,15 @@
 #' Sigma is positional: its rows follow the fleet's *fitted* observations
 #' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order -- the same
 #' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
-#' set are left as they are, because Sigma says nothing about them.
+#' set keep the observation they came in with, because Sigma says nothing about
+#' them and writing a prediction there would turn a row excluded on purpose
+#' (`Observation == 0`) into a fitted one on the refit.
 #'
-#' A natural-scale draw can come out non-positive, which no index can be. Those
-#' rows fail the `Observation > 0` gate on the refit and drop out of the fitted
-#' set (`.align_index_cov()` re-keys Sigma around them, so nothing errors), which
-#' would quietly shrink the data a self-test is scored on. Warn instead.
+#' A natural-scale draw can come out non-positive, which no index can be.
+#' `data_check()` rejects `Observation <= 0` outright, so such a data set does not
+#' refit at all and `self_test()` just counts the run as not converged -- which
+#' looks like a convergence problem rather than a simulation one. Warn, so the
+#' cause is visible.
 #'
 #' @param data_list Data list being simulated into.
 #' @param index_hat Predicted index, one per `index_data` row.
@@ -85,6 +88,11 @@
       fit_rows <- rows[idx$Year[rows] > 0 &
                          idx$Year[rows] <= data_list$endyr &
                          idx$Observation[rows] > 0]
+      # Sigma covers the fitted rows only -- in practice the rest are projection
+      # years (Year > endyr), since data_check() rejects Observation <= 0. Leave
+      # them at the values they came in with rather than writing the prediction
+      # there, which would present a projection year as an observation.
+      obs[setdiff(rows, fit_rows)] <- idx$Observation[setdiff(rows, fit_rows)]
       if (!length(fit_rows)) next
       nm    <- as.character(fc$Fleet_name[i])
       Sigma <- data_list$index_cov[[nm]]
@@ -127,9 +135,11 @@
   if (length(nonpos)) {
     warning("Simulated a non-positive survey index for fleet(s) ",
             paste(unique(nonpos), collapse = ", "),
-            ". Those observations are dropped when the model is refitted, so a ",
-            "self-test is scored on less data than the original fit. The ",
-            "observation error is large relative to the index.", call. = FALSE)
+            ". data_check() requires Observation > 0, so refitting this data ",
+            "set fails and self_test() counts the run as not converged. The ",
+            "observation error is large relative to the index: check the ",
+            "covariance, or the absolute sd, against the scale of the index.",
+            call. = FALSE)
   }
   obs
 }
@@ -307,8 +317,34 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   }
 
 
-  #TODO
+  # Diet (stomach content) ----
+  # NOT SIMULATED. The stomach proportions are carried through unchanged, so a
+  # self_test() on a multispecies model resamples every other data type and
+  # refits against the same diet data every time. Anything the diet informs --
+  # suitability above all -- is then recovered from data that never varied, and
+  # the test reads as more reassuring than it is. Say so rather than let a
+  # multispecies self-test look complete. BS2017MS carries 2025 diet rows.
+  #
+  # Implementing it means mirroring the cpp's stomach likelihood (section 13):
+  # rows are grouped by stomach, an "Other prey" bin holding 1 - sum(observed)
+  # is appended, both observed and predicted are offset by `comp_offset` and
+  # renormalized, and only then is the multinomial / Dirichlet-multinomial draw
+  # taken at Sample_size. The grouping is the unresolved part -- the cpp scans
+  # contiguous `stomach_id` runs and carries a TODO(review) noting that
+  # build_osa_data() instead matches on `which(stomach_id == i)`, so the two
+  # disagree if the rows are ever non-contiguous. That has to be settled before
+  # a simulator can rely on it.
+  if (simulate && !is.null(dat_sim$diet_data) && nrow(dat_sim$diet_data) > 0) {
+    warning("sim_mod() does not simulate diet (stomach content) data: ",
+            nrow(dat_sim$diet_data), " rows are carried through unchanged. ",
+            "A self_test() of a model fitted to diet data therefore does not ",
+            "propagate diet observation error, and recovery of suitability is ",
+            "optimistic.", call. = FALSE)
+  }
+
   # # Slot 5 -- Diet composition from lognormal suitability 4D
+  # # STALE: written for a 4D/5D diet_data array; diet_data is now a data.frame
+  # # (Pred, Prey, ..., Sample_size, Stomach_proportion_by_weight).
   # if (length(dim(dat_sim$diet_data)) == 4) {
   #     for (sp in 1:dat_sim$nspp) {
   #         for (r_age in 1:dat_sim$nages[sp]) {
