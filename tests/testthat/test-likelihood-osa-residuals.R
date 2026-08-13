@@ -557,3 +557,37 @@ testthat::test_that("OSA supports an MVN index fleet without warning (per-family
   testthat::expect_true(all(is.finite(osa$residual)))
   testthat::expect_true(any(osa$source == "index"))
 })
+
+
+testthat::test_that("a negative expected composition count warns", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Issue #108: "Sometimes the expected counts are negative. This only appears to
+  # occur when the sample size is very small." Reproduced by sweeping
+  # Sample_size: with the default method, `predicted` goes negative at N <= 2 and
+  # is clean by N = 5 (with "oneStepGeneric" it persists to N = 5). The bin
+  # counts are (proportion + comp_offset) * N and so already fractional; at a
+  # tiny N they sit near zero and oneStepPredict()'s numerical conditional mean
+  # can land just below it. An expected count cannot be negative, so say so
+  # rather than let it be read as a fitted value.
+  d <- make_test_data(nyrs = 20, nages = 10, seed = 123)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  d$comp_data$Sample_size <- 2
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  testthat::expect_warning(
+    osa <- suppressMessages(Rceattle::osa_residuals(fit, source = "comp")),
+    "expected count cannot be negative")
+  testthat::expect_true(any(osa$predicted < 0))
+
+  # An adequate sample size does not warn.
+  d$comp_data$Sample_size <- 100
+  fit2 <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+  osa2 <- suppressMessages(Rceattle::osa_residuals(fit2, source = "comp"))
+  testthat::expect_false(any(osa2$predicted < 0))
+})

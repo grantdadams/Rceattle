@@ -214,6 +214,59 @@
   refactors, and the release notes for 5.3.0 and 5.4.0 are condensed to what
   changed, who is affected, and what to do about it.
 
+* **A negative expected composition count now warns** (issue #108). `predicted`
+  is an expected bin count and cannot be negative, but it goes slightly negative
+  where a bin holds almost no fish: compositions enter as counts
+  (`(proportion + comp_offset) * N`), and the one-step-ahead conditional mean is
+  a numerical step from the observation that overshoots below zero when the
+  count is near it. This follows the count in the *bin*, not the sample size of
+  the composition -- on EBS pollock the affected rows have a median observed
+  count of 0.05 against 4.9 elsewhere, while their sample sizes span the same
+  range as everything else, so a rare age in a well-sampled year does it too.
+  The affected years are named; treat `predicted` there as uninformative, though
+  the residuals may still be usable. Not clamped, since the negative value is
+  the signal that the bin is too sparse.
+
+* **OSA residuals on an accumulated composition are labelled by the age they
+  represent** (reported as issue #108). Tail accumulation folds the tails into a
+  boundary bin, so a fleet with `Comp_accum_young = 3` on a 10-age model is fit
+  on 8 bins -- but those were numbered 1 to 8, which labels the boundary residual
+  "age 1" when it stands for ages 1-3 combined and puts every other bin two ages
+  out. The residuals themselves were right; only the labels were positional.
+  `age_length_bin` now gives the age or length each residual belongs to, and a
+  new `accumulated` column marks the bins that carry a folded tail. A fleet
+  without accumulation is unchanged.
+
+* **`residuals()` reports composition residuals on the bins the likelihood
+  fit.** Tail accumulation folds the tails into a boundary bin and restricts the
+  likelihood to that window, but `residuals()` knew nothing about it -- so a
+  fleet folding ages 1-2 into age 3 still returned residuals for ages 1 and 2,
+  against a model that never fit them separately, and the boundary bin's
+  observed proportion excluded the tail it had absorbed. Both the composition
+  and the `"pearson"` attribute of `osa_residuals()` now fold first, so the
+  Pearson and OSA views of a fleet describe the same bins. The residual formula
+  is unchanged, and a fleet without accumulation is bit-identical. A new
+  `Accumulated` column marks the bins carrying a folded tail.
+
+* **The `"pearson"` attribute of an `osa_residuals()` result uses the same
+  column names as the result itself.** It came from `residuals()`, which names
+  columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
+  object carried two conventions and a reader had to know which half they were
+  holding.
+
+* **`sim_mod()` draws the survey index under the fleet's own
+  `Index_distribution`.** Every fleet was drawn as an independent lognormal
+  whatever it was set to, so an `MVN`/`MVNORM` survey was simulated on the wrong
+  scale and without the correlation its covariance carries: a survey with an
+  absolute sd of 20 and correlation 0.6 came back with a log-scale sd of 0.1 and
+  no correlation. `Normal` was likewise drawn on the log scale. Nothing errored,
+  so `self_test()` reported recovery against a data-generating process the
+  likelihood never assumed. **Affects `self_test()`, `jitter()` and
+  `run_mse(simulate_data = TRUE)` for MVN/MVNORM/Normal surveys only** --
+  all-lognormal models draw exactly as before. A natural-scale draw can come out
+  non-positive, which `data_check()` rejects; that now warns, since otherwise
+  the refit simply fails and the run is reported as not converged.
+
 * **A parallel worker that dies no longer aborts `retrospective()`, `jitter()`
   or `run_mse()`.** Each worker fits whole models, so running several at once can
   exhaust memory and the machine kills one. The call then stopped with

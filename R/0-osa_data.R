@@ -122,7 +122,8 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
                          sex = NA_integer_, age_length_bin = NA_integer_,
                          length = NA_integer_, bin_index = NA_integer_,
                          comp_type = NA_integer_, is_last_bin = FALSE,
-                         stomach_id = NA_integer_, one_group = FALSE) {
+                         stomach_id = NA_integer_, one_group = FALSE,
+                         accumulated = FALSE) {
     n <- length(value)
     if (n == 0) return(integer(0))
     pos      <- next_pos + seq_len(n) - 1L
@@ -142,6 +143,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       bin_index     = as.integer(bin_index),
       comp_type     = as.integer(comp_type),
       is_last_bin   = as.logical(is_last_bin),
+      accumulated   = as.logical(accumulated),
       stomach_id    = as.integer(stomach_id),
       group_id      = as.integer(group_id),
       stringsAsFactors = FALSE)
@@ -152,15 +154,24 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # Append one composition row (comp or caal): its bin counts =
   # (proportion + comp_offset) * Neff, one decomposition group, final bin
   # flagged. Returns the obsvec start position of the row's first bin.
+  # `bin_label` is the age/length ordinal each element of `obs_row` stands for.
+  # It matters once tail accumulation has folded the row: the folded vector is
+  # shorter than the fleet's bin dimension, so numbering it 1..n_bins labels
+  # each residual with a bin it does not represent. Defaults to 1..n_bins,
+  # which is what an unfolded row means.
   append_composition <- function(source, obs_row, n_bins, Neff, fleet, sp, sex,
                                  yr, data_row, comp_type = NA_integer_,
-                                 length = NA_integer_) {
+                                 length = NA_integer_, bin_label = NULL,
+                                 accumulated = NULL) {
     counts <- (as.numeric(obs_row[seq_len(n_bins)]) + comp_offset) * Neff
+    if (is.null(bin_label))   bin_label   <- seq_len(n_bins)
+    if (is.null(accumulated)) accumulated <- rep(FALSE, n_bins)
     append_obs(value = counts, source = source, data_row = data_row,
                fleet_code = fleet, species = sp, sex = sex, year = yr,
-               age_length_bin = seq_len(n_bins), length = length,
+               age_length_bin = bin_label, length = length,
                bin_index = seq_len(n_bins) - 1L, comp_type = comp_type,
-               is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE)[1]
+               is_last_bin = seq_len(n_bins) == n_bins, one_group = TRUE,
+               accumulated = accumulated)[1]
   }
 
   # ---- Index (survey) observations ----
@@ -305,6 +316,17 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       if (is.na(yng) || yng < 1L) yng <- 1L                 # NA/0 -> no young accum
       if (is.na(old) || old < 1L || old > nbins_blk) old <- nbins_blk  # NA/0/>=nbins -> no old accum
       if (yng > old) yng <- old
+      # Label by the fleet's own bin dimension, offset by sex block. Unfolded
+      # rows give `block*nbins + 1..nbins`, the previous numbering.
+      blk_off <- rep((seq_len(joint_adjust) - 1L) * nbins_blk,
+                     each = old - yng + 1L)
+      bin_label <- blk_off + rep(seq.int(yng, old), times = joint_adjust)
+      # The boundary bins carry the folded tails, so they are not comparable with
+      # an unaccumulated bin of the same ordinal; flag them rather than let a
+      # reader assume `age_length_bin` means that age alone.
+      acc_one <- c(yng > 1L, rep(FALSE, max(0L, old - yng - 1L)),
+                   if (old > yng) old < nbins_blk else logical(0))
+      accumulated <- rep(acc_one, times = joint_adjust)
       if (yng > 1L || old < nbins_blk) {
         obs_row <- .fold_comp_bins(as.numeric(obs_row[seq_len(n_comp)]),
                                    nbins_blk, joint_adjust, yng, old)
@@ -312,7 +334,8 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
       }
       comp_obsvec_idx[r] <- append_composition(
         "comp", obs_row, n_comp, Neff, fleet, sp, sex, yr, r,
-        comp_type = comp_type)
+        comp_type = comp_type, bin_label = bin_label,
+        accumulated = accumulated)
     }
   }
 

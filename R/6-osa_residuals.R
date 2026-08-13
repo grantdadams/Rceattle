@@ -79,15 +79,25 @@
 #' @return A data frame of class `rceattle_osa` with one row per residualized
 #'   observation and columns `source` (the data source: index/catch/comp/caal/
 #'   diet), `fleet`, `fleet_name`, `species`, `sex`, `year`, `age_length_bin`
-#'   (the age or length bin index), `length` (the conditioning length bin for
-#'   caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
+#'   (the age or length bin the value stands for), `accumulated` (`TRUE` where
+#'   tail accumulation folded neighbouring bins into this one, so it covers a
+#'   range of ages rather than the one named), `length` (the conditioning length
+#'   bin for caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
 #'   `predicted` are on the residualization scale -- log for lognormal catch/index,
 #'   natural scale for a `"Normal"` index, and the whitened (`L^-1`) scale for an
 #'   `"MVN"`/`"MVNORM"` index; for compositions they are bin counts. Carries
 #'   `method` and `seed` attributes, and (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
-#'   so [plot.rceattle_osa()] can show both. Summarize it with
+#'   so [plot.rceattle_osa()] can show both. The attribute uses this data
+#'   frame's column names rather than the data-sheet names
+#'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
+#'   Both describe the bins the likelihood fit, so a fleet with tail
+#'   accumulation reports the folded window in each -- with one asymmetry: the
+#'   one-step-ahead decomposition drops each group's last bin (it is fixed by
+#'   sum-to-N), and under an *old*-tail accumulation that dropped bin is the
+#'   upper accumulated one. Such a fleet therefore shows its upper boundary bin
+#'   in the Pearson residuals and not in the OSA residuals. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references
@@ -270,6 +280,7 @@ osa_residuals <- function(fit,
     sex            = sel$sex,
     year           = sel$year,
     age_length_bin = sel$age_length_bin,
+    accumulated    = if (is.null(sel$accumulated)) FALSE else sel$accumulated,
     length         = sel$length,
     index_label    = index_label,
     observed      = osa$observed,
@@ -291,9 +302,26 @@ osa_residuals <- function(fit,
   # plot() method can show OSA and Pearson bubbles side by side.
   comp_types <- intersect(unique(out$source), c("comp", "caal"))
   if (length(comp_types) > 0) {
-    attr(out, "pearson") <- tryCatch(
+    pear <- tryCatch(
       stats::residuals(fit, type = "pearson", source = comp_types),
       error = function(e) NULL)
+    # residuals() is a general-purpose method and names its columns in the
+    # data-sheet style (Fleet_code, Year, Observed, ...); this data frame names
+    # them in the style of the object it is attached to. Carrying both
+    # conventions on one object means a reader has to know which half they are
+    # holding, so rename to match here.
+    if (!is.null(pear)) {
+      nm <- c(Source = "source", Fleet_code = "fleet", Fleet_name = "fleet_name",
+              Species = "species", Sex = "sex", Year = "year",
+              Age0_Length1 = "index_label_code", Bin = "age_length_bin",
+              Length = "length", Sample_size = "sample_size",
+              Accumulated = "accumulated",
+              Observed = "observed", Fitted = "predicted",
+              Residual = "residual")
+      hit <- names(pear) %in% names(nm)
+      names(pear)[hit] <- unname(nm[names(pear)[hit]])
+    }
+    attr(out, "pearson") <- pear
   }
 
   n_bad <- sum(!is.finite(out$residual))
@@ -302,6 +330,35 @@ osa_residuals <- function(fit,
             "usually indicates a poorly converged fit or very sparse / ",
             "degenerate compositions (common for conditional age-at-length); ",
             "check model convergence before interpreting the residuals.")
+  }
+
+  # A composition `predicted` is an expected bin count, so it cannot be
+  # negative. It goes slightly negative where the bin holds almost no fish:
+  # composition observations enter as counts, (proportion + comp_offset) * N,
+  # and oneStepPredict()'s conditional mean is a numerical step from the
+  # observation, which overshoots below zero when the count is near it.
+  #
+  # It is the BIN's count that matters, not the composition's sample size. On
+  # EBS pollock the negative rows have a median observed count of 0.05 against
+  # 4.9 for the rest, while their sample sizes span the same 1 to 821 as
+  # everything else -- 69 of 353 occur above a sample size of 100. A rare age in
+  # a well-sampled year does this just as readily as a poorly sampled year.
+  #
+  # Reported rather than clamped: the negative value is the signal that the bin
+  # is too sparse for the decomposition to describe, and clamping hides it.
+  is_comp <- out$source %in% c("comp", "caal", "diet")
+  bad <- is_comp & is.finite(out$predicted) & out$predicted < 0
+  if (any(bad)) {
+    yrs <- sort(unique(out$year[bad]))
+    warning(sum(bad), " composition `predicted` value(s) are negative, in ",
+            "year(s) ", paste(utils::head(yrs, 5), collapse = ", "),
+            if (length(yrs) > 5) ", ..." else "",
+            ". An expected count cannot be negative; those bins hold too few ",
+            "fish for the one-step-ahead decomposition to describe, so treat ",
+            "`predicted` there as uninformative. This follows the count in the ",
+            "bin rather than the sample size of the composition, so it can ",
+            "happen to a rare age in a well-sampled year. The residuals may ",
+            "still be usable.", call. = FALSE)
   }
   out
 }

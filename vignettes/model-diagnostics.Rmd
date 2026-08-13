@@ -182,6 +182,22 @@ plot_comp(model_1, residual_type = "osa")              # Q-Q + signed bubbles
 residuals(model_1, type = "osa", source = "comp")
 ```
 
+### Fleets with tail accumulation
+
+Where a fleet folds its composition tails into a boundary bin
+(`Comp_accum_young` / `Comp_accum_old`), both the OSA and the Pearson residuals
+describe the bins the likelihood actually fit, not the raw bins in `comp_data`.
+A fleet on 10 ages with `Comp_accum_young = 3` reports bins 3 to 10: bin 3 holds
+ages 1 to 3 combined, and the `accumulated` column (`Accumulated` from
+`residuals()`) marks it, since it stands for a range rather than the single age
+it is named for. Expect fewer residual bins than raw age bins for such a fleet.
+
+The two differ in one place. The one-step-ahead decomposition drops each
+composition's last bin, which is fixed by the sum-to-sample-size constraint.
+Under an *old*-tail accumulation that dropped bin is the upper accumulated one,
+so the fleet's upper boundary bin appears in the Pearson residuals and not in
+the OSA residuals.
+
 Following Stewart and Monnahan (2025), a practical workflow is:
 
 1. **Inspect the aggregate fit** across years (`plot_comp(model_1)`): systematic
