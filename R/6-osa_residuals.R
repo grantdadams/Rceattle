@@ -331,26 +331,33 @@ osa_residuals <- function(fit,
             "check model convergence before interpreting the residuals.")
   }
 
-  # A composition `predicted` is an expected bin count, so it cannot be negative.
-  # It goes slightly negative anyway when the effective sample size is small
-  # enough that the bin counts are near zero -- the counts are already fractional
-  # ((proportion + comp_offset) * N), and oneStepPredict()'s conditional mean is
-  # numerical. Seen at N <= 2 with the default method and N <= 5 with
-  # "oneStepGeneric". The residual can still be informative, so report rather
-  # than clamp -- clamping would hide the one signal that the sample size is too
-  # small for the decomposition to describe.
+  # A composition `predicted` is an expected bin count, so it cannot be
+  # negative. It goes slightly negative where the bin holds almost no fish:
+  # composition observations enter as counts, (proportion + comp_offset) * N,
+  # and oneStepPredict()'s conditional mean is a numerical step from the
+  # observation, which overshoots below zero when the count is near it.
+  #
+  # It is the BIN's count that matters, not the composition's sample size. On
+  # EBS pollock the negative rows have a median observed count of 0.05 against
+  # 4.9 for the rest, while their sample sizes span the same 1 to 821 as
+  # everything else -- 69 of 353 occur above a sample size of 100. A rare age in
+  # a well-sampled year does this just as readily as a poorly sampled year.
+  #
+  # Reported rather than clamped: the negative value is the signal that the bin
+  # is too sparse for the decomposition to describe, and clamping hides it.
   is_comp <- out$source %in% c("comp", "caal", "diet")
-  n_neg <- sum(is_comp & is.finite(out$predicted) & out$predicted < 0)
-  if (n_neg > 0) {
-    yrs <- sort(unique(out$year[is_comp & is.finite(out$predicted) &
-                                  out$predicted < 0]))
-    warning(n_neg, " composition `predicted` value(s) are negative, in year(s) ",
-            paste(utils::head(yrs, 5), collapse = ", "),
+  bad <- is_comp & is.finite(out$predicted) & out$predicted < 0
+  if (any(bad)) {
+    yrs <- sort(unique(out$year[bad]))
+    warning(sum(bad), " composition `predicted` value(s) are negative, in ",
+            "year(s) ", paste(utils::head(yrs, 5), collapse = ", "),
             if (length(yrs) > 5) ", ..." else "",
-            ". An expected count cannot be negative; this means the effective ",
-            "sample size there is too small for the one-step-ahead ",
-            "decomposition to describe, so treat `predicted` in those rows as ",
-            "uninformative. The residuals may still be usable.", call. = FALSE)
+            ". An expected count cannot be negative; those bins hold too few ",
+            "fish for the one-step-ahead decomposition to describe, so treat ",
+            "`predicted` there as uninformative. This follows the count in the ",
+            "bin rather than the sample size of the composition, so it can ",
+            "happen to a rare age in a well-sampled year. The residuals may ",
+            "still be usable.", call. = FALSE)
   }
   out
 }

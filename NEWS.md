@@ -178,13 +178,16 @@
 
 * **A negative expected composition count now warns** (issue #108). `predicted`
   is an expected bin count and cannot be negative, but it goes slightly negative
-  when the effective sample size is small enough that the counts sit near zero:
-  at `Sample_size <= 2` with the default method, and up to 5 with
-  `"oneStepGeneric"`. The counts are `(proportion + comp_offset) * N` and so
-  already fractional, and the one-step-ahead conditional mean is numerical. The
-  affected years are named; treat `predicted` there as uninformative, though the
-  residuals may still be usable. Not clamped, since the negative value is the
-  signal that the sample size is too small for the decomposition.
+  where a bin holds almost no fish: compositions enter as counts
+  (`(proportion + comp_offset) * N`), and the one-step-ahead conditional mean is
+  a numerical step from the observation that overshoots below zero when the
+  count is near it. This follows the count in the *bin*, not the sample size of
+  the composition -- on EBS pollock the affected rows have a median observed
+  count of 0.05 against 4.9 elsewhere, while their sample sizes span the same
+  range as everything else, so a rare age in a well-sampled year does it too.
+  The affected years are named; treat `predicted` there as uninformative, though
+  the residuals may still be usable. Not clamped, since the negative value is
+  the signal that the bin is too sparse.
 
 * **OSA residuals on an accumulated composition are labelled by the age they
   represent** (reported as issue #108). Tail accumulation folds the tails into a
