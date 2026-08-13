@@ -75,9 +75,8 @@ are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data
 frame's column names rather than the data-sheet names
 \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns, so the two halves of one object read alike.
-Note the Pearson residuals are computed on the unfolded composition, so a
-fleet with tail accumulation has bins there that the OSA residuals -- and
-the likelihood -- do not. Summarize it with
+Both describe the bins the likelihood fit, so a fleet with tail
+accumulation reports the folded window in each. Summarize it with
 \code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
 }
 \description{

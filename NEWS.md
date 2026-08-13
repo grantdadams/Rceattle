@@ -186,13 +186,22 @@
   new `accumulated` column marks the bins that carry a folded tail. A fleet
   without accumulation is unchanged.
 
+* **`residuals()` reports composition residuals on the bins the likelihood
+  fit.** Tail accumulation folds the tails into a boundary bin and restricts the
+  likelihood to that window, but `residuals()` knew nothing about it -- so a
+  fleet folding ages 1-2 into age 3 still returned residuals for ages 1 and 2,
+  against a model that never fit them separately, and the boundary bin's
+  observed proportion excluded the tail it had absorbed. Both the composition
+  and the `"pearson"` attribute of `osa_residuals()` now fold first, so the
+  Pearson and OSA views of a fleet describe the same bins. The residual formula
+  is unchanged, and a fleet without accumulation is bit-identical. A new
+  `Accumulated` column marks the bins carrying a folded tail.
+
 * **The `"pearson"` attribute of an `osa_residuals()` result uses the same
   column names as the result itself.** It came from `residuals()`, which names
   columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
   object carried two conventions and a reader had to know which half they were
-  holding. Note the Pearson residuals are computed on the *unfolded*
-  composition, so a fleet with tail accumulation has bins there that the OSA
-  residuals -- and the likelihood -- do not.
+  holding.
 
 * **`sim_mod()` draws the survey index under the fleet's own
   `Index_distribution`.** It drew every fleet as an independent lognormal

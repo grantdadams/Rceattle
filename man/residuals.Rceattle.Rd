@@ -70,4 +70,12 @@ model's random-effect deviations; \code{source} does not apply.}
 Composition rows are returned in long form (one row per observation x
 age/length bin) and carry the \code{Age0_Length1} flag from \code{comp_data} (\code{0} age,
 \code{1} length); CAAL rows carry both the conditioning \code{Length} and the age \code{Bin}.
+
+Where a fleet uses tail accumulation (\code{Comp_accum_young} /
+\code{Comp_accum_old}), composition residuals describe the bins the likelihood
+actually fit: the tails are folded into their boundary bin and the bins
+outside the window are not reported, because the model never fit them
+separately. \code{Bin} names the age or length each residual belongs to and
+\code{Accumulated} marks the boundary bins, which stand for a range rather than
+the single bin they are named for. Fleets without accumulation are unchanged.
 }

@@ -92,9 +92,8 @@
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data
 #'   frame's column names rather than the data-sheet names
 #'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
-#'   Note the Pearson residuals are computed on the unfolded composition, so a
-#'   fleet with tail accumulation has bins there that the OSA residuals -- and
-#'   the likelihood -- do not. Summarize it with
+#'   Both describe the bins the likelihood fit, so a fleet with tail
+#'   accumulation reports the folded window in each. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references
@@ -311,6 +310,7 @@ osa_residuals <- function(fit,
               Species = "species", Sex = "sex", Year = "year",
               Age0_Length1 = "index_label_code", Bin = "age_length_bin",
               Length = "length", Sample_size = "sample_size",
+              Accumulated = "accumulated",
               Observed = "observed", Fitted = "predicted",
               Residual = "residual")
       hit <- names(pear) %in% names(nm)

@@ -513,3 +513,73 @@ testthat::test_that("no accumulation leaves the OSA bin labels unchanged", {
   testthat::expect_equal(grp1$age_length_bin, seq_len(nrow(grp1)))
   testthat::expect_false(any(grp1$accumulated))
 })
+
+
+testthat::test_that("Pearson residuals cover the bins the likelihood fit", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Second half of issue #108: residuals(type = "pearson") had no knowledge of
+  # accumulation, so a fleet folding ages 1-2 into age 3 still reported Pearson
+  # residuals for ages 1 and 2 -- against a model that never fit them
+  # separately. That is the "Shelikof data lacking age 1 or 2 fish but still
+  # receiving Pearson residuals" in the report.
+  nages <- 10L
+  yng   <- 3L
+  d <- make_test_data(nages = nages)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  d$fleet_control$Comp_accum_young  <- yng
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+
+  pe <- stats::residuals(fit, type = "pearson", source = "comp")
+  testthat::expect_false(any(pe$Bin < yng))            # the folded-away ages
+  testthat::expect_equal(sort(unique(pe$Bin)), seq.int(yng, nages))
+
+  # And it agrees with the OSA view of the same fleet: OSA drops one bin per
+  # group (fixed by sum-to-N), so its bins are a subset of the Pearson bins
+  # rather than a different set.
+  osa <- suppressWarnings(Rceattle::osa_residuals(fit, source = "comp"))
+  testthat::expect_true(all(unique(osa$age_length_bin) %in% unique(pe$Bin)))
+
+  # The folded boundary bin holds the tails, so its observed proportion is the
+  # sum of the raw bins it absorbed.
+  cd  <- fit$data_list$comp_data
+  bc  <- grep("^Comp_", colnames(cd), value = TRUE)
+  raw <- as.matrix(cd[, bc, drop = FALSE])[1, ]
+  raw <- raw / sum(raw, na.rm = TRUE)
+  r1  <- pe[pe$Year == cd$Year[1] & pe$Fleet_code == cd$Fleet_code[1] &
+              pe$Bin == yng, , drop = FALSE]
+  testthat::expect_equal(r1$Observed[1], sum(raw[seq_len(yng)]),
+                         tolerance = 1e-10)
+})
+
+testthat::test_that("Pearson residuals are unchanged without accumulation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The fold path must not perturb the models that do not use it.
+  d <- make_test_data(nages = 10L)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+
+  pe <- stats::residuals(fit, type = "pearson", source = "comp")
+  testthat::expect_equal(sort(unique(pe$Bin)), seq_len(10L))
+
+  # Reconstruct the pre-change vectorized result by hand.
+  cd <- fit$data_list$comp_data
+  bc <- grep("^Comp_", colnames(cd), value = TRUE)
+  om <- as.matrix(cd[, bc, drop = FALSE])
+  rt <- rowSums(om, na.rm = TRUE); rt[rt == 0] <- NA_real_
+  obs <- as.numeric(om / rt)
+  hat <- as.numeric(as.matrix(fit$quantities$comp_hat))
+  ss  <- rep(cd$Sample_size, times = length(bc))
+  res <- (obs - hat) / sqrt(hat * (1 - hat) / ss)
+  k   <- !is.na(obs) & !is.na(hat) & !(obs == 0 & hat == 0)
+  testthat::expect_equal(sort(res[k]), sort(pe$Residual), tolerance = 0)
+})

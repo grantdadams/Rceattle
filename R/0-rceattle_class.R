@@ -221,6 +221,14 @@ logLik.Rceattle <- function(object, ...) {
 #' age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0` age,
 #' `1` length); CAAL rows carry both the conditioning `Length` and the age `Bin`.
 #'
+#' Where a fleet uses tail accumulation (`Comp_accum_young` /
+#' `Comp_accum_old`), composition residuals describe the bins the likelihood
+#' actually fit: the tails are folded into their boundary bin and the bins
+#' outside the window are not reported, because the model never fit them
+#' separately. `Bin` names the age or length each residual belongs to and
+#' `Accumulated` marks the boundary bins, which stand for a range rather than
+#' the single bin they are named for. Fleets without accumulation are unchanged.
+#'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param type Residual kind: one of `"response"` (default), `"pearson"`,
 #'   `"osa"`, or `"process"`.
@@ -346,6 +354,11 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Bin          = rep(NA_real_, n),
       Age0_Length1 = rep(NA_integer_, n),
       Sample_size  = rep(NA_real_, n),
+      # TRUE only where composition tail accumulation folded neighbouring bins
+      # into this one, so `Bin` names a range rather than the single age or
+      # length it appears to. FALSE everywhere else, including every source that
+      # cannot accumulate.
+      Accumulated  = rep(FALSE, n),
       Observed     = numeric(n),
       Fitted       = numeric(n),
       Residual     = numeric(n),
@@ -438,19 +451,45 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     bin_vals <- suppressWarnings(as.numeric(sub("^Comp_", "", bin_cols)))
     n_obs <- nrow(cd); n_bin <- length(bin_cols)
     a0l1 <- if (!is.null(cd$Age0_Length1)) cd$Age0_Length1 else NA_integer_
-    df <- empty_row(n_obs * n_bin)
-    df$Source       <- "comp"
-    df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
-    df$Fleet_name   <- rep(cd$Fleet_name, times = n_bin)
-    df$Species      <- rep(cd$Species,    times = n_bin)
-    df$Sex          <- rep(if (!is.null(cd$Sex)) cd$Sex else NA_integer_,
-                           times = n_bin)
-    df$Year         <- rep(cd$Year,       times = n_bin)
-    df$Bin          <- rep(bin_vals, each = n_obs)
-    df$Age0_Length1 <- rep(a0l1, times = n_bin)
-    df$Sample_size  <- rep(cd$Sample_size, times = n_bin)
-    df$Observed     <- as.numeric(obs_prop)
-    df$Fitted       <- as.numeric(hat_prop)
+
+    # Tail accumulation (Comp_accum_young / Comp_accum_old) folds the tails into
+    # a boundary bin and restricts the likelihood to [yng, old]. Residuals have
+    # to describe what was fit: without this a fleet folding ages 1-2 into age 3
+    # still reports residuals for ages 1 and 2 against a model that never saw
+    # them separately. `.fold_comp_props()` returns NULL when no fleet
+    # accumulates, which keeps the vectorized path (and every existing model)
+    # exactly as it was.
+    folded <- .fold_comp_props(d, cd, obs_prop, hat_prop, a0l1, n_bin)
+
+    if (is.null(folded)) {
+      df <- empty_row(n_obs * n_bin)
+      df$Source       <- "comp"
+      df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
+      df$Fleet_name   <- rep(cd$Fleet_name, times = n_bin)
+      df$Species      <- rep(cd$Species,    times = n_bin)
+      df$Sex          <- rep(if (!is.null(cd$Sex)) cd$Sex else NA_integer_,
+                             times = n_bin)
+      df$Year         <- rep(cd$Year,       times = n_bin)
+      df$Bin          <- rep(bin_vals, each = n_obs)
+      df$Age0_Length1 <- rep(a0l1, times = n_bin)
+      df$Sample_size  <- rep(cd$Sample_size, times = n_bin)
+      df$Observed     <- as.numeric(obs_prop)
+      df$Fitted       <- as.numeric(hat_prop)
+    } else {
+      df <- empty_row(length(folded$obs))
+      df$Source       <- "comp"
+      df$Fleet_code   <- cd$Fleet_code[folded$row]
+      df$Fleet_name   <- cd$Fleet_name[folded$row]
+      df$Species      <- cd$Species[folded$row]
+      df$Sex          <- if (!is.null(cd$Sex)) cd$Sex[folded$row] else NA_integer_
+      df$Year         <- cd$Year[folded$row]
+      df$Bin          <- folded$bin
+      df$Age0_Length1 <- a0l1[folded$row]
+      df$Sample_size  <- cd$Sample_size[folded$row]
+      df$Accumulated  <- folded$acc
+      df$Observed     <- folded$obs
+      df$Fitted       <- folded$hat
+    }
     df$Residual     <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
@@ -513,6 +552,100 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #' @param observed,fitted Observed and fitted proportions.
 #' @param n Input sample size.
 #' @keywords internal
+#' Fold composition proportions onto the bins the likelihood actually fit
+#'
+#' Tail accumulation (`Comp_accum_young` / `Comp_accum_old`) folds the tails of a
+#' composition into a boundary bin and restricts the likelihood to
+#' `[yng, old]`, per fleet and per sex block. Residuals computed on the unfolded
+#' row therefore describe bins the model never fit separately.
+#'
+#' Mirrors the fold in [build_osa_data()] exactly -- same clamp, same
+#' [.fold_comp_bins()] helper, same per-sex-block treatment -- so the Pearson and
+#' OSA residuals of one fleet cover the same bins and carry the same labels.
+#'
+#' @param d The model's `data_list`.
+#' @param cd Its `comp_data`.
+#' @param obs_prop,hat_prop Observed / predicted proportions, `[row, bin]`.
+#' @param a0l1 Per-row `Age0_Length1` (0 = age bins, 1 = length bins).
+#' @param n_bin Number of bin columns, including any joint-sex doubling.
+#' @return `NULL` when no fleet accumulates (the caller keeps its vectorized
+#'   path); otherwise a list of equal-length vectors `row` (index into `cd`),
+#'   `bin` (the ordinal each value stands for), `obs`, `hat`, and `acc` (whether
+#'   the bin absorbed a folded tail).
+#' @keywords internal
+#' @noRd
+.fold_comp_props <- function(d, cd, obs_prop, hat_prop, a0l1, n_bin) {
+  acc_y <- d$comp_accum_young
+  acc_o <- d$comp_accum_old
+  if (is.null(acc_y)) acc_y <- d$fleet_control$Comp_accum_young
+  if (is.null(acc_o)) acc_o <- d$fleet_control$Comp_accum_old
+  if (is.null(acc_y) && is.null(acc_o)) return(NULL)
+
+  nages    <- d$nages
+  nlengths <- d$nlengths
+  fleets   <- cd$Fleet_code
+  sexes    <- if (!is.null(cd$Sex)) cd$Sex else rep(NA_integer_, nrow(cd))
+
+  # Per-row window, clamped exactly as build_osa_data() and the cpp do.
+  win <- lapply(seq_len(nrow(cd)), function(r) {
+    flt <- fleets[r]
+    sp  <- cd$Species[r]
+    nb  <- if (isTRUE(a0l1[r] == 1)) nlengths[sp] else nages[sp]
+    if (is.na(nb) || nb < 1L) nb <- n_bin
+    yng <- if (!is.null(acc_y)) acc_y[flt] else 1L
+    old <- if (!is.null(acc_o)) acc_o[flt] else 0L
+    if (is.na(yng) || yng < 1L) yng <- 1L
+    if (is.na(old) || old < 1L || old > nb) old <- nb
+    if (yng > old) yng <- old
+    list(nb = nb, yng = yng, old = old,
+         blk = if (isTRUE(sexes[r] == 3)) 2L else 1L)
+  })
+  if (!any(vapply(win, function(w) w$yng > 1L || w$old < w$nb, logical(1)))) {
+    return(NULL)   # nothing folds: leave the caller's fast path alone
+  }
+
+  parts <- lapply(seq_len(nrow(cd)), function(r) {
+    w <- win[[r]]
+    n_use <- w$blk * w$nb
+    # A row whose declared shape (sex blocks x bin dimension) exceeds the bin
+    # columns present is internally inconsistent -- data_check() is the place
+    # that judges it. Report the raw bins rather than indexing past the end and
+    # failing with "subscript out of bounds" from in here.
+    if (n_use > n_bin) {
+      o <- as.numeric(obs_prop[r, seq_len(n_bin)])
+      h <- as.numeric(hat_prop[r, seq_len(n_bin)])
+      return(list(row = rep(r, n_bin), bin = seq_len(n_bin),
+                  obs = o, hat = h, acc = rep(FALSE, n_bin)))
+    }
+    o <- as.numeric(obs_prop[r, seq_len(n_use)])
+    h <- as.numeric(hat_prop[r, seq_len(n_use)])
+    does_fold <- w$yng > 1L || w$old < w$nb
+    if (does_fold) {
+      o <- .fold_comp_bins(o, w$nb, w$blk, w$yng, w$old)
+      h <- .fold_comp_bins(h, w$nb, w$blk, w$yng, w$old)
+    }
+    keep <- seq.int(w$yng, w$old)
+    bin  <- rep((seq_len(w$blk) - 1L) * w$nb, each = length(keep)) +
+      rep(keep, times = w$blk)
+    # Only the boundary bins absorbed a tail, so only they cover more than the
+    # age they are named for.
+    acc1 <- rep(FALSE, length(keep))
+    if (does_fold) {
+      if (w$yng > 1L)     acc1[1] <- TRUE
+      if (w$old < w$nb)   acc1[length(acc1)] <- TRUE
+    }
+    list(row = rep(r, length(o)), bin = bin, obs = o, hat = h,
+         acc = rep(acc1, times = w$blk))
+  })
+
+  list(row = unlist(lapply(parts, `[[`, "row"), use.names = FALSE),
+       bin = unlist(lapply(parts, `[[`, "bin"), use.names = FALSE),
+       obs = unlist(lapply(parts, `[[`, "obs"), use.names = FALSE),
+       hat = unlist(lapply(parts, `[[`, "hat"), use.names = FALSE),
+       acc = unlist(lapply(parts, `[[`, "acc"), use.names = FALSE))
+}
+
+
 .pearson_proportion <- function(observed, fitted, n) {
   (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
 }
