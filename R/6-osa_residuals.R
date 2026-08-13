@@ -93,7 +93,11 @@
 #'   frame's column names rather than the data-sheet names
 #'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
 #'   Both describe the bins the likelihood fit, so a fleet with tail
-#'   accumulation reports the folded window in each. Summarize it with
+#'   accumulation reports the folded window in each -- with one asymmetry: the
+#'   one-step-ahead decomposition drops each group's last bin (it is fixed by
+#'   sum-to-N), and under an *old*-tail accumulation that dropped bin is the
+#'   upper accumulated one. Such a fleet therefore shows its upper boundary bin
+#'   in the Pearson residuals and not in the OSA residuals. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
 #'
 #' @references

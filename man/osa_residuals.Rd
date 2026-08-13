@@ -76,7 +76,11 @@ so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attr
 frame's column names rather than the data-sheet names
 \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns, so the two halves of one object read alike.
 Both describe the bins the likelihood fit, so a fleet with tail
-accumulation reports the folded window in each. Summarize it with
+accumulation reports the folded window in each -- with one asymmetry: the
+one-step-ahead decomposition drops each group's last bin (it is fixed by
+sum-to-N), and under an \emph{old}-tail accumulation that dropped bin is the
+upper accumulated one. Such a fleet therefore shows its upper boundary bin
+in the Pearson residuals and not in the OSA residuals. Summarize it with
 \code{\link[=osa_diagnostics]{osa_diagnostics()}} and plot it with \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.
 }
 \description{

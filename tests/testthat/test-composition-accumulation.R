@@ -583,3 +583,61 @@ testthat::test_that("Pearson residuals are unchanged without accumulation", {
   k   <- !is.na(obs) & !is.na(hat) & !(obs == 0 & hat == 0)
   testthat::expect_equal(sort(res[k]), sort(pe$Residual), tolerance = 0)
 })
+
+
+testthat::test_that("both tails fold into their boundary bin, with the data they absorbed", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The young tail was covered above; this pins the OLD tail with it, and pins
+  # that each boundary bin actually holds the raw bins it absorbed rather than
+  # merely being labelled for them.
+  nages <- 10L
+  yng   <- 3L
+  old   <- 8L
+  d <- make_test_data(nages = nages)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  d$fleet_control$Comp_accum_young  <- yng
+  d$fleet_control$Comp_accum_old    <- old
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+
+  cd  <- fit$data_list$comp_data
+  bc  <- grep("^Comp_", colnames(cd), value = TRUE)
+  raw <- as.matrix(cd[, bc, drop = FALSE])[1, seq_len(nages)]
+  raw <- raw / sum(raw, na.rm = TRUE)
+
+  pe <- stats::residuals(fit, type = "pearson", source = "comp")
+  r1 <- pe[pe$Year == cd$Year[1] & pe$Fleet_code == cd$Fleet_code[1], ]
+  r1 <- r1[order(r1$Bin), ]
+
+  testthat::expect_equal(r1$Bin, seq.int(yng, old))
+  # Lower boundary holds ages 1..yng, upper holds old..nages.
+  testthat::expect_equal(r1$Observed[r1$Bin == yng], sum(raw[seq_len(yng)]),
+                         tolerance = 1e-10)
+  testthat::expect_equal(r1$Observed[r1$Bin == old],
+                         sum(raw[seq.int(old, nages)]), tolerance = 1e-10)
+  # Interior bins are untouched.
+  mid <- r1[r1$Bin > yng & r1$Bin < old, ]
+  testthat::expect_equal(mid$Observed, unname(raw[mid$Bin]), tolerance = 1e-10)
+  # Exactly the two boundaries are flagged.
+  testthat::expect_equal(r1$Bin[r1$Accumulated], c(yng, old))
+
+  # The obsvec the likelihood saw carries both boundaries too ...
+  ctl <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)$obs_ctl
+  g1  <- ctl[ctl$source == "comp", ]
+  g1  <- g1[g1$group_id == g1$group_id[1], ]
+  testthat::expect_equal(g1$age_length_bin, seq.int(yng, old))
+  testthat::expect_equal(g1$age_length_bin[g1$accumulated], c(yng, old))
+
+  # ... but the OSA residuals cannot show the upper one: it is the last bin of
+  # the group, which the one-step-ahead decomposition drops (fixed by sum-to-N).
+  # So an upper fold is visible in the Pearson residuals and absent from the OSA
+  # ones, by construction rather than by mistake.
+  osa <- suppressWarnings(Rceattle::osa_residuals(fit, source = "comp"))
+  o1  <- osa[osa$year == cd$Year[1] & osa$fleet == cd$Fleet_code[1], ]
+  testthat::expect_equal(sort(o1$age_length_bin), seq.int(yng, old - 1L))
+  testthat::expect_equal(o1$age_length_bin[o1$accumulated], yng)
+})
