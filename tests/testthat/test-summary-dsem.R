@@ -29,9 +29,9 @@ fake_fit <- function(beta_z = c(0.5, 0.8), sem_full = fake_sem_full(),
     list(
       data_list = list(nspp = nspp, spnames = paste0("spp", seq_len(nspp)),
                        random_rec = TRUE),
-      estimated_params = list(beta_z = beta_z),
+      estimated_params = list(dsem_beta_z = beta_z),
       quantities = list(R_sd = rep(0.8, nspp)),
-      map   = list(mapList = list(beta_z = bmap)),
+      map   = list(mapList = list(dsem_beta_z = bmap)),
       sdrep = sdrep,
       dsem  = list(sem_full = sem_full,
                    tmb_inputs = list(data = list(rec_sd_idx = rep(2L, nspp))))
@@ -88,7 +88,7 @@ testthat::test_that("a missing or short beta_z errors instead of returning start
   # error -- a plausible-looking sheet of zeros written straight to Results/.
   testthat::expect_error(
     suppressMessages(summary(fake_fit(beta_z = NULL))),
-    "no estimated_params\\$beta_z"
+    "no estimated_params\\$dsem_beta_z"
   )
   testthat::expect_error(
     suppressMessages(summary(fake_fit(beta_z = 0.5))),   # SEM references index 2
@@ -151,6 +151,38 @@ testthat::test_that("a mapped-off path is dropped, and a fixed path is kept", {
   testthat::expect_no_warning(out <- suppressMessages(summary(f)))
   testthat::expect_setequal(out$coefficients$name, c("sigmaR1", "X_fixed"))
   testthat::expect_false("BT_to_R" %in% out$coefficients$name)
+})
+
+# Everything above drives summary() from a hand-built fixture, which cannot catch
+# the fixture naming a slot the fit does not actually have -- the accessor then
+# only ever validates against itself. summary() read `estimated_params$beta_z`
+# for exactly that reason while a fit stores `dsem_beta_z` (every DSEM parameter
+# is prefixed), so it errored on every real DSEM fit and every fixture test
+# passed. This runs a real one.
+
+testthat::test_that("summary() reads the slot names a real DSEM fit carries", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  # The contract summary() depends on, asserted against the fit rather than a
+  # fixture: name these wrong and summary() cannot report anything.
+  testthat::expect_false(is.null(fit$estimated_params$dsem_beta_z))
+  testthat::expect_false(is.null(fit$map$mapList$dsem_beta_z))
+  testthat::expect_false(is.null(fit$dsem$sem_full))
+
+  out <- suppressMessages(summary(fit))
+  testthat::expect_type(out, "list")
+  testthat::expect_true(all(c("coefficients", "recruitment_sd") %in% names(out)))
+  testthat::expect_true(is.numeric(out$recruitment_sd$R_sd))
 })
 
 testthat::test_that("a map too short for the SEM warns and filters nothing", {

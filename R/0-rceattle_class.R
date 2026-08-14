@@ -123,20 +123,23 @@ summary.Rceattle <- function(object, ...) {
   # future dsem returns a matrix, whose columns would otherwise all coerce to
   # character and silently change every downstream column's type.
   model  <- as.data.frame(object$dsem$sem_full, stringsAsFactors = FALSE)
-  beta_z <- object$estimated_params$beta_z
+  # The path coefficients are `dsem_beta_z` on a fit: every DSEM parameter is
+  # prefixed (.DSEM_PARAM_NAMES) so it cannot collide with a CEATTLE parameter.
+  beta_z <- object$estimated_params$dsem_beta_z
   par_idx <- as.numeric(model[, "parameter"])
 
-  # sem_full$parameter is a 1-based index into beta_z, or 0 for a path fixed at
-  # its start value. Refuse to guess if beta_z is missing or too short: without
-  # it every estimate silently falls back to its start value, which looks like a
+  # sem_full$parameter is a 1-based index into dsem_beta_z, or 0 for a path fixed
+  # at its start value. Refuse to guess if it is missing or too short: without it
+  # every estimate silently falls back to its start value, which looks like a
   # converged table of zeros rather than an error.
   if (is.null(beta_z)) {
-    stop("The fit has no estimated_params$beta_z, so DSEM path coefficients ",
-         "cannot be reported. Was this fit produced with a `dsem` argument?")
+    stop("The fit has no estimated_params$dsem_beta_z, so DSEM path ",
+         "coefficients cannot be reported. Was this fit produced with a `dsem` ",
+         "argument?")
   }
   if (length(beta_z) < max(par_idx, 0, na.rm = TRUE)) {
-    stop("estimated_params$beta_z has ", length(beta_z), " entries but the SEM ",
-         "references parameter index ", max(par_idx, na.rm = TRUE), ".")
+    stop("estimated_params$dsem_beta_z has ", length(beta_z), " entries but the ",
+         "SEM references parameter index ", max(par_idx, na.rm = TRUE), ".")
   }
 
   # Prepending NA lets index 0 select it; the start value then replaces it.
@@ -153,7 +156,8 @@ summary.Rceattle <- function(object, ...) {
   coefs$Std_Error <- NA_real_
   if (!is.null(object$sdrep)) {
     SE <- as.list(object$sdrep, report = FALSE, what = "Std. Error")
-    if (!is.null(SE$beta_z)) coefs$Std_Error <- c(NA, SE$beta_z)[par_idx + 1]
+    if (!is.null(SE$dsem_beta_z))
+      coefs$Std_Error <- c(NA, SE$dsem_beta_z)[par_idx + 1]
   }
   coefs$z_value <- coefs$Estimate / coefs$Std_Error
   coefs$p_value <- stats::pnorm(-abs(coefs$z_value)) * 2
@@ -164,7 +168,7 @@ summary.Rceattle <- function(object, ...) {
   # start value (parameter == 0) or several paths share one parameter, both of
   # which are ordinary. A fixed path owns no beta_z entry and is always kept --
   # it cannot be mapped off.
-  bmap <- object$map$mapList$beta_z
+  bmap <- object$map$mapList$dsem_beta_z
   if (!is.null(bmap)) {
     if (length(bmap) >= max(par_idx, 0, na.rm = TRUE)) {
       estimated_path <- !is.na(par_idx) & par_idx >= 1
@@ -172,8 +176,8 @@ summary.Rceattle <- function(object, ...) {
       keep[estimated_path] <- !is.na(bmap[par_idx[estimated_path]])
       coefs <- coefs[keep, , drop = FALSE]
     } else {
-      warning("The DSEM map has ", length(bmap), " beta_z entries but the SEM ",
-              "references parameter index ", max(par_idx, na.rm = TRUE),
+      warning("The DSEM map has ", length(bmap), " dsem_beta_z entries but the ",
+              "SEM references parameter index ", max(par_idx, na.rm = TRUE),
               "; reporting all paths unfiltered.", call. = FALSE)
     }
   }
@@ -232,7 +236,7 @@ summary.Rceattle <- function(object, ...) {
   # mapped on; fall back to the model-level random_rec flag.
   estimated <- rep(isTRUE(as.logical(d$random_rec)), nspp)
   idx  <- object$dsem$tmb_inputs$data$rec_sd_idx
-  bmap <- object$map$mapList$beta_z
+  bmap <- object$map$mapList$dsem_beta_z
   if (!is.null(idx) && !is.null(bmap) && length(idx) == nspp) {
     estimated <- vapply(seq_len(nspp), function(sp) {
       isTRUE(idx[sp] >= 1) && !is.na(bmap[idx[sp]])
