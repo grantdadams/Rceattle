@@ -1,3 +1,22 @@
+# Rceattle 5.6.1
+
+## Bug fixes
+
+* **A covariance (`MVN`/`MVNORM`) survey `Sigma` that is symmetric but not
+  positive definite is now caught by `data_check()`.** The covariance index
+  likelihood factorizes `Sigma`, so symmetry is not enough. An indefinite or
+  singular matrix used to clear every check -- presence, squareness, dimension,
+  symmetry -- and then fail inside the TMB objective, in a message that named
+  neither the fleet nor `Sigma`. The error now names the fleet and reports the
+  smallest eigenvalue, so it is clear how far off the matrix is.
+
+* **An `index_cov` entry for a fleet that is not using the covariance likelihood
+  now warns.** It was ignored in both `data_check()` and the internal aligner, so
+  supplying a covariance but leaving `Index_distribution` unset gave a silent
+  lognormal fit with no indication the matrix had been dropped. Entries keyed by
+  either `Fleet_name` or `Fleet_code` are recognised, so a correctly configured
+  fleet does not warn.
+
 # Rceattle 5.6.0
 
 ## New features
