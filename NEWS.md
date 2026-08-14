@@ -2,6 +2,14 @@
 
 ## Bug fixes
 
+* **`fit_control(verbose = 0)` now silences the estimability table printed when
+  a fit does not converge.** `TMBhelper` emits it with `print()`, which
+  `suppressMessages()` cannot catch, so it appeared whatever `verbose` said --
+  one row per fixed parameter, repeated for every refit a `self_test()`,
+  `jitter()` or `retrospective()` run makes. It and the "Model did not converge"
+  banner now appear only under `verbose > 0`. The verdict is unchanged on
+  `fit$identified` and in `fit$convergence`.
+
 * **A covariance (`MVN`/`MVNORM`) survey `Sigma` that is symmetric but not
   positive definite is now caught by `data_check()`.** The covariance index
   likelihood factorizes `Sigma`, so symmetry is not enough. An indefinite or
