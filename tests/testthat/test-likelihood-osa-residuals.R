@@ -611,10 +611,17 @@ testthat::test_that("a failed parallel OSA loop rebuilds the object before retry
     d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
     fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
 
-  builds <- 0L
+  # Record the objects handed back, not just the number of calls: the builder
+  # short-circuits to fit$obj for a model already in OSA mode, so counting calls
+  # would pass even if the retry got the same object straight back.
+  built <- list()
   real_build <- Rceattle:::.osa_build_obj
   testthat::local_mocked_bindings(
-    .osa_build_obj = function(...) { builds <<- builds + 1L; real_build(...) },
+    .osa_build_obj = function(...) {
+      o <- real_build(...)
+      built[[length(built) + 1L]] <<- o
+      o
+    },
     .package = "Rceattle")
 
   # Fail the parallel attempt exactly as a dead worker does, and let the serial
@@ -630,8 +637,34 @@ testthat::test_that("a failed parallel OSA loop rebuilds the object before retry
   osa <- suppressWarnings(suppressMessages(
     Rceattle::osa_residuals(fit, source = "index", parallel = TRUE)))
 
-  # One build up front, one more on the retry.
-  testthat::expect_gte(builds, 2L)
+  # One build up front, one more on the retry ...
+  testthat::expect_gte(length(built), 2L)
+  # ... and the retry's object is genuinely a different one, not the same
+  # object handed back. This is what makes the retry safe.
+  testthat::expect_false(identical(built[[1]], built[[length(built)]]))
   testthat::expect_true(nrow(osa) > 0)
   testthat::expect_true(all(is.finite(osa$residual)))
+})
+
+testthat::test_that(".osa_build_obj(force = TRUE) rebuilds an OSA-mode model", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Without `force`, a model already in OSA mode gets its own object back. That
+  # is right for the first build and wrong for the retry, where reusing the
+  # object the failed parallel attempt touched is the whole problem.
+  d <- make_test_data(nyrs = 12, nages = 6, seed = 7)
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # Put the fit into OSA mode so the short-circuit applies.
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  fit$obj <- Rceattle:::.osa_build_obj(fit, osa_dat)
+  testthat::expect_equal(fit$obj$env$data$osa_mode, 1)
+
+  same  <- Rceattle:::.osa_build_obj(fit, osa_dat)
+  fresh <- Rceattle:::.osa_build_obj(fit, osa_dat, force = TRUE)
+  testthat::expect_true(identical(same, fit$obj))     # short-circuit
+  testthat::expect_false(identical(fresh, fit$obj))   # genuinely rebuilt
 })

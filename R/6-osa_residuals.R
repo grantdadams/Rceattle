@@ -258,20 +258,25 @@ osa_residuals <- function(fit,
     # serially instead: slower, but it returns residuals rather than a message
     # that points nowhere near the cause.
     #
-    # The retry must build a FRESH object. `obj_osa` holds external pointers into
-    # TMB, and a forked worker that aborted can leave them unusable in the
-    # parent, so re-entering the same object crashes the R session outright
-    # ("An irrecoverable exception occurred") rather than recovering. Seen on GOA
-    # pollock 2025, whose time-varying catchability (an ar1 and a rw q linkage)
-    # carries 109 of its 164 random effects: every index observation re-runs a
-    # large inner Laplace solve, which is what fails in the child. Dropping the q
-    # linkages, or going serial from the start, avoids it.
+    # The retry must build a FRESH object. Re-entering the one the failed attempt
+    # used ends the R session outright ("An irrecoverable exception occurred")
+    # instead of recovering, which is worse than the failure it is handling.
+    #
+    # What is established, from GOA pollock 2025 (164 random effects, 109 of them
+    # from an ar1 and a rw catchability linkage): forked workers abort at any
+    # width above one, and mclapply normally absorbs that -- a direct
+    # oneStepPredict() over the same 90 index observations returned all of them
+    # at 1, 2, 4, 8 and 11 cores despite aborts at every width above one.
+    # Sometimes the absorption fails and the error surfaces here; that case did
+    # not reproduce on demand, so it looks load-dependent rather than a property
+    # of the model. Either way the parent must not reuse the object afterwards.
+    # Serial (`parallel = FALSE`) never fails.
     want_par <- parallel_ok && !dsc
     res <- if (!want_par) osp(FALSE) else
       tryCatch(osp(TRUE), error = function(e) {
         message("osa_residuals(): the parallel one-step-ahead loop failed (",
                 conditionMessage(e), "); recomputing serially.")
-        obj_osa <<- .osa_build_obj(fit, osa_dat)
+        obj_osa <<- .osa_build_obj(fit, osa_dat, force = TRUE)
         osp(FALSE)
       })
     data.frame(.row = rows, observed = get_col(res, "observation"),
@@ -393,11 +398,19 @@ osa_residuals <- function(fit,
 #' @param osa_dat Optional pre-built OSA observation data (the list returned by
 #'   [build_osa_data()] with `build_osa = TRUE`) to reuse instead of rebuilding
 #'   it. `NULL` (the default) rebuilds it from `fit$obj$env$data`.
+#' @param force Build a new object even when `fit` is already in OSA mode, where
+#'   this otherwise returns `fit$obj` itself. The retry after a failed parallel
+#'   one-step-ahead loop needs a genuinely new one.
 #' @return A TMB ADFun object with `osa_mode = 1`.
 #' @keywords internal
-.osa_build_obj <- function(fit, osa_dat = NULL) {
+.osa_build_obj <- function(fit, osa_dat = NULL, force = FALSE) {
   obj <- fit$obj
-  if (!is.null(obj$env$data$osa_mode) && obj$env$data$osa_mode == 1L) {
+  # A model already fitted in OSA mode can use its own object -- except when the
+  # caller needs a genuinely new one. The retry after a failed parallel loop does:
+  # handing back `fit$obj` there would reuse the object the failure touched,
+  # which is the thing that ends the R session.
+  if (!force && !is.null(obj$env$data$osa_mode) &&
+      obj$env$data$osa_mode == 1L) {
     return(obj)
   }
   # Regenerate the full OSA observation vector (comp / CAAL / diet segments) on
