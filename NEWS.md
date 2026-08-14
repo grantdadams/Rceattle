@@ -222,9 +222,14 @@
   the composition -- on EBS pollock the affected rows have a median observed
   count of 0.05 against 4.9 elsewhere, while their sample sizes span the same
   range as everything else, so a rare age in a well-sampled year does it too.
-  The affected years are named; treat `predicted` there as uninformative, though
-  the residuals may still be usable. Not clamped, since the negative value is
-  the signal that the bin is too sparse.
+  The affected years are named, and the warning notes that the residual on those
+  rows standardises the observation against the same mean, so it is biased
+  positive -- every affected row was positive in both Rceattle and WHAM. Nothing
+  is dropped or clamped: the negative value is the signal that the bin is too
+  sparse, and which rows to set aside is the analyst's call. This is not specific
+  to Rceattle; WHAM produces negative expected counts on its own example, with
+  the same default one-step-ahead method and composition counts on the same
+  scale.
 
 * **OSA residuals on an accumulated composition are labelled by the age they
   represent** (reported as issue #108). Tail accumulation folds the tails into a

@@ -376,8 +376,9 @@ osa_residuals <- function(fit,
             "fish for the one-step-ahead decomposition to describe, so treat ",
             "`predicted` there as uninformative. This follows the count in the ",
             "bin rather than the sample size of the composition, so it can ",
-            "happen to a rare age in a well-sampled year. The residuals may ",
-            "still be usable.", call. = FALSE)
+            "happen to a rare age in a well-sampled year. The residual on those ",
+            "rows standardises the observation against that same mean, so it is ",
+            "biased positive -- read it with that in mind.", call. = FALSE)
   }
   out
 }
