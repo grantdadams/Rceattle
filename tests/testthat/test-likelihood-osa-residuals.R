@@ -625,9 +625,14 @@ testthat::test_that("a failed parallel OSA loop rebuilds the object before retry
     .package = "Rceattle")
 
   # Fail the parallel attempt exactly as a dead worker does, and let the serial
-  # retry through.
+  # retry through. `openmp()` has to be mocked as well: osa_residuals() probes
+  # it and falls straight to serial when it errors, which is what happens once
+  # several TMB models are loaded -- as they are when the whole suite runs.
+  # Without this the parallel branch is never taken and the retry never fires,
+  # so the test passes alone and fails in the suite.
   real_osp <- TMB::oneStepPredict
   testthat::local_mocked_bindings(
+    openmp = function(...) 1L,
     oneStepPredict = function(..., parallel = FALSE) {
       if (isTRUE(parallel)) stop("non-numeric argument to mathematical function")
       real_osp(..., parallel = FALSE)
