@@ -257,14 +257,19 @@ osa_residuals <- function(fit,
     # serially instead: slower, but it returns residuals rather than a message
     # that points nowhere near the cause.
     #
-    # The retry must build a FRESH object. `obj_osa` holds external pointers into
-    # TMB, and a forked worker that aborted can leave them unusable in the
-    # parent, so re-entering the same object crashes the R session outright
-    # ("An irrecoverable exception occurred") rather than recovering. Seen on GOA
-    # pollock 2025, whose time-varying catchability (an ar1 and a rw q linkage)
-    # carries 109 of its 164 random effects: every index observation re-runs a
-    # large inner Laplace solve, which is what fails in the child. Dropping the q
-    # linkages, or going serial from the start, avoids it.
+    # The retry must build a FRESH object. Re-entering the one the failed attempt
+    # used ends the R session outright ("An irrecoverable exception occurred")
+    # instead of recovering, which is worse than the failure it is handling.
+    #
+    # What is established, from GOA pollock 2025 (164 random effects, 109 of them
+    # from an ar1 and a rw catchability linkage): forked workers abort at any
+    # width above one, and mclapply normally absorbs that -- a direct
+    # oneStepPredict() over the same 90 index observations returned all of them
+    # at 1, 2, 4, 8 and 11 cores despite aborts at every width above one.
+    # Sometimes the absorption fails and the error surfaces here; that case did
+    # not reproduce on demand, so it looks load-dependent rather than a property
+    # of the model. Either way the parent must not reuse the object afterwards.
+    # Serial (`parallel = FALSE`) never fails.
     want_par <- parallel_ok && !dsc
     res <- if (!want_par) osp(FALSE) else
       tryCatch(osp(TRUE), error = function(e) {

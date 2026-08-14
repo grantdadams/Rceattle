@@ -177,19 +177,22 @@
   changed, who is affected, and what to do about it.
 
 * **A failed parallel OSA loop no longer crashes the R session.**
-  `osa_residuals()` computes the one-step-ahead loop in parallel by default, via
-  forking. A worker that aborts rather than returns leaves the TMB object's
-  external pointers unusable in the parent, and the serial retry re-entered that
-  same object -- so instead of recovering, the call ended the session with "An
-  irrecoverable exception occurred". The retry now builds a fresh object first.
-  Reported on GOA pollock 2025, where `osa_residuals(mod)` was unrunnable: its
-  `ar1` and `rw` catchability linkages carry 109 of the model's 164 random
-  effects, so every index observation re-runs a large inner Laplace solve, which
-  is what fails in the forked worker. That call now returns its 1100 residuals.
-  Models without time-varying catchability were never affected, and a model that
-  never fails in parallel is unchanged. The aborting worker still prints its own
-  message, which comes from C and cannot be suppressed -- it no longer means the
-  call has failed.
+  `osa_residuals()` runs the one-step-ahead loop in parallel by default, via
+  forking, and retried serially if that failed -- but reusing the object the
+  failed attempt had used, which ended the session with "An irrecoverable
+  exception occurred" rather than recovering. The retry now builds a fresh
+  object first. Found on GOA pollock 2025, where `osa_residuals(mod)` was
+  unrunnable; it now returns its 1100 residuals, the same as
+  `parallel = FALSE` gave.
+
+  Forked workers abort on that model at any width above one core, and this is
+  usually absorbed: a direct one-step-ahead call over the same observations
+  returned all of them at 1, 2, 4, 8 and 11 cores. Occasionally the absorption
+  fails, and that case did not reproduce on demand -- it appears to depend on
+  machine load rather than on the model -- so the fix makes the retry safe
+  rather than preventing the underlying failure. The aborting worker still
+  prints its own message, which comes from C and cannot be suppressed; it does
+  not mean the call has failed. `parallel = FALSE` avoids the attempt entirely.
 
 * **A negative expected composition count now warns** (issue #108). `predicted`
   is an expected bin count and cannot be negative, but it goes slightly negative
