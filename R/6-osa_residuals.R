@@ -275,7 +275,7 @@ osa_residuals <- function(fit,
       tryCatch(osp(TRUE), error = function(e) {
         message("osa_residuals(): the parallel one-step-ahead loop failed (",
                 conditionMessage(e), "); recomputing serially.")
-        obj_osa <<- .osa_build_obj(fit, osa_dat)
+        obj_osa <<- .osa_build_obj(fit, osa_dat, force = TRUE)
         osp(FALSE)
       })
     data.frame(.row = rows, observed = get_col(res, "observation"),
@@ -397,11 +397,19 @@ osa_residuals <- function(fit,
 #' @param osa_dat Optional pre-built OSA observation data (the list returned by
 #'   [build_osa_data()] with `build_osa = TRUE`) to reuse instead of rebuilding
 #'   it. `NULL` (the default) rebuilds it from `fit$obj$env$data`.
+#' @param force Build a new object even when `fit` is already in OSA mode, where
+#'   this otherwise returns `fit$obj` itself. The retry after a failed parallel
+#'   one-step-ahead loop needs a genuinely new one.
 #' @return A TMB ADFun object with `osa_mode = 1`.
 #' @keywords internal
-.osa_build_obj <- function(fit, osa_dat = NULL) {
+.osa_build_obj <- function(fit, osa_dat = NULL, force = FALSE) {
   obj <- fit$obj
-  if (!is.null(obj$env$data$osa_mode) && obj$env$data$osa_mode == 1L) {
+  # A model already fitted in OSA mode can use its own object -- except when the
+  # caller needs a genuinely new one. The retry after a failed parallel loop does:
+  # handing back `fit$obj` there would reuse the object the failure touched,
+  # which is the thing that ends the R session.
+  if (!force && !is.null(obj$env$data$osa_mode) &&
+      obj$env$data$osa_mode == 1L) {
     return(obj)
   }
   # Regenerate the full OSA observation vector (comp / CAAL / diet segments) on

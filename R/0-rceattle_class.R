@@ -247,7 +247,9 @@ logLik.Rceattle <- function(object, ...) {
 #'
 #' @return A `data.frame` with columns `Source`, `Fleet_code`, `Fleet_name`,
 #'   `Species`, `Sex`, `Year`, `Length`, `Bin`, `Age0_Length1`, `Sample_size`,
-#'   `Observed`, `Fitted`, `Residual`. Columns are `NA` where they do not apply.
+#'   `Accumulated`, `Observed`, `Fitted`, `Residual`. Columns are `NA` where they
+#'   do not apply; `Accumulated` is `FALSE` except on a composition bin that
+#'   absorbed a folded tail.
 #' @export
 residuals.Rceattle <- function(object, type = "response", source = "all",
                                scale = "log", species = NULL, ...) {

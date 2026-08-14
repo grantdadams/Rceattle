@@ -38,11 +38,13 @@ argument of \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 \value{
 A \code{data.frame} with columns \code{Source}, \code{Fleet_code}, \code{Fleet_name},
 \code{Species}, \code{Sex}, \code{Year}, \code{Length}, \code{Bin}, \code{Age0_Length1}, \code{Sample_size},
-\code{Observed}, \code{Fitted}, \code{Residual}. Columns are \code{NA} where they do not apply.
+\code{Accumulated}, \code{Observed}, \code{Fitted}, \code{Residual}. Columns are \code{NA} where they
+do not apply; \code{Accumulated} is \code{FALSE} except on a composition bin that
+absorbed a folded tail.
 }
 \description{
 Returns a long-format data frame of residuals, following the convention of
-\code{\link[stats:glm.summaries]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
+\code{\link[stats:residuals.glm]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
 default residuals are returned for every applicable data source -- survey
 indices, fishery catches, age/length composition (\code{comp}), and conditional
 age-at-length (\code{caal}); use \code{source} to restrict to particular ones.
