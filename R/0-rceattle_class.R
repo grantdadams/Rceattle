@@ -159,17 +159,22 @@ summary.Rceattle <- function(object, ...) {
   coefs$p_value <- stats::pnorm(-abs(coefs$z_value)) * 2
 
   # Drop paths whose beta_z entry is mapped off. The map is indexed by beta_z
-  # entry while coefs is indexed by sem row; those coincide only when every sem
-  # row owns a distinct estimated parameter. Guard rather than let a mismatch
-  # recycle silently into the wrong rows.
+  # entry and coefs by sem row, so the two are bridged by par_idx rather than by
+  # position: sem rows outnumber beta_z entries whenever a path is fixed at its
+  # start value (parameter == 0) or several paths share one parameter, both of
+  # which are ordinary. A fixed path owns no beta_z entry and is always kept --
+  # it cannot be mapped off.
   bmap <- object$map$mapList$beta_z
   if (!is.null(bmap)) {
-    if (length(bmap) == nrow(coefs)) {
-      coefs <- coefs[!is.na(bmap), , drop = FALSE]
+    if (length(bmap) >= max(par_idx, 0, na.rm = TRUE)) {
+      estimated_path <- !is.na(par_idx) & par_idx >= 1
+      keep <- rep(TRUE, nrow(coefs))
+      keep[estimated_path] <- !is.na(bmap[par_idx[estimated_path]])
+      coefs <- coefs[keep, , drop = FALSE]
     } else {
-      warning("DSEM path/parameter counts differ (", nrow(coefs), " sem rows vs ",
-              length(bmap), " beta_z entries); reporting all paths unfiltered.",
-              call. = FALSE)
+      warning("The DSEM map has ", length(bmap), " beta_z entries but the SEM ",
+              "references parameter index ", max(par_idx, na.rm = TRUE),
+              "; reporting all paths unfiltered.", call. = FALSE)
     }
   }
 

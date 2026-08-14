@@ -1,12 +1,12 @@
 # Constructive tests for summary.Rceattle()'s DSEM branch.
 #
-# DSEM is not yet wired into fit_mod() on this branch, so the branch is
-# unreachable from a real fit. These build a synthetic Rceattle object carrying a
-# dsem$sem_full shaped exactly as dsem::dsem() returns it (a data.frame with
-# columns path, lag, name, start, parameter, first, second, direction) and drive
-# summary() directly. That keeps the contract the downstream analysis scripts
-# depend on -- summary(fit)$coefficients and $recruitment_sd$R_sd -- under test
-# before Tier 2 can regress it.
+# These build a synthetic Rceattle object carrying a dsem$sem_full shaped exactly
+# as dsem::dsem() returns it (a data.frame with columns path, lag, name, start,
+# parameter, first, second, direction) and drive summary() directly. Working from
+# a fixture rather than a real fit keeps the tests fast and lets them cover the
+# map and sdreport combinations a single fit cannot reach at once. The contract
+# the downstream analysis scripts depend on is summary(fit)$coefficients and
+# $recruitment_sd$R_sd.
 
 # One estimated path, one variance, one path FIXED at its start value.
 fake_sem_full <- function() {
@@ -111,21 +111,6 @@ testthat::test_that("Std_Error/z_value/p_value are always present, NA without an
   testthat::expect_silent(rbind(a, b))
 })
 
-testthat::test_that("mapped-off paths are dropped, and a length mismatch warns instead of recycling", {
-  # bmap length == nrow(sem_full): the filter applies.
-  out <- suppressMessages(summary(fake_fit(bmap = factor(c(1, NA, 3)))))
-  testthat::expect_equal(nrow(out$coefficients), 2L)
-  testthat::expect_false("sigmaR1" %in% out$coefficients$name)
-
-  # Length mismatch: report unfiltered with a warning rather than let the
-  # shorter logical recycle and silently select the wrong rows.
-  testthat::expect_warning(
-    out2 <- summary(fake_fit(bmap = factor(c(1, NA)))),
-    "differ"
-  )
-  testthat::expect_equal(nrow(out2$coefficients), 3L)
-})
-
 testthat::test_that("recruitment SD reports the right species and masks fixed SDs", {
   f <- fake_fit(beta_z = c(0.5, 0.8), bmap = factor(c(1, NA, 3)), nspp = 1L)
   rs <- suppressMessages(summary(f))$recruitment_sd
@@ -145,4 +130,34 @@ testthat::test_that("a fit with no DSEM is untouched by the restored method", {
 testthat::test_that("summary() rejects a non-Rceattle object", {
   testthat::expect_error(summary.Rceattle(structure(list(), class = "nope")),
                          "not an Rceattle model")
+})
+
+# The map filter is bridged by `parameter`, not by row position. Sem rows
+# routinely outnumber beta_z entries -- the fixture has three paths and two
+# parameters, because one path is fixed at its start value -- so a filter keyed
+# on length(bmap) == nrow(coefs) never fires and warns on every ordinary fit.
+
+testthat::test_that("an ordinary fit reports every path and does not warn", {
+  # 3 sem rows, 2 beta_z entries, both mapped on: nothing is dropped.
+  testthat::expect_no_warning(out <- suppressMessages(summary(fake_fit())))
+  testthat::expect_equal(nrow(out$coefficients), 3L)
+  testthat::expect_true("X_fixed" %in% out$coefficients$name)
+})
+
+testthat::test_that("a mapped-off path is dropped, and a fixed path is kept", {
+  # beta_z entry 1 (BT_to_R) mapped off; entry 2 (sigmaR1) still estimated.
+  # X_fixed owns no beta_z entry (parameter == 0) so it cannot be mapped off.
+  f <- fake_fit(bmap = factor(c(NA, 2)))
+  testthat::expect_no_warning(out <- suppressMessages(summary(f)))
+  testthat::expect_setequal(out$coefficients$name, c("sigmaR1", "X_fixed"))
+  testthat::expect_false("BT_to_R" %in% out$coefficients$name)
+})
+
+testthat::test_that("a map too short for the SEM warns and filters nothing", {
+  # The genuine inconsistency: the SEM references parameter 2 but the map has
+  # only one entry. Report everything rather than drop rows on a bad index.
+  f <- fake_fit(bmap = factor(1))
+  testthat::expect_warning(out <- suppressMessages(summary(f)),
+                           "references parameter index")
+  testthat::expect_equal(nrow(out$coefficients), 3L)
 })
