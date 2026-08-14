@@ -1203,12 +1203,25 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         if (is.null(opt$SD) & getsd) {
 
-          message("#################################################")
-          message("Model did not converge, check 'identified'")
-          message("#################################################")
+          if (verbose > 0) {
+            message("#################################################")
+            message("Model did not converge, check 'identified'")
+            message("#################################################")
+          }
 
           identified <- tryCatch(
-            { suppressMessages(.check_estimability(obj)) },
+            {
+              # check_estimability() print()s its table to stdout, which
+              # suppressMessages() cannot catch. Capture it, re-emit under
+              # verbose only; the verdict is kept on `identified` regardless.
+              res <- NULL
+              tbl <- utils::capture.output(
+                res <- suppressMessages(.check_estimability(obj)))
+              if (verbose > 0 && length(tbl)) {
+                message(paste(tbl, collapse = "\n"))
+              }
+              res
+            },
             error = function(e) {
               "Some gradients are high, please improve optimization and only then use `Check_Identifiable`"
             }

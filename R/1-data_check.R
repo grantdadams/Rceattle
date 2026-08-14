@@ -735,6 +735,10 @@ data_check <- function(data_list) {
   # observations for that fleet. Validated here so the requirement surfaces with a
   # clear message at the flag rather than as a cryptic error in rearrange_data().
   fc <- data_list$fleet_control
+  # Initialised here, not inside the branch: with no Index_distribution column at
+  # all there are no covariance fleets, which is precisely the case the stray
+  # index_cov warning below is meant to catch.
+  mvn_flts <- integer(0)
   if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
     mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
     for(flt in mvn_flts){
@@ -768,7 +772,42 @@ data_check <- function(data_list) {
                                    "(Year in [styr, endyr], Observation > 0). Sigma must match those rows in index_data order."))
       } else if(!isTRUE(all.equal(Sigma, t(Sigma), tolerance = 1e-4, check.attributes = FALSE))){
         errors <- c(errors, paste0("index_cov matrix for fleet '", flt_name, "' is not symmetric."))
+      } else if(!.is_positive_definite(Sigma)){
+        # The covariance likelihood factorizes Sigma (MVNORM / Eigen::LLT), so a
+        # symmetric but indefinite or singular matrix clears every check above
+        # and then fails inside the TMB objective, where the message names
+        # neither the fleet nor Sigma.
+        ev <- suppressWarnings(tryCatch(
+          min(eigen(Sigma, symmetric = TRUE, only.values = TRUE)$values),
+          error = function(e) NA_real_))
+        errors <- c(errors, paste0(
+          "index_cov matrix for fleet '", flt_name, "' is not positive definite",
+          if(is.finite(ev)) paste0(" (smallest eigenvalue ", signif(ev, 3), ")") else "",
+          ". Sigma is factorized by the covariance index likelihood, so it must ",
+          "be positive definite, not only symmetric."))
       }
+    }
+  }
+
+  # An index_cov entry for a fleet that is not using the covariance likelihood is
+  # ignored both here and in .align_index_cov(), so the fleet quietly fits its own
+  # index likelihood (lognormal by default) and the covariance has no effect.
+  # Almost always this means Index_distribution was never set to 'MVN'/'MVNORM'.
+  if(has_data(fc) && !is.null(data_list$index_cov) && length(data_list$index_cov)){
+    mvn_keys <- character(0)
+    if(length(mvn_flts)){
+      mvn_keys <- unique(c(as.character(fc$Fleet_name[mvn_flts]),
+                           as.character(fc$Fleet_code[mvn_flts])))
+    }
+    stray <- setdiff(names(data_list$index_cov), mvn_keys)
+    if(length(stray)){
+      warning(paste0(
+        "data_list$index_cov has ", if(length(stray) > 1) "entries" else "an entry",
+        " for ", paste0("'", stray, "'", collapse = ", "),
+        " but ", if(length(stray) > 1) "those fleets are" else "that fleet is",
+        " not using Index_distribution 'MVN' or 'MVNORM'. The covariance is ",
+        "ignored and the fleet fits its own index likelihood (lognormal by ",
+        "default). Set Index_distribution to use it."))
     }
   }
 
@@ -935,4 +974,26 @@ data_check <- function(data_list) {
   if(length(errors) > 0){
     stop(paste(errors, collapse = "\n"))
   }
+}
+
+
+#' Is a symmetric matrix positive definite?
+#'
+#' Tested by attempting a Cholesky factorization rather than by inspecting
+#' eigenvalues, because that is the operation the covariance index likelihood
+#' actually performs (`MVNORM()` / `Eigen::LLT` in `ceattle.cpp`): a matrix that
+#' factorizes here is one TMB can use. Assumes symmetry has already been
+#' checked -- `chol()` reads only the upper triangle, so it would accept an
+#' asymmetric matrix whose upper triangle happens to be positive definite.
+#'
+#' @param x A numeric matrix, assumed square and symmetric.
+#' @return `TRUE` if `x` admits a Cholesky factorization, otherwise `FALSE`.
+#' @noRd
+.is_positive_definite <- function(x) {
+  if(!is.matrix(x) || nrow(x) != ncol(x) || nrow(x) == 0) return(FALSE)
+  if(anyNA(x) || any(!is.finite(x))) return(FALSE)
+  isTRUE(tryCatch({
+    chol(x)
+    TRUE
+  }, error = function(e) FALSE, warning = function(w) FALSE))
 }

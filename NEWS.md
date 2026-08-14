@@ -36,6 +36,33 @@
   the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
   with `projyr > endyr` will change; that difference is the bias being removed.
 
+# Rceattle 5.6.1
+
+## Bug fixes
+
+* **`fit_control(verbose = 0)` now silences the estimability table printed when
+  a fit does not converge.** `TMBhelper` emits it with `print()`, which
+  `suppressMessages()` cannot catch, so it appeared whatever `verbose` said --
+  one row per fixed parameter, repeated for every refit a `self_test()`,
+  `jitter()` or `retrospective()` run makes. It and the "Model did not converge"
+  banner now appear only under `verbose > 0`. The verdict is unchanged on
+  `fit$identified` and in `fit$convergence`.
+
+* **A covariance (`MVN`/`MVNORM`) survey `Sigma` that is symmetric but not
+  positive definite is now caught by `data_check()`.** The covariance index
+  likelihood factorizes `Sigma`, so symmetry is not enough. An indefinite or
+  singular matrix used to clear every check -- presence, squareness, dimension,
+  symmetry -- and then fail inside the TMB objective, in a message that named
+  neither the fleet nor `Sigma`. The error now names the fleet and reports the
+  smallest eigenvalue, so it is clear how far off the matrix is.
+
+* **An `index_cov` entry for a fleet that is not using the covariance likelihood
+  now warns.** It was ignored in both `data_check()` and the internal aligner, so
+  supplying a covariance but leaving `Index_distribution` unset gave a silent
+  lognormal fit with no indication the matrix had been dropped. Entries keyed by
+  either `Fleet_name` or `Fleet_code` are recognised, so a correctly configured
+  fleet does not warn.
+
 # Rceattle 5.6.0
 
 ## New features
@@ -241,9 +268,14 @@
   the composition -- on EBS pollock the affected rows have a median observed
   count of 0.05 against 4.9 elsewhere, while their sample sizes span the same
   range as everything else, so a rare age in a well-sampled year does it too.
-  The affected years are named; treat `predicted` there as uninformative, though
-  the residuals may still be usable. Not clamped, since the negative value is
-  the signal that the bin is too sparse.
+  The affected years are named, and the warning notes that the residual on those
+  rows standardises the observation against the same mean, so it is biased
+  positive -- every affected row was positive in both Rceattle and WHAM. Nothing
+  is dropped or clamped: the negative value is the signal that the bin is too
+  sparse, and which rows to set aside is the analyst's call. This is not specific
+  to Rceattle; WHAM produces negative expected counts on its own example, with
+  the same default one-step-ahead method and composition counts on the same
+  scale.
 
 * **OSA residuals on an accumulated composition are labelled by the age they
   represent** (reported as issue #108). Tail accumulation folds the tails into a
