@@ -47,7 +47,12 @@ method rather than \code{method}).}
 with random effects, where each observation triggers a Laplace
 re-evaluation -- it gives a near-linear speedup across cores (set
 \code{options(mc.cores = )} to choose how many; forking falls back to serial on
-Windows). Only the continuous group is parallelized; the discrete
+Windows). Some models -- heavy random-effect structures such as a
+time-varying catchability -- abort the forked worker instead of returning;
+the loop then recomputes serially, after rebuilding, and prints the worker's
+own "irrecoverable exception" message, which comes from C and cannot be
+suppressed. That message does not mean the call failed. Pass \code{FALSE} to skip
+the attempt. Only the continuous group is parallelized; the discrete
 (randomized-quantile) path always runs serially so it stays reproducible
 given \code{seed}.}
 
