@@ -68,7 +68,12 @@
 #'   with random effects, where each observation triggers a Laplace
 #'   re-evaluation -- it gives a near-linear speedup across cores (set
 #'   `options(mc.cores = )` to choose how many; forking falls back to serial on
-#'   Windows). Only the continuous group is parallelized; the discrete
+#'   Windows). Some models -- heavy random-effect structures such as a
+#'   time-varying catchability -- abort the forked worker instead of returning;
+#'   the loop then recomputes serially, after rebuilding, and prints the worker's
+#'   own "irrecoverable exception" message, which comes from C and cannot be
+#'   suppressed. That message does not mean the call failed. Pass `FALSE` to skip
+#'   the attempt. Only the continuous group is parallelized; the discrete
 #'   (randomized-quantile) path always runs serially so it stays reproducible
 #'   given `seed`.
 #' @param seed Random seed passed to [TMB::oneStepPredict()] for reproducibility
@@ -252,11 +257,21 @@ osa_residuals <- function(fit,
     # inside TMB as "non-numeric argument to mathematical function". Retry
     # serially instead: slower, but it returns residuals rather than a message
     # that points nowhere near the cause.
+    #
+    # The retry must build a FRESH object. `obj_osa` holds external pointers into
+    # TMB, and a forked worker that aborted can leave them unusable in the
+    # parent, so re-entering the same object crashes the R session outright
+    # ("An irrecoverable exception occurred") rather than recovering. Seen on GOA
+    # pollock 2025, whose time-varying catchability (an ar1 and a rw q linkage)
+    # carries 109 of its 164 random effects: every index observation re-runs a
+    # large inner Laplace solve, which is what fails in the child. Dropping the q
+    # linkages, or going serial from the start, avoids it.
     want_par <- parallel_ok && !dsc
     res <- if (!want_par) osp(FALSE) else
       tryCatch(osp(TRUE), error = function(e) {
         message("osa_residuals(): the parallel one-step-ahead loop failed (",
                 conditionMessage(e), "); recomputing serially.")
+        obj_osa <<- .osa_build_obj(fit, osa_dat)
         osp(FALSE)
       })
     data.frame(.row = rows, observed = get_col(res, "observation"),

@@ -591,3 +591,47 @@ testthat::test_that("a negative expected composition count warns", {
   osa2 <- suppressMessages(Rceattle::osa_residuals(fit2, source = "comp"))
   testthat::expect_false(any(osa2$predicted < 0))
 })
+
+
+testthat::test_that("a failed parallel OSA loop rebuilds the object before retrying", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # oneStepPredict(parallel = TRUE) forks. A worker that aborts leaves the TMB
+  # object's external pointers unusable in the parent, so the serial retry used
+  # to re-enter the same object and take the whole R session with it ("An
+  # irrecoverable exception occurred"). Reported against GOA pollock 2025, whose
+  # ar1/rw catchability linkages carry 109 of its 164 random effects.
+  #
+  # The crash cannot be reproduced in a unit test -- it kills the process -- so
+  # pin the property that prevents it: the retry builds a fresh object rather
+  # than reusing the one the failed fork touched.
+  d <- make_test_data(nyrs = 12, nages = 6, seed = 7)
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  builds <- 0L
+  real_build <- Rceattle:::.osa_build_obj
+  testthat::local_mocked_bindings(
+    .osa_build_obj = function(...) { builds <<- builds + 1L; real_build(...) },
+    .package = "Rceattle")
+
+  # Fail the parallel attempt exactly as a dead worker does, and let the serial
+  # retry through.
+  real_osp <- TMB::oneStepPredict
+  testthat::local_mocked_bindings(
+    oneStepPredict = function(..., parallel = FALSE) {
+      if (isTRUE(parallel)) stop("non-numeric argument to mathematical function")
+      real_osp(..., parallel = FALSE)
+    },
+    .package = "TMB")
+
+  osa <- suppressWarnings(suppressMessages(
+    Rceattle::osa_residuals(fit, source = "index", parallel = TRUE)))
+
+  # One build up front, one more on the retry.
+  testthat::expect_gte(builds, 2L)
+  testthat::expect_true(nrow(osa) > 0)
+  testthat::expect_true(all(is.finite(osa$residual)))
+})
