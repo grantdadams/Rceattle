@@ -150,25 +150,16 @@ testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw 
 })
 
 
-testthat::test_that("sim_mod does not simulate diet data, and says so", {
+testthat::test_that("sim_mod handles a model with no diet data", {
   testthat::skip_if_not_installed("TMB")
 
-  # Diet (stomach content) observations are carried through unchanged, so a
-  # multispecies self_test() refits against the same diet data every time and
-  # recovery of suitability is optimistic. That must not be silent.
+  # Stomach contents are drawn by the TMB model now, and only for a predator
+  # whose suitability is estimated. A single-species fixture with no diet table
+  # must simulate without complaint. What diet does when it IS fitted -- and when
+  # it is present but not fitted -- needs a multispecies model, and lives in
+  # test-functions-sim-mod-diet.R.
   fit <- .sim_index_fixture("Lognormal")
-  fit$data_list$diet_data <- data.frame(
-    Pred = 1L, Prey = 1L, Pred_sex = 0L, Prey_sex = 0L,
-    Pred_age = 1L, Prey_age = 1L, Year = fit$data_list$styr,
-    Sample_size = 10, Stomach_proportion_by_weight = 0.5)
-
-  testthat::expect_warning(
-    sim <- Rceattle::sim_mod(fit, simulate = TRUE),
-    "does not simulate diet")
-  # Carried through unchanged, not dropped or blanked.
-  testthat::expect_equal(sim$diet_data, fit$data_list$diet_data)
-
-  # No warning when there are no diet data to miss.
-  fit$data_list$diet_data <- fit$data_list$diet_data[0, ]
+  testthat::expect_equal(nrow(fit$data_list$diet_data), 0)
   testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+  testthat::expect_no_error(Rceattle::sim_mod(fit, simulate = FALSE))
 })

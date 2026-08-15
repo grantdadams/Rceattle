@@ -20,6 +20,7 @@
 
 #include "helper_functions.hpp"
 #include "comp_osa.hpp"
+#include "comp_sim.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"
 #include "recruitment.hpp"
@@ -3888,6 +3889,13 @@ Type objective_function<Type>::operator() () {
 
 
   // 13.2. Diet likelihood components
+  // Simulated stomach contents are written to this copy rather than into
+  // diet_obs. diet_obs is REPORTed further down, so writing a draw into it would
+  // hand back a replicate under the name of the observed data -- the trap the
+  // catch draw avoids by reporting catch_obs_sim. Stomachs the model does not
+  // fit keep the observed values they were copied with.
+  matrix<Type> diet_sim = diet_obs;
+
   if((msmMode > 2) || (imax(suitMode) > 0)) {
 
     int current_j = 0; // Track position in diet_ctl
@@ -3994,7 +4002,76 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
+
+      // -- Simulate the stomach contents, for sim_mod(simulate = TRUE) --
+      // Drawn under the same family and from the same predicted proportions and
+      // concentration the density above uses. Until now diet was the one
+      // observation type never simulated, so a multispecies self-test refit
+      // against the same stomachs every replicate and recovered suitability from
+      // data that never varied -- which reads as a far better result than it is.
+      //
+      // The composition is this stomach's prey plus the "other prey" balance, so
+      // the draw covers n_prey + 1 bins. Only the prey bins are written back:
+      // "other prey" is defined as whatever is left over and is recomputed from
+      // the prey proportions on the next fit, so storing it would double-count.
+      SIMULATE {
+        // Draw from the composition BEFORE the offset, rebuilt here from
+        // diet_hat so ordinary fitting pays nothing for it. The offset exists to
+        // keep log(0) out of the density, not to describe the stomachs, and the
+        // transform the density applies (add comp_offset, renormalize) is
+        // affine: drawing with mean equal to the un-offset prediction gives an
+        // offset-and-renormalized draw whose mean is exactly the offset-and-
+        // renormalized prediction. Drawing from the offset version instead would
+        // apply the offset twice over a simulate-then-refit round trip, biasing
+        // the smallest bins by roughly comp_offset / prediction.
+        vector<Type> sim_p(n_prey + 1);
+        Type prey_sum = 0.0;
+        for(int k = 0; k < n_prey; k++){
+          sim_p(k) = diet_hat(start_j + k, 1);
+          prey_sum += sim_p(k);
+        }
+        sim_p(n_prey) = (prey_sum < Type(1.0)) ? Type(1.0) - prey_sum : Type(0.0);
+        Type sim_tot = sim_p.sum();
+        if(sim_tot > Type(0)) sim_p /= sim_tot;
+
+        if((N_s > Type(0)) && (sim_tot > Type(0))){
+          vector<Type> sim_counts(n_prey + 1);
+          switch(diet_ll_type(rsp)){
+          case 0:
+            sim_counts = rmultinom_rce(N_s, sim_p);
+            break;
+          case 1: {
+            vector<Type> sim_alphas = sim_p * N_s * DM_diet_par;
+            sim_counts = rdirmultinom_rce(N_s, sim_alphas);
+            break;
+          }
+          default:
+            error("Invalid 'diet_ll_type'");
+          }
+          // Divide by the number of observations actually PLACED, not by N_s.
+          // rmultinom_rce rounds N_s to a whole number, so with a fractional
+          // sample size the prey proportions would otherwise sum to
+          // round(N_s)/N_s > 1 -- and data_check() rejects a stomach summing
+          // above 1, which self_test() then reports as a failed replicate rather
+          // than as bad data.
+          Type n_drawn = sim_counts.sum();
+          if(n_drawn > Type(0)){
+            for(int k = 0; k < n_prey; k++){
+              diet_sim(start_j + k, 1) = sim_counts(k) / n_drawn;
+            }
+          }
+        }
+      }
     }
+  }
+
+  // Reported under its own name for the same reason the catch draw is: TMB never
+  // clears the report environment, so under the name diet_obs a replicate would
+  // stay readable as the observed stomach contents. Equal to diet_obs for a
+  // model with no diet likelihood, where nothing above is drawn.
+  SIMULATE {
+    matrix<Type> diet_obs_sim = diet_sim;
+    REPORT(diet_obs_sim);
   }
 
 

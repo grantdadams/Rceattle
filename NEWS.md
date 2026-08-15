@@ -26,6 +26,34 @@
   model size. A fit whose `$obj` was dropped pays more, since the model is
   rebuilt on each call.
 
+* **Stomach contents are now simulated.** Diet was the one observation type
+  `sim_mod()` never drew, so a multispecies `self_test()` resampled every other
+  data type and refit against the same stomachs every replicate. Suitability --
+  the thing diet data mostly inform -- was therefore recovered from data that
+  never varied, and the test read as more reassuring than it was. The draw is
+  taken in the TMB model beside the diet density, under each predator's own
+  `Diet_distribution` (multinomial or Dirichlet-multinomial), from the same
+  predicted proportions and concentration the likelihood uses.
+
+  Only predators whose suitability is estimated (`suitMode > 0`) are redrawn:
+  with empirical suitability the model predicts no diet composition, so there is
+  nothing to draw from. Those rows pass through unchanged and `sim_mod()` now
+  says so, because they are not inert -- under empirical suitability the stomach
+  proportions set suitability, and therefore predation mortality, directly. The
+  "other prey" balance is not stored, being recomputed from the prey proportions
+  on the next fit.
+
+  **This changes results.** A seeded `self_test()` or
+  `run_mse(simulate_data = TRUE)` on a model with an estimated suitability now
+  varies its diet data where it previously did not, so recovery of suitability,
+  and anything downstream of it, will differ -- and should be read as more
+  honest than the old figure rather than as a regression. Within a single
+  `sim_mod()` call the simulated catch, survey index and compositions are
+  unchanged bit for bit; but the diet draw consumes random numbers, so where a
+  seeded stream calls `sim_mod()` more than once -- `run_mse()` does, once per
+  assessment year -- the later calls' other data types move too. Single-species
+  models are unaffected.
+
 * **`sim_mod()` now warns when a simulated observation is one the model cannot
   be refit on.** A non-finite or negative draw is not quietly dropped:
   `data_check()` rejects it, the refit errors, and `self_test()` counts the

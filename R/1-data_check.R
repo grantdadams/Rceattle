@@ -920,7 +920,10 @@ data_check <- function(data_list) {
       }
       diet_sum <- dd |> dplyr::group_by(Pred, Pred_age, Pred_sex, Year) |>
         dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
-      if(any(diet_sum$diet_sum > 1)){
+      # A stomach whose prey account for the whole diet sums to exactly 1, and a
+      # simulated one reaches that through a division that can land a bit above.
+      # Reject a real excess, not floating-point noise.
+      if(any(diet_sum$diet_sum > 1 + 1e-8)){
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }

@@ -199,9 +199,10 @@
 #' the fit used -- rebuilds something else, which would then simulate quite
 #' happily around the wrong expected values.
 #'
-#' Check what the catch draw is made of: the predicted catch, the observation
+#' Check what the draws are made of: the predicted catch, the observation
 #' standard deviation and the bias-adjustment multiplier (`ceattle.cpp`, catch
-#' slot). Extend the list as later stages add their draws.
+#' slot), plus the predicted diet composition. Extend the list as later stages
+#' add their draws.
 #'
 #' `catch_hat` and `log_catch_sd` are checked against the fit's own stored
 #' values, so an edited `data_list` shows up as a mismatch. `bias_adjust_obs`
@@ -220,7 +221,7 @@
 #' @param rebuilt The model returned by `.refit_like()`.
 #' @noRd
 .sim_check_rebuild <- function(Rceattle, rebuilt) {
-  for (q in c("catch_hat", "log_catch_sd")) {
+  for (q in c("catch_hat", "log_catch_sd", "diet_hat")) {
     want <- Rceattle$quantities[[q]]
     got  <- rebuilt$quantities[[q]]
     if (is.null(want) || is.null(got)) {
@@ -545,10 +546,11 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # of one observation model drift apart silently, and a self-test then reports
     # recovery against a process the likelihood never assumed.
     #
-    # The call sits where the R draw was, not at the top of the function: the
-    # template draws only catch so far, so it uses the same random numbers in the
-    # same order and existing seeded results are unchanged. Moving it would shift
-    # every seeded simulation for no reason.
+    # The call sits where the R draw was, not at the top of the function. The
+    # template draws catch first and diet after (their order in ceattle.cpp), so
+    # catch consumes the same random numbers in the same order as the code it
+    # replaced and existing seeded catch is unchanged. Moving the call would
+    # shift every seeded simulation for no reason.
     sim_obj <- .sim_obj(Rceattle)
     sim_rep <- .sim_draw(sim_obj)
     catch_sim <- .sim_report_obs(sim_rep, "catch_obs_sim")
@@ -565,28 +567,39 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Diet (stomach content) ----
-  # NOT SIMULATED. The stomach proportions are carried through unchanged, so a
-  # self_test() on a multispecies model resamples every other data type and
-  # refits against the same diet data every time. Anything the diet informs --
-  # suitability above all -- is then recovered from data that never varied, and
-  # the test reads as more reassuring than it is. Say so rather than let a
-  # multispecies self-test look complete. BS2017MS carries 2025 diet rows.
+  # Drawn by the template alongside the catch, under each predator's own
+  # Diet_distribution (ceattle.cpp, section 13.2). Until this was added, a
+  # multispecies self_test() resampled every other data type and refit against
+  # the same stomachs every replicate, so suitability was recovered from data
+  # that never varied and the test read better than it was.
   #
-  # Implementing it means mirroring the cpp's stomach likelihood (section 13):
-  # rows are grouped by stomach, an "Other prey" bin holding 1 - sum(observed)
-  # is appended, both observed and predicted are offset by `comp_offset` and
-  # renormalized, and only then is the multinomial / Dirichlet-multinomial draw
-  # taken at Sample_size. The grouping is the unresolved part -- the cpp scans
-  # contiguous `stomach_id` runs and carries a TODO(review) noting that
-  # build_osa_data() instead matches on `which(stomach_id == i)`, so the two
-  # disagree if the rows are ever non-contiguous. That has to be settled before
-  # a simulator can rely on it.
+  # Only rows belonging to a stomach the model actually fits are redrawn: the
+  # template skips a predator whose suitability is not estimated, and those rows
+  # come back carrying the values they went in with. The "other prey" balance is
+  # not stored -- it is recomputed from the prey proportions on the next fit.
   if (simulate && !is.null(dat_sim$diet_data) && nrow(dat_sim$diet_data) > 0) {
-    warning("sim_mod() does not simulate diet (stomach content) data: ",
-            nrow(dat_sim$diet_data), " rows are carried through unchanged. ",
-            "A self_test() of a model fitted to diet data therefore does not ",
-            "propagate diet observation error, and recovery of suitability is ",
-            "optimistic.", call. = FALSE)
+    diet_sim <- .sim_report_obs(sim_rep, "diet_obs_sim")
+    .sim_check_rows(nrow(diet_sim), nrow(dat_sim$diet_data), "diet")
+    # Column 2 is Stomach_proportion_by_weight; column 1 is Sample_size.
+    kept <- as.numeric(diet_sim[, 2])
+    unchanged <- sum(abs(kept - dat_sim$diet_data$Stomach_proportion_by_weight) < 1e-14)
+    dat_sim$diet_data$Stomach_proportion_by_weight <- kept
+
+    # Diet rows the model does not predict pass through untouched, and that is
+    # not always harmless. Under empirical suitability (suitMode = 0) there is no
+    # diet likelihood to draw from, but the stomach proportions still set
+    # suitability directly (predation.hpp, calculate_msvpa_suitability), and so
+    # predation mortality and the whole multispecies dynamic. A self_test() of
+    # such a model resamples everything else and holds the diet fixed, which
+    # makes recovery of predation look better than it is. Say so.
+    if (unchanged == length(kept) && any(dat_sim$suitMode <= 0)) {
+      warning("sim_mod() did not simulate the ", length(kept), " diet (stomach ",
+              "content) rows: no predator has an estimated suitability ",
+              "(suitMode > 0), so the model predicts no diet composition to ",
+              "draw from. Under empirical suitability the diet data still set ",
+              "suitability and predation mortality, so a self_test() holds them ",
+              "fixed and recovery of predation is optimistic.", call. = FALSE)
+    }
   }
 
   # # Slot 5 -- Diet composition from lognormal suitability 4D
