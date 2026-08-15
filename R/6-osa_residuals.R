@@ -97,6 +97,11 @@
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data
 #'   frame's column names rather than the data-sheet names
 #'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
+#'   Note the shared names do not mean a shared scale: in the attribute
+#'   `observed` and `predicted` are proportions summing to one within a
+#'   fleet-year, with the sample size in `sample_size`, because composition
+#'   Pearson residuals are defined on proportions -- not the bin counts the
+#'   columns above carry. Do not compare the two directly.
 #'   Both describe the bins the likelihood fit, so a fleet with tail
 #'   accumulation reports the folded window in each -- with one asymmetry: the
 #'   one-step-ahead decomposition drops each group's last bin (it is fixed by
@@ -332,13 +337,21 @@ osa_residuals <- function(fit,
     if (!is.null(pear)) {
       nm <- c(Source = "source", Fleet_code = "fleet", Fleet_name = "fleet_name",
               Species = "species", Sex = "sex", Year = "year",
-              Age0_Length1 = "index_label_code", Bin = "age_length_bin",
+              Age0_Length1 = "index_label", Bin = "age_length_bin",
               Length = "length", Sample_size = "sample_size",
               Accumulated = "accumulated",
               Observed = "observed", Fitted = "predicted",
               Residual = "residual")
       hit <- names(pear) %in% names(nm)
       names(pear)[hit] <- unname(nm[names(pear)[hit]])
+
+      # Same form as the OSA frame, not a second encoding under a second name.
+      if (!is.null(pear$index_label)) {
+        pear$index_label <- ifelse(pear$source == "caal", "age",
+                                   ifelse(!is.na(pear$index_label) &
+                                            pear$index_label == 1,
+                                          "length", "age"))
+      }
     }
     attr(out, "pearson") <- pear
   }

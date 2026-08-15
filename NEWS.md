@@ -273,7 +273,10 @@
   column names as the result itself.** It came from `residuals()`, which names
   columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
   object carried two conventions and a reader had to know which half they were
-  holding.
+  holding. Shared names do not mean a shared scale, and `?osa_residuals` now
+  says so: the attribute's `observed`/`predicted` are proportions with the
+  sample size alongside, since composition Pearson residuals are defined on
+  proportions, where the OSA columns carry bin counts.
 
 * **`sim_mod()` draws the survey index under the fleet's own
   `Index_distribution`.** Every fleet was drawn as an independent lognormal

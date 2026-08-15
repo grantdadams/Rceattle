@@ -129,16 +129,11 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
   comp$.side  <- .osa_bin_side(comp$index_label)
   comp        <- .osa_jointsex(comp, nages, nlengths)
 
-  # The attached Pearson residuals already carry the OSA column names
-  # (osa_residuals() renames them once, where the attribute is attached), so
-  # only the derived index label is added here.
+  # The attached Pearson residuals already carry the OSA column names and forms
+  # (osa_residuals() renames them once, where the attribute is attached).
   pear <- NULL
   if (!is.null(pearson) && nrow(pearson) > 0) {
     pear <- pearson
-    pear$index_label <- ifelse(pear$source == "caal", "age",
-                               ifelse(!is.na(pear$index_label_code) &
-                                        pear$index_label_code == 1,
-                                      "length", "age"))
     pear <- pear[is.finite(pear$residual), , drop = FALSE]
     pear$source <- .osa_source_label(pear)
     pear$.side  <- .osa_bin_side(pear$index_label)

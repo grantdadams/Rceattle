@@ -80,6 +80,11 @@ are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data
 frame's column names rather than the data-sheet names
 \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns, so the two halves of one object read alike.
+Note the shared names do not mean a shared scale: in the attribute
+\code{observed} and \code{predicted} are proportions summing to one within a
+fleet-year, with the sample size in \code{sample_size}, because composition
+Pearson residuals are defined on proportions -- not the bin counts the
+columns above carry. Do not compare the two directly.
 Both describe the bins the likelihood fit, so a fleet with tail
 accumulation reports the folded window in each -- with one asymmetry: the
 one-step-ahead decomposition drops each group's last bin (it is fixed by

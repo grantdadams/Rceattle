@@ -673,3 +673,35 @@ testthat::test_that(".osa_build_obj(force = TRUE) rebuilds an OSA-mode model", {
   testthat::expect_true(identical(same, fit$obj))     # short-circuit
   testthat::expect_false(identical(fresh, fit$obj))   # genuinely rebuilt
 })
+
+# CAAL is the one composition source whose bins are ages within a length bin, so
+# it is the case where the OSA and Pearson frames could disagree on index_label.
+testthat::test_that("CAAL residuals label both frames as age bins", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  d <- make_test_data(nyrs = 8, nages = 5, seed = 1, growth = "vonBertalanffy")
+  testthat::expect_gt(nrow(d$caal_data), 0)
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+  osa  <- suppressWarnings(Rceattle::osa_residuals(fit, source = "caal"))
+  pear <- attr(osa, "pearson")
+
+  testthat::expect_true(all(osa$source == "caal"))
+  testthat::expect_identical(unique(osa$index_label), "age")
+  testthat::expect_false(is.null(pear))
+  testthat::expect_identical(unique(pear$index_label), "age")
+
+  # The two frames differ only where the residual definitions differ: OSA has a
+  # conditional sd, Pearson the sample size it standardised by.
+  testthat::expect_identical(setdiff(names(osa), names(pear)), "sd")
+  testthat::expect_identical(setdiff(names(pear), names(osa)), "sample_size")
+
+  # One age per length group is fixed by sum-to-N, so OSA is that much shorter.
+  n_len <- length(unique(pear$length))
+  testthat::expect_equal(nrow(osa), nrow(pear) - n_len)
+})
