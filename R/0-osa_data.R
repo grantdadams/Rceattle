@@ -371,10 +371,12 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
     stomach_id <- data_list$stomach_id
     suitMode   <- data_list$suitMode
     for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
-      # TODO(review): which() is order-independent, but the C++ diet likelihood
-      # counts prey via a contiguous scan of stomach_id; keep both consistent
-      # (see the matching TODO in ceattle.cpp) or non-contiguous ids
-      # would misalign the diet OSA "other prey" bin.
+      # which() is order-independent where the C++ diet likelihood instead takes
+      # a contiguous run of stomach_id (ceattle.cpp, section 13.2). The two agree
+      # because stomach_id is numbered 0, 1, ... with each stomach's rows
+      # consecutive -- established by clean_data() and enforced by data_check().
+      # Were that to lapse, this would still find every prey row while the C++
+      # scan would not, and the diet OSA "other prey" bin would misalign.
       rows   <- which(stomach_id == i)
       n_prey <- length(rows)
       if (n_prey == 0) next

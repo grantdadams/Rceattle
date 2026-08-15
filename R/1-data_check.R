@@ -924,6 +924,35 @@ data_check <- function(data_list) {
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }
+    # Stomach grouping. The TMB diet likelihood walks diet_ctl with one forward
+    # cursor, taking stomach i's prey as the run of rows where stomach_id == i
+    # (ceattle.cpp, section 13.2). That needs the ids sorted: 0, 1, 2, ... with
+    # no gaps. Sorted order is what makes each stomach's rows consecutive AND
+    # puts them where the cursor looks for them, so testing only that the rows
+    # are grouped is not enough -- a table whose blocks are each intact but out
+    # of order (say re-sorted by predator age) passes that test while the cursor
+    # runs past nearly all of them. Every stomach it misses drops out of the
+    # likelihood silently, with a lower jnll. clean_data() sorts by stomach_id,
+    # so anything that came through it is fine; this catches a hand-built or
+    # re-sorted diet table.
+    if("stomach_id" %in% colnames(dd)){
+      sid <- as.integer(dd$stomach_id)
+      if(any(is.na(sid))){
+        errors <- c(errors, "'stomach_id' in 'diet_data' contains NA")
+      } else if(length(sid) > 0){
+        if(!identical(sort(unique(sid)), 0:max(sid))){
+          errors <- c(errors, paste0(
+            "'stomach_id' in 'diet_data' must be numbered 0, 1, ... with no gaps ",
+            "(the TMB diet likelihood indexes stomachs by that number). ",
+            "Run clean_data() to renumber."))
+        } else if(is.unsorted(sid)){
+          errors <- c(errors, paste0(
+            "'diet_data' must be sorted by 'stomach_id' (the TMB diet likelihood ",
+            "scans forward for each stomach in turn, so rows out of that order ",
+            "silently drop from the likelihood). Run clean_data() to reorder."))
+        }
+      }
+    }
   }
   # diet_data presence required when msmMode > 0 (declarative requirement table).
   errors <- c(errors, .rce_check_presence(data_list, "diet_data"))
