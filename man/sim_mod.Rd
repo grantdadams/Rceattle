@@ -28,10 +28,13 @@ and total catch (log-normal).
 \details{
 Total catch is drawn by the TMB model itself, in a \code{SIMULATE} block
 beside the catch likelihood, so the simulated data and the density fitted to
-them cannot drift apart. \code{simulate = TRUE} therefore needs the model's
-\code{$obj}. A model loaded from an \code{.Rdata}/\code{.rds} file still has
-it; one returned by \code{\link{mse_summary}} or \code{\link{model_average}}
-does not, and must be refit first. \code{simulate = FALSE} reads only
+them cannot drift apart. \code{simulate = TRUE} therefore needs a model to
+evaluate. A model loaded from an \code{.Rdata}/\code{.rds} file has one, and
+a fit whose \code{$obj} was dropped to save space is rebuilt from its
+\code{data_list} and estimates, provided the rebuild reproduces the fit's own
+expected values. \code{\link{model_average}} output cannot be simulated from
+at all: its quantities are an average over models rather than any one model's
+fit, so no parameters produced them. \code{simulate = FALSE} reads only
 \code{$quantities} and draws no random numbers, so it works on any model.
 
 Simulating leaves the drawn values in the object's report environment, under

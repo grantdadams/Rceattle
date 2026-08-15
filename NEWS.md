@@ -23,7 +23,8 @@
   model rather than reading `$quantities`: about 5x on `BS2017SS` and 28x on
   `BS2017MS` (0.008 to 0.23 seconds per call). That is small next to the
   `fit_mod()` that follows it in `self_test()` and `run_mse()`, but it grows with
-  model size.
+  model size. A fit whose `$obj` was dropped pays more, since the model is
+  rebuilt on each call.
 
 * **`sim_mod()` now warns when a simulated observation is one the model cannot
   be refit on.** A non-finite or negative draw is not quietly dropped:
@@ -34,13 +35,18 @@
 
 ## Breaking changes
 
-* **`sim_mod(simulate = TRUE)` now requires the model's `$obj`.** Simulating
-  means evaluating the compiled model, so the fitted `TMB` object has to be
-  present. A model saved with `save()`/`saveRDS()` and reloaded still works (TMB
-  re-tapes it on the next evaluation), but one returned by `mse_summary()` or
-  `model_average()` does not, since both drop `$obj` to keep their output small.
-  Refit with `fit_mod()` and simulate from that fit. `sim_mod(simulate = FALSE)`
-  reads only `$quantities` and is unaffected.
+* **`sim_mod(simulate = TRUE)` no longer works on an averaged model.**
+  Simulating now evaluates the compiled model, so it needs a model to evaluate.
+  Most fits have one: a model saved with `save()`/`saveRDS()` and reloaded still
+  does, and a fit whose `$obj` was dropped to save space is rebuilt from its
+  `data_list` and estimates, giving the same draws as the original object --
+  provided the rebuild reproduces the fit's own predicted catch, observation
+  standard deviation and bias adjustment, which is checked rather than assumed.
+  `model_average()` output cannot be rebuilt, because it drops the estimates as
+  well and its `quantities` are an average over models rather than any one
+  model's fit: there is no parameter vector for a likelihood to draw around.
+  Simulate from one of the underlying fits. `sim_mod(simulate = FALSE)` reads
+  only `$quantities` and is unaffected.
 
 * **`sim_mod()` now errors instead of recycling when `catch_data` no longer
   lines up with the fitted model.** The write-back is a row-position copy, and

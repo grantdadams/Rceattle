@@ -150,12 +150,44 @@ testthat::test_that("sim_mod() refuses to guess when it cannot simulate", {
 
   fit <- .sim_catch_fixture()
 
-  # mse_summary() and model_average() drop $obj; simulating needs it.
+  # mse_summary() drops $obj but keeps the data_list and the estimates, which is
+  # all .refit_like() needs to rebuild the same model. The draw must match the
+  # one the original object gives.
   no_obj <- fit; no_obj$obj <- NULL
-  testthat::expect_error(suppressWarnings(Rceattle::sim_mod(no_obj, TRUE)),
-                         "needs the model's TMB object")
-  # ... but the expected-value path reads only $quantities.
+  set.seed(8); want <- suppressWarnings(Rceattle::sim_mod(fit, TRUE))$catch_data$Catch
+  set.seed(8); got <- suppressWarnings(Rceattle::sim_mod(no_obj, TRUE))$catch_data$Catch
+  testthat::expect_identical(got, want)
   testthat::expect_no_error(suppressWarnings(Rceattle::sim_mod(no_obj, FALSE)))
+
+  # An averaged model drops the estimates too, and its quantities are an average
+  # over models rather than any one fit, so there is nothing to draw around.
+  averaged <- fit; averaged$obj <- NULL; averaged$estimated_params <- NULL
+  testthat::expect_error(suppressWarnings(Rceattle::sim_mod(averaged, TRUE)),
+                         "no parameters to simulate around")
+
+  # A data_list edited since the fit rebuilds a DIFFERENT model, which would
+  # otherwise simulate quite happily around the wrong expected values. Log_sd is
+  # the observation standard deviation the draw is spread by, so changing it
+  # changes the simulated data.
+  edited <- fit; edited$obj <- NULL
+  edited$data_list$catch_data$Log_sd <- edited$data_list$catch_data$Log_sd * 3
+  testthat::expect_error(suppressWarnings(Rceattle::sim_mod(edited, TRUE)),
+                         "same model")
+
+  # An edit the draw cannot see is not an error, and must not change the draw.
+  harmless <- fit; harmless$obj <- NULL
+  harmless$data_list$catch_data$Catch <- harmless$data_list$catch_data$Catch * 10
+  set.seed(9); h <- suppressWarnings(Rceattle::sim_mod(harmless, TRUE))$catch_data$Catch
+  set.seed(9); w <- suppressWarnings(Rceattle::sim_mod(fit, TRUE))$catch_data$Catch
+  testthat::expect_identical(h, w)
+
+  # bias_adjust_obs sets where the draw is centred but enters neither catch_hat
+  # nor log_catch_sd. A fit too old to record it would rebuild with the
+  # fit_control() default -- silently mis-centring every simulated catch by
+  # exp(sigma^2 / 2) -- so refuse rather than guess.
+  noba <- fit; noba$obj <- NULL; noba$data_list$bias_adjust_obs <- NULL
+  testthat::expect_error(suppressWarnings(Rceattle::sim_mod(noba, TRUE)),
+                         "does not .*record")
 
   # A data_list edited after the fit no longer lines up row for row. The old R
   # draw recycled the shorter vector silently and returned a wrong answer.
@@ -163,4 +195,29 @@ testthat::test_that("sim_mod() refuses to guess when it cannot simulate", {
   short$data_list$catch_data <- short$data_list$catch_data[1:5, ]
   testthat::expect_error(suppressWarnings(Rceattle::sim_mod(short, TRUE)),
                          "line up row for row")
+})
+
+
+testthat::test_that("a fit that ran a projection rebuilds with one", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # estimateMode = 3 builds the objective and stops, leaving catch_hat at 0 on
+  # every projection row. Rebuilding a projection fit that way reproduces the
+  # hindcast and nothing else, so .sim_obj() has to rebuild at a mode that runs
+  # the projection.
+  d <- make_test_data(nyrs = 20, nages = 5, seed = 123)
+  d$fleet_control$Proj_F_proportion <- rep(1, nrow(d$fleet_control))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 0, msmMode = 0, random_rec = FALSE,
+    HCR = Rceattle::build_hcr(HCR = 5, DynamicHCR = FALSE,
+                              Ftarget = 0.4, Flimit = 0.35),
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+  testthat::expect_true(any(fit$quantities$catch_hat > 0))
+
+  no_obj <- fit; no_obj$obj <- NULL
+  set.seed(6); want <- suppressWarnings(Rceattle::sim_mod(fit, TRUE))$catch_data$Catch
+  set.seed(6); got <- suppressWarnings(Rceattle::sim_mod(no_obj, TRUE))$catch_data$Catch
+  testthat::expect_identical(got, want)
 })

@@ -145,23 +145,109 @@
 #' Get a TMB object that can run the template's `SIMULATE` blocks
 #'
 #' The draws live beside their densities in `ceattle.cpp`, so simulating means
-#' evaluating the compiled model and needs the fitted `TMB::MakeADFun` object. A
-#' model saved and reloaded still works (TMB re-tapes from the stored
-#' `obj$env$data`); one whose `$obj` was dropped does not, which
-#' `mse_summary()` and `model_average()` both do to keep their output small.
+#' evaluating the compiled model. Usually the fit's own `TMB::MakeADFun` object
+#' does it, including one saved and reloaded (TMB re-tapes from the stored
+#' `obj$env$data`).
+#'
+#' A fit whose `$obj` was dropped to save space still carries its `data_list` and
+#' its estimates, which is all `.refit_like()` needs to rebuild the model without
+#' re-estimating it. The rebuild is the same model rather than an approximation,
+#' but that is checked rather than assumed -- see [.sim_check_rebuild()].
+#'
+#' Rebuild at the mode the source was fitted under. `estimateMode = 3` builds the
+#' objective and stops, which leaves `catch_hat` at 0 on every projection row, so
+#' a fit that ran a projection needs one too -- mode 2 runs it from the supplied
+#' estimates without re-optimizing the hindcast.
+#'
+#' `model_average()` output cannot be rebuilt and is not meant to be. It drops
+#' the estimates along with `$obj` and replaces `quantities` with an average over
+#' models, so no parameter vector produced those expected values and there is
+#' nothing for a likelihood to draw around.
 #'
 #' @param Rceattle A fitted `Rceattle` model.
-#' @return The model's `TMB::MakeADFun` object.
+#' @return A `TMB::MakeADFun` object at the model's estimates.
 #' @noRd
 .sim_obj <- function(Rceattle) {
-  obj <- Rceattle$obj
-  if (is.null(obj)) {
-    stop("sim_mod(simulate = TRUE) needs the model's TMB object, and this one ",
-         "has no `$obj`. mse_summary() and model_average() drop it to keep ",
-         "their output small; a model loaded from an .Rdata/.rds file keeps ",
-         "it. Refit with fit_mod() and simulate from that fit.", call. = FALSE)
+  if (!is.null(Rceattle$obj)) return(Rceattle$obj)
+
+  if (is.null(Rceattle$estimated_params) || is.null(Rceattle$data_list)) {
+    stop("sim_mod(simulate = TRUE) needs a fitted model, and this one carries ",
+         "neither a TMB object nor the estimates to rebuild one. Averaged ",
+         "models (model_average()) are the usual case: their quantities are an ",
+         "average over models rather than any one model's fit, so there are no ",
+         "parameters to simulate around. Simulate from one of the fits instead.",
+         call. = FALSE)
   }
-  obj
+
+  src_mode <- Rceattle$data_list$estimateMode
+  mode <- if (!is.null(src_mode) && src_mode %in% c(0, 2)) 2 else 3
+
+  rebuilt <- suppressMessages(.refit_like(
+    data_list    = Rceattle$data_list,
+    inits        = Rceattle$estimated_params,
+    estimateMode = mode))
+
+  .sim_check_rebuild(Rceattle, rebuilt)
+  rebuilt$obj
+}
+
+
+#' Confirm a rebuilt model is the one whose estimates it was given
+#'
+#' `.refit_like()` reconstructs the model specification from the `data_list`, so
+#' a `data_list` edited since the fit -- or one that no longer records everything
+#' the fit used -- rebuilds something else, which would then simulate quite
+#' happily around the wrong expected values.
+#'
+#' Check what the catch draw is made of: the predicted catch, the observation
+#' standard deviation and the bias-adjustment multiplier (`ceattle.cpp`, catch
+#' slot). Extend the list as later stages add their draws.
+#'
+#' `catch_hat` and `log_catch_sd` are checked against the fit's own stored
+#' values, so an edited `data_list` shows up as a mismatch. `bias_adjust_obs`
+#' cannot be checked that way: it enters neither of them and nothing outside the
+#' `data_list` records it, so the rebuild simply honours whatever the
+#' `data_list` now says. What is worth catching is its ABSENCE --
+#' `.refit_bias_adjust()` falls back to the `fit_control()` default when the
+#' field is missing, so a fit made with the correction off would rebuild with it
+#' on and every simulated catch would be mis-centred by `exp(sigma^2 / 2)`, with
+#' nothing to reveal it.
+#'
+#' A quantity that is absent is not a pass: a rebuild that cannot be checked
+#' cannot be trusted.
+#'
+#' @param Rceattle The fit being simulated from.
+#' @param rebuilt The model returned by `.refit_like()`.
+#' @noRd
+.sim_check_rebuild <- function(Rceattle, rebuilt) {
+  for (q in c("catch_hat", "log_catch_sd")) {
+    want <- Rceattle$quantities[[q]]
+    got  <- rebuilt$quantities[[q]]
+    if (is.null(want) || is.null(got)) {
+      stop("sim_mod(): this model has no TMB object, and the rebuild cannot be ",
+           "checked because '", q, "' is missing, so there is no way to tell ",
+           "whether it is the same model. Refit with fit_mod() and simulate ",
+           "from that fit.", call. = FALSE)
+    }
+    if (length(want) != length(got) ||
+        !isTRUE(all.equal(as.numeric(want), as.numeric(got), tolerance = 1e-8))) {
+      stop("sim_mod(): this model has no TMB object, and rebuilding one from ",
+           "its data_list gives a different '", q, "', so the two no longer ",
+           "describe the same model. This happens when the data_list has been ",
+           "edited since the fit, or when the fit used a setting the data_list ",
+           "does not record. Refit with fit_mod() and simulate from that fit.",
+           call. = FALSE)
+    }
+  }
+
+  ba <- Rceattle$data_list$bias_adjust_obs
+  if (is.null(ba) || !length(ba) || anyNA(ba)) {
+    stop("sim_mod(): this model has no TMB object, and its data_list does not ",
+         "record 'bias_adjust_obs', so a rebuild cannot reproduce how the ",
+         "original draw was centred. Refit with fit_mod() and simulate from ",
+         "that fit.", call. = FALSE)
+  }
+  invisible(TRUE)
 }
 
 
@@ -291,10 +377,13 @@
 #' @details
 #' Total catch is drawn by the TMB model itself, in a \code{SIMULATE} block
 #' beside the catch likelihood, so the simulated data and the density fitted to
-#' them cannot drift apart. \code{simulate = TRUE} therefore needs the model's
-#' \code{$obj}. A model loaded from an \code{.Rdata}/\code{.rds} file still has
-#' it; one returned by \code{\link{mse_summary}} or \code{\link{model_average}}
-#' does not, and must be refit first. \code{simulate = FALSE} reads only
+#' them cannot drift apart. \code{simulate = TRUE} therefore needs a model to
+#' evaluate. A model loaded from an \code{.Rdata}/\code{.rds} file has one, and
+#' a fit whose \code{$obj} was dropped to save space is rebuilt from its
+#' \code{data_list} and estimates, provided the rebuild reproduces the fit's own
+#' expected values. \code{\link{model_average}} output cannot be simulated from
+#' at all: its quantities are an average over models rather than any one model's
+#' fit, so no parameters produced them. \code{simulate = FALSE} reads only
 #' \code{$quantities} and draws no random numbers, so it works on any model.
 #'
 #' Simulating leaves the drawn values in the object's report environment, under
