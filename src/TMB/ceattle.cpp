@@ -2828,6 +2828,53 @@ Type objective_function<Type>::operator() () {
         // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
+
+    // -- Simulate the catch observation, for sim_mod(simulate = TRUE) --
+    // Drawn from the same mean the dnorm above uses, bias term included: the
+    // estimator fits to that mean, so a draw centred elsewhere biases every
+    // self-test.
+    //
+    // Deliberately outside the hindcast gate. clean_data() appends a catch row
+    // per fishery per projection year with Catch = NA (99 of BS2017SS's 216),
+    // which sim_mod() has always filled; gating the draw would leave them NA and
+    // data_check() would then reject the refit.
+    //
+    // catch_hat is 0 on those rows, so the mean is log(0) = -inf and rnorm()
+    // returns it without drawing (R's rnorm.c), giving exp(-inf) = 0. That is
+    // safe here because SIMULATE runs on doubles only. It would not be safe to
+    // share this mean with the dnorm above: log(0) on the AD tape gives a NaN
+    // adjoint. Do not add a catch_hat > 0 guard either -- it would change how
+    // many random numbers the draw consumes.
+    SIMULATE {
+      catch_obs(fsh_ind, 0) = exp(rnorm(log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev));
+      // The density reads obsvec (log scale), the write-back reads catch_obs
+      // (natural scale). Keep both in step so the reported pair agree. -1 on
+      // rows outside the fitted window.
+      //
+      // Both writes last only for this evaluation: DATA_ objects are re-read
+      // each call, so simulating does not change what a later fn() or report()
+      // on this object scores, and the jnll a simulate call returns is still the
+      // original data's. Fit simulated data by building a new model on them.
+      int sim_pos = catch_obsvec_idx(fsh_ind);
+      if(sim_pos >= 0){
+        obsvec(sim_pos) = log(catch_obs(fsh_ind, 0));
+      }
+    }
+  }
+
+  // Report the draws under their own names. TMB never clears the report
+  // environment, so anything reported here stays visible in obj$report() for the
+  // rest of this object's life. Under the names catch_obs / obsvec that would
+  // leave a random replicate readable as the observed data.
+  //
+  // Only the catch entries of obsvec_sim have been redrawn so far; the index,
+  // comp, CAAL and diet entries are still the observed values. Each stage of the
+  // migration adds its own, so this becomes fully simulated as they land.
+  SIMULATE {
+    matrix<Type> catch_obs_sim = catch_obs;
+    vector<Type> obsvec_sim = obsvec;
+    REPORT(catch_obs_sim);
+    REPORT(obsvec_sim);
   }
 
 

@@ -25,3 +25,17 @@ normal, or the correlated MVN/MVNORM draw from the supplied covariance),
 catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 and total catch (log-normal).
 }
+\details{
+Total catch is drawn by the TMB model itself, in a \code{SIMULATE} block
+beside the catch likelihood, so the simulated data and the density fitted to
+them cannot drift apart. \code{simulate = TRUE} therefore needs the model's
+\code{$obj}. A model loaded from an \code{.Rdata}/\code{.rds} file still has
+it; one returned by \code{\link{mse_summary}} or \code{\link{model_average}}
+does not, and must be refit first. \code{simulate = FALSE} reads only
+\code{$quantities} and draws no random numbers, so it works on any model.
+
+Simulating leaves the drawn values in the object's report environment, under
+names ending \code{_sim}. The estimates, the data and the objective function
+are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
+model is unaffected.
+}

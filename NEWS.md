@@ -1,5 +1,54 @@
 # Rceattle 5.7.0
 
+## New features
+
+* **Total catch is now simulated by the TMB model itself, beside the likelihood
+  that defines it.** `sim_mod()` re-implemented the observation model in R, and
+  two copies of one specification drift apart silently: a mismatch does not
+  error, it just makes `self_test()` report recovery against a process the
+  likelihood never assumed. The catch draw now sits in a `SIMULATE` block next to
+  the catch density, so its mean, standard deviation and bias adjustment cannot
+  diverge from the ones being fitted. The draw itself is unchanged bit for bit,
+  random-number stream included, so existing seeded `self_test()` and
+  `run_mse(simulate_data = TRUE)` results reproduce exactly. The survey index,
+  compositions, conditional age-at-length and diet still draw in R and will move
+  in later releases; those moves will change the stream, and will say so here.
+
+  Simulated quantities are reported under names ending `_sim` (`catch_obs_sim`,
+  `obsvec_sim`), because TMB never clears its report environment and a draw
+  stays visible in `obj$report()` afterwards. Under the observed-data names it
+  would be readable as the data it replaced.
+
+  `sim_mod(simulate = TRUE)` is slower, because it now evaluates the compiled
+  model rather than reading `$quantities`: about 5x on `BS2017SS` and 28x on
+  `BS2017MS` (0.008 to 0.23 seconds per call). That is small next to the
+  `fit_mod()` that follows it in `self_test()` and `run_mse()`, but it grows with
+  model size.
+
+* **`sim_mod()` now warns when a simulated observation is one the model cannot
+  be refit on.** A non-finite or negative draw is not quietly dropped:
+  `data_check()` rejects it, the refit errors, and `self_test()` counts the
+  replicate as not converged, which reads as a convergence problem rather than a
+  data one. The usual cause is a fleet whose observation standard deviation never
+  got a value. The survey index already warned; total catch now does too.
+
+## Breaking changes
+
+* **`sim_mod(simulate = TRUE)` now requires the model's `$obj`.** Simulating
+  means evaluating the compiled model, so the fitted `TMB` object has to be
+  present. A model saved with `save()`/`saveRDS()` and reloaded still works (TMB
+  re-tapes it on the next evaluation), but one returned by `mse_summary()` or
+  `model_average()` does not, since both drop `$obj` to keep their output small.
+  Refit with `fit_mod()` and simulate from that fit. `sim_mod(simulate = FALSE)`
+  reads only `$quantities` and is unaffected.
+
+* **`sim_mod()` now errors instead of recycling when `catch_data` no longer
+  lines up with the fitted model.** The write-back is a row-position copy, and
+  the old draw passed mismatched vectors to `rnorm()`, which silently recycled
+  the shorter one and returned a full-length, wrong answer. Editing `catch_data`
+  after a fit and then simulating now fails with a message naming both row
+  counts. The other data types are unguarded until their draws move too.
+
 ## Bug fixes
 
 * **`data_check()` now rejects a `diet_data` that is not sorted by

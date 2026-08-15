@@ -142,6 +142,142 @@
 }
 
 
+#' Get a TMB object that can run the template's `SIMULATE` blocks
+#'
+#' The draws live beside their densities in `ceattle.cpp`, so simulating means
+#' evaluating the compiled model and needs the fitted `TMB::MakeADFun` object. A
+#' model saved and reloaded still works (TMB re-tapes from the stored
+#' `obj$env$data`); one whose `$obj` was dropped does not, which
+#' `mse_summary()` and `model_average()` both do to keep their output small.
+#'
+#' @param Rceattle A fitted `Rceattle` model.
+#' @return The model's `TMB::MakeADFun` object.
+#' @noRd
+.sim_obj <- function(Rceattle) {
+  obj <- Rceattle$obj
+  if (is.null(obj)) {
+    stop("sim_mod(simulate = TRUE) needs the model's TMB object, and this one ",
+         "has no `$obj`. mse_summary() and model_average() drop it to keep ",
+         "their output small; a model loaded from an .Rdata/.rds file keeps ",
+         "it. Refit with fit_mod() and simulate from that fit.", call. = FALSE)
+  }
+  obj
+}
+
+
+#' Run the template's `SIMULATE` blocks once
+#'
+#' Called once per `sim_mod()` call. Each `obj$simulate()` re-runs the whole
+#' model and draws every simulated quantity, so calling it per data type would
+#' give each type a draw from a different replicate.
+#'
+#' `par` is passed explicitly because TMB defaults to `obj$env$last.par`, the
+#' last parameter vector evaluated, which after an optimization can be a step the
+#' optimizer rejected. `last.par.best` is the MLE, and is also where
+#' `fit$quantities` was reported from, so the draws and the expected values agree.
+#'
+#' The draw lasts only for this call: TMB re-reads `DATA_` objects each
+#' evaluation, so the object's data and objective are unchanged, and the `jnll`
+#' returned is still the original data's. Fit simulated data by building a new
+#' model on them, as `self_test()` and `run_mse()` do.
+#'
+#' @param obj A `TMB::MakeADFun` object from [.sim_obj()].
+#' @return The report list, including the simulated `*_obs_sim` matrices.
+#' @noRd
+.sim_draw <- function(obj) {
+  tryCatch(
+    obj$simulate(par = obj$env$last.par.best),
+    error = function(e) {
+      # TMB re-tapes a stored model against the template loaded now. If that
+      # template wants an input the stored data list lacks, the failure is a bare
+      # "Error when reading the variable" with nothing to act on. Only name that
+      # cause when it is the one that happened -- any other error is passed
+      # through as itself rather than given a diagnosis it may not have.
+      msg <- conditionMessage(e)
+      if (grepl("reading the variable", msg, fixed = TRUE)) {
+        stop("sim_mod(): the model's stored data does not match the TMB ",
+             "template now loaded (", msg, "). This happens when the model was ",
+             "fitted with a different version of Rceattle. Refit it with this ",
+             "version and simulate from that fit.", call. = FALSE)
+      }
+      stop(e)
+    })
+}
+
+
+#' Check a simulated matrix lines up with the data frame it is written into
+#'
+#' The write-back copies by row position: `rearrange_data()` builds each `*_obs`
+#' matrix straight from its data frame, so row `i` of one is row `i` of the
+#' other. Editing `data_list` after the fit breaks that. The old R draw handed
+#' the mismatched vectors to `rnorm()`, which recycles the shorter one silently
+#' and returns a full-length wrong answer; fail instead.
+#'
+#' @param n_sim Rows the template returned.
+#' @param n_dat Rows of the data frame being written.
+#' @param what Name of the data type, for the message.
+#' @noRd
+.sim_check_rows <- function(n_sim, n_dat, what) {
+  if (n_sim != n_dat) {
+    stop("sim_mod(): the fitted model simulated ", n_sim, " ", what,
+         " rows but its data_list holds ", n_dat,
+         ". The two must line up row for row. This happens when data_list is ",
+         "edited after the fit -- simulate from the model as it was fitted.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Pull a simulated observation matrix out of the report list
+#'
+#' A template with no `SIMULATE` block for this data type returns a report
+#' lacking the entry, and the write-back would put `NULL` into the data frame.
+#' Since TMB always uses the template currently loaded, this really only fires on
+#' a stale shared object in a development session.
+#'
+#' @param rep Report list from [.sim_draw()].
+#' @param name Name of the simulated object, e.g. `"catch_obs_sim"`.
+#' @return The matrix.
+#' @noRd
+.sim_report_obs <- function(rep, name) {
+  out <- rep[[name]]
+  if (is.null(out)) {
+    stop("sim_mod(): the loaded TMB template returned no simulated '", name,
+         "', so it has no simulator for this data type. Recompile the package ",
+         "(pkgload::load_all() or R CMD INSTALL) so the loaded model matches ",
+         "the installed source.", call. = FALSE)
+  }
+  out
+}
+
+
+#' Warn when a simulated observation is one the model cannot be refit on
+#'
+#' A non-finite or negative draw is not quietly dropped: `data_check()` rejects
+#' it, the refit errors, and `self_test()` counts the replicate as not converged
+#' -- which reads as a convergence problem rather than a data one. The usual
+#' cause is an observation standard deviation that never got a value
+#' (`Estimate_catch_sd = 1` with `Catch_sd` blank gives `exp(log(NA))`). Mirrors
+#' the check in [.sim_index_obs()].
+#'
+#' @param x Simulated observations.
+#' @param fleet Fleet code per element, for the message.
+#' @param what Data type name.
+#' @noRd
+.sim_warn_unusable <- function(x, fleet, what) {
+  bad <- !is.finite(x) | x < 0
+  if (any(bad)) {
+    warning("Simulated a non-finite or negative ", what, " for fleet(s) ",
+            paste(unique(fleet[bad]), collapse = ", "),
+            ". data_check() rejects those observations, so refitting this data ",
+            "set fails and self_test() counts the run as not converged. Check ",
+            "the fleet's observation standard deviation.", call. = FALSE)
+  }
+  invisible(x)
+}
+
+
 #' Simulate Rceattle data
 #'
 #' @description Simulates data used in Rceattle from the expected values estimated
@@ -151,6 +287,20 @@
 #' normal, or the correlated MVN/MVNORM draw from the supplied covariance),
 #' catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 #' and total catch (log-normal).
+#'
+#' @details
+#' Total catch is drawn by the TMB model itself, in a \code{SIMULATE} block
+#' beside the catch likelihood, so the simulated data and the density fitted to
+#' them cannot drift apart. \code{simulate = TRUE} therefore needs the model's
+#' \code{$obj}. A model loaded from an \code{.Rdata}/\code{.rds} file still has
+#' it; one returned by \code{\link{mse_summary}} or \code{\link{model_average}}
+#' does not, and must be refit first. \code{simulate = FALSE} reads only
+#' \code{$quantities} and draws no random numbers, so it works on any model.
+#'
+#' Simulating leaves the drawn values in the object's report environment, under
+#' names ending \code{_sim}. The estimates, the data and the objective function
+#' are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
+#' model is unaffected.
 #'
 #' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
 #' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
@@ -298,16 +448,27 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Catch ----
-  log_catch_sd <- quantities$log_catch_sd
   catch_hat <- quantities$catch_hat
 
   if (simulate) {
-    # Log-normal simulation with bias correction
-    dat_sim$catch_data$Catch <- exp(stats::rnorm(
-      n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - ba_obs * (log_catch_sd^2) / 2,
-      sd = log_catch_sd
-    ))
+    # Drawn by the template's SIMULATE block, beside the catch density that
+    # defines it (ceattle.cpp, slot 1), rather than re-derived here. Two copies
+    # of one observation model drift apart silently, and a self-test then reports
+    # recovery against a process the likelihood never assumed.
+    #
+    # The call sits where the R draw was, not at the top of the function: the
+    # template draws only catch so far, so it uses the same random numbers in the
+    # same order and existing seeded results are unchanged. Moving it would shift
+    # every seeded simulation for no reason.
+    sim_obj <- .sim_obj(Rceattle)
+    sim_rep <- .sim_draw(sim_obj)
+    catch_sim <- .sim_report_obs(sim_rep, "catch_obs_sim")
+    .sim_check_rows(nrow(catch_sim), nrow(dat_sim$catch_data), "catch")
+    # Column 1 is the observation; the template writes the natural scale there
+    # (obsvec holds its log). Column 2 is the supplied sd, untouched.
+    dat_sim$catch_data$Catch <-
+      .sim_warn_unusable(as.numeric(catch_sim[, 1]),
+                         dat_sim$catch_data$Fleet_code, "catch")
   } else {
     # Expected values
     dat_sim$catch_data$Catch <- catch_hat
