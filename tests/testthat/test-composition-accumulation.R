@@ -641,3 +641,33 @@ testthat::test_that("both tails fold into their boundary bin, with the data they
   testthat::expect_equal(sort(o1$age_length_bin), seq.int(yng, old - 1L))
   testthat::expect_equal(o1$age_length_bin[o1$accumulated], yng)
 })
+
+# A composition row with Sample_size 0 enters no likelihood (the TMB guard is
+# Neff > 0), so it must not get a Pearson residual either. The OSA path always
+# applied the guard; this pins the Pearson side to the same rule (issue #108).
+testthat::test_that("unfitted composition rows get no Pearson residual", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # BS2017SS rather than the fixture: data_check() rejects a fleet whose comp
+  # rows are ALL unfitted, so the fleet needs other years to survive on.
+  d <- Rceattle::BS2017SS
+  flt <- as.integer(names(which.max(table(d$comp_data$Fleet_code))))
+  drop_i <- which(d$comp_data$Fleet_code == flt)[1]
+  testthat::expect_gt(sum(d$comp_data$Fleet_code == flt), 1)
+  gone <- d$comp_data[drop_i, ]
+  d$comp_data$Sample_size[drop_i] <- 0     # carried, but not fitted
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+  r <- suppressWarnings(stats::residuals(fit, type = "pearson", source = "comp"))
+
+  testthat::expect_gt(nrow(r), 0)
+  testthat::expect_true(all(r$Sample_size > 0))
+  # That fleet-year is gone entirely, while the fleet's other years survive.
+  testthat::expect_equal(
+    sum(r$Fleet_code == gone$Fleet_code & r$Year == gone$Year), 0)
+  testthat::expect_gt(sum(r$Fleet_code == gone$Fleet_code), 0)
+})

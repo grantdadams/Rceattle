@@ -260,6 +260,15 @@
   is unchanged, and a fleet without accumulation is bit-identical. A new
   `Accumulated` column marks the bins carrying a folded tail.
 
+* **`residuals()` no longer returns composition residuals for observations the
+  model did not fit** (issue #108). A row with `Sample_size` 0 enters no
+  likelihood -- the TMB guard is `Neff > 0` -- but the Pearson path reported one
+  anyway, so a diagnostic plot showed residuals for data the model never used.
+  On the 2025 GOA pollock assessment that was 531 of 1568 rows: every length
+  composition (all carried at `Sample_size` 0) plus 8 unfitted age rows. The OSA
+  path already applied the guard, which is why the two disagreed. Same rule now
+  on both, for `comp` and `caal`.
+
 * **The `"pearson"` attribute of an `osa_residuals()` result uses the same
   column names as the result itself.** It came from `residuals()`, which names
   columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
