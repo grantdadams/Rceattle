@@ -53,7 +53,13 @@ vector<Type> rmultinom_rce(Type N, vector<Type> p)
   x.setZero();
   if(dim == 0) return x;
 
-  Type n_left = Type(CppAD::Integer(asDouble(N) + 0.5));
+  // Round to a whole number for rbinom. Clamp first: CppAD::Integer saturates on
+  // some platforms and wraps to INT_MIN on others, which would make n_left
+  // negative and silently draw nothing.
+  double n_req = asDouble(N) + 0.5;
+  if(!(n_req > 0.0)) return x;
+  if(n_req > 2147483000.0) n_req = 2147483000.0;
+  Type n_left = Type(CppAD::Integer(n_req));
   Type p_left = p.sum();
 
   for(int a = 0; a < dim - 1; a++){
@@ -76,10 +82,16 @@ vector<Type> rmultinom_rce(Type N, vector<Type> p)
 /**
  * @brief Draw Dirichlet proportions as normalized independent gammas.
  *
- * @param alpha Concentration parameters, one per bin, strictly positive.
- * @return Proportions summing to 1. A degenerate `alpha` (all zero, or gammas
- *   that all underflow) returns a flat vector rather than NaN, so a pathological
- *   stomach cannot poison an entire replicate.
+ * With a very small concentration every gamma can underflow to zero in double
+ * precision, leaving nothing to normalize. The limit of a Dirichlet as
+ * `alpha -> 0` is degenerate -- all the mass in ONE bin, chosen with probability
+ * proportional to `alpha` -- so that is what is returned. Returning a flat
+ * vector instead would be the opposite of the near-degenerate composition the
+ * parameters describe, and would quietly turn a concentrated diet into a diffuse
+ * one. Onset is around `sum(alpha)` below 1e-3.
+ *
+ * @param alpha Concentration parameters, one per bin, non-negative.
+ * @return Proportions summing to 1.
  */
 template<class Type>
 vector<Type> rdirichlet_rce(vector<Type> alpha)
@@ -94,7 +106,19 @@ vector<Type> rdirichlet_rce(vector<Type> alpha)
   }
   Type tot = x.sum();
   if(!(tot > Type(0))){
-    for(int a = 0; a < dim; a++) x(a) = Type(1) / Type(dim);
+    // Everything underflowed: fall back to the degenerate limit, picking the
+    // bin in proportion to alpha.
+    Type a_tot = alpha.sum();
+    x.setZero();
+    if(a_tot > Type(0)){
+      Type u = runif(Type(0), Type(1)) * a_tot;
+      Type acc = 0.0;
+      for(int a = 0; a < dim; a++){
+        acc += alpha(a);
+        if(u <= acc){ x(a) = Type(1); return x; }
+      }
+    }
+    x(dim - 1) = Type(1);
     return x;
   }
   return x / tot;
@@ -106,8 +130,10 @@ vector<Type> rdirichlet_rce(vector<Type> alpha)
  *
  * @param N Number of observations to place.
  * @param alpha Concentration parameters, one per bin. In this model these are
- *   `predicted proportion * N * theta`, the same alphas the density is given,
- *   so the draw and the density describe one distribution.
+ *   `predicted proportion * N * theta`. The draw reproduces the MEAN the density
+ *   predicts; it is not identical to the density in every moment, because the
+ *   density is evaluated on offset data while the draw is taken on the raw
+ *   scale.
  * @return Counts, one per bin, summing to the rounded `N`.
  */
 template<class Type>

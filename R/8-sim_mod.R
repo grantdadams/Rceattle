@@ -582,23 +582,41 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     .sim_check_rows(nrow(diet_sim), nrow(dat_sim$diet_data), "diet")
     # Column 2 is Stomach_proportion_by_weight; column 1 is Sample_size.
     kept <- as.numeric(diet_sim[, 2])
-    unchanged <- sum(abs(kept - dat_sim$diet_data$Stomach_proportion_by_weight) < 1e-14)
+    was  <- dat_sim$diet_data$Stomach_proportion_by_weight
     dat_sim$diet_data$Stomach_proportion_by_weight <- kept
 
-    # Diet rows the model does not predict pass through untouched, and that is
-    # not always harmless. Under empirical suitability (suitMode = 0) there is no
-    # diet likelihood to draw from, but the stomach proportions still set
-    # suitability directly (predation.hpp, calculate_msvpa_suitability), and so
-    # predation mortality and the whole multispecies dynamic. A self_test() of
-    # such a model resamples everything else and holds the diet fixed, which
-    # makes recovery of predation look better than it is. Say so.
-    if (unchanged == length(kept) && any(dat_sim$suitMode <= 0)) {
-      warning("sim_mod() did not simulate the ", length(kept), " diet (stomach ",
-              "content) rows: no predator has an estimated suitability ",
-              "(suitMode > 0), so the model predicts no diet composition to ",
-              "draw from. Under empirical suitability the diet data still set ",
-              "suitability and predation mortality, so a self_test() holds them ",
-              "fixed and recovery of predation is optimistic.", call. = FALSE)
+    # Warn per predator, not once for the whole table. A model that estimates
+    # suitability for some predators and not others redraws only the former, and
+    # an aggregate test cannot see that: on BS2017MS with suitMode = c(4, 0, 4)
+    # the middle predator's stomachs are frozen while the table as a whole
+    # changes. Rows can also come back untouched because the stomach's sample
+    # size rounds to zero.
+    #
+    # This only matters where predation is modelled. Under empirical suitability
+    # the stomach proportions set suitability directly (predation.hpp,
+    # calculate_msvpa_suitability) and hence predation mortality, so a
+    # self_test() that holds them fixed makes recovery of predation look better
+    # than it is. In a single-species model the diet rows are inert and there is
+    # nothing to say.
+    if (!is.null(dat_sim$msmMode) && any(dat_sim$msmMode > 0)) {
+      pred_sp <- dat_sim$diet_data$Pred
+      frozen <- vapply(split(seq_along(kept), pred_sp),
+                       function(ix) all(abs(kept[ix] - was[ix]) < 1e-14),
+                       logical(1))
+      if (any(frozen)) {
+        sp <- names(frozen)[frozen]
+        nm <- if (!is.null(dat_sim$spnames)) {
+          paste(dat_sim$spnames[as.integer(sp)], collapse = ", ")
+        } else {
+          paste(sp, collapse = ", ")
+        }
+        warning("sim_mod() did not simulate the diet data for predator(s) ", nm,
+                ": the model predicts no stomach composition for them, usually ",
+                "because their suitability is empirical (suitMode = 0) rather ",
+                "than estimated. Those stomach proportions still set suitability ",
+                "and predation mortality, so a self_test() holds them fixed and ",
+                "recovery of predation is optimistic.", call. = FALSE)
+      }
     }
   }
 

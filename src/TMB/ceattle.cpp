@@ -4037,9 +4037,18 @@ Type objective_function<Type>::operator() () {
         if((N_s > Type(0)) && (sim_tot > Type(0))){
           vector<Type> sim_counts(n_prey + 1);
           switch(diet_ll_type(rsp)){
-          case 0:
-            sim_counts = rmultinom_rce(N_s, sim_p);
+          case 0: {
+            // The multinomial density is multiplied by diet_comp_weights, which
+            // makes it an effective sample size: weighting a multinomial
+            // log-likelihood by w is (up to a constant) a multinomial at w*N.
+            // Draw at that size, or a down-weighted fleet gets stomachs the
+            // likelihood treats as w times less informative than they are.
+            // (For the Dirichlet-multinomial the same parameter is log theta and
+            // already enters through the concentration below.)
+            Type n_eff = N_s * diet_comp_weights(rsp);
+            sim_counts = rmultinom_rce(n_eff, sim_p);
             break;
+          }
           case 1: {
             vector<Type> sim_alphas = sim_p * N_s * DM_diet_par;
             sim_counts = rdirmultinom_rce(N_s, sim_alphas);

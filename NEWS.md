@@ -35,11 +35,20 @@
   `Diet_distribution` (multinomial or Dirichlet-multinomial), from the same
   predicted proportions and concentration the likelihood uses.
 
+  The draw honours `Diet_comp_weights`. For a multinomial diet that parameter
+  multiplies the log-likelihood, which makes it an effective sample size, so the
+  draw is taken at `Sample_size * weight`; drawing at the nominal size would give
+  a down-weighted predator stomachs the likelihood treats as less informative
+  than they are. For a Dirichlet-multinomial the same parameter is log theta and
+  already enters through the concentration.
+
   Only predators whose suitability is estimated (`suitMode > 0`) are redrawn:
   with empirical suitability the model predicts no diet composition, so there is
   nothing to draw from. Those rows pass through unchanged and `sim_mod()` now
   says so, because they are not inert -- under empirical suitability the stomach
   proportions set suitability, and therefore predation mortality, directly. The
+  warning names the predators concerned, so a model estimating suitability for
+  some and not others is not left silently half-simulated. The
   "other prey" balance is not stored, being recomputed from the prey proportions
   on the next fit.
 
@@ -51,7 +60,8 @@
   `sim_mod()` call the simulated catch, survey index and compositions are
   unchanged bit for bit; but the diet draw consumes random numbers, so where a
   seeded stream calls `sim_mod()` more than once -- `run_mse()` does, once per
-  assessment year -- the later calls' other data types move too. Single-species
+  assessment year -- the draw displaces everything drawn after it in that
+  stream, including later `sim_mod()` calls and `sample_rec()`. Single-species
   models are unaffected.
 
 * **`sim_mod()` now warns when a simulated observation is one the model cannot
