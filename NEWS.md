@@ -29,6 +29,16 @@
 
 ## Bug fixes
 
+* **`data_check()` now rejects a `diet_data` that is not sorted by
+  `stomach_id`.** The TMB diet likelihood walks `diet_ctl` with a single forward
+  cursor, taking stomach *i*'s prey as the rows where `stomach_id == i`, so the
+  ids have to run 0, 1, 2, ... in order and with no gaps. Out of that order the
+  cursor runs past whole stomachs, which then drop out of the likelihood with no
+  warning and a lower objective: re-sorting a cleaned `BS2017MS` diet table by
+  predator age leaves 3 of its 45 stomachs in the fit, and reversing the rows
+  leaves 1. `clean_data()` sorts by `stomach_id`, so anything that came through
+  it already satisfies this; the check catches a hand-built or re-sorted table.
+
 * **`mse_summary()` now reports the catch metrics for a species that has no
   fishery.** A multispecies model can carry a predator purely for its
   consumption -- arrowtooth and sablefish in the hake model do exactly this --

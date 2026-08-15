@@ -3847,24 +3847,29 @@ Type objective_function<Type>::operator() () {
 
     for (int i = 0; i < n_stomach_obs; ++i) {
 
-      // Find how many prey items for this predator without a full scan
-      // TODO(review): this contiguous scan assumes diet_ctl rows for one stomach
-      // are consecutive, but build_osa_data() counts prey with which(stomach_id
-      // == i) (order-independent). If stomach_id is ever non-contiguous the two
-      // disagree and the diet OSA "other prey" bin misaligns (the start >= 0
-      // guard prevents a crash, not a wrong residual). Validate contiguity or
-      // make this count order-independent.
+      // Take this stomach's prey as the run of diet_ctl rows with stomach_id ==
+      // i. The cursor only moves forward, so the ids must be sorted 0, 1, 2, ...
+      // with no gaps. clean_data() guarantees that -- it rebuilds stomach_id
+      // from the pred/sex/age/year stratum and sorts by it on every pass, so a
+      // fit never sees anything else -- and data_check() rejects a table that
+      // breaks it for anyone validating one directly. Out of that order the
+      // cursor runs past whole stomachs, which then drop out of the likelihood
+      // silently, and build_osa_data(), which matches on which(stomach_id == i),
+      // would disagree with this scan.
       int start_j = current_j;
       while((current_j < diet_ctl.rows()) && (stomach_id(current_j) == i)) {
         current_j++;
       }
 
+      // --- Process the predator if suitability is estimated and data are available
+      // Test the empty run first: start_j can sit one past the last row, where
+      // reading diet_ctl / diet_obs would be out of bounds.
       int n_prey = current_j - start_j;
+      if (n_prey == 0) continue;
+
       int rsp = diet_ctl(start_j, 0) - 1;
       Type N_s = diet_obs(start_j, 0);
 
-      // --- Process the predator if suitability is estimated and data are available
-      if (n_prey == 0) continue;
       if (suitMode(rsp) <= 0) continue;
 
       // -- Pre-allocate TMB vectors with space for "Other prey" (+1)
