@@ -1,4 +1,31 @@
-# Rceattle 5.6.2
+# Rceattle 5.7.0
+
+## Breaking changes
+
+* **`mse_summary()`'s metric columns now have syntactic names.** They were
+  display strings held together by `check.names = FALSE`, so reading one meant
+  `summ$species[["OM: Terminal SSB Depletion (Dynamic)"]]`. They are now
+  ordinary names -- `avg_catch`, `catch_iav`, `p_closed`, `om_terminal_ssb`,
+  `om_avg_depletion` and so on -- with an `om_` prefix for the operating model's
+  truth and `em_` for the estimation model's perception. The four
+  misclassification metrics become `p_overfishing_false_pos` / `_false_neg` and
+  `p_overfished_false_pos` / `_false_neg`, and the three collapse metrics become
+  `om_sims_collapsed`, `om_no_f_sims_collapsed` and `om_sims_collapsed_from_f`
+  -- named `sims` because they are **counts of simulations**, not probabilities,
+  which the old names did not say. The long display strings are kept on a
+  `"labels"` attribute of each frame, so plots and SAFE tables can still print
+  them: `attr(summ$species, "labels")`. `Species`, `Fleet_code` and `Fleet_name`
+  are unchanged. Values are unchanged. Done in the same release as the
+  per-entity reshape so `mse_summary()` breaks once rather than twice; no script
+  in `Rceattle-models` or `GOA-ATF-ESP` reads a metric by name.
+
+* **`data_requirements()` argument `selectivity` is now `Selectivity`, and
+  `index_distribution` is now `Index_distribution`.** They stand in for the
+  `fleet_control` columns of those names, and the rest of the package's
+  arguments already mirror their source exactly (`estDynamics`, `Ceq`,
+  `growth_model`, and `model_config()`'s mirror of `fit_mod()`). No deprecation
+  path: `data_requirements()` is new in this release line and has never been on
+  a released version.
 
 ## Bug fixes
 

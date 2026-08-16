@@ -68,22 +68,22 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   # Per-species conservation metrics: one row per species, no NA padding.
   testthat::expect_s3_class(summ$species, "data.frame")
   testthat::expect_equal(nrow(summ$species), mse[[1]]$OM$data_list$nspp)
-  testthat::expect_true(all(c("OM: Average SSB Depletion", "OM: SSB Collapse") %in%
+  testthat::expect_true(all(c("om_avg_depletion", "om_sims_collapsed") %in%
                               names(summ$species)))
-  dep <- summ$species[["OM: Average SSB Depletion"]]
+  dep <- summ$species[["om_avg_depletion"]]
   testthat::expect_true(all(is.finite(dep)))
   testthat::expect_true(all(dep > 0 & dep < 1.5))   # near the Tier-3 40% target
 
   # Per-fleet catch metrics: one row per fishery fleet, integer-keyed, finite.
   testthat::expect_s3_class(summ$fleet, "data.frame")
-  testthat::expect_true("Average Catch" %in% names(summ$fleet))
+  testthat::expect_true("avg_catch" %in% names(summ$fleet))
   n_fishery <- sum(mse[[1]]$OM$data_list$fleet_control$Fleet_type == "Fishery")
   testthat::expect_equal(nrow(summ$fleet), n_fishery)
   testthat::expect_type(summ$fleet$Fleet_code, "integer")
-  testthat::expect_true(all(is.finite(summ$fleet[["Average Catch"]])))
+  testthat::expect_true(all(is.finite(summ$fleet[["avg_catch"]])))
 
   # Across-fleet totals.
-  testthat::expect_true(is.finite(summ$total[["Average Catch"]]))
+  testthat::expect_true(is.finite(summ$total[["avg_catch"]]))
 
   # -- A species with no fishery --------------------------------------------
   # A multispecies model can carry a predator for its consumption alone, with no
@@ -110,16 +110,16 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   summ_u <- testthat::expect_no_warning(Rceattle::mse_summary(mse_unfished))
 
   # Zero catch is the real answer for a species nobody fishes.
-  testthat::expect_equal(summ_u$species[["Average Catch"]][3], 0)
+  testthat::expect_equal(summ_u$species[["avg_catch"]][3], 0)
   # Catch variability and P(fishery closed) are undefined without a fishery --
   # NA, and specifically not the NaN the ratios used to produce.
-  testthat::expect_true(is.na(summ_u$species[["Catch IAV"]][3]))
-  testthat::expect_true(is.na(summ_u$species[["P(Closed)"]][3]))
-  testthat::expect_false(is.nan(summ_u$species[["Catch IAV"]][3]))
-  testthat::expect_false(is.nan(summ_u$species[["P(Closed)"]][3]))
+  testthat::expect_true(is.na(summ_u$species[["catch_iav"]][3]))
+  testthat::expect_true(is.na(summ_u$species[["p_closed"]][3]))
+  testthat::expect_false(is.nan(summ_u$species[["catch_iav"]][3]))
+  testthat::expect_false(is.nan(summ_u$species[["p_closed"]][3]))
 
   # The fished species must be untouched by that branch.
-  for (cc in c("Average Catch", "Catch IAV", "P(Closed)")) {
+  for (cc in c("avg_catch", "catch_iav", "p_closed")) {
     testthat::expect_equal(summ_u$species[[cc]][1:2], summ$species[[cc]][1:2])
   }
   # ...and the unfished species drops out of the per-fleet frame entirely.
