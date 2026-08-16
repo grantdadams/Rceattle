@@ -19,126 +19,46 @@
 }
 
 
-#' Draw survey-index observations under each fleet's own likelihood
+#' Warn where a covariance survey fleet carries rows it cannot simulate
 #'
-#' A simulator has to draw from the observation model the likelihood assumes, or
-#' `self_test()` measures recovery against a data-generating process the
-#' estimation model never saw. The four families need three different draws
-#' (`ceattle.cpp`, section 8.2):
+#' The `MVN`/`MVNORM` draw is a correlated block, and the covariance is supplied
+#' for the fleet's FITTED observations only -- there is no covariance entry for a
+#' year the model does not fit, so those rows keep the values they came in with.
+#' The independent families have no such limit and redraw every row.
 #'
-#' * `Lognormal` (0): log scale, `exp(N(log(hat) - ba * sd^2 / 2, sd))`.
-#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`, and no
-#'   lognormal bias term -- the likelihood has none.
-#' * `MVN` (1) / `MVNORM` (2): natural scale and correlated,
-#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the
-#'   likelihood, so they simulate identically.
-#'
-#' Sigma is positional: its rows follow the fleet's *fitted* observations
-#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order, the same
-#' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
-#' set -- projection years, since `data_check()` rejects a non-positive
-#' observation -- keep the values they came in with.
-#'
-#' A natural-scale draw can come out non-positive, which no index can be and
-#' `data_check()` rejects. The refit then fails and `self_test()` reports the run
-#' as not converged, which reads as a convergence problem, so warn instead.
+#' That matters because `run_mse()` reveals the operating model's negative-`Year`
+#' rows to the estimation model as each assessment's new data. For a covariance
+#' fleet those rows were never drawn, so the estimation model would be handed
+#' survey observations carried over unchanged, and a management-strategy
+#' evaluation would report performance against a survey that never varied.
 #'
 #' @param data_list Data list being simulated into.
-#' @param index_hat Predicted index, one per `index_data` row.
-#' @param log_index_sd Per-row observation sd, as `ceattle.cpp` reports it: a
-#'   log-scale sd for `Lognormal`, an absolute one for `Normal`.
-#' @param ba_obs Observation bias-adjustment multiplier.
-#' @return Numeric vector of simulated observations, in `index_data` row order.
 #' @noRd
-.sim_index_obs <- function(data_list, index_hat, log_index_sd, ba_obs) {
-  idx <- data_list$index_data
+.sim_warn_index_unsimulated <- function(data_list) {
   fc  <- data_list$fleet_control
-  obs <- as.numeric(index_hat)
-  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(obs)
-
+  idx <- data_list$index_data
+  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(invisible(FALSE))
   fam <- .index_family_codes(fc$Index_distribution)
-  if (!length(fam)) fam <- rep(0L, nrow(fc))
+  if (!length(fam)) return(invisible(FALSE))
 
-  # Every fleet lognormal -- the column default, and the only family that existed
-  # before MVN/MVNORM/Normal. Draw all rows in one call, exactly as this did
-  # before the per-family dispatch, so a seeded self_test(), jitter() or
-  # run_mse(simulate_data = TRUE) on an existing model reproduces bit for bit.
-  # The per-fleet loop below consumes the RNG stream in a different order, which
-  # would silently change every simulated data set with more than one index fleet
-  # while leaving single-survey models looking unaffected.
-  if (all(fam == 0L)) {
-    return(exp(stats::rnorm(
-      n    = length(obs),
-      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
-      sd   = log_index_sd)))
-  }
-
-  nonpos <- character(0)
-
+  hit <- character(0)
   for (i in seq_len(nrow(fc))) {
-    code <- fc$Fleet_code[i]
-    rows <- which(idx$Fleet_code == code)
+    if (!(fam[i] %in% c(1L, 2L))) next
+    rows <- which(idx$Fleet_code == fc$Fleet_code[i])
     if (!length(rows)) next
-    f <- fam[i]
-
-    if (f %in% c(1L, 2L)) {
-      fit_rows <- rows[idx$Year[rows] > 0 &
-                         idx$Year[rows] <= data_list$endyr &
-                         idx$Observation[rows] > 0]
-      # Sigma covers the fitted rows only -- in practice the rest are projection
-      # years (Year > endyr), since data_check() rejects Observation <= 0. Leave
-      # them at the values they came in with rather than writing the prediction
-      # there, which would present a projection year as an observation.
-      obs[setdiff(rows, fit_rows)] <- idx$Observation[setdiff(rows, fit_rows)]
-      if (!length(fit_rows)) next
-      nm    <- as.character(fc$Fleet_name[i])
-      Sigma <- data_list$index_cov[[nm]]
-      if (is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(code)]]
-      if (is.null(Sigma)) {
-        stop(sprintf(paste0("Fleet '%s' uses an %s index likelihood but no covariance ",
-                            "matrix was supplied in index_cov, so its observations ",
-                            "cannot be simulated."),
-                     nm, c("MVN", "MVNORM")[f]), call. = FALSE)
-      }
-      Sigma <- as.matrix(Sigma)
-      Sigma <- (Sigma + t(Sigma)) / 2   # as rearrange_data() does
-      if (nrow(Sigma) != length(fit_rows)) {
-        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the ",
-                            "fleet has %d fitted survey observations to simulate."),
-                     nm, nrow(Sigma), ncol(Sigma), length(fit_rows)), call. = FALSE)
-      }
-      L <- tryCatch(t(chol(Sigma)), error = function(e) {
-        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is not positive ",
-                            "definite (%s), so it cannot be simulated from."),
-                     nm, conditionMessage(e)), call. = FALSE)
-      })
-      obs[fit_rows] <- index_hat[fit_rows] +
-        as.numeric(L %*% stats::rnorm(length(fit_rows)))
-      if (any(obs[fit_rows] <= 0)) nonpos <- c(nonpos, nm)
-
-    } else if (f == 3L) {
-      obs[rows] <- stats::rnorm(length(rows), mean = index_hat[rows],
-                                sd = log_index_sd[rows])
-      if (any(obs[rows] <= 0)) nonpos <- c(nonpos, as.character(fc$Fleet_name[i]))
-
-    } else {
-      obs[rows] <- exp(stats::rnorm(
-        n    = length(rows),
-        mean = log(index_hat[rows]) - ba_obs * (log_index_sd[rows]^2) / 2,
-        sd   = log_index_sd[rows]))
-    }
+    outside <- idx$Year[rows] <= 0 | idx$Year[rows] > data_list$endyr
+    if (any(outside)) hit <- c(hit, as.character(fc$Fleet_name[i]))
   }
-
-  if (length(nonpos)) {
-    warning("Simulated a non-positive survey index for fleet(s) ",
-            paste(unique(nonpos), collapse = ", "),
-            ". data_check() requires Observation > 0, so refitting this data ",
-            "set fails and self_test() counts the run as not converged. The ",
-            "observation error is large relative to the index: check the ",
-            "covariance, or the absolute sd, against the scale of the index.",
-            call. = FALSE)
+  if (length(hit)) {
+    warning("Fleet(s) ", paste(unique(hit), collapse = ", "),
+            " use a covariance (MVN/MVNORM) survey likelihood, whose covariance ",
+            "covers only the years the model fits, so their observations ",
+            "outside that window were NOT simulated and carry their original ",
+            "values. run_mse() reveals those rows to the estimation model as new ",
+            "survey data, so an MSE on this model evaluates against a survey ",
+            "that does not vary.", call. = FALSE)
   }
-  obs
+  invisible(length(hit) > 0)
 }
 
 
@@ -345,21 +265,25 @@
 #' it, the refit errors, and `self_test()` counts the replicate as not converged
 #' -- which reads as a convergence problem rather than a data one. The usual
 #' cause is an observation standard deviation that never got a value
-#' (`Estimate_catch_sd = 1` with `Catch_sd` blank gives `exp(log(NA))`). Mirrors
-#' the check in [.sim_index_obs()].
+#' (`Estimate_catch_sd = 1` with `Catch_sd` blank gives `exp(log(NA))`), or, for a
+#' natural-scale survey draw, observation error large relative to the index.
 #'
 #' @param x Simulated observations.
 #' @param fleet Fleet code per element, for the message.
 #' @param what Data type name.
+#' @param strictly_positive `TRUE` where zero is invalid too. `data_check()`
+#'   requires a survey index above zero, but accepts a catch of exactly zero --
+#'   and a fishery closed in a projection year legitimately draws one.
 #' @noRd
-.sim_warn_unusable <- function(x, fleet, what) {
-  bad <- !is.finite(x) | x < 0
+.sim_warn_unusable <- function(x, fleet, what, strictly_positive = FALSE) {
+  bad <- if (strictly_positive) !is.finite(x) | x <= 0 else !is.finite(x) | x < 0
   if (any(bad)) {
-    warning("Simulated a non-finite or negative ", what, " for fleet(s) ",
+    warning("Simulated an unusable ", what, " for fleet(s) ",
             paste(unique(fleet[bad]), collapse = ", "),
             ". data_check() rejects those observations, so refitting this data ",
             "set fails and self_test() counts the run as not converged. Check ",
-            "the fleet's observation standard deviation.", call. = FALSE)
+            "the fleet's observation standard deviation against the scale of ",
+            "the data.", call. = FALSE)
   }
   invisible(x)
 }
@@ -424,13 +348,24 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   index_hat <- quantities$index_hat
 
   if (simulate) {
-    # Per fleet, under its own Index_distribution: lognormal, natural-scale
-    # normal, or a correlated MVN/MVNORM draw from the supplied covariance.
-    # Drawing every fleet as lognormal (as this did) simulates from an
-    # observation model the likelihood does not assume, which a self-test then
-    # reports as if it had.
+    # Every simulated observation in one call. obj$simulate() re-runs the whole
+    # model and draws every type the template covers, so this is the only place
+    # it is called; the catch and diet blocks below read the same report.
+    #
+    # The survey draw follows each fleet's own Index_distribution (ceattle.cpp,
+    # slot 0): lognormal, natural-scale normal, or a correlated draw from the
+    # fleet's covariance. Drawing every fleet as lognormal, as this once did,
+    # simulates from an observation model the likelihood does not assume -- and a
+    # self-test then reports recovery as though it had.
+    sim_obj <- .sim_obj(Rceattle)
+    sim_rep <- .sim_draw(sim_obj)
+    index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
+    .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
     dat_sim$index_data$Observation <-
-      .sim_index_obs(dat_sim, index_hat, log_index_sd, ba_obs)
+      .sim_warn_unusable(as.numeric(index_sim[, 1]),
+                         dat_sim$index_data$Fleet_code, "survey index",
+                         strictly_positive = TRUE)
+    .sim_warn_index_unsimulated(dat_sim)
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat
@@ -546,13 +481,9 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # of one observation model drift apart silently, and a self-test then reports
     # recovery against a process the likelihood never assumed.
     #
-    # The call sits where the R draw was, not at the top of the function. The
-    # template draws catch first and diet after (their order in ceattle.cpp), so
-    # catch consumes the same random numbers in the same order as the code it
-    # replaced and existing seeded catch is unchanged. Moving the call would
-    # shift every seeded simulation for no reason.
-    sim_obj <- .sim_obj(Rceattle)
-    sim_rep <- .sim_draw(sim_obj)
+    # Read from the draw taken in the index block above -- one obj$simulate() per
+    # sim_mod() call. Calling it again here would give catch a draw from a
+    # different replicate than the index, and consume twice the random numbers.
     catch_sim <- .sim_report_obs(sim_rep, "catch_obs_sim")
     .sim_check_rows(nrow(catch_sim), nrow(dat_sim$catch_data), "catch")
     # Column 1 is the observation; the template writes the natural scale there

@@ -137,16 +137,24 @@ testthat::test_that("sim_mod warns when a natural-scale index draw is non-positi
   fit <- .sim_index_fixture("Normal", sd = 500)   # index_hat is 100
   set.seed(1)
   testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
-                           "non-positive survey index")
+                           "unusable survey index")
 })
 
-testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw from", {
+testthat::test_that("an MVN fleet simulates from the covariance it was fitted with", {
   testthat::skip_if_not_installed("TMB")
 
+  # The correlated draw is taken by the model, from the Sigma the model holds, so
+  # editing index_cov after the fit does not change it -- simulating reflects the
+  # model as fitted, not the data_list as since edited. (A model fitted WITHOUT a
+  # covariance for an MVN fleet is rejected by data_check() before it can get
+  # here, which is where that error belongs.)
   fit <- .sim_index_fixture("MVN")
-  fit$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
-  testthat::expect_error(Rceattle::sim_mod(fit, simulate = TRUE),
-                         "no covariance matrix was supplied")
+  set.seed(5); want <- Rceattle::sim_mod(fit, simulate = TRUE)$index_data$Observation
+
+  edited <- fit
+  edited$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
+  set.seed(5); got <- Rceattle::sim_mod(edited, simulate = TRUE)$index_data$Observation
+  testthat::expect_identical(got, want)
 })
 
 
@@ -162,4 +170,33 @@ testthat::test_that("sim_mod handles a model with no diet data", {
   testthat::expect_equal(nrow(fit$data_list$diet_data), 0)
   testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
   testthat::expect_no_error(Rceattle::sim_mod(fit, simulate = FALSE))
+})
+
+
+testthat::test_that("a covariance survey fleet warns about rows it cannot simulate", {
+  testthat::skip_if_not_installed("TMB")
+
+  # The MVN/MVNORM covariance covers the fitted years only, so rows outside that
+  # window keep their original values. run_mse() reveals exactly those rows to
+  # the estimation model as each assessment's new survey data, so silence here
+  # would mean an MSE evaluating against a survey that never varied.
+  fit <- .sim_index_fixture("MVNORM")
+
+  # As fitted, every survey row is inside the window: nothing to warn about.
+  testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+
+  # Hide one year from the estimation model, as run_mse() does.
+  hidden <- fit
+  srv <- which(hidden$data_list$index_data$Fleet_name == "Survey")
+  hidden$data_list$index_data$Year[utils::tail(srv, 1)] <-
+    -hidden$data_list$index_data$Year[utils::tail(srv, 1)]
+  testthat::expect_warning(Rceattle::sim_mod(hidden, simulate = TRUE),
+                           "were NOT simulated")
+
+  # An independent family has no such limit -- it redraws every row.
+  ln <- .sim_index_fixture("Lognormal")
+  srv2 <- which(ln$data_list$index_data$Fleet_name == "Survey")
+  ln$data_list$index_data$Year[utils::tail(srv2, 1)] <-
+    -ln$data_list$index_data$Year[utils::tail(srv2, 1)]
+  testthat::expect_no_warning(Rceattle::sim_mod(ln, simulate = TRUE))
 })

@@ -2715,6 +2715,36 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+    // -- Simulate the survey observation, for sim_mod(simulate = TRUE) --
+    // Families 0 (lognormal) and 3 (natural-scale normal) only; the correlated
+    // families are drawn per fleet below, where their covariance lives.
+    //
+    // Outside the hindcast gate above, deliberately. run_mse() takes the rows
+    // whose Year is negative -- the ones hidden from the estimation model -- and
+    // splices them in sign-flipped as the next assessment's data, so gating the
+    // draw on the fitted window would quietly leave the projection carrying
+    // observations that were never simulated.
+    //
+    // Each family draws what its own density assumes, which is the whole point
+    // of moving these beside it: family 0 is lognormal about
+    // log(hat) - bias_adjust_obs*sd^2/2 with a LOG-scale sd, family 3 is normal
+    // about hat with an ABSOLUTE sd and no bias term. Drawing every fleet as
+    // lognormal (as the R implementation once did) simulates from an observation
+    // model the likelihood does not assume.
+    SIMULATE {
+      if((flt_type(index) > 0) && (index_ll_type(index) == 0)){
+        index_obs(index_ind, 0) = exp(rnorm(log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev));
+        // The density reads obsvec for this family; keep the two in step.
+        int sim_pos = index_obsvec_idx(index_ind);
+        if(sim_pos >= 0){
+          obsvec(sim_pos) = log(index_obs(index_ind, 0));
+        }
+      }
+      if((flt_type(index) > 0) && (index_ll_type(index) == 3)){
+        index_obs(index_ind, 0) = rnorm(index_hat(index_ind), index_std_dev);
+      }
+    }
   }
 
   // MVN survey biomass likelihood (Index_loglike == "MVN"): the AMAK/ebswp
@@ -2748,6 +2778,7 @@ Type objective_function<Type>::operator() () {
         vector<Type> resid(n_mvn);
         vector<Type> mu(n_mvn);
         vector<int>  posv(n_mvn);
+        vector<int>  rowv(n_mvn);   // index_obs row per Sigma position, for SIMULATE
         int k = 0;
         for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
           if((index_ctl(index_ind, 0) - 1) == index){
@@ -2756,6 +2787,7 @@ Type objective_function<Type>::operator() () {
               resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
               mu(k)    = index_hat(index_ind);
               posv(k)  = index_obsvec_idx(index_ind);
+              rowv(k)  = index_ind;
               k++;
             }
           }
@@ -2785,8 +2817,41 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+
+        // -- Simulate the correlated survey block --
+        // The MVN and MVNORM families differ only by a constant in the density,
+        // so they simulate identically: a natural-scale draw about the predicted
+        // index with the fleet's own covariance. MVNORM_t draws mean-zero, so the
+        // prediction is added back.
+        //
+        // Only the FITTED rows are drawn, because Sigma is dimensioned to exactly
+        // those and in the same order (the assembly loop above). Rows outside the
+        // fitted set keep the values they came in with rather than being handed a
+        // prediction dressed up as an observation. That is the one way the
+        // correlated families differ from the independent ones, which redraw every
+        // row of their fleet.
+        SIMULATE {
+          vector<Type> sim_dev = MVNORM(index_cov_mat(index)).simulate();
+          for(k = 0; k < n_mvn; k++){
+            index_obs(rowv(k), 0) = mu(k) + sim_dev(k);
+            // obsvec holds log(obs) for this family on the ordinary fitting path
+            // (build_osa_data() only whitens it when the OSA data are built), so
+            // keep it in step on that path and leave the whitened layout alone.
+            int sim_pos = posv(k);
+            if((sim_pos >= 0) && (osa_mode == 0) && (index_obs(rowv(k), 0) > Type(0))){
+              obsvec(sim_pos) = log(index_obs(rowv(k), 0));
+            }
+          }
+        }
       }
     }
+  }
+
+  // Report the simulated survey series under its own name, for the same reason
+  // the catch draw is: TMB never clears the report environment.
+  SIMULATE {
+    matrix<Type> index_obs_sim = index_obs;
+    REPORT(index_obs_sim);
   }
 
 

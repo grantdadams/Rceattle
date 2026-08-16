@@ -26,6 +26,38 @@
   model size. A fit whose `$obj` was dropped pays more, since the model is
   rebuilt on each call.
 
+* **The survey index is now simulated by the TMB model, under each fleet's own
+  `Index_distribution`.** All four families draw from the density that will be
+  fitted to them: lognormal about `log(hat) - bias_adjust_obs * sd^2 / 2` with a
+  log-scale sd, natural-scale normal about `hat` with an absolute sd and no bias
+  term, and the correlated `MVN`/`MVNORM` draw from the fleet's own covariance.
+  Verified against theory at `tools/verify/verify-sim-index-families.R`:
+  realised log-sd 0.1016 against 0.1, natural sd 20.35 against 20, and pairwise
+  correlation 0.601 against a supplied 0.6.
+
+  The correlated families redraw only the rows they are fitted to, since the
+  covariance is dimensioned to exactly those; the independent families redraw
+  every row of the fleet, projection years included, which is what `run_mse()`
+  splices forward as the next assessment's data. `sim_mod()` now warns when a
+  covariance fleet carries rows outside the fitted window, because those rows
+  keep their original values and `run_mse()` would reveal them to the estimation
+  model as new survey data -- evaluating a management strategy against a survey
+  that never varied. This limit is not new; it was silent before.
+
+  **This changes results.** The survey draw moved out of R and into the same
+  `obj$simulate()` call as the catch and diet draws, which is enough to displace
+  the random-number stream even where a family's own draw is unchanged: on
+  `BS2017SS` the simulated catch moves although its distribution is identical. A
+  seeded `self_test()` or `run_mse(simulate_data = TRUE)` will therefore differ
+  from earlier releases. The simulated index for a single-survey lognormal model
+  happens to be unchanged, because it is still drawn first and consumes the same
+  numbers; do not rely on that.
+
+  A model fitted without a covariance for an `MVN` fleet is rejected by
+  `data_check()`, so `sim_mod()` no longer needs to check for one. Editing
+  `index_cov` after a fit no longer changes the draw: the model simulates from
+  the covariance it was fitted with.
+
 * **Stomach contents are now simulated.** Diet was the one observation type
   `sim_mod()` never drew, so a multispecies `self_test()` resampled every other
   data type and refit against the same stomachs every replicate. Suitability --
