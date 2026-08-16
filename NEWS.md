@@ -26,6 +26,28 @@
   model size. A fit whose `$obj` was dropped pays more, since the model is
   rebuilt on each call.
 
+* **Age/length compositions and conditional age-at-length are now simulated by
+  the TMB model, completing the move.** `sim_mod()` no longer draws anything
+  itself: every simulated observation comes from the density that will be fitted
+  to it, so the two cannot drift apart.
+
+  The composition draw is taken in RAW bin space, before tail accumulation and
+  before `comp_offset`. Tail accumulation folds bins many-to-one before the
+  density, so a draw taken there could not be written back at all; drawing raw
+  and letting the refit fold again is exact rather than approximate, because
+  both families are closed under merging categories. Verified: folded means and
+  standard deviations land on the folded multinomial (max |z| = 0.75 over 1500
+  replicates).
+
+  `Comp_weights` / `CAAL_weights` are honoured. For a multinomial they multiply
+  the log-likelihood, which makes them an effective sample size, so the draw is
+  taken at `Sample_size * weight`; for a Dirichlet-multinomial the same
+  parameter is the concentration and already enters there. Compositions are
+  still stored as counts.
+
+  **This changes results** for the same reason the earlier stages did: the draw
+  moves into the model's own call and the random-number stream shifts.
+
 * **The survey index is now simulated by the TMB model, under each fleet's own
   `Index_distribution`.** All four families draw from the density that will be
   fitted to them: lognormal about `log(hat) - bias_adjust_obs * sd^2 / 2` with a

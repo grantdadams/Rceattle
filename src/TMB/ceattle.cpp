@@ -3091,6 +3091,58 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+    // -- Simulate the composition, for sim_mod(simulate = TRUE) --
+    // Drawn in RAW bin space, from comp_hat before any of the transforms above.
+    // Two reasons, and neither is optional:
+    //
+    //   Tail accumulation folds the bins below Comp_accum_young into that bin and
+    //   above Comp_accum_old into that one, and the density is taken on the
+    //   FOLDED vector. A draw taken there could not be written back at all --
+    //   the fold is many-to-one and has no inverse. Drawing raw and letting the
+    //   refit fold again is exact rather than an approximation, because both
+    //   families are closed under merging categories: merging multinomial cells
+    //   adds their probabilities, merging Dirichlet cells adds their alphas.
+    //
+    //   comp_prop_offset is added to obs and prediction alike before the density.
+    //   The transform is affine, so drawing from the un-offset prediction is what
+    //   makes the offset draw's mean equal the offset prediction; drawing from
+    //   the offset version applies it twice across a simulate-and-refit round
+    //   trip.
+    //
+    // Outside the year gate above, deliberately: run_mse() reveals the
+    // negative-Year rows to the estimation model as each assessment's new
+    // composition data.
+    SIMULATE {
+      int nbin_raw = ((comp_type == 0) ? nages(sp) : nlengths(sp)) * joint_adjust(comp_ind);
+      vector<Type> sim_p = comp_hat.row(comp_ind).segment(0, nbin_raw);
+      Type sim_tot = sim_p.sum();
+      Type n_nom = comp_n(comp_ind, 1);
+      if((sim_tot > Type(0)) && (n_nom > Type(0)) && (flt_type(flt) > 0)){
+        sim_p /= sim_tot;
+        vector<Type> sim_counts(nbin_raw);
+        if(comp_ll_type(flt) == 1){
+          // Dirichlet-multinomial: the concentration already carries the weight
+          // (DM_pars_comp = exp(comp_weights)), so the draw is at the nominal N.
+          vector<Type> sim_alphas = sim_p * n_nom * DM_pars_comp(flt);
+          sim_counts = rdirmultinom_rce(n_nom, sim_alphas);
+        } else {
+          // Multinomial (and the AFSC pseudo-likelihood, which has no proper
+          // density of its own): comp_weights multiplies the log-likelihood, so
+          // it is an effective sample size and the draw has to match it, or the
+          // data are more informative than the estimator treats them as being.
+          sim_counts = rmultinom_rce(n_nom * comp_weights(flt), sim_p);
+        }
+        for(int b = 0; b < nbin_raw; b++){
+          comp_obs(comp_ind, b) = sim_counts(b);
+        }
+      }
+    }
+  }
+
+  SIMULATE {
+    matrix<Type> comp_obs_sim = comp_obs;
+    REPORT(comp_obs_sim);
   }
 
 
@@ -3162,6 +3214,36 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+    // -- Simulate the conditional age-at-length, for sim_mod(simulate = TRUE) --
+    // Same construction as the marginal composition above, and for the same
+    // reasons: drawn from caal_hat before comp_prop_offset is added, so the round
+    // trip through a refit is unbiased, and outside the year gate so the rows
+    // run_mse() reveals to the estimation model are drawn too. CAAL has no tail
+    // accumulation, so there is no fold to undo here.
+    SIMULATE {
+      vector<Type> sim_p = caal_hat.row(caal_ind).segment(0, n_caal);
+      Type sim_tot = sim_p.sum();
+      Type n_nom = caal_n(caal_ind, 0);
+      if((sim_tot > Type(0)) && (n_nom > Type(0)) && (flt_type(flt) > 0)){
+        sim_p /= sim_tot;
+        vector<Type> sim_counts(n_caal);
+        if(caal_ll_type(flt) == 1){
+          vector<Type> sim_alphas = sim_p * n_nom * DM_pars_caal(flt);
+          sim_counts = rdirmultinom_rce(n_nom, sim_alphas);
+        } else {
+          sim_counts = rmultinom_rce(n_nom * caal_weights(flt), sim_p);
+        }
+        for(int b = 0; b < n_caal; b++){
+          caal_obs(caal_ind, b) = sim_counts(b);
+        }
+      }
+    }
+  }
+
+  SIMULATE {
+    matrix<Type> caal_obs_sim = caal_obs;
+    REPORT(caal_obs_sim);
   }
 
 

@@ -373,103 +373,41 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Age/Length composition ----
-  if(nrow(dat_sim$comp_data) > 0){
-    comp_hat <- quantities$comp_hat
-    # Proportion columns found by name; the number of identifying columns
-    # ahead of them is not fixed.
+  # Drawn by the template, in RAW bin space (ceattle.cpp, slot 2). Tail
+  # accumulation folds bins before the density and the fold has no inverse, so a
+  # draw taken there could not be written back; drawing raw and letting the refit
+  # fold again is exact, because both families are closed under merging
+  # categories.
+  #
+  # Counts are stored, as the R draw stored them, and rearrange_data() normalizes
+  # each row on the next fit. Rows the model does not predict -- no composition,
+  # or no sample size -- keep the values they came in with.
+  if (nrow(dat_sim$comp_data) > 0) {
     comp_cols <- .composition_cols(dat_sim$comp_data, "Comp_")
-    for (obs in 1:nrow(dat_sim$comp_data)) {
-      prob_vec <- comp_hat[obs, ]
-      sum_prob <- sum(prob_vec, na.rm = TRUE)
-      n_eff = dat_sim$comp_data$Sample_size[obs]
-      flt <- dat_sim$comp_data$Fleet_code[obs]
-
-      if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$Comp_distribution[flt])
-
-        # --- Multinomial ---
-        # "MultinomialAFSC" differs from "Multinomial" only in the likelihood's
-        # normalisation, not in the sampling distribution.
-        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
-          sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
-
-        # --- Dirichlet-multinomial ---
-        } else if(.ll == "DirichletMultinomial"){
-          # Theta is the overdispersion/precision parameter.
-          theta <- exp(Rceattle$estimated_params$comp_weights[flt])
-
-          # Dirichlet parameters alpha = theta * expected_proportions
-          alpha <- prob_vec * theta
-
-          # 1. Draw from Dirichlet
-          # Using a Gamma distribution trick to get Dirichlet draws
-          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
-          dir_draw <- dir_draw / sum(dir_draw)
-
-          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
-          sim_comp <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
-
-        } else {
-          stop(sprintf(
-            "sim_mod(): unsupported Comp_distribution '%s' for fleet %s.",
-            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
-        }
-
-        dat_sim$comp_data[obs, comp_cols] <- as.vector(sim_comp)
-      } else {
-        dat_sim$comp_data[obs, comp_cols] <- prob_vec
-      }
+    if (simulate) {
+      comp_sim <- .sim_report_obs(sim_rep, "comp_obs_sim")
+      .sim_check_rows(nrow(comp_sim), nrow(dat_sim$comp_data), "composition")
+      dat_sim$comp_data[, comp_cols] <- comp_sim[, seq_along(comp_cols), drop = FALSE]
+    } else {
+      dat_sim$comp_data[, comp_cols] <-
+        quantities$comp_hat[, seq_along(comp_cols), drop = FALSE]
     }
   }
 
 
   # CAAL ----
-  caal_hat <- quantities$caal_hat
-  if(nrow(dat_sim$caal_data) > 0){
+  # As for the marginal composition above; CAAL has no tail accumulation.
+  if (nrow(dat_sim$caal_data) > 0) {
     caal_cols <- .composition_cols(dat_sim$caal_data, "CAAL_")
-    for (obs in 1:nrow(dat_sim$caal_data)) {
-      prob_vec <- caal_hat[obs, ]
-      sum_prob <- sum(prob_vec, na.rm = TRUE)
-      n_eff = dat_sim$caal_data$Sample_size[obs]
-      flt <- dat_sim$caal_data$Fleet_code[obs]
-
-      if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$CAAL_distribution[flt])
-
-        # --- Multinomial ---
-        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
-          sim_caal <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
-
-        # --- Dirichlet-multinomial ---
-        } else if(.ll == "DirichletMultinomial"){
-          # Theta is the overdispersion/precision parameter.
-          theta <- exp(Rceattle$estimated_params$caal_weights[flt])
-
-          # Dirichlet parameters alpha = theta * expected_proportions
-          alpha <- prob_vec * theta
-
-          # 1. Draw from Dirichlet
-          # Using a Gamma distribution trick to get Dirichlet draws
-          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
-          dir_draw <- dir_draw / sum(dir_draw)
-
-          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
-          sim_caal <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
-
-        } else {
-          stop(sprintf(
-            "sim_mod(): unsupported CAAL_distribution '%s' for fleet %s.",
-            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
-        }
-
-        dat_sim$caal_data[obs, caal_cols] <- as.vector(sim_caal)
-
-      } else {
-        dat_sim$caal_data[obs, caal_cols] <- prob_vec
-      }
+    if (simulate) {
+      caal_sim <- .sim_report_obs(sim_rep, "caal_obs_sim")
+      .sim_check_rows(nrow(caal_sim), nrow(dat_sim$caal_data), "CAAL")
+      dat_sim$caal_data[, caal_cols] <- caal_sim[, seq_along(caal_cols), drop = FALSE]
+    } else {
+      dat_sim$caal_data[, caal_cols] <-
+        quantities$caal_hat[, seq_along(caal_cols), drop = FALSE]
     }
   }
-
 
 
   # Catch ----
