@@ -198,15 +198,40 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Average catch
   # - Catch IAV
   # - P(Closed)
+  #
+  # A multispecies model can carry a species with no fishery at all -- a
+  # predator included for its consumption, as arrowtooth and sablefish are in
+  # the hake model. Such a species has no `catch_data` rows, so each quantity
+  # below reduces to an operation on a zero-length vector: `pull(Catch)` returns
+  # numeric(0), sapply() over those returns a LIST rather than a numeric, and
+  # mean() of a list warns "argument is not numeric or logical: returning NA".
+  # The two ratio metrics were worse -- they divide by length(x) == 0 and
+  # returned NaN with no warning at all.
+  #
+  # Handled explicitly instead. Catch on an unfished species is zero, which is a
+  # real answer; its catch variability and probability-of-closure are not
+  # defined, because there is no fishery to vary or to close.
+  #
+  # A species counts as fished if `fleet_control` declares a fishery for it OR
+  # `catch_data` carries any row for it. The fleet table is the authoritative
+  # statement -- it distinguishes "has a fishery that landed nothing" from "has
+  # no fishery" -- but it is not used alone: `Fleet_type` reaches here as the
+  # normalized "Fishery"/"Survey" string, and were it ever to arrive as the raw
+  # integer code the comparison would match nothing and EVERY species would be
+  # silently reported as unfished. Falling back to the catch rows makes that
+  # failure impossible.
+  fished_spp <- union(unique(flt_spp[flt_type == "Fishery"]),
+                      unique(mse[[1]]$OM$data_list$catch_data$Species))
+
   for(sp in 1:nspp){
 
-    # * Mean catch ----
-    mse_summary$`Average Catch`[sp] <- mean(
-      sapply(mse, function(x)
-        x$OM$data_list$catch_data |>
-          filter(Species == sp & Year %in% projyrs) |>
-          pull(Catch)
-      ), na.rm = TRUE)
+    # - Per-simulation projection-year catch. lapply()+unlist() rather than
+    #   sapply() so an empty result stays numeric(0) instead of degenerating to
+    #   a list; with rows present the pooled values are identical to before.
+    catch_by_sim <- lapply(mse, function(x)
+      x$OM$data_list$catch_data |>
+        filter(Species == sp & Year %in% projyrs) |>
+        pull(Catch))
 
     # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
@@ -215,7 +240,26 @@ mse_summary <- function(mse, om_only = FALSE){
         group_by(Year) |>
         summarise(Catch = sum(Catch)) |>
         pull(Catch)
-    )) # Sum catch across species
+    )) # Sum catch across fleets within a year
+
+    if (!(sp %in% fished_spp) || sum(lengths(catch_by_sim)) == 0L) {
+      if (sp %in% fished_spp) {
+        # Has a fishery, but nothing landed in the projection years: a data
+        # problem rather than a modelling choice, so do not report it as zero.
+        warning("Species ", sp, " has a fishery but no catch in the projection ",
+                "years (", min(projyrs), "-", max(projyrs), "); its catch ",
+                "metrics are NA.", call. = FALSE)
+        mse_summary$`Average Catch`[sp] <- NA_real_
+      } else {
+        mse_summary$`Average Catch`[sp] <- 0
+      }
+      mse_summary$`Catch IAV`[sp] <- NA_real_
+      mse_summary$`P(Closed)`[sp] <- NA_real_
+      next
+    }
+
+    # * Mean catch ----
+    mse_summary$`Average Catch`[sp] <- mean(unlist(catch_by_sim), na.rm = TRUE)
 
     # - Average across simulations
     mse_summary$`Catch IAV`[sp] <- 0 # Initialize

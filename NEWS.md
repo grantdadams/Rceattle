@@ -1,3 +1,45 @@
+# Rceattle 5.6.2
+
+## Bug fixes
+
+* **`mse_summary()` now reports the catch metrics for a species that has no
+  fishery.** A multispecies model can carry a predator purely for its
+  consumption -- arrowtooth and sablefish in the hake model do exactly this --
+  and such a species has no `catch_data` rows at all. Every per-species catch
+  metric then operated on a zero-length vector: `Average Catch` warned
+  "argument is not numeric or logical: returning NA" and returned `NA`, while
+  `Catch IAV` and `P(Closed)` divided by a length of zero and returned `NaN`
+  silently. They now report `Average Catch = 0` -- an unfished species really
+  does have zero catch -- and `NA` for the two ratios, which are not defined
+  when there is no fishery to vary or to close. A species that *does* have a
+  fishery but no landings in the projection years is reported as `NA` with a
+  warning naming the species and the years, because that is a data problem
+  rather than a modelling choice. Metrics for fished species are unchanged
+  (verified bit-identical on the 3-species hake MSE), as are `$fleet` and
+  `$total`.
+
+## Documentation
+
+* **`?osa_residuals` now explains the negative composition `predicted` values it
+  warns about**, in a new section: why a numerical conditional mean overshoots
+  below zero on a near-empty bin, that it follows the *bin's* count rather than
+  the composition's sample size (so a rare age in a well-sampled year does it),
+  and that those residuals are biased positive. The warning itself is now two
+  sentences pointing at that section rather than carrying the whole explanation,
+  because it fires once per call on real assessments -- 269 rows on GOA-ATF-ESP
+  2025, 98 on GOA pollock 2025.
+
+* Corrected the `comp_osa.hpp` note claiming the `pUsed` squeeze in
+  `dmultinom_osa()` matches WHAM. WHAM does not squeeze `pUsed`; it squeezes
+  `1 - pUsed` at point of use, which Rceattle also does. The extra squeeze is
+  redundant and leaves an O(A * eps) difference from WHAM on an A-bin
+  composition. Comment only -- no value changes.
+
+* Fixed two doubled words in user-facing text: "the The Pacific Fishery
+  Management Council" in `?build_hcr`, and "the the diet" in the `diet_data`
+  schema description, which is written verbatim into the bundled
+  `meta_data_names.xlsx` (regenerated to match).
+
 # Rceattle 5.6.1
 
 ## Bug fixes
