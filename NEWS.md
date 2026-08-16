@@ -39,6 +39,13 @@
   standard deviations land on the folded multinomial (max |z| = 0.75 over 1500
   replicates).
 
+  A composition row the model predicts nothing for -- a fleet with no catch that
+  year, or one switched off -- comes back empty rather than holding the values it
+  went in with, and `sim_mod()` says so. `run_mse()` reads an empty row as "not
+  sampled" and drops the sample size with it, so a row left holding its original
+  proportions would hand the estimation model a full-weight composition for a
+  year that was never sampled.
+
   `Comp_weights` / `CAAL_weights` are honoured. For a multinomial they multiply
   the log-likelihood, which makes them an effective sample size, so the draw is
   taken at `Sample_size * weight`; for a Dirichlet-multinomial the same

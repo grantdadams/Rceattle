@@ -3118,24 +3118,40 @@ Type objective_function<Type>::operator() () {
       vector<Type> sim_p = comp_hat.row(comp_ind).segment(0, nbin_raw);
       Type sim_tot = sim_p.sum();
       Type n_nom = comp_n(comp_ind, 1);
-      if((sim_tot > Type(0)) && (n_nom > Type(0)) && (flt_type(flt) > 0)){
-        sim_p /= sim_tot;
-        vector<Type> sim_counts(nbin_raw);
+      vector<Type> sim_out = sim_p;   // fallback: the prediction itself
+
+      if((sim_tot > Type(0)) && (n_nom > Type(0))){
+        vector<Type> p = sim_p / sim_tot;
         if(comp_ll_type(flt) == 1){
           // Dirichlet-multinomial: the concentration already carries the weight
           // (DM_pars_comp = exp(comp_weights)), so the draw is at the nominal N.
-          vector<Type> sim_alphas = sim_p * n_nom * DM_pars_comp(flt);
-          sim_counts = rdirmultinom_rce(n_nom, sim_alphas);
+          vector<Type> sim_alphas = p * n_nom * DM_pars_comp(flt);
+          sim_out = rdirmultinom_rce(n_nom, sim_alphas);
         } else {
           // Multinomial (and the AFSC pseudo-likelihood, which has no proper
           // density of its own): comp_weights multiplies the log-likelihood, so
           // it is an effective sample size and the draw has to match it, or the
           // data are more informative than the estimator treats them as being.
-          sim_counts = rmultinom_rce(n_nom * comp_weights(flt), sim_p);
+          sim_out = rmultinom_rce(n_nom * comp_weights(flt), p);
         }
-        for(int b = 0; b < nbin_raw; b++){
-          comp_obs(comp_ind, b) = sim_counts(b);
-        }
+      }
+      // Where nothing is predicted (comp_hat all zero -- a fleet with no catch
+      // in that year, or one switched off) the row becomes the prediction, which
+      // is zero. That is what the R draw this replaces wrote, and run_mse()
+      // depends on it: it decides "no catch, so no composition" by testing
+      // whether the row sums above zero, and a row left holding its original
+      // normalized proportions would hand the estimation model a full-weight
+      // composition for a year that was never sampled.
+      for(int b = 0; b < nbin_raw; b++){
+        comp_obs(comp_ind, b) = sim_out(b);
+      }
+      // Clear the ragged tail. comp_obs is sized to the widest row, so a row
+      // with fewer bins has padding columns that belong to no bin. The R draw
+      // overwrote the whole row; writing only the real bins would leave whatever
+      // was there, and rearrange_data() normalizes across ALL columns on the
+      // next fit -- diluting every real bin by the padding's share.
+      for(int b = nbin_raw; b < comp_obs.cols(); b++){
+        comp_obs(comp_ind, b) = Type(0);
       }
     }
   }
@@ -3225,18 +3241,25 @@ Type objective_function<Type>::operator() () {
       vector<Type> sim_p = caal_hat.row(caal_ind).segment(0, n_caal);
       Type sim_tot = sim_p.sum();
       Type n_nom = caal_n(caal_ind, 0);
-      if((sim_tot > Type(0)) && (n_nom > Type(0)) && (flt_type(flt) > 0)){
-        sim_p /= sim_tot;
-        vector<Type> sim_counts(n_caal);
+      vector<Type> sim_out = sim_p;   // fallback: the prediction itself
+
+      if((sim_tot > Type(0)) && (n_nom > Type(0))){
+        vector<Type> p = sim_p / sim_tot;
         if(caal_ll_type(flt) == 1){
-          vector<Type> sim_alphas = sim_p * n_nom * DM_pars_caal(flt);
-          sim_counts = rdirmultinom_rce(n_nom, sim_alphas);
+          vector<Type> sim_alphas = p * n_nom * DM_pars_caal(flt);
+          sim_out = rdirmultinom_rce(n_nom, sim_alphas);
         } else {
-          sim_counts = rmultinom_rce(n_nom * caal_weights(flt), sim_p);
+          sim_out = rmultinom_rce(n_nom * caal_weights(flt), p);
         }
-        for(int b = 0; b < n_caal; b++){
-          caal_obs(caal_ind, b) = sim_counts(b);
-        }
+      }
+      // As for the marginal composition: an unpredicted row becomes the (zero)
+      // prediction rather than keeping its own values, and the ragged tail is
+      // cleared so a later normalization cannot dilute the real bins.
+      for(int b = 0; b < n_caal; b++){
+        caal_obs(caal_ind, b) = sim_out(b);
+      }
+      for(int b = n_caal; b < caal_obs.cols(); b++){
+        caal_obs(caal_ind, b) = Type(0);
       }
     }
   }

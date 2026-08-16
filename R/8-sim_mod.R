@@ -62,6 +62,55 @@
 }
 
 
+#' Check a simulated matrix has the columns the data frame expects
+#'
+#' The write-back takes the first `n` columns positionally. `comp_obs` is built
+#' with `dplyr::select(contains("Comp_"))` while [.composition_cols()] matches
+#' `^Comp_`, so a column named like `Total_Comp_n` would put the two out of step
+#' and every bin would land one place over -- silently, since the copy would
+#' still be the right shape. The per-row assignment this replaced would have
+#' errored on the length mismatch; assert it instead.
+#'
+#' @param n_sim Columns the template returned.
+#' @param n_dat Bin columns in the data frame.
+#' @param what Data type name.
+#' @noRd
+.sim_check_cols <- function(n_sim, n_dat, what) {
+  if (n_sim < n_dat) {
+    stop("sim_mod(): the fitted model simulated ", n_sim, " ", what,
+         " bin columns but its data_list holds ", n_dat,
+         ". The two must describe the same bins.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Warn where a composition row came back with nothing in it
+#'
+#' A row sums to zero when the model predicts no composition for it -- a fleet
+#' with no catch that year, or one switched off -- and also when the effective
+#' sample size rounds away, which `Sample_size * weight` can do for a heavily
+#' down-weighted fleet. The first is meaningful and expected; the second is a
+#' fleet silently dropping out of the refit, so name both rather than let a
+#' `self_test()` score a replicate whose data quietly went missing.
+#'
+#' @param x Simulated bin matrix.
+#' @param fleet Fleet code per row.
+#' @param what Data type name.
+#' @noRd
+.sim_warn_empty_comp <- function(x, fleet, what) {
+  empty <- rowSums(x, na.rm = TRUE) <= 0
+  if (any(empty)) {
+    warning(sum(empty), " ", what, " row(s) came back empty for fleet(s) ",
+            paste(unique(fleet[empty]), collapse = ", "),
+            ". The model predicts no composition for them, or their sample size ",
+            "times the composition weight rounded to zero. Those rows carry no ",
+            "information into a refit.", call. = FALSE)
+  }
+  invisible(any(empty))
+}
+
+
 #' Get a TMB object that can run the template's `SIMULATE` blocks
 #'
 #' The draws live beside their densities in `ceattle.cpp`, so simulating means
@@ -380,14 +429,18 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   # categories.
   #
   # Counts are stored, as the R draw stored them, and rearrange_data() normalizes
-  # each row on the next fit. Rows the model does not predict -- no composition,
-  # or no sample size -- keep the values they came in with.
+  # each row on the next fit. A row the model predicts nothing for -- a fleet
+  # with no catch that year, or one switched off -- comes back as the prediction,
+  # which is zero, NOT as the values it went in with. run_mse() relies on that:
+  # it reads a zero row as "not sampled" and drops the sample size with it.
   if (nrow(dat_sim$comp_data) > 0) {
     comp_cols <- .composition_cols(dat_sim$comp_data, "Comp_")
     if (simulate) {
       comp_sim <- .sim_report_obs(sim_rep, "comp_obs_sim")
       .sim_check_rows(nrow(comp_sim), nrow(dat_sim$comp_data), "composition")
+      .sim_check_cols(ncol(comp_sim), length(comp_cols), "composition")
       dat_sim$comp_data[, comp_cols] <- comp_sim[, seq_along(comp_cols), drop = FALSE]
+      .sim_warn_empty_comp(comp_sim, dat_sim$comp_data$Fleet_code, "composition")
     } else {
       dat_sim$comp_data[, comp_cols] <-
         quantities$comp_hat[, seq_along(comp_cols), drop = FALSE]
@@ -402,7 +455,9 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     if (simulate) {
       caal_sim <- .sim_report_obs(sim_rep, "caal_obs_sim")
       .sim_check_rows(nrow(caal_sim), nrow(dat_sim$caal_data), "CAAL")
+      .sim_check_cols(ncol(caal_sim), length(caal_cols), "CAAL")
       dat_sim$caal_data[, caal_cols] <- caal_sim[, seq_along(caal_cols), drop = FALSE]
+      .sim_warn_empty_comp(caal_sim, dat_sim$caal_data$Fleet_code, "CAAL")
     } else {
       dat_sim$caal_data[, caal_cols] <-
         quantities$caal_hat[, seq_along(caal_cols), drop = FALSE]
