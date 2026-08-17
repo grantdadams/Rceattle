@@ -29,6 +29,21 @@
 
 ## Bug fixes
 
+* **`data_check()` now warns when CAAL data sit on a fleet whose
+  `Selectivity_dimension` is not `"Length"`.** Conditional age-at-length is the
+  age composition within a length bin, so the model predicts it from
+  selectivity-at-length convolved with the growth matrix. An age-dimensioned
+  fleet has no selectivity-at-length, so the prediction is zero -- and the
+  likelihood still runs, scoring the observations against the flat composition
+  the offset leaves behind. Those data then add a term to the objective that no
+  parameter can move: on the test fixture the CAAL component costs 64.6 with
+  uniform observations and 325.8 with realistic ones, and the whole objective
+  shifts by exactly that amount. `Selectivity_dimension` defaults to `"Age"`, so
+  this was the default outcome for anyone adding CAAL data. It warns rather than
+  errors because such models currently fit; the sibling case (empirical growth,
+  which zeroes the prediction for the same reason) has always errored, and this
+  should tighten to match once configurations have been checked.
+
 * **`data_check()` now rejects a `diet_data` that is not sorted by
   `stomach_id`.** The TMB diet likelihood walks `diet_ctl` with a single forward
   cursor, taking stomach *i*'s prey as the rows where `stomach_id == i`, so the
