@@ -2717,21 +2717,16 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Simulate the survey observation, for sim_mod(simulate = TRUE) --
-    // Families 0 (lognormal) and 3 (natural-scale normal) only; the correlated
-    // families are drawn per fleet below, where their covariance lives.
+    // Families 0 (lognormal) and 3 (natural-scale normal); the correlated
+    // families are drawn per fleet below, where their covariance lives. Each
+    // draws what its own density assumes -- drawing every fleet as lognormal, as
+    // the R implementation once did, simulates from a model the likelihood does
+    // not assume.
     //
-    // Outside the hindcast gate above, deliberately. run_mse() takes the rows
-    // whose Year is negative -- the ones hidden from the estimation model -- and
-    // splices them in sign-flipped as the next assessment's data, so gating the
-    // draw on the fitted window would quietly leave the projection carrying
-    // observations that were never simulated.
-    //
-    // Each family draws what its own density assumes, which is the whole point
-    // of moving these beside it: family 0 is lognormal about
-    // log(hat) - bias_adjust_obs*sd^2/2 with a LOG-scale sd, family 3 is normal
-    // about hat with an ABSOLUTE sd and no bias term. Drawing every fleet as
-    // lognormal (as the R implementation once did) simulates from an observation
-    // model the likelihood does not assume.
+    // Outside the hindcast gate, deliberately: run_mse() splices the
+    // negative-Year rows in sign-flipped as the next assessment's data, so
+    // gating the draw would leave the projection carrying observations that were
+    // never simulated.
     SIMULATE {
       if((flt_type(index) > 0) && (index_ll_type(index) == 0)){
         index_obs(index_ind, 0) = exp(rnorm(log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev));
@@ -2819,17 +2814,11 @@ Type objective_function<Type>::operator() () {
         }
 
         // -- Simulate the correlated survey block --
-        // The MVN and MVNORM families differ only by a constant in the density,
-        // so they simulate identically: a natural-scale draw about the predicted
-        // index with the fleet's own covariance. MVNORM_t draws mean-zero, so the
-        // prediction is added back.
-        //
-        // Only the FITTED rows are drawn, because Sigma is dimensioned to exactly
-        // those and in the same order (the assembly loop above). Rows outside the
-        // fitted set keep the values they came in with rather than being handed a
-        // prediction dressed up as an observation. That is the one way the
-        // correlated families differ from the independent ones, which redraw every
-        // row of their fleet.
+        // MVN and MVNORM differ only by a constant in the density, so they
+        // simulate identically; MVNORM_t draws mean-zero, hence adding mu back.
+        // Only the FITTED rows are drawn -- Sigma is dimensioned to exactly those,
+        // in the assembly order above -- so unlike the independent families, rows
+        // outside the fitted set keep the values they came in with.
         SIMULATE {
           vector<Type> sim_dev = MVNORM(index_cov_mat(index)).simulate();
           for(k = 0; k < n_mvn; k++){
@@ -2896,31 +2885,26 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Simulate the catch observation, for sim_mod(simulate = TRUE) --
-    // Drawn from the same mean the dnorm above uses, bias term included: the
-    // estimator fits to that mean, so a draw centred elsewhere biases every
-    // self-test.
+    // Same mean as the dnorm above, bias term included: the estimator fits to
+    // that mean, so a draw centred elsewhere biases every self-test.
     //
-    // Deliberately outside the hindcast gate. clean_data() appends a catch row
-    // per fishery per projection year with Catch = NA (99 of BS2017SS's 216),
-    // which sim_mod() has always filled; gating the draw would leave them NA and
-    // data_check() would then reject the refit.
+    // Outside the hindcast gate, deliberately. clean_data() appends a catch row
+    // per fishery per projection year with Catch = NA (99 of BS2017SS's 216)
+    // that sim_mod() has always filled; gating the draw leaves them NA and
+    // data_check() rejects the refit.
     //
-    // catch_hat is 0 on those rows, so the mean is log(0) = -inf and rnorm()
-    // returns it without drawing (R's rnorm.c), giving exp(-inf) = 0. That is
-    // safe here because SIMULATE runs on doubles only. It would not be safe to
-    // share this mean with the dnorm above: log(0) on the AD tape gives a NaN
-    // adjoint. Do not add a catch_hat > 0 guard either -- it would change how
-    // many random numbers the draw consumes.
+    // catch_hat is 0 there, so the mean is log(0) = -inf and rnorm() returns it
+    // without drawing, giving exp(-inf) = 0. Safe only because SIMULATE runs on
+    // doubles -- do not share this mean with the dnorm above, where log(0) puts
+    // a NaN adjoint on the tape, and do not add a catch_hat > 0 guard, which
+    // would change how many random numbers the draw consumes.
     SIMULATE {
       catch_obs(fsh_ind, 0) = exp(rnorm(log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev));
       // The density reads obsvec (log scale), the write-back reads catch_obs
-      // (natural scale). Keep both in step so the reported pair agree. -1 on
-      // rows outside the fitted window.
-      //
-      // Both writes last only for this evaluation: DATA_ objects are re-read
-      // each call, so simulating does not change what a later fn() or report()
-      // on this object scores, and the jnll a simulate call returns is still the
-      // original data's. Fit simulated data by building a new model on them.
+      // (natural scale); keep both in step. -1 outside the fitted window.
+      // Both writes last only for this evaluation -- DATA_ objects are re-read
+      // each call -- so the jnll a simulate call returns is still the original
+      // data's. Fit simulated data by building a new model on them.
       int sim_pos = catch_obsvec_idx(fsh_ind);
       if(sim_pos >= 0){
         obsvec(sim_pos) = log(catch_obs(fsh_ind, 0));
@@ -3093,26 +3077,15 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Simulate the composition, for sim_mod(simulate = TRUE) --
-    // Drawn in RAW bin space, from comp_hat before any of the transforms above.
-    // Two reasons, and neither is optional:
+    // Drawn in RAW bin space, from comp_hat before the transforms above.
+    // Tail accumulation folds bins many-to-one before the density, so a draw
+    // taken there has no way back; drawing raw and letting the refit fold is
+    // exact, both families being closed under merging categories. And
+    // comp_prop_offset is affine on obs and prediction alike, so drawing from
+    // the un-offset prediction is what keeps the round trip unbiased.
     //
-    //   Tail accumulation folds the bins below Comp_accum_young into that bin and
-    //   above Comp_accum_old into that one, and the density is taken on the
-    //   FOLDED vector. A draw taken there could not be written back at all --
-    //   the fold is many-to-one and has no inverse. Drawing raw and letting the
-    //   refit fold again is exact rather than an approximation, because both
-    //   families are closed under merging categories: merging multinomial cells
-    //   adds their probabilities, merging Dirichlet cells adds their alphas.
-    //
-    //   comp_prop_offset is added to obs and prediction alike before the density.
-    //   The transform is affine, so drawing from the un-offset prediction is what
-    //   makes the offset draw's mean equal the offset prediction; drawing from
-    //   the offset version applies it twice across a simulate-and-refit round
-    //   trip.
-    //
-    // Outside the year gate above, deliberately: run_mse() reveals the
-    // negative-Year rows to the estimation model as each assessment's new
-    // composition data.
+    // Outside the year gate, deliberately: run_mse() reveals the negative-Year
+    // rows to the estimation model as new composition data.
     SIMULATE {
       int nbin_raw = ((comp_type == 0) ? nages(sp) : nlengths(sp)) * joint_adjust(comp_ind);
       vector<Type> sim_p = comp_hat.row(comp_ind).segment(0, nbin_raw);
@@ -4186,14 +4159,10 @@ Type objective_function<Type>::operator() () {
       // the prey proportions on the next fit, so storing it would double-count.
       SIMULATE {
         // Draw from the composition BEFORE the offset, rebuilt here from
-        // diet_hat so ordinary fitting pays nothing for it. The offset exists to
-        // keep log(0) out of the density, not to describe the stomachs, and the
-        // transform the density applies (add comp_offset, renormalize) is
-        // affine: drawing with mean equal to the un-offset prediction gives an
-        // offset-and-renormalized draw whose mean is exactly the offset-and-
-        // renormalized prediction. Drawing from the offset version instead would
-        // apply the offset twice over a simulate-then-refit round trip, biasing
-        // the smallest bins by roughly comp_offset / prediction.
+        // diet_hat so ordinary fitting pays nothing for it. The offset keeps
+        // log(0) out of the density rather than describing the stomachs, and the
+        // density's transform is affine, so drawing from the un-offset
+        // prediction is what keeps a simulate-then-refit round trip unbiased.
         vector<Type> sim_p(n_prey + 1);
         Type prey_sum = 0.0;
         for(int k = 0; k < n_prey; k++){

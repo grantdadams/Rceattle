@@ -150,38 +150,56 @@ testthat::test_that("an empty composition row is reported, not passed through", 
 })
 
 
-testthat::test_that("CAAL rows the model predicts nothing for come back empty", {
+testthat::test_that("CAAL is drawn from its own predicted composition", {
   testthat::skip_if_not_installed("TMB")
 
-  # NOTE what this does and does not cover. No fixture in this repo produces a
-  # non-zero caal_hat: make_test_data()'s CAAL rows carry Sample_size 1 with no
-  # predicted composition, make_msm_test_data()'s carry Sample_size 0, and none
-  # of the bundled data sets has CAAL at all. So the CAAL *draw* is still
-  # unexercised, and saying so is more useful than a test that looks like
-  # coverage. What is checked here is the write-back contract that the draw
-  # shares with the marginal composition: a row with no prediction comes back
-  # zero rather than holding its own values, which is what run_mse() reads as
-  # "not sampled".
+  # CAAL is only PREDICTED for a fleet whose selectivity is length-dimensioned:
+  # pred_CAAL is filled under `flt_sel_dim(flt) == 1` (ceattle.cpp, section
+  # 10.2), so an age-dimensioned fleet leaves caal_hat identically zero and there
+  # is nothing to draw. Every fixture in this repo puts its CAAL rows on an
+  # age-based fleet, which is why this path went unexercised; set the dimension
+  # and it comes alive.
   d <- make_test_data(nyrs = 20, nages = 6, seed = 123, growth = "vonBertalanffy")
   testthat::expect_gt(nrow(d$caal_data), 0)
+  d$fleet_control$Selectivity_dimension[d$fleet_control$Fleet_code == 1] <- "Length"
+  d$caal_data$Sample_size <- 100
 
   fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
     d, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
     growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
     fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
                                         phase = FALSE))))
-  testthat::expect_equal(sum(rowSums(fit$quantities$caal_hat) > 0), 0)
+  # The fixture guard: without a prediction the assertions below are vacuous.
+  testthat::expect_equal(sum(rowSums(fit$quantities$caal_hat) > 0),
+                         nrow(fit$quantities$caal_hat))
 
   cols <- grep("^CAAL_", names(fit$data_list$caal_data))
   set.seed(6)
   sim <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))
   got <- as.matrix(sim$caal_data[, cols])
 
-  testthat::expect_equal(nrow(got), nrow(fit$data_list$caal_data))
   testthat::expect_false(anyNA(got))
   testthat::expect_true(all(got >= 0))
-  # Unpredicted rows are zeroed, not left holding their original proportions.
-  testthat::expect_true(all(rowSums(got) == 0))
+  testthat::expect_equal(got, round(got))
+  testthat::expect_equal(unname(rowSums(got)),
+                         unname(fit$data_list$caal_data$Sample_size))
+  # It sampled rather than returning the expectation.
+  exp_dat <- suppressWarnings(Rceattle::sim_mod(fit, simulate = FALSE))
+  testthat::expect_false(isTRUE(all.equal(
+    got, unname(as.matrix(exp_dat$caal_data[, cols])))))
+
+  # And the draw is centred on the predicted composition.
+  N <- fit$data_list$caal_data$Sample_size[1]
+  set.seed(7)
+  reps <- replicate(400, suppressWarnings(
+    as.numeric(Rceattle::sim_mod(fit, simulate = TRUE)$caal_data[1, cols])))
+  p <- fit$quantities$caal_hat[1, seq_along(cols)]
+  p <- p / sum(p)
+  keep <- which(N * p > 5)
+  testthat::expect_gt(length(keep), 1)
+  z <- (rowMeans(reps)[keep] - N * p[keep]) /
+    (sqrt(N * p[keep] * (1 - p[keep])) / sqrt(ncol(reps)))
+  testthat::expect_lt(max(abs(z)), 4)
 })
 
 
