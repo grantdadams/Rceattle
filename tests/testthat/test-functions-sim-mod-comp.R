@@ -297,3 +297,45 @@ testthat::test_that("a joint-sex draw folds correctly within each sex block", {
   testthat::expect_equal(apply(folded, 2, stats::sd)[keep],
                          sqrt(Nd * p * (1 - p))[keep], tolerance = 0.2)
 })
+
+
+testthat::test_that("data_check() warns about CAAL data on an age-dimensioned fleet", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # CAAL is the age composition WITHIN a length bin, so it is predicted from
+  # selectivity-at-length convolved with the growth matrix. selectivity.hpp
+  # writes sel_at_length only for a length-dimensioned fleet, so an age-based one
+  # predicts nothing -- and the likelihood still runs, scoring the observations
+  # against a flat composition it cannot move. Selectivity_dimension defaults to
+  # "Age", so this was the default outcome.
+  d <- make_test_data(nyrs = 20, nages = 6, seed = 123, growth = "vonBertalanffy")
+  testthat::expect_gt(nrow(d$caal_data), 0)
+  d$caal_data$Sample_size <- 100
+  d$HCR <- 0
+  prep <- function(x) suppressMessages(suppressWarnings(
+    Rceattle::switch_check(Rceattle::clean_data(x))))
+  quiet_check <- function(x) suppressMessages(suppressWarnings(data_check(x)))
+
+  # The fixture's CAAL fleet is age-dimensioned, so it warns. A warning rather
+  # than an error only because such models currently fit -- the CAAL data in
+  # them inform nothing, so this should tighten once configurations are checked.
+  warn_of <- function(x) {
+    w <- character(0)
+    withCallingHandlers(suppressMessages(data_check(x)),
+      warning = function(e) { w <<- c(w, conditionMessage(e))
+                              invokeRestart("muffleWarning") })
+    w
+  }
+  testthat::expect_true(any(grepl("Selectivity_dimension", warn_of(prep(d)))))
+
+  # Length-dimensioned: silent on this point.
+  ok <- d
+  ok$fleet_control$Selectivity_dimension[ok$fleet_control$Fleet_code == 1] <- "Length"
+  testthat::expect_false(any(grepl("Selectivity_dimension", warn_of(prep(ok)))))
+
+  # And inactive CAAL rows are not the model's problem.
+  off <- d
+  off$caal_data$Sample_size <- 0
+  testthat::expect_false(any(grepl("Selectivity_dimension", warn_of(prep(off)))))
+})
