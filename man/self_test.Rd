@@ -97,7 +97,14 @@ Simulates data from an Rceattle model and refits the model to the simulated data
 \section{Interpreting the spread}{
 
 \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-compositions and CAAL. It does not redraw recruitment, so with
+compositions, CAAL and stomach contents. Some rows are deliberately left
+alone, and \code{\link{sim_mod}} warns about each: a predator whose
+suitability is empirical rather than estimated has no predicted diet to draw
+from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
+the years it is fitted to. Those data are held fixed across every replicate,
+so recovery of whatever they inform is optimistic.
+
+It does not redraw recruitment, so with
 \code{random_rec = TRUE} every replicate shares the operating model's single
 recruitment realization, and that realization is its shrunk empirical-Bayes
 modes rather than a draw from N(0, sigmaR). Two consequences: the spread

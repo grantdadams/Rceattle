@@ -340,25 +340,35 @@
 
 #' Simulate Rceattle data
 #'
-#' @description Simulates data used in Rceattle from the expected values estimated
-#' from an existing Rceattle model. The variances and uncertainty are consistent
-#' with those used in the operating model. The function simulates: survey biomass
-#' (under the fleet's own \code{Index_distribution} -- lognormal, natural-scale
-#' normal, or the correlated MVN/MVNORM draw from the supplied covariance),
-#' catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
-#' and total catch (log-normal).
+#' @description Simulates the data an Rceattle model would have produced, either
+#' as expected values or as a random draw. Every observation type is covered:
+#' survey biomass (under the fleet's own \code{Index_distribution} -- lognormal,
+#' natural-scale normal, or the correlated MVN/MVNORM draw from its covariance),
+#' total catch (lognormal), age/length composition and conditional
+#' age-at-length (multinomial or Dirichlet-multinomial), and stomach contents
+#' (multinomial or Dirichlet-multinomial).
 #'
 #' @details
-#' Total catch is drawn by the TMB model itself, in a \code{SIMULATE} block
-#' beside the catch likelihood, so the simulated data and the density fitted to
-#' them cannot drift apart. \code{simulate = TRUE} therefore needs a model to
-#' evaluate. A model loaded from an \code{.Rdata}/\code{.rds} file has one, and
-#' a fit whose \code{$obj} was dropped to save space is rebuilt from its
-#' \code{data_list} and estimates, provided the rebuild reproduces the fit's own
-#' expected values. \code{\link{model_average}} output cannot be simulated from
-#' at all: its quantities are an average over models rather than any one model's
-#' fit, so no parameters produced them. \code{simulate = FALSE} reads only
+#' Every draw is taken by the TMB model itself, in a \code{SIMULATE} block beside
+#' the likelihood that defines it, so the simulated data and the density that
+#' will be fitted to them cannot drift apart. That is the point: two copies of
+#' one observation model drift silently, and a \code{\link{self_test}} then
+#' reports recovery against a process the likelihood never assumed.
+#'
+#' Consequently \code{simulate = TRUE} needs a model to evaluate. A model loaded
+#' from an \code{.Rdata}/\code{.rds} file has one, and a fit whose \code{$obj}
+#' was dropped to save space is rebuilt from its \code{data_list} and estimates,
+#' provided the rebuild reproduces the fit's own expected values.
+#' \code{\link{model_average}} output cannot be simulated from at all: its
+#' quantities are an average over models rather than any one model's fit, so no
+#' parameters produced them. \code{simulate = FALSE} reads only
 #' \code{$quantities} and draws no random numbers, so it works on any model.
+#'
+#' Rows the model predicts nothing for are not invented. A composition for a
+#' fleet with no catch that year comes back empty, a stomach whose predator has
+#' an empirical suitability keeps its observed proportions, and a covariance
+#' survey fleet's observations outside its fitted window keep theirs; each of
+#' those is reported by a warning rather than passed over in silence.
 #'
 #' Simulating leaves the drawn values in the object's report environment, under
 #' names ending \code{_sim}. The estimates, the data and the objective function
@@ -376,21 +386,6 @@
 sim_mod <- function(Rceattle, simulate = FALSE) {
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
-
-  # Observation bias-adjustment multiplier (default 1). The index/catch
-  # lognormal likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2
-  # (ceattle.cpp, JNLL_INDEX / JNLL_CATCH), so the simulator has to apply the
-  # SAME offset or the estimation model is fitted to data drawn from a different
-  # mean than its own likelihood assumes -- a systematic bias in scale (and so in
-  # catchability), not noise, which no number of simulations averages away.
-  # Mirrors residuals.Rceattle(), which resolves the flag the same way.
-  ba_obs <- dat_sim$bias_adjust_obs
-  if (is.null(ba_obs) && !is.null(Rceattle$obj)) {
-    ba_obs <- Rceattle$obj$env$data$bias_adjust_obs
-  }
-  if (is.null(ba_obs)) ba_obs <- 1
-  ba_obs <- as.numeric(ba_obs)[1]
-
 
   # Indices of abundance/biomass ----
   log_index_sd <- quantities$log_index_sd
@@ -543,42 +538,6 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       }
     }
   }
-
-  # # Slot 5 -- Diet composition from lognormal suitability 4D
-  # # STALE: written for a 4D/5D diet_data array; diet_data is now a data.frame
-  # # (Pred, Prey, ..., Sample_size, Stomach_proportion_by_weight).
-  # if (length(dim(dat_sim$diet_data)) == 4) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (r_age in 1:dat_sim$nages[sp]) {
-  #             if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age,
-  #                                                                                                       ] > 0) > 0) {
-  #                 values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$mn_UobsWtAge_hat[sp,
-  #                                                                                                                     , r_age, ])  #FIXME change sample size
-  #             } else {
-  #                 values <- Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age, ]
-  #             }
-  #             dat_sim$diet_data[sp, , r_age, ] <- replace(dat_sim$diet_data[sp, , r_age, ], values = values)
-  #         }
-  #     }
-  # }
-  #
-  # # 5D
-  # if (length(dim(dat_sim$diet_data)) == 5) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (yr in 1:dat_sim$nyrs_fsh_comp[sp]) {
-  #             for (r_age in 1:dat_sim$nages[sp]) {
-  #                 if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$UobsWtAge_hat[sp, , r_age,
-  #                                                                                                        , yr] > 0) > 0) {
-  #                     values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$UobsWtAge_hat[sp,
-  #                                                                                                                      , r_age, , yr])  #FIXME change sample size
-  #                 } else {
-  #                     values <- Rceattle$quantities$UobsWtAge_hat[sp, , r_age, , yr]
-  #                 }
-  #                 dat_sim$diet_data[sp, , r_age, , yr] <- replace(dat_sim$diet_data[sp, , r_age, , yr], values = values)
-  #             }
-  #         }
-  #     }
-  # }
 
   return(dat_sim)
 }
