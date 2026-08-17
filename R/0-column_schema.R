@@ -20,7 +20,7 @@
 #   sheet       chr  "control" | "fleet_control" | "bioenergetics_control".
 #   type        chr  "integer" | "numeric" | "character" | "switch".
 #   doc         chr  the canonical description (drives the xlsx `Description`
-#                    column and, after Phase 3, the roxygen `\item`).
+#                    column and the roxygen `\item` in R/data.R).
 #   meta        lgl  TRUE if the column appears in the `meta_data` sheet.
 #   has_default lgl  TRUE if a default is filled when the column/scalar is absent.
 #                    WIRED for `sheet == "fleet_control"` only: switch_check()
@@ -340,7 +340,7 @@
 .RCE_META_SHEET_HEADERS_TAIL <- list(
   c("env_data",    "Environmental indices such as bottom temperature data to incorporate into ration equation specified by Ceq and Cindex. Also used to drive catchability if Catchability = 5 or 6. Will use the mean for missing years. Temperature should be in Celsius."),
   c("ration_data", "Annual relative foraging rate by age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs."),
-  c("diet_data",   "Stomach proportion by weight for each predator, prey, predator age, prey age combination. Multiple diet-data formats can be included:\r\n\r\n1) If Pred_age >= 0 and Prey_age >= 0, data is assumed to be  diet proportion of prey-at-age/sex in predator-at-age/sex. \r\n2) If Pred_age >= 0 and Prey_age < 0, data is assumed to be mean diet proportion of prey-spp in predator-at-age/sex (sum across prey ages and sexes)\r\n3) If Pred_age < 0 and Prey_age < 0, data is assumed to be  mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take mean across predator ages/sexes)\r\n4) If Pred_age < -500 and Prey_age < 0, data is assumed to be weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take weighted mean across predator ages/sexes). Weights are estimated predators-at-age. \r\n\r\nIf \"Year = 0\", the the diet will be assumed to be the average between \"suit_styr\" and \"suit_endyr\". \r\n\r\nOnly diet-data type 1 can be used for MSVPA based suitability")
+  c("diet_data",   "Stomach proportion by weight for each predator, prey, predator age, prey age combination. Multiple diet-data formats can be included:\r\n\r\n1) If Pred_age >= 0 and Prey_age >= 0, data is assumed to be  diet proportion of prey-at-age/sex in predator-at-age/sex. \r\n2) If Pred_age >= 0 and Prey_age < 0, data is assumed to be mean diet proportion of prey-spp in predator-at-age/sex (sum across prey ages and sexes)\r\n3) If Pred_age < 0 and Prey_age < 0, data is assumed to be  mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take mean across predator ages/sexes)\r\n4) If Pred_age < -500 and Prey_age < 0, data is assumed to be weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages/sexes and take weighted mean across predator ages/sexes). Weights are estimated predators-at-age. \r\n\r\nIf \"Year = 0\", the diet will be assumed to be the average between \"suit_styr\" and \"suit_endyr\". \r\n\r\nOnly diet-data type 1 can be used for MSVPA based suitability")
 )
 
 # Free-text NOTE / legend rows carried verbatim as the sheet footer.

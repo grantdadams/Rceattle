@@ -670,6 +670,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
              !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
+    # The TMB composition guard is Neff > 0, so a row with Sample_size 0 enters
+    # no likelihood and must not get a residual. The OSA path already excludes
+    # them; this is the same rule on the Pearson side.
+    df <- df[is.finite(df$Sample_size) & df$Sample_size > 0, , drop = FALSE]
     out$comp <- df
   }
 
@@ -709,6 +713,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
              !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
+    df <- df[is.finite(df$Sample_size) & df$Sample_size > 0, , drop = FALSE]
     out$caal <- df
   }
 

@@ -1,5 +1,71 @@
 
 
+# Display name -> returned column name for the mse_summary() performance
+# metrics. The left-hand strings are what the metrics are called while they are
+# being assembled (and what earlier versions returned); the right-hand names are
+# what callers index. Prefixes say whose view a metric is: `om_` the operating
+# model's truth, `em_` the estimation model's perception, unprefixed a quantity
+# that has only one reading.
+#
+# Kept as one table so the two never drift, and attached to each returned frame
+# as a "labels" attribute so a plot or table can print the long form.
+.RCE_MSE_METRIC_NAMES <- c(
+  "Average Catch"                                   = "avg_catch",
+  "Catch IAV"                                       = "catch_iav",
+  "P(Closed)"                                       = "p_closed",
+  "Avg SSB Relative MSE"                            = "ssb_rmse_avg",
+  "Avg terminal SSB Relative MSE"                   = "ssb_rmse_terminal",
+  "EM: P(Fy > Flimit)"                              = "em_p_overfishing",
+  "EM: P(SSB < SSBlimit)"                           = "em_p_overfished",
+  "OM: P(Fy > Flimit)"                              = "om_p_overfishing",
+  "OM: P(SSB < SSBlimit)"                           = "om_p_overfished",
+  # Misclassification: the estimation model's status call disagrees with the
+  # operating model's truth. "false_pos" = perceived overfishing/overfished when
+  # it is not; "false_neg" = missed when it is.
+  "EM: P(Fy > Flimit) but OM: P(Fy < Flimit)"       = "p_overfishing_false_pos",
+  "EM: P(Fy < Flimit) but OM: P(Fy > Flimit)"       = "p_overfishing_false_neg",
+  "EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)" = "p_overfished_false_pos",
+  "EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)" = "p_overfished_false_neg",
+  "OM: Terminal B"                                  = "om_terminal_biomass",
+  "OM: Terminal SSB"                                = "om_terminal_ssb",
+  "OM: Terminal Dynamic SB0"                        = "om_terminal_dynamic_sb0",
+  "OM: Terminal SSB Depletion"                      = "om_terminal_depletion",
+  "OM: Terminal SSB Depletion (Dynamic)"            = "om_terminal_depletion_dynamic",
+  "OM: Average SSB Depletion"                       = "om_avg_depletion",
+  # Counts of simulations in which SSB fell below the collapse cutoff, not
+  # probabilities -- the names say `sims` so they are not read as the `p_` rows.
+  "OM: SSB Collapse"                                = "om_sims_collapsed",
+  "OM no F: SSB Collapse"                           = "om_no_f_sims_collapsed",
+  "OM: SSB Collapse from F"                         = "om_sims_collapsed_from_f"
+)
+
+#' Rename the metric columns of an mse_summary() frame and record the old names
+#'
+#' Every metric column is renamed through [.RCE_MSE_METRIC_NAMES]; key columns
+#' (`Species`, `Fleet_code`, `Fleet_name`) are already syntactic and pass
+#' through. Errors on an unmapped metric rather than returning it under its
+#' display name, so adding a metric without adding its entry cannot ship a
+#' frame that is half-renamed.
+#'
+#' @param df A per-entity frame from mse_summary().
+#' @return `df` with renamed columns and a `"labels"` attribute mapping each new
+#'   name to its display string.
+#' @keywords internal
+#' @noRd
+.rce_rename_mse_metrics <- function(df) {
+  keys    <- intersect(c("Species", "Fleet_code", "Fleet_name"), names(df))
+  metrics <- setdiff(names(df), keys)
+  unmapped <- setdiff(metrics, names(.RCE_MSE_METRIC_NAMES))
+  if (length(unmapped)) {
+    stop("mse_summary(): no returned name for metric(s) ",
+         paste(sQuote(unmapped), collapse = ", "),
+         ". Add them to .RCE_MSE_METRIC_NAMES.", call. = FALSE)
+  }
+  names(df)[match(metrics, names(df))] <- .RCE_MSE_METRIC_NAMES[metrics]
+  attr(df, "labels") <- stats::setNames(metrics, .RCE_MSE_METRIC_NAMES[metrics])
+  df
+}
+
 #' Management strategy evaluation performance metric summary
 #'
 #' @param mse MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}
@@ -26,6 +92,25 @@
 #'     range).
 #'
 #'   All metrics are averaged across projection years and simulations.
+#'
+#'   Metric columns carry syntactic names, so they can be typed without
+#'   backticks: `avg_catch`, `catch_iav`, `p_closed`, `ssb_rmse_avg`,
+#'   `ssb_rmse_terminal`, `em_p_overfishing`, `em_p_overfished`,
+#'   `om_p_overfishing`, `om_p_overfished`, `p_overfishing_false_pos`,
+#'   `p_overfishing_false_neg`, `p_overfished_false_pos`,
+#'   `p_overfished_false_neg`, `om_terminal_biomass`, `om_terminal_ssb`,
+#'   `om_terminal_dynamic_sb0`, `om_terminal_depletion`,
+#'   `om_terminal_depletion_dynamic`, `om_avg_depletion`, `om_sims_collapsed`,
+#'   `om_no_f_sims_collapsed`, `om_sims_collapsed_from_f`. An `om_` prefix is
+#'   the operating model's truth and `em_` the estimation model's perception;
+#'   the four `*_false_pos` / `*_false_neg` metrics are the probability the two
+#'   disagree. The three `*_sims_collapsed` metrics are **counts of
+#'   simulations**, not probabilities.
+#'
+#'   Each frame carries a `"labels"` attribute mapping those names to the long
+#'   display strings (e.g. `om_terminal_depletion_dynamic` ->
+#'   `"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
+#'   `attr(summ$species, "labels")`.
 #'
 #' @export
 #'
@@ -198,15 +283,40 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Average catch
   # - Catch IAV
   # - P(Closed)
+  #
+  # A multispecies model can carry a species with no fishery at all -- a
+  # predator included for its consumption, as arrowtooth and sablefish are in
+  # the hake model. Such a species has no `catch_data` rows, so each quantity
+  # below reduces to an operation on a zero-length vector: `pull(Catch)` returns
+  # numeric(0), sapply() over those returns a LIST rather than a numeric, and
+  # mean() of a list warns "argument is not numeric or logical: returning NA".
+  # The two ratio metrics were worse -- they divide by length(x) == 0 and
+  # returned NaN with no warning at all.
+  #
+  # Handled explicitly instead. Catch on an unfished species is zero, which is a
+  # real answer; its catch variability and probability-of-closure are not
+  # defined, because there is no fishery to vary or to close.
+  #
+  # A species counts as fished if `fleet_control` declares a fishery for it OR
+  # `catch_data` carries any row for it. The fleet table is the authoritative
+  # statement -- it distinguishes "has a fishery that landed nothing" from "has
+  # no fishery" -- but it is not used alone: `Fleet_type` reaches here as the
+  # normalized "Fishery"/"Survey" string, and were it ever to arrive as the raw
+  # integer code the comparison would match nothing and EVERY species would be
+  # silently reported as unfished. Falling back to the catch rows makes that
+  # failure impossible.
+  fished_spp <- union(unique(flt_spp[flt_type == "Fishery"]),
+                      unique(mse[[1]]$OM$data_list$catch_data$Species))
+
   for(sp in 1:nspp){
 
-    # * Mean catch ----
-    mse_summary$`Average Catch`[sp] <- mean(
-      sapply(mse, function(x)
-        x$OM$data_list$catch_data |>
-          filter(Species == sp & Year %in% projyrs) |>
-          pull(Catch)
-      ), na.rm = TRUE)
+    # - Per-simulation projection-year catch. lapply()+unlist() rather than
+    #   sapply() so an empty result stays numeric(0) instead of degenerating to
+    #   a list; with rows present the pooled values are identical to before.
+    catch_by_sim <- lapply(mse, function(x)
+      x$OM$data_list$catch_data |>
+        filter(Species == sp & Year %in% projyrs) |>
+        pull(Catch))
 
     # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
@@ -215,7 +325,26 @@ mse_summary <- function(mse, om_only = FALSE){
         group_by(Year) |>
         summarise(Catch = sum(Catch)) |>
         pull(Catch)
-    )) # Sum catch across species
+    )) # Sum catch across fleets within a year
+
+    if (!(sp %in% fished_spp) || sum(lengths(catch_by_sim)) == 0L) {
+      if (sp %in% fished_spp) {
+        # Has a fishery, but nothing landed in the projection years: a data
+        # problem rather than a modelling choice, so do not report it as zero.
+        warning("Species ", sp, " has a fishery but no catch in the projection ",
+                "years (", min(projyrs), "-", max(projyrs), "); its catch ",
+                "metrics are NA.", call. = FALSE)
+        mse_summary$`Average Catch`[sp] <- NA_real_
+      } else {
+        mse_summary$`Average Catch`[sp] <- 0
+      }
+      mse_summary$`Catch IAV`[sp] <- NA_real_
+      mse_summary$`P(Closed)`[sp] <- NA_real_
+      next
+    }
+
+    # * Mean catch ----
+    mse_summary$`Average Catch`[sp] <- mean(unlist(catch_by_sim), na.rm = TRUE)
 
     # - Average across simulations
     mse_summary$`Catch IAV`[sp] <- 0 # Initialize
@@ -565,6 +694,20 @@ mse_summary <- function(mse, om_only = FALSE){
     check.names = FALSE, row.names = NULL, stringsAsFactors = FALSE)
 
   total <- unlist(mse_summary[total_row, c("Average Catch", "Catch IAV")])
+
+  ## Syntactic metric names ----
+  # The working names above are display strings ("OM: Terminal SSB Depletion
+  # (Dynamic)"), which a caller can only reach through backticks or [[ ]].
+  # Rename on the way out so the returned frames are ordinary data frames whose
+  # columns can be typed, and keep the display strings on a "labels" attribute
+  # so a plot or a SAFE table can still render them.
+  species <- .rce_rename_mse_metrics(species)
+  fleet   <- .rce_rename_mse_metrics(fleet)
+  # `total` is a named vector, not a frame, so it goes through the same helper
+  # as a one-row frame rather than being renamed by a bare lookup -- an unmapped
+  # name there would otherwise become NA silently instead of erroring.
+  total <- unlist(.rce_rename_mse_metrics(
+    as.data.frame(as.list(total), check.names = FALSE)))
 
   list(
     species = species,

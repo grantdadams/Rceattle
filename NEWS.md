@@ -1,5 +1,32 @@
 # Rceattle 5.7.0
 
+## Breaking changes
+
+* **`mse_summary()`'s metric columns now have syntactic names.** They were
+  display strings held together by `check.names = FALSE`, so reading one meant
+  `summ$species[["OM: Terminal SSB Depletion (Dynamic)"]]`. They are now
+  ordinary names -- `avg_catch`, `catch_iav`, `p_closed`, `om_terminal_ssb`,
+  `om_avg_depletion` and so on -- with an `om_` prefix for the operating model's
+  truth and `em_` for the estimation model's perception. The four
+  misclassification metrics become `p_overfishing_false_pos` / `_false_neg` and
+  `p_overfished_false_pos` / `_false_neg`, and the three collapse metrics become
+  `om_sims_collapsed`, `om_no_f_sims_collapsed` and `om_sims_collapsed_from_f`
+  -- named `sims` because they are **counts of simulations**, not probabilities,
+  which the old names did not say. The long display strings are kept on a
+  `"labels"` attribute of each frame, so plots and SAFE tables can still print
+  them: `attr(summ$species, "labels")`. `Species`, `Fleet_code` and `Fleet_name`
+  are unchanged. Values are unchanged. Done in the same release as the
+  per-entity reshape so `mse_summary()` breaks once rather than twice; no script
+  in `Rceattle-models` or `GOA-ATF-ESP` reads a metric by name.
+
+* **`data_requirements()` argument `selectivity` is now `Selectivity`, and
+  `index_distribution` is now `Index_distribution`.** They stand in for the
+  `fleet_control` columns of those names, and the rest of the package's
+  arguments already mirror their source exactly (`estDynamics`, `Ceq`,
+  `growth_model`, and `model_config()`'s mirror of `fit_mod()`). No deprecation
+  path: `data_requirements()` is new in this release line and has never been on
+  a released version.
+
 ## New features
 
 * **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model
@@ -35,6 +62,70 @@
   in the GMRF, where lagged paths tie them to the last hindcast years and pull on
   the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
   with `projyr > endyr` will change; that difference is the bias being removed.
+
+* **`data_check()` now warns when CAAL data sit on a fleet whose
+  `Selectivity_dimension` is not `"Length"`.** Conditional age-at-length is the
+  age composition within a length bin, so the model predicts it from
+  selectivity-at-length convolved with the growth matrix. An age-dimensioned
+  fleet has no selectivity-at-length, so the prediction is zero -- and the
+  likelihood still runs, scoring the observations against the flat composition
+  the offset leaves behind. Those data then add a term to the objective that no
+  parameter can move: on the test fixture the CAAL component costs 64.6 with
+  uniform observations and 325.8 with realistic ones, and the whole objective
+  shifts by exactly that amount. `Selectivity_dimension` defaults to `"Age"`, so
+  this was the default outcome for anyone adding CAAL data. It warns rather than
+  errors because such models currently fit; the sibling case (empirical growth,
+  which zeroes the prediction for the same reason) has always errored, and this
+  should tighten to match once configurations have been checked.
+
+* **`data_check()` now rejects a `diet_data` that is not sorted by
+  `stomach_id`.** The TMB diet likelihood walks `diet_ctl` with a single forward
+  cursor, taking stomach *i*'s prey as the rows where `stomach_id == i`, so the
+  ids have to run 0, 1, 2, ... in order and with no gaps. Out of that order the
+  cursor runs past whole stomachs, which then drop out of the likelihood with no
+  warning and a lower objective: re-sorting a cleaned `BS2017MS` diet table by
+  predator age leaves 3 of its 45 stomachs in the fit, and reversing the rows
+  leaves 1. `clean_data()` sorts by `stomach_id`, so anything that came through
+  it already satisfies this; the check catches a hand-built or re-sorted table.
+
+* **`mse_summary()` now reports the catch metrics for a species that has no
+  fishery.** A multispecies model can carry a predator purely for its
+  consumption -- arrowtooth and sablefish in the hake model do exactly this --
+  and such a species has no `catch_data` rows at all. Every per-species catch
+  metric then operated on a zero-length vector: `Average Catch` warned
+  "argument is not numeric or logical: returning NA" and returned `NA`, while
+  `Catch IAV` and `P(Closed)` divided by a length of zero and returned `NaN`
+  silently. They now report `Average Catch = 0` -- an unfished species really
+  does have zero catch -- and `NA` for the two ratios, which are not defined
+  when there is no fishery to vary or to close. A species that *does* have a
+  fishery but no landings in the projection years is reported as `NA` with a
+  warning naming the species and the years, because that is a data problem
+  rather than a modelling choice. Metrics for fished species are unchanged
+  (verified bit-identical on the 3-species hake MSE), as are `$fleet` and
+  `$total`.
+
+## Documentation
+
+* **`?osa_residuals` now explains the negative composition `predicted` values it
+  warns about**, in a new section: why a numerical conditional mean overshoots
+  below zero on a near-empty bin, that it follows the *bin's* count rather than
+  the composition's sample size (so a rare age in a well-sampled year does it),
+  and that those residuals are biased positive. The warning itself is now two
+  sentences pointing at that section rather than carrying the whole explanation,
+  because it fires once per call on real assessments -- 269 rows on GOA-ATF-ESP
+  2025, 98 on GOA pollock 2025.
+
+* Corrected the `comp_osa.hpp` note claiming the `pUsed` squeeze in
+  `dmultinom_osa()` matches WHAM. WHAM does not squeeze `pUsed`; it squeezes
+  `1 - pUsed` at point of use, which Rceattle also does. The extra squeeze is
+  redundant and leaves an O(A * eps) difference from WHAM on an A-bin
+  composition. Comment only -- no value changes.
+
+* Fixed two doubled words in user-facing text: "the The Pacific Fishery
+  Management Council" in `?build_hcr`, and "the the diet" in the `diet_data`
+  schema description, which is written verbatim into the bundled
+  `meta_data_names.xlsx` (regenerated to match).
+
 
 # Rceattle 5.6.1
 
@@ -298,11 +389,23 @@
   is unchanged, and a fleet without accumulation is bit-identical. A new
   `Accumulated` column marks the bins carrying a folded tail.
 
+* **`residuals()` no longer returns composition residuals for observations the
+  model did not fit** (issue #108). A row with `Sample_size` 0 enters no
+  likelihood -- the TMB guard is `Neff > 0` -- but the Pearson path reported one
+  anyway, so a diagnostic plot showed residuals for data the model never used.
+  On the 2025 GOA pollock assessment that was 531 of 1568 rows: every length
+  composition (all carried at `Sample_size` 0) plus 8 unfitted age rows. The OSA
+  path already applied the guard, which is why the two disagreed. Same rule now
+  on both, for `comp` and `caal`.
+
 * **The `"pearson"` attribute of an `osa_residuals()` result uses the same
   column names as the result itself.** It came from `residuals()`, which names
   columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so one
   object carried two conventions and a reader had to know which half they were
-  holding.
+  holding. Shared names do not mean a shared scale, and `?osa_residuals` now
+  says so: the attribute's `observed`/`predicted` are proportions with the
+  sample size alongside, since composition Pearson residuals are defined on
+  proportions, where the OSA columns carry bin counts.
 
 * **`sim_mod()` draws the survey index under the fleet's own
   `Index_distribution`.** Every fleet was drawn as an independent lognormal

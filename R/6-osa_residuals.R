@@ -97,6 +97,11 @@
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data
 #'   frame's column names rather than the data-sheet names
 #'   [residuals.Rceattle()] returns, so the two halves of one object read alike.
+#'   Note the shared names do not mean a shared scale: in the attribute
+#'   `observed` and `predicted` are proportions summing to one within a
+#'   fleet-year, with the sample size in `sample_size`, because composition
+#'   Pearson residuals are defined on proportions -- not the bin counts the
+#'   columns above carry. Do not compare the two directly.
 #'   Both describe the bins the likelihood fit, so a fleet with tail
 #'   accumulation reports the folded window in each -- with one asymmetry: the
 #'   one-step-ahead decomposition drops each group's last bin (it is fixed by
@@ -104,6 +109,27 @@
 #'   upper accumulated one. Such a fleet therefore shows its upper boundary bin
 #'   in the Pearson residuals and not in the OSA residuals. Summarize it with
 #'   [osa_diagnostics()] and plot it with [plot.rceattle_osa()].
+#'
+#' @section Negative composition `predicted` values:
+#' A composition `predicted` is an expected bin count and cannot truly be
+#' negative, but it goes slightly negative where a bin holds almost no fish.
+#' Composition observations enter as counts, `(proportion + comp_offset) * N`,
+#' and [TMB::oneStepPredict()]'s conditional mean is a numerical step away from
+#' the observation, which overshoots below zero when the count is near it.
+#' The function warns, naming the count and the years.
+#'
+#' It is the *bin's* count that drives this, not the composition's sample size:
+#' on EBS pollock the negative rows have a median observed count of 0.05 against
+#' 4.9 for the rest, while their sample sizes span the same 1 to 821 as
+#' everything else (69 of 353 occur above a sample size of 100). A rare age in a
+#' well-sampled year does it as readily as a poorly sampled year, so the warning
+#' is not by itself evidence of thin data.
+#'
+#' The values are reported rather than clamped, because a negative expected
+#' count is the signal that the bin is too sparse for the decomposition to
+#' describe and clamping would hide it. Treat `predicted` on those rows as
+#' uninformative; their `residual` standardises the observation against that
+#' same mean and is therefore biased positive.
 #'
 #' @references
 #' Thygesen, U.H., et al. 2017. Validation of ecological state space models using
@@ -333,13 +359,21 @@ osa_residuals <- function(fit,
     if (!is.null(pear)) {
       nm <- c(Source = "source", Fleet_code = "fleet", Fleet_name = "fleet_name",
               Species = "species", Sex = "sex", Year = "year",
-              Age0_Length1 = "index_label_code", Bin = "age_length_bin",
+              Age0_Length1 = "index_label", Bin = "age_length_bin",
               Length = "length", Sample_size = "sample_size",
               Accumulated = "accumulated",
               Observed = "observed", Fitted = "predicted",
               Residual = "residual")
       hit <- names(pear) %in% names(nm)
       names(pear)[hit] <- unname(nm[names(pear)[hit]])
+
+      # Same form as the OSA frame, not a second encoding under a second name.
+      if (!is.null(pear$index_label)) {
+        pear$index_label <- ifelse(pear$source == "caal", "age",
+                                   ifelse(!is.na(pear$index_label) &
+                                            pear$index_label == 1,
+                                          "length", "age"))
+      }
     }
     attr(out, "pearson") <- pear
   }
@@ -373,13 +407,10 @@ osa_residuals <- function(fit,
     warning(sum(bad), " composition `predicted` value(s) are negative, in ",
             "year(s) ", paste(utils::head(yrs, 5), collapse = ", "),
             if (length(yrs) > 5) ", ..." else "",
-            ". An expected count cannot be negative; those bins hold too few ",
+            ". An expected count cannot be negative: those bins hold too few ",
             "fish for the one-step-ahead decomposition to describe, so treat ",
-            "`predicted` there as uninformative. This follows the count in the ",
-            "bin rather than the sample size of the composition, so it can ",
-            "happen to a rare age in a well-sampled year. The residual on those ",
-            "rows standardises the observation against that same mean, so it is ",
-            "biased positive -- read it with that in mind.", call. = FALSE)
+            "`predicted` there as uninformative and their residuals as biased ",
+            "positive. See ?osa_residuals.", call. = FALSE)
   }
   out
 }

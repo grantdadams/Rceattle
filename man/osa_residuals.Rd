@@ -80,6 +80,11 @@ are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data
 frame's column names rather than the data-sheet names
 \code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns, so the two halves of one object read alike.
+Note the shared names do not mean a shared scale: in the attribute
+\code{observed} and \code{predicted} are proportions summing to one within a
+fleet-year, with the sample size in \code{sample_size}, because composition
+Pearson residuals are defined on proportions -- not the bin counts the
+columns above carry. Do not compare the two directly.
 Both describe the bins the likelihood fit, so a fleet with tail
 accumulation reports the folded window in each -- with one asymmetry: the
 one-step-ahead decomposition drops each group's last bin (it is fixed by
@@ -129,6 +134,29 @@ Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
 multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
 closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a Gaussian block.
 }
+\section{Negative composition \code{predicted} values}{
+
+A composition \code{predicted} is an expected bin count and cannot truly be
+negative, but it goes slightly negative where a bin holds almost no fish.
+Composition observations enter as counts, \code{(proportion + comp_offset) * N},
+and \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}'s conditional mean is a numerical step away from
+the observation, which overshoots below zero when the count is near it.
+The function warns, naming the count and the years.
+
+It is the \emph{bin's} count that drives this, not the composition's sample size:
+on EBS pollock the negative rows have a median observed count of 0.05 against
+4.9 for the rest, while their sample sizes span the same 1 to 821 as
+everything else (69 of 353 occur above a sample size of 100). A rare age in a
+well-sampled year does it as readily as a poorly sampled year, so the warning
+is not by itself evidence of thin data.
+
+The values are reported rather than clamped, because a negative expected
+count is the signal that the bin is too sparse for the decomposition to
+describe and clamping would hide it. Treat \code{predicted} on those rows as
+uninformative; their \code{residual} standardises the observation against that
+same mean and is therefore biased positive.
+}
+
 \references{
 Thygesen, U.H., et al. 2017. Validation of ecological state space models using
 the Laplace approximation. Environ. Ecol. Stat. 24:317-339.

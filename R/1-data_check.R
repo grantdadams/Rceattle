@@ -860,6 +860,49 @@ data_check <- function(data_list) {
     }
   }
 
+  # The sibling of the rule above, for the other reason pred_CAAL comes back
+  # zero. CAAL is a composition of ages WITHIN a length bin, so the prediction is
+  # selectivity-at-length convolved with the growth matrix (ceattle.cpp, section
+  # 10.2). Selectivity at length only exists for a length-dimensioned fleet:
+  # selectivity.hpp writes sel_at_length only under `is_length_based`, leaving it
+  # zero otherwise, so an age-dimensioned fleet predicts nothing.
+  #
+  # It does not fail quietly in the harmless sense -- the CAAL likelihood is
+  # still evaluated, against a prediction that is uniform once comp_offset is
+  # added, so the observations are scored against a flat composition and the
+  # objective carries a term that no parameter can move. Selectivity_dimension
+  # defaults to "Age", so this is the default outcome rather than an unusual one.
+  if(has_data(data_list$caal_data) &&
+     all(c("Fleet_code", "Year", "Sample_size") %in% colnames(data_list$caal_data)) &&
+     !is.null(data_list$fleet_control$Selectivity_dimension)){
+    fc <- data_list$fleet_control
+    active <- data_list$caal_data$Year > 0 & data_list$caal_data$Sample_size > 0
+    bad_flt <- character(0)
+    for(flt in unique(data_list$caal_data$Fleet_code[active])){
+      i <- which(fc$Fleet_code == flt)
+      if(!length(i)) next
+      if(!identical(as.character(fc$Selectivity_dimension[i[1]]), "Length")){
+        bad_flt <- c(bad_flt, as.character(fc$Fleet_name[i[1]]))
+      }
+    }
+    # A warning rather than an error, unlike the empirical-growth rule above,
+    # only because this is a released package and such a model currently fits.
+    # It should become an error once existing configurations have been checked:
+    # the CAAL data in one of these fits inform nothing at all.
+    if(length(bad_flt) > 0){
+      warning(paste0(
+        "CAAL data on fleet(s) ", paste(bad_flt, collapse = ", "),
+        " whose Selectivity_dimension is not 'Length'. CAAL is the age ",
+        "composition within a length bin, so it is predicted from ",
+        "selectivity-at-length; an age-dimensioned fleet has none, so pred_CAAL ",
+        "is zero and the CAAL likelihood scores these observations against a ",
+        "flat composition it cannot move -- they add a term to the objective ",
+        "but inform nothing. Either set Selectivity_dimension = 'Length' for ",
+        "these fleets, or drop their caal_data rows (set to empty, ",
+        "Sample_size = 0, or Year < 0)."), call. = FALSE)
+    }
+  }
+
   # CAAL: presence required when growth is being estimated (declarative
   # requirement table); the column / length adequacy checks stay imperative.
   errors <- c(errors, .rce_check_presence(data_list, "caal_data"))
@@ -922,6 +965,35 @@ data_check <- function(data_list) {
         dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
       if(any(diet_sum$diet_sum > 1)){
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
+      }
+    }
+    # Stomach grouping. The TMB diet likelihood walks diet_ctl with one forward
+    # cursor, taking stomach i's prey as the run of rows where stomach_id == i
+    # (ceattle.cpp, section 13.2). That needs the ids sorted: 0, 1, 2, ... with
+    # no gaps. Sorted order is what makes each stomach's rows consecutive AND
+    # puts them where the cursor looks for them, so testing only that the rows
+    # are grouped is not enough -- a table whose blocks are each intact but out
+    # of order (say re-sorted by predator age) passes that test while the cursor
+    # runs past nearly all of them. Every stomach it misses drops out of the
+    # likelihood silently, with a lower jnll. clean_data() sorts by stomach_id,
+    # so anything that came through it is fine; this catches a hand-built or
+    # re-sorted diet table.
+    if("stomach_id" %in% colnames(dd)){
+      sid <- as.integer(dd$stomach_id)
+      if(any(is.na(sid))){
+        errors <- c(errors, "'stomach_id' in 'diet_data' contains NA")
+      } else if(length(sid) > 0){
+        if(!identical(sort(unique(sid)), 0:max(sid))){
+          errors <- c(errors, paste0(
+            "'stomach_id' in 'diet_data' must be numbered 0, 1, ... with no gaps ",
+            "(the TMB diet likelihood indexes stomachs by that number). ",
+            "Run clean_data() to renumber."))
+        } else if(is.unsorted(sid)){
+          errors <- c(errors, paste0(
+            "'diet_data' must be sorted by 'stomach_id' (the TMB diet likelihood ",
+            "scans forward for each stomach in turn, so rows out of that order ",
+            "silently drop from the likelihood). Run clean_data() to reorder."))
+        }
       }
     }
   }

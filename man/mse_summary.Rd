@@ -35,6 +35,25 @@ range).
 }
 
 All metrics are averaged across projection years and simulations.
+
+Metric columns carry syntactic names, so they can be typed without
+backticks: \code{avg_catch}, \code{catch_iav}, \code{p_closed}, \code{ssb_rmse_avg},
+\code{ssb_rmse_terminal}, \code{em_p_overfishing}, \code{em_p_overfished},
+\code{om_p_overfishing}, \code{om_p_overfished}, \code{p_overfishing_false_pos},
+\code{p_overfishing_false_neg}, \code{p_overfished_false_pos},
+\code{p_overfished_false_neg}, \code{om_terminal_biomass}, \code{om_terminal_ssb},
+\code{om_terminal_dynamic_sb0}, \code{om_terminal_depletion},
+\code{om_terminal_depletion_dynamic}, \code{om_avg_depletion}, \code{om_sims_collapsed},
+\code{om_no_f_sims_collapsed}, \code{om_sims_collapsed_from_f}. An \code{om_} prefix is
+the operating model's truth and \code{em_} the estimation model's perception;
+the four \verb{*_false_pos} / \verb{*_false_neg} metrics are the probability the two
+disagree. The three \verb{*_sims_collapsed} metrics are \strong{counts of
+simulations}, not probabilities.
+
+Each frame carries a \code{"labels"} attribute mapping those names to the long
+display strings (e.g. \code{om_terminal_depletion_dynamic} ->
+\code{"OM: Terminal SSB Depletion (Dynamic)"}) for plots and tables:
+\code{attr(summ$species, "labels")}.
 }
 \description{
 Management strategy evaluation performance metric summary

@@ -9,8 +9,8 @@ data_requirements(
   msmMode = 0,
   growth_model = 0,
   estDynamics = 0,
-  selectivity = NULL,
-  index_distribution = NULL,
+  Selectivity = NULL,
+  Index_distribution = NULL,
   Ceq = NULL
 )
 }
@@ -28,13 +28,15 @@ growth and requires \code{caal_data}.}
 \item{estDynamics}{Numbers-at-age mode (scalar or per-species). \verb{> 0} fixes
 numbers-at-age and requires \code{NByageFixed}.}
 
-\item{selectivity}{Optional character vector of per-fleet selectivity forms
+\item{Selectivity}{Optional character vector of per-fleet selectivity forms
 (used only when \code{data_list} is \code{NULL}) so the \code{emp_sel} requirement
-(\code{Selectivity = "Fixed"}) can be evaluated.}
+(\code{Selectivity = "Fixed"}) can be evaluated. Named for the \code{fleet_control}
+column it stands in for.}
 
-\item{index_distribution}{Optional character vector of per-fleet index
+\item{Index_distribution}{Optional character vector of per-fleet index
 likelihood families (used only when \code{data_list} is \code{NULL}) so the
-\code{index_cov} requirement (\code{Index_distribution = "MVN"}) can be evaluated.}
+\code{index_cov} requirement (\code{Index_distribution = "MVN"}) can be evaluated.
+Named for the \code{fleet_control} column it stands in for.}
 
 \item{Ceq}{Optional per-species consumption-equation codes (used only when
 \code{data_list} is \code{NULL}); \verb{> 1} requires an environmental temperature index.}
