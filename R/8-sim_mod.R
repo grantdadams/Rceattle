@@ -34,6 +34,116 @@
 #'
 #' @param data_list Data list being simulated into.
 #' @noRd
+# Observed AR1 (Rogers QAR1) is the one random linkage the template leaves
+# alone: a new latent state paired with the original covariate observations
+# would describe two different histories. Say so, rather than let a process the
+# caller asked for come back unchanged without explanation.
+.sim_warn_linkage_qar1 <- function(obj, state) {
+  d <- obj$env$data
+  obs <- d$linkage_re_obs
+  if (is.null(obs) || !length(obs) || all(obs < 0)) return(invisible(FALSE))
+
+  procs <- c("recruitment", "M", "growth", "catchability", "selectivity")
+  hit <- character(0)
+  for (i in seq_along(d$linkage_re_index)) {
+    slot <- d$linkage_re_index[i]
+    if (slot < 0) next
+    grp <- d$linkage_re_sigma[slot + 1L]
+    if (obs[grp + 1L] < 0) next
+    # Composition is a linkage process (code 5) with no simulate_state slot, so
+    # guard the index the way the template does rather than compare against NA.
+    p <- d$linkage_process[i]
+    if (is.na(p) || p < 0 || p >= length(state)) next
+    if (state[p + 1L] == 1L) hit <- c(hit, procs[p + 1L])
+  }
+  if (length(hit)) {
+    warning("Random linkage(s) on ", paste(unique(hit), collapse = ", "),
+            " are observed AR1 (Rogers QAR1), whose latent state is measured by ",
+            "an observed covariate series. Those were NOT redrawn and keep their ",
+            "fitted values, because a new latent state paired with the original ",
+            "covariate observations would describe two different histories. ",
+            "Every other random linkage on those processes was drawn normally.",
+            call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
+
+
+# The legacy time-varying catchability and selectivity deviations
+# (index_q_dev, log_sel_slp_dev, sel_inf_dev, sel_coff_dev) carry densities in
+# the template but have no SIMULATE block yet -- only the linkage-grammar
+# versions are drawn. Handing back the fitted values without a word is how a
+# switch that does nothing goes unnoticed, which is exactly what growth_re did.
+.sim_warn_process_unsimulated <- function(data_list, state) {
+  fc <- data_list$fleet_control
+  if (is.null(fc)) return(invisible(FALSE))
+  code <- function(x, map) {
+    if (is.null(x)) return(integer(0))
+    if (is.character(x)) unname(map[x]) else suppressWarnings(as.integer(x))
+  }
+  hit <- character(0)
+
+  # Block (3) is a time block with no penalty -- fixed structure, not process
+  # error -- so it is not something a draw would ever redraw.
+  if (state[4] == 1L) {
+    tvq <- code(fc$Time_varying_q, tv_q_map)
+    qq  <- code(fc$Catchability, q_map)
+    # Catchability 5/6 read Time_varying_q as an environmental index instead;
+    # 6 (Rogers AR1) is itself a random process on the deviations.
+    stochastic <- (tvq %in% c(1L, 2L, 4L) & !(qq %in% c(5L, 6L))) | qq %in% 6L
+    if (any(stochastic, na.rm = TRUE)) hit <- c(hit, "catchability")
+  }
+  if (state[5] == 1L) {
+    tvs <- code(fc$Time_varying_sel, tv_sel_map)
+    if (any(tvs %in% c(1L, 2L, 4L, 5L), na.rm = TRUE)) hit <- c(hit, "selectivity")
+  }
+
+  if (length(hit)) {
+    warning("Process error was requested for ", paste(hit, collapse = " and "),
+            ", but this model expresses it with the legacy Time_varying_q / ",
+            "Time_varying_sel deviations, which are not simulated yet -- only ",
+            "the equivalent random linkages are. Those deviations keep their ",
+            "fitted values, so a self-test on this model measures parameter ",
+            "recovery, not recovery of the ", paste(hit, collapse = " or "),
+            " process. Express it as a random linkage (see ",
+            "vignette('environmental-linkages-and-priors')) to have it drawn.",
+            call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
+
+
+# A process the model gives no distribution to cannot be redrawn: M with
+# M1_re = 0, or growth with no random linkage on a growth parameter. Nothing is
+# drawn and nothing is wrong, but silence there is indistinguishable from a draw
+# that worked -- which is how a switch that does nothing survives.
+.sim_warn_process_absent <- function(obj, state) {
+  procs <- c("recruitment", "M", "growth", "catchability", "selectivity")
+  hit <- character(0)
+
+  m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
+  if (state[2] == 1L && !any(m1_re > 0, na.rm = TRUE) &&
+      !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L))) {
+    hit <- c(hit, "M (M1_re = 0 and no random linkage on M)")
+  }
+  if (state[3] == 1L && !.sim_linkage_drawn(obj, c(0L, 0L, 1L, 0L, 0L))) {
+    hit <- c(hit, "growth (no random linkage on a growth parameter)")
+  }
+
+  if (length(hit)) {
+    warning("Process error was requested for ", paste(hit, collapse = "; "),
+            ", but this model gives ", if (length(hit) > 1) "those" else "that",
+            " no distribution to draw from, so nothing was redrawn and the ",
+            "fitted values stand. A self-test on this model measures parameter ",
+            "recovery, not recovery of the process.", call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
+
+
 .sim_warn_index_unsimulated <- function(data_list) {
   fc  <- data_list$fleet_control
   idx <- data_list$index_data
@@ -108,6 +218,51 @@
             "information into a refit.", call. = FALSE)
   }
   invisible(any(empty))
+}
+
+
+#' Resolve `process` to the template's `simulate_state` vector
+#'
+#' Process error is off unless asked for, because redrawing a process changes
+#' what a self-test measures -- from "can the estimator recover these
+#' parameters" to "can it recover this process". The slots follow
+#' `ceattle.cpp`: recruitment, M and growth are the population dynamics;
+#' selectivity and catchability are the observation process.
+#'
+#' `"recruitment"` covers the initial age structure as well as the annual
+#' deviations. The initial numbers-at-age are recruitment from the years before
+#' `styr` -- `init_dev` and `rec_dev` share `R_sd` and the same bias correction,
+#' and `rec_dev` at year 0 feeds the initial scalar -- so they are one process.
+#'
+#' @param process `FALSE` / `"none"` for none, `TRUE` / `"all"` for every
+#'   process, `"dynamics"` for the population dynamics, `"observation"` for the
+#'   observation process, or any subset of `"recruitment"`, `"M"`, `"growth"`,
+#'   `"selectivity"`, `"catchability"`.
+#' @return Integer vector of length 5.
+#' @noRd
+.sim_state_codes <- function(process) {
+  # Slot order is the linkage process code (see .RCE_LINKAGE_PROCESS in
+  # 0-linkage_encode.R), so the template can index simulate_state by a
+  # linkage row's process directly. Keep the two in step.
+  slots <- c("recruitment", "M", "growth", "catchability", "selectivity")
+  out <- rep(0L, length(slots))
+  if (is.null(process) || isFALSE(process)) return(out)
+  if (isTRUE(process)) return(rep(1L, length(slots)))
+
+  chr <- as.character(process)
+  if (length(chr) == 1L && chr %in% c("none", "all", "dynamics", "observation")) {
+    if (chr == "none") return(out)
+    if (chr == "all")  return(rep(1L, length(slots)))
+    chr <- if (chr == "dynamics") slots[1:3] else slots[4:5]
+  }
+  bad <- setdiff(chr, slots)
+  if (length(bad)) {
+    stop("sim_mod(): unknown process(es) ", paste(bad, collapse = ", "),
+         ". Use FALSE, TRUE, \"dynamics\", \"observation\", or any of ",
+         paste(slots, collapse = ", "), ".", call. = FALSE)
+  }
+  out[match(chr, slots)] <- 1L
+  out
 }
 
 
@@ -240,7 +395,21 @@
 #' @param obj A `TMB::MakeADFun` object from [.sim_obj()].
 #' @return The report list, including the simulated `*_obs_sim` matrices.
 #' @noRd
-.sim_draw <- function(obj) {
+.sim_draw <- function(obj, state = NULL, period = NULL) {
+  if (!is.null(state) || !is.null(period)) {
+    # obj$env is by reference, so an override has to be undone or it would
+    # follow the caller's fitted object around for the rest of the session.
+    #
+    # Written as DOUBLE, not integer. fit_mod() sanitizes every DATA_ element to
+    # double before MakeADFun, and TMB re-reads the stored list on each
+    # evaluation, so handing back an integer where it stored a double fails with
+    # "Error when reading the variable" -- a DATA_IVECTOR reads a double vector
+    # perfectly well, it is the change of storage type that breaks it.
+    old <- obj$env$data[c("simulate_state", "simulate_period")]
+    on.exit(obj$env$data[names(old)] <- old, add = TRUE)
+    if (!is.null(state))  obj$env$data$simulate_state  <- as.double(state)
+    if (!is.null(period)) obj$env$data$simulate_period <- as.double(period)
+  }
   tryCatch(
     obj$simulate(par = obj$env$last.par.best),
     error = function(e) {
@@ -378,12 +547,26 @@
 #' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
 #' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
 #'   If \code{FALSE}, returns the expected values (hats).
+#' @param process Which process error to redraw alongside the observations.
+#'   \code{FALSE} (default) or \code{"none"} keeps the fitted deviations;
+#'   \code{TRUE} or \code{"all"} redraws every process; \code{"dynamics"} covers
+#'   recruitment, natural mortality and growth, \code{"observation"} covers
+#'   catchability and selectivity. Any subset of \code{"recruitment"},
+#'   \code{"M"}, \code{"growth"}, \code{"catchability"} and
+#'   \code{"selectivity"} may be given instead. Ignored when
+#'   \code{simulate = FALSE}.
 #'
 #' @return A \code{data_list} object containing the simulated or expected data
-#'   values, formatted for use in \code{Rceattle}.
+#'   values, formatted for use in \code{Rceattle}. When \code{process} redrew
+#'   something, the deviations that generated the data are attached as
+#'   \code{attr(x, "process_sim")} -- a named list holding whichever of
+#'   \code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and
+#'   \code{beta_linkage_re} were drawn. Those are the truth a refit has to
+#'   recover; without them the only comparison available is against the original
+#'   fitted deviations, which are no longer the values that generated the data.
 #' @export
 #'
-sim_mod <- function(Rceattle, simulate = FALSE) {
+sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
 
@@ -402,7 +585,11 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # simulates from an observation model the likelihood does not assume -- and a
     # self-test then reports recovery as though it had.
     sim_obj <- .sim_obj(Rceattle)
-    sim_rep <- .sim_draw(sim_obj)
+    sim_state <- .sim_state_codes(process)
+    sim_rep <- .sim_draw(sim_obj, state = sim_state)
+    .sim_warn_linkage_qar1(sim_obj, sim_state)
+    .sim_warn_process_unsimulated(dat_sim, sim_state)
+    .sim_warn_process_absent(sim_obj, sim_state)
     index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
     .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
     dat_sim$index_data$Observation <-
@@ -539,7 +726,76 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     }
   }
 
+  # When process error was redrawn, the deviations that generated these data are
+  # the truth a self-test has to recover. They are attached rather than added as
+  # a list element so the return value is still a plain data_list -- every
+  # existing caller keeps working, and fit_mod() ignores the attribute.
+  if (simulate && any(sim_state == 1L)) {
+    attr(dat_sim, "process_sim") <- .sim_process_truth(sim_rep, sim_state, sim_obj)
+  }
   return(dat_sim)
+}
+
+
+#' The process deviations a simulated data set was generated from
+#'
+#' Only the processes that were actually redrawn are returned: handing back a
+#' deviation that was NOT drawn would look like a truth to recover, when it is
+#' just the fitted value the refit is starting from.
+#'
+#' A process is only listed if the model gives it a distribution to draw from.
+#' Asking for M on a model with `M1_re = 0` draws nothing, so returning
+#' `log_M1_dev` there would hand back the fitted values dressed as a truth, and a
+#' self-test would report perfect recovery of a process it never simulated.
+#'
+#' @param sim_rep The report from one `obj$simulate()` call.
+#' @param state Integer switch vector from [.sim_state_codes()].
+#' @param obj The simulated object, for the model's own switches.
+#' @return Named list of the drawn deviations, or NULL if none were drawn.
+#' @noRd
+.sim_process_truth <- function(sim_rep, state, obj) {
+  out <- list()
+  if (state[1] == 1L) {
+    out$rec_dev  <- sim_rep$rec_dev_sim
+    out$init_dev <- sim_rep$init_dev_sim
+  }
+  m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
+  if (state[2] == 1L && any(m1_re > 0, na.rm = TRUE)) {
+    out$log_M1_dev <- sim_rep$log_M1_dev_sim
+  }
+  # One vector covering every random linkage, in the registry's slot order; the
+  # linkage table says which process and parameter each slot belongs to. Only
+  # attached when a group belonging to a requested process was actually drawn --
+  # otherwise `!is.null(attr(x, "process_sim"))` would report process error on a
+  # model that has none.
+  re <- sim_rep$beta_linkage_re_sim
+  if (length(re) && .sim_linkage_drawn(obj, state)) out$beta_linkage_re <- re
+  if (!length(out)) NULL else out
+}
+
+
+#' Does this model hold a random linkage on a process the caller asked for?
+#'
+#' Mirrors the gate in ceattle.cpp section 5.12b, including its skip of observed
+#' AR1 (QAR1) groups, so R and the template agree on what was drawn.
+#'
+#' @param obj The simulated object.
+#' @param state Integer switch vector from [.sim_state_codes()].
+#' @noRd
+.sim_linkage_drawn <- function(obj, state) {
+  d <- obj$env$data
+  idx <- d$linkage_re_index
+  if (is.null(idx) || !length(idx)) return(FALSE)
+  for (i in seq_along(idx)) {
+    slot <- idx[i]
+    if (is.na(slot) || slot < 0) next
+    p <- d$linkage_process[i]
+    if (is.na(p) || p < 0 || p >= length(state) || state[p + 1L] != 1L) next
+    grp <- d$linkage_re_sigma[slot + 1L]
+    if (!is.null(d$linkage_re_obs) && d$linkage_re_obs[grp + 1L] >= 0) next
+    return(TRUE)
+  }
+  FALSE
 }
 
 #' Sample historical recruitment deviations into the projection

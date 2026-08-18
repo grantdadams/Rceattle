@@ -247,12 +247,10 @@ Priors and environmental relationships can be added to growth
 via `build_growth()`. See `?build_growth` for options and 
 `vignette("environmental-linkages-and-priors")` for details. 
 
-### `growth_re` — random effects on growth
-
-| Value | Description |
-|:---:|---|
-| `0` (default) | No random effects |
-| `≥ 1` | **Not yet implemented** |
+Time-varying growth is specified through the linkage grammar rather than a
+switch of its own — `build_growth(linkages = list(K = linkage_spec(~ rw(1 | Year))))`
+puts a random walk on the von Bertalanffy `k`, and `ar1()` / `(1 | Year)` give
+the autoregressive and independent alternatives.
 
 The length-based suitability modes (`suitMode = 1/3/5`) are not yet
 enabled; use a weight-based mode (`2/4/6`) for parametric suitability.

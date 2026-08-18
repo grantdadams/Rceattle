@@ -4,17 +4,32 @@
 \alias{sim_mod}
 \title{Simulate Rceattle data}
 \usage{
-sim_mod(Rceattle, simulate = FALSE)
+sim_mod(Rceattle, simulate = FALSE, process = FALSE)
 }
 \arguments{
 \item{Rceattle}{A CEATTLE model object exported from \code{Rceattle}.}
 
 \item{simulate}{Logical. If \code{TRUE}, simulates data from distributions.
 If \code{FALSE}, returns the expected values (hats).}
+
+\item{process}{Which process error to redraw alongside the observations.
+\code{FALSE} (default) or \code{"none"} keeps the fitted deviations;
+\code{TRUE} or \code{"all"} redraws every process; \code{"dynamics"} covers
+recruitment, natural mortality and growth, \code{"observation"} covers
+catchability and selectivity. Any subset of \code{"recruitment"},
+\code{"M"}, \code{"growth"}, \code{"catchability"} and
+\code{"selectivity"} may be given instead. Ignored when
+\code{simulate = FALSE}.}
 }
 \value{
 A \code{data_list} object containing the simulated or expected data
-values, formatted for use in \code{Rceattle}.
+values, formatted for use in \code{Rceattle}. When \code{process} redrew
+something, the deviations that generated the data are attached as
+\code{attr(x, "process_sim")} -- a named list holding whichever of
+\code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and
+\code{beta_linkage_re} were drawn. Those are the truth a refit has to
+recover; without them the only comparison available is against the original
+fitted deviations, which are no longer the values that generated the data.
 }
 \description{
 Simulates the data an Rceattle model would have produced, either

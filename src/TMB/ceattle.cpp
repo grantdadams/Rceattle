@@ -225,7 +225,7 @@ Type objective_function<Type>::operator() () {
   //          process parameter (growth/M/recruit/...) to a column of the
   //          shared design matrix `linkage_X`. Empty when no build_*()
   //          supplied a `linkages` argument.
-  DATA_IVECTOR(linkage_process);       // process code (recruitment = 0, M = 1, growth = 2)
+  DATA_IVECTOR(linkage_process);       // process code (recruitment = 0, M = 1, growth = 2, q = 3, sel = 4)
   DATA_IVECTOR(linkage_param);         // per-process parameter code
   DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
   DATA_IVECTOR(linkage_sex);           // 1-based sex id; 0 = all
@@ -327,6 +327,24 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
+  // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
+  // Observations are always drawn; process error is a choice, so it is switched.
+  //
+  // simulate_state: which process. Slots 0 recruitment, 1 M, 2 growth,
+  // 3 catchability, 4 selectivity -- the same codes linkage_process uses, so a
+  // random linkage is gated by simulate_state(linkage_process(i)) with no
+  // translation. Default off -- redrawing a process changes
+  // what self_test() measures, from recovering parameters to recovering a
+  // process. Recruitment covers init_dev too: the initial age structure is
+  // recruitment from before styr, sharing R_sd and its bias correction.
+  //
+  // simulate_period: slot 0 the fitted window (0 < Year <= endyr), slot 1
+  // outside it. A period is a property of the ROW here, not a separate object as
+  // in WHAM. It is what keeps an MSE honest -- run_mse() treats the hindcast as
+  // fixed history, while a self-test needs it redrawn.
+  DATA_IVECTOR( simulate_state );
+  DATA_IVECTOR( simulate_period );
+
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( comp_n );                  // Month and sample size on observed age/length comp; columns = Month, Sample size
@@ -400,7 +418,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. Growth
   PARAMETER_ARRAY(log_growth_pars);                // Mean growth curve parameters [sp, sex, par]
-  PARAMETER_ARRAY(log_growth_par_devs);            // Random effects for growth curve parameters [sp, sex, year, par]
+  // Time-varying growth comes from growth_linkage_offset below.
   PARAMETER_ARRAY(growth_log_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
   PARAMETER_MATRIX(weight_length_pars);           // Length-weight parameters [sp, (alpha, beta)]
 
@@ -658,6 +676,87 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // -- 5.12b. SIMULATE LINKAGE RANDOM EFFECTS (sim_mod(simulate = TRUE))
+  // Time-varying recruitment, M, growth, q and selectivity are all written the
+  // same way -- a random linkage -- so all five draw here, before the deviations
+  // are gathered below and the processes read them.
+  //
+  // Each structure draws from the density that scores it in section 14.6:
+  //   IID  N(0, sigma) per slot;
+  //   rw   N(0, sigma) on first differences; slot 0 is left alone, being a level
+  //        the density never sees and the map pins;
+  //   ar1  stationary, sigma the MARGINAL SD (draw standardized, then scale).
+  // Slots are in ascending time order, so "next slot" is "next year".
+  SIMULATE {
+    if (log_sigma_linkage.size() > 0 && simulate_period(0) == 1) {
+      int n_slot = linkage_re_sigma.size();
+      int n_grp  = log_sigma_linkage.size();
+
+      // Drawn only if EVERY row using the group names a process the caller asked
+      // for. Groups are per (process, param) in practice, so this matters only
+      // for a sigma shared across processes, where redrawing for one would
+      // quietly move the other.
+      vector<int> grp_used(n_grp), grp_draw(n_grp);
+      grp_used.setZero();
+      grp_draw.fill(1);
+      for (int i = 0; i < linkage_re_index.size(); ++i) {
+        if (linkage_re_index(i) < 0) continue;
+        int grp = linkage_re_sigma(linkage_re_index(i));
+        grp_used(grp) = 1;
+        // linkage_process also codes composition (5), which simulate_state does
+        // not cover because composition linkages carry priors, not random
+        // effects. Treat anything outside the five as "not asked for" rather
+        // than reading past the end of simulate_state.
+        int proc = linkage_process(i);
+        if (proc < 0 || proc >= simulate_state.size() || simulate_state(proc) != 1) {
+          grp_draw(grp) = 0;
+        }
+      }
+
+      for (int grp = 0; grp < n_grp; ++grp) {
+        if (grp_used(grp) == 0 || grp_draw(grp) == 0) continue;
+
+        // Rogers QAR1: the latent is measured by an observed covariate series, so
+        // redrawing it alone would leave the two describing different histories.
+        // Left as fitted; sim_mod() warns that it was.
+        if (linkage_re_obs(grp) >= 0) continue;
+
+        int len = 0;
+        for (int s = 0; s < n_slot; ++s) if (linkage_re_sigma(s) == grp) len++;
+        if (len == 0) continue;
+
+        vector<int> slot_of(len);
+        int j = 0;
+        for (int s = 0; s < n_slot; ++s) if (linkage_re_sigma(s) == grp) slot_of(j++) = s;
+
+        Type sigma = exp(log_sigma_linkage(grp));
+        vector<Type> re(len);
+        int st = linkage_re_struct(grp);
+
+        if (st == 1) {                                   // rw / RandomWalk
+          re(0) = linkage_re_integrate(slot_of(0))
+              ? beta_linkage_re(linkage_re_slot(slot_of(0)))
+              : beta_linkage_re_pen(linkage_re_slot(slot_of(0)));
+          for (int t = 1; t < len; ++t) re(t) = re(t - 1) + rnorm(Type(0), sigma);
+        } else if (st == 2) {                            // ar1
+          Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(grp)));
+          AR1(rho).simulate(re);
+          re *= sigma;
+        } else {                                         // us / IID
+          for (int t = 0; t < len; ++t) re(t) = rnorm(Type(0), sigma);
+        }
+
+        for (int t = 0; t < len; ++t) {
+          if (linkage_re_integrate(slot_of(t))) {
+            beta_linkage_re(linkage_re_slot(slot_of(t))) = re(t);
+          } else {
+            beta_linkage_re_pen(linkage_re_slot(slot_of(t))) = re(t);
+          }
+        }
+      }
+    }
+  }
+
   // Every deviation in one vector, indexed by RE slot: integrated deviations live
   // in beta_linkage_re, penalized ones in beta_linkage_re_pen, and
   // linkage_re_slot gives the position within whichever holds it. With no
@@ -668,6 +767,13 @@ Type objective_function<Type>::operator() () {
     beta_linkage_re_all(s) = linkage_re_integrate(s)
         ? beta_linkage_re(linkage_re_slot(s))
         : beta_linkage_re_pen(linkage_re_slot(s));
+  }
+
+  // Under a _sim name because TMB never clears the report environment: a bare
+  // REPORT() here would leave the draw in every later obj$report().
+  SIMULATE {
+    vector<Type> beta_linkage_re_sim = beta_linkage_re_all;
+    REPORT(beta_linkage_re_sim);
   }
 
   // Effective linkage coefficient per table row. Fixed rows use their
@@ -922,7 +1028,6 @@ Type objective_function<Type>::operator() () {
         for(int par = 0; par < 4; par++){
           growth_parameters(sp, sex, yr, par) = exp(
             log_growth_pars(sp, sex, par)
-          + log_growth_par_devs(sp, sex, yr, par)
           + growth_linkage_offset(sp, sex, yr, par)
           ) + growth_linkage_offset_nat(sp, sex, yr, par);
         }
@@ -1144,6 +1249,130 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+
+  // 5.13. SIMULATE PROCESS ERROR (sim_mod(simulate = TRUE), simulate_state)
+  // Drawn before the dynamics consume the deviations, so the dynamics and every
+  // observation draw downstream are automatically consistent with the simulated
+  // process. WHAM keeps a second copy of its population dynamics (sim_pop) to
+  // re-derive after the fact; that is unnecessary here, because these deviations
+  // and their SDs are all parameters. rec_dev and init_dev are first read in the
+  // initial-numbers block below, so this is the last point both are untouched.
+  //
+  // Each draw uses the density that scores it in section 13, bias correction
+  // included, which is what makes simulated recruitment mean-unbiased.
+  SIMULATE {
+    for(sp = 0; sp < nspp; sp++){
+
+      // The density covers the hindcast only -- projection recruitment comes
+      // from the harvest control rule or sample_rec() -- so the fitted window is
+      // the only period this can honestly redraw.
+      if(simulate_state(0) == 1 && simulate_period(0) == 1){
+        for(yr = 0; yr < nyrs_hind; yr++){
+          rec_dev(sp, yr) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
+        }
+      }
+
+      // Initial abundance-at-age: the same process, for years before styr. The
+      // gate is the density's own -- the equilibrium modes and
+      // OffsetEquilibrium (5) fix init_dev and carry no penalty, so there is
+      // nothing to draw and a deviation is never given a distribution the model
+      // does not assume for it.
+      if(simulate_state(0) == 1 && simulate_period(0) == 1 &&
+         (initMode > 1) && (initMode != 5)){
+        for(age = 1; age < nages(sp); age++){
+          init_dev(sp, age - 1) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
+        }
+      }
+    }
+
+    // Natural mortality random effects. The IID modes are the AR1 code with
+    // rho = 0, so one construction covers all six: draw a standardized AR1 and
+    // scale by the marginal SD afterwards (SCALE()'s own simulate() is not
+    // used). Note M1_dev_log_sd is the INNOVATION sd; Sigma_M is the marginal.
+    //
+    // The draw is BROADCAST along whichever dimension the mode holds constant --
+    // modes 1/4 over years, modes 2/5 over ages. The map enforces that on the
+    // parameter vector, but this block writes the expanded array, so writing
+    // only the element the density reads would leave the rest at fitted values
+    // and the deviation would not be constant as the model assumes.
+    //
+    // Sex is the same story. build_map() gives the sexes separate deviations
+    // only at M1_model = 2; otherwise it maps male onto female, so they are one
+    // parameter. num_re_sexes is therefore the number of INDEPENDENT draws, and
+    // each is written to every sex sharing it -- write the female slice alone
+    // and the two sexes would carry different M, which the estimation model has
+    // no way to represent.
+    if(simulate_state(1) == 1 && simulate_period(0) == 1){
+      for(sp = 0; sp < nspp; sp++){
+        int num_re_sexes = (M1_model(sp) == 2 && nsex(sp) > 1) ? 2 : 1;
+
+        if((M1_re(sp) == 1) || (M1_re(sp) == 4)){        // by age, constant over years
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+          Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_a, 2)), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            vector<Type> M_re_age(nages(sp));
+            AR1(rho_M_a).simulate(M_re_age);
+            M_re_age *= Sigma_M;
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(age = 0; age < nages(sp); age++){
+                for(yr = 0; yr < nyrs; yr++) log_M1_dev(sp, sex, age, yr) = M_re_age(age);
+              }
+            }
+          }
+        }
+
+        if((M1_re(sp) == 2) || (M1_re(sp) == 5)){        // by year, constant over ages
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+          Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_y, 2)), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            vector<Type> M_re_yr(nyrs_hind);
+            AR1(rho_M_y).simulate(M_re_yr);
+            M_re_yr *= Sigma_M;
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(yr = 0; yr < nyrs_hind; yr++){
+                for(age = 0; age < nages(sp); age++) log_M1_dev(sp, sex, age, yr) = M_re_yr(yr);
+              }
+            }
+          }
+        }
+
+        if((M1_re(sp) == 3) || (M1_re(sp) == 6)){        // by age and year
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+          Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+          Type Sigma_M = pow(pow(sigma_M, 2) / ((1.0 - pow(rho_M_y, 2)) * (1.0 - pow(rho_M_a, 2))), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            array<Type> M_re_a_yr(nages(sp), nyrs_hind);
+            // Same argument order as the density in section 14 -- year on the
+            // outermost dimension, age on the fastest-running one.
+            SEPARABLE(AR1(rho_M_y), AR1(rho_M_a)).simulate(M_re_a_yr);
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(age = 0; age < nages(sp); age++){
+                for(yr = 0; yr < nyrs_hind; yr++){
+                  log_M1_dev(sp, sex, age, yr) = Sigma_M * M_re_a_yr(age, yr);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Reported so the draw can be checked directly. Inferring it from the data
+    // it produces cannot tell "drew correctly" from "drew nothing, and the
+    // observation error moved".
+    matrix<Type> rec_dev_sim = rec_dev;
+    matrix<Type> init_dev_sim = init_dev;
+    array<Type>  log_M1_dev_sim = log_M1_dev;
+    REPORT(rec_dev_sim);
+    REPORT(init_dev_sim);
+    REPORT(log_M1_dev_sim);
+  }
 
   /** ------------------------------------------------------------------------ //
    * 6. POPULATION DYNAMICS EQUATIONS                                          //
@@ -3537,7 +3766,9 @@ Type objective_function<Type>::operator() () {
           Type rho_y = rho_trans(sel_curve_pen(flt, 1));
 
           Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
-          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+          // As in the M 2D-AR1 above: SEPARABLE(f, g) puts f on the outermost
+          // dimension. tmp_AR2 is (bin, year), so year leads and bin follows.
+          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_y),AR1(rho_a)), Sigma_sig_sel)(tmp_AR2);
         } // end sex loop
       }
 
@@ -3563,8 +3794,12 @@ Type objective_function<Type>::operator() () {
           Eigen::SparseMatrix<Type> Q_sparse(num_rows, num_rows); // Precision matrix
 
           // -- Construct precision matrix
+          // Argument order is bin, year, cohort. construct_Q()'s own parameter
+          // names read the other way round, but its `age > 1` branch (previous
+          // bin, same year) multiplies the FIRST argument, and this ay_index is
+          // filled (bin, year) -- the mirror of WHAM's -- so the two inversions
+          // cancel. Do not "correct" this call to match those names.
           Q_sparse = construct_Q(nyrs_hind, n_sel_bins, ay_index,
-                                 // sel_rho_y(flt), sel_rho_a(flt), sel_rho_c(flt), // natural scale
                                  sel_curve_pen(flt, 0), sel_curve_pen(flt, 1), sel_curve_pen(flt, 2), // natural scale
                                  log(square(sel_dev_sd(flt))), 0); // Conditional variance
 
@@ -3898,7 +4133,12 @@ Type objective_function<Type>::operator() () {
             M_re_a_yr(age, yr) = log_M1_dev(sp, sex, age, yr);
           }
         }
-        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
+        // SEPARABLE(f, g) applies f to the OUTERMOST array dimension and g to
+        // the fastest-running one (TMB density.hpp). The array is
+        // (age, year), so the year correlation goes first and the age
+        // correlation second -- written the other way round, rho_M_a would
+        // correlate over years and rho_M_y over ages.
+        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_y), AR1(rho_M_a)), Sigma_M)(M_re_a_yr);
       }
     }
   }

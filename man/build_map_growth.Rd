@@ -17,7 +17,12 @@ build_map_growth(map_list, data_list, nyrs_hind)
 Updated \code{map_list}.
 }
 \description{
-Maps the fixed parameters (\code{log_growth_pars}) and the random effects
-parameters (\code{log_growth_par_devs}, \code{growth_dev_log_sd}, \code{growth_rho}) based on
-\code{growth_model} and \code{growth_re} settings.
+Maps the growth parameters (\code{log_growth_pars},
+\code{growth_log_sd}, \code{weight_length_pars}) on according to
+\code{growth_model}. Everything starts mapped off and each growth function
+turns on the parameters it uses.
+
+Time-varying growth comes from the linkage grammar
+(\code{build_growth(linkages = )}), whose random effects carry their own
+density and map.
 }

@@ -28,8 +28,7 @@
 
 # Parameter blocks build_params() dimensions by styr:projyr, with the position
 # of their year dimension. Every other block is hindcast-length.
-.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L,
-                           log_growth_par_devs = 3L)
+.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L)
 
 # Data frames carried out to projyr -- exactly the ones clean_data() filters to
 # styr:projyr, so exactly the ones a shortened horizon truncates.

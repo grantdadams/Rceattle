@@ -332,10 +332,15 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     }
 
     # - M1_re = 3/6: Random effects varies by age and year (IID or 2D-AR1)
+    # One free deviation per age-year cell: the index vector must be
+    # 1:(nyrs_hind * nages_sp), not 1:nyrs_hind. The shorter form recycled into
+    # the age dimension without warning (an exact multiple), leaving the field
+    # with only nyrs_hind distinct parameters on a stride pattern while the
+    # density and the simulator both treated it as a full age x year grid.
     if(M1_re_model %in% c(3, 6)){
       if(M1_model == 1){ # Sex-invariant
         # - Random effects
-        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
 
         # Males mapped the same, if present
         if(nsex_sp == 2){
@@ -348,11 +353,11 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       if(nsex_sp == 2 & M1_model == 2){ # Two sex population and sex-specific
         # - Random effects
         # -- Females
-        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
 
         # -- Males
-        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
       }
 
@@ -381,9 +386,14 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 
 #' @title Helper to set map for growth parameters
 #'
-#' @description Maps the fixed parameters (\code{log_growth_pars}) and the random effects
-#'   parameters (\code{log_growth_par_devs}, \code{growth_dev_log_sd}, \code{growth_rho}) based on
-#'   \code{growth_model} and \code{growth_re} settings.
+#' @description Maps the growth parameters (\code{log_growth_pars},
+#'   \code{growth_log_sd}, \code{weight_length_pars}) on according to
+#'   \code{growth_model}. Everything starts mapped off and each growth function
+#'   turns on the parameters it uses.
+#'
+#'   Time-varying growth comes from the linkage grammar
+#'   (\code{build_growth(linkages = )}), whose random effects carry their own
+#'   density and map.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -393,7 +403,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 build_map_growth <- function(map_list, data_list, nyrs_hind) {
 
   # Map out growth parameters
-  growth_params <- c("log_growth_pars", "log_growth_par_devs", "weight_length_pars", "growth_log_sd")
+  growth_params <- c("log_growth_pars", "weight_length_pars", "growth_log_sd")
   map_list[growth_params] <- lapply(map_list[growth_params], function(x) replace(x, values = NA))
 
   # Loop through species and turn on based on model
@@ -402,8 +412,7 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     # * Switches ----
     nages_sp <- data_list$nages[sp]
     nsex_sp <- data_list$nsex[sp]
-    growth_model <- data_list$growth_model[sp] # Fixed effects model
-    growth_re_model <- data_list$growth_re[sp] # Random effects model
+    growth_model <- data_list$growth_model[sp]
 
     # * 1. Fixed effects ----
     if(growth_model %in% c(1, "vonBertalanffy")){ # Von Bertalanffy
@@ -976,9 +985,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           ind_dev_coff <- ind_dev_coff + length(dev_indices)
         }
 
-        # Rho
-        map_list$sel_curve_pen[flt,1] <- flt # year
-        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        # Rho. Slot 1 is the correlation across selectivity BINS, slot 2
+        # across YEARS -- the array passed to SEPARABLE() is (bin, year) and
+        # SEPARABLE(f, g) puts g on the fastest-running dimension. These two
+        # comments said the opposite until 5.7.0.
+        map_list$sel_curve_pen[flt,1] <- flt # bin
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
       }
 
 
@@ -1010,9 +1022,13 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           ind_dev_coff <- ind_dev_coff + length(dev_indices)
         }
 
-        # Rho
-        map_list$sel_curve_pen[flt,1] <- flt # year
-        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        # Rho, as for 2DAR1 above: slot 1 across BINS, slot 2 across YEARS,
+        # slot 3 across COHORTS. construct_Q()'s own argument names are
+        # inverted relative to what they multiply, and Rceattle's ay_index fill
+        # is the mirror of WHAM's, so the two cancel -- the mapping here has
+        # always been bin/year/cohort, whatever these comments used to say.
+        map_list$sel_curve_pen[flt,1] <- flt # bin
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
         map_list$sel_curve_pen[flt,3] <- flt + n_flt * 2 # cohort
       }
     }

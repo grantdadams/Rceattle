@@ -397,7 +397,6 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
-    data_list$growth_re       <- extend_length(growthFun$growth_re)
     # Plus-group SD-at-age style, resolved like growth_age_L1 below:
     # build_growth() value (if given) > existing data_list$growth_sd_style
     # (so a refit that rebuilds growth via build_growth(fun=) keeps the
@@ -408,7 +407,6 @@ fit_mod <-
     }
     gsd[is.na(gsd)] <- 1L   # WHAM
     data_list$growth_sd_style <- gsd
-    data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
     # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
     # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
@@ -562,6 +560,16 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
+      # Drop anything the template no longer has a parameter for, in skeleton
+      # order. `inits` from an older fit can carry a retired block (e.g.
+      # log_growth_par_devs, removed in 5.7.0). MakeADFun drops names the
+      # template does not declare, but build_map() runs on start_par first and
+      # produces a map entry per element, so the stale name reached MakeADFun
+      # through the map and stopped with "Names in map must correspond to
+      # parameter names" -- a refit that failed on a parameter the model no
+      # longer has. Extra names are dropped silently because they are inert by
+      # definition; a MISSING one is the error above.
+      start_par <- start_par[names(.skel)]
       rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number

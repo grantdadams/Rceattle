@@ -425,6 +425,20 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR
   data_list$bias_adjust_proc <- bias_adjust_proc  # read by the TMB DATA_SCALAR
 
+  # Simulation switches, read by the TMB DATA_IVECTORs. Set here because this is
+  # the single funnel every data list passes through on its way to MakeADFun
+  # (rearrange_data() for a fit, .osa_build_obj() for a rebuild). Process error
+  # defaults OFF: redrawing a process changes what a self-test measures, so it
+  # is asked for rather than assumed. sim_mod() overrides them per call.
+  #   simulate_state : 0 recruitment (annual and initial), 1 M, 2 growth,
+  #                    3 catchability, 4 selectivity -- the linkage process
+  #                    codes, so the template can index by them directly
+  #   simulate_period: 0 the fitted window, 1 outside it
+  if (is.null(data_list$simulate_state))  data_list$simulate_state  <- rep(0L, 5)
+  if (is.null(data_list$simulate_period)) data_list$simulate_period <- rep(1L, 2)
+  data_list$simulate_state  <- as.integer(data_list$simulate_state)
+  data_list$simulate_period <- as.integer(data_list$simulate_period)
+
   data_list
 }
 

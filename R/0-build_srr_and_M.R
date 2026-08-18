@@ -768,11 +768,7 @@ build_growth <- function(fun = "empirical",
     # (default) to inherit max(0.5, minage[sp]) downstream so old
     # configurations stay unchanged at minage >= 1 and minage = 0
     # models pick up an SS3-consistent half-year anchor.
-    growth_age_L1  = growth_age_L1,
-    # Placeholders retained until the random-effects / legacy index
-    # paths in 3-build_map.R and src/TMB/growth.hpp are migrated.
-    growth_re      = 0L,
-    growth_indices = NA
+    growth_age_L1  = growth_age_L1
   )
 }
 

@@ -57,8 +57,6 @@
     # -- growth ------------------------------------------------------------
     r("log_growth_pars", "K / L1 / Linf / m", "growth",
       "Mean growth-curve parameters (von Bertalanffy or Richards).", "[nspp, nsex, 4]"),
-    r("log_growth_par_devs", "growth deviations", "growth",
-      "Annual deviations on the growth-curve parameters.", "[nspp, nsex, nyrs, 4]"),
     r("growth_log_sd", "sigma_L1 / sigma_Linf", "growth",
       "Standard deviation of length-at-age at the minimum and maximum age.", "[nspp, nsex, 2]"),
     r("weight_length_pars", "alpha_wt / beta_wt", "growth",

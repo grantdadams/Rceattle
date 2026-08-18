@@ -14,7 +14,8 @@ self_test(
   phase = NULL,
   start = c("initial", "estimated"),
   debug = FALSE,
-  timeout = Inf
+  timeout = Inf,
+  process = FALSE
 )
 }
 \arguments{
@@ -78,6 +79,18 @@ check can catch, because the fit never returns. One that exceeds the limit
 is stopped, counted as non-converged and reported separately. Approximate:
 the limit is checked when control returns to R, so it fires between the
 optimizer's function evaluations rather than inside one.}
+
+\item{process}{passed to \code{\link{sim_mod}}. \code{FALSE} (default) keeps
+the fitted process deviations, so the test measures whether the estimator
+recovers its own parameters from new observations. Naming a process --
+\code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
+\code{TRUE}, ... -- redraws it too, which asks the harder and usually more
+relevant question of whether the estimator recovers a process it has not
+been shown. Last in the signature so positional calls keep their meaning.
+The deviations behind each replicate are returned as
+\code{attr(result, "process_sim")}, aligned to the returned models; compare
+estimates against those rather than against the source model, whose
+deviations are no longer the values that generated the data.}
 }
 \value{
 A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....

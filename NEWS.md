@@ -125,6 +125,54 @@
   stream, including later `sim_mod()` calls and `sample_rec()`. Single-species
   models are unaffected.
 
+* **`sim_mod()` can now redraw process error as well as observations, via the new
+  `process` argument.** Observations are always drawn; process error is a choice,
+  because redrawing it changes what `self_test()` measures -- from recovering
+  parameters to recovering a process. Pass `"recruitment"`, `"M"`, `"growth"`,
+  `"catchability"` or `"selectivity"`, the groupings `"dynamics"` (the first
+  three) or `"observation"` (the last two), or `TRUE` for all of them; the
+  default `FALSE` keeps the previous behaviour.
+
+  Recruitment covers the initial age structure as well as the hindcast
+  deviations, since the initial numbers-at-age are recruitment from before
+  `styr` and share `R_sd` and its bias correction. The equilibrium
+  initial-condition modes fix `init_dev` and carry no penalty, so nothing is
+  drawn for them -- a deviation is never given a distribution the model does not
+  assume for it. Natural mortality covers all six `M1_re` modes, drawing along
+  whichever dimension the mode varies over and broadcasting along the one it
+  holds constant.
+
+  Time-varying processes written as a random linkage --
+  `build_growth(linkages = list(K = linkage_spec(~ rw(1 | Year))))` and its
+  equivalents on the other processes -- are drawn from the covariance structure
+  they were given: independent, random walk, or AR1 with `sigma` as the marginal
+  standard deviation. Observed AR1 (Rogers QAR1) linkages are the exception,
+  because their latent state is measured by an observed covariate series and
+  redrawing it alone would leave the two describing different histories. Those
+  keep their fitted values, and `sim_mod()` warns that they did.
+
+  The legacy time-varying catchability and selectivity deviations
+  (`Time_varying_q` / `Time_varying_sel`) are not drawn yet -- only their
+  linkage equivalents are -- so asking for `"catchability"` or `"selectivity"`
+  on a model that uses them warns rather than quietly handing back the fitted
+  values.
+
+  When a process is redrawn, the deviations that generated the data come back
+  as `attr(x, "process_sim")`: whichever of `rec_dev`, `init_dev`,
+  `log_M1_dev` and `beta_linkage_re` were drawn. Those are the truth a refit
+  has to recover. Without them the only available comparison is against the
+  source model's fitted deviations, which are no longer the values that
+  generated the data, so the test reports bias by construction. The return
+  value is still a plain `data_list`, so existing callers are unaffected.
+
+* **`self_test(process = )` redraws process error as well as observations.**
+  Passed straight through to `sim_mod()`, so a self-test can now ask the harder
+  question -- whether the estimator recovers a process it was not shown, rather
+  than whether it recovers its own parameters from new observations. Each
+  replicate's true deviations are returned as `attr(result, "process_sim")`,
+  subset and renumbered alongside the models, so `attr(x, "process_sim")[[k]]`
+  always belongs to `x[[k]]`.
+
 * **`sim_mod()` now warns when a simulated observation is one the model cannot
   be refit on.** A non-finite or negative draw is not quietly dropped:
   `data_check()` rejects it, the refit errors, and `self_test()` counts the
@@ -155,6 +203,64 @@
   counts. The other data types are unguarded until their draws move too.
 
 ## Bug fixes
+
+* **The `growth_re` switch has been removed; it never did anything.** It was
+  carried in the data list and documented in
+  `vignette("model-options-and-functionality")` as the way to put random effects
+  on growth, but nothing consumed it: `build_map_growth()` read it into a local
+  variable and ignored it, the deviation array it was meant to control
+  (`log_growth_par_devs`) was left mapped off in every configuration, and the
+  TMB template gave that array no density -- nor did it declare the
+  `growth_dev_log_sd` and `growth_rho` parameters that `build_map_growth()`'s
+  documentation claimed to map. Setting it had no effect on any fit, so removing
+  it changes no results. Time-varying growth is available through the linkage
+  grammar, `build_growth(linkages = )`, which carries a real density and is now
+  what the vignette points at. The unused `growth_indices` placeholder went with
+  it, as did the `log_growth_par_devs` parameter array itself -- it was held at
+  zero in every configuration, so removing it leaves every fit bit-identical.
+  `inits` from an older fit may still carry it; `fit_mod()` now drops parameter
+  blocks the template no longer has, so those warm starts keep working.
+
+* **`M1_re = 3` and `6` estimated far fewer deviations than intended.** The
+  age-by-year map index was built from a vector of length `nyrs_hind` and
+  assigned into an `nages x nyrs_hind` block. R recycled it silently -- the
+  lengths are an exact multiple -- so the field carried only `nyrs_hind`
+  distinct parameters laid out on a stride pattern, while the density treated
+  it as a full grid. On `GOA2018SS` that is 42 free deviations where 882 were
+  meant. Fits using these two modes will change; the other `M1_re` modes
+  recycle deliberately and are unaffected.
+
+  These deviations are integrated out rather than estimated as fixed effects,
+  so the model class is sound -- but a free age-by-year mortality field with a
+  single standard deviation and no prior on M is strongly confounded with
+  selectivity and recruitment in a single-species assessment, and the latent
+  dimension is now over twenty times larger. Read `fit$convergence` and the
+  estimability table before trusting a `M1_re = 3` or `6` fit, and consider a
+  prior on M.
+
+* **The 2D-AR1 correlations acted on the wrong dimensions.** `SEPARABLE(f, g)`
+  applies `f` to the outermost array dimension and `g` to the fastest-running
+  one, so passing the age correlation first on an `(age, year)` array made it
+  correlate over years and the year correlation over ages. This affected the
+  2D-AR1 natural mortality random effect (`M1_re = 6`) and the 2D-AR1
+  selectivity form (`Selectivity = "2DAR1"`; note this is a selectivity *form*,
+  not a `Time_varying_sel` setting, which 2DAR1 ignores). The 3D-AR1 form was
+  already bin/year/cohort and is unchanged -- the fix makes 2DAR1 agree with it.
+
+  **Most fits do not move.** Both correlations start at 0 and `TMBphase()` holds
+  them there through every phase, so a likelihood that is symmetric in its two
+  correlations from a symmetric starting point converges to the same place:
+  spawning biomass, F and reference points are unchanged, and only the two
+  reported correlation estimates exchange names. A fit moves only where the
+  two correlations differ as *starting* values -- for selectivity, unequal
+  `Sel_curve_pen1` / `Sel_curve_pen2`.
+
+  **Warm starts across this release are the case to watch.** `inits` from an
+  older fit carry `M1_rho` and `sel_curve_pen` under the previous convention,
+  and the new code reads slot 1 as the age (or bin) correlation, so a refit
+  starts from a mirrored point. That covers `retrospective()`, `jitter()`,
+  `run_mse()` and any two-stage penalized-to-Laplace bootstrap. Refit from
+  `inits = NULL`, or transpose the two slots, if the starting values differ.
 
 * **`data_check()` now rejects a `diet_data` that is not sorted by
   `stomach_id`.** The TMB diet likelihood walks `diet_ctl` with a single forward

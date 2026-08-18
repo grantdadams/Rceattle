@@ -760,6 +760,17 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   is stopped, counted as non-converged and reported separately. Approximate:
 #'   the limit is checked when control returns to R, so it fires between the
 #'   optimizer's function evaluations rather than inside one.
+#' @param process passed to \code{\link{sim_mod}}. \code{FALSE} (default) keeps
+#'   the fitted process deviations, so the test measures whether the estimator
+#'   recovers its own parameters from new observations. Naming a process --
+#'   \code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
+#'   \code{TRUE}, ... -- redraws it too, which asks the harder and usually more
+#'   relevant question of whether the estimator recovers a process it has not
+#'   been shown. Last in the signature so positional calls keep their meaning.
+#'   The deviations behind each replicate are returned as
+#'   \code{attr(result, "process_sim")}, aligned to the returned models; compare
+#'   estimates against those rather than against the source model, whose
+#'   deviations are no longer the values that generated the data.
 #'
 #' @return A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 #'   By default only the converged simulations, renumbered contiguously; a
@@ -803,7 +814,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' sims <- self_test(ss_run, nsim = 10)
 #' }
 #' @export
-self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf) {
+self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf, process = FALSE) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
@@ -854,8 +865,13 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     set.seed(seed + i) # unique seed per sim for reproducibility under parallel
 
     # * Simulate new data
-    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate)
+    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate, process = process)
     data_list <- sim_data
+    # The deviations that generated this replicate, when process error was
+    # redrawn. Carried through so the caller compares estimates against what
+    # actually generated the data; the source model's fitted deviations are no
+    # longer the truth once a process has been redrawn.
+    truth <- attr(sim_data, "process_sim")
 
     # * Adjust initial values ----
     inits <- switch(start,
@@ -888,9 +904,10 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     # dispatcher filters below, so `debug = TRUE` can hand back the runs that
     # failed with their $convergence diagnostics intact.
     if (inherits(newmod, "condition")) {
-      return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod)))
+      return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod),
+                  truth = truth))
     }
-    list(model = newmod, converged = .refit_converged(newmod))
+    list(model = newmod, converged = .refit_converged(newmod), truth = truth)
   } # End run_one_sim closure
 
 
@@ -908,11 +925,13 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # a failed run up with the seed (`seed + i`) that produced it.
   converged <- vapply(mod_list, function(x) isTRUE(x$converged), logical(1))
   errs      <- vapply(mod_list, function(x) x$error %||% NA_character_, character(1))
+  truths    <- lapply(mod_list, function(x) x$truth)
   mod_list  <- lapply(mod_list, function(x) x$model)
   # Unconditional, so `names(which(!attr(sims, "converged")))` works at every
   # length -- including the empty case, where a guarded assignment would have
   # left the attribute unnamed.
   names(mod_list) <- names(converged) <- paste0("Sim_", seq_along(mod_list))
+  names(truths) <- names(mod_list)
   .report_dropped(sum(!converged), length(converged), "simulation")
   .report_errors(errs, "simulation")
 
@@ -923,14 +942,23 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # short list. Otherwise the converged runs only, renumbered Sim_1..Sim_k --
   # a self-test is read as a distribution over runs, so the gaps carry no
   # meaning, and plot_biomass(model_names = names(sims)) stays contiguous.
+  # `process_sim` is subset and renumbered alongside the models so that
+  # attr(sims, "process_sim")[[k]] is always the truth behind sims[[k]].
   if (isTRUE(debug)) {
     attr(mod_list, "converged") <- converged
+    if (any(!vapply(truths, is.null, logical(1)))) {
+      attr(mod_list, "process_sim") <- truths
+    }
     return(mod_list)
   }
 
+  keep_truth <- truths[converged]
   mod_list <- mod_list[converged]
   if (length(mod_list) > 0) {
-    names(mod_list) <- paste0("Sim_", seq_along(mod_list))
+    names(mod_list) <- names(keep_truth) <- paste0("Sim_", seq_along(mod_list))
+  }
+  if (any(!vapply(keep_truth, is.null, logical(1)))) {
+    attr(mod_list, "process_sim") <- keep_truth
   }
   return(mod_list)
 }
