@@ -336,7 +336,32 @@ Each simulation uses `seed + i` as its RNG seed, so results are reproducible whe
 
 Every refit starts from the fitted model's *starting* values, not its estimates, so it covers the same ground the original fit did. `phase` therefore defaults to whatever the input model was fit with — pass `phase = TRUE` explicitly if you fit the model some other way and the refits are being dropped, since a model that needed phasing once needs it for every simulated data set too. `start = "estimated"` starts from the fitted estimates instead: much faster, but the optimizer then begins inside the basin containing the generating values and recovery is close to guaranteed by construction, so read it as optimistic about recovery rather than simply less powerful.
 
-Two things to keep in mind when reading the result. Non-converged refits are dropped and reported in a message, and they are dropped *because* they behaved badly — so the returned replicates are a favourable subset, and any spread or bias computed over them (including `compare_sim()`'s CV) understates the truth. And `sim_mod()` redraws the observations only: with `random_rec = TRUE` every replicate shares the operating model's single recruitment realization, so the spread across replicates is observation error alone — a lower bound on estimation uncertainty in SSB and recruitment, not comparable to the model's own uncertainty bands.
+Two things to keep in mind when reading the result. Non-converged refits are dropped and reported in a message, and they are dropped *because* they behaved badly — so the returned replicates are a favourable subset, and any spread or bias computed over them (including `compare_sim()`'s CV) understates the truth. And by default only the observations are redrawn: every replicate shares the operating model's single realization of recruitment and mortality, so the spread across replicates is observation error alone — a lower bound on estimation uncertainty in SSB and recruitment, not comparable to the model's own uncertainty bands.
+
+### Redrawing process error
+
+`process` widens the question. The default (`FALSE`) asks whether the estimator recovers its own parameters from new observations; naming a process redraws that process too, and asks whether it recovers something it was not shown.
+
+```{r}
+# Recruitment deviations redrawn as well as the observations
+sims <- self_test(model_1, nsim = 10, process = "recruitment")
+
+# "dynamics" covers recruitment, M and growth; "observation" covers
+# catchability and selectivity; TRUE covers everything.
+sims <- self_test(model_1, nsim = 10, process = "dynamics")
+```
+
+Recruitment covers the initial age structure as well as the hindcast deviations, since the initial numbers-at-age are recruitment from before `styr`. Natural mortality covers the `M1_re` random effects, and growth, catchability and selectivity are redrawn wherever they are written as a random linkage (see `vignette("environmental-linkages-and-priors")`). A process the model gives no distribution to — asking for M when `M1_re = 0`, say — is left alone and reported in a warning rather than silently returned unchanged.
+
+Because the fitted deviations are no longer what generated the data, the values that *did* come back attached to each replicate:
+
+```{r}
+truth <- attr(sims, "process_sim")[["Sim_1"]]$rec_dev
+```
+
+Compare estimates against those, not against the operating model.
+
+One caveat before reading a redrawn M as validation. On `BS2017SS` with a year-varying M random effect, refits recover the simulated deviations (correlation around 0.5, positive in every replicate) but recover their standard deviation poorly — roughly 70% low, and collapsing to zero in a third of replicates. That is the usual behaviour of a variance component estimated from little information, not a fault in the simulation, and a year-varying M is weakly informed because it trades off against selectivity and catchability. Read a self-test that redraws M as a test of deviation recovery rather than of variance recovery.
 
 When the returned list is shorter than `nsim`, `debug = TRUE` returns *every* simulation so the failures can be read directly rather than inferred:
 

@@ -1,30 +1,15 @@
-# End-to-end self-consistency for process error: draw with a KNOWN sigma, refit
-# the simulated data, and see whether the estimator gets sigma and the
-# deviations back.
+# End-to-end self-consistency: draw process error with a known sigma, refit the
+# simulated data, and see what comes back. Closes the loop the other harnesses
+# leave open -- they check the draw's moments and the density's structure
+# separately, which does not show that a refit recovers what was simulated.
 #
-# This closes a loop the other harnesses leave open. verify-sim-process-error.R
-# checks that the DRAW has the right moments; the 2D-AR1 test checks that the
-# DENSITY scores the right dimensions. Neither shows that the Laplace-marginal
-# likelihood recovers what was simulated -- the two could be individually right
-# and the estimator still not identify sigma. That is the claim a self-test
-# rests on, so it is worth stating separately.
+# GATED on deviation recovery, not on sigma. make_test_data() cannot identify an
+# M random-effect variance (sigma goes to ~1e-20 with no simulation involved), so
+# a sigma gate would test the fixture rather than the code. The correlation still
+# catches the failure this exists for: if the draw and the density disagreed, the
+# estimated field would bear no relation to the simulated one.
 #
-# WHAT IS AND IS NOT GATED HERE. The recoverable quantity in this fixture is the
-# deviation FIELD, not its variance. `make_test_data()` does not identify an M
-# random-effect sigma -- fit it and sigma goes to ~1e-20 with no simulation
-# involved at all -- so a sigma-recovery gate would be testing the fixture, not
-# the code. Sigma is therefore reported as informational and the gate is on
-# whether the refit recovers the deviations that were drawn.
-#
-# That still catches the failure this exists for: if the draw and the density
-# disagreed -- drawing from a different distribution than the one being fitted,
-# which is the whole reason the simulation moved into the template -- the
-# estimated field would bear no relation to the simulated one and the
-# correlation would sit at zero.
-#
-# Identifying sigma needs a fixture with real information about M (a longer
-# series with informative composition data, or a fitted assessment). Worth
-# adding; not something this fixture can answer.
+# For sigma on data that do inform M, see verify-sim-recovery-M.R.
 #
 # Run: export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript tools/verify/verify-sim-recovery-process.R
 

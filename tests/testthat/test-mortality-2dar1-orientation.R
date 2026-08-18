@@ -1,16 +1,10 @@
-# The 2D-AR1 densities, pinned against an independent multivariate-normal
-# reference rather than against themselves.
+# The 2D-AR1 density, pinned against an independent multivariate normal.
 #
-# TMB's SEPARABLE(f, g) applies f to the OUTERMOST array dimension and g to the
-# fastest-running one (density.hpp). Both fields here are laid out (age, year)
-# or (bin, year), so the YEAR correlation has to be passed first. Written the
-# other way round the two correlations are silently exchanged: the fit stays
-# self-consistent, so nothing errors and no golden model notices -- the reported
-# age correlation is simply the year correlation. That is what these pin.
-#
-# `calc_nll_ar1_2d()` (helpers.R) builds the covariance as
-# kronecker(R_year, R_age), i.e. rows = age, so it is the independent statement
-# of the intended orientation.
+# SEPARABLE(f, g) applies f to the outermost array dimension, so on an
+# (age, year) field the YEAR correlation is passed first. Swapped, the two
+# correlations exchange silently: the fit stays self-consistent and nothing
+# errors, but the reported age correlation is the year one. calc_nll_ar1_2d()
+# (helpers.R) builds kronecker(R_year, R_age) and is the outside check.
 
 testthat::test_that("the 2D-AR1 M density correlates ages by rho_age and years by rho_year", {
   testthat::skip_on_cran()

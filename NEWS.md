@@ -165,6 +165,28 @@
   generated the data, so the test reports bias by construction. The return
   value is still a plain `data_list`, so existing callers are unaffected.
 
+  One caveat worth stating before anyone reads such a run as validation. On
+  `BS2017SS` with a year-varying M random effect, a refit recovers the simulated
+  deviations (correlation ~0.5, positive in every replicate) but recovers the
+  deviation *standard deviation* poorly -- around 70% low, collapsing to exactly
+  zero in a third of replicates. That is the ordinary behaviour of a
+  marginal-likelihood variance component with little information to go on, not a
+  fault in the simulation: the draw's moments and the density's structure are
+  both checked directly in `tools/verify/`. Read a self-test that redraws M as a
+  test of deviation recovery, not of variance recovery.
+  `tools/verify/verify-sim-recovery-M.R` reproduces the numbers.
+
+* **`simulate()` now works on a fitted model.** `simulate(fit, nsim = 10)` is
+  the `stats` generic, alongside the `coef()`, `vcov()`, `logLik()` and
+  `residuals()` methods the class already had. It wraps [sim_mod()], which
+  keeps its own interface and does the work, and returns a list of `nsim`
+  data sets -- a list at `nsim = 1` too, so callers never special-case the
+  length. `seed` follows the `stats::simulate()` convention: seeded locally,
+  with the caller's random state restored afterwards, so simulating does not
+  displace a stream already in progress. `process` passes straight through.
+  Expected values stay on `sim_mod(simulate = FALSE)`, since those are not a
+  simulation.
+
 * **`self_test(process = )` redraws process error as well as observations.**
   Passed straight through to `sim_mod()`, so a self-test can now ask the harder
   question -- whether the estimator recovers a process it was not shown, rather

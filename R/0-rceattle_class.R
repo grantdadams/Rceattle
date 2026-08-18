@@ -841,3 +841,76 @@ as.data.frame.Rceattle <- function(x,
   if (!length(out)) return(empty)
   do.call(rbind, c(unname(out), list(make.row.names = FALSE)))
 }
+
+
+#' Simulate data from a fitted Rceattle model
+#'
+#' @description The [stats::simulate()] method for CEATTLE fits: draws `nsim`
+#' replicate data sets from the fitted observation model, and optionally from
+#' the process model as well.
+#'
+#' @details
+#' A thin wrapper on [sim_mod()], which does the work and documents the
+#' observation model in full. Use whichever reads better; `sim_mod()` also
+#' offers `simulate = FALSE` for expected values rather than draws, which is
+#' not simulation and so has no place in this method.
+#'
+#' Every draw is taken by the TMB model itself, beside the likelihood that
+#' defines it, so the simulated data and the density that will be fitted to them
+#' cannot drift apart. That needs a live `$obj`, which a model loaded from disk
+#' has and a [model_average()] result does not -- see [sim_mod()].
+#'
+#' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param nsim Number of replicate data sets to draw. Default 1.
+#' @param seed Optional seed. Set as `set.seed(seed)` and the previous
+#'   random-number state restored afterwards, so simulating does not disturb a
+#'   stream the caller is using. Recorded on the result as `attr(, "seed")`.
+#' @param process Which process error to redraw alongside the observations.
+#'   `FALSE` (default) keeps the fitted deviations, so replicates differ only in
+#'   observation error. See [sim_mod()] for the alternatives.
+#' @param ... Currently unused.
+#'
+#' @return A list of `nsim` `data_list` objects -- always a list, including at
+#'   `nsim = 1`, so callers do not have to special-case the length. Each element
+#'   carries the drawn process deviations as `attr(, "process_sim")` when
+#'   `process` redrew something.
+#'
+#' @seealso [sim_mod()] for the observation model and the `process` options,
+#'   [self_test()] for simulating and refitting in one step.
+#'
+#' @examples
+#' \dontrun{
+#' fit  <- fit_mod(data_list = BS2017SS, estimateMode = 1)
+#' reps <- simulate(fit, nsim = 10, seed = 1)
+#' # ...and with recruitment redrawn as well:
+#' reps <- simulate(fit, nsim = 10, seed = 1, process = "recruitment")
+#' truth <- attr(reps[[1]], "process_sim")$rec_dev
+#' }
+#' @export
+simulate.Rceattle <- function(object, nsim = 1, seed = NULL,
+                              process = FALSE, ...) {
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be an Rceattle model fit.", call. = FALSE)
+  }
+  nsim <- as.integer(nsim)
+  if (length(nsim) != 1L || is.na(nsim) || nsim < 1L) {
+    stop("`nsim` must be a single positive integer.", call. = FALSE)
+  }
+
+  # The stats::simulate() convention: seeding is local, so a caller mid-stream
+  # is not silently displaced by having simulated.
+  if (!is.null(seed)) {
+    if (!exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      stats::runif(1)
+    }
+    old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    set.seed(seed)
+  }
+
+  out <- lapply(seq_len(nsim), function(i)
+    sim_mod(object, simulate = TRUE, process = process))
+  names(out) <- paste0("Sim_", seq_len(nsim))
+  if (!is.null(seed)) attr(out, "seed") <- seed
+  out
+}

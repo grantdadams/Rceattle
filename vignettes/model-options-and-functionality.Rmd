@@ -297,7 +297,8 @@ seed plumbing and reproducibility guarantees.
 |---|---|
 | `retrospective()` | Peel terminal years and refit; reports Mohn's ρ for each quantity / species, optionally with forecast-skill peels (`nyrs_forecast`) |
 | `jitter()` | Refit from random-perturbed starting values; check optimum stability |
-| `sim_mod()` | Parametric simulation from a fitted model |
+| `sim_mod()` / `simulate()` | Simulate data from a fitted model. Observations always; process error (recruitment, M, growth, catchability, selectivity) via `process =`. `simulate()` is the `stats` generic and draws `nsim` replicates at once |
+| `self_test()` | Simulate and refit; check the model recovers what generated the data |
 | `compare_sim()` | Estimation-vs-truth comparison across simulated replicates |
 | `model_average()` | Weighted average of derived quantities across multiple fits, with optional bootstrap uncertainty |
 | `calc_mcall_ianelli()` / `calc_mcall_ianelli_diet()` | McAllister-Ianelli composition-data reweighting |
