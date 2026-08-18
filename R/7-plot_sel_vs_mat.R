@@ -65,7 +65,7 @@ plot_selectivity_vs_maturity <-
                          ggplot2::aes(x = .data$Age, y = .data$value,
                                       colour = .data$Series)) +
       ggplot2::geom_line(linewidth = 1) +
-      ggplot2::facet_wrap(~ Species) +
+      .facet_species(plot_df) +
       ggplot2::labs(x = "Age", y = "Selectivity / Maturity")
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
 

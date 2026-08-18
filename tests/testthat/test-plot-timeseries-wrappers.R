@@ -46,3 +46,55 @@ test_that("generated wrappers keep the documented public argument list", {
                      api_args, info = fn)
   }
 })
+
+
+testthat::test_that("a single-species model gets no species facet", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("ggplot2")
+  # GOApollock is genuinely one species. BS2017SS is THREE species run in
+  # single-species MODE, so it is the wrong fixture for this.
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    Rceattle::GOApollock, inits = NULL, file = NULL, estimateMode = 1,
+    msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+  testthat::expect_equal(fit$data_list$nspp, 1)
+
+  is_faceted <- function(p) {
+    !identical(class(ggplot2::ggplot_build(p)$layout$facet)[1], "FacetNull")
+  }
+  for (f in c(Rceattle::plot_biomass, Rceattle::plot_ssb,
+              Rceattle::plot_recruitment, Rceattle::plot_depletionSSB)) {
+    p <- suppressWarnings(suppressMessages(f(fit)))
+    testthat::expect_false(is_faceted(p))
+  }
+
+  # ...and a multi-species model still is.
+  ms <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    Rceattle::BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+  testthat::expect_gt(ms$data_list$nspp, 1)
+  testthat::expect_true(is_faceted(
+    suppressWarnings(suppressMessages(Rceattle::plot_biomass(ms)))))
+})
+
+testthat::test_that("absolute-scale quantities include zero on the y-axis", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("ggplot2")
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    Rceattle::GOApollock, inits = NULL, file = NULL, estimateMode = 1,
+    msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+  ymin <- function(p) {
+    ggplot2::ggplot_build(p)$layout$panel_params[[1]]$y.range[1]
+  }
+  # Biomass, SSB and recruitment are read against zero, so a truncated axis
+  # overstates how much they move.
+  for (f in c(Rceattle::plot_biomass, Rceattle::plot_ssb,
+              Rceattle::plot_recruitment, Rceattle::plot_exploitable_biomass)) {
+    testthat::expect_lte(ymin(suppressWarnings(suppressMessages(f(fit)))), 0)
+  }
+})
