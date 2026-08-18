@@ -41,7 +41,7 @@
 
 #' Rename the metric columns of an mse_summary() frame and record the old names
 #'
-#' Every metric column is renamed through [.RCE_MSE_METRIC_NAMES]; key columns
+#' Every metric column is renamed through `.RCE_MSE_METRIC_NAMES`; key columns
 #' (`Species`, `Fleet_code`, `Fleet_name`) are already syntactic and pass
 #' through. Errors on an unmapped metric rather than returning it under its
 #' display name, so adding a metric without adding its entry cannot ship a
