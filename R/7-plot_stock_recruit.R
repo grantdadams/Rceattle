@@ -87,7 +87,7 @@ plot_stock_recruit <-
       pts_df, ggplot2::aes(x = .data$SSB, y = .data$R, colour = .data$Model)) +
       ggplot2::geom_point(alpha = 0.6) +
       ggplot2::geom_line(data = crv_df, linewidth = 1) +
-      ggplot2::facet_wrap(~ Species, scales = "free") +
+      .facet_species(pts_df, scales = "free") +
       ggplot2::labs(x = "Spawning stock biomass (million mt)",
                     y = "Recruitment (millions)")
     if (add_ci) {

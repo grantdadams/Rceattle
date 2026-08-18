@@ -76,6 +76,7 @@ plot_timeseries <- function(Rceattle,
                             mse = FALSE,
                             OM = TRUE,
                             reference = NULL,
+                            zero_y = FALSE,
                             mod_avg = rep(FALSE, length(Rceattle))) {
 
   ## Model object manipulation ----
@@ -352,12 +353,21 @@ plot_timeseries <- function(Rceattle,
                           colour = "red", linetype = 2)
   }
 
+  # A single-species model needs no species strip: the facet label would name
+  # the only thing on the plot. Faceting is what carries that label, so drop it
+  # rather than blanking the strip and leaving its gap.
+  if (length(spp) > 1L) {
+    p <- p + ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
+                                 strip.position = "top")
+  }
   p <- p +
-    ggplot2::facet_wrap(~ Species, scales = "free_y", ncol = 1,
-                        strip.position = "top") +
     ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
     ggplot2::labs(x = "Year", y = ylab) +
     .rceattle_theme()
+  # A quantity on an absolute scale is read against zero, so an axis starting at
+  # the series minimum overstates how much it moves. Applied per panel, so
+  # `scales = "free_y"` still fits each species.
+  if (isTRUE(zero_y)) p <- p + ggplot2::expand_limits(y = 0)
   if (is.null(line_col)) {
     p <- .rceattle_scale(p)                       # default Okabe-Ito palette
   } else {
@@ -394,7 +404,8 @@ plot_timeseries <- function(Rceattle,
 # y-axis label for one quantity while exposing plot_timeseries()'s full argument
 # list unchanged. The six timeseries plotters below differ only in those two
 # strings, so they share one body through this factory.
-.ts_wrapper <- function(output, ylab) {
+.ts_wrapper <- function(output, ylab, zero_y = FALSE) {
+  force(output); force(ylab); force(zero_y)
   function(Rceattle,
            file = NULL,
            model_names = NULL,
@@ -422,6 +433,7 @@ plot_timeseries <- function(Rceattle,
     plot_timeseries(Rceattle,
                     output = output,
                     ylab = ylab,
+                    zero_y = zero_y,
                     file = file,
                     model_names = model_names,
                     line_col = line_col,
@@ -456,7 +468,7 @@ plot_timeseries <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass trajectory.
-plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)")
+plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)", zero_y = TRUE)
 
 
 #' Plot recruitment
@@ -468,7 +480,7 @@ plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)")
 #' @export
 #'
 #' @return Returns and saves a figure with the recruitment trajectory.
-plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)")
+plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)", zero_y = TRUE)
 
 
 #' Plot spawning stock biomass (SSB)
@@ -480,7 +492,7 @@ plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)")
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB trajectory.
-plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)")
+plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)", zero_y = TRUE)
 
 
 #' Plot exploitable biomass
@@ -493,7 +505,8 @@ plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)")
 #'
 #' @return Returns and saves a figure with the exploitable biomass trajectory.
 plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass",
-                                        "Max exploitable biomass (million mt)")
+                                        "Max exploitable biomass (million mt)",
+                                        zero_y = TRUE)
 
 #' Plot SSB depletion
 #'
@@ -505,7 +518,7 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass",
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- .ts_wrapper("ssb_depletion", "SSB depletion")
+plot_depletionSSB <- .ts_wrapper("ssb_depletion", "SSB depletion", zero_y = TRUE)
 
 #' Plot SSB depletion (deprecated name)
 #'
@@ -525,7 +538,7 @@ plot_ssb_depletion <- plot_depletionSSB
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass depletion trajectory.
-plot_depletion <- .ts_wrapper("biomass_depletion", "Biomass depletion")
+plot_depletion <- .ts_wrapper("biomass_depletion", "Biomass depletion", zero_y = TRUE)
 
 
 #' Plot selectivity
@@ -810,7 +823,7 @@ plot_mortality <-
                            ggplot2::aes(x = .data$Year, y = .data$Age,
                                         fill = .data$M)) +
         ggplot2::geom_tile() +
-        ggplot2::facet_wrap(~ Species) +
+        .facet_species(plot_df) +
         ggplot2::scale_fill_viridis_c(ylab) +
         ggplot2::labs(x = "Year", y = "Age") +
         .rceattle_theme()
@@ -822,7 +835,7 @@ plot_mortality <-
                      group = interaction(.data$Year, .data$Sex),
                      colour = .data$Year, linetype = .data$Sex)) +
         ggplot2::geom_line() +
-        ggplot2::facet_wrap(~ Species, scales = "free_y") +
+        .facet_species(plot_df, scales = "free_y") +
         ggplot2::scale_colour_viridis_c("Year") +
         ggplot2::labs(x = "Age", y = ylab) +
         .rceattle_theme()
@@ -894,7 +907,7 @@ plot_maturity <-
                          ggplot2::aes(x = .data$Age, y = .data$Maturity,
                                       colour = .data$Model)) +
       ggplot2::geom_line(linewidth = 1) +
-      ggplot2::facet_wrap(~ Species, ncol = 1) +
+      .facet_species(plot_df, ncol = 1) +
       ggplot2::coord_cartesian(ylim = c(0, 1.1)) +
       ggplot2::labs(x = "Age", y = "Maturity")
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
@@ -988,7 +1001,7 @@ plot_b_eaten <- function(Rceattle,
       ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$l95, ymax = .data$u95),
                            alpha = 0.3, fill = "grey40") +
       ggplot2::geom_line(ggplot2::aes(y = .data$m), linewidth = 1) +
-      ggplot2::facet_wrap(~ Species, scales = "free_y") +
+      .facet_species(mdf, scales = "free_y") +
       ggplot2::labs(x = "Year", y = "Biomass eaten as prey") +
       .rceattle_theme()
     return(.save_ggplot(p, file = file, suffix = "biomass_eaten",
@@ -999,7 +1012,7 @@ plot_b_eaten <- function(Rceattle,
     plot_df,
     ggplot2::aes(x = .data$Year, y = .data$value, colour = .data$Model)) +
     ggplot2::geom_line(linewidth = 1) +
-    ggplot2::facet_wrap(~ Species, scales = "free_y") +
+    .facet_species(plot_df, scales = "free_y") +
     ggplot2::labs(x = "Year", y = "Biomass eaten as prey")
   if (incl_proj) {
     p <- p + ggplot2::geom_vline(
@@ -1187,7 +1200,7 @@ plot_m_at_age <-
       ggplot2::aes(x = .data$Year, y = .data$M,
                    colour = .data$Model, linetype = .data$Sex)) +
       ggplot2::geom_line(linewidth = 1) +
-      ggplot2::facet_wrap(~ Species, scales = "free_y") +
+      .facet_species(plot_df, scales = "free_y") +
       ggplot2::labs(x = "Year", y = paste0("M at age ", age))
     if (incl_proj) {
       p <- p + ggplot2::geom_vline(
@@ -1485,7 +1498,7 @@ plot_ration <-
       ggplot2::aes(x = .data$Year, y = .data$value,
                    colour = .data$Model, linetype = .data$Sex)) +
       ggplot2::geom_line(linewidth = 1) +
-      ggplot2::facet_wrap(~ Species, scales = "free_y") +
+      .facet_species(plot_df, scales = "free_y") +
       ggplot2::labs(x = "Year",
                     y = paste0("Consumption (million mt), age ", minage, "+"))
     if (incl_proj) {

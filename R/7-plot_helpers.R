@@ -135,3 +135,23 @@
   }
   p
 }
+
+
+#' Facet by species, but only when there is more than one
+#'
+#' With a single species the strip label just names the only thing on the plot.
+#' Faceting is what draws that strip, so the single-species case omits the facet
+#' entirely rather than blanking the strip and leaving its gap.
+#'
+#' Returns `NULL` when there is nothing to facet, which ggplot2 accepts as a
+#' no-op inside a `+` chain -- so call sites read the same either way.
+#'
+#' @param df The plot data frame; its `Species` column supplies the count.
+#' @param ... Passed to [ggplot2::facet_wrap()] (e.g. `scales`, `ncol`).
+#' @return A `facet_wrap` layer, or `NULL` for a single-species model.
+#' @keywords internal
+#' @noRd
+.facet_species <- function(df, ...) {
+  n <- if (is.null(df$Species)) 0L else length(unique(stats::na.omit(df$Species)))
+  if (n > 1L) ggplot2::facet_wrap(~ Species, ...) else NULL
+}
