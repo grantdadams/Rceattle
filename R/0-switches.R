@@ -841,17 +841,21 @@ validate_switches <- function(data_list = NULL){
   }
 
   # * HCR ----
-  invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
+  # No HCR when the list came from a workbook -- `NULL %in% ...` is logical(0),
+  # which propagates through `&` and leaves the `if` below with nothing to test.
+  if (length(data_list$HCR)) {
+    invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
 
-  if(sum(invalid_hcr) > 0) {
-    errors <- c(errors, paste0("Invalid 'HCR' specified: ",
-                              paste(unique(data_list$HCR[invalid_hcr]), collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":"), " or one of: ",
-                              paste(names(hcr_map), collapse = ", ")))
-  }
+    if(sum(invalid_hcr) > 0) {
+      errors <- c(errors, paste0("Invalid 'HCR' specified: ",
+                                paste(unique(data_list$HCR[invalid_hcr]), collapse = ", "),
+                                ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":"), " or one of: ",
+                                paste(names(hcr_map), collapse = ", ")))
+    }
 
-  if (data_list$msmMode > 0 & !data_list$HCR %in% c("NoFishing", "CMSY", "ConstantF", "ConstantFSSB", "PFMC")) {
-    errors <- c(errors, 'Only HCRs "NoFishing" (0), "CMSY" (1), "ConstantF" (2), "ConstantFSSB" (3), or "PFMC" (6) work in multi-species mode currently')
+    if (isTRUE(data_list$msmMode > 0) & !data_list$HCR %in% c("NoFishing", "CMSY", "ConstantF", "ConstantFSSB", "PFMC")) {
+      errors <- c(errors, 'Only HCRs "NoFishing" (0), "CMSY" (1), "ConstantF" (2), "ConstantFSSB" (3), or "PFMC" (6) work in multi-species mode currently')
+    }
   }
 
   return(errors)

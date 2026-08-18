@@ -412,7 +412,13 @@ data_check <- function(data_list) {
                                       Fleet_type %in% c(1, "Fishery"))
       total_proj_f <- sum(fc_spp$Proj_F_proportion, na.rm = TRUE)
 
-      if(total_proj_f == 0 && !(data_list$HCR %in% c(0, "NoFishing"))){
+      # HCR is a fit_mod() argument, not a data field, so a list read from a
+      # workbook carries none and `NULL %in% ...` is logical(0). Nothing to
+      # contradict, so nothing to report.
+      hcr <- data_list$HCR
+      fishing_planned <- length(hcr) == 1L && !is.na(hcr) &&
+        !(hcr %in% c(0, "NoFishing"))
+      if(total_proj_f == 0 && fishing_planned){
         errors <- c(errors, "HCR is > 0 and 'Proj_F_proportion' is 0")
       }
 

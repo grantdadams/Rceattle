@@ -78,3 +78,25 @@ testthat::test_that("a deprecated-SD-column data list fits identically to the re
   testthat::expect_true(is.finite(obj_new))
   testthat::expect_equal(obj_old, obj_new, tolerance = 0)
 })
+
+# HCR is a fit_mod() argument, not a data field, so a data_list read from a
+# workbook carries none. NULL %in% ... is logical(0), which propagated into the
+# HCR checks and left them holding logical(0)/NA -- validating a workbook before
+# fitting then died with "missing value where TRUE/FALSE needed" or "argument is
+# of length zero" instead of reporting anything.
+testthat::test_that("data_check tolerates a data_list with no HCR", {
+  testthat::skip_if_not_installed("TMB")
+
+  dat <- make_test_data(nyrs = 10, nages = 5, seed = 123)
+  dat$HCR <- NULL
+  testthat::expect_null(dat$HCR)
+  testthat::expect_no_error(suppressWarnings(Rceattle:::data_check(dat)))
+
+  # ... and the check it guards still fires when an HCR IS supplied.
+  dat$HCR <- 5
+  dat$fleet_control$Proj_F_proportion <- 0
+  err <- tryCatch({ suppressWarnings(Rceattle:::data_check(dat)); NULL },
+                  error = function(e) conditionMessage(e))
+  testthat::expect_true(!is.null(err))
+  testthat::expect_match(err, "Proj_F_proportion")
+})

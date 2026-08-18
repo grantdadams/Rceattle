@@ -31,35 +31,35 @@
 
 * **`self_test()` no longer fails on every replicate for a model with a
   natural-scale survey index.** `sim_mod()` drew `Normal` and `MVN` index
-  observations straight from the natural-scale normal, so a fleet whose absolute
-  sd is an appreciable fraction of its index -- e.g. an acoustic-vessel index
-  with sd 0.25-0.80 against observations from 0.70 -- produced a non-positive
-  draw most replicates. `data_check()` rejects those, the refit failed, and
-  `self_test()` counted the replicate as *not converged*, which reads as a
-  convergence problem rather than a simulation one. Non-positive draws are now
-  redrawn (rejection sampling, correlated fleets redrawn jointly). On EBS
-  pollock this takes `self_test()` from 0 of 50 replicates returned to all of
-  them, recovering spawning-stock biomass with a median bias of -0.4%.
+  observations from the untruncated natural-scale normal, so a fleet with an
+  absolute sd near its index -- an AVO-type index with sd 0.25-0.80 against
+  observations from 0.70 -- drew non-positive most replicates. `data_check()`
+  rejects those, so the refit failed and the replicate was counted *not
+  converged*, reading as a convergence problem rather than a simulation one.
+  Non-positive draws are now redrawn, correlated fleets jointly. On EBS pollock
+  `self_test()` goes from 0 of 50 replicates to all of them, recovering SSB with
+  a median bias of -0.4%.
 
-  **Read the new warnings before trusting such a run.** Redrawing samples the
-  fleet from a normal *truncated at zero*, not the normal the likelihood
-  maximises, so a fleet that needs it is self-testing against a data-generating
-  process the estimation model never assumed. The shift is not small where it
-  bites: at an index of 0.70 with an absolute sd of 0.80, a fifth of draws are
-  rejected and the truncated mean is 39% above the untruncated one. There are
-  now two warnings -- one when a fleet still cannot draw positive after the
-  retries (as before), and a new one when any row needed redrawing more than 2%
-  of the time, which reports that truncation, not the likelihood, is shaping the
-  draws. Both point at the same underlying issue: an absolute sd that large
-  relative to the index means the natural-scale normal was already a poor
-  observation model.
+  Redrawing samples from a normal **truncated at zero**, not the normal the
+  likelihood maximises, so a fleet that needs it is self-testing against a
+  different data-generating process. At index 0.70 with sd 0.80 a fifth of draws
+  are rejected and the truncated mean is 39% high. Two warnings now fire: the
+  existing one when a fleet still cannot draw positive, and a new one when any
+  row is redrawn more than 2% of the time. Either means the absolute sd is too
+  large relative to the index for a natural-scale normal.
 
-  Lognormal fleets are positive by construction and are unaffected, including
-  the seeded all-lognormal fast path. Seeded results are also bit-identical for
-  any `Normal`/`MVN` fleet that never rejects a draw. A fleet that *does* reject
-  consumes extra random numbers, so that replicate's compositions and catch
-  shift too, and every later replicate in a seeded `self_test()` or `run_mse()`
-  loop moves with it -- those results change.
+  Lognormal fleets are unaffected, including the seeded all-lognormal fast path,
+  and seeded results are bit-identical for any `Normal`/`MVN` fleet that never
+  rejects. A fleet that does reject consumes extra random numbers, shifting that
+  replicate's comps and catch and every later replicate in a seeded loop.
+
+* **`data_check()` no longer errors on a `data_list` that carries no `HCR`.**
+  `HCR` is a `fit_mod()` argument, not a data field, so a list read straight
+  from a workbook has none. `NULL %in% ...` is `logical(0)`; `TRUE && logical(0)`
+  is `NA` and `x & logical(0)` is `logical(0)`, so `data_check()` died with
+  `missing value where TRUE/FALSE needed` and `validate_switches()` with
+  `argument is of length zero`. `fit_mod()` sets `HCR` before checking and was
+  unaffected.
 
 * **`run_mse()` no longer errors when a survey fleet has `NA`
   `Proj_F_proportion`.** The check that some fleet takes projected F summed the
