@@ -127,17 +127,61 @@ testthat::test_that("sim_mod draws the survey index under each Index_distributio
   }
 })
 
-testthat::test_that("sim_mod warns when a natural-scale index draw is non-positive", {
+testthat::test_that("sim_mod keeps natural-scale index draws positive", {
   testthat::skip_if_not_installed("TMB")
 
-  # A natural-scale draw can go negative, which no index can be. data_check()
-  # rejects Observation <= 0, so the data set does not refit at all and
-  # self_test() just counts the run as not converged -- which reads as a
-  # convergence problem rather than a simulation one unless this warns.
-  fit <- .sim_index_fixture("Normal", sd = 500)   # index_hat is 100
+  # A natural-scale draw can go negative, which no index can be, and
+  # data_check() rejects Observation <= 0 -- so the data set would not refit at
+  # all and self_test() would count the run as not converged, reading as a
+  # convergence problem rather than a simulation one. Non-positive draws are
+  # redrawn instead (normal truncated at zero).
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 60)      # index_hat is 100
+    srv <- fit$data_list$index_data$Fleet_name == "Survey"
+    set.seed(1)
+    for (k in 1:20) {
+      sim <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))
+      testthat::expect_true(all(sim$index_data$Observation[srv] > 0), info = dist)
+    }
+  }
+})
+
+testthat::test_that("sim_mod warns when truncation is doing the work, on both branches", {
+  testthat::skip_if_not_installed("TMB")
+
+  # Positive draws are not enough on their own: a row that keeps being redrawn
+  # follows a normal truncated at zero, not the normal the likelihood assumes,
+  # so a self_test() built on it tests a different data-generating process.
+  # The rate is per ROW and read off the worst one -- a fleet mean would hide a
+  # single marginal row, which is how truncation actually presents.
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 115)   # index_hat is 100
+    set.seed(1)
+    testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
+                             "truncated at zero", info = dist)
+  }
+
+  # A fleet with a small sd must stay silent on both branches.
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 5)
+    set.seed(1)
+    testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+  }
+})
+
+testthat::test_that("sim_mod keeps a wide correlated fleet positive", {
+  testthat::skip_if_not_installed("TMB")
+
+  # An MVN vector is rejected if ANY row is non-positive, so the joint rejection
+  # probability climbs with the number of rows. A flat retry budget failed here
+  # while every row on its own was fine; the budget scales with the row count.
+  fit <- .sim_index_fixture("MVN", nyrs = 42, sd = 70, rho = 0)  # index_hat 100
+  srv <- fit$data_list$index_data$Fleet_name == "Survey"
   set.seed(1)
-  testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
-                           "non-positive survey index")
+  for (k in 1:10) {
+    sim <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))
+    testthat::expect_true(all(sim$index_data$Observation[srv] > 0))
+  }
 })
 
 testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw from", {

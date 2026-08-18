@@ -137,7 +137,7 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   # Data ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   data(BS2017SS) # ?BS2017SS for more information on the data
-  BS2017SS$projyr <- 2020
+  BS2017SS$projyr <- 2027
   BS2017SS$fleet_control$Proj_F_proportion <-rep(1,7)
 
 
@@ -190,4 +190,61 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
   # only one that exercises the parallel path.
   testthat::expect_true(all(vapply(mse, function(x) isTRUE(x$use_sim), logical(1))))
   testthat::expect_true(all(vapply(mse, function(x) !is.null(x$OM), logical(1))))
+})
+
+# A survey fleet legitimately carries NA Proj_F_proportion -- it takes no catch,
+# so there is no F to apportion, and read_data()/build_data() write NA there.
+# The guard that some fleet takes projected F summed the column without na.rm,
+# so a single NA made the sum NA and the `if` errored with "missing value where
+# TRUE/FALSE needed" before the MSE started.
+testthat::test_that("run_mse tolerates NA Proj_F_proportion on non-catch fleets", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_on_cran()
+
+  data(BS2017SS)
+  BS2017SS$projyr <- 2027
+  fc <- BS2017SS$fleet_control
+  BS2017SS$fleet_control$Proj_F_proportion <-
+    ifelse(fc$Fleet_type %in% c(1, "Fishery"), 1, NA_real_)
+  testthat::expect_true(anyNA(BS2017SS$fleet_control$Proj_F_proportion))
+
+  ss <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = TRUE, getsd = FALSE, verbose = 0))))
+  om <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = BS2017SS, inits = ss$estimated_params, file = NULL,
+    estimateMode = 0, random_rec = FALSE, msmMode = 0,
+    HCR = Rceattle::build_hcr(HCR = 5, Ftarget = 0.4, Flimit = 0.35,
+                              Plimit = 0.2, Alpha = 0.05),
+    fit_control = Rceattle::fit_control(phase = TRUE, getsd = FALSE, verbose = 0))))
+
+  # The guard is reached before any projection work, so a 1-simulation run is
+  # enough to show it no longer errors on the NA.
+  testthat::expect_no_error(
+    suppressMessages(suppressWarnings(
+      Rceattle::run_mse(om = om, em = om, nsim = 1, assessment_period = 5,
+                        sampling_period = 5, simulate_data = FALSE,
+                        sample_rec = FALSE))))
+})
+
+# All-zero really is an error: nothing would take the projected catch.
+testthat::test_that("run_mse still errors when no fleet takes projected F", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_on_cran()
+
+  data(BS2017SS)
+  BS2017SS$projyr <- 2027
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(0, 7)
+
+  om <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = TRUE, getsd = FALSE, verbose = 0))))
+
+  testthat::expect_error(
+    suppressMessages(suppressWarnings(
+      Rceattle::run_mse(om = om, em = om, nsim = 1, assessment_period = 5,
+                        sampling_period = 5))),
+    "Proj_F_proportion")
 })
