@@ -242,7 +242,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  if(sum(om$data_list$fleet_control$Proj_F_proportion) == 0){
+  # na.rm: Proj_F_proportion is NA for fleets that never take catch (surveys),
+  # which is a legitimate workbook value. Without it the sum is NA and the `if`
+  # errors with "missing value where TRUE/FALSE needed" instead of reporting
+  # whether any fleet is set to take projected F.
+  if(sum(om$data_list$fleet_control$Proj_F_proportion, na.rm = TRUE) == 0){
     stop("F prop per fleet 'Proj_F_proportion' is zero")
   }
 

@@ -1,3 +1,19 @@
+# Rejection budget for a non-positive natural-scale index draw, as a multiple of
+# the fleet's row count. Correlated fleets reject the whole vector whenever any
+# single row is non-positive, so the joint rejection probability climbs with the
+# number of rows; scaling the budget the same way on both branches stops a wide
+# fleet from exhausting it while every row on its own is fine.
+.SIM_INDEX_MAX_TRIES <- 100L
+
+# Per-row rejection rate above which truncation is doing enough of the work that
+# the simulated data no longer follow the likelihood's own normal. Compared
+# against the WORST row, not the fleet mean -- truncation bites one marginal row
+# at a time, and a fleet average hides it. Set well below the rate that would
+# matter: rejecting even a twentieth of a row's draws already shifts that row's
+# mean by several percent.
+.SIM_INDEX_WARN_FRAC <- 0.02
+
+
 #' Resolve `Index_distribution` to its integer family code
 #'
 #' Accepts either spelling a `fleet_control` column can hold -- the name
@@ -39,9 +55,18 @@
 #' set -- projection years, since `data_check()` rejects a non-positive
 #' observation -- keep the values they came in with.
 #'
-#' A natural-scale draw can come out non-positive, which no index can be and
-#' `data_check()` rejects. The refit then fails and `self_test()` reports the run
-#' as not converged, which reads as a convergence problem, so warn instead.
+#' A natural-scale draw (`Normal`, `MVN`) can come out non-positive, which no
+#' index can be and `data_check()` rejects -- the refit then fails and
+#' `self_test()` reports the run as not converged, which reads as a convergence
+#' problem rather than a simulation one. Non-positive draws are therefore
+#' redrawn, up to `.SIM_INDEX_MAX_TRIES` times, which samples the natural-scale
+#' families from the normal **truncated at zero**. That is the intended
+#' distribution for a strictly positive index, but it does shift the mean upward
+#' relative to an untruncated normal whenever the absolute sd is an appreciable
+#' fraction of the index -- the case where truncation bites is exactly the case
+#' where the untruncated normal was already a poor observation model. Lognormal
+#' fleets are positive by construction and are not affected. If a fleet still
+#' draws non-positive after the retries, warn rather than fail.
 #'
 #' @param data_list Data list being simulated into.
 #' @param index_hat Predicted index, one per `index_data` row.
@@ -73,7 +98,8 @@
       sd   = log_index_sd)))
   }
 
-  nonpos <- character(0)
+  nonpos <- character(0)   # still non-positive after the retries
+  heavy  <- character(0)   # positive only because truncation did the work
 
   for (i in seq_len(nrow(fc))) {
     code <- fc$Fleet_code[i]
@@ -112,14 +138,44 @@
                             "definite (%s), so it cannot be simulated from."),
                      nm, conditionMessage(e)), call. = FALSE)
       })
-      obs[fit_rows] <- index_hat[fit_rows] +
-        as.numeric(L %*% stats::rnorm(length(fit_rows)))
+      # Correlated rows, so a rejection has to redraw the whole vector. Budget
+      # scales with the number of rows: a vector is rejected if ANY row is
+      # non-positive, so the joint rejection probability grows with n and a flat
+      # budget would fail on wide fleets that are fine row by row.
+      n <- length(fit_rows)
+      draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
+      drawn <- rep(1L, n); rejected <- as.integer(draw <= 0)
+      tries <- 0L
+      while (any(draw <= 0) && tries < .SIM_INDEX_MAX_TRIES * n) {
+        draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
+        drawn <- drawn + 1L; rejected <- rejected + as.integer(draw <= 0)
+        tries <- tries + 1L
+      }
+      obs[fit_rows] <- draw
       if (any(obs[fit_rows] <= 0)) nonpos <- c(nonpos, nm)
+      # Per-ROW rate, and the worst row rather than the fleet mean: truncation
+      # bites one marginal row at a time, and averaging over a wide fleet hides
+      # exactly the row that is being resampled.
+      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC) heavy <- c(heavy, nm)
 
     } else if (f == 3L) {
+      # Independent rows, so redraw only the offending ones.
       obs[rows] <- stats::rnorm(length(rows), mean = index_hat[rows],
                                 sd = log_index_sd[rows])
+      drawn <- rep(1L, length(rows)); rejected <- as.integer(obs[rows] <= 0)
+      tries <- 0L
+      repeat {
+        bad <- which(obs[rows] <= 0)
+        if (!length(bad) || tries >= .SIM_INDEX_MAX_TRIES * length(rows)) break
+        obs[rows[bad]] <- stats::rnorm(length(bad), mean = index_hat[rows[bad]],
+                                       sd = log_index_sd[rows[bad]])
+        drawn[bad] <- drawn[bad] + 1L
+        rejected[bad] <- rejected[bad] + as.integer(obs[rows[bad]] <= 0)
+        tries <- tries + 1L
+      }
       if (any(obs[rows] <= 0)) nonpos <- c(nonpos, as.character(fc$Fleet_name[i]))
+      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC)
+        heavy <- c(heavy, as.character(fc$Fleet_name[i]))
 
     } else {
       obs[rows] <- exp(stats::rnorm(
@@ -132,10 +188,22 @@
   if (length(nonpos)) {
     warning("Simulated a non-positive survey index for fleet(s) ",
             paste(unique(nonpos), collapse = ", "),
-            ". data_check() requires Observation > 0, so refitting this data ",
-            "set fails and self_test() counts the run as not converged. The ",
-            "observation error is large relative to the index: check the ",
-            "covariance, or the absolute sd, against the scale of the index.",
+            " after ", .SIM_INDEX_MAX_TRIES, " redraws. data_check() requires ",
+            "Observation > 0, so refitting this data set fails and self_test() ",
+            "counts the run as not converged. The observation error is large ",
+            "relative to the index: check the covariance, or the absolute sd, ",
+            "against the scale of the index.",
+            call. = FALSE)
+  } else if (length(heavy)) {
+    warning("Simulating the survey index for fleet(s) ",
+            paste(unique(heavy), collapse = ", "),
+            " needed a non-positive draw redrawn more than ",
+            round(100 * .SIM_INDEX_WARN_FRAC), "% of the time. The draws are ",
+            "positive, but they come from a normal truncated at zero rather ",
+            "than the normal the likelihood assumes, so a self_test() built on ",
+            "them tests a different data-generating process. The absolute sd is ",
+            "large relative to the index: check it, or the covariance, against ",
+            "the scale of the index.",
             call. = FALSE)
   }
   obs

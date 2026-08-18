@@ -37,7 +37,9 @@
     if (!is.null(maxyr)) keep <- keep & dat$Year <= maxyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
-    pos <- dat$.obs > 0
+    # Projection rows carry no observation, so exclude NAs as well as
+    # non-positives; those rows keep the NA_real_ interval and draw no error bar.
+    pos <- !is.na(dat$.obs) & dat$.obs > 0
     upr <- lwr <- rep(NA_real_, nrow(dat))
     upr[pos] <- stats::qlnorm(0.975, log(dat$.obs[pos]), dat$.sd[pos])
     lwr[pos] <- stats::qlnorm(0.025, log(dat$.obs[pos]), dat$.sd[pos])
@@ -267,8 +269,11 @@ plot_indexresidual <- function(Rceattle,
     dat <- Rceattle[[i]]$data_list$index_data
     dat$.hat <- Rceattle[[i]]$quantities$index_hat
     # Drop prediction-only rows (Year < 0); they are not in the likelihood and
-    # have no residual to plot.
+    # have no residual to plot. Projection years are excluded unless asked for,
+    # matching `.fleet_fit_df()` -- a projection row's "observation" is whatever
+    # placeholder its workbook carries, which plots as a spurious residual.
     keep <- dat$Species %in% species & dat$Year > 0
+    if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
     out[[length(out) + 1L]] <- data.frame(

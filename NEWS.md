@@ -68,6 +68,66 @@
 
 ## Bug fixes
 
+* **`self_test()` no longer fails on every replicate for a model with a
+  natural-scale survey index.** `sim_mod()` drew `Normal` and `MVN` index
+  observations straight from the natural-scale normal, so a fleet whose absolute
+  sd is an appreciable fraction of its index -- e.g. an acoustic-vessel index
+  with sd 0.25-0.80 against observations from 0.70 -- produced a non-positive
+  draw most replicates. `data_check()` rejects those, the refit failed, and
+  `self_test()` counted the replicate as *not converged*, which reads as a
+  convergence problem rather than a simulation one. Non-positive draws are now
+  redrawn (rejection sampling, correlated fleets redrawn jointly). On EBS
+  pollock this takes `self_test()` from 0 of 50 replicates returned to all of
+  them, recovering spawning-stock biomass with a median bias of -0.4%.
+
+  **Read the new warnings before trusting such a run.** Redrawing samples the
+  fleet from a normal *truncated at zero*, not the normal the likelihood
+  maximises, so a fleet that needs it is self-testing against a data-generating
+  process the estimation model never assumed. The shift is not small where it
+  bites: at an index of 0.70 with an absolute sd of 0.80, a fifth of draws are
+  rejected and the truncated mean is 39% above the untruncated one. There are
+  now two warnings -- one when a fleet still cannot draw positive after the
+  retries (as before), and a new one when any row needed redrawing more than 2%
+  of the time, which reports that truncation, not the likelihood, is shaping the
+  draws. Both point at the same underlying issue: an absolute sd that large
+  relative to the index means the natural-scale normal was already a poor
+  observation model.
+
+  Lognormal fleets are positive by construction and are unaffected, including
+  the seeded all-lognormal fast path. Seeded results are also bit-identical for
+  any `Normal`/`MVN` fleet that never rejects a draw. A fleet that *does* reject
+  consumes extra random numbers, so that replicate's compositions and catch
+  shift too, and every later replicate in a seeded `self_test()` or `run_mse()`
+  loop moves with it -- those results change.
+
+* **`run_mse()` no longer errors when a survey fleet has `NA`
+  `Proj_F_proportion`.** The check that some fleet takes projected F summed the
+  column without `na.rm`, so the `NA` that fleets taking no catch legitimately
+  carry made the sum `NA` and the `if` failed with `missing value where
+  TRUE/FALSE needed` before the MSE started.
+
+* **`plot_indexresidual()` now honours `incl_proj`.** The argument was accepted
+  and then ignored, so projection years were always plotted -- the opposite of
+  its documented default, and of `plot_index()` / `plot_catch()`. A projection
+  row's "observation" is whatever placeholder its workbook carries (the
+  roll-forward scripts in `Rceattle-models` write 99999), which drew as an
+  enormous spurious residual. **This removes rows from the default output** for
+  any model whose `index_data` runs past `endyr`; pass `incl_proj = TRUE` to
+  keep them. No bundled dataset has such rows -- `clean_data()` extends
+  `catch_data` to the projection horizon but not `index_data`, and `run_mse()`
+  marks its projection index rows with a negative `Year`, which was already
+  filtered -- so in practice this bites only workbooks that carry their own.
+  Applies to the default `residual_type = "pearson"`; the `"osa"` path returns
+  `osa_residuals()` directly and takes none of the plot arguments.
+
+* **`plot_catch(incl_proj = TRUE)` no longer errors on projection rows.**
+  `clean_data()` gives projection years an `NA` catch, and the lognormal
+  error-bar mask in `.fleet_fit_df()` passed that `NA` to a subscript. The mask
+  now excludes `NA` observations, and those rows draw the fitted line with no
+  error bar, as non-positive observations already did. `plot_index()` shares the
+  code path and is fixed with it, though only a workbook that supplies `NA`
+  index observations can reach it.
+
 * **`data_check()` now warns when CAAL data sit on a fleet whose
   `Selectivity_dimension` is not `"Length"`.** Conditional age-at-length is the
   age composition within a length bin, so the model predicts it from

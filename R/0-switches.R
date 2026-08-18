@@ -385,7 +385,8 @@ switch_check <- function(data_list){
   .dflt_when <- list(
     growth_estimated = isTRUE(any(data_list$growth_model > 0)),
     has_caal         = isTRUE(nrow(data_list$caal_data) > 0),
-    sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE))
+    sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
+    multispecies     = isTRUE(any(data_list$msmMode > 0))
   )
 
   # Model and multi-species switches
@@ -403,8 +404,11 @@ switch_check <- function(data_list){
     data_list$fleet_control$Estimate_catch_sd <-
       .map_switch(data_list$fleet_control$Estimate_catch_sd, estimate_sd_map, "Estimate_catch_sd")
   }
-  data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
-  data_list$Diet_distribution <- set_default(data_list$Diet_distribution, rep(0, data_list$nspp), "'Diet_distribution' are not included in data, assuming 'Multinomial'")
+  # Diet inputs are consumed only under predation; fill silently otherwise.
+  data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp),
+    if (.dflt_when$multispecies) "'Diet_comp_weights' are not included in data, assuming 1")
+  data_list$Diet_distribution <- set_default(data_list$Diet_distribution, rep(0, data_list$nspp),
+    if (.dflt_when$multispecies) "'Diet_distribution' are not included in data, assuming 'Multinomial'")
   # Resolve readable strings ("Multinomial" / "DirichletMultinomial") to the integer
   # codes the C++ diet likelihood reads; integer input passes through unchanged.
   data_list$Diet_distribution <- .map_switch(data_list$Diet_distribution, diet_loglike_map, "Diet_distribution")
