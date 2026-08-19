@@ -988,7 +988,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         # Rho. Slot 1 is the correlation across selectivity BINS, slot 2
         # across YEARS -- the array passed to SEPARABLE() is (bin, year) and
         # SEPARABLE(f, g) puts g on the fastest-running dimension. These two
-        # comments said the opposite until 5.7.0.
+        # comments said the opposite until 5.9.0, as did the density itself.
         map_list$sel_curve_pen[flt,1] <- flt # bin
         map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
       }

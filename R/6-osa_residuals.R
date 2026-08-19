@@ -34,12 +34,15 @@
 #' pseudo-likelihood are residualized under the full multinomial.
 #'
 #' Survey-index OSA residuals are supported for every index likelihood family
-#' (`Index_distribution`): lognormal IID (`"Lognormal"`) and natural-scale
-#' `"Normal"` residualize as independent normals on the log or natural scale; the
-#' correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened by the lower
-#' Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-#' multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
-#' closed form [TMB::oneStepPredict()] reproduces for a Gaussian block.
+#' (`Index_distribution`): lognormal IID (`"Lognormal"`) and the natural-scale
+#' `"Normal"` and `"TruncatedNormal"` residualize as independent draws on the log
+#' or natural scale, the last against the renormalized density it was fitted with
+#' (so its residuals are uniform under the truncated model, not the untruncated
+#' one); the correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened by
+#' the lower Cholesky of the fleet's survey covariance Sigma = L L' so the
+#' residuals are the multivariate-Gaussian one-step-ahead innovations
+#' L^-1 (obs - q*pred) -- the closed form [TMB::oneStepPredict()] reproduces for a
+#' Gaussian block.
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of

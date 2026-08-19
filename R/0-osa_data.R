@@ -180,15 +180,18 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # (index_ll_type), matching what the cpp reads in OSA mode so oneStepPredict()
   # residualizes the same model that was fit:
   #   0 lognormal IID  -> log(obs)                     (dnorm on the log scale)
-  #   3 natural Normal -> obs                           (dnorm on the natural scale)
+  #   3 Normal, 4 TruncatedNormal -> obs                (dnorm on the natural
+  #       scale; family 4 adds the truncation constant in the cpp, which shifts
+  #       the density but not the value stored here)
   #   1/2 MVN / MVNORM -> z = L^-1 obs, whitened by the
   #       lower Cholesky of the fleet's covariance Sigma = L L', so the correlated
   #       block becomes independent standard normals (the cpp whitens the mean with
   #       the same L). The innovation z - L^-1(q*pred) is the multivariate-Gaussian
   #       one-step-ahead residual (Thygesen et al. 2017; the SAM/TMB construction).
   # The per-family scale is only needed for the OSA build; the ordinary fit reads
-  # obsvec only for family 0 (and reads index_obs directly for 1/2/3), so the fast
-  # path (build_osa == FALSE) keeps the original log(obs) layout for every fleet.
+  # obsvec only for family 0 (and reads index_obs directly for 1/2/3/4), so the
+  # fast path (build_osa == FALSE) keeps the original log(obs) layout for every
+  # fleet.
   index_ctl <- data_list$index_ctl
   index_obs <- data_list$index_obs
   index_obsvec_idx <- rep(-1L, nrow(index_obs))

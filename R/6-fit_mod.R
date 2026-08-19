@@ -562,7 +562,7 @@ fit_mod <-
       }
       # Drop anything the template no longer has a parameter for, in skeleton
       # order. `inits` from an older fit can carry a retired block (e.g.
-      # log_growth_par_devs, removed in 5.7.0). MakeADFun drops names the
+      # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
       # template does not declare, but build_map() runs on start_par first and
       # produces a map entry per element, so the stale name reached MakeADFun
       # through the map and stopped with "Names in map must correspond to

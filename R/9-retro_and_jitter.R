@@ -783,6 +783,15 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   refit errored outright is returned as the condition object rather than a
 #'   model, so it cannot abort the run.
 #'
+#'   When \code{process} redrew something, \code{attr(, "process_sim")} holds the
+#'   deviations that generated each replicate's data -- a list keyed by the same
+#'   \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
+#'   \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
+#'   is a named list of whichever of \code{rec_dev}, \code{init_dev},
+#'   \code{log_M1_dev} and \code{beta_linkage_re} were drawn. Compare estimates
+#'   against these, not against the operating model: its fitted deviations are no
+#'   longer what generated the data.
+#'
 #' @section Interpreting the spread:
 #' \code{\link{sim_mod}} redraws the observations only -- indices, catch,
 #' compositions, CAAL and stomach contents. Some rows are deliberately left
@@ -792,7 +801,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' the years it is fitted to. Those data are held fixed across every replicate,
 #' so recovery of whatever they inform is optimistic.
 #'
-#' It does not redraw recruitment, so with
+#' By default it does not redraw recruitment, so with
 #' \code{random_rec = TRUE} every replicate shares the operating model's single
 #' recruitment realization, and that realization is its shrunk empirical-Bayes
 #' modes rather than a draw from N(0, sigmaR). Two consequences: the spread
@@ -801,7 +810,9 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' model's own uncertainty bands, which include process error); and sigmaR is
 #' re-estimated from deviations that were shrunk toward zero the same way in
 #' every replicate, a downward bias that averaging over simulations does not
-#' remove.
+#' remove. Pass \code{process = "recruitment"} (or \code{"dynamics"}, or
+#' \code{TRUE}) to redraw it and remove both, at the cost of asking a different
+#' question -- see \code{process} above.
 #'
 #' @examples
 #' \donttest{

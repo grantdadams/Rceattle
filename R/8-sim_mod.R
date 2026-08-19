@@ -35,25 +35,16 @@
 }
 
 
-#' Warn where a covariance survey fleet carries rows it cannot simulate
+#' Warn where a random linkage the caller asked for was left at its fitted values
 #'
-#' The `MVN`/`MVNORM` draw is a correlated block, and the covariance is supplied
-#' for the fleet's FITTED observations only -- there is no covariance entry for a
-#' year the model does not fit, so those rows keep the values they came in with.
-#' The independent families have no such limit and redraw every row.
+#' Observed AR1 (Rogers QAR1) is the one random linkage the template leaves
+#' alone: a new latent state paired with the original covariate observations
+#' would describe two different histories. Say so, rather than let a process the
+#' caller asked for come back unchanged without explanation.
 #'
-#' That matters because `run_mse()` reveals the operating model's negative-`Year`
-#' rows to the estimation model as each assessment's new data. For a covariance
-#' fleet those rows were never drawn, so the estimation model would be handed
-#' survey observations carried over unchanged, and a management-strategy
-#' evaluation would report performance against a survey that never varied.
-#'
-#' @param data_list Data list being simulated into.
+#' @param obj The simulated TMB object.
+#' @param state Integer switch vector from `.sim_state_codes()`.
 #' @noRd
-# Observed AR1 (Rogers QAR1) is the one random linkage the template leaves
-# alone: a new latent state paired with the original covariate observations
-# would describe two different histories. Say so, rather than let a process the
-# caller asked for come back unchanged without explanation.
 .sim_warn_linkage_qar1 <- function(obj, state) {
   d <- obj$env$data
   obs <- d$linkage_re_obs
@@ -112,19 +103,26 @@
   }
   if (state[5] == 1L) {
     tvs <- code(fc$Time_varying_sel, tv_sel_map)
-    if (any(tvs %in% c(1L, 2L, 4L, 5L), na.rm = TRUE)) hit <- c(hit, "selectivity")
+    # The AR1 selectivity FORMS (2DAR1 = 6, 3DAR1 = 7) carry sel_coff_dev random
+    # effects of their own and ignore Time_varying_sel entirely, so keying only
+    # off that column would leave them frozen without a word -- the loudest case,
+    # since an AR1 selectivity field is exactly what someone redrawing
+    # selectivity means to test.
+    sel <- code(fc$Selectivity, sel_map)
+    if (any(tvs %in% c(1L, 2L, 4L, 5L), na.rm = TRUE) ||
+        any(sel %in% c(6L, 7L), na.rm = TRUE)) hit <- c(hit, "selectivity")
   }
 
   if (length(hit)) {
     warning("Process error was requested for ", paste(hit, collapse = " and "),
-            ", but this model expresses it with the legacy Time_varying_q / ",
-            "Time_varying_sel deviations, which are not simulated yet -- only ",
-            "the equivalent random linkages are. Those deviations keep their ",
-            "fitted values, so a self-test on this model measures parameter ",
-            "recovery, not recovery of the ", paste(hit, collapse = " or "),
-            " process. Express it as a random linkage (see ",
-            "vignette('environmental-linkages-and-priors')) to have it drawn.",
-            call. = FALSE)
+            ", but this model expresses it with the switch-based deviations ",
+            "(Time_varying_q / Time_varying_sel, or an AR1 selectivity form), ",
+            "which are not simulated yet -- only the equivalent random linkages ",
+            "are. Those deviations keep their fitted values, so a self-test on ",
+            "this model measures parameter recovery, not recovery of the ",
+            paste(hit, collapse = " or "), " process. Express it as a random ",
+            "linkage (see vignette('environmental-linkages-and-priors')) to ",
+            "have it drawn.", call. = FALSE)
     return(invisible(TRUE))
   }
   invisible(FALSE)
@@ -160,16 +158,47 @@
 }
 
 
-# Truncation diagnostics for the correlated survey draw. The template redraws a
-# non-positive MVN vector (see ceattle.cpp, the correlated block) and reports the
-# per-row attempt and rejection counts; this reads them.
+# Recruitment scored by two densities has no single distribution to draw from.
+# Under srr_fun = 0 with srr_pred_fun > 0 -- the AMAK/Ianelli configuration --
+# recruitment is R = exp(R0 + rec_dev) and the stock-recruit curve is fitted as a
+# PENALTY on the same deviation, so rec_dev is scored by JNLL_REC_DEV and again
+# by JNLL_SRR_PENALTY. Drawing at R_sd from the first alone is over-dispersed
+# relative to what the estimator assumes, and a self-test would read that as a
+# failure to recover R_sd. The template draws nothing (ceattle.cpp section 5.13);
+# this says so.
+.sim_warn_rec_srr_penalty <- function(obj, state) {
+  if (state[1] != 1L) return(invisible(FALSE))
+  d <- obj$env$data
+  if (!isTRUE(d$srr_fun == 0 && d$srr_pred_fun > 0)) return(invisible(FALSE))
+
+  warning("Process error was requested for recruitment, but this model fits the ",
+          "stock-recruit curve as a penalty on the recruitment deviations ",
+          "(srr_fun = 0 with srr_pred_fun > 0, the AMAK/Ianelli configuration). ",
+          "The deviations are then scored by two densities at once, which do not ",
+          "compose into a single distribution to draw from, so recruitment was ",
+          "not redrawn and the fitted deviations stand. Set srr_fun to the ",
+          "stock-recruit function itself to have recruitment simulated.",
+          call. = FALSE)
+  invisible(TRUE)
+}
+
+
+# Truncation diagnostics for the natural-scale survey draws. An index cannot be
+# negative and data_check() rejects one, so a draw from an untruncated normal has
+# to be redrawn when it comes back non-positive; the template counts the attempts
+# and rejections per row (see ceattle.cpp) and this reads them.
 #
-# Only MVN needs this. A `Normal` fleet is fitted AND drawn as a normal
-# left-truncated at zero, so its draw already follows its own likelihood and
-# there is nothing to warn about. A multivariate normal truncated to the positive
-# orthant has no closed-form sampler, so MVN is drawn by rejection -- exact for
-# the truncated joint, but the likelihood scores the UNtruncated normal, and that
-# gap is what these warnings are about.
+# Two families land here, for the same reason: `Normal` (drawn row by row) and
+# `MVN`/`MVNORM` (the whole vector redrawn, since truncating each margin
+# separately would break the correlation the likelihood exists to model). In both
+# the redrawn data follow the normal truncated at zero while the likelihood
+# scores the untruncated one, so a self-test built on them measures a different
+# data-generating process. That gap is what these warnings are about.
+#
+# `TruncatedNormal` never enters here: it is fitted AND drawn as a normal
+# left-truncated at zero, by inverse CDF, so its draw already follows its own
+# likelihood. It is the fix for a `Normal` fleet that warns; there is no
+# equivalent for MVN, which has no closed-form truncated sampler.
 .sim_warn_index_truncated <- function(sim_rep, data_list) {
   tries   <- as.numeric(sim_rep$index_trunc_tries_sim)
   rejects <- as.numeric(sim_rep$index_trunc_rejects_sim)
@@ -187,28 +216,57 @@
   nonpos <- fleet_of(drawn & is.finite(obs) & obs <= 0)
   heavy  <- setdiff(fleet_of(drawn & frac > .SIM_INDEX_WARN_FRAC), nonpos)
 
+  # The remedy differs by family, so name it: a `Normal` fleet has a truncated
+  # counterpart to switch to, a covariance fleet does not.
+  fam <- .index_family_codes(data_list$fleet_control$Index_distribution)
+  names(fam) <- as.character(data_list$fleet_control$Fleet_name)
+  remedy <- function(flts) {
+    codes <- fam[flts]
+    if (any(codes %in% 3L, na.rm = TRUE)) {
+      paste0("An absolute sd that large relative to the index means the ",
+             "untruncated normal is a poor observation model here. Use ",
+             "Index_distribution = \"TruncatedNormal\" to fit and simulate the ",
+             "same truncated density, or reduce the observation sd.")
+    } else {
+      paste0("Check the covariance against the scale of the index. MVN has no ",
+             "closed-form truncated sampler, so there is no family to switch to.")
+    }
+  }
+
   if (length(nonpos)) {
     warning("Simulated a non-positive survey index for fleet(s) ",
-            paste(nonpos, collapse = ", "), " after ", .SIM_INDEX_MAX_TRIES,
+            paste(nonpos, collapse = ", "), ", after up to ", .SIM_INDEX_MAX_TRIES,
             " redraws per row. data_check() requires Observation > 0, so ",
             "refitting this data set fails and self_test() counts the run as ",
-            "not converged. The observation error is large relative to the ",
-            "index: check the covariance against the scale of the index.",
-            call. = FALSE)
+            "not converged. ", remedy(nonpos), call. = FALSE)
   } else if (length(heavy)) {
     warning("Simulating the survey index for fleet(s) ",
             paste(heavy, collapse = ", "), " needed a non-positive draw ",
             "redrawn more than ", round(100 * .SIM_INDEX_WARN_FRAC),
             "% of the time. The draws are positive, but they come from the ",
-            "joint normal truncated at zero rather than the untruncated normal ",
-            "the covariance likelihood assumes, so a self_test() built on them ",
-            "tests a different data-generating process. Check the covariance ",
-            "against the scale of the index.", call. = FALSE)
+            "normal truncated at zero rather than the untruncated normal the ",
+            "likelihood scores, so a self_test() built on them tests a ",
+            "different data-generating process. ", remedy(heavy), call. = FALSE)
   }
   invisible(length(nonpos) > 0 || length(heavy) > 0)
 }
 
 
+#' Warn where a covariance survey fleet carries rows it cannot simulate
+#'
+#' The `MVN`/`MVNORM` draw is a correlated block, and the covariance is supplied
+#' for the fleet's FITTED observations only -- there is no covariance entry for a
+#' year the model does not fit, so those rows keep the values they came in with.
+#' The independent families have no such limit and redraw every row.
+#'
+#' That matters because `run_mse()` reveals the operating model's negative-`Year`
+#' rows to the estimation model as each assessment's new data. For a covariance
+#' fleet those rows were never drawn, so the estimation model would be handed
+#' survey observations carried over unchanged, and a management-strategy
+#' evaluation would report performance against a survey that never varied.
+#'
+#' @param data_list Data list being simulated into.
+#' @noRd
 .sim_warn_index_unsimulated <- function(data_list) {
   fc  <- data_list$fleet_control
   idx <- data_list$index_data
@@ -585,9 +643,9 @@
 #' @details
 #' Every draw is taken by the TMB model itself, in a \code{SIMULATE} block beside
 #' the likelihood that defines it, so the simulated data and the density that
-#' will be fitted to them cannot drift apart. That is the point: two copies of
-#' one observation model drift silently, and a \code{\link{self_test}} then
-#' reports recovery against a process the likelihood never assumed.
+#' will be fitted to them cannot drift apart. Two copies of one observation model
+#' drift silently, and a \code{\link{self_test}} then reports recovery against a
+#' process the likelihood never assumed.
 #'
 #' Consequently \code{simulate = TRUE} needs a model to evaluate. A model loaded
 #' from an \code{.Rdata}/\code{.rds} file has one, and a fit whose \code{$obj}
@@ -636,7 +694,6 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
   quantities <- Rceattle$quantities
 
   # Indices of abundance/biomass ----
-  log_index_sd <- quantities$log_index_sd
   index_hat <- quantities$index_hat
 
   if (simulate) {
@@ -655,6 +712,7 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
     .sim_warn_linkage_qar1(sim_obj, sim_state)
     .sim_warn_process_unsimulated(dat_sim, sim_state)
     .sim_warn_process_absent(sim_obj, sim_state)
+    .sim_warn_rec_srr_penalty(sim_obj, sim_state)
     index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
     .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
     dat_sim$index_data$Observation <-
@@ -815,13 +873,17 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 #' self-test would report perfect recovery of a process it never simulated.
 #'
 #' @param sim_rep The report from one `obj$simulate()` call.
-#' @param state Integer switch vector from [.sim_state_codes()].
+#' @param state Integer switch vector from `.sim_state_codes()`.
 #' @param obj The simulated object, for the model's own switches.
 #' @return Named list of the drawn deviations, or NULL if none were drawn.
 #' @noRd
 .sim_process_truth <- function(sim_rep, state, obj) {
   out <- list()
-  if (state[1] == 1L) {
+  # rec_srr_single_density is the template's own gate on the recruitment draw
+  # (ceattle.cpp section 5.13): FALSE under the AMAK/Ianelli configuration, where
+  # the stock-recruit penalty scores rec_dev a second time and there is no single
+  # distribution to draw from. Nothing was drawn there, so nothing is returned.
+  if (state[1] == 1L && isTRUE(as.logical(sim_rep$rec_srr_single_density))) {
     out$rec_dev  <- sim_rep$rec_dev_sim
     out$init_dev <- sim_rep$init_dev_sim
   }
@@ -846,7 +908,7 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 #' AR1 (QAR1) groups, so R and the template agree on what was drawn.
 #'
 #' @param obj The simulated object.
-#' @param state Integer switch vector from [.sim_state_codes()].
+#' @param state Integer switch vector from `.sim_state_codes()`.
 #' @noRd
 .sim_linkage_drawn <- function(obj, state) {
   d <- obj$env$data
@@ -952,6 +1014,12 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #' @param simulation_mods List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data
 #' @param object character string specifying which part of the model to compare (default = "quantities")
 #' @return A data frame summarizing simulation performance metrics
+#' @note Compares against \code{operating_mod} only, so it is valid when the
+#'   replicates redrew the observations alone. If they were produced with
+#'   \code{sim_mod(process = )} / \code{self_test(process = )}, the operating
+#'   model's deviations are no longer what generated the data and the bias this
+#'   reports is an artefact. Compare against
+#'   \code{attr(sims, "process_sim")} in that case.
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update

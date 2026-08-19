@@ -155,7 +155,8 @@ index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
   "MVNORM" = 2,
-  "Normal" = 3
+  "Normal" = 3,
+  "TruncatedNormal" = 4
 )
 
 fleet_map <- c(
@@ -375,6 +376,23 @@ switch_check <- function(data_list){
     data_list$fleet_control, "Accumulation_age_lower")
   data_list$fleet_control <- drop_deprecated_col(
     data_list$fleet_control, "Accumulation_age_upper")
+
+  # `growth_re` and `growth_indices` are removed. `growth_re` was documented as
+  # the way to put random effects on growth, but nothing consumed it: the
+  # deviation array was mapped off in every configuration and the template gave
+  # it no density, so setting it changed no fit. Drop them with a message rather
+  # than silently, so a data list still carrying `growth_re = 1` says where the
+  # feature went instead of appearing to work.
+  for (.old in c("growth_re", "growth_indices")) {
+    if (!is.null(data_list[[.old]])) {
+      data_list[[.old]] <- NULL
+      message(sprintf(
+        paste0("'%s' is deprecated and ignored; it never had an effect on any ",
+               "fit. Specify time-varying growth with build_growth(linkages = ) ",
+               "-- see vignette('environmental-linkages-and-priors')."),
+        .old))
+    }
+  }
 
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0

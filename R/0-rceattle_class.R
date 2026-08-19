@@ -897,10 +897,8 @@ as.data.frame.Rceattle <- function(x,
 #' the process model as well.
 #'
 #' @details
-#' A thin wrapper on [sim_mod()], which does the work and documents the
-#' observation model in full. Use whichever reads better; `sim_mod()` also
-#' offers `simulate = FALSE` for expected values rather than draws, which is
-#' not simulation and so has no place in this method.
+#' A wrapper on [sim_mod()], which documents the observation model in full. For
+#' expected values rather than draws, call `sim_mod(simulate = FALSE)`.
 #'
 #' Every draw is taken by the TMB model itself, beside the likelihood that
 #' defines it, so the simulated data and the density that will be fitted to them
@@ -918,9 +916,13 @@ as.data.frame.Rceattle <- function(x,
 #' @param ... Currently unused.
 #'
 #' @return A list of `nsim` `data_list` objects -- always a list, including at
-#'   `nsim = 1`, so callers do not have to special-case the length. Each element
-#'   carries the drawn process deviations as `attr(, "process_sim")` when
-#'   `process` redrew something.
+#'   `nsim = 1`, so callers do not have to special-case the length. When
+#'   `process` redrew something, each element carries the deviations that
+#'   generated it as `attr(, "process_sim")`: a named list of whichever of
+#'   `rec_dev`, `init_dev`, `log_M1_dev` and `beta_linkage_re` were drawn.
+#'   Compare estimates against those rather than against `object`, whose fitted
+#'   deviations are no longer what generated the data. The seed, when given, is
+#'   recorded on the returned list as `attr(, "seed")`.
 #'
 #' @seealso [sim_mod()] for the observation model and the `process` options,
 #'   [self_test()] for simulating and refitting in one step.
