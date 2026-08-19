@@ -159,6 +159,42 @@ index_distribution_map <- c(
   "TruncatedNormal" = 4
 )
 
+#' Which index rows are fitted on the NATURAL scale?
+#'
+#' `Index_distribution` splits into two scales, and almost everything downstream
+#' of the likelihood assumed the lognormal one. `Lognormal` (0) is a log-scale
+#' family whose `Log_sd` is a CV / log-sd; `MVN` (1), `MVNORM` (2), `Normal` (3)
+#' and `TruncatedNormal` (4) are natural-scale families whose sd is ABSOLUTE, in
+#' the units of the index. Applying a log-scale formula to the second group does
+#' not error -- it silently returns nonsense, because `sigma^2 / 2` is then a
+#' number the size of the index squared.
+#'
+#' A new natural-scale family has to be added to the vector below as well as to
+#' `index_distribution_map`, or every fleet using it silently reverts to the
+#' log-scale treatment this function exists to prevent.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @return Logical, one per `index_data` row; `FALSE` where the fleet is
+#'   lognormal or cannot be resolved.
+#' @keywords internal
+#' @noRd
+.index_rows_natural_scale <- function(data_list) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(logical(0))
+  fam <- fc$Index_distribution
+  if (is.null(fam)) return(rep(FALSE, nrow(idx)))
+  chr <- trimws(as.character(fam))
+  num <- suppressWarnings(as.integer(chr))
+  code <- ifelse(!is.na(num), num, as.integer(index_distribution_map[chr]))
+  code[is.na(code)] <- 0L
+  nat <- code %in% c(1L, 2L, 3L, 4L)   # MVN, MVNORM, Normal, TruncatedNormal
+  out <- nat[match(idx$Fleet_code, fc$Fleet_code)]
+  out[is.na(out)] <- FALSE
+  out
+}
+
+
 fleet_map <- c(
   "Fishery" = 1,
   "Survey" = 2,

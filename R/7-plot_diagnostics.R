@@ -41,8 +41,23 @@
     # non-positives; those rows keep the NA_real_ interval and draw no error bar.
     pos <- !is.na(dat$.obs) & dat$.obs > 0
     upr <- lwr <- rep(NA_real_, nrow(dat))
-    upr[pos] <- stats::qlnorm(0.975, log(dat$.obs[pos]), dat$.sd[pos])
-    lwr[pos] <- stats::qlnorm(0.025, log(dat$.obs[pos]), dat$.sd[pos])
+    # Interval on the scale the fleet is actually fitted on. A natural-scale
+    # survey family (MVN / MVNORM / Normal) carries an ABSOLUTE sd, so the
+    # lognormal form treats it as a log-sd: an sd of 150 on an index of ~100
+    # draws a band of [0, 1e130] and the panel is unreadable. Catch is lognormal
+    # throughout, so it always takes the log branch.
+    nat <- rep(FALSE, nrow(dat))
+    if (kind == "index") {
+      nat_all <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
+      if (length(nat_all)) nat <- nat_all[keep]
+    }
+    lg <- pos & !nat
+    nt <- pos & nat
+    upr[lg] <- stats::qlnorm(0.975, log(dat$.obs[lg]), dat$.sd[lg])
+    lwr[lg] <- stats::qlnorm(0.025, log(dat$.obs[lg]), dat$.sd[lg])
+    upr[nt] <- dat$.obs[nt] + stats::qnorm(0.975) * dat$.sd[nt]
+    # An index cannot be negative; clamp rather than draw a bar through zero.
+    lwr[nt] <- pmax(0, dat$.obs[nt] + stats::qnorm(0.025) * dat$.sd[nt])
     out[[length(out) + 1L]] <- data.frame(
       Model       = model_names_use[i],
       Fleet       = as.character(fc$Fleet_name[match(dat$Fleet_code,
@@ -281,7 +296,14 @@ plot_indexresidual <- function(Rceattle,
       Fleet    = as.character(fc$Fleet_name[match(dat$Fleet_code,
                                                   fc$Fleet_code)]),
       Year     = abs(dat$Year),
-      Residual = log(dat$.hat) - log(dat$Observation),
+      # log ratio for a log-scale fleet, plain difference for a natural-scale
+      # one -- log() of a natural-scale residual is not a residual.
+      Residual = {
+        nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
+        nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
+        ifelse(nat, dat$.hat - dat$Observation,
+               log(dat$.hat) - log(dat$Observation))
+      },
       stringsAsFactors = FALSE)
   }
   if (length(out) == 0L) {

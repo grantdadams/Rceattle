@@ -135,7 +135,7 @@ testthat::test_that("sim_mod keeps natural-scale index draws positive", {
   # all and self_test() would count the run as not converged, reading as a
   # convergence problem rather than a simulation one. Non-positive draws are
   # redrawn instead (normal truncated at zero).
-  for (dist in c("Normal", "MVN")) {
+  for (dist in c("Normal", "TruncatedNormal", "MVN")) {
     fit <- .sim_index_fixture(dist, sd = 60)      # index_hat is 100
     srv <- fit$data_list$index_data$Fleet_name == "Survey"
     set.seed(1)
@@ -154,26 +154,37 @@ testthat::test_that("sim_mod warns when truncation is doing the work, on both br
   # so a self_test() built on it tests a different data-generating process.
   # The rate is per ROW and read off the worst one -- a fleet mean would hide a
   # single marginal row, which is how truncation actually presents.
-  # MVN only. A multivariate normal truncated to the positive orthant has no
-  # closed-form sampler, so it is drawn by rejection while the likelihood still
-  # scores the untruncated normal -- that gap is what the warning is about.
-  fit <- .sim_index_fixture("MVN", sd = 115)    # index_hat is 100
-  set.seed(1)
-  testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
-                           "truncated at zero")
+  # Both untruncated natural-scale families. "Normal" is fitted as a plain normal
+  # (it reproduces the AMAK avo_like / cpue_like term for term, which is what the
+  # ADMB bridges compare against), and MVN cannot be truncated at all -- a
+  # multivariate normal truncated to the positive orthant has no closed-form
+  # sampler. Either way the draw is redrawn until positive while the likelihood
+  # scores the untruncated normal, and that gap is what the warning is about.
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 115)    # index_hat is 100
+    set.seed(1)
+    testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
+                             "truncated at zero", info = dist)
+  }
 
-  # Normal has no such gap: it is FITTED as a normal left-truncated at zero and
-  # drawn from that same distribution by inverse CDF, so however hard the
+  # The warning on a univariate fleet names the family that removes the gap.
+  fit <- .sim_index_fixture("Normal", sd = 115)
+  set.seed(1)
+  w <- testthat::capture_warnings(Rceattle::sim_mod(fit, simulate = TRUE))
+  testthat::expect_true(any(grepl("TruncatedNormal", w)))
+
+  # TruncatedNormal has no gap: it is FITTED as a normal left-truncated at zero
+  # and drawn from that same distribution by inverse CDF, so however hard the
   # truncation bites the draw still follows its own likelihood. Positive by
   # construction, and nothing to warn about.
-  fit <- .sim_index_fixture("Normal", sd = 115)
+  fit <- .sim_index_fixture("TruncatedNormal", sd = 115)
   set.seed(1)
   sim <- testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
   srv <- sim$index_data$Fleet_name == "Survey"
   testthat::expect_true(all(sim$index_data$Observation[srv] > 0))
 
-  # A fleet with a small sd must stay silent on both branches.
-  for (dist in c("Normal", "MVN")) {
+  # A fleet with a small sd must stay silent on every branch.
+  for (dist in c("Normal", "TruncatedNormal", "MVN")) {
     fit <- .sim_index_fixture(dist, sd = 5)
     set.seed(1)
     testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
