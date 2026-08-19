@@ -31,6 +31,41 @@ test_that("a two-sex fleet normalizing at a named bin is warned about the flip",
                     message = "Sel_norm_scope")
 })
 
+test_that("a blank Sel_norm_scope cell is announced, not silently flipped", {
+  # Supplying the column and leaving a row empty is the same behaviour flip as
+  # omitting the column, so it must not be a way to skip the notice.
+  d <- Rceattle::GOAatf2023
+  d$fleet_control$Sel_norm_bin <- 6
+  d$fleet_control$Sel_norm_scope <- "WithinSex"
+  d$fleet_control$Sel_norm_scope[1] <- NA
+  expect_message(Rceattle::switch_check(d), "Sel_norm_scope")
+
+  out <- suppressMessages(suppressWarnings(Rceattle::switch_check(d)))
+  expect_identical(out$fleet_control$Sel_norm_scope[1], "AcrossSexes")
+  expect_identical(out$fleet_control$Sel_norm_scope[2], "WithinSex")
+})
+
+test_that("the flip notice does not fire where normalization never runs", {
+  # selectivity.hpp skips the normalization block for Hake (5/12) and LogisticPM
+  # (11), which reuse Sel_norm_bin1/2 as a penalty age-range, and for Off fleets.
+  # An AMAK-style model setting that range must not be told its results moved.
+  for (sel in c("Hake", "LogisticPM")) {
+    d <- Rceattle::GOAatf2023
+    d$fleet_control$Sel_norm_scope <- NULL
+    d$fleet_control$Sel_norm_bin <- 6             # a penalty range, not a reference
+    d$fleet_control$Selectivity <- sel
+    expect_no_message(suppressWarnings(Rceattle::switch_check(d)),
+                      message = "Sel_norm_scope")
+  }
+
+  d_off <- Rceattle::GOAatf2023
+  d_off$fleet_control$Sel_norm_scope <- NULL
+  d_off$fleet_control$Sel_norm_bin <- 6
+  d_off$fleet_control$Fleet_type <- "Off"
+  expect_no_message(suppressWarnings(Rceattle::switch_check(d_off)),
+                    message = "Sel_norm_scope")
+})
+
 # --- behaviour ---------------------------------------------------------------
 testthat::skip_on_cran()
 

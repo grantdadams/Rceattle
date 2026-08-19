@@ -395,11 +395,19 @@ switch_check <- function(data_list){
     has_caal         = isTRUE(nrow(data_list$caal_data) > 0),
     sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
     #   - sel_norm_scope_flip: the one configuration the "AcrossSexes" default
-    #     changes -- a named bin used to imply a per-sex reference. Max-normalized
-    #     and one-sex fleets are unaffected.
+    #     changes -- a two-sex fleet at a named bin, which used to imply a per-sex
+    #     reference. Max-normalized and one-sex fleets are unaffected. Restricted
+    #     to fleets the normalization block actually runs on, mirroring the gate
+    #     in selectivity.hpp: an "Off" fleet is skipped, Hake normalizes in its own
+    #     year/sex block, and LogisticPM reuses Sel_norm_bin1/2 as a penalty
+    #     age-range rather than a normalization reference. Without this the
+    #     message cries wolf on any AMAK-style model that sets a penalty range.
     sel_norm_scope_flip = isTRUE(any(
       data_list$nsex[data_list$fleet_control$Species] == 2 &
-        data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
+        data_list$fleet_control$Sel_norm_bin >= 0 &
+        !data_list$fleet_control$Fleet_type %in% c(0, "Off") &
+        !data_list$fleet_control$Selectivity %in%
+          c(5, "Hake", 11, "LogisticPM"), na.rm = TRUE)),
     multispecies     = isTRUE(any(data_list$msmMode > 0))
   )
 
@@ -474,11 +482,21 @@ switch_check <- function(data_list){
   .sch <- .rce_column_schema()
   data_list$fleet_control$Sel_norm_bin <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin, "Sel_norm_bin", .sch)
   data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch, conditions = .dflt_when)
-  data_list$fleet_control$Sel_norm_scope <- .rce_apply_default(data_list$fleet_control$Sel_norm_scope, "Sel_norm_scope", .sch, conditions = .dflt_when)
-  # .rce_apply_default() only fires for an absent column; a blank cell would
-  # reach the TMB integer vector as NA, where it reads as WithinSex.
-  data_list$fleet_control$Sel_norm_scope[is.na(data_list$fleet_control$Sel_norm_scope)] <-
-    .sch[["Sel_norm_scope"]]$default
+  # Sel_norm_scope defaults per-cell, not just per-column: .rce_apply_default()
+  # returns early once the column exists, but a blank cell is the same silent
+  # behaviour flip as a missing column -- it would reach the TMB integer vector
+  # as NA, which the C++ reads as WithinSex. Announce whichever case applies, so
+  # the "your two-sex named-bin fleet now pools" notice cannot be skipped by
+  # supplying the column and leaving one row empty.
+  data_list$fleet_control$Sel_norm_scope <- .rce_apply_default(
+    data_list$fleet_control$Sel_norm_scope, "Sel_norm_scope", .sch,
+    conditions = .dflt_when)
+  if (anyNA(data_list$fleet_control$Sel_norm_scope)) {
+    data_list$fleet_control$Sel_norm_scope[is.na(data_list$fleet_control$Sel_norm_scope)] <-
+      .sch[["Sel_norm_scope"]]$default
+    if (isTRUE(.dflt_when$sel_norm_scope_flip))
+      message(.sch[["Sel_norm_scope"]]$default_msg)
+  }
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
