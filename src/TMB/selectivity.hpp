@@ -23,6 +23,10 @@
  * @param nsex Array/function returning the number of sexes for a species.
  * @param sel_norm_bin1 Array/function returning the normalization age or control flag.
  * @param sel_norm_bin2 Array/function returning the upper bound for age-range normalization.
+ * @param sel_norm_scope Per fleet: 0 = WithinSex (each sex divided by its own
+ *   reference, so both reach 1), 1 = AcrossSexes (one reference pooled over the
+ *   sexes, so the less-selected sex stays below 1). Orthogonal to
+ *   sel_norm_bin1/2, which say WHERE the reference is taken.
  * @param sel_at_age 4D container (fleet, sex, age, year) modified in-place.
  */
 template<class Type>
@@ -39,12 +43,9 @@ void normalize_and_project_selectivity(
     const vector<int>&  nsex,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  sel_norm_scope,
     array<Type> &selectivity // Modified by reference
 ) {
-  Type max_sel = 0; // Local declaration for safety (initialized to silence
-                    // -Wmaybe-uninitialized; always overwritten before use in
-                    // the normalization branches below)
-
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);
   int nbins = (flt_sel_dim(flt) == 0) ? nages(sp) : nlengths(sp);
@@ -60,54 +61,56 @@ void normalize_and_project_selectivity(
     }
   }
 
-  // Normalize selectivity
-  if(sel_norm_bin1(flt) > -500){
+  // Normalization makes two orthogonal choices, carried in two inputs rather than
+  // encoded in the sign of one:
+  //   sel_norm_bin1/2 -- WHERE the reference is taken: a named bin, the mean over
+  //     a bin range, or (< 0) the maximum over bins;
+  //   sel_norm_scope  -- WHOSE scale it sets: WithinSex (0) gives each sex its own
+  //     reference so both reach 1; AcrossSexes (1) pools one reference so the
+  //     less-selected sex stays below 1 and relative sex selectivity survives.
+  // Identical for a one-sex species. Hake (5/12) normalizes in its own year/sex
+  // block above; LogisticPM (11) reuses sel_norm_bin1/2 as a penalty age-range.
+  if((sel_norm_bin1(flt) > -500) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) {
+    bool at_bin     = (sel_norm_bin1(flt) >= 0);
+    bool over_range = at_bin && (sel_norm_bin2(flt) >= 0);
+    bool across     = (sel_norm_scope(flt) == 1);
 
-    // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) { // Dont normalize hake (5/12) or LogisticPM (11; Sel_norm_bin1/2 are reused as the penalty age-range)
-      for(int yr = 0; yr < nyrs_hind; yr++) {
-        for(int sex = 0; sex < nsex(sp); sex++){
+    vector<Type> ref(nsex(sp));
 
-          // Single-normalization bin
-          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
-            max_sel = 0.001;
-            max_sel = max2(max_sel, selectivity(flt, sex, sel_norm_bin1(flt), yr));
+    for(int yr = 0; yr < nyrs_hind; yr++) {
+
+      // Reference value for each sex.
+      for(int sex = 0; sex < nsex(sp); sex++){
+        if(over_range){
+          // Mean selectivity over the bin range
+          ref(sex) = 0;
+          for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
+            ref(sex) += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
           }
-
-          // Normalize by bin range between max lower and max upper
-          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
-            max_sel = 0;
-            for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
-              max_sel += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
-            }
-          }
-
-          // Normalize
+        } else if(at_bin){
+          // Single normalization bin, floored so the division stays finite
+          ref(sex) = max2(Type(0.001), selectivity(flt, sex, sel_norm_bin1(flt), yr));
+        } else {
+          // Maximum over bins. Fold rather than branch: TMB tapes once, so an
+          // `if` on an AD Type would freeze the argmax bin at its initial
+          // position.
+          ref(sex) = 0;
           for(int bin = 0; bin < nbins; bin++){
-            selectivity(flt, sex, bin, yr) /= max_sel;
+            ref(sex) = max2(ref(sex), selectivity(flt, sex, bin, yr));
           }
         }
       }
-    }
 
-    // 2. Normalize by max for each fishery and year across bins, and sexes
-    // - Don't for hake non-parametric
-    if((sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
-      for(int yr = 0; yr < nyrs_hind; yr++) {
-        max_sel = 0;
-        for(int bin = 0; bin < nbins; bin++){
-          for(int sex = 0; sex < nsex(sp); sex++){
-            // Fold rather than branch: TMB tapes once, so an `if` on an AD
-            // Type would freeze the argmax bin at its initial position.
-            max_sel = max2(max_sel, selectivity(flt, sex, bin, yr));
-          }
-        }
+      // One divisor for every sex, so their relative levels survive.
+      if(across){
+        Type pooled = ref(0);
+        for(int sex = 1; sex < nsex(sp); sex++) pooled = max2(pooled, ref(sex));
+        for(int sex = 0; sex < nsex(sp); sex++) ref(sex) = pooled;
+      }
 
-        // Normalize selectivity
-        for(int bin = 0; bin < nbins; bin++){
-          for(int sex = 0; sex < nsex(sp); sex++){
-            selectivity(flt, sex, bin, yr) /= max_sel;
-          }
+      for(int bin = 0; bin < nbins; bin++){
+        for(int sex = 0; sex < nsex(sp); sex++){
+          selectivity(flt, sex, bin, yr) /= ref(sex);
         }
       }
     }
@@ -276,6 +279,7 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_cap_bin,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  sel_norm_scope,
     const vector<int>&  flt_sel_start_yr,
     matrix<Type>& emp_sel_obs,
     matrix<int>& emp_sel_ctl,
@@ -588,7 +592,7 @@ void calculate_selectivity(
     // --- 3. NORMALIZATION & PROJECTION ---
     normalize_and_project_selectivity(
       flt, nyrs_hind, nyrs, flt_spp, flt_sel_type, flt_sel_dim, bin_first_selected, nages, nlengths, nsex,
-      sel_norm_bin1, sel_norm_bin2,
+      sel_norm_bin1, sel_norm_bin2, sel_norm_scope,
       is_length_based ? sel_at_length : sel_at_age
     );
 

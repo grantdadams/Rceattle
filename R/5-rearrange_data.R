@@ -176,6 +176,11 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       Sel_norm_bin = ifelse(is.na(.data$Sel_norm_bin), -999, .data$Sel_norm_bin)) %>% # NA, do not normalize (unless type = 2)
     dplyr::pull(.data$Sel_norm_bin) %>% as.integer()
 
+  # - 8b) Whether normalization pools its reference across sexes (WithinSex = 0,
+  #       AcrossSexes = 1); already an integer code by this point.
+  data_list$sel_norm_scope <- data_list$fleet_control %>%
+    dplyr::pull(.data$Sel_norm_scope) %>% as.integer()
+
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin2 <- data_list$fleet_control %>%
     dplyr::mutate(Sel_norm_bin_upper = .data$Sel_norm_bin_upper - sel_bin_offset,

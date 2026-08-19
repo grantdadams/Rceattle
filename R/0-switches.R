@@ -82,6 +82,14 @@ sel_map <- c(
   "LogisticPM" = 11       # ADMB AMAK ("pm") BTS: logistic (multiplicative inflection/slope devs) + free age-1 log-selectivity
 )
 
+# Whether selectivity normalization pools its reference across sexes. Orthogonal
+# to WHERE the reference is taken (Sel_norm_bin: a named bin, or the max), so the
+# two combine rather than multiply into more columns.
+sel_norm_scope_map <- c(
+  "WithinSex"   = 0,  # each sex divided by its own reference; both reach 1
+  "AcrossSexes" = 1   # one pooled reference; relative sex selectivity retained
+)
+
 tv_sel_map <-c(
   "Off" = 0,
   "IID" = 1,
@@ -386,6 +394,12 @@ switch_check <- function(data_list){
     growth_estimated = isTRUE(any(data_list$growth_model > 0)),
     has_caal         = isTRUE(nrow(data_list$caal_data) > 0),
     sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
+    #   - sel_norm_scope_flip: the one configuration the "AcrossSexes" default
+    #     changes -- a named bin used to imply a per-sex reference. Max-normalized
+    #     and one-sex fleets are unaffected.
+    sel_norm_scope_flip = isTRUE(any(
+      data_list$nsex[data_list$fleet_control$Species] == 2 &
+        data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
     multispecies     = isTRUE(any(data_list$msmMode > 0))
   )
 
@@ -460,6 +474,11 @@ switch_check <- function(data_list){
   .sch <- .rce_column_schema()
   data_list$fleet_control$Sel_norm_bin <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin, "Sel_norm_bin", .sch)
   data_list$fleet_control$Sel_norm_bin_upper <- .rce_apply_default(data_list$fleet_control$Sel_norm_bin_upper, "Sel_norm_bin_upper", .sch, conditions = .dflt_when)
+  data_list$fleet_control$Sel_norm_scope <- .rce_apply_default(data_list$fleet_control$Sel_norm_scope, "Sel_norm_scope", .sch, conditions = .dflt_when)
+  # .rce_apply_default() only fires for an absent column; a blank cell would
+  # reach the TMB integer vector as NA, where it reads as WithinSex.
+  data_list$fleet_control$Sel_norm_scope[is.na(data_list$fleet_control$Sel_norm_scope)] <-
+    .sch[["Sel_norm_scope"]]$default
   # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
   # LogisticPM (random-walk weights) selectivity; only warn about missing columns
   # when such a fleet is present, otherwise default silently (avoids noise for
@@ -716,6 +735,7 @@ revert_switches <- function(data_list) {
       Fleet_type = .conv(.data$Fleet_type, fleet_map),
       Selectivity = .conv(.data$Selectivity, sel_map),
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
+      Sel_norm_scope = .conv(.data$Sel_norm_scope, sel_norm_scope_map),
       Catchability = .conv(.data$Catchability, q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
@@ -763,6 +783,9 @@ validate_switches <- function(data_list = NULL){
   invalid_tv_q <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
+  invalid_sel_norm_scope <- data_list$fleet_control |>
+    dplyr::filter(!.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
+
   invalid_comp_ll <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
@@ -792,6 +815,13 @@ validate_switches <- function(data_list = NULL){
                               paste(invalid_tv_sel$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ",paste(range(tv_sel_map), collapse = ":")," or one of:",
                               paste(names(tv_sel_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_norm_scope) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_norm_scope' specified for fleets:",
+                              paste(invalid_sel_norm_scope$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_norm_scope_map), collapse = ", ")))
   }
 
   if(nrow(invalid_q) > 0) {
@@ -890,6 +920,7 @@ convert_switches <- function(data_list) {
       Fleet_type = .conv(.data$Fleet_type, fleet_map),
       Selectivity = .conv(.data$Selectivity, sel_map),
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
+      Sel_norm_scope = .conv(.data$Sel_norm_scope, sel_norm_scope_map),
       Catchability = .conv(.data$Catchability, q_map),
       Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),

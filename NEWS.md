@@ -1,3 +1,149 @@
+# Rceattle 5.8.0
+
+## New features
+
+* **`fleet_control$Sel_norm_scope` controls whether selectivity normalization
+  pools its reference across sexes.** Normalization makes two independent
+  decisions -- *where* the reference is taken and *whose* scale it sets -- and
+  until now the second was a silent passenger on the first: a named
+  `Sel_norm_bin` always used a per-sex reference, and max-normalization always
+  pooled across sexes, so two of the four combinations were unreachable. The new
+  column is orthogonal to `Sel_norm_bin`, so the two combine rather than
+  multiplying into more columns:
+
+  * `"AcrossSexes"` (default) -- one reference pooled over the sexes, so the
+    less-selected sex stays below 1 and **relative sex-specific selectivity is
+    retained**. This is what a dimorphic stock usually wants.
+  * `"WithinSex"` -- each sex divided by its own reference, so both reach 1 and
+    only the *shape* differs by sex.
+
+  The newly reachable combination worth knowing about is max-normalization with
+  `"WithinSex"`: each sex is scaled at its own plateau, wherever that falls. For
+  a stock whose sexes plateau at different ages that is more robust than naming
+  a bin, because a named bin stops being the plateau once selectivity is
+  time-varying while the maximum tracks it.
+
+  The scope has no effect on a one-sex species, or where `Sel_norm_bin` is `NA`
+  and nothing is normalized. **The one behaviour change** is a *two-sex* fleet
+  normalizing at a *named bin*: it previously used a per-sex reference and now
+  pools, and `switch_check()` emits a message naming the fix (set
+  `Sel_norm_scope = "WithinSex"`) when it sees that configuration. Max-normalized
+  fleets -- including the operational arrowtooth configuration -- already pooled
+  and are unaffected. No bundled dataset is in the affected case.
+
+* **Biomass, SSB and recruitment confidence intervals are now taken on the log
+  scale.** The model ADREPORTs `log_biomass` and `log_R` alongside the existing
+  `log_ssb`, and `plot_timeseries()` builds `exp(log(x) +/- 1.92 * sd_log)` from
+  the delta-method SD of `log(x)` whenever a model reports one. `sdreport()`
+  linearizes once about the MLE, so its SD is exact only for a linear function
+  of the parameters; these three series are built multiplicatively
+  (`R = R0 * exp(rec_dev)`, and n-at-age is a product of survivals), so `log(x)`
+  is close to linear in the estimated parameters where `x` itself is
+  exponential. The interval is therefore both better approximated and
+  right-skewed, and cannot cross zero the way the symmetric natural-scale
+  interval did for weak year classes and depleted stocks. The log-scale SD is
+  also the CV, the form the ABC / OFL buffer calculations want. Natural-scale
+  `biomass`, `ssb` and `R` are still ADREPORTed, so existing callers of
+  `sdrep$value` are unaffected; models fit before this release have no `log_*`
+  series and fall back to the symmetric interval.
+
+* **The `plot_*()` timeseries wrappers take a `ylab` argument.** It is appended
+  to the argument list, not inserted, so positional calls are unaffected. Left
+  `NULL` (the default) the axis label is derived from the series and the model's
+  `minage`, so a model whose recruitment is at age 3 no longer gets an axis
+  labelled "Age-1 recruits". Only recruitment names an age now -- it is an age
+  class, so the age is information. The biomass and SSB axes drop their `Age-1+`
+  prefix and read `Biomass (million mt)` and `SSB (million mt)`; the prefix was
+  noise on an aggregate, and wrong on SSB, which is mature females rather than
+  the minage+ stock.
+
+* **`plot_exploitable_biomass()` and the two depletion plotters accept
+  `add_ci = TRUE`, on the log scale.** `exploitable_biomass`, `ssb_depletion`
+  and `biomass_depletion` are now ADREPORTed, so an interval can be computed at
+  all. They are ADREPORTed on the **natural scale only**, deliberately:
+  `exploitable_biomass` sums over fisheries alone, so it is exactly 0 for any
+  model without projection F (`Proj_F_proportion = 0`, which is every bundled
+  dataset -- all 216 species-years of `BS2017SS`), and the depletions divide by
+  `B0` / `SB0`; `log()` of either would put `-Inf` on the AD tape and turn the
+  entire `sdreport`, not merely that row, into `NaN`. They still get a
+  log-scale interval, because the delta method defines `sd(log x) = sd(x) / x`
+  exactly -- the plotters recover the log-scale SD from the natural-scale one
+  wherever the series is positive. Where it is 0 the quotient is undefined and
+  the (degenerate) symmetric interval stands. sdreport grows about 20% on
+  `BS2017SS` for the three extra series.
+
+* **Models fit before this release get log-scale intervals too.** The same
+  `sd(log x) = sd(x) / x` recovery applies to any strictly positive series with
+  a natural-scale SD, so an existing fit with no `log_*` rows plots a
+  right-skewed interval without being refit. Where the model does report
+  `log_biomass` / `log_ssb` / `log_R`, those are used directly; the two agree to
+  machine precision (2e-16 on `BS2017SS`).
+
+## Bug fixes
+
+* **`model_config()` names the mistake when handed a `data_list`.** It takes
+  model settings, not data, but almost every other entry point takes a
+  `data_list` first -- so `model_config(my_data)` bound the list to `msmMode` and
+  reported only "`msmMode` must be a single value". It now points at
+  `build_data(base = , model_config = )`. The check itself was correct:
+  `msmMode` is a model-wide scalar (unlike the per-species `suitMode`), and a
+  single-species `msmMode > 0` cannibalism configuration was never blocked.
+
+* **A confidence interval that cannot be drawn now warns instead of vanishing.**
+  Requesting `add_ci = TRUE` for a series with no standard errors indexed out of
+  range, filled the interval with `NA` and rendered an invisible ribbon -- no
+  error, no warning, just a missing interval. That is how the three plotters
+  above hid their missing `ADREPORT`. `plot_timeseries()` now says which series
+  and which model lacks standard errors.
+
+* **Recruitment was plotted 1000x too high, and the stock-recruit panel 1000x
+  too low.** The model carries numbers-at-age in thousands and weight-at-age in
+  kg, so biomass comes out in mt and recruitment in thousands of fish.
+  `plot_recruitment()` never applied the matching `/1e3`, plotting thousands of
+  recruits under an axis reading "Age-1 recruits (million)", while
+  `plot_stock_recruit()` divided by `1e6` under an axis reading "Recruitment
+  (millions)" -- so the two panels disagreed with each other by a factor of a
+  million. Both now plot millions of recruits. `plot_exploitable_biomass()` was
+  labelled "million mt" with no rescaling applied at all and is now divided by
+  `1e6` like the other biomass series. Divisors and axis units are now held in
+  one table (`.RCE_TS_RESCALE` / `.rce_ts_ylab()`) that `plot_stock_recruit()`
+  reads too, and are asserted against each other in the test suite. **Any figure
+  or number read off these three plotters needs regenerating.** Model results
+  are unchanged -- this is display-only.
+
+## Documentation
+
+* **How sex-specific selectivity works is now documented.** Every selectivity
+  form is sex-specific by default in a two-sex model, and `Sel_norm_bin` decides
+  whether the *relative* scale between sexes survives: `< 0` normalizes by the
+  maximum jointly across bins and sexes (relative sex selectivity retained),
+  `>= 0` normalizes each sex separately at that bin (only the shape differs by
+  sex), `NA` does not normalize. Relative sex selectivity is only informed where
+  the composition is joint (`comp_data$Sex = 3`); sex-specific rows each sum to
+  1 and carry no sex-ratio information, and `Selectivity = "Hake"` always
+  normalizes within sex regardless. New "Sex structure and relative selectivity"
+  section in `vignette("model-options-and-functionality")`, with the details on
+  the `Sel_norm_bin` field dictionary entry.
+
+* `Sel_norm_bin` and `Sel_norm_bin_upper` now say that they are bin indices on
+  the fleet's own `Selectivity_dimension` -- an absolute age for an age-based
+  fleet (`6` means age 6, not the sixth bin), a 1-based length-bin ordinal for a
+  length-based one.
+
+* `fleet_control$Sex` is documented as inert. It is read nowhere in the model;
+  sex is set per observation on `comp_data$Sex`. Retained only so older
+  workbooks still read.
+
+* `vignette("model-parameterizations")` no longer claims the model is fit to
+  sex-ratio data. There is no sex-ratio likelihood component -- the text
+  described the ADMB implementation. Sex-ratio information enters through joint
+  composition data.
+
+* `plot_timeseries()` documents the unit convention it assumes: numbers-at-age
+  in thousands and weight-at-age in kg, hence biomass in mt and recruitment in
+  thousands of fish.
+
+
 # Rceattle 5.7.0
 
 ## Breaking changes

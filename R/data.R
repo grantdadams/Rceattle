@@ -78,8 +78,24 @@
 #' \item{Sel_shape_mode}{Shape-penalty mode: "Directional" (default) or "Smooth" (two-sided second-difference penalty, RTMB).}
 #' \item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty (type 9 only): 0 = off (default), 10 matches AMAK.}
 #' \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
-#' \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1. NA (default) does not normalize; a value < 0 normalizes by the maximum.}
+#' \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1 --
+#'   an absolute age for an age-based fleet (6 means age 6, not the 6th bin) or a
+#'   1-based length-bin ordinal for a length-based one. NA (default) does not
+#'   normalize; a value < 0 normalizes by the maximum. In a two-sex model this
+#'   also sets the relative scaling between sexes: < 0 takes the maximum jointly
+#'   across bins and sexes (relative sex selectivity retained), >= 0 normalizes
+#'   each sex separately at that bin (only the shape differs by sex), NA leaves
+#'   the relative scale free. See the sex-structure section of
+#'   \code{vignette("model-options-and-functionality")}.}
 #' \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
+#' \item{Sel_norm_scope}{Whether selectivity normalization pools its reference
+#'   across sexes, orthogonal to \code{Sel_norm_bin} (which says where the
+#'   reference is taken). \code{"WithinSex"} divides each sex by its own
+#'   reference, so both reach 1 and only the shape differs by sex;
+#'   \code{"AcrossSexes"} (default) pools one reference over both sexes, so the
+#'   less-selected sex stays below 1 and relative sex-specific selectivity is
+#'   retained. No effect on a one-sex species or where \code{Sel_norm_bin} is
+#'   NA.}
 #' \item{Observation_units}{Units of the observation: 1 = weight (kg), 2 = numbers caught. Drives both catch and index prediction.}
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}

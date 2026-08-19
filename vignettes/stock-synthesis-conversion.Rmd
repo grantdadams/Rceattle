@@ -133,6 +133,13 @@ in a 20-age model), set `Sel_norm_bin` / `Sel_norm_bin_upper` and
 assessment document or contact the authors before deciding whether to
 zero-pad or accumulate at the upper age.
 
+For a two-sex conversion, `Sel_norm_scope` decides whether the normalization
+reference is pooled over the sexes (`"AcrossSexes"`, the default, which keeps
+relative sex-specific selectivity) or taken per sex (`"WithinSex"`). Note that
+Rceattle has no equivalent of the SS male apical-selectivity offset: relative
+sex selectivity is carried by the normalization scope and by joint
+(`comp_data$Sex = 3`) composition data, not by an offset parameter.
+
 `Part`, `Ageerr`, `Lbin_lo`, `Lbin_hi`, `CompressBins`, `CompError`,
 `ParmSelect`, and `minsamplesize` from SS do not have direct Rceattle
 equivalents.

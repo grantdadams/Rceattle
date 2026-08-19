@@ -23,7 +23,10 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
 
   # Compare a plotter's species-1 trajectory to the same quantity from
   # as.data.frame(), aligned on the years the plot actually shows. `scale` is
-  # the display rescaling the plotter applies (biomass/ssb -> million mt).
+  # the display rescaling the plotter applies: numbers-at-age are in thousands
+  # and weight-at-age in kg, so every biomass series is in mt (1e6 -> million
+  # mt) and recruitment is in thousands of fish (1e3 -> millions of recruits).
+  # Depletion and F are ratios and are plotted unscaled.
   check <- function(p, quantity, scale = 1) {
     testthat::expect_s3_class(p, "ggplot")
     pd <- p$data[p$data$Species == sp1, c("Year", "value")]
@@ -36,10 +39,10 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
     testthat::expect_equal(pd$value, src)
   }
 
-  check(Rceattle::plot_biomass(ss),             "biomass", scale = 1e6)
-  check(Rceattle::plot_ssb(ss),                 "ssb",     scale = 1e6)
-  check(Rceattle::plot_recruitment(ss),         "R")
-  check(Rceattle::plot_exploitable_biomass(ss), "exploitable_biomass")
+  check(Rceattle::plot_biomass(ss),             "biomass",             scale = 1e6)
+  check(Rceattle::plot_ssb(ss),                 "ssb",                 scale = 1e6)
+  check(Rceattle::plot_recruitment(ss),         "R",                   scale = 1e3)
+  check(Rceattle::plot_exploitable_biomass(ss), "exploitable_biomass", scale = 1e6)
   check(Rceattle::plot_ssb_depletion(ss),       "ssb_depletion")
   check(Rceattle::plot_f(ss),                   "F_spp")  # wraps plot_timeseries
 })
@@ -116,8 +119,10 @@ testthat::test_that("plot_stock_recruit plots SSB vs recruitment", {
   d <- p$data[p$data$Species == sp1, ]   # points layer data (SSB, R)
   testthat::expect_equal(sort(d$SSB),
                          sort(as.numeric(ss$quantities$ssb[1, seq_len(nyr)] / 1e6)))
+  # R is carried in thousands of fish and plotted in millions of recruits, so
+  # this divisor is 1e3 where SSB's (mt -> million mt) is 1e6.
   testthat::expect_equal(sort(d$R),
-                         sort(as.numeric(ss$quantities$R[1, seq_len(nyr)] / 1e6)))
+                         sort(as.numeric(ss$quantities$R[1, seq_len(nyr)] / 1e3)))
 })
 
 # --- selectivity --------------------------------------------------------------

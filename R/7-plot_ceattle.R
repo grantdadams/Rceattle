@@ -22,15 +22,45 @@ rich.colors.short <- function(n,alpha=1){
 #'
 #' @description Function that plots the time-series (SSB/B/R/Depletion) 95% CI trends as estimated from Rceattle
 #'
+#' @details
+#' # Units
+#'
+#' The model carries numbers-at-age in **thousands** and weight-at-age in
+#' **kg**, so every biomass series (`biomass`, `ssb`, `exploitable_biomass`)
+#' comes out of the model in **mt** and recruitment comes out in **thousands of
+#' fish**. For display these are divided by 1e6 (million mt) and 1e3 (millions
+#' of recruits) respectively; depletion is a ratio and is not rescaled. Supply
+#' the model's inputs on that convention -- catch and index in mt, weight-at-age
+#' in kg -- or the axis labels will not describe what is plotted.
+#'
+#' # Confidence intervals
+#'
+#' `add_ci = TRUE` draws a 95% interval. Every strictly positive series takes it
+#' on the log scale as `exp(log(x) +/- 1.92 * sd_log)`. These quantities are
+#' built multiplicatively, so `log(x)` is close to linear in the estimated
+#' parameters where `x` is exponential in them: the interval is both a better
+#' linearization and right-skewed, and it cannot cross zero the way a symmetric
+#' natural-scale interval does for weak year classes and depleted stocks.
+#'
+#' `sd_log` comes from the model's own `log_biomass` / `log_ssb` / `log_R` where
+#' those are reported, and is otherwise recovered as `sd(x) / x` -- the delta
+#' method's own identity, which matches the reported values to machine
+#' precision. That covers `exploitable_biomass` and the two depletions, which
+#' cannot be reported on the log scale (`exploitable_biomass` is identically 0
+#' without projection F), and models fit before the `log_*` series existed. A
+#' non-positive or unreported value keeps the symmetric interval.
+#'
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param output derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.
-#' @param ylab Y-axis label
+#' @param ylab Y-axis label. `NULL` (default) derives one from `output` and the
+#'   model's `minage`.
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
+#' @param add_ci If the confidence interval is to be added (see Details for how
+#'   it is constructed)
 #' @param lwd Line width as specified by user
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr First year to plot
@@ -153,12 +183,21 @@ plot_timeseries <- function(Rceattle,
   }
   spp <- species
 
+  # Built here rather than in .ts_wrapper() because the age it names is
+  # per-species data. An explicit `ylab` always wins.
+  if (is.null(ylab)) ylab <- .rce_ts_ylab(output, minage)
+
 
   ## Get quantity of interest ----
   # Save objects
   quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   quantity_sd <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  # Delta-method SD of log(quantity), when the model ADREPORTed a matching
+  # `log_<output>` series. Distinct from log_quantity_sd below, which is the
+  # across-sample SD used by the model-averaging path.
+  quantity_log_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
@@ -176,10 +215,27 @@ plot_timeseries <- function(Rceattle,
 
     # Get SD of quantity
     if(add_ci & !mse){
-      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == output)
-      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      sd_rows <- which(names(Rceattle[[i]]$sdrep$value) == output)
+      # Out-of-range indexing below fills with NA and draws an invisible
+      # ribbon, so name the missing series rather than failing silently.
+      if (length(sd_rows) < nyrs_vec[i] * nspp) {
+        warning("`", output, "` has no standard errors in model ", i,
+                " (not reported by this fit, or the fit used getsd = FALSE); ",
+                "drawing no confidence interval for it.", call. = FALSE)
+      }
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_rows]
       quantity_sd[,  1:nyrs_vec[i], i] <-
         replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+
+      # Log-scale SD where the model reported one; the rest are recovered from
+      # sd/x below.
+      log_rows <- which(names(Rceattle[[i]]$sdrep$value) == paste0("log_", output))
+      if (length(log_rows) >= nyrs_vec[i] * nspp) {
+        log_sd_temp <- Rceattle[[i]]$sdrep$sd[log_rows]
+        quantity_log_sd[, 1:nyrs_vec[i], i] <-
+          replace(quantity_log_sd[, 1:nyrs_vec[i], i],
+                  values = log_sd_temp[1:(nyrs_vec[i] * nspp)])
+      }
     }
 
     # - Model average
@@ -189,6 +245,14 @@ plot_timeseries <- function(Rceattle,
     }
   }
 
+  # Recover the log-scale SD from the delta-method identity sd(log x) = sd(x)/x
+  # where the model reported none: exploitable_biomass and the depletions cannot
+  # be ADREPORTed logged (see ceattle.cpp), and older fits predate log_*. A zero
+  # x gives NaN and keeps the symmetric interval, degenerate there anyway.
+  derive_log <- is.na(quantity_log_sd) & !is.na(quantity_sd) &
+    !is.na(quantity) & quantity > 0
+  quantity_log_sd[derive_log] <- quantity_sd[derive_log] / quantity[derive_log]
+
   ## Get confidence intervals ----
   if(!mse){
     # - Single model
@@ -197,6 +261,20 @@ plot_timeseries <- function(Rceattle,
 
     quantity_upper50 <- quantity + quantity_sd * 0.674
     quantity_lower50 <- quantity - quantity_sd * 0.674
+
+    # Positive series take exp(log(x) +/- z * sd_log), centred on the plotted
+    # line. They are built multiplicatively (R = R0 * exp(rec_dev)), so log(x) is
+    # near-linear in the parameters where x is not, and the interval cannot reach
+    # zero the way a symmetric one does for a weak year class or depleted stock.
+    use_log <- !is.na(quantity_log_sd) & !is.na(quantity) & quantity > 0
+    if (any(use_log)) {
+      log_mu <- log(quantity[use_log])
+      sd_log <- quantity_log_sd[use_log]
+      quantity_upper95[use_log] <- exp(log_mu + 1.92  * sd_log)
+      quantity_lower95[use_log] <- exp(log_mu - 1.92  * sd_log)
+      quantity_upper50[use_log] <- exp(log_mu + 0.674 * sd_log)
+      quantity_lower50[use_log] <- exp(log_mu - 0.674 * sd_log)
+    }
   } else {
     # - MSE objects
     ptarget <- ptarget[1,]
@@ -234,12 +312,16 @@ plot_timeseries <- function(Rceattle,
   }
 
   ## Rescale ----
-  if(output %in% c("biomass", "ssb")){
-    quantity <- quantity / 1000000
-    quantity_upper95 <- quantity_upper95 / 1000000
-    quantity_lower95 <- quantity_lower95 / 1000000
-    quantity_upper50 <- quantity_upper50 / 1000000
-    quantity_lower50 <- quantity_lower50 / 1000000
+  # Numbers-at-age are in thousands and weight-at-age in kg, so biomass is in mt
+  # and recruitment in thousands of fish. Depletion is a ratio and is not
+  # rescaled.
+  rescale <- .RCE_TS_RESCALE[output]
+  if (!is.na(rescale)) {
+    quantity <- quantity / rescale
+    quantity_upper95 <- quantity_upper95 / rescale
+    quantity_lower95 <- quantity_lower95 / rescale
+    quantity_upper50 <- quantity_upper50 / rescale
+    quantity_lower50 <- quantity_lower50 / rescale
   }
 
 
@@ -400,12 +482,44 @@ plot_timeseries <- function(Rceattle,
 }
 
 
-# Build a plot_timeseries() wrapper that pins the derived series (`output`) and
-# y-axis label for one quantity while exposing plot_timeseries()'s full argument
-# list unchanged. The six timeseries plotters below differ only in those two
-# strings, so they share one body through this factory.
-.ts_wrapper <- function(output, ylab, zero_y = FALSE) {
-  force(output); force(ylab); force(zero_y)
+# Display divisor per derived series; a series absent here is plotted unscaled.
+# Any entry added needs its matching unit in .rce_ts_ylab(): the two drifting
+# apart is how recruitment came to be plotted in thousands under a "million"
+# label.
+.RCE_TS_RESCALE <- c(
+  biomass             = 1e6,   # mt              -> million mt
+  ssb                 = 1e6,   # mt              -> million mt
+  exploitable_biomass = 1e6,   # mt              -> million mt
+  R                   = 1e3    # thousands of fish -> millions of recruits
+)
+
+
+# Default y-axis label for a derived series. The minimum age is per-species
+# data, so it is interpolated at plot time; where species disagree on minage the
+# age prefix is dropped, since one shared y axis cannot name two ages.
+.rce_ts_ylab <- function(output, minage) {
+  # Only recruitment names an age -- it is an age class. SSB is mature females,
+  # not the minage+ stock, so its old "Age-1+" prefix was wrong as well as noisy.
+  ages <- unique(as.integer(minage[!is.na(minage)]))
+  age  <- if (length(ages) == 1L) paste0("Age-", ages, " ") else ""
+  switch(output,
+         biomass             = "Biomass (million mt)",
+         ssb                 = "SSB (million mt)",
+         exploitable_biomass = "Max exploitable biomass (million mt)",
+         R                   = paste0(age, "recruits (millions)"),
+         ssb_depletion       = "SSB depletion",
+         biomass_depletion   = "Biomass depletion",
+         output)
+}
+
+
+# Build a plot_timeseries() wrapper that pins the derived series (`output`) for
+# one quantity while exposing plot_timeseries()'s full argument list unchanged.
+# The six timeseries plotters below differ only in that string, so they share one
+# body through this factory. The y-axis label is resolved inside
+# plot_timeseries() from .rce_ts_ylab(), which needs the model's minage.
+.ts_wrapper <- function(output, zero_y = FALSE) {
+  force(output); force(zero_y)
   function(Rceattle,
            file = NULL,
            model_names = NULL,
@@ -428,7 +542,8 @@ plot_timeseries <- function(Rceattle,
            mod_avg = rep(FALSE, length(Rceattle)),
            mse = FALSE,
            OM = TRUE,
-           reference = NULL) {
+           reference = NULL,
+           ylab = NULL) {
 
     plot_timeseries(Rceattle,
                     output = output,
@@ -468,7 +583,7 @@ plot_timeseries <- function(Rceattle,
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass trajectory.
-plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)", zero_y = TRUE)
+plot_biomass <- .ts_wrapper("biomass", zero_y = TRUE)
 
 
 #' Plot recruitment
@@ -480,7 +595,7 @@ plot_biomass <- .ts_wrapper("biomass", "Age-1+ biomass (million mt)", zero_y = T
 #' @export
 #'
 #' @return Returns and saves a figure with the recruitment trajectory.
-plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)", zero_y = TRUE)
+plot_recruitment <- .ts_wrapper("R", zero_y = TRUE)
 
 
 #' Plot spawning stock biomass (SSB)
@@ -492,7 +607,7 @@ plot_recruitment <- .ts_wrapper("R", "Age-1 recruits (million)", zero_y = TRUE)
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB trajectory.
-plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)", zero_y = TRUE)
+plot_ssb <- .ts_wrapper("ssb", zero_y = TRUE)
 
 
 #' Plot exploitable biomass
@@ -504,9 +619,7 @@ plot_ssb <- .ts_wrapper("ssb", "Age-1+ ssb (million mt)", zero_y = TRUE)
 #' @export
 #'
 #' @return Returns and saves a figure with the exploitable biomass trajectory.
-plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass",
-                                        "Max exploitable biomass (million mt)",
-                                        zero_y = TRUE)
+plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass", zero_y = TRUE)
 
 #' Plot SSB depletion
 #'
@@ -518,7 +631,7 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass",
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- .ts_wrapper("ssb_depletion", "SSB depletion", zero_y = TRUE)
+plot_depletionSSB <- .ts_wrapper("ssb_depletion", zero_y = TRUE)
 
 #' Plot SSB depletion (deprecated name)
 #'
@@ -538,7 +651,7 @@ plot_ssb_depletion <- plot_depletionSSB
 #' @export
 #'
 #' @return Returns and saves a figure with the biomass depletion trajectory.
-plot_depletion <- .ts_wrapper("biomass_depletion", "Biomass depletion", zero_y = TRUE)
+plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 
 
 #' Plot selectivity

@@ -145,6 +145,72 @@ to the max (non-differentiable) by setting `Sel_norm_bin < 0`. Selectivity can a
 relative to the average across an age-range by specifying the lower
 (`Sel_norm_bin`) and upper (`Sel_norm_bin_upper`) bound.
 
+`Sel_norm_bin` is a bin index on the fleet's own `Selectivity_dimension`: an
+absolute **age** for an age-based fleet (`6` means age 6, not the sixth bin) or
+a 1-based **length-bin ordinal** for a length-based one.
+
+### Sex structure and relative selectivity
+
+Populations are modelled as one or two sexes via `nsex`. **Every selectivity
+form is sex-specific by default** when a species has two sexes: each sex gets
+its own free copy of every selectivity parameter, for all forms.
+
+What differs between configurations is the *relative* scale between the sexes —
+whether males and females can be selected at genuinely different levels, or only
+with different shapes. Normalization makes two independent decisions, carried by
+two columns:
+
+* **`Sel_norm_bin` — where the reference is taken.** `NA` normalizes nothing;
+  `>= 0` takes it at that bin (or, with `Sel_norm_bin_upper`, the mean over that
+  range); `< 0` takes it at the curve's maximum over bins.
+* **`Sel_norm_scope` — whose scale it sets.** `"AcrossSexes"` (default) pools one
+  reference over the sexes, so the less-selected sex stays below 1 and
+  **relative sex-specific selectivity is retained**. `"WithinSex"` divides each
+  sex by its own reference, so both reach 1 and only the *shape* differs by sex.
+
+| `Sel_norm_bin` | `Sel_norm_scope` | Result |
+|---|---|---|
+| `NA` | — | nothing normalized; the relative scale is free |
+| `< 0` | `"AcrossSexes"` | maximum over bins **and sexes** — one sex peaks at 1, the other keeps its relative level |
+| `< 0` | `"WithinSex"` | each sex scaled at **its own plateau**, wherever that falls |
+| `>= 0` | `"AcrossSexes"` | anchored at that bin, sexes kept comparable |
+| `>= 0` | `"WithinSex"` | both sexes forced to 1 at that bin; only the shape differs |
+
+For strongly dimorphic stocks the relative sex selectivity is usually the
+quantity of interest, so the `"AcrossSexes"` default is the one to keep. If
+instead the sexes plateau at different ages and you want each scaled at its own
+plateau, use `Sel_norm_bin < 0` with `Sel_norm_scope = "WithinSex"` — that is
+more robust than naming a bin, since a named bin stops being the plateau once
+selectivity is time-varying while the maximum tracks it.
+
+Note that `Sel_norm_scope` has no effect on a one-sex species, or where
+`Sel_norm_bin` is `NA`. Before Rceattle 5.8.0 a named bin always implied
+`"WithinSex"` and max-normalization always implied `"AcrossSexes"`; a two-sex
+fleet normalizing at a named bin should set `Sel_norm_scope = "WithinSex"`
+explicitly to keep its old behaviour.
+
+Two things constrain what is actually estimable:
+
+* **The composition data must be joint.** `comp_data$Sex = 3` stacks female and
+  male composition into a single vector that is normalized to sum to 1 as a
+  whole (as Stock Synthesis does), so the sex ratio is fit and the relative
+  selectivity is informed. `Sex = 1` or `2` put each sex in its own row, each
+  summing to 1 independently — those carry **no** sex-ratio information, and
+  `Sel_norm_bin` then makes no difference however it is set. There is no
+  separate sex-ratio likelihood component.
+* **`Selectivity = "Hake"` always normalizes within sex**, regardless of
+  `Sel_norm_bin`, so relative sex selectivity is unavailable with that form.
+
+Related settings elsewhere: the sex ratio at recruitment is **fixed input**, not
+estimated — it comes from the `sex_ratio` sheet at the first modelled age.
+Sex-specific natural mortality is `build_M1(M1_model = )` (§7) and sex-specific
+growth is `build_growth()` (§8). The per-sex hooks in the linkage grammar are
+`linkage_spec(by = ~ sex)` and its `sex =` filter.
+
+Note that `fleet_control` also carries a `Sex` column. It is **inert** — read
+nowhere in the model — and is retained only so older workbooks still read. Sex
+is set per observation on `comp_data`, not per fleet.
+
 ## 4. Catchability (per fleet)
 
 > Equations: see vignette 8 [§Catchability parameterizations](model-parameterizations.html#catchability-parameterizations).
