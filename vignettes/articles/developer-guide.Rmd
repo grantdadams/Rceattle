@@ -143,6 +143,7 @@ file):
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |
 | `diet_data.hpp` | Predator diet (stomach-content) likelihood. |
 | `linkage.hpp` | Applies the encoded linkage tables (covariates, time blocks, random effects) to each process's parameters, and accumulates the linkage priors / RE densities into the likelihood. |
+| `comp_sim.hpp` | Composition draws — multinomial (sequential conditional binomial), Dirichlet, and Dirichlet-multinomial — used by the `SIMULATE` blocks. |
 
 The template opens with the `DATA_*` block (switches such as `estimateMode`,
 `msmMode`, `suitMode`, `initMode`, `srr_fun`, `HCR`, plus the data objects),
@@ -219,9 +220,17 @@ Note that inside `priors = `, the bare constructors `normal()`, `lognormal()`,
 3. Add mapping logic in `R/3-build_map.R` (and the matching `build_map_*()`
    helper) so it is turned on/off for the right configurations.
 4. Add it to the phasing order in `R/6-phaser.R`.
-5. (Optional) expose an on/off or random-effect switch as a `fit_mod()`
+5. Add it to the parameter dictionary in `R/0-parameter_dictionary.R`, and — if
+   it carries a year dimension that a projection has to extend — to
+   `.mse_proj_param_yrdim()` in `R/10-run_mse.R`. Both are registries keyed by
+   parameter name, so a new (or retired) block that misses them fails only later,
+   inside an MSE.
+6. If the parameter is a random effect, give it a `SIMULATE` draw beside its
+   density (see *Change the likelihood*), or `sim_mod(process = )` will hand back
+   its fitted values as though they were simulated.
+7. (Optional) expose an on/off or random-effect switch as a `fit_mod()`
    argument.
-6. Document it in `inst/extdata/meta_data_names.xlsx` and/or the `fit_mod()`
+8. Document it in `inst/extdata/meta_data_names.xlsx` and/or the `fit_mod()`
    roxygen.
 
 ### Add or change a data input
@@ -274,6 +283,32 @@ The joint negative log-likelihood is assembled at the end of
 constant and the species/fleet column. Add or modify the relevant term there,
 then recompile and re-run the regression tests (below) to confirm the objective
 changes only as intended.
+
+**Add or update the matching `SIMULATE` block at the same time.** Every
+observation and every process error is drawn in a `SIMULATE` block sitting
+immediately beside the density that scores it, so that the two cannot be changed
+independently — a simulator that has drifted from its likelihood does not error,
+it makes `self_test()` report recovery against a data-generating process the
+model never assumed. A new likelihood family with no draw is visibly absent
+rather than silently wrong. Three rules the existing blocks follow:
+
+* **Draw what the density assumes**, including the bias-correction convention and
+  the scale (log vs. natural). Where a family has no exact sampler — a
+  multivariate normal truncated to the positive orthant, say — say so in the draw
+  and warn from `sim_mod()`, rather than quietly substituting a different
+  distribution.
+* **Report under a `*_sim` name.** TMB never clears its report environment, so
+  anything reported inside a `SIMULATE` block stays visible in `obj$report()`
+  afterwards. A draw written into the observed-data object and reported under its
+  name is readable as the data it replaced, which is why `comp_sim`, `caal_sim`
+  and `diet_sim` are separate copies.
+* **Do not draw what the model does not define.** If two densities score one
+  latent — the AMAK/Ianelli stock-recruit penalty is the live example — there is
+  no single distribution to draw from. Leave it and warn.
+
+`simulate_state` selects which processes are redrawn (recruitment, M, growth,
+catchability, selectivity), and `simulate_period` which period; both are
+`DATA_IVECTOR`s built by `R/8-sim_mod.R`.
 
 ## Testing
 

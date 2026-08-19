@@ -123,8 +123,19 @@ below (integers or strings both work):
 | `3` | `"DoubleLogistic"` | Dome-shaped (ascending + descending logistic) |
 | `4` | `"DescendingLogistic"` | Descending only |
 | `5` | `"Hake"` | Non-parametric à la Taylor et al. (Pacific hake) |
-| `6` | `"2DAR1"` | 2D AR(1) age × year (Cheng et al. 2024) |
-| `7` | `"3DAR1"` | 3D AR(1) age × year × cohort |
+| `6` | `"2DAR1"` | 2D AR(1) bin × year (Cheng et al. 2024) |
+| `7` | `"3DAR1"` | 3D AR(1) bin × year × cohort |
+
+The AR(1) forms reuse the `Sel_curve_pen` columns as logit-scale correlations,
+one per dimension: `Sel_curve_pen1` across selectivity **bins** (ages or length
+bins, per `Selectivity_dimension`), `Sel_curve_pen2` across **years**, and
+`Sel_curve_pen3` across **cohorts** for `3DAR1`. Before 5.9.0 the 2DAR1 density
+applied these two the wrong way round, so a fit that started from unequal
+`Sel_curve_pen1` / `Sel_curve_pen2` — or that warm-starts from `inits` produced
+by an earlier version — begins from a mirrored point. Refit from `inits = NULL`,
+or transpose the two, when moving a 2DAR1 model across that boundary. Fits that
+start both correlations at 0 are unaffected: `TMBphase()` holds them there, and
+only the two reported estimates exchange names.
 
 Time-varying behavior is set by `Time_varying_sel` (per fleet):
 
@@ -296,8 +307,21 @@ via `build_M1()`. See `?build_M1` for options and
 | `6` | `"ar1_age_year"` | 2D AR(1) over both year and age |
 
 Variance and correlation parameters are species-specific but
-sex-invariant. `M2_use_prior = TRUE` adds a log-normal prior with mean
-`M_prior` and SD `M_prior_sd` on total M (M1 + M2) in multi-species mode.
+sex-invariant. `M1_dev_log_sd` is the AR(1) **innovation** standard deviation —
+the marginal is `sigma / sqrt(1 - rho^2)`, as in WHAM. (The linkage grammar uses
+the opposite convention: `linkage_spec(~ ar1(1 | Year), init = ...)` takes
+`sigma` as the marginal SD.) `M2_use_prior = TRUE` adds a log-normal prior with
+mean `M_prior` and SD `M_prior_sd` on total M (M1 + M2) in multi-species mode.
+
+Modes `3` and `6` estimate a full age × year deviation field. Before 5.9.0 a map
+defect gave them one deviation per *year* laid on a stride pattern instead — 42
+free deviations where 882 were meant, on `GOA2018SS` — so fits in these two modes
+change. They are also the two to treat carefully: a free age-by-year mortality
+field with a single standard deviation and no prior on M is strongly confounded
+with selectivity and recruitment in a single-species assessment. Read
+`fit$convergence` and the estimability table before trusting one, and consider a
+prior on M. Modes `1`/`2`/`4`/`5` are unaffected — they hold the deviation
+constant along one dimension deliberately.
 
 ## 8. Growth and weight-at-age (`growthFun = build_growth()`)
 

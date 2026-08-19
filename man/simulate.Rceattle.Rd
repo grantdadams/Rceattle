@@ -23,9 +23,13 @@ observation error. See \code{\link[=sim_mod]{sim_mod()}} for the alternatives.}
 }
 \value{
 A list of \code{nsim} \code{data_list} objects -- always a list, including at
-\code{nsim = 1}, so callers do not have to special-case the length. Each element
-carries the drawn process deviations as \code{attr(, "process_sim")} when
-\code{process} redrew something.
+\code{nsim = 1}, so callers do not have to special-case the length. When
+\code{process} redrew something, each element carries the deviations that
+generated it as \code{attr(, "process_sim")}: a named list of whichever of
+\code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and \code{beta_linkage_re} were drawn.
+Compare estimates against those rather than against \code{object}, whose fitted
+deviations are no longer what generated the data. The seed, when given, is
+recorded on the returned list as \code{attr(, "seed")}.
 }
 \description{
 The \code{\link[stats:simulate]{stats::simulate()}} method for CEATTLE fits: draws \code{nsim}
@@ -33,10 +37,8 @@ replicate data sets from the fitted observation model, and optionally from
 the process model as well.
 }
 \details{
-A thin wrapper on \code{\link[=sim_mod]{sim_mod()}}, which does the work and documents the
-observation model in full. Use whichever reads better; \code{sim_mod()} also
-offers \code{simulate = FALSE} for expected values rather than draws, which is
-not simulation and so has no place in this method.
+A wrapper on \code{\link[=sim_mod]{sim_mod()}}, which documents the observation model in full. For
+expected values rather than draws, call \code{sim_mod(simulate = FALSE)}.
 
 Every draw is taken by the TMB model itself, beside the likelihood that
 defines it, so the simulated data and the density that will be fitted to them

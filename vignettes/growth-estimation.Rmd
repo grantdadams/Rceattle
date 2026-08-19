@@ -94,6 +94,29 @@ scale, because the default log link is back-transformed inside the prior
 block). An intercept-bearing linkage replaces the base parameter and
 carries its level.
 
+### Time-varying growth
+
+The same grammar carries time variation, with a random-effect term on the
+right-hand side instead of (or alongside) a covariate:
+
+```{r}
+# A random walk on the von Bertalanffy k. Use ar1(1 | Year) for a stationary
+# autoregression, or (1 | Year) for independent annual deviations; under ar1()
+# the `sigma` init is the MARGINAL standard deviation.
+build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(K = linkage_spec(~ rw(1 | Year)))
+)
+```
+
+This is the only route to time-varying growth. The `growth_re` switch that
+earlier versions carried in the `data_list` was never implemented — nothing
+consumed it, the deviation array was mapped off in every configuration, and the
+template gave it no density — so it is removed as of 5.9.0 and setting it now
+raises a deprecation message. Unlike the switch, a random linkage carries a real
+density, so it is estimated, reported in the linkage table, and redrawn by
+`sim_mod(process = "growth")`.
+
 ## Fit the model
 
 ```{r}

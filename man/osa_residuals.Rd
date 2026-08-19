@@ -127,12 +127,15 @@ densities (the \code{osa_mode} switch); fleets fit with the AFSC \code{Multinomi
 pseudo-likelihood are residualized under the full multinomial.
 
 Survey-index OSA residuals are supported for every index likelihood family
-(\code{Index_distribution}): lognormal IID (\code{"Lognormal"}) and natural-scale
-\code{"Normal"} residualize as independent normals on the log or natural scale; the
-correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened by the lower
-Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
-closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a Gaussian block.
+(\code{Index_distribution}): lognormal IID (\code{"Lognormal"}) and the natural-scale
+\code{"Normal"} and \code{"TruncatedNormal"} residualize as independent draws on the log
+or natural scale, the last against the renormalized density it was fitted with
+(so its residuals are uniform under the truncated model, not the untruncated
+one); the correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened by
+the lower Cholesky of the fleet's survey covariance Sigma = L L' so the
+residuals are the multivariate-Gaussian one-step-ahead innovations
+L^-1 (obs - q*pred) -- the closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a
+Gaussian block.
 }
 \section{Negative composition \code{predicted} values}{
 

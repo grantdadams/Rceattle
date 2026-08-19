@@ -43,9 +43,9 @@ age-at-length (multinomial or Dirichlet-multinomial), and stomach contents
 \details{
 Every draw is taken by the TMB model itself, in a \code{SIMULATE} block beside
 the likelihood that defines it, so the simulated data and the density that
-will be fitted to them cannot drift apart. That is the point: two copies of
-one observation model drift silently, and a \code{\link{self_test}} then
-reports recovery against a process the likelihood never assumed.
+will be fitted to them cannot drift apart. Two copies of one observation model
+drift silently, and a \code{\link{self_test}} then reports recovery against a
+process the likelihood never assumed.
 
 Consequently \code{simulate = TRUE} needs a model to evaluate. A model loaded
 from an \code{.Rdata}/\code{.rds} file has one, and a fit whose \code{$obj}
