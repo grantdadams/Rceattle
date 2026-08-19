@@ -71,11 +71,11 @@ testthat::test_that("a non-DSEM refit is unaffected", {
   testthat::expect_equal(fit$obj$fn(), base$obj$fn())
 })
 
-testthat::test_that("every refitting diagnostic refuses a DSEM with a directed message", {
+testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse with a directed message", {
   # Regression: these failed in assorted opaque ways instead of saying so --
-  # retrospective() died zeroing inits$rec_dev (length 0 under a DSEM, since the
-  # deviations live in the latent states), jitter() reported "0 of N returned"
-  # with the cause buried, self_test() threw "argument is of length zero".
+  # jitter() reported "0 of N returned" with the cause buried, self_test() threw
+  # "argument is of length zero". They still refuse; retrospective() no longer
+  # does, because its peel now marginalizes the latent states.
   fake <- structure(
     list(data_list = c(Rceattle::BS2017SS,
                        list(dsem_settings = Rceattle::build_DSEM(
@@ -88,10 +88,13 @@ testthat::test_that("every refitting diagnostic refuses a DSEM with a directed m
     list(data_list = Rceattle::BS2017SS,
          dsem = list(tmb_inputs = list(parameters = list(beta_z = 1)))),
     class = "Rceattle")
-  testthat::expect_error(Rceattle::retrospective(built_only),
+  testthat::expect_error(Rceattle::jitter(built_only),
                          "does not yet support a DSEM")
 
-  for (fn in c("retrospective", "jitter", "self_test", "remove_F")) {
+  # retrospective() is deliberately NOT in this list any more: it supports a
+  # DSEM, peeling by MARGINALIZING the peeled-year latent states rather than
+  # pinning them. Its behaviour is pinned in test-dsem-retrospective.R.
+  for (fn in c("jitter", "self_test", "remove_F")) {
     testthat::expect_error(do.call(fn, list(fake)), "does not yet support a DSEM",
                            info = fn)
   }

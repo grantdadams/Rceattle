@@ -128,10 +128,27 @@
 #' }
 #' @export
 retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
-  .stop_if_dsem(Rceattle, "retrospective")
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # A peel does not shorten the model: it sets endyr_peel and turns off DATA
+  # after it, so a DSEM still spans every year. Its latent states stay free and
+  # in `random`, and the Laplace approximation integrates the peeled-year states
+  # out against the GMRF prior with no data informing them -- which is the
+  # peeled marginal likelihood. Do NOT mirror what rec_dev does below (zero the
+  # tail, map it out): pinning is inert for an independent deviate but not for
+  # states coupled through the RAM, where the pinned zeros stay in the quadratic
+  # form and shrink the terminal retained state.
+  #
+  # rescale = TRUE works under a DSEM and is the more defensible setting for
+  # one. It standardizes env_data on styr:endyr_peel only, so the peel does not
+  # centre its covariates using years it is supposed to have not seen -- with
+  # the full-series mean and sd, post-peel information leaks in and the
+  # retrospective understates error. It does not change the latent dimensions:
+  # build_dsem_objects() full-joins env_data back onto styr:dsem_endyr, so the
+  # trimmed years return as NA and the DSEM predicts those covariate values from
+  # its own process instead of reading data the peel should not have.
 
   # Peels inherit the input model's sdreport setting unless overridden. Mohn's
   # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
@@ -266,6 +283,19 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # * Adjust parameters ----
     #FIXME: adjust for forecasting via MVN
     inits <- Rceattle$estimated_params
+
+    # Under a DSEM with family = "fixed" the covariate columns of dsem_x_tj ARE
+    # the environmental data: the map holds them fixed, and their VALUES come
+    # from inits. merge_dsem_params() keeps a caller-supplied dsem_x_tj rather
+    # than the one just built, so warm-starting the peel from the parent carries
+    # the parent's UNRESCALED covariate through and rescale = TRUE is silently
+    # ignored -- measured: every path coefficient and the whole of x_tj came back
+    # bit-identical with and without it. Drop the block so the rebuild supplies
+    # covariates standardized on styr:endyr_peel. The recdev columns lose their
+    # warm start, which the phased refit recovers and which is if anything the
+    # more appropriate starting point for a peel.
+    if (rescale && !is.null(inits$dsem_x_tj)) inits$dsem_x_tj <- NULL
+
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
     inits$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$log_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
@@ -350,13 +380,38 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
       random_rec = newmod$data_list$random_rec)
     map$mapFactor$dummy <- as.factor(NA); map$mapList$dummy <- NA
 
+    # build_map() knows nothing about the DSEM, and fit_mod() only fills the
+    # DSEM entries in when it builds the map itself -- so without this the
+    # dsem_* blocks would be ABSENT from a supplied map, which means unmapped,
+    # which means estimated. Worse, `random` is derived from the map, so the
+    # latent states would come back as fixed effects rather than being
+    # integrated out. This refit only solves log_F against the peeled catch, so
+    # hold every DSEM parameter at what the peeled hindcast estimated: that is
+    # what debug = TRUE does to the rest of the hindcast, and Mohn's rho reads
+    # those hindcast quantities. (Pinning is safe HERE, unlike in the peel
+    # itself, because no peeled likelihood is being computed.)
+    for (.nm in grep("^dsem_", names(newmod$estimated_params), value = TRUE)) {
+      map$mapList[[.nm]]   <- rep(NA, length(newmod$estimated_params[[.nm]]))
+      map$mapFactor[[.nm]] <- factor(map$mapList[[.nm]])
+    }
+
     # - Turn on F for peeled years to fit to catch (matches full model)
     peeled_pars$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$estimated_params$log_F[,(nyrs_peel+1):nyrs]
     map$mapList$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$map$mapList$log_F[,(nyrs_peel+1):nyrs]
     map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
-    # Adjust forecased rec_dev in new mod for bias and refit
-    for(sp in 1:newmod$data_list$nspp){
+    # Adjust forecased rec_dev in new mod for bias and refit.
+    #
+    # Skipped under a DSEM. rec_dev there is DERIVED from the latent states, so
+    # writing it is a silent no-op -- the template overwrites it on the next
+    # evaluation of the objective, and the retrospective forecast would quietly
+    # not use the bias-adjusted value. The DSEM supplies the forecast
+    # recruitment process itself: the peeled-year states are drawn from the GMRF
+    # given the retained years, so lagged paths and covariates carry recruitment
+    # into the forecast instead of a single bias-corrected constant. Writing the
+    # constant into dsem_x_tj[, rec_dev_col] would REPLACE that process with a
+    # pinned mean, which is the pinning error this function is careful to avoid.
+    if (!.has_dsem(newmod)) for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
