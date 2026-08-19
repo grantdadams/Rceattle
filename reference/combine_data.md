@@ -1,7 +1,7 @@
-# Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
+# Combine two Rceattle data lists
 
-Combine data sets. Will use the env_data data set from data_set1 and
-diet data will have to be updated.
+Concatenate two data lists into one. `env_data` is taken from
+`data_list1`, and diet data must be updated afterward.
 
 ## Usage
 

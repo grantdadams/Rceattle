@@ -29,7 +29,8 @@ plot_depletionSSB(
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
   OM = TRUE,
-  reference = NULL
+  reference = NULL,
+  ylab = NULL
 )
 ```
 
@@ -61,7 +62,8 @@ plot_depletionSSB(
 
 - add_ci:
 
-  If the confidence interval is to be added
+  If the confidence interval is to be added (see Details for how it is
+  constructed)
 
 - lwd:
 
@@ -132,6 +134,11 @@ plot_depletionSSB(
 - reference:
 
   Reference model
+
+- ylab:
+
+  Y-axis label. `NULL` (default) derives one from `output` and the
+  model's `minage`.
 
 ## Value
 

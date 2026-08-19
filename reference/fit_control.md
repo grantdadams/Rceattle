@@ -115,7 +115,7 @@ fit_control(
 - TMBfilename:
 
   Optional character. Path (without `.cpp`) to an alternate TMB template
-  for development. Default `NULL` (use the bundled `ceattle_v01_11`).
+  for development. Default `NULL` (use the bundled `ceattle`).
 
 - verbose:
 

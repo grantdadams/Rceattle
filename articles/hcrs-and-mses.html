@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,21 +81,26 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/hcrs-and-mses.Rmd" class="external-link"><code>vignettes/hcrs-and-mses.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/hcrs-and-mses.Rmd" class="external-link"><code>vignettes/hcrs-and-mses.Rmd</code></a></small>
       <div class="d-none name"><code>hcrs-and-mses.Rmd</code></div>
     </div>
 
     
     
 <div class="section level3">
-<h3 id="fitting-oms">Fitting OMs<a class="anchor" aria-label="anchor" href="#fitting-oms"></a>
+<h3 id="fitting-the-operating-model">Fitting the operating model<a class="anchor" aria-label="anchor" href="#fitting-the-operating-model"></a>
 </h3>
-<p>An example MSE using the northern rockfish stock assessment.</p>
+<p>A management strategy evaluation (MSE) runs a management strategy in
+closed loop: an operating model (OM) represents the “true” stock and
+generates data, an estimation model (EM) is fitted to that data and
+applies a harvest control rule (HCR), and the resulting catch feeds back
+into the OM. This example uses the northern rockfish assessment as the
+OM.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://grantdadams.github.io/Rceattle/">Rceattle</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"NorthernRockfish2022"</span><span class="op">)</span></span>
 <span><span class="va">nrdata</span> <span class="op">&lt;-</span> <span class="va">NorthernRockfish2022</span></span>
-<span><span class="va">nrdata</span><span class="op">$</span><span class="va">fleet_control</span><span class="op">$</span><span class="va">proj_F_prop</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
+<span><span class="va">nrdata</span><span class="op">$</span><span class="va">fleet_control</span><span class="op">$</span><span class="va">Proj_F_proportion</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
 <span></span>
 <span><span class="va">om</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list <span class="op">=</span> <span class="va">nrdata</span>,</span>
@@ -117,12 +122,18 @@ Adams</h4>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="fitting-ems-tier-3-hcr">Fitting EMs (Tier 3 HCR)<a class="anchor" aria-label="anchor" href="#fitting-ems-tier-3-hcr"></a>
+<h3 id="fitting-the-estimation-model-tier-3-hcr">Fitting the estimation model (Tier 3 HCR)<a class="anchor" aria-label="anchor" href="#fitting-the-estimation-model-tier-3-hcr"></a>
 </h3>
-<p>We can use the <code>HCR = build_hcr()</code> argument in
-<code>fit_mod</code> to specify the HCR and BRPs of our management
-strategy. A variety of HCRs and BRPs are included and can be found by
-<code><a href="../reference/build_hcr.html">?build_hcr</a></code>.</p>
+<p>The <code>HCR = build_hcr()</code> argument to <code><a href="../reference/fit_mod.html">fit_mod()</a></code>
+sets the harvest control rule and its biological reference points
+(BRPs). Here we use the NPFMC Tier 3 rule: fishing at F40%, the maxFABC
+rate (an Amendment-56 SPR proxy for FMSY), with an F35% overfishing
+limit (FOFL). Below the B40% target, F is ramped down linearly, reaching
+zero when spawning-stock biomass falls to <code>Alpha = 0.05</code> of
+that target. <code>Plimit = 0.2</code> is a separate shutoff: fishing
+stops when the stock is assessed as overfished relative to 20% of
+unfished SSB. See <code><a href="../reference/build_hcr.html">?build_hcr</a></code> for the available rules and
+reference points.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">em</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list <span class="op">=</span> <span class="va">nrdata</span>,</span>
@@ -149,8 +160,13 @@ strategy. A variety of HCRs and BRPs are included and can be found by
 <hr>
 </div>
 <div class="section level3">
-<h3 id="running-mses">Running MSEs<a class="anchor" aria-label="anchor" href="#running-mses"></a>
+<h3 id="running-the-mse">Running the MSE<a class="anchor" aria-label="anchor" href="#running-the-mse"></a>
 </h3>
+<p><code><a href="../reference/run_mse.html">run_mse()</a></code> runs the closed loop: it projects the OM,
+samples data on the schedule you specify, re-fits the EM every
+<code>assessment_period</code> years, and applies the EM’s HCR back to
+the OM. <code>nsim</code> sets the number of stochastic
+trajectories.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mse.html">run_mse</a></span><span class="op">(</span></span>
 <span>  om <span class="op">=</span> <span class="va">om</span>, em <span class="op">=</span> <span class="va">em</span>,</span>
@@ -193,8 +209,10 @@ exact same trajectories from the same package tag.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="evaluating-mses-via-plots">Evaluating MSEs via plots<a class="anchor" aria-label="anchor" href="#evaluating-mses-via-plots"></a>
+<h3 id="evaluating-the-mse-with-plots">Evaluating the MSE with plots<a class="anchor" aria-label="anchor" href="#evaluating-the-mse-with-plots"></a>
 </h3>
+<p>Plotting the OM’s spawning-biomass depletion across simulations shows
+the range of stock trajectories the strategy produces.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">mse1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">$</span><span class="va">OM</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -213,6 +231,8 @@ exact same trajectories from the same package tag.</p>
 <div class="section level3">
 <h3 id="summary-statistics">Summary statistics<a class="anchor" aria-label="anchor" href="#summary-statistics"></a>
 </h3>
+<p><code><a href="../reference/mse_summary.html">mse_summary()</a></code> reduces the trajectories to performance
+statistics for comparing strategies.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse_summ</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mse_summary.html">mse_summary</a></span><span class="op">(</span><span class="va">mse1</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">mse_summ</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
@@ -221,10 +241,17 @@ exact same trajectories from the same package tag.</p>
 <div class="section level2">
 <h2 id="alternative-scenarios">Alternative scenarios<a class="anchor" aria-label="anchor" href="#alternative-scenarios"></a>
 </h2>
+<p>The runs below vary one element of the strategy at a time — the
+reference points, the survey frequency, the assessment interval, or the
+environment — so their performance statistics can be compared against
+<code>mse1</code>.</p>
 <hr>
 <div class="section level3">
-<h3 id="different-brps">Different BRPs<a class="anchor" aria-label="anchor" href="#different-brps"></a>
+<h3 id="different-reference-points">Different reference points<a class="anchor" aria-label="anchor" href="#different-reference-points"></a>
 </h3>
+<p>Here the EM uses a more aggressive rule (F30% target, F10% limit, and
+<code>Plimit = 0</code>, i.e. no SSB cutoff) to contrast with the Tier 3
+run above.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">em2</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list <span class="op">=</span> <span class="va">nrdata</span>,</span>
@@ -258,8 +285,11 @@ exact same trajectories from the same package tag.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="triannual-bts">Triannual BTS<a class="anchor" aria-label="anchor" href="#triannual-bts"></a>
+<h3 id="triennial-bottom-trawl-survey">Triennial bottom-trawl survey<a class="anchor" aria-label="anchor" href="#triennial-bottom-trawl-survey"></a>
 </h3>
+<p><code>sampling_period = c(1, 3)</code> samples the fishery every year
+but the bottom-trawl survey (BTS) only every third year, testing the
+cost of a sparser survey.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mse.html">run_mse</a></span><span class="op">(</span></span>
 <span>  om <span class="op">=</span> <span class="va">om</span>, em <span class="op">=</span> <span class="va">em</span>, </span>
@@ -270,8 +300,14 @@ exact same trajectories from the same package tag.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="year-cycle-and-50-sampling">4-year cycle and 50% sampling<a class="anchor" aria-label="anchor" href="#year-cycle-and-50-sampling"></a>
+<h3 id="year-assessment-cycle-and-reduced-survey-coverage">4-year assessment cycle and reduced survey coverage<a class="anchor" aria-label="anchor" href="#year-assessment-cycle-and-reduced-survey-coverage"></a>
 </h3>
+<p>Here the EM is re-fitted only every fourth year
+(<code>assessment_period = 4</code>) and <code>fut_sample = 0.5</code>
+halves future sampling effort on both data streams: composition sample
+sizes are halved and the index log-SD is doubled
+(<code>Log_sd * 1 / fut_sample</code>). A lower-cost monitoring
+scenario.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mse.html">run_mse</a></span><span class="op">(</span></span>
 <span>  om <span class="op">=</span> <span class="va">om</span>, em <span class="op">=</span> <span class="va">em</span>, </span>
@@ -283,10 +319,14 @@ exact same trajectories from the same package tag.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="climate-mse">Climate MSE<a class="anchor" aria-label="anchor" href="#climate-mse"></a>
+<h3 id="climate-linked-mse">Climate-linked MSE<a class="anchor" aria-label="anchor" href="#climate-linked-mse"></a>
 </h3>
+<p>To test a strategy under environmental change, link a process in the
+OM to a covariate. Here recruitment (via <code>R0</code>) tracks a
+steadily rising environmental index, so the OM’s productivity shifts
+over time while the EM keeps assuming stationary recruitment.</p>
 <div class="section level4">
-<h4 id="climate-linked-om">Climate linked OM<a class="anchor" aria-label="anchor" href="#climate-linked-om"></a>
+<h4 id="climate-linked-om">Climate-linked OM<a class="anchor" aria-label="anchor" href="#climate-linked-om"></a>
 </h4>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
@@ -342,6 +382,8 @@ exact same trajectories from the same package tag.</p>
 <div class="section level2">
 <h2 id="overall-summary">Overall summary<a class="anchor" aria-label="anchor" href="#overall-summary"></a>
 </h2>
+<p>Tagging each summary with an <code>MSE</code> label and stacking them
+puts the strategies side by side in one table.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse_summ</span><span class="op">$</span><span class="va">MSE</span> <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="va">mse_summ2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mse_summary.html">mse_summary</a></span><span class="op">(</span><span class="va">mse2</span><span class="op">)</span>; <span class="va">mse_summ2</span><span class="op">$</span><span class="va">MSE</span> <span class="op">=</span> <span class="fl">2</span></span>

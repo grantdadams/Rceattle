@@ -5,7 +5,12 @@ Specify the growth model for Rceattle
 ## Usage
 
 ``` r
-build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
+build_growth(
+  fun = "empirical",
+  growth_age_L1 = NA,
+  sd_plus_group = NA,
+  linkages = NULL
+)
 ```
 
 ## Arguments
@@ -29,6 +34,17 @@ build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
   backwards-compatible and `minage = 0` models pick up an SS3-consistent
   half-year anchor.
 
+- sd_plus_group:
+
+  How the oldest age class's SD-at-age is treated (only affects
+  estimated growth, `fun != "empirical"`). `"WHAM"` pins the plus-group
+  SD to the upper anchor `exp(sd_Linf)` (the WHAM SDAA convention);
+  `"SS3"` instead interpolates it by length like any interior age.
+  Accepts a string or the integer code (`1`/`2`), scalar or a
+  length-`nspp` vector. Default `NA` inherits
+  `data_list$growth_sd_style` if present (so a refit keeps the original
+  choice), otherwise `"WHAM"`.
+
 - linkages:
 
   Optional named list of
@@ -36,16 +52,13 @@ build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
   objects keyed by parameter name (must be one of
   [GROWTH_LINKAGE_PARAMS](https://grantdadams.github.io/Rceattle/reference/GROWTH_LINKAGE_PARAMS.md)).
   The mean-growth keys (`K`, `L1`, `Linf`, `m`) accept arbitrary
-  one-sided formulas and produce year-varying offsets applied inside
-  `growth.hpp`. The SD-endpoint keys (`sd_L1`, `sd_Linf`) only honor
-  intercept-bearing formulas (typically `~ 1`) – they thread `init`,
-  `bounds`, and `priors` onto the underlying `growth_log_sd` parameter,
+  one-sided formulas and make that growth parameter year-varying (a
+  per-year offset around its mean). The SD-endpoint keys (`sd_L1`,
+  `sd_Linf`) only honor intercept-bearing formulas (typically `~ 1`) –
+  they thread `init`, `bounds`, and `priors` onto the growth SD-at-age,
   giving the SDs the same prior/fix/initial-value contract as the mean
   parameters. Slope rows on SD specs raise a warning and have no effect;
-  slope-only formulas (`~ 0 + temp`) error. Materialization into the
-  global linkage table happens inside
-  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
-  once `data_list$env_data` is in scope.
+  slope-only formulas (`~ 0 + temp`) error.
 
 ## Value
 
@@ -54,7 +67,7 @@ A list of switches defining the growth model.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Sex-specific von Bertalanffy with temperature on K, by species + sex
 build_growth(
   fun = "vonBertalanffy",   # or fun = 1
@@ -66,5 +79,35 @@ build_growth(
     )
   )
 )
-} # }
+#> $fun
+#> [1] "vonBertalanffy"
+#> 
+#> $linkages
+#> $linkages$K
+#> <Rceattle linkage spec>
+#>   param:   K
+#>   formula: ~temp
+#>   prior:    temp ~ normal(0, 1)
+#>   link:    log
+#> 
+#> 
+#> $growth_model
+#> [1] 1
+#> 
+#> $sd_plus_group
+#> [1] NA
+#> 
+#> $growth_sd_style
+#> [1] NA
+#> 
+#> $growth_age_L1
+#> [1] NA
+#> 
+#> $growth_re
+#> [1] 0
+#> 
+#> $growth_indices
+#> [1] NA
+#> 
+# }
 ```

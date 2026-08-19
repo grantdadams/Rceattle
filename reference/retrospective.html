@@ -17,7 +17,7 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Retrospective peels</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
       <div class="d-none name"><code>retrospective.Rd</code></div>
     </div>
 
@@ -78,7 +78,8 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 <span>  peels <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  rescale <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  nyrs_forecast <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  getsd <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -108,10 +109,51 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 running under <code>R CMD check</code> (which sets
 <code>_R_CHECK_LIMIT_CORES_</code>). Set to 1 to force sequential execution.</p></dd>
 
+
+<dt id="arg-getsd">getsd<a class="anchor" aria-label="anchor" href="#arg-getsd"></a></dt>
+<dd><p>whether each peel runs <code><a href="https://rdrr.io/pkg/TMB/man/sdreport.html" class="external-link">TMB::sdreport</a></code> (standard errors).
+Mohn's rho uses only point estimates, so <code>FALSE</code> is faster with no
+effect on rho. Default <code>NULL</code> inherits the input model's setting
+(<code>TRUE</code> if it was fit with <code>getsd = TRUE</code>, i.e. carries an
+<code>sdrep</code>); the returned peel models then carry standard errors only
+when <code>getsd</code> is <code>TRUE</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species</p>
+    <p>a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
+each species.</p>
+<p>A peel that did not converge is dropped, so <code>Rceattle_list</code> can be
+shorter than <code>peels + 1</code> (a message reports how many). Each entry is
+named for its own terminal year (<code>Year_2017</code>, ...) rather than by
+position, so index it by name – <code>Rceattle_list[[3]]</code> is not
+necessarily the 3-year peel. With no peel left, Mohn's rho is <code>NaN</code>
+and the function warns.</p>
+<p>Each peel reports its own terminal year as <code>data_list$endyr</code>, so plots
+draw it only as far as it was fit and the peels fan out.</p>
+<p>A peel still estimates the years it dropped: they are its retrospective
+forecast, fit to the observed catch with recruitment held at the peel's mean
+and the survey and composition data withheld. Three years therefore matter,
+and each peel carries all three:</p><dl><dt><code>endyr</code>, <code>endyr_peel</code></dt>
+<dd><p>the peel's terminal year – what it
+was fit through. Equal to each other.</p></dd>
+
+<dt><code>endyr_full</code></dt>
+<dd><p>the unpeeled model's terminal year, where the
+retrospective forecast ends.</p></dd>
+
+<dt><code>projyr</code></dt>
+<dd><p>the end of the harvest-control-rule projection.</p></dd>
+
+
+</dl><p>So the forecast years are those after <code>endyr_peel</code> through
+<code>endyr_full</code>, and the projection follows through <code>projyr</code>;
+<code>incl_proj = TRUE</code> plots both. Take the forecast years as
+<code>endyr_peel + seq_len(endyr_full - endyr_peel)</code>, which is empty for the
+unpeeled model, rather than <code>(endyr_peel + 1):endyr_full</code>, which counts
+<em>down</em> there.</p>
+<p>Mohn's rho is computed from <code>endyr_peel</code> and is unaffected by any of
+this.</p>
     </div>
 
     <div class="section level2">
@@ -124,10 +166,6 @@ running under <code>R CMD check</code> (which sets
 <span class="r-in"><span>    msmMode <span class="op">=</span> <span class="fl">0</span>, avgnMode <span class="op">=</span> <span class="fl">0</span>,</span></span>
 <span class="r-in"><span>    phase <span class="op">=</span> <span class="cn">FALSE</span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Diet_loglike' are not included in data, assuming 'Multinomial'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'CAAL_weights' not specified in 'fleet_control', assuming 1</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s</span>
 <span class="r-in"><span><span class="va">retro</span> <span class="op">&lt;-</span> <span class="fu">retrospective</span><span class="op">(</span><span class="va">ss_run</span>, peels <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="co"># }</span></span></span>

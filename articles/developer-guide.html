@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>Developer guide</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
       <div class="d-none name"><code>developer-guide.Rmd</code></div>
     </div>
 
@@ -111,8 +111,8 @@ below).</td>
 </tr>
 <tr class="even">
 <td><code>src/TMB/</code></td>
-<td>The C++ TMB template <code>ceattle_v01_11.cpp</code> and its
-included <code>.hpp</code> modules.</td>
+<td>The C++ TMB template <code>ceattle.cpp</code> and its included
+<code>.hpp</code> modules.</td>
 </tr>
 <tr class="odd">
 <td><code>tests/testthat/</code></td>
@@ -142,10 +142,10 @@ articles like this one.</td>
 </table>
 <p>The whole model — observation model, population dynamics, and
 likelihood — is a single C++ TMB script,
-<code>src/TMB/ceattle_v01_11.cpp</code>, which <code>#include</code>s a
-set of topical <code>.hpp</code> modules. <code><a href="../reference/fit_mod.html">fit_mod()</a></code> is the
-R entry point; it calls a chain of helpers that build the TMB inputs,
-optimize, and label the output.</p>
+<code>src/TMB/ceattle.cpp</code>, which <code>#include</code>s a set of
+topical <code>.hpp</code> modules. <code><a href="../reference/fit_mod.html">fit_mod()</a></code> is the R entry
+point; it calls a chain of helpers that build the TMB inputs, optimize,
+and label the output.</p>
 </div>
 <div class="section level2">
 <h2 id="the-fit-pipeline">The fit pipeline<a class="anchor" aria-label="anchor" href="#the-fit-pipeline"></a>
@@ -229,13 +229,17 @@ requested).</td>
 </table>
 <p>Phasing (optional staged estimation) is handled by
 <code><a href="../reference/set_phases.html">set_phases()</a></code> / <code><a href="../reference/TMBphase.html">TMBphase()</a></code> in
-<code>R/OPT-phaser.R</code>; <code><a href="../reference/TMBAIC.html">TMBAIC()</a></code>
-(<code>R/OPT-TMBAIC.R</code>) computes AIC. Downstream wrappers —
+<code>R/6-phaser.R</code>; <code><a href="../reference/TMBAIC.html">TMBAIC()</a></code>
+(<code>R/6-tmb_aic.R</code>) computes AIC. Downstream wrappers —
 <code><a href="../reference/retrospective.html">retrospective()</a></code>, <code><a href="../reference/jitter.html">jitter()</a></code>,
 <code><a href="../reference/run_mse.html">run_mse()</a></code>, <code><a href="../reference/sim_mod.html">sim_mod()</a></code>,
 <code><a href="../reference/self_test.html">self_test()</a></code>, the <code>plot_*()</code> family — all take
 the fitted <code>Rceattle</code> object returned by
 <code><a href="../reference/fit_mod.html">fit_mod()</a></code>.</p>
+<p>Before that pipeline runs, a user can assemble or edit the
+<code>data_list</code> programmatically and see exactly what a given
+model needs — see <strong>Data assembly and the column schema</strong>
+below.</p>
 </div>
 <div class="section level2">
 <h2 id="the-switch-system">The switch system<a class="anchor" aria-label="anchor" href="#the-switch-system"></a>
@@ -267,10 +271,71 @@ name legal; <code>validate_switches()</code> rejects anything not
 listed.</p>
 </div>
 <div class="section level2">
+<h2 id="data-assembly-and-the-column-schema">Data assembly and the column schema<a class="anchor" aria-label="anchor" href="#data-assembly-and-the-column-schema"></a>
+</h2>
+<p>A CEATTLE <code>data_list</code> has many possible inputs, but any
+one assessment uses only some of them. A few pieces keep that
+manageable.</p>
+<p><strong>The column schema (<code>R/0-column_schema.R</code>) defines
+every <code>fleet_control</code> column in one place.</strong>
+<code>.rce_column_schema()</code> records each column’s name, type,
+default value, older accepted spellings, and a one-line description. The
+rest of the package reads the column from there, so adding a column
+means editing this one file:</p>
+<ul>
+<li>
+<code><a href="../reference/switch_check.html">switch_check()</a></code> fills its default,</li>
+<li>
+<code><a href="../reference/write_data.html">write_data()</a></code> writes it to the workbook and
+<code><a href="../reference/read_data.html">read_data()</a></code> reads it back,</li>
+<li>the meta sheet and the <code><a href="../reference/BS2017SS.html">?BS2017SS</a></code> field descriptions
+document it,</li>
+<li>
+<code><a href="../reference/data_check.html">data_check()</a></code> and <code><a href="../reference/rearrange_data.html">rearrange_data()</a></code> refer to
+it by its current name.</li>
+</ul>
+<p>If a column has older accepted spellings, list them in the schema’s
+<code>aliases</code> field. Whenever a <code>data_list</code> enters the
+pipeline, an older spelling is translated to the current name
+automatically, so workbooks and scripts written against earlier column
+names keep working (<code>test-schema-canonical.R</code> checks
+this).</p>
+<p><strong><code><a href="../reference/data_requirements.html">data_requirements()</a></code></strong> reports, for a
+given model setup, which inputs that model requires, which are optional,
+and which are ignored — so you can see what a configuration needs before
+fitting rather than hitting a validation error partway through.</p>
+<p><strong><code><a href="../reference/build_data.html">build_data()</a></code> with
+<code><a href="../reference/model_config.html">model_config()</a></code></strong> assembles or edits a
+<code>data_list</code> in R, supplying only the inputs a given model
+uses, and prints the model as a readable outline (<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> /
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>). <code><a href="../reference/write_template.html">write_template()</a></code> writes a blank
+workbook with the right sheets and columns for a chosen
+configuration.</p>
+</div>
+<div class="section level2">
+<h2 id="run-configuration-save-load">Run configuration (save / load)<a class="anchor" aria-label="anchor" href="#run-configuration-save-load"></a>
+</h2>
+<p><code><a href="../reference/save_config.html">save_config()</a></code> and <code><a href="../reference/load_config.html">load_config()</a></code> write and
+read a run’s full configuration — the model setup plus the estimation
+and uncertainty settings from <code><a href="../reference/fit_control.html">fit_control()</a></code> — as a
+plain-text YAML file. Each field is commented with its meaning, and
+fields left at their default are omitted, so two saved runs differ in
+the file only where they differ in substance, and the file reviews
+cleanly in version control.</p>
+<p>Apply a saved configuration with
+<code>fit_mod(data_list, config = load_config("run.yaml"))</code>. It
+fills in only the arguments you did not pass yourself, so an explicit
+argument always takes precedence. Every fit also stores the
+configuration it ran with, available as <code>run_config(fit)</code>.
+Formulas, priors, and nested <code>build_*()</code> specifications all
+save and reload, so reopening a saved configuration reproduces the same
+fit.</p>
+</div>
+<div class="section level2">
 <h2 id="the-tmb-template">The TMB template<a class="anchor" aria-label="anchor" href="#the-tmb-template"></a>
 </h2>
-<p><code>ceattle_v01_11.cpp</code> includes these modules (order matches
-the top of the file):</p>
+<p><code>ceattle.cpp</code> includes these modules (order matches the
+top of the file):</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -296,8 +361,10 @@ decomposition.</td>
 </tr>
 <tr class="even">
 <td><code>selectivity.hpp</code></td>
-<td>Selectivity forms (cases 0–7, including the Hake/Taylor
-non-parametric case 5).</td>
+<td>Selectivity forms, dispatched by the integer case of the
+<code>switch</code> on <code>Selectivity</code> — e.g. logistic (1),
+double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7),
+double-normal (8), NonParametricRPM (9), LogisticPM (11).</td>
 </tr>
 <tr class="odd">
 <td><code>recruitment.hpp</code></td>
@@ -318,7 +385,9 @@ iteratively).</td>
 </tr>
 <tr class="odd">
 <td><code>linkage.hpp</code></td>
-<td>Environmental / covariate linkage machinery.</td>
+<td>Applies the encoded linkage tables (covariates, time blocks, random
+effects) to each process’s parameters, and accumulates the linkage
+priors / RE densities into the likelihood.</td>
 </tr>
 </tbody>
 </table>
@@ -328,8 +397,17 @@ as <code>estimateMode</code>, <code>msmMode</code>,
 <code>HCR</code>, plus the data objects), then the
 <code>PARAMETER_*</code> block, then the population and observation
 dynamics, and finally the joint negative log-likelihood. The likelihood
-is accumulated in the <code>jnll_comp</code> object, organized by
-species, fleet, and likelihood component.</p>
+is accumulated in the <code>jnll_comp</code> matrix — rows are
+likelihood components, columns are species/fleet. Each row is addressed
+by a named constant from the <code>JnllRow</code> enum
+(<code>JNLL_INDEX</code>, <code>JNLL_CATCH</code>,
+<code>JNLL_COMP</code>, … <code>JNLL_LINKAGE_RE</code>, with
+<code>JNLL_N_ROWS</code> dimensioning the matrix), so a row is referred
+to by name in the C++ rather than by a bare integer. The <strong>display
+names</strong> for those rows live separately in
+<code>R/6-rename_output.R</code>; if you add or reorder a row, update
+both the enum and that name vector by hand (they are kept in sync
+manually).</p>
 <p><strong>Building.</strong> <code>src/TMB/compile.R</code> compiles
 the template (<code>framework = "TMBad"</code>); <code>TMB</code> and
 <code>RcppEigen</code> are <code>LinkingTo</code> dependencies. The
@@ -340,12 +418,56 @@ compiler flag, since CRAN rejects warning-suppressing flags.</p>
 <div class="section level2">
 <h2 id="the-linkage-and-priors-system">The linkage and priors system<a class="anchor" aria-label="anchor" href="#the-linkage-and-priors-system"></a>
 </h2>
-<p>Time-varying and covariate-driven parameters (M, growth, recruitment,
-catchability, selectivity) share one formula-driven linkage system:
+<p>Every process’s parameters share one formula-driven linkage system:
 <code>R/0-build_linkage.R</code>, <code>R/0-linkage_encode.R</code>,
 <code>R/0-linkage_table.R</code>, and <code>R/0-priors.R</code>.
-<code>linkage_spec(formula = ~ x, priors = list(...))</code> is the user
-entry point.</p>
+<code>linkage_spec(formula = ~ x, by = ~ ..., init = , priors = )</code>
+is the user entry point, attached through the per-process builders:</p>
+<ul>
+<li>
+<code><a href="../reference/build_srr.html">build_srr()</a></code> — recruitment (<code>R0</code>,
+<code>alpha</code>, <code>beta</code>),</li>
+<li>
+<code><a href="../reference/build_M1.html">build_M1()</a></code> — natural mortality (<code>M1</code>),</li>
+<li>
+<code><a href="../reference/build_growth.html">build_growth()</a></code> — growth (<code>K</code>,
+<code>L1</code>, <code>Linf</code>, <code>m</code>) and the SD endpoints
+(<code>sd_L1</code>, <code>sd_Linf</code>),</li>
+<li>
+<code><a href="../reference/build_catchability.html">build_catchability()</a></code> — catchability
+(<code>q</code>),</li>
+<li>
+<code><a href="../reference/build_selectivity.html">build_selectivity()</a></code> — selectivity
+(<code>slp_asc</code>, <code>slp_desc</code>, <code>inf_asc</code>,
+<code>inf_desc</code>, <code>coff</code>),</li>
+<li>
+<code><a href="../reference/build_composition.html">build_composition()</a></code> — the Dirichlet-multinomial weights
+(<code>theta_comp</code>, <code>theta_caal</code>,
+<code>theta_diet</code>), <strong>prior-only</strong>.</li>
+</ul>
+<p>The same formula grammar covers every way a parameter can vary. The
+right-hand side can be a covariate (<code>~ temp</code>), a set of time
+blocks (<code>~ cut(Year, ...)</code> — the fixed part goes straight to
+<code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code>, so there is no bespoke block helper), or a
+year-to-year random effect — independent (<code>~ (1|Year)</code>), a
+random walk (<code>rw(1|Year)</code>), or first-order autoregressive
+(<code>ar1(1|Year)</code>). <code>~ 1</code> with a <code>priors</code>
+list leaves the parameter at one value but places a prior on it. Use
+<code>by =</code> to say what the effect varies over —
+<code>by = ~ species + sex + age_bin</code> for the population
+processes, <code>by = ~ fleet</code> for catchability and
+selectivity.</p>
+<p>Placing a <strong>prior</strong> on a selectivity, catchability, or
+composition-weight parameter is the <code>~ 1</code> case, keyed by
+<code>`(Intercept)`</code>, e.g.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/build_selectivity.html">build_selectivity</a></span><span class="op">(</span>linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  inf_asc <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span><span class="op">~</span> <span class="fl">1</span>, by <span class="op">=</span> <span class="op">~</span> <span class="va">fleet</span>,</span>
+<span>                         priors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`(Intercept)` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">50</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>The Dirichlet-multinomial composition weights take a prior only (they
+have no covariate or random-effect form). See
+<code><a href="../articles/environmental-linkages-and-priors.html">vignette("environmental-linkages-and-priors")</a></code> for the full
+grammar.</p>
 <p>Note that inside <code>priors =</code>, the bare constructors
 <code>normal()</code>, <code>lognormal()</code>, <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">gamma()</a></code>,
 <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">beta()</a></code> are <strong>not</strong> the exported
@@ -363,15 +485,14 @@ intentional — do not “fix” it to <code><a href="../reference/prior_normal.
 <h3 id="add-a-new-estimated-parameter">Add a new estimated parameter<a class="anchor" aria-label="anchor" href="#add-a-new-estimated-parameter"></a>
 </h3>
 <ol style="list-style-type: decimal">
-<li>Declare the <code>PARAMETER</code> in
-<code>ceattle_v01_11.cpp</code> and use it in the relevant
-<code>.hpp</code> module.</li>
+<li>Declare the <code>PARAMETER</code> in <code>ceattle.cpp</code> and
+use it in the relevant <code>.hpp</code> module.</li>
 <li>Add a default starting value in
 <code>R/2-build_params.R</code>.</li>
 <li>Add mapping logic in <code>R/3-build_map.R</code> (and the matching
 <code>build_map_*()</code> helper) so it is turned on/off for the right
 configurations.</li>
-<li>Add it to the phasing order in <code>R/OPT-phaser.R</code>.</li>
+<li>Add it to the phasing order in <code>R/6-phaser.R</code>.</li>
 <li>(Optional) expose an on/off or random-effect switch as a
 <code><a href="../reference/fit_mod.html">fit_mod()</a></code> argument.</li>
 <li>Document it in <code>inst/extdata/meta_data_names.xlsx</code> and/or
@@ -381,12 +502,41 @@ the <code><a href="../reference/fit_mod.html">fit_mod()</a></code> roxygen.</li>
 <div class="section level3">
 <h3 id="add-or-change-a-data-input">Add or change a data input<a class="anchor" aria-label="anchor" href="#add-or-change-a-data-input"></a>
 </h3>
+<p>There are two cases. Follow the one that matches.</p>
+<p><strong>A <code>fleet_control</code> column</strong> (e.g. a new
+per-fleet setting) — add it in <strong>one</strong> place,
+<code>R/0-column_schema.R</code>:</p>
 <ol style="list-style-type: decimal">
-<li>Add the <code>DATA_*</code> object in
-<code>ceattle_v01_11.cpp</code> and consume it in the module.</li>
-<li>Update <code>R/0-read_write_excel_data.R</code> to read/write the
-new sheet or column.</li>
-<li>Add validation in <code>R/1-data_check.R</code>.</li>
+<li>Add a row to <code>.rce_column_schema()</code> with the column’s
+canonical name, type, default, any back-compat <code>aliases</code>, and
+its doc string. Everything downstream (<code><a href="../reference/switch_check.html">switch_check()</a></code>
+default-filling, <code><a href="../reference/write_data.html">write_data()</a></code>/<code><a href="../reference/read_data.html">read_data()</a></code>
+ordering, the meta sheet, the field dictionary) reads from the schema,
+so no other file needs editing to make the column persist and
+round-trip.</li>
+<li>Consume the column where it matters (<code><a href="../reference/data_check.html">data_check()</a></code>,
+<code><a href="../reference/rearrange_data.html">rearrange_data()</a></code>, or the cpp) by its
+<strong>canonical</strong> name — aliases are already upgraded on
+entry.</li>
+<li>If it is a rename of an existing column, put the old spelling in
+<code>aliases</code> and pin it in
+<code>test-schema-canonical.R</code>.</li>
+</ol>
+<p><strong>A whole new <code>data_list</code> element</strong> (a new
+sheet / array, e.g. an index covariate):</p>
+<ol style="list-style-type: decimal">
+<li>Add the <code>DATA_*</code> object in <code>ceattle.cpp</code> and
+consume it in the module.</li>
+<li>
+<strong>Add read <em>and</em> write support in
+<code>R/0-read_write_excel_data.R</code>.</strong> A new element with no
+<code><a href="../reference/write_data.html">write_data()</a></code>/<code><a href="../reference/read_data.html">read_data()</a></code> handling round-trips
+to nothing through the standard xlsx format — the feature is silently
+lossy. (This is exactly how <code>index_cov</code> was lost; it is the
+single most common data-input bug.)</li>
+<li>Add validation in <code>R/1-data_check.R</code> and, if the model
+needs it, a row in the <code>data_requirements</code> table
+(<code>R/1-data_requirements_table.R</code>).</li>
 <li>Add reshaping in <code>R/5-rearrange_data.R</code> if TMB needs a
 different layout.</li>
 <li>Document it in <code>meta_data_names.xlsx</code> and/or
@@ -411,8 +561,8 @@ are (<code>suitMode %in% c(1, 3, 5)</code>).</li>
 <li>Add bounds in <code>R/4-build_parameter_bounds.R</code> if the
 option introduces bounded parameters (see the
 <code>suitMode %in% c(1:2)</code> branch).</li>
-<li>Add a test under
-<code>tests/testthat/tests-&lt;Area&gt;/</code>.</li>
+<li>Add a test named <code>test-&lt;area&gt;-&lt;topic&gt;.R</code> in
+<code>tests/testthat/</code>.</li>
 <li>Document it.</li>
 </ol>
 </div>
@@ -420,20 +570,23 @@ option introduces bounded parameters (see the
 <h3 id="change-the-likelihood">Change the likelihood<a class="anchor" aria-label="anchor" href="#change-the-likelihood"></a>
 </h3>
 <p>The joint negative log-likelihood is assembled at the end of
-<code>ceattle_v01_11.cpp</code>, in <code>jnll_comp</code>, indexed by
-species, fleet, and component. Add or modify the relevant term there,
-then recompile and re-run the regression tests (below) to confirm the
-objective changes only as intended.</p>
+<code>ceattle.cpp</code>, in the <code>jnll_comp</code> matrix,
+addressed by the <code>JnllRow</code> row constant and the species/fleet
+column. Add or modify the relevant term there, then recompile and re-run
+the regression tests (below) to confirm the objective changes only as
+intended.</p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a>
 </h2>
-<p>Tests use <code>testthat</code> and are grouped by area under
-<code>tests/testthat/</code>: <code>tests-Selectivity/</code>,
-<code>tests-Dynamics/</code>, <code>tests-Likelihoods/</code>,
-<code>tests-Data-processing/</code>, <code>tests-Growth/</code>, and
-<code>tests-Mortality/</code>. Notable fixtures and guards:</p>
+<p>Tests use <code>testthat</code> in a flat layout: every file is a
+top-level <code>test-&lt;area&gt;-&lt;topic&gt;.R</code> (for example
+<code>test-selectivity-logisticpm.R</code>,
+<code>test-growth-sd-plus-group.R</code>,
+<code>test-likelihood-index-covariance.R</code>). Shared
+<code>helpers-*.R</code> and <code>fixtures/</code> sit alongside them.
+Notable fixtures and guards:</p>
 <ul>
 <li>
 <code>tests/testthat/fixtures/fit_baseline.rds</code> and the

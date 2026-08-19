@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Management strategy evaluation performance metric summary</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/10-mse_summary.R" class="external-link"><code>R/10-mse_summary.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/10-mse_summary.R" class="external-link"><code>R/10-mse_summary.R</code></a></small>
       <div class="d-none name"><code>mse_summary.Rd</code></div>
     </div>
 
@@ -73,23 +73,48 @@
 
 
 <dt id="arg-om-only">om_only<a class="anchor" aria-label="anchor" href="#arg-om-only"></a></dt>
-<dd><p>only include performance metrics from OMs</p></dd>
+<dd><p>If TRUE, report only operating-model (true) status and skip the
+estimation-model (EM) perception metrics.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>Alist of two data.frames with MSE summary statistics of performance metrics including:
-data.frame 1</p><ol><li><p>Average annual catch across projection years and simulations per fleet and across fleets</p></li>
-<li><p>Average interannual variation in catch (IAV) across projection years (n) per fleet and across fleets</p></li>
-<li><p>% of years in which the fishery is closed across simulations (s)</p></li>
-<li><p>Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations</p></li>
-<li><p>% of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via <code><a href="build_hcr.html">build_hcr</a></code> in the EM</p></li>
-<li><p>% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via <code><a href="build_hcr.html">build_hcr</a></code> in the EM</p></li>
-<li><p>% of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via <code><a href="build_hcr.html">build_hcr</a></code> in the OM</p></li>
-<li><p>% of years in which the population is overfished as determined from the “true” B_Limit across simulations via <code><a href="build_hcr.html">build_hcr</a></code> in the OM</p></li>
-<li><p>Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
-10-14. Terminal biomass, SSB, SSB depletion (relative to equilibrium), SSB depletion (relative to dynamic SB0)</p></li>
-</ol></div>
+    <p>A named list, one element per entity dimension so each metric lives
+only where it applies (no NA padding):</p><ul><li><p><code>species</code> – a data.frame with one row per species (keyed by <code>Species</code>)
+of the conservation / status metrics: per-species average catch, catch
+inter-annual variability (IAV), and P(Closed) = the probability the
+fishery is closed (catch ~ 0); the relative mean-squared error of
+terminal and average SSB; the estimation-model- and operating-model-
+perceived overfishing / overfished probabilities (via
+<code><a href="build_hcr.html">build_hcr</a></code>) and the probability each status is misclassified
+(estimation model disagrees with the operating-model truth); and terminal
+biomass, SSB, dynamic SB0, SSB depletion (equilibrium and dynamic),
+average SSB depletion, and SSB-collapse counts.</p></li>
+<li><p><code>fleet</code> – a data.frame with one row per fishery fleet (keyed by
+<code>Fleet_code</code> / <code>Fleet_name</code>) of average catch, catch IAV, and P(Closed).</p></li>
+<li><p><code>total</code> – a named numeric of the across-fleet total average catch and
+catch IAV.</p></li>
+<li><p><code>meta</code> – run provenance (<code>nsim</code>, <code>nspp</code>, <code>nflts</code>, <code>HCR</code>, projection-year
+range).</p></li>
+</ul><p>All metrics are averaged across projection years and simulations.</p>
+<p>Metric columns carry syntactic names, so they can be typed without
+backticks: <code>avg_catch</code>, <code>catch_iav</code>, <code>p_closed</code>, <code>ssb_rmse_avg</code>,
+<code>ssb_rmse_terminal</code>, <code>em_p_overfishing</code>, <code>em_p_overfished</code>,
+<code>om_p_overfishing</code>, <code>om_p_overfished</code>, <code>p_overfishing_false_pos</code>,
+<code>p_overfishing_false_neg</code>, <code>p_overfished_false_pos</code>,
+<code>p_overfished_false_neg</code>, <code>om_terminal_biomass</code>, <code>om_terminal_ssb</code>,
+<code>om_terminal_dynamic_sb0</code>, <code>om_terminal_depletion</code>,
+<code>om_terminal_depletion_dynamic</code>, <code>om_avg_depletion</code>, <code>om_sims_collapsed</code>,
+<code>om_no_f_sims_collapsed</code>, <code>om_sims_collapsed_from_f</code>. An <code>om_</code> prefix is
+the operating model's truth and <code>em_</code> the estimation model's perception;
+the four <code>*_false_pos</code> / <code>*_false_neg</code> metrics are the probability the two
+disagree. The three <code>*_sims_collapsed</code> metrics are <strong>counts of
+simulations</strong>, not probabilities.</p>
+<p>Each frame carries a <code>"labels"</code> attribute mapping those names to the long
+display strings (e.g. <code>om_terminal_depletion_dynamic</code> -&gt;
+<code>"OM: Terminal SSB Depletion (Dynamic)"</code>) for plots and tables:
+<code>attr(summ$species, "labels")</code>.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

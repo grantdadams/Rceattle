@@ -9,7 +9,7 @@ One row is produced for every combination of:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@ One row is produced for every combination of:"></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Materialize a linkage spec into linkage-table rows</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
       <div class="d-none name"><code>materialize_linkage.Rd</code></div>
     </div>
 
@@ -90,7 +90,12 @@ model year). Must contain every variable named on the RHS of
 stratifying factor named in <code>spec$by</code>. For example, for
 <code>by = ~species</code> the user must supply <code>strata = list(species = 1:3)</code>.
 Each element should be a 1-based integer vector of stratum ids.
-Allowed names are <code>"species"</code>, <code>"sex"</code>, and <code>"age_bin"</code>.</p></dd>
+Allowed names are <code>"species"</code>, <code>"sex"</code>, <code>"age_bin"</code>, and <code>"fleet"</code>.
+The <code>species</code> and <code>fleet</code> vectors may additionally be <em>named</em> with the
+model's own labels (<code>data_list$spnames</code> /
+<code>fleet_control$Fleet_name</code>); those labels are what a spec built with
+<code>linkage_spec(fleet = "Shelikof")</code> is resolved against. Without them,
+such a spec errors – ids always work.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -103,10 +108,10 @@ Allowed names are <code>"species"</code>, <code>"sex"</code>, and <code>"age_bin
 <ul><li><p>design-matrix column from <code>model.matrix(spec$formula, env_data)</code>,</p></li>
 <li><p>stratum implied by <code>spec$by</code> (e.g. one per species when
 <code>by = ~species</code>).</p></li>
-</ul><p>The <code>X_col</code> column is initially set to a <em>local</em> column index into
-the per-spec design matrix; it is the caller's responsibility (in
-<code><a href="fit_mod.html">fit_mod()</a></code>'s pooling step) to remap these to global column indices
-once all specs have been combined into a single shared <code>X</code> matrix.</p>
+</ul><p>The <code>X_col</code> column starts as a <em>local</em> column index into the
+per-spec design matrix; the caller (<code><a href="fit_mod.html">fit_mod()</a></code>'s pooling step)
+remaps these to global column indices once all specs have been
+combined into a single shared <code>X</code> matrix.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -1,8 +1,10 @@
 # Main function to construct the TMB map argument for CEATTLE
 
-Orchestrates the building of the TMB map object by calling specialized
-helper functions for each parameter block (Recruitment, M1, Predation,
-Selectivity, Catchability, etc.).
+Builds the TMB map, which tells TMB which parameters to estimate and
+which to hold fixed (a fixed parameter is mapped to `NA`), and which
+parameters share a single estimated value. One helper handles each
+process block (recruitment, M1, predation, selectivity, catchability,
+...).
 
 ## Usage
 
@@ -29,8 +31,8 @@ build_map(
 
 - debug:
 
-  Logical. If TRUE, sets all map values to NA except the dummy
-  parameter, running the model without parameter estimation.
+  Logical. If TRUE, fixes every parameter except the dummy (maps all to
+  `NA`), so the model runs with no parameters estimated.
 
 - random_rec:
 

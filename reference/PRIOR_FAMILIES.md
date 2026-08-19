@@ -7,7 +7,3 @@ Allowed prior families for linkage coefficients
 ``` r
 PRIOR_FAMILIES
 ```
-
-## Format
-
-An object of class `character` of length 5.

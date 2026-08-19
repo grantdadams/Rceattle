@@ -13,8 +13,8 @@ data object without Excel* vignette). Capabilities include:
   (`msmMode > 0`) configurations, with one- or two-sex population
   dynamics
 - **One or multiple stocks** can be fit jointly.
-- **Multiple fisheries and surveys** with flexible **catchability** and
-  **selectivity** parameterizations (logistic, double-logistic,
+- **Multiple fisheries and surveys** with a range of **catchability**
+  and **selectivity** parameterizations (logistic, double-logistic,
   non-parametric, time-varying, etc)
 - **Stock–recruitment** options (Beverton–Holt, Ricker,
   mean-recruitment, environmentally-driven)
@@ -211,22 +211,27 @@ commercial product or activity by DOC or the United States Government.”
 
 ## Data input / output
 
-Read, write, and manipulate Rceattle data lists.
+Read, write, build, and manipulate Rceattle data lists.
 
+- [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+  : Build an Rceattle data list in R
+- [`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
+  : Report which data inputs a model configuration requires
+- [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  : Build a model-configuration slot for a data list
 - [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
   : Read a CEATTLE excel data file
 - [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)
-  : Write data file
+  : Write a data list to a CEATTLE xlsx workbook
+- [`write_template()`](https://grantdadams.github.io/Rceattle/reference/write_template.md)
+  : Write a minimal starter CEATTLE data workbook
 - [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
-  : Function to clean data prior to Rceattle runs
+  : Default-fill and tidy a data list before fitting
 - [`combine_data()`](https://grantdadams.github.io/Rceattle/reference/combine_data.md)
-  : Combine data sets. Will use the env_data data set from data_set1 and
-  diet data will have to be updated.
+  : Combine two Rceattle data lists
 - [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
   [`rearrange_dat()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
   : Rearrange a data_list for TMB
-- [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-  : Function to check data for errors. Does not update the data set!
 
 ## Model setup
 
@@ -242,13 +247,22 @@ Build parameter lists, map objects, bounds, and biological inputs.
   : Build parameter bounds
 
 - [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
-  : Define M1 specifications
+  : Specify the residual natural mortality (M1) model for Rceattle
 
 - [`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)
   : Specify the growth model for Rceattle
 
 - [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
   : Specify the stock-recruit relationship (SRR) for Rceattle
+
+- [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  : Selectivity specification
+
+- [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  : Catchability specification
+
+- [`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)
+  : Composition-weighting specification
 
 - [`build_hcr()`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
   : Specify the harvest control rule (HCR) used for Rceattle
@@ -265,6 +279,19 @@ Build parameter lists, map objects, bounds, and biological inputs.
 
 - [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
   : Capture a linkage specification
+
+## Run configuration
+
+Save, load, and inspect the full model + estimation setup as a YAML run
+configuration.
+
+- [`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)
+  : Save a model run configuration to a documented YAML file
+- [`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md)
+  : Load a model run configuration from a YAML file
+- [`run_config()`](https://grantdadams.github.io/Rceattle/reference/run_config.md)
+  : Extract the run configuration from a fit, data list, or config
+  object
 
 ## Map helpers
 
@@ -298,17 +325,19 @@ to configure parameter estimation.
 Fit single- or multi-species CEATTLE models and manage output.
 
 - [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
-  : This function runs CEATTLE
+  : Fit the CEATTLE assessment model
+- [`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+  : Iteratively reweight composition data (McAllister-Ianelli)
 - [`set_phases()`](https://grantdadams.github.io/Rceattle/reference/set_phases.md)
-  : Function to set phasing order
+  : Default phasing order for CEATTLE parameters
 - [`TMBphase()`](https://grantdadams.github.io/Rceattle/reference/TMBphase.md)
-  : Run TMB using phases
+  : Run TMB with ADMB-style phased estimation
 - [`TMBAIC()`](https://grantdadams.github.io/Rceattle/reference/TMBAIC.md)
   : Calculate marginal AIC for a fitted model
 - [`model_average()`](https://grantdadams.github.io/Rceattle/reference/model_average.md)
   : Model average of derived quantities
 - [`rename_output()`](https://grantdadams.github.io/Rceattle/reference/rename_output.md)
-  : Function to rename derived quantities from Rceattle
+  : Label the derived quantities reported by a CEATTLE fit
 
 ## Projections and MSE
 
@@ -318,15 +347,15 @@ management strategy evaluation.
 - [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
   : Run a management strategy evaluation
 - [`load_mse()`](https://grantdadams.github.io/Rceattle/reference/load_mse.md)
-  : Function to load .RDs files from MSE runs
+  : Load saved MSE simulation runs
 - [`check_mse()`](https://grantdadams.github.io/Rceattle/reference/check_mse.md)
-  : Function to load .RDs files from MSE runs
+  : Check which saved MSE simulation files can be loaded
 - [`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
   : Management strategy evaluation performance metric summary
 - [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md)
   : Rerun with F = 0.
 - [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
-  : Sample historical recruitment deviates and place in the projection
+  : Sample historical recruitment deviations into the projection
 
 ## Diagnostics and simulation
 
@@ -348,7 +377,7 @@ simulation.
 - [`profile(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/profile.Rceattle.md)
   : Likelihood profile across one or more parameter cells
 - [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
-  : Self test simulation analysis analysis
+  : Self-test simulation analysis
 - [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
   : Simulate Rceattle data
 - [`compare_sim()`](https://grantdadams.github.io/Rceattle/reference/compare_sim.md)
@@ -372,8 +401,6 @@ Visualize biomass, recruitment, SSB, and depletion trajectories.
   : Plot SSB depletion
 - [`plot_exploitable_biomass()`](https://grantdadams.github.io/Rceattle/reference/plot_exploitable_biomass.md)
   : Plot exploitable biomass
-- [`plot_ssb_depletion()`](https://grantdadams.github.io/Rceattle/reference/plot_ssb_depletion.md)
-  : Plot SSB depletion (deprecated name)
 
 ## Plotting — fishing and natural mortality
 
@@ -417,6 +444,10 @@ Visualize predation mortality, rations, and diet composition.
   : Plot biomass consumed of each prey species by predator
 - [`plot_diet_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp.md)
   : Plot diet composition fits
+- [`plot_diet_comp1()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp1.md)
+  : Plot diet composition fits (bubble/grid diagnostic)
+- [`plot_diet_comp2()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp2.md)
+  : Plot diet composition fits (aggregation-aware)
 - [`plot_ration()`](https://grantdadams.github.io/Rceattle/reference/plot_ration.md)
   : Plot ration
 
@@ -481,6 +512,9 @@ S3 methods, utility functions, and internal helpers.
   : Print method for fitted Rceattle models
 - [`summary(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/summary.Rceattle.md)
   : Compact summary method for Rceattle fits
+- [`print(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
+  [`summary(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
+  : Print method for an Rceattle data list
 - [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
   : Function to check for missing switches for map and parameter
   functions
@@ -490,8 +524,6 @@ S3 methods, utility functions, and internal helpers.
   : Calculate Predicted Weight-at-Age
 - [`rich.colors.short()`](https://grantdadams.github.io/Rceattle/reference/rich.colors.short.md)
   : Make a vector of colors.
-- [`t_col()`](https://grantdadams.github.io/Rceattle/reference/t_col.md)
-  : Make a transparent colour
 - [`as.data.frame(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/as.data.frame.Rceattle.md)
   : Tidy long-format derived quantities from an Rceattle fit
 - [`coef(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/coef.Rceattle.md)
@@ -512,6 +544,16 @@ S3 methods, utility functions, and internal helpers.
   : Lognormal prior on a linkage coefficient
 - [`prior_normal()`](https://grantdadams.github.io/Rceattle/reference/prior_normal.md)
   : Normal prior on a linkage coefficient
+
+## Deprecated
+
+Superseded functions kept for backward compatibility. They still work
+but emit a deprecation message; use the named replacement in new code.
+
+- [`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
+  : Survey index fits on the log scale (deprecated)
+- [`plot_ssb_depletion()`](https://grantdadams.github.io/Rceattle/reference/plot_ssb_depletion.md)
+  : Plot SSB depletion (deprecated name)
 
 # Articles
 
@@ -559,8 +601,8 @@ Model parameterizations, equations, and switch settings.
 
 - [8. Model
   parameterizations](https://grantdadams.github.io/Rceattle/articles/model-parameterizations.md):
-- [Environmental linkages and priors: a formula-driven
-  API](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md):
+- [Environmental linkages and
+  priors](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md):
 
 ### Contributing
 

@@ -1,68 +1,21 @@
-# log(CPUE) fits
+# Survey index fits on the log scale (deprecated)
 
-Plot of fitted CPUE indices on log-scale (r4ss-style)
+Deprecated. Use `plot_index(..., log = TRUE)`, which draws the survey
+index on the log scale.
 
 ## Usage
 
 ``` r
-plot_logindex(
-  Rceattle,
-  file = NULL,
-  model_names = NULL,
-  line_col = NULL,
-  species = NULL,
-  right_adj = 0,
-  top_adj = 0.05,
-  incl_proj = FALSE,
-  single.plots = FALSE,
-  width = NULL,
-  height = NULL
-)
+plot_logindex(...)
 ```
 
 ## Arguments
 
-- Rceattle:
+- ...:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  Passed through to
+  [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md).
 
-- file:
+## Value
 
-  name of a file to identified the files exported by the function.
-
-- model_names:
-
-  Names of models to be used in legend
-
-- line_col:
-
-  Colors of models to be used for line color
-
-- species:
-
-  Species names for legend
-
-- right_adj:
-
-  How much right side of the x-axis for fitting the legend. As
-  percentage.
-
-- top_adj:
-
-  How much top side of the y-axis for fitting the legend. As percentage.
-
-- incl_proj:
-
-  TRUE/FALSE include projections years
-
-- single.plots:
-
-  if TRUE plot invidual fits else make multiplot
-
-- width:
-
-  plot width
-
-- height:
-
-  plot hight
+A `ggplot` object.

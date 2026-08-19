@@ -14,13 +14,13 @@ Selectivity in fleet_control of the data determines shape of selectivity curve:
 8 = &quot;DoubleNormal&quot; Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 Parameters: sel_inf[1] = peak; sel_inf[2] = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 log_sel_slp[1] = log(sigma_asc); log_sel_slp[2] = log(sigma_desc).
-right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+right_floor-&amp;gt;0: dome-shaped; right_floor-&amp;gt;1: logistic ascending only.
 N_sel_bins	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 Time_varying_sel	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (Selectivity = 1, 2, 3, 4, or 5).
-0 = 'None'
+0 = 'Off'
 1 = 'IID' penalized deviates given sel_sd_prior
 3 = 'Block' time blocks with no penalty
-4 = 'RandomWalk' random walk following Dorn
+4 = 'RandomWalk' random walk
 5 = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 random_sel in fit_mod treats random deviates and random walk parameters as random effects, estimating the variance."><meta property="og:description" content="Maps base selectivity parameters (log_sel_slp, sel_inf,
 sel_coff) and time-varying deviations, based on Selectivity
@@ -37,13 +37,13 @@ Selectivity in fleet_control of the data determines shape of selectivity curve:
 8 = &quot;DoubleNormal&quot; Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 Parameters: sel_inf[1] = peak; sel_inf[2] = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 log_sel_slp[1] = log(sigma_asc); log_sel_slp[2] = log(sigma_desc).
-right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+right_floor-&amp;gt;0: dome-shaped; right_floor-&amp;gt;1: logistic ascending only.
 N_sel_bins	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 Time_varying_sel	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (Selectivity = 1, 2, 3, 4, or 5).
-0 = 'None'
+0 = 'Off'
 1 = 'IID' penalized deviates given sel_sd_prior
 3 = 'Block' time blocks with no penalty
-4 = 'RandomWalk' random walk following Dorn
+4 = 'RandomWalk' random walk
 5 = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 random_sel in fit_mod treats random deviates and random walk parameters as random effects, estimating the variance."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -53,7 +53,7 @@ random_sel in fit_mod treats random deviates and random walk parameters as rando
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -97,7 +97,7 @@ random_sel in fit_mod treats random deviates and random walk parameters as rando
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Helper to set map for Selectivity parameters</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/3-build_map.R" class="external-link"><code>R/3-build_map.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/3-build_map.R" class="external-link"><code>R/3-build_map.R</code></a></small>
       <div class="d-none name"><code>build_map_selectivity.Rd</code></div>
     </div>
 
@@ -117,13 +117,13 @@ and <code>Time_varying_sel</code> settings in <code>fleet_control</code>.</p>
 <code>8</code> = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 Parameters: <code>sel_inf[1]</code> = peak; <code>sel_inf[2]</code> = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 <code>log_sel_slp[1]</code> = log(sigma_asc); <code>log_sel_slp[2]</code> = log(sigma_desc).
-right_floor→0: dome-shaped; right_floor→1: logistic ascending only.</p>
+right_floor-&gt;0: dome-shaped; right_floor-&gt;1: logistic ascending only.</p>
 <p><code>N_sel_bins</code>	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise</p>
 <p><code>Time_varying_sel</code>	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (<code>Selectivity = 1, 2, 3, 4, or 5</code>).
-<code>0</code> = 'None'
+<code>0</code> = 'Off'
 <code>1</code> = 'IID' penalized deviates given <code>sel_sd_prior</code>
 <code>3</code> = 'Block' time blocks with no penalty
-<code>4</code> = 'RandomWalk' random walk following Dorn
+<code>4</code> = 'RandomWalk' random walk
 <code>5</code> = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 <code>random_sel</code> in <code>fit_mod</code> treats random deviates and random walk parameters as random effects, estimating the variance.</p>
     </div>

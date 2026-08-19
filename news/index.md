@@ -1,13 +1,899 @@
 # Changelog
 
-## Rceattle 4.9.1
+## Rceattle 5.8.0
+
+### New features
+
+- **`fleet_control$Sel_norm_scope` controls whether selectivity
+  normalization pools its reference across sexes.** Normalization makes
+  two independent decisions – *where* the reference is taken and *whose*
+  scale it sets – and until now the second was a silent passenger on the
+  first: a named `Sel_norm_bin` always used a per-sex reference, and
+  max-normalization always pooled across sexes, so two of the four
+  combinations were unreachable. The new column is orthogonal to
+  `Sel_norm_bin`, so the two combine rather than multiplying into more
+  columns:
+
+  - `"AcrossSexes"` (default) – one reference pooled over the sexes, so
+    the less-selected sex stays below 1 and **relative sex-specific
+    selectivity is retained**. This is what a dimorphic stock usually
+    wants.
+  - `"WithinSex"` – each sex divided by its own reference, so both reach
+    1 and only the *shape* differs by sex.
+
+  The newly reachable combination worth knowing about is
+  max-normalization with `"WithinSex"`: each sex is scaled at its own
+  plateau, wherever that falls. For a stock whose sexes plateau at
+  different ages that is more robust than naming a bin, because a named
+  bin stops being the plateau once selectivity is time-varying while the
+  maximum tracks it.
+
+  The scope has no effect on a one-sex species, or where `Sel_norm_bin`
+  is `NA` and nothing is normalized. **The one behaviour change** is a
+  *two-sex* fleet normalizing at a *named bin*: it previously used a
+  per-sex reference and now pools, and
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  emits a message naming the fix (set `Sel_norm_scope = "WithinSex"`)
+  when it sees that configuration. Max-normalized fleets – including the
+  operational arrowtooth configuration – already pooled and are
+  unaffected. No bundled dataset is in the affected case.
+
+- **Biomass, SSB and recruitment confidence intervals are now taken on
+  the log scale.** The model ADREPORTs `log_biomass` and `log_R`
+  alongside the existing `log_ssb`, and
+  [`plot_timeseries()`](https://grantdadams.github.io/Rceattle/reference/plot_timeseries.md)
+  builds `exp(log(x) +/- 1.92 * sd_log)` from the delta-method SD of
+  `log(x)` whenever a model reports one. `sdreport()` linearizes once
+  about the MLE, so its SD is exact only for a linear function of the
+  parameters; these three series are built multiplicatively
+  (`R = R0 * exp(rec_dev)`, and n-at-age is a product of survivals), so
+  `log(x)` is close to linear in the estimated parameters where `x`
+  itself is exponential. The interval is therefore both better
+  approximated and right-skewed, and cannot cross zero the way the
+  symmetric natural-scale interval did for weak year classes and
+  depleted stocks. The log-scale SD is also the CV, the form the ABC /
+  OFL buffer calculations want. Natural-scale `biomass`, `ssb` and `R`
+  are still ADREPORTed, so existing callers of `sdrep$value` are
+  unaffected. Models fit before this release have no `log_*` rows, but
+  still get the log-scale interval – see below.
+
+- **The `plot_*()` timeseries wrappers take a `ylab` argument.** It is
+  appended to the argument list, not inserted, so positional calls are
+  unaffected. Left `NULL` (the default) the axis label is derived from
+  the series and the model’s `minage`, so a model whose recruitment is
+  at age 3 no longer gets an axis labelled “Age-1 recruits”. Only
+  recruitment names an age now – it is an age class, so the age is
+  information. The biomass and SSB axes drop their `Age-1+` prefix and
+  read `Biomass (million mt)` and `SSB (million mt)`; the prefix was
+  noise on an aggregate, and wrong on SSB, which is mature females
+  rather than the minage+ stock.
+
+- **[`plot_exploitable_biomass()`](https://grantdadams.github.io/Rceattle/reference/plot_exploitable_biomass.md)
+  and the two depletion plotters accept `add_ci = TRUE`, on the log
+  scale.** `exploitable_biomass`, `ssb_depletion` and
+  `biomass_depletion` are now ADREPORTed, so an interval can be computed
+  at all. They are ADREPORTed on the **natural scale only**,
+  deliberately: `exploitable_biomass` sums over fisheries alone, so it
+  is exactly 0 for any model without projection F
+  (`Proj_F_proportion = 0`, which is every bundled dataset – all 216
+  species-years of `BS2017SS`), and the depletions divide by `B0` /
+  `SB0`; [`log()`](https://rdrr.io/r/base/Log.html) of either would put
+  `-Inf` on the AD tape and turn the entire `sdreport`, not merely that
+  row, into `NaN`. They still get a log-scale interval, because the
+  delta method defines `sd(log x) = sd(x) / x` exactly – the plotters
+  recover the log-scale SD from the natural-scale one wherever the
+  series is positive. Where it is 0 the quotient is undefined and the
+  (degenerate) symmetric interval stands. sdreport grows about 20% on
+  `BS2017SS` for the three extra series.
+
+- **Models fit before this release get log-scale intervals too.** The
+  same `sd(log x) = sd(x) / x` recovery applies to any strictly positive
+  series with a natural-scale SD, so an existing fit with no `log_*`
+  rows plots a right-skewed interval without being refit. Where the
+  model does report `log_biomass` / `log_ssb` / `log_R`, those are used
+  directly; the two agree to machine precision (2e-16 on `BS2017SS`).
+
+### Bug fixes
+
+- **`as.data.frame(fit)` and the plotters now report the same
+  interval.** The extractor still built a symmetric natural-scale
+  interval for `biomass`, `ssb` and `R` while
+  [`plot_biomass()`](https://grantdadams.github.io/Rceattle/reference/plot_biomass.md)
+  drew the log-scale one, and it returned `NA` standard errors for
+  `exploitable_biomass` and the two depletions – the three series this
+  release just ADREPORTed. Both paths now go through one helper. The
+  plotters also switch from the rounded `1.92` to `qnorm(0.975)`, so the
+  band labelled 95% is a 95% band: **ribbons are about 2% wider than in
+  5.7.0**, and any interval read off a figure or table should be
+  regenerated. The point estimates are unchanged.
+
+- **`add_ci = TRUE` on a fit made with `getsd = FALSE` no longer
+  errors.** It warned that it would draw no interval and then failed on
+  the next line indexing an absent `sdreport`. It now warns and draws
+  the series without a ribbon, as the message says. The warning is also
+  gated on whether the series is ADREPORTed at all, so
+  `plot_f(add_ci = TRUE)` no longer warns on every fit about standard
+  errors `F_spp` can never have.
+
+- **[`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  and
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  work again on a `fleet_control` that has not been through
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md).**
+  `Sel_norm_scope` was read with no missing-column guard, so a data list
+  read straight from a workbook failed with a cryptic “column not
+  found”. It and `Index_distribution` are now filled from the column
+  schema. A blank `Sel_norm_scope` cell is filled too – an `NA` reached
+  TMB as `NA_integer_`, which the C++ reads as `WithinSex`, the opposite
+  of the default.
+
+- **The `Sel_norm_scope` behaviour-change notice fires only where it
+  applies.** It was skippable (leaving one cell blank flipped that fleet
+  silently) and it fired on Hake and LogisticPM fleets, which use
+  `Sel_norm_bin` as a penalty age-range rather than a normalization
+  reference, and on `Off` fleets. The gate now matches the one in
+  `selectivity.hpp`.
+
+- **A one-species plot drops the redundant species strip, and absolute
+  y-scales start at zero** so panel heights are comparable. Depletion
+  and other relative series are unaffected.
+
+- **Diet defaults are announced only when the model reads them**, so a
+  single-species fit no longer reports settings it never uses.
+
+- **[`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  names the mistake when handed a `data_list`.** It takes model
+  settings, not data, but almost every other entry point takes a
+  `data_list` first – so `model_config(my_data)` bound the list to
+  `msmMode` and reported only “`msmMode` must be a single value”. It now
+  points at `build_data(base = , model_config = )`. The check itself was
+  correct: `msmMode` is a model-wide scalar (unlike the per-species
+  `suitMode`), and a single-species `msmMode > 0` cannibalism
+  configuration was never blocked.
+
+- **A confidence interval that cannot be drawn now warns instead of
+  vanishing.** Requesting `add_ci = TRUE` for a series with no standard
+  errors indexed out of range, filled the interval with `NA` and
+  rendered an invisible ribbon – no error, no warning, just a missing
+  interval. That is how the three plotters above hid their missing
+  `ADREPORT`.
+  [`plot_timeseries()`](https://grantdadams.github.io/Rceattle/reference/plot_timeseries.md)
+  now says which series and which model lacks standard errors.
+
+- **Recruitment was plotted 1000x too high, and the stock-recruit panel
+  1000x too low.** The model carries numbers-at-age in thousands and
+  weight-at-age in kg, so biomass comes out in mt and recruitment in
+  thousands of fish.
+  [`plot_recruitment()`](https://grantdadams.github.io/Rceattle/reference/plot_recruitment.md)
+  never applied the matching `/1e3`, plotting thousands of recruits
+  under an axis reading “Age-1 recruits (million)”, while
+  [`plot_stock_recruit()`](https://grantdadams.github.io/Rceattle/reference/plot_stock_recruit.md)
+  divided by `1e6` under an axis reading “Recruitment (millions)” – so
+  the two panels disagreed with each other by a factor of a million.
+  Both now plot millions of recruits.
+  [`plot_exploitable_biomass()`](https://grantdadams.github.io/Rceattle/reference/plot_exploitable_biomass.md)
+  was labelled “million mt” with no rescaling applied at all and is now
+  divided by `1e6` like the other biomass series. Divisors and axis
+  units are now held in one table (`.RCE_TS_RESCALE` / `.rce_ts_ylab()`)
+  that
+  [`plot_stock_recruit()`](https://grantdadams.github.io/Rceattle/reference/plot_stock_recruit.md)
+  reads too, and are asserted against each other in the test suite.
+  **Any figure or number read off these three plotters needs
+  regenerating.** Model results are unchanged – this is display-only.
+
+### Documentation
+
+- **How sex-specific selectivity works is now documented.** Every
+  selectivity form is sex-specific by default in a two-sex model.
+  `Sel_norm_bin` says only *where* the normalization reference is taken;
+  whether the *relative* scale between sexes survives is
+  `Sel_norm_scope` (above). Relative sex selectivity is only informed
+  where the composition is joint (`comp_data$Sex = 3`); sex-specific
+  rows each sum to 1 and carry no sex-ratio information, and
+  `Selectivity = "Hake"` always normalizes within sex regardless of
+  either column. New “Sex structure and relative selectivity” section in
+  [`vignette("model-options-and-functionality")`](https://grantdadams.github.io/Rceattle/articles/model-options-and-functionality.md),
+  with the details on the `Sel_norm_bin` and `Sel_norm_scope` field
+  dictionary entries.
+
+- **The mt / thousands-of-fish convention is now stated consistently.**
+  The `biomass` / `ssb` / `catch_hat` declarations in `ceattle.cpp`, the
+  `index_data` / `catch_data` / `Observation_units` field dictionary
+  entries and the Stock Synthesis catch-conversion table all said kg.
+  Section 12 of
+  [`vignette("model-options-and-functionality")`](https://grantdadams.github.io/Rceattle/articles/model-options-and-functionality.md)
+  now covers the display units, `ylab` and the log-scale intervals, and
+  names the discrete palette correctly (Okabe-Ito, not viridis).
+
+- `Sel_norm_bin` and `Sel_norm_bin_upper` now say that they are bin
+  indices on the fleet’s own `Selectivity_dimension` – an absolute age
+  for an age-based fleet (`6` means age 6, not the sixth bin), a 1-based
+  length-bin ordinal for a length-based one.
+
+- `fleet_control$Sex` is documented as inert. It is read nowhere in the
+  model; sex is set per observation on `comp_data$Sex`. Retained only so
+  older workbooks still read.
+
+- [`vignette("model-parameterizations")`](https://grantdadams.github.io/Rceattle/articles/model-parameterizations.md)
+  no longer claims the model is fit to sex-ratio data. There is no
+  sex-ratio likelihood component – the text described the ADMB
+  implementation. Sex-ratio information enters through joint composition
+  data.
+
+- [`plot_timeseries()`](https://grantdadams.github.io/Rceattle/reference/plot_timeseries.md)
+  documents the unit convention it assumes: numbers-at-age in thousands
+  and weight-at-age in kg, hence biomass in mt and recruitment in
+  thousands of fish.
+
+## Rceattle 5.7.0
+
+### Breaking changes
+
+- **The remaining bundled datasets use the canonical `fleet_control`
+  column names.** The 4.10.0 renames (`Q_prior` -\> `Catchability_init`,
+  `Comp_loglike` -\> `Comp_distribution`, …) had reached `BS2017SS`,
+  `BS2017MS` and `GOA2018SS` only; `Atka2022`, `GOA2018SS`, `GOAatf`,
+  `GOAatf2023`, `GOAcod`, `GOApollock`, `GeorgesBank3spp`,
+  `NorthernRockfish2022` and `whamGrowthData` still shipped the legacy
+  spellings, so loading one printed a dozen upgrade messages. A script
+  reading a legacy name off one of these objects directly – e.g.
+  `GOApollock$fleet_control$Comp_loglike` – now gets `NULL`. Use the
+  canonical name; a workbook on disk still reads fine, since the aliases
+  are upgraded on read.
+
+- **[`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)’s
+  metric columns now have syntactic names.** They were display strings
+  held together by `check.names = FALSE`, so reading one meant
+  `summ$species[["OM: Terminal SSB Depletion (Dynamic)"]]`. They are now
+  ordinary names – `avg_catch`, `catch_iav`, `p_closed`,
+  `om_terminal_ssb`, `om_avg_depletion` and so on – with an `om_` prefix
+  for the operating model’s truth and `em_` for the estimation model’s
+  perception. The four misclassification metrics become
+  `p_overfishing_false_pos` / `_false_neg` and `p_overfished_false_pos`
+  / `_false_neg`, and the three collapse metrics become
+  `om_sims_collapsed`, `om_no_f_sims_collapsed` and
+  `om_sims_collapsed_from_f` – named `sims` because they are **counts of
+  simulations**, not probabilities, which the old names did not say. The
+  long display strings are kept on a `"labels"` attribute of each frame,
+  so plots and SAFE tables can still print them:
+  `attr(summ$species, "labels")`. `Species`, `Fleet_code` and
+  `Fleet_name` are unchanged. Values are unchanged. Done in the same
+  release as the per-entity reshape so
+  [`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+  breaks once rather than twice; no script in `Rceattle-models` or
+  `GOA-ATF-ESP` reads a metric by name.
+
+- **[`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
+  argument `selectivity` is now `Selectivity`, and `index_distribution`
+  is now `Index_distribution`.** They stand in for the `fleet_control`
+  columns of those names, and the rest of the package’s arguments
+  already mirror their source exactly (`estDynamics`, `Ceq`,
+  `growth_model`, and
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)’s
+  mirror of
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)).
+  No deprecation path:
+  [`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
+  is new in this release line and has never been on a released version.
+
+### Bug fixes
+
+- **[`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  no longer fails on every replicate for a model with a natural-scale
+  survey index.**
+  [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+  drew `Normal` and `MVN` index observations from the untruncated
+  natural-scale normal, so a fleet with an absolute sd near its index –
+  an AVO-type index with sd 0.25-0.80 against observations from 0.70 –
+  drew non-positive most replicates.
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  rejects those, so the refit failed and the replicate was counted *not
+  converged*, reading as a convergence problem rather than a simulation
+  one. Non-positive draws are now redrawn, correlated fleets jointly. On
+  EBS pollock
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  goes from 0 of 50 replicates to all of them, recovering SSB with a
+  median bias of -0.4%.
+
+  Redrawing samples from a normal **truncated at zero**, not the normal
+  the likelihood maximises, so a fleet that needs it is self-testing
+  against a different data-generating process. At index 0.70 with sd
+  0.80 a fifth of draws are rejected and the truncated mean is 39% high.
+  Two warnings now fire: the existing one when a fleet still cannot draw
+  positive, and a new one when any row is redrawn more than 2% of the
+  time. Either means the absolute sd is too large relative to the index
+  for a natural-scale normal.
+
+  Lognormal fleets are unaffected, including the seeded all-lognormal
+  fast path, and seeded results are bit-identical for any `Normal`/`MVN`
+  fleet that never rejects. A fleet that does reject consumes extra
+  random numbers, shifting that replicate’s comps and catch and every
+  later replicate in a seeded loop.
+
+- **[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  no longer errors on a `data_list` that carries no `HCR`.** `HCR` is a
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  argument, not a data field, so a list read straight from a workbook
+  has none. `NULL %in% ...` is `logical(0)`; `TRUE && logical(0)` is
+  `NA` and `x & logical(0)` is `logical(0)`, so
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  died with `missing value where TRUE/FALSE needed` and
+  `validate_switches()` with `argument is of length zero`.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  sets `HCR` before checking and was unaffected.
+
+- **[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  no longer errors when a survey fleet has `NA` `Proj_F_proportion`.**
+  The check that some fleet takes projected F summed the column without
+  `na.rm`, so the `NA` that fleets taking no catch legitimately carry
+  made the sum `NA` and the `if` failed with
+  `missing value where TRUE/FALSE needed` before the MSE started.
+
+- **[`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
+  now honours `incl_proj`.** The argument was accepted and then ignored,
+  so projection years were always plotted – the opposite of its
+  documented default, and of
+  [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
+  /
+  [`plot_catch()`](https://grantdadams.github.io/Rceattle/reference/plot_catch.md).
+  A projection row’s “observation” is whatever placeholder its workbook
+  carries (the roll-forward scripts in `Rceattle-models` write 99999),
+  which drew as an enormous spurious residual. **This removes rows from
+  the default output** for any model whose `index_data` runs past
+  `endyr`; pass `incl_proj = TRUE` to keep them. No bundled dataset has
+  such rows –
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
+  extends `catch_data` to the projection horizon but not `index_data`,
+  and
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  marks its projection index rows with a negative `Year`, which was
+  already filtered – so in practice this bites only workbooks that carry
+  their own. Applies to the default `residual_type = "pearson"`; the
+  `"osa"` path returns
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  directly and takes none of the plot arguments.
+
+- **`plot_catch(incl_proj = TRUE)` no longer errors on projection
+  rows.**
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
+  gives projection years an `NA` catch, and the lognormal error-bar mask
+  in `.fleet_fit_df()` passed that `NA` to a subscript. The mask now
+  excludes `NA` observations, and those rows draw the fitted line with
+  no error bar, as non-positive observations already did.
+  [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
+  shares the code path and is fixed with it, though only a workbook that
+  supplies `NA` index observations can reach it.
+
+- **[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  now warns when CAAL data sit on a fleet whose `Selectivity_dimension`
+  is not `"Length"`.** Conditional age-at-length is the age composition
+  within a length bin, so the model predicts it from
+  selectivity-at-length convolved with the growth matrix. An
+  age-dimensioned fleet has no selectivity-at-length, so the prediction
+  is zero – and the likelihood still runs, scoring the observations
+  against the flat composition the offset leaves behind. Those data then
+  add a term to the objective that no parameter can move: on the test
+  fixture the CAAL component costs 64.6 with uniform observations and
+  325.8 with realistic ones, and the whole objective shifts by exactly
+  that amount. `Selectivity_dimension` defaults to `"Age"`, so this was
+  the default outcome for anyone adding CAAL data. It warns rather than
+  errors because such models currently fit; the sibling case (empirical
+  growth, which zeroes the prediction for the same reason) has always
+  errored, and this should tighten to match once configurations have
+  been checked.
+
+- **[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  now rejects a `diet_data` that is not sorted by `stomach_id`.** The
+  TMB diet likelihood walks `diet_ctl` with a single forward cursor,
+  taking stomach *i*’s prey as the rows where `stomach_id == i`, so the
+  ids have to run 0, 1, 2, … in order and with no gaps. Out of that
+  order the cursor runs past whole stomachs, which then drop out of the
+  likelihood with no warning and a lower objective: re-sorting a cleaned
+  `BS2017MS` diet table by predator age leaves 3 of its 45 stomachs in
+  the fit, and reversing the rows leaves 1.
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
+  sorts by `stomach_id`, so anything that came through it already
+  satisfies this; the check catches a hand-built or re-sorted table.
+
+- **[`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+  now reports the catch metrics for a species that has no fishery.** A
+  multispecies model can carry a predator purely for its consumption –
+  arrowtooth and sablefish in the hake model do exactly this – and such
+  a species has no `catch_data` rows at all. Every per-species catch
+  metric then operated on a zero-length vector: `Average Catch` warned
+  “argument is not numeric or logical: returning NA” and returned `NA`,
+  while `Catch IAV` and `P(Closed)` divided by a length of zero and
+  returned `NaN` silently. They now report `Average Catch = 0` – an
+  unfished species really does have zero catch – and `NA` for the two
+  ratios, which are not defined when there is no fishery to vary or to
+  close. A species that *does* have a fishery but no landings in the
+  projection years is reported as `NA` with a warning naming the species
+  and the years, because that is a data problem rather than a modelling
+  choice. Metrics for fished species are unchanged (verified
+  bit-identical on the 3-species hake MSE), as are `$fleet` and
+  `$total`.
+
+### Documentation
+
+- **[`?osa_residuals`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now explains the negative composition `predicted` values it warns
+  about**, in a new section: why a numerical conditional mean overshoots
+  below zero on a near-empty bin, that it follows the *bin’s* count
+  rather than the composition’s sample size (so a rare age in a
+  well-sampled year does it), and that those residuals are biased
+  positive. The warning itself is now two sentences pointing at that
+  section rather than carrying the whole explanation, because it fires
+  once per call on real assessments – 269 rows on GOA-ATF-ESP 2025, 98
+  on GOA pollock 2025.
+
+- Corrected the `comp_osa.hpp` note claiming the `pUsed` squeeze in
+  `dmultinom_osa()` matches WHAM. WHAM does not squeeze `pUsed`; it
+  squeezes `1 - pUsed` at point of use, which Rceattle also does. The
+  extra squeeze is redundant and leaves an O(A \* eps) difference from
+  WHAM on an A-bin composition. Comment only – no value changes.
+
+- Fixed two doubled words in user-facing text: “the The Pacific Fishery
+  Management Council” in
+  [`?build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md),
+  and “the the diet” in the `diet_data` schema description, which is
+  written verbatim into the bundled `meta_data_names.xlsx` (regenerated
+  to match).
+
+## Rceattle 5.6.1
+
+### Bug fixes
+
+- **`fit_control(verbose = 0)` now silences the estimability table
+  printed when a fit does not converge.** `TMBhelper` emits it with
+  [`print()`](https://rdrr.io/r/base/print.html), which
+  [`suppressMessages()`](https://rdrr.io/r/base/message.html) cannot
+  catch, so it appeared whatever `verbose` said – one row per fixed
+  parameter, repeated for every refit a
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  or
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  run makes. It and the “Model did not converge” banner now appear only
+  under `verbose > 0`. The verdict is unchanged on `fit$identified` and
+  in `fit$convergence`.
+
+- **A covariance (`MVN`/`MVNORM`) survey `Sigma` that is symmetric but
+  not positive definite is now caught by
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md).**
+  The covariance index likelihood factorizes `Sigma`, so symmetry is not
+  enough. An indefinite or singular matrix used to clear every check –
+  presence, squareness, dimension, symmetry – and then fail inside the
+  TMB objective, in a message that named neither the fleet nor `Sigma`.
+  The error now names the fleet and reports the smallest eigenvalue, so
+  it is clear how far off the matrix is.
+
+- **An `index_cov` entry for a fleet that is not using the covariance
+  likelihood now warns.** It was ignored in both
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  and the internal aligner, so supplying a covariance but leaving
+  `Index_distribution` unset gave a silent lognormal fit with no
+  indication the matrix had been dropped. Entries keyed by either
+  `Fleet_name` or `Fleet_code` are recognised, so a correctly configured
+  fleet does not warn.
+
+## Rceattle 5.6.0
+
+### New features
+
+- **`self_test(debug = TRUE)` returns every simulation, not just the
+  converged ones.** When a self-test comes back short, the dropped runs
+  are the ones worth looking at, and each already carries its own
+  `$convergence` diagnostics – they were simply discarded. Under
+  `debug`, `Sim_i` is simulation `i` (so it pairs with the seed
+  `seed + i` that produced it) and the verdicts are in
+  `attr(sims, "converged")`. The default return is unchanged. A refit
+  that errors outright is now caught and returned as its condition
+  rather than aborting the whole call (and, under a cluster, every other
+  replicate with it) – previously the hardest failures were the ones you
+  could not inspect.
+
+- **`jitter(timeout = )` and `self_test(timeout = )` bound a single
+  run.** `.fit_tmb()` optimizes with `eval.max = iter.max = 1e9`, so a
+  replicate that wanders somewhere pathological has no bound and one
+  stall blocks the whole run – a failure no convergence check can reach,
+  because the fit never returns. A run past the limit is stopped,
+  counted as non-converged, and reported separately from the gradient
+  drops, since the fix is different (raise the limit, versus look at the
+  model). The limit is approximate:
+  [`setTimeLimit()`](https://rdrr.io/r/base/setTimeLimit.html) is
+  checked when control returns to R, so it fires between the optimizer’s
+  function evaluations rather than inside one. Both functions now also
+  trap errors per run, so one bad replicate cannot abort the rest.
+
+- **`self_test(start = )` chooses the starting values.** `"initial"`
+  (the default, and the previous behavior) starts each refit from
+  `initial_params` – what the original fit started from – so the
+  estimator covers the same ground on simulated data that it did on the
+  real data. `"estimated"` warm starts from `estimated_params`, which is
+  faster and far more likely to converge but asks the estimator to
+  travel no distance: it tests that the optimum is stable under
+  resampling, not that it is reachable.
+
+- **`reweight_comps(fleets = )` accepts fleet names as well as codes,**
+  matching `linkage_spec(fleet = )`. Passing a name previously did not
+  error: it fell through as ineligible and surfaced as a warning about
+  having no fitted composition data, followed by “No fleets to
+  reweight”. An unknown name is now reported against the model’s own
+  fleet list, and mixing ids and names in one vector is caught with the
+  coercion hint.
+
+### Bug fixes
+
+- **[`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  can now phase its refits, and inherits the setting by default.** Every
+  refit starts from the source model’s *starting* values, so it covers
+  the same ground the original fit did – but
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  had no way to phase it.
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  fixes `phase = TRUE` (“phasing, or the parameters dont wanna move”)
+  and
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  exposes the argument;
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  took `.refit_like()`’s `phase = FALSE` default with no argument to
+  change it. A model that needed phasing to fit its real data therefore
+  had to reach the same optimum in one unphased pass for every simulated
+  one. On a GOA pollock configuration that fits at a maximum gradient of
+  2e-4, 5 of 6 simulations ended between 4e9 and 2e13; with phasing all
+  6 converged to ~1e-4. (That model carries an `sdrep`, so the self-test
+  ran at `getsd = TRUE` and those five were dropped through the
+  non-positive-definite path below – under `getsd = FALSE` the old gate
+  would have returned all six and counted them as converged.) `phase`
+  reads the setting
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  recorded on the source fit, so a model fitted under the package
+  default is still refitted unphased; pass `phase = TRUE` for a model
+  that needs phasing but was not fitted with it.
+
+- **The re-fitting diagnostics’ convergence gate now tests the
+  gradient.**
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  and [`profile()`](https://rdrr.io/r/stats/profile.html) each drop the
+  runs that did not converge, by comparing `opt$Convergence_check`
+  against the string
+  [`TMBhelper::fit_tmb()`](https://rdrr.io/pkg/TMBhelper/man/fit_tmb.html)
+  uses for a non-invertible Hessian. That comparison could not work in
+  either direction. With `getsd = TRUE`, `fit_tmb()` returns *before*
+  assigning that string when the Hessian fails
+  [`chol()`](https://rdrr.io/r/base/chol.html) – so runs were dropped by
+  the enclosing [`is.null()`](https://rdrr.io/r/base/NULL.html) guard,
+  incidentally rather than by the test, and by a criterion
+  (positive-definiteness) that is not the one intended. With
+  `getsd = FALSE` that assignment is unreachable, so nothing was ever
+  dropped and a run ending at a maximum gradient of 1e13 counted as
+  converged. (`Convergence_check` itself is always set, but to one of
+  the two gradient verdicts, neither of which the comparison matched.)
+  Both paths now go through one gate that reads the hindcast maximum
+  gradient, using
+  [`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)’s
+  own FAIL threshold. Because the gate can now actually drop, all three
+  report how many runs they dropped rather than returning a thinned list
+  in silence – for
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  and
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  a thinned list is a biased sample, since the failures are exactly the
+  runs that would have shown the spread.
+
+- **[`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  survives a dropped peel.** It named its output
+  `Year_(endyr - peels):endyr` – always `peels + 1` labels – and looped
+  `1:(length(mod_list) - 1)`, both of which assume every peel converged.
+  One dropped peel errored with
+  `'names' attribute [3] must be the same length as the vector [2]`; all
+  of them dropped made `1:0` count down and index past the end. The
+  assumption held only because the old gate could not drop anything
+  (above). Entries are now labelled from each model’s own `endyr_peel`,
+  so a dropped peel leaves a gap rather than shifting every later label
+  onto the wrong model.
+
+- **[`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  now judges the peeled hindcast, not just the F refit.** Each peel fits
+  twice: the peeled hindcast, then a refit with only the peeled years’
+  `log_F` free. Only the second was gated, and its gradient says nothing
+  about whether the hindcast converged – so a peel whose hindcast
+  diverged was kept as long as the handful of F parameters settled, and
+  its parameters went into Mohn’s rho. Both refits are now gated.
+
+- **A non-positive-definite fit no longer returns a malformed
+  `fit$opt`.** On that early return
+  [`TMBhelper::fit_tmb()`](https://rdrr.io/pkg/TMBhelper/man/fit_tmb.html)
+  hands back `list(opt = , h = )` rather than the estimates, so
+  `fit$opt$objective`, `$max_gradient` and `$Convergence_check` were all
+  `NULL`.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now unwraps it, keeps the Hessian as `$hessian`, and records the
+  verdict `fit_tmb()` gives when `sdreport` reports `pdHess = FALSE`.
+  `fit$sdrep` stays `NULL`, so the `sdreport_failed` diagnostic is
+  unaffected. A no-op for every converged fit.
+
+- **[`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
+  and
+  [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)’s
+  pre-check read an attached
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md).**
+  They classified from the top-level switches only, so an object
+  carrying `model_config(msmMode = 1)` reported the predation inputs as
+  Ignored while [`print()`](https://rdrr.io/r/base/print.html) on the
+  same object showed it as multispecies.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  resolves the configuration onto the data list, and the requirement
+  layer now sees the same thing. The overlay covers what
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  carries: `estDynamics` and `Ceq` have no field there, so `NByageFixed`
+  and the bioenergetics inputs still classify from the top-level slots.
+
+- **The pre-check classifies an integer-coded `fleet_control`.** It runs
+  before
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md),
+  so a `Selectivity` still holding the code `0` never matched the string
+  `"Fixed"` and `emp_sel` was not required. The predicates now accept
+  the code, the canonical string, and the numeric-looking string a
+  workbook read can leave behind.
+
+- **A mistyped mode switch is caught before the fit, not after it.**
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  validates `initMode`, `avgnMode` and `suitMode` against the switch
+  maps, and
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  checks them before doing any work.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  rebuilds a
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  after the optimization to record the run configuration, so validating
+  only there meant `avgnMode = 3` – a switch the model never reads –
+  threw away a converged fit and its `sdreport`. That call is now
+  guarded as well, so recording the configuration can never cost a
+  caller a fit. The checks accept a per-species vector and an integer
+  code, since `.refit_like()` feeds resolved values back.
+
+- **[`run_config()`](https://grantdadams.github.io/Rceattle/reference/run_config.md)
+  errors on an unrecognized field** instead of silently dropping it,
+  naming the valid set and pointing at
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md),
+  where the mistake usually belongs – `run_config(fit, getsd = FALSE)`
+  was a no-op. Names are validated, not values.
+
+- **The linkage grammar documented a term that does not exist.** A time
+  block was described as `~ block(Year)` in the roxygen, the developer
+  guide and the vignettes, but there is no `block()`: the fixed part of
+  a linkage formula is passed to
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html), so a
+  model carrying that term failed at fit time with
+  `could not find function "block"`. Documented as `~ cut(Year, ...)`,
+  with a note that anything
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) accepts
+  will work.
+
+### Behavior changes
+
+- **[`summary()`](https://rdrr.io/r/base/summary.html) on a data object
+  no longer prints the `model_config` block.**
+  [`print()`](https://rdrr.io/r/base/print.html) still does, and both
+  take `config =` to override, so `summary(dat, config = TRUE)` and
+  `print(dat, config = FALSE)` give the other behavior. An object with
+  no configuration prints identically either way.
+
+- **[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md),
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
+  and
+  [`combine_data()`](https://grantdadams.github.io/Rceattle/reference/combine_data.md)
+  return an `"Rceattle_data"` object.** A data list keeps its spec-tree
+  printer through a
+  [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)
+  /
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  round trip instead of only when it came from
+  [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md).
+  The visible consequence is that these now print an indented
+  specification tree at the prompt rather than dumping the ~40-element
+  list. The tag is inert: every consumer treats the object as a plain
+  list, and it is stripped before anything reaches `MakeADFun()`, so no
+  fit changes.
+
+- **`data_requirements(index_loglike = )` is now
+  `index_distribution =`,** matching the canonical `fleet_control`
+  column. The function has not been released, so there is no deprecation
+  path.
+
+### Documentation
+
+- Runnable examples for
+  [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md),
+  [`write_template()`](https://grantdadams.github.io/Rceattle/reference/write_template.md),
+  [`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md)
+  and
+  [`run_config()`](https://grantdadams.github.io/Rceattle/reference/run_config.md),
+  none of which had one.
+  [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  is the entry point to the whole linkage grammar; its examples show the
+  covariate, per-year, penalized random walk and intercept-prior forms.
+
+- [`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+  is in the reference index (its absence aborted the pkgdown build), is
+  referenced from the composition-diagnostics workflow in
+  [`vignette("model-diagnostics")`](https://grantdadams.github.io/Rceattle/articles/model-diagnostics.md),
+  and cites Francis (2011) as the alternative.
+  `examples/McAllister-Ianelli-reweighting.R` now uses it rather than
+  teaching a hand-rolled tuning loop.
+
+- Reference documentation describes current behavior rather than
+  narrating past refactors, and the release notes for 5.3.0 and 5.4.0
+  are condensed to what changed, who is affected, and what to do about
+  it.
+
+- **A failed parallel OSA loop no longer crashes the R session.**
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  runs the one-step-ahead loop in parallel by default, via forking, and
+  retried serially if that failed – but reusing the object the failed
+  attempt had used, which ended the session with “An irrecoverable
+  exception occurred” rather than recovering. The retry now builds a
+  fresh object first. Found on GOA pollock 2025, where
+  `osa_residuals(mod)` was unrunnable; it now returns its 1100
+  residuals, the same as `parallel = FALSE` gave.
+
+  Forked workers abort on that model at any width above one core, and
+  this is usually absorbed: a direct one-step-ahead call over the same
+  observations returned all of them at 1, 2, 4, 8 and 11 cores.
+  Occasionally the absorption fails, and that case did not reproduce on
+  demand – it appears to depend on machine load rather than on the model
+  – so the fix makes the retry safe rather than preventing the
+  underlying failure. The aborting worker still prints its own message,
+  which comes from C and cannot be suppressed; it does not mean the call
+  has failed. `parallel = FALSE` avoids the attempt entirely.
+
+- **A negative expected composition count now warns** (issue
+  [\#108](https://github.com/grantdadams/Rceattle/issues/108)).
+  `predicted` is an expected bin count and cannot be negative, but it
+  goes slightly negative where a bin holds almost no fish: compositions
+  enter as counts (`(proportion + comp_offset) * N`), and the
+  one-step-ahead conditional mean is a numerical step from the
+  observation that overshoots below zero when the count is near it. This
+  follows the count in the *bin*, not the sample size of the composition
+  – on EBS pollock the affected rows have a median observed count of
+  0.05 against 4.9 elsewhere, while their sample sizes span the same
+  range as everything else, so a rare age in a well-sampled year does it
+  too. The affected years are named, and the warning notes that the
+  residual on those rows standardises the observation against the same
+  mean, so it is biased positive – every affected row was positive in
+  both Rceattle and WHAM. Nothing is dropped or clamped: the negative
+  value is the signal that the bin is too sparse, and which rows to set
+  aside is the analyst’s call. This is not specific to Rceattle; WHAM
+  produces negative expected counts on its own example, with the same
+  default one-step-ahead method and composition counts on the same
+  scale.
+
+- **OSA residuals on an accumulated composition are labelled by the age
+  they represent** (reported as issue
+  [\#108](https://github.com/grantdadams/Rceattle/issues/108)). Tail
+  accumulation folds the tails into a boundary bin, so a fleet with
+  `Comp_accum_young = 3` on a 10-age model is fit on 8 bins – but those
+  were numbered 1 to 8, which labels the boundary residual “age 1” when
+  it stands for ages 1-3 combined and puts every other bin two ages out.
+  The residuals themselves were right; only the labels were positional.
+  `age_length_bin` now gives the age or length each residual belongs to,
+  and a new `accumulated` column marks the bins that carry a folded
+  tail. A fleet without accumulation is unchanged.
+
+- **[`residuals()`](https://rdrr.io/r/stats/residuals.html) reports
+  composition residuals on the bins the likelihood fit.** Tail
+  accumulation folds the tails into a boundary bin and restricts the
+  likelihood to that window, but
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) knew nothing
+  about it – so a fleet folding ages 1-2 into age 3 still returned
+  residuals for ages 1 and 2, against a model that never fit them
+  separately, and the boundary bin’s observed proportion excluded the
+  tail it had absorbed. Both the composition and the `"pearson"`
+  attribute of
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now fold first, so the Pearson and OSA views of a fleet describe the
+  same bins. The residual formula is unchanged, and a fleet without
+  accumulation is bit-identical. A new `Accumulated` column marks the
+  bins carrying a folded tail.
+
+- **[`residuals()`](https://rdrr.io/r/stats/residuals.html) no longer
+  returns composition residuals for observations the model did not fit**
+  (issue [\#108](https://github.com/grantdadams/Rceattle/issues/108)). A
+  row with `Sample_size` 0 enters no likelihood – the TMB guard is
+  `Neff > 0` – but the Pearson path reported one anyway, so a diagnostic
+  plot showed residuals for data the model never used. On the 2025 GOA
+  pollock assessment that was 531 of 1568 rows: every length composition
+  (all carried at `Sample_size` 0) plus 8 unfitted age rows. The OSA
+  path already applied the guard, which is why the two disagreed. Same
+  rule now on both, for `comp` and `caal`.
+
+- **The `"pearson"` attribute of an
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  result uses the same column names as the result itself.** It came from
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html), which names
+  columns in the data-sheet style (`Fleet_code`, `Year`, `Observed`), so
+  one object carried two conventions and a reader had to know which half
+  they were holding. Shared names do not mean a shared scale, and
+  [`?osa_residuals`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now says so: the attribute’s `observed`/`predicted` are proportions
+  with the sample size alongside, since composition Pearson residuals
+  are defined on proportions, where the OSA columns carry bin counts.
+
+- **[`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+  draws the survey index under the fleet’s own `Index_distribution`.**
+  Every fleet was drawn as an independent lognormal whatever it was set
+  to, so an `MVN`/`MVNORM` survey was simulated on the wrong scale and
+  without the correlation its covariance carries: a survey with an
+  absolute sd of 20 and correlation 0.6 came back with a log-scale sd of
+  0.1 and no correlation. `Normal` was likewise drawn on the log scale.
+  Nothing errored, so
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  reported recovery against a data-generating process the likelihood
+  never assumed. **Affects
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  and `run_mse(simulate_data = TRUE)` for MVN/MVNORM/Normal surveys
+  only** – all-lognormal models draw exactly as before. A natural-scale
+  draw can come out non-positive, which
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  rejects; that now warns, since otherwise the refit simply fails and
+  the run is reported as not converged.
+
+- **A parallel worker that dies no longer aborts
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  or
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md).**
+  Each worker fits whole models, so running several at once can exhaust
+  memory and the machine kills one. The call then stopped with
+  `Error in unserialize(node$con) : error reading from connection`,
+  discarding every peel or simulation finished up to that point. The
+  tasks are now recomputed sequentially instead – slower, but the call
+  returns – and the message suggests a lower `cores`. An error raised
+  inside a worker still surfaces as itself. These functions parallelize
+  differently on Windows than on macOS and Linux, so the same model can
+  hit this on one and not the other.
+
+- **Each
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  peel reports its own terminal year, so the peels show up in a plot.**
+  Every peel carried the terminal year of the unpeeled model, and plots
+  take their year axis from it, so each peel was drawn across the full
+  series and they all lay on top of one another.
+  `plot_biomass(retro$Rceattle_list)` now gives the usual fan with no
+  extra arguments. Mohn’s rho is unchanged.
+
+  A peel still estimates the years it dropped – they are its
+  retrospective forecast, fit to the observed catch – so `endyr` marks
+  what the peel was fit through, not how far it was estimated.
+  `incl_proj = TRUE` plots those years, and `data_list$endyr_full` gives
+  the unpeeled terminal year where they end.
+
+- **[`?osa_residuals`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  no longer carries a broken link to
+  [`parallel::mclapply()`](https://rdrr.io/r/parallel/mclapply.html).**
+  The `parallel` argument’s cross-reference had been generated with a
+  Windows-specific file anchor (`parallel:mcdummies`, where Windows
+  documents the forking dummies); `mclapply` lives in `mclapply.Rd` on
+  Unix, so the link resolved nowhere on macOS or Linux and `R CMD check`
+  reported it as a missing link. It now points at the topic rather than
+  a platform’s file, so it resolves everywhere.
+
+## Rceattle 5.5.1
+
+*Released from `main` as 4.9.1, before this development line was merged
+back. The two sections carry the same changes under different version
+numbers.*
 
 ### Bug fixes
 
 - **The stock-recruit convergence check now runs under the Ianelli
   configuration.** `.check_stock_recruit()` was keyed on `srr_fun`, so
   with `srr_fun = 0` and `srr_pred_fun > 1` it returned no result at all
-  – the case where 4.9.0 made estimable against a steepness prior, and
+  – the case where 5.5.0 made estimable against a steepness prior, and
   so exactly the case most in need of checking. It now reads
   `srr_pred_fun` there. Steepness is the complete test: for
   Beverton-Holt , so is precisely . The reported is not checked in that
@@ -17,7 +903,7 @@
 - **[`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
   warns when a steepness is passed as `srr_est_mode = 0`’s .**
   `srr_prior` means steepness for `srr_est_mode` 2 and 3 but for mode 0.
-  Since 4.9.0 fixes at that value under the Ianelli configuration, a
+  Since 5.5.0 fixes at that value under the Ianelli configuration, a
   steepness supplied by mistake is now pinned rather than merely used as
   a starting value, putting the curve under the replacement line with a
   negative implied . A Beverton-Holt `srr_prior` in (0, 1) under mode 0
@@ -25,7 +911,11 @@
   because is not known until the model is built, and a small is
   legitimate for a stock with a large .
 
-## Rceattle 4.9.0
+## Rceattle 5.5.0
+
+*Released from `main` as 4.9.0, before this development line was merged
+back. The two sections carry the same changes under different version
+numbers.*
 
 ### New features
 
@@ -36,8 +926,8 @@
   for a stock in tonnes – so the default sits three orders of magnitude
   away and Beverton-Holt fits returned `NA/NaN gradient evaluation`
   before reaching a first useful step. Both arguments take natural-scale
-  values, one per species, and are applied whether or not the caller
-  supplies `inits`.
+  values, one per species. For a Beverton-Holt seeded from steepness and
+  unfished spawning biomass per recruit :
 
   ``` r
 
@@ -50,28 +940,32 @@
 ### Bug fixes
 
 - **`init_dev` is no longer declared a random effect under
-  `initMode = "FreeParams"` (0).** The C++ applies the initial-deviate
-  density `dnorm(init_dev, -sigma^2/2, R_sd)` only when `initMode > 1`,
-  but
+  `initMode = "FreeParams"` (0).** `ceattle.cpp` applies the
+  initial-deviate density `dnorm(init_dev, -sigma^2/2, R_sd)` only when
+  `initMode > 1 && initMode != 5`, but
   [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
   added `init_dev` to the Laplace random block whenever any element was
   free. Under mode 0 that made the approximation integrate over an
   improper (flat) prior rather than estimate the initial age structure
   as fixed effects, which is what mode 0 means and what comparable
-  platforms (WHAM’s `N1_model = 0`, FIMS’s `log_init_naa`) do. Only
-  `initMode = 0` combined with `random_rec = TRUE` was affected. The
-  R-side test now mirrors the C++ gate exactly; it previously compared
-  the canonical `initMode` *string* against a number, which resolves
-  lexicographically and was therefore true for every mode.
+  platforms (WHAM’s `N1_model = 0`, FIMS’s `log_init_naa`) do.
+
+  Only `initMode = 0` combined with `random_rec = TRUE` is affected, but
+  **for that combination results move substantially** – on a small test
+  model the objective went from -91.6 to -83.3 and SSB by ~59%, because
+  a flat prior and a fixed effect are different models. No assessment in
+  the ecosystem uses that combination (every `initMode = 0` model sets
+  `random_rec = FALSE`), so nothing in practice changes; refit if you do
+  use it.
 
 - **[`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
   no longer seeds the stock-recruit from `srr_prior` when `srr_prior` is
   a steepness.** `srr_prior` is not the same quantity for every curve:
   for Ricker it is a prior on , but for Beverton-Holt it is a prior on
   **steepness** and must lie in (0, 1). Seeding with `log(steepness)`
-  started the optimiser at a near-zero recruits-per-spawner. The seeding
+  started the optimizer at a near-zero recruits-per-spawner. The seeding
   is now applied only where `srr_prior` is genuinely an , matching the
-  prior gates in the C++.
+  prior gates in `ceattle.cpp`.
 
   **This changes results for Beverton-Holt models with `srr_est_mode` 2
   or 3**, which are the only configurations where `srr_prior` is a
@@ -132,6 +1026,23 @@
   stays keyed on `srr_fun` and remains estimated there. No model in the
   ecosystem currently uses `srr_est_mode = 0`.
 
+- **`srr_alpha_init` / `srr_beta_init` survive a refit.**
+  `.refit_like()`, which backs
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`profile()`](https://rdrr.io/r/stats/profile.html),
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md),
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
+  and
+  [`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md),
+  rebuilds the stock-recruit specification from the stored `data_list`
+  and now carries both starting values through. Note they override a
+  supplied `inits`, so warm-starting from a previous fit’s
+  `estimated_params` restarts / at the specified values rather than the
+  fitted ones; leave them `NULL` to warm-start from the fit.
+
 - **[`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
   validates the steepness prior instead of failing silently.** For a
   Beverton-Holt curve, `srr_est_mode` 2 and 3 put the prior on
@@ -156,7 +1067,9 @@
   reuse `initial_params` as their refit starting values
   (`R/9-retro_and_jitter.R`). Those overrides are deterministic
   functions of the `data_list` / `HCR` and are re-applied on every
-  refit, so no fit changes.
+  refit, so no fit changes – confirmed bit-identical across
+  `retrospective`, `jitter`, `self_test`, `profile`, `remove_F` and
+  three `run_mse` variants via `tools/verify/verify-refit-like.R`.
 
 - **`steepness` is reported for every year, not just the first.** It is
   declared `[nspp, nyrs]` but only column 1 was ever assigned, so
@@ -181,6 +1094,1500 @@
   turns **negative**, propagating into the initial age structure as
   `NaN`. `fit$convergence` now reports this as a `FAIL` naming the
   species and the offending steepness / .
+
+## Rceattle 5.4.0
+
+### New features
+
+- **`linkage_spec(integrate = FALSE)` estimates a random-effect linkage
+  term as a penalized fixed effect.** A `~ (1|Year)` / `rw(1|Year)` /
+  `ar1(1|Year)` term is normally integrated out by the Laplace
+  approximation. Many reference assessments – ADMB/AMAK, `goa_pk`, and
+  Rceattle’s own legacy `Time_varying_sel` / `Time_varying_q` switches –
+  instead treat such deviations as *penalized fixed effects*: the
+  deviations sit in the objective as a plain penalty with a fixed SD and
+  are not integrated. These are different models, not a
+  reparametrization, so a `rw()` could not reproduce them. On the GOA
+  pollock fishery selectivity walk, integrating moved the fit by ~119
+  jnll units and shifted SSB ~14%.
+
+  ``` r
+
+  build_selectivity(linkages = list(
+    slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
+                           init = list(sigma = 0.05), integrate = FALSE)))
+  ```
+
+  Permitted only with a fixed SD, and rejected with `observe =`. See
+  [`?linkage_spec`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  for the restrictions and
+  [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+  for when to prefer it.
+
+- **The linkage table records where each deviation is stored
+  (`re_pos`).** `re_index` is the deviation’s slot in the *global*
+  random-effect numbering, but the deviations are split across
+  `beta_linkage_re` and `beta_linkage_re_pen`, so the position within
+  the vector that actually holds one is a different number as soon as a
+  model uses both treatments. `re_pos` gives that position, alongside
+  `re_integrate` for which vector, so setting `inits` by hand is
+  `beta_linkage_re_pen[re_pos + 1]` rather than a reconstruction of the
+  split. Indexing a mixed model by `re_index` writes to the wrong
+  deviation without erroring.
+
+### Bug fixes
+
+- **[`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  falls back to serial when the parallel loop fails.**
+  `TMB::oneStepPredict(parallel = TRUE)` forks via `mclapply`, and on
+  some model/observation combinations a worker aborts rather than
+  returning. The dead worker left an error object where a gradient
+  belonged, which surfaced from deep inside TMB as
+  `non-numeric argument to mathematical function` – a message with no
+  visible connection to the cause. The parallel loop is now retried
+  serially, reporting that it did so, so the call returns residuals
+  instead of failing. Seen on the GOA pollock model’s index residuals;
+  the other sources, and every model tested with a linkage on
+  catchability, run in parallel unaffected.
+
+- **A selectivity prior on a limb the fleet’s curve does not have is now
+  rejected.** A Logistic fleet has no descending limb and a
+  DescendingLogistic fleet no ascending one, so those slots never reach
+  selectivity-at-age – they sit at their
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  defaults. A prior on them was still added to the objective, shifting
+  the reported likelihood by a constant that moved with an unrelated
+  default while doing nothing to the fit.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now names the fleet and parameter and says which limb to prior
+  instead. This is how a reconciliation against another model picks up
+  an unexplained offset: on the GOA pollock bridge it was worth 13.19
+  likelihood units.
+
+- **Parameter bounds are applied to the parameter they were written
+  for.**
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  assembled `lower`/`upper` in
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)’s
+  parameter order, but TMB orders `obj$par` by the sequence the
+  `PARAMETER_*` macros appear in the template – and
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  lists the linkage coefficients after `log_F` while `ceattle.cpp`
+  declares them before it. Both vectors have the same length either way,
+  so nothing downstream could notice: the box constraints landed on the
+  wrong parameters. The orders disagree in four places, so this reaches
+  well beyond linkages: `rec_dev`/`R_log_sd`, the growth block against
+  `log_Flimit`…`log_F`, `index_q_beta`/`index_q_rho`, and
+  `sel_curve_pen`/`sel_coff_dev`. **Fits of growth-estimating and
+  linkage-carrying models can therefore change**, since bounds that
+  previously bound the wrong parameter now bind the right one; refit
+  them. The reference fits are unaffected (their misplaced bounds never
+  bound). Bounds are now aligned against `names(obj$par)` after
+  `MakeADFun()` and asserted non-`NA`, since `nlminb` accepts an `NA`
+  bound silently and returns `objective = Inf` with `par = NA` rather
+  than erroring.
+
+- **`est_phase` no longer silently fails to fix a random-effect term.**
+  `est_phase` reaches only `beta_linkage`, the fixed-effect coefficient
+  vector; a random effect’s deviations live in a separate vector it
+  never touches, so `est_phase = 0` on a formula containing `(1|g)` /
+  `rw()` / `ar1()` left every deviation estimated – the opposite of the
+  documented “fix at `init`” contract. It is now an error naming the
+  supported alternatives (drop the term, or fix a small SD). Values
+  above `1` remain inert for every linkage row.
+
+## Rceattle 5.3.0
+
+*Also covers the unreleased 5.2.0-5.2.4 development increments, whose
+entries were folded into this section.*
+
+### New features
+
+- **[`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+  runs the iterative McAllister-Ianelli tuning loop.** Every fit reports
+  the implied weights in `fleet_control$Comp_weights_mcallister`, but
+  tuning on them has meant copying them across and refitting by hand,
+  over and over. `reweight_comps(fit)` does that loop: it refits until
+  the largest relative change in any weight falls below `tol`, returns
+  the model fitted with the settled weights, and attaches the
+  per-iteration history as `fit$reweight`. Dirichlet-multinomial fleets
+  estimate their own weight, so they are named and skipped.
+
+- **`intercept` is accepted wherever `` `(Intercept)` `` is.** The key
+  naming a linkage’s intercept came straight from
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html), so
+  setting an init, bounds or a prior on it meant writing
+  `` list(`(Intercept)` = ...) `` – backticks, a capital I, and
+  parentheses, with no error if any of it was wrong. `intercept` now
+  means the same thing in `init`, `bounds` and `priors` on every
+  process. The original spelling still works, and a covariate actually
+  named `intercept` still refers to itself.
+
+- **An `init`, `bounds` or `priors` key that names nothing is now an
+  error.** A misspelled key was ignored without complaint, and the model
+  went on to fit from a starting value, or under a prior, that was not
+  the one asked for. Keys are now checked against the linkage’s own
+  design columns (plus `sigma` / `rho` where the structure has them); an
+  unrecognized key stops the fit and lists the keys that were available.
+
+- **An intercept `init` or `bounds` reaches the base parameter for all
+  six processes.** Setting the intercept of a recruitment,
+  natural-mortality or growth linkage set that parameter’s starting
+  value and bounds, but the same key on a catchability, selectivity or
+  composition linkage was accepted and then dropped. All six now behave
+  alike. Values are given on the parameter’s natural scale and stored on
+  whichever scale the parameter uses, so a catchability of 0.8 or a von
+  Bertalanffy K of 0.25 is written as given.
+
+  Three cases cannot be honoured, and each now stops the fit with a
+  message naming the linkage: a value of zero or less on a parameter
+  held as a log; a natural-scale value for a `sel_inf` slot that holds a
+  logit or a log instead of an inflection (DoubleNormal, LogisticPM);
+  and a fleet that mirrors another’s selectivity or catchability, where
+  the value would be overwritten by the fleet leading the shared block.
+
+- **[`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  gains an `"ecov"` source** for the state-space covariate of a QAR1
+  catchability (`build_catchability(..., observe=)`, Rogers et
+  al. 2024). It one-step-ahead residualizes the covariate observation
+  with
+  [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html),
+  first and against its own series, as in WHAM’s `make_osa_residuals()`;
+  the fit itself is unchanged. The AR1 latent is zero-mean, so
+  standardize the covariate –
+  [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  warns otherwise.
+
+- **[`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  selects species and fleets by name.** `species =` now accepts species
+  names matching `data_list$spnames`, and `fleet =` accepts fleet names
+  matching `fleet_control$Fleet_name`, in place of 1-based ids:
+
+  ``` r
+
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = "Shelikof")
+  M1 = linkage_spec(~ temp, by = ~ species, species = c("Pollock", "Cod"))
+  ```
+
+  Ids continue to work unchanged. Names are resolved when the model is
+  assembled in
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md);
+  an unrecognized name – or one that is not unique in `fleet_control` –
+  errors and lists the model’s own names, whereas a `Fleet_code` that is
+  wrong but in range silently attaches the linkage to a different fleet
+  and still fits. Matching is exact after trimming whitespace, and a
+  misspelled name is rejected even when the corresponding filter would
+  be a no-op. Named specs round-trip through
+  [`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)
+  /
+  [`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md).
+
+### Performance
+
+- **[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  refits the operating model only as far ahead as the next assessment
+  needs.** Between assessments the operating model has to reach one
+  assessment step past its terminal year – far enough for the
+  exploitable-biomass cap on the next TAC – but it was rebuilt over the
+  whole projection every time, and `projyr` sizes the AD tape, which
+  costs roughly a fixed amount per model year. The refit now runs on the
+  shortened horizon and the operating model is restored to the full
+  projection afterwards; the final assessment keeps the full horizon, so
+  the returned operating model is unchanged. Measured at a 9% saving on
+  a Bering Sea multispecies MSE projecting to 2040, growing with the
+  length of the projection. Single-species models see little change.
+
+  **A run with `simulate_data = TRUE` will not reproduce results
+  generated before this version**, because the operating model carries
+  fewer projection rows while the refit runs and
+  [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+  therefore draws a different number of random values. Runs remain fully
+  reproducible from a given `seed` within a version. With
+  `simulate_data = FALSE` results are unchanged to the bit.
+
+### Bug fixes
+
+- **`Time_varying_sel = "RandomWalkAscending"` no longer penalizes the
+  descending limb it never estimates.** The random-walk selectivity
+  penalty was gated on the selectivity *type* alone, so on a
+  double-logistic fleet the descending-limb term was accumulated under
+  mode 5 as well as mode 4. Mode 5 varies the ascending limb only, so
+  with `random_sel = FALSE` those deviates sat at their init of 0 and
+  the term contributed a pure constant – on `GOA2018SS` (fleet 8, 42
+  years, one sex) exactly 113.459 objective units. Models with no mode-5
+  fleet – including `BS2017SS` / `BS2017MS` – are bit-identical.
+
+  **A constant shift can still move the fit, and on `GOA2018SS` it
+  does.** `nlminb` stops on an objective-*relative* tolerance, so an
+  additive constant changes where it halts and which local optimum it
+  reaches. The fit now lands on a converged optimum 52.9 units better
+  (12868.005 rather than 12920.897 on the same surface), and the derived
+  quantities move with it: **GOA Pacific cod SSB in the final projection
+  year (2050) falls 14.1%** (395,627 to 339,897 t), while SSB,
+  recruitment and F differ by up to 40%, 39% and 230% across the
+  hindcast. **Anyone carrying GOA numbers forward should refit.**
+
+  With `random_sel = TRUE` the removed term is **not** constant:
+  `sel_dev_log_sd` is estimated for a mode-5 fleet, so removing the term
+  moves the estimated selectivity-deviation SD upward and rescales
+  shrinkage on the ascending walk. The direction is right – penalizing a
+  deviate pinned at 0 is a spurious `-log sigma` – but it is a behavior
+  change for such models.
+
+  All four pinned reference objectives are restated: the reference
+  recipe now Newton-polishes each fit to a stationary point (gradients
+  ~1e-11) instead of stopping on `nlminb`’s relative tolerance, and
+  `test-golden-regression.R` asserts convergence alongside each pinned
+  value. Note this certifies convergence, not uniqueness – use a jitter
+  or multi-start check for that.
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)’s
+  `newtonsteps = 0` default is unchanged; this affects the reference
+  recipe only, not any user fit.
+
+- **[`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+  and
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  run again on a model with an observed (state-space covariate)
+  linkage.** The map for the QAR1 observation SD (`log_obs_sd_linkage`)
+  was stored as a factor, where every other entry of `mapList` is a raw
+  integer. Both diagnostics build a debug map for each peel /
+  assessment, which maps the whole list out at once, and on a factor
+  that step aborted with `argument "list" is missing, with no default` –
+  so every peel of such a model failed, reported under the parallel
+  dispatch only as `5 nodes produced errors`. Models with no
+  `linkage_spec(observe = )` group were never affected, and no fit
+  changes: the map TMB receives is identical.
+
+- **A diagnostic refit keeps the source model’s bias adjustment.**
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  resets `data_list`’s `bias_adjust_obs` / `bias_adjust_proc` and then
+  re-applies the values from
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md),
+  whose defaults are `TRUE`. `.refit_like()` built a fresh
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md),
+  so a model fitted with bias adjustment off refitted with it back on –
+  worth ~880 jnll units on `BS2017SS`. Bias adjustment defines the
+  likelihood rather than the optimizer, so this made
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`profile()`](https://rdrr.io/r/stats/profile.html),
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md)
+  and
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
+  compare two different objectives: a Mohn’s rho or a jitter spread
+  computed this way was not measuring what it reported. The resolved
+  settings are now recovered from the `data_list`, which covers every
+  caller. Only models fitted with a non-default `bias_adjust_*` are
+  affected; `comp_offset` was already carried correctly and is now
+  pinned by a test.
+
+  The optimizer and `sdreport` fields – `newtonsteps`, `use_gradient`,
+  `rel_tol`, `nlminb_control`, `getJointPrecision` and the rest – still
+  fall back to their defaults in a refit. Those choose how the optimizer
+  runs rather than what it optimizes, so they do not change the model,
+  but a source fit that needed non-default optimizer settings will refit
+  without them. `TMBfilename` is the exception worth naming: it selects
+  the compiled template, so a model fitted against an alternate template
+  refits against the bundled `ceattle` and is not the same likelihood.
+  Refitting such a model through any of these diagnostics is not
+  supported.
+
+- **[`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+  simulates with the model’s own observation bias adjustment.** It
+  hardcoded the `-sigma^2/2` offset on the simulated index and catch,
+  which agreed with the estimator only because a refit used to force
+  bias adjustment back on. With the refit now keeping the source
+  setting, a model fitted at `bias_adjust_obs = FALSE` would be
+  simulated with the offset and then fitted by a likelihood expecting
+  none – a systematic bias in scale, and so in catchability, that no
+  number of simulations averages away.
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  and `run_mse(simulate_data = TRUE)` on such a model would report that
+  artifact as estimation error. The simulator now reads the flag the
+  same way
+  [`residuals.Rceattle()`](https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.md)
+  already did. Models on the default bias adjustment are unaffected.
+
+- **A simulation whose unfished reference run fails keeps an `OM_no_F`
+  entry.**
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  assigned the failure result with `sim_list$OM_no_F <- NULL`, which
+  *removes* a list element rather than setting it to `NULL`, so the
+  simulation came back without the name at all.
+  [`is.null()`](https://rdrr.io/r/base/NULL.html) tests were unaffected,
+  but code keying on [`names()`](https://rdrr.io/r/base/names.html) saw
+  something different from what the documentation described. The element
+  is now present and `NULL`, as stated.
+
+- **A failed re-assessment now stops its simulation instead of being
+  absorbed.** When an estimation-model refit failed,
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  could not assign to `em_use`, so it still held the *previous* year’s
+  assessment; the guard that followed tested `is.null(em_use)`, which
+  such a failure never produces. The simulation carried on, stored that
+  stale assessment under the failed year’s name, handed its catch advice
+  to the next iteration, and was reported as successful once a later
+  iteration reset the failure flag. A simulation whose assessment fails
+  is now stopped and marked like one whose operating-model refit fails.
+  Any earlier run is worth re-checking: a failed assessment left no
+  trace in `use_sim`.
+
+- **A simulation whose unfished reference run fails is no longer counted
+  as “did not collapse”.**
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md)
+  is a separate fit and can fail on its own. The simulation is kept,
+  since its assessments are the catch-advice record, but `OM_no_F` is
+  then `NULL` – and `sum(NULL < 1000) > 0` is `FALSE` in R, so
+  [`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+  scored it as a non-collapse while keeping it in the denominator.
+  Because
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md)
+  fails preferentially at low stock sizes, that biased the collapse
+  metrics low, in the direction that flatters a harvest rule. Such
+  simulations are now excluded from the `OM no F` and
+  `SSB Collapse from F` metrics – numerator and denominator both – which
+  report `NA` when none has an unfished run; every other metric still
+  uses them. Under `msmMode > 0` a single such simulation previously
+  threw and took the whole summary with it.
+
+- **`run_mse(dir = )` accepts an absolute path.** The save built its
+  target as `file.path(getwd(), dir)`, which turns an absolute `dir`
+  into `<cwd>/<abs path>`, so the directory was never created and the
+  run died with “cannot open the connection”. Relative paths were
+  unaffected.
+
+- **`sampling_period` is now honoured per fleet when more than one year
+  advances per assessment.**
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  selected the newly sampled rows by testing the year set and the fleet
+  set separately, which is the same as matching fleet-year pairs only
+  while `years_include` spans a single year. With
+  `assessment_period > 1` and fleets on different sampling periods, the
+  two tests together admitted every fleet in every year of the step: a
+  fleet surveyed every second year was given observations in its off
+  years as well. The estimation model was therefore fit to more survey
+  and composition data than the sampling design specifies, understating
+  terminal-year uncertainty and making a data-poor design perform like a
+  data-rich one. Rows are now matched on the fleet and year together.
+  Runs with `assessment_period = 1` – the default – are unaffected;
+  results move for any run combining a longer assessment period with
+  per-fleet sampling periods.
+
+- **`sample_rec(update_model = TRUE)` works on models carrying
+  catchability, selectivity, or composition linkages.** `.refit_like()`
+  reconstructs the
+  [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  /
+  [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  /
+  [`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)
+  specifications from the source model, but
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
+  still re-invoked
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  through its own hand-written copy of that block, and so omitted all
+  three. Because
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  treats those arguments as the source of truth for `q_linkages` /
+  `sel_linkages` / `comp_linkages`, the rebuilt model had no linkage
+  table and therefore no `beta_linkage` parameters, which no longer
+  matched the parameters carried over from the source model. The `inits`
+  check in
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  caught that and stopped with a length-mismatch error, so
+  `sample_rec(update_model = TRUE)` failed outright on any model using
+  an environmental linkage or a prior on catchability, on a selectivity
+  parameter, or on a Dirichlet-multinomial composition weight — it did
+  not return quietly wrong dynamics.
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md)
+  now routes through `.refit_like()` like every other refit.
+
+  Routing through `.refit_like()` also means
+  `sample_rec(update_model = TRUE)` now carries the source model’s
+  `random_q` and `random_sel` settings into the rebuild, where the
+  hand-written block left them at `FALSE`. For a model that estimates
+  time-varying catchability or selectivity as random effects, the
+  rebuilt object now keeps those random effects instead of dropping
+  them.
+
+- **The “invalid switch” errors for `initMode` and `HCR` now name the
+  offending value.** They previously read
+  `Invalid 'initMode' specified: .` with the value dropped; they now
+  echo what was passed (e.g. a since-renamed alias), alongside the list
+  of accepted names and integer codes.
+
+- **The diet Dirichlet-multinomial weight is no longer estimated where
+  there is no diet likelihood.**
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  freed `diet_comp_weights` for any predator with
+  `Diet_distribution = "DirichletMultinomial"` whenever `msmMode > 0`,
+  but the template only fits the diet composition for predators with
+  `suitMode > 0` – under empirical suitability (`suitMode = 0`) the diet
+  proportions are taken as given. A multispecies run with empirical
+  suitability therefore carried one free, wholly uninformed
+  overdispersion parameter per predator, inflating the parameter count
+  and risking a rank-deficient Hessian under `getsd = TRUE`. The weight
+  is now estimated only where the diet composition is fit. Fits that did
+  not use a DM diet are unchanged.
+
+- **A composition-weighting prior on a fixed DM weight is now ignored
+  instead of adding a constant.** A `theta_comp` / `theta_caal` /
+  `theta_diet` prior from `build_composition(linkages = )` is
+  prior-only, so when the map fixes the weight it targets – a
+  single-species fit, empirical suitability, an `"Off"` fleet, a fleet
+  with no composition data, or a user-supplied `map` – the prior
+  contributed a constant that shifted the reported `jnll` without moving
+  any estimate, making likelihoods non-comparable across configurations.
+  Such priors are now dropped with a message. The linkage rows
+  themselves are kept, so `beta_linkage` keeps its length and `inits`
+  remain portable between fits that share one `compFun`.
+  [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  still errors up front on a prior that can never apply to the data at
+  hand (a non-DM `Comp_distribution` / `Diet_distribution`).
+
+- **`Hake` selectivity no longer warns about a valid
+  `Time_varying_sel = 0`.**
+  [`build_map_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_map_selectivity.md)
+  warned “Time_varying_sel for fleet N is not compatible … Current
+  value: Off” on every fleet that was not `"IID"` – including `"Off"`
+  (0), which its own message and
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  both list as valid for the `"Hake"` (Taylor et al. 2014) form. Because
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  wraps
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  in [`suppressWarnings()`](https://rdrr.io/r/base/warning.html), the
+  spurious warning surfaced only in the callers that build the map
+  directly, notably
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  and
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  where it appeared once per iteration. The map itself was always
+  correct (no coefficient deviates are estimated for `"Off"`), so fits
+  are unchanged. The warning now fires only for a mode the `"Hake"` form
+  cannot represent, and names `'Off'` rather than the non-existent
+  `'None'`.
+
+- **The diagnostic refit paths preserve catchability / selectivity /
+  composition linkages.** `.refit_like()` – the engine behind
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`profile()`](https://rdrr.io/r/stats/profile.html), and
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md)
+  – rebuilt the recruitment, M1, and growth specifications from the
+  source model but silently dropped the
+  [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  /
+  [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  /
+  [`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)
+  linkages. On a model using any of them (e.g. a Dirichlet-multinomial
+  composition-weight prior), the reconstructed model lacked the
+  linkages’ `beta_linkage` parameters while the warm-start values still
+  carried them, and
+  [`TMB::MakeADFun()`](https://rdrr.io/pkg/TMB/man/MakeADFun.html)
+  segfaulted on the length mismatch. The three linkage constructors are
+  now rebuilt from the stored `data_list` fields (`q_linkages` /
+  `sel_linkages` / `comp_linkages`), so these models run through the MSE
+  / retrospective / jitter loops.
+
+- **[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  extends the selectivity-deviation parameters at the model’s own sex
+  dimension.** The projection-year extension of `log_sel_slp_dev` /
+  `sel_inf_dev` / `sel_coff_dev` hardcoded the sex dimension to 2, which
+  for a single-sex model both recycled the fitted values into a phantom
+  second sex and produced a warm-start whose length disagreed with the
+  parameter template. Now taken from the fitted arrays (`max_sex`).
+
+- **[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  raises a clear error instead of crashing on mismatched `inits`.** When
+  the supplied `inits` omit a parameter the model declares, or any
+  parameter’s length disagrees with the template implied by `data_list`
+  (a dropped linkage, or a warm start not extended to a later `endyr`),
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now stops with a message naming the parameter and its lengths, rather
+  than letting
+  [`TMB::MakeADFun()`](https://rdrr.io/pkg/TMB/man/MakeADFun.html)
+  segfault in `getParameterOrder()`.
+
+- **The diagnostic refit paths preserve the `random_q` / `random_sel`
+  switches.** These are now stored on `data_list` (like `random_rec`)
+  and forwarded by `.refit_like()`, so a random-catchability or
+  random-selectivity model keeps its random-effect structure across MSE
+  / retrospective / jitter refits instead of silently reverting to fixed
+  effects.
+
+- **[`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  no longer pads `init_dev` behind a string comparison.** The `-999`
+  padding of the unused `init_dev` columns was partly gated on
+  `initMode > 0`, evaluated against the canonical `initMode` *string*
+  that
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  has already resolved — `"FreeParams" > "0"` is `TRUE`, so the gate was
+  always open. The padding is unconditional now, which is what the C++
+  requires (every mode reads only columns `1:(nages - 1)`). No fit
+  changes:
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  is bit-identical for all six modes on `BS2017SS` and `BS2017MS`, from
+  both string and integer input. This was the only place whose behavior
+  depended on the lexicographic value of a switch alias, so an alias
+  beginning with a digit can no longer flip it.
+
+### Behavior changes
+
+- **Composition weights now warm-start from `inits` like every other
+  parameter.**
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  re-read `comp_weights`, `caal_weights` and `diet_comp_weights` from
+  their `fleet_control` columns on every fit, even when `inits` was
+  supplied, so a weight handed to a refit was discarded. These are
+  estimated parameters – the Dirichlet-multinomial likelihood fits them,
+  which is why they can carry a prior – and their columns are starting
+  values, read when a model is built from scratch. A refit now keeps the
+  estimate it was given, which is what makes iterative reweighting
+  possible and what every other parameter already did.
+
+  Which models this moves depends on whether the weight is estimated.
+  Under a multinomial likelihood it is a fixed multiplier that never
+  leaves its column value, so those models – including the bundled
+  examples – are unaffected, and an MSE over them is bit-identical.
+  Under a Dirichlet-multinomial it is estimated and can move a long way:
+  fitting `BS2017SS` with DM composition puts the weights between -0.6
+  and 12.7 (log scale), starting from the default column value of 1.
+  **Results therefore move for any DM model** under every
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  and [`profile()`](https://rdrr.io/r/stats/profile.html) refit, each of
+  which previously discarded the fitted estimate and restarted from the
+  column.
+
+  Editing a `Comp_weights` column and re-fitting from an existing fit no
+  longer has an effect. Either build the model afresh (`inits = NULL`),
+  or set the parameter the fit actually reads –
+  `inits$comp_weights[flt] <- w` (likewise `caal_weights` /
+  `diet_comp_weights`) – which is what
+  [`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+  does.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now warns when supplied `inits` disagree with the columns, so an edit
+  that would once have taken effect silently is no longer silent.
+
+- **A simulation that does not run to completion now returns only a
+  marker.**
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+  previously returned the partially advanced operating and estimation
+  models alongside `use_sim = FALSE`. Those models describe a state the
+  simulation never reached, and nothing downstream filtered on
+  `use_sim`, so they could be averaged into performance metrics as
+  though the simulation had finished. A failed simulation is now
+  `list(use_sim = FALSE, failure = ...)` with no models attached, and
+  [`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+  drops such simulations up front with a warning naming them, or errors
+  if none completed. Code that reached into `mse$Sim_n$OM`, `$EM` or
+  `$OM_no_F` without checking `use_sim` should now check it – filter
+  first with
+  `mse <- mse[vapply(mse, function(x) isTRUE(x$use_sim), logical(1))]`.
+
+### Documentation
+
+- **Help pages, code comments, and vignettes were rewritten for
+  clarity.** No code or model behavior changed.
+
+- **Four help pages that disagreed with the code were corrected.**
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  now states that starting values are perturbed around the model’s
+  initial (pre-fit) parameters, not the fitted values; the
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  and
+  [`TMBphase()`](https://grantdadams.github.io/Rceattle/reference/TMBphase.md)
+  `@return` descriptions were fixed (they had described a map object and
+  standard errors respectively); and a mislabeled comment now correctly
+  attributes the time-varying survey catchability SD.
+
+## Rceattle 5.1.1
+
+### New features
+
+- **`Diet_distribution` accepts string aliases.** Like
+  `Comp_distribution` and `CAAL_distribution`, the per-predator diet
+  composition likelihood switch now takes `"Multinomial"` (0) or
+  `"DirichletMultinomial"` (1) in addition to the integer code –
+  previously it accepted only the integer. The diet likelihood has no
+  AFSC variant, so `"MultinomialAFSC"` / `-1` is rejected with a clear
+  message.
+
+- **Clearer spec-tree printing for data objects and fits.**
+  [`print()`](https://rdrr.io/r/base/print.html)/[`summary()`](https://rdrr.io/r/base/summary.html)
+  of an `Rceattle_data` object or a fitted model now shows each switch
+  by its string alias (e.g. `srr_fun = mean`, `M1_model = fixed`,
+  `msmMode = MSVPA`) rather than its raw integer code, so the outline
+  reads the same even if a code is renumbered. The fleet section is laid
+  out as aligned, `│`-separated columns with `sel:` / `q:` labels and a
+  `[shared: ...]` tag on mirrored selectivity/catchability blocks.
+
+### Bug fixes
+
+- **Optional-input default messages fire only when the model uses the
+  input.** The “not specified, assuming …” messages for `alpha_wt_len`,
+  `beta_wt_len`, and `Selectivity_dimension` now print only when growth
+  is estimated (`growth_model > 0`); `CAAL_distribution` /
+  `CAAL_weights` only when the model has CAAL data; and
+  `Sel_norm_bin_upper` only when a fleet normalizes selectivity at a
+  specific bin. The default value is still applied silently in every
+  case – this only stops the messages nagging about inputs the
+  configuration never consumes (e.g. weight-length parameters in a
+  single-species age-based model).
+
+## Rceattle 5.1.0
+
+### New features
+
+- **[`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  fills in `by` from the process it is attached to.** Omitting `by` now
+  defaults to the base stratum of the process – `~ fleet` for
+  catchability, selectivity, and the fleet composition weights
+  (`theta_comp` / `theta_caal`), and `~ species` for recruitment, M,
+  growth, and the diet weight (`theta_diet`) – so a base-case linkage no
+  longer needs an explicit `by = ~ fleet` / `by = ~ species`. An
+  explicit `by` (a formula, or `NULL` for a single shared coefficient)
+  is always kept as given, so code that passes `by` explicitly – as the
+  bundled examples and real assessments do – is unchanged. A linkage
+  that *omitted* `by` on a fleet-keyed process does change: it now spans
+  every fleet (with a separate coefficient each) rather than collapsing
+  to fleet 1. In particular a `~ 1` selectivity/catchability **prior**
+  now applies per fleet, so name the target fleet(s) via
+  `linkage_spec(fleet = ...)` – and note it will error on a model with
+  mirrored selectivity fleets unless a fleet is named. Restrict a
+  covariate or prior to the fleets you mean with the `fleet` argument.
+  When `by` is omitted on a catchability/selectivity linkage,
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now prints a one-time message noting that it spans every eligible
+  fleet, so the per-fleet expansion is not a surprise.
+
+### Bug fixes
+
+- **A catchability linkage on a fleet with no survey index now errors.**
+  A `q` linkage only makes sense on a fleet whose catchability is
+  estimated. Fleets that hold q fixed or solve it analytically were
+  already rejected; a fleet with **no index data** (so `Catchability` is
+  `NA` and there is no q to estimate) was not, so an omitted-`by`
+  linkage silently attached meaningless q coefficients to, e.g., fishery
+  fleets. Such fleets are now rejected with the same clear error, naming
+  them and pointing to `linkage_spec(fleet = ...)` to restrict the
+  linkage.
+
+## Rceattle 5.0.6
+
+### Bug fixes
+
+- **A `right_floor` selectivity linkage now applies its offset on the
+  logit scale.** For a double-normal fleet, `sel_inf(1)` parameterises
+  the right-tail floor as `logit(right_floor)`, but a log-link linkage
+  offset was applied by multiplying the already-transformed probability,
+  which could push `right_floor` above 1 and corrupt the descending
+  limb. The offset now acts on the logit (additive and multiplicative),
+  like the peak and the other inflection slots, so `right_floor` stays
+  in `[0, 1]` for any offset. A fleet with no `right_floor` linkage is
+  bit-identical (the four reference models are unchanged).
+
+## Rceattle 5.0.5
+
+### Bug fixes
+
+- **Random-effect deviate SDs are now held during phasing.** The 5.0.4
+  phased random-effect warm-up (deviates estimated as penalized fixed
+  effects before the Laplace step) held every process’s variance
+  hyperparameter fixed except three observation/deviate SDs:
+  `log_sigma_linkage` and `log_obs_sd_linkage` (the `~ (1 | Year)` /
+  `rw()` / `ar1()` and Rogers-2024 QAR1 SDs) and `index_q_log_sd` (the
+  legacy `Catchability = "AR1"` q observation SD). Left free, each was
+  estimated jointly with its own penalized deviates and could collapse
+  toward 0, so a *phased* fit silently converged to the
+  random-effect-*off* solution – the estimated time-variation vanished –
+  instead of the correct optimum. All three are now held during phasing
+  like every other process SD. Fits without these random effects are
+  unaffected (the four reference models stay bit-identical).
+
+### Internal
+
+- **The TMB model is now `src/TMB/ceattle.cpp`** (was
+  `ceattle_v01_11.cpp`), and its compiled DLL is `ceattle`. Internal
+  rename only – the model and results are unchanged (the four reference
+  models stay bit-identical), and
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  loads the renamed DLL automatically. A fit built with a custom
+  `fit_control(TMBfilename = ...)` is unaffected. Caveat: an object
+  fitted by an earlier version stores `TMBfilename = "ceattle_v01_11"`,
+  so re-running
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  on such a saved fit needs it re-fit under this version first (the old
+  DLL name is no longer built).
+
+### Documentation
+
+- Moved the
+  [`?build_selectivity`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  prior example into `@examples` (it previously rendered a broken
+  `\verb{}`); corrected the
+  [`?build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
+  PFMC notation to use the normal quantile
+  [`qnorm()`](https://rdrr.io/r/stats/Normal.html) rather than `Phi`
+  (which denotes the CDF); and regrouped the 4.10.0 linkage additions
+  under New features. Minor vignette / README fixes.
+
+## Rceattle 5.0.4
+
+### Bug fixes
+
+- **Random-effect models phase without a flat-field NaN.** During
+  phasing, the deviates of a random effect (recruitment, selectivity,
+  catchability, …) are now estimated as *penalized fixed effects* with
+  their variance / correlation hyperparameters held, and the Laplace
+  approximation is switched on only in the final hindcast fit.
+  Previously the deviates were integrated out from the first phase, so a
+  random field started flat (all-zero); for a 2D AR1 selectivity
+  (`random_sel = TRUE`), integrating a flat field gives a `NaN` marginal
+  objective and the fit could not start without an external warm start.
+  Phasing the deviates as penalized effects first builds up realistic
+  non-zero values, so the final Laplace begins near the mode. Gated on
+  the presence of random effects, so fits without any are unchanged (the
+  four reference models remain bit-identical).
+
+## Rceattle 5.0.3
+
+### New features
+
+- **OSA residuals now support every survey-index likelihood family.**
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  previously produced one-step-ahead residuals only for the lognormal
+  IID index (`Index_distribution` `"Lognormal"`). It now covers all
+  families: natural-scale `"Normal"` residualizes as an independent
+  normal on the natural scale, and the correlated covariance families
+  `"MVN"` / `"MVNORM"` are whitened by the lower Cholesky of the fleet’s
+  survey covariance `Sigma = L L'`, so the residuals are the
+  multivariate-Gaussian one-step-ahead innovations `L^-1 (obs - q*pred)`
+  — the closed form
+  [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html)
+  reproduces for a Gaussian block (Thygesen et al. 2017). This
+  supersedes the 5.0.2 exclusion of these fleets. The ordinary model fit
+  is unchanged (the whitening applies only to the post-hoc OSA
+  observation vector).
+
+- **String aliases for the
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  mode switches.** `estimateMode` and `msmMode` now accept readable
+  names alongside their integer codes: `estimateMode = "Estimate"` (0),
+  `"Hindcast"` (1), `"Projection"` (2), `"DebugBuild"` (3),
+  `"DebugOptimize"` (4); `msmMode = "SingleSpecies"` (0), `"MSVPA"` (1),
+  `"TypeIIIMSVPA"` (2). The integer codes still work, and an
+  unrecognized string errors with the valid options listed.
+
+## Rceattle 5.0.2
+
+### Bug fixes
+
+- **OSA residuals no longer silently mis-residualize non-lognormal index
+  fleets.**
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  /
+  [`build_osa_data()`](https://grantdadams.github.io/Rceattle/reference/build_osa_data.md)
+  previously laid MVN-covariance (`Index_distribution` “MVN”/“MVNORM”)
+  and natural-scale “Normal” survey observations into the one-step-ahead
+  observation vector as if they were independent lognormals, even though
+  the C++ likelihood for those families does not read the OSA
+  observation vector — producing invalid residuals with no warning.
+  Those fleets are now excluded from the OSA residuals with a warning
+  naming them; lognormal (IID) index fleets in the same model are
+  unaffected. (Covariance-aware OSA residuals for the MVN families are a
+  separate follow-up.)
+
+## Rceattle 5.0.1
+
+### New features
+
+- **OSA residuals now support composition tail accumulation.** When a
+  fleet folds its age/length composition tails via `Comp_accum_young` /
+  `Comp_accum_old` (AFSC `ac_yng`/`ac_old`),
+  [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+  now residualizes the folded composition that was actually fit – one
+  residual per fitted (folded) bin per sex block, rather than refusing
+  the combination.
+  [`build_osa_data()`](https://grantdadams.github.io/Rceattle/reference/build_osa_data.md)
+  applies the same per-sex-block young/old fold to the OSA observation
+  vector, so the one-step-ahead decomposition matches the fitted
+  composition likelihood bin-for-bin. Fleets without accumulation are
+  unchanged.
+
+## Rceattle 5.0.0
+
+*Also covers the unreleased 4.14.0 development increment, whose entries
+were folded into this section.*
+
+### Breaking changes
+
+- **[`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+  now returns a per-entity list instead of one stacked data.frame.** The
+  result is `list(species, fleet, total, meta)`: `species` (one row per
+  species, keyed by `Species`) holds the conservation/status metrics;
+  `fleet` (one row per fishery fleet) holds average catch / catch IAV /
+  P(Closed); `total` is the across-fleet totals; `meta` carries run
+  provenance. This removes the NA padding and the ambiguity of the old
+  shape, where species, fleet, and “All” rows were stacked in one frame
+  and a column like `Average Catch` meant different things per row. The
+  metric values are unchanged. Update `summ$"<metric>"` call sites to
+  `summ$species$"<metric>"` or `summ$fleet$"<metric>"`.
+
+### Bug fixes
+
+- Fixed the `ConstantFSPR` harvest control rule (`HCR = 4`) applying
+  `Fmult` twice, which set the projected F to `Ftarget * Fmult^2`. It is
+  now `Ftarget * Fmult`. Only affects projections with `Fmult != 1` (the
+  default `Fmult = 1` is unchanged).
+- Corrected the documented reference-point formulas in
+  [`?build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md):
+  the SESSF (Tier 1) and NPFMC (Tier 3) fishing-mortality ramps and the
+  PFMC 40-10 buffer (the normal quantile function, not the CDF).
+- Restored
+  [`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
+  as a deprecated shim for `plot_index(log = TRUE)`. It forwards to
+  [`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
+  with a [`.Deprecated()`](https://rdrr.io/r/base/Deprecated.html)
+  notice.
+
+### New features
+
+- **Plus-group SD-at-age convention (`build_growth(sd_plus_group=)`).**
+  For estimated growth, choose how the oldest age class’s standard
+  deviation of length-at-age is set: `"WHAM"` (default) pins it to the
+  upper anchor `exp(sd_Linf)` (the WHAM SDAA convention, unchanged from
+  prior releases); `"SS3"` instead interpolates it by length like any
+  interior age. Per-species (scalar or length-`nspp`), round-trips
+  through
+  [`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)/[`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md),
+  and affects only `growth_model > 0` fits. Existing models are
+  bit-identical under the default.
+
+## Rceattle 4.13.1
+
+### Bug fixes
+
+- The NA-handling diagnostic in `check_caal_data()` now reports “CAAL
+  data have NAs …” instead of mislabeling them as “Composition data”
+  (the message was copy-pasted from `check_composition_data()`). Message
+  text only; no change to the data or fit.
+
+- `model_average(uncertainty = TRUE)` no longer opens a plot device
+  partway through the computation. A stray
+  [`plot_ssb()`](https://grantdadams.github.io/Rceattle/reference/plot_ssb.md)
+  call fired before the averaged `sdrep$sd` was populated, so it drew
+  stale, pre-averaging confidence intervals as an unrequested side
+  effect; the averaged object it returns is unchanged.
+
+## Rceattle 4.13.0
+
+### New features
+
+- **Save / load a run configuration
+  ([`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)
+  /
+  [`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md)).**
+  A full run configuration – the \[model_config()\] structure plus the
+  estimation controls and
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  bundle – round-trips to a documented, git-diffable YAML file (each
+  field carries its doc string as a comment; fields at their default are
+  omitted so two runs diff to only their real differences). Apply a
+  saved config with
+  `fit_mod(data_list, config = load_config("run.yaml"))`; it fills only
+  the arguments the caller did not pass (an explicit argument always
+  wins), and every fit now records the run configuration it used
+  (`fit$run_config`, also reachable via `run_config(fit)`). Follows
+  SAM’s `saveConf`/`loadConf` and the config-separate-from-weights
+  idiom; adds a `yaml` dependency.
+
+- **Composition tail accumulation (AFSC `ac_yng` / `ac_old`).** Two new
+  `fleet_control` columns, `Comp_accum_young` and `Comp_accum_old`, fold
+  the young and old tails of a fleet’s age/length composition into a
+  boundary bin before the composition likelihood (per sex block for
+  joint-sex comps), for every composition family including the default
+  `MultinomialAFSC`. They are 1-based bin ordinals on the fleet’s
+  composition dimension; leaving them unset (or `young = 1` / `old` at
+  the last bin) applies no accumulation, so every existing model is
+  bit-identical.
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  rejects out-of-range or inverted (`young > old`) bins, and OSA
+  residuals are not available for a fleet with active accumulation (the
+  residuals are built on the un-accumulated bins).
+
+### Bug fixes
+
+- **[`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  no longer errors with `object 'getsd' not found`.** Its per-simulation
+  refit closure referenced a `getsd` value that the function – unlike
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  and [`profile()`](https://rdrr.io/r/stats/profile.html) – never
+  defined, so every simulation died on both the sequential and the
+  parallel-cluster path.
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+  now takes a `getsd` argument (default `NULL`, inheriting the input
+  model’s setting) like its sibling functions.
+
+## Rceattle 4.12.0
+
+### New features
+
+- **Intuitive `fleet_control` / data column names.** The workbook and
+  data-list columns were renamed to say what they hold, each keeping a
+  back-compat alias that is upgraded on read, so existing data lists,
+  `.rda`, workbooks, and scripts keep working (with a one-time
+  deprecation message) and fit identically:
+  `Q_index`/`Q_init`/`Q_sd_prior` →
+  `Catchability_index`/`Catchability_init`/`Catchability_prior_sd`;
+  `Comp_loglike`/`CAAL_loglike`/`Index_loglike` →
+  `Comp_distribution`/`CAAL_distribution`/`Index_distribution`;
+  `Sel_norm_bin1`/`Sel_norm_bin2` → `Sel_norm_bin`/`Sel_norm_bin_upper`;
+  `weight1_Numbers2` → `Observation_units`; `proj_F_prop` →
+  `Proj_F_proportion`; the control scalar `sigma_rec_prior` →
+  `sigma_rec`; the bioenergetics `Diet_loglike` → `Diet_distribution`;
+  and the post-fit output column `Est_weights_mcallister` →
+  `Comp_weights_mcallister` (the old name is still written for
+  downstream readers).
+
+- **[`write_template()`](https://grantdadams.github.io/Rceattle/reference/write_template.md).**
+  A new export that writes a minimal, structurally complete
+  single-species starter workbook on the canonical column names; it
+  round-trips through
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  and builds under `fit_mod(estimateMode = 3)`.
+
+- **Single-source workbook schema.** The column dictionary now lives
+  once in the package (`R/0-column_schema.R`) and drives
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  defaults,
+  [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)
+  object order, the embedded `meta_data` documentation sheet, and the
+  roxygen field dictionary, which are kept in sync by guard tests. ~16
+  previously used-but-undocumented columns are now documented.
+
+### Bug fixes
+
+- **[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  names the offending sheet or cell instead of failing cryptically.** A
+  required sheet (`control`, `fleet_control`) is named when absent, and
+  optional sheets are skipped, so a minimal single-species workbook
+  reads cleanly. A non-numeric cell in the control or bioenergetics rows
+  is named rather than silently becoming `NA`.
+  [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  likewise fails clearly on a malformed `fleet_control` rather than via
+  a cryptic `dplyr` error.
+
+- **Removed the dead accumulation-age feature.**
+  `Accumulation_age_lower/upper` were only range-validated and never
+  applied to composition data; they are dropped (with a soft-deprecation
+  message if an old workbook carries them).
+
+## Rceattle 4.11.0
+
+### New features
+
+- **`initMode = "OffsetEquilibrium"` (5).** A new initial-age-structure
+  mode: an F = 0 equilibrium seeded by the *first-year* recruitment
+  (`R_init * exp(rec_dev[year 1])`) decayed by residual natural
+  mortality `M1`, with initial deviates turned off and no init-dev
+  penalty. Unlike `initMode = "Equilibrium"`, which sits at the initial
+  equilibrium recruitment `R_init`, the initial numbers track the year-1
+  recruitment deviation, matching the AFSC GOA pollock (Cole Monnahan)
+  convention — the first-year cohort and the initial numbers-at-age
+  share one deviation. The name refers to that offset; the equilibrium
+  itself is unfished. Note the deviation enters as a single scalar on
+  every age, so it moves the level of the initial numbers-at-age without
+  changing their proportions-at-age. Every other mode is unchanged
+  (golden references bit-identical).
+
+- **Priors on base selectivity parameters through the linkage grammar.**
+  A selectivity linkage with an intercept-only formula and a `priors`
+  entry now places a prior on the base logistic parameter that carries
+  the level — the ascending/descending slope (`slp_asc` / `slp_desc`, on
+  `log_sel_slp`, log scale) or inflection (`inf_asc` / `inf_desc`, on
+  `sel_inf`, natural scale),
+  e.g. `build_selectivity(linkages = list(inf_asc = linkage_spec(~ 1, priors = list(\`(Intercept)\`
+  = normal(0,
+  3)))))`. Use`lognormal()`for the log-scale slopes and`normal()`for the natural-scale inflections. This mirrors the prior-only`build_composition()`path and reproduces the AFSC GOA pollock selectivity priors. (Previously such an intercept prior was silently inert for selectivity — the`sel\`
+  process was missing from the prior re-targeting.)
+
+- **Per-predator suitability reference years** (`suit_styr` /
+  `suit_endyr`). These
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  arguments (and the underlying `data_list` fields) now accept a vector
+  of length `nspp` so each predator can average its suitability over a
+  different set of years — e.g. a California Current model with hake
+  1980–2019, arrowtooth 2013–2018, and sablefish 2005–2008. A single
+  scalar is recycled to every predator, exactly reproducing the previous
+  global-window behavior (`BS2017MS` and the golden references are
+  unchanged to numerical tolerance). Internally `suit_styr` /
+  `suit_endyr` became per-predator `DATA_IVECTOR`s and the
+  suitability-averaging and stomach-content prediction loops index them
+  by predator.
+
+- **[`plot_diet_comp2()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp2.md)
+  and
+  [`plot_diet_comp1()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp1.md).**
+  [`plot_diet_comp2()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp2.md)
+  adds aggregation-aware diet-composition diagnostics (line plots when
+  prey- or predator-age is aggregated, dodged bars when both are, bubble
+  grids when fully disaggregated), built on
+  `residuals(source = "diet")`.
+  [`plot_diet_comp1()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp1.md)
+  is an alias of
+  [`plot_diet_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp.md)
+  (the bubble/grid diagnostic).
+
+### Bug fixes
+
+- **[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  tolerates trailing empty age columns in `NByageFixed`.** Older writers
+  pad the fixed numbers-at-age sheet to a wider age range than
+  `max(nages)`; the all-`NA` trailing columns are now dropped on read
+  instead of tripping the
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  column-count validation.
+
+- **Parallel workers now run the in-session package.**
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  and
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+  use a FORK cluster on non-Windows platforms, so workers run the
+  parent’s loaded namespace via copy-on-write. This fixes silently
+  running a stale *installed* package on the workers during
+  [`pkgload::load_all()`](https://pkgload.r-lib.org/reference/load_all.html)
+  development sessions, and removes the per-worker startup cost.
+  Parallel and serial runs stay bit-identical for a given seed; Windows
+  keeps the previous PSOCK path as a fallback.
+
+## Rceattle 4.10.0
+
+### New features
+
+- **Random-effect linkages (`~ (1 | group)`).** A linkage formula may
+  now carry an IID random effect, so a parameter can vary year to year
+  (or over any grouping) as a set of deviations damped by an estimated
+  `N(0, sigma)` density, rather than fixed covariate slopes:
+
+  ``` r
+
+  fit_mod(...,
+    qFun = build_catchability(linkages = list(
+             q = linkage_spec(~ (1 | Year), by = ~ fleet))))
+  ```
+
+  Each level of the grouping variable gets one deviation
+  (`beta_linkage_re`); each distinct group estimates its own log-SD
+  (`log_sigma_linkage`). The density is reported in the new `jnll_comp`
+  row *“Linkage random effects”*. The deviation SD is routed through the
+  same
+  [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+  arguments as every other parameter: `init = list(sigma = v)` **fixes**
+  it at an input value (reproducing the legacy `Time_varying_*_sd_prior`
+  fixed input), and `priors = list(sigma = lognormal(...))` places a
+  **prior** on it and estimates it — the first prior on a deviation SD
+  anywhere in the model.
+
+- **[`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
+  — see which inputs a model configuration needs.** A new exported
+  reader reports, for a given model spec, which top-level data inputs
+  are **Required**, **Optional** (used if supplied, otherwise
+  default-filled by
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)),
+  or **Ignored** (not consulted because the feature is switched off) —
+  the same conditions
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  enforces at fit time, surfaced up front instead of buried in the
+  validator:
+
+  ``` r
+
+  data_requirements(msmMode = 1)          # multispecies: diet/ration/bioenergetics Required
+  data_requirements(BS2017SS, msmMode = 0) # preview a data object as single-species
+  ```
+
+  It accepts either an existing (possibly partial) data list or the
+  convenience switch arguments; an explicit switch argument overrides
+  the data list’s stored value (matching
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  precedence). Internally,
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)’s
+  conditional presence-requirement gates were refactored to consume one
+  declarative requirement table, so the reader and the validator can
+  never drift apart.
+
+- **[`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+  — assemble a data list in R.** A code-first constructor complementing
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md):
+  supply only the blocks a model uses and the optional blocks a
+  single-species model does not need are default-filled by
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md).
+  Three combinable entry points cover the workflows real assessments
+  use:
+
+  ``` r
+
+  build_data(base = BS2017SS, projyr = 2060)          # copy-and-edit a dataset
+  build_data(file = "model.xlsx", fleet_control = fc) # read a workbook, override
+  build_data(nspp = 1, styr = 1977, endyr = 2023,     # assemble from blocks
+             fleet_control = fc, catch_data = catch, index_data = survey)
+  ```
+
+  Overrides are checked against the recognized schema, so a typo
+  (`maturty`) is caught at construction with a suggestion rather than
+  surfacing later in a fit; legacy names (`fsh_biom`, `srv_biom`, `wt`,
+  `pmature`, `Pyrs`) are mapped to their canonical equivalents.
+  Validation is deferred to
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  at fit time (one source of truth);
+  [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+  runs only a light presence pre-check so a missing required block is
+  reported early. The result is the same bare list
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  returns and round-trips through
+  [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)
+  unchanged — a `build_data(base = X)` object fits bit-identically to
+  `X`.
+
+- **[`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  — a model configuration that travels with the data.** The
+  model-structure arguments of
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  (`msmMode`, `initMode`, the HCR and the `build_*()` process
+  specifications) can now be bundled into a slot on the data list, so a
+  data object records how it is meant to be fit:
+
+  ``` r
+
+  dat <- build_data(base = BS2017MS, model_config = model_config(msmMode = 1))
+  fit_mod(dat)                     # fits as multispecies without passing msmMode
+  ```
+
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)’s
+  signature and defaults are unchanged; when a data list carries a
+  `model_config`,
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  reads each field only for arguments the caller did **not** pass
+  (detected with [`missing()`](https://rdrr.io/r/base/missing.html)),
+  and an explicitly-passed argument always overrides the slot. With no
+  slot present the behavior is byte-identical (a `BS2017SS` fit is
+  bit-identical). A call that passes an argument — even at its default —
+  overrides the slot, so omit the argument to let the configuration take
+  effect. The slot is code-side structure, not a workbook sheet, so it
+  does not persist through a
+  [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)/[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  round-trip (a warning fires).
+
+- **Spec-tree [`print()`](https://rdrr.io/r/base/print.html) /
+  [`summary()`](https://rdrr.io/r/base/summary.html) for data objects
+  and fits.** A
+  [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+  object now carries the class `"Rceattle_data"` and prints as an
+  indented specification tree — dimensions → fleets (with their
+  selectivity / catchability forms and mirroring) → configured processes
+  → active linkages → any attached
+  [`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+  — instead of dumping the ~40-element list. The same tree is shown by
+  [`print()`](https://rdrr.io/r/base/print.html) on a fitted model above
+  its fit statistics, so “read 600 lines of switch tables” becomes “read
+  the printout”. The class is a thin tag: every consumer still treats
+  the object as a plain list, so it does not change a fit.
+
+- **Random-walk linkages (`rw(1 | group)`).** A deviation that follows a
+  random walk — `N(0, sigma)` on successive first differences, the first
+  deviate pinned so the walk’s level stays with the base parameter —
+  reproducing the Dorn-style `Time_varying_* = "RandomWalk"` process
+  through the grammar. The grouping variable must be numeric (a real
+  elapsed-time lag).
+
+- **AR1 linkages (`ar1(1 | group)`).** A stationary first-order
+  autoregressive deviation, `SCALE(AR1(rho), sigma)` with `sigma` the
+  marginal SD and `rho` the correlation (the glmmTMB convention, and the
+  same form as the Rogers et al. (2024) QAR1 catchability process). The
+  correlation is routed through the same grammar as `sigma`:
+  `init = list(rho = 0.7)` fixes it,
+  `priors = list(rho = normal(0, 0.3))` places a prior on it, else it is
+  estimated free. Reduces to the IID density at `rho = 0`.
+
+- **State-space environmental covariate (Rogers et al. 2024 QAR1).** An
+  `ar1(1 | Year)` term can be turned into a measured latent covariate
+  via `observe` / `obs_sd`: the AR1 latent is observed as an `env_data`
+  column with a fixed measurement SD, and enters the linked parameter
+  through an estimated effect size. This reproduces the Rogers-2024 QAR1
+  catchability model (`Estimate_q = 6`) through the grammar:
+
+  ``` r
+
+  build_catchability(linkages = list(
+    q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 1,
+                     observe = "QcovPol", obs_sd = 0.1)))
+  ```
+
+  The AR1 process, the covariate observation, and the effect size are
+  all carried by the one term; `observe` requires an `ar1` term and a
+  positive fixed `obs_sd`.
+
+- **Priors on Dirichlet-multinomial data weights
+  ([`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)).**
+  The DM likelihood self-tunes each composition dataset’s effective
+  sample size, but that weight can be poorly identified when a fleet has
+  few comp years. A new
+  [`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)
+  linkage attaches a prior to the DM weight, keeping the implied
+  effective sample size in a believable range without reverting to
+  Francis / McAllister–Ianelli hand-tuning:
+
+  ``` r
+
+  fit_mod(...,
+    compFun = build_composition(linkages = list(
+                theta_comp = linkage_spec(~ 1, by = ~ fleet, fleet = c(1, 2),
+                               priors = list(`(Intercept)` = gamma(2, 0.5))))))
+  ```
+
+  Keys `theta_comp` / `theta_caal` / `theta_diet` cover age/length
+  composition, conditional age-at-length, and predator diet. The process
+  is prior-only (the weight is a scalar, not year-varying): a covariate,
+  an `init`, or an `est_phase` on a composition spec, or a linkage on a
+  fleet/predator not fit with the `DirichletMultinomial` likelihood,
+  errors up front.
+
+- **Formula-linkage effect sizes are now reported.** The estimated
+  linkage coefficients (`beta_linkage`), the random-effect deviations
+  (`beta_linkage_re`), and the Rogers-2024 QAR1 effect size
+  (`beta_linkage_obs`) appear in `fit$quantities`, and the coefficients
+  / effect size are `ADREPORT`’d so they carry a standard error in the
+  `sdreport`. Previously the QAR1 effect size — the quantity the model
+  exists to estimate — was buried in the raw parameter vector with no
+  readable exposure or uncertainty.
+
+- **QAR1 covariates need not span the whole series.** A state-space
+  `observe` covariate (e.g. a survey index that began mid-series) is now
+  handled without hand-padding: `env_data` is auto-extended to start at
+  `styr` with `NA` for missing years, the latent AR1 spans all hindcast
+  years, and the observation is applied **only** where the covariate is
+  present (un-observed years are masked out — no fabricated
+  observations, unlike the legacy mean-fill). Fixed-effect covariates
+  must still be finite over the model range: a missing year in a
+  fixed-effect (non-`observe`) covariate now errors clearly rather than
+  silently producing an NaN.
+
+- **QAR1 observation SD can be fixed or estimated.** The Rogers-2024
+  `observe` / `obs_sd` state-space covariate holds the measurement SD
+  **fixed** by default; pass `linkage_spec(..., obs_sd_est = TRUE)` to
+  **estimate** it (one per observed group, started from `obs_sd`), as
+  the reference `Estimate_q = 6` / GOApollock model does. Estimation is
+  opt-in because a freely-estimated `obs_sd` collapses toward 0 on a
+  smooth covariate (the effect-size / `obs_sd` identifiability
+  degeneracy) — keep it fixed unless the covariate is informative (a
+  prior on `obs_sd` to regularise this is future work).
+
+- **Selectivity penalties can be given as standard deviations.** The
+  cryptic penalty *weights* in `Sel_curve_pen1/2/3` can instead be
+  supplied as SDs via `Sel_shape_sd` (+ `Sel_shape_dir`
+  `"Decreasing"`/`"Increasing"` for the directional sign),
+  `Sel_curvature_sd`, and `Sel_devmag_sd`. Each penalty is a Gaussian
+  SSQ, so
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  converts `weight = 1/(2*sd^2)`. Legacy `Sel_curve_pen` values are
+  never overwritten (existing models are bit-identical); a fleet
+  supplying the SD columns fits equivalently. `Sel_shape_sd` /
+  `Sel_devmag_sd` apply to `NonParametric` (2/9) and `LogisticPM` (11);
+  `Sel_curvature_sd` is `NonParametric`-only (LogisticPM does not use
+  `Sel_curve_pen2`). Setting an SD column on a form that doesn’t use
+  that slot as a weight (e.g. 2D/3D-AR1, which reuse `Sel_curve_pen` for
+  logit-scale correlations), or a non-positive SD, errors clearly.
+
+- **Readable string aliases for integer-coded switches.** Following the
+  CIE review’s “rename options to improve interpretability”
+  (e.g. *constant → not estimated*), integer-only switches now also
+  accept self-explanatory strings, resolved by
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  (or
+  [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md))
+  to the same integer codes (so fits are identical). New aliases follow
+  a consistent convention — the not-estimated value is `"Fixed"`,
+  estimated is `"Estimated"`:
+
+  - `estDynamics`: `"Estimated"` (0) / `"Fixed"` (1) /
+    `"FixedScaled"` (2) / `"FixedScaledByAge"` (3);
+  - `Estimate_index_sd` / `Estimate_catch_sd`: `"Fixed"` (0) /
+    `"Estimated"` (1) / `"Analytical"` (2);
+  - `srr_est_mode` (via
+    [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)):
+    `"Fixed"` (0) / `"Estimated"` (1) / `"LognormalPrior"` (2) /
+    `"BetaPrior"` (3);
+  - `suitMode`: the documented string map (`"Empirical"`,
+    `"GammaWeight"`, …) is now actually applied (previously defined but
+    never wired).
+
+### Bug fixes
+
+- **`M1_re = 6` (separable age × year 2D-AR1 on M) now estimates its
+  correlations.** A gate bug in
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  (`if(M1_re_model == 5)` inside a block reachable only when the mode is
+  3 or 6) plus a reference to an undefined index left mode 6’s age and
+  year AR1 correlations unmapped, so the separable AR1 silently
+  collapsed to IID (identical to `M1_re = 3`). Mode 6 now frees both
+  `rho` hyperparameters, so it is a genuine separable 2D-AR1. This
+  changes results only for models using `M1_re = 6` (none of the bundled
+  examples do); golden references are unaffected.
+
+- **The deprecated `est_M1` name is now recognized everywhere `M1_model`
+  is.** The natural-mortality estimation switch was renamed `est_M1` →
+  `M1_model`, but the data dictionary still documented `est_M1` and no
+  alias existed, so a data list carrying `est_M1` was silently ignored —
+  it fell through to the `M1_model` default with no warning. `est_M1` is
+  now folded into `M1_model` in
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  (before the
+  [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
+  reconciliation),
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md),
+  and
+  [`combine_data()`](https://grantdadams.github.io/Rceattle/reference/combine_data.md),
+  with a deprecation message. As with `M1_model`, the value set on the
+  data list is a default that an explicit `build_M1(M1_model = ...)`
+  argument overrides — but a data-list value that differs from the
+  [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
+  setting now *warns* rather than being dropped silently. The
+  recommended way to request M1 estimation remains
+  `fit_mod(..., M1Fun = build_M1(M1_model = ...))`. The dictionary now
+  documents `M1_model`.
+
+- **A catchability linkage on a non-estimated q now errors.** A `q`
+  linkage (environmental or random-effect) on a fleet whose
+  `Catchability` is `"Fixed"` or an analytical form (`"Analytical"` /
+  `"AnalyticalArith"`) is rejected up front, naming the fleet.
+  Previously only the analytical forms were caught, so a linkage on a
+  `"Fixed"` fleet silently turned a fixed catchability time-varying —
+  contrary to the assessor’s setting. Set `Catchability` to
+  `"Estimated"` / `"Estimated-with-prior"` to link q. This is the same
+  statistical model as the existing `Time_varying_q`/`_sel` deviate
+  processes, expressed through the linkage grammar.
+
+### Deprecations
+
+- **`Selectivity_block` is now optional; `Q_block` is deprecated and
+  ignored.** The per-observation time-block columns in
+  `index_data`/`catch_data` are read only for
+  `Time_varying_{sel,q} = "Block"`; every other configuration (including
+  the random-effect linkages) ignores them.
+  [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
+  now default-fills a missing `Selectivity_block` with `1` (a single
+  block), so you need only supply it for Block-mode fleets. `Q_block`
+  was never read (q time-blocking reuses `Selectivity_block`) —
+  supplying it now warns, and it has been dropped from all bundled
+  example datasets (as has the unused `Selectivity_block`). Existing
+  models are bit-identical.
+
+- **`Time_varying_q`, `Time_varying_sel`, and `M1_re` are
+  soft-deprecated in favor of random-effect linkages.**
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now warns (naming the fleets/species and the grammar equivalent) when
+  a model uses these legacy time-variation switches, pointing at
+  [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  /
+  [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  /
+  [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
+  with `(1 | Year)` / `rw(1 | Year)` / `ar1(1 | Year)` — which
+  additionally allow a prior on, or free estimation of, the deviation
+  SD. **The legacy switches still fit with their exact numerics** (they
+  keep their own C++ path); this is only a nudge. The warning is not
+  raised where no grammar equivalent exists yet: the environmental /
+  Rogers-AR1 catchability modes (which overload `Time_varying_q` to name
+  env columns), the non-parametric selectivity forms, and the separable
+  `M1_re = 6` (age × year).
+
+- **`fleet_control` columns `Q_prior` → `Q_init`, `Index_sd_prior` →
+  `Index_sd`, `Catch_sd_prior` → `Catch_sd`.** These are start/input
+  values, not priors (the prior on q lives in `Q_sd_prior`), so the
+  names misled. As with the other renames, the old names are accepted
+  and upgraded in place by
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  /
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md),
+  and the bundled datasets were regenerated — existing scripts keep
+  fitting identically.
+
+- **`fleet_control` columns `Time_varying_q_sd_prior` /
+  `Time_varying_sel_sd_prior` renamed to `Time_varying_q_sd` /
+  `Time_varying_sel_sd`.** They hold the input *value* of the
+  time-varying deviate SD, not a prior on it (no density is placed on
+  the SD), so the `_prior` suffix was misleading. The old names are
+  still accepted —
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  and
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  upgrade them in place with a one-time message — so existing data
+  lists, saved xlsx files, and the bundled example datasets keep fitting
+  identically. Update scripts to the new names at your convenience.
+
+## Rceattle 4.9.0
+
+### New features
+
+- **Environmental linkages on catchability and selectivity.** The
+  formula-driven linkage grammar
+  ([`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md))
+  now extends to survey catchability and to the parametric selectivity
+  forms, both indexed by a new `fleet` stratum (`by = ~ fleet`):
+
+  ``` r
+
+  fit_mod(...,
+    qFun   = build_catchability(linkages = list(
+               q = linkage_spec(~ temp, by = ~ fleet))),
+    selFun = build_selectivity(linkages = list(
+               inf_asc = linkage_spec(~ cold_pool, by = ~ fleet))))
+  ```
+
+  Selectivity keys are the shared parameter slots `slp_asc`/`slp_desc`/
+  `inf_asc`/`inf_desc`, with DoubleNormal aliases
+  `sigma_asc`/`sigma_desc`/ `peak`/`right_floor`. Supported forms:
+  `Logistic`, `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal`,
+  `LogisticPM`. Every parameter accepts `link = "log"` (multiplicative)
+  or `link = "identity"` (additive). A linkage on an unsupported form or
+  the non-parametric `coff` errors at fit time naming the fleet, rather
+  than being estimated to no effect.
+
+- **[`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  and
+  [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)**
+  exported, mirroring
+  [`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)
+  /
+  [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
+  /
+  [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md),
+  each carrying a `linkages` argument for its process.
+
+- Linkage formulas are now parsed with the **`reformulas`** package
+  (shared by lme4 and glmmTMB), so `(1 | Year)` /
+  `ar1(Year + 0 | fleet)` syntax is recognized and an unknown
+  covariance-structure wrapper errors instead of silently degrading to
+  unstructured.
+
+### Behavior changes
+
+- **`Catchability = "Environmental"` (`Estimate_q = 5`) is deprecated.**
+  It still fits with its existing numerics but emits a warning pointing
+  at `build_catchability(linkages = ...)`, which names covariates by
+  formula and carries priors, bounds, and an estimation phase.
 
 ## Rceattle 4.8.0
 
@@ -469,8 +2876,8 @@
   that only called them for the side effect still work (the object
   prints); scripts that depended on the base-graphics device state or on
   a `NULL` return may need updating.
-- `plot_logindex()` has been **removed**; use
-  `plot_index(..., log = TRUE)`.
+- [`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
+  has been **removed**; use `plot_index(..., log = TRUE)`.
 - The `gplots` and `oce` dependencies have been dropped (no longer
   used).
 - **Time-varying non-parametric selectivity now uses `"RandomWalk"`, not
@@ -1151,8 +3558,9 @@ S3 class.
 - **[`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
   /
   [`plot_catch()`](https://grantdadams.github.io/Rceattle/reference/plot_catch.md)
-  / `plot_logindex()` warnings**: Wrapped the internal
-  `gplots::plotCI()` calls in
+  /
+  [`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
+  warnings**: Wrapped the internal `gplots::plotCI()` calls in
   [`suppressWarnings()`](https://rdrr.io/r/base/warning.html) so
   plotting a fit no longer prints the recurring
   `"In arrows(...): zero-length arrow is of indeterminate angle and so skipped"`

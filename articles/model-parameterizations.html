@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>8. Model parameterizations</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/model-parameterizations.Rmd" class="external-link"><code>vignettes/model-parameterizations.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-parameterizations.Rmd" class="external-link"><code>vignettes/model-parameterizations.Rmd</code></a></small>
       <div class="d-none name"><code>model-parameterizations.Rmd</code></div>
     </div>
 
@@ -103,15 +103,15 @@ through time
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>y</mi><annotation encoding="application/x-tex">y</annotation></semantics></math>.
 Annual recruitment and the initial age-structure are estimated and are
 treated as random effects or as penalized deviates, with the variance in
-recruitment estimated or fixed, respectively. Note that because the
-initial age-structure is estimated (assuming the population is depleted
-prior to the first year of the model), the mean recruitment parameter
+recruitment estimated or fixed, respectively. Because the initial
+age-structure is estimated (assuming the population is depleted prior to
+the first year of the model), the mean recruitment parameter
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>R</mi><mo accent="true">‾</mo></mover><mi>i</mi></msub><annotation encoding="application/x-tex">\bar{R}_{i}</annotation></semantics></math>
-will be biased low and projected recruitment will have to account for
-that (e.g. resemble recruitment deviates from hindcast). Similarly,
+will be biased low, and projected recruitment must account for that
+(e.g. resemble recruitment deviates from the hindcast). Similarly,
 biomass reference points should use the mean of annual recruitment.
-Populations can be modelled as 1- or 2-sexes via <code>nsex</code> in
-the data. The sex-ratio at birth
+Populations can be modeled as 1- or 2-sexes via <code>nsex</code> in the
+data. The sex-ratio at birth
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ρ</mi><mrow><mi>i</mi><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">\rho_{i1}</annotation></semantics></math>
 is set in the <code>sex_ratio</code> data for the first age. Natural
 mortality is partitioned into predation mortality (M2) and non-predation
@@ -175,9 +175,9 @@ and fishing. <code>msmMode = 0</code>
 <div class="section level4">
 <h4 id="msvpa-type-2-based-predation-mortality">MSVPA Type 2 based predation mortality<a class="anchor" aria-label="anchor" href="#msvpa-type-2-based-predation-mortality"></a>
 </h4>
-<p><code>msmMode = 1</code> Predation mortality can be modelled
-following previous MSCAA models (Curti et al., 2013; Holsman et al.,
-2016; Tsehaye et al., 2014) based on MSVPA. Predation mortality due to a
+<p><code>msmMode = 1</code> Predation mortality can be modeled following
+previous MSCAA models (Curti et al., 2013; Holsman et al., 2016; Tsehaye
+et al., 2014) based on MSVPA. Predation mortality due to a
 predator-at-age in the model is derived from estimated or empirically
 derived suitability coefficients
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>S</mi><mo accent="true">̂</mo></mover><mrow><mi>p</mi><mi>b</mi><mi>j</mi><mi>i</mi><mi>s</mi><mi>a</mi></mrow></msub><annotation encoding="application/x-tex">\hat{S}_{pbjisa}</annotation></semantics></math>,
@@ -218,7 +218,7 @@ with
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow><mn>2</mn></msubsup><msub><mi>W</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">N^2_{isa,y} W_{isa,y}</annotation></semantics></math>,
 creating a sigmoidal (accelerating-then-saturating) relationship between
 prey density and predation rate. This gives low-density prey a refuge
-from predation and can stabilise multi-species dynamics at low stock
+from predation and can stabilize multi-species dynamics at low stock
 sizes.
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><msub><mn>2</mn><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mrow><mi>p</mi><mi>b</mi><mi>j</mi></mrow></munder><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mrow><msub><mi>N</mi><mrow><mi>p</mi><mi>b</mi><mi>j</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>δ</mi><mrow><mi>p</mi><mi>b</mi><mi>j</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>S</mi><mrow><mi>p</mi><mi>b</mi><mi>j</mi><mi>i</mi><mi>s</mi><mi>a</mi></mrow></msub></mrow><mrow><munder><mo>∑</mo><mrow><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup></mrow></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>S</mi><mrow><mi>p</mi><mi>b</mi><mi>j</mi><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup></mrow></msub><msubsup><mi>N</mi><mrow><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup><mo>,</mo><mi>y</mi></mrow><mn>2</mn></msubsup><msub><mi>W</mi><mrow><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup><mo>,</mo><mi>y</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><msubsup><mi>B</mi><mi>p</mi><mrow><mi>o</mi><mi>t</mi><mi>h</mi><mi>e</mi><mi>r</mi></mrow></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><munder><mo>∑</mo><mrow><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup></mrow></munder><msub><mover><mi>S</mi><mo accent="true">̂</mo></mover><mrow><mi>p</mi><mi>b</mi><mi>j</mi><msup><mi>i</mi><mo>′</mo></msup><msup><mi>a</mi><mo>′</mo></msup><msup><mi>s</mi><mo>′</mo></msup></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">M2_{isa,y} = \sum_{pbj} \left( \frac{N_{pbj,y} \delta_{pbj,y} {S}_{pbjisa}} {\sum_{i'a's'} \left({S}_{pbji'a's'} N^2_{i'a's',y} W_{i'a's',y} \right) + B_p^{other} \left(1 - \sum_{i'a's'} \hat{S}_{pbji'a's'} \right)} \right)</annotation></semantics></math></p>
 </div>
@@ -226,11 +226,11 @@ sizes.
 <div class="section level3">
 <h3 id="consumption">Consumption<a class="anchor" aria-label="anchor" href="#consumption"></a>
 </h3>
-<p>Multiple age-based consumption parameterizations are supported by
-Rceattle. They include a environmentally driven bioenergetics
-consumption and direction input of consumption-at-age. The consumption
-model is controlled by the following objects in the data
-(<code>bioenergetics_control</code> sheet of the excel data input):</p>
+<p>Rceattle supports several age-based consumption parameterizations: an
+environmentally driven bioenergetics model and direct input of
+consumption-at-age. The consumption model is controlled by the following
+objects in the data (<code>bioenergetics_control</code> sheet of the
+excel data input):</p>
 <ul>
 <li>
 <code>Ceq</code> Integer: switch for which bioenergetics equation to
@@ -352,16 +352,19 @@ Set <code>CA = 1</code>, <code>fday = 1</code>, and <code>CB = 0</code>.
 <div class="section level2">
 <h2 id="fishery-and-survey-observation-model">Fishery and survey observation model<a class="anchor" aria-label="anchor" href="#fishery-and-survey-observation-model"></a>
 </h2>
-<p>CEATTLE is fit to time series of fishery and survey biomass,
-sex-ratio, and length- or age-composition data. Log-fishery catch,
-log-survey biomass and sex-ratio are assumed to be normally distributed,
-while age- and length-composition data are fit assuming multinomial
-distributions. Variance parameters for the lognormal distributions and
-initial input sample size for the multinomial distributions can be
-assumed known or for surveys also estimated as a free parameter or
-estimated analytically following Walters and Ludwig (1994). Separate
-selectivity and catchability functions can be estimated or input for
-each survey or fishery.</p>
+<p>CEATTLE is fit to time series of fishery and survey biomass and
+length- or age-composition data. Log-fishery catch and log-survey
+biomass are assumed to be normally distributed, while age- and
+length-composition data are fit assuming multinomial distributions.
+There is no separate sex-ratio likelihood component: sex-ratio
+information enters through joint (<code>comp_data$Sex = 3</code>)
+composition data, whose female and male cells are normalized together.
+Variance parameters for the lognormal distributions and initial input
+sample size for the multinomial distributions can be assumed known or
+for surveys also estimated as a free parameter or estimated analytically
+following Walters and Ludwig (1994). Separate selectivity and
+catchability functions can be estimated or input for each survey or
+fishery.</p>
 <p>Catch is estimated in the model following the Baranov catch equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><mfrac><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mfrac><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat{C}_{isa,y} = \frac{F_{isa,y}} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y}</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mrow><mi>i</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munderover><mo>∑</mo><mi>a</mi><msub><mi>A</mi><mi>i</mi></msub></munderover><mfrac><mrow><msub><mi>F</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mfrac><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>W</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat{C}_{i,y} = \sum_s\sum_a^{A_i} \frac{F_isa,y} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y} W_{isa,y}</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mover><mi>F</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><msup><mi>e</mi><mrow><msub><mi>ϵ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>s</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">F_{isa,y} = \bar{F}_{f_i}e^{\epsilon_{{f_i},y} s_{{f_i}sa}}</annotation></semantics></math>
 CPUE data is estimated given catchability
@@ -381,9 +384,9 @@ or numbers
 <p>Multiple age-based selectivity functions are supported by Rceattle.
 They are controlled by <code>Selectivity_index</code>,
 <code>Selectivity</code>, <code>N_sel_bins</code>,
-<code>Time_varying_sel</code>, <code>Time_varying_sel_sd_prior</code>,
-and <code>Bin_first_selected</code> in fleet_control sheet of an
-Rceattle data file. They are defined as follows:</p>
+<code>Time_varying_sel</code>, <code>Time_varying_sel_sd</code>, and
+<code>Bin_first_selected</code> in fleet_control sheet of an Rceattle
+data file. They are defined as follows:</p>
 <ul>
 <li>
 <code>Selectivity_index</code>: index to use if selectivities of
@@ -411,8 +414,8 @@ given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3
 = time blocks with no penalty, 4 = random walk following Dorn, 5 =
 random walk on ascending portion of double logistic only.</li>
 <li>
-<code>Time_varying_sel_sd_prior</code>: The sd to use for the random
-walk of time varying selectivity if set to 1.</li>
+<code>Time_varying_sel_sd</code>: The sd to use for the random walk
+of time varying selectivity if set to 1.</li>
 <li>
 <code>Bin_first_selected</code>: Age/length bin at which selectivity
 is non-zero. Selectivity before this age will be set to 0.</li>
@@ -430,6 +433,26 @@ selectivity-at-age in the <code>emp_sel</code> data.</p>
 <code>N_sel_bins = 6</code>, <code>Sel_curve_pen1 = 12.5</code>,
 <code>Sel_curve_pen2 = 200</code>, and
 <code>Bin_first_selected = 1</code></p>
+<p>The <code>Sel_curve_pen1/2/3</code> are penalty <em>weights</em>.
+Each penalty is a Gaussian sum-of-squares
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">weight</mtext><mo>⋅</mo><msup><mi>x</mi><mn>2</mn></msup><mo>=</mo><msup><mi>x</mi><mn>2</mn></msup><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>2</mn><msup><mi>σ</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{weight}\cdot x^2 = x^2 / (2\sigma^2)</annotation></semantics></math>),
+so you may instead supply them as <strong>standard deviations</strong> —
+<code>Sel_shape_sd</code> (with
+<code>Sel_shape_dir = "Decreasing"</code>/<code>"Increasing"</code> for
+the directional sign), <code>Sel_curvature_sd</code>, and
+<code>Sel_devmag_sd</code> — which are converted to the weights via
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">weight</mtext><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>2</mn><msup><mi>σ</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{weight} = 1/(2\sigma^2)</annotation></semantics></math>.
+Supplying an SD sets the matching <code>Sel_curve_pen</code> column; a
+<code>Sel_curve_pen</code> value you provide directly is never
+overwritten. <code>Sel_shape_sd</code> and <code>Sel_devmag_sd</code>
+apply to both <code>NonParametric</code> (2/9) and
+<code>LogisticPM</code> (11); <code>Sel_curvature_sd</code> is
+<code>NonParametric</code>-only (LogisticPM does not use
+<code>Sel_curve_pen2</code>). LogisticPM’s shape penalty is two-sided,
+so its weight is always positive
+(<code>Sel_shape_dir = "Increasing"</code> is rejected there). The
+2D/3D-AR1 forms reuse <code>Sel_curve_pen</code> for logit-scale
+correlations and keep those columns.</p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><msup><mi>e</mi><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub></msup></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=e^{\phi_{f_isa}}</annotation></semantics></math></p>
 </div>
@@ -438,7 +461,7 @@ selectivity-at-age in the <code>emp_sel</code> data.</p>
 </h4>
 <p>Input: <code>Selectivity = 1 or "Logistic"</code>,
 <code>N_sel_bins = NA</code>, <code>Time_varying_sel = 0</code>, and
-<code>Time_varying_sel_sd_prior = NA</code></p>
+<code>Time_varying_sel_sd = NA</code></p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>S</mi><mi>l</mi><msub><mi>p</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mi>I</mi><mi>n</mi><msub><mi>f</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-Slp_{f_i} (a-Inf_{f_i} ) } )</annotation></semantics></math></p>
 </div>
@@ -446,8 +469,8 @@ selectivity-at-age in the <code>emp_sel</code> data.</p>
 <h4 id="time-varying-logistic">Time-varying logistic<a class="anchor" aria-label="anchor" href="#time-varying-logistic"></a>
 </h4>
 <p>Input: <code>Selectivity = 1 or "Logistic"</code>,
-<code>N_sel_bins = NA</code>, and
-<code>Time_varying_sel_sd_prior = 0.1</code> or other desired value.</p>
+<code>N_sel_bins = NA</code>, and <code>Time_varying_sel_sd = 0.1</code>
+or other desired value.</p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><msub><mi>p</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><msub><mi>f</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-(Slp_{f_i}+e^{\phi_{f_i sy}^{slp} } ) (a-(Inf_{f_i}+\phi_{f_i sy}^{Inf} ) ) } )</annotation></semantics></math>
 Penalized likelihood: <code>Time_varying_sel = 1</code>
@@ -467,7 +490,7 @@ Penalized likelihood random walk <code>Time_varying_sel = 4</code>
 </h4>
 <p>Input: <code>Selectivity = 3 or "DoubleLogistic"</code>,
 <code>N_sel_bins = NA</code>, <code>Time_varying_sel = 0</code>, and
-<code>Time_varying_sel_sd_prior = NA</code></p>
+<code>Time_varying_sel_sd = NA</code></p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-Slp1_{f_i} (a-Inf1_{f_i} ) } )(1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } ))</annotation></semantics></math></p>
 </div>
@@ -494,7 +517,7 @@ parameters)<a class="anchor" aria-label="anchor" href="#time-varying-double-logi
 </h4>
 <p>Input: <code>Selectivity = 3 or "DoubleLogistic"</code>,
 <code>N_sel_bins = NA</code>, <code>Time_varying_sel = 5</code>, and
-<code>Time_varying_sel_sd_prior = NA</code></p>
+<code>Time_varying_sel_sd = NA</code></p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi><mn>1</mn></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi><mn>1</mn></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-(Slp1_{f_i}+e^{\phi_{f_i sy}^{slp1} } ) (a-(Inf1_{f_i}+\phi_{f_i sy}^{Inf1} ) ) } )(1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } ))</annotation></semantics></math></p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>−</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} - \phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math></p>
@@ -504,7 +527,7 @@ parameters)<a class="anchor" aria-label="anchor" href="#time-varying-double-logi
 </h4>
 <p>Input: <code>Selectivity = 4 or "DescendingLogistic"</code>,
 <code>N_sel_bins = NA</code>, <code>Time_varying_sel = 0</code>, and
-<code>Time_varying_sel_sd_prior = NA</code></p>
+<code>Time_varying_sel_sd = NA</code></p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } )</annotation></semantics></math></p>
 </div>
@@ -513,7 +536,7 @@ parameters)<a class="anchor" aria-label="anchor" href="#time-varying-double-logi
 </h4>
 <p>Input: <code>Selectivity = 4 or "DescendingLogistic"</code>,
 <code>N_sel_bins = NA</code>, <code>Time_varying_sel = 1</code> or
-<code>2</code> , and <code>Time_varying_sel_sd_prior = NA</code></p>
+<code>2</code> , and <code>Time_varying_sel_sd = NA</code></p>
 <p>Equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi><mn>2</mn></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi><mn>2</mn></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1-1/(1+e^{-(Slp2_{f_i}+e^{\phi_{f_i sy}^{slp2} } ) (a-(Inf2_{f_i}+\phi_{f_i sy}^{Inf2} ) ) } )</annotation></semantics></math></p>
 <p>Penalized likelihood: <code>Time_varying_sel = 1</code>
@@ -553,7 +576,7 @@ specified in the data and is the minimum age of the modeled
 population.</p>
 <p>Input: <code>Selectivity = 5 or "Hake"</code>,
 <code>N_sel_bins = 6</code>, <code>Time_varying_sel = NA</code>,
-<code>Time_varying_sel_sd_prior = NA</code>, and
+<code>Time_varying_sel_sd = NA</code>, and
 <code>Bin_first_selected =</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mrow><mi>m</mi><mi>i</mi><mi>n</mi></mrow></msub><annotation encoding="application/x-tex">A_{min}</annotation></semantics></math></p>
 </div>
 <div class="section level4">
@@ -567,7 +590,7 @@ estimated standard deviation
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>p</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>p</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>+</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">p_{f_i say}=p_{f_i sa}+\phi_{f_i say}</annotation></semantics></math></p>
 <p>Input: <code>Selectivity = 5 or "Hake"</code>,
 <code>N_sel_bins = 6</code>, <code>Time_varying_sel = NA</code>,
-<code>Time_varying_sel_sd_prior = NA</code>, and
+<code>Time_varying_sel_sd = NA</code>, and
 <code>Bin_first_selected =</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mrow><mi>m</mi><mi>i</mi><mi>n</mi></mrow></msub><annotation encoding="application/x-tex">A_{min}</annotation></semantics></math></p>
 <p>Penalized likelihood: <code>Time_varying_sel = 1</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math>
@@ -582,13 +605,13 @@ is estimated
 </h3>
 <p>Separate selectivity and catchability functions can be estimated for
 each survey or fishery. Additionally, catchability can be set the same
-for multiple surveys by setting <code>Q_index</code> to the same value.
-Catchability is controlled by the following parameters in the
-<code>fleet_control</code> sheet of the data</p>
+for multiple surveys by setting <code>Catchability_index</code> to the
+same value. Catchability is controlled by the following parameters in
+the <code>fleet_control</code> sheet of the data</p>
 <ul>
 <li>
-<code>Q_index</code> index to use if catchability coefficients are
-to be set the same</li>
+<code>Catchability_index</code> index to use if catchability
+coefficients are to be set the same</li>
 <li>
 <code>Catchability</code> Text or integer switch specifying
 catchability. 0 or “Fixed” = fixed at prior; 1 or “Estimated” = Estimate
@@ -599,11 +622,11 @@ Ludwig and Walters 1994; 4 or “PowerEquation” = Estimate power equation;
 index_y); 6 or “AR1” = annual AR1 catchability deviates are fit to
 environmental index sensu Rogers et al 2025.</li>
 <li>
-<code>Q_prior</code> Starting value or fixed value for
+<code>Catchability_init</code> Starting value or fixed value for
 catchability</li>
 <li>
-<code>Q_sd_prior</code> Variance of q prior: dnorm (log_q,
-log_q_prior, q_sd_prior)</li>
+<code>Catchability_prior_sd</code> Variance of q prior: dnorm
+(log_q, log_q_prior, q_sd_prior)</li>
 <li>
 <code>Time_varying_q</code> Whether a time-varying q should be
 estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time
@@ -612,15 +635,15 @@ blocks with no penalty; 4 = random walk from mean following Dorn 2018
 environmental index to be used in the equation log(q_y) = q_mu + beta *
 index_y</li>
 <li>
-<code>Time_varying_q_sd_prior</code> The sd to use for the random
-walk of time varying q if set to 1</li>
+<code>Time_varying_q_sd</code> The sd to use for the random walk of
+time varying q if set to 1</li>
 </ul>
 <div class="section level4">
 <h4 id="linear-time-invariant-catchability-formulations">Linear time-invariant catchability formulations<a class="anchor" aria-label="anchor" href="#linear-time-invariant-catchability-formulations"></a>
 </h4>
 <p><code>Time_varying_q = 0</code> for all formulations
 <code>Catchability = 0</code></p>
-<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>=</mo></mrow><annotation encoding="application/x-tex">q_{f_i} =</annotation></semantics></math><code>Q_prior</code> from data</p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>=</mo></mrow><annotation encoding="application/x-tex">q_{f_i} =</annotation></semantics></math><code>Catchability_init</code> from data</p>
 <p><code>Catchability = 1</code> A freely estimated catchability
 parameter
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><annotation encoding="application/x-tex">\hat{q}_{f_i}</annotation></semantics></math>
@@ -656,8 +679,8 @@ random effects</em></p>
 <p>NOTE: If <code>Catchability = 2</code> a prior will be put on mean
 catchability as above. <code>Catchability %in% c(1:2)</code> and
 <code>Time_varying_q %in% c(1:2)</code>
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>=</mo><msup><mi>e</mi><mrow><msub><mover><mi>q</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo></mrow><annotation encoding="application/x-tex">\omega_{f_iy} \sim N(0,</annotation></semantics></math><code>Time_varying_q_sd_prior</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo stretchy="false" form="postfix">)</mo><annotation encoding="application/x-tex">)</annotation></semantics></math>
-where <code>Time_varying_q_sd_prior</code> is either fixed
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>=</mo><msup><mi>e</mi><mrow><msub><mover><mi>q</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo></mrow><annotation encoding="application/x-tex">\omega_{f_iy} \sim N(0,</annotation></semantics></math><code>Time_varying_q_sd</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo stretchy="false" form="postfix">)</mo><annotation encoding="application/x-tex">)</annotation></semantics></math>
+where <code>Time_varying_q_sd</code> is either fixed
 <code>Time_varying_q = 1</code> or estimated
 <code>Time_varying_q = 2</code> &amp; <code>random_q = TRUE</code> in
 </p>
@@ -669,7 +692,7 @@ in <code>index_data</code> data sheet.
 <p><em>Annual catchability via random walk</em></p>
 <p><code>Catchability %in% c(1:2)</code>,
 <code>Time_varying_q = 4</code>
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>=</mo><msup><mi>e</mi><mrow><msub><mover><mi>q</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">\omega_{f_iy} \sim N(\omega_{f_iy-1},</annotation></semantics></math><code>Time_varying_q_sd_prior</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo stretchy="false" form="postfix">)</mo><annotation encoding="application/x-tex">)</annotation></semantics></math></p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>q</mi><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>=</mo><msup><mi>e</mi><mrow><msub><mover><mi>q</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>ω</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">\omega_{f_iy} \sim N(\omega_{f_iy-1},</annotation></semantics></math><code>Time_varying_q_sd</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo stretchy="false" form="postfix">)</mo><annotation encoding="application/x-tex">)</annotation></semantics></math></p>
 </div>
 </div>
 </div>

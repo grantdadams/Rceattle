@@ -20,6 +20,7 @@ profile(
   values = NULL,
   transform = "log",
   cores = NULL,
+  getsd = NULL,
   ...
 )
 ```
@@ -101,6 +102,14 @@ profile(
   `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
   sequential execution.
 
+- getsd:
+
+  whether each grid fit runs
+  [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html). The
+  profile reads only the objective (`nll`), so `FALSE` is faster with no
+  effect on the profile. Default `NULL` inherits the input model's
+  setting (`TRUE` only if it carries an `sdrep`).
+
 - ...:
 
   Unused; present for consistency with the
@@ -144,10 +153,6 @@ ss_run <- fit_mod(data_list = BS2017SS,
     msmMode = 0, avgnMode = 0,
     phase = FALSE, verbose = 0)
 #> Warning: Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.
-#> 'Diet_loglike' are not included in data, assuming 'Multinomial'
-#> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'
-#> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'
-#> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 
 # 1-D profile of sigmaR for species 1 (alias form -- natural scale)

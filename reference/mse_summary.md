@@ -19,45 +19,54 @@ mse_summary(mse, om_only = FALSE)
 
 - om_only:
 
-  only include performance metrics from OMs
+  If TRUE, report only operating-model (true) status and skip the
+  estimation-model (EM) perception metrics.
 
 ## Value
 
-Alist of two data.frames with MSE summary statistics of performance
-metrics including: data.frame 1
+A named list, one element per entity dimension so each metric lives only
+where it applies (no NA padding):
 
-1.  Average annual catch across projection years and simulations per
-    fleet and across fleets
+- `species` – a data.frame with one row per species (keyed by `Species`)
+  of the conservation / status metrics: per-species average catch, catch
+  inter-annual variability (IAV), and P(Closed) = the probability the
+  fishery is closed (catch ~ 0); the relative mean-squared error of
+  terminal and average SSB; the estimation-model- and operating-model-
+  perceived overfishing / overfished probabilities (via
+  [`build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md))
+  and the probability each status is misclassified (estimation model
+  disagrees with the operating-model truth); and terminal biomass, SSB,
+  dynamic SB0, SSB depletion (equilibrium and dynamic), average SSB
+  depletion, and SSB-collapse counts.
 
-2.  Average interannual variation in catch (IAV) across projection
-    years (n) per fleet and across fleets
+- `fleet` – a data.frame with one row per fishery fleet (keyed by
+  `Fleet_code` / `Fleet_name`) of average catch, catch IAV, and
+  P(Closed).
 
-3.  % of years in which the fishery is closed across simulations (s)
+- `total` – a named numeric of the across-fleet total average catch and
+  catch IAV.
 
-4.  Average relative mean squared error in estimate of spawning biomass
-    in the terminal year across simulations
+- `meta` – run provenance (`nsim`, `nspp`, `nflts`, `HCR`,
+  projection-year range).
 
-5.  % of years in which the population is perceived as undergoing
-    overfishing as determined from F_Limit across simulations via
-    [`build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
-    in the EM
+All metrics are averaged across projection years and simulations.
 
-6.  % of years in which the population is perceived to be overfished as
-    determined from B_Limit across simulations via
-    [`build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
-    in the EM
+Metric columns carry syntactic names, so they can be typed without
+backticks: `avg_catch`, `catch_iav`, `p_closed`, `ssb_rmse_avg`,
+`ssb_rmse_terminal`, `em_p_overfishing`, `em_p_overfished`,
+`om_p_overfishing`, `om_p_overfished`, `p_overfishing_false_pos`,
+`p_overfishing_false_neg`, `p_overfished_false_pos`,
+`p_overfished_false_neg`, `om_terminal_biomass`, `om_terminal_ssb`,
+`om_terminal_dynamic_sb0`, `om_terminal_depletion`,
+`om_terminal_depletion_dynamic`, `om_avg_depletion`,
+`om_sims_collapsed`, `om_no_f_sims_collapsed`,
+`om_sims_collapsed_from_f`. An `om_` prefix is the operating model's
+truth and `em_` the estimation model's perception; the four
+`*_false_pos` / `*_false_neg` metrics are the probability the two
+disagree. The three `*_sims_collapsed` metrics are **counts of
+simulations**, not probabilities.
 
-7.  % of years in which the population is undergoing overfishing as
-    determined from the “true” F_Limit across simulations via
-    [`build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
-    in the OM
-
-8.  % of years in which the population is overfished as determined from
-    the “true” B_Limit across simulations via
-    [`build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
-    in the OM
-
-9.  Average ratio of spawning biomass over B_target in the terminal year
-    across simulations in the OM 10-14. Terminal biomass, SSB, SSB
-    depletion (relative to equilibrium), SSB depletion (relative to
-    dynamic SB0)
+Each frame carries a `"labels"` attribute mapping those names to the
+long display strings (e.g. `om_terminal_depletion_dynamic` -\>
+`"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
+`attr(summ$species, "labels")`.

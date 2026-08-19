@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
       <div class="d-none name"><code>model-options-and-functionality.Rmd</code></div>
     </div>
 
@@ -252,6 +252,14 @@ M inside geometric series</td>
 F<sub>init</sub>
 </td>
 </tr>
+<tr class="even">
+<td align="center"><code>5</code></td>
+<td><code>"OffsetEquilibrium"</code></td>
+<td>Unfished equilibrium, F<sub>init</sub> = 0, displaced by the year-1
+recruitment deviation instead of sitting at R<sub>init</sub>; init devs
+off, no init-dev penalty (Cole Monnahan / AFSC GOA pollock
+convention)</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -303,10 +311,10 @@ parameters mapped out (debug / mapping check).</td>
 </h3>
 <p><code>random_rec</code>, <code>random_q</code>, and
 <code>random_sel</code> move log-recruitment, the log-catchability
-deviations, and the time-varying selectivity deviations (respectively)
-from penalised fixed effects to random effects marginalised via the
-Laplace approximation and estimate their associated distribution
-parameters.</p>
+deviations, and the time-varying selectivity deviations, respectively,
+from penalized fixed effects to random effects. The deviations are
+marginalized via the Laplace approximation, and their distribution
+parameters are estimated.</p>
 </div>
 </div>
 <div class="section level2">
@@ -317,7 +325,7 @@ parameters.</p>
 sub-model</a> (suitability, predation mortality, consumption /
 bioenergetics).</p>
 </blockquote>
-<p><code>suitMode</code> chooses how prey preference is modelled. Length
+<p><code>suitMode</code> chooses how prey preference is modeled. Length
 1 (same for all predators) or length <code>nspp</code>.</p>
 <table class="table">
 <colgroup>
@@ -500,11 +508,126 @@ with <code>NonParametric</code> or <code>Hake</code>)</td>
 <p>Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over <code>N_sel_bins</code>.</p>
 <p>Selectivity can be normalized relative to a specific age by setting
-<code>Sel_norm_bin1 != NA</code> or to the max (non-differentiable) by
-setting <code>Sel_norm_bin1 &lt; 0</code>. Selectivity can also be
+<code>Sel_norm_bin != NA</code> or to the max (non-differentiable) by
+setting <code>Sel_norm_bin &lt; 0</code>. Selectivity can also be
 normalized relative to the average across an age-range by specifying the
-lower (<code>Sel_norm_bin1</code>) and upper
-(<code>Sel_norm_bin2</code>) bound.</p>
+lower (<code>Sel_norm_bin</code>) and upper
+(<code>Sel_norm_bin_upper</code>) bound.</p>
+<p><code>Sel_norm_bin</code> is a bin index on the fleet’s own
+<code>Selectivity_dimension</code>: an absolute <strong>age</strong> for
+an age-based fleet (<code>6</code> means age 6, not the sixth bin) or a
+1-based <strong>length-bin ordinal</strong> for a length-based one.</p>
+<div class="section level3">
+<h3 id="sex-structure-and-relative-selectivity">Sex structure and relative selectivity<a class="anchor" aria-label="anchor" href="#sex-structure-and-relative-selectivity"></a>
+</h3>
+<p>Populations are modelled as one or two sexes via <code>nsex</code>.
+<strong>Every selectivity form is sex-specific by default</strong> when
+a species has two sexes: each sex gets its own free copy of every
+selectivity parameter, for all forms.</p>
+<p>What differs between configurations is the <em>relative</em> scale
+between the sexes — whether males and females can be selected at
+genuinely different levels, or only with different shapes. Normalization
+makes two independent decisions, carried by two columns:</p>
+<ul>
+<li>
+<strong><code>Sel_norm_bin</code> — where the reference is
+taken.</strong> <code>NA</code> normalizes nothing; <code>&gt;= 0</code>
+takes it at that bin (or, with <code>Sel_norm_bin_upper</code>, the mean
+over that range); <code>&lt; 0</code> takes it at the curve’s maximum
+over bins.</li>
+<li>
+<strong><code>Sel_norm_scope</code> — whose scale it sets.</strong>
+<code>"AcrossSexes"</code> (default) pools one reference over the sexes,
+so the less-selected sex stays below 1 and <strong>relative sex-specific
+selectivity is retained</strong>. <code>"WithinSex"</code> divides each
+sex by its own reference, so both reach 1 and only the <em>shape</em>
+differs by sex.</li>
+</ul>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th><code>Sel_norm_bin</code></th>
+<th><code>Sel_norm_scope</code></th>
+<th>Result</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>NA</code></td>
+<td>—</td>
+<td>nothing normalized; the relative scale is free</td>
+</tr>
+<tr class="even">
+<td><code>&lt; 0</code></td>
+<td><code>"AcrossSexes"</code></td>
+<td>maximum over bins <strong>and sexes</strong> — one sex peaks at 1,
+the other keeps its relative level</td>
+</tr>
+<tr class="odd">
+<td><code>&lt; 0</code></td>
+<td><code>"WithinSex"</code></td>
+<td>each sex scaled at <strong>its own plateau</strong>, wherever that
+falls</td>
+</tr>
+<tr class="even">
+<td><code>&gt;= 0</code></td>
+<td><code>"AcrossSexes"</code></td>
+<td>anchored at that bin, sexes kept comparable</td>
+</tr>
+<tr class="odd">
+<td><code>&gt;= 0</code></td>
+<td><code>"WithinSex"</code></td>
+<td>both sexes forced to 1 at that bin; only the shape differs</td>
+</tr>
+</tbody>
+</table>
+<p>For strongly dimorphic stocks the relative sex selectivity is usually
+the quantity of interest, so the <code>"AcrossSexes"</code> default is
+the one to keep. If instead the sexes plateau at different ages and you
+want each scaled at its own plateau, use
+<code>Sel_norm_bin &lt; 0</code> with
+<code>Sel_norm_scope = "WithinSex"</code> — that is more robust than
+naming a bin, since a named bin stops being the plateau once selectivity
+is time-varying while the maximum tracks it.</p>
+<p>Note that <code>Sel_norm_scope</code> has no effect on a one-sex
+species, or where <code>Sel_norm_bin</code> is <code>NA</code>. Before
+Rceattle 5.8.0 a named bin always implied <code>"WithinSex"</code> and
+max-normalization always implied <code>"AcrossSexes"</code>; a two-sex
+fleet normalizing at a named bin should set
+<code>Sel_norm_scope = "WithinSex"</code> explicitly to keep its old
+behaviour.</p>
+<p>Two things constrain what is actually estimable:</p>
+<ul>
+<li>
+<strong>The composition data must be joint.</strong>
+<code>comp_data$Sex = 3</code> stacks female and male composition into a
+single vector that is normalized to sum to 1 as a whole (as Stock
+Synthesis does), so the sex ratio is fit and the relative selectivity is
+informed. <code>Sex = 1</code> or <code>2</code> put each sex in its own
+row, each summing to 1 independently — those carry <strong>no</strong>
+sex-ratio information, and <code>Sel_norm_bin</code> then makes no
+difference however it is set. There is no separate sex-ratio likelihood
+component.</li>
+<li>
+<strong><code>Selectivity = "Hake"</code> always normalizes within
+sex</strong>, regardless of <code>Sel_norm_bin</code>, so relative sex
+selectivity is unavailable with that form.</li>
+</ul>
+<p>Related settings elsewhere: the sex ratio at recruitment is
+<strong>fixed input</strong>, not estimated — it comes from the
+<code>sex_ratio</code> sheet at the first modelled age. Sex-specific
+natural mortality is <code>build_M1(M1_model = )</code> (§7) and
+sex-specific growth is <code><a href="../reference/build_growth.html">build_growth()</a></code> (§8). The per-sex
+hooks in the linkage grammar are <code>linkage_spec(by = ~ sex)</code>
+and its <code>sex =</code> filter.</p>
+<p>Note that <code>fleet_control</code> also carries a <code>Sex</code>
+column. It is <strong>inert</strong> — read nowhere in the model — and
+is retained only so older workbooks still read. Sex is set per
+observation on <code>comp_data</code>, not per fleet.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="catchability-per-fleet">4. Catchability (per fleet)<a class="anchor" aria-label="anchor" href="#catchability-per-fleet"></a>
@@ -555,7 +678,8 @@ parameterizations</a>.</p>
 <tr class="even">
 <td align="center"><code>5</code></td>
 <td><code>"Environmental"</code></td>
-<td>q linked to an environmental index (<code>Q_index</code>)</td>
+<td>q linked to an environmental index
+(<code>Catchability_index</code>)</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>6</code></td>
@@ -610,8 +734,8 @@ integer or character of integers specifying the environmental series in
 <div class="section level2">
 <h2 id="composition-likelihoods">5. Composition likelihoods<a class="anchor" aria-label="anchor" href="#composition-likelihoods"></a>
 </h2>
-<p>Set <code>Comp_loglike</code> (or <code>CAAL_loglike</code>) per
-fleet:</p>
+<p>Set <code>Comp_distribution</code> (or
+<code>CAAL_distribution</code>) per fleet:</p>
 <table class="table">
 <thead><tr class="header">
 <th align="center">Value</th>
@@ -634,7 +758,7 @@ fleet:</p>
 </tbody>
 </table>
 <p>Diet composition uses an analogous switch on the bioenergetics
-control sheet: <code>Diet_loglike = 0</code> (multinomial) or
+control sheet: <code>Diet_distribution = 0</code> (multinomial) or
 <code>1</code> (Dirichlet-multinomial).</p>
 <p>Conditional age-at-length (CAAL) data go through their own data path
 and are weighted via <code>CAAL_weights</code> per fleet.</p>
@@ -869,7 +993,7 @@ length-at-age is taken from the estimated growth model
 <tr class="even">
 <td align="center"><code>1</code></td>
 <td><code>"CMSY"</code></td>
-<td>Maximise joint catch across species (option to keep depletion ≥
+<td>Maximize joint catch across species (option to keep depletion ≥
 <code>Plimit</code>)</td>
 <td align="center">Yes</td>
 </tr>
@@ -973,7 +1097,7 @@ Flimit), P(SSB &lt; SSBlimit), terminal depletion</td>
 </tr>
 </tbody>
 </table>
-<p><code><a href="../reference/run_mse.html">run_mse()</a></code> parallelises over simulations on a PSOCK
+<p><code><a href="../reference/run_mse.html">run_mse()</a></code> parallelizes over simulations on a PSOCK
 cluster. See the <a href="hcrs-and-mses.html">MSE vignette</a> for the
 seed plumbing and reproducibility guarantees.</p>
 </div>
@@ -1043,13 +1167,32 @@ the quantity they show: <code>plot_biomass</code>,
 <code>plot_stock_recruit</code>, <code>plot_timeseries</code>. Most
 accept a single fitted model or a list of models with
 <code>model_names</code>.</p>
-<p>These are built with <strong>ggplot2</strong> (colourblind-safe
-viridis palette, <code>theme_classic</code>) and <strong>return the
-<code>ggplot</code> object</strong>, so they print when called
-interactively and can be further customised by adding ggplot2 layers
+<p>These are built with <strong>ggplot2</strong> (colorblind-safe
+Okabe-Ito palette for discrete series, viridis for continuous ones,
+<code>theme_classic</code>) and <strong>return the <code>ggplot</code>
+object</strong>, so they print when called interactively and can be
+further customized by adding ggplot2 layers
 (e.g. <code>plot_biomass(fit) + ggplot2::ggtitle("My title")</code>).
 Pass <code>file = "stem"</code> to also write the figure to
 <code>stem_&lt;plot&gt;.png</code>.</p>
+<p><strong>Display units.</strong> The model works in mt and thousands
+of fish: numbers-at-age are in thousands and weight-at-age in kg, so
+biomass and SSB come out in mt and recruitment in thousands of fish. The
+timeseries plotters rescale to <code>million mt</code> and
+<code>millions</code> for the axis, and derive the recruitment age from
+<code>minage</code> rather than assuming age 1. Supply the model’s
+inputs on that convention – catch and index in mt, weight-at-age in kg –
+or the axis labels will not describe what is plotted. Pass
+<code>ylab</code> to override the derived label.</p>
+<p><strong>Confidence intervals.</strong> <code>add_ci = TRUE</code>
+draws a 95% interval. Strictly positive series take it on the log scale,
+<code>exp(log(x) ± 1.92 · sd_log)</code>, using the model’s
+<code>log_biomass</code> / <code>log_ssb</code> / <code>log_R</code>
+where they exist and the delta-method identity
+<code>sd(log x) = sd(x)/x</code> where they do not. The interval is
+therefore right-skewed and cannot reach zero for a weak year class or a
+depleted stock. See <code><a href="../reference/plot_timeseries.html">?plot_timeseries</a></code> for the full
+derivation.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

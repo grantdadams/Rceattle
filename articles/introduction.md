@@ -49,9 +49,9 @@ remotes::install_github("grantdadams/Rceattle")
 
 ## 2. Data
 
-To run `Rceattle` a data object must first be loaded. Data from the 2018
-Gulf of Alaska and 2017 eastern Bering Sea single- and multi-species
-assessments are bundled with the package:
+`Rceattle` needs a data object to run. Data from the 2018 Gulf of Alaska
+and 2017 eastern Bering Sea single- and multi-species assessments are
+bundled with the package:
 
 ``` r
 
@@ -136,9 +136,9 @@ model_3 <- Rceattle::fit_mod(data_list = mydata,
 summary(model_3)
 ```
 
-To estimate `model_4` where recruitment is treated as random effects we
-can use the `random_rec` argument. For this model we initialized at the
-previous model’s MLEs and don’t phase estimation to decrease run-time:
+`model_4` treats recruitment as random effects via `random_rec`. It
+starts from the previous model’s MLEs and skips phasing to reduce
+run-time:
 
 ``` r
 
@@ -154,9 +154,9 @@ model_4 <- Rceattle::fit_mod(data_list = mydata,
 summary(model_4)
 ```
 
-To estimate time- and age-varying natural mortality due to predation we
-can estimate the model in multi-species mode by setting `msmMode = 1`.
-This follows the MSVPA parameterization described in [Magnusson
+Setting `msmMode = 1` estimates time- and age-varying natural mortality
+from predation, running the model in multi-species mode. This follows
+the MSVPA parameterization of [Magnusson
 (1995)](https://link.springer.com/article/10.1007/BF00179756).
 
 ``` r
@@ -176,11 +176,10 @@ summary(model_5)
 
 ## 4. Compare models
 
-We can compare models by evaluating the marginal or joint negative
-log-likelihood, AIC, and retrospective analysis. NOTE, we can not
-compare models estimated using penalized likelihood vs marginal
-likelihood using AIC. The likelihood based components all can be found
-in the model objects build above:
+Models can be compared by marginal or joint negative log-likelihood,
+AIC, and retrospective analysis. AIC cannot compare a
+penalized-likelihood fit against a marginal-likelihood fit. The
+likelihood components are stored in the model objects built above:
 
 ``` r
 
@@ -193,9 +192,8 @@ model_1$quantities$jnll_comp # Negative log-likelihood components
 sapply(list(model_2, model_3, model_5), function(x) x$opt$AIC)
 ```
 
-We can also look at retrospective bias in each assessment using the
-`retrospective` function, which creates a list of model objects and a
-data.frame with mohn’s rho calculations.
+The `retrospective` function measures retrospective bias, returning a
+list of refit models and a data.frame of Mohn’s rho values.
 
 ``` r
 
@@ -206,10 +204,10 @@ plot_biomass(model_1_retro$Rceattle_list, model_names = paste("Pollock; mohns ="
 
 ## 5. Model plots and diagnostics
 
-Various plots and diagnostics are built into `Rceattle`. Specifically,
-time-series hindcast and forecast biomass, SSB, recruitment, biomass
-consumed as prey, mortality-at-age, and depletion with uncertainty. The
-time-series plots can accept a list of models (see above).
+`Rceattle` includes plots for hindcast and forecast time series of
+biomass, SSB, recruitment, biomass consumed as prey, mortality-at-age,
+and depletion, with uncertainty. Time-series plots accept a list of
+models (see above).
 
 ``` r
 
@@ -235,10 +233,9 @@ plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci 
 plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 ```
 
-Diagnostics plots include plotting selectivity, fits to composition
-data, index fit, and catch fit. Selectivity and composition plot
-functions can only input one model. Index and catch fit plots can take
-multiple model inputs.
+Diagnostic plots cover selectivity, composition fits, index fits, and
+catch fits. Selectivity and composition plots take a single model; index
+and catch plots take one or more.
 
 ``` r
 

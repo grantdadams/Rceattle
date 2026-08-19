@@ -21,7 +21,7 @@ grid of Rceattle models for downstream NLL surfaces."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,7 +65,7 @@ grid of Rceattle models for downstream NLL surfaces."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Likelihood profile across one or more parameter cells</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
       <div class="d-none name"><code>profile.Rceattle.Rd</code></div>
     </div>
 
@@ -90,6 +90,7 @@ grid of Rceattle models for downstream NLL surfaces.</p>
 <span>  values <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  transform <span class="op">=</span> <span class="st">"log"</span>,</span>
 <span>  cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  getsd <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -167,6 +168,13 @@ running under <code>R CMD check</code> (which sets
 <code>_R_CHECK_LIMIT_CORES_</code>). Set to 1 to force sequential execution.</p></dd>
 
 
+<dt id="arg-getsd">getsd<a class="anchor" aria-label="anchor" href="#arg-getsd"></a></dt>
+<dd><p>whether each grid fit runs <code><a href="https://rdrr.io/pkg/TMB/man/sdreport.html" class="external-link">TMB::sdreport</a></code>. The profile
+reads only the objective (<code>nll</code>), so <code>FALSE</code> is faster with no
+effect on the profile. Default <code>NULL</code> inherits the input model's
+setting (<code>TRUE</code> only if it carries an <code>sdrep</code>).</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Unused; present for consistency with the <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">stats::profile</a></code>
 generic.</p></dd>
@@ -208,10 +216,6 @@ converge.</p></dd>
 <span class="r-in"><span>    msmMode <span class="op">=</span> <span class="fl">0</span>, avgnMode <span class="op">=</span> <span class="fl">0</span>,</span></span>
 <span class="r-in"><span>    phase <span class="op">=</span> <span class="cn">FALSE</span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Diet_loglike' are not included in data, assuming 'Multinomial'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 'CAAL_weights' not specified in 'fleet_control', assuming 1</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># 1-D profile of sigmaR for species 1 (alias form -- natural scale)</span></span></span>

@@ -1,7 +1,10 @@
 # Plot SSB depletion (deprecated name)
 
-Deprecated alias for `plot_ssb_depletion`. Please use
-`plot_ssb_depletion()` instead.
+Deprecated alias for
+[`plot_depletionSSB`](https://grantdadams.github.io/Rceattle/reference/plot_depletionSSB.md).
+Please use
+[`plot_depletionSSB()`](https://grantdadams.github.io/Rceattle/reference/plot_depletionSSB.md)
+instead.
 
 ## Usage
 
@@ -29,7 +32,8 @@ plot_ssb_depletion(
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
   OM = TRUE,
-  reference = NULL
+  reference = NULL,
+  ylab = NULL
 )
 ```
 
@@ -61,7 +65,8 @@ plot_ssb_depletion(
 
 - add_ci:
 
-  If the confidence interval is to be added
+  If the confidence interval is to be added (see Details for how it is
+  constructed)
 
 - lwd:
 
@@ -132,3 +137,8 @@ plot_ssb_depletion(
 - reference:
 
   Reference model
+
+- ylab:
+
+  Y-axis label. `NULL` (default) derives one from `output` and the
+  model's `minage`.

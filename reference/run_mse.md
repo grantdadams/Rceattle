@@ -1,11 +1,11 @@
 # Run a management strategy evaluation
 
-Runs a forward projecting MSE. Main assumptions are the projected
-selectivity/catchability, foraging days, and weight-at-age are the same
-as the terminal year of the hindcast in the operating model. Assumes
-survey sd is same as average across historic time series, while comp
-data sample size is same as last year. No implementation error and no
-observation error for catch!
+Runs a forward-projecting management strategy evaluation (MSE).
+Projected selectivity, catchability, foraging days, and weight-at-age
+are held at the operating model's terminal hindcast year. Survey SD is
+set to the average over the historical time series, and composition
+sample size is held at the last year. There is no implementation error
+and no observation error on catch.
 
 ## Usage
 
@@ -76,10 +76,10 @@ run_mse(
 
 - sample_rec:
 
-  Include resampled recruitment deviates from the"hindcast" in the
-  projection of the OM. Resampled deviates are used rather than sampling
-  from N(0, sigmaR) because initial deviates bias R0 low. If false, uses
-  mean of recruitment deviates.
+  Include resampled recruitment deviations from the hindcast in the OM
+  projection. Resampled deviations are used rather than drawing from
+  N(0, sigmaR) because the initial deviations bias R0 low. If FALSE,
+  uses the mean recruitment deviation.
 
 - rec_trend:
 

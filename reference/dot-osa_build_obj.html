@@ -17,7 +17,7 @@ so this single object serves every observation type."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ so this single object serves every observation type."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Rebuild a fitted Rceattle TMB object in OSA mode at the fitted parameters</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/osa_residuals.R" class="external-link"><code>R/osa_residuals.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/6-osa_residuals.R" class="external-link"><code>R/6-osa_residuals.R</code></a></small>
       <div class="d-none name"><code>dot-osa_build_obj.Rd</code></div>
     </div>
 
@@ -76,7 +76,7 @@ so this single object serves every observation type.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">.osa_build_obj</span><span class="op">(</span><span class="va">fit</span>, osa_dat <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">.osa_build_obj</span><span class="op">(</span><span class="va">fit</span>, osa_dat <span class="op">=</span> <span class="cn">NULL</span>, force <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -91,6 +91,12 @@ so this single object serves every observation type.</p>
 <dd><p>Optional pre-built OSA observation data (the list returned by
 <code><a href="build_osa_data.html">build_osa_data()</a></code> with <code>build_osa = TRUE</code>) to reuse instead of rebuilding
 it. <code>NULL</code> (the default) rebuilds it from <code>fit$obj$env$data</code>.</p></dd>
+
+
+<dt id="arg-force">force<a class="anchor" aria-label="anchor" href="#arg-force"></a></dt>
+<dd><p>Build a new object even when <code>fit</code> is already in OSA mode, where
+this otherwise returns <code>fit$obj</code> itself. The retry after a failed parallel
+one-step-ahead loop needs a genuinely new one.</p></dd>
 
 </dl></div>
     <div class="section level2">

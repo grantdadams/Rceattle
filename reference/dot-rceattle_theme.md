@@ -1,7 +1,7 @@
 # Standard Rceattle ggplot theme
 
-Clean, legible, and colourblind-friendly: `theme_classic` with bold
-facet strips, a light panel border, and the legend along the bottom.
+Clean, legible, and colorblind-friendly: `theme_classic` with bold facet
+strips, a light panel border, and the legend along the bottom.
 
 ## Usage
 

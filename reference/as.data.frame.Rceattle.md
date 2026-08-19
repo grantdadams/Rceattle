@@ -64,6 +64,12 @@ given.
 
 Standard errors (`se`) and confidence intervals (`lwr`, `upr`) are
 populated from the TMB `sdreport` for any quantity that was `ADREPORT`'d
-(currently `biomass`, `ssb`, `R`); other quantities and fits produced
-with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`. Set `ci_level`
-to widen or narrow the band.
+(`biomass`, `ssb`, `R`, `exploitable_biomass`, `biomass_depletion`,
+`ssb_depletion`); other quantities and fits produced with
+`getsd = FALSE` get `NA` for `se` / `lwr` / `upr`. Set `ci_level` to
+widen or narrow the band.
+
+A strictly positive series takes its interval on the log scale, so it is
+right-skewed and cannot reach zero. This is the same construction
+[`plot_timeseries()`](https://grantdadams.github.io/Rceattle/reference/plot_timeseries.md)
+draws, so the table and the figure agree.

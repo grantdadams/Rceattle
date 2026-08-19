@@ -1,6 +1,9 @@
-# Function to rename derived quantities from Rceattle
+# Label the derived quantities reported by a CEATTLE fit
 
-Function to rename derived quantities from Rceattle
+Attaches dimension names (species, sex, age, length bin, year, fleet) to
+the report objects returned by the TMB model, and names the rows/columns
+of the likelihood-component matrices, so the fitted quantities read as
+labeled arrays rather than bare numbers.
 
 ## Usage
 

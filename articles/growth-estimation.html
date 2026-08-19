@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>Growth estimation with linkages and priors</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/growth-estimation.Rmd" class="external-link"><code>vignettes/growth-estimation.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/growth-estimation.Rmd" class="external-link"><code>vignettes/growth-estimation.Rmd</code></a></small>
       <div class="d-none name"><code>growth-estimation.Rmd</code></div>
     </div>
 
@@ -88,13 +88,13 @@
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>This vignette demonstrates how to fit growth using Rceattle’s
-built-in von Bertalanffy and Richards growth functions, and how to use
-the formula-driven <code><a href="../reference/linkage_spec.html">linkage_spec()</a></code> API to attach priors to
-growth linkages.</p>
-<p>We use the internal <code>whamGrowthData</code> dataset, which
-includes conditional age-at-length data (<code>caal_data</code>) and the
-stock assessment data needed to estimate growth parameters.</p>
+<p>This vignette shows how to estimate growth with Rceattle’s built-in
+von Bertalanffy and Richards growth functions, and how to use the
+formula-driven <code><a href="../reference/linkage_spec.html">linkage_spec()</a></code> API to add covariates and
+priors to growth parameters.</p>
+<p>The examples use the bundled <code>whamGrowthData</code> dataset,
+which supplies conditional age-at-length data (<code>caal_data</code>)
+plus the stock assessment inputs needed to estimate growth.</p>
 </div>
 <div class="section level2">
 <h2 id="load-data-and-inspect-the-growth-dataset">Load data and inspect the growth dataset<a class="anchor" aria-label="anchor" href="#load-data-and-inspect-the-growth-dataset"></a>
@@ -115,12 +115,12 @@ stock assessment data needed to estimate growth parameters.</p>
 <div class="section level2">
 <h2 id="build-a-growth-model-with-linkages">Build a growth model with linkages<a class="anchor" aria-label="anchor" href="#build-a-growth-model-with-linkages"></a>
 </h2>
-<p>Rceattle supports growth linkages through <code><a href="../reference/build_growth.html">build_growth()</a></code>
-and <code><a href="../reference/linkage_spec.html">linkage_spec()</a></code>. The linkage table can alter any von
-Bertalanffy growth parameter such as <code>K</code>, <code>Linf</code>,
-or <code>L1</code> (natural-scale names; the default
-<code>link = "log"</code> keeps the underlying TMB parameter on the log
-scale), and it can also carry priors on the linked coefficients.</p>
+<p>Growth linkages are built with <code><a href="../reference/build_growth.html">build_growth()</a></code> and
+<code><a href="../reference/linkage_spec.html">linkage_spec()</a></code>. A linkage can act on any von Bertalanffy
+parameter — <code>K</code>, <code>Linf</code>, or <code>L1</code>
+(natural-scale names; the default <code>link = "log"</code> keeps the
+underlying TMB parameter on the log scale) — and can carry priors on the
+linked coefficients.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create a simple environmental covariate for the example data.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
@@ -163,10 +163,10 @@ natural <code>Linf</code>.</li>
 <code>priors</code> attaches a Normal prior to both the intercept
 and the temperature slope.</li>
 </ul>
-<p>The prior on <code>(Intercept)</code> is effectively a prior on the
-base <code>Linf</code> value (natural scale, because the default log
-link is back-transformed inside the prior block), and intercept-bearing
-linkages replace the base parameter and carry its level.</p>
+<p>The <code>(Intercept)</code> prior is a prior on the base
+<code>Linf</code> value (natural scale, because the default log link is
+back-transformed inside the prior block). An intercept-bearing linkage
+replaces the base parameter and carries its level.</p>
 </div>
 </div>
 <div class="section level2">
@@ -236,11 +236,11 @@ linkages replace the base parameter and carry its level.</p>
 <h2 id="notes-on-priors-through-linkages">Notes on priors through linkages<a class="anchor" aria-label="anchor" href="#notes-on-priors-through-linkages"></a>
 </h2>
 <ul>
-<li>A prior on <code>"(Intercept)"</code> in a growth linkage is a prior
-on the base growth parameter value itself.</li>
+<li>A prior on <code>"(Intercept)"</code> in a growth linkage constrains
+the base growth parameter itself.</li>
 <li>A prior on a covariate column such as <code>temp</code> constrains
-the effect of that driver on the parameter.</li>
-<li>The linkage table API supports all R-style formulas and per-species
+that driver’s effect on the parameter.</li>
+<li>The linkage API accepts any R-style formula and supports per-species
 or per-sex stratification.</li>
 <li>The length-at-age SD endpoints <code>sd_L1</code> and
 <code>sd_Linf</code> are also linkage targets, so you can set

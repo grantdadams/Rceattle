@@ -1,6 +1,6 @@
-# Function to load .RDs files from MSE runs
+# Load saved MSE simulation runs
 
-Function to load .RDs files from MSE runs
+Load saved MSE simulation runs
 
 ## Usage
 

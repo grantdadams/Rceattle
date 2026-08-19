@@ -10,7 +10,3 @@ here.
 ``` r
 .GROWTH_MEAN_PARAMS
 ```
-
-## Format
-
-An object of class `character` of length 4.

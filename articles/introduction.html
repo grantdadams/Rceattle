@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>1. Rceattle: An Introduction</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -134,9 +134,9 @@ installed as follows:</p>
 <div class="section level2">
 <h2 id="data">2. Data<a class="anchor" aria-label="anchor" href="#data"></a>
 </h2>
-<p>To run <code>Rceattle</code> a data object must first be loaded. Data
-from the 2018 Gulf of Alaska and 2017 eastern Bering Sea single- and
-multi-species assessments are bundled with the package:</p>
+<p><code>Rceattle</code> needs a data object to run. Data from the 2018
+Gulf of Alaska and 2017 eastern Bering Sea single- and multi-species
+assessments are bundled with the package:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://grantdadams.github.io/Rceattle/">Rceattle</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"GOApollock"</span><span class="op">)</span> <span class="co"># Data for GOA-pollock (1-species) ?GOApollock for more information on the data </span></span>
@@ -200,10 +200,9 @@ species, constant across sex and age:</p>
 <span>                                phase <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>                                verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_3</span><span class="op">)</span></span></code></pre></div>
-<p>To estimate <code>model_4</code> where recruitment is treated as
-random effects we can use the <code>random_rec</code> argument. For this
-model we initialized at the previous model’s MLEs and don’t phase
-estimation to decrease run-time:</p>
+<p><code>model_4</code> treats recruitment as random effects via
+<code>random_rec</code>. It starts from the previous model’s MLEs and
+skips phasing to reduce run-time:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_4</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">mydata</span>,</span>
 <span>                              inits <span class="op">=</span> <span class="va">model_3</span><span class="op">$</span><span class="va">estimated_params</span>, <span class="co"># Start estimation at model 3's MLEs</span></span>
@@ -215,10 +214,9 @@ estimation to decrease run-time:</p>
 <span>                                phase <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>                                verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_4</span><span class="op">)</span></span></code></pre></div>
-<p>To estimate time- and age-varying natural mortality due to predation
-we can estimate the model in multi-species mode by setting
-<code>msmMode = 1</code>. This follows the MSVPA parameterization
-described in <a href="https://link.springer.com/article/10.1007/BF00179756" class="external-link">Magnusson
+<p>Setting <code>msmMode = 1</code> estimates time- and age-varying
+natural mortality from predation, running the model in multi-species
+mode. This follows the MSVPA parameterization of <a href="https://link.springer.com/article/10.1007/BF00179756" class="external-link">Magnusson
 (1995)</a>.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_5</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">BS2017MS</span>,</span>
@@ -236,11 +234,10 @@ described in <a href="https://link.springer.com/article/10.1007/BF00179756" clas
 <div class="section level2">
 <h2 id="compare-models">4. Compare models<a class="anchor" aria-label="anchor" href="#compare-models"></a>
 </h2>
-<p>We can compare models by evaluating the marginal or joint negative
-log-likelihood, AIC, and retrospective analysis. NOTE, we can not
-compare models estimated using penalized likelihood vs marginal
-likelihood using AIC. The likelihood based components all can be found
-in the model objects build above:</p>
+<p>Models can be compared by marginal or joint negative log-likelihood,
+AIC, and retrospective analysis. AIC cannot compare a
+penalized-likelihood fit against a marginal-likelihood fit. The
+likelihood components are stored in the model objects built above:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Evaluate 1 model</span></span>
 <span><span class="va">model_1</span><span class="op">$</span><span class="va">opt</span><span class="op">$</span><span class="va">AIC</span> <span class="co"># AIC</span></span>
@@ -249,9 +246,9 @@ in the model objects build above:</p>
 <span></span>
 <span><span class="co"># Compare AIC across 3-species penalized likelihood models</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_2</span>, <span class="va">model_3</span>, <span class="va">model_5</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">$</span><span class="va">opt</span><span class="op">$</span><span class="va">AIC</span><span class="op">)</span></span></code></pre></div>
-<p>We can also look at retrospective bias in each assessment using the
-<code>retrospective</code> function, which creates a list of model
-objects and a data.frame with mohn’s rho calculations.</p>
+<p>The <code>retrospective</code> function measures retrospective bias,
+returning a list of refit models and a data.frame of Mohn’s rho
+values.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_1_retro</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/retrospective.html">retrospective</a></span><span class="op">(</span><span class="va">model_1</span>, peels <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
 <span></span>
@@ -260,11 +257,10 @@ objects and a data.frame with mohn’s rho calculations.</p>
 <div class="section level2">
 <h2 id="model-plots-and-diagnostics">5. Model plots and diagnostics<a class="anchor" aria-label="anchor" href="#model-plots-and-diagnostics"></a>
 </h2>
-<p>Various plots and diagnostics are built into <code>Rceattle</code>.
-Specifically, time-series hindcast and forecast biomass, SSB,
-recruitment, biomass consumed as prey, mortality-at-age, and depletion
-with uncertainty. The time-series plots can accept a list of models (see
-above).</p>
+<p><code>Rceattle</code> includes plots for hindcast and forecast time
+series of biomass, SSB, recruitment, biomass consumed as prey,
+mortality-at-age, and depletion, with uncertainty. Time-series plots
+accept a list of models (see above).</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_2</span>, <span class="va">model_3</span>, <span class="va">model_4</span>, <span class="va">model_5</span><span class="op">)</span></span>
 <span><span class="va">model_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"single-spp"</span>, <span class="st">"Single-spp M"</span>, <span class="st">"Single-spp M - RE"</span>, <span class="st">"Multi-spp"</span><span class="op">)</span></span>
@@ -283,10 +279,9 @@ above).</p>
 <span></span>
 <span><span class="co"># SSB depletion</span></span>
 <span><span class="fu"><a href="../reference/plot_depletion.html">plot_depletion</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
-<p>Diagnostics plots include plotting selectivity, fits to composition
-data, index fit, and catch fit. Selectivity and composition plot
-functions can only input one model. Index and catch fit plots can take
-multiple model inputs.</p>
+<p>Diagnostic plots cover selectivity, composition fits, index fits, and
+catch fits. Selectivity and composition plots take a single model; index
+and catch plots take one or more.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Selectivity</span></span>
 <span><span class="fu"><a href="../reference/plot_selectivity.html">plot_selectivity</a></span><span class="op">(</span><span class="va">model_2</span><span class="op">)</span></span>

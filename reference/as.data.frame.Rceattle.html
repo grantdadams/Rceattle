@@ -25,7 +25,7 @@ sexes or ages are dropped."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,7 +69,7 @@ sexes or ages are dropped."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Tidy long-format derived quantities from an Rceattle fit</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-rceattle_class.R" class="external-link"><code>R/0-rceattle_class.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-rceattle_class.R" class="external-link"><code>R/0-rceattle_class.R</code></a></small>
       <div class="d-none name"><code>as.data.frame.Rceattle.Rd</code></div>
     </div>
 
@@ -137,9 +137,13 @@ species name from <code>data_list$spnames</code>. Rows are sorted in the order
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Standard errors (<code>se</code>) and confidence intervals (<code>lwr</code>, <code>upr</code>) are
 populated from the TMB <code>sdreport</code> for any quantity that was
-<code>ADREPORT</code>'d (currently <code>biomass</code>, <code>ssb</code>, <code>R</code>); other quantities and
-fits produced with <code>getsd = FALSE</code> get <code>NA</code> for <code>se</code> / <code>lwr</code> / <code>upr</code>.
-Set <code>ci_level</code> to widen or narrow the band.</p>
+<code>ADREPORT</code>'d (<code>biomass</code>, <code>ssb</code>, <code>R</code>, <code>exploitable_biomass</code>,
+<code>biomass_depletion</code>, <code>ssb_depletion</code>); other quantities and fits produced
+with <code>getsd = FALSE</code> get <code>NA</code> for <code>se</code> / <code>lwr</code> / <code>upr</code>. Set <code>ci_level</code> to
+widen or narrow the band.</p>
+<p>A strictly positive series takes its interval on the log scale, so it is
+right-skewed and cannot reach zero. This is the same construction
+<code><a href="plot_timeseries.html">plot_timeseries()</a></code> draws, so the table and the figure agree.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

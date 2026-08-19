@@ -25,7 +25,14 @@ beta-binomial; Trijoulet et al. 2023). The final bin of each composition is
 fixed by the sum-to-N constraint and so has no residual (returned as NA).
 Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the osa_mode switch); fleets fit with the AFSC MultinomialAFSC
-pseudo-likelihood are residualized under the full multinomial."><meta property="og:description" content="Computes one-step-ahead (OSA) residuals – also called forecast or quantile
+pseudo-likelihood are residualized under the full multinomial.
+Survey-index OSA residuals are supported for every index likelihood family
+(Index_distribution): lognormal IID (&quot;Lognormal&quot;) and natural-scale
+&quot;Normal&quot; residualize as independent normals on the log or natural scale; the
+correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened by the lower
+Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
+multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
+closed form TMB::oneStepPredict() reproduces for a Gaussian block."><meta property="og:description" content="Computes one-step-ahead (OSA) residuals – also called forecast or quantile
 residuals (Thygesen et al. 2017) – for a fitted Rceattle model via
 TMB::oneStepPredict(). Unlike Pearson residuals, OSA residuals are
 distributed iid standard normal under a correctly specified model even when
@@ -51,7 +58,14 @@ beta-binomial; Trijoulet et al. 2023). The final bin of each composition is
 fixed by the sum-to-N constraint and so has no residual (returned as NA).
 Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the osa_mode switch); fleets fit with the AFSC MultinomialAFSC
-pseudo-likelihood are residualized under the full multinomial."></head><body>
+pseudo-likelihood are residualized under the full multinomial.
+Survey-index OSA residuals are supported for every index likelihood family
+(Index_distribution): lognormal IID (&quot;Lognormal&quot;) and natural-scale
+&quot;Normal&quot; residualize as independent normals on the log or natural scale; the
+correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened by the lower
+Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
+multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
+closed form TMB::oneStepPredict() reproduces for a Gaussian block."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -59,7 +73,7 @@ pseudo-likelihood are residualized under the full multinomial."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,7 +117,7 @@ pseudo-likelihood are residualized under the full multinomial."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>One-step-ahead (OSA) residuals for an Rceattle model</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/osa_residuals.R" class="external-link"><code>R/osa_residuals.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/6-osa_residuals.R" class="external-link"><code>R/6-osa_residuals.R</code></a></small>
       <div class="d-none name"><code>osa_residuals.Rd</code></div>
     </div>
 
@@ -135,13 +149,20 @@ fixed by the sum-to-N constraint and so has no residual (returned as <code>NA</c
 Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the <code>osa_mode</code> switch); fleets fit with the AFSC <code>MultinomialAFSC</code>
 pseudo-likelihood are residualized under the full multinomial.</p>
+<p>Survey-index OSA residuals are supported for every index likelihood family
+(<code>Index_distribution</code>): lognormal IID (<code>"Lognormal"</code>) and natural-scale
+<code>"Normal"</code> residualize as independent normals on the log or natural scale; the
+correlated covariance families (<code>"MVN"</code> / <code>"MVNORM"</code>) are whitened by the lower
+Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
+multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
+closed form <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code> reproduces for a Gaussian block.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">osa_residuals</span><span class="op">(</span></span>
 <span>  <span class="va">fit</span>,</span>
-<span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"index"</span>, <span class="st">"catch"</span>, <span class="st">"comp"</span>, <span class="st">"caal"</span><span class="op">)</span>,</span>
+<span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ecov"</span>, <span class="st">"index"</span>, <span class="st">"catch"</span>, <span class="st">"comp"</span>, <span class="st">"caal"</span><span class="op">)</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"oneStepGaussianOffMode"</span>,</span>
 <span>  discrete <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -161,9 +182,12 @@ pseudo-likelihood are residualized under the full multinomial.</p>
 
 <dt id="arg-source">source<a class="anchor" aria-label="anchor" href="#arg-source"></a></dt>
 <dd><p>Character vector of observation sources to residualize: any of
-<code>"index"</code>, <code>"catch"</code>, <code>"comp"</code>, <code>"caal"</code>, <code>"diet"</code>, or <code>"all"</code>. Defaults to
-the four non-diet sources (<code>diet</code> is opt-in because it applies only to
-multispecies models and can be expensive); pass <code>"all"</code> to include <code>diet</code>.
+<code>"ecov"</code>, <code>"index"</code>, <code>"catch"</code>, <code>"comp"</code>, <code>"caal"</code>, <code>"diet"</code>, or <code>"all"</code>.
+Defaults to the five non-diet sources (<code>diet</code> is opt-in because it applies
+only to multispecies models and can be expensive); pass <code>"all"</code> to include
+<code>diet</code>. <code>"ecov"</code> is the state-space covariate (QAR1 <code>observe=</code> term),
+residualized first against its own series, as in WHAM's
+<code>make_osa_residuals()</code>.
 Sources with no observations in the model are silently skipped. Mirrors the
 <code>source</code> argument of <code><a href="residuals.Rceattle.html">residuals.Rceattle()</a></code> and <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code>.</p></dd>
 
@@ -188,11 +212,16 @@ method rather than <code>method</code>).</p></dd>
 
 <dt id="arg-parallel">parallel<a class="anchor" aria-label="anchor" href="#arg-parallel"></a></dt>
 <dd><p>Logical; compute the per-observation OSA loop in parallel via
-<code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code>. Default <code>TRUE</code>. This is the main speedup for models
+<code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">mclapply</a></code>. Default <code>TRUE</code>. This is the main speedup for models
 with random effects, where each observation triggers a Laplace
 re-evaluation – it gives a near-linear speedup across cores (set
 <code>options(mc.cores = )</code> to choose how many; forking falls back to serial on
-Windows). Only the continuous group is parallelized; the discrete
+Windows). Some models – heavy random-effect structures such as a
+time-varying catchability – abort the forked worker instead of returning;
+the loop then recomputes serially, after rebuilding, and prints the worker's
+own "irrecoverable exception" message, which comes from C and cannot be
+suppressed. That message does not mean the call failed. Pass <code>FALSE</code> to skip
+the attempt. Only the continuous group is parallelized; the discrete
 (randomized-quantile) path always runs serially so it stays reproducible
 given <code>seed</code>.</p></dd>
 
@@ -215,14 +244,53 @@ of randomized-quantile residuals. Default <code>123</code>.</p></dd>
     <p>A data frame of class <code>rceattle_osa</code> with one row per residualized
 observation and columns <code>source</code> (the data source: index/catch/comp/caal/
 diet), <code>fleet</code>, <code>fleet_name</code>, <code>species</code>, <code>sex</code>, <code>year</code>, <code>age_length_bin</code>
-(the age or length bin index), <code>length</code> (the conditioning length bin for
-caal; <code>NA</code> otherwise), <code>index_label</code> (<code>"age"</code>/<code>"length"</code>/<code>NA</code>), <code>observed</code>,
+(the age or length bin the value stands for), <code>accumulated</code> (<code>TRUE</code> where
+tail accumulation folded neighbouring bins into this one, so it covers a
+range of ages rather than the one named), <code>length</code> (the conditioning length
+bin for caal; <code>NA</code> otherwise), <code>index_label</code> (<code>"age"</code>/<code>"length"</code>/<code>NA</code>), <code>observed</code>,
 <code>predicted</code>, <code>sd</code>, and <code>residual</code>. For aggregate series <code>observed</code> and
-<code>predicted</code> are on the model (log) scale; for compositions they are bin
-counts. Carries <code>method</code> and <code>seed</code> attributes, and (when composition types
+<code>predicted</code> are on the residualization scale – log for lognormal catch/index,
+natural scale for a <code>"Normal"</code> index, and the whitened (<code>L^-1</code>) scale for an
+<code>"MVN"</code>/<code>"MVNORM"</code> index; for compositions they are bin counts. Carries
+<code>method</code> and <code>seed</code> attributes, and (when composition types
 are present) a <code>"pearson"</code> attribute holding the matching Pearson residuals
-so <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code> can show both. Summarize it with
+so <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code> can show both. The attribute uses this data
+frame's column names rather than the data-sheet names
+<code><a href="residuals.Rceattle.html">residuals.Rceattle()</a></code> returns, so the two halves of one object read alike.
+Note the shared names do not mean a shared scale: in the attribute
+<code>observed</code> and <code>predicted</code> are proportions summing to one within a
+fleet-year, with the sample size in <code>sample_size</code>, because composition
+Pearson residuals are defined on proportions – not the bin counts the
+columns above carry. Do not compare the two directly.
+Both describe the bins the likelihood fit, so a fleet with tail
+accumulation reports the folded window in each – with one asymmetry: the
+one-step-ahead decomposition drops each group's last bin (it is fixed by
+sum-to-N), and under an <em>old</em>-tail accumulation that dropped bin is the
+upper accumulated one. Such a fleet therefore shows its upper boundary bin
+in the Pearson residuals and not in the OSA residuals. Summarize it with
 <code><a href="osa_diagnostics.html">osa_diagnostics()</a></code> and plot it with <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="negative-composition-predicted-values">Negative composition <code>predicted</code> values<a class="anchor" aria-label="anchor" href="#negative-composition-predicted-values"></a></h2>
+
+
+<p>A composition <code>predicted</code> is an expected bin count and cannot truly be
+negative, but it goes slightly negative where a bin holds almost no fish.
+Composition observations enter as counts, <code>(proportion + comp_offset) * N</code>,
+and <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code>'s conditional mean is a numerical step away from
+the observation, which overshoots below zero when the count is near it.
+The function warns, naming the count and the years.</p>
+<p>It is the <em>bin's</em> count that drives this, not the composition's sample size:
+on EBS pollock the negative rows have a median observed count of 0.05 against
+4.9 for the rest, while their sample sizes span the same 1 to 821 as
+everything else (69 of 353 occur above a sample size of 100). A rare age in a
+well-sampled year does it as readily as a poorly sampled year, so the warning
+is not by itself evidence of thin data.</p>
+<p>The values are reported rather than clamped, because a negative expected
+count is the signal that the bin is too sparse for the decomposition to
+describe and clamping would hide it. Treat <code>predicted</code> on those rows as
+uninformative; their <code>residual</code> standardises the observation against that
+same mean and is therefore biased positive.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

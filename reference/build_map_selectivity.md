@@ -15,7 +15,7 @@ Gaussian ascending/descending limbs blended at peak (analogous to SS3
 pattern 24). Parameters: `sel_inf[1]` = peak; `sel_inf[2]` =
 logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
-right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+right_floor-\>0: dome-shaped; right_floor-\>1: logistic ascending only.
 
 `N_sel_bins` Number of age/length bins to estimate non-parametric
 selectivity when Selectivity = 2 or 5. Not used otherwise
@@ -23,11 +23,11 @@ selectivity when Selectivity = 2 or 5. Not used otherwise
 `Time_varying_sel` determines if time-varying selectivity should be
 estimated for logistic, double logistic selectivity, descending logistic
 , non-parametric, or hake (`Selectivity = 1, 2, 3, 4, or 5`). `0` =
-'None' `1` = 'IID' penalized deviates given `sel_sd_prior` `3` = 'Block'
-time blocks with no penalty `4` = 'RandomWalk' random walk following
-Dorn `5` = 'RandomWalkAscending' random walk on ascending portion of
-double logistic only. `random_sel` in `fit_mod` treats random deviates
-and random walk parameters as random effects, estimating the variance.
+'Off' `1` = 'IID' penalized deviates given `sel_sd_prior` `3` = 'Block'
+time blocks with no penalty `4` = 'RandomWalk' random walk `5` =
+'RandomWalkAscending' random walk on ascending portion of double
+logistic only. `random_sel` in `fit_mod` treats random deviates and
+random walk parameters as random effects, estimating the variance.
 
 ## Usage
 

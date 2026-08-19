@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Plot time-series</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/7-plot_ceattle.R" class="external-link"><code>R/7-plot_ceattle.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/7-plot_ceattle.R" class="external-link"><code>R/7-plot_ceattle.R</code></a></small>
       <div class="d-none name"><code>plot_timeseries.Rd</code></div>
     </div>
 
@@ -86,6 +86,7 @@
 <span>  mse <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  OM <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  reference <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  zero_y <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mod_avg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">FALSE</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">Rceattle</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -103,7 +104,8 @@
 
 
 <dt id="arg-ylab">ylab<a class="anchor" aria-label="anchor" href="#arg-ylab"></a></dt>
-<dd><p>Y-axis label</p></dd>
+<dd><p>Y-axis label. <code>NULL</code> (default) derives one from <code>output</code> and the
+model's <code>minage</code>.</p></dd>
 
 
 <dt id="arg-file">file<a class="anchor" aria-label="anchor" href="#arg-file"></a></dt>
@@ -128,7 +130,8 @@ function.</p></dd>
 
 
 <dt id="arg-add-ci">add_ci<a class="anchor" aria-label="anchor" href="#arg-add-ci"></a></dt>
-<dd><p>If the confidence interval is to be added</p></dd>
+<dd><p>If the confidence interval is to be added (see Details for how
+it is constructed)</p></dd>
 
 
 <dt id="arg-lwd">lwd<a class="anchor" aria-label="anchor" href="#arg-lwd"></a></dt>
@@ -191,6 +194,12 @@ function.</p></dd>
 <dd><p>Reference model</p></dd>
 
 
+<dt id="arg-zero-y">zero_y<a class="anchor" aria-label="anchor" href="#arg-zero-y"></a></dt>
+<dd><p>Anchor the y-axis at zero. TRUE for the absolute series
+(biomass, SSB, recruitment), where a truncated axis exaggerates change;
+FALSE for the depletions, which are already on a relative scale.</p></dd>
+
+
 <dt id="arg-mod-avg">mod_avg<a class="anchor" aria-label="anchor" href="#arg-mod-avg"></a></dt>
 <dd><p>TRUE/FALSE</p></dd>
 
@@ -198,6 +207,32 @@ function.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Returns and saves a figure with the population trajectory.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="units">Units<a class="anchor" aria-label="anchor" href="#units"></a></h2>
+    <p>The model carries numbers-at-age in <strong>thousands</strong> and weight-at-age in
+<strong>kg</strong>, so every biomass series (<code>biomass</code>, <code>ssb</code>, <code>exploitable_biomass</code>)
+comes out of the model in <strong>mt</strong> and recruitment comes out in <strong>thousands of
+fish</strong>. For display these are divided by 1e6 (million mt) and 1e3 (millions
+of recruits) respectively; depletion is a ratio and is not rescaled. Supply
+the model's inputs on that convention – catch and index in mt, weight-at-age
+in kg – or the axis labels will not describe what is plotted.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="confidence-intervals">Confidence intervals<a class="anchor" aria-label="anchor" href="#confidence-intervals"></a></h2>
+    <p><code>add_ci = TRUE</code> draws a 95% interval. Every strictly positive series takes it
+on the log scale as <code>exp(log(x) +/- qnorm(0.975) * sd_log)</code>. These quantities are
+built multiplicatively, so <code>log(x)</code> is close to linear in the estimated
+parameters where <code>x</code> is exponential in them: the interval is both a better
+linearization and right-skewed, and it cannot cross zero the way a symmetric
+natural-scale interval does for weak year classes and depleted stocks.</p>
+<p><code>sd_log</code> comes from the model's own <code>log_biomass</code> / <code>log_ssb</code> / <code>log_R</code> where
+those are reported, and is otherwise recovered as <code>sd(x) / x</code> – the delta
+method's own identity, which matches the reported values to machine
+precision. That covers <code>exploitable_biomass</code> and the two depletions, which
+cannot be reported on the log scale (<code>exploitable_biomass</code> is identically 0
+without projection F), and models fit before the <code>log_*</code> series existed. A
+non-positive or unreported value keeps the symmetric interval.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

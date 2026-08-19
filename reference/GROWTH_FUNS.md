@@ -15,7 +15,3 @@ Currently:
 ``` r
 GROWTH_FUNS
 ```
-
-## Format
-
-An object of class `character` of length 3.

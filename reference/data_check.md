@@ -1,6 +1,6 @@
-# Function to check data for errors. Does not update the data set!
+# Check an Rceattle data list for errors. Does not modify the data.
 
-Function to check data for errors. Does not update the data set!
+Check an Rceattle data list for errors. Does not modify the data.
 
 ## Usage
 

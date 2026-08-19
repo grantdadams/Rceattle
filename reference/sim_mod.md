@@ -3,7 +3,9 @@
 Simulates data used in Rceattle from the expected values estimated from
 an existing Rceattle model. The variances and uncertainty are consistent
 with those used in the operating model. The function simulates: survey
-biomass (log-normal), catch-at-age/length composition (multinomial or
+biomass (under the fleet's own `Index_distribution` – lognormal,
+natural-scale normal, or the correlated MVN/MVNORM draw from the
+supplied covariance), catch-at-age/length composition (multinomial or
 dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or
 dirichlet-multinomial), and total catch (log-normal).
 

@@ -29,4 +29,4 @@ compare_sim(operating_mod, simulation_mods, object = "quantities")
 
 ## Value
 
-A data frame summarising simulation performance metrics
+A data frame summarizing simulation performance metrics

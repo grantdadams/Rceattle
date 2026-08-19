@@ -1,4 +1,4 @@
-# Okabe-Ito colourblind-safe qualitative palette
+# Okabe-Ito colorblind-safe qualitative palette
 
 Eight fixed hues in a fixed order, reordered so the strongest-contrast,
 best-separated hues come first (2-4 model overlays are the common case)

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,17 +79,17 @@
       <h1>7. Converting from Stock Synthesis</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/vignettes/stock-synthesis-conversion.Rmd" class="external-link"><code>vignettes/stock-synthesis-conversion.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/stock-synthesis-conversion.Rmd" class="external-link"><code>vignettes/stock-synthesis-conversion.Rmd</code></a></small>
       <div class="d-none name"><code>stock-synthesis-conversion.Rmd</code></div>
     </div>
 
     
     
 <p>This vignette is a working guide for converting a Stock Synthesis
-(SS3) model into the Rceattle data structure. It is written from the
-perspective of reading the SS files top-to-bottom and copying each block
-into the corresponding Rceattle data sheet. Rceattle column / sheet
-names are shown in <code>code</code> font.</p>
+(SS3) model into the Rceattle data structure. It follows the SS files
+top-to-bottom, copying each block into the corresponding Rceattle data
+sheet. Rceattle column / sheet names are shown in <code>code</code>
+font.</p>
 <p>The example below references the 2019 Pacific hake assessment, which
 is publicly available on Nis Sand Jacobsen’s <a href="https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019" class="external-link"><code>PacifichakeMSE</code></a>
 GitHub repo. With the exception of consumption / diet (which SS does not
@@ -103,8 +103,8 @@ weight-at-age, or control file.</p>
 <code>srv_biom</code> → <code>index_data</code>, <code>Nselages</code> →
 <code>N_sel_bins</code>, <code>Age_first_selected</code> →
 <code>Bin_first_selected</code>, <code>Age_max_selected</code> /
-<code>_upper</code> → <code>Sel_norm_bin1</code> /
-<code>Sel_norm_bin2</code>). The instructions below use the current
+<code>_upper</code> → <code>Sel_norm_bin</code> /
+<code>Sel_norm_bin_upper</code>). The instructions below use the current
 names. The sheet <code>meta_data</code> inside the Rceattle Excel
 template is the authoritative column reference.</p>
 </blockquote>
@@ -217,6 +217,11 @@ documents every remaining column on <code>fleet_control</code>
 </h2>
 <p>SS catch data → Rceattle <code>catch_data</code> sheet:</p>
 <table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
 <thead><tr class="header">
 <th>SS field</th>
 <th>Rceattle (<code>catch_data</code>)</th>
@@ -241,7 +246,8 @@ documents every remaining column on <code>fleet_control</code>
 <tr class="even">
 <td><code>catch</code></td>
 <td><code>Catch</code></td>
-<td>Units flexible (typically 1000 mt)</td>
+<td>Convert to mt – Rceattle works in mt and thousands of fish
+throughout (see <code><a href="../reference/plot_timeseries.html">?plot_timeseries</a></code>)</td>
 </tr>
 <tr class="odd">
 <td><code>catch_se</code></td>
@@ -268,14 +274,14 @@ sheets:</p>
 <col width="33%">
 </colgroup>
 <thead><tr class="header">
-<th>SS / behaviour</th>
+<th>SS / behavior</th>
 <th>Rceattle (<code>fleet_control</code>)</th>
 <th>Notes</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td>Units (numbers / biomass)</td>
-<td><code>Weight1_Numbers2</code></td>
+<td><code>Observation_units</code></td>
 <td>
 <code>1</code> = biomass, <code>2</code> = numbers</td>
 </tr>
@@ -288,16 +294,15 @@ sheets:</p>
 <tr class="odd">
 <td>Q estimation</td>
 <td>
-<code>Catchability</code>, <code>Q_prior</code>,
-<code>Q_sd_prior</code>
+<code>Catchability</code>, <code>Catchability_init</code>,
+<code>Catchability_prior_sd</code>
 </td>
 <td>See vignette 0 §4 for the option table</td>
 </tr>
 <tr class="even">
 <td>Time-varying q</td>
 <td>
-<code>Time_varying_q</code>,
-<code>Time_varying_q_sd_prior</code>
+<code>Time_varying_q</code>, <code>Time_varying_q_sd</code>
 </td>
 <td></td>
 </tr>
@@ -387,7 +392,7 @@ the <code>Age0_Length1</code> column distinguishes them).</p>
 </tr>
 <tr class="odd">
 <td>Comp likelihood</td>
-<td><code>Comp_loglike</code></td>
+<td><code>Comp_distribution</code></td>
 <td>
 <code>0</code> = multinomial, <code>1</code> =
 Dirichlet-multinomial. (<code>-1</code> = legacy AFSC convention.)</td>
@@ -395,11 +400,11 @@ Dirichlet-multinomial. (<code>-1</code> = legacy AFSC convention.)</td>
 <tr class="even">
 <td>Selectivity bin range</td>
 <td>
-<code>Sel_norm_bin1</code>, <code>Sel_norm_bin2</code>,
+<code>Sel_norm_bin</code>, <code>Sel_norm_bin_upper</code>,
 <code>Bin_first_selected</code>
 </td>
-<td>Replaces the old <code>Age_max_selected</code> /
-<code>Age_first_selected</code> columns</td>
+<td>First selected bin and the bin(s) at which selectivity is normalized
+to 1</td>
 </tr>
 </tbody>
 </table>
@@ -455,11 +460,19 @@ Dirichlet-multinomial. (<code>-1</code> = legacy AFSC convention.)</td>
 </tbody>
 </table>
 <p>If the SS comp data covers fewer ages than <code>nages</code>
-(e.g. comps to age 15 in a 20-age model), set <code>Sel_norm_bin1</code>
-/ <code>Sel_norm_bin2</code> and <code>N_sel_bins</code> to control how
-the missing ages are accumulated. Check the assessment document or
+(e.g. comps to age 15 in a 20-age model), set <code>Sel_norm_bin</code>
+/ <code>Sel_norm_bin_upper</code> and <code>N_sel_bins</code> to control
+how the missing ages are accumulated. Check the assessment document or
 contact the authors before deciding whether to zero-pad or accumulate at
 the upper age.</p>
+<p>For a two-sex conversion, <code>Sel_norm_scope</code> decides whether
+the normalization reference is pooled over the sexes
+(<code>"AcrossSexes"</code>, the default, which keeps relative
+sex-specific selectivity) or taken per sex (<code>"WithinSex"</code>).
+Note that Rceattle has no equivalent of the SS male apical-selectivity
+offset: relative sex selectivity is carried by the normalization scope
+and by joint (<code>comp_data$Sex = 3</code>) composition data, not by
+an offset parameter.</p>
 <p><code>Part</code>, <code>Ageerr</code>, <code>Lbin_lo</code>,
 <code>Lbin_hi</code>, <code>CompressBins</code>, <code>CompError</code>,
 <code>ParmSelect</code>, and <code>minsamplesize</code> from SS do not

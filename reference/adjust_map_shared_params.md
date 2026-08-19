@@ -1,8 +1,8 @@
 # Helper to adjust map for shared catchability/selectivity indices
 
 Enforces parameter sharing by mapping parameters for fleets with a
-common `Selectivity_index` or `Q_index` to the same value as the initial
-index.
+common `Selectivity_index` or `Catchability_index` to the same value as
+the initial index.
 
 ## Usage
 

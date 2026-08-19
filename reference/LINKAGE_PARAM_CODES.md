@@ -10,7 +10,3 @@ names error.
 ``` r
 LINKAGE_PARAM_CODES
 ```
-
-## Format
-
-An object of class `list` of length 5.

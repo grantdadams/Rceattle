@@ -1,7 +1,6 @@
 # Specify the harvest control rule (HCR) used for Rceattle
 
-Defines the harvest control rule and associated reference points used in
-the Rceattle model.
+Defines the harvest control rule and its associated reference points.
 
 ## Usage
 
@@ -107,33 +106,38 @@ species. Can be multiplied by `Fmult` following NEFSC.
 (NPFMC) Tier 3 spawner-per-recruit-based harvest control rule: Stock
 status: \\SB \> SB at Ftarget\\ \$\$Fofl = Flimit\$\$ \$\$Fuse =
 Ftarget\$\$ Stock status: \\Alpha \< SB / SB at Ftarget \le 1\\ \$\$Fofl
-= Flimit \* (SB / Ptarget - Alpha) / (1 - Alpha)\$\$ \$\$Fuse = Ftarget
-\* (SB / Ptarget - Alpha) / (1 - Alpha)\$\$ Stock status: \\SB / SB at
-Ftarget \le Alpha\\ or \\SB \< Plimit \* SB0\\ \$\$Fofl = 0\$\$ \$\$Fuse
-= 0\$\$
+= Flimit \* (SB / SB\_{Ftarget} - Alpha) / (1 - Alpha)\$\$ \$\$Fuse =
+Ftarget \* (SB / SB\_{Ftarget} - Alpha) / (1 - Alpha)\$\$ Stock status:
+\\SB / SB at Ftarget \le Alpha\\ or \\SB \< Plimit \* SB0\\ \$\$Fofl =
+0\$\$ \$\$Fuse = 0\$\$
 
-`hcr = 6` or `"PFMC"`: An HCR based on the The Pacific Fishery
-Management Council (PFMC) category 1 40-10 annual catch limit (ABC)
-harvest control rule assuming Fofl is normally distributed with a
-standard deviation (sigma) = 0.5 and an uncertainty quantile buffer
-(P\*) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F
-that achieves X% of SSB0 for multi-species. Target biological reference
-points are calculated based on the normal cumulative distribution
-function (Phi(quantile,mean,standard deviation)), P\*, and sigma as
-follows: Stock status: \\SB \> SB0 \* Ptarget\\ \$\$Fofl = Flimit\$\$
-\$\$Fuse = Phi(Pstar, Flimit, Sigma)\$\$ Stock status: \\SB0 \* Plimit
-\< SB \le SB0 \* Ptarget\\ \$\$Fofl = Flimit\$\$ \$\$Fuse = Phi(Pstar,
-Flimit, Sigma) \* \frac{SB0 \* Ptarget \* (SB - SB0 \* Plimit)}{SB \*
-SB0 \* (Ptarget - Plimit)}\$\$ Stock status: \\SB \< SB0 \* Plimit\\
-\$\$Fofl = 0\$\$ \$\$Fuse = 0\$\$
+`hcr = 6` or `"PFMC"`: An HCR based on the Pacific Fishery Management
+Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control
+rule assuming Fofl is normally distributed with a standard deviation
+(sigma) = 0.5 and an uncertainty quantile buffer (P\*) of 0.45 (PFMC
+2020). The model uses Fspr if single-species or F that achieves X% of
+SSB0 for multi-species. The uncertainty buffer is the normal quantile
+function `qnorm(Pstar, mean, Sigma)`; note
+`qnorm(Pstar, Flimit, Sigma) = Flimit + qnorm(Pstar, 0, Sigma)` – an F
+below `Flimit` when \\Pstar \< 0.5\\. The taper runs between \\SB0 \*
+Plimit\\ and \\SB0 \* Ptarget\\, so the 40-10 shape requires
+`Ptarget = 0.40` and `Plimit = 0.10`; the default `Plimit = 0` gives a
+40-0 rule. Target biological reference points are: Stock status: \\SB \>
+SB0 \* Ptarget\\ \$\$Fofl = Flimit\$\$ \$\$Fuse = qnorm(Pstar, Flimit,
+Sigma)\$\$ Stock status: \\SB0 \* Plimit \< SB \le SB0 \* Ptarget\\
+\$\$Fofl = Flimit\$\$ \$\$Fuse = qnorm(Pstar, Flimit, Sigma) \*
+\frac{SB0 \* Ptarget \* (SB - SB0 \* Plimit)}{SB \* SB0 \* (Ptarget -
+Plimit)}\$\$ Stock status: \\SB \< SB0 \* Plimit\\ \$\$Fofl = 0\$\$
+\$\$Fuse = 0\$\$
 
 `hcr = 7` or `"SESSF"`: An HCR based on the The Southern and Eastern
 Scalefish and Shark Fishery (SESSF) spawner-per-recruit-based Tier 1
 harvest control rule where F_Limit=F\_(20%), B_Limit=SB_20, F_Target
 (AFMA 2017) calculated as follows: Stock status: \\SB \> SB0 \*
 Ptarget\\ \$\$Fofl = Flimit\$\$ \$\$Fuse = Ftarget\$\$ Stock status:
-\\Ptarget \> SB \> SB0 \* Plimit\\ \$\$Fofl = Flimit \* (SB / (SB0 \*
-Ptarget) - 1)\$\$ \$\$Fuse = Ftarget \* (SB / (SB0 \* Ptarget) - 1)\$\$
-Stock status: \\SB \< SB0 \* Plimit\\ \$\$Fofl = 0\$\$ \$\$Fuse = 0\$\$
+\\SB0 \* Ptarget \> SB \> SB0 \* Plimit\\ \$\$Fofl = Flimit \* (SB /
+(SB0 \* Plimit) - 1)\$\$ \$\$Fuse = Ftarget \* (SB / (SB0 \* Plimit) -
+1)\$\$ Stock status: \\SB \< SB0 \* Plimit\\ \$\$Fofl = 0\$\$ \$\$Fuse =
+0\$\$
 
-NOTE: only HCRs 1, 2, 3, and 6 will work in multi-species mode.
+NOTE: only HCRs 0, 1, 2, 3, and 6 will work in multi-species mode.

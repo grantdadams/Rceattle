@@ -25,7 +25,8 @@ retrospective(
   peels = 5,
   rescale = FALSE,
   nyrs_forecast = 3,
-  cores = NULL
+  cores = NULL,
+  getsd = NULL
 )
 ```
 
@@ -58,10 +59,59 @@ retrospective(
   `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
   sequential execution.
 
+- getsd:
+
+  whether each peel runs
+  [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html) (standard
+  errors). Mohn's rho uses only point estimates, so `FALSE` is faster
+  with no effect on rho. Default `NULL` inherits the input model's
+  setting (`TRUE` if it was fit with `getsd = TRUE`, i.e. carries an
+  `sdrep`); the returned peel models then carry standard errors only
+  when `getsd` is `TRUE`.
+
 ## Value
 
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
-each species
+each species.
+
+A peel that did not converge is dropped, so `Rceattle_list` can be
+shorter than `peels + 1` (a message reports how many). Each entry is
+named for its own terminal year (`Year_2017`, ...) rather than by
+position, so index it by name – `Rceattle_list[[3]]` is not necessarily
+the 3-year peel. With no peel left, Mohn's rho is `NaN` and the function
+warns.
+
+Each peel reports its own terminal year as `data_list$endyr`, so plots
+draw it only as far as it was fit and the peels fan out.
+
+A peel still estimates the years it dropped: they are its retrospective
+forecast, fit to the observed catch with recruitment held at the peel's
+mean and the survey and composition data withheld. Three years therefore
+matter, and each peel carries all three:
+
+- `endyr`, `endyr_peel`:
+
+  the peel's terminal year – what it was fit through. Equal to each
+  other.
+
+- `endyr_full`:
+
+  the unpeeled model's terminal year, where the retrospective forecast
+  ends.
+
+- `projyr`:
+
+  the end of the harvest-control-rule projection.
+
+So the forecast years are those after `endyr_peel` through `endyr_full`,
+and the projection follows through `projyr`; `incl_proj = TRUE` plots
+both. Take the forecast years as
+`endyr_peel + seq_len(endyr_full - endyr_peel)`, which is empty for the
+unpeeled model, rather than `(endyr_peel + 1):endyr_full`, which counts
+*down* there.
+
+Mohn's rho is computed from `endyr_peel` and is unaffected by any of
+this.
 
 ## Examples
 
@@ -74,10 +124,6 @@ ss_run <- fit_mod(data_list = BS2017SS,
     msmMode = 0, avgnMode = 0,
     phase = FALSE, verbose = 0)
 #> Warning: Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.
-#> 'Diet_loglike' are not included in data, assuming 'Multinomial'
-#> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'
-#> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'
-#> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 retro <- retrospective(ss_run, peels = 10)
 # }

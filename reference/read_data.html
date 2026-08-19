@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Read a CEATTLE excel data file</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-read_write_excel_data.R" class="external-link"><code>R/0-read_write_excel_data.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-read_write_excel_data.R" class="external-link"><code>R/0-read_write_excel_data.R</code></a></small>
       <div class="d-none name"><code>read_data.Rd</code></div>
     </div>
 
@@ -69,9 +69,15 @@
 
 
 <dl><dt id="arg-file">file<a class="anchor" aria-label="anchor" href="#arg-file"></a></dt>
-<dd><p>Filname to be used. Must end with '.xlsx'</p></dd>
+<dd><p>Filename to read. Must end in '.xlsx'</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="build_data.html">build_data()</a></code> to assemble or edit a data list in R (and to read a
+workbook then override blocks in one call, <code>build_data(file = ...)</code>),
+<code><a href="data_requirements.html">data_requirements()</a></code> to see which inputs a configuration needs.</p></div>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -81,6 +87,8 @@
 <span class="r-in"><span><span class="va">out_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"BS2017SS.xlsx"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="write_data.html">write_data</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">BS2017SS</span>, file <span class="op">=</span> <span class="va">out_file</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">data_list</span> <span class="op">&lt;-</span> <span class="fu">read_data</span><span class="op">(</span>file <span class="op">=</span> <span class="va">out_file</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Or read + override blocks in one call:</span></span></span>
+<span class="r-in"><span><span class="va">data_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="build_data.html">build_data</a></span><span class="op">(</span>file <span class="op">=</span> <span class="va">out_file</span>, projyr <span class="op">=</span> <span class="fl">2060</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.remove</a></span><span class="op">(</span><span class="va">out_file</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 </code></pre></div>

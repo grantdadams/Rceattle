@@ -66,8 +66,9 @@ residuals(
 
 A `data.frame` with columns `Source`, `Fleet_code`, `Fleet_name`,
 `Species`, `Sex`, `Year`, `Length`, `Bin`, `Age0_Length1`,
-`Sample_size`, `Observed`, `Fitted`, `Residual`. Columns are `NA` where
-they do not apply.
+`Sample_size`, `Accumulated`, `Observed`, `Fitted`, `Residual`. Columns
+are `NA` where they do not apply; `Accumulated` is `FALSE` except on a
+composition bin that absorbed a folded tail.
 
 ## Details
 
@@ -104,3 +105,12 @@ Composition rows are returned in long form (one row per observation x
 age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0`
 age, `1` length); CAAL rows carry both the conditioning `Length` and the
 age `Bin`.
+
+Where a fleet uses tail accumulation (`Comp_accum_young` /
+`Comp_accum_old`), composition residuals describe the bins the
+likelihood actually fit: the tails are folded into their boundary bin
+and the bins outside the window are not reported, because the model
+never fit them separately. `Bin` names the age or length each residual
+belongs to and `Accumulated` marks the boundary bins, which stand for a
+range rather than the single bin they are named for. Fleets without
+accumulation are unchanged.

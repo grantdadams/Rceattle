@@ -1,6 +1,6 @@
-# Function to set phasing order
+# Default phasing order for CEATTLE parameters
 
-Function to set phasing order
+Default phasing order for CEATTLE parameters
 
 ## Usage
 
@@ -10,4 +10,4 @@ set_phases()
 
 ## Value
 
-list of parameter names with associated phase
+Tagged list mapping each parameter name to its estimation phase.

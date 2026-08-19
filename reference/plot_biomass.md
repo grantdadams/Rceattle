@@ -28,7 +28,8 @@ plot_biomass(
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
   OM = TRUE,
-  reference = NULL
+  reference = NULL,
+  ylab = NULL
 )
 ```
 
@@ -60,7 +61,8 @@ plot_biomass(
 
 - add_ci:
 
-  If the confidence interval is to be added
+  If the confidence interval is to be added (see Details for how it is
+  constructed)
 
 - lwd:
 
@@ -131,6 +133,11 @@ plot_biomass(
 - reference:
 
   Reference model
+
+- ylab:
+
+  Y-axis label. `NULL` (default) derives one from `output` and the
+  model's `minage`.
 
 ## Value
 

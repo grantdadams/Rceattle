@@ -1,6 +1,6 @@
-# Define M1 specifications
+# Specify the residual natural mortality (M1) model for Rceattle
 
-Define M1 specifications
+Specify the residual natural mortality (M1) model for Rceattle
 
 ## Usage
 
@@ -93,7 +93,7 @@ A list of switches for defining the M1 model.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Sex/age-invariant M with a temperature linkage on M1
 build_M1(
   M1_model = "sex_age_invariant",
@@ -105,5 +105,38 @@ build_M1(
     )
   )
 )
-} # }
+#> $M1_model
+#> [1] 1
+#> 
+#> $M1_re
+#> [1] 0
+#> 
+#> $updateM1
+#> [1] FALSE
+#> 
+#> $M1_use_prior
+#> [1] FALSE
+#> 
+#> $M2_use_prior
+#> [1] FALSE
+#> 
+#> $M_prior
+#> [1] 0.4
+#> 
+#> $M_prior_sd
+#> [1] 0.35
+#> 
+#> $M1_indices
+#> [1] NA
+#> 
+#> $linkages
+#> $linkages$M1
+#> <Rceattle linkage spec>
+#>   param:   M1
+#>   formula: ~temp
+#>   prior:    temp ~ normal(0, 0.5)
+#>   link:    log
+#> 
+#> 
+# }
 ```

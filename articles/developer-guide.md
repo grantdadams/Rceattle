@@ -16,7 +16,7 @@ wiki](https://github.com/grantdadams/Rceattle/wiki).
 | Path | Contents |
 |----|----|
 | `R/` | The R side. Files are number-prefixed in rough pipeline order (see below). |
-| `src/TMB/` | The C++ TMB template `ceattle_v01_11.cpp` and its included `.hpp` modules. |
+| `src/TMB/` | The C++ TMB template `ceattle.cpp` and its included `.hpp` modules. |
 | `tests/testthat/` | Unit and regression tests, grouped by area. |
 | `inst/extdata/` | Excel templates, including `meta_data_names.xlsx` (the authoritative column/switch reference). |
 | `data/` | Built-in example data lists (`BS2017SS`, `GOA2018SS`, `NorthernRockfish2022`, …). |
@@ -24,8 +24,8 @@ wiki](https://github.com/grantdadams/Rceattle/wiki).
 | `.github/workflows/` | `R-CMD-check.yaml` and `pkgdown.yaml` CI. |
 
 The whole model — observation model, population dynamics, and likelihood
-— is a single C++ TMB script, `src/TMB/ceattle_v01_11.cpp`, which
-`#include`s a set of topical `.hpp` modules.
+— is a single C++ TMB script, `src/TMB/ceattle.cpp`, which `#include`s a
+set of topical `.hpp` modules.
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
 is the R entry point; it calls a chain of helpers that build the TMB
 inputs, optimize, and label the output.
@@ -52,9 +52,9 @@ Phasing (optional staged estimation) is handled by
 [`set_phases()`](https://grantdadams.github.io/Rceattle/reference/set_phases.md)
 /
 [`TMBphase()`](https://grantdadams.github.io/Rceattle/reference/TMBphase.md)
-in `R/OPT-phaser.R`;
+in `R/6-phaser.R`;
 [`TMBAIC()`](https://grantdadams.github.io/Rceattle/reference/TMBAIC.md)
-(`R/OPT-TMBAIC.R`) computes AIC. Downstream wrappers —
+(`R/6-tmb_aic.R`) computes AIC. Downstream wrappers —
 [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
 [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
 [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
@@ -63,6 +63,10 @@ in `R/OPT-phaser.R`;
 the `plot_*()` family — all take the fitted `Rceattle` object returned
 by
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
+
+Before that pipeline runs, a user can assemble or edit the `data_list`
+programmatically and see exactly what a given model needs — see **Data
+assembly and the column schema** below.
 
 ## The switch system
 
@@ -84,29 +88,105 @@ The mappings live in named vectors: `sel_map`, `tv_sel_map`, `q_map`,
 new string name legal; `validate_switches()` rejects anything not
 listed.
 
+## Data assembly and the column schema
+
+A CEATTLE `data_list` has many possible inputs, but any one assessment
+uses only some of them. A few pieces keep that manageable.
+
+**The column schema (`R/0-column_schema.R`) defines every
+`fleet_control` column in one place.** `.rce_column_schema()` records
+each column’s name, type, default value, older accepted spellings, and a
+one-line description. The rest of the package reads the column from
+there, so adding a column means editing this one file:
+
+- [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  fills its default,
+- [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)
+  writes it to the workbook and
+  [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+  reads it back,
+- the meta sheet and the
+  [`?BS2017SS`](https://grantdadams.github.io/Rceattle/reference/BS2017SS.md)
+  field descriptions document it,
+- [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  and
+  [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  refer to it by its current name.
+
+If a column has older accepted spellings, list them in the schema’s
+`aliases` field. Whenever a `data_list` enters the pipeline, an older
+spelling is translated to the current name automatically, so workbooks
+and scripts written against earlier column names keep working
+(`test-schema-canonical.R` checks this).
+
+**[`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)**
+reports, for a given model setup, which inputs that model requires,
+which are optional, and which are ignored — so you can see what a
+configuration needs before fitting rather than hitting a validation
+error partway through.
+
+**[`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+with
+[`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)**
+assembles or edits a `data_list` in R, supplying only the inputs a given
+model uses, and prints the model as a readable outline
+([`print()`](https://rdrr.io/r/base/print.html) /
+[`summary()`](https://rdrr.io/r/base/summary.html)).
+[`write_template()`](https://grantdadams.github.io/Rceattle/reference/write_template.md)
+writes a blank workbook with the right sheets and columns for a chosen
+configuration.
+
+## Run configuration (save / load)
+
+[`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)
+and
+[`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md)
+write and read a run’s full configuration — the model setup plus the
+estimation and uncertainty settings from
+[`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+— as a plain-text YAML file. Each field is commented with its meaning,
+and fields left at their default are omitted, so two saved runs differ
+in the file only where they differ in substance, and the file reviews
+cleanly in version control.
+
+Apply a saved configuration with
+`fit_mod(data_list, config = load_config("run.yaml"))`. It fills in only
+the arguments you did not pass yourself, so an explicit argument always
+takes precedence. Every fit also stores the configuration it ran with,
+available as `run_config(fit)`. Formulas, priors, and nested `build_*()`
+specifications all save and reload, so reopening a saved configuration
+reproduces the same fit.
+
 ## The TMB template
 
-`ceattle_v01_11.cpp` includes these modules (order matches the top of
-the file):
+`ceattle.cpp` includes these modules (order matches the top of the
+file):
 
 | Module | Responsibility |
 |----|----|
 | `helper_functions.hpp` | Shared utilities. |
 | `comp_osa.hpp` | Composition likelihoods and the one-step-ahead (OSA) decomposition. |
 | `growth.hpp` | Growth (von Bertalanffy / Richards); weight- and length-at-age. |
-| `selectivity.hpp` | Selectivity forms (cases 0–7, including the Hake/Taylor non-parametric case 5). |
+| `selectivity.hpp` | Selectivity forms, dispatched by the integer case of the `switch` on `Selectivity` — e.g. logistic (1), double logistic (3), Hake/Taylor non-parametric (5), 2D/3D AR1 (6/7), double-normal (8), NonParametricRPM (9), LogisticPM (11). |
 | `recruitment.hpp` | Stock–recruitment functions. |
 | `bioenergetics.hpp` | Temperature-dependent ration / consumption (`Ceq`). |
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |
 | `diet_data.hpp` | Predator diet (stomach-content) likelihood. |
-| `linkage.hpp` | Environmental / covariate linkage machinery. |
+| `linkage.hpp` | Applies the encoded linkage tables (covariates, time blocks, random effects) to each process’s parameters, and accumulates the linkage priors / RE densities into the likelihood. |
 
 The template opens with the `DATA_*` block (switches such as
 `estimateMode`, `msmMode`, `suitMode`, `initMode`, `srr_fun`, `HCR`,
 plus the data objects), then the `PARAMETER_*` block, then the
 population and observation dynamics, and finally the joint negative
-log-likelihood. The likelihood is accumulated in the `jnll_comp` object,
-organized by species, fleet, and likelihood component.
+log-likelihood. The likelihood is accumulated in the `jnll_comp` matrix
+— rows are likelihood components, columns are species/fleet. Each row is
+addressed by a named constant from the `JnllRow` enum (`JNLL_INDEX`,
+`JNLL_CATCH`, `JNLL_COMP`, … `JNLL_LINKAGE_RE`, with `JNLL_N_ROWS`
+dimensioning the matrix), so a row is referred to by name in the C++
+rather than by a bare integer. The **display names** for those rows live
+separately in `R/6-rename_output.R`; if you add or reorder a row, update
+both the enum and that name vector by hand (they are kept in sync
+manually).
 
 **Building.** `src/TMB/compile.R` compiles the template
 (`framework = "TMBad"`); `TMB` and `RcppEigen` are `LinkingTo`
@@ -116,11 +196,53 @@ CRAN rejects warning-suppressing flags.
 
 ## The linkage and priors system
 
-Time-varying and covariate-driven parameters (M, growth, recruitment,
-catchability, selectivity) share one formula-driven linkage system:
+Every process’s parameters share one formula-driven linkage system:
 `R/0-build_linkage.R`, `R/0-linkage_encode.R`, `R/0-linkage_table.R`,
-and `R/0-priors.R`. `linkage_spec(formula = ~ x, priors = list(...))` is
-the user entry point.
+and `R/0-priors.R`.
+`linkage_spec(formula = ~ x, by = ~ ..., init = , priors = )` is the
+user entry point, attached through the per-process builders:
+
+- [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
+  — recruitment (`R0`, `alpha`, `beta`),
+- [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
+  — natural mortality (`M1`),
+- [`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)
+  — growth (`K`, `L1`, `Linf`, `m`) and the SD endpoints (`sd_L1`,
+  `sd_Linf`),
+- [`build_catchability()`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md)
+  — catchability (`q`),
+- [`build_selectivity()`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md)
+  — selectivity (`slp_asc`, `slp_desc`, `inf_asc`, `inf_desc`, `coff`),
+- [`build_composition()`](https://grantdadams.github.io/Rceattle/reference/build_composition.md)
+  — the Dirichlet-multinomial weights (`theta_comp`, `theta_caal`,
+  `theta_diet`), **prior-only**.
+
+The same formula grammar covers every way a parameter can vary. The
+right-hand side can be a covariate (`~ temp`), a set of time blocks
+(`~ cut(Year, ...)` — the fixed part goes straight to
+[`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html), so there
+is no bespoke block helper), or a year-to-year random effect —
+independent (`~ (1|Year)`), a random walk (`rw(1|Year)`), or first-order
+autoregressive (`ar1(1|Year)`). `~ 1` with a `priors` list leaves the
+parameter at one value but places a prior on it. Use `by =` to say what
+the effect varies over — `by = ~ species + sex + age_bin` for the
+population processes, `by = ~ fleet` for catchability and selectivity.
+
+Placing a **prior** on a selectivity, catchability, or
+composition-weight parameter is the `~ 1` case, keyed by
+`` `(Intercept)` ``, e.g.
+
+``` r
+
+build_selectivity(linkages = list(
+  inf_asc = linkage_spec(~ 1, by = ~ fleet,
+                         priors = list(`(Intercept)` = normal(50, 10)))))
+```
+
+The Dirichlet-multinomial composition weights take a prior only (they
+have no covariate or random-effect form). See
+[`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+for the full grammar.
 
 Note that inside `priors =`, the bare constructors `normal()`,
 `lognormal()`, [`gamma()`](https://rdrr.io/r/base/Special.html),
@@ -138,13 +260,13 @@ and the bare form is intentional — do not “fix” it to
 
 ### Add a new estimated parameter
 
-1.  Declare the `PARAMETER` in `ceattle_v01_11.cpp` and use it in the
-    relevant `.hpp` module.
+1.  Declare the `PARAMETER` in `ceattle.cpp` and use it in the relevant
+    `.hpp` module.
 2.  Add a default starting value in `R/2-build_params.R`.
 3.  Add mapping logic in `R/3-build_map.R` (and the matching
     `build_map_*()` helper) so it is turned on/off for the right
     configurations.
-4.  Add it to the phasing order in `R/OPT-phaser.R`.
+4.  Add it to the phasing order in `R/6-phaser.R`.
 5.  (Optional) expose an on/off or random-effect switch as a
     [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
     argument.
@@ -154,11 +276,42 @@ and the bare form is intentional — do not “fix” it to
 
 ### Add or change a data input
 
-1.  Add the `DATA_*` object in `ceattle_v01_11.cpp` and consume it in
-    the module.
-2.  Update `R/0-read_write_excel_data.R` to read/write the new sheet or
-    column.
-3.  Add validation in `R/1-data_check.R`.
+There are two cases. Follow the one that matches.
+
+**A `fleet_control` column** (e.g. a new per-fleet setting) — add it in
+**one** place, `R/0-column_schema.R`:
+
+1.  Add a row to `.rce_column_schema()` with the column’s canonical
+    name, type, default, any back-compat `aliases`, and its doc string.
+    Everything downstream
+    ([`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+    default-filling,
+    [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)/[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+    ordering, the meta sheet, the field dictionary) reads from the
+    schema, so no other file needs editing to make the column persist
+    and round-trip.
+2.  Consume the column where it matters
+    ([`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md),
+    [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md),
+    or the cpp) by its **canonical** name — aliases are already upgraded
+    on entry.
+3.  If it is a rename of an existing column, put the old spelling in
+    `aliases` and pin it in `test-schema-canonical.R`.
+
+**A whole new `data_list` element** (a new sheet / array, e.g. an index
+covariate):
+
+1.  Add the `DATA_*` object in `ceattle.cpp` and consume it in the
+    module.
+2.  **Add read *and* write support in `R/0-read_write_excel_data.R`.** A
+    new element with no
+    [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md)/[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+    handling round-trips to nothing through the standard xlsx format —
+    the feature is silently lossy. (This is exactly how `index_cov` was
+    lost; it is the single most common data-input bug.)
+3.  Add validation in `R/1-data_check.R` and, if the model needs it, a
+    row in the `data_requirements` table
+    (`R/1-data_requirements_table.R`).
 4.  Add reshaping in `R/5-rearrange_data.R` if TMB needs a different
     layout.
 5.  Document it in `meta_data_names.xlsx` and/or roxygen.
@@ -176,23 +329,24 @@ and the bare form is intentional — do not “fix” it to
 4.  Add bounds in `R/4-build_parameter_bounds.R` if the option
     introduces bounded parameters (see the `suitMode %in% c(1:2)`
     branch).
-5.  Add a test under `tests/testthat/tests-<Area>/`.
+5.  Add a test named `test-<area>-<topic>.R` in `tests/testthat/`.
 6.  Document it.
 
 ### Change the likelihood
 
 The joint negative log-likelihood is assembled at the end of
-`ceattle_v01_11.cpp`, in `jnll_comp`, indexed by species, fleet, and
-component. Add or modify the relevant term there, then recompile and
-re-run the regression tests (below) to confirm the objective changes
-only as intended.
+`ceattle.cpp`, in the `jnll_comp` matrix, addressed by the `JnllRow` row
+constant and the species/fleet column. Add or modify the relevant term
+there, then recompile and re-run the regression tests (below) to confirm
+the objective changes only as intended.
 
 ## Testing
 
-Tests use `testthat` and are grouped by area under `tests/testthat/`:
-`tests-Selectivity/`, `tests-Dynamics/`, `tests-Likelihoods/`,
-`tests-Data-processing/`, `tests-Growth/`, and `tests-Mortality/`.
-Notable fixtures and guards:
+Tests use `testthat` in a flat layout: every file is a top-level
+`test-<area>-<topic>.R` (for example `test-selectivity-logisticpm.R`,
+`test-growth-sd-plus-group.R`, `test-likelihood-index-covariance.R`).
+Shared `helpers-*.R` and `fixtures/` sit alongside them. Notable
+fixtures and guards:
 
 - `tests/testthat/fixtures/fit_baseline.rds` and the golden-`jnll`
   regression test pin the objective-function value so unintended

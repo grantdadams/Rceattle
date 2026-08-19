@@ -2,7 +2,7 @@
 
 Returns the fixed-effect covariance matrix produced by
 [`TMB::sdreport()`](https://rdrr.io/pkg/TMB/man/sdreport.html).
-Random-effect covariance is not returned here — use `object$sdrep` for
+Random-effect covariance is not returned here – use `object$sdrep` for
 the full report.
 
 ## Usage

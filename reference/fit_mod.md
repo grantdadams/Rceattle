@@ -1,7 +1,7 @@
-# This function runs CEATTLE
+# Fit the CEATTLE assessment model
 
-This function estimates population parameters of CEATTLE using maximum
-likelihood in TMB.
+Estimate CEATTLE population parameters by maximum likelihood, and
+optionally project the stock and apply a harvest control rule.
 
 ## Usage
 
@@ -21,6 +21,9 @@ fit_mod(
   recFun = build_srr(),
   M1Fun = build_M1(),
   growthFun = build_growth(),
+  qFun = build_catchability(),
+  selFun = build_selectivity(),
+  compFun = build_composition(),
   msmMode = 0,
   avgnMode = 0,
   initMode = "NonEquilibrium",
@@ -28,6 +31,7 @@ fit_mod(
   suit_styr = NULL,
   suit_endyr = NULL,
   fit_control = NULL,
+  config = NULL,
   ...
 )
 ```
@@ -66,31 +70,32 @@ fit_mod(
 
 - estimateMode:
 
-  0 = Fit the hindcast model and projection with HCR specified via
-  `HCR`. 1 = Fit the hindcast model only (no projection). 2 = Run the
-  projection only with HCR specified via `HCR` given the initial
-  parameters in `inits`. 3 = build only: runs the model through
-  `MakeADFun` but not `nlminb`. The returned `obj` carries the real
-  objective and gradient, so `obj$fn()` / `obj$gr()` are usable for
-  diagnosing a model before committing to a fit. 4 = runs the model
-  through `MakeADFun` and `nlminb` with all parameters mapped out; this
-  is a plumbing smoke test and its objective is a placeholder
-  (`dummy^2`), not a likelihood.
+  What to fit, given as a string alias or the integer code:
+  `"Estimate"` (0) = fit the hindcast model and the HCR projection
+  (`HCR`); `"Hindcast"` (1) = fit the hindcast only (no fitting
+  BRPs/HCR/projection); `"Projection"` (2) = fit the BRPs/HCR/projection
+  only, from the initial parameters in `inits`; `"DebugBuild"` (3) =
+  build through `MakeADFun` but not `nlminb` – the returned `obj`
+  carries the real objective and gradient, so `obj$fn()` / `obj$gr()`
+  are usable for diagnosing a model before committing to a fit;
+  `"DebugOptimize"` (4) = optimize with all parameters mapped out, so
+  the objective is a placeholder (`dummy^2`), not a likelihood. Defaults
+  to `"Estimate"`.
 
 - random_rec:
 
   logical. If TRUE, treats recruitment deviations as random effects
-  using the laplace approximation.The default is FALSE.
+  using the Laplace approximation. The default is FALSE.
 
 - random_q:
 
   logical. If TRUE, treats annual catchability deviations as random
-  effects using the laplace approximation.The default is FALSE.
+  effects using the Laplace approximation. The default is FALSE.
 
 - random_sel:
 
   logical. If TRUE, treats annual selectivity deviations as random
-  effects using the laplace approximation.The default is FALSE.
+  effects using the Laplace approximation. The default is FALSE.
 
 - HCR:
 
@@ -115,27 +120,66 @@ fit_mod(
   The weight-at-age parameterization from
   [`build_growth`](https://grantdadams.github.io/Rceattle/reference/build_growth.md).
 
+- qFun:
+
+  Catchability specification from
+  [`build_catchability`](https://grantdadams.github.io/Rceattle/reference/build_catchability.md),
+  carrying any environmental linkages on q.
+
+- selFun:
+
+  Selectivity specification from
+  [`build_selectivity`](https://grantdadams.github.io/Rceattle/reference/build_selectivity.md),
+  carrying any environmental linkages on selectivity parameters.
+
+- compFun:
+
+  Composition-weighting specification from
+  [`build_composition`](https://grantdadams.github.io/Rceattle/reference/build_composition.md),
+  carrying any priors on the Dirichlet-multinomial weights.
+
 - msmMode:
 
-  The predation mortality functions to used. Defaults to no predation
-  mortality used.
+  The predation-mortality mode, as a string alias or integer code:
+  `"SingleSpecies"` (0, the default, no predation), `"MSVPA"` (1, the
+  Type-II MSVPA predation of Holsman et al. 2015) or `"TypeIIIMSVPA"`
+  (2). Higher integer codes (Kinzey-Punt, Holling forms) are not yet
+  implemented.
 
 - avgnMode:
 
-  The average abundance-at-age approximation to be used for predation
-  mortality equations. 0 (default) is the \\N/Z ( 1 - exp(-Z) )\\, 1 is
-  \\N exp(-Z/2)\\, 2 is \\N\\.
+  The average abundance-at-age approximation used in the
+  predation-mortality equations. Only mode 0, \\N/Z ( 1 - exp(-Z) )\\
+  (the MSVPA form), is currently active; the model always uses it. The
+  alternatives \\N exp(-Z/2)\\ (1) and \\N\\ (2) are not currently
+  implemented and setting them has no effect.
 
 - initMode:
 
-  how the population is initialized. 0 = initial age-structure estimated
-  as free parameters; 1 = equilibrium age-structure estimated out from
-  R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out
-  from R0, mortality (M1), and initial population deviates; 3 =
-  non-equilibrium age-structure estimated out from initial fishing
-  mortality (Finit), R0, mortality (M1), and initial population
-  deviates; 4 = non-equilibrium age-structure version 2 where initial
-  fishing mortality (Finit) scales R0.
+  how the population is initialized, as a string alias or integer code.
+  `"FreeParams"` (0) = initial age-structure estimated as free
+  parameters; `"Equilibrium"` (1) = unfished (Finit = 0) equilibrium
+  age-structure estimated out from R0 + mortality (M1);
+  `"NonEquilibrium"` (2, the default) = non-equilibrium age-structure
+  estimated out from R0, mortality (M1), and initial population
+  deviates; `"FishedNonEquilibrium"` (3) = non-equilibrium age-structure
+  estimated out from initial fishing mortality (Finit), R0, mortality
+  (M1), and initial population deviates;
+  `"FishedNonEquilibriumScaled"` (4) = non-equilibrium age-structure
+  version 2 where initial fishing mortality (Finit) scales R0;
+  `"OffsetEquilibrium"` (5) = unfished (Finit = 0) equilibrium
+  age-structure seeded by the first-year recruitment
+  (`R_init * exp(rec_dev[year 1])`) decayed by residual natural
+  mortality M1, closed with the usual geometric plus group at the
+  maximum age, with initial deviates turned off and no init-dev penalty
+  (the Cole Monnahan / AFSC GOA pollock convention). Mode 5 differs from
+  `"Equilibrium"` by exactly one term: both start from the initial
+  equilibrium recruitment `R_init`, but 5 displaces it by the year-1
+  recruitment deviation. Under a random-about-mean stock-recruit
+  relationship `R_init` equals `R0`; under Beverton-Holt or Ricker it is
+  the equilibrium recruitment implied by the curve. Note the decay uses
+  M1 only, so in multispecies mode predation mortality (M2) does not
+  enter the initial age structure.
 
 - suitMode:
 
@@ -144,19 +188,24 @@ fit_mod(
   length-based gamma suitability, 2 = weight-based gamma suitability, 3
   = length-based lognormal suitability, 4 = weight-based lognormal
   suitability, 5 = length-based normal suitability, 6 = weight-based
-  normal suitability.
+  normal suitability. The length-based modes (1, 3, 5) are not yet
+  implemented and are rejected by
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md);
+  use a weight-based mode (2, 4, 6) or empirical suitability (0).
 
 - suit_styr:
 
-  Integer. The first year used to calculate mean suitability. Defaults
-  to \$styr\$ in \$data_list\$. Used when diet data were sampled from a
-  subset of years.
+  The first year used to calculate mean suitability. A single integer is
+  applied to every predator, or a vector of length `nspp` sets a
+  distinct start year per predator. Defaults to `styr` in `data_list`.
+  Used when diet data were sampled from a subset of years.
 
 - suit_endyr:
 
-  Integer. The last year used to calculate mean suitability. Defaults to
-  \$endyr\$ in \$data_list\$. Used when diet data were sampled from a
-  subset of years.
+  The last year used to calculate mean suitability. A single integer is
+  applied to every predator, or a vector of length `nspp` sets a
+  distinct end year per predator. Defaults to `endyr` in `data_list`.
+  Used when diet data were sampled from a subset of years.
 
 - fit_control:
 
@@ -170,6 +219,19 @@ fit_mod(
   See
   [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
   for the meaning and defaults of each field.
+
+- config:
+
+  (Optional) An `Rceattle_run_config` from
+  [`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md)
+  (or
+  [`run_config()`](https://grantdadams.github.io/Rceattle/reference/run_config.md)).
+  Its stored `model_config` structure and estimation controls
+  (`estimateMode`, `random_rec`/`random_q`/`random_sel`, `suit_styr`/
+  `suit_endyr`, `fit_control`) overlay only the arguments the caller did
+  *not* pass – an explicit argument always wins. `NULL` (default)
+  applies no configuration. Example:
+  `fit_mod(data_list, config = load_config("run.yaml"))`.
 
 - ...:
 
@@ -238,10 +300,6 @@ ss_run <- fit_mod(
   msmMode      = 0,
   fit_control  = fit_control(phase = FALSE, verbose = 0)
 )
-#> 'Diet_loglike' are not included in data, assuming 'Multinomial'
-#> 'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'
-#> 'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'
-#> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 # }
 ```

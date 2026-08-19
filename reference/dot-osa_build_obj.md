@@ -12,7 +12,7 @@ every observation type.
 ## Usage
 
 ``` r
-.osa_build_obj(fit, osa_dat = NULL)
+.osa_build_obj(fit, osa_dat = NULL, force = FALSE)
 ```
 
 ## Arguments
@@ -27,6 +27,12 @@ every observation type.
   [`build_osa_data()`](https://grantdadams.github.io/Rceattle/reference/build_osa_data.md)
   with `build_osa = TRUE`) to reuse instead of rebuilding it. `NULL`
   (the default) rebuilds it from `fit$obj$env$data`.
+
+- force:
+
+  Build a new object even when `fit` is already in OSA mode, where this
+  otherwise returns `fit$obj` itself. The retry after a failed parallel
+  one-step-ahead loop needs a genuinely new one.
 
 ## Value
 

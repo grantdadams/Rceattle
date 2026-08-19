@@ -1,13 +1,13 @@
 # 4. Projections and reference points
 
-Once a model has been estimated, Rceattle can project the population
-forward under alternative fishing mortality scenarios and recruitment
-assumptions. This vignette covers:
+Once a model is fitted, Rceattle can project the stock forward under
+alternative fishing mortality and recruitment assumptions. This vignette
+covers:
 
 - Fixed-F projections (including mean historical F)
 - Manual and stochastic recruitment in the projection period
 - Random recruitment effects
-- Visualising projection uncertainty across scenarios
+- Visualizing projection uncertainty across scenarios
 
 ## Setup
 
@@ -52,17 +52,17 @@ ms_run <- fit_mod(
 
 ## Fixed-F projections
 
-`estimateMode = 2` runs only the projection period (holding all
-estimated parameters fixed) under a specified harvest control rule.
+`estimateMode = 2` runs the projection period only, holding all
+estimated parameters fixed, under a specified harvest control rule.
 `build_hcr(HCR = 2, Ftarget = ...)` sets a constant F for each species.
 
-The `proj_F_prop` column in `fleet_control` controls how projected F is
-split across fleets when there are multiple fisheries targeting the same
-species (values must sum to 1 per species).
+When several fisheries target the same species, the `Proj_F_proportion`
+column in `fleet_control` splits projected F across those fleets. The
+values must sum to 1 per species.
 
 ``` r
 
-BS2017MS$fleet_control$proj_F_prop <- 1  # One fishery fleet per species
+BS2017MS$fleet_control$Proj_F_proportion <- 1  # One fishery fleet per species
 
 ms_run_proj <- fit_mod(
   data_list    = BS2017MS,
@@ -85,11 +85,10 @@ plot_catch(ms_run_proj, incl_proj = TRUE)
 
 ### Manual recruitment deviations
 
-Projection recruitment deviations are stored in the parameter list and
-can be replaced directly before a forward-projection run.
-`estimateMode = 3` evaluates the model without re-estimating any
-parameters, so only the updated recruitment deviations affect the
-projection.
+Projection recruitment deviations live in the parameter list, so you can
+overwrite them directly before projecting. `estimateMode = 3` evaluates
+the model without re-estimating anything, so only the updated deviations
+change the projection.
 
 ``` r
 
@@ -155,9 +154,9 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 ## Random recruitment effects
 
 Setting `random_rec = TRUE` treats log-recruitment deviations as random
-effects marginalised via the Laplace approximation rather than as
-penalised fixed effects. This propagates process uncertainty into
-projections automatically.
+effects, marginalized via the Laplace approximation, rather than as
+penalized fixed effects. This carries recruitment process uncertainty
+through into the projections.
 
 ``` r
 
@@ -193,12 +192,12 @@ for full parameter details.
 | Value | String | Description | Multi-species? |
 |----|----|----|----|
 | 0 | `"NoFishing"` | No fishing — estimate hindcast only | Yes |
-| 1 | `"CMSY"` | CMSY: maximise catch across all species (can constrain depletion ≥ `Plimit`) | Yes |
+| 1 | `"CMSY"` | CMSY: maximize catch across all species (can constrain depletion ≥ `Plimit`) | Yes |
 | 2 | `"ConstantF"` | Constant F set at `Ftarget` for each species | Yes |
 | 3 | `"ConstantFSSB"` | F that achieves `Ftarget`% of SSB₀ at the end of the projection | Yes |
 | 4 | `"ConstantFSPR"` | Constant F_SPR set at `Ftarget`; can be scaled by `Fmult` (NEFSC convention) | No |
 | 5 | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Plimit`, `Alpha`) | No |
-| 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
+| 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Flimit`, `Ptarget`, `Plimit`, `Pstar`, `Sigma`; 40-10 needs `Ptarget = 0.40`, `Plimit = 0.10`) | Yes |
 | 7 | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
 
 ``` r

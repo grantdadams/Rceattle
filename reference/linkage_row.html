@@ -11,7 +11,7 @@ incremental table assembly."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,7 +55,7 @@ incremental table assembly."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Build a single linkage row</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-linkage_table.R" class="external-link"><code>R/0-linkage_table.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-linkage_table.R" class="external-link"><code>R/0-linkage_table.R</code></a></small>
       <div class="d-none name"><code>linkage_row.Rd</code></div>
     </div>
 
@@ -74,6 +74,7 @@ incremental table assembly.</p>
 <span>  species <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
 <span>  sex <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
 <span>  age_bin <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
+<span>  fleet <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
 <span>  design_col <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
 <span>  link <span class="op">=</span> <span class="st">"identity"</span>,</span>
 <span>  init <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -84,7 +85,24 @@ incremental table assembly.</p>
 <span>  prior_p1 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
 <span>  prior_p2 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
 <span>  re_group <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
-<span>  est_phase <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  re_struct <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
+<span>  est_phase <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  re_index <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
+<span>  sigma_index <span class="op">=</span> <span class="cn">NA_integer_</span>,</span>
+<span>  re_time <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_sigma_init <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_sigma_prior_family <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
+<span>  re_sigma_prior_p1 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_sigma_prior_p2 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_rho_init <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_rho_prior_family <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
+<span>  re_rho_prior_p1 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_rho_prior_p2 <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_obs_value <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_obs_sd <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
+<span>  re_obs_est <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>  re_integrate <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>  re_pos <span class="op">=</span> <span class="cn">NA_integer_</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -96,8 +114,10 @@ incremental table assembly.</p>
 <dd><p>required identifying fields.</p></dd>
 
 
-<dt id="arg-species-sex-age-bin">species, sex, age_bin<a class="anchor" aria-label="anchor" href="#arg-species-sex-age-bin"></a></dt>
-<dd><p>stratum ids; <code>NA</code> = shared across the dimension.</p></dd>
+<dt id="arg-species-sex-age-bin-fleet">species, sex, age_bin, fleet<a class="anchor" aria-label="anchor" href="#arg-species-sex-age-bin-fleet"></a></dt>
+<dd><p>stratum ids; <code>NA</code> = shared across the
+dimension. <code>fleet</code> is a 1-based <code>Fleet_code</code>, used by catchability and
+selectivity linkages; the process-level linkages leave it <code>NA</code>.</p></dd>
 
 
 <dt id="arg-design-col">design_col<a class="anchor" aria-label="anchor" href="#arg-design-col"></a></dt>
@@ -129,8 +149,54 @@ incremental table assembly.</p>
 <dd><p>random-effect grouping label; <code>NA</code> = fixed.</p></dd>
 
 
+<dt id="arg-re-struct">re_struct<a class="anchor" aria-label="anchor" href="#arg-re-struct"></a></dt>
+<dd><p>random-effect covariance structure (<code>"us"</code>/<code>"rw"</code>/<code>"ar1"</code>);
+<code>NA</code> = fixed.</p></dd>
+
+
 <dt id="arg-est-phase">est_phase<a class="anchor" aria-label="anchor" href="#arg-est-phase"></a></dt>
 <dd><p>estimation phase ordinal; <code>0</code> = fix at <code>init</code>.</p></dd>
+
+
+<dt id="arg-re-index-sigma-index-re-time">re_index, sigma_index, re_time<a class="anchor" aria-label="anchor" href="#arg-re-index-sigma-index-re-time"></a></dt>
+<dd><p>random-effect registry fields filled by
+<code><a href="pool_linkages.html">pool_linkages()</a></code>; <code>NA</code> on fixed rows. <code>re_index</code> is the 0-based slot in
+<code>beta_linkage_re</code>, <code>sigma_index</code> the 0-based slot in <code>log_sigma_linkage</code>,
+and <code>re_time</code> the numeric grouping value used to order <code>rw()</code>/<code>ar1()</code>
+deviations in real elapsed time.</p></dd>
+
+
+<dt id="arg-re-sigma-init-re-sigma-prior-family-re-sigma-prior-p-re-sigma-prior-p-">re_sigma_init, re_sigma_prior_family, re_sigma_prior_p1, re_sigma_prior_p2<a class="anchor" aria-label="anchor" href="#arg-re-sigma-init-re-sigma-prior-family-re-sigma-prior-p-re-sigma-prior-p-"></a></dt>
+<dd><p>per-group RE-SD routing from <code>linkage_spec(init = list(sigma = ), priors = list(sigma = ))</code>; identical across a group's rows, <code>NA</code> on fixed rows.
+<code>re_sigma_init</code> is the start (or, when supplied without a prior, fixed) SD
+on the natural scale; the prior triple places a prior on that SD.</p></dd>
+
+
+<dt id="arg-re-rho-init-re-rho-prior-family-re-rho-prior-p-re-rho-prior-p-">re_rho_init, re_rho_prior_family, re_rho_prior_p1, re_rho_prior_p2<a class="anchor" aria-label="anchor" href="#arg-re-rho-init-re-rho-prior-family-re-rho-prior-p-re-rho-prior-p-"></a></dt>
+<dd><p>per-group <code>ar1</code> correlation routing from <code>linkage_spec(init = list(rho = ), priors = list(rho = ))</code>; natural <code>(-1, 1)</code> scale, <code>NA</code> on non-<code>ar1</code> rows.</p></dd>
+
+
+<dt id="arg-re-obs-value-re-obs-sd">re_obs_value, re_obs_sd<a class="anchor" aria-label="anchor" href="#arg-re-obs-value-re-obs-sd"></a></dt>
+<dd><p>state-space (Rogers QAR1) observation from
+<code>linkage_spec(observe = , obs_sd = )</code>: the observed covariate value at this
+row's time and the fixed measurement SD. <code>NA</code> when the group is unobserved.</p></dd>
+
+
+<dt id="arg-re-obs-est">re_obs_est<a class="anchor" aria-label="anchor" href="#arg-re-obs-est"></a></dt>
+<dd><p><code>TRUE</code> to estimate the QAR1 measurement SD; <code>FALSE</code>/<code>NA</code>
+holds it fixed.</p></dd>
+
+
+<dt id="arg-re-integrate">re_integrate<a class="anchor" aria-label="anchor" href="#arg-re-integrate"></a></dt>
+<dd><p><code>FALSE</code> when the deviations are estimated as a penalized
+fixed effect rather than integrated out by the Laplace approximation, from
+<code>linkage_spec(integrate = FALSE)</code>. <code>TRUE</code>/<code>NA</code> = integrated.</p></dd>
+
+
+<dt id="arg-re-pos">re_pos<a class="anchor" aria-label="anchor" href="#arg-re-pos"></a></dt>
+<dd><p>0-based position of this row's deviation within the parameter
+vector that holds it (<code>beta_linkage_re</code> when <code>re_integrate</code>, else
+<code>beta_linkage_re_pen</code>). Distinct from <code>re_index</code>, which is the global slot.</p></dd>
 
 </dl></div>
     <div class="section level2">

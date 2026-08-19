@@ -8,7 +8,3 @@ codes never shift.
 ``` r
 LINKAGE_PROCESS_CODES
 ```
-
-## Format
-
-An object of class `integer` of length 5.

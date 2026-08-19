@@ -13,8 +13,8 @@ data object without Excel* vignette). Capabilities include:
   (`msmMode > 0`) configurations, with one- or two-sex population
   dynamics
 - **One or multiple stocks** can be fit jointly.
-- **Multiple fisheries and surveys** with flexible **catchability** and
-  **selectivity** parameterizations (logistic, double-logistic,
+- **Multiple fisheries and surveys** with a range of **catchability**
+  and **selectivity** parameterizations (logistic, double-logistic,
   non-parametric, time-varying, etc)
 - **Stock–recruitment** options (Beverton–Holt, Ricker,
   mean-recruitment, environmentally-driven)

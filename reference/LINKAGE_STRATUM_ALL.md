@@ -9,7 +9,3 @@ The TMB template expands these by iterating over `1:nspp` / `1:nsex` /
 ``` r
 LINKAGE_STRATUM_ALL
 ```
-
-## Format
-
-An object of class `integer` of length 1.

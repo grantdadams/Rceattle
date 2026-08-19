@@ -31,6 +31,7 @@ plot_timeseries(
   mse = FALSE,
   OM = TRUE,
   reference = NULL,
+  zero_y = FALSE,
   mod_avg = rep(FALSE, length(Rceattle))
 )
 ```
@@ -48,7 +49,8 @@ plot_timeseries(
 
 - ylab:
 
-  Y-axis label
+  Y-axis label. `NULL` (default) derives one from `output` and the
+  model's `minage`.
 
 - file:
 
@@ -72,7 +74,8 @@ plot_timeseries(
 
 - add_ci:
 
-  If the confidence interval is to be added
+  If the confidence interval is to be added (see Details for how it is
+  constructed)
 
 - lwd:
 
@@ -140,6 +143,12 @@ plot_timeseries(
 
   Reference model
 
+- zero_y:
+
+  Anchor the y-axis at zero. TRUE for the absolute series (biomass, SSB,
+  recruitment), where a truncated axis exaggerates change; FALSE for the
+  depletions, which are already on a relative scale.
+
 - mod_avg:
 
   TRUE/FALSE
@@ -147,3 +156,33 @@ plot_timeseries(
 ## Value
 
 Returns and saves a figure with the population trajectory.
+
+## Units
+
+The model carries numbers-at-age in **thousands** and weight-at-age in
+**kg**, so every biomass series (`biomass`, `ssb`,
+`exploitable_biomass`) comes out of the model in **mt** and recruitment
+comes out in **thousands of fish**. For display these are divided by 1e6
+(million mt) and 1e3 (millions of recruits) respectively; depletion is a
+ratio and is not rescaled. Supply the model's inputs on that convention
+– catch and index in mt, weight-at-age in kg – or the axis labels will
+not describe what is plotted.
+
+## Confidence intervals
+
+`add_ci = TRUE` draws a 95% interval. Every strictly positive series
+takes it on the log scale as `exp(log(x) +/- qnorm(0.975) * sd_log)`.
+These quantities are built multiplicatively, so `log(x)` is close to
+linear in the estimated parameters where `x` is exponential in them: the
+interval is both a better linearization and right-skewed, and it cannot
+cross zero the way a symmetric natural-scale interval does for weak year
+classes and depleted stocks.
+
+`sd_log` comes from the model's own `log_biomass` / `log_ssb` / `log_R`
+where those are reported, and is otherwise recovered as `sd(x) / x` –
+the delta method's own identity, which matches the reported values to
+machine precision. That covers `exploitable_biomass` and the two
+depletions, which cannot be reported on the log scale
+(`exploitable_biomass` is identically 0 without projection F), and
+models fit before the `log_*` series existed. A non-positive or
+unreported value keeps the symmetric interval.

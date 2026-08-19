@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,7 +56,7 @@
     <div class="section level2">
       <h2 id="data-input-output">Data input / output<a class="anchor" aria-label="anchor" href="#data-input-output"></a></h2>
 
-      <div class="section-desc"><p>Read, write, and manipulate Rceattle data lists.</p></div>
+      <div class="section-desc"><p>Read, write, build, and manipulate Rceattle data lists.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -64,6 +64,27 @@
 
 
       <dl><dt>
+
+          <code><a href="build_data.html">build_data()</a></code>
+
+        </dt>
+        <dd>Build an Rceattle data list in R</dd>
+
+        <dt>
+
+          <code><a href="data_requirements.html">data_requirements()</a></code>
+
+        </dt>
+        <dd>Report which data inputs a model configuration requires</dd>
+
+        <dt>
+
+          <code><a href="model_config.html">model_config()</a></code>
+
+        </dt>
+        <dd>Build a model-configuration slot for a data list</dd>
+
+        <dt>
 
           <code><a href="read_data.html">read_data()</a></code>
 
@@ -75,21 +96,28 @@
           <code><a href="write_data.html">write_data()</a></code>
 
         </dt>
-        <dd>Write data file</dd>
+        <dd>Write a data list to a CEATTLE xlsx workbook</dd>
+
+        <dt>
+
+          <code><a href="write_template.html">write_template()</a></code>
+
+        </dt>
+        <dd>Write a minimal starter CEATTLE data workbook</dd>
 
         <dt>
 
           <code><a href="clean_data.html">clean_data()</a></code>
 
         </dt>
-        <dd>Function to clean data prior to Rceattle runs</dd>
+        <dd>Default-fill and tidy a data list before fitting</dd>
 
         <dt>
 
           <code><a href="combine_data.html">combine_data()</a></code>
 
         </dt>
-        <dd>Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.</dd>
+        <dd>Combine two Rceattle data lists</dd>
 
         <dt>
 
@@ -97,13 +125,6 @@
 
         </dt>
         <dd>Rearrange a data_list for TMB</dd>
-
-        <dt>
-
-          <code><a href="data_check.html">data_check()</a></code>
-
-        </dt>
-        <dd>Function to check data for errors. Does not update the data set!</dd>
       </dl></div><div class="section level2">
       <h2 id="model-setup">Model setup<a class="anchor" aria-label="anchor" href="#model-setup"></a></h2>
 
@@ -140,7 +161,7 @@
           <code><a href="build_M1.html">build_M1()</a></code>
 
         </dt>
-        <dd>Define M1 specifications</dd>
+        <dd>Specify the residual natural mortality (M1) model for Rceattle</dd>
 
         <dt>
 
@@ -155,6 +176,27 @@
 
         </dt>
         <dd>Specify the stock-recruit relationship (SRR) for Rceattle</dd>
+
+        <dt>
+
+          <code><a href="build_selectivity.html">build_selectivity()</a></code>
+
+        </dt>
+        <dd>Selectivity specification</dd>
+
+        <dt>
+
+          <code><a href="build_catchability.html">build_catchability()</a></code>
+
+        </dt>
+        <dd>Catchability specification</dd>
+
+        <dt>
+
+          <code><a href="build_composition.html">build_composition()</a></code>
+
+        </dt>
+        <dd>Composition-weighting specification</dd>
 
         <dt>
 
@@ -183,6 +225,36 @@
 
         </dt>
         <dd>Capture a linkage specification</dd>
+      </dl></div><div class="section level2">
+      <h2 id="run-configuration">Run configuration<a class="anchor" aria-label="anchor" href="#run-configuration"></a></h2>
+
+      <div class="section-desc"><p>Save, load, and inspect the full model + estimation setup as a YAML run configuration.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="save_config.html">save_config()</a></code>
+
+        </dt>
+        <dd>Save a model run configuration to a documented YAML file</dd>
+
+        <dt>
+
+          <code><a href="load_config.html">load_config()</a></code>
+
+        </dt>
+        <dd>Load a model run configuration from a YAML file</dd>
+
+        <dt>
+
+          <code><a href="run_config.html">run_config()</a></code>
+
+        </dt>
+        <dd>Extract the run configuration from a fit, data list, or config object</dd>
       </dl></div><div class="section level2">
       <h2 id="map-helpers">Map helpers<a class="anchor" aria-label="anchor" href="#map-helpers"></a></h2>
 
@@ -277,21 +349,28 @@
           <code><a href="fit_mod.html">fit_mod()</a></code>
 
         </dt>
-        <dd>This function runs CEATTLE</dd>
+        <dd>Fit the CEATTLE assessment model</dd>
+
+        <dt>
+
+          <code><a href="reweight_comps.html">reweight_comps()</a></code>
+
+        </dt>
+        <dd>Iteratively reweight composition data (McAllister-Ianelli)</dd>
 
         <dt>
 
           <code><a href="set_phases.html">set_phases()</a></code>
 
         </dt>
-        <dd>Function to set phasing order</dd>
+        <dd>Default phasing order for CEATTLE parameters</dd>
 
         <dt>
 
           <code><a href="TMBphase.html">TMBphase()</a></code>
 
         </dt>
-        <dd>Run TMB using phases</dd>
+        <dd>Run TMB with ADMB-style phased estimation</dd>
 
         <dt>
 
@@ -312,7 +391,7 @@
           <code><a href="rename_output.html">rename_output()</a></code>
 
         </dt>
-        <dd>Function to rename derived quantities from Rceattle</dd>
+        <dd>Label the derived quantities reported by a CEATTLE fit</dd>
       </dl></div><div class="section level2">
       <h2 id="projections-and-mse">Projections and MSE<a class="anchor" aria-label="anchor" href="#projections-and-mse"></a></h2>
 
@@ -335,14 +414,14 @@
           <code><a href="load_mse.html">load_mse()</a></code>
 
         </dt>
-        <dd>Function to load .RDs files from MSE runs</dd>
+        <dd>Load saved MSE simulation runs</dd>
 
         <dt>
 
           <code><a href="check_mse.html">check_mse()</a></code>
 
         </dt>
-        <dd>Function to load .RDs files from MSE runs</dd>
+        <dd>Check which saved MSE simulation files can be loaded</dd>
 
         <dt>
 
@@ -363,7 +442,7 @@
           <code><a href="sample_rec.html">sample_rec()</a></code>
 
         </dt>
-        <dd>Sample historical recruitment deviates and place in the projection</dd>
+        <dd>Sample historical recruitment deviations into the projection</dd>
       </dl></div><div class="section level2">
       <h2 id="diagnostics-and-simulation">Diagnostics and simulation<a class="anchor" aria-label="anchor" href="#diagnostics-and-simulation"></a></h2>
 
@@ -428,7 +507,7 @@
           <code><a href="self_test.html">self_test()</a></code>
 
         </dt>
-        <dd>Self test simulation analysis analysis</dd>
+        <dd>Self-test simulation analysis</dd>
 
         <dt>
 
@@ -501,13 +580,6 @@
 
         </dt>
         <dd>Plot exploitable biomass</dd>
-
-        <dt>
-
-          <code><a href="plot_ssb_depletion.html">plot_ssb_depletion()</a></code>
-
-        </dt>
-        <dd>Plot SSB depletion (deprecated name)</dd>
       </dl></div><div class="section level2">
       <h2 id="plotting-fishing-and-natural-mortality">Plotting — fishing and natural mortality<a class="anchor" aria-label="anchor" href="#plotting-fishing-and-natural-mortality"></a></h2>
 
@@ -633,6 +705,20 @@
 
         </dt>
         <dd>Plot diet composition fits</dd>
+
+        <dt>
+
+          <code><a href="plot_diet_comp1.html">plot_diet_comp1()</a></code>
+
+        </dt>
+        <dd>Plot diet composition fits (bubble/grid diagnostic)</dd>
+
+        <dt>
+
+          <code><a href="plot_diet_comp2.html">plot_diet_comp2()</a></code>
+
+        </dt>
+        <dd>Plot diet composition fits (aggregation-aware)</dd>
 
         <dt>
 
@@ -817,6 +903,13 @@
 
         <dt>
 
+          <code><a href="print.Rceattle_data.html">print(<i>&lt;Rceattle_data&gt;</i>)</a></code> <code><a href="print.Rceattle_data.html">summary(<i>&lt;Rceattle_data&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for an Rceattle data list</dd>
+
+        <dt>
+
           <code><a href="switch_check.html">switch_check()</a></code>
 
         </dt>
@@ -842,13 +935,6 @@
 
         </dt>
         <dd>Make a vector of colors.</dd>
-
-        <dt>
-
-          <code><a href="t_col.html">t_col()</a></code>
-
-        </dt>
-        <dd>Make a transparent colour</dd>
 
         <dt>
 
@@ -919,6 +1005,29 @@
 
         </dt>
         <dd>Normal prior on a linkage coefficient</dd>
+      </dl></div><div class="section level2">
+      <h2 id="deprecated">Deprecated<a class="anchor" aria-label="anchor" href="#deprecated"></a></h2>
+
+      <div class="section-desc"><p>Superseded functions kept for backward compatibility. They still work but emit a deprecation message; use the named replacement in new code.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="plot_logindex.html">plot_logindex()</a></code>
+
+        </dt>
+        <dd>Survey index fits on the log scale (deprecated)</dd>
+
+        <dt>
+
+          <code><a href="plot_ssb_depletion.html">plot_ssb_depletion()</a></code>
+
+        </dt>
+        <dd>Plot SSB depletion (deprecated name)</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

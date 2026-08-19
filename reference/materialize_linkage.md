@@ -33,7 +33,11 @@ materialize_linkage(spec, process, env_data, strata = list())
   named in `spec$by`. For example, for `by = ~species` the user must
   supply `strata = list(species = 1:3)`. Each element should be a
   1-based integer vector of stratum ids. Allowed names are `"species"`,
-  `"sex"`, and `"age_bin"`.
+  `"sex"`, `"age_bin"`, and `"fleet"`. The `species` and `fleet` vectors
+  may additionally be *named* with the model's own labels
+  (`data_list$spnames` / `fleet_control$Fleet_name`); those labels are
+  what a spec built with `linkage_spec(fleet = "Shelikof")` is resolved
+  against. Without them, such a spec errors – ids always work.
 
 ## Value
 
@@ -46,8 +50,8 @@ An `Rceattle_linkage_table` with one row per coefficient.
 - stratum implied by `spec$by` (e.g. one per species when
   `by = ~species`).
 
-The `X_col` column is initially set to a *local* column index into the
-per-spec design matrix; it is the caller's responsibility (in
-[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)'s
-pooling step) to remap these to global column indices once all specs
-have been combined into a single shared `X` matrix.
+The `X_col` column starts as a *local* column index into the per-spec
+design matrix; the caller
+([`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)'s
+pooling step) remaps these to global column indices once all specs have
+been combined into a single shared `X` matrix.

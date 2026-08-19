@@ -18,6 +18,11 @@ applied.
 
   Time-varying selectivity structure (`fleet_control$Time_varying_sel`).
 
+- `sel_norm_scope_map`:
+
+  Whether selectivity normalization pools its reference across sexes
+  (`fleet_control$Sel_norm_scope`).
+
 - `q_map`:
 
   Catchability form (`fleet_control$Catchability`).
@@ -28,8 +33,8 @@ applied.
 
 - `comp_loglike_map`:
 
-  Composition likelihood (`fleet_control$Comp_loglike` and
-  `CAAL_loglike`).
+  Composition likelihood (`fleet_control$Comp_distribution` and
+  `CAAL_distribution`).
 
 - `fleet_map`:
 

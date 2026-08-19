@@ -17,7 +17,7 @@ have populated data_list."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ have populated data_list."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Pool a collection of linkage specs into a global table + design matrix</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-build_linkage.R" class="external-link"><code>R/0-build_linkage.R</code></a></small>
       <div class="d-none name"><code>pool_linkages.Rd</code></div>
     </div>
 
@@ -98,7 +98,10 @@ formulas).</p></dd>
 
 <dt id="arg-strata">strata<a class="anchor" aria-label="anchor" href="#arg-strata"></a></dt>
 <dd><p>named list of stratum-level integer vectors, e.g.
-<code>list(species = 1:nspp, sex = 1:nsex)</code>.</p></dd>
+<code>list(species = 1:nspp, sex = 1:nsex)</code>. <code><a href="fit_mod.html">fit_mod()</a></code> names the <code>species</code>
+and <code>fleet</code> vectors with <code>data_list$spnames</code> /
+<code>fleet_control$Fleet_name</code>, which is how a spec that selects a species or
+fleet by name is resolved to an id.</p></dd>
 
 </dl></div>
     <div class="section level2">

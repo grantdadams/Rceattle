@@ -1,15 +1,20 @@
 # 2. HCRs and MSEs: an introduction
 
-### Fitting OMs
+### Fitting the operating model
 
-An example MSE using the northern rockfish stock assessment.
+A management strategy evaluation (MSE) runs a management strategy in
+closed loop: an operating model (OM) represents the “true” stock and
+generates data, an estimation model (EM) is fitted to that data and
+applies a harvest control rule (HCR), and the resulting catch feeds back
+into the OM. This example uses the northern rockfish assessment as the
+OM.
 
 ``` r
 
 library(Rceattle)
 data("NorthernRockfish2022")
 nrdata <- NorthernRockfish2022
-nrdata$fleet_control$proj_F_prop <- 1
+nrdata$fleet_control$Proj_F_proportion <- 1
 
 om <- Rceattle::fit_mod(
   data_list = nrdata,
@@ -32,12 +37,19 @@ om <- Rceattle::fit_mod(
 
 ------------------------------------------------------------------------
 
-### Fitting EMs (Tier 3 HCR)
+### Fitting the estimation model (Tier 3 HCR)
 
-We can use the `HCR = build_hcr()` argument in `fit_mod` to specify the
-HCR and BRPs of our management strategy. A variety of HCRs and BRPs are
-included and can be found by
-[`?build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md).
+The `HCR = build_hcr()` argument to
+[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+sets the harvest control rule and its biological reference points
+(BRPs). Here we use the NPFMC Tier 3 rule: fishing at F40%, the maxFABC
+rate (an Amendment-56 SPR proxy for FMSY), with an F35% overfishing
+limit (FOFL). Below the B40% target, F is ramped down linearly, reaching
+zero when spawning-stock biomass falls to `Alpha = 0.05` of that target.
+`Plimit = 0.2` is a separate shutoff: fishing stops when the stock is
+assessed as overfished relative to 20% of unfished SSB. See
+[`?build_hcr`](https://grantdadams.github.io/Rceattle/reference/build_hcr.md)
+for the available rules and reference points.
 
 ``` r
 
@@ -67,7 +79,13 @@ em <- Rceattle::fit_mod(
 
 ------------------------------------------------------------------------
 
-### Running MSEs
+### Running the MSE
+
+[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+runs the closed loop: it projects the OM, samples data on the schedule
+you specify, re-fits the EM every `assessment_period` years, and applies
+the EM’s HCR back to the OM. `nsim` sets the number of stochastic
+trajectories.
 
 ``` r
 
@@ -110,7 +128,10 @@ exact same trajectories from the same package tag.
 
 ------------------------------------------------------------------------
 
-### Evaluating MSEs via plots
+### Evaluating the MSE with plots
+
+Plotting the OM’s spawning-biomass depletion across simulations shows
+the range of stock trajectories the strategy produces.
 
 ``` r
 
@@ -135,6 +156,10 @@ plot_depletionSSB(
 
 ### Summary statistics
 
+[`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+reduces the trajectories to performance statistics for comparing
+strategies.
+
 ``` r
 
 mse_summ <- mse_summary(mse1)
@@ -145,9 +170,17 @@ knitr::kable(mse_summ, digits = 2)
 
 ## Alternative scenarios
 
+The runs below vary one element of the strategy at a time — the
+reference points, the survey frequency, the assessment interval, or the
+environment — so their performance statistics can be compared against
+`mse1`.
+
 ------------------------------------------------------------------------
 
-### Different BRPs
+### Different reference points
+
+Here the EM uses a more aggressive rule (F30% target, F10% limit, and
+`Plimit = 0`, i.e. no SSB cutoff) to contrast with the Tier 3 run above.
 
 ``` r
 
@@ -184,7 +217,11 @@ mse2 <- run_mse(
 
 ------------------------------------------------------------------------
 
-### Triannual BTS
+### Triennial bottom-trawl survey
+
+`sampling_period = c(1, 3)` samples the fishery every year but the
+bottom-trawl survey (BTS) only every third year, testing the cost of a
+sparser survey.
 
 ``` r
 
@@ -198,7 +235,13 @@ mse3 <- run_mse(
 
 ------------------------------------------------------------------------
 
-### 4-year cycle and 50% sampling
+### 4-year assessment cycle and reduced survey coverage
+
+Here the EM is re-fitted only every fourth year
+(`assessment_period = 4`) and `fut_sample = 0.5` halves future sampling
+effort on both data streams: composition sample sizes are halved and the
+index log-SD is doubled (`Log_sd * 1 / fut_sample`). A lower-cost
+monitoring scenario.
 
 ``` r
 
@@ -213,9 +256,14 @@ mse4 <- run_mse(
 
 ------------------------------------------------------------------------
 
-### Climate MSE
+### Climate-linked MSE
 
-#### Climate linked OM
+To test a strategy under environmental change, link a process in the OM
+to a covariate. Here recruitment (via `R0`) tracks a steadily rising
+environmental index, so the OM’s productivity shifts over time while the
+EM keeps assuming stationary recruitment.
+
+#### Climate-linked OM
 
 ``` r
 
@@ -271,6 +319,9 @@ mse5 <- run_mse(
 ------------------------------------------------------------------------
 
 ## Overall summary
+
+Tagging each summary with an `MSE` label and stacking them puts the
+strategies side by side in one table.
 
 ``` r
 

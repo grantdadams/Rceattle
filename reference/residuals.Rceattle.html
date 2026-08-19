@@ -15,7 +15,7 @@ age-at-length (caal); use source to restrict to particular ones."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,7 +59,7 @@ age-at-length (caal); use source to restrict to particular ones."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Residuals from an Rceattle fit</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-rceattle_class.R" class="external-link"><code>R/0-rceattle_class.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-rceattle_class.R" class="external-link"><code>R/0-rceattle_class.R</code></a></small>
       <div class="d-none name"><code>residuals.Rceattle.Rd</code></div>
     </div>
 
@@ -125,7 +125,9 @@ argument of <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>data.frame</code> with columns <code>Source</code>, <code>Fleet_code</code>, <code>Fleet_name</code>,
 <code>Species</code>, <code>Sex</code>, <code>Year</code>, <code>Length</code>, <code>Bin</code>, <code>Age0_Length1</code>, <code>Sample_size</code>,
-<code>Observed</code>, <code>Fitted</code>, <code>Residual</code>. Columns are <code>NA</code> where they do not apply.</p>
+<code>Accumulated</code>, <code>Observed</code>, <code>Fitted</code>, <code>Residual</code>. Columns are <code>NA</code> where they
+do not apply; <code>Accumulated</code> is <code>FALSE</code> except on a composition bin that
+absorbed a folded tail.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -156,6 +158,13 @@ model's random-effect deviations; <code>source</code> does not apply.</p></dd>
 </dl><p>Composition rows are returned in long form (one row per observation x
 age/length bin) and carry the <code>Age0_Length1</code> flag from <code>comp_data</code> (<code>0</code> age,
 <code>1</code> length); CAAL rows carry both the conditioning <code>Length</code> and the age <code>Bin</code>.</p>
+<p>Where a fleet uses tail accumulation (<code>Comp_accum_young</code> /
+<code>Comp_accum_old</code>), composition residuals describe the bins the likelihood
+actually fit: the tails are folded into their boundary bin and the bins
+outside the window are not reported, because the model never fit them
+separately. <code>Bin</code> names the age or length each residual belongs to and
+<code>Accumulated</code> marks the boundary bins, which stand for a range rather than
+the single bin they are named for. Fleets without accumulation are unchanged.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

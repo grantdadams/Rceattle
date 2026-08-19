@@ -30,9 +30,11 @@ A named list with components:
   `integer(1)`. Number of coefficients (`nrow(table)`).
 
 - linkage_process, linkage_param, linkage_species, linkage_sex,
-  linkage_age_bin, linkage_X_col, linkage_link, linkage_prior_family:
+  linkage_age_bin, linkage_fleet, linkage_X_col, linkage_link,
+  linkage_re_index, linkage_prior_family:
 
-  Parallel `integer(n_linkage)` vectors.
+  Parallel `integer(n_linkage)` vectors. `linkage_re_index` is `-1` on
+  fixed rows, else the 0-based `beta_linkage_re` slot.
 
 - linkage_prior_p1, linkage_prior_p2:
 

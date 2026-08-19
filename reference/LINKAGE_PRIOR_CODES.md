@@ -7,7 +7,3 @@ Integer codes for the `prior_family` column
 ``` r
 LINKAGE_PRIOR_CODES
 ```
-
-## Format
-
-An object of class `integer` of length 5.

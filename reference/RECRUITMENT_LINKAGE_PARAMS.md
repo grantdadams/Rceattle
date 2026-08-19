@@ -12,7 +12,3 @@ recruitment when the default log link is used); linkages on `alpha` and
 ``` r
 RECRUITMENT_LINKAGE_PARAMS
 ```
-
-## Format
-
-An object of class `character` of length 3.

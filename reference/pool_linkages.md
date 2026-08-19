@@ -33,6 +33,10 @@ pool_linkages(spec_groups, env_data, strata = list())
 
   named list of stratum-level integer vectors, e.g.
   `list(species = 1:nspp, sex = 1:nsex)`.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  names the `species` and `fleet` vectors with `data_list$spnames` /
+  `fleet_control$Fleet_name`, which is how a spec that selects a species
+  or fleet by name is resolved to an id.
 
 ## Value
 

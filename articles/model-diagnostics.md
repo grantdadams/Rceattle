@@ -1,15 +1,20 @@
 # 3. Model diagnostics
 
-Rceattle provides several layers of diagnostics: **convergence
-diagnostics** attached automatically to every fit, **S3 methods**
-(`residual`, `logLik`, etc), **fit plots** to visually inspect how well
-the model fits observed data, **retrospective analysis** (peels) to
-detect patterns of systematic over- or under-estimation, **jitter
-testing** to check that the optimizer has found a global minimum,
-**self-testing** (simulation–estimation) to check that the model can
-recover its own estimates from simulated data, and **likelihood
-profiling** to check how informative the data are about a particular
-parameter.
+Rceattle provides a full set of model diagnostics:
+
+- **convergence diagnostics** — attached automatically to every fit
+- **S3 methods** —
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
+  [`logLik()`](https://rdrr.io/r/stats/logLik.html), and the like
+- **fit plots** — compare predicted to observed data
+- **retrospective analysis** — peel off recent years to detect
+  systematic bias
+- **jitter testing** — perturb starting values to check the optimizer
+  found a global minimum
+- **self-testing** (simulation–estimation) — check the model recovers
+  its own estimates from simulated data
+- **likelihood profiling** — check how informative the data are about a
+  given parameter
 
 ## Setup and plotting data
 
@@ -20,11 +25,11 @@ library(Rceattle)
 # Fit a single-species model for the 2022 Northern Rockfish assessment.
 data("NorthernRockfish2022")
 nrdata <- NorthernRockfish2022
-nrdata$fleet_control$proj_F_prop <- 1
+nrdata$fleet_control$Proj_F_proportion <- 1
 plot_data(nrdata)
 ```
 
-Fitting the model
+Fit the model.
 
 ``` r
 
@@ -59,15 +64,16 @@ as.data.frame(model_1)
 
 ## Convergence diagnostics
 
+After optimization,
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
-runs a battery of convergence checks after optimization and attaches the
-result as `model$convergence`. Each check is one record with a
-`severity` (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`); the object’s
-`status` is the worst severity present. Non-OK checks are surfaced via
-[`message()`](https://rdrr.io/r/base/message.html) during the fit (a
-non-converged model is never turned into an error — the fit is always
-returned with its diagnostics attached), and `print(model)` shows the
-overall status.
+runs a battery of convergence checks and attaches the result as
+`model$convergence`. Each check is one record with a `severity` (`"OK"`,
+`"NOTE"`, `"WARN"`, or `"FAIL"`); the object’s `status` is the worst
+severity present. Non-OK checks are reported via
+[`message()`](https://rdrr.io/r/base/message.html) during the fit, and
+`print(model)` shows the overall status. A non-converged model is never
+turned into an error — the fit is always returned with its diagnostics
+attached, so you decide whether to trust it.
 
 ``` r
 
@@ -146,28 +152,31 @@ plot_catch(model_1)
 ## One-step-ahead (OSA) residuals
 
 Pearson residuals on composition data are *not* standard normal even
-when the model is correct, because the age/length bins are correlated
-(more fish in one bin means fewer in another) and because random effects
-induce correlation across years. One-step-ahead (OSA) residuals fix
-this: each observation is residualized conditional on the
-previously-added observations, integrating out the random effects, so
-the residuals are iid standard normal under a correctly specified model
-(Thygesen et al. 2017; Trijoulet et al. 2023). They therefore support
-objective goodness-of-fit testing.
+when the model is correct: the age/length bins are correlated (more fish
+in one bin means fewer in another), and random effects induce
+correlation across years. One-step-ahead (OSA) residuals remove both
+problems. Each observation is residualized conditional on the
+observations added before it, integrating out the random effects, so
+under a correctly specified model the residuals are iid standard normal
+(Thygesen et al. 2017; Trijoulet et al. 2023). This makes them suitable
+for objective goodness-of-fit testing.
 
 [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
 computes them *post hoc* for any combination of the fitted data types –
-survey indices, fishery catch, age/length composition (`"comp"`),
-conditional age-at-length (`"caal"`), and predator diet (`"diet"`).
-Composition data are residualized with the conditional binomial /
-beta-binomial decomposition. OSA re-optimizes the random effects per
-observation, so it is expensive; run it on a converged fit
-(`estimateMode < 3`).
-
-All OSA sources – aggregate index/catch and composition
-(`"comp"`/`"caal"`/`"diet"`) – are available from any fit;
+survey indices (`"index"`), fishery catch (`"catch"`), age/length
+composition (`"comp"`), conditional age-at-length (`"caal"`), predator
+diet (`"diet"`), and, where a linkage carries an observed state-space
+covariate, the covariate observation itself (`"ecov"`). Composition data
+use the conditional binomial / beta-binomial decomposition. Because OSA
+re-optimizes the random effects for each observation it is expensive, so
+run it on a converged fit (`estimateMode < 3`). All sources are
+available from any fit;
 [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
-builds the required observation data on demand.
+builds the required observation data on demand and skips a requested
+source the model has no observations for (it errors only if *none* of
+them do). `"diet"` is the one source not in the default set – it applies
+only to multispecies models and can be slow – so pass `source = "all"`
+to include it.
 
 ``` r
 
@@ -191,6 +200,24 @@ plot_comp(model_1, residual_type = "osa")              # Q-Q + signed bubbles
 residuals(model_1, type = "osa", source = "comp")
 ```
 
+### Fleets with tail accumulation
+
+Where a fleet folds its composition tails into a boundary bin
+(`Comp_accum_young` / `Comp_accum_old`), both the OSA and the Pearson
+residuals describe the bins the likelihood actually fit, not the raw
+bins in `comp_data`. A fleet on 10 ages with `Comp_accum_young = 3`
+reports bins 3 to 10: bin 3 holds ages 1 to 3 combined, and the
+`accumulated` column (`Accumulated` from
+[`residuals()`](https://rdrr.io/r/stats/residuals.html)) marks it, since
+it stands for a range rather than the single age it is named for. Expect
+fewer residual bins than raw age bins for such a fleet.
+
+The two differ in one place. The one-step-ahead decomposition drops each
+composition’s last bin, which is fixed by the sum-to-sample-size
+constraint. Under an *old*-tail accumulation that dropped bin is the
+upper accumulated one, so the fleet’s upper boundary bin appears in the
+Pearson residuals and not in the OSA residuals.
+
 Following Stewart and Monnahan (2025), a practical workflow is:
 
 1.  **Inspect the aggregate fit** across years (`plot_comp(model_1)`):
@@ -210,6 +237,23 @@ Following Stewart and Monnahan (2025), a practical workflow is:
     found, using this together with the other diagnostics rather than as
     an accept/reject test.
 
+When the diagnosis is a weighting problem rather than a structural one,
+[`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+runs the McAllister-Ianelli (1997) tuning loop: it refits the model the
+way it was fitted, updating each fleet’s `Comp_weights` until the
+implied weights settle.
+
+``` r
+
+tuned <- reweight_comps(model_1, n_iter = 10, tol = 0.01)
+tuned$reweight$history    # weight per fleet, per iteration
+```
+
+The alternatives are Francis (2011) reweighting, applied by hand, and
+estimating the weights directly with a Dirichlet-multinomial likelihood
+(`Comp_distribution = "DirichletMultinomial"`), which avoids the
+iteration entirely.
+
 Because OSA residuals for discrete composition data are randomized
 quantile residuals, they are stochastic;
 [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
@@ -218,11 +262,11 @@ takes a `seed` for reproducibility.
 ### Process residuals
 
 [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
-is the complementary check on the *process* model: it standardizes the
+is the complementary check on the *process* model. It standardizes the
 model’s random-effect deviations (recruitment, initial abundance,
 catchability) against their process prior, drawing once from the joint
 posterior (SAM’s `procres`; Nielsen and Berg 2014). Under a correct
-process model these are also approximately iid standard normal.
+process model these too are approximately iid standard normal.
 
 ``` r
 
@@ -236,10 +280,10 @@ residuals(model_1, type = "process")
 
 ## Retrospective analysis
 
-A retrospective analysis systematically removes the most recent years of
-data one peel at a time and re-fits the model. Bias in the final
-estimates relative to earlier peels is summarised by Mohn’s rho: values
-outside ±0.2 (for SSB) generally indicate a problem worth investigating.
+A retrospective analysis removes the most recent years of data one peel
+at a time and re-fits the model. Mohn’s rho summarizes how the terminal
+estimates shift across peels; for SSB, a rho outside ±0.2 generally
+signals a problem worth investigating.
 
 ``` r
 
@@ -255,26 +299,53 @@ plot_biomass(model_1_retro$Rceattle_list)
 plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 ```
 
+Each peel carries its own terminal year as `data_list$endyr`, so the
+first plot draws every peel only as far as it was fit and the peels fan
+out.
+
+A peel still estimates the years it dropped: they are its retrospective
+forecast, fit to the observed catch with recruitment held at the peel’s
+mean and the survey and composition data withheld. Fishing mortality is
+estimated through the unpeeled terminal year and the harvest control
+rule takes over after it, so each peel carries three years:
+
+| Field | Meaning |
+|----|----|
+| `endyr`, `endyr_peel` | the peel’s terminal year — what it was fit through |
+| `endyr_full` | the unpeeled terminal year, where the retrospective forecast ends |
+| `projyr` | the end of the projection |
+
+`incl_proj = TRUE` plots the forecast and projection years. Take the
+forecast years as `endyr_peel + seq_len(endyr_full - endyr_peel)` —
+empty for the unpeeled model, where `(endyr_peel + 1):endyr_full` would
+count down instead.
+
 The
 [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
 function returns a list with two elements:
 
 | Element | Description |
 |----|----|
-| `Rceattle_list` | List of fitted models, ordered from full run to most-peeled |
+| `Rceattle_list` | List of fitted models, ordered from most-peeled to full run, each named for its own terminal year (`Year_2013`, …, `Year_2017`) |
 | `mohns` | Data frame with columns `Object` (quantity, e.g. `"Biomass"`, `"SSB"`), `Forecast year` (0 = terminal year bias; 1+ = forecast skill), `N` (number of peels), and one column per species with mean relative error (Mohn’s rho) |
 
-The `nyrs_forecast` argument (default 3) additionally evaluates rho for
-years projected beyond the terminal peel, making it possible to quantify
-forecast skill alongside retrospective bias in a single call.
+The `nyrs_forecast` argument (default 3) also evaluates rho for years
+projected beyond each terminal peel, so a single call quantifies
+forecast skill alongside retrospective bias.
+
+A peel that did not converge is dropped and a message reports how many,
+so `Rceattle_list` can be shorter than `peels + 1`. Index it by name
+rather than position — with a peel missing, `Rceattle_list[[3]]` is not
+the 3-year peel. If no peel converges, Mohn’s rho is `NaN` and the call
+warns.
 
 ## Jitter testing
 
 Jitter testing re-fits the model from many randomly perturbed starting
-values to check whether the optimizer consistently returns the same
-minimum negative log-likelihood (NLL). A spread of NLL values across
-jitters suggests the likelihood surface has multiple local minima and
-results should be interpreted cautiously.
+values and checks whether the optimizer keeps returning the same minimum
+negative log-likelihood (NLL). A spread of NLL values across jitters
+points to multiple local minima, so the results should be treated with
+caution.
 
 ``` r
 
@@ -292,9 +363,17 @@ plot_biomass(jitters$Rceattle_list)
 length(jitters$Rceattle_list)
 ```
 
-Non-converging runs are silently dropped from `Rceattle_list`, so if
-`length(jitters$Rceattle_list)` is much less than `njitter`, convergence
-may be fragile.
+Non-converging runs are dropped from `Rceattle_list` and reported in a
+message, so if `length(jitters$Rceattle_list)` is well below `njitter`,
+convergence is fragile. Read that count as part of the result, not as a
+nuisance: the dropped starts are the ones that wandered off, so a jitter
+test that returns only its successes understates the spread.
+
+A run is dropped when its maximum absolute gradient exceeds 1 — the same
+threshold
+[`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)
+calls `FAIL` — or when an `sdreport` that was requested did not come
+back.
 
 [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
 and
@@ -307,13 +386,12 @@ sized at `parallel::detectCores() - 6` (capped at 2 under
 ## Self-test (simulation–estimation)
 
 [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
-simulates `nsim` datasets from a fitted model — keeping its estimated
-parameters fixed — and re-fits the model to each simulated dataset. If
-estimates from the refits cluster around the parameter values of the fit
-they were simulated from, the model is at least self-consistent (it can
-recover its own estimates from data it generated). Persistent bias or
-wide spread in a quantity is a sign that the data are not informative
-about it.
+simulates `nsim` datasets from a fitted model — holding its estimated
+parameters fixed — and re-fits the model to each. If the refit estimates
+cluster around the values used to simulate them, the model is at least
+self-consistent: it can recover its own estimates from data it
+generated. Persistent bias or a wide spread in a quantity means the data
+are not informative about it.
 
 ``` r
 
@@ -338,14 +416,68 @@ estimator returns the generating parameters in the noise-free limit.
 and
 [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md).
 
+Every refit starts from the fitted model’s *starting* values, not its
+estimates, so it covers the same ground the original fit did. `phase`
+therefore defaults to whatever the input model was fit with — pass
+`phase = TRUE` explicitly if you fit the model some other way and the
+refits are being dropped, since a model that needed phasing once needs
+it for every simulated data set too. `start = "estimated"` starts from
+the fitted estimates instead: much faster, but the optimizer then begins
+inside the basin containing the generating values and recovery is close
+to guaranteed by construction, so read it as optimistic about recovery
+rather than simply less powerful.
+
+Three things to keep in mind when reading the result. Non-converged
+refits are dropped and reported in a message, and they are dropped
+*because* they behaved badly — so the returned replicates are a
+favourable subset, and any spread or bias computed over them (including
+[`compare_sim()`](https://grantdadams.github.io/Rceattle/reference/compare_sim.md)’s
+CV) understates the truth.
+[`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+redraws the observations only: with `random_rec = TRUE` every replicate
+shares the operating model’s single recruitment realization, so the
+spread across replicates is observation error alone — a lower bound on
+estimation uncertainty in SSB and recruitment, not comparable to the
+model’s own uncertainty bands.
+
+Third, watch for a truncation warning on a natural-scale index. A fleet
+with `Index_distribution = "Normal"` or `"MVN"` is drawn on the natural
+scale with an absolute sd, so a draw can come out negative — impossible
+for an index, and rejected by
+[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md).
+Those draws are redrawn, which samples the fleet from a normal
+*truncated at zero* rather than the normal the likelihood maximises.
+Occasional truncation is harmless; a lot of it is not. An acoustic index
+observed at 0.70 with an absolute sd of 0.80 rejects a fifth of its
+draws and the truncated mean sits 39% above the untruncated one, so the
+self-test is measuring recovery against a data-generating process the
+estimator never assumed.
+[`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+warns when any row is redrawn more than 2% of the time. Either way the
+underlying issue is the same: an absolute sd that large relative to the
+index means the natural-scale normal was a poor observation model to
+begin with.
+
+When the returned list is shorter than `nsim`, `debug = TRUE` returns
+*every* simulation so the failures can be read directly rather than
+inferred:
+
+``` r
+
+sims <- self_test(model_1, nsim = 10, debug = TRUE)
+
+failed <- names(which(!attr(sims, "converged")))
+sims[[failed[1]]]$convergence          # which check failed, and on which parameter
+```
+
 ## Likelihood profile
 
 [`profile()`](https://rdrr.io/r/stats/profile.html) re-fits the model
-across a grid of fixed values for a chosen parameter and returns the
-resulting NLL surface. A flat profile means the data carry little
-information about the parameter; a sharp minimum away from the MLE means
-the fit has not actually settled there. It supports the recruitment
-standard deviation, the stock–recruit parameters, and natural mortality.
+across a grid of fixed values for a chosen parameter and returns the NLL
+surface. A flat profile means the data carry little information about
+the parameter; a minimum away from the MLE means the fit has not truly
+settled there. It supports the recruitment standard deviation, the
+stock–recruit parameters, and natural mortality.
 
 Specify the parameter with a natural-scale alias: `"sigmaR"`
 (recruitment standard deviation), `"M1"` (natural mortality), or the
@@ -397,9 +529,9 @@ To cross-profile across multiple species, supply one slot per species
 M1 across sex, supply one slot per sex as in the third example above.
 `cores` behaves the same way as in the other diagnostic functions.
 
-## Comparing single- and multi-species trajectories
+## Comparing runs
 
-Plotting sensitivity runs together is itself a useful diagnostic — large
+Overlaying sensitivity runs is itself a useful diagnostic — large
 divergences in biomass or mortality deserve scrutiny.
 
 ``` r
@@ -414,7 +546,7 @@ plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 
 ## Model average
 
-For model averaging across model variants, see
+To average estimates across model variants, see
 [`?model_average`](https://grantdadams.github.io/Rceattle/reference/model_average.md).
 
 ``` r

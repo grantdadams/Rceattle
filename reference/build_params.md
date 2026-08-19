@@ -1,7 +1,7 @@
 # Build parameter list from cpp file
 
-Function to read a TMB cpp file and construct parameter list object for
-Rceattle
+Construct the TMB parameter list, with every parameter set to its
+starting value, for an Rceattle model.
 
 ## Usage
 
@@ -17,4 +17,4 @@ build_params(data_list)
 
 ## Value
 
-a list of map arguments for each parameter
+a named list of model parameters at their starting values

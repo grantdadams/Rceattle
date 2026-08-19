@@ -46,3 +46,8 @@ Useful links:
 
 **Maintainer**: Grant Adams <grant.adams@noaa.gov>
 ([ORCID](https://orcid.org/0000-0003-0297-8347))
+
+Authors:
+
+- Grant Adams <grant.adams@noaa.gov>
+  ([ORCID](https://orcid.org/0000-0003-0297-8347))

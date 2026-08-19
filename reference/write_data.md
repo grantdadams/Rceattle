@@ -1,6 +1,6 @@
-# Write data file
+# Write a data list to a CEATTLE xlsx workbook
 
-Write data file
+Write a data list to a CEATTLE xlsx workbook
 
 ## Usage
 
@@ -16,7 +16,20 @@ write_data(data_list, file = "Rceattle_data.xlsx")
 
 - file:
 
-  Filname to be used. Must end with '.xlsx'
+  Filename to write. Must end in '.xlsx'
+
+## See also
+
+[`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md)
+to assemble or edit a data list in R,
+[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+to read one back. A
+[`model_config()`](https://grantdadams.github.io/Rceattle/reference/model_config.md)
+slot is not written to the workbook and does not survive the round-trip
+(a warning is issued); persist it separately with
+[`save_config()`](https://grantdadams.github.io/Rceattle/reference/save_config.md)
+/
+[`load_config()`](https://grantdadams.github.io/Rceattle/reference/load_config.md).
 
 ## Examples
 

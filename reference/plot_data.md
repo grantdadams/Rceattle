@@ -2,7 +2,7 @@
 
 Plots a timeline of presence/absence (and optionally relative quantity)
 of the data sources contributing to an Rceattle model's likelihood, by
-year and fleet. Modelled after Stock Synthesis's `r4ss::SSplotData()`.
+year and fleet. Modeled after Stock Synthesis's `r4ss::SSplotData()`.
 
 ## Usage
 
@@ -50,9 +50,9 @@ plot_data(
 
   Integer vector controlling which subplots are produced:
 
-  - 1 — equal-size points showing presence/absence by year/fleet
+  - 1 – equal-size points showing presence/absence by year/fleet
 
-  - 2 — points scaled to relative quantity / precision within each data
+  - 2 – points scaled to relative quantity / precision within each data
     type (catch tonnage, 1/SE for indices, sample size for comps)
 
 - datatypes:
@@ -111,7 +111,7 @@ plot_data(
 
 - alphasize:
 
-  Bubble fill transparency (0–1).
+  Bubble fill transparency (0-1).
 
 - mainTitle:
 
@@ -123,7 +123,7 @@ plot_data(
 
 ## Value
 
-Invisibly, a list with `typetable` — the long data frame underlying the
+Invisibly, a list with `typetable` – the long data frame underlying the
 plot (year, fleet, data type, relative size).
 
 ## Details
@@ -131,5 +131,5 @@ plot (year, fleet, data type, relative size).
 Years with `Year > 0` contribute to the likelihood; rows with `Year < 0`
 (kept for fitting comparison only) are shown when `ghost = TRUE`. Diet
 data uses `Year == 0` for the fixed reference stomach composition; those
-entries are plotted at the model `endyr` and labelled per predator
+entries are plotted at the model `endyr` and labeled per predator
 species.

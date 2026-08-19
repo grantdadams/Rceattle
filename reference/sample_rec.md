@@ -1,6 +1,6 @@
-# Sample historical recruitment deviates and place in the projection
+# Sample historical recruitment deviations into the projection
 
-Sample historical recruitment deviates and place in the projection
+Sample historical recruitment deviations into the projection
 
 ## Usage
 
@@ -16,10 +16,10 @@ sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
 
 - sample_rec:
 
-  Include resampled recruitment deviates from the"hindcast" in the
-  projection of the OM. Resampled deviates are used rather than sampling
-  from N(0, sigmaR) because initial deviates bias R0 low. If false, uses
-  mean of recruitment deviates.
+  Include resampled recruitment deviations from the hindcast in the OM
+  projection. Resampled deviations are used rather than drawing from
+  N(0, sigmaR) because the initial deviations bias R0 low. If FALSE,
+  uses the mean recruitment deviation.
 
 - update_model:
 

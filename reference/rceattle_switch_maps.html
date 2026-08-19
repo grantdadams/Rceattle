@@ -19,7 +19,7 @@ how the maps are applied.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -63,7 +63,7 @@ how the maps are applied.'></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Rceattle configuration switch maps</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.9.1/R/0-switches.R" class="external-link"><code>R/0-switches.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/0-switches.R" class="external-link"><code>R/0-switches.R</code></a></small>
       <div class="d-none name"><code>rceattle_switch_maps.Rd</code></div>
     </div>
 
@@ -88,6 +88,10 @@ how the maps are applied.</p>
 <dd><p>Time-varying selectivity structure
 (<code>fleet_control$Time_varying_sel</code>).</p></dd>
 
+<dt><code>sel_norm_scope_map</code></dt>
+<dd><p>Whether selectivity normalization pools its
+reference across sexes (<code>fleet_control$Sel_norm_scope</code>).</p></dd>
+
 <dt><code>q_map</code></dt>
 <dd><p>Catchability form (<code>fleet_control$Catchability</code>).</p></dd>
 
@@ -97,7 +101,7 @@ how the maps are applied.</p>
 
 <dt><code>comp_loglike_map</code></dt>
 <dd><p>Composition likelihood
-(<code>fleet_control$Comp_loglike</code> and <code>CAAL_loglike</code>).</p></dd>
+(<code>fleet_control$Comp_distribution</code> and <code>CAAL_distribution</code>).</p></dd>
 
 <dt><code>fleet_map</code></dt>
 <dd><p>Fleet type (<code>fleet_control$Fleet_type</code>).</p></dd>
