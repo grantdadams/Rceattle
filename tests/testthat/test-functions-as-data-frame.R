@@ -112,15 +112,22 @@ testthat::test_that("CIs come from sdrep for ADREPORT'd quantities", {
   fit <- make_fake_rceattle()
   df  <- as.data.frame(fit, which = c("biomass", "ssb", "biomass_depletion"))
 
+  # A strictly positive series takes its interval on the log scale --
+  # exp(log(x) +/- z * sd(x)/x) -- so it is right-skewed rather than symmetric.
+  # This is the same construction plot_timeseries() draws; the two agreeing is
+  # the point (see .rce_ci_bounds()).
   bio <- df[df$quantity == "biomass", ]
   z95 <- stats::qnorm(0.975)
-  testthat::expect_equal(bio$upr - bio$value, rep(z95 * 1.0, nrow(bio)),
+  testthat::expect_equal(bio$upr, exp(log(bio$value) + z95 * 1.0 / bio$value),
                          tolerance = 1e-10)
-  testthat::expect_equal(bio$value - bio$lwr, rep(z95 * 1.0, nrow(bio)),
+  testthat::expect_equal(bio$lwr, exp(log(bio$value) - z95 * 1.0 / bio$value),
                          tolerance = 1e-10)
+  # Skewed away from the estimate on the high side, and never at zero.
+  testthat::expect_true(all((bio$upr - bio$value) > (bio$value - bio$lwr)))
+  testthat::expect_true(all(bio$lwr > 0))
 
   ssb <- df[df$quantity == "ssb", ]
-  testthat::expect_equal(ssb$upr - ssb$value, rep(z95 * 0.5, nrow(ssb)),
+  testthat::expect_equal(ssb$upr, exp(log(ssb$value) + z95 * 0.5 / ssb$value),
                          tolerance = 1e-10)
 
   # Quantities without an sdreport entry get NA bands.
@@ -135,12 +142,17 @@ testthat::test_that("ci_level controls the band width", {
   df80 <- as.data.frame(fit, which = "biomass", ci_level = 0.80)
   df95 <- as.data.frame(fit, which = "biomass", ci_level = 0.95)
 
-  testthat::expect_equal(df80$upr - df80$value,
-                         rep(stats::qnorm(0.90), nrow(df80)),
+  # Bounds are on the log scale, so ci_level enters through the quantile rather
+  # than as a fixed offset from the estimate.
+  testthat::expect_equal(df80$upr,
+                         exp(log(df80$value) + stats::qnorm(0.90) / df80$value),
                          tolerance = 1e-10)
-  testthat::expect_equal(df95$upr - df95$value,
-                         rep(stats::qnorm(0.975), nrow(df95)),
+  testthat::expect_equal(df95$upr,
+                         exp(log(df95$value) + stats::qnorm(0.975) / df95$value),
                          tolerance = 1e-10)
+  # ...and a wider level is still a wider band.
+  testthat::expect_true(all(df95$upr > df80$upr))
+  testthat::expect_true(all(df95$lwr < df80$lwr))
 })
 
 
