@@ -1,5 +1,55 @@
 # Changelog
 
+## Rceattle 5.8.1
+
+Documentation-only release. Four changes that landed earlier in the 5.x
+line reached `main` without a NEWS entry; they are recorded here so the
+release notes describe what actually shipped. No code changes.
+
+### Changes that move results, recorded late
+
+- **The Dirichlet-multinomial composition likelihood uses a different
+  effective sample size.** The concentration is now built from the
+  observed-count total, `sum(comp_obs)` = `N * (1 + offset * nbins)`,
+  rather than the raw input `N`. That is the same `N` `ddirmultinom()`
+  reads back from `obs.sum()`, so the alpha and the density are now
+  consistent, and it matches the CAAL Dirichlet-multinomial and the AFSC
+  linear-DM parameterization. **Any fleet with
+  `Comp_distribution = "DirichletMultinomial"` will move**; multinomial
+  fleets are unaffected. Refit before carrying a DM-weighted model
+  forward.
+
+- **`build_growth(sd_plus_group = )` defaults to `NA` (“inherit”) rather
+  than `"WHAM"`.** `NA` takes `data_list$growth_sd_style` when the data
+  list carries one, falling back to `"WHAM"` otherwise, so a fresh fit
+  is unchanged. The fix is for refits: a diagnostic that rebuilt growth
+  through `build_growth(fun = )` previously reset an SS3-style
+  plus-group SD back to WHAM without saying so. Retrospectives, jitters
+  and self-tests of an SS3 growth model change accordingly.
+
+### Deprecations
+
+- **`Catchability = "Environmental"` is deprecated.** It still fits with
+  its existing numerics and results are unchanged, but it names
+  covariates by position in `Time_varying_q` rather than by formula, and
+  cannot carry priors, bounds or an estimation phase. Use a catchability
+  linkage instead:
+  `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`.
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  now names the affected fleets.
+
+### Known issues
+
+- **The reported case-0 (full multinomial) composition NLL is not
+  comparable with 4.9.x.** Composition fitting routes through
+  `dmultinom_osa()`, which renormalizes the predicted proportions; the
+  previous [`dmultinom()`](https://rdrr.io/r/stats/Multinom.html) did
+  not. The reported per-row NLL therefore shifts by an additive
+  constant, `Neff * log(1 + n_comp * offset)`. The gradient, the MLE and
+  every derived quantity are unchanged – only the printed likelihood
+  value moves. Compare likelihoods within a version, not across this
+  boundary.
+
 ## Rceattle 5.8.0
 
 ### New features
