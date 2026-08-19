@@ -285,17 +285,16 @@ then recompile and re-run the regression tests (below) to confirm the objective
 changes only as intended.
 
 **Add or update the matching `SIMULATE` block at the same time.** Every
-observation and every process error is drawn in a `SIMULATE` block sitting
-immediately beside the density that scores it, so that the two cannot be changed
-independently — a simulator that has drifted from its likelihood does not error,
-it makes `self_test()` report recovery against a data-generating process the
-model never assumed. A new likelihood family with no draw is visibly absent
-rather than silently wrong. Three rules the existing blocks follow:
+observation and every process error is drawn in a `SIMULATE` block next to the
+density that scores it, so the two are edited together. A simulator that has
+drifted from its likelihood does not error — it makes `self_test()` report
+recovery against a data-generating process the model never assumed. Three rules
+the existing blocks follow:
 
 * **Draw what the density assumes**, including the bias-correction convention and
   the scale (log vs. natural). Where a family has no exact sampler — a
-  multivariate normal truncated to the positive orthant, say — say so in the draw
-  and warn from `sim_mod()`, rather than quietly substituting a different
+  multivariate normal truncated to the positive orthant, say — note it in the
+  draw and warn from `sim_mod()` rather than substituting a different
   distribution.
 * **Report under a `*_sim` name.** TMB never clears its report environment, so
   anything reported inside a `SIMULATE` block stays visible in `obj$report()`

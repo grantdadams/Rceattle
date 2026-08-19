@@ -127,15 +127,24 @@ densities (the \code{osa_mode} switch); fleets fit with the AFSC \code{Multinomi
 pseudo-likelihood are residualized under the full multinomial.
 
 Survey-index OSA residuals are supported for every index likelihood family
-(\code{Index_distribution}): lognormal IID (\code{"Lognormal"}) and the natural-scale
-\code{"Normal"} and \code{"TruncatedNormal"} residualize as independent draws on the log
-or natural scale, the last against the renormalized density it was fitted with
-(so its residuals are uniform under the truncated model, not the untruncated
-one); the correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened by
-the lower Cholesky of the fleet's survey covariance Sigma = L L' so the
+(\code{Index_distribution}). Lognormal IID (\code{"Lognormal"}) residualizes on the log
+scale, and the natural-scale \code{"Normal"} and \code{"TruncatedNormal"} on the natural
+scale. The correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened
+by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
 residuals are the multivariate-Gaussian one-step-ahead innovations
 L^-1 (obs - q*pred) -- the closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a
 Gaussian block.
+
+\code{"TruncatedNormal"} carries a caveat. Its density differs from \code{"Normal"} only
+by \verb{log Phi(mu/sd)}, which is a function of the prediction and not of the
+observation, so the default \code{method = "oneStepGaussianOffMode"} -- which reads
+the curvature of the density in the observation -- returns the same residual
+the untruncated family would. These residuals are therefore standard normal
+only where \code{mu/sd} is large enough that truncation carries little mass, which
+is the regime a well-specified natural-scale index sits in. Where it does not,
+read them as approximate and check \code{sim_mod()}'s truncation warning. The
+truncation still enters the residuals through the fitted parameters, which are
+estimated under the renormalized density.
 }
 \section{Negative composition \code{predicted} values}{
 

@@ -34,15 +34,24 @@
 #' pseudo-likelihood are residualized under the full multinomial.
 #'
 #' Survey-index OSA residuals are supported for every index likelihood family
-#' (`Index_distribution`): lognormal IID (`"Lognormal"`) and the natural-scale
-#' `"Normal"` and `"TruncatedNormal"` residualize as independent draws on the log
-#' or natural scale, the last against the renormalized density it was fitted with
-#' (so its residuals are uniform under the truncated model, not the untruncated
-#' one); the correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened by
-#' the lower Cholesky of the fleet's survey covariance Sigma = L L' so the
+#' (`Index_distribution`). Lognormal IID (`"Lognormal"`) residualizes on the log
+#' scale, and the natural-scale `"Normal"` and `"TruncatedNormal"` on the natural
+#' scale. The correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened
+#' by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
 #' residuals are the multivariate-Gaussian one-step-ahead innovations
 #' L^-1 (obs - q*pred) -- the closed form [TMB::oneStepPredict()] reproduces for a
 #' Gaussian block.
+#'
+#' `"TruncatedNormal"` carries a caveat. Its density differs from `"Normal"` only
+#' by `log Phi(mu/sd)`, which is a function of the prediction and not of the
+#' observation, so the default `method = "oneStepGaussianOffMode"` -- which reads
+#' the curvature of the density in the observation -- returns the same residual
+#' the untruncated family would. These residuals are therefore standard normal
+#' only where `mu/sd` is large enough that truncation carries little mass, which
+#' is the regime a well-specified natural-scale index sits in. Where it does not,
+#' read them as approximate and check `sim_mod()`'s truncation warning. The
+#' truncation still enters the residuals through the fitted parameters, which are
+#' estimated under the renormalized density.
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of

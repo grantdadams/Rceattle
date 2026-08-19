@@ -60,7 +60,7 @@ testthat::test_that("Basic index and index likelihood", {
   testthat::expect_equal(ss_run$quantities$index_hat, 0.5 * SB0[ss_run$data_list$index_data$Species])
 
   # Check index sd
-  testthat::expect_equal(as.numeric(ss_run$quantities$log_index_sd), rep(0.1, nyrs))
+  testthat::expect_equal(as.numeric(ss_run$quantities$index_sd), rep(0.1, nyrs))
 
   # Check observed
   testthat::expect_equal(dat$index_data$Observation, rep(100, nyrs))
@@ -74,4 +74,34 @@ testthat::test_that("Basic index and index likelihood", {
   exp_mod <- ss_run$quantities$jnll_comp[1,1]
   testthat::expect_equal(exp_mod, exp_calc)
 
+})
+
+testthat::test_that("the deprecated observation-sd names still resolve", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # index_sd / catch_sd were log_index_sd / log_catch_sd until 5.9.0. Neither was
+  # ever a log, and index_sd is an ABSOLUTE sd for a natural-scale
+  # Index_distribution -- the old name talked people out of believing that. The
+  # old spellings are kept one release so existing scripts keep running; this
+  # pins that, and pins that they are the SAME vector rather than a stale copy.
+  d <- make_test_data(nyrs = 12, nages = 5, seed = 7)
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+  q <- fit$quantities
+
+  for (what in c("index", "catch")) {
+    new <- q[[paste0(what, "_sd")]]
+    old <- q[[paste0("log_", what, "_sd")]]
+    testthat::expect_false(is.null(new), label = what)
+    testthat::expect_equal(as.numeric(old), as.numeric(new), label = what)
+  }
+
+  # ...and the reader behind them takes either, which is what lets a fit saved
+  # before the rename still produce residuals and plots.
+  stripped <- q
+  stripped$index_sd <- NULL
+  testthat::expect_equal(as.numeric(Rceattle:::.observation_sd(stripped, "index")),
+                         as.numeric(q$index_sd))
 })

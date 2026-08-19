@@ -1214,7 +1214,7 @@ rather than applying a covariate/deviate to the wrong year.
   needs `link = "identity"`, because the legacy deviate is added to the
   inflection whereas the default log link multiplies it. No grammar equivalent exists yet for the environmental /
   Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
-  separable `M1_re = 6` (bin × year), which keep using the switch-based path
+  separable `M1_re = 6` (age × year), which keep using the switch-based path
   without a nudge.
 * **Only the grammar's random effects are simulated.** `sim_mod(process = )` and
   `self_test(process = )` redraw catchability and selectivity where they are
@@ -1225,8 +1225,8 @@ rather than applying a covariate/deviate to the wrong year.
   (Rogers QAR1) linkages are the one grammar form that is deliberately not
   redrawn: the latent state is measured by an observed covariate series, and
   redrawing the state alone would leave the two describing different histories.
-  This is a further reason to prefer a linkage over the switch — a switch-based
-  time-varying process cannot be self-tested.
+  A switch-based time-varying process therefore cannot have that process redrawn
+  in a self-test.
 * **`sigma` means different things in the two systems.** In a linkage,
   `init = list(sigma = )` under `ar1()` is the **marginal** standard deviation.
   The `M1_re` and 2DAR1/3DAR1 selectivity switches instead take the AR(1)

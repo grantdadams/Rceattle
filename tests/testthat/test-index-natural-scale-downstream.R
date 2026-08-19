@@ -9,7 +9,9 @@
 #
 # These pin the two places that got it wrong -- the Pearson residual and the
 # observation interval -- with fixtures where the wrong answer is not subtle.
-testthat::skip_on_cran()
+#
+# Guarded per test rather than per file: the registry-drift check below runs no
+# fit and is the one test here that should run under a plain R CMD check.
 
 .ns_fixture <- function(dist, sd, nyrs = 12) {
   dat <- make_test_data(nyrs = nyrs, nages = 5, seed = 123)
@@ -26,6 +28,7 @@ testthat::skip_on_cran()
 }
 
 testthat::test_that("Pearson index residuals use the fleet's own scale", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
   fit <- .ns_fixture("Normal", sd = 150)
@@ -51,7 +54,7 @@ testthat::test_that("Pearson index residuals use the fleet's own scale", {
   sl  <- rl$Fleet_name == "Survey" & is.finite(rl$Residual)
   idl <- ln$data_list$index_data
   sel <- idl$Fleet_name == "Survey"
-  sig <- as.numeric(ln$quantities$log_index_sd)[sel]
+  sig <- as.numeric(ln$quantities$index_sd)[sel]
   wl  <- (log(idl$Observation[sel]) -
             (log(as.numeric(ln$quantities$index_hat)[sel]) - sig^2 / 2)) / sig
   testthat::expect_equal(rl$Residual[sl], wl[is.finite(wl)][seq_len(sum(sl))],
@@ -59,6 +62,7 @@ testthat::test_that("Pearson index residuals use the fleet's own scale", {
 })
 
 testthat::test_that("index observation intervals use the fleet's own scale", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("ggplot2")
 
@@ -113,6 +117,7 @@ testthat::test_that("every natural-scale family is recognized as one", {
 })
 
 testthat::test_that("TruncatedNormal gets natural-scale Pearson residuals", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
   fit <- .ns_fixture("TruncatedNormal", sd = 150)
@@ -127,4 +132,35 @@ testthat::test_that("TruncatedNormal gets natural-scale Pearson residuals", {
                          tolerance = 1e-6)
   # Nowhere near the ~+75 the lognormal formula would return.
   testthat::expect_lt(max(abs(res)), 10)
+})
+
+testthat::test_that("the analytical sd is refused on a natural-scale fleet", {
+  testthat::skip_if_not_installed("TMB")
+
+  # log_index_analytical_sd accumulates squared LOG residuals (Ludwig and Walters
+  # 1994), so it is a log-scale sd. The natural-scale families read their sd as
+  # an ABSOLUTE value in index units, so the combination silently fits on the
+  # wrong scale. data_check() refuses it rather than producing a number.
+  for (fam in c("Normal", "TruncatedNormal", "MVN")) {
+    dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
+    srv <- dat$fleet_control$Fleet_name == "Survey"
+    dat$fleet_control$Index_distribution[srv] <- fam
+    dat$fleet_control$Estimate_index_sd[srv]  <- "Analytical"
+    testthat::expect_error(
+      suppressMessages(suppressWarnings(Rceattle::fit_mod(
+        dat, file = NULL, estimateMode = 3, msmMode = 0,
+        fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))),
+      "log-scale sd", label = fam)
+  }
+
+  # Lognormal is the family the analytical route was derived for, and is
+  # untouched -- or the check above would just be banning a working option.
+  dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
+  srv <- dat$fleet_control$Fleet_name == "Survey"
+  dat$fleet_control$Index_distribution[srv] <- "Lognormal"
+  dat$fleet_control$Estimate_index_sd[srv]  <- "Analytical"
+  testthat::expect_no_error(
+    suppressMessages(suppressWarnings(Rceattle::fit_mod(
+      dat, file = NULL, estimateMode = 3, msmMode = 0,
+      fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))))
 })

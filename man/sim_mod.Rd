@@ -30,6 +30,15 @@ something, the deviations that generated the data are attached as
 \code{beta_linkage_re} were drawn. Those are the truth a refit has to
 recover; without them the only comparison available is against the original
 fitted deviations, which are no longer the values that generated the data.
+
+Each is accompanied by a logical of the same shape named with a
+\code{_drawn} suffix (\code{rec_dev_drawn}, ...), \code{TRUE} where the draw
+touched that cell. The draws cover the hindcast only, and
+\code{beta_linkage_re} is one vector over every random-linkage slot whether
+or not its process was asked for, so the arrays carry fitted values
+alongside simulated ones. Restrict any recovery statistic to the
+\code{_drawn} cells -- over the full array it reports perfect recovery on
+the cells that were never redrawn.
 }
 \description{
 Simulates the data an Rceattle model would have produced, either
@@ -42,10 +51,10 @@ age-at-length (multinomial or Dirichlet-multinomial), and stomach contents
 }
 \details{
 Every draw is taken by the TMB model itself, in a \code{SIMULATE} block beside
-the likelihood that defines it, so the simulated data and the density that
-will be fitted to them cannot drift apart. Two copies of one observation model
-drift silently, and a \code{\link{self_test}} then reports recovery against a
-process the likelihood never assumed.
+the likelihood that defines it, so the two are edited together. A simulator
+that has drifted from its likelihood does not error -- it makes
+\code{\link{self_test}} report recovery against a process the likelihood
+never assumed.
 
 Consequently \code{simulate = TRUE} needs a model to evaluate. A model loaded
 from an \code{.Rdata}/\code{.rds} file has one, and a fit whose \code{$obj}
@@ -56,11 +65,11 @@ quantities are an average over models rather than any one model's fit, so no
 parameters produced them. \code{simulate = FALSE} reads only
 \code{$quantities} and draws no random numbers, so it works on any model.
 
-Rows the model predicts nothing for are not invented. A composition for a
-fleet with no catch that year comes back empty, a stomach whose predator has
-an empirical suitability keeps its observed proportions, and a covariance
-survey fleet's observations outside its fitted window keep theirs; each of
-those is reported by a warning rather than passed over in silence.
+Rows the model predicts nothing for are left as they are, and each is
+reported by a warning: a composition for a fleet with no catch that year comes
+back empty; a stomach whose predator has an empirical suitability, and a
+covariance survey fleet's observations outside its fitted window, keep their
+observed values.
 
 Simulating leaves the drawn values in the object's report environment, under
 names ending \code{_sim}. The estimates, the data and the objective function

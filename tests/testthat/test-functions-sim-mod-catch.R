@@ -40,7 +40,7 @@ testthat::test_that("the catch draw is centred and spread as the likelihood assu
   fit <- .sim_catch_fixture(log_sd = 0.3)
   fitted <- .sim_catch_fitted(fit)
   hat <- as.numeric(fit$quantities$catch_hat[fitted])
-  sd_row <- as.numeric(fit$quantities$log_catch_sd[fitted])
+  sd_row <- as.numeric(fit$quantities$catch_sd[fitted])
 
   ba <- fit$data_list$bias_adjust_obs
   if (is.null(ba)) ba <- fit$obj$env$data$bias_adjust_obs
@@ -70,7 +70,7 @@ testthat::test_that("the catch sd is applied per row, not per fleet", {
 
   fit <- .sim_catch_fixture(per_row = TRUE)
   fitted <- .sim_catch_fitted(fit)
-  nominal <- as.numeric(fit$quantities$log_catch_sd[fitted])
+  nominal <- as.numeric(fit$quantities$catch_sd[fitted])
   testthat::expect_gt(stats::sd(nominal), 0.1)   # the fixture really does vary
 
   reps <- .sim_catch_reps(fit, nrep = 1500)
@@ -182,7 +182,7 @@ testthat::test_that("sim_mod() refuses to guess when it cannot simulate", {
   testthat::expect_identical(h, w)
 
   # bias_adjust_obs sets where the draw is centred but enters neither catch_hat
-  # nor log_catch_sd. A fit too old to record it would rebuild with the
+  # nor catch_sd. A fit too old to record it would rebuild with the
   # fit_control() default -- silently mis-centring every simulated catch by
   # exp(sigma^2 / 2) -- so refuse rather than guess.
   noba <- fit; noba$obj <- NULL; noba$data_list$bias_adjust_obs <- NULL

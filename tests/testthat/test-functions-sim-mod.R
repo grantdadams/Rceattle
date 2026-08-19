@@ -149,11 +149,11 @@ testthat::test_that("sim_mod keeps natural-scale index draws positive", {
 testthat::test_that("sim_mod warns when truncation is doing the work, on both branches", {
   testthat::skip_if_not_installed("TMB")
 
-  # Positive draws are not enough on their own: a row that keeps being redrawn
+  # Positive draws are not enough on their own: a row that has to be redrawn
   # follows a normal truncated at zero, not the normal the likelihood assumes,
-  # so a self_test() built on it tests a different data-generating process.
-  # The rate is per ROW and read off the worst one -- a fleet mean would hide a
-  # single marginal row, which is how truncation actually presents.
+  # so a self_test() built on it tests a different data-generating process. The
+  # gap is sized as Phi(-mu/sd) per ROW and read off the worst one -- a fleet
+  # mean would hide a single marginal row, which is how truncation presents.
   # Both untruncated natural-scale families. "Normal" is fitted as a plain normal
   # (it reproduces the AMAK avo_like / cpue_like term for term, which is what the
   # ADMB bridges compare against), and MVN cannot be truncated at all -- a
@@ -257,7 +257,7 @@ testthat::test_that("a covariance survey fleet warns about rows it cannot simula
   hidden$data_list$index_data$Year[utils::tail(srv, 1)] <-
     -hidden$data_list$index_data$Year[utils::tail(srv, 1)]
   testthat::expect_warning(Rceattle::sim_mod(hidden, simulate = TRUE),
-                           "were NOT simulated")
+                           "were not simulated")
 
   # An independent family has no such limit -- it redraws every row.
   ln <- .sim_index_fixture("Lognormal")

@@ -7,11 +7,10 @@
  * Dirichlet-multinomial over a vector of bins. Simulation needs the matching
  * random draws, and TMB supplies neither: `distributions_R.hpp` stops at
  * univariate generators (`rbinom`, `rgamma`, `runif`, ...). These are the two
- * multivariate draws built from them, kept beside each other so a likelihood
- * cannot gain a family without its simulator being visibly absent.
+ * multivariate draws built from them.
  *
- * The draws are exact, not approximations, and both are the standard
- * constructions:
+ * Both are the standard constructions and are exact given `N` and `p`; `N` is
+ * rounded to a whole count, which is the only approximation either makes:
  *
  * - A multinomial is drawn as a sequence of conditional binomials. Having
  *   placed the first `a` bins, the count in bin `a+1` is binomial in the
@@ -39,8 +38,8 @@
  * @brief Draw multinomial counts by sequential conditional binomials.
  *
  * @param N Number of observations to place. Rounded to a whole number, since
- *   the binomial size must be one; effective sample sizes reaching here are
- *   whole counts (stomachs sampled, fish aged) or a weighting of them.
+ *   the binomial size must be an integer; effective sample sizes reaching here
+ *   are whole counts (stomachs sampled, fish aged) or a weighting of them.
  * @param p Bin probabilities. Rescaled internally, so they need not sum to 1,
  *   but must be non-negative.
  * @return Counts, one per bin, summing to the rounded `N`.
@@ -87,8 +86,8 @@ vector<Type> rmultinom_rce(Type N, vector<Type> p)
  * `alpha -> 0` is degenerate -- all the mass in ONE bin, chosen with probability
  * proportional to `alpha` -- so that is what is returned. Returning a flat
  * vector instead would be the opposite of the near-degenerate composition the
- * parameters describe, and would quietly turn a concentrated diet into a diffuse
- * one. Onset is around `sum(alpha)` below 1e-3.
+ * parameters describe, and would turn a concentrated diet into a diffuse one.
+ * Onset is around `sum(alpha)` below 1e-3.
  *
  * @param alpha Concentration parameters, one per bin, non-negative.
  * @return Proportions summing to 1.

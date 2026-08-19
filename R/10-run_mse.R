@@ -2,7 +2,8 @@
 # slimmed for storage; every other quantity is dropped to keep saved runs small.
 # Shared by run_mse() and mse_summary() so the retained set stays in one place.
 .mse_keep_quantities <- c(
-  "catch_hat", "log_catch_sd", "index_hat", "log_index_sd",
+  "catch_hat", "catch_sd", "index_hat", "index_sd",
+  "log_catch_sd", "log_index_sd",          # deprecated spellings, dropped next release
   "ssb_depletion", "biomass_depletion", "biomass", "ssb",
   "BO", "SB0", "SBF", "F_spp", "R",
   "M1_at_age", "M_at_age", "avg_rec",

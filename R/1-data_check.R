@@ -745,6 +745,29 @@ data_check <- function(data_list) {
   # all there are no covariance fleets, which is precisely the case the stray
   # index_cov warning below is meant to catch.
   mvn_flts <- integer(0)
+  # The analytical sd (Ludwig and Walters 1994) is accumulated from squared LOG
+  # residuals, so it is a log-scale sd. A natural-scale Index_distribution reads
+  # its sd as an ABSOLUTE quantity in the units of the index, so pairing the two
+  # feeds a log-scale number in where an index-scale one is meant -- no error,
+  # just a likelihood on the wrong scale. Refuse the combination rather than fit
+  # it. Lognormal is the family the analytical route was derived for.
+  if(has_data(fc) && all(c("Index_distribution", "Estimate_index_sd") %in% colnames(fc))){
+    nat_names <- c("MVN", "MVNORM", "Normal", "TruncatedNormal")
+    is_nat <- fc$Index_distribution %in% c(nat_names, 1, 2, 3, 4, "1", "2", "3", "4")
+    is_analytical <- fc$Estimate_index_sd %in% c("Analytical", 2, "2")
+    bad <- which(is_nat & is_analytical & fc$Fleet_type != "Off" & fc$Fleet_type != 0)
+    if(length(bad)){
+      errors <- c(errors, paste0(
+        "Fleet(s) ", paste(fc$Fleet_name[bad], collapse = ", "),
+        " combine Estimate_index_sd = 'Analytical' with a natural-scale ",
+        "Index_distribution (", paste(unique(fc$Index_distribution[bad]), collapse = ", "),
+        "). The analytical sd is computed from log residuals, so it is a ",
+        "log-scale sd, while these families read the sd as an absolute value in ",
+        "the units of the index. Use Estimate_index_sd = 'Fixed' with an ",
+        "absolute Log_sd, or 'Estimated', or switch the fleet to Lognormal."))
+    }
+  }
+
   if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
     mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
     for(flt in mvn_flts){

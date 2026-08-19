@@ -7,24 +7,31 @@
   `Index_distribution`, including the correlated `MVN`/`MVNORM` draw), total
   catch, age/length compositions, conditional age-at-length, and -- for the first
   time -- stomach contents. `sim_mod()` no longer re-implements any observation
-  model in R, so the simulated data and the likelihood cannot drift apart. Two
-  copies of one specification had already diverged twice: every survey was drawn
-  as independent lognormal whatever its `Index_distribution`, and diet was not
-  drawn at all, so a multispecies `self_test()` recovered suitability from
-  stomachs that never varied.
+  model in R, so the draw and the density can no longer be changed on one side
+  only. The two copies had already diverged: every survey was drawn as
+  independent lognormal whatever its `Index_distribution`, and diet was not drawn
+  at all, so a multispecies `self_test()` recovered suitability from stomachs
+  that never varied.
 
   Compositions and CAAL are drawn in raw bin space, before tail accumulation and
   before `comp_offset`. Tail accumulation folds bins many-to-one, so a draw taken
   after it could not be written back; both families are closed under merging
   categories, so drawing raw and letting the refit fold again is exact rather
-  than approximate. `Comp_weights` / `CAAL_weights` / `Diet_comp_weights` enter
-  as an effective sample size for the multinomial families, and through the
-  concentration for the Dirichlet-multinomial, where they already sit.
+  than approximate.
 
-  Rows the model cannot draw are left alone and reported, not invented: a fleet
-  with no catch that year, a composition row with no sample size, a predator
-  under empirical suitability, and a covariance fleet outside its fitted window.
-  `sim_mod()` names each in a warning.
+  `Comp_weights` / `CAAL_weights` / `Diet_comp_weights` now enter the draw as
+  they enter the density: as an effective sample size for the multinomial
+  families (`N * weight`), and through the concentration for the
+  Dirichlet-multinomial, where they already sat. **The old R draw used the
+  nominal `Sample_size` for the multinomial regardless of the weight**, so a
+  `self_test()` on a re-weighted model was handed data more informative than the
+  estimator treats them as being. Any model with a composition weight other
+  than 1 gives a different self-test than it did.
+
+  Rows the model cannot draw keep their observed values, and `sim_mod()` warns
+  for each: a fleet with no catch that year, a composition row with no sample
+  size, a predator under empirical suitability, and a covariance fleet outside
+  its fitted window.
 
   Simulated quantities are reported under names ending `_sim` (`catch_obs_sim`,
   `index_obs_sim`, `comp_obs_sim`, `caal_obs_sim`, `diet_obs_sim`), because TMB
@@ -60,7 +67,13 @@
   When a process is redrawn, the deviations that generated the data come back as
   `attr(x, "process_sim")`. Compare estimates against those: the source model's
   fitted deviations are no longer what generated the data, so comparing against
-  them reports bias by construction.
+  them reports bias by construction. Each deviation arrives with a same-shaped
+  `_drawn` logical, written by the draw itself, marking the cells it touched --
+  the process draws cover the hindcast only, and `beta_linkage_re` spans every
+  random-linkage slot whether or not its process was asked for, so a recovery
+  statistic taken over the whole array would score fitted values as if they were
+  simulated. `compare_sim()` compares against the operating model and so is not
+  valid for `process`-drawn replicates; its help now says so.
 
 * **`Index_distribution = "TruncatedNormal"`** fits and simulates a natural-scale
   normal left-truncated at zero. An index cannot be negative and `data_check()`
@@ -74,14 +87,13 @@
   is needed -- `"Normal"` is unchanged, and still reproduces the AMAK `avo_like` /
   `cpue_like` term for term.
 
-* **The diagnostics know that `TruncatedNormal` is a natural-scale family.**
-  `residuals(type = "pearson", source = "index")`, `plot_index()`'s observation
-  interval and `plot_indexresidual()` all pick their scale from
-  `.index_rows_natural_scale()` (5.8.2). The new family is registered there, so
-  it gets the natural-scale treatment rather than silently reverting to the
-  log-scale one. A test enumerates `index_distribution_map` rather than a
-  hand-written list, so a future family that misses this fails in the suite
-  instead of in a user's residual plot.
+* **`TruncatedNormal` is registered as a natural-scale family in the
+  diagnostics.** `residuals(type = "pearson", source = "index")`,
+  `plot_index()`'s observation interval and `plot_indexresidual()` all read the
+  scale from one predicate, so the new family gets the natural-scale treatment
+  rather than reverting to the log-scale one. A test enumerates
+  `index_distribution_map` rather than a hand-written list, so a future family
+  that misses the predicate fails in the suite instead of in a residual plot.
 
 * **`simulate()` works on a fitted model**, as the `stats` generic, alongside the
   `coef()`, `vcov()`, `logLik()` and `residuals()` methods the class already had.
@@ -101,6 +113,27 @@
   rejects it, the refit errors, and `self_test()` counts the replicate as not
   converged, which reads as a convergence problem rather than a data one. The
   usual cause is a fleet whose observation standard deviation never got a value.
+
+## Deprecations
+
+* **`quantities$log_index_sd` and `log_catch_sd` are renamed `index_sd` and
+  `catch_sd`.** Neither was ever a log: both hold the observation standard
+  deviation the likelihood actually used for that row, whichever of the three
+  `Estimate_index_sd` / `Estimate_catch_sd` routes supplied it. For `index_sd`
+  the old name was wrong twice, because a natural-scale `Index_distribution`
+  (`MVN`, `MVNORM`, `Normal`, `TruncatedNormal`) carries an ABSOLUTE sd in the
+  units of the index rather than a log-scale one -- exactly the reading the name
+  talked people out of. The scale is a property of the family, not of the field,
+  so it is documented rather than encoded in the name.
+
+  The old spellings are still returned on `$quantities` this release and will be
+  removed in the next. Reading a fit saved before the rename keeps working:
+  `residuals()`, `plot_index()`, `plot_catch()` and `sim_mod()`'s rebuild check
+  all accept either spelling.
+
+  The TMB parameter `index_log_sd` is a different object -- the estimated
+  log-scale parameter, which really is a log -- and is unchanged, since renaming
+  it would break `inits` from existing fits.
 
 ## Breaking changes
 
@@ -135,6 +168,40 @@
 
 ## Bug fixes
 
+* **Diagnostics for a natural-scale survey index no longer use log-scale
+  formulas.** `Index_distribution` splits into two scales: `Lognormal` carries a
+  CV / log-sd, while `MVN`, `MVNORM`, `Normal` and `TruncatedNormal` carry an
+  ABSOLUTE sd in the units of the index. Three places downstream of the
+  likelihood applied the lognormal form to every fleet, which does not error --
+  it returns nonsense, because `sigma^2 / 2` is then a number the size of the
+  index squared.
+
+  - `residuals(type = "pearson", source = "index")` returned the same large
+    constant for every row of a natural-scale fleet (about `+75` for an absolute
+    sd of 150, whatever the fit). It now standardizes as `(obs - hat) / sigma`
+    for those fleets. This also fed the Pearson attribute on `plot()` of an OSA
+    object.
+  - `plot_index()` drew its observation interval with `qlnorm()`, giving bands
+    like `[0, 1e130]` on the same fleet. Natural-scale fleets now get
+    `obs +/- 1.96 * sigma`, clamped at zero since an index cannot be negative.
+  - `plot_indexresidual()` plotted `log(hat) - log(obs)` for every family; it now
+    uses the plain difference where the fleet is fitted on the natural scale, and
+    its y axis is labelled `"Index residual"` rather than
+    `"log(index) residual"`. Panels keep a free y scale because a model mixing
+    the two families now mixes units across panels.
+
+  `Lognormal` fleets are unchanged, so any model that does not set
+  `Index_distribution` is unaffected.
+
+* **`Estimate_index_sd = "Analytical"` is refused on a natural-scale index
+  family.** The analytical sd (Ludwig and Walters 1994) is accumulated from
+  squared *log* residuals, so it is a log-scale sd, while `MVN`, `MVNORM`,
+  `Normal` and `TruncatedNormal` read the sd as an absolute value in the units of
+  the index. The combination fitted without complaint on the wrong scale;
+  `data_check()` now names the fleets and says what to use instead. Lognormal --
+  the family the analytical route was derived for -- is unaffected. Found while
+  renaming `log_index_sd`, which is the same confusion in a different place.
+
 * **`M1_re = 3` and `6` estimated far fewer deviations than intended.** The
   age-by-year map index was built from a vector of length `nyrs_hind` and
   assigned into an `nages x nyrs_hind` block. R recycled it silently -- the
@@ -152,11 +219,13 @@
 
 * **The 2D-AR1 correlations acted on the wrong dimensions.** `SEPARABLE(f, g)`
   applies `f` to the outermost array dimension and `g` to the fastest-running
-  one, so passing the bin correlation first on a `(bin, year)` array made it
-  correlate over years and the year correlation over bins. This affected the
-  2D-AR1 natural mortality random effect (`M1_re = 6`) and the 2D-AR1 selectivity
-  form (`Selectivity = "2DAR1"`). The 3D-AR1 form was already bin/year/cohort and
-  is unchanged; the fix makes 2DAR1 agree with it.
+  one. Both 2D-AR1 densities pass their fields as `(bin, year)` for selectivity
+  and `(age, year)` for natural mortality, so passing the bin (or age)
+  correlation first made it correlate over years, and the year correlation over
+  bins (or ages). This affected the 2D-AR1 natural mortality random effect
+  (`M1_re = 6`) and the 2D-AR1 selectivity form (`Selectivity = "2DAR1"`). The
+  3D-AR1 form was already bin/year/cohort and is unchanged; the fix makes 2DAR1
+  agree with it.
 
   **Most fits do not move.** Both correlations start at 0 and `TMBphase()` holds
   them there through every phase, so a likelihood symmetric in its two
@@ -222,12 +291,37 @@
   `clean_data()` sorts by `stomach_id`, so anything that came through it already
   satisfies this; the check catches a hand-built or re-sorted table.
 
+* **`data_check()` allows a stomach summing to 1 within floating-point
+  tolerance.** The test was `sum(Stomach_proportion_by_weight) > 1`; it is now
+  `> 1 + 1e-12`. A stomach whose prey account for the whole diet sums to exactly
+  1, and a simulated one reaches that through a division that can land a few
+  ulps above. Real excesses are still rejected.
+
+* **`sim_mod()` sizes the truncation warning from the fit rather than from the
+  draw.** A natural-scale index that has to be redrawn follows a normal truncated
+  at zero while the likelihood scores the untruncated one, and the warning now
+  reports that gap as `P(draw <= 0) = Phi(-mu/sd)` on the worst row, using the sd
+  the draw itself used (Sigma's diagonal for a covariance fleet). The previous
+  test counted rejections, but each row is drawn once per call, so the ratio
+  could only be 0, 1/2, 2/3, ... -- a "was this row ever redrawn" indicator
+  rather than a rate, and the 2% threshold it was compared against was
+  unreachable.
+
 ## Documentation
 
 * The developer guide covers the `SIMULATE` layer: what a new likelihood term
   owes its simulator, the `*_sim` reporting convention, and the two registries
   (`R/0-parameter_dictionary.R`, `.mse_proj_param_yrdim()`) a new or retired
   parameter block has to be added to.
+
+* **`osa_residuals()` states what a `TruncatedNormal` index residual is.** The
+  truncation constant `log Phi(mu/sd)` is a function of the prediction, not of
+  the observation, so the default `method = "oneStepGaussianOffMode"` -- which
+  reads the curvature of the density in the observation -- returns the same
+  residual the untruncated `"Normal"` family would. Those residuals are standard
+  normal only where `mu/sd` is large enough that truncation carries little mass;
+  the truncation still enters through the fitted parameters. The help said they
+  were uniform under the truncated model, which overstated it.
 
 * `vignette("model-diagnostics")` documents `process = `, the natural-scale index
   families, and what a redrawn M can and cannot be read as. On `BS2017SS` with a
@@ -243,31 +337,6 @@
   caveat on `M1_re = 3` / `6`. `vignette("growth-estimation")` gains a
   time-varying growth section. `vignette("hcrs-and-mses")` notes that seeded MSE
   results are not comparable across 5.8.x to 5.9.0.
-# Rceattle 5.8.2
-
-## Bug fixes
-
-* **Diagnostics for a natural-scale survey index no longer use log-scale
-  formulas.** `Index_distribution` splits into two scales: `Lognormal` carries a
-  CV / log-sd, while `MVN`, `MVNORM` and `Normal` carry an ABSOLUTE sd in the
-  units of the index. Three places downstream of the likelihood applied the
-  lognormal form to every fleet, which does not error -- it silently returns
-  nonsense, because `sigma^2 / 2` is then a number the size of the index squared.
-
-  - `residuals(type = "pearson", source = "index")` returned the same large
-    constant for every row of a natural-scale fleet (about `+75` for an absolute
-    sd of 150, whatever the fit). It now standardizes as `(obs - hat) / sigma`
-    for those fleets. This also fed the Pearson attribute on `plot()` of an OSA
-    object.
-  - `plot_index()` drew its observation interval with `qlnorm()`, giving bands
-    like `[0, 1e130]` on the same fleet. Natural-scale fleets now get
-    `obs +/- 1.96 * sigma`, clamped at zero since an index cannot be negative.
-  - `plot_indexresidual()` plotted `log(hat) - log(obs)` for every family; it now
-    uses the plain difference where the fleet is fitted on the natural scale.
-
-  `Lognormal` fleets are unchanged, so any model that does not set
-  `Index_distribution` is unaffected.
-
 # Rceattle 5.8.1
 
 Documentation-only release. Four changes that landed earlier in the 5.x line

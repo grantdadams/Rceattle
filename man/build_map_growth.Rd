@@ -18,7 +18,7 @@ Updated \code{map_list}.
 }
 \description{
 Maps the growth parameters (\code{log_growth_pars},
-\code{growth_log_sd}, \code{weight_length_pars}) on according to
+\code{growth_log_sd}, \code{weight_length_pars}) according to
 \code{growth_model}. Everything starts mapped off and each growth function
 turns on the parameters it uses.
 

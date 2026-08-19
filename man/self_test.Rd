@@ -84,13 +84,10 @@ optimizer's function evaluations rather than inside one.}
 the fitted process deviations, so the test measures whether the estimator
 recovers its own parameters from new observations. Naming a process --
 \code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
-\code{TRUE}, ... -- redraws it too, which asks the harder and usually more
-relevant question of whether the estimator recovers a process it has not
-been shown. Last in the signature so positional calls keep their meaning.
-The deviations behind each replicate are returned as
-\code{attr(result, "process_sim")}, aligned to the returned models; compare
-estimates against those rather than against the source model, whose
-deviations are no longer the values that generated the data.}
+\code{TRUE}, ... -- redraws it too, so the test instead measures whether the
+estimator recovers a process it has not been shown. The deviations behind
+each replicate come back in \code{attr(result, "process_sim")}; see
+\code{Value}.}
 }
 \value{
 A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
@@ -109,9 +106,12 @@ deviations that generated each replicate's data -- a list keyed by the same
 \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
 \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
 is a named list of whichever of \code{rec_dev}, \code{init_dev},
-\code{log_M1_dev} and \code{beta_linkage_re} were drawn. Compare estimates
-against these, not against the operating model: its fitted deviations are no
-longer what generated the data.
+\code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
+same-shaped \code{_drawn} logical marking the cells the draw touched --
+restrict any recovery statistic to those, since the rest are fitted values
+(see \code{\link{sim_mod}}). Compare estimates against these, not against
+the operating model: its fitted deviations are no longer what generated the
+data.
 }
 \description{
 Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.

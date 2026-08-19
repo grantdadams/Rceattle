@@ -14,9 +14,9 @@
   kind <- match.arg(kind)
   cfg <- switch(kind,
     index = list(data = "index_data", obs = "Observation",
-                 hat = "index_hat", sd = "log_index_sd", type = "Survey"),
+                 hat = "index_hat", sd = "index", type = "Survey"),
     catch = list(data = "catch_data", obs = "Catch",
-                 hat = "catch_hat", sd = "log_catch_sd", type = "Fishery"))
+                 hat = "catch_hat", sd = "catch", type = "Fishery"))
 
   model_names_use <- .model_labels(Rceattle, model_names)
   fc <- Rceattle[[1]]$data_list$fleet_control
@@ -27,7 +27,7 @@
   for (i in seq_along(Rceattle)) {
     dat <- Rceattle[[i]]$data_list[[cfg$data]]
     dat$.obs <- dat[[cfg$obs]]
-    dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
+    dat$.sd  <- .observation_sd(Rceattle[[i]]$quantities, cfg$sd)
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
     # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
@@ -46,6 +46,11 @@
     # lognormal form treats it as a log-sd: an sd of 150 on an index of ~100
     # draws a band of [0, 1e130] and the panel is unreadable. Catch is lognormal
     # throughout, so it always takes the log branch.
+    #
+    # The natural-scale interval is the untruncated normal's, clamped at zero.
+    # For a "TruncatedNormal" fleet that is not the truncated quantile, so the
+    # band is approximate wherever truncation carries real mass -- which is also
+    # where sim_mod() warns.
     nat <- rep(FALSE, nrow(dat))
     if (kind == "index") {
       nat_all <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
@@ -246,13 +251,21 @@ plot_catch <- function(Rceattle,
 
 #' Survey index residuals
 #'
-#' Plots log residuals `log(predicted) - log(observed)` of the survey index by
-#' year, faceted by survey fleet (`residual_type = "pearson"`, the default), or
-#' one-step-ahead (OSA) residual diagnostics for a single fit
-#' (`residual_type = "osa"`, via [osa_residuals()] / [plot.rceattle_osa()]).
+#' Plots survey index residuals by year, faceted by survey fleet
+#' (`residual_type = "pearson"`, the default), or one-step-ahead (OSA) residual
+#' diagnostics for a single fit (`residual_type = "osa"`, via [osa_residuals()] /
+#' [plot.rceattle_osa()]).
+#'
+#' The residual is taken on the scale the fleet is fitted on, read from its
+#' `Index_distribution`: `log(predicted) - log(observed)` for a log-scale
+#' (`"Lognormal"`) fleet, and `predicted - observed` for a natural-scale one
+#' (`"MVN"`, `"MVNORM"`, `"Normal"`, `"TruncatedNormal"`), whose sd is absolute.
+#' Panels therefore carry different units where a model mixes the two, which is
+#' why the y scale is free per fleet.
 #'
 #' @inheritParams plot_index
-#' @param residual_type `"pearson"` (log index residuals) or `"osa"`.
+#' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
+#'   or `"osa"`.
 #' @return A `ggplot` object.
 #' @export
 plot_indexresidual <- function(Rceattle,
@@ -297,12 +310,16 @@ plot_indexresidual <- function(Rceattle,
                                                   fc$Fleet_code)]),
       Year     = abs(dat$Year),
       # log ratio for a log-scale fleet, plain difference for a natural-scale
-      # one -- log() of a natural-scale residual is not a residual.
+      # one -- log() of a natural-scale residual is not a residual. Assigned by
+      # subset rather than with ifelse(), which evaluates both arms and so would
+      # take log() of a natural-scale observation it then discards.
       Residual = {
         nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
         nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
-        ifelse(nat, dat$.hat - dat$Observation,
-               log(dat$.hat) - log(dat$Observation))
+        res <- rep(NA_real_, nrow(dat))
+        res[nat]  <- dat$.hat[nat] - dat$Observation[nat]
+        res[!nat] <- log(dat$.hat[!nat]) - log(dat$Observation[!nat])
+        res
       },
       stringsAsFactors = FALSE)
   }
@@ -322,8 +339,11 @@ plot_indexresidual <- function(Rceattle,
     ggplot2::geom_point(position = ggplot2::position_dodge(width = 0.6))
   p <- .rceattle_scale(
     p +
+      # Panels are per fleet with a free y scale, which is what lets the two
+      # scales share a figure: a log-scale fleet's panel is dimensionless, a
+      # natural-scale fleet's is in the units of the index.
       ggplot2::facet_wrap(~ Fleet, scales = "free_y") +
-      ggplot2::labs(x = "Year", y = "log(index) residual") +
+      ggplot2::labs(x = "Year", y = "Index residual") +
       .rceattle_theme(),
     aesthetics = "colour")
   if (nlevels(df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")

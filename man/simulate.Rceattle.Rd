@@ -11,9 +11,8 @@
 
 \item{nsim}{Number of replicate data sets to draw. Default 1.}
 
-\item{seed}{Optional seed. Set as \code{set.seed(seed)} and the previous
-random-number state restored afterwards, so simulating does not disturb a
-stream the caller is using. Recorded on the result as \code{attr(, "seed")}.}
+\item{seed}{Optional seed. The caller's random state is restored afterwards,
+per \code{\link[stats:simulate]{stats::simulate()}}. Recorded as \code{attr(, "seed")}.}
 
 \item{process}{Which process error to redraw alongside the observations.
 \code{FALSE} (default) keeps the fitted deviations, so replicates differ only in
@@ -26,10 +25,10 @@ A list of \code{nsim} \code{data_list} objects -- always a list, including at
 \code{nsim = 1}, so callers do not have to special-case the length. When
 \code{process} redrew something, each element carries the deviations that
 generated it as \code{attr(, "process_sim")}: a named list of whichever of
-\code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and \code{beta_linkage_re} were drawn.
-Compare estimates against those rather than against \code{object}, whose fitted
-deviations are no longer what generated the data. The seed, when given, is
-recorded on the returned list as \code{attr(, "seed")}.
+\code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and \code{beta_linkage_re} were drawn, each
+with a \verb{_drawn} logical of the same shape marking the cells the draw
+touched. Compare estimates against those rather than against \code{object} --
+see \code{\link[=sim_mod]{sim_mod()}}.
 }
 \description{
 The \code{\link[stats:simulate]{stats::simulate()}} method for CEATTLE fits: draws \code{nsim}
@@ -40,10 +39,9 @@ the process model as well.
 A wrapper on \code{\link[=sim_mod]{sim_mod()}}, which documents the observation model in full. For
 expected values rather than draws, call \code{sim_mod(simulate = FALSE)}.
 
-Every draw is taken by the TMB model itself, beside the likelihood that
-defines it, so the simulated data and the density that will be fitted to them
-cannot drift apart. That needs a live \verb{$obj}, which a model loaded from disk
-has and a \code{\link[=model_average]{model_average()}} result does not -- see \code{\link[=sim_mod]{sim_mod()}}.
+Draws are taken by the TMB model, so \code{simulate()} needs a live \verb{$obj}: a
+model loaded from disk has one, a \code{\link[=model_average]{model_average()}} result does not -- see
+\code{\link[=sim_mod]{sim_mod()}}.
 }
 \examples{
 \dontrun{

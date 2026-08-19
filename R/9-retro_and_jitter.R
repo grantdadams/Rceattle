@@ -764,13 +764,10 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   the fitted process deviations, so the test measures whether the estimator
 #'   recovers its own parameters from new observations. Naming a process --
 #'   \code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
-#'   \code{TRUE}, ... -- redraws it too, which asks the harder and usually more
-#'   relevant question of whether the estimator recovers a process it has not
-#'   been shown. Last in the signature so positional calls keep their meaning.
-#'   The deviations behind each replicate are returned as
-#'   \code{attr(result, "process_sim")}, aligned to the returned models; compare
-#'   estimates against those rather than against the source model, whose
-#'   deviations are no longer the values that generated the data.
+#'   \code{TRUE}, ... -- redraws it too, so the test instead measures whether the
+#'   estimator recovers a process it has not been shown. The deviations behind
+#'   each replicate come back in \code{attr(result, "process_sim")}; see
+#'   \code{Value}.
 #'
 #' @return A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 #'   By default only the converged simulations, renumbered contiguously; a
@@ -788,9 +785,12 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
 #'   \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
 #'   is a named list of whichever of \code{rec_dev}, \code{init_dev},
-#'   \code{log_M1_dev} and \code{beta_linkage_re} were drawn. Compare estimates
-#'   against these, not against the operating model: its fitted deviations are no
-#'   longer what generated the data.
+#'   \code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
+#'   same-shaped \code{_drawn} logical marking the cells the draw touched --
+#'   restrict any recovery statistic to those, since the rest are fitted values
+#'   (see \code{\link{sim_mod}}). Compare estimates against these, not against
+#'   the operating model: its fitted deviations are no longer what generated the
+#'   data.
 #'
 #' @section Interpreting the spread:
 #' \code{\link{sim_mod}} redraws the observations only -- indices, catch,
@@ -826,6 +826,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' }
 #' @export
 self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf, process = FALSE) {
+  # `process` is last in the signature so positional calls keep their meaning.
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
