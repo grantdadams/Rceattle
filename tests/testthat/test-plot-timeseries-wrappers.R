@@ -200,15 +200,15 @@ test_that("log-scale intervals are right-skewed and never reach zero", {
 
   # Plotted on the recruitment scale (thousands of fish -> millions)
   expect_equal(d$value, value / 1e3)
-  expect_equal(d$lower95, exp(log(value) - 1.92 * sd_log) / 1e3)
-  expect_equal(d$upper95, exp(log(value) + 1.92 * sd_log) / 1e3)
+  expect_equal(d$lower95, exp(log(value) - stats::qnorm(0.975) * sd_log) / 1e3)
+  expect_equal(d$upper95, exp(log(value) + stats::qnorm(0.975) * sd_log) / 1e3)
 
   # Strictly positive, and skewed away from the line on the high side
   expect_true(all(d$lower95 > 0))
   expect_true(all((d$upper95 - d$value) > (d$value - d$lower95)))
 
   # The symmetric interval this replaces would have gone negative
-  expect_lt(min(value - 1.92 * sd_nat), 0)
+  expect_lt(min(value - stats::qnorm(0.975) * sd_nat), 0)
 })
 
 test_that("a model without log_* gets the log interval derived from sd/value", {
@@ -224,8 +224,8 @@ test_that("a model without log_* gets the log interval derived from sd/value", {
     .fake_ts_model("R", value, sd_nat), add_ci = TRUE)
   d <- p$data[order(p$data$Year), ]
 
-  expect_equal(d$lower95, exp(log(value) - 1.92 * sd_nat / value) / 1e3)
-  expect_equal(d$upper95, exp(log(value) + 1.92 * sd_nat / value) / 1e3)
+  expect_equal(d$lower95, exp(log(value) - stats::qnorm(0.975) * sd_nat / value) / 1e3)
+  expect_equal(d$upper95, exp(log(value) + stats::qnorm(0.975) * sd_nat / value) / 1e3)
   expect_true(all(d$lower95 > 0))
 
   # ...and identical to what an explicitly reported log_* row would give
@@ -245,4 +245,48 @@ test_that("a zero-valued series keeps the symmetric interval", {
   expect_equal(d$lower95[1], 0)
   expect_equal(d$upper95[1], 0)
   expect_true(d$lower95[2] > 0)
+})
+
+test_that("add_ci on a fit without an sdreport warns and still draws", {
+  testthat::skip_if_not_installed("ggplot2")
+  # getsd = FALSE leaves no $sdrep at all. The warning promises "drawing no
+  # confidence interval", so it must not then fail indexing a NULL sdreport.
+  m <- .fake_ts_model("R", c(5e5, 3e5), c(1e5, 5e4))
+  m$sdrep <- NULL
+  expect_warning(p <- Rceattle::plot_recruitment(m, add_ci = TRUE),
+                 "no standard errors")
+  expect_s3_class(p, "ggplot")
+  expect_true(all(is.na(p$data$lower95)))
+})
+
+test_that("a REPORT-only series does not warn about missing standard errors", {
+  testthat::skip_if_not_installed("ggplot2")
+  # F_spp is never ADREPORTed, so it can never carry standard errors; warning
+  # on it would fire on every fit.
+  m <- .fake_ts_model("F_spp", c(0.2, 0.3), c(NA_real_, NA_real_))
+  m$sdrep$value <- m$sdrep$value[0]; m$sdrep$sd <- m$sdrep$sd[0]
+  expect_no_warning(Rceattle::plot_timeseries(m, output = "F_spp",
+                                              add_ci = TRUE))
+})
+
+test_that("as.data.frame() and the plotter report the same interval", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("ggplot2")
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    Rceattle::BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = TRUE,
+                                        verbose = 0))))
+
+  tab <- as.data.frame(fit, which = "ssb")
+  p   <- suppressWarnings(Rceattle::plot_ssb(fit, add_ci = TRUE))
+  both <- merge(p$data, tab,
+                by.x = c("Species", "Year"), by.y = c("species", "year"))
+  expect_gt(nrow(both), 0)
+
+  # The plotter divides SSB by 1e6 for display; the table is on the model scale.
+  expect_equal(both$lower95, both$lwr / 1e6, tolerance = 1e-8)
+  expect_equal(both$upper95, both$upr / 1e6, tolerance = 1e-8)
+  # ...and the interval is right-skewed, not symmetric about the estimate.
+  expect_true(all((both$upr - both$value.y) > (both$value.y - both$lwr)))
 })

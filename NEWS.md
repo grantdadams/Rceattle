@@ -81,6 +81,23 @@
 
 ## Bug fixes
 
+* **`as.data.frame(fit)` and the plotters now report the same interval.** The
+  extractor still built a symmetric natural-scale interval for `biomass`, `ssb`
+  and `R` while `plot_biomass()` drew the log-scale one, and it returned `NA`
+  standard errors for `exploitable_biomass` and the two depletions -- the three
+  series this release just ADREPORTed. Both paths now go through one helper.
+  The plotters also switch from the rounded `1.92` to `qnorm(0.975)`, so the
+  band labelled 95% is a 95% band: **ribbons are about 2% wider than in 5.7.0**,
+  and any interval read off a figure or table should be regenerated. The point
+  estimates are unchanged.
+
+* **`add_ci = TRUE` on a fit made with `getsd = FALSE` no longer errors.** It
+  warned that it would draw no interval and then failed on the next line
+  indexing an absent `sdreport`. It now warns and draws the series without a
+  ribbon, as the message says. The warning is also gated on whether the series
+  is ADREPORTed at all, so `plot_f(add_ci = TRUE)` no longer warns on every fit
+  about standard errors `F_spp` can never have.
+
 * **`rearrange_data()` and `data_check()` work again on a `fleet_control` that
   has not been through `switch_check()`.** `Sel_norm_scope` was read with no
   missing-column guard, so a data list read straight from a workbook failed with

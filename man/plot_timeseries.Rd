@@ -109,7 +109,7 @@ in kg -- or the axis labels will not describe what is plotted.
 
 \section{Confidence intervals}{
 \code{add_ci = TRUE} draws a 95\% interval. Every strictly positive series takes it
-on the log scale as \verb{exp(log(x) +/- 1.92 * sd_log)}. These quantities are
+on the log scale as \verb{exp(log(x) +/- qnorm(0.975) * sd_log)}. These quantities are
 built multiplicatively, so \code{log(x)} is close to linear in the estimated
 parameters where \code{x} is exponential in them: the interval is both a better
 linearization and right-skewed, and it cannot cross zero the way a symmetric

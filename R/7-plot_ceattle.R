@@ -36,7 +36,7 @@ rich.colors.short <- function(n,alpha=1){
 #' # Confidence intervals
 #'
 #' `add_ci = TRUE` draws a 95% interval. Every strictly positive series takes it
-#' on the log scale as `exp(log(x) +/- 1.92 * sd_log)`. These quantities are
+#' on the log scale as `exp(log(x) +/- qnorm(0.975) * sd_log)`. These quantities are
 #' built multiplicatively, so `log(x)` is close to linear in the estimated
 #' parameters where `x` is exponential in them: the interval is both a better
 #' linearization and right-skewed, and it cannot cross zero the way a symmetric
@@ -219,25 +219,29 @@ plot_timeseries <- function(Rceattle,
     # Get SD of quantity
     if(add_ci & !mse){
       sd_rows <- which(names(Rceattle[[i]]$sdrep$value) == output)
-      # Out-of-range indexing below fills with NA and draws an invisible
-      # ribbon, so name the missing series rather than failing silently.
-      if (length(sd_rows) < nyrs_vec[i] * nspp) {
-        warning("`", output, "` has no standard errors in model ", i,
-                " (not reported by this fit, or the fit used getsd = FALSE); ",
-                "drawing no confidence interval for it.", call. = FALSE)
-      }
-      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_rows]
-      quantity_sd[,  1:nyrs_vec[i], i] <-
-        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      n_need <- nyrs_vec[i] * nspp
+      if (length(sd_rows) < n_need) {
+        # Leave the SD array as NA and draw no ribbon. Only warn for a series
+        # the model could have reported: F_spp and the other REPORT()-only
+        # quantities never carry standard errors, so warning on them would fire
+        # on every fit.
+        if (isTRUE(.RCEATTLE_QUANTITIES[[output]]$adreport))
+          warning("`", output, "` has no standard errors in model ", i,
+                  " (not reported by this fit, or the fit used getsd = FALSE); ",
+                  "drawing no confidence interval for it.", call. = FALSE)
+      } else {
+        quantity_sd[, 1:nyrs_vec[i], i] <-
+          replace(quantity_sd[, 1:nyrs_vec[i], i],
+                  values = Rceattle[[i]]$sdrep$sd[sd_rows][1:n_need])
 
-      # Log-scale SD where the model reported one; the rest are recovered from
-      # sd/x below.
-      log_rows <- which(names(Rceattle[[i]]$sdrep$value) == paste0("log_", output))
-      if (length(log_rows) >= nyrs_vec[i] * nspp) {
-        log_sd_temp <- Rceattle[[i]]$sdrep$sd[log_rows]
-        quantity_log_sd[, 1:nyrs_vec[i], i] <-
-          replace(quantity_log_sd[, 1:nyrs_vec[i], i],
-                  values = log_sd_temp[1:(nyrs_vec[i] * nspp)])
+        # Log-scale SD where the model reported one; the rest are recovered
+        # from sd/x below.
+        log_rows <- which(names(Rceattle[[i]]$sdrep$value) == paste0("log_", output))
+        if (length(log_rows) >= n_need) {
+          quantity_log_sd[, 1:nyrs_vec[i], i] <-
+            replace(quantity_log_sd[, 1:nyrs_vec[i], i],
+                    values = Rceattle[[i]]$sdrep$sd[log_rows][1:n_need])
+        }
       }
     }
 
@@ -248,36 +252,21 @@ plot_timeseries <- function(Rceattle,
     }
   }
 
-  # Recover the log-scale SD from the delta-method identity sd(log x) = sd(x)/x
-  # where the model reported none: exploitable_biomass and the depletions cannot
-  # be ADREPORTed logged (see ceattle.cpp), and older fits predate log_*. A zero
-  # x gives NaN and keeps the symmetric interval, degenerate there anyway.
-  derive_log <- is.na(quantity_log_sd) & !is.na(quantity_sd) &
-    !is.na(quantity) & quantity > 0
-  quantity_log_sd[derive_log] <- quantity_sd[derive_log] / quantity[derive_log]
-
   ## Get confidence intervals ----
   if(!mse){
-    # - Single model
-    quantity_upper95 <- quantity + quantity_sd * 1.92
-    quantity_lower95 <- quantity - quantity_sd * 1.92
+    # - Single model. .rce_ci_bounds() is shared with as.data.frame.Rceattle(),
+    #   so the figure and the table cannot disagree: a strictly positive series
+    #   takes exp(log(x) +/- z * sd_log), recovering sd(log x) = sd(x)/x where
+    #   the model reported no log_* row, and everything else stays symmetric.
+    ci95 <- .rce_ci_bounds(quantity, quantity_sd, quantity_log_sd,
+                           z = stats::qnorm(0.975))
+    ci50 <- .rce_ci_bounds(quantity, quantity_sd, quantity_log_sd,
+                           z = stats::qnorm(0.75))
 
-    quantity_upper50 <- quantity + quantity_sd * 0.674
-    quantity_lower50 <- quantity - quantity_sd * 0.674
-
-    # Positive series take exp(log(x) +/- z * sd_log), centred on the plotted
-    # line. They are built multiplicatively (R = R0 * exp(rec_dev)), so log(x) is
-    # near-linear in the parameters where x is not, and the interval cannot reach
-    # zero the way a symmetric one does for a weak year class or depleted stock.
-    use_log <- !is.na(quantity_log_sd) & !is.na(quantity) & quantity > 0
-    if (any(use_log)) {
-      log_mu <- log(quantity[use_log])
-      sd_log <- quantity_log_sd[use_log]
-      quantity_upper95[use_log] <- exp(log_mu + 1.92  * sd_log)
-      quantity_lower95[use_log] <- exp(log_mu - 1.92  * sd_log)
-      quantity_upper50[use_log] <- exp(log_mu + 0.674 * sd_log)
-      quantity_lower50[use_log] <- exp(log_mu - 0.674 * sd_log)
-    }
+    quantity_upper95 <- array(ci95$upr, dim = dim(quantity))
+    quantity_lower95 <- array(ci95$lwr, dim = dim(quantity))
+    quantity_upper50 <- array(ci50$upr, dim = dim(quantity))
+    quantity_lower50 <- array(ci50$lwr, dim = dim(quantity))
   } else {
     # - MSE objects
     ptarget <- ptarget[1,]
