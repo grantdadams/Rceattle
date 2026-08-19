@@ -724,11 +724,14 @@ revert_switches <- function(data_list) {
   }
 
   # - Fleet switches
-  # Guard: Index_distribution is a newer column; a hand-built fleet_control (or a
-  # data_list passed straight to rearrange_data(), bypassing switch_check) may
-  # lack it. Default to Lognormal so the conversion below works without it.
-  if(is.null(data_list$fleet_control$Index_distribution)){
-    data_list$fleet_control$Index_distribution <- "Lognormal"
+  # Guard: Index_distribution and Sel_norm_scope are newer columns; a hand-built
+  # fleet_control (or a data_list passed straight to rearrange_data(), bypassing
+  # switch_check) may lack them. Fill from the schema so the conversion below
+  # works without them, and so the value cannot drift from switch_check()'s.
+  .sch_defaults <- .rce_column_schema()
+  for (.col in c("Index_distribution", "Sel_norm_scope")) {
+    if (is.null(data_list$fleet_control[[.col]]))
+      data_list$fleet_control[[.col]] <- .sch_defaults[[.col]]$default
   }
   data_list$fleet_control <- data_list$fleet_control |>
     dplyr::mutate(
@@ -768,6 +771,14 @@ validate_switches <- function(data_list = NULL){
   errors <- character(0)
 
   # Validate fleet_control inputs ----
+  # The newer switch columns can be absent here: data_check() is callable on a
+  # data list read straight from a workbook, before switch_check() has filled
+  # its schema defaults. A column that is not there will be defaulted to a valid
+  # value, so there is nothing to validate -- skip the check rather than fail on
+  # a missing column.
+  .fc_none <- data_list$fleet_control[0, , drop = FALSE]
+  .fc_has <- function(col) !is.null(data_list$fleet_control[[col]])
+
   invalid_flt_type <- data_list$fleet_control |>
     dplyr::filter(!.data$Fleet_type %in% c(fleet_map, names(fleet_map)))
 
@@ -783,8 +794,11 @@ validate_switches <- function(data_list = NULL){
   invalid_tv_q <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
-  invalid_sel_norm_scope <- data_list$fleet_control |>
-    dplyr::filter(!.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
+  invalid_sel_norm_scope <- if (.fc_has("Sel_norm_scope")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$Fleet_type != "Off" &
+                      !.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
+  } else .fc_none
 
   invalid_comp_ll <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
@@ -792,8 +806,11 @@ validate_switches <- function(data_list = NULL){
   invalid_caal_ll <- data_list$fleet_control |>
     dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
-  invalid_index_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
+  invalid_index_ll <- if (.fc_has("Index_distribution")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$Fleet_type != "Off" &
+                      !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
+  } else .fc_none
 
   # Throw clear errors to guide the user
   if(nrow(invalid_flt_type) > 0) {
@@ -908,12 +925,24 @@ convert_switches <- function(data_list) {
   .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
 
   # Fleet controls ----
-  # Guard: default the newer Index_distribution column when a caller (e.g. a direct
-  # rearrange_data() unit test) supplies a fleet_control that never went through
-  # switch_check.
-  if(is.null(data_list$fleet_control$Index_distribution)){
-    data_list$fleet_control$Index_distribution <- "Lognormal"
+  # Guard: default the newer switch columns when a caller supplies a
+  # fleet_control that never went through switch_check -- a direct
+  # rearrange_data() call (it is exported and documented to work on a data list
+  # read straight from a workbook), or a data_check() run before fitting. Every
+  # pre-5.8.0 data list, including all the bundled ones, is missing
+  # Sel_norm_scope; without this the .data pronoun below fails with a cryptic
+  # "column not found". Defaults come from the schema so they cannot drift from
+  # the ones switch_check() applies.
+  .sch_defaults <- .rce_column_schema()
+  for (.col in c("Index_distribution", "Sel_norm_scope")) {
+    if (is.null(data_list$fleet_control[[.col]]))
+      data_list$fleet_control[[.col]] <- .sch_defaults[[.col]]$default
   }
+  # A blank cell in a supplied Sel_norm_scope column would reach TMB as NA, which
+  # the C++ reads as WithinSex -- the opposite of the documented default. Fill it
+  # here as switch_check() does, so both entry points agree.
+  data_list$fleet_control$Sel_norm_scope[is.na(data_list$fleet_control$Sel_norm_scope)] <-
+    .sch_defaults[["Sel_norm_scope"]]$default
   # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
@@ -932,6 +961,7 @@ convert_switches <- function(data_list) {
       Fleet_type = as.integer(.data$Fleet_type),
       Selectivity = as.integer(.data$Selectivity),
       Time_varying_sel = as.integer(.data$Time_varying_sel),
+      Sel_norm_scope = as.integer(.data$Sel_norm_scope),
       Catchability = as.integer(.data$Catchability),
       Comp_distribution = as.integer(.data$Comp_distribution),
       CAAL_distribution = as.integer(.data$CAAL_distribution),
