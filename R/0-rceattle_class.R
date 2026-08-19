@@ -383,7 +383,18 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     hat <- as.numeric(q$index_hat)
     if (type == "pearson") {
       sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
-      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
+      # Standardize on the scale the fleet's own likelihood uses. The lognormal
+      # form below is wrong for a natural-scale family by orders of magnitude,
+      # not by a little: sigma there is ABSOLUTE, so -sigma^2/2 is a number the
+      # size of the index squared and every residual comes back at the same
+      # large constant (an absolute sd of 150 gives ~+75 for every row,
+      # regardless of fit).
+      nat <- .index_rows_natural_scale(d)
+      if (!length(nat)) nat <- rep(FALSE, length(obs))
+      res <- rep(NA_real_, length(obs))
+      res[!nat] <- (log(obs[!nat]) -
+                      (log(hat[!nat]) - ba_obs * sigma[!nat]^2 / 2)) / sigma[!nat]
+      res[nat]  <- (obs[nat] - hat[nat]) / sigma[nat]
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }

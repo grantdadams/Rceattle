@@ -1,3 +1,28 @@
+# Rceattle 5.8.2
+
+## Bug fixes
+
+* **Diagnostics for a natural-scale survey index no longer use log-scale
+  formulas.** `Index_distribution` splits into two scales: `Lognormal` carries a
+  CV / log-sd, while `MVN`, `MVNORM` and `Normal` carry an ABSOLUTE sd in the
+  units of the index. Three places downstream of the likelihood applied the
+  lognormal form to every fleet, which does not error -- it silently returns
+  nonsense, because `sigma^2 / 2` is then a number the size of the index squared.
+
+  - `residuals(type = "pearson", source = "index")` returned the same large
+    constant for every row of a natural-scale fleet (about `+75` for an absolute
+    sd of 150, whatever the fit). It now standardizes as `(obs - hat) / sigma`
+    for those fleets. This also fed the Pearson attribute on `plot()` of an OSA
+    object.
+  - `plot_index()` drew its observation interval with `qlnorm()`, giving bands
+    like `[0, 1e130]` on the same fleet. Natural-scale fleets now get
+    `obs +/- 1.96 * sigma`, clamped at zero since an index cannot be negative.
+  - `plot_indexresidual()` plotted `log(hat) - log(obs)` for every family; it now
+    uses the plain difference where the fleet is fitted on the natural scale.
+
+  `Lognormal` fleets are unchanged, so any model that does not set
+  `Index_distribution` is unaffected.
+
 # Rceattle 5.8.1
 
 Documentation-only release. Four changes that landed earlier in the 5.x line
