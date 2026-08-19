@@ -865,7 +865,20 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
-  .stop_if_dsem(Rceattle, "self_test")
+
+  # A DSEM works here, and means the same thing it does without one. sim_mod()
+  # draws new OBSERVATIONS in R from the fitted quantities -- it does not redraw
+  # the process random effects -- so a self test holds the estimated recruitment
+  # deviations fixed and asks whether the model recovers itself from fresh
+  # observation error. Under a DSEM those deviations come from the latent
+  # states, which are likewise held at their fitted values, so the DSEM's own
+  # process is NOT re-realized across replicates. That is the same limitation the
+  # standard recruitment path already has, not a new one, but it is worth
+  # knowing: a clean self test says nothing about how well the SEM structure is
+  # identified across recruitment realizations.
+  #
+  # No map is passed to .refit_like() below, so fit_mod() rebuilds one and fills
+  # in the DSEM blocks itself.
 
   start <- match.arg(start)
   if (is.null(Rceattle[[paste0(start, "_params")]])) {
