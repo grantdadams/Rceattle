@@ -1146,7 +1146,11 @@ profile.Rceattle <- function(fitted = NULL,
   if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
-  .stop_if_dsem(fitted, "profile")
+  # No blanket DSEM refusal: a DSEM only blocks the recruitment-SD and
+  # recruitment-deviation slots, which are mapped out under one. That check sits
+  # below, after the natural-scale aliases have resolved, so it catches both
+  # `param = "sigmaR"` and a direct `param = "R_log_sd"`.
+
   # Grid fits inherit the input model's sdreport setting unless overridden;
   # the profile reads only the objective, not sdrep.
   if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
@@ -1189,6 +1193,25 @@ profile.Rceattle <- function(fitted = NULL,
 
   if (!param %in% names(fitted$estimated_params)) {
     stop("`param` '", param, "' not found in Rceattle$estimated_params.")
+  }
+
+  # Under a DSEM the template OVERWRITES rec_dev from the latent states and R_sd
+  # from the SEM's variance path, so fit_mod() maps both blocks out. Profiling
+  # one would vary a parameter with exactly zero gradient: the objective would
+  # not move, and the result would be a FLAT profile that reads as "the data are
+  # uninformative about this" rather than "this parameter is not connected to
+  # anything". Refuse instead, and name where the quantity actually lives.
+  # Everything else -- M1, R0, alpha, beta, an arbitrary slot -- profiles
+  # normally under a DSEM.
+  if (.has_dsem(fitted) && param %in% c("R_log_sd", "rec_dev")) {
+    stop("profile() cannot profile '", param, "' on a DSEM fit: it is mapped ",
+         "out, because the recruitment ",
+         if (param == "R_log_sd") "SD comes from the SEM's variance path" else
+           "deviations come from the latent states",
+         ", so the profile would be flat rather than informative. The ",
+         "recruitment SD is dsem_beta_z[rec_sd_idx[sp]] -- profile that slot ",
+         "directly, remembering it is a Cholesky factor whose sign is not ",
+         "identified (R_sd is its absolute value).", call. = FALSE)
   }
 
   par_array <- fitted$estimated_params[[param]]

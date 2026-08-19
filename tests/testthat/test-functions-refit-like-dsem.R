@@ -102,8 +102,9 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
                            info = fn)
   }
   testthat::expect_error(Rceattle::reweight_comps(fake), "does not yet support a DSEM")
-  testthat::expect_error(stats::profile(fake, param = "sigmaR"),
-                         "does not yet support a DSEM")
+  # profile() is no longer a blanket refusal: a DSEM blocks only the slots it
+  # maps out (R_log_sd, rec_dev), and everything else profiles normally.
+  # See test-dsem-profile.R.
 })
 
 testthat::test_that("run_mse() and sample_rec() refuse a DSEM rather than mis-project it", {
