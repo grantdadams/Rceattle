@@ -2,7 +2,7 @@
 % Please edit documentation in R/6-rename_output.R
 \name{rename_output}
 \alias{rename_output}
-\title{Function to rename derived quantities from Rceattle}
+\title{Label the derived quantities reported by a CEATTLE fit}
 \usage{
 rename_output(data_list = NULL, quantities = NULL)
 }
@@ -12,5 +12,8 @@ rename_output(data_list = NULL, quantities = NULL)
 \item{quantities}{list of "report" objects from Rceattle.}
 }
 \description{
-Function to rename derived quantities from Rceattle
+Attaches dimension names (species, sex, age, length bin, year, fleet) to the
+report objects returned by the TMB model, and names the rows/columns of the
+likelihood-component matrices, so the fitted quantities read as labeled
+arrays rather than bare numbers.
 }

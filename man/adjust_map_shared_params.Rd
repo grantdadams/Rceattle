@@ -16,6 +16,6 @@ Updated \code{map_list}.
 }
 \description{
 Enforces parameter sharing by mapping parameters for fleets
-with a common \code{Selectivity_index} or \code{Q_index} to the same value
-as the initial index.
+with a common \code{Selectivity_index} or \code{Catchability_index} to the
+same value as the initial index.
 }

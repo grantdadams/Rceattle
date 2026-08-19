@@ -38,11 +38,13 @@ argument of \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 \value{
 A \code{data.frame} with columns \code{Source}, \code{Fleet_code}, \code{Fleet_name},
 \code{Species}, \code{Sex}, \code{Year}, \code{Length}, \code{Bin}, \code{Age0_Length1}, \code{Sample_size},
-\code{Observed}, \code{Fitted}, \code{Residual}. Columns are \code{NA} where they do not apply.
+\code{Accumulated}, \code{Observed}, \code{Fitted}, \code{Residual}. Columns are \code{NA} where they
+do not apply; \code{Accumulated} is \code{FALSE} except on a composition bin that
+absorbed a folded tail.
 }
 \description{
 Returns a long-format data frame of residuals, following the convention of
-\code{\link[stats:glm.summaries]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
+\code{\link[stats:residuals.glm]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
 default residuals are returned for every applicable data source -- survey
 indices, fishery catches, age/length composition (\code{comp}), and conditional
 age-at-length (\code{caal}); use \code{source} to restrict to particular ones.
@@ -70,4 +72,12 @@ model's random-effect deviations; \code{source} does not apply.}
 Composition rows are returned in long form (one row per observation x
 age/length bin) and carry the \code{Age0_Length1} flag from \code{comp_data} (\code{0} age,
 \code{1} length); CAAL rows carry both the conditioning \code{Length} and the age \code{Bin}.
+
+Where a fleet uses tail accumulation (\code{Comp_accum_young} /
+\code{Comp_accum_old}), composition residuals describe the bins the likelihood
+actually fit: the tails are folded into their boundary bin and the bins
+outside the window are not reported, because the model never fit them
+separately. \code{Bin} names the age or length each residual belongs to and
+\code{Accumulated} marks the boundary bins, which stand for a range rather than
+the single bin they are named for. Fleets without accumulation are unchanged.
 }

@@ -36,6 +36,7 @@ LINKAGE_COLS <- c(
   species       = "integer",    # 1-based species id; NA = shared
   sex           = "integer",    # 1 or 2; NA = shared
   age_bin       = "integer",    # 1-based age index; NA = shared
+  fleet         = "integer",    # 1-based Fleet_code; NA = shared
   X_col         = "integer",    # column of the global design matrix
   design_col    = "character",  # name of the design matrix column
   link          = "character",  # "identity", "log", "logit"
@@ -47,13 +48,46 @@ LINKAGE_COLS <- c(
   prior_p1      = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
   prior_p2      = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
   re_group      = "character",  # random-effect group name (NA = fixed)
-  est_phase     = "integer"     # phase ordinal; 0 = fixed
+  re_struct     = "character",  # covariance structure (us/rw/ar1/...; NA = fixed)
+  est_phase     = "integer",    # phase ordinal; 0 = fixed
+  # Random-effect registry (filled by pool_linkages(); NA on fixed rows).
+  re_index      = "integer",    # 0-based slot in beta_linkage_re (NA = fixed row)
+  sigma_index   = "integer",    # 0-based slot in log_sigma_linkage (NA = fixed row)
+  re_time       = "numeric",    # numeric grouping value, for rw/ar1 time order (NA = fixed)
+  # Per-group RE-SD (sigma) routing from linkage_spec(); identical across a
+  # group's rows, deduped per sigma_index at encode time. NA on fixed rows.
+  re_sigma_init = "numeric",       # start / fixed SD on natural scale (NA = default)
+  re_sigma_prior_family = "character", # prior on the SD; "none"/NA = no prior
+  re_sigma_prior_p1     = "numeric",
+  re_sigma_prior_p2     = "numeric",
+  # Per-group ar1 correlation (rho) routing from linkage_spec(); natural (-1,1)
+  # scale. NA on non-ar1 rows.
+  re_rho_init   = "numeric",       # start / fixed correlation (NA = default 0)
+  re_rho_prior_family = "character",   # prior on rho; "none"/NA = no prior
+  re_rho_prior_p1     = "numeric",
+  re_rho_prior_p2     = "numeric",
+  # State-space (Rogers QAR1) observation: this row's latent ar1 deviate is also
+  # observed as `re_obs_value` (an env_data column) with fixed SD `re_obs_sd`,
+  # and enters the target through an estimated effect size. NA when not observed.
+  re_obs_value  = "numeric",       # observed covariate value at this row's time
+  re_obs_sd     = "numeric",       # measurement SD start/fixed value (NA = not observed)
+  re_obs_est    = "logical",       # TRUE = estimate the obs SD; FALSE/NA = hold it fixed
+  # Laplace-integrated vs penalized fixed effect, from linkage_spec(integrate =).
+  # Constant within a sigma group (the registry key includes it, so a group cannot
+  # straddle both). NA on fixed rows.
+  re_integrate  = "logical",       # TRUE/NA = integrated; FALSE = penalized fixed effect
+  # Where this row's deviation actually sits. `re_index` is the GLOBAL slot; the
+  # deviations are stored in two vectors, so the position within the one that
+  # holds it is a different number. Supplied so a caller setting `inits` by hand
+  # can write beta_linkage_re[re_pos + 1] / beta_linkage_re_pen[re_pos + 1]
+  # without having to reconstruct the split. NA on fixed rows.
+  re_pos        = "integer"        # 0-based position within its own parameter vector
 )
 
 
 #' Allowed values for fixed enum-like columns
 #' @keywords internal
-LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
+LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel", "comp")
 
 #' Processes with a C++ accumulator behind them
 #'
@@ -64,7 +98,7 @@ LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
 #'
 #' @keywords internal
 #' @noRd
-LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth")
+LINKAGE_PROCESSES_IMPLEMENTED <- c("recruitment", "M", "growth", "q", "sel", "comp")
 
 
 #' Error on a reserved-but-unwired process
@@ -241,7 +275,9 @@ validate_linkage_table <- function(x) {
 #' incremental table assembly.
 #'
 #' @param process,param,X_col required identifying fields.
-#' @param species,sex,age_bin stratum ids; `NA` = shared across the dimension.
+#' @param species,sex,age_bin,fleet stratum ids; `NA` = shared across the
+#'   dimension. `fleet` is a 1-based `Fleet_code`, used by catchability and
+#'   selectivity linkages; the process-level linkages leave it `NA`.
 #' @param design_col name of the design matrix column.
 #' @param link link function; one of [LINKAGE_LINKS].
 #' @param init initial value (default `0`).
@@ -250,13 +286,40 @@ validate_linkage_table <- function(x) {
 #' @param prior_p1,prior_p2 family-specific prior parameters; ignored when
 #'   `prior_family == "none"`.
 #' @param re_group random-effect grouping label; `NA` = fixed.
+#' @param re_struct random-effect covariance structure (`"us"`/`"rw"`/`"ar1"`);
+#'   `NA` = fixed.
 #' @param est_phase estimation phase ordinal; `0` = fix at `init`.
+#' @param re_index,sigma_index,re_time random-effect registry fields filled by
+#'   [pool_linkages()]; `NA` on fixed rows. `re_index` is the 0-based slot in
+#'   `beta_linkage_re`, `sigma_index` the 0-based slot in `log_sigma_linkage`,
+#'   and `re_time` the numeric grouping value used to order `rw()`/`ar1()`
+#'   deviations in real elapsed time.
+#' @param re_sigma_init,re_sigma_prior_family,re_sigma_prior_p1,re_sigma_prior_p2
+#'   per-group RE-SD routing from `linkage_spec(init = list(sigma = ), priors =
+#'   list(sigma = ))`; identical across a group's rows, `NA` on fixed rows.
+#'   `re_sigma_init` is the start (or, when supplied without a prior, fixed) SD
+#'   on the natural scale; the prior triple places a prior on that SD.
+#' @param re_rho_init,re_rho_prior_family,re_rho_prior_p1,re_rho_prior_p2
+#'   per-group `ar1` correlation routing from `linkage_spec(init = list(rho = ),
+#'   priors = list(rho = ))`; natural `(-1, 1)` scale, `NA` on non-`ar1` rows.
+#' @param re_obs_value,re_obs_sd state-space (Rogers QAR1) observation from
+#'   `linkage_spec(observe = , obs_sd = )`: the observed covariate value at this
+#'   row's time and the fixed measurement SD. `NA` when the group is unobserved.
+#' @param re_obs_est `TRUE` to estimate the QAR1 measurement SD; `FALSE`/`NA`
+#'   holds it fixed.
+#' @param re_integrate `FALSE` when the deviations are estimated as a penalized
+#'   fixed effect rather than integrated out by the Laplace approximation, from
+#'   `linkage_spec(integrate = FALSE)`. `TRUE`/`NA` = integrated.
+#' @param re_pos 0-based position of this row's deviation within the parameter
+#'   vector that holds it (`beta_linkage_re` when `re_integrate`, else
+#'   `beta_linkage_re_pen`). Distinct from `re_index`, which is the global slot.
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
                         species       = NA_integer_,
                         sex           = NA_integer_,
                         age_bin       = NA_integer_,
+                        fleet         = NA_integer_,
                         design_col    = NA_character_,
                         link          = "identity",
                         init          = 0,
@@ -267,7 +330,24 @@ linkage_row <- function(process, param, X_col,
                         prior_p1      = NA_real_,
                         prior_p2      = NA_real_,
                         re_group      = NA_character_,
-                        est_phase     = 1L) {
+                        re_struct     = NA_character_,
+                        est_phase     = 1L,
+                        re_index      = NA_integer_,
+                        sigma_index   = NA_integer_,
+                        re_time       = NA_real_,
+                        re_sigma_init = NA_real_,
+                        re_sigma_prior_family = NA_character_,
+                        re_sigma_prior_p1     = NA_real_,
+                        re_sigma_prior_p2     = NA_real_,
+                        re_rho_init   = NA_real_,
+                        re_rho_prior_family = NA_character_,
+                        re_rho_prior_p1     = NA_real_,
+                        re_rho_prior_p2     = NA_real_,
+                        re_obs_value  = NA_real_,
+                        re_obs_sd     = NA_real_,
+                        re_obs_est    = NA,
+                        re_integrate  = NA,
+                        re_pos        = NA_integer_) {
   out <- new_linkage_table()
   out[1L, ] <- list(
     process       = as.character(process),
@@ -275,6 +355,7 @@ linkage_row <- function(process, param, X_col,
     species       = as.integer(species),
     sex           = as.integer(sex),
     age_bin       = as.integer(age_bin),
+    fleet         = as.integer(fleet),
     X_col         = as.integer(X_col),
     design_col    = as.character(design_col),
     link          = as.character(link),
@@ -286,7 +367,24 @@ linkage_row <- function(process, param, X_col,
     prior_p1      = as.numeric(prior_p1),
     prior_p2      = as.numeric(prior_p2),
     re_group      = as.character(re_group),
-    est_phase     = as.integer(est_phase)
+    re_struct     = as.character(re_struct),
+    est_phase     = as.integer(est_phase),
+    re_index      = as.integer(re_index),
+    sigma_index   = as.integer(sigma_index),
+    re_time       = as.numeric(re_time),
+    re_sigma_init = as.numeric(re_sigma_init),
+    re_sigma_prior_family = as.character(re_sigma_prior_family),
+    re_sigma_prior_p1     = as.numeric(re_sigma_prior_p1),
+    re_sigma_prior_p2     = as.numeric(re_sigma_prior_p2),
+    re_rho_init   = as.numeric(re_rho_init),
+    re_rho_prior_family = as.character(re_rho_prior_family),
+    re_rho_prior_p1     = as.numeric(re_rho_prior_p1),
+    re_rho_prior_p2     = as.numeric(re_rho_prior_p2),
+    re_obs_value  = as.numeric(re_obs_value),
+    re_obs_sd     = as.numeric(re_obs_sd),
+    re_obs_est    = as.logical(re_obs_est),
+    re_integrate  = as.logical(re_integrate),
+    re_pos        = as.integer(re_pos)
   )
   validate_linkage_table(out)
   out
@@ -316,7 +414,115 @@ linkage_row <- function(process, param, X_col,
     ag <- if (is.na(row$age_bin)) seq_len(data_list$nages[s]) else as.integer(row$age_bin)
     per_sp[[as.character(s)]] <- list(sex = sx, age = ag)
   }
-  list(species = spp, per_sp = per_sp)
+  # Fleet is not nested inside species the way sex and age are: a fleet
+  # already implies its species via fleet_control$Species, so it resolves
+  # once against the full fleet set rather than per species.
+  flt <- if (is.na(row$fleet)) {
+    seq_len(nrow(data_list$fleet_control))
+  } else {
+    as.integer(row$fleet)
+  }
+
+  list(species = spp, per_sp = per_sp, fleet = flt)
+}
+
+
+#' Is a `sel_inf` slot held on the natural scale for this selectivity form?
+#'
+#' `sel_inf` is dual-purpose. Slot 1 (`inf_asc` / `peak`) is always an age or
+#' length midpoint. Slot 2 is an inflection for the logistic family, but
+#' DoubleNormal reuses it as `logit(right_floor)` and LogisticPM as a log
+#' age-1 selectivity override. A value written on the wrong one of those is
+#' silently wrong -- `right_floor = 0.2` would become `plogis(0.2) = 0.55` --
+#' so the transformed slots are refused rather than guessed at.
+#'
+#' @param param linkage parameter name; `slot` its `.SEL_PARAM_TO_SLOT` index.
+#' @param form the fleet's `Selectivity` value.
+#' @keywords internal
+#' @noRd
+.sel_inf_is_natural <- function(slot, form) {
+  if (identical(as.integer(slot), 1L)) return(TRUE)
+  as.character(form) %in% c("Logistic", "DoubleLogistic", "DescendingLogistic")
+}
+
+
+#' Is this fleet a follower in a shared selectivity / catchability block?
+#'
+#' `Selectivity_index` / `Catchability_index` are group keys, not fleet codes:
+#' fleets carrying the same value estimate ONE parameter block, and
+#' `adjust_map_shared_params()` copies the group's donor slice over the rest.
+#' The donor is the first estimated fleet in the group -- the same rule
+#' `.group_lead()` applies for `flt_sel_lead` / `flt_q_lead`, and the reason an
+#' `Off` fleet (whose slice is all NA) never leads. A value set on the donor is
+#' what the whole group uses; one set on any other member is overwritten.
+#'
+#' A group of one is not shared, whatever its key happens to be -- a survey
+#' catchability counter runs 1..n_survey and rarely matches the fleet code.
+#'
+#' @return `NA_integer_` if `flt` is not a follower, otherwise the fleet code of
+#'   the donor whose value would win.
+#' @keywords internal
+#' @noRd
+.shared_block_lead <- function(data_list, flt, process) {
+  col <- switch(process, q = "Catchability_index", sel = "Selectivity_index", NULL)
+  if (is.null(col)) return(NA_integer_)
+  fc  <- data_list$fleet_control
+  idx <- fc[[col]]
+  if (is.null(idx) || is.na(idx[flt])) return(NA_integer_)
+
+  rows <- which(!is.na(idx) & idx == idx[flt])
+  if (length(rows) < 2L) return(NA_integer_)
+
+  off  <- if (is.null(fc$Fleet_type)) rep(FALSE, nrow(fc)) else fc$Fleet_type == "Off"
+  est  <- rows[!off[rows]]
+  lead <- if (length(est)) est[1] else rows[1]
+  if (identical(as.integer(lead), as.integer(flt))) NA_integer_ else as.integer(lead)
+}
+
+
+#' Guards shared by the intercept init and bounds pushes
+#'
+#' @keywords internal
+#' @noRd
+.stop_if_shared_block <- function(data_list, flt, process, param) {
+  # Only a fleet the user NAMED is checked. An unstratified linkage expands to
+  # every fleet, where setting the whole group is unambiguous and the followers
+  # take the donor's value anyway.
+  if (length(flt) != 1L || is.na(flt)) return(invisible())
+  lead <- .shared_block_lead(data_list, flt, process)
+  if (is.na(lead)) return(invisible())
+  stop(sprintf(
+    paste0("linkage `%s` names fleet %d, which mirrors fleet %d's %s. One ",
+           "block is estimated for the group and fleet %d's value is the one ",
+           "used, so a value set here would be overwritten. Put it on fleet %d."),
+    param, as.integer(flt), lead,
+    if (identical(process, "q")) "catchability" else "selectivity", lead, lead),
+    call. = FALSE)
+  invisible()
+}
+
+.stop_unless_positive <- function(value, param, target) {
+  if (!(value > 0)) {
+    stop(sprintf(
+      paste0("linkage `%s` intercept value %g is not > 0, and %s is stored on ",
+             "the log scale, so it has no logarithm."),
+      param, value, target), call. = FALSE)
+  }
+  invisible()
+}
+
+.stop_unless_natural_sel_inf <- function(data_list, flt, slot, param) {
+  form <- data_list$fleet_control$Selectivity[flt]
+  if (!.sel_inf_is_natural(slot, form)) {
+    stop(sprintf(
+      paste0("linkage `%s` on fleet %d (%s selectivity) targets a sel_inf slot ",
+             "that is not on the natural scale -- DoubleNormal stores ",
+             "logit(right_floor) there and LogisticPM a log age-1 selectivity. ",
+             "Setting it from a natural-scale value would silently mis-scale ",
+             "it; set that parameter through `inits` instead."),
+      param, flt, as.character(form)), call. = FALSE)
+  }
+  invisible()
 }
 
 
@@ -348,7 +554,7 @@ bind_linkage <- function(...) {
 print.Rceattle_linkage_table <- function(x, ...) {
   cat(sprintf("<Rceattle linkage table: %d coefficient(s)>\n", nrow(x)))
   if (nrow(x) == 0L) return(invisible(x))
-  show <- c("process", "param", "species", "sex", "age_bin",
+  show <- c("process", "param", "species", "sex", "age_bin", "fleet",
             "design_col", "link", "init", "prior_family", "est_phase")
   print(format(x[, show, drop = FALSE]), row.names = FALSE)
   invisible(x)

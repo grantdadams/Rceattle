@@ -1,9 +1,9 @@
 # One-step-ahead (OSA) residuals -- Phase 1 (aggregate catch + index).
 #
 # A gold-standard "joint nll is numerically unchanged by the obsvec/keep
-# refactor" check (comparing against a DLL built from the pre-change source)
-# lives in R/dev/osa_phase1_check.R -- it is too slow for routine testing
-# because it recompiles a second DLL. Here we test the parts that guarantee
+# refactor" check (comparing against a DLL built from the pre-change source) is
+# kept locally -- it is too slow for routine testing because it recompiles a
+# second DLL. Here we test the parts that guarantee
 # correctness and are fast/CI-appropriate: the obsvec/obs_ctl construction and
 # the end-to-end osa_residuals() machinery.
 
@@ -423,7 +423,7 @@ testthat::test_that("diet residuals and plot_diet_comp run on a fitted diet mode
 
 
 # A small multispecies diet fixture reused by the two OSA-diet tests below.
-# Diet is multinomial (Diet_loglike = 0) with unit weights, so the OSA
+# Diet is multinomial (Diet_distribution = 0) with unit weights, so the OSA
 # (conditional-binomial) decomposition of the diet likelihood must reproduce the
 # ordinary multinomial diet likelihood slot exactly (see test (a)).
 .make_diet_osa_fixture <- function() {
@@ -521,4 +521,187 @@ testthat::test_that("osa_residuals(source = 'diet') runs end-to-end on a fitted 
   # and produces a finite statistic.
   dg <- osa_diagnostics(osa)
   testthat::expect_true(is.finite(dg$sdnr[dg$group == "all"]))
+})
+
+testthat::test_that("OSA supports an MVN index fleet without warning (per-family coverage in test-likelihood-osa-index-families.R)", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # OSA residuals now cover every index family: the MVN covariance block is
+  # whitened by the Cholesky of its covariance so oneStepPredict() can residualize
+  # it (the correctness oracle lives in test-likelihood-osa-index-families.R). Here
+  # we only pin that build_osa_data() no longer excludes/ warns for an MVN fleet
+  # and that its index observations are laid into the OSA obsvec.
+  nyrs <- 8; nages <- 5
+  dat  <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
+  sds  <- rep(20, nyrs); Rho <- matrix(0.3, nyrs, nyrs); diag(Rho) <- 1
+  Sigma <- diag(sds) %*% Rho %*% diag(sds)
+  srv  <- dat$fleet_control$Fleet_name == "Survey"       # Survey == Fleet_code 1
+  dat$fleet_control$Index_distribution[srv] <- "MVN"
+  dat$fleet_control$Catchability[srv]       <- "AnalyticalArith"
+  dat$index_cov <- list(Survey = Sigma)
+
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # The OSA build no longer warns, and the MVN Survey's fitted observations get
+  # whitened obsvec entries (one per fitted year).
+  testthat::expect_no_warning(
+    osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE))
+  testthat::expect_equal(sum(osa_dat$obs_ctl$source == "index"), nyrs)
+  testthat::expect_true(all(osa_dat$index_obsvec_idx >= 0L))
+
+  osa <- suppressWarnings(osa_residuals(fit, source = c("index", "comp")))
+  testthat::expect_s3_class(osa, "rceattle_osa")
+  testthat::expect_true(all(is.finite(osa$residual)))
+  testthat::expect_true(any(osa$source == "index"))
+})
+
+
+testthat::test_that("a negative expected composition count warns", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Issue #108: "Sometimes the expected counts are negative. This only appears to
+  # occur when the sample size is very small." Reproduced by sweeping
+  # Sample_size: with the default method, `predicted` goes negative at N <= 2 and
+  # is clean by N = 5 (with "oneStepGeneric" it persists to N = 5). The bin
+  # counts are (proportion + comp_offset) * N and so already fractional; at a
+  # tiny N they sit near zero and oneStepPredict()'s numerical conditional mean
+  # can land just below it. An expected count cannot be negative, so say so
+  # rather than let it be read as a fitted value.
+  d <- make_test_data(nyrs = 20, nages = 10, seed = 123)
+  d$fleet_control$Comp_distribution <- "Multinomial"
+  d$comp_data$Sample_size <- 2
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  testthat::expect_warning(
+    osa <- suppressMessages(Rceattle::osa_residuals(fit, source = "comp")),
+    "expected count cannot be negative")
+  testthat::expect_true(any(osa$predicted < 0))
+
+  # An adequate sample size does not warn.
+  d$comp_data$Sample_size <- 100
+  fit2 <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+  osa2 <- suppressMessages(Rceattle::osa_residuals(fit2, source = "comp"))
+  testthat::expect_false(any(osa2$predicted < 0))
+})
+
+
+testthat::test_that("a failed parallel OSA loop rebuilds the object before retrying", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # oneStepPredict(parallel = TRUE) forks. A worker that aborts leaves the TMB
+  # object's external pointers unusable in the parent, so the serial retry used
+  # to re-enter the same object and take the whole R session with it ("An
+  # irrecoverable exception occurred"). Reported against GOA pollock 2025, whose
+  # ar1/rw catchability linkages carry 109 of its 164 random effects.
+  #
+  # The crash cannot be reproduced in a unit test -- it kills the process -- so
+  # pin the property that prevents it: the retry builds a fresh object rather
+  # than reusing the one the failed fork touched.
+  d <- make_test_data(nyrs = 12, nages = 6, seed = 7)
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # Record the objects handed back, not just the number of calls: the builder
+  # short-circuits to fit$obj for a model already in OSA mode, so counting calls
+  # would pass even if the retry got the same object straight back.
+  built <- list()
+  real_build <- Rceattle:::.osa_build_obj
+  testthat::local_mocked_bindings(
+    .osa_build_obj = function(...) {
+      o <- real_build(...)
+      built[[length(built) + 1L]] <<- o
+      o
+    },
+    .package = "Rceattle")
+
+  # Fail the parallel attempt exactly as a dead worker does, and let the serial
+  # retry through. `openmp()` has to be mocked as well: osa_residuals() probes
+  # it and falls straight to serial when it errors, which is what happens once
+  # several TMB models are loaded -- as they are when the whole suite runs.
+  # Without this the parallel branch is never taken and the retry never fires,
+  # so the test passes alone and fails in the suite.
+  real_osp <- TMB::oneStepPredict
+  testthat::local_mocked_bindings(
+    openmp = function(...) 1L,
+    oneStepPredict = function(..., parallel = FALSE) {
+      if (isTRUE(parallel)) stop("non-numeric argument to mathematical function")
+      real_osp(..., parallel = FALSE)
+    },
+    .package = "TMB")
+
+  osa <- suppressWarnings(suppressMessages(
+    Rceattle::osa_residuals(fit, source = "index", parallel = TRUE)))
+
+  # One build up front, one more on the retry ...
+  testthat::expect_gte(length(built), 2L)
+  # ... and the retry's object is genuinely a different one, not the same
+  # object handed back. This is what makes the retry safe.
+  testthat::expect_false(identical(built[[1]], built[[length(built)]]))
+  testthat::expect_true(nrow(osa) > 0)
+  testthat::expect_true(all(is.finite(osa$residual)))
+})
+
+testthat::test_that(".osa_build_obj(force = TRUE) rebuilds an OSA-mode model", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Without `force`, a model already in OSA mode gets its own object back. That
+  # is right for the first build and wrong for the retry, where reusing the
+  # object the failed parallel attempt touched is the whole problem.
+  d <- make_test_data(nyrs = 12, nages = 6, seed = 7)
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    d, file = NULL, estimateMode = 1, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+
+  # Put the fit into OSA mode so the short-circuit applies.
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  fit$obj <- Rceattle:::.osa_build_obj(fit, osa_dat)
+  testthat::expect_equal(fit$obj$env$data$osa_mode, 1)
+
+  same  <- Rceattle:::.osa_build_obj(fit, osa_dat)
+  fresh <- Rceattle:::.osa_build_obj(fit, osa_dat, force = TRUE)
+  testthat::expect_true(identical(same, fit$obj))     # short-circuit
+  testthat::expect_false(identical(fresh, fit$obj))   # genuinely rebuilt
+})
+
+# CAAL is the one composition source whose bins are ages within a length bin, so
+# it is the case where the OSA and Pearson frames could disagree on index_label.
+testthat::test_that("CAAL residuals label both frames as age bins", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  d <- make_test_data(nyrs = 8, nages = 5, seed = 1, growth = "vonBertalanffy")
+  testthat::expect_gt(nrow(d$caal_data), 0)
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    growthFun = Rceattle::build_growth(fun = "vonBertalanffy"),
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+  osa  <- suppressWarnings(Rceattle::osa_residuals(fit, source = "caal"))
+  pear <- attr(osa, "pearson")
+
+  testthat::expect_true(all(osa$source == "caal"))
+  testthat::expect_identical(unique(osa$index_label), "age")
+  testthat::expect_false(is.null(pear))
+  testthat::expect_identical(unique(pear$index_label), "age")
+
+  # The two frames differ only where the residual definitions differ: OSA has a
+  # conditional sd, Pearson the sample size it standardised by.
+  testthat::expect_identical(setdiff(names(osa), names(pear)), "sd")
+  testthat::expect_identical(setdiff(names(pear), names(osa)), "sample_size")
+
+  # One age per length group is fixed by sum-to-N, so OSA is that much shorter.
+  n_len <- length(unique(pear$length))
+  testthat::expect_equal(nrow(osa), nrow(pear) - n_len)
 })

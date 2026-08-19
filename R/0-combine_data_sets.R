@@ -1,4 +1,8 @@
-#' Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
+#' Combine two Rceattle data lists
+#'
+#' @description
+#' Concatenate two data lists into one. `env_data` is taken from `data_list1`,
+#' and diet data must be updated afterward.
 #'
 #' @param data_list1 Rceattle data_list 1
 #' @param data_list2 Rceattle data_list 2
@@ -7,13 +11,31 @@
 #'
 combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
+  # Fold the deprecated `est_M1` into `M1_model` on both inputs first, so a
+  # legacy (est_M1) list combines correctly with a modern (M1_model) one -- both
+  # then concatenate under the single `M1_model` name below.
+  data_list1 <- .alias_est_M1(data_list1)
+  data_list2 <- .alias_est_M1(data_list2)
+
+  # Upgrade deprecated fleet_control column names on both inputs, so a legacy
+  # (e.g. Q_index) list combines correctly with a modern (Catchability_index)
+  # one under the single canonical names read below.
+  if (!is.null(data_list1))
+    data_list1$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list1$fleet_control)
+  if (!is.null(data_list2))
+    data_list2$fleet_control <- .rce_upgrade_fleet_control_aliases(data_list2$fleet_control)
+  # ...and the control / bioenergetics element names (sigma_rec, Diet_distribution)
+  # so both inputs concatenate under the single canonical vec_names below.
+  data_list1 <- .rce_upgrade_data_list_aliases(data_list1)
+  data_list2 <- .rce_upgrade_data_list_aliases(data_list2)
+
   data_list_new <- data_list1
 
   dat_names <- names(data_list_new)
 
   names_not_used <- c("nspp", "styr", "endyr", "projyr")
 
-  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "est_M1", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_loglike", "Diet_comp_weights") # Object names of vectors
+  vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "M1_model", "M1_re", "pop_alk_index", "sigma_rec", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4", "beta_wt_len", "alpha_wt_len", "Diet_distribution", "Diet_comp_weights") # Object names of per-species vectors
 
   mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "caal_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "weight",   "maturity", "sex_ratio", "M1_base", "ration_data", "diet_data") # Object names of matrices
 
@@ -22,7 +44,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   weight_index1 <- max(data_list1$weight$Wt_index, na.rm = TRUE)
   alk_index1 <- max(data_list1$age_trans_matrix$Age_transition_index, na.rm = TRUE)
   nspp1 <- data_list1$nspp
-  q_index1 <- max(data_list1$fleet_control$Q_index, na.rm = TRUE)
+  q_index1 <- max(data_list1$fleet_control$Catchability_index, na.rm = TRUE)
   sel_index1 <- max(data_list1$fleet_control$Selectivity_index, na.rm = TRUE)
 
   # Update vector indices
@@ -33,7 +55,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   # Update fleet control
   data_list2$fleet_control$Age_transition_index <- data_list2$fleet_control$Age_transition_index + alk_index1
   data_list2$fleet_control$Selectivity_index <- data_list2$fleet_control$Selectivity_index + sel_index1
-  data_list2$fleet_control$Q_index <- data_list2$fleet_control$Q_index + q_index1
+  data_list2$fleet_control$Catchability_index <- data_list2$fleet_control$Catchability_index + q_index1
   data_list2$fleet_control$Species <- data_list2$fleet_control$Species + nspp1
   data_list2$fleet_control$Weight_index <- data_list2$fleet_control$Weight_index + weight_index1
   data_list2$fleet_control$Fleet_code <- data_list2$fleet_control$Fleet_code + fleet_index1
@@ -76,5 +98,5 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   # Add new species
   data_list_new$nspp <- data_list1$nspp + data_list2$nspp
 
-  return(data_list_new)
+  return(.rce_as_data(data_list_new))
 }

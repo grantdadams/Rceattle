@@ -1,13 +1,14 @@
 #' @title Main function to construct the TMB map argument for CEATTLE
 #'
-#' @description Orchestrates the building of the TMB map object by calling
-#'   specialized helper functions for each parameter block (Recruitment, M1,
-#'   Predation, Selectivity, Catchability, etc.).
+#' @description Builds the TMB map, which tells TMB which parameters to estimate
+#'   and which to hold fixed (a fixed parameter is mapped to `NA`), and which
+#'   parameters share a single estimated value. One helper handles each process
+#'   block (recruitment, M1, predation, selectivity, catchability, ...).
 #'
 #' @param data_list an Rceattle data_list
 #' @param params A parameter list created from \code{\link{build_params}}.
-#' @param debug Logical. If TRUE, sets all map values to NA except the dummy
-#'   parameter, running the model without parameter estimation.
+#' @param debug Logical. If TRUE, fixes every parameter except the dummy
+#'   (maps all to `NA`), so the model runs with no parameters estimated.
 #' @param random_rec Logical. If TRUE, treats recruitment deviations as random effects,
 #'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
@@ -18,7 +19,7 @@
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
 
-  # Check data list format (Assuming this is a necessary internal utility)
+  # Fill in defaulted switches and upgrade any deprecated column names
   data_list <- Rceattle::switch_check(data_list)
 
   # --- Setup Data and Initial Map ---
@@ -26,7 +27,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   nyrs_proj <- data_list$projyr - data_list$styr + 1
   # yrs_hind is calculated inside helpers as needed
 
-  # Convert parameters to map object (assigning sequential index for all parameters initially)
+  # Start every parameter estimated: give each element its own index. The
+  # per-process helpers below then fix (NA) or share indices as needed.
   map_list <- lapply(params, function(x) {
     if (length(x) == 0) return(x)
     replace(x, values = seq_along(x))
@@ -41,13 +43,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_linkages(map_list, data_list)
 
-  map_list <- map_linkage_adjuster(map_list, data_list)
-
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 
   map_list <- build_map_catchability(map_list, data_list, nyrs_hind)
+
+  # After the per-process builders, not before: a linkage supplies the level
+  # of the parameter it targets, so it must have the last word on whether
+  # that base parameter stays estimable. Ordered ahead of them, a linkage on
+  # catchability or selectivity would be silently overwritten by
+  # build_map_catchability() / build_map_selectivity().
+  map_list <- map_linkage_adjuster(map_list, data_list)
 
   map_list <- adjust_map_shared_params(map_list, data_list)
 
@@ -93,13 +100,16 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 1) Equilibrium with no devs
-    if (data_list$initMode == "Equilibrium") {
+    # 1) Equilibrium with no devs. OffsetEquilibrium (5) likewise turns init_dev
+    # off entirely -- the initial age-structure is the deterministic equilibrium
+    # seeded by first-year recruitment, so every element the cpp reads (columns
+    # 1:(nages-1)) is fixed at its build_params() value of 0.
+    if (data_list$initMode %in% c("Equilibrium", "OffsetEquilibrium")) {
       map_list$init_dev[sp, ] <- NA
     }
 
     # 0, 2-3) Equilibrium or non-equilibrium with no devs
-    if (!data_list$initMode %in% c("Equilibrium")) {
+    if (!data_list$initMode %in% c("Equilibrium", "OffsetEquilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -124,7 +134,8 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   }
 
   # Stock recruit models (Ricker & Beverton)
-  # - Turning off mean-R if using SRR
+  # - Turning off mean-R if the hindcast itself uses the SRR, where R0 is derived
+  #   from alpha and beta rather than estimated.
   if (data_list$srr_fun > 1) {
     map_list$rec_pars[, 1] <- NA
   }
@@ -348,11 +359,20 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       # - Standard deviation (shared across sexes)
       map_list$M1_dev_log_sd[sp,] = sp
 
-      # AR1 correlation (shared across sexes)
+      # AR1 correlations (age AND year, shared across sexes) for the separable
+      # 2D-AR1 (mode 6). The gate was `== 5` -- impossible inside this
+      # `%in% c(3, 6)` block, so mode 6's rho parameters were never estimated and
+      # the separable AR1 silently collapsed to IID. Estimate both here.
+      # `M1_rho_ind` is offset past nspp so these two map values never collide
+      # with the single `sp`-valued rho of a mode-4/5 species.
       if(M1_re_model == 6){
-        map_list$M1_rho[sp,1,] = M1_dev_log_sd_ind + 1:2
-        map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
-        M1_dev_log_sd_ind = M1_dev_log_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
+        # dim 3: 1 = age correlation, 2 = year correlation. `sp,,k` sets every
+        # sex at once (shared across sexes), matching the mode-4/5 style and
+        # working for 1- or 2-sex models. Two distinct map values so age and
+        # year rho are estimated separately.
+        map_list$M1_rho[sp,,1] = data_list$nspp + M1_rho_ind + 1  # age rho
+        map_list$M1_rho[sp,,2] = data_list$nspp + M1_rho_ind + 2  # year rho
+        M1_rho_ind = M1_rho_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
       }
     }
   }
@@ -510,8 +530,12 @@ build_map_predation <- function(map_list, data_list) {
         map_list$log_phi[, sp] <- NA
       }
 
-      if(data_list$Diet_loglike[sp] == 1){
-        map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
+      # Dirichlet-multinomial overdispersion for the diet composition. Only
+      # estimated where the diet likelihood is actually fit: empirical
+      # suitability (suitMode = 0) takes the diet proportions as given and the
+      # cpp skips that predator, leaving nothing to inform the weight.
+      if (data_list$suitMode[sp] > 0 && data_list$Diet_distribution[sp] == 1) {
+        map_list$diet_comp_weights[sp] <- sp
       }
     }
   }
@@ -543,12 +567,12 @@ build_map_predation <- function(map_list, data_list) {
 #' `8` = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 #'     Parameters: `sel_inf[1]` = peak; `sel_inf[2]` = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 #'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
-#'     right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+#'     right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
 #'
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' `0` = 'None'
+#' `0` = 'Off'
 #' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
 #' `3` = 'Block' time blocks with no penalty
 #' `4` = 'RandomWalk' random walk
@@ -701,10 +725,10 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric ----
       # ---- sel_type = 2 (Ianelli penalty), 9 (NonParametricPM, ADMB AMAK penalty).
       #      Both share identical parameters / mapping; they differ only in the
-      #      selectivity penalty form (see ceattle_v01_11.cpp).
+      #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM")) {
         if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'Off'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -792,7 +816,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Double Normal ----
       # Parameters reuse existing arrays (same dimensions as DoubleLogistic):
       #   sel_inf[1]     = peak bin/length (mode)
-      #   sel_inf[2]     = logit(right_floor) — right-tail floor (analogous to SS3 P6 / end_logit)
+      #   sel_inf[2]     = logit(right_floor) -- right-tail floor (analogous to SS3 P6 / end_logit)
       #   log_sel_slp[1] = log(sigma_ascending)
       #   log_sel_slp[2] = log(sigma_descending)
       if (sel_type == "DoubleNormal") {
@@ -843,7 +867,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
             ind_slp <- ind_slp + max_block
 
-            # Fix base parameters — blocks fully replace them (deviates are absolute values)
+            # Fix base parameters -- blocks fully replace them (deviates are absolute values)
             map_list$sel_inf[1, flt, sex]     <- NA
             map_list$sel_inf[2, flt, sex]     <- NA
             map_list$log_sel_slp[1, flt, sex] <- NA
@@ -892,8 +916,15 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric Hake-like ----
       # ---- sel_type = 5 (age-based), 12 (length-based)
       if (sel_type == "Hake") {
-        if (tv_sel != "IID") {
-          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 'None' (0), or 'IID' (1)). Current value:", tv_sel))
+        # "Off" (0) is legal here -- the bin coefficients are estimated with no
+        # annual deviates -- and data_check() enforces exactly {"Off", "IID"}
+        # for this form. Warn only on a mode the Hake form cannot represent
+        # ("Block", "AR1", "RandomWalk", ...); the old `tv_sel != "IID"` guard
+        # fired on "Off" too, which is why a valid Time_varying_sel = 0 fleet
+        # warned about itself. Guard NA explicitly -- `NA != "IID"` is NA, which
+        # errors inside `if()` rather than falling through.
+        if (!is.na(tv_sel) && !tv_sel %in% c("Off", "IID")) {
+          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select 'Off' (0) or 'IID' (1)). Current value:", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -1047,7 +1078,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # Time- varying q parameters "Time_varying_q"
-      # - 0 = "None",
+      # - 0 = "Off",
       # - 1 = "IID" penalized deviate or random effect
       # - 2 = "AR1"
       # - 3 = "Block" time blocks with no penalty
@@ -1131,8 +1162,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @title Helper to adjust map for shared catchability/selectivity indices
 #'
 #' @description Enforces parameter sharing by mapping parameters for fleets
-#'   with a common \code{Selectivity_index} or \code{Q_index} to the same value
-#'   as the initial index.
+#'   with a common \code{Selectivity_index} or \code{Catchability_index} to the
+#'   same value as the initial index.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1140,11 +1171,11 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 adjust_map_shared_params <- function(map_list, data_list) {
 
-  # Based on `Selectivity_index` or `Q_index` in `fleet_control`
+  # Based on `Selectivity_index` or `Catchability_index` in `fleet_control`
   sel_index <- data_list$fleet_control$Selectivity_index
   sel_index_tested <- c()
 
-  q_index <- data_list$fleet_control$Q_index
+  q_index <- data_list$fleet_control$Catchability_index
   q_index_tested <- c()
   rows_tests <- c()
 
@@ -1222,14 +1253,14 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
       # Error check selectivity type
       if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
-        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning("Survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
 
       # Error check time-varying selectivity type
       if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning("Time varying survey catchability of surveys with same Catchability_index is not the same")
         warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
@@ -1291,7 +1322,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
-    # Standard deviation of fishery time series If not estimating turn of
+    # Fishery catch time-series SD: fix it unless it is being estimated
     if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
       map_list$catch_log_sd[flt] <- NA
     }
@@ -1303,12 +1334,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights if using multinomial
-    if(data_list$fleet_control$Comp_loglike[i] !=  "DirichletMultinomial") {
+    if(data_list$fleet_control$Comp_distribution[i] !=  "DirichletMultinomial") {
       map_list$comp_weights[i] <- NA
     }
 
     # Map out CAAL weights if using multinomial
-    if(data_list$fleet_control$CAAL_loglike[i] != "DirichletMultinomial") {
+    if(data_list$fleet_control$CAAL_distribution[i] != "DirichletMultinomial") {
       map_list$caal_weights[i] <- NA
     }
 
@@ -1352,10 +1383,11 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 build_map_fixed_natage <- function(map_list, data_list) {
 
-  # - I.E. turn off all parameters besides for species
+  # For any species whose numbers-at-age are fixed (estDynamics > 0), fix its
+  # population and fleet parameters -- there is nothing to estimate for it.
   for(sp in 1:data_list$nspp){
 
-    # Fixed n-at-age: Turn off most parameters
+    # Fixed numbers-at-age: fix (map out) most parameters for this species
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
@@ -1459,9 +1491,73 @@ build_map_linkages <- function(map_list, data_list) {
   tbl <- data_list$linkage_table
   est_phase   <- as.integer(tbl$est_phase)
   is_intercept <- tbl$design_col == "(Intercept)"
+  # Random-effect indicator rows carry their deviation in beta_linkage_re (which
+  # holds the density), so the fixed beta_linkage entry is pinned at 0. Key on
+  # re_index -- the registry marker -- so a fixed row that merely inherited a
+  # spec-level re_group stays estimable.
+  is_re_row <- !is.na(tbl$re_index)
   m <- map_list$beta_linkage
-  m[est_phase == 0L | is_intercept] <- NA
+  m[est_phase == 0L | is_intercept | is_re_row] <- NA
   map_list$beta_linkage <- m
+  # beta_linkage_re keeps the blanket "all estimable" map (the density damps
+  # it), except a random walk fixes its FIRST deviate for identifiability: the
+  # walk's mean level is carried by the base parameter the intercept re-targets,
+  # exactly as the legacy RandomWalk fixes index_q_dev[flt, 1]. Fixed means held
+  # at its `inits` value, which is 0 by default but need not be -- supplying a
+  # non-zero first deviate is how a caller reproduces a reference model that
+  # estimates it freely, without shifting the level into the base (which would
+  # move the point any prior on that base is evaluated at).
+  rw_rows <- which(!is.na(tbl$re_struct) & tbl$re_struct == "rw")
+  if (length(rw_rows) > 0L) {
+    # first slot of each rw group = smallest re_index (earliest time, since
+    # re_index is assigned in (group, elapsed-time) order). The slot is a GLOBAL
+    # index, so translate it to the vector that actually holds it -- pinning
+    # position n of beta_linkage_re when the walk is penalized would fix an
+    # unrelated deviation and leave this walk's level unidentified.
+    first_slot <- as.integer(tapply(tbl$re_index[rw_rows],
+                                    tbl$sigma_index[rw_rows], min))
+    rt <- .re_slot_routing(tbl)
+    for (s in first_slot) {
+      r <- rt[rt$slot == s, , drop = FALSE]
+      nm <- if (r$integrate) "beta_linkage_re" else "beta_linkage_re_pen"
+      m_re <- map_list[[nm]]
+      m_re[r$pos + 1L] <- NA
+      map_list[[nm]] <- m_re
+    }
+  }
+
+  # A group's log_sigma_linkage is estimable unless the spec supplied a fixed
+  # input SD (`init = list(sigma = )` with no sigma prior) -- then it is held at
+  # that value, reproducing the reference Time_varying_*_sd_prior.
+  gt <- .re_group_table(tbl)
+  if (!is.null(gt) && any(gt$sigma_fixed)) {
+    m_sig <- map_list$log_sigma_linkage
+    m_sig[gt$sigma_index[gt$sigma_fixed] + 1L] <- NA   # sigma_index 0-based
+    map_list$log_sigma_linkage <- m_sig
+  }
+  # ar1 correlation: estimable unless the spec supplied a fixed input rho
+  # (`init = list(rho = )` with no rho prior). trans_rho_linkage is ordered by
+  # ar1 group (gt order among ar1 rows), matching build_params / linkage_re_rho.
+  if (!is.null(gt)) {
+    ar1 <- gt[gt$re_struct == "ar1", , drop = FALSE]
+    if (nrow(ar1) > 0L && any(ar1$rho_fixed)) {
+      m_rho <- map_list$trans_rho_linkage
+      m_rho[which(ar1$rho_fixed)] <- NA
+      map_list$trans_rho_linkage <- m_rho
+    }
+  }
+  # Rogers QAR1 observation SD: one log-SD per observed group. Held FIXED at the
+  # input `obs_sd` by default (mapped to NA); estimated when the spec sets
+  # `obs_sd_est = TRUE` (a distinct free level). Estimation is opt-in because a
+  # freely-estimated obs_sd collapses toward 0 on a smooth covariate (the
+  # beta/obs_sd identifiability degeneracy) -- keep it fixed unless the covariate
+  # is informative.
+  if (!is.null(gt) && any(gt$observed)) {
+    obs_est <- gt$obs_sd_est[gt$observed]
+    m <- rep(NA_integer_, length(obs_est))
+    if (any(obs_est)) m[obs_est] <- seq_len(sum(obs_est))
+    map_list$log_obs_sd_linkage <- m
+  }
   map_list
 }
 
@@ -1497,6 +1593,7 @@ map_linkage_adjuster <- function(map_list, data_list) {
           ifelse(is.na(row$species), "*", row$species),
           ifelse(is.na(row$sex),     "*", row$sex),
           ifelse(is.na(row$age_bin), "*", row$age_bin),
+          ifelse(is.na(row$fleet),   "*", row$fleet),
           sep = "|")
   }
   keys <- vapply(seq_len(nrow(tbl)),
@@ -1551,6 +1648,26 @@ map_linkage_adjuster <- function(map_list, data_list) {
         par_idx <- .REC_PARAM_TO_INDEX[row$param]
         if (is.na(par_idx)) next
         map_list$rec_pars[idx$species, par_idx] <- NA
+      },
+      q = {
+        # Catchability is indexed by fleet, so the stratum to mask is
+        # idx$fleet rather than the species/sex/age triple.
+        map_list$index_log_q[idx$fleet] <- NA
+      },
+      sel = {
+        # Selectivity is indexed by (slot, fleet, sex). A slope-only formula
+        # masks the base slot across all sexes of the linked fleet; the coff
+        # form masks every bin.
+        m <- .SEL_PARAM_TO_SLOT[[row$param]]
+        if (!is.null(m)) {
+          if (m$arr == "log_sel_slp") {
+            map_list$log_sel_slp[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_inf") {
+            map_list$sel_inf[m$slot, idx$fleet, ] <- NA
+          } else if (m$arr == "sel_coff") {
+            map_list$sel_coff[idx$fleet, , ] <- NA
+          }
+        }
       }
     )
   }

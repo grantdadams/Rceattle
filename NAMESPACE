@@ -7,36 +7,47 @@ S3method(plot,Rceattle)
 S3method(plot,rceattle_osa)
 S3method(print,Rceattle)
 S3method(print,Rceattle_convergence)
+S3method(print,Rceattle_data)
 S3method(print,Rceattle_linkage_spec)
 S3method(print,Rceattle_linkage_table)
+S3method(print,Rceattle_model_config)
 S3method(print,Rceattle_prior)
+S3method(print,Rceattle_run_config)
 S3method(print,rceattle_osa)
 S3method(profile,Rceattle)
 S3method(residuals,Rceattle)
 S3method(summary,Rceattle)
+S3method(summary,Rceattle_data)
 S3method(summary,rceattle_osa)
 S3method(vcov,Rceattle)
 export(TMBAIC)
 export(TMBphase)
 export(build_M1)
 export(build_bounds)
+export(build_catchability)
+export(build_composition)
+export(build_data)
 export(build_growth)
 export(build_hcr)
 export(build_hcr_map)
 export(build_map)
 export(build_params)
+export(build_selectivity)
 export(build_srr)
 export(check_mse)
 export(clean_data)
 export(combine_data)
 export(compare_sim)
 export(convergence_diagnostics)
+export(data_requirements)
 export(fit_control)
 export(fit_mod)
 export(jitter)
 export(linkage_spec)
+export(load_config)
 export(load_mse)
 export(model_average)
+export(model_config)
 export(mse_summary)
 export(osa_diagnostics)
 export(osa_residuals)
@@ -49,11 +60,14 @@ export(plot_data)
 export(plot_depletion)
 export(plot_depletionSSB)
 export(plot_diet_comp)
+export(plot_diet_comp1)
+export(plot_diet_comp2)
 export(plot_exploitable_biomass)
 export(plot_f)
 export(plot_form)
 export(plot_index)
 export(plot_indexresidual)
+export(plot_logindex)
 export(plot_m2_at_age_prop)
 export(plot_m_at_age)
 export(plot_maturity)
@@ -77,100 +91,118 @@ export(rearrange_data)
 export(remove_F)
 export(rename_output)
 export(retrospective)
+export(reweight_comps)
+export(run_config)
 export(run_mse)
 export(sample_rec)
+export(save_config)
 export(self_test)
 export(set_phases)
 export(sim_mod)
 export(switch_check)
 export(write_data)
-importFrom(dplyr,arrange)
-importFrom(dplyr,bind_cols)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,distinct)
-importFrom(dplyr,filter)
-importFrom(dplyr,full_join)
-importFrom(dplyr,group_by)
-importFrom(dplyr,lag)
-importFrom(dplyr,left_join)
-importFrom(dplyr,matches)
-importFrom(dplyr,mutate)
-importFrom(dplyr,n)
-importFrom(dplyr,pull)
-importFrom(dplyr,rename)
-importFrom(dplyr,right_join)
-importFrom(dplyr,select)
-importFrom(dplyr,summarise)
-importFrom(dplyr,summarize)
-importFrom(dplyr,vars)
-importFrom(ggplot2,aes)
-importFrom(ggplot2,coord_equal)
-importFrom(ggplot2,element_blank)
-importFrom(ggplot2,element_rect)
-importFrom(ggplot2,element_text)
-importFrom(ggplot2,geom_contour)
-importFrom(ggplot2,geom_contour_filled)
-importFrom(ggplot2,geom_line)
-importFrom(ggplot2,geom_point)
-importFrom(ggplot2,geom_tile)
-importFrom(ggplot2,ggplot)
-importFrom(ggplot2,ggsave)
-importFrom(ggplot2,ggtitle)
-importFrom(ggplot2,scale_color_viridis_c)
-importFrom(ggplot2,scale_fill_viridis_c)
-importFrom(ggplot2,scale_fill_viridis_d)
-importFrom(ggplot2,scale_x_continuous)
-importFrom(ggplot2,scale_y_continuous)
-importFrom(ggplot2,theme)
-importFrom(ggplot2,theme_classic)
-importFrom(ggplot2,xlab)
-importFrom(ggplot2,xlim)
-importFrom(ggplot2,ylab)
-importFrom(ggplot2,ylim)
-importFrom(grDevices,adjustcolor)
-importFrom(grDevices,col2rgb)
-importFrom(grDevices,dev.off)
-importFrom(grDevices,png)
-importFrom(grDevices,rgb)
-importFrom(graphics,abline)
-importFrom(graphics,axis)
-importFrom(graphics,box)
-importFrom(graphics,curve)
-importFrom(graphics,filled.contour)
-importFrom(graphics,image)
-importFrom(graphics,layout)
-importFrom(graphics,legend)
-importFrom(graphics,lines)
-importFrom(graphics,mtext)
-importFrom(graphics,par)
-importFrom(graphics,persp)
-importFrom(graphics,plot)
-importFrom(graphics,plot.new)
-importFrom(graphics,points)
-importFrom(graphics,polygon)
-importFrom(graphics,symbols)
-importFrom(graphics,text)
+export(write_template)
+importFrom(dplyr,
+  arrange,
+  bind_cols,
+  bind_rows,
+  distinct,
+  filter,
+  full_join,
+  group_by,
+  lag,
+  left_join,
+  matches,
+  mutate,
+  n,
+  pull,
+  rename,
+  right_join,
+  select,
+  summarise,
+  summarize,
+  vars
+)
+importFrom(ggplot2,
+  aes,
+  coord_equal,
+  element_blank,
+  element_rect,
+  element_text,
+  geom_contour,
+  geom_contour_filled,
+  geom_line,
+  geom_point,
+  geom_tile,
+  ggplot,
+  ggsave,
+  ggtitle,
+  scale_color_viridis_c,
+  scale_fill_viridis_c,
+  scale_fill_viridis_d,
+  scale_x_continuous,
+  scale_y_continuous,
+  theme,
+  theme_classic,
+  xlab,
+  xlim,
+  ylab,
+  ylim
+)
+importFrom(grDevices,
+  adjustcolor,
+  col2rgb,
+  dev.off,
+  png,
+  rgb
+)
+importFrom(graphics,
+  abline,
+  axis,
+  box,
+  curve,
+  filled.contour,
+  image,
+  layout,
+  legend,
+  lines,
+  mtext,
+  par,
+  persp,
+  plot,
+  plot.new,
+  points,
+  polygon,
+  symbols,
+  text
+)
 importFrom(magrittr,"%>%")
 importFrom(plyr,rbind.fill)
-importFrom(rlang,.data)
-importFrom(rlang,enquo)
-importFrom(rlang,eval_tidy)
-importFrom(stats,aggregate)
-importFrom(stats,coef)
-importFrom(stats,dnorm)
-importFrom(stats,logLik)
-importFrom(stats,median)
-importFrom(stats,nlminb)
-importFrom(stats,profile)
-importFrom(stats,qlnorm)
-importFrom(stats,quantile)
-importFrom(stats,residuals)
-importFrom(stats,rgamma)
-importFrom(stats,rmultinom)
-importFrom(stats,sd)
-importFrom(stats,vcov)
+importFrom(rlang,
+  .data,
+  enquo,
+  eval_tidy
+)
+importFrom(stats,
+  aggregate,
+  coef,
+  dnorm,
+  logLik,
+  median,
+  nlminb,
+  profile,
+  qlnorm,
+  quantile,
+  residuals,
+  rgamma,
+  rmultinom,
+  sd,
+  vcov
+)
 importFrom(tidyselect,contains)
-importFrom(utils,packageVersion)
-importFrom(utils,type.convert)
-importFrom(utils,write.csv)
-useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle_v01_11)
+importFrom(utils,
+  packageVersion,
+  type.convert,
+  write.csv
+)
+useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle)

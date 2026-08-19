@@ -1,6 +1,156 @@
+# Derived quantities kept when an MSE operating/estimation model object is
+# slimmed for storage; every other quantity is dropped to keep saved runs small.
+# Shared by run_mse() and mse_summary() so the retained set stays in one place.
+.mse_keep_quantities <- c(
+  "catch_hat", "log_catch_sd", "index_hat", "log_index_sd",
+  "ssb_depletion", "biomass_depletion", "biomass", "ssb",
+  "BO", "SB0", "SBF", "F_spp", "R",
+  "M1_at_age", "M_at_age", "avg_rec",
+  "DynamicB0", "DynamicSB0", "DynamicSBF",
+  "SPR0", "SPRlimit", "SPRtarget", "Ftarget",
+  "B_eaten", "B_eaten_as_prey", "Flimit"
+)
+
+# Shortening the operating model's projection horizon -------------------------
+#
+# Between assessments the operating model only has to reach one assessment step
+# past its terminal year: run_mse() reads `max_catch_hat` in the upcoming
+# assessment year to cap the TAC at exploitable biomass, and nothing looks
+# further ahead than that. `projyr` is what sizes the AD tape, so refitting on
+# the shorter horizon keeps each refit proportional to the years realized so
+# far rather than to the whole projection.
+#
+# clean_data() filters every data frame to styr:projyr, so the shorter horizon
+# also drops the projection-year placeholder rows run_mse() appends once up
+# front. Those rows are only ever rewritten for years at or before the current
+# assessment year -- inside the shortened horizon -- so the dropped ones still
+# hold the values they were created with and are restored verbatim.
+
+# Parameter blocks build_params() dimensions by styr:projyr, with the position
+# of their year dimension. Every other block is hindcast-length.
+.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L,
+                           log_growth_par_devs = 3L)
+
+# Data frames carried out to projyr -- exactly the ones clean_data() filters to
+# styr:projyr, so exactly the ones a shortened horizon truncates.
+.mse_proj_tables <- c("index_data", "comp_data", "caal_data", "catch_data",
+                      "diet_data", "NByageFixed", "emp_sel", "weight",
+                      "ration_data")
+
+# Between assessments the loop reads two reported quantities off the operating
+# model, both indexed by catch_data's rows: max_catch_hat, to cap the next TAC
+# at exploitable biomass, and catch_hat, for the catch the operating model
+# actually took. Those are lifted back onto the full-length table; the rest of
+# the fit's quantities are left as the shortened refit produced them. Nothing
+# else reads them -- sim_mod() works off the un-restored fit, a completed
+# simulation returns the terminal full-horizon fit, and a failed one returns no
+# model at all.
+.mse_proj_catch_quantities <- c("catch_hat", "max_catch_hat")
+
+# Replace the year dimension of an array with `keep`, whatever its rank.
+.mse_slice_year_dim <- function(x, yr_dim, keep) {
+  idx <- lapply(dim(x), seq_len)
+  idx[[yr_dim]] <- keep
+  do.call(`[`, c(list(x), idx, list(drop = FALSE)))
+}
+
+.mse_trim_proj_params <- function(params, nyrs_keep) {
+  for (nm in names(.mse_proj_param_yrdim)) {
+    if (is.null(params[[nm]])) next
+    params[[nm]] <- .mse_slice_year_dim(params[[nm]],
+                                        .mse_proj_param_yrdim[[nm]],
+                                        seq_len(nyrs_keep))
+  }
+  params
+}
+
+# Write the shortened blocks back over the head of the full-horizon ones, so
+# the projection years the refit did not cover keep their existing values --
+# for rec_dev those are the recruitment deviations sample_rec() drew for this
+# simulation.
+.mse_restore_proj_params <- function(params, params_full) {
+  for (nm in names(.mse_proj_param_yrdim)) {
+    short <- params[[nm]]
+    full  <- params_full[[nm]]
+    if (is.null(short) || is.null(full)) next
+    yr_dim <- .mse_proj_param_yrdim[[nm]]
+    idx <- lapply(dim(full), seq_len)
+    idx[[yr_dim]] <- seq_len(dim(short)[yr_dim])
+    params[[nm]] <- do.call(`[<-`, c(list(full), idx, list(value = short)))
+  }
+  params
+}
+
+# Put a shortened-horizon fit back on the full projection horizon: data frames
+# regain their future rows, projection-length parameter blocks regain their
+# future slices, and the two catch quantities the loop reads are re-expanded to
+# match (NA in the years the refit did not cover).
+.mse_restore_om_horizon <- function(fit, data_list_full, params_full) {
+  short_projyr <- fit$data_list$projyr
+
+  for (nm in .mse_proj_tables) {
+    full  <- data_list_full[[nm]]
+    short <- fit$data_list[[nm]]
+    if (is.null(full) || is.null(short) || !nrow(full)) next
+
+    keep <- abs(full$Year) <= short_projyr
+    # The refit sees the full-horizon table and only filters it, so its rows are
+    # the kept rows in the same order and its columns are unchanged. Check
+    # rather than assume: either mismatch would silently misalign the rows or
+    # columns written back below, and with them every row-indexed quantity.
+    # Compare years by value -- clean_data() may return them as integer where
+    # the source table held doubles.
+    yrs_full  <- as.numeric(abs(full$Year))[keep]
+    yrs_short <- as.numeric(abs(short$Year))
+    if (length(yrs_full) != length(yrs_short) || any(yrs_full != yrs_short) ||
+        !identical(names(full), names(short))) {
+      stop("run_mse(): '", nm, "' did not survive the shortened operating-model ",
+           "horizon unchanged (", sum(keep), " rows expected, ", nrow(short),
+           " returned).", call. = FALSE)
+    }
+
+    # clean_data() renumbers diet_data's stomach_id from the rows it is given,
+    # so a table that actually lost rows would come back with the shortened
+    # numbering spliced into the full-horizon one. No bundled model stratifies
+    # diet by projection year, so this never fires -- but it must not pass
+    # silently if one ever does.
+    if (identical(nm, "diet_data") && !all(keep)) {
+      stop("run_mse(): diet_data is stratified past the shortened operating-model ",
+           "horizon; its stomach_id would be renumbered. Widen the horizon or ",
+           "drop diet_data from .mse_proj_tables.", call. = FALSE)
+    }
+
+    restored <- full
+    restored[keep, ] <- short
+    fit$data_list[[nm]] <- restored
+
+    if (identical(nm, "catch_data")) {
+      for (q in .mse_proj_catch_quantities) {
+        x <- fit$quantities[[q]]
+        if (is.null(x)) next
+        # NA outside the refit's horizon: those years have not been projected,
+        # and the loop only ever indexes rows at or before it.
+        out <- rep(NA_real_, nrow(full))
+        out[keep] <- x
+        if (!is.null(names(x))) {
+          nms <- rep(NA_character_, nrow(full))
+          nms[keep] <- names(x)
+          names(out) <- nms
+        }
+        fit$quantities[[q]] <- out
+      }
+    }
+  }
+
+  fit$data_list$projyr <- data_list_full$projyr
+  fit$estimated_params <- .mse_restore_proj_params(fit$estimated_params,
+                                                   params_full)
+  fit
+}
+
 #' Run a management strategy evaluation
 #'
-#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
+#' @description Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
 #'
 #' @param om CEATTLE model object exported from \code{Rceattle}
 #' @param em CEATTLE model object exported from \code{Rceattle}
@@ -10,7 +160,7 @@
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
 #' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
-#' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL
@@ -70,77 +220,27 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
-    stop("F prop per fleet 'proj_F_prop' is zero")
+  # na.rm: Proj_F_proportion is NA for fleets that never take catch (surveys),
+  # which is a legitimate workbook value. Without it the sum is NA and the `if`
+  # errors with "missing value where TRUE/FALSE needed" instead of reporting
+  # whether any fleet is set to take projected F.
+  if(sum(om$data_list$fleet_control$Proj_F_proportion, na.rm = TRUE) == 0){
+    stop("F prop per fleet 'Proj_F_proportion' is zero")
   }
 
-  # ** Refit OM if proj_F_prop was not activated ----
+  # ** Refit OM if Proj_F_proportion was not activated ----
   if(sum((om$data_list$catch_data$Catch > 0) - (om$quantities$max_catch_hat > 0), na.rm = TRUE) > 0){
     # -- Set estimate mode back to original
     estimate_mode_base <- om$data_list$estimateMode
 
-    # Rerun OM in debug mode to make sure F-prop is set correctly
-    om <- fit_mod(
-      data_list = om$data_list,
-      inits = om$estimated_params,
-      map = om$map,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = 3, # Run in debug mode
-      random_rec = om$data_list$random_rec,
-      niter = om$data_list$niter,
-      msmMode = om$data_list$msmMode,
-      avgnMode = om$data_list$avgnMode,
-      suitMode = om$data_list$suitMode,
-      initMode = om$data_list$initMode,
-      suit_styr = om$data_list$suit_styr,
-      suit_endyr = om$data_list$suit_endyr,
-      HCR = build_hcr(HCR = om$data_list$HCR,
-                      DynamicHCR = om$data_list$DynamicHCR,
-                      Ftarget = om$data_list$Ftarget,
-                      Flimit = om$data_list$Flimit,
-                      Ptarget = om$data_list$Ptarget,
-                      Plimit = om$data_list$Plimit,
-                      Alpha = om$data_list$Alpha,
-                      Pstar = om$data_list$Pstar,
-                      Sigma = om$data_list$Sigma,
-                      Fmult = om$data_list$Fmult,
-                      HCRorder = om$data_list$HCRorder
-      ),
-      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-      recFun = suppressWarnings(build_srr(
-        srr_fun = om$data_list$srr_fun,
-        srr_pred_fun = om$data_list$srr_pred_fun,
-        proj_mean_rec = om$data_list$proj_mean_rec,
-        srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-        srr_hat_styr = om$data_list$srr_hat_styr,
-        srr_hat_endyr = om$data_list$srr_hat_endyr,
-        srr_est_mode  = om$data_list$srr_est_mode,
-        srr_prior = om$data_list$srr_prior,
-        srr_prior_sd = om$data_list$srr_prior_sd,
-        srr_alpha_init = om$data_list$srr_alpha_init,
-        srr_beta_init  = om$data_list$srr_beta_init,
-        Bmsy_lim = om$data_list$Bmsy_lim,
-        srr_indices = om$data_list$srr_indices,
-        linkages = om$data_list$srr_linkages)),
-      # suppressWarnings: legacy M1_indices may travel via om$data_list.
-      M1Fun = suppressWarnings(build_M1(
-        M1_model = om$data_list$M1_model,
-        M1_re = om$data_list$M1_re,
-        updateM1 = FALSE,
-        M1_use_prior = om$data_list$M1_use_prior,
-        M2_use_prior = om$data_list$M2_use_prior,
-        M_prior = om$data_list$M_prior,
-        M_prior_sd = om$data_list$M_prior_sd,
-        M1_indices = om$data_list$M1_indices,
-        linkages = om$data_list$M1_linkages)),
-      growthFun = build_growth(fun = om$data_list$growth_fun,
-                               linkages = om$data_list$growth_linkages),
-      fit_control = fit_control(
-        loopnum = om$data_list$loopnum,
-        phase   = FALSE,
-        getsd   = FALSE,
-        verbose = 0))
+    # Rerun OM in debug mode to make sure F-prop is set correctly. Reuses the
+    # OM's own configuration unchanged (estimateMode = 3 builds without
+    # optimizing, so loopnum is inert here).
+    om <- .refit_like(
+      data_list    = om$data_list,
+      inits        = om$estimated_params,
+      map          = om$map,
+      estimateMode = 3)
 
     # Adjust back
     om$data_list$estimateMode <- estimate_mode_base
@@ -188,8 +288,13 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # - Set up years of data we are sampling for each fleet
   sample_yrs <- lapply(sampling_period, function(x) seq(from = em$data_list$endyr + x, to = em$data_list$projyr,  by = x))
   fleet_id <- sample_yrs
+  # sampling_period is given per fleet in fleet_control row order, but the table
+  # built here is matched against the data's Fleet_code column. Carry the fleet's
+  # own code rather than its row position: data_check() does require the two to
+  # agree, but nothing here should depend on that silently.
+  fleet_codes <- em$data_list$fleet_control$Fleet_code
   for(i in 1:length(sample_yrs)){
-    fleet_id[[i]] <- replace(fleet_id[[i]], values = i)
+    fleet_id[[i]] <- replace(fleet_id[[i]], values = fleet_codes[i])
   }
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
@@ -226,68 +331,12 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     em$data_list$comp_data <- sim_dat$comp_data
     em$data_list$caal_data <- sim_dat$caal_data
 
-    # Restimate
-    em <- fit_mod(
-      data_list = em$data_list,
-      inits = em$estimated_params,
-      map =  NULL,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-      HCR = build_hcr(HCR = em$data_list$HCR, # Tier3 HCR
-                      DynamicHCR = em$data_list$DynamicHCR,
-                      Ftarget = em$data_list$Ftarget,
-                      Flimit = em$data_list$Flimit,
-                      Ptarget = em$data_list$Ptarget,
-                      Plimit = em$data_list$Plimit,
-                      Alpha = em$data_list$Alpha,
-                      Pstar = em$data_list$Pstar,
-                      Sigma = em$data_list$Sigma,
-                      Fmult = em$data_list$Fmult,
-                      HCRorder = em$data_list$HCRorder
-      ),
-      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-      recFun = suppressWarnings(build_srr(
-        srr_fun = em$data_list$srr_fun,
-        srr_pred_fun  = em$data_list$srr_pred_fun,
-        proj_mean_rec  = em$data_list$proj_mean_rec,
-        srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-        srr_hat_styr = em$data_list$srr_hat_styr,
-        srr_hat_endyr = em$data_list$srr_hat_endyr,
-        srr_est_mode  = em$data_list$srr_est_mode,
-        srr_prior  = em$data_list$srr_prior,
-        srr_prior_sd   = em$data_list$srr_prior_sd,
-        srr_alpha_init = em$data_list$srr_alpha_init,
-        srr_beta_init  = em$data_list$srr_beta_init,
-        Bmsy_lim = em$data_list$Bmsy_lim,
-        srr_indices = em$data_list$srr_indices,
-        linkages = em$data_list$srr_linkages)),
-      # suppressWarnings: legacy M1_indices may travel via em$data_list.
-      M1Fun = suppressWarnings(build_M1(
-        M1_model = em$data_list$M1_model,
-        M1_re = em$data_list$M1_re,
-        updateM1 = FALSE,
-        M1_use_prior = em$data_list$M1_use_prior,
-        M2_use_prior = em$data_list$M2_use_prior,
-        M_prior = em$data_list$M_prior,
-        M_prior_sd = em$data_list$M_prior_sd,
-        M1_indices = em$data_list$M1_indices,
-        linkages = em$data_list$M1_linkages)),
-      growthFun = build_growth(fun = em$data_list$growth_fun,
-                               linkages = em$data_list$growth_linkages),
-      random_rec = em$data_list$random_rec,
-      niter = em$data_list$niter,
-      msmMode = em$data_list$msmMode,
-      avgnMode = em$data_list$avgnMode,
-      suitMode = em$data_list$suitMode,
-      suit_styr = em$data_list$suit_styr,
-      suit_endyr = em$data_list$suit_endyr,
-      initMode = em$data_list$initMode,
-      fit_control = fit_control(
-        phase   = FALSE,
-        loopnum = loopnum,
-        getsd   = FALSE,
-        verbose = 0))
+    # Re-estimate
+    em <- .refit_like(
+      data_list    = em$data_list,
+      inits        = em$estimated_params,
+      estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode),
+      loopnum      = loopnum)
 
     # Update avg F given model fit to regenerated data
     if(em$data_list$HCR == 2){
@@ -301,56 +350,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         dplyr::summarise(avg_F = sum(avg_F)) |>
         dplyr::arrange(spp)
 
-      # - Update model
-      em <- Rceattle::fit_mod(data_list = em$data_list,
-                              inits = em$estimated_params,
-                              estimateMode = 2, # Don't estimate
-                              HCR = build_hcr(HCR = 2, # Input F
-                                              Ftarget = avg_F$avg_F,
-                                              Ptarget = em$data_list$Ptarget,
-                                              Plimit = em$data_list$Plimit
-                              ),
-                              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-                              recFun = suppressWarnings(build_srr(
-                                srr_fun = em$data_list$srr_fun,
-                                srr_pred_fun  = em$data_list$srr_pred_fun,
-                                proj_mean_rec  = em$data_list$proj_mean_rec,
-                                srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                                srr_hat_styr = em$data_list$srr_hat_styr,
-                                srr_hat_endyr = em$data_list$srr_hat_endyr,
-                                srr_est_mode  = em$data_list$srr_est_mode,
-                                srr_prior  = em$data_list$srr_prior,
-                                srr_prior_sd   = em$data_list$srr_prior_sd,
-                                srr_alpha_init = em$data_list$srr_alpha_init,
-                                srr_beta_init  = em$data_list$srr_beta_init,
-                                Bmsy_lim = em$data_list$Bmsy_lim,
-                                srr_indices = em$data_list$srr_indices,
-                                linkages = em$data_list$srr_linkages)),
-                              # suppressWarnings: legacy M1_indices may travel via em$data_list.
-                              M1Fun = suppressWarnings(build_M1(
-                                M1_model = em$data_list$M1_model,
-                                M1_re = em$data_list$M1_re,
-                                updateM1 = FALSE,
-                                M1_use_prior = em$data_list$M1_use_prior,
-                                M2_use_prior = em$data_list$M2_use_prior,
-                                M_prior = em$data_list$M_prior,
-                                M_prior_sd = em$data_list$M_prior_sd,
-                                M1_indices = em$data_list$M1_indices,
-                                linkages = em$data_list$M1_linkages)),
-                              growthFun = build_growth(fun = em$data_list$growth_fun,
-                                                       linkages = em$data_list$growth_linkages),
-                              random_rec = em$data_list$random_rec,
-                              niter = em$data_list$niter,
-                              msmMode = em$data_list$msmMode,
-                              avgnMode = em$data_list$avgnMode,
-                              suitMode = em$data_list$suitMode,
-                              suit_styr = em$data_list$suit_styr,
-                              suit_endyr = em$data_list$suit_endyr,
-                              initMode = em$data_list$initMode,
-                              fit_control = fit_control(
-                                loopnum = loopnum,
-                                getsd   = FALSE,
-                                verbose = 0))
+      # - Update model: project on the recomputed average F (input-F HCR).
+      em <- .refit_like(
+        data_list    = em$data_list,
+        inits        = em$estimated_params,
+        estimateMode = 2,   # Don't estimate
+        HCR          = build_hcr(HCR     = 2,   # Input F
+                                 Ftarget = avg_F$avg_F,
+                                 Ptarget = em$data_list$Ptarget,
+                                 Plimit  = em$data_list$Plimit),
+        loopnum      = loopnum)
     }
   }
 
@@ -565,6 +574,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
+      # * Shorten the projection horizon for this refit ----
+      # Reach one assessment step past the new terminal year -- far enough for
+      # the next iteration's exploitable-biomass cap -- so the AD tape covers
+      # the realized years plus that look-ahead instead of the whole projection.
+      # The last assessment keeps the full horizon, so the operating model that
+      # is returned (and handed to remove_F) is built over the whole projection,
+      # exactly as if the horizon had never been shortened.
+      om_dl_full     <- om_use$data_list
+      om_params_full <- om_use$estimated_params
+      om_projyr_use  <- if (k < length(assess_yrs)) assess_yrs[k + 1] else om_dl_full$projyr
+      om_shortened   <- om_projyr_use < om_dl_full$projyr
+      if (om_shortened) {
+        om_use$data_list$projyr <- om_projyr_use
+        om_use$estimated_params <- .mse_trim_proj_params(
+          om_use$estimated_params,
+          om_projyr_use - om_use$data_list$styr + 1)
+      }
+
       # * Update parameters ----
       # -- log_F
       om_use$estimated_params$log_F <- cbind(om_use$estimated_params$log_F, matrix(0, nrow= nrow(om_use$estimated_params$log_F), ncol = length(new_years)))
@@ -573,13 +600,18 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       #FIXME - simulate
       # om_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- om_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
-      # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
+      # -- Time-varying survey catchability - assume last year, filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns
-      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # -- Time-varying selectivity - assume last year, filled by columns.
+      # Use the fitted arrays' own sex extent (max_sex), not a hardcoded 2: a
+      # single-sex model has sex-dim 1, and forcing 2 silently recycles the
+      # fitted values into a phantom second sex (and, since build_params sizes
+      # these by max_sex, mismatches the parameter template on the refit).
+      n_sex_om <- dim(om_use$estimated_params$log_sel_slp_dev)[3]
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_om, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviation parameters for non-parametric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
@@ -638,67 +670,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           suppressMessages(
-            om_use <- fit_mod(
-              data_list = om_use$data_list,
-              inits = om_use$estimated_params,
-              map = om_use$map,
-              bounds = NULL,
-              file = NULL,
-              estimateMode = estimate_mode_use,
-              random_rec = om_use$data_list$random_rec,
-              niter = om_use$data_list$niter,
-              msmMode = om_use$data_list$msmMode,
-              avgnMode = om_use$data_list$avgnMode,
-              suitMode = om_use$data_list$suitMode,
-              initMode = om_use$data_list$initMode,
-              suit_styr = om$data_list$suit_styr,     # This stays the same as original OM to maintain constant suitability
-              suit_endyr = om$data_list$suit_endyr,   # This stays the same as original OM to maintain constant suitability
-              HCR = build_hcr(HCR = om_use$data_list$HCR,
-                              DynamicHCR = om_use$data_list$DynamicHCR,
-                              Ftarget = om_use$data_list$Ftarget,
-                              Flimit = om_use$data_list$Flimit,
-                              Ptarget = om_use$data_list$Ptarget,
-                              Plimit = om_use$data_list$Plimit,
-                              Alpha = om_use$data_list$Alpha,
-                              Pstar = om_use$data_list$Pstar,
-                              Sigma = om_use$data_list$Sigma,
-                              Fmult = om_use$data_list$Fmult,
-                              HCRorder = om_use$data_list$HCRorder
-              ),
-              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-              recFun = suppressWarnings(build_srr(
-                srr_fun = om_use$data_list$srr_fun,
-                srr_pred_fun = om_use$data_list$srr_pred_fun,
-                proj_mean_rec = TRUE,
-                srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-                srr_hat_styr = om$data_list$srr_hat_styr,
-                srr_hat_endyr = om$data_list$srr_hat_endyr,
-                srr_est_mode  = om_use$data_list$srr_est_mode,
-                srr_prior = om_use$data_list$srr_prior,
-                srr_prior_sd = om_use$data_list$srr_prior_sd,
-                srr_alpha_init = om_use$data_list$srr_alpha_init,
-                srr_beta_init  = om_use$data_list$srr_beta_init,
-                Bmsy_lim = om_use$data_list$Bmsy_lim,
-                srr_indices = om_use$data_list$srr_indices,
-                linkages = om_use$data_list$srr_linkages)),
-              # suppressWarnings: legacy M1_indices may travel via om_use$data_list.
-              M1Fun = suppressWarnings(build_M1(
-                M1_model = om_use$data_list$M1_model,
-                M1_re = om_use$data_list$M1_re,
-                updateM1 = FALSE,
-                M1_use_prior = om_use$data_list$M1_use_prior,
-                M2_use_prior = om_use$data_list$M2_use_prior,
-                M_prior = om_use$data_list$M_prior,
-                M_prior_sd = om_use$data_list$M_prior_sd,
-                M1_indices = om_use$data_list$M1_indices,
-                linkages = om_use$data_list$M1_linkages)),
-              growthFun = build_growth(fun = om_use$data_list$growth_fun,
-                                       linkages = om_use$data_list$growth_linkages),
-              fit_control = fit_control(
-                loopnum = loopnum,
-                phase   = FALSE,
-                getsd   = FALSE,
-                verbose = 0))
+            # Advance the OM with the new catch. The stock-recruit reference
+            # period (srr_*) and the suitability window (suit_*) are pinned to
+            # the PRISTINE om$ (not the advancing om_use$) so both stay fixed
+            # through the projection -- critical for multispecies models, whose
+            # predation suitability must not drift over the MSE. The OM projects
+            # on mean recruitment across sim iterations (proj_mean_rec = TRUE).
+            om_use <- .refit_like(
+              data_list        = om_use$data_list,
+              inits            = om_use$estimated_params,
+              map              = om_use$map,
+              estimateMode     = estimate_mode_use,
+              loopnum          = loopnum,
+              proj_mean_rec    = TRUE,
+              srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+              srr_hat_styr     = om$data_list$srr_hat_styr,
+              srr_hat_endyr    = om$data_list$srr_hat_endyr,
+              suit_styr        = om$data_list$suit_styr,
+              suit_endyr       = om$data_list$suit_endyr)
           )
           return(list(kill_sim = FALSE, failure = NA))
         },
@@ -712,11 +701,21 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       })
 
       if(kill_sim$kill_sim){
+        # Nothing to put back: a killed simulation returns only its failure
+        # marker, so the partially advanced operating model is discarded.
         break()
       }
 
       # -- Set estimate mode back to original
       om_use$data_list$estimateMode <- estimate_mode_base
+
+      # sim_mod() reads the operating model's quantities positionally against
+      # its own data frames, so it works from the fitted object; the assessment
+      # loop below works from the full-horizon one.
+      om_fit <- om_use
+      if (om_shortened) {
+        om_use <- .mse_restore_om_horizon(om_use, om_dl_full, om_params_full)
+      }
 
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -739,21 +738,28 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # 4. Simulate data from OM ----
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
-      sim_dat <- Rceattle::sim_mod(om_use, simulate = simulate_data)
+      sim_dat <- Rceattle::sim_mod(om_fit, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
+
+      # sample_yrs pairs each fleet with the years THAT fleet is sampled, so the
+      # rows to add are the (fleet, year) pairs it lists -- not every fleet in
+      # every year. Matching the year set and the fleet set separately is the
+      # same thing only when one year advances per assessment; with a longer
+      # assessment period it also admits an every-other-year fleet in its off
+      # years, giving the estimation model survey and composition data the
+      # sampling design says were never collected.
+      sampled_key <- paste(years_include$Fleet_code, years_include$Year)
 
       # -- Add newly simulated survey data to EM and OM
       # - Get simulated survey data
       new_index_data <- sim_dat$index_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       # - Add to EM and OM
       om_use$data_list$index_data <- om_use$data_list$index_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_index_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))
@@ -766,8 +772,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Add newly simulated comp data to EM & OM
       # - Simulated comp data
       new_comp_data <- sim_dat$comp_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(dplyr::select(new_comp_data, dplyr::contains("Comp_"))) > 0) # Set sample size to 0 if catch is 0
@@ -776,8 +781,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       # - Add to EM and OM
       om_use$data_list$comp_data <- om_use$data_list$comp_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_comp_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))
@@ -789,8 +793,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Add newly simulated CAAL to EM & OM
       # - Simulated caal data
       new_caal_data <- sim_dat$caal_data |>
-        dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code) |>
+        dplyr::filter(paste(Fleet_code, abs(Year)) %in% sampled_key) |>
         dplyr::mutate(Year = -Year)
 
       new_caal_data$Sample_size <- new_caal_data$Sample_size * as.numeric(rowSums(dplyr::select(new_caal_data, dplyr::contains("CAAL_"))) > 0) # Set sample size to 0 if catch is 0
@@ -799,8 +802,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       # - Add to EM and OM
       om_use$data_list$caal_data <- om_use$data_list$caal_data |>
-        dplyr::filter(!(abs(Year) %in% years_include$Year &
-                          Fleet_code %in% years_include$Fleet_code)) |>
+        dplyr::filter(!(paste(Fleet_code, abs(Year)) %in% sampled_key)) |>
         rbind(new_caal_data |>
                 dplyr::mutate(Year = -abs(Year))) |>
         dplyr::arrange(Fleet_code, abs(Year))
@@ -822,13 +824,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # # -- log_M1_dev
       # em_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- em_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
-      # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
+      # -- Time-varying survey catchability - assume last year, filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
-      # -- Time-varing selectivity - Assume last year - filled by columns
-      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # -- Time-varying selectivity - assume last year, filled by columns.
+      # Sex extent from the fitted arrays (max_sex), not a hardcoded 2 -- see
+      # the OM extension above.
+      n_sex_em <- dim(em_use$estimated_params$log_sel_slp_dev)[3]
+      log_sel_slp_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_inf_dev = array(0, dim = c(2, nflts, n_sex_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for logistic
+      sel_coff_dev = array(0, dim = c(nflts, n_sex_em, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviation parameters for non-parametric
 
       log_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
@@ -844,71 +849,21 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
-      # Restimate
+      # Re-estimate
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           suppressMessages(
-            em_use <- fit_mod(
-              data_list = em_use$data_list,
-              inits = em_use$estimated_params,
-              map =  NULL,
-              bounds = NULL,
-              file = NULL,
-              estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-              HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
-                              DynamicHCR = em_use$data_list$DynamicHCR,
-                              Ftarget = em_use$data_list$Ftarget,
-                              Flimit = em_use$data_list$Flimit,
-                              Ptarget = em_use$data_list$Ptarget,
-                              Plimit = em_use$data_list$Plimit,
-                              Alpha = em_use$data_list$Alpha,
-                              Pstar = em_use$data_list$Pstar,
-                              Sigma = em_use$data_list$Sigma,
-                              Fmult = em_use$data_list$Fmult,
-                              HCRorder = em$data_list$HCRorder
-              ),
-              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-              recFun = suppressWarnings(build_srr(
-                srr_fun = em_use$data_list$srr_fun,
-                srr_pred_fun = em_use$data_list$srr_pred_fun,
-                proj_mean_rec = em_use$data_list$proj_mean_rec,
-                srr_mse_switchyr = em_use$data_list$endyr,
-                srr_hat_styr = em_use$data_list$srr_hat_styr,
-                srr_hat_endyr = em_use$data_list$srr_hat_endyr,
-                srr_est_mode  = em_use$data_list$srr_est_mode,
-                srr_prior = em_use$data_list$srr_prior,
-                srr_prior_sd = em_use$data_list$srr_prior_sd,
-                srr_alpha_init = em_use$data_list$srr_alpha_init,
-                srr_beta_init  = em_use$data_list$srr_beta_init,
-                Bmsy_lim = em_use$data_list$Bmsy_lim,
-                srr_indices = em_use$data_list$srr_indices,
-                linkages = em_use$data_list$srr_linkages)),
-              # suppressWarnings: legacy M1_indices may travel via em_use$data_list.
-              M1Fun = suppressWarnings(build_M1(
-                M1_model = em_use$data_list$M1_model,
-                M1_re = em_use$data_list$M1_re,
-                updateM1 = FALSE,
-                M1_use_prior = em_use$data_list$M1_use_prior,
-                M2_use_prior = em_use$data_list$M2_use_prior,
-                M_prior = em_use$data_list$M_prior,
-                M_prior_sd = em_use$data_list$M_prior_sd,
-                M1_indices = em_use$data_list$M1_indices,
-                linkages = em_use$data_list$M1_linkages)),
-              growthFun = build_growth(fun = em_use$data_list$growth_fun,
-                                       linkages = em_use$data_list$growth_linkages),
-              random_rec = em_use$data_list$random_rec,
-              niter = em_use$data_list$niter,
-              msmMode = em_use$data_list$msmMode,
-              avgnMode = em_use$data_list$avgnMode,
-              suitMode = em_use$data_list$suitMode,
-              suit_styr = em_use$data_list$suit_styr,
-              suit_endyr = em_use$data_list$suit_endyr,
-              initMode = em_use$data_list$initMode,
-              fit_control = fit_control(
-                phase   = FALSE,
-                loopnum = loopnum,
-                getsd   = FALSE,
-                verbose = 0))
+            # Re-assess with the newly sampled data. srr_mse_switchyr switches
+            # the stock-recruit relationship at the EM's CURRENT assessment
+            # endyr (which advances each iteration), not the stored value. The
+            # HCR is reconstructed from em_use$, whose HCRorder equals the
+            # pristine em$ (copied at `em_use <- em`, never modified in the loop).
+            em_use <- .refit_like(
+              data_list        = em_use$data_list,
+              inits            = em_use$estimated_params,
+              estimateMode     = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode),
+              loopnum          = loopnum,
+              srr_mse_switchyr = em_use$data_list$endyr)
           )
           return(list(kill_sim = FALSE, failure = NA))
         },
@@ -921,8 +876,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         return(list(kill_sim = TRUE, failure = "EM"))
       })
 
-      if(is.null(em_use)){
-        return(list(kill_sim = TRUE, failure = "EM"))
+      # A failed re-assessment leaves em_use holding the PREVIOUS year's model,
+      # so the simulation cannot carry on: it would store that stale assessment
+      # under this year's name and hand its catch advice to the next iteration.
+      # Stop the simulation the same way a failed operating-model refit does.
+      if(kill_sim$kill_sim){
         break()
       }
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
@@ -936,33 +894,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$obj <- NULL
       em_use$opt <- NULL
       em_use$sdrep <- NULL
-      em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
-                                                         "log_catch_sd",
-                                                         "index_hat",
-                                                         "log_index_sd",
-                                                         "ssb_depletion",
-                                                         "biomass_depletion",
-                                                         "biomass",
-                                                         "ssb",
-                                                         "ssb_depletion",
-                                                         "BO",
-                                                         "SB0",
-                                                         "SBF",
-                                                         "F_spp",
-                                                         "R",
-                                                         "M1_at_age",
-                                                         "M_at_age",
-                                                         "avg_rec",
-                                                         "DynamicB0",
-                                                         "DynamicSB0",
-                                                         "DynamicSBF",
-                                                         "SPR0",
-                                                         "SPRlimit",
-                                                         "SPRtarget",
-                                                         "Ftarget",
-                                                         "B_eaten",
-                                                         "B_eaten_as_prey",
-                                                         "Flimit")] <- NULL
+      em_use$quantities[names(em_use$quantities) %!in% .mse_keep_quantities] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
@@ -973,47 +905,116 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
 
     # - Rename models
-    sim_list$use_sim <- !kill_sim$kill_sim
-    sim_list$failure = kill_sim$failure
-    sim_list$OM <- om_use # OM
-    sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
-    if(!kill_sim$kill_sim){
+    if (kill_sim$kill_sim) {
+      # A simulation that broke off part way through never reached the terminal
+      # assessment year, so its operating and estimation models describe a state
+      # the MSE did not arrive at. Return only the marker: there is nothing here
+      # a summary should average over, and keeping the partial models invites
+      # them being read as if the simulation had run to completion.
+      sim_list <- list(use_sim = FALSE, failure = kill_sim$failure)
+    } else {
+      sim_list$use_sim <- TRUE
+      sim_list$failure <- NA
+      sim_list$OM <- om_use # OM
+      # The unfished reference run is a separate numerical problem and can fail
+      # on its own (it sdreports a model with F pinned off across the
+      # projection). The simulation itself is complete at this point, and its
+      # assessments are the catch-advice record, so a failure here must not
+      # discard it: dropping these would remove simulations in a
+      # stock-state-dependent way and bias every performance metric.
+      # Assigned through `[` rather than `$` so a failure leaves OM_no_F present
+      # and NULL: `sim_list$OM_no_F <- NULL` would DELETE the element, and the
+      # simulation would then be indistinguishable by name from one that never
+      # attempted the unfished run.
+      sim_list["OM_no_F"] <- list(tryCatch(remove_F(om_use), error = function(e) {
+        # Recorded on the object, not just warned about: this runs in a parallel
+        # worker, whose warnings are discarded, and the simulation is still
+        # usable for everything that does not compare against the unfished run.
+        # mse_summary() drops these from the no-F metrics only.
+        sim_list$failure <<- paste0("OM_no_F: ", conditionMessage(e))
+        NULL
+      }))
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
 
     # - Save
     if(!is.null(dir)){
-      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      dir.create(dir, showWarnings = FALSE, recursive = TRUE)
       saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
-      sim_list <- NULL
+      # Hand back only the outcome, not the models: run_mse() returns NULL in
+      # this mode, and the dispatcher needs to report attrition without reading
+      # every saved simulation back off disk.
+      list(use_sim = sim_list$use_sim, failure = sim_list$failure)
     } else{
       sim_list # Return simlist
     }
   } # End run_one_sim closure
 
 
+  # Contain a simulation's failure to that simulation. The refits are already
+  # guarded, but the surrounding data reshaping is not, and neither the
+  # sequential nor the parallel dispatch has a per-item handler -- so one
+  # unguarded error would discard every other simulation of the run. Anything
+  # that escapes is reported as a failed simulation, keeping the message so the
+  # cause is still visible.
+  run_one_sim_guarded <- function(sim) {
+    tryCatch(run_one_sim(sim), error = function(e) {
+      # Tagged so this stays distinguishable from the enumerated "OM"/"EM"
+      # failures the assessment loop reports: those are expected outcomes, this
+      # is a bug or a bad input.
+      marker <- list(use_sim = FALSE,
+                     failure = paste0("unexpected: ", conditionMessage(e)))
+      message("Sim ", sim, " FAILED: ", conditionMessage(e))
+      if (!is.null(dir)) {
+        # Writing the marker must not itself escape, or the containment this
+        # handler exists for is lost for every other simulation.
+        tryCatch({
+          dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+          saveRDS(marker,
+                  file = paste0(dir, "/", file, "EMs_from_OM_Sim_", sim, ".rds"))
+        }, error = function(e2) {
+          warning("Sim ", sim, ": could not record the failure (",
+                  conditionMessage(e2), ").", call. = FALSE)
+        })
+      }
+      marker
+    })
+  }
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Dispatch sims (parallel via PSOCK or sequential) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if (use_parallel) {
-    cl <- parallel::makeCluster(min(cores, nsim))
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    # Workers need the package; locals (om, em, seed, ...) are passed
-    # in clusterExport via the closure environment.
-    parallel::clusterEvalQ(cl, {
-      suppressPackageStartupMessages(library(Rceattle))
-    })
-    parallel::clusterExport(
-      cl,
-      varlist = ls(envir = environment()),
-      envir = environment()
-    )
-    sim_list <- parallel::parLapply(cl, start_sim:nsim, run_one_sim)
+    # FORK where possible (inherits the loaded package + the large OM/EM objects
+    # via copy-on-write); PSOCK fallback exports them. See .parallel_lapply().
+    sim_list <- .parallel_lapply(start_sim:nsim, run_one_sim_guarded, min(cores, nsim), environment())
   } else {
-    sim_list <- lapply(start_sim:nsim, run_one_sim)
+    sim_list <- lapply(start_sim:nsim, run_one_sim_guarded)
   }
 
   names(sim_list) <- paste0("Sim_", start_sim:nsim)
+
+  # Report attrition here rather than leaving it to whatever reads the results.
+  # With `dir` set the return value is NULL, so a run in which every simulation
+  # failed would otherwise be indistinguishable from one in which every
+  # simulation succeeded -- the same number of files either way.
+  n_failed <- sum(vapply(sim_list, function(x) isFALSE(x$use_sim), logical(1)))
+  if (n_failed) {
+    warning(n_failed, " of ", length(sim_list),
+            " simulations did not complete; they carry use_sim = FALSE and no ",
+            "models. Filter on use_sim before summarising.", call. = FALSE)
+  }
+  # Worker warnings are discarded by the parallel cluster, so a completed
+  # simulation whose unfished reference run failed is reported from here.
+  n_no_f <- sum(vapply(sim_list, function(x) {
+    isTRUE(x$use_sim) && grepl("^OM_no_F: ", paste(x$failure))
+  }, logical(1)))
+  if (n_no_f) {
+    warning(n_no_f, " of ", length(sim_list),
+            " simulations completed but their unfished reference run failed; ",
+            "these carry use_sim = TRUE and OM_no_F = NULL, and are excluded ",
+            "from the no-F metrics only.", call. = FALSE)
+  }
 
   if(is.null(dir)){
     return(sim_list)

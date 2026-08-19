@@ -2,7 +2,21 @@
 # Build a Rceattle data object in R (without Excel)
 # =============================================================================
 #
-# PURPOSE:
+# RECOMMENDED PATH: build_data()
+#   For most uses you do not need to assemble the list by hand. build_data()
+#   takes only the blocks a model uses and default-fills the rest, checks block
+#   names against the schema (catching typos early), and prints a spec tree:
+#
+#     dat <- build_data(base = BS2017SS, projyr = 2060)          # copy-and-edit
+#     dat <- build_data(nspp = 1, styr = 1977, endyr = 2023,     # from blocks
+#                       fleet_control = fc, weight = wt, catch_data = catch)
+#     data_requirements(msmMode = 0)   # which blocks does my model need?
+#
+#   See vignette("data-without-excel") for the full build_data()/data_requirements()
+#   walkthrough. The script below shows the underlying by-hand construction --
+#   useful for simulating data or understanding exactly what each block contains.
+#
+# PURPOSE (by-hand construction):
 #   Rceattle can read input data from an Excel workbook using read_data().
 #   This script shows how to build the same data object directly in R as a
 #   named list.  This is useful when:
@@ -16,6 +30,8 @@
 #   3. Pass the completed list to fit_mod()
 #
 # RELATED FUNCTIONS:
+#   build_data()   -- constructor that wraps this by-hand assembly (recommended)
+#   data_requirements() -- reports which blocks a configuration needs
 #   read_data()    -- reads the Excel template into this same list format
 #   write_data()   -- writes a data list back to Excel (see end of script)
 #   data_check()   -- validates a data list before fitting
@@ -86,8 +102,8 @@ simData$beta_wt_len  <- rep(3,       nspp)
 #   the age-to-length transition (growth matrix) for biomass calculations
 simData$pop_age_transition_index <- rep(1, nspp)
 
-# sigma_rec_prior: prior standard deviation for log-recruitment deviations
-simData$sigma_rec_prior <- rep(1, nspp)
+# sigma_rec: prior standard deviation for log-recruitment deviations
+simData$sigma_rec <- rep(1, nspp)
 
 # other_food: non-modelled prey biomass available to each predator (used in
 #   multi-species mode to prevent unrealistically high predation mortality)
@@ -103,18 +119,18 @@ simData$other_food <- rep(1e5, nspp)
 # Selectivity:   "Logistic", "NonParametric", "DoubleLogistic",
 #                "DescendingLogistic", "Hake", "2DAR1", "3DAR1", or int 0-7
 # Selectivity_dimension: "Age" or "Length"
-# Catchability:  "Fixed" (0) = fixed at Q_prior,
+# Catchability:  "Fixed" (0) = fixed at Catchability_init,
 #                "Estimated" (1) = freely estimated,
-#                "Estimated-with-prior" (2) = free w/ normal prior (Q_prior, Q_sd_prior),
+#                "Estimated-with-prior" (2) = free w/ normal prior (Catchability_init, Catchability_prior_sd),
 #                "Analytical" (3) = Ludwig & Walters/Martell 1994,
 #                "Environmental" (5) = mu_q + X * beta,
 #                "AR1" (6) = sensu Rogers et al. (2024),
 #                NA = not applicable (fisheries)
-# proj_F_prop:   Proportion of projected F per fleet; must sum to 1 per
+# Proj_F_proportion:   Proportion of projected F per fleet; must sum to 1 per
 #                species across fishery fleets; NA for surveys
-# Comp_loglike:  "Multinomial" (0),  "DirichletMultinomial" (1),
+# Comp_distribution:  "Multinomial" (0),  "DirichletMultinomial" (1),
 #                "MultinomialAFSC" (-1)
-# CAAL_loglike:  "Multinomial" (0) or "DirichletMultinomial" (1)
+# CAAL_distribution:  "Multinomial" (0) or "DirichletMultinomial" (1)
 
 simData$fleet_control <- data.frame(
   Fleet_name      = paste0(c("Survey", "Fishery"),
@@ -139,25 +155,25 @@ simData$fleet_control <- data.frame(
   # 5 = random walk on ascending limb of double logistic only
   Time_varying_sel_sd_prior = 1,
   Bin_first_selected        = 1,            # Youngest fully-selected age/length
-  Sel_norm_bin1             = NA,           # Bin to normalize from (optional)
-  Sel_norm_bin2             = NA,           # Upper bin to normalize from a range (can be NA)
+  Sel_norm_bin             = NA,           # Bin to normalize from (optional)
+  Sel_norm_bin_upper             = NA,           # Upper bin to normalize from a range (can be NA)
 
   # Composition data settings
-  Comp_loglike    = "Multinomial",
+  Comp_distribution    = "Multinomial",
   Comp_weights    = 1,                      # Input effective sample size weight
-  CAAL_loglike    = "Multinomial",
+  CAAL_distribution    = "Multinomial",
   CAAL_weights    = 1,
 
   # Data weighting / index units
-  Weight1_Numbers2 = 1,                    # 1 = weight (mt), 2 = numbers
+  Observation_units = 1,                    # 1 = weight (mt), 2 = numbers
   Weight_index     = rep(1:nspp, each = 2),# Index of weight for biomass calc
   Age_transition_index = 1,                # Index of age_trans_matrix
 
   # Catchability settings
-  Q_index              = 1:(nspp * 2),         # Links to q across fleets
+  Catchability_index              = 1:(nspp * 2),         # Links to q across fleets
   Catchability         = rep(c("Estimated", NA), nspp), # NA = not applicable
-  Q_prior              = rep(c(1,  NA), nspp),
-  Q_sd_prior           = rep(c(0.2,NA), nspp),
+  Catchability_init              = rep(c(1,  NA), nspp),
+  Catchability_prior_sd           = rep(c(0.2,NA), nspp),
   Time_varying_q       = rep(c(0,  NA), nspp), # 0/"None" = none, 1/"IID" = penalized lognormal deviates with sd set at "Time_varying_q_sd_prior" if random_q = FALSE in fit_mod
   # 3 /"Block" = time blocks, 4/ "RandomWalk"
   Time_varying_q_sd_prior = rep(c(1, NA), nspp),
@@ -173,7 +189,7 @@ simData$fleet_control <- data.frame(
   Catch_sd_prior       = rep(c(NA, 1), nspp),  # Starting value if estimated
 
   # Projection fishing mortality
-  proj_F_prop  = rep(c(NA, 1), nspp) # NA for surveys; must sum to 1 per species
+  Proj_F_proportion  = rep(c(NA, 1), nspp) # NA for surveys; must sum to 1 per species
 )
 
 
@@ -181,7 +197,7 @@ simData$fleet_control <- data.frame(
 # 5. Survey index data
 # =============================================================================
 # One row per fleet-year combination for survey fleets.
-# Observation: log-scale biomass index (or numbers if Weight1_Numbers2 = 2)
+# Observation: log-scale biomass index (or numbers if Observation_units = 2)
 # Log_sd:      observation standard deviation for lognormal
 
 simData$index_data <- data.frame(
@@ -201,7 +217,7 @@ simData$index_data <- data.frame(
 # 6. Catch data
 # =============================================================================
 # One row per fishery fleet-year combination.
-# Catch:   total catch in metric tonnes (or numbers if Weight1_Numbers2 = 2)
+# Catch:   total catch in metric tonnes (or numbers if Observation_units = 2)
 # Log_sd:  observation sd for lognormal (often set small, e.g. 0.01-0.05,
 #          when catch is treated as known)
 
@@ -475,7 +491,7 @@ simData$Tcl <- rep(1,  nspp)
 simData$CK1 <- rep(1,  nspp)
 simData$CK4 <- rep(1,  nspp)
 
-simData$Diet_loglike      <- rep(0, nspp)  # 0 = Multinomial, 1 = Dirichlet-multinomial
+simData$Diet_distribution      <- rep(0, nspp)  # 0 = Multinomial, 1 = Dirichlet-multinomial
 # (only used when suitMode > 0)
 simData$Diet_comp_weights <- rep(1, nspp)
 

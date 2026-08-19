@@ -79,3 +79,50 @@ testthat::test_that("multispecies predation plotters run on a fitted model", {
     testthat::expect_no_error(plot(ms, what = "mortality"))
   })
 })
+
+# --- regression: NA observations in projection rows ---------------------------
+# `clean_data()` gives every projection year an NA catch, so `.obs` is NA on
+# those rows and the lognormal interval mask must not pass an NA to a subscript.
+# No special fixture is needed -- plain BS2017SS carries 99 such rows. The bug
+# survived because the smoke test above only ever called plot_catch() with the
+# default incl_proj = FALSE, which filters them out.
+testthat::test_that("catch plotter tolerates NA observations in projection rows", {
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS,
+                      estimateMode = 3,  # build only, no optimisation (fast)
+                      msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  testthat::expect_true(
+    any(is.na(ss$data_list$catch_data$Catch[ss$data_list$catch_data$Year > 0])))
+
+  with_null_device({
+    testthat::expect_no_error(Rceattle::plot_catch(ss, incl_proj = TRUE))
+    testthat::expect_no_error(Rceattle::plot_index(ss, incl_proj = TRUE))
+  })
+})
+
+testthat::test_that("plot_indexresidual honours incl_proj", {
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  dat <- BS2017SS
+  # A projection-year index row, carrying the placeholder a roll-forward writes.
+  proj <- dat$index_data[nrow(dat$index_data), ]
+  proj$Year <- dat$endyr + 1L
+  proj$Observation <- 99999
+  dat$index_data <- rbind(dat$index_data, proj)
+
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = dat, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))))
+
+  yrs_of <- function(...) sort(unique(Rceattle::plot_indexresidual(...)$data$Year))
+  with_null_device({
+    testthat::expect_false(any(yrs_of(ss) > ss$data_list$endyr))
+    testthat::expect_true(any(yrs_of(ss, incl_proj = TRUE) > ss$data_list$endyr))
+  })
+})

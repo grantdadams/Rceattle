@@ -55,7 +55,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 # * Changing future F ----
 # Rceattle automatically projects the population forward when estimating under no fishing
 BS2017MS$projyr # Year the population is projected forward
-BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
+BS2017MS$fleet_control$Proj_F_proportion <- 1 # 1 fishing fleet per species
 
 # Re-run, without estimating
 ms_run_proj <- fit_mod(data_list = BS2017MS,

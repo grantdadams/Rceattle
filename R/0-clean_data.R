@@ -16,7 +16,7 @@
   if (is.null(ic) || length(ic) == 0) return(data_list)
   fc  <- data_list$fleet_control
   idx <- data_list$index_data
-  if (is.null(fc) || is.null(idx) || !"Index_loglike" %in% colnames(fc)) return(data_list)
+  if (is.null(fc) || is.null(idx) || !"Index_distribution" %in% colnames(fc)) return(data_list)
   endyr <- data_list$endyr
   mvn_codes <- c("MVN", "MVNORM", 1, 2, "1", "2")
 
@@ -24,7 +24,7 @@
     Sigma <- as.matrix(ic[[nm]])
     row <- which(fc$Fleet_name == nm | as.character(fc$Fleet_code) == nm)
     if (length(row) != 1) next
-    if (!(fc$Index_loglike[row] %in% mvn_codes)) next        # only MVN/MVNORM fleets
+    if (!(fc$Index_distribution[row] %in% mvn_codes)) next        # only MVN/MVNORM fleets
     code <- fc$Fleet_code[row]
 
     fit <- idx[idx$Fleet_code == code & idx$Year > 0 &
@@ -62,7 +62,12 @@
   data_list
 }
 
-#' Function to clean data prior to Rceattle runs
+#' Default-fill and tidy a data list before fitting
+#'
+#' Fills optional blocks with correctly-shaped empties, filters observations to
+#' the model's year range, extends catch to the projection years, and re-keys
+#' any survey-index covariance matrices. Whether a missing block is actually a
+#' problem is left to [data_check()], which knows the model configuration.
 #'
 #' @param data_list Rceattle data list
 #'
@@ -106,6 +111,20 @@ clean_data <- function(data_list){
     }
   }
 
+  # Selectivity_block: optional per-observation time-block id in index_data /
+  # catch_data. It is READ ONLY for Time_varying_{sel,q} == "Block" (build_map);
+  # every other configuration (Off / IID / RW / AR1, and the random-effect
+  # linkages) ignores it. Default a missing column to 1 (a single block = no
+  # time-blocking), so a user need only supply it for Block-mode fleets. (The
+  # `Q_block` column is vestigial -- never read; the q time-blocking reuses
+  # Selectivity_block -- see data_check() for its soft-deprecation.)
+  for (.blk in c("index_data", "catch_data")) {
+    if (!is.null(data_list[[.blk]]) && nrow(data_list[[.blk]]) > 0L &&
+        !"Selectivity_block" %in% names(data_list[[.blk]])) {
+      data_list[[.blk]]$Selectivity_block <- 1L
+    }
+  }
+
   # env_data: default to a Year-only data.frame so downstream code that does
   # `ncol(env_data) - 1` (number of indices) gets 0 when no environmental data
   # are supplied, and `merge(env_data, ...)` in rearrange_data() works.
@@ -119,7 +138,7 @@ clean_data <- function(data_list){
   }
 
   # index_cov: named list of survey-index variance-covariance matrices, keyed by
-  # Fleet_name, used only by fleets with Index_loglike == "MVN" (the AMAK/ebswp
+  # Fleet_name, used only by fleets with Index_distribution == "MVN" (the AMAK/ebswp
   # DoCovBTS covariance survey likelihood). Default to an empty list so
   # rearrange_data() / data_check() can treat "not supplied" uniformly; a fleet
   # that is not MVN never needs one, and data_check() enforces that an MVN fleet
@@ -208,7 +227,7 @@ clean_data <- function(data_list){
       dplyr::arrange(stomach_id)
   }
 
-  return(data_list)
+  return(.rce_as_data(data_list))
 }
 
 

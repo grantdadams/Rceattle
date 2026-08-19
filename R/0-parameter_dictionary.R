@@ -67,6 +67,18 @@
     # -- environmental linkage --------------------------------------------
     r("beta_linkage", "linkage coefficients", "linkage",
       "Coefficients of the formula-driven environmental linkages; one per row of the linkage table.", "[n_linkage]"),
+    r("beta_linkage_re", "linkage random-effect deviations", "linkage",
+      "Random-effect deviation coefficients for `~ (1|group)` / rw() / ar1() linkage terms; entered into the Laplace approximation. Length 0 without a random linkage.", "[n_linkage_re]"),
+    r("beta_linkage_re_pen", "penalized linkage deviations", "linkage",
+      "Deviation coefficients for linkage terms declared `linkage_spec(integrate = FALSE)`: estimated as penalized fixed effects rather than integrated out, so they carry the same density as `beta_linkage_re` but as a plain penalty and are reported with standard errors. Requires a fixed SD. Length 0 without a penalized random linkage.", "[n_linkage_re_pen]"),
+    r("log_sigma_linkage", "linkage RE log-SD", "linkage",
+      "Log standard deviation of each random-effect linkage group; the variance of the time-varying deviations. Can be input (init) or given a prior. Length 0 without a random linkage.", "[n_re_group]"),
+    r("trans_rho_linkage", "linkage RE correlation", "linkage",
+      "Transformed autocorrelation for each ar1() linkage group. Length 0 unless a correlated (ar1) random linkage is used.", "[n_re_ar1_group]"),
+    r("beta_linkage_obs", "linkage QAR1 effect size", "linkage",
+      "Rogers et al. (2024) QAR1 effect size: one per observed ar1 linkage group (`observe = `), scaling the latent deviate into the linked parameter. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
+    r("log_obs_sd_linkage", "linkage QAR1 observation log-SD", "linkage",
+      "Rogers et al. (2024) QAR1 observation log-SD: one per observed ar1 linkage group (`observe = `), the SD of the covariate around the latent deviate. Fixed by default; estimated with `linkage_spec(obs_sd_est = TRUE)`. Length 0 unless a state-space covariate is used.", "[n_re_obs_group]"),
 
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",

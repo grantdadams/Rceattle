@@ -2,7 +2,7 @@
 % Please edit documentation in R/10-mse_summary.R
 \name{check_mse}
 \alias{check_mse}
-\title{Function to load .RDs files from MSE runs}
+\title{Check which saved MSE simulation files can be loaded}
 \usage{
 check_mse(dir = NULL, file = NULL)
 }
@@ -15,5 +15,5 @@ check_mse(dir = NULL, file = NULL)
 list of MSE simulations/run
 }
 \description{
-Function to load .RDs files from MSE runs
+Check which saved MSE simulation files can be loaded
 }

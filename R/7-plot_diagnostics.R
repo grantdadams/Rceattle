@@ -30,14 +30,16 @@
     dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
-    # ceattle_v01_11.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
+    # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
     # them so they are not drawn as fitted observations.
     keep <- dat$Species %in% species & dat$Fleet_code %in% codes & dat$Year > 0
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     if (!is.null(maxyr)) keep <- keep & dat$Year <= maxyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
-    pos <- dat$.obs > 0
+    # Projection rows carry no observation, so exclude NAs as well as
+    # non-positives; those rows keep the NA_real_ interval and draw no error bar.
+    pos <- !is.na(dat$.obs) & dat$.obs > 0
     upr <- lwr <- rep(NA_real_, nrow(dat))
     upr[pos] <- stats::qlnorm(0.975, log(dat$.obs[pos]), dat$.sd[pos])
     lwr[pos] <- stats::qlnorm(0.025, log(dat$.obs[pos]), dat$.sd[pos])
@@ -135,11 +137,25 @@ plot_index <- function(Rceattle,
 }
 
 
+#' Survey index fits on the log scale (deprecated)
+#'
+#' @description Deprecated. Use `plot_index(..., log = TRUE)`, which draws the
+#'   survey index on the log scale.
+#' @param ... Passed through to [plot_index()].
+#' @return A `ggplot` object.
+#' @keywords internal
+#' @export
+plot_logindex <- function(...) {
+  .Deprecated("plot_index")
+  plot_index(..., log = TRUE)
+}
+
+
 #' Fishery catch fits
 #'
 #' Plots fitted fishery catch: observed points with lognormal 95% intervals and
 #' the model-predicted catch, faceted by fishery fleet. For MSE objects the
-#' projection period is summarised with 50% / 95% ribbons across simulations.
+#' projection period is summarized with 50% / 95% ribbons across simulations.
 #'
 #' @inheritParams plot_index
 #' @param maxyr Last year to plot.
@@ -253,8 +269,11 @@ plot_indexresidual <- function(Rceattle,
     dat <- Rceattle[[i]]$data_list$index_data
     dat$.hat <- Rceattle[[i]]$quantities$index_hat
     # Drop prediction-only rows (Year < 0); they are not in the likelihood and
-    # have no residual to plot.
+    # have no residual to plot. Projection years are excluded unless asked for,
+    # matching `.fleet_fit_df()` -- a projection row's "observation" is whatever
+    # placeholder its workbook carries, which plots as a spurious residual.
     keep <- dat$Species %in% species & dat$Year > 0
+    if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
     out[[length(out) + 1L]] <- data.frame(

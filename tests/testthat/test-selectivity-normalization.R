@@ -13,7 +13,7 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
+  GOA2018SS$fleet_control$Sel_norm_bin <- -999
 
 
   # Specify logistic selectivity
@@ -63,7 +63,7 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin <- NA
 
   # Specify logistic selectivity
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
@@ -117,7 +117,7 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age", 
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin <- 7
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -164,8 +164,8 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age-RA
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
-  GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
+  GOA2018SS$fleet_control$Sel_norm_bin <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin_upper <- 9
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -211,8 +211,13 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
-  GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
+  # Each sex divided by its OWN mean over the range. Before v5.8.0 a named bin
+  # always meant this; it is now Sel_norm_scope = "WithinSex", and the pooled
+  # default is the companion test below. Species 9 (arrowtooth) is the two-sex
+  # one, so it is the only place the two differ.
+  GOA2018SS$fleet_control$Sel_norm_scope <- "WithinSex"
+  GOA2018SS$fleet_control$Sel_norm_bin <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin_upper <- 9
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -251,6 +256,51 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
 })
 
 
+testthat::test_that("AcrossSexes pools the sel-at-age-RANGE reference over both sexes", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Same setup as the WithinSex test above, under the v5.8.0 default: one
+  # reference pooled over the sexes, so the less-selected sex keeps its relative
+  # level instead of being lifted to 1. Males are the steeper curve here, so
+  # their mean over ages 7-9 is the smaller of the two and the pooled reference
+  # is the females'.
+  data("GOA2018SS")
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity <- 0
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic"
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_scope <- "AcrossSexes"
+  GOA2018SS$fleet_control$Sel_norm_bin <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin_upper <- 9
+
+  inf <- 10; alpha <- 0.5
+  ages <- 1:21
+  sel  <- 1/(1+exp(-alpha*(ages-inf)))        # females
+  sel2 <- 1/(1+exp(-(alpha+1)*(ages-inf)))    # males, steeper
+
+  mod0 <- suppressMessages(fit_mod(data_list = GOA2018SS, inits = NULL,
+    estimateMode = 3, random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(verbose = 0)))
+  inits <- mod0$estimated_params
+  inits$log_sel_slp[1,,1] <- log(alpha)
+  inits$log_sel_slp[1,,2] <- log(alpha + 1)
+  inits$sel_inf[1,,] <- inf
+
+  ss_run <- suppressMessages(Rceattle::fit_mod(data_list = GOA2018SS,
+    inits = inits, file = NULL, estimateMode = 3, random_rec = FALSE,
+    msmMode = 0, fit_control = fit_control(verbose = 0)))
+
+  pooled <- max(mean(sel[7:9]), mean(sel2[7:9]))
+  expect_gt(pooled, mean(sel2[7:9]))          # the pooling actually bites
+
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x)
+    testthat::expect_equal(as.numeric(x), sel[1:21]/pooled, tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x)
+    testthat::expect_equal(as.numeric(x), sel2[1:21]/pooled, tolerance = 0.0001))
+})
+
+
 
 testthat::test_that("Sex-invariant time-varying logistic selectivity divided by max sel", {
   testthat::skip_if_not_installed("TMB")
@@ -261,9 +311,9 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
+  GOA2018SS$fleet_control$Sel_norm_bin <- -999
 
   # Specify logistic selectivity
   nyrs <- GOA2018SS$styr:GOA2018SS$endyr
@@ -319,9 +369,9 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
   GOA2018SS$fleet_control$Selectivity <-0
   GOA2018SS$fleet_control$Selectivity[rows_use] <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
+  GOA2018SS$fleet_control$Sel_norm_bin <- -999
 
   # Specify logistic selectivity
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)

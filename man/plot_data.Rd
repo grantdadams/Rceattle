@@ -38,8 +38,8 @@ the bubble subplot).}
 
 \item{subplots}{Integer vector controlling which subplots are produced:
 \itemize{
-\item 1 — equal-size points showing presence/absence by year/fleet
-\item 2 — points scaled to relative quantity / precision within each
+\item 1 -- equal-size points showing presence/absence by year/fleet
+\item 2 -- points scaled to relative quantity / precision within each
 data type (catch tonnage, 1/SE for indices, sample size for comps)
 }}
 
@@ -74,24 +74,24 @@ long fleet names are clipped.}
 
 \item{maxsize}{Max bubble radius (in plot units) for subplot 2.}
 
-\item{alphasize}{Bubble fill transparency (0–1).}
+\item{alphasize}{Bubble fill transparency (0-1).}
 
 \item{mainTitle}{Logical; if \code{TRUE} add a default title.}
 
 \item{cex.main}{Title character expansion.}
 }
 \value{
-Invisibly, a list with \code{typetable} — the long data frame underlying
+Invisibly, a list with \code{typetable} -- the long data frame underlying
 the plot (year, fleet, data type, relative size).
 }
 \description{
 Plots a timeline of presence/absence (and optionally relative quantity) of
 the data sources contributing to an Rceattle model's likelihood, by year and
-fleet. Modelled after Stock Synthesis's \code{r4ss::SSplotData()}.
+fleet. Modeled after Stock Synthesis's \code{r4ss::SSplotData()}.
 }
 \details{
 Years with \code{Year > 0} contribute to the likelihood; rows with \code{Year < 0}
 (kept for fitting comparison only) are shown when \code{ghost = TRUE}. Diet data
 uses \code{Year == 0} for the fixed reference stomach composition; those entries
-are plotted at the model \code{endyr} and labelled per predator species.
+are plotted at the model \code{endyr} and labeled per predator species.
 }

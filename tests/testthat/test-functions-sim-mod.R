@@ -1,0 +1,218 @@
+# Integration test (fits a CEATTLE model): skipped on CRAN.
+#
+# sim_mod() returns the model's EXPECTED data (simulate = FALSE) or SAMPLED data
+# (simulate = TRUE). The composition sampling branch (rmultinom / Dirichlet-
+# multinomial draws, keyed by the string Comp_distribution) was previously
+# untested -- it is where a comp/CAAL code-vs-string mismatch survived (PR 0.5).
+#
+# Scope: this covers the comp_data Multinomial path (the primary previously-
+# untested branch). The CAAL sampling branch and the DirichletMultinomial branch
+# are not yet exercised here -- a worthwhile follow-up.
+testthat::skip_on_cran()
+
+testthat::test_that("sim_mod returns expected comp proportions (simulate = FALSE)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
+  fit <- suppressMessages(fit_mod(
+    data_list = dat, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0)))
+  testthat::expect_gt(nrow(fit$data_list$comp_data), 0)
+
+  exp_dat <- Rceattle::sim_mod(fit, simulate = FALSE)
+  comp_cols <- grep("^Comp_", names(exp_dat$comp_data))
+  got <- unname(as.matrix(exp_dat$comp_data[, comp_cols]))
+  # Expected data are exactly the model's predicted composition (comp_hat).
+  testthat::expect_equal(got, unname(fit$quantities$comp_hat), tolerance = 1e-10)
+})
+
+testthat::test_that("sim_mod multinomial draws sum to sample size (simulate = TRUE)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
+  fit <- suppressMessages(fit_mod(
+    data_list = dat, inits = NULL, estimateMode = 3,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0)))
+
+  set.seed(42)
+  sim_dat <- Rceattle::sim_mod(fit, simulate = TRUE)
+  comp_cols <- grep("^Comp_", names(sim_dat$comp_data))
+  counts <- as.matrix(sim_dat$comp_data[, comp_cols])
+
+  # rmultinom draws: non-negative integers summing to the row's Sample_size.
+  testthat::expect_true(all(counts >= 0, na.rm = TRUE))
+  testthat::expect_equal(counts, round(counts))
+  testthat::expect_equal(unname(rowSums(counts, na.rm = TRUE)),
+                         unname(sim_dat$comp_data$Sample_size),
+                         tolerance = 1e-8)
+  # A draw differs from the deterministic expectation (it actually sampled).
+  exp_dat <- Rceattle::sim_mod(fit, simulate = FALSE)
+  testthat::expect_false(isTRUE(all.equal(
+    counts, unname(as.matrix(exp_dat$comp_data[, comp_cols])))))
+})
+
+
+# --- Survey index: one draw per Index_distribution -------------------------
+# sim_mod() drew every fleet as an independent lognormal regardless of
+# Index_distribution, so an MVN/MVNORM fleet was simulated on the wrong scale,
+# with the wrong spread, and with none of the correlation its Sigma carries.
+# That does not error: self_test() runs and reports recovery against a
+# data-generating process the likelihood never assumed.
+#
+# Build a survey whose predicted index is flat, so the realised spread and
+# correlation of the draws can be read off directly and compared with the
+# fleet's own likelihood.
+.sim_index_fixture <- function(dist, nyrs = 20, sd = 20, rho = 0.6, cv = 0.2) {
+  dat <- make_test_data(nyrs = nyrs, nages = 5, seed = 123)
+  srv <- dat$fleet_control$Fleet_name == "Survey"
+  dat$fleet_control$Index_distribution[srv] <- dist
+  dat$fleet_control$Catchability[srv] <- "AnalyticalArith"
+  if (dist %in% c("MVN", "MVNORM")) {
+    Rho <- matrix(rho, nyrs, nyrs)
+    diag(Rho) <- 1
+    dat$index_cov <- list(Survey = diag(rep(sd, nyrs)) %*% Rho %*%
+                            diag(rep(sd, nyrs)))
+  }
+  if (dist == "Normal") {
+    dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- sd
+  }
+  if (dist == "Lognormal") {
+    dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- cv
+  }
+  suppressMessages(suppressWarnings(fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0, random_rec = FALSE,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+}
+
+# Realised sd and mean pairwise correlation of the survey draws. Correlation is
+# measured ACROSS replicates: within a single replicate the sample mean absorbs
+# the shared factor of a compound-symmetry Sigma, returning about -1/(n-1) no
+# matter what rho is.
+.sim_index_moments <- function(fit, nrep = 400, log_scale = FALSE) {
+  srv <- fit$data_list$index_data$Fleet_name == "Survey"
+  hat <- fit$quantities$index_hat[srv]
+  reps <- replicate(nrep, {
+    suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))$
+      index_data$Observation[srv]
+  })
+  dev <- if (log_scale) log(reps) - log(hat) else reps - hat
+  C <- stats::cor(t(dev))
+  list(sd = mean(apply(dev, 1, stats::sd)), cor = mean(C[upper.tri(C)]))
+}
+
+testthat::test_that("sim_mod draws the survey index under each Index_distribution", {
+  testthat::skip_if_not_installed("TMB")
+  set.seed(42)
+
+  # Lognormal: log scale, independent.
+  m <- .sim_index_moments(.sim_index_fixture("Lognormal"), log_scale = TRUE)
+  testthat::expect_equal(m$sd, 0.2, tolerance = 0.05)
+  testthat::expect_equal(m$cor, 0, tolerance = 0.05)
+
+  # Normal: NATURAL scale with an absolute sd, independent -- not lognormal.
+  m <- .sim_index_moments(.sim_index_fixture("Normal"))
+  testthat::expect_equal(m$sd, 20, tolerance = 0.1)
+  testthat::expect_equal(m$cor, 0, tolerance = 0.05)
+
+  # MVN / MVNORM: natural scale AND correlated. The two differ only by a
+  # constant in the likelihood, so they must simulate identically.
+  for (dist in c("MVN", "MVNORM")) {
+    m <- .sim_index_moments(.sim_index_fixture(dist))
+    testthat::expect_equal(m$sd, 20, tolerance = 0.1, info = dist)
+    testthat::expect_equal(m$cor, 0.6, tolerance = 0.15, info = dist)
+  }
+})
+
+testthat::test_that("sim_mod keeps natural-scale index draws positive", {
+  testthat::skip_if_not_installed("TMB")
+
+  # A natural-scale draw can go negative, which no index can be, and
+  # data_check() rejects Observation <= 0 -- so the data set would not refit at
+  # all and self_test() would count the run as not converged, reading as a
+  # convergence problem rather than a simulation one. Non-positive draws are
+  # redrawn instead (normal truncated at zero).
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 60)      # index_hat is 100
+    srv <- fit$data_list$index_data$Fleet_name == "Survey"
+    set.seed(1)
+    for (k in 1:20) {
+      sim <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))
+      testthat::expect_true(all(sim$index_data$Observation[srv] > 0), info = dist)
+    }
+  }
+})
+
+testthat::test_that("sim_mod warns when truncation is doing the work, on both branches", {
+  testthat::skip_if_not_installed("TMB")
+
+  # Positive draws are not enough on their own: a row that keeps being redrawn
+  # follows a normal truncated at zero, not the normal the likelihood assumes,
+  # so a self_test() built on it tests a different data-generating process.
+  # The rate is per ROW and read off the worst one -- a fleet mean would hide a
+  # single marginal row, which is how truncation actually presents.
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 115)   # index_hat is 100
+    set.seed(1)
+    testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
+                             "truncated at zero", info = dist)
+  }
+
+  # A fleet with a small sd must stay silent on both branches.
+  for (dist in c("Normal", "MVN")) {
+    fit <- .sim_index_fixture(dist, sd = 5)
+    set.seed(1)
+    testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+  }
+})
+
+testthat::test_that("sim_mod keeps a wide correlated fleet positive", {
+  testthat::skip_if_not_installed("TMB")
+
+  # An MVN vector is rejected if ANY row is non-positive, so the joint rejection
+  # probability climbs with the number of rows. A flat retry budget failed here
+  # while every row on its own was fine; the budget scales with the row count.
+  fit <- .sim_index_fixture("MVN", nyrs = 42, sd = 70, rho = 0)  # index_hat 100
+  srv <- fit$data_list$index_data$Fleet_name == "Survey"
+  set.seed(1)
+  for (k in 1:10) {
+    sim <- suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE))
+    testthat::expect_true(all(sim$index_data$Observation[srv] > 0))
+  }
+})
+
+testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw from", {
+  testthat::skip_if_not_installed("TMB")
+
+  fit <- .sim_index_fixture("MVN")
+  fit$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
+  testthat::expect_error(Rceattle::sim_mod(fit, simulate = TRUE),
+                         "no covariance matrix was supplied")
+})
+
+
+testthat::test_that("sim_mod does not simulate diet data, and says so", {
+  testthat::skip_if_not_installed("TMB")
+
+  # Diet (stomach content) observations are carried through unchanged, so a
+  # multispecies self_test() refits against the same diet data every time and
+  # recovery of suitability is optimistic. That must not be silent.
+  fit <- .sim_index_fixture("Lognormal")
+  fit$data_list$diet_data <- data.frame(
+    Pred = 1L, Prey = 1L, Pred_sex = 0L, Prey_sex = 0L,
+    Pred_age = 1L, Prey_age = 1L, Year = fit$data_list$styr,
+    Sample_size = 10, Stomach_proportion_by_weight = 0.5)
+
+  testthat::expect_warning(
+    sim <- Rceattle::sim_mod(fit, simulate = TRUE),
+    "does not simulate diet")
+  # Carried through unchanged, not dropped or blanked.
+  testthat::expect_equal(sim$diet_data, fit$data_list$diet_data)
+
+  # No warning when there are no diet data to miss.
+  fit$data_list$diet_data <- fit$data_list$diet_data[0, ]
+  testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+})

@@ -26,9 +26,52 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 
 Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
 
-### Required vs. optional fields
+If you would rather start from a workbook than a list, `write_template()` writes a minimal, structurally complete single-species starter workbook on the current column names that you can open, edit, and read back with `read_data()`:
 
-The following fields are optional and only needed when a particular feature is turned on. `Rceattle` fills missing optional fields with safe defaults and stops model runs under the conditions that actually require them:
+```{r write-template}
+write_template("my_data_template.xlsx")
+dat <- read_data("my_data_template.xlsx")
+```
+
+## The quick path: `build_data()`
+
+Most of the time you do not need to assemble the whole list by hand. `build_data()` is a constructor that takes only the blocks a model uses and default-fills the rest (via `clean_data()`), so a single-species model does not need the predation, growth, or empirical-selectivity blocks. It has three combinable entry points:
+
+```{r}
+library(Rceattle)
+
+# 1. Copy-and-edit an existing data object (a bundled dataset, a read_data()
+#    result, or a combine_data() result):
+dat <- build_data(base = BS2017SS, projyr = 2060)
+
+# 2. Read a workbook, then override a few blocks:
+dat <- build_data(file = "GOA_pollock.xlsx",
+                  fleet_control = fc)          # fc overrides the sheet
+
+# 3. Assemble from named blocks (the rest are default-filled):
+dat <- build_data(nspp = 1, styr = 1977, endyr = 2023,
+                  fleet_control = fc, weight = wt, maturity = mat,
+                  sex_ratio = sr, catch_data = catch, index_data = survey,
+                  comp_data = ages)
+```
+
+`build_data()` checks each block name against the recognized schema, so a typo (`maturty`) or a case-slip (`Maturity`) is caught at construction with a suggestion — not much later inside a fit — and legacy names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`) are mapped to their canonical equivalents. Printing the result shows an indented specification tree rather than the raw list:
+
+```{r}
+dat            # <Rceattle data>: dimensions -> fleets -> processes -> ...
+```
+
+### Which inputs does my model need?
+
+Rather than reading the table below by hand, ask `data_requirements()`: it reports, for a given configuration, which blocks are **Required**, **Optional** (used if supplied, otherwise default-filled), or **Ignored** (not consulted because the feature is off) — the exact conditions `data_check()` enforces at fit time.
+
+```{r}
+data_requirements(msmMode = 0)            # single-species: predation Ignored
+data_requirements(msmMode = 1)            # multispecies: diet + bioenergetics Required
+data_requirements(BS2017SS, msmMode = 0)  # preview an existing object as single-species
+```
+
+The conditional requirements it encodes:
 
 | Field                                    | Required when                                  |
 |------------------------------------------|------------------------------------------------|
@@ -36,12 +79,16 @@ The following fields are optional and only needed when a particular feature is t
 | `caal_data`                              | `any(growth_model > 0)` (estimating growth)    |
 | `emp_sel`                                | any fleet has `Selectivity = "Fixed"`          |
 | `NByageFixed`                            | `any(estDynamics > 0)`                         |
-| `env_data`                               |  env linkages                                  |
+| `env_data`                               |  env linkages / `Ceq > 1`                      |
 | `diet_data`                              | `msmMode > 0`                                  |
 | `ration_data`                            | `msmMode > 0`                                  |
 | Bioenergetics scalars (`Ceq`, `CA`, `CB`, `Tco`, ...) | `msmMode > 0`                     |
 
-In default single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list. The single-species example below shows the full machinery, but feel free to skip sections you don't need.
+In default single-species mode (`msmMode = 0`) you can omit any of these by leaving the field unset.
+
+## Building the list by hand
+
+The rest of this vignette assembles the list field by field. This is the machinery `build_data()` wraps — useful when you are simulating data, generating inputs programmatically, or want to understand exactly what each block contains. Feel free to skip sections you don't need.
 
 ## Setup
 
@@ -103,18 +150,18 @@ simData$beta_wt_len  <- rep(3, nspp)
 
 # Prior or initial standard deviation for log-recruitment deviations. Controls the
 # strength of the recruitment penalty in penalized-likelihood mode.
-simData$sigma_rec_prior <- rep(1, nspp)
+simData$sigma_rec <- rep(1, nspp)
 
-# Non-modelled ("other") prey biomass available to predators. Used in
+# Non-modeled ("other") prey biomass available to predators. Used in
 # multi-species mode to prevent unrealistically high predation mortality when
-# modelled prey are scarce. Setting this too low forces predators to over-eat
-# modelled prey; too high dilutes the predation signal.
+# modeled prey are scarce. Setting this too low forces predators to over-eat
+# modeled prey; too high dilutes the predation signal.
 simData$other_food <- rep(1e5, nspp)
 ```
 
 ## 2. Fleet control table
 
-This is the most important configuration table. Each row defines one fleet (fishery or survey) and controls how it is modelled. Multiple fleets can target the same species.
+Each row defines one fleet (fishery or survey) and controls how it is modeled. Multiple fleets can target the same species.
 
 ```{r}
 # Fleet_type:
@@ -136,16 +183,16 @@ This is the most important configuration table. Each row defines one fleet (fish
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
 
 # Catchability options (Catchability column) — use the string name or integer code:
-#   "Fixed"                (0) -- Q fixed at Q_prior; not estimated
+#   "Fixed"                (0) -- Q fixed at Catchability_init; not estimated
 #   "Estimated"            (1) -- freely estimated on log scale
-#   "Estimated-with-prior" (2) -- estimated with a lognormal prior (Q_prior, Q_sd_prior)
+#   "Estimated-with-prior" (2) -- estimated with a lognormal prior (Catchability_init, Catchability_prior_sd)
 #   "Analytical"           (3) -- Ludwig & Walters / Martell (1994) analytical Q
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
 #   NA                         -- not applicable (use for fisheries without CPUE)
 
-# Comp_loglike / CAAL_loglike options:
+# Comp_distribution / CAAL_distribution options:
 #   "Multinomial"           -- standard multinomial
 #   "DirichletMultinomial"  -- overdispersed; estimates a concentration parameter
 #   "MultinomialAFSC"       -- AFSC variant of multinomial (marginal age + length)
@@ -168,66 +215,70 @@ simData$fleet_control <- data.frame(
   Sel_curve_pen2            = NA,
   # Time_varying_sel:
   #   0 / "Off" = time-invariant (default)
-  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_sel_sd_prior
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_sel_sd
   #       unless random_sel = TRUE in fit_mod)
   #   2 / "AR1" = AR(1) (not yet implemented)
   #   3 / "Block" = time blocks (specify via R-side mapping)
   #   4 / "RandomWalk" = random walk
   #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
   Time_varying_sel          = 0,
-  Time_varying_sel_sd_prior = 1,
+  Time_varying_sel_sd = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
-  Sel_norm_bin1             = NA,    # bin to normalise selectivity from (optional)
-  Sel_norm_bin2             = NA,
+  Sel_norm_bin             = NA,    # bin to normalize selectivity from (optional)
+  Sel_norm_bin_upper             = NA,
+  # Two-sex models only: whether the normalization reference is pooled over the
+  # sexes ("AcrossSexes", default -- keeps relative sex selectivity) or taken per
+  # sex ("WithinSex" -- both sexes reach 1, only the shape differs).
+  Sel_norm_scope           = "AcrossSexes",
 
   # Composition likelihoods
-  Comp_loglike = "Multinomial",
+  Comp_distribution = "Multinomial",
   Comp_weights = 1,                  # input effective sample size multiplier
-  CAAL_loglike = "Multinomial",
+  CAAL_distribution = "Multinomial",
   CAAL_weights = 1,
 
   # Index units and weight/growth linkage
-  Weight1_Numbers2     = 1,          # 1 = weight (mt), 2 = numbers
+  Observation_units     = 1,          # 1 = weight (mt), 2 = numbers
   Weight_index         = rep(1:nspp, each = 2),
   Age_transition_index = 1,
 
-  # Q_index links fleets that share the same catchability parameter.
-  Q_index              = 1:(nspp * 2),
+  # Catchability_index links fleets that share the same catchability parameter.
+  Catchability_index              = 1:(nspp * 2),
   Catchability         = rep(c("Estimated", NA), nspp),
-  Q_prior              = rep(c(1,   NA), nspp),
-  Q_sd_prior           = rep(c(0.2, NA), nspp),
+  Catchability_init              = rep(c(1,   NA), nspp),
+  Catchability_prior_sd           = rep(c(0.2, NA), nspp),
   # Time_varying_q:
   #   0 / "Off" = time-invariant
-  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd_prior
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd
   #       unless random_q = TRUE in fit_mod)
   #   2 / "AR1" = AR(1) (not yet implemented)
   #   3 / "Block" = time blocks
   #   4 / "RandomWalk" = random walk
   Time_varying_q          = rep(c(0, NA), nspp),
-  Time_varying_q_sd_prior = rep(c(1, NA), nspp),
+  Time_varying_q_sd = rep(c(1, NA), nspp),
 
   # Estimate_index_sd:
   #   0 = fix at Log_sd from index_data
   #   1 = estimate a single SD
   #   2 = analytical sigma (Ludwig & Walters 1994)
   Estimate_index_sd  = rep(c(0,  NA), nspp),
-  Index_sd_prior     = rep(c(1,  NA), nspp),
+  Index_sd     = rep(c(1,  NA), nspp),
 
   # Estimate_catch_sd:
   #   0 = fix at Log_sd from catch_data (treats catch as known)
   #   1 = estimate
   Estimate_catch_sd  = rep(c(NA, 0),  nspp),
-  Catch_sd_prior     = rep(c(NA, 1),  nspp),
+  Catch_sd     = rep(c(NA, 1),  nspp),
 
-  # proj_F_prop: how future F is distributed across fishery fleets per species.
+  # Proj_F_proportion: how future F is distributed across fishery fleets per species.
   # Must sum to 1 across fishery fleets for each species. NA for surveys.
-  proj_F_prop = rep(c(NA, 1), nspp)
+  Proj_F_proportion = rep(c(NA, 1), nspp)
 )
 ```
 
 ## 3. Survey index data
 
-One row per fleet-year combination for survey fleets. `Observation` is the log-scale biomass index (or numbers if `Weight1_Numbers2 = 2`). A negative `Year` value tells Rceattle to predict the index without including it in the likelihood, which is useful for model checking.
+One row per fleet-year combination for survey fleets. `Observation` is the log-scale biomass index (or numbers if `Observation_units = 2`). A negative `Year` value tells Rceattle to predict the index without including it in the likelihood, which is useful for model checking.
 
 ```{r}
 simData$index_data <- data.frame(
@@ -263,7 +314,7 @@ simData$catch_data <- data.frame(
 
 ## 5. Composition data (optional)
 
-Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalises internally.
+Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalizes internally.
 
 Skip this section entirely (don't set `simData$comp_data`) if no composition data are available — `clean_data()` will fill it with an empty data.frame.
 
@@ -477,7 +528,7 @@ simData$CK4 <- rep(1,  nspp)
 
 # Diet composition likelihood for each predator species
 # 0 = Multinomial, 1 = Dirichlet-multinomial
-simData$Diet_loglike      <- rep(0, nspp)
+simData$Diet_distribution      <- rep(0, nspp)
 simData$Diet_comp_weights <- rep(1, nspp)
 
 # Ration data (optional in single-species mode): observed mean ration-at-age from
@@ -515,6 +566,8 @@ plot_data(simData)
 #               2 = equilibrium, F_init = 0, with init deviations (default)
 #               3 = non-equilibrium: F_init estimated, init devs included
 #               4 = non-equilibrium: F_init scales R0
+#               5 = equilibrium, F_init = 0, seeded by R_init displaced by the
+#                   year-1 recruitment deviation, no init deviations
 #
 # phase:        TRUE = use parameter phasing for improved convergence (recommended)
 
@@ -531,8 +584,29 @@ sim_run <- fit_mod(
 
 ## 10. Export back to Excel (optional)
 
-`write_data()` exports the data list to an Excel workbook in the standard Rceattle template format, which can then be edited and re-read with `read_data()`. This makes it easy to share data objects or move between R-based and spreadsheet-based workflows.
+`write_data()` exports the data list to an Excel workbook in the standard Rceattle template format, which can then be edited and re-read with `read_data()` -- so you can move between R-based and spreadsheet-based workflows.
 
 ```{r}
 write_data(simData, file = tempfile(fileext = ".xlsx"))
 ```
+
+## 11. Persist and share a run configuration (optional)
+
+`write_data()` stores the *data*; the model *structure* and estimation controls
+live in the `fit_mod()` call (or in a `model_config()` slot). `save_config()`
+writes that full run configuration -- the `model_config()` structure plus the
+estimation controls and `fit_control()` bundle -- to a documented, git-diffable
+YAML file, so two assessment runs diff cleanly and a configuration can be archived
+alongside the data. `load_config()` reads it back, and passing it as
+`fit_mod(config = ...)` reproduces the fit (filling only the arguments you did not
+pass explicitly):
+
+```{r}
+cfg_file <- tempfile(fileext = ".yaml")
+save_config(model_config(msmMode = 1, initMode = "OffsetEquilibrium"), cfg_file)
+cfg <- load_config(cfg_file)
+# fit_mod(simData, config = cfg)   # applies the stored structure + controls
+```
+
+Every fit also records the configuration it used in `fit$run_config`, so
+`save_config(fit, "run.yaml")` archives exactly what produced a result.

@@ -1,4 +1,14 @@
 
+/**
+ * @file helper_functions.hpp
+ * @brief Small differentiable (AD-safe) utilities used across the CEATTLE
+ *   template: integer max (imax), positive-constraint penalty (posfun),
+ *   Dirichlet-multinomial density (ddirmultinom), correlation transform
+ *   (rho_trans), NA / finite tests, square, first_difference, a differentiable
+ *   pairwise max (max2), and the separable year x age x cohort GMRF
+ *   precision-matrix constructor (construct_Q).
+ */
+
 // Function for getting max of an IVECTOR and return an int
 template <class Type>
 Type imax(const vector<Type> &x)
@@ -92,11 +102,25 @@ Type max2(Type x, Type y){
 }
 
 
-// Function to assemble sparse precision matrix
+/**
+ * @brief Construct a sparse GMRF precision matrix separable along year, age, and cohort.
+ *
+ * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial
+ * correlations by year (rho_y), age (rho_a), and cohort (rho_c), and Omega is
+ * the diagonal (co)variance. `Var_Param` selects the conditional (0) or marginal
+ * (1) variance parameterization of the GMRF.
+ *
+ * @param n_years Number of years.
+ * @param n_ages Number of ages.
+ * @param ay_Index [total_n x 2] age/year index locating each node.
+ * @param rho_y Partial correlation across years.
+ * @param rho_a Partial correlation across ages.
+ * @param rho_c Partial correlation across cohorts.
+ * @param log_sigma2 Log variance parameter governing the GMRF.
+ * @param Var_Param 0 = conditional variance, 1 = marginal variance.
+ * @return Sparse precision matrix [total_n x total_n], total_n = n_years * n_ages.
+ */
 template<class Type>
-// @description: Function that constructs a precision matrix, separable along the
-// year, age, and cohort axis. Var_Param allows users to switch between conditional
-// variance, and marginal variance.
 Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
                                       int n_ages, // Integer of ages
                                       matrix<Type> ay_Index, // Index matrix to construct

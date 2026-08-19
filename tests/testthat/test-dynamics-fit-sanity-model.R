@@ -143,7 +143,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
 
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
-  BS2017SS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+  BS2017SS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
 
   # inits
   ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -157,7 +157,19 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   inits <- ss_run_old_params$estimated_params
 
   # - Update population dynamics from previous parameters
-  inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
+  # Copy the classic initial-age deviations into the columns the cpp reads --
+  # init_dev(sp, age - 1) over age = 1:(nages - 1) -- instead of replacing the
+  # array. build_params() sizes init_dev nspp x max_age (3 x 21 here), while the
+  # ADMB object stores only the read columns (3 x 20), so a wholesale assignment
+  # leaves `inits` one column short of the parameter template. That used to reach
+  # TMB unnoticed (the cpp never indexes past column 20), but fit_mod() now
+  # rejects any `inits` whose lengths disagree with `data_list`. Per-species
+  # copying also leaves the -999 padding in the unread columns intact.
+  classic_init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
+  for (sp in seq_len(BS2017SS$nspp)) {
+    read_cols <- seq_len(BS2017SS$nages[sp] - 1)
+    inits$init_dev[sp, read_cols] <- classic_init_dev[sp, read_cols]
+  }
   inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
   inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
   inits$log_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
@@ -212,7 +224,7 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
 
   BS2017MS$srr_prior_mean <- 9
   BS2017MS$initMode  <- 2
-  BS2017MS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
+  BS2017MS$fleet_control$Sel_norm_bin <- -999 # Normalize by max
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
   # * Inits ----

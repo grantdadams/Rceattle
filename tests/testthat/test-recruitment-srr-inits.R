@@ -155,11 +155,11 @@ testthat::test_that("init_dev is random only where the cpp gives it a density", 
   testthat::skip_if_not_installed("TMB")
   dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
 
-  # ceattle applies dnorm(init_dev, -sigma^2/2, R_sd) only when initMode > 1.
-  # Declaring init_dev random anywhere else makes the Laplace approximation
-  # integrate over an improper (flat) prior instead of estimating it as a fixed
-  # effect.
-  expected <- c("0" = FALSE, "1" = FALSE, "2" = TRUE, "3" = TRUE, "4" = TRUE)
+  # ceattle.cpp applies dnorm(init_dev, -sigma^2/2, R_sd) only when
+  # initMode > 1 && initMode != 5. Declaring init_dev random anywhere else makes
+  # the Laplace approximation integrate over an improper (flat) prior instead of
+  # estimating it as a fixed effect.
+  expected <- c("0" = FALSE, "1" = FALSE, "2" = TRUE, "3" = TRUE, "5" = FALSE)
 
   for (mode in names(expected)) {
     mod <- Rceattle::fit_mod(data_list = dat, initMode = as.integer(mode),

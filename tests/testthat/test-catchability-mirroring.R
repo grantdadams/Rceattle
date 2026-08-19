@@ -1,4 +1,4 @@
-# Fleets sharing a Q_index estimate one catchability and one deviate vector, so
+# Fleets sharing a Catchability_index estimate one catchability and one deviate vector, so
 # the q prior and the deviate penalties must be accumulated once (flt_q_lead),
 # not once per sharing fleet.
 
@@ -9,9 +9,9 @@ q_prior_dat <- function(share) {
   d <- BS2017SS
   srv <- which(d$fleet_control$Fleet_type == 2)[1:2]
   d$fleet_control$Catchability[srv] <- "Estimated-with-prior"
-  d$fleet_control$Q_prior[srv]      <- 1
-  d$fleet_control$Q_sd_prior[srv]   <- 0.2
-  if (share) d$fleet_control$Q_index[srv] <- 99
+  d$fleet_control$Catchability_init[srv]      <- 1
+  d$fleet_control$Catchability_prior_sd[srv]   <- 0.2
+  if (share) d$fleet_control$Catchability_index[srv] <- 99
   list(data = d, codes = d$fleet_control$Fleet_code[srv])
 }
 
@@ -25,7 +25,7 @@ q_prior_fit <- function(share) {
        lead  = fit$obj$env$data$flt_q_lead[s$codes])
 }
 
-testthat::test_that("a shared Q_index counts the catchability prior once", {
+testthat::test_that("a shared Catchability_index counts the catchability prior once", {
   testthat::skip_if_not_installed("TMB")
 
   sep <- q_prior_fit(FALSE)

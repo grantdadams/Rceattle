@@ -23,6 +23,10 @@
  * @param nsex Array/function returning the number of sexes for a species.
  * @param sel_norm_bin1 Array/function returning the normalization age or control flag.
  * @param sel_norm_bin2 Array/function returning the upper bound for age-range normalization.
+ * @param sel_norm_scope Per fleet: 0 = WithinSex (each sex divided by its own
+ *   reference, so both reach 1), 1 = AcrossSexes (one reference pooled over the
+ *   sexes, so the less-selected sex stays below 1). Orthogonal to
+ *   sel_norm_bin1/2, which say WHERE the reference is taken.
  * @param sel_at_age 4D container (fleet, sex, age, year) modified in-place.
  */
 template<class Type>
@@ -39,12 +43,9 @@ void normalize_and_project_selectivity(
     const vector<int>&  nsex,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  sel_norm_scope,
     array<Type> &selectivity // Modified by reference
 ) {
-  Type max_sel = 0; // Local declaration for safety (initialized to silence
-                    // -Wmaybe-uninitialized; always overwritten before use in
-                    // the normalization branches below)
-
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);
   int nbins = (flt_sel_dim(flt) == 0) ? nages(sp) : nlengths(sp);
@@ -60,54 +61,56 @@ void normalize_and_project_selectivity(
     }
   }
 
-  // Normalize selectivity
-  if(sel_norm_bin1(flt) > -500){
+  // Normalization makes two orthogonal choices, carried in two inputs rather than
+  // encoded in the sign of one:
+  //   sel_norm_bin1/2 -- WHERE the reference is taken: a named bin, the mean over
+  //     a bin range, or (< 0) the maximum over bins;
+  //   sel_norm_scope  -- WHOSE scale it sets: WithinSex (0) gives each sex its own
+  //     reference so both reach 1; AcrossSexes (1) pools one reference so the
+  //     less-selected sex stays below 1 and relative sex selectivity survives.
+  // Identical for a one-sex species. Hake (5/12) normalizes in its own year/sex
+  // block above; LogisticPM (11) reuses sel_norm_bin1/2 as a penalty age-range.
+  if((sel_norm_bin1(flt) > -500) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) {
+    bool at_bin     = (sel_norm_bin1(flt) >= 0);
+    bool over_range = at_bin && (sel_norm_bin2(flt) >= 0);
+    bool across     = (sel_norm_scope(flt) == 1);
 
-    // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) { // Dont normalize hake (5/12) or LogisticPM (11; Sel_norm_bin1/2 are reused as the penalty age-range)
-      for(int yr = 0; yr < nyrs_hind; yr++) {
-        for(int sex = 0; sex < nsex(sp); sex++){
+    vector<Type> ref(nsex(sp));
 
-          // Single-normalization bin
-          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
-            max_sel = 0.001;
-            max_sel = max2(max_sel, selectivity(flt, sex, sel_norm_bin1(flt), yr));
+    for(int yr = 0; yr < nyrs_hind; yr++) {
+
+      // Reference value for each sex.
+      for(int sex = 0; sex < nsex(sp); sex++){
+        if(over_range){
+          // Mean selectivity over the bin range
+          ref(sex) = 0;
+          for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
+            ref(sex) += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
           }
-
-          // Normalize by bin range between max lower and max upper
-          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
-            max_sel = 0;
-            for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
-              max_sel += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
-            }
-          }
-
-          // Normalize
+        } else if(at_bin){
+          // Single normalization bin, floored so the division stays finite
+          ref(sex) = max2(Type(0.001), selectivity(flt, sex, sel_norm_bin1(flt), yr));
+        } else {
+          // Maximum over bins. Fold rather than branch: TMB tapes once, so an
+          // `if` on an AD Type would freeze the argmax bin at its initial
+          // position.
+          ref(sex) = 0;
           for(int bin = 0; bin < nbins; bin++){
-            selectivity(flt, sex, bin, yr) /= max_sel;
+            ref(sex) = max2(ref(sex), selectivity(flt, sex, bin, yr));
           }
         }
       }
-    }
 
-    // 2. Normalize by max for each fishery and year across bins, and sexes
-    // - Don't for hake non-parametric
-    if((sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
-      for(int yr = 0; yr < nyrs_hind; yr++) {
-        max_sel = 0;
-        for(int bin = 0; bin < nbins; bin++){
-          for(int sex = 0; sex < nsex(sp); sex++){
-            // Fold rather than branch: TMB tapes once, so an `if` on an AD
-            // Type would freeze the argmax bin at its initial position.
-            max_sel = max2(max_sel, selectivity(flt, sex, bin, yr));
-          }
-        }
+      // One divisor for every sex, so their relative levels survive.
+      if(across){
+        Type pooled = ref(0);
+        for(int sex = 1; sex < nsex(sp); sex++) pooled = max2(pooled, ref(sex));
+        for(int sex = 0; sex < nsex(sp); sex++) ref(sex) = pooled;
+      }
 
-        // Normalize selectivity
-        for(int bin = 0; bin < nbins; bin++){
-          for(int sex = 0; sex < nsex(sp); sex++){
-            selectivity(flt, sex, bin, yr) /= max_sel;
-          }
+      for(int bin = 0; bin < nbins; bin++){
+        for(int sex = 0; sex < nsex(sp); sex++){
+          selectivity(flt, sex, bin, yr) /= ref(sex);
         }
       }
     }
@@ -152,8 +155,8 @@ void convert_length_selectivity(
     const int& wtind,
     const vector<int>& nages,
     const vector<int>& nlengths,
-    array<Type> sel_length,
-    array<Type> growth_matrix,
+    array<Type>& sel_length,
+    array<Type>& growth_matrix,
     array<Type>& sel_at_age // Modified by reference
 ) {
   // Iterate through ages for the specific species
@@ -267,7 +270,7 @@ void calculate_selectivity(
     const vector<int>&  nsex,
     const vector<int>&  nages,
     const vector<int>&  nlengths,
-    matrix<Type> lengths,
+    matrix<Type>& lengths,
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
     const vector<int>&  flt_sel_dim,
@@ -276,20 +279,29 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_cap_bin,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
+    const vector<int>&  sel_norm_scope,
     const vector<int>&  flt_sel_start_yr,
-    matrix<Type> emp_sel_obs,
+    matrix<Type>& emp_sel_obs,
     matrix<int>& emp_sel_ctl,
-    array<Type> log_sel_slp,
-    array<Type> log_sel_slp_dev,
-    array<Type> sel_inf,
-    array<Type> sel_inf_dev,
-    array<Type> sel_coff,
-    array<Type> sel_coff_dev,
+    array<Type>& log_sel_slp,
+    array<Type>& log_sel_slp_dev,
+    array<Type>& sel_inf,
+    array<Type>& sel_inf_dev,
+    array<Type>& sel_coff,
+    array<Type>& sel_coff_dev,
     array<Type> &avg_sel,
     array<Type> &non_par_sel,
     array<Type> &sel_at_length,
     array<Type> &sel_at_age,
-    array<Type> growth_matrix
+    array<Type>& growth_matrix,
+    // Environmental-linkage offsets, one log-scale and one natural-scale tensor
+    // per parameter family. All zero unless a selectivity linkage was supplied,
+    // so a model without one is numerically unchanged.
+    // Non-const references only because TMB's multi-index array operator() is
+    // not const-qualified; these tensors are read, never written, here.
+    array<Type>& sel_slp_off,      array<Type>& sel_slp_off_nat,
+    array<Type>& sel_inf_off,      array<Type>& sel_inf_off_nat,
+    array<Type>& sel_coff_off,     array<Type>& sel_coff_off_nat
 ) {
   sel_at_age.setZero();
   sel_at_length.setZero();
@@ -339,8 +351,14 @@ void calculate_selectivity(
         case 1: // Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-            Type inf   = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
+            // slope stored on the log scale: log-link offset rides inside the
+            // exp (multiplicative on the natural slope), natural-link offset
+            // adds after. inflection stored natural: identity-link offset adds,
+            // log-link offset multiplies. Both no-op when the offsets are zero.
+            Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                             + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+            Type inf   = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                          + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
             Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
@@ -423,10 +441,14 @@ void calculate_selectivity(
         case 3: // Double Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp1 = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-            Type inf1 = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-            Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
+            Type slp1 = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                            + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+            Type inf1 = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                         + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                            + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+            Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                         + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
             Type val = (1.0 / (1.0 + exp(-slp1 * (x_val - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
@@ -437,8 +459,10 @@ void calculate_selectivity(
         case 4: // Descending Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-            Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                            + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+            Type inf2 = (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                         + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr));
             Type val = (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
@@ -481,10 +505,23 @@ void calculate_selectivity(
           //   log_sel_slp(1) = log(sigma_descending)  - descending limb SD
           //   sel_inf(1)     = logit(right_floor) — right-tail floor, analogous to SS3 P6 (end_logit).
           //                    right_floor -> 0: fully dome-shaped; right_floor -> 1: logistic (ascending only).
-          Type peak        = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr))));
+          // DoubleNormal reuses the logistic slots: sel_inf(0)=peak,
+          // log_sel_slp(0/1)=log sigma asc/desc, sel_inf(1)=logit right-floor.
+          // The linkage offsets ride in the same position as the deviates, so
+          // slp/inf params act on sigma/peak/floor here without special-casing.
+          Type peak        = (sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr)
+                              + sel_inf_off_nat(0, flt, sex, yr)) * exp(sel_inf_off(0, flt, sex, yr));
+          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                              + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr)
+                              + sel_slp_off(1, flt, sex, yr)) + sel_slp_off_nat(1, flt, sex, yr);
+          // right_floor is logit-parameterised (sel_inf(1) = logit(right_floor)), so the
+          // linkage offsets act on the logit scale -- additive (nat) and multiplicative
+          // (exp) inside the logistic, matching `peak` and the other inflection slots. This
+          // keeps right_floor in [0, 1] for any offset (applying exp() to the probability
+          // could push it > 1). Bit-identical at zero offset.
+          Type right_floor = 1.0 / (1.0 + exp(-((sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr)
+                              + sel_inf_off_nat(1, flt, sex, yr)) * exp(sel_inf_off(1, flt, sex, yr)))));
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val      = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
             // Smooth logistic blend: ~0 left of peak, ~1 right of peak.
@@ -526,8 +563,14 @@ void calculate_selectivity(
           // so the age-based x is (bin + 1) + 0.5 = bin + 1.5, NOT bin + 1 as in
           // the standard Logistic (case 1). This 0.5 shift cannot be folded into a50
           // because the inflection deviate is multiplicative (a50*exp(dev)).
-          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-          Type inf   = sel_inf(0, flt, sex) * exp(sel_inf_dev(0, flt, sex, yr));
+          // LogisticPM deviates are MULTIPLICATIVE (a50 * exp(dev)), so a log-link
+          // linkage offset rides inside the same exp and an identity offset adds
+          // to the base -- both leaving the log-link = multiplicative-on-natural
+          // meaning that holds for the other forms.
+          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr)
+                           + sel_slp_off(0, flt, sex, yr)) + sel_slp_off_nat(0, flt, sex, yr);
+          Type inf   = (sel_inf(0, flt, sex) + sel_inf_off_nat(0, flt, sex, yr))
+                         * exp(sel_inf_dev(0, flt, sex, yr) + sel_inf_off(0, flt, sex, yr));
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1.5);
             Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
@@ -535,7 +578,8 @@ void calculate_selectivity(
             else                 sel_at_age(flt, sex, bin, yr) = val;
           }
           // Free first-bin (age-1) log-selectivity override
-          Type log_s1 = sel_inf(1, flt, sex) * exp(sel_inf_dev(1, flt, sex, yr));
+          Type log_s1 = (sel_inf(1, flt, sex) + sel_inf_off_nat(1, flt, sex, yr))
+                          * exp(sel_inf_dev(1, flt, sex, yr) + sel_inf_off(1, flt, sex, yr));
           if (is_length_based) sel_at_length(flt, sex, 0, yr) = exp(log_s1);
           else                 sel_at_age(flt, sex, 0, yr) = exp(log_s1);
           break;
@@ -548,7 +592,7 @@ void calculate_selectivity(
     // --- 3. NORMALIZATION & PROJECTION ---
     normalize_and_project_selectivity(
       flt, nyrs_hind, nyrs, flt_spp, flt_sel_type, flt_sel_dim, bin_first_selected, nages, nlengths, nsex,
-      sel_norm_bin1, sel_norm_bin2,
+      sel_norm_bin1, sel_norm_bin2, sel_norm_scope,
       is_length_based ? sel_at_length : sel_at_age
     );
 

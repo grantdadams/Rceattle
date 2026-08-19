@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_helpers.R
 \name{.okabe_ito}
 \alias{.okabe_ito}
-\title{Okabe-Ito colourblind-safe qualitative palette}
+\title{Okabe-Ito colorblind-safe qualitative palette}
 \usage{
 .okabe_ito
 }

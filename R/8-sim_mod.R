@@ -1,9 +1,223 @@
+# Rejection budget for a non-positive natural-scale index draw, as a multiple of
+# the fleet's row count. Correlated fleets reject the whole vector whenever any
+# single row is non-positive, so the joint rejection probability climbs with the
+# number of rows; scaling the budget the same way on both branches stops a wide
+# fleet from exhausting it while every row on its own is fine.
+.SIM_INDEX_MAX_TRIES <- 100L
+
+# Per-row rejection rate above which truncation is doing enough of the work that
+# the simulated data no longer follow the likelihood's own normal. Compared
+# against the WORST row, not the fleet mean -- truncation bites one marginal row
+# at a time, and a fleet average hides it. Set well below the rate that would
+# matter: rejecting even a twentieth of a row's draws already shifts that row's
+# mean by several percent.
+.SIM_INDEX_WARN_FRAC <- 0.02
+
+
+#' Resolve `Index_distribution` to its integer family code
+#'
+#' Accepts either spelling a `fleet_control` column can hold -- the name
+#' (`"MVN"`) or the code (`1`) -- because `index_ll_type` is built inside
+#' `rearrange_data()` and is not carried on a fitted model's `data_list`.
+#' Anything unrecognized falls back to lognormal, matching the column default.
+#'
+#' @param x The `Index_distribution` column.
+#' @return Integer vector of codes, one per fleet. See `index_distribution_map`.
+#' @noRd
+.index_family_codes <- function(x) {
+  if (is.null(x)) return(integer(0))
+  chr <- trimws(as.character(x))
+  num <- suppressWarnings(as.integer(chr))
+  nmd <- as.integer(index_distribution_map[chr])
+  out <- ifelse(!is.na(num), num, nmd)
+  out[is.na(out)] <- 0L
+  as.integer(out)
+}
+
+
+#' Draw survey-index observations under each fleet's own likelihood
+#'
+#' A simulator has to draw from the observation model the likelihood assumes, or
+#' `self_test()` measures recovery against a data-generating process the
+#' estimation model never saw. The four families need three different draws
+#' (`ceattle.cpp`, section 8.2):
+#'
+#' * `Lognormal` (0): log scale, `exp(N(log(hat) - ba * sd^2 / 2, sd))`.
+#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`, and no
+#'   lognormal bias term -- the likelihood has none.
+#' * `MVN` (1) / `MVNORM` (2): natural scale and correlated,
+#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the
+#'   likelihood, so they simulate identically.
+#'
+#' Sigma is positional: its rows follow the fleet's *fitted* observations
+#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order, the same
+#' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
+#' set -- projection years, since `data_check()` rejects a non-positive
+#' observation -- keep the values they came in with.
+#'
+#' A natural-scale draw (`Normal`, `MVN`) can come out non-positive, which no
+#' index can be and `data_check()` rejects -- the refit then fails and
+#' `self_test()` reports the run as not converged, which reads as a convergence
+#' problem rather than a simulation one. Non-positive draws are therefore
+#' redrawn, up to `.SIM_INDEX_MAX_TRIES` times, which samples the natural-scale
+#' families from the normal **truncated at zero**. That is the intended
+#' distribution for a strictly positive index, but it does shift the mean upward
+#' relative to an untruncated normal whenever the absolute sd is an appreciable
+#' fraction of the index -- the case where truncation bites is exactly the case
+#' where the untruncated normal was already a poor observation model. Lognormal
+#' fleets are positive by construction and are not affected. If a fleet still
+#' draws non-positive after the retries, warn rather than fail.
+#'
+#' @param data_list Data list being simulated into.
+#' @param index_hat Predicted index, one per `index_data` row.
+#' @param log_index_sd Per-row observation sd, as `ceattle.cpp` reports it: a
+#'   log-scale sd for `Lognormal`, an absolute one for `Normal`.
+#' @param ba_obs Observation bias-adjustment multiplier.
+#' @return Numeric vector of simulated observations, in `index_data` row order.
+#' @noRd
+.sim_index_obs <- function(data_list, index_hat, log_index_sd, ba_obs) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  obs <- as.numeric(index_hat)
+  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(obs)
+
+  fam <- .index_family_codes(fc$Index_distribution)
+  if (!length(fam)) fam <- rep(0L, nrow(fc))
+
+  # Every fleet lognormal -- the column default, and the only family that existed
+  # before MVN/MVNORM/Normal. Draw all rows in one call, exactly as this did
+  # before the per-family dispatch, so a seeded self_test(), jitter() or
+  # run_mse(simulate_data = TRUE) on an existing model reproduces bit for bit.
+  # The per-fleet loop below consumes the RNG stream in a different order, which
+  # would silently change every simulated data set with more than one index fleet
+  # while leaving single-survey models looking unaffected.
+  if (all(fam == 0L)) {
+    return(exp(stats::rnorm(
+      n    = length(obs),
+      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
+      sd   = log_index_sd)))
+  }
+
+  nonpos <- character(0)   # still non-positive after the retries
+  heavy  <- character(0)   # positive only because truncation did the work
+
+  for (i in seq_len(nrow(fc))) {
+    code <- fc$Fleet_code[i]
+    rows <- which(idx$Fleet_code == code)
+    if (!length(rows)) next
+    f <- fam[i]
+
+    if (f %in% c(1L, 2L)) {
+      fit_rows <- rows[idx$Year[rows] > 0 &
+                         idx$Year[rows] <= data_list$endyr &
+                         idx$Observation[rows] > 0]
+      # Sigma covers the fitted rows only -- in practice the rest are projection
+      # years (Year > endyr), since data_check() rejects Observation <= 0. Leave
+      # them at the values they came in with rather than writing the prediction
+      # there, which would present a projection year as an observation.
+      obs[setdiff(rows, fit_rows)] <- idx$Observation[setdiff(rows, fit_rows)]
+      if (!length(fit_rows)) next
+      nm    <- as.character(fc$Fleet_name[i])
+      Sigma <- data_list$index_cov[[nm]]
+      if (is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(code)]]
+      if (is.null(Sigma)) {
+        stop(sprintf(paste0("Fleet '%s' uses an %s index likelihood but no covariance ",
+                            "matrix was supplied in index_cov, so its observations ",
+                            "cannot be simulated."),
+                     nm, c("MVN", "MVNORM")[f]), call. = FALSE)
+      }
+      Sigma <- as.matrix(Sigma)
+      Sigma <- (Sigma + t(Sigma)) / 2   # as rearrange_data() does
+      if (nrow(Sigma) != length(fit_rows)) {
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the ",
+                            "fleet has %d fitted survey observations to simulate."),
+                     nm, nrow(Sigma), ncol(Sigma), length(fit_rows)), call. = FALSE)
+      }
+      L <- tryCatch(t(chol(Sigma)), error = function(e) {
+        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is not positive ",
+                            "definite (%s), so it cannot be simulated from."),
+                     nm, conditionMessage(e)), call. = FALSE)
+      })
+      # Correlated rows, so a rejection has to redraw the whole vector. Budget
+      # scales with the number of rows: a vector is rejected if ANY row is
+      # non-positive, so the joint rejection probability grows with n and a flat
+      # budget would fail on wide fleets that are fine row by row.
+      n <- length(fit_rows)
+      draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
+      drawn <- rep(1L, n); rejected <- as.integer(draw <= 0)
+      tries <- 0L
+      while (any(draw <= 0) && tries < .SIM_INDEX_MAX_TRIES * n) {
+        draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
+        drawn <- drawn + 1L; rejected <- rejected + as.integer(draw <= 0)
+        tries <- tries + 1L
+      }
+      obs[fit_rows] <- draw
+      if (any(obs[fit_rows] <= 0)) nonpos <- c(nonpos, nm)
+      # Per-ROW rate, and the worst row rather than the fleet mean: truncation
+      # bites one marginal row at a time, and averaging over a wide fleet hides
+      # exactly the row that is being resampled.
+      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC) heavy <- c(heavy, nm)
+
+    } else if (f == 3L) {
+      # Independent rows, so redraw only the offending ones.
+      obs[rows] <- stats::rnorm(length(rows), mean = index_hat[rows],
+                                sd = log_index_sd[rows])
+      drawn <- rep(1L, length(rows)); rejected <- as.integer(obs[rows] <= 0)
+      tries <- 0L
+      repeat {
+        bad <- which(obs[rows] <= 0)
+        if (!length(bad) || tries >= .SIM_INDEX_MAX_TRIES * length(rows)) break
+        obs[rows[bad]] <- stats::rnorm(length(bad), mean = index_hat[rows[bad]],
+                                       sd = log_index_sd[rows[bad]])
+        drawn[bad] <- drawn[bad] + 1L
+        rejected[bad] <- rejected[bad] + as.integer(obs[rows[bad]] <= 0)
+        tries <- tries + 1L
+      }
+      if (any(obs[rows] <= 0)) nonpos <- c(nonpos, as.character(fc$Fleet_name[i]))
+      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC)
+        heavy <- c(heavy, as.character(fc$Fleet_name[i]))
+
+    } else {
+      obs[rows] <- exp(stats::rnorm(
+        n    = length(rows),
+        mean = log(index_hat[rows]) - ba_obs * (log_index_sd[rows]^2) / 2,
+        sd   = log_index_sd[rows]))
+    }
+  }
+
+  if (length(nonpos)) {
+    warning("Simulated a non-positive survey index for fleet(s) ",
+            paste(unique(nonpos), collapse = ", "),
+            " after ", .SIM_INDEX_MAX_TRIES, " redraws. data_check() requires ",
+            "Observation > 0, so refitting this data set fails and self_test() ",
+            "counts the run as not converged. The observation error is large ",
+            "relative to the index: check the covariance, or the absolute sd, ",
+            "against the scale of the index.",
+            call. = FALSE)
+  } else if (length(heavy)) {
+    warning("Simulating the survey index for fleet(s) ",
+            paste(unique(heavy), collapse = ", "),
+            " needed a non-positive draw redrawn more than ",
+            round(100 * .SIM_INDEX_WARN_FRAC), "% of the time. The draws are ",
+            "positive, but they come from a normal truncated at zero rather ",
+            "than the normal the likelihood assumes, so a self_test() built on ",
+            "them tests a different data-generating process. The absolute sd is ",
+            "large relative to the index: check it, or the covariance, against ",
+            "the scale of the index.",
+            call. = FALSE)
+  }
+  obs
+}
+
+
 #' Simulate Rceattle data
 #'
 #' @description Simulates data used in Rceattle from the expected values estimated
 #' from an existing Rceattle model. The variances and uncertainty are consistent
 #' with those used in the operating model. The function simulates: survey biomass
-#' (log-normal), catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
+#' (under the fleet's own \code{Index_distribution} -- lognormal, natural-scale
+#' normal, or the correlated MVN/MVNORM draw from the supplied covariance),
+#' catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 #' and total catch (log-normal).
 #'
 #' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
@@ -18,18 +232,33 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
 
+  # Observation bias-adjustment multiplier (default 1). The index/catch
+  # lognormal likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2
+  # (ceattle.cpp, JNLL_INDEX / JNLL_CATCH), so the simulator has to apply the
+  # SAME offset or the estimation model is fitted to data drawn from a different
+  # mean than its own likelihood assumes -- a systematic bias in scale (and so in
+  # catchability), not noise, which no number of simulations averages away.
+  # Mirrors residuals.Rceattle(), which resolves the flag the same way.
+  ba_obs <- dat_sim$bias_adjust_obs
+  if (is.null(ba_obs) && !is.null(Rceattle$obj)) {
+    ba_obs <- Rceattle$obj$env$data$bias_adjust_obs
+  }
+  if (is.null(ba_obs)) ba_obs <- 1
+  ba_obs <- as.numeric(ba_obs)[1]
+
 
   # Indices of abundance/biomass ----
   log_index_sd <- quantities$log_index_sd
   index_hat <- quantities$index_hat
 
   if (simulate) {
-    # Log-normal simulation with bias correction
-    dat_sim$index_data$Observation <- exp(stats::rnorm(
-      n = length(index_hat),
-      mean = log(index_hat) - (log_index_sd^2) / 2,
-      sd = log_index_sd
-    ))
+    # Per fleet, under its own Index_distribution: lognormal, natural-scale
+    # normal, or a correlated MVN/MVNORM draw from the supplied covariance.
+    # Drawing every fleet as lognormal (as this did) simulates from an
+    # observation model the likelihood does not assume, which a self-test then
+    # reports as if it had.
+    dat_sim$index_data$Observation <-
+      .sim_index_obs(dat_sim, index_hat, log_index_sd, ba_obs)
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat
@@ -49,7 +278,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$comp_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$Comp_loglike[flt])
+        .ll <- as.character(dat_sim$fleet_control$Comp_distribution[flt])
 
         # --- Multinomial ---
         # "MultinomialAFSC" differs from "Multinomial" only in the likelihood's
@@ -75,7 +304,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
         } else {
           stop(sprintf(
-            "sim_mod(): unsupported Comp_loglike '%s' for fleet %s.",
+            "sim_mod(): unsupported Comp_distribution '%s' for fleet %s.",
             .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 
@@ -98,7 +327,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
       flt <- dat_sim$caal_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$CAAL_loglike[flt])
+        .ll <- as.character(dat_sim$fleet_control$CAAL_distribution[flt])
 
         # --- Multinomial ---
         if(.ll %in% c("Multinomial", "MultinomialAFSC")){
@@ -122,7 +351,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
         } else {
           stop(sprintf(
-            "sim_mod(): unsupported CAAL_loglike '%s' for fleet %s.",
+            "sim_mod(): unsupported CAAL_distribution '%s' for fleet %s.",
             .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
         }
 
@@ -144,7 +373,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     # Log-normal simulation with bias correction
     dat_sim$catch_data$Catch <- exp(stats::rnorm(
       n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - (log_catch_sd^2) / 2,
+      mean = log(catch_hat) - ba_obs * (log_catch_sd^2) / 2,
       sd = log_catch_sd
     ))
   } else {
@@ -153,8 +382,34 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   }
 
 
-  #TODO
+  # Diet (stomach content) ----
+  # NOT SIMULATED. The stomach proportions are carried through unchanged, so a
+  # self_test() on a multispecies model resamples every other data type and
+  # refits against the same diet data every time. Anything the diet informs --
+  # suitability above all -- is then recovered from data that never varied, and
+  # the test reads as more reassuring than it is. Say so rather than let a
+  # multispecies self-test look complete. BS2017MS carries 2025 diet rows.
+  #
+  # Implementing it means mirroring the cpp's stomach likelihood (section 13):
+  # rows are grouped by stomach, an "Other prey" bin holding 1 - sum(observed)
+  # is appended, both observed and predicted are offset by `comp_offset` and
+  # renormalized, and only then is the multinomial / Dirichlet-multinomial draw
+  # taken at Sample_size. The grouping is the unresolved part -- the cpp scans
+  # contiguous `stomach_id` runs and carries a TODO(review) noting that
+  # build_osa_data() instead matches on `which(stomach_id == i)`, so the two
+  # disagree if the rows are ever non-contiguous. That has to be settled before
+  # a simulator can rely on it.
+  if (simulate && !is.null(dat_sim$diet_data) && nrow(dat_sim$diet_data) > 0) {
+    warning("sim_mod() does not simulate diet (stomach content) data: ",
+            nrow(dat_sim$diet_data), " rows are carried through unchanged. ",
+            "A self_test() of a model fitted to diet data therefore does not ",
+            "propagate diet observation error, and recovery of suitability is ",
+            "optimistic.", call. = FALSE)
+  }
+
   # # Slot 5 -- Diet composition from lognormal suitability 4D
+  # # STALE: written for a 4D/5D diet_data array; diet_data is now a data.frame
+  # # (Pred, Prey, ..., Sample_size, Stomach_proportion_by_weight).
   # if (length(dim(dat_sim$diet_data)) == 4) {
   #     for (sp in 1:dat_sim$nspp) {
   #         for (r_age in 1:dat_sim$nages[sp]) {
@@ -191,10 +446,10 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   return(dat_sim)
 }
 
-#' Sample historical recruitment deviates and place in the projection
+#' Sample historical recruitment deviations into the projection
 #'
 #' @param Rceattle CEATTLE model object exported from \code{Rceattle}
-#' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #'
@@ -254,71 +509,15 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
     Rceattle <-
       suppressWarnings(
         suppressMessages(
-          fit_mod(
-            data_list = Rceattle$data_list,
-            inits = Rceattle$estimated_params,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
+          # Rebuild so the resampled projection recruitment propagates into the
+          # reported dynamics. .refit_like() carries the source model's whole
+          # specification across the refit -- HCR, stock-recruit, M, growth, and
+          # the catchability / selectivity / composition linkages.
+          .refit_like(
+            data_list    = Rceattle$data_list,
+            inits        = Rceattle$estimated_params,
             estimateMode = 3,
-            HCR = build_hcr(HCR = Rceattle$data_list$HCR,
-                            DynamicHCR = Rceattle$data_list$DynamicHCR,
-                            Ftarget = Rceattle$data_list$Ftarget,
-                            Flimit = Rceattle$data_list$Flimit,
-                            Ptarget = Rceattle$data_list$Ptarget,
-                            Plimit = Rceattle$data_list$Plimit,
-                            Alpha = Rceattle$data_list$Alpha,
-                            Pstar = Rceattle$data_list$Pstar,
-                            Sigma = Rceattle$data_list$Sigma,
-                            Fmult = Rceattle$data_list$Fmult,
-                            HCRorder = Rceattle$data_list$HCRorder
-            ),
-            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices may
-            # travel via data_list; the deprecation warning was already
-            # surfaced on the user's first build_srr() call.
-            recFun = suppressWarnings(build_srr(
-              srr_fun = Rceattle$data_list$srr_fun,
-              srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
-              proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
-              srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
-              srr_hat_styr = Rceattle$data_list$srr_hat_styr,
-              srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
-              srr_est_mode  = Rceattle$data_list$srr_est_mode ,
-              srr_prior  = Rceattle$data_list$srr_prior,
-              srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
-              srr_alpha_init = Rceattle$data_list$srr_alpha_init,
-              srr_beta_init  = Rceattle$data_list$srr_beta_init,
-              Bmsy_lim = Rceattle$data_list$Bmsy_lim,
-              srr_indices = Rceattle$data_list$srr_indices,
-              linkages = Rceattle$data_list$srr_linkages)),
-            # suppressWarnings: re-call from a fitted model's data_list
-            # may carry legacy M1_indices; the deprecation warning was
-            # already surfaced on the user's first build_M1() call.
-            M1Fun = suppressWarnings(build_M1(
-              M1_model = Rceattle$data_list$M1_model,
-              M1_re = Rceattle$data_list$M1_re,
-              updateM1 = FALSE,
-              M1_use_prior = Rceattle$data_list$M1_use_prior,
-              M2_use_prior = Rceattle$data_list$M2_use_prior,
-              M_prior = Rceattle$data_list$M_prior,
-              M_prior_sd = Rceattle$data_list$M_prior_sd,
-              M1_indices = Rceattle$data_list$M1_indices,
-              linkages = Rceattle$data_list$M1_linkages)),
-            growthFun = build_growth(fun = Rceattle$data_list$growth_fun,
-                                     linkages = Rceattle$data_list$growth_linkages),
-            random_rec = Rceattle$data_list$random_rec,
-            niter = Rceattle$data_list$niter,
-            msmMode = Rceattle$data_list$msmMode,
-            avgnMode = Rceattle$data_list$avgnMode,
-            suitMode = Rceattle$data_list$suitMode,
-            suit_styr = Rceattle$data_list$suit_styr,
-            suit_endyr = Rceattle$data_list$suit_endyr,
-            initMode = Rceattle$data_list$initMode,
-            fit_control = fit_control(
-              phase   = FALSE,
-              loopnum = Rceattle$data_list$loopnum,
-              getsd   = TRUE,
-              verbose = 0))
+            getsd        = TRUE)
         )
       )
     Rceattle$data_list$estimateMode <- estMode
@@ -334,7 +533,7 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #' @param operating_mod CEATTLE model object exported from \code{Rceattle} to be used as the operating model
 #' @param simulation_mods List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data
 #' @param object character string specifying which part of the model to compare (default = "quantities")
-#' @return A data frame summarising simulation performance metrics
+#' @return A data frame summarizing simulation performance metrics
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update

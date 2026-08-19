@@ -14,7 +14,7 @@ compare_sim(operating_mod, simulation_mods, object = "quantities")
 \item{object}{character string specifying which part of the model to compare (default = "quantities")}
 }
 \value{
-A data frame summarising simulation performance metrics
+A data frame summarizing simulation performance metrics
 }
 \description{
 Function to evaluate the simulation performance with regard to bias using the median relative error (MRE) and precision using the coefficient of variation.

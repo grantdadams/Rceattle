@@ -55,7 +55,7 @@
 
 #' Standard Rceattle ggplot theme
 #'
-#' Clean, legible, and colourblind-friendly: `theme_classic` with bold facet
+#' Clean, legible, and colorblind-friendly: `theme_classic` with bold facet
 #' strips, a light panel border, and the legend along the bottom.
 #' @param base_size Base font size.
 #' @keywords internal
@@ -71,7 +71,7 @@
     )
 }
 
-#' Okabe-Ito colourblind-safe qualitative palette
+#' Okabe-Ito colorblind-safe qualitative palette
 #'
 #' Eight fixed hues in a fixed order, reordered so the strongest-contrast,
 #' best-separated hues come first (2-4 model overlays are the common case) and
@@ -95,11 +95,11 @@
   grDevices::colorRampPalette(.okabe_ito)(n)
 }
 
-#' Add the standard colourblind-safe scales to a plot
+#' Add the standard colorblind-safe scales to a plot
 #'
 #' Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
 #' qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
-#' use viridis. Both are colourblind-safe.
+#' use viridis. Both are colorblind-safe.
 #'
 #' @param p A ggplot.
 #' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.
@@ -134,4 +134,24 @@
                     width = width, height = height, dpi = 300)
   }
   p
+}
+
+
+#' Facet by species, but only when there is more than one
+#'
+#' With a single species the strip label just names the only thing on the plot.
+#' Faceting is what draws that strip, so the single-species case omits the facet
+#' entirely rather than blanking the strip and leaving its gap.
+#'
+#' Returns `NULL` when there is nothing to facet, which ggplot2 accepts as a
+#' no-op inside a `+` chain -- so call sites read the same either way.
+#'
+#' @param df The plot data frame; its `Species` column supplies the count.
+#' @param ... Passed to [ggplot2::facet_wrap()] (e.g. `scales`, `ncol`).
+#' @return A `facet_wrap` layer, or `NULL` for a single-species model.
+#' @keywords internal
+#' @noRd
+.facet_species <- function(df, ...) {
+  n <- if (is.null(df$Species)) 0L else length(unique(stats::na.omit(df$Species)))
+  if (n > 1L) ggplot2::facet_wrap(~ Species, ...) else NULL
 }

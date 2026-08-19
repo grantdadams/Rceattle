@@ -18,7 +18,7 @@ testthat::test_that("Test SB0 under mean recruitment", {
     Rceattle::fit_mod(data_list = dat,
                       estimateMode = 3, # Don't estimate
                       msmMode = 0, # Single species mode
-                      fit_control = fit_control(
+                      fit_control = fit_control(getsd = FALSE, 
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
@@ -42,7 +42,7 @@ testthat::test_that("Test SB0 under mean recruitment", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              fit_control = fit_control(
+                              fit_control = fit_control(getsd = FALSE, 
                                 verbose = 0))
 
   # Calculate SB0
@@ -79,7 +79,7 @@ testthat::test_that("Test SB0 under R0", {
     Rceattle::fit_mod(data_list = dat,
                       estimateMode = 3, # Don't estimate
                       msmMode = 0, # Single species mode
-                      fit_control = fit_control(
+                      fit_control = fit_control(getsd = FALSE, 
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
@@ -103,7 +103,7 @@ testthat::test_that("Test SB0 under R0", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              fit_control = fit_control(
+                              fit_control = fit_control(getsd = FALSE, 
                                 verbose = 0))
 
   # Calculate SB0
@@ -127,7 +127,7 @@ testthat::test_that("Test SB0 under R0", {
 
 testthat::test_that("Test SB40 under mean recruitment", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -139,7 +139,7 @@ testthat::test_that("Test SB40 under mean recruitment", {
                                                     Plimit = 0.2, # No fishing when SB<SB20
                                                     Alpha = 0.05),
                                     msmMode = 0, # Single species mode
-                                    fit_control = fit_control(
+                                    fit_control = fit_control(getsd = FALSE, 
                                       phase = TRUE,
                                       verbose = 1))
 
@@ -149,7 +149,7 @@ testthat::test_that("Test SB40 under mean recruitment", {
 
 testthat::test_that("Test SB40 under R0", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- NPFMC Tier 3
   ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -162,7 +162,7 @@ testthat::test_that("Test SB40 under R0", {
                                                     Alpha = 0.05),
                                     recFun = build_srr(proj_mean_rec = FALSE),
                                     msmMode = 0, # Single species mode
-                                    fit_control = fit_control(
+                                    fit_control = fit_control(getsd = FALSE, 
                                       phase = TRUE,
                                       verbose = 1))
 
@@ -193,7 +193,7 @@ testthat::test_that("Test SPR0 calculation", {
     Rceattle::fit_mod(data_list = GOA2018SS,
                       estimateMode = 3, # Don't estimate
                       msmMode = 0, # Single species mode
-                      fit_control = fit_control(
+                      fit_control = fit_control(getsd = FALSE, 
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
@@ -207,7 +207,7 @@ testthat::test_that("Test SPR0 calculation", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               initMode = "NonEquilibrium",
-                              fit_control = fit_control(
+                              fit_control = fit_control(getsd = FALSE, 
                                 verbose = 1))
 
   # Calculate SPR
@@ -232,13 +232,13 @@ testthat::test_that("Test SPR0 calculation", {
 
 testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   # -- Base
   ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                               estimateMode = 0,
                               msmMode = 0, # Single species mode
-                              fit_control = fit_control(
+                              fit_control = fit_control(getsd = FALSE, 
                                 phase = TRUE,
                                 verbose = 0))
 
@@ -250,7 +250,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                   DynamicHCR = FALSE, # Use dynamic reference points
                                                   Ftarget = 0.4), # F that achieves 40% SB0
                                   msmMode = 0, # Single species mode
-                                  fit_control = fit_control(
+                                  fit_control = fit_control(getsd = FALSE, 
                                     verbose = 0))
 
 
@@ -261,7 +261,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                          DynamicHCR = TRUE, # Use dynamic reference points
                                                          Ftarget = 0.4), # F that achieves 40% SB0
                                          msmMode = 0, # Single species mode
-                                         fit_control = fit_control(
+                                         fit_control = fit_control(getsd = FALSE, 
                                            verbose = 0))
 
 
@@ -273,7 +273,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                    Ftarget = 0.4 # F40%
                                    ),
                                    msmMode = 0, # Single species mode
-                                   fit_control = fit_control(
+                                   fit_control = fit_control(getsd = FALSE, 
                                      verbose = 0))
 
 
@@ -285,7 +285,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                           Ftarget = 0.4 # F40%
                                           ),
                                           msmMode = 0, # Single species mode
-                                          fit_control = fit_control(
+                                          fit_control = fit_control(getsd = FALSE, 
                                             verbose = 0))
 
 
@@ -299,7 +299,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                     Plimit = 0.2, # No fishing when SB<SB20
                                                     Alpha = 0.05),
                                     msmMode = 0, # Single species mode
-                                    fit_control = fit_control(
+                                    fit_control = fit_control(getsd = FALSE, 
                                       verbose = 0))
 
 
@@ -313,7 +313,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                            Plimit = 0.2, # No fishing when SB<SB20
                                                            Alpha = 0.05),
                                            msmMode = 0, # Single species mode
-                                           fit_control = fit_control(
+                                           fit_control = fit_control(getsd = FALSE, 
                                              verbose = 0))
 
   # -- PFMC Category 1
@@ -327,7 +327,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                    Pstar = 0.45,
                                                    Sigma = 0.5),
                                    msmMode = 0, # Single species mode
-                                   fit_control = fit_control(
+                                   fit_control = fit_control(getsd = FALSE, 
                                      verbose = 0))
 
   ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -341,7 +341,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                           Pstar = 0.45,
                                                           Sigma = 0.5),
                                           msmMode = 0, # Single species mode
-                                          fit_control = fit_control(
+                                          fit_control = fit_control(getsd = FALSE, 
                                             verbose = 0))
 
   # -- SESSF Tier 1
@@ -355,7 +355,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                     Plimit = 0.20, # No fishing when B<B20
                                     ),
                                     msmMode = 0, # Single species mode
-                                    fit_control = fit_control(
+                                    fit_control = fit_control(getsd = FALSE, 
                                       verbose = 0))
 
 
@@ -370,7 +370,7 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                            Plimit = 0.20, # No fishing when B<B20
                                            ),
                                            msmMode = 0, # Single species mode
-                                           fit_control = fit_control(
+                                           fit_control = fit_control(getsd = FALSE, 
                                              verbose = 0))
 
   # -- Plot
@@ -431,7 +431,7 @@ testthat::test_that("Test mean recruitment calculation", {
                       estimateMode = 3, # Don't estimate
                       growthFun = build_growth(fun = "vonBertalanffy"),
                       msmMode = 0, # Single species mode
-                      fit_control = fit_control(
+                      fit_control = fit_control(getsd = FALSE, 
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
@@ -456,7 +456,7 @@ testthat::test_that("Test mean recruitment calculation", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0,
                               initMode = "NonEquilibrium",
-                              fit_control = fit_control(
+                              fit_control = fit_control(getsd = FALSE, 
                                 phase = FALSE,
                                 verbose = 0))
 
@@ -471,7 +471,7 @@ testthat::test_that("Test mean recruitment calculation", {
 
 testthat::test_that("Invalid HCRs/BRPs", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(1, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
                                            estimateMode = 0, # Run projection only
@@ -479,7 +479,7 @@ testthat::test_that("Invalid HCRs/BRPs", {
                                                            DynamicHCR = FALSE, # Use dynamic reference points
                                                            Ftarget = 0.4), # F that achieves 40% SB0
                                            msmMode = 0, # Single species mode
-                                           fit_control = fit_control(
+                                           fit_control = fit_control(getsd = FALSE, 
                                              verbose = 0))
   )
 
@@ -490,7 +490,7 @@ testthat::test_that("Invalid HCRs/BRPs", {
                                                            DynamicHCR = FALSE, # Use dynamic reference points
                                                            Ftarget = 0.4), # F that achieves 40% SB0
                                            msmMode = 0, # Single species mode
-                                           fit_control = fit_control(
+                                           fit_control = fit_control(getsd = FALSE, 
                                              verbose = 0))
   )
 })
@@ -498,7 +498,7 @@ testthat::test_that("Invalid HCRs/BRPs", {
 
 testthat::test_that("No F prop", {
   data("BS2017SS") # ?BS2017SS for more information on the data
-  BS2017SS$fleet_control$proj_F_prop <- rep(0, 7)
+  BS2017SS$fleet_control$Proj_F_proportion <- rep(0, 7)
 
   testthat::expect_error(Rceattle::fit_mod(data_list = BS2017SS,
                                            estimateMode = 0, # Run projection only
@@ -508,7 +508,7 @@ testthat::test_that("No F prop", {
                                                            Plimit = 0.2, # No fishing when SB<SB20
                                                            Alpha = 0.05),
                                            msmMode = 0, # Single species mode
-                                           fit_control = fit_control(
+                                           fit_control = fit_control(getsd = FALSE, 
                                              verbose = 0))
   )
 }

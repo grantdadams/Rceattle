@@ -41,5 +41,14 @@ tests/comparison/WHAM_growth_comparison/rce_osa.RDS
 /Len_comp_OSA.png
 /wham_osa_plot.png
 
-# Development scratch (RFCs, plans, working notes) — kept local, not part of the package
+# Development scratch (plans, handoffs, working notes, golden-reference scratch,
+# benchmark harnesses) — kept local, never committed. Verification harnesses that
+# the workflow requires live in tools/verify/ instead, so a fresh clone can run them.
 /dev/
+
+# Scratchpad / working-tool artifacts (created by dev tooling, not part of the package)
+scratchpad_loaded.flag
+scratchpad/
+
+# FIMS comparison-run artifact
+fims.log

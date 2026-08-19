@@ -27,7 +27,8 @@ plot_ssb_depletion(
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
   OM = TRUE,
-  reference = NULL
+  reference = NULL,
+  ylab = NULL
 )
 }
 \arguments{
@@ -44,7 +45,8 @@ function.}
 
 \item{spnames}{Species names for legend}
 
-\item{add_ci}{If the confidence interval is to be added}
+\item{add_ci}{If the confidence interval is to be added (see Details for how
+it is constructed)}
 
 \item{lwd}{Line width as specified by user}
 
@@ -77,8 +79,11 @@ function.}
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
 \item{reference}{Reference model}
+
+\item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
+model's \code{minage}.}
 }
 \description{
-Deprecated alias for \code{\link{plot_ssb_depletion}}. Please use
-\code{plot_ssb_depletion()} instead.
+Deprecated alias for \code{\link{plot_depletionSSB}}. Please use
+\code{plot_depletionSSB()} instead.
 }

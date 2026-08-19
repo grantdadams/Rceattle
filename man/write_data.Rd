@@ -2,17 +2,17 @@
 % Please edit documentation in R/0-read_write_excel_data.R
 \name{write_data}
 \alias{write_data}
-\title{Write data file}
+\title{Write a data list to a CEATTLE xlsx workbook}
 \usage{
 write_data(data_list, file = "Rceattle_data.xlsx")
 }
 \arguments{
 \item{data_list}{Rceattle data_list object}
 
-\item{file}{Filname to be used. Must end with '.xlsx'}
+\item{file}{Filename to write. Must end in '.xlsx'}
 }
 \description{
-Write data file
+Write a data list to a CEATTLE xlsx workbook
 }
 \examples{
 
@@ -21,4 +21,10 @@ data(BS2017SS)
 out_file <- file.path(tempdir(), "BS2017SS.xlsx")
 write_data(data_list = BS2017SS, file = out_file)
 file.remove(out_file)
+}
+\seealso{
+\code{\link[=build_data]{build_data()}} to assemble or edit a data list in R, \code{\link[=read_data]{read_data()}}
+to read one back. A \code{\link[=model_config]{model_config()}} slot is not written to the
+workbook and does not survive the round-trip (a warning is issued); persist
+it separately with \code{\link[=save_config]{save_config()}} / \code{\link[=load_config]{load_config()}}.
 }

@@ -35,15 +35,15 @@ and \code{Time_varying_sel} settings in \code{fleet_control}.
 \code{8} = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
 Parameters: \code{sel_inf[1]} = peak; \code{sel_inf[2]} = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
 \code{log_sel_slp[1]} = log(sigma_asc); \code{log_sel_slp[2]} = log(sigma_desc).
-right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
+right_floor->0: dome-shaped; right_floor->1: logistic ascending only.
 
 \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 
 \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-\code{0} = 'None'
+\code{0} = 'Off'
 \code{1} = 'IID' penalized deviates given \code{sel_sd_prior}
 \code{3} = 'Block' time blocks with no penalty
-\code{4} = 'RandomWalk' random walk following Dorn
+\code{4} = 'RandomWalk' random walk
 \code{5} = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 }

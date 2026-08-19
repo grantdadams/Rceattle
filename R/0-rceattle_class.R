@@ -26,13 +26,21 @@ print.Rceattle <- function(x, ...) {
 
   cat("<Rceattle model>\n")
   cat("  Rceattle  :", pkg_ver, "\n")
-  cat("  Species   :", paste(dat$spnames, collapse = ", "), "\n")
-  cat("  Years     :", dat$styr, "-", dat$endyr,
-      if (!is.null(dat$projyr)) paste0(" (projyr ", dat$projyr, ")") else "",
-      "\n")
-  cat("  msmMode   :", dat$msmMode, "\n")
-  cat("  HCR       :", if (is.null(dat$HCR)) "(none)" else dat$HCR, "\n")
-  cat("  initMode  :", if (is.null(dat$initMode)) NA else dat$initMode, "\n")
+
+  # Model specification as an indented spec tree (dimensions -> fleets ->
+  # processes -> linkages -> config), shared with print.Rceattle_data(). Guarded
+  # so a rendering edge case can never break auto-printing a fitted model.
+  tree <- tryCatch(.rce_spec_tree(dat),
+                   error = function(e) paste0("  (spec tree unavailable: ",
+                                              conditionMessage(e), ")"))
+  cat(paste(tree, collapse = "\n"), "\n", sep = "")
+
+  cat("  fit\n")
+  # Alias the integer switch codes to their string forms so the fit block reads the
+  # same regardless of the underlying code (matching the spec tree above).
+  cat("  \u251c\u2500 msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
+  cat("  \u251c\u2500 HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
+  cat("  \u251c\u2500 initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
     cat("  -log L    :", signif(x$opt$objective, 6), "\n")
@@ -142,7 +150,7 @@ coef.Rceattle <- function(object, ...) {
 #' Variance-covariance matrix for an Rceattle fit
 #'
 #' Returns the fixed-effect covariance matrix produced by
-#' [TMB::sdreport()]. Random-effect covariance is not returned here —
+#' [TMB::sdreport()]. Random-effect covariance is not returned here --
 #' use `object$sdrep` for the full report.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -213,6 +221,14 @@ logLik.Rceattle <- function(object, ...) {
 #' age/length bin) and carry the `Age0_Length1` flag from `comp_data` (`0` age,
 #' `1` length); CAAL rows carry both the conditioning `Length` and the age `Bin`.
 #'
+#' Where a fleet uses tail accumulation (`Comp_accum_young` /
+#' `Comp_accum_old`), composition residuals describe the bins the likelihood
+#' actually fit: the tails are folded into their boundary bin and the bins
+#' outside the window are not reported, because the model never fit them
+#' separately. `Bin` names the age or length each residual belongs to and
+#' `Accumulated` marks the boundary bins, which stand for a range rather than
+#' the single bin they are named for. Fleets without accumulation are unchanged.
+#'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param type Residual kind: one of `"response"` (default), `"pearson"`,
 #'   `"osa"`, or `"process"`.
@@ -231,7 +247,9 @@ logLik.Rceattle <- function(object, ...) {
 #'
 #' @return A `data.frame` with columns `Source`, `Fleet_code`, `Fleet_name`,
 #'   `Species`, `Sex`, `Year`, `Length`, `Bin`, `Age0_Length1`, `Sample_size`,
-#'   `Observed`, `Fitted`, `Residual`. Columns are `NA` where they do not apply.
+#'   `Accumulated`, `Observed`, `Fitted`, `Residual`. Columns are `NA` where they
+#'   do not apply; `Accumulated` is `FALSE` except on a composition bin that
+#'   absorbed a folded tail.
 #' @export
 residuals.Rceattle <- function(object, type = "response", source = "all",
                                scale = "log", species = NULL, ...) {
@@ -338,6 +356,9 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Bin          = rep(NA_real_, n),
       Age0_Length1 = rep(NA_integer_, n),
       Sample_size  = rep(NA_real_, n),
+      # TRUE where tail accumulation folded neighbouring bins into this one, so
+      # `Bin` names a range rather than the single age or length it appears to.
+      Accumulated  = rep(FALSE, n),
       Observed     = numeric(n),
       Fitted       = numeric(n),
       Residual     = numeric(n),
@@ -430,19 +451,41 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     bin_vals <- suppressWarnings(as.numeric(sub("^Comp_", "", bin_cols)))
     n_obs <- nrow(cd); n_bin <- length(bin_cols)
     a0l1 <- if (!is.null(cd$Age0_Length1)) cd$Age0_Length1 else NA_integer_
-    df <- empty_row(n_obs * n_bin)
-    df$Source       <- "comp"
-    df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
-    df$Fleet_name   <- rep(cd$Fleet_name, times = n_bin)
-    df$Species      <- rep(cd$Species,    times = n_bin)
-    df$Sex          <- rep(if (!is.null(cd$Sex)) cd$Sex else NA_integer_,
-                           times = n_bin)
-    df$Year         <- rep(cd$Year,       times = n_bin)
-    df$Bin          <- rep(bin_vals, each = n_obs)
-    df$Age0_Length1 <- rep(a0l1, times = n_bin)
-    df$Sample_size  <- rep(cd$Sample_size, times = n_bin)
-    df$Observed     <- as.numeric(obs_prop)
-    df$Fitted       <- as.numeric(hat_prop)
+
+    # Fold the tails onto the bins the likelihood fit (see .fold_comp_props()).
+    # NULL means no fleet accumulates, so the rectangular path below is used and
+    # every existing model is unchanged.
+    folded <- .fold_comp_props(d, cd, obs_prop, hat_prop, a0l1, n_bin)
+
+    if (is.null(folded)) {
+      df <- empty_row(n_obs * n_bin)
+      df$Source       <- "comp"
+      df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
+      df$Fleet_name   <- rep(cd$Fleet_name, times = n_bin)
+      df$Species      <- rep(cd$Species,    times = n_bin)
+      df$Sex          <- rep(if (!is.null(cd$Sex)) cd$Sex else NA_integer_,
+                             times = n_bin)
+      df$Year         <- rep(cd$Year,       times = n_bin)
+      df$Bin          <- rep(bin_vals, each = n_obs)
+      df$Age0_Length1 <- rep(a0l1, times = n_bin)
+      df$Sample_size  <- rep(cd$Sample_size, times = n_bin)
+      df$Observed     <- as.numeric(obs_prop)
+      df$Fitted       <- as.numeric(hat_prop)
+    } else {
+      df <- empty_row(length(folded$obs))
+      df$Source       <- "comp"
+      df$Fleet_code   <- cd$Fleet_code[folded$row]
+      df$Fleet_name   <- cd$Fleet_name[folded$row]
+      df$Species      <- cd$Species[folded$row]
+      df$Sex          <- if (!is.null(cd$Sex)) cd$Sex[folded$row] else NA_integer_
+      df$Year         <- cd$Year[folded$row]
+      df$Bin          <- folded$bin
+      df$Age0_Length1 <- a0l1[folded$row]
+      df$Sample_size  <- cd$Sample_size[folded$row]
+      df$Accumulated  <- folded$acc
+      df$Observed     <- folded$obs
+      df$Fitted       <- folded$hat
+    }
     df$Residual     <- if (type == "pearson")
       .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
     else df$Observed - df$Fitted
@@ -450,6 +493,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
              !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
+    # The TMB composition guard is Neff > 0, so a row with Sample_size 0 enters
+    # no likelihood and must not get a residual. The OSA path already excludes
+    # them; this is the same rule on the Pearson side.
+    df <- df[is.finite(df$Sample_size) & df$Sample_size > 0, , drop = FALSE]
     out$comp <- df
   }
 
@@ -489,6 +536,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
              !(df$Observed == 0 & df$Fitted == 0), , drop = FALSE]
+    df <- df[is.finite(df$Sample_size) & df$Sample_size > 0, , drop = FALSE]
     out$caal <- df
   }
 
@@ -510,6 +558,137 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+#' Fold composition proportions onto the bins the likelihood actually fit
+#'
+#' Tail accumulation (`Comp_accum_young` / `Comp_accum_old`) folds a
+#' composition's tails into a boundary bin and fits only `[yng, old]`, per fleet
+#' and per sex block. A residual taken on the unfolded row therefore describes
+#' bins the model never fit separately.
+#'
+#' Reuses [build_osa_data()]'s fold, so the Pearson and OSA residuals of a fleet
+#' cover the same bins with the same labels.
+#'
+#' @param d The model's `data_list`.
+#' @param cd Its `comp_data`.
+#' @param obs_prop,hat_prop Observed / predicted proportions, `[row, bin]`.
+#' @param a0l1 Per-row `Age0_Length1` (0 = age bins, 1 = length bins).
+#' @param n_bin Number of bin columns, including any joint-sex doubling.
+#' @return `NULL` when no fleet accumulates (the caller keeps its vectorized
+#'   path); otherwise a list of equal-length vectors `row` (index into `cd`),
+#'   `bin` (the ordinal each value stands for), `obs`, `hat`, and `acc` (whether
+#'   the bin absorbed a folded tail).
+#' @keywords internal
+#' @noRd
+.fold_comp_props <- function(d, cd, obs_prop, hat_prop, a0l1, n_bin) {
+  acc_y <- d$comp_accum_young
+  acc_o <- d$comp_accum_old
+  if (is.null(acc_y)) acc_y <- d$fleet_control$Comp_accum_young
+  if (is.null(acc_o)) acc_o <- d$fleet_control$Comp_accum_old
+  if (is.null(acc_y) && is.null(acc_o)) return(NULL)
+
+  nages    <- d$nages
+  nlengths <- d$nlengths
+  fleets   <- cd$Fleet_code
+  sexes    <- if (!is.null(cd$Sex)) cd$Sex else rep(NA_integer_, nrow(cd))
+
+  # Per-row window, clamped exactly as build_osa_data() and the cpp do.
+  win <- lapply(seq_len(nrow(cd)), function(r) {
+    flt <- fleets[r]
+    sp  <- cd$Species[r]
+    nb  <- if (isTRUE(a0l1[r] == 1)) nlengths[sp] else nages[sp]
+    if (is.na(nb) || nb < 1L) nb <- n_bin
+    yng <- if (!is.null(acc_y)) acc_y[flt] else 1L
+    old <- if (!is.null(acc_o)) acc_o[flt] else 0L
+    if (is.na(yng) || yng < 1L) yng <- 1L
+    if (is.na(old) || old < 1L || old > nb) old <- nb
+    if (yng > old) yng <- old
+    list(nb = nb, yng = yng, old = old,
+         blk = if (isTRUE(sexes[r] == 3)) 2L else 1L)
+  })
+  if (!any(vapply(win, function(w) w$yng > 1L || w$old < w$nb, logical(1)))) {
+    return(NULL)   # nothing folds: leave the caller's fast path alone
+  }
+
+  parts <- lapply(seq_len(nrow(cd)), function(r) {
+    w <- win[[r]]
+    n_use <- w$blk * w$nb
+    # A row declaring more bins than it has columns is inconsistent, and
+    # data_check() is where that is judged. Report its raw bins rather than
+    # index past the end.
+    if (n_use > n_bin) {
+      o <- as.numeric(obs_prop[r, seq_len(n_bin)])
+      h <- as.numeric(hat_prop[r, seq_len(n_bin)])
+      return(list(row = rep(r, n_bin), bin = seq_len(n_bin),
+                  obs = o, hat = h, acc = rep(FALSE, n_bin)))
+    }
+    o <- as.numeric(obs_prop[r, seq_len(n_use)])
+    h <- as.numeric(hat_prop[r, seq_len(n_use)])
+    does_fold <- w$yng > 1L || w$old < w$nb
+    if (does_fold) {
+      o <- .fold_comp_bins(o, w$nb, w$blk, w$yng, w$old)
+      h <- .fold_comp_bins(h, w$nb, w$blk, w$yng, w$old)
+    }
+    keep <- seq.int(w$yng, w$old)
+    bin  <- rep((seq_len(w$blk) - 1L) * w$nb, each = length(keep)) +
+      rep(keep, times = w$blk)
+    # Only the boundary bins absorbed a tail, so only they cover more than the
+    # age they are named for.
+    acc1 <- rep(FALSE, length(keep))
+    if (does_fold) {
+      if (w$yng > 1L)     acc1[1] <- TRUE
+      if (w$old < w$nb)   acc1[length(acc1)] <- TRUE
+    }
+    list(row = rep(r, length(o)), bin = bin, obs = o, hat = h,
+         acc = rep(acc1, times = w$blk))
+  })
+
+  list(row = unlist(lapply(parts, `[[`, "row"), use.names = FALSE),
+       bin = unlist(lapply(parts, `[[`, "bin"), use.names = FALSE),
+       obs = unlist(lapply(parts, `[[`, "obs"), use.names = FALSE),
+       hat = unlist(lapply(parts, `[[`, "hat"), use.names = FALSE),
+       acc = unlist(lapply(parts, `[[`, "acc"), use.names = FALSE))
+}
+
+
+# Confidence bounds for a derived series, shared by as.data.frame.Rceattle()
+# and plot_timeseries() so the table and the figure cannot disagree.
+#
+# A strictly positive series takes its interval on the log scale,
+# exp(log(x) +/- z * sd_log). These series are built multiplicatively
+# (R = R0 * exp(rec_dev); n-at-age is a product of survivals), so log(x) is
+# close to linear in the estimated parameters where x itself is exponential --
+# which is the approximation sdreport() actually makes. The interval is
+# right-skewed and cannot cross zero the way the symmetric one does for a weak
+# year class or a depleted stock.
+#
+# `log_sd` is the model's own sd(log x) where it ADREPORTed one. Where it did
+# not -- exploitable biomass and the depletions cannot be logged on the tape,
+# and fits predating v5.8.0 have no log_* rows -- it is recovered from the
+# delta-method identity sd(log x) = sd(x) / x. Where x is not positive the
+# quotient is undefined and the symmetric interval stands; the series is
+# degenerate there anyway.
+.rce_ci_bounds <- function(value, sd, log_sd = NA_real_, z = stats::qnorm(0.975)) {
+  n <- length(value)
+  sd     <- rep_len(sd, n)
+  log_sd <- rep_len(log_sd, n)
+
+  positive <- !is.na(value) & value > 0
+  derive   <- is.na(log_sd) & !is.na(sd) & positive
+  log_sd[derive] <- sd[derive] / value[derive]
+
+  lwr <- value - z * sd
+  upr <- value + z * sd
+
+  use_log <- !is.na(log_sd) & positive
+  if (any(use_log)) {
+    mu <- log(value[use_log])
+    lwr[use_log] <- exp(mu - z * log_sd[use_log])
+    upr[use_log] <- exp(mu + z * log_sd[use_log])
+  }
+  list(lwr = as.numeric(lwr), upr = as.numeric(upr))
+}
+
+
 # Catalogue of derived quantities that as.data.frame.Rceattle() can extract,
 # keyed by REPORT name, with their shape: "sy" = matrix(nspp, nyrs);
 # "ssay" = array(nspp, max_sex, max_age, nyrs). Quantities that are also
@@ -519,14 +698,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   biomass             = list(shape = "sy",   adreport = TRUE),
   ssb                 = list(shape = "sy",   adreport = TRUE),
   R                   = list(shape = "sy",   adreport = TRUE),
-  biomass_depletion   = list(shape = "sy",   adreport = FALSE),
-  ssb_depletion       = list(shape = "sy",   adreport = FALSE),
+  biomass_depletion   = list(shape = "sy",   adreport = TRUE),
+  ssb_depletion       = list(shape = "sy",   adreport = TRUE),
   B0                  = list(shape = "sy",   adreport = FALSE),
   SB0                 = list(shape = "sy",   adreport = FALSE),
   DynamicB0           = list(shape = "sy",   adreport = FALSE),
   DynamicSB0          = list(shape = "sy",   adreport = FALSE),
   DynamicSBF          = list(shape = "sy",   adreport = FALSE),
-  exploitable_biomass = list(shape = "sy",   adreport = FALSE),
+  exploitable_biomass = list(shape = "sy",   adreport = TRUE),
   F_spp               = list(shape = "sy",   adreport = FALSE),
   N_at_age            = list(shape = "ssay", adreport = FALSE),
   biomass_at_age      = list(shape = "ssay", adreport = FALSE),
@@ -557,9 +736,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #'
 #' Standard errors (`se`) and confidence intervals (`lwr`, `upr`) are
 #' populated from the TMB `sdreport` for any quantity that was
-#' `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other quantities and
-#' fits produced with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`.
-#' Set `ci_level` to widen or narrow the band.
+#' `ADREPORT`'d (`biomass`, `ssb`, `R`, `exploitable_biomass`,
+#' `biomass_depletion`, `ssb_depletion`); other quantities and fits produced
+#' with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`. Set `ci_level` to
+#' widen or narrow the band.
+#'
+#' A strictly positive series takes its interval on the log scale, so it is
+#' right-skewed and cannot reach zero. This is the same construction
+#' [plot_timeseries()] draws, so the table and the figure agree.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param row.names,optional Ignored; present for the [as.data.frame()] generic.
@@ -643,7 +827,8 @@ as.data.frame.Rceattle <- function(x,
       mat <- as.matrix(arr)
       if (length(dim(mat)) != 2 ||
           dim(mat)[1] != nspp || dim(mat)[2] != nyrs) next
-      sd_mat <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
+      sd_mat  <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
+      lsd_mat <- if (spec$adreport) sd_lookup(paste0("log_", qn), dim(mat)) else NULL
       grid <- expand.grid(species_idx = seq_len(nspp),
                           year_idx    = seq_len(nyrs),
                           KEEP.OUT.ATTRS = FALSE,
@@ -651,6 +836,8 @@ as.data.frame.Rceattle <- function(x,
       cell <- cbind(grid$species_idx, grid$year_idx)
       val  <- mat[cell]
       sdv  <- if (!is.null(sd_mat)) sd_mat[cell] else NA_real_
+      lsd  <- if (!is.null(lsd_mat)) lsd_mat[cell] else rep(NA_real_, length(val))
+      bnds <- .rce_ci_bounds(val, sdv, lsd, z)
       out[[qn]] <- data.frame(
         year     = yrs[grid$year_idx],
         species  = spnames[grid$species_idx],
@@ -659,8 +846,8 @@ as.data.frame.Rceattle <- function(x,
         quantity = qn,
         value    = as.numeric(val),
         se       = as.numeric(sdv),
-        lwr      = as.numeric(val - z * sdv),
-        upr      = as.numeric(val + z * sdv),
+        lwr      = bnds$lwr,
+        upr      = bnds$upr,
         stringsAsFactors = FALSE
       )
     } else if (spec$shape == "ssay") {

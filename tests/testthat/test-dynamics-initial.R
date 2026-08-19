@@ -10,9 +10,10 @@ testthat::test_that("Invalid initMode", {
   #source(file.path("tests", "testthat", "helpers.R"))
   dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
 
-  # Run
+  # initMode = 5 is now a valid mode (OffsetEquilibrium); 6 is out of the 0:5
+  # range and must error.
   testthat::expect_error( Rceattle::fit_mod(data_list = dat,
-                                              initMode = 5,
+                                              initMode = 6,
                                               estimateMode = 3)
   )
 

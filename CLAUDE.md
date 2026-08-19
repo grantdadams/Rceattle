@@ -22,6 +22,19 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **Editing `src/TMB/*.cpp` or `*.hpp` has no effect until you reload** — `load_all()`
   recompiles via `src/TMB/compile.R`; add `compile = FALSE` for R-only changes. Compiled
   artifacts (`*.o` ~77 MB, `*.so`) are gitignored — never commit them.
+- **Dev builds are compiled at `-O2` (fast), not pkgbuild's default `-O0`.** The repo
+  `.Rprofile` sets `options(pkg.build_extra_flags = FALSE)`, so `load_all()` compiles the TMB
+  model with the same optimization as a production `R CMD INSTALL` — `fit_mod()` runs ~10x
+  faster than an unoptimized debug build, bit-identically (measured).
+  A normal install was always `-O2`; only `load_all` was `-O0`. To debug the C++ line-by-line
+  (gdb/lldb), start R with `RCEATTLE_DEBUG_CPP=1` to restore the `-O0` build. **Any absolute fit
+  timing must state its build** — an `-O0` number overstates real cost ~10x.
+- **After a `.cpp`/`.hpp` edit, recompile before testing and run the suite serially.**
+  `DESCRIPTION` sets `Config/testthat/parallel: true`, and the parallel workers cannot load
+  a freshly rebuilt DLL — `devtools::test()` aborts before running anything with
+  `testthat subprocess failed to start … getDLLRegisteredRoutines.DLLInfo`. That is a
+  toolchain failure, not a test failure. Run `pkgload::load_all(".")` first, then test with
+  `TESTTHAT_PARALLEL=false`. (`test-coverage.yaml` forces serial for a related reason.)
 - **Tests** run with `NOT_CRAN=true`. To run one file ad-hoc, make the env's parent the
   package namespace so internal (non-exported) helpers resolve, then source the shared
   helpers into it:
@@ -32,9 +45,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   plain `R CMD check` / `devtools::test()` stay fast (only `NOT_CRAN=true` runs them); leave
   fast unit tests unguarded.
 - CI = `.github/workflows/R-CMD-check.yaml` (r-lib actions, multi-OS matrix) +
-  `pkgdown.yaml`. There is **no lint config** and no coverage gate.
+  `pkgdown.yaml` + `test-coverage.yaml`. There is **no lint config** and no coverage gate.
+  `pkgdown.yaml` runs on push to `main` and on PRs targeting `main` — **not** on `dev`, so a
+  pkgdown break only surfaces once the PR is open.
 - **Slash commands** wrap these: `/recompile`, `/test [file]`, `/document`, `/check`,
-  `/golden-check` (defined in `.claude/commands/`).
+  `/golden-check` (local, not tracked in the repo).
 
 ## Layout
 
@@ -42,7 +57,7 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `1-*` data checks, `2..5-*` params/map/bounds/rearrange, `6-*` fit + rename output,
   `7-*` plotting, `8-*` sim, `9-*` retro/jitter, `10-*` MSE, `11-*` model averaging.
   **The numeric prefixes are meaningful — don't renumber or rename wholesale.**
-- **`src/TMB/`** — `ceattle_v01_11.cpp` is the main model (~3,810 lines, numbered section
+- **`src/TMB/`** — `ceattle.cpp` is the main model (~3,810 lines, numbered section
   index); process logic lives in headers (`recruitment.hpp`, `selectivity.hpp`,
   `predation.hpp`, `growth.hpp`, `linkage.hpp`, `comp_osa.hpp`, `helper_functions.hpp`,
   `bioenergetics.hpp`, `diet_data.hpp`).
@@ -60,10 +75,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 
 - **Commits: plain messages, no AI-attribution / `Co-Authored-By` trailer.**
 - Roxygen uses markdown; run `devtools::document()` after touching `@`-docs. **Trap:** the
-  repo was documented with roxygen2 7.3.3 (`DESCRIPTION: RoxygenNote: 7.3.3`), but a newer
-  local roxygen2 (e.g. 8.0.0) rewrites *every* `man/*.Rd` and swaps `RoxygenNote:` for
-  `Config/roxygen2/version:` — a huge spurious diff. After `document()`, `git checkout`
-  the unrelated `man/` + `DESCRIPTION` churn and keep only the `.Rd` you meant to change.
+  repo is documented with roxygen2 **8.1.0** (`DESCRIPTION: Config/roxygen2/version`).
+  A *different* local roxygen2 rewrites *every* `man/*.Rd` — an older one also swaps the
+  key back to the legacy `RoxygenNote:`, leaving both present and contradicting each other.
+  After `document()`, check `git diff DESCRIPTION` first: if the version key moved, the
+  `man/` churn is the version, not your change. Either regenerate everything under one
+  version deliberately, or `git checkout` the unrelated churn and keep only the `.Rd` you
+  meant to change.
   Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no `.Rd`.
   **Second trap:** never insert a helper between a function's roxygen block and its
   definition. Contiguous `#'` lines are ONE block and bind to whichever object follows, so
@@ -79,9 +97,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   Doxygen-documented header to emulate) and any `R/*.R` + its `tests/testthat/*` pair. The
   codebase favors explanatory section headers and Doxygen on the C++ — match local comment
   density; don't strip comments.
-- **`jnll_comp` likelihood rows are magic integers** in `ceattle_v01_11.cpp`; their names
-  live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by hand.
-  If you add/reorder a likelihood component, update both.
+- **`jnll_comp` likelihood rows are addressed by the `JnllRow` enum** in
+  `ceattle.cpp` (`JNLL_INDEX`=0 … `JNLL_LINKAGE_RE`=20, `JNLL_N_ROWS` dimensions
+  the matrix) — refer to a row by its constant, never a bare integer. Their **display
+  names** live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by
+  hand. If you add/reorder a likelihood component, update both the enum and the name vector.
 - **Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
   `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the
   group, so any per-fleet setting that differs within a group is silently taken from the
@@ -102,6 +122,12 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
 - **A new `data_list` element needs `write_data()` / `read_data()` support too**, or it
   round-trips to nothing and the feature is silently lossy through the standard xlsx
   format — this is how `index_cov` was lost.
+- **A new `fleet_control` column is defined once, in `R/0-column_schema.R`.**
+  `.rce_column_schema()` is the single source of truth: its rows drive `switch_check()`
+  defaults, `write_data()`/`read_data()` ordering, the meta sheet, the field dictionary,
+  and (via `aliases`) the auto-upgrade of older column spellings on every entry into the
+  pipeline. Add the column there and consume it by its **canonical** name — don't hardcode
+  a default or a column order anywhere else. `test-schema-canonical.R` pins the aliases.
 - **A slow fit is the model, not a regression.** A full `BS2017SS`
   `estimateMode = 0, phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for
   phasing, +~14 s for `sdreport`. That single fit has needed ~500–700 `nlminb` iterations
@@ -122,8 +148,65 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `loopnum`, `newtonsteps`, `getJointPrecision`). Pass `getsd = FALSE` for fast dev/test fits
   (skips `sdreport`) — but then `sdrep` is NULL, so `vcov()` returns NULL and uncertainty
   bands are NA.
+- **The diagnostic *refit* paths go through `.refit_like()` (`R/6-refit_like.R`) and are
+  NOT covered by `/golden-check`.** Eight entry points re-invoke `fit_mod()` via this one
+  helper — `retrospective()`, `jitter()`, `self_test()`, `profile()`, `run_mse()`,
+  `remove_F()`, `sample_rec()`, and `reweight_comps()` — which rebuilds the HCR / SR / M1 /
+  growth specs from a source `data_list` and exposes each per-caller divergence as a named
+  override. The four golden models exercise none of these paths, so a change that could move
+  a refit needs `tools/verify/verify-refit-like.R` (before/after bit-identity, including a
+  multispecies MSE) — golden-check alone proves nothing here. **That harness covers six of
+  the eight**: `sample_rec(update_model = TRUE)` and `reweight_comps()` are not in it and
+  must be checked by hand.
+- **`run_mse()` pins the OM's stock-recruit and suitability reference windows to the
+  pristine `om$`** (not the advancing `om_use$`) so the hindcast does not drift through the
+  projection — essential for multispecies, whose predation suitability must stay fixed. In
+  `.refit_like()` these are the `srr_mse_switchyr` / `srr_hat_styr` / `srr_hat_endyr` /
+  `suit_styr` / `suit_endyr` overrides; the EM instead advances `srr_mse_switchyr` to its
+  current assessment `endyr` each iteration. The invariant (MSE must not perturb the
+  hindcast, under any `simulate_data` / `sample_rec`) is checked by
+  `tools/verify/verify-mse-hindcast-invariant.R`.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
+
+## Data assembly, configuration & the linkage grammar
+
+Three subsystems sit in front of `fit_mod()`. The **developer guide**
+(`vignettes/articles/developer-guide.Rmd`) is the deep-dive; the load-bearing facts:
+
+- **Assembling / editing a `data_list` in R:** `build_data()` + `model_config()`
+  (`R/0-build_data.R`) supply only what a configuration uses and print the model as a
+  readable outline; `data_requirements()` (`R/1-data_requirements.R`, table in
+  `R/1-data_requirements_table.R`) reports required/optional/ignored inputs *before*
+  fitting; `write_template()` writes a blank correctly-shaped workbook. All of this reads
+  the column schema (above) — the schema is authoritative, not these callers.
+- **Run configuration:** `save_config()` / `load_config()` / `run_config()`
+  (`R/0-save_config.R`) round-trip the full model + estimation + `fit_control()` setup to a
+  commented, default-omitting **YAML** file. Apply with
+  `fit_mod(data_list, config = load_config("run.yaml"))` — it fills only the args the caller
+  didn't pass (**explicit args always win**), and every fit records its own config in
+  `fit$run_config`. Formulas, `Rceattle_prior` objects, and nested `build_*()` specs all
+  serialize, so a saved config reproduces a non-default fit bit-identically.
+- **Linkage & priors grammar:** one formula system (`R/0-build_linkage.R`,
+  `linkage_encode.R`, `linkage_table.R`, `R/0-priors.R`) covers time-varying / covariate /
+  random-effect / prior structure on **every** process — recruitment, M, growth,
+  catchability, selectivity, and (prior-only) Dirichlet-multinomial composition weights —
+  attached through the `build_*()` constructors via `linkage_spec(formula, by, init,
+  priors, est_phase)`. RHS forms: covariate (`~ temp`), time block (`~ cut(Year, ...)`;
+  the fixed part is passed straight to `model.matrix()`, so there is no bespoke
+  `block()` helper),
+  random effect (`~ (1|Year)` IID, `rw()`, `ar1()`), or `~ 1` + `priors` for an
+  intercept-only prior (keyed `` `(Intercept)` ``). A **prior on a selectivity /
+  catchability / DM parameter** is the `~ 1` case. Inside `priors =`, the bare `normal()` /
+  `lognormal()` / `gamma()` / `beta()` resolve to the `prior_*()` constructors via a data
+  mask — intentional, don't "fix" them.
+- **C++ side of linkages:** `linkage.hpp` holds five per-process accumulators
+  (`rceattle_apply_{growth,M,recruitment,q,sel}_linkages`) whose process/param codes are in
+  **lockstep with `R/0-linkage_encode.R`** — change one, change both. Each REPORTs a
+  `*_linkage_offset` tensor; the constructive linkage tests
+  (e.g. `test-dynamics-recruitment-linkage.R`) pin those offsets, so they — not
+  `/golden-check` (whose 4 models carry no linkage rows) — are the regression net for any
+  linkage-path edit.
 
 ## Domain vocabulary (use these exact terms in plots/docs/messages)
 
@@ -180,7 +263,27 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
 
 ## Active context
 
-A multi-PR accessibility / code-review refactor is **planned but paused** (branch
-`accessibility-and-code-review`). The self-contained plan and locked decisions are in
-`~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming
-that work; do not start editing from scratch.
+- **The 5.6.1 release (`dev` → `main`, PR #106).** `main` released through 4.9.1; `dev`
+  carries everything from 4.10.0 onward — the linkage grammar, column schema,
+  `build_data()`/`model_config()`, `save_config()`/`load_config()` + `fit_mod(config=)`,
+  the `JnllRow` enum, `build_growth(sd_plus_group=)`, the `mse_summary()` per-entity
+  reshape, the `.refit_like()` collapse, `reweight_comps()`, and the recruitment /
+  stock-recruit work. Roadmap and historical record: the commit log and `NEWS.md`.
+  Planning documents are kept locally under the untracked `dev/`.
+  - **Three version gaps are deliberate, not lost entries.** `4.14.0` was a real
+    `DESCRIPTION` version whose NEWS was folded into the 5.0.0 section; `5.2.0`–`5.2.4`
+    likewise folded into 5.3.0; and `main`'s 4.9.0 / 4.9.1 are the same recruitment
+    changes this line carries as 5.5.0 / 5.5.1, applied to both lines separately. Nothing
+    was dropped, and no tag existed above 4.8.0 while these were in flight, so nobody
+    could have installed an intermediate. Note the folding rather than renumbering.
+  - **Result-changing changes that are not labelled breaking** — the mode-5 selectivity
+    penalty fix (GOA Pacific cod SSB 2050 −14.1%), parameter bounds previously applied to
+    the wrong parameters, composition weights warm-starting from `inits`, failed
+    `run_mse()` simulations returning only a marker, the `mse_summary()` reshape, the
+    recruitment fixes (`initMode = 0` random effects, the α-seeding fix, the Ianelli
+    steepness prior), and `sim_mod()` drawing the index under the fleet's own
+    `Index_distribution`. A model carrying GOA numbers forward needs a refit.
+- **Older paused work:** a multi-PR accessibility / code-review refactor (branch
+  `accessibility-and-code-review`), plan in
+  `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
+  do not start from scratch.

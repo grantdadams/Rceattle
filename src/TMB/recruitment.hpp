@@ -58,14 +58,12 @@ Type calculate_recruitment(int srr_fun,
     R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
     // Recruitment depends only on alpha, beta and SSB. The implied unfished
     // recruitment is derived by the caller, which guards the log() with posfun().
-
     break;
 
   case 5: // Ricker with environmental impacts on alpha
     R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
     // Recruitment depends only on alpha, beta and SSB. The implied unfished
     // recruitment is derived by the caller, which guards the log() with posfun().
-
     break;
 
   default:
