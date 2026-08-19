@@ -383,11 +383,27 @@ quantity they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`,
 `plot_stock_recruit`, `plot_timeseries`. Most accept a single fitted
 model or a list of models with `model_names`.
 
-These are built with **ggplot2** (colorblind-safe viridis palette,
-`theme_classic`) and **return the `ggplot` object**, so they print when
-called interactively and can be further customized by adding ggplot2 layers
+These are built with **ggplot2** (colorblind-safe Okabe-Ito palette for
+discrete series, viridis for continuous ones, `theme_classic`) and **return
+the `ggplot` object**, so they print when called interactively and can be
+further customized by adding ggplot2 layers
 (e.g. `plot_biomass(fit) + ggplot2::ggtitle("My title")`). Pass `file = "stem"`
 to also write the figure to `stem_<plot>.png`.
+
+**Display units.** The model works in mt and thousands of fish: numbers-at-age
+are in thousands and weight-at-age in kg, so biomass and SSB come out in mt and
+recruitment in thousands of fish. The timeseries plotters rescale to
+`million mt` and `millions` for the axis, and derive the recruitment age from
+`minage` rather than assuming age 1. Supply the model's inputs on that
+convention -- catch and index in mt, weight-at-age in kg -- or the axis labels
+will not describe what is plotted. Pass `ylab` to override the derived label.
+
+**Confidence intervals.** `add_ci = TRUE` draws a 95% interval. Strictly
+positive series take it on the log scale, `exp(log(x) ± 1.92 · sd_log)`, using
+the model's `log_biomass` / `log_ssb` / `log_R` where they exist and the
+delta-method identity `sd(log x) = sd(x)/x` where they do not. The interval is
+therefore right-skewed and cannot reach zero for a weak year class or a
+depleted stock. See `?plot_timeseries` for the full derivation.
 
 ## References
 

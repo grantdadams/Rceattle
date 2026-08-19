@@ -24,9 +24,9 @@
 #' \item{estDynamics}{Estimate or fix numbers-at-age. Accepts integer codes or the equivalent readable strings: 0 / "Estimated" = estimate dynamics; 1 / "Fixed" = use input numbers-at-age in NByageFixed; 2 / "FixedScaled" = multiply input numbers-at-age (NByageFixed) by a single scaling coefficient; 3 / "FixedScaledByAge" = multiply input numbers-at-age (NByageFixed) by an age-specific scaling coefficient.}
 #' \item{M1_model}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1.}
 #' \item{fleet_control}{Survey and fishery data specifications}
-#' \item{index_data}{Survey index in weight (kg) or numbers data}
+#' \item{index_data}{Survey index in weight (mt) or numbers (thousands of fish) data}
 #' \item{index_cov}{Optional named list of survey-index variance-covariance matrices, keyed by Fleet_name (or Fleet_code), used only by fleets whose fleet_control \code{Index_distribution == "MVN"}. Each matrix must be square and symmetric with dimension equal to the number of fitted survey observations for that fleet (Year in \code{styr:endyr}, Observation > 0), ordered as in index_data. Inverted once internally to the precision matrix used in 0.5 * r' Sigma^-1 r. Leave unset for the default lognormal likelihood.}
-#' \item{catch_data}{Total catch in weight (kg) or numbers data}
+#' \item{catch_data}{Total catch in weight (mt) or numbers (thousands of fish) data}
 #' \item{comp_data}{Survey/fishery age or length composition data. Note if sex is 3, put female composition data then male composition data (similar to SS).}
 #' \item{emp_sel}{Empirical/fixed selectivity for surveys and fisheries (leave empty if not used)}
 #' \item{age_trans_matrix}{Age transition matrix (e.g. growth trajectory) used to convert age to length for length comp data. Can have multiple matrices for a species specified by Age_transition_index.}
@@ -82,9 +82,8 @@
 #'   an absolute age for an age-based fleet (6 means age 6, not the 6th bin) or a
 #'   1-based length-bin ordinal for a length-based one. NA (default) does not
 #'   normalize; a value < 0 normalizes by the maximum. In a two-sex model this
-#'   also sets the relative scaling between sexes: < 0 takes the maximum jointly
-#'   across bins and sexes (relative sex selectivity retained), >= 0 normalizes
-#'   each sex separately at that bin (only the shape differs by sex), NA leaves
+#'   says only where the reference is taken -- whether it is pooled across the
+#'   sexes is \code{Sel_norm_scope}. NA does not normalize either way, leaving
 #'   the relative scale free. See the sex-structure section of
 #'   \code{vignette("model-options-and-functionality")}.}
 #' \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
@@ -96,7 +95,7 @@
 #'   less-selected sex stays below 1 and relative sex-specific selectivity is
 #'   retained. No effect on a one-sex species or where \code{Sel_norm_bin} is
 #'   NA.}
-#' \item{Observation_units}{Units of the observation: 1 = weight (kg), 2 = numbers caught. Drives both catch and index prediction.}
+#' \item{Observation_units}{Units of the observation: 1 = weight (mt), 2 = numbers caught (thousands of fish). Drives both catch and index prediction.}
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 #' \item{Catchability_index}{index to use if catchability coefficients are to be set the same.}

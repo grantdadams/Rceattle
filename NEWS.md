@@ -44,8 +44,8 @@
   interval did for weak year classes and depleted stocks. The log-scale SD is
   also the CV, the form the ABC / OFL buffer calculations want. Natural-scale
   `biomass`, `ssb` and `R` are still ADREPORTed, so existing callers of
-  `sdrep$value` are unaffected; models fit before this release have no `log_*`
-  series and fall back to the symmetric interval.
+  `sdrep$value` are unaffected. Models fit before this release have no `log_*`
+  rows, but still get the log-scale interval -- see below.
 
 * **The `plot_*()` timeseries wrappers take a `ylab` argument.** It is appended
   to the argument list, not inserted, so positional calls are unaffected. Left
@@ -81,6 +81,27 @@
 
 ## Bug fixes
 
+* **`rearrange_data()` and `data_check()` work again on a `fleet_control` that
+  has not been through `switch_check()`.** `Sel_norm_scope` was read with no
+  missing-column guard, so a data list read straight from a workbook failed with
+  a cryptic "column not found". It and `Index_distribution` are now filled from
+  the column schema. A blank `Sel_norm_scope` cell is filled too -- an `NA`
+  reached TMB as `NA_integer_`, which the C++ reads as `WithinSex`, the opposite
+  of the default.
+
+* **The `Sel_norm_scope` behaviour-change notice fires only where it applies.**
+  It was skippable (leaving one cell blank flipped that fleet silently) and it
+  fired on Hake and LogisticPM fleets, which use `Sel_norm_bin` as a penalty
+  age-range rather than a normalization reference, and on `Off` fleets. The gate
+  now matches the one in `selectivity.hpp`.
+
+* **A one-species plot drops the redundant species strip, and absolute y-scales
+  start at zero** so panel heights are comparable. Depletion and other relative
+  series are unaffected.
+
+* **Diet defaults are announced only when the model reads them**, so a
+  single-species fit no longer reports settings it never uses.
+
 * **`model_config()` names the mistake when handed a `data_list`.** It takes
   model settings, not data, but almost every other entry point takes a
   `data_list` first -- so `model_config(my_data)` bound the list to `msmMode` and
@@ -114,16 +135,23 @@
 ## Documentation
 
 * **How sex-specific selectivity works is now documented.** Every selectivity
-  form is sex-specific by default in a two-sex model, and `Sel_norm_bin` decides
-  whether the *relative* scale between sexes survives: `< 0` normalizes by the
-  maximum jointly across bins and sexes (relative sex selectivity retained),
-  `>= 0` normalizes each sex separately at that bin (only the shape differs by
-  sex), `NA` does not normalize. Relative sex selectivity is only informed where
-  the composition is joint (`comp_data$Sex = 3`); sex-specific rows each sum to
-  1 and carry no sex-ratio information, and `Selectivity = "Hake"` always
-  normalizes within sex regardless. New "Sex structure and relative selectivity"
-  section in `vignette("model-options-and-functionality")`, with the details on
-  the `Sel_norm_bin` field dictionary entry.
+  form is sex-specific by default in a two-sex model. `Sel_norm_bin` says only
+  *where* the normalization reference is taken; whether the *relative* scale
+  between sexes survives is `Sel_norm_scope` (above). Relative sex selectivity
+  is only informed where the composition is joint (`comp_data$Sex = 3`);
+  sex-specific rows each sum to 1 and carry no sex-ratio information, and
+  `Selectivity = "Hake"` always normalizes within sex regardless of either
+  column. New "Sex structure and relative selectivity" section in
+  `vignette("model-options-and-functionality")`, with the details on the
+  `Sel_norm_bin` and `Sel_norm_scope` field dictionary entries.
+
+* **The mt / thousands-of-fish convention is now stated consistently.** The
+  `biomass` / `ssb` / `catch_hat` declarations in `ceattle.cpp`, the
+  `index_data` / `catch_data` / `Observation_units` field dictionary entries and
+  the Stock Synthesis catch-conversion table all said kg. Section 12 of
+  `vignette("model-options-and-functionality")` now covers the display units,
+  `ylab` and the log-scale intervals, and names the discrete palette correctly
+  (Okabe-Ito, not viridis).
 
 * `Sel_norm_bin` and `Sel_norm_bin_upper` now say that they are bin indices on
   the fleet's own `Selectivity_dimension` -- an absolute age for an age-based
@@ -147,6 +175,18 @@
 # Rceattle 5.7.0
 
 ## Breaking changes
+
+* **The remaining bundled datasets use the canonical `fleet_control` column
+  names.** The 4.10.0 renames (`Q_prior` -> `Catchability_init`,
+  `Comp_loglike` -> `Comp_distribution`, ...) had reached `BS2017SS`,
+  `BS2017MS` and `GOA2018SS` only; `Atka2022`, `GOA2018SS`, `GOAatf`,
+  `GOAatf2023`, `GOAcod`, `GOApollock`, `GeorgesBank3spp`,
+  `NorthernRockfish2022` and `whamGrowthData` still shipped the legacy
+  spellings, so loading one printed a dozen upgrade messages. A script reading a
+  legacy name off one of these objects directly -- e.g.
+  `GOApollock$fleet_control$Comp_loglike` -- now gets `NULL`. Use the canonical
+  name; a workbook on disk still reads fine, since the aliases are upgraded on
+  read.
 
 * **`mse_summary()`'s metric columns now have syntactic names.** They were
   display strings held together by `check.names = FALSE`, so reading one meant

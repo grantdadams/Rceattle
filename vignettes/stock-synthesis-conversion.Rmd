@@ -70,7 +70,7 @@ SS catch data → Rceattle `catch_data` sheet:
 | `year` | `Year` | |
 | `seas` | `Month` | Currently informational; Baranov is annual |
 | `fleet` | `Fleet_code` | Re-map if the codes differ from SS |
-| `catch` | `Catch` | Units flexible (typically 1000 mt) |
+| `catch` | `Catch` | Convert to mt -- Rceattle works in mt and thousands of fish throughout (see `?plot_timeseries`) |
 | `catch_se` | `Log_sd` | Lognormal F-dev SD |
 
 ## Survey indices
