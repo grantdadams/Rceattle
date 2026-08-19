@@ -167,7 +167,7 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   testthat::expect_equal(S3[nyrs + 1L, 1L], 0)                               # no spurious cross term
 })
 
-testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an absolute sd", {
+testthat::test_that("Normal index likelihood is the natural-scale normal truncated at zero", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -183,8 +183,14 @@ testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an
   rep <- fit$obj$report(); td <- fit$obj$env$data
   sel <- which(td$index_ctl[, 1] == 1 & td$index_ctl[, 3] > 0 &
                  td$index_ctl[, 3] <= td$endyr & td$index_obs[, 1] > 0)
-  # 0.5*(obs - q*pred)^2 / sd^2 + normalizing constant = -sum dnorm(obs, pred, sd)
-  ll_R <- -sum(dnorm(td$index_obs[sel, 1], rep$index_hat[sel], 20, log = TRUE))
+  # An index cannot be negative and data_check() will not accept one, so the
+  # support is (0, Inf) and the density is renormalized over it:
+  #   -log f(x) = -log phi(x; mu, sd) + log Phi(mu / sd)
+  # The second term is what makes this a density over the values the data can
+  # actually take, and what lets the simulator draw from the same distribution
+  # the likelihood scores.
+  ll_R <- -sum(dnorm(td$index_obs[sel, 1], rep$index_hat[sel], 20, log = TRUE)) +
+    sum(log(pnorm(rep$index_hat[sel] / 20)))
   testthat::expect_equal(rep$jnll_comp[1, 1], ll_R, tolerance = 1e-8)
 
   # Regression: a non-MVN family (0/3) carries a 1x1 dummy Sigma and must NOT
