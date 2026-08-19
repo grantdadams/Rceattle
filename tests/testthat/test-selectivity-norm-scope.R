@@ -147,3 +147,84 @@ test_that("a blank or invalid Sel_norm_scope is filled / rejected, not passed on
   expect_length(validate(suppressMessages(suppressWarnings(
     Rceattle::switch_check(Rceattle::GOAatf2023)))), 0)
 })
+
+# Return the whole fleet-1 selectivity-at-age matrix (sex x age, first year),
+# rather than just each sex's peak, so the range branch can be checked directly.
+.norm_scope_sel <- function(bin, upper = NA, scope = NULL) {
+  d <- Rceattle::GOAatf2023
+  d$fleet_control$Sel_norm_bin <- bin
+  d$fleet_control$Sel_norm_bin_upper <- upper
+  if (!is.null(scope)) d$fleet_control$Sel_norm_scope <- scope
+  ctl <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  base <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 3, msmMode = 0,
+    random_rec = FALSE, fit_control = ctl)))
+  p <- base$estimated_params
+  p$sel_inf[1, 1, 1] <- 4;  p$log_sel_slp[1, 1, 1] <- log(1.2)
+  p$sel_inf[1, 1, 2] <- 15; p$log_sel_slp[1, 1, 2] <- log(0.25)
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, inits = p, file = NULL, estimateMode = 3, msmMode = 0,
+    random_rec = FALSE, fit_control = ctl)))
+  fit$quantities$sel_at_age[1, , , 1]
+}
+
+test_that("the Sel_norm_bin_upper range branch honours the scope", {
+  testthat::skip_if_not_installed("TMB")
+  # Sel_norm_bin/_upper are absolute ages; GOAatf2023 has minage 1, so ages 4-8
+  # are columns 4:8. The reference is the MEAN selectivity over that range, not
+  # a single bin -- the third of the three reference kinds, and the one no test
+  # reached.
+  cols <- 4:8
+
+  within <- .norm_scope_sel(4, 8, "WithinSex")
+  # Each sex divided by its own mean over the range, so each mean becomes 1.
+  expect_equal(mean(within[1, cols]), 1, tolerance = 1e-8)
+  expect_equal(mean(within[2, cols]), 1, tolerance = 1e-8)
+
+  across <- .norm_scope_sel(4, 8, "AcrossSexes")
+  # One pooled divisor -- the larger of the two means -- so that sex reaches 1
+  # and the other stays below it, keeping their relative levels.
+  means <- c(mean(across[1, cols]), mean(across[2, cols]))
+  expect_equal(max(means), 1, tolerance = 1e-8)
+  expect_lt(min(means), 1)
+})
+
+test_that("two-sex max normalization pools to exactly one across both sexes", {
+  testthat::skip_if_not_installed("TMB")
+  # The pooled maximum is folded per sex and then combined, so the overall peak
+  # must land on 1 to machine precision. Pins the fold: max2() is
+  # 0.5*(|x-y|+x+y), not an exact max, so a mis-ordered fold drifts off 1.
+  across <- .norm_scope_sel(-1, NA, "AcrossSexes")
+  expect_equal(max(across), 1, tolerance = 1e-12)
+  # Only one sex reaches the peak; the other keeps its relative level.
+  expect_lt(min(max(across[1, ]), max(across[2, ])), 1)
+})
+
+test_that("normalization works on the length dimension too", {
+  testthat::skip_if_not_installed("TMB")
+  # Sel_norm_bin is a 1-based LENGTH-BIN ordinal for a length-based fleet, and
+  # the normalization loop runs over nlengths rather than nages. Everything else
+  # here is age-based, so this is the only cover for that path.
+  sim <- make_msm_test_data(use_size_sel = TRUE)
+  dat <- sim$data_list
+  dat$fleet_control$Selectivity_dimension <- "Length"
+  dat$fleet_control$Sel_norm_bin_upper <- NA
+
+  run <- function(bin) {
+    dat$fleet_control$Sel_norm_bin <- bin
+    fit <- suppressMessages(suppressWarnings(fit_mod(
+      data_list = dat, inits = NULL, file = NULL, estimateMode = 3, msmMode = 0,
+      random_rec = FALSE, fit_control = fit_control(verbose = 0))))
+    fit$quantities$sel_at_length[1, 1, , 1]
+  }
+
+  # Unnormalized, this logistic sits at 0.5 on length bin 10 and plateaus at 1.
+  raw <- run(NA)
+  expect_equal(unname(raw[10]), 0.5, tolerance = 1e-3)
+
+  # Normalizing at bin 10 must divide by that 0.5, so the bin goes to 1 and the
+  # plateau to 2. A divisor taken from age bin 10 instead would not give 2.
+  sel <- run(10)
+  expect_equal(unname(sel[10]), 1, tolerance = 1e-6)
+  expect_equal(unname(sel[20]), 2, tolerance = 1e-3)
+})
