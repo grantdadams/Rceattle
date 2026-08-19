@@ -226,6 +226,10 @@ simData$fleet_control <- data.frame(
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
   Sel_norm_bin             = NA,    # bin to normalize selectivity from (optional)
   Sel_norm_bin_upper             = NA,
+  # Two-sex models only: whether the normalization reference is pooled over the
+  # sexes ("AcrossSexes", default -- keeps relative sex selectivity) or taken per
+  # sex ("WithinSex" -- both sexes reach 1, only the shape differs).
+  Sel_norm_scope           = "AcrossSexes",
 
   # Composition likelihoods
   Comp_distribution = "Multinomial",

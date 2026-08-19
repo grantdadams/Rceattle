@@ -77,6 +77,14 @@ model_config <- function(msmMode = 0,
 
   # Light validation of the scalar switches; the build_*() objects validate
   # themselves at construction.
+  # model_config() takes settings, not data -- but almost every other entry point
+  # in the package takes a data_list first, so name that mistake explicitly.
+  if (is.list(msmMode)) {
+    stop("`msmMode` must be a single value; a list was supplied. model_config() ",
+         "takes model settings, not a data_list -- pass the data separately, as ",
+         "build_data(base = <data_list>, model_config = model_config(...)).",
+         call. = FALSE)
+  }
   if (length(msmMode) != 1 || !is.numeric(msmMode) && !is.character(msmMode)) {
     stop("`msmMode` must be a single value.", call. = FALSE)
   }

@@ -268,6 +268,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
   DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
   DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
+  DATA_IVECTOR(sel_norm_scope);           // Whether normalization pools its reference across sexes: 0 = WithinSex (each sex divided by its own reference; both reach 1), 1 = AcrossSexes (one pooled reference; the lower sex stays below 1). Orthogonal to sel_norm_bin1/2, which say WHERE the reference is taken.
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
@@ -525,11 +526,11 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  Beta(nspp, nyrs); Beta.setZero();                                   // Stock recruit beta
   matrix<Type>  steepness(nspp, nyrs); steepness.setZero();                         // Expected % of R0 at 20% SSB0.
   vector<Type>  R_init(nspp); R_init.setZero();                                     // Equilibrium recruitment at F = Finit (non-equilibrium).
-  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
-  array<Type>   biomass_at_age(nspp, max_sex, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (kg)
-  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
-  matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (kg)
-  matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (kg)
+  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (thousands of fish; n-at-age is in thousands)
+  array<Type>   biomass_at_age(nspp, max_sex, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (mt; thousands of fish x kg)
+  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (mt)
+  matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (mt)
+  matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (mt)
   matrix<Type>  biomass_depletion(nspp, nyrs); biomass_depletion.setZero();         // Estimated biomass biomass_depletion
   matrix<Type>  ssb_depletion(nspp, nyrs); ssb_depletion.setZero();                 // Estimated biomass_depletion of spawning stock biomass
   array<Type>   M_at_age(nspp, max_sex, max_age, nyrs); M_at_age.setZero();         // Total natural mortality at age
@@ -558,9 +559,9 @@ Type objective_function<Type>::operator() () {
   array<Type>   Flimit_at_age(nspp, max_sex, max_age, nyrs); Flimit_at_age.setZero();   // Estimated target fishing mortality-at-age/sex for each species
   array<Type>   Ftarget_at_age(nspp, max_sex, max_age, nyrs); Ftarget_at_age.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
   array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
-  vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
-  vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
-  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
+  vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (mt, or thousands of fish)
+  vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (mt, or thousands of fish)
+  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (log scale, so unitless)
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -593,6 +594,11 @@ Type objective_function<Type>::operator() () {
   vector<Type>  index_q_sd(n_flt); index_q_sd.setZero();                            // Vector of standard deviation of survey catchability prior
   vector<Type>  index_q_dev_sd(n_flt); index_q_dev_sd.setZero();                    // Vector of standard deviation of time-varying survey catchability deviation
   vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey biomass (kg)
+  // Rejection bookkeeping for the correlated survey draw (sim_mod only). Counted
+  // per index_obs row so sim_mod() can warn on the WORST row rather than a fleet
+  // average, which is what hides a single marginal row being resampled hard.
+  vector<Type>  index_trunc_tries_sim(index_obs.rows());   index_trunc_tries_sim.setZero();
+  vector<Type>  index_trunc_rejects_sim(index_obs.rows()); index_trunc_rejects_sim.setZero();
   vector<Type>  log_index_sd(index_obs.rows()); log_index_sd.setZero();               // Estimated/fixed log index sd (kg)
   vector<Type>  log_index_analytical_sd(n_flt); log_index_analytical_sd.setZero();    // Temporary vector to save analytical sd follow Ludwig and Walters 1994
   vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Temporary vector to save analytical sd follow Ludwig and Walters 1994
@@ -1110,6 +1116,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_cap_bin,      // Bin (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
+    sel_norm_scope,       // Normalization reference pooled across sexes?
     flt_sel_start_yr,     // Per-fleet selectivity start year (0-based)
     emp_sel_obs,          // Empirical observations matrix
     emp_sel_ctl,          // Empirical control matrix
@@ -2929,17 +2936,30 @@ Type objective_function<Type>::operator() () {
     // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
     // observation sd on the natural scale, not a log-scale CV), matching the AMAK
     // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term.
+    //
+    // LEFT-TRUNCATED AT ZERO. An index cannot be negative and data_check() will
+    // not accept one, so the support is (0, inf) and the density has to be
+    // renormalized over it: log f = log phi(x; mu, sd) - log(1 - Phi(-mu/sd)),
+    // and 1 - Phi(-mu/sd) = Phi(mu/sd). Without that term the density does not
+    // integrate to one over the values the data can actually take, and -- the
+    // reason it matters here -- the simulator could not draw from the same
+    // distribution the likelihood scores. The correction is negligible while mu
+    // is several sd above zero and grows exactly where an untruncated normal was
+    // becoming an untenable observation model.
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
       if(index_obs(index_ind, 0) > 0){
+        Type log_Z = log(pnorm(index_hat(index_ind) / index_std_dev));
         if(osa_mode == 0){
           jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+          jnll_comp(JNLL_INDEX, index) += log_Z;
         } else {
           // OSA: read the natural-scale observation from obsvec (build_osa_data()
           // stores the untransformed obs for this family), keep-gated, so
-          // oneStepPredict() residualizes it as an independent normal.
+          // oneStepPredict() residualizes it against the same truncated density.
           int pos = index_obsvec_idx(index_ind);
           if(pos >= 0){
             jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
+            jnll_comp(JNLL_INDEX, index) += keep(pos) * log_Z;
           }
         }
       }
@@ -2966,7 +2986,15 @@ Type objective_function<Type>::operator() () {
         }
       }
       if((flt_type(index) > 0) && (index_ll_type(index) == 3)){
-        index_obs(index_ind, 0) = rnorm(index_hat(index_ind), index_std_dev);
+        // Left-truncated at zero, by inverse CDF, matching the density above.
+        // With a = Phi(-mu/sd), drawing u uniformly on (a, 1) and returning
+        // mu + sd*Phi^-1(u) is an exact draw from the normal restricted to
+        // (0, inf) -- no rejection loop, no retry budget, and no draw that can
+        // come back non-positive for data_check() to reject. Type is double
+        // inside SIMULATE, so the scalar qnorm is available directly.
+        Type a = pnorm(-index_hat(index_ind) / index_std_dev);
+        Type u = a + (Type(1.0) - a) * runif(Type(0.0), Type(1.0));
+        index_obs(index_ind, 0) = index_hat(index_ind) + index_std_dev * qnorm(u);
       }
     }
   }
@@ -3049,8 +3077,38 @@ Type objective_function<Type>::operator() () {
         // in the assembly order above -- so unlike the independent families, rows
         // outside the fitted set keep the values they came in with.
         SIMULATE {
+          // Redraw while any row is non-positive. An index cannot be negative and
+          // data_check() rejects one, so the target is the joint normal truncated
+          // to the positive orthant -- and unlike the univariate family above,
+          // that has no closed-form inverse CDF, so rejection is the exact
+          // sampler rather than a fallback. Truncating each margin separately
+          // would be a different distribution and would break the very
+          // correlation this likelihood exists to model.
+          //
+          // The budget scales with the row count: a vector is rejected if ANY row
+          // is non-positive, so the joint rejection probability climbs with n and
+          // a flat budget fails on wide fleets that are fine row by row.
+          //
+          // index_trunc_tries_sim / index_trunc_rejects_sim are reported so sim_mod() can
+          // warn when truncation is doing enough of the work to matter -- drawing
+          // from a truncated joint while the likelihood scores an untruncated one
+          // is exactly the draw/density mismatch this migration exists to expose.
           vector<Type> sim_dev = MVNORM(index_cov_mat(index)).simulate();
+          int mvn_tries = 0;
+          while(mvn_tries < 100 * n_mvn){
+            bool any_nonpos = false;
+            for(k = 0; k < n_mvn; k++){
+              if(mu(k) + sim_dev(k) <= Type(0)) any_nonpos = true;
+            }
+            if(!any_nonpos) break;
+            for(k = 0; k < n_mvn; k++){
+              if(mu(k) + sim_dev(k) <= Type(0)) index_trunc_rejects_sim(rowv(k)) += 1;
+            }
+            sim_dev = MVNORM(index_cov_mat(index)).simulate();
+            mvn_tries++;
+          }
           for(k = 0; k < n_mvn; k++){
+            index_trunc_tries_sim(rowv(k)) += mvn_tries + 1;
             index_obs(rowv(k), 0) = mu(k) + sim_dev(k);
             // obsvec holds log(obs) for this family on the ordinary fitting path
             // (build_osa_data() only whitens it when the OSA data are built), so
@@ -3070,6 +3128,8 @@ Type objective_function<Type>::operator() () {
   SIMULATE {
     matrix<Type> index_obs_sim = index_obs;
     REPORT(index_obs_sim);
+    REPORT(index_trunc_tries_sim);
+    REPORT(index_trunc_rejects_sim);
   }
 
 
@@ -4542,13 +4602,34 @@ Type objective_function<Type>::operator() () {
   // ADREPORT( B_eaten_as_prey );
   // ADREPORT( M_at_age );
   // ADREPORT( Z_at_age );
-  // ADREPORT( biomass_depletion );
-  // ADREPORT( ssb_depletion );
   ADREPORT( biomass );
   ADREPORT( ssb );
-  matrix<Type>  log_ssb = ssb;  log_ssb = log(ssb.array());// Fixed n-at-age scaling coefficient
+
+  // -- Secondary display series, so add_ci = TRUE can draw an interval at all.
+  // Natural scale ONLY: exploitable_biomass sums over fisheries alone, so it is
+  // exactly 0 for a survey-only species or proj_F_prop = 0, and the depletions
+  // divide by B0 / SB0. log() of either puts -Inf on the tape and NaNs the whole
+  // sdreport. The plotters recover sd(log x) = sd(x)/x instead.
+  ADREPORT( exploitable_biomass );
+  ADREPORT( biomass_depletion );
+  ADREPORT( ssb_depletion );
+
+  // -- Log-scale derived series.
+  // sdreport linearizes once about the MLE, so its SD is exact only for a linear
+  // function of the parameters. These are built multiplicatively (R = R0 *
+  // exp(rec_dev); n-at-age is a product of survivals), so log(x) is near-linear
+  // where x is exponential, and exp(log(x) +/- z * sd) is right-skewed and cannot
+  // cross zero. The log SD is also the CV, the form the ABC / OFL buffer wants.
+  // The natural-scale ADREPORTs are kept so existing sdrep$value callers work.
+  matrix<Type>  log_biomass = biomass;  log_biomass = log(biomass.array());
+  matrix<Type>  log_ssb     = ssb;      log_ssb     = log(ssb.array());
+  matrix<Type>  log_R       = R;        log_R       = log(R.array());
+  REPORT( log_biomass );
   REPORT( log_ssb );
+  REPORT( log_R );
+  ADREPORT( log_biomass );
   ADREPORT( log_ssb );
+  ADREPORT( log_R );
   ADREPORT( R_sd );
   ADREPORT( R );
 

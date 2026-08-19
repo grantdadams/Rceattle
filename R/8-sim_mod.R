@@ -1,3 +1,19 @@
+# Rejection budget for a non-positive natural-scale index draw, as a multiple of
+# the fleet's row count. Correlated fleets reject the whole vector whenever any
+# single row is non-positive, so the joint rejection probability climbs with the
+# number of rows; scaling the budget the same way on both branches stops a wide
+# fleet from exhausting it while every row on its own is fine.
+.SIM_INDEX_MAX_TRIES <- 100L
+
+# Per-row rejection rate above which truncation is doing enough of the work that
+# the simulated data no longer follow the likelihood's own normal. Compared
+# against the WORST row, not the fleet mean -- truncation bites one marginal row
+# at a time, and a fleet average hides it. Set well below the rate that would
+# matter: rejecting even a twentieth of a row's draws already shifts that row's
+# mean by several percent.
+.SIM_INDEX_WARN_FRAC <- 0.02
+
+
 #' Resolve `Index_distribution` to its integer family code
 #'
 #' Accepts either spelling a `fleet_control` column can hold -- the name
@@ -141,6 +157,55 @@
     return(invisible(TRUE))
   }
   invisible(FALSE)
+}
+
+
+# Truncation diagnostics for the correlated survey draw. The template redraws a
+# non-positive MVN vector (see ceattle.cpp, the correlated block) and reports the
+# per-row attempt and rejection counts; this reads them.
+#
+# Only MVN needs this. A `Normal` fleet is fitted AND drawn as a normal
+# left-truncated at zero, so its draw already follows its own likelihood and
+# there is nothing to warn about. A multivariate normal truncated to the positive
+# orthant has no closed-form sampler, so MVN is drawn by rejection -- exact for
+# the truncated joint, but the likelihood scores the UNtruncated normal, and that
+# gap is what these warnings are about.
+.sim_warn_index_truncated <- function(sim_rep, data_list) {
+  tries   <- as.numeric(sim_rep$index_trunc_tries_sim)
+  rejects <- as.numeric(sim_rep$index_trunc_rejects_sim)
+  if (!length(tries) || !any(tries > 0)) return(invisible(FALSE))
+
+  idx <- data_list$index_data
+  obs <- idx$Observation
+  drawn <- tries > 0
+  # Per-ROW rate, worst row rather than the fleet mean: truncation bites one
+  # marginal row at a time and an average over a wide fleet hides exactly the row
+  # being resampled.
+  frac <- ifelse(drawn, rejects / pmax(tries, 1), 0)
+
+  fleet_of <- function(sel) unique(as.character(idx$Fleet_name[sel]))
+  nonpos <- fleet_of(drawn & is.finite(obs) & obs <= 0)
+  heavy  <- setdiff(fleet_of(drawn & frac > .SIM_INDEX_WARN_FRAC), nonpos)
+
+  if (length(nonpos)) {
+    warning("Simulated a non-positive survey index for fleet(s) ",
+            paste(nonpos, collapse = ", "), " after ", .SIM_INDEX_MAX_TRIES,
+            " redraws per row. data_check() requires Observation > 0, so ",
+            "refitting this data set fails and self_test() counts the run as ",
+            "not converged. The observation error is large relative to the ",
+            "index: check the covariance against the scale of the index.",
+            call. = FALSE)
+  } else if (length(heavy)) {
+    warning("Simulating the survey index for fleet(s) ",
+            paste(heavy, collapse = ", "), " needed a non-positive draw ",
+            "redrawn more than ", round(100 * .SIM_INDEX_WARN_FRAC),
+            "% of the time. The draws are positive, but they come from the ",
+            "joint normal truncated at zero rather than the untruncated normal ",
+            "the covariance likelihood assumes, so a self_test() built on them ",
+            "tests a different data-generating process. Check the covariance ",
+            "against the scale of the index.", call. = FALSE)
+  }
+  invisible(length(nonpos) > 0 || length(heavy) > 0)
 }
 
 
@@ -597,6 +662,7 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
                          dat_sim$index_data$Fleet_code, "survey index",
                          strictly_positive = TRUE)
     .sim_warn_index_unsimulated(dat_sim)
+    .sim_warn_index_truncated(sim_rep, dat_sim)
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat

@@ -110,7 +110,7 @@ $$\delta_{pbj,y} = RFR_{pbj,y}* W_{pbj,y} $$
 
 
 # Fishery and survey observation model
-CEATTLE is fit to time series of fishery and survey biomass, sex-ratio, and length- or age-composition data. Log-fishery catch, log-survey biomass and sex-ratio are assumed to be normally distributed, while age- and length-composition data are fit assuming multinomial distributions. Variance parameters for the lognormal distributions and initial input sample size for the multinomial distributions can be assumed known or for surveys also estimated as a free parameter or estimated analytically following Walters and Ludwig (1994). Separate selectivity and catchability functions can be estimated or input for each survey or fishery.
+CEATTLE is fit to time series of fishery and survey biomass and length- or age-composition data. Log-fishery catch and log-survey biomass are assumed to be normally distributed, while age- and length-composition data are fit assuming multinomial distributions. There is no separate sex-ratio likelihood component: sex-ratio information enters through joint (`comp_data$Sex = 3`) composition data, whose female and male cells are normalized together. Variance parameters for the lognormal distributions and initial input sample size for the multinomial distributions can be assumed known or for surveys also estimated as a free parameter or estimated analytically following Walters and Ludwig (1994). Separate selectivity and catchability functions can be estimated or input for each survey or fishery.
 
 Catch is estimated in the model following the Baranov catch equation:
 $$\hat{C}_{isa,y} = \frac{F_{isa,y}} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y}$$

@@ -26,6 +26,7 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
     Sel_curve_pen1 = 0, Sel_curve_pen2 = 0, Sel_curve_pen3 = 0,
     Sel_start_year = NA, Sel_pen_first_bin = NA, Sel_pen_last_bin = NA,
     Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
+    Sel_norm_scope = "AcrossSexes",
     Selectivity_dimension = "Age", Comp_distribution = "MultinomialAFSC",
     CAAL_distribution = "Multinomial", Index_distribution = "Lognormal",
     CAAL_weights = 1, Comp_accum_young = NA, Comp_accum_old = NA, Month = 0)
@@ -163,4 +164,53 @@ test_that("the Type-II MSVPA msmMode alias is 'MSVPA'", {
   # renamed from the pre-release "TypeIIMSVPA", which is no longer accepted
   expect_false("TypeIIMSVPA" %in% names(msmMode_map))
   expect_error(.map_switch("TypeIIMSVPA", msmMode_map, "msmMode"), "msmMode")
+})
+
+# -----------------------------------------------------------------------------
+# rearrange_data() is exported and validate_switches() runs from data_check(),
+# so both can see a fleet_control that never went through switch_check() -- a
+# hand-built fixture, or a workbook predating a newly added switch column. Those
+# columns must be schema-defaulted, not read blind: the .data pronoun fails with
+# a cryptic "column not found", and an NA reaching TMB as sel_norm_scope is read
+# by the C++ as WithinSex, the opposite of the documented default.
+#
+# (These callers still require the .required_fc identity columns, Sel_start_year
+# among them, which the bundled .rda do not carry -- hence the switch_check()
+# base below rather than a raw BS2017SS.)
+# -----------------------------------------------------------------------------
+
+# A fleet_control that is complete except for the newer switch columns.
+fc_without_new_switches <- function() {
+  d <- suppressMessages(Rceattle::switch_check(Rceattle::BS2017SS))
+  d$fleet_control$Sel_norm_scope <- NULL
+  d$fleet_control$Index_distribution <- NULL
+  d
+}
+
+test_that("rearrange_data() defaults the newer switch columns when absent", {
+  skip_if_not_installed("Rceattle")
+  d <- fc_without_new_switches()
+  out <- suppressMessages(Rceattle::rearrange_data(d))
+  # "AcrossSexes" is code 1.
+  expect_identical(out$sel_norm_scope, rep(1L, nrow(d$fleet_control)))
+  expect_false(anyNA(out$sel_norm_scope))
+})
+
+test_that("a blank Sel_norm_scope cell is filled, not passed through as NA", {
+  skip_if_not_installed("Rceattle")
+  d <- fc_without_new_switches()
+  d$fleet_control$Sel_norm_scope <- "WithinSex"
+  d$fleet_control$Sel_norm_scope[2] <- NA
+
+  out <- suppressMessages(Rceattle::rearrange_data(d))
+  expect_identical(out$sel_norm_scope[2], 1L)   # filled with the default
+  expect_identical(out$sel_norm_scope[1], 0L)   # supplied value preserved
+})
+
+test_that("validate_switches() skips the newer switches rather than failing", {
+  skip_if_not_installed("Rceattle")
+  d <- fc_without_new_switches()
+  # No error, and no complaint about the columns that are simply not there.
+  errs <- Rceattle:::validate_switches(d)
+  expect_false(any(grepl("Sel_norm_scope|Index_distribution", errs)))
 })

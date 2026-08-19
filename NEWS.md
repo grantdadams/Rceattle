@@ -1,4 +1,4 @@
-# Rceattle 5.7.0
+# Rceattle 5.9.0
 
 ## New features
 
@@ -224,6 +224,29 @@
   after a fit and then simulating now fails with a message naming both row
   counts. The other data types are unguarded until their draws move too.
 
+## Breaking changes
+
+* **The natural-scale survey index likelihood (`Index_distribution = "Normal"`)
+  is now a normal left-truncated at zero.** An index cannot be negative and
+  `data_check()` will not accept one, so the support is `(0, Inf)` and the
+  density has to be renormalized over it -- `log f(x) = log phi(x; mu, sd) -
+  log Phi(mu / sd)`. Without that term the density did not integrate to one over
+  the values the data can take, and the simulator could not draw from the
+  distribution the likelihood scores. The correction is negligible while the
+  index sits several standard deviations above zero and grows exactly where an
+  untruncated normal was becoming an untenable observation model, so fits with a
+  small absolute sd barely move and fits with a large one move by design.
+  `Lognormal` fleets are unaffected, being positive by construction.
+
+  The simulator matches it: a `Normal` fleet is drawn on `(0, Inf)` by inverse
+  CDF, so its draws are positive by construction with no rejection loop and no
+  retry budget that can run out. `MVN`/`MVNORM` cannot be handled the same way --
+  a multivariate normal truncated to the positive orthant has no closed-form
+  sampler -- so those are drawn by rejection, which is exact for the truncated
+  joint but leaves the draw following a different distribution from the
+  untruncated likelihood. `sim_mod()` warns when that truncation is doing enough
+  of the work to matter, judged on the worst row rather than a fleet average.
+
 ## Bug fixes
 
 * **The `growth_re` switch has been removed; it never did anything.** It was
@@ -293,6 +316,363 @@
   predator age leaves 3 of its 45 stomachs in the fit, and reversing the rows
   leaves 1. `clean_data()` sorts by `stomach_id`, so anything that came through
   it already satisfies this; the check catches a hand-built or re-sorted table.
+
+# Rceattle 5.8.0
+
+## New features
+
+* **`fleet_control$Sel_norm_scope` controls whether selectivity normalization
+  pools its reference across sexes.** Normalization makes two independent
+  decisions -- *where* the reference is taken and *whose* scale it sets -- and
+  until now the second was a silent passenger on the first: a named
+  `Sel_norm_bin` always used a per-sex reference, and max-normalization always
+  pooled across sexes, so two of the four combinations were unreachable. The new
+  column is orthogonal to `Sel_norm_bin`, so the two combine rather than
+  multiplying into more columns:
+
+  * `"AcrossSexes"` (default) -- one reference pooled over the sexes, so the
+    less-selected sex stays below 1 and **relative sex-specific selectivity is
+    retained**. This is what a dimorphic stock usually wants.
+  * `"WithinSex"` -- each sex divided by its own reference, so both reach 1 and
+    only the *shape* differs by sex.
+
+  The newly reachable combination worth knowing about is max-normalization with
+  `"WithinSex"`: each sex is scaled at its own plateau, wherever that falls. For
+  a stock whose sexes plateau at different ages that is more robust than naming
+  a bin, because a named bin stops being the plateau once selectivity is
+  time-varying while the maximum tracks it.
+
+  The scope has no effect on a one-sex species, or where `Sel_norm_bin` is `NA`
+  and nothing is normalized. **The one behaviour change** is a *two-sex* fleet
+  normalizing at a *named bin*: it previously used a per-sex reference and now
+  pools, and `switch_check()` emits a message naming the fix (set
+  `Sel_norm_scope = "WithinSex"`) when it sees that configuration. Max-normalized
+  fleets -- including the operational arrowtooth configuration -- already pooled
+  and are unaffected. No bundled dataset is in the affected case.
+
+* **Biomass, SSB and recruitment confidence intervals are now taken on the log
+  scale.** The model ADREPORTs `log_biomass` and `log_R` alongside the existing
+  `log_ssb`, and `plot_timeseries()` builds `exp(log(x) +/- 1.92 * sd_log)` from
+  the delta-method SD of `log(x)` whenever a model reports one. `sdreport()`
+  linearizes once about the MLE, so its SD is exact only for a linear function
+  of the parameters; these three series are built multiplicatively
+  (`R = R0 * exp(rec_dev)`, and n-at-age is a product of survivals), so `log(x)`
+  is close to linear in the estimated parameters where `x` itself is
+  exponential. The interval is therefore both better approximated and
+  right-skewed, and cannot cross zero the way the symmetric natural-scale
+  interval did for weak year classes and depleted stocks. The log-scale SD is
+  also the CV, the form the ABC / OFL buffer calculations want. Natural-scale
+  `biomass`, `ssb` and `R` are still ADREPORTed, so existing callers of
+  `sdrep$value` are unaffected. Models fit before this release have no `log_*`
+  rows, but still get the log-scale interval -- see below.
+
+* **The `plot_*()` timeseries wrappers take a `ylab` argument.** It is appended
+  to the argument list, not inserted, so positional calls are unaffected. Left
+  `NULL` (the default) the axis label is derived from the series and the model's
+  `minage`, so a model whose recruitment is at age 3 no longer gets an axis
+  labelled "Age-1 recruits". Only recruitment names an age now -- it is an age
+  class, so the age is information. The biomass and SSB axes drop their `Age-1+`
+  prefix and read `Biomass (million mt)` and `SSB (million mt)`; the prefix was
+  noise on an aggregate, and wrong on SSB, which is mature females rather than
+  the minage+ stock.
+
+* **`plot_exploitable_biomass()` and the two depletion plotters accept
+  `add_ci = TRUE`, on the log scale.** `exploitable_biomass`, `ssb_depletion`
+  and `biomass_depletion` are now ADREPORTed, so an interval can be computed at
+  all. They are ADREPORTed on the **natural scale only**, deliberately:
+  `exploitable_biomass` sums over fisheries alone, so it is exactly 0 for any
+  model without projection F (`Proj_F_proportion = 0`, which is every bundled
+  dataset -- all 216 species-years of `BS2017SS`), and the depletions divide by
+  `B0` / `SB0`; `log()` of either would put `-Inf` on the AD tape and turn the
+  entire `sdreport`, not merely that row, into `NaN`. They still get a
+  log-scale interval, because the delta method defines `sd(log x) = sd(x) / x`
+  exactly -- the plotters recover the log-scale SD from the natural-scale one
+  wherever the series is positive. Where it is 0 the quotient is undefined and
+  the (degenerate) symmetric interval stands. sdreport grows about 20% on
+  `BS2017SS` for the three extra series.
+
+* **Models fit before this release get log-scale intervals too.** The same
+  `sd(log x) = sd(x) / x` recovery applies to any strictly positive series with
+  a natural-scale SD, so an existing fit with no `log_*` rows plots a
+  right-skewed interval without being refit. Where the model does report
+  `log_biomass` / `log_ssb` / `log_R`, those are used directly; the two agree to
+  machine precision (2e-16 on `BS2017SS`).
+
+## Bug fixes
+
+* **`as.data.frame(fit)` and the plotters now report the same interval.** The
+  extractor still built a symmetric natural-scale interval for `biomass`, `ssb`
+  and `R` while `plot_biomass()` drew the log-scale one, and it returned `NA`
+  standard errors for `exploitable_biomass` and the two depletions -- the three
+  series this release just ADREPORTed. Both paths now go through one helper.
+  The plotters also switch from the rounded `1.92` to `qnorm(0.975)`, so the
+  band labelled 95% is a 95% band: **ribbons are about 2% wider than in 5.7.0**,
+  and any interval read off a figure or table should be regenerated. The point
+  estimates are unchanged.
+
+* **`add_ci = TRUE` on a fit made with `getsd = FALSE` no longer errors.** It
+  warned that it would draw no interval and then failed on the next line
+  indexing an absent `sdreport`. It now warns and draws the series without a
+  ribbon, as the message says. The warning is also gated on whether the series
+  is ADREPORTed at all, so `plot_f(add_ci = TRUE)` no longer warns on every fit
+  about standard errors `F_spp` can never have.
+
+* **`rearrange_data()` and `data_check()` work again on a `fleet_control` that
+  has not been through `switch_check()`.** `Sel_norm_scope` was read with no
+  missing-column guard, so a data list read straight from a workbook failed with
+  a cryptic "column not found". It and `Index_distribution` are now filled from
+  the column schema. A blank `Sel_norm_scope` cell is filled too -- an `NA`
+  reached TMB as `NA_integer_`, which the C++ reads as `WithinSex`, the opposite
+  of the default.
+
+* **The `Sel_norm_scope` behaviour-change notice fires only where it applies.**
+  It was skippable (leaving one cell blank flipped that fleet silently) and it
+  fired on Hake and LogisticPM fleets, which use `Sel_norm_bin` as a penalty
+  age-range rather than a normalization reference, and on `Off` fleets. The gate
+  now matches the one in `selectivity.hpp`.
+
+* **A one-species plot drops the redundant species strip, and absolute y-scales
+  start at zero** so panel heights are comparable. Depletion and other relative
+  series are unaffected.
+
+* **Diet defaults are announced only when the model reads them**, so a
+  single-species fit no longer reports settings it never uses.
+
+* **`model_config()` names the mistake when handed a `data_list`.** It takes
+  model settings, not data, but almost every other entry point takes a
+  `data_list` first -- so `model_config(my_data)` bound the list to `msmMode` and
+  reported only "`msmMode` must be a single value". It now points at
+  `build_data(base = , model_config = )`. The check itself was correct:
+  `msmMode` is a model-wide scalar (unlike the per-species `suitMode`), and a
+  single-species `msmMode > 0` cannibalism configuration was never blocked.
+
+* **A confidence interval that cannot be drawn now warns instead of vanishing.**
+  Requesting `add_ci = TRUE` for a series with no standard errors indexed out of
+  range, filled the interval with `NA` and rendered an invisible ribbon -- no
+  error, no warning, just a missing interval. That is how the three plotters
+  above hid their missing `ADREPORT`. `plot_timeseries()` now says which series
+  and which model lacks standard errors.
+
+* **Recruitment was plotted 1000x too high, and the stock-recruit panel 1000x
+  too low.** The model carries numbers-at-age in thousands and weight-at-age in
+  kg, so biomass comes out in mt and recruitment in thousands of fish.
+  `plot_recruitment()` never applied the matching `/1e3`, plotting thousands of
+  recruits under an axis reading "Age-1 recruits (million)", while
+  `plot_stock_recruit()` divided by `1e6` under an axis reading "Recruitment
+  (millions)" -- so the two panels disagreed with each other by a factor of a
+  million. Both now plot millions of recruits. `plot_exploitable_biomass()` was
+  labelled "million mt" with no rescaling applied at all and is now divided by
+  `1e6` like the other biomass series. Divisors and axis units are now held in
+  one table (`.RCE_TS_RESCALE` / `.rce_ts_ylab()`) that `plot_stock_recruit()`
+  reads too, and are asserted against each other in the test suite. **Any figure
+  or number read off these three plotters needs regenerating.** Model results
+  are unchanged -- this is display-only.
+
+## Documentation
+
+* **How sex-specific selectivity works is now documented.** Every selectivity
+  form is sex-specific by default in a two-sex model. `Sel_norm_bin` says only
+  *where* the normalization reference is taken; whether the *relative* scale
+  between sexes survives is `Sel_norm_scope` (above). Relative sex selectivity
+  is only informed where the composition is joint (`comp_data$Sex = 3`);
+  sex-specific rows each sum to 1 and carry no sex-ratio information, and
+  `Selectivity = "Hake"` always normalizes within sex regardless of either
+  column. New "Sex structure and relative selectivity" section in
+  `vignette("model-options-and-functionality")`, with the details on the
+  `Sel_norm_bin` and `Sel_norm_scope` field dictionary entries.
+
+* **The mt / thousands-of-fish convention is now stated consistently.** The
+  `biomass` / `ssb` / `catch_hat` declarations in `ceattle.cpp`, the
+  `index_data` / `catch_data` / `Observation_units` field dictionary entries and
+  the Stock Synthesis catch-conversion table all said kg. Section 12 of
+  `vignette("model-options-and-functionality")` now covers the display units,
+  `ylab` and the log-scale intervals, and names the discrete palette correctly
+  (Okabe-Ito, not viridis).
+
+* `Sel_norm_bin` and `Sel_norm_bin_upper` now say that they are bin indices on
+  the fleet's own `Selectivity_dimension` -- an absolute age for an age-based
+  fleet (`6` means age 6, not the sixth bin), a 1-based length-bin ordinal for a
+  length-based one.
+
+* `fleet_control$Sex` is documented as inert. It is read nowhere in the model;
+  sex is set per observation on `comp_data$Sex`. Retained only so older
+  workbooks still read.
+
+* `vignette("model-parameterizations")` no longer claims the model is fit to
+  sex-ratio data. There is no sex-ratio likelihood component -- the text
+  described the ADMB implementation. Sex-ratio information enters through joint
+  composition data.
+
+* `plot_timeseries()` documents the unit convention it assumes: numbers-at-age
+  in thousands and weight-at-age in kg, hence biomass in mt and recruitment in
+  thousands of fish.
+
+
+# Rceattle 5.7.0
+
+## Breaking changes
+
+* **The remaining bundled datasets use the canonical `fleet_control` column
+  names.** The 4.10.0 renames (`Q_prior` -> `Catchability_init`,
+  `Comp_loglike` -> `Comp_distribution`, ...) had reached `BS2017SS`,
+  `BS2017MS` and `GOA2018SS` only; `Atka2022`, `GOA2018SS`, `GOAatf`,
+  `GOAatf2023`, `GOAcod`, `GOApollock`, `GeorgesBank3spp`,
+  `NorthernRockfish2022` and `whamGrowthData` still shipped the legacy
+  spellings, so loading one printed a dozen upgrade messages. A script reading a
+  legacy name off one of these objects directly -- e.g.
+  `GOApollock$fleet_control$Comp_loglike` -- now gets `NULL`. Use the canonical
+  name; a workbook on disk still reads fine, since the aliases are upgraded on
+  read.
+
+* **`mse_summary()`'s metric columns now have syntactic names.** They were
+  display strings held together by `check.names = FALSE`, so reading one meant
+  `summ$species[["OM: Terminal SSB Depletion (Dynamic)"]]`. They are now
+  ordinary names -- `avg_catch`, `catch_iav`, `p_closed`, `om_terminal_ssb`,
+  `om_avg_depletion` and so on -- with an `om_` prefix for the operating model's
+  truth and `em_` for the estimation model's perception. The four
+  misclassification metrics become `p_overfishing_false_pos` / `_false_neg` and
+  `p_overfished_false_pos` / `_false_neg`, and the three collapse metrics become
+  `om_sims_collapsed`, `om_no_f_sims_collapsed` and `om_sims_collapsed_from_f`
+  -- named `sims` because they are **counts of simulations**, not probabilities,
+  which the old names did not say. The long display strings are kept on a
+  `"labels"` attribute of each frame, so plots and SAFE tables can still print
+  them: `attr(summ$species, "labels")`. `Species`, `Fleet_code` and `Fleet_name`
+  are unchanged. Values are unchanged. Done in the same release as the
+  per-entity reshape so `mse_summary()` breaks once rather than twice; no script
+  in `Rceattle-models` or `GOA-ATF-ESP` reads a metric by name.
+
+* **`data_requirements()` argument `selectivity` is now `Selectivity`, and
+  `index_distribution` is now `Index_distribution`.** They stand in for the
+  `fleet_control` columns of those names, and the rest of the package's
+  arguments already mirror their source exactly (`estDynamics`, `Ceq`,
+  `growth_model`, and `model_config()`'s mirror of `fit_mod()`). No deprecation
+  path: `data_requirements()` is new in this release line and has never been on
+  a released version.
+
+## Bug fixes
+
+* **`self_test()` no longer fails on every replicate for a model with a
+  natural-scale survey index.** `sim_mod()` drew `Normal` and `MVN` index
+  observations from the untruncated natural-scale normal, so a fleet with an
+  absolute sd near its index -- an AVO-type index with sd 0.25-0.80 against
+  observations from 0.70 -- drew non-positive most replicates. `data_check()`
+  rejects those, so the refit failed and the replicate was counted *not
+  converged*, reading as a convergence problem rather than a simulation one.
+  Non-positive draws are now redrawn, correlated fleets jointly. On EBS pollock
+  `self_test()` goes from 0 of 50 replicates to all of them, recovering SSB with
+  a median bias of -0.4%.
+
+  Redrawing samples from a normal **truncated at zero**, not the normal the
+  likelihood maximises, so a fleet that needs it is self-testing against a
+  different data-generating process. At index 0.70 with sd 0.80 a fifth of draws
+  are rejected and the truncated mean is 39% high. Two warnings now fire: the
+  existing one when a fleet still cannot draw positive, and a new one when any
+  row is redrawn more than 2% of the time. Either means the absolute sd is too
+  large relative to the index for a natural-scale normal.
+
+  Lognormal fleets are unaffected, including the seeded all-lognormal fast path,
+  and seeded results are bit-identical for any `Normal`/`MVN` fleet that never
+  rejects. A fleet that does reject consumes extra random numbers, shifting that
+  replicate's comps and catch and every later replicate in a seeded loop.
+
+* **`data_check()` no longer errors on a `data_list` that carries no `HCR`.**
+  `HCR` is a `fit_mod()` argument, not a data field, so a list read straight
+  from a workbook has none. `NULL %in% ...` is `logical(0)`; `TRUE && logical(0)`
+  is `NA` and `x & logical(0)` is `logical(0)`, so `data_check()` died with
+  `missing value where TRUE/FALSE needed` and `validate_switches()` with
+  `argument is of length zero`. `fit_mod()` sets `HCR` before checking and was
+  unaffected.
+
+* **`run_mse()` no longer errors when a survey fleet has `NA`
+  `Proj_F_proportion`.** The check that some fleet takes projected F summed the
+  column without `na.rm`, so the `NA` that fleets taking no catch legitimately
+  carry made the sum `NA` and the `if` failed with `missing value where
+  TRUE/FALSE needed` before the MSE started.
+
+* **`plot_indexresidual()` now honours `incl_proj`.** The argument was accepted
+  and then ignored, so projection years were always plotted -- the opposite of
+  its documented default, and of `plot_index()` / `plot_catch()`. A projection
+  row's "observation" is whatever placeholder its workbook carries (the
+  roll-forward scripts in `Rceattle-models` write 99999), which drew as an
+  enormous spurious residual. **This removes rows from the default output** for
+  any model whose `index_data` runs past `endyr`; pass `incl_proj = TRUE` to
+  keep them. No bundled dataset has such rows -- `clean_data()` extends
+  `catch_data` to the projection horizon but not `index_data`, and `run_mse()`
+  marks its projection index rows with a negative `Year`, which was already
+  filtered -- so in practice this bites only workbooks that carry their own.
+  Applies to the default `residual_type = "pearson"`; the `"osa"` path returns
+  `osa_residuals()` directly and takes none of the plot arguments.
+
+* **`plot_catch(incl_proj = TRUE)` no longer errors on projection rows.**
+  `clean_data()` gives projection years an `NA` catch, and the lognormal
+  error-bar mask in `.fleet_fit_df()` passed that `NA` to a subscript. The mask
+  now excludes `NA` observations, and those rows draw the fitted line with no
+  error bar, as non-positive observations already did. `plot_index()` shares the
+  code path and is fixed with it, though only a workbook that supplies `NA`
+  index observations can reach it.
+
+* **`data_check()` now warns when CAAL data sit on a fleet whose
+  `Selectivity_dimension` is not `"Length"`.** Conditional age-at-length is the
+  age composition within a length bin, so the model predicts it from
+  selectivity-at-length convolved with the growth matrix. An age-dimensioned
+  fleet has no selectivity-at-length, so the prediction is zero -- and the
+  likelihood still runs, scoring the observations against the flat composition
+  the offset leaves behind. Those data then add a term to the objective that no
+  parameter can move: on the test fixture the CAAL component costs 64.6 with
+  uniform observations and 325.8 with realistic ones, and the whole objective
+  shifts by exactly that amount. `Selectivity_dimension` defaults to `"Age"`, so
+  this was the default outcome for anyone adding CAAL data. It warns rather than
+  errors because such models currently fit; the sibling case (empirical growth,
+  which zeroes the prediction for the same reason) has always errored, and this
+  should tighten to match once configurations have been checked.
+
+* **`data_check()` now rejects a `diet_data` that is not sorted by
+  `stomach_id`.** The TMB diet likelihood walks `diet_ctl` with a single forward
+  cursor, taking stomach *i*'s prey as the rows where `stomach_id == i`, so the
+  ids have to run 0, 1, 2, ... in order and with no gaps. Out of that order the
+  cursor runs past whole stomachs, which then drop out of the likelihood with no
+  warning and a lower objective: re-sorting a cleaned `BS2017MS` diet table by
+  predator age leaves 3 of its 45 stomachs in the fit, and reversing the rows
+  leaves 1. `clean_data()` sorts by `stomach_id`, so anything that came through
+  it already satisfies this; the check catches a hand-built or re-sorted table.
+
+* **`mse_summary()` now reports the catch metrics for a species that has no
+  fishery.** A multispecies model can carry a predator purely for its
+  consumption -- arrowtooth and sablefish in the hake model do exactly this --
+  and such a species has no `catch_data` rows at all. Every per-species catch
+  metric then operated on a zero-length vector: `Average Catch` warned
+  "argument is not numeric or logical: returning NA" and returned `NA`, while
+  `Catch IAV` and `P(Closed)` divided by a length of zero and returned `NaN`
+  silently. They now report `Average Catch = 0` -- an unfished species really
+  does have zero catch -- and `NA` for the two ratios, which are not defined
+  when there is no fishery to vary or to close. A species that *does* have a
+  fishery but no landings in the projection years is reported as `NA` with a
+  warning naming the species and the years, because that is a data problem
+  rather than a modelling choice. Metrics for fished species are unchanged
+  (verified bit-identical on the 3-species hake MSE), as are `$fleet` and
+  `$total`.
+
+## Documentation
+
+* **`?osa_residuals` now explains the negative composition `predicted` values it
+  warns about**, in a new section: why a numerical conditional mean overshoots
+  below zero on a near-empty bin, that it follows the *bin's* count rather than
+  the composition's sample size (so a rare age in a well-sampled year does it),
+  and that those residuals are biased positive. The warning itself is now two
+  sentences pointing at that section rather than carrying the whole explanation,
+  because it fires once per call on real assessments -- 269 rows on GOA-ATF-ESP
+  2025, 98 on GOA pollock 2025.
+
+* Corrected the `comp_osa.hpp` note claiming the `pUsed` squeeze in
+  `dmultinom_osa()` matches WHAM. WHAM does not squeeze `pUsed`; it squeezes
+  `1 - pUsed` at point of use, which Rceattle also does. The extra squeeze is
+  redundant and leaves an O(A * eps) difference from WHAM on an A-bin
+  composition. Comment only -- no value changes.
+
+* Fixed two doubled words in user-facing text: "the The Pacific Fishery
+  Management Council" in `?build_hcr`, and "the the diet" in the `diet_data`
+  schema description, which is written verbatim into the bundled
+  `meta_data_names.xlsx` (regenerated to match).
 
 # Rceattle 5.6.1
 

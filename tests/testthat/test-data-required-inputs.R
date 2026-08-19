@@ -37,15 +37,15 @@ testthat::test_that("conditional requirements respond to the switches", {
     r$status[r$element == "NByageFixed"], "Required")
 
   # Fixed selectivity -> emp_sel Required; else Ignored
-  r <- data_requirements(selectivity = c("Logistic", "Fixed"))
+  r <- data_requirements(Selectivity = c("Logistic", "Fixed"))
   testthat::expect_identical(r$status[r$element == "emp_sel"], "Required")
-  r <- data_requirements(selectivity = c("Logistic", "Logistic"))
+  r <- data_requirements(Selectivity = c("Logistic", "Logistic"))
   testthat::expect_identical(r$status[r$element == "emp_sel"], "Ignored")
 
   # MVN index -> index_cov Required; else Ignored
-  r <- data_requirements(index_distribution = c("Lognormal", "MVN"))
+  r <- data_requirements(Index_distribution = c("Lognormal", "MVN"))
   testthat::expect_identical(r$status[r$element == "index_cov"], "Required")
-  r <- data_requirements(index_distribution = c("Lognormal", "Lognormal"))
+  r <- data_requirements(Index_distribution = c("Lognormal", "Lognormal"))
   testthat::expect_identical(r$status[r$element == "index_cov"], "Ignored")
 
   # Ceq > 1 -> env_data Required; else Optional

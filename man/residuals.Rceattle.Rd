@@ -44,7 +44,7 @@ absorbed a folded tail.
 }
 \description{
 Returns a long-format data frame of residuals, following the convention of
-\code{\link[stats:residuals.glm]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
+\code{\link[stats:glm.summaries]{stats::residuals.glm()}} where \code{type} selects the \emph{kind} of residual. By
 default residuals are returned for every applicable data source -- survey
 indices, fishery catches, age/length composition (\code{comp}), and conditional
 age-at-length (\code{caal}); use \code{source} to restrict to particular ones.

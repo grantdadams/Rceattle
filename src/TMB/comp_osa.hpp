@@ -101,8 +101,15 @@ Type dmultinom_osa(vector<Type> x, vector<Type> p,
         logres += k(i) * dmultinom(x2, p2, true);
         nUnused -= x(i);
         pUsed   += p_x(i);
-        pUsed    = osa_squeeze(pUsed);  // keep pUsed in (eps, 1-eps) so 1 - pUsed
-                                        // never reaches 0/negative (matches WHAM).
+        // Keep pUsed inside (0, 1) so 1 - pUsed never reaches 0 or goes
+        // negative. WHAM does NOT squeeze pUsed itself; it relies on the
+        // squeeze of 1 - pUsed above, which is also applied here. This extra
+        // squeeze is therefore redundant protection and contracts pUsed toward
+        // 0.5 by one machine epsilon per bin, so a composition of A bins sits
+        // O(A * eps) from WHAM's value -- ~1e-15 relative, far below the
+        // reference tolerances, but not bit-identical. Removing it would match
+        // WHAM exactly at the cost of re-pinning the OSA references.
+        pUsed    = osa_squeeze(pUsed);
       } else {
         logres += k(i) * Type(0);         // last bin: fixed by sum-to-N
       }

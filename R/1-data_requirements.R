@@ -29,12 +29,14 @@
 #'   growth and requires `caal_data`.
 #' @param estDynamics Numbers-at-age mode (scalar or per-species). `> 0` fixes
 #'   numbers-at-age and requires `NByageFixed`.
-#' @param selectivity Optional character vector of per-fleet selectivity forms
+#' @param Selectivity Optional character vector of per-fleet selectivity forms
 #'   (used only when `data_list` is `NULL`) so the `emp_sel` requirement
-#'   (`Selectivity = "Fixed"`) can be evaluated.
-#' @param index_distribution Optional character vector of per-fleet index
+#'   (`Selectivity = "Fixed"`) can be evaluated. Named for the `fleet_control`
+#'   column it stands in for.
+#' @param Index_distribution Optional character vector of per-fleet index
 #'   likelihood families (used only when `data_list` is `NULL`) so the
 #'   `index_cov` requirement (`Index_distribution = "MVN"`) can be evaluated.
+#'   Named for the `fleet_control` column it stands in for.
 #' @param Ceq Optional per-species consumption-equation codes (used only when
 #'   `data_list` is `NULL`); `> 1` requires an environmental temperature index.
 #'
@@ -63,8 +65,8 @@
 #' data_requirements(BS2017SS)
 #' @export
 data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
-                              estDynamics = 0, selectivity = NULL,
-                              index_distribution = NULL, Ceq = NULL) {
+                              estDynamics = 0, Selectivity = NULL,
+                              Index_distribution = NULL, Ceq = NULL) {
 
   `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -77,15 +79,15 @@ data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
     )
   } else {
     fc <- NULL
-    if (!is.null(selectivity) || !is.null(index_distribution)) {
-      n <- max(length(selectivity), length(index_distribution), 1L)
+    if (!is.null(Selectivity) || !is.null(Index_distribution)) {
+      n <- max(length(Selectivity), length(Index_distribution), 1L)
       fc <- data.frame(
         Fleet_name    = paste0("Fleet_", seq_len(n)),
         Fleet_code    = seq_len(n),
-        Selectivity   = if (is.null(selectivity)) NA_character_
-                        else rep_len(as.character(selectivity), n),
-        Index_distribution = if (is.null(index_distribution)) "Lognormal"
-                        else rep_len(as.character(index_distribution), n),
+        Selectivity   = if (is.null(Selectivity)) NA_character_
+                        else rep_len(as.character(Selectivity), n),
+        Index_distribution = if (is.null(Index_distribution)) "Lognormal"
+                        else rep_len(as.character(Index_distribution), n),
         stringsAsFactors = FALSE
       )
     }

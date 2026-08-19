@@ -70,7 +70,7 @@ SS catch data → Rceattle `catch_data` sheet:
 | `year` | `Year` | |
 | `seas` | `Month` | Currently informational; Baranov is annual |
 | `fleet` | `Fleet_code` | Re-map if the codes differ from SS |
-| `catch` | `Catch` | Units flexible (typically 1000 mt) |
+| `catch` | `Catch` | Convert to mt -- Rceattle works in mt and thousands of fish throughout (see `?plot_timeseries`) |
 | `catch_se` | `Log_sd` | Lognormal F-dev SD |
 
 ## Survey indices
@@ -132,6 +132,13 @@ in a 20-age model), set `Sel_norm_bin` / `Sel_norm_bin_upper` and
 `N_sel_bins` to control how the missing ages are accumulated. Check the
 assessment document or contact the authors before deciding whether to
 zero-pad or accumulate at the upper age.
+
+For a two-sex conversion, `Sel_norm_scope` decides whether the normalization
+reference is pooled over the sexes (`"AcrossSexes"`, the default, which keeps
+relative sex-specific selectivity) or taken per sex (`"WithinSex"`). Note that
+Rceattle has no equivalent of the SS male apical-selectivity offset: relative
+sex selectivity is carried by the normalization scope and by joint
+(`comp_data$Sex = 3`) composition data, not by an offset parameter.
 
 `Part`, `Ageerr`, `Lbin_lo`, `Lbin_hi`, `CompressBins`, `CompError`,
 `ParmSelect`, and `minsamplesize` from SS do not have direct Rceattle
