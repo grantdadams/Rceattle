@@ -10,13 +10,40 @@
   `dsem = NULL` (the default) is unchanged and bit-identical to previous
   versions.
 
-  The refitting diagnostics do not support a DSEM yet -- `retrospective()`,
-  `jitter()`, `self_test()`, `profile()`, `run_mse()`, `remove_F()`,
-  `sample_rec()`, `reweight_comps()`, `process_residuals()` and
+  `retrospective()`, `jitter()` and `self_test()` work on a DSEM (below). The
+  rest of the refitting diagnostics do not yet -- `profile()`, `run_mse()`,
+  `remove_F()`, `sample_rec()`, `reweight_comps()`, `process_residuals()` and
   `osa_residuals()` each stop with a message rather than silently refit a model
   without the recruitment structure being tested. Lognormal bias correction is
   not applied to the DSEM deviations yet, so a DSEM fit and its non-DSEM
   analogue agree exactly only with `bias_adjust_proc = FALSE`.
+
+* **`retrospective()`, `jitter()` and `self_test()` run on a DSEM.** A peel does
+  not shorten the model -- it turns off data after `endyr_peel` -- so the latent
+  states stay free and in `random`, and the Laplace approximation integrates the
+  peeled-year states out against the GMRF prior. That is the peeled likelihood.
+  Pinning them the way `rec_dev` peels would be wrong: pinning is inert for an
+  independent deviation, but DSEM states are coupled, so pinned zeros stay in
+  the quadratic form, shrink the terminal retained state, and bias Mohn's rho.
+  Checked against a model that genuinely ends at `endyr_peel`: terminal
+  recruitment agrees to 1.2e-4, while the peel differs from the unpeeled fit by
+  19%.
+
+  `retrospective(rescale = TRUE)` is the better setting for a DSEM. It
+  standardizes `env_data` on `styr:endyr_peel` and withholds the covariate
+  values after it, so the peel does not centre or condition on years it is
+  supposed to have not seen.
+
+  `jitter()` perturbs the SEM path coefficients and the latent recruitment
+  deviations, but not the covariate columns of the latent state matrix: with
+  `family = "fixed"` those are the environmental data, so jittering them would
+  perturb the data rather than the starting values.
+
+  A `self_test()` of a DSEM does not re-realize the recruitment process.
+  `sim_mod()` draws new observations from the fitted quantities and leaves the
+  process random effects at their estimates, as it does without a DSEM, so a
+  clean self test says the model recovers itself under fresh observation error
+  -- not that the SEM structure is identified across recruitment realizations.
 
 * **`summary()` reports the SEM path coefficients and the recruitment SD** for a
   DSEM fit: `coefficients` (one row per path, with `Estimate`, `Std_Error`,
@@ -28,6 +55,16 @@
   without a DSEM are unaffected.
 
 ## Bug fixes
+
+* **`retrospective(rescale = TRUE)` had no effect on a DSEM.** With
+  `family = "fixed"` the covariate columns of the DSEM's latent state matrix ARE
+  the environmental data, held fixed by the map, and their values reach the
+  model as parameter starting values -- which a refit inherits from the parent
+  fit rather than rebuilding. So the peel carried the parent's unrescaled
+  covariate and the rescaling was silently discarded: every path coefficient and
+  the whole latent state matrix came back bit-identical with and without it. The
+  stale block is now dropped so the rebuild supplies covariates standardized on
+  the retained years.
 
 * **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
   of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
