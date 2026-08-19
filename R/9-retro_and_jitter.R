@@ -657,10 +657,18 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' }
 #' @export
 jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf) {
-  .stop_if_dsem(Rceattle, "jitter")
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # A DSEM needs nothing special here, unlike the peel in retrospective(). The
+  # perturbation below only touches entries whose map is not NA, so under a DSEM
+  # it jitters the path coefficients and the latent recruitment-deviation
+  # columns while leaving the covariate columns of dsem_x_tj alone -- those are
+  # mapped out because, with family = "fixed", they ARE the environmental data
+  # and jittering them would perturb the data rather than the starting values.
+  # And no map is passed to .refit_like() below, so fit_mod() rebuilds one and
+  # fills in the DSEM blocks itself.
 
   # Jitters inherit the input model's sdreport setting unless overridden;
   # multimodality is judged from objectives and point estimates, not sdrep.

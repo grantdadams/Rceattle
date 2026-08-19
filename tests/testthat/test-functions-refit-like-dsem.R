@@ -88,13 +88,15 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
     list(data_list = Rceattle::BS2017SS,
          dsem = list(tmb_inputs = list(parameters = list(beta_z = 1)))),
     class = "Rceattle")
-  testthat::expect_error(Rceattle::jitter(built_only),
+  testthat::expect_error(Rceattle::self_test(built_only),
                          "does not yet support a DSEM")
 
-  # retrospective() is deliberately NOT in this list any more: it supports a
-  # DSEM, peeling by MARGINALIZING the peeled-year latent states rather than
-  # pinning them. Its behaviour is pinned in test-dsem-retrospective.R.
-  for (fn in c("jitter", "self_test", "remove_F")) {
+  # retrospective() and jitter() are deliberately NOT in this list any more.
+  # retrospective() peels by MARGINALIZING the peeled-year latent states rather
+  # than pinning them (test-dsem-retrospective.R); jitter() perturbs the DSEM
+  # starts while leaving the fixed covariate columns alone
+  # (test-dsem-jitter.R).
+  for (fn in c("self_test", "remove_F")) {
     testthat::expect_error(do.call(fn, list(fake)), "does not yet support a DSEM",
                            info = fn)
   }
