@@ -48,9 +48,12 @@ plot_stock_recruit <-
       dl       <- models[[mod]]$data_list
       nyrshind <- dl$endyr - dl$styr + 1L
       srr_pred <- dl$srr_pred_fun
-      # SSB (million mt) and recruitment (millions) over the hindcast.
-      ssb <- models[[mod]]$quantities$ssb[, seq_len(nyrshind), drop = FALSE] / 1e6
-      R   <- models[[mod]]$quantities$R[,   seq_len(nyrshind), drop = FALSE] / 1e6
+      # SSB (million mt) and recruitment (millions of fish) over the hindcast.
+      # Divisors differ because the units do (ssb in mt, R in thousands of fish);
+      # both come from the shared table so this cannot drift from
+      # plot_recruitment().
+      ssb <- models[[mod]]$quantities$ssb[, seq_len(nyrshind), drop = FALSE] / .RCE_TS_RESCALE[["ssb"]]
+      R   <- models[[mod]]$quantities$R[,   seq_len(nyrshind), drop = FALSE] / .RCE_TS_RESCALE[["R"]]
       rp  <- models[[mod]]$estimated_params$rec_pars
       for (sp in species) {
         pts[[length(pts) + 1L]] <- data.frame(
@@ -62,17 +65,23 @@ plot_stock_recruit <-
         # (and parameter transforms) as the original base-graphics version.
         xmax <- max(ssb[sp, ], na.rm = TRUE)
         xg <- seq(0, xmax, length.out = 100)
-        yg <- if (srr_pred == 0) {
-          # exp(rec_pars[,1]) = R0, in the same units as quantities$R; divide by
-          # 1e6 to match the points (which are plotted in millions).
-          rep(exp(rp[sp, 1]) / 1e6, length(xg))                          # mean rec
+        # Evaluate in the model's own units and convert once at the end, so
+        # each branch reads like its counterpart in calculate_recruitment()
+        # (src/TMB/recruitment.hpp) rather than folding a display divisor in.
+        ssb_raw <- xg * .RCE_TS_RESCALE[["ssb"]]
+        yg_raw <- if (srr_pred == 0) {
+          rep(exp(rp[sp, 1]), length(xg))                               # mean rec: exp(rec_pars[,1]) = R0
         } else if (srr_pred %in% c(2, 3)) {                             # Beverton-Holt
-          exp(rp[sp, 2]) * xg / (1 + exp(rp[sp, 3]) * xg * 1e6)
+          exp(rp[sp, 2]) * ssb_raw / (1 + exp(rp[sp, 3]) * ssb_raw)
         } else if (srr_pred %in% c(4, 5)) {                             # Ricker
-          exp(rp[sp, 2]) * xg * exp(-exp(rp[sp, 3]) * xg)
+          # The 1e6 here is NOT the display divisor above: calculate_recruitment()
+          # scales Ricker's beta by 1e6 internally for estimation stability, so
+          # the curve has to divide by it to match. Leave it a literal.
+          exp(rp[sp, 2]) * ssb_raw * exp(-exp(rp[sp, 3]) * ssb_raw / 1e6)
         } else {
           rep(NA_real_, length(xg))
         }
+        yg <- yg_raw / .RCE_TS_RESCALE[["R"]]
         crv[[length(crv) + 1L]] <- data.frame(
           Model = model_names_use[mod], Species = spnames[sp],
           SSB = xg, R = yg, stringsAsFactors = FALSE)

@@ -17,6 +17,8 @@ how the maps are applied.
 \item{\code{sel_map}}{Selectivity form (\code{fleet_control$Selectivity}).}
 \item{\code{tv_sel_map}}{Time-varying selectivity structure
 (\code{fleet_control$Time_varying_sel}).}
+\item{\code{sel_norm_scope_map}}{Whether selectivity normalization pools its
+reference across sexes (\code{fleet_control$Sel_norm_scope}).}
 \item{\code{q_map}}{Catchability form (\code{fleet_control$Catchability}).}
 \item{\code{tv_q_map}}{Time-varying catchability structure
 (\code{fleet_control$Time_varying_q}).}

@@ -295,6 +295,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
   DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
   DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
+  DATA_IVECTOR(sel_norm_scope);           // Whether normalization pools its reference across sexes: 0 = WithinSex (each sex divided by its own reference; both reach 1), 1 = AcrossSexes (one pooled reference; the lower sex stays below 1). Orthogonal to sel_norm_bin1/2, which say WHERE the reference is taken.
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_bin);    // Per-fleet first bin (0-based, age or length per flt_sel_dim) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower range than the (possibly non-zero) first selected bin (e.g. ATS mina_ats > first selected age).
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
@@ -544,11 +545,11 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  Beta(nspp, nyrs); Beta.setZero();                                   // Stock recruit beta
   matrix<Type>  steepness(nspp, nyrs); steepness.setZero();                         // Expected % of R0 at 20% SSB0.
   vector<Type>  R_init(nspp); R_init.setZero();                                     // Equilibrium recruitment at F = Finit (non-equilibrium).
-  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
-  array<Type>   biomass_at_age(nspp, max_sex, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (kg)
-  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
-  matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (kg)
-  matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (kg)
+  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (thousands of fish; n-at-age is in thousands)
+  array<Type>   biomass_at_age(nspp, max_sex, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (mt; thousands of fish x kg)
+  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (mt)
+  matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (mt)
+  matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (mt)
   matrix<Type>  biomass_depletion(nspp, nyrs); biomass_depletion.setZero();         // Estimated biomass biomass_depletion
   matrix<Type>  ssb_depletion(nspp, nyrs); ssb_depletion.setZero();                 // Estimated biomass_depletion of spawning stock biomass
   array<Type>   M_at_age(nspp, max_sex, max_age, nyrs); M_at_age.setZero();         // Total natural mortality at age
@@ -577,9 +578,9 @@ Type objective_function<Type>::operator() () {
   array<Type>   Flimit_at_age(nspp, max_sex, max_age, nyrs); Flimit_at_age.setZero();   // Estimated target fishing mortality-at-age/sex for each species
   array<Type>   Ftarget_at_age(nspp, max_sex, max_age, nyrs); Ftarget_at_age.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
   array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
-  vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
-  vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
-  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
+  vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (mt, or thousands of fish)
+  vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (mt, or thousands of fish)
+  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (log scale, so unitless)
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -1104,6 +1105,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_cap_bin,      // Bin (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
+    sel_norm_scope,       // Normalization reference pooled across sexes?
     flt_sel_start_yr,     // Per-fleet selectivity start year (0-based)
     emp_sel_obs,          // Empirical observations matrix
     emp_sel_ctl,          // Empirical control matrix
@@ -4141,13 +4143,34 @@ Type objective_function<Type>::operator() () {
   // ADREPORT( B_eaten_as_prey );
   // ADREPORT( M_at_age );
   // ADREPORT( Z_at_age );
-  // ADREPORT( biomass_depletion );
-  // ADREPORT( ssb_depletion );
   ADREPORT( biomass );
   ADREPORT( ssb );
-  matrix<Type>  log_ssb = ssb;  log_ssb = log(ssb.array());// Fixed n-at-age scaling coefficient
+
+  // -- Secondary display series, so add_ci = TRUE can draw an interval at all.
+  // Natural scale ONLY: exploitable_biomass sums over fisheries alone, so it is
+  // exactly 0 for a survey-only species or proj_F_prop = 0, and the depletions
+  // divide by B0 / SB0. log() of either puts -Inf on the tape and NaNs the whole
+  // sdreport. The plotters recover sd(log x) = sd(x)/x instead.
+  ADREPORT( exploitable_biomass );
+  ADREPORT( biomass_depletion );
+  ADREPORT( ssb_depletion );
+
+  // -- Log-scale derived series.
+  // sdreport linearizes once about the MLE, so its SD is exact only for a linear
+  // function of the parameters. These are built multiplicatively (R = R0 *
+  // exp(rec_dev); n-at-age is a product of survivals), so log(x) is near-linear
+  // where x is exponential, and exp(log(x) +/- z * sd) is right-skewed and cannot
+  // cross zero. The log SD is also the CV, the form the ABC / OFL buffer wants.
+  // The natural-scale ADREPORTs are kept so existing sdrep$value callers work.
+  matrix<Type>  log_biomass = biomass;  log_biomass = log(biomass.array());
+  matrix<Type>  log_ssb     = ssb;      log_ssb     = log(ssb.array());
+  matrix<Type>  log_R       = R;        log_R       = log(R.array());
+  REPORT( log_biomass );
   REPORT( log_ssb );
+  REPORT( log_R );
+  ADREPORT( log_biomass );
   ADREPORT( log_ssb );
+  ADREPORT( log_R );
   ADREPORT( R_sd );
   ADREPORT( R );
 

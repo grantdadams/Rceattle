@@ -48,7 +48,12 @@ sexes or ages are dropped.
 \details{
 Standard errors (\code{se}) and confidence intervals (\code{lwr}, \code{upr}) are
 populated from the TMB \code{sdreport} for any quantity that was
-\code{ADREPORT}'d (currently \code{biomass}, \code{ssb}, \code{R}); other quantities and
-fits produced with \code{getsd = FALSE} get \code{NA} for \code{se} / \code{lwr} / \code{upr}.
-Set \code{ci_level} to widen or narrow the band.
+\code{ADREPORT}'d (\code{biomass}, \code{ssb}, \code{R}, \code{exploitable_biomass},
+\code{biomass_depletion}, \code{ssb_depletion}); other quantities and fits produced
+with \code{getsd = FALSE} get \code{NA} for \code{se} / \code{lwr} / \code{upr}. Set \code{ci_level} to
+widen or narrow the band.
+
+A strictly positive series takes its interval on the log scale, so it is
+right-skewed and cannot reach zero. This is the same construction
+\code{\link[=plot_timeseries]{plot_timeseries()}} draws, so the table and the figure agree.
 }

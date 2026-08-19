@@ -827,6 +827,45 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+# Confidence bounds for a derived series, shared by as.data.frame.Rceattle()
+# and plot_timeseries() so the table and the figure cannot disagree.
+#
+# A strictly positive series takes its interval on the log scale,
+# exp(log(x) +/- z * sd_log). These series are built multiplicatively
+# (R = R0 * exp(rec_dev); n-at-age is a product of survivals), so log(x) is
+# close to linear in the estimated parameters where x itself is exponential --
+# which is the approximation sdreport() actually makes. The interval is
+# right-skewed and cannot cross zero the way the symmetric one does for a weak
+# year class or a depleted stock.
+#
+# `log_sd` is the model's own sd(log x) where it ADREPORTed one. Where it did
+# not -- exploitable biomass and the depletions cannot be logged on the tape,
+# and fits predating v5.8.0 have no log_* rows -- it is recovered from the
+# delta-method identity sd(log x) = sd(x) / x. Where x is not positive the
+# quotient is undefined and the symmetric interval stands; the series is
+# degenerate there anyway.
+.rce_ci_bounds <- function(value, sd, log_sd = NA_real_, z = stats::qnorm(0.975)) {
+  n <- length(value)
+  sd     <- rep_len(sd, n)
+  log_sd <- rep_len(log_sd, n)
+
+  positive <- !is.na(value) & value > 0
+  derive   <- is.na(log_sd) & !is.na(sd) & positive
+  log_sd[derive] <- sd[derive] / value[derive]
+
+  lwr <- value - z * sd
+  upr <- value + z * sd
+
+  use_log <- !is.na(log_sd) & positive
+  if (any(use_log)) {
+    mu <- log(value[use_log])
+    lwr[use_log] <- exp(mu - z * log_sd[use_log])
+    upr[use_log] <- exp(mu + z * log_sd[use_log])
+  }
+  list(lwr = as.numeric(lwr), upr = as.numeric(upr))
+}
+
+
 # Catalogue of derived quantities that as.data.frame.Rceattle() can extract,
 # keyed by REPORT name, with their shape: "sy" = matrix(nspp, nyrs);
 # "ssay" = array(nspp, max_sex, max_age, nyrs). Quantities that are also
@@ -836,14 +875,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   biomass             = list(shape = "sy",   adreport = TRUE),
   ssb                 = list(shape = "sy",   adreport = TRUE),
   R                   = list(shape = "sy",   adreport = TRUE),
-  biomass_depletion   = list(shape = "sy",   adreport = FALSE),
-  ssb_depletion       = list(shape = "sy",   adreport = FALSE),
+  biomass_depletion   = list(shape = "sy",   adreport = TRUE),
+  ssb_depletion       = list(shape = "sy",   adreport = TRUE),
   B0                  = list(shape = "sy",   adreport = FALSE),
   SB0                 = list(shape = "sy",   adreport = FALSE),
   DynamicB0           = list(shape = "sy",   adreport = FALSE),
   DynamicSB0          = list(shape = "sy",   adreport = FALSE),
   DynamicSBF          = list(shape = "sy",   adreport = FALSE),
-  exploitable_biomass = list(shape = "sy",   adreport = FALSE),
+  exploitable_biomass = list(shape = "sy",   adreport = TRUE),
   F_spp               = list(shape = "sy",   adreport = FALSE),
   N_at_age            = list(shape = "ssay", adreport = FALSE),
   biomass_at_age      = list(shape = "ssay", adreport = FALSE),
@@ -874,9 +913,14 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 #'
 #' Standard errors (`se`) and confidence intervals (`lwr`, `upr`) are
 #' populated from the TMB `sdreport` for any quantity that was
-#' `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other quantities and
-#' fits produced with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`.
-#' Set `ci_level` to widen or narrow the band.
+#' `ADREPORT`'d (`biomass`, `ssb`, `R`, `exploitable_biomass`,
+#' `biomass_depletion`, `ssb_depletion`); other quantities and fits produced
+#' with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`. Set `ci_level` to
+#' widen or narrow the band.
+#'
+#' A strictly positive series takes its interval on the log scale, so it is
+#' right-skewed and cannot reach zero. This is the same construction
+#' [plot_timeseries()] draws, so the table and the figure agree.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param row.names,optional Ignored; present for the [as.data.frame()] generic.
@@ -960,7 +1004,8 @@ as.data.frame.Rceattle <- function(x,
       mat <- as.matrix(arr)
       if (length(dim(mat)) != 2 ||
           dim(mat)[1] != nspp || dim(mat)[2] != nyrs) next
-      sd_mat <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
+      sd_mat  <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
+      lsd_mat <- if (spec$adreport) sd_lookup(paste0("log_", qn), dim(mat)) else NULL
       grid <- expand.grid(species_idx = seq_len(nspp),
                           year_idx    = seq_len(nyrs),
                           KEEP.OUT.ATTRS = FALSE,
@@ -968,6 +1013,8 @@ as.data.frame.Rceattle <- function(x,
       cell <- cbind(grid$species_idx, grid$year_idx)
       val  <- mat[cell]
       sdv  <- if (!is.null(sd_mat)) sd_mat[cell] else NA_real_
+      lsd  <- if (!is.null(lsd_mat)) lsd_mat[cell] else rep(NA_real_, length(val))
+      bnds <- .rce_ci_bounds(val, sdv, lsd, z)
       out[[qn]] <- data.frame(
         year     = yrs[grid$year_idx],
         species  = spnames[grid$species_idx],
@@ -976,8 +1023,8 @@ as.data.frame.Rceattle <- function(x,
         quantity = qn,
         value    = as.numeric(val),
         se       = as.numeric(sdv),
-        lwr      = as.numeric(val - z * sdv),
-        upr      = as.numeric(val + z * sdv),
+        lwr      = bnds$lwr,
+        upr      = bnds$upr,
         stringsAsFactors = FALSE
       )
     } else if (spec$shape == "ssay") {

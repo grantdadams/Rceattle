@@ -149,14 +149,22 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     }
 
     # - Calculate SD
-    rec_rows <- which(names(mod_avg$sdrep$value) == "R")
-    mod_avg$sdrep$sd[rec_rows] <- sqrt(apply(recruitment, c(1,2), var))
-
-    biomass_rows <- which(names(mod_avg$sdrep$value) == "biomass")
-    mod_avg$sdrep$sd[biomass_rows] <- sqrt(apply(biomass, c(1,2), var))
-
-    ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
-    mod_avg$sdrep$sd[ssb_rows] <- sqrt(apply(ssb, c(1,2), var))
+    # Both scales get the across-model sampling SD. The plotters prefer the
+    # log-scale rows, so leaving log_* at its single-model value would draw
+    # model-averaged trajectories with single-model intervals. A non-positive
+    # sample gives NaN, which the plotters treat as "no log SD".
+    sd_samples <- list(R           = recruitment,
+                       biomass      = biomass,
+                       ssb          = ssb,
+                       log_R        = log(recruitment),
+                       log_biomass  = log(biomass),
+                       log_ssb      = log(ssb))
+    for (nm in names(sd_samples)) {
+      rows <- which(names(mod_avg$sdrep$value) == nm)
+      if (length(rows)) {
+        mod_avg$sdrep$sd[rows] <- sqrt(apply(sd_samples[[nm]], c(1, 2), var))
+      }
+    }
 
     # - Save samples
     mod_avg$asymptotic_samples <- list(recruitment = recruitment, biomass = biomass, ssb = ssb)
