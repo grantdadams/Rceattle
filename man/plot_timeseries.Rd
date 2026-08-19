@@ -29,6 +29,7 @@ plot_timeseries(
   mse = FALSE,
   OM = TRUE,
   reference = NULL,
+  zero_y = FALSE,
   mod_avg = rep(FALSE, length(Rceattle))
 )
 }
@@ -37,7 +38,8 @@ plot_timeseries(
 
 \item{output}{derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.}
 
-\item{ylab}{Y-axis label}
+\item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
+model's \code{minage}.}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -50,7 +52,8 @@ function.}
 
 \item{spnames}{Species names for legend}
 
-\item{add_ci}{If the confidence interval is to be added}
+\item{add_ci}{If the confidence interval is to be added (see Details for how
+it is constructed)}
 
 \item{lwd}{Line width as specified by user}
 
@@ -82,6 +85,10 @@ function.}
 
 \item{reference}{Reference model}
 
+\item{zero_y}{Anchor the y-axis at zero. TRUE for the absolute series
+(biomass, SSB, recruitment), where a truncated axis exaggerates change;
+FALSE for the depletions, which are already on a relative scale.}
+
 \item{mod_avg}{TRUE/FALSE}
 }
 \value{
@@ -90,3 +97,30 @@ Returns and saves a figure with the population trajectory.
 \description{
 Function that plots the time-series (SSB/B/R/Depletion) 95\% CI trends as estimated from Rceattle
 }
+\section{Units}{
+The model carries numbers-at-age in \strong{thousands} and weight-at-age in
+\strong{kg}, so every biomass series (\code{biomass}, \code{ssb}, \code{exploitable_biomass})
+comes out of the model in \strong{mt} and recruitment comes out in \strong{thousands of
+fish}. For display these are divided by 1e6 (million mt) and 1e3 (millions
+of recruits) respectively; depletion is a ratio and is not rescaled. Supply
+the model's inputs on that convention -- catch and index in mt, weight-at-age
+in kg -- or the axis labels will not describe what is plotted.
+}
+
+\section{Confidence intervals}{
+\code{add_ci = TRUE} draws a 95\% interval. Every strictly positive series takes it
+on the log scale as \verb{exp(log(x) +/- 1.92 * sd_log)}. These quantities are
+built multiplicatively, so \code{log(x)} is close to linear in the estimated
+parameters where \code{x} is exponential in them: the interval is both a better
+linearization and right-skewed, and it cannot cross zero the way a symmetric
+natural-scale interval does for weak year classes and depleted stocks.
+
+\code{sd_log} comes from the model's own \code{log_biomass} / \code{log_ssb} / \code{log_R} where
+those are reported, and is otherwise recovered as \code{sd(x) / x} -- the delta
+method's own identity, which matches the reported values to machine
+precision. That covers \code{exploitable_biomass} and the two depletions, which
+cannot be reported on the log scale (\code{exploitable_biomass} is identically 0
+without projection F), and models fit before the \verb{log_*} series existed. A
+non-positive or unreported value keeps the symmetric interval.
+}
+

@@ -76,6 +76,9 @@ rich.colors.short <- function(n,alpha=1){
 #' @param lty line type
 #' @param alpha shading for confidence intervals
 #' @param mod_avg TRUE/FALSE
+#' @param zero_y Anchor the y-axis at zero. TRUE for the absolute series
+#'   (biomass, SSB, recruitment), where a truncated axis exaggerates change;
+#'   FALSE for the depletions, which are already on a relative scale.
 #' @param reference Reference model
 #' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").
 #'
