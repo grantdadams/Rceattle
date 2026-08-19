@@ -193,14 +193,19 @@
   `Lognormal` fleets are unchanged, so any model that does not set
   `Index_distribution` is unaffected.
 
-* **`Estimate_index_sd = "Analytical"` is refused on a natural-scale index
-  family.** The analytical sd (Ludwig and Walters 1994) is accumulated from
-  squared *log* residuals, so it is a log-scale sd, while `MVN`, `MVNORM`,
-  `Normal` and `TruncatedNormal` read the sd as an absolute value in the units of
-  the index. The combination fitted without complaint on the wrong scale;
-  `data_check()` now names the fleets and says what to use instead. Lognormal --
-  the family the analytical route was derived for -- is unaffected. Found while
-  renaming `log_index_sd`, which is the same confusion in a different place.
+* **`Estimate_index_sd = "Analytical"` no longer passes silently on a
+  natural-scale index family.** The analytical sd (Ludwig and Walters 1994) is
+  accumulated from squared *log* residuals, so it is a log-scale sd. What that
+  costs depends on whether the family reads it. `Normal` and `TruncatedNormal`
+  do, as an absolute value in the units of the index, so the likelihood itself
+  was evaluated on the wrong scale -- `data_check()` now refuses the
+  combination. `MVN` and `MVNORM` score through `index_cov` and never read the
+  scalar sd, so their fits are unaffected; but `index_sd` is still reported from
+  it, and `residuals(type = "pearson")` and `plot_index()`'s interval divide by
+  it, so those two warn rather than refuse a model that fits correctly.
+  `Lognormal`, the family the analytical route was derived for, is untouched.
+  Found while renaming `log_index_sd` -- the same confusion in a different
+  place.
 
 * **`M1_re = 3` and `6` estimated far fewer deviations than intended.** The
   age-by-year map index was built from a vector of length `nyrs_hind` and

@@ -746,25 +746,45 @@ data_check <- function(data_list) {
   # index_cov warning below is meant to catch.
   mvn_flts <- integer(0)
   # The analytical sd (Ludwig and Walters 1994) is accumulated from squared LOG
-  # residuals, so it is a log-scale sd. A natural-scale Index_distribution reads
-  # its sd as an ABSOLUTE quantity in the units of the index, so pairing the two
-  # feeds a log-scale number in where an index-scale one is meant -- no error,
-  # just a likelihood on the wrong scale. Refuse the combination rather than fit
-  # it. Lognormal is the family the analytical route was derived for.
+  # residuals, so it is a log-scale sd. What that costs depends on whether the
+  # family actually reads it, and the two groups differ:
+  #
+  #   Normal / TruncatedNormal read the sd as an ABSOLUTE value in index units,
+  #     so the likelihood itself is evaluated on the wrong scale. Refuse it.
+  #   MVN / MVNORM score through index_cov_mat and never read the scalar sd, so
+  #     the FIT is unaffected. But index_sd is still reported from it, and that
+  #     is what residuals(type = "pearson") and plot_index()'s interval divide
+  #     by, so the diagnostics are on the wrong scale. Warn rather than refuse a
+  #     model that fits correctly.
   if(has_data(fc) && all(c("Index_distribution", "Estimate_index_sd") %in% colnames(fc))){
-    nat_names <- c("MVN", "MVNORM", "Normal", "TruncatedNormal")
-    is_nat <- fc$Index_distribution %in% c(nat_names, 1, 2, 3, 4, "1", "2", "3", "4")
     is_analytical <- fc$Estimate_index_sd %in% c("Analytical", 2, "2")
-    bad <- which(is_nat & is_analytical & fc$Fleet_type != "Off" & fc$Fleet_type != 0)
+    is_on <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+    fitted_scale <- fc$Index_distribution %in% c("Normal", "TruncatedNormal", 3, 4, "3", "4")
+    cov_scale    <- fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2")
+
+    bad <- which(is_analytical & is_on & fitted_scale)
     if(length(bad)){
       errors <- c(errors, paste0(
         "Fleet(s) ", paste(fc$Fleet_name[bad], collapse = ", "),
-        " combine Estimate_index_sd = 'Analytical' with a natural-scale ",
-        "Index_distribution (", paste(unique(fc$Index_distribution[bad]), collapse = ", "),
-        "). The analytical sd is computed from log residuals, so it is a ",
+        " combine Estimate_index_sd = 'Analytical' with Index_distribution = '",
+        paste(unique(as.character(fc$Index_distribution[bad])), collapse = "', '"),
+        "'. The analytical sd is computed from log residuals, so it is a ",
         "log-scale sd, while these families read the sd as an absolute value in ",
-        "the units of the index. Use Estimate_index_sd = 'Fixed' with an ",
-        "absolute Log_sd, or 'Estimated', or switch the fleet to Lognormal."))
+        "the units of the index -- the likelihood would be evaluated on the ",
+        "wrong scale. Use Estimate_index_sd = 'Fixed' with an absolute Log_sd, ",
+        "or 'Estimated', or switch the fleet to Lognormal."))
+    }
+
+    noisy <- which(is_analytical & is_on & cov_scale)
+    if(length(noisy)){
+      warning(paste0(
+        "Fleet(s) ", paste(fc$Fleet_name[noisy], collapse = ", "),
+        " combine Estimate_index_sd = 'Analytical' with a covariance index ",
+        "family. The fit is unaffected -- MVN/MVNORM score through index_cov ",
+        "and never read the scalar sd -- but the reported index_sd is then a ",
+        "log-scale number, and residuals(type = 'pearson') and plot_index()'s ",
+        "observation interval divide by it. Read those two on this fleet with ",
+        "care, or set Estimate_index_sd = 'Fixed'."), call. = FALSE)
     }
   }
 

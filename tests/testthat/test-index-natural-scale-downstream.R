@@ -134,33 +134,49 @@ testthat::test_that("TruncatedNormal gets natural-scale Pearson residuals", {
   testthat::expect_lt(max(abs(res)), 10)
 })
 
-testthat::test_that("the analytical sd is refused on a natural-scale fleet", {
+testthat::test_that("the analytical sd is refused where the likelihood reads it", {
   testthat::skip_if_not_installed("TMB")
 
   # log_index_analytical_sd accumulates squared LOG residuals (Ludwig and Walters
-  # 1994), so it is a log-scale sd. The natural-scale families read their sd as
-  # an ABSOLUTE value in index units, so the combination silently fits on the
-  # wrong scale. data_check() refuses it rather than producing a number.
-  for (fam in c("Normal", "TruncatedNormal", "MVN")) {
+  # 1994), so it is a log-scale sd. What that costs splits by family, and so does
+  # the response:
+  #   Normal / TruncatedNormal read the sd, so the LIKELIHOOD is on the wrong
+  #     scale -- an error.
+  #   MVN / MVNORM score through index_cov and never read the scalar sd, so the
+  #     fit is fine and only the reported index_sd (and the Pearson residual and
+  #     plot interval built from it) is wrong -- a warning, because refusing
+  #     would reject a model that fits correctly.
+  mk <- function(fam, est) {
     dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
     srv <- dat$fleet_control$Fleet_name == "Survey"
     dat$fleet_control$Index_distribution[srv] <- fam
-    dat$fleet_control$Estimate_index_sd[srv]  <- "Analytical"
-    testthat::expect_error(
-      suppressMessages(suppressWarnings(Rceattle::fit_mod(
-        dat, file = NULL, estimateMode = 3, msmMode = 0,
-        fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))),
-      "log-scale sd", label = fam)
+    dat$fleet_control$Estimate_index_sd[srv]  <- est
+    if (fam %in% c("MVN", "MVNORM")) {
+      dat$fleet_control$Catchability[srv] <- "AnalyticalArith"
+      dat$index_cov <- list(Survey = diag(rep(20^2, 12)))
+    }
+    dat
+  }
+  fit <- function(dat) suppressMessages(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 3, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))
+
+  for (fam in c("Normal", "TruncatedNormal")) {
+    testthat::expect_error(suppressWarnings(fit(mk(fam, "Analytical"))),
+                           "wrong scale", label = fam)
   }
 
-  # Lognormal is the family the analytical route was derived for, and is
-  # untouched -- or the check above would just be banning a working option.
-  dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
-  srv <- dat$fleet_control$Fleet_name == "Survey"
-  dat$fleet_control$Index_distribution[srv] <- "Lognormal"
-  dat$fleet_control$Estimate_index_sd[srv]  <- "Analytical"
-  testthat::expect_no_error(
-    suppressMessages(suppressWarnings(Rceattle::fit_mod(
-      dat, file = NULL, estimateMode = 3, msmMode = 0,
-      fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)))))
+  # The covariance families warn and still fit.
+  for (fam in c("MVN", "MVNORM")) {
+    testthat::expect_warning(m <- fit(mk(fam, "Analytical")),
+                             "never read the scalar sd", label = fam)
+    testthat::expect_false(is.null(m$obj), label = fam)
+  }
+
+  # Lognormal is the family the analytical route was derived for, and an "Off"
+  # fleet is not checked at all -- or this would just be banning working setups.
+  testthat::expect_no_error(suppressWarnings(fit(mk("Lognormal", "Analytical"))))
+  d_off <- mk("Normal", "Analytical")
+  d_off$fleet_control$Fleet_type[d_off$fleet_control$Fleet_name == "Survey"] <- "Off"
+  testthat::expect_no_error(suppressWarnings(fit(d_off)))
 })
