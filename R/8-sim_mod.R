@@ -162,10 +162,11 @@
 # Under srr_fun = 0 with srr_pred_fun > 0 -- the AMAK/Ianelli configuration --
 # recruitment is R = exp(R0 + rec_dev) and the stock-recruit curve is fitted as a
 # PENALTY on the same deviation, so rec_dev is scored by JNLL_REC_DEV and again
-# by JNLL_SRR_PENALTY. Drawing at R_sd from the first alone is over-dispersed
-# relative to what the estimator assumes, and a self-test would read that as a
-# failure to recover R_sd. The template draws nothing (ceattle.cpp section 5.13);
-# this says so.
+# by JNLL_SRR_PENALTY. Drawing at R_sd from the first alone ignores the second,
+# and the second is not a density on rec_dev alone either -- it couples the
+# deviations to the stock-recruit parameters, which are estimated too -- so there
+# is no closed-form conditional to fall back on. The template draws nothing
+# (ceattle.cpp section 5.13); this says so.
 .sim_warn_rec_srr_penalty <- function(obj, state) {
   if (state[1] != 1L) return(invisible(FALSE))
   d <- obj$env$data
@@ -174,10 +175,12 @@
   warning("Process error was requested for recruitment, but this model fits the ",
           "stock-recruit curve as a penalty on the recruitment deviations ",
           "(srr_fun = 0 with srr_pred_fun > 0, the AMAK/Ianelli configuration). ",
-          "The deviations are then scored by two densities at once, which do not ",
-          "compose into a single distribution to draw from, so recruitment was ",
-          "not redrawn and the fitted deviations stand. Set srr_fun to the ",
-          "stock-recruit function itself to have recruitment simulated.",
+          "The deviations are then scored by two terms at once, which do not ",
+          "compose into a single distribution to draw from, so the recruitment ",
+          "deviations were not redrawn and their fitted values stand. Any random ",
+          "linkage on a recruitment parameter is a separate latent and was drawn ",
+          "normally. Set srr_fun to the stock-recruit function itself to have the ",
+          "deviations simulated too.",
           call. = FALSE)
   invisible(TRUE)
 }

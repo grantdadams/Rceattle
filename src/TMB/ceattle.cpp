@@ -1296,11 +1296,13 @@ Type objective_function<Type>::operator() () {
       // R = exp(R0 + rec_dev) and the stock-recruit curve is fitted as a PENALTY
       // on the same deviation: section 13 scores rec_dev once through
       // JNLL_REC_DEV and again through JNLL_SRR_PENALTY, over
-      // srr_hat_styr..srr_hat_endyr. Two priors on one latent do not compose into
-      // a data-generating process -- there is no single distribution to draw
-      // from, and drawing at R_sd from the first alone is over-dispersed relative
-      // to what the estimator assumes, so a self-test would report a spurious
-      // failure to recover R_sd. Nothing is drawn and sim_mod() says so, for the
+      // srr_hat_styr..srr_hat_endyr. Two terms on one latent do not compose into
+      // a data-generating process. Drawing at R_sd from the first alone ignores
+      // the second, and the second is not a density on rec_dev alone either --
+      // it couples the deviations to the stock-recruit parameters, which are
+      // estimated too -- so there is no closed-form conditional to draw from
+      // instead. Either way a self-test would be measuring recovery against a
+      // process the model does not assume. Nothing is drawn and sim_mod() says so, for the
       // same reason the equilibrium init modes and the observed-AR1 linkages are
       // left alone: a deviation is never given a distribution the model does not
       // assume for it.

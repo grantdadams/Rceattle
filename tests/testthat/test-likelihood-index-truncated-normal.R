@@ -117,3 +117,38 @@ testthat::test_that("both natural-scale families keep obsvec in step with the dr
                            log(drawn), tolerance = 1e-10)
   }
 })
+
+testthat::test_that("the OSA obsvec holds the untransformed obs for every natural-scale family", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # build_osa_data() lays obsvec out per family, and the cpp's OSA branch scores
+  # each family against the layout it expects. A natural-scale family that misses
+  # the untransformed branch falls through to the lognormal default and is
+  # residualized as log(obs) against a natural-scale mean -- no error, just a
+  # meaningless residual. Enumerated from index_distribution_map so a new family
+  # fails here rather than in someone's Q-Q plot.
+  for (fam in c("Normal", "TruncatedNormal")) {
+    dat <- make_test_data(nyrs = 12, nages = 5, seed = 123)
+    srv <- dat$fleet_control$Fleet_name == "Survey"
+    dat$fleet_control$Index_distribution[srv] <- fam
+    dat$fleet_control$Catchability[srv] <- "AnalyticalArith"
+    dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- 20
+
+    d <- suppressMessages(suppressWarnings(
+      Rceattle::rearrange_data(Rceattle::switch_check(dat), build_osa = TRUE)))
+    ill  <- d$index_ll_type
+    rows <- which(d$index_obsvec_idx >= 0)
+    testthat::skip_if(!length(rows), "no index rows in obsvec")
+    nat <- ill[d$index_ctl[rows, 1]] %in% c(3L, 4L)
+    testthat::expect_true(any(nat), label = fam)
+
+    got  <- d$obsvec[d$index_obsvec_idx[rows[nat]] + 1L]
+    want <- d$index_obs[rows[nat], 1]
+    testthat::expect_equal(as.numeric(got), as.numeric(want),
+                           tolerance = 1e-10, label = fam)
+    # ...and NOT the log, which is what the fall-through would have stored.
+    testthat::expect_false(isTRUE(all.equal(as.numeric(got),
+                                            log(as.numeric(want)))))
+  }
+})

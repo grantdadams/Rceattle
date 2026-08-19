@@ -232,14 +232,21 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
         }
         inc <- setdiff(inc, rows)
       }
-      # Natural-scale Normal (family 3): store the untransformed observation.
-      rows3 <- inc[ill[index_ctl[inc, 1]] == 3L]
-      if (length(rows3) > 0) {
-        index_obsvec_idx[rows3] <- append_obs(
-          value = index_obs[rows3, 1], source = "index", data_row = rows3,
-          fleet_code = index_ctl[rows3, 1], species = index_ctl[rows3, 2],
-          year = index_ctl[rows3, 3])
-        inc <- setdiff(inc, rows3)
+      # Natural-scale families -- "Normal" (3) and "TruncatedNormal" (4) -- store
+      # the UNTRANSFORMED observation, because that is what the cpp's OSA branch
+      # scores it against. Both belong here: family 4 differs only by the
+      # truncation constant, which is a function of the predicted index and not
+      # of the observation, so it changes the density but not the value stored.
+      # A natural-scale family that misses this list falls through to the
+      # lognormal default below and is residualized as log(obs) against a
+      # natural-scale mean.
+      rows_nat <- inc[ill[index_ctl[inc, 1]] %in% c(3L, 4L)]
+      if (length(rows_nat) > 0) {
+        index_obsvec_idx[rows_nat] <- append_obs(
+          value = index_obs[rows_nat, 1], source = "index", data_row = rows_nat,
+          fleet_code = index_ctl[rows_nat, 1], species = index_ctl[rows_nat, 2],
+          year = index_ctl[rows_nat, 3])
+        inc <- setdiff(inc, rows_nat)
       }
     }
     # Lognormal IID (family 0) -- and every fleet on the fast fitting path -- as

@@ -28,8 +28,17 @@ testthat::test_that("obj$simulate() leaves the observed-data reports untouched",
   set.seed(3)
   sim <- fit$obj$simulate()        # draw taken
 
-  for (nm in c("comp_obs", "caal_obs", "catch_obs", "index_obs", "diet_obs")) {
-    if (is.null(obs[[nm]])) next
+  # catch_obs and index_obs are not REPORTed at all, so their in-place draw
+  # cannot leak; comp_obs, caal_obs and diet_obs are, and each has to be drawn
+  # into a copy. Assert which is which, so adding a REPORT() for one of the first
+  # two without also giving it a copy fails here rather than silently handing a
+  # replicate back under the observed name.
+  reported <- c("comp_obs", "caal_obs", "diet_obs")
+  unreported <- c("catch_obs", "index_obs")
+  testthat::expect_true(all(vapply(reported, function(n) !is.null(obs[[n]]), logical(1))))
+  testthat::expect_true(all(vapply(unreported, function(n) is.null(obs[[n]]), logical(1))))
+
+  for (nm in reported) {
     testthat::expect_equal(sim[[nm]], obs[[nm]], tolerance = 1e-12,
                            info = paste(nm, "was overwritten by the draw"))
   }
@@ -87,9 +96,10 @@ testthat::test_that("a zero-Sample_size composition row simulates to zero", {
 # Under srr_fun = 0 with srr_pred_fun > 0 (AMAK/Ianelli) the stock-recruit curve
 # is fitted as a penalty on the recruitment deviations, so rec_dev is scored by
 # JNLL_REC_DEV and again by JNLL_SRR_PENALTY. Two penalties on one latent do not
-# compose into a distribution to draw from; drawing at R_sd from the first alone
-# is over-dispersed relative to what the estimator assumes, and a self-test would
-# report that as a failure to recover R_sd.
+# compose into a distribution to draw from: drawing at R_sd from the first alone
+# ignores the second, and the second couples the deviations to the stock-recruit
+# parameters rather than being a density on rec_dev alone, so there is no
+# closed-form conditional to use instead.
 # ---------------------------------------------------------------------------
 testthat::test_that("the AMAK/Ianelli stock-recruit penalty suppresses the recruitment draw", {
   testthat::skip_if_not_installed("TMB")

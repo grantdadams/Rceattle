@@ -197,12 +197,14 @@
   `srr_fun = 0` with `srr_pred_fun > 0` -- the AMAK/Ianelli configuration, where
   recruitment is estimated annually and the stock-recruit curve is fitted as a
   penalty on the same deviations -- `rec_dev` is scored by both `JNLL_REC_DEV`
-  and `JNLL_SRR_PENALTY`. Two penalties on one latent do not compose into a
-  distribution to draw from, and drawing at `R_sd` from the first alone is
-  over-dispersed relative to what the estimator assumes, so
-  `self_test(process = "recruitment")` would have reported a failure to recover
-  `R_sd` that belonged to the simulator. Recruitment is left at its fitted values
-  and `sim_mod()` says why.
+  and `JNLL_SRR_PENALTY`. Two terms on one latent do not compose into a
+  distribution to draw from: drawing at `R_sd` from the first alone ignores the
+  second, and the second is not a density on `rec_dev` alone either -- it couples
+  the deviations to the stock-recruit parameters, which are estimated too. Either
+  way `self_test(process = "recruitment")` would have measured recovery against a
+  process the model does not assume. The deviations are left at their fitted
+  values and `sim_mod()` says why; a random linkage on a recruitment parameter is
+  a separate latent and is still drawn.
 
 * **The correlated survey draw could write an unchecked non-positive index.** The
   rejection loop tested its budget before testing the draw, so exhausting the
