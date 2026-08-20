@@ -613,11 +613,18 @@ Type objective_function<Type>::operator() () {
   // because a covariance fleet draws from index_cov_mat and its index_sd
   // holds whatever the (unused) Index_sd column happens to carry.
   vector<Type>  index_trunc_sd_sim(index_obs.rows());      index_trunc_sd_sim.setZero();
-  // Redraw budget, per row. The correlated block scales it by its row count: a
-  // vector is rejected if ANY row is non-positive, so the joint rejection
-  // probability climbs with n and a flat budget fails on wide fleets that are
-  // fine row by row. Kept in step by hand with .SIM_INDEX_MAX_TRIES in
-  // R/8-sim_mod.R, which only quotes it in the warning text.
+  // The budget ACTUALLY applied to each row: the base constant on the univariate
+  // branch, and that scaled by the fleet's row count on the correlated one,
+  // which rejects the whole vector at once. Reported per row rather than as the
+  // bare constant, because the constant is not the number the correlated draw
+  // uses and quoting it would misstate the very thing the warning is about.
+  vector<Type>  index_trunc_budget_sim(index_obs.rows()); index_trunc_budget_sim.setZero();
+  // Redraw budget, per row. Flat per row on the univariate branch; the
+  // correlated branch scales it by the fleet's row count, because a vector is
+  // rejected whenever any single row is non-positive and the joint rejection
+  // probability climbs with the number of rows. REPORTed below (under the _sim
+  // name every SIMULATE report takes, see section 5.12b) so sim_mod() quotes
+  // this value in its warning rather than carrying a second copy of it.
   const int index_trunc_max_tries = 100;
   // The observation sd the index likelihood actually used for each row, whichever
   // of the three est_sigma_index routes supplied it. It is NOT a log: it is the
@@ -3096,6 +3103,7 @@ Type objective_function<Type>::operator() () {
         }
         index_trunc_tries_sim(index_ind) += tn_tries + 1;
         index_trunc_sd_sim(index_ind) = index_std_dev;
+        index_trunc_budget_sim(index_ind) = index_trunc_max_tries;
         index_obs(index_ind, 0) = sim_draw;
       }
       if((flt_type(index) > 0) && (index_ll_type(index) == 4)){
@@ -3238,6 +3246,7 @@ Type objective_function<Type>::operator() () {
           for(k = 0; k < n_mvn; k++){
             index_trunc_tries_sim(rowv(k)) += mvn_tries + 1;
             index_trunc_sd_sim(rowv(k)) = sqrt(index_cov_mat(index)(k, k));
+            index_trunc_budget_sim(rowv(k)) = index_trunc_max_tries * n_mvn;
             index_obs(rowv(k), 0) = mu(k) + sim_dev(k);
             // obsvec holds log(obs) for this family on the ordinary fitting path
             // (build_osa_data() only whitens it when the OSA data are built), so
@@ -3259,6 +3268,7 @@ Type objective_function<Type>::operator() () {
     REPORT(index_trunc_tries_sim);
     REPORT(index_trunc_rejects_sim);
     REPORT(index_trunc_sd_sim);
+    REPORT(index_trunc_budget_sim);
   }
 
 

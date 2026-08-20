@@ -190,6 +190,15 @@
     `"log(index) residual"`. Panels keep a free y scale because a model mixing
     the two families now mixes units across panels.
 
+* **`plot_indexresidual()` plotted the negative of a residual.** It drew
+  `predicted - observed`, while `residuals(fit, source = "index")` returns
+  `observed - predicted` -- the same quantity through two functions, mirrored.
+  Both are now `observed - predicted`, the usual assessment convention (WHAM,
+  SS3), so a positive residual means the survey saw more than the model
+  predicted. **Index residual plots made before 5.9.0 are mirrored about zero
+  relative to these**; a figure carried forward from an earlier version needs
+  redrawing, and any written interpretation of its sign needs rereading.
+
   `Lognormal` fleets are unchanged, so any model that does not set
   `Index_distribution` is unaffected.
 
@@ -206,6 +215,55 @@
   `Lognormal`, the family the analytical route was derived for, is untouched.
   Found while renaming `log_index_sd` -- the same confusion in a different
   place.
+
+* **`TruncatedNormal` OSA residuals were the untruncated family's.** The
+  truncation constant `log Phi(mu/sd)` is a function of the prediction, not of
+  the observation, so it drops out of any method that reads the curvature of the
+  density in the observation -- including `oneStepPredict()`'s default
+  `oneStepGaussianOffMode`. Those residuals were `(obs - mu)/sd`, which is not
+  standard normal under the density that was fitted. `osa_residuals()` now
+  residualizes this family in its own call, with `method = "oneStepGeneric"`,
+  `range = c(0, Inf)` and `splineApprox = FALSE`, which integrates the density
+  over its actual support and returns `qnorm(F(x))` for the truncated
+  `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`. The correction is the
+  size of the truncated mass: on a fleet predicting 100 with an absolute sd of
+  150, an observation exactly at the prediction moves from 0 to -0.44. `"Normal"`
+  is untouched -- it is genuinely untruncated -- and the two are now pinned
+  against their closed forms in
+  `tests/testthat/test-likelihood-index-truncated-normal.R`.
+
+  Three things follow from that group being residualized separately, all
+  documented in `?osa_residuals`. The exact integration evaluates the Laplace
+  marginal at arbitrary observations and does not always converge on a
+  random-effects model; rather than drop those rows to `NA` -- which would shrink
+  the sample `osa_diagnostics()` reports on without saying so -- the fleet is
+  recomputed under TMB's spline approximation and a warning says its residuals
+  are approximate. `sd` is `NA` for the group and `predicted` is the truncated
+  conditional mean rather than the fitted index. And because each
+  `oneStepPredict()` call marks the rows it is not residualizing as
+  unconditional, adding a truncated fleet shifts the other fleets' residuals on a
+  random-effects model -- a different, equally valid conditioning sequence, not a
+  wrong value.
+
+  The override is announced rather than silent: `osa_residuals()` names the
+  fleets, says which method replaced the one that was passed, and notes that the
+  exact integration is slower. The returned object records what was used, so
+  `attr(x, "method")` is
+  `c(default = <method>, TruncatedNormal = "oneStepGeneric")` on such a model and
+  the plain string otherwise.
+
+* **`compare_sim()` warns when it is handed `process`-drawn replicates.** Every
+  statistic it reports is a deviation from `operating_mod`, which is the truth
+  only when the replicates redrew the observations alone; with process error
+  redrawn the operating model's deviations are not what generated the data, so
+  the reported bias is an artefact. `self_test()` carries the real deviations on
+  its own output, so the mistake is detectable at runtime rather than only
+  documented.
+
+* **`osa_residuals()` reported `observed = NA` for any group residualized with
+  `oneStepGeneric`.** That method returns no `observation` column; the value is
+  simply the `obsvec` entry that was residualized, and is now filled in from
+  there. Affected the discrete composition path as well as the new truncated one.
 
 * **`M1_re = 3` and `6` estimated far fewer deviations than intended.** The
   age-by-year map index was built from a vector of length `nyrs_hind` and
@@ -302,15 +360,21 @@
   1, and a simulated one reaches that through a division that can land a few
   ulps above. Real excesses are still rejected.
 
-* **`sim_mod()` sizes the truncation warning from the fit rather than from the
-  draw.** A natural-scale index that has to be redrawn follows a normal truncated
-  at zero while the likelihood scores the untruncated one, and the warning now
-  reports that gap as `P(draw <= 0) = Phi(-mu/sd)` on the worst row, using the sd
-  the draw itself used (Sigma's diagonal for a covariance fleet). The previous
-  test counted rejections, but each row is drawn once per call, so the ratio
-  could only be 0, 1/2, 2/3, ... -- a "was this row ever redrawn" indicator
-  rather than a rate, and the 2% threshold it was compared against was
-  unreachable.
+* **`sim_mod()` sizes the truncation warning correctly, per family.** A
+  natural-scale index that has to be redrawn follows a normal truncated at zero
+  while the likelihood scores the untruncated one. For the independent `"Normal"`
+  family the warning now reports that gap as `P(draw <= 0) = Phi(-mu/sd)` on the
+  worst row, using the sd the draw itself used. The previous test counted
+  rejections, but each row is drawn once per call, so the ratio could only be
+  0, 1/2, 2/3, ... -- a "was this row ever redrawn" indicator rather than a rate,
+  and the 2% threshold it was compared against was unreachable.
+
+  A covariance fleet is judged on the JOINT rate instead, measured from the
+  draw: it rejects the entire vector whenever any row is non-positive, so the
+  per-row margin understates it badly -- an 8-row fleet whose worst margin is 31%
+  is rejected about 92% of the time. The retry budget quoted in the warning is
+  likewise the one the draw applied (`100 * n_rows` on that branch, not the bare
+  `100`), reported by the template rather than kept as a second copy in R.
 
 ## Documentation
 
@@ -319,14 +383,6 @@
   (`R/0-parameter_dictionary.R`, `.mse_proj_param_yrdim()`) a new or retired
   parameter block has to be added to.
 
-* **`osa_residuals()` states what a `TruncatedNormal` index residual is.** The
-  truncation constant `log Phi(mu/sd)` is a function of the prediction, not of
-  the observation, so the default `method = "oneStepGaussianOffMode"` -- which
-  reads the curvature of the density in the observation -- returns the same
-  residual the untruncated `"Normal"` family would. Those residuals are standard
-  normal only where `mu/sd` is large enough that truncation carries little mass;
-  the truncation still enters through the fitted parameters. The help said they
-  were uniform under the truncated model, which overstated it.
 
 * `vignette("model-diagnostics")` documents `process = `, the natural-scale index
   families, and what a redrawn M can and cannot be read as. On `BS2017SS` with a

@@ -443,7 +443,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   #   simulate_state : 0 recruitment (annual and initial), 1 M, 2 growth,
   #                    3 catchability, 4 selectivity -- the linkage process
   #                    codes, so the template can index by them directly
-  #   simulate_period: 0 the fitted window, 1 outside it
+  #   simulate_period: 0 the fitted window, 1 outside it. Only slot 0 is read
+  #                    by the template, and only by the PROCESS draws; the
+  #                    observation draws are ungated by period on purpose (see
+  #                    ceattle.cpp 2.4.2c). Slot 1 is reserved and inert.
   if (is.null(data_list$simulate_state))  data_list$simulate_state  <- rep(0L, 5)
   if (is.null(data_list$simulate_period)) data_list$simulate_period <- rep(1L, 2)
   data_list$simulate_state  <- as.integer(data_list$simulate_state)

@@ -256,12 +256,18 @@ plot_catch <- function(Rceattle,
 #' diagnostics for a single fit (`residual_type = "osa"`, via [osa_residuals()] /
 #' [plot.rceattle_osa()]).
 #'
-#' The residual is taken on the scale the fleet is fitted on, read from its
-#' `Index_distribution`: `log(predicted) - log(observed)` for a log-scale
-#' (`"Lognormal"`) fleet, and `predicted - observed` for a natural-scale one
-#' (`"MVN"`, `"MVNORM"`, `"Normal"`, `"TruncatedNormal"`), whose sd is absolute.
-#' Panels therefore carry different units where a model mixes the two, which is
-#' why the y scale is free per fleet.
+#' The residual is **observed minus predicted**, taken on the scale the fleet is
+#' fitted on and read from its `Index_distribution`:
+#' `log(observed) - log(predicted)` for a log-scale (`"Lognormal"`) fleet, and
+#' `observed - predicted` for a natural-scale one (`"MVN"`, `"MVNORM"`,
+#' `"Normal"`, `"TruncatedNormal"`), whose sd is absolute. A positive residual
+#' means the survey saw more than the model predicted. Panels carry different
+#' units where a model mixes the two families, which is why the y scale is free
+#' per fleet.
+#'
+#' Before 5.9.0 this plotted `predicted - observed`, the negative of what
+#' [residuals.Rceattle()] returns for the same fleet. Plots made with an earlier
+#' version are mirrored about zero relative to these.
 #'
 #' @inheritParams plot_index
 #' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
@@ -309,16 +315,21 @@ plot_indexresidual <- function(Rceattle,
       Fleet    = as.character(fc$Fleet_name[match(dat$Fleet_code,
                                                   fc$Fleet_code)]),
       Year     = abs(dat$Year),
-      # log ratio for a log-scale fleet, plain difference for a natural-scale
-      # one -- log() of a natural-scale residual is not a residual. Assigned by
+      # OBSERVED minus PREDICTED, matching residuals.Rceattle() and the usual
+      # assessment convention (WHAM, SS3): a positive residual means the survey
+      # saw more than the model predicted. Before 5.9.0 this plotted the negative
+      # of that, so it disagreed in sign with the package's own residuals().
+      #
+      # Log ratio for a log-scale fleet, plain difference for a natural-scale one
+      # -- log() of a natural-scale residual is not a residual. Assigned by
       # subset rather than with ifelse(), which evaluates both arms and so would
       # take log() of a natural-scale observation it then discards.
       Residual = {
         nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
         nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
         res <- rep(NA_real_, nrow(dat))
-        res[nat]  <- dat$.hat[nat] - dat$Observation[nat]
-        res[!nat] <- log(dat$.hat[!nat]) - log(dat$Observation[!nat])
+        res[nat]  <- dat$Observation[nat] - dat$.hat[nat]
+        res[!nat] <- log(dat$Observation[!nat]) - log(dat$.hat[!nat])
         res
       },
       stringsAsFactors = FALSE)

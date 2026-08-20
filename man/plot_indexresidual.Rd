@@ -49,10 +49,16 @@ diagnostics for a single fit (\code{residual_type = "osa"}, via \code{\link[=osa
 \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
 }
 \details{
-The residual is taken on the scale the fleet is fitted on, read from its
-\code{Index_distribution}: \code{log(predicted) - log(observed)} for a log-scale
-(\code{"Lognormal"}) fleet, and \code{predicted - observed} for a natural-scale one
-(\code{"MVN"}, \code{"MVNORM"}, \code{"Normal"}, \code{"TruncatedNormal"}), whose sd is absolute.
-Panels therefore carry different units where a model mixes the two, which is
-why the y scale is free per fleet.
+The residual is \strong{observed minus predicted}, taken on the scale the fleet is
+fitted on and read from its \code{Index_distribution}:
+\code{log(observed) - log(predicted)} for a log-scale (\code{"Lognormal"}) fleet, and
+\code{observed - predicted} for a natural-scale one (\code{"MVN"}, \code{"MVNORM"},
+\code{"Normal"}, \code{"TruncatedNormal"}), whose sd is absolute. A positive residual
+means the survey saw more than the model predicted. Panels carry different
+units where a model mixes the two families, which is why the y scale is free
+per fleet.
+
+Before 5.9.0 this plotted \code{predicted - observed}, the negative of what
+\code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns for the same fleet. Plots made with an earlier
+version are mirrored about zero relative to these.
 }

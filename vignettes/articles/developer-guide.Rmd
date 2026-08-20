@@ -306,8 +306,23 @@ the existing blocks follow:
   no single distribution to draw from. Leave it and warn.
 
 `simulate_state` selects which processes are redrawn (recruitment, M, growth,
-catchability, selectivity), and `simulate_period` which period; both are
-`DATA_IVECTOR`s built by `R/8-sim_mod.R`.
+catchability, selectivity). Its slot order is the linkage process code, so a
+random linkage is gated by `simulate_state(linkage_process(i))` with no
+translation — change one and change the other (`R/0-linkage_encode.R`).
+
+`simulate_period` is a two-slot vector, and **only slot 0 is read**. It gates the
+*process* draws, whose densities cover the hindcast alone. Observations are drawn
+in every period deliberately, because `run_mse()` splices the negative-`Year` rows
+back in as the next assessment's data, so gating them would hand the estimation
+model observations that were never simulated. Slot 1 is reserved for a
+projection-period process draw — WHAM uses its equivalent that way — and is inert
+today; nothing in `sim_mod()`'s interface reaches either slot, and the tests and
+`tools/verify/` scripts that exercise slot 0 do so through the internal
+`.sim_draw(period = )`. Wiring slot 1 up means giving the projection-period
+deviations a density to draw from first.
+
+Both are `DATA_IVECTOR`s, defaulted in `build_osa_data()` — the single funnel
+every data list passes through on its way to `MakeADFun()`.
 
 ## Testing
 

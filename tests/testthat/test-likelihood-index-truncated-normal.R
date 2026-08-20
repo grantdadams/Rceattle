@@ -152,3 +152,96 @@ testthat::test_that("the OSA obsvec holds the untransformed obs for every natura
                                             log(as.numeric(want)))))
   }
 })
+
+testthat::test_that("TruncatedNormal OSA residuals use the truncated CDF, not the untruncated one", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The truncation constant log Phi(mu/sd) is a function of the PREDICTION, not
+  # of the observation, so it drops out of any method that reads the curvature of
+  # the density in the observation -- including oneStepPredict()'s default
+  # oneStepGaussianOffMode. Such a method returns (obs - mu)/sd, the untruncated
+  # residual, which is not standard normal under the density that was fitted.
+  #
+  # osa_residuals() therefore residualizes this family with oneStepGeneric over
+  # range = c(0, Inf), which integrates the density over its actual support and
+  # so returns qnorm(F(x)) for the truncated F. That is checked here against the
+  # closed form rather than against a stored number, so the assertion states the
+  # distribution rather than the implementation.
+  #
+  # sd is deliberately larger than the index: a quarter of the density sits below
+  # zero, which is where the two forms are far apart. At mu = x the untruncated
+  # residual is exactly 0 while the truncated one is about -0.44.
+  fit <- .tn_fixture("TruncatedNormal", sd = 150, mode = 1)
+  osa <- suppressMessages(suppressWarnings(
+    Rceattle::osa_residuals(fit, source = "index", parallel = FALSE)))
+
+  idx <- fit$data_list$index_data
+  srv <- idx$Fleet_name == "Survey"
+  row <- match(osa$year, idx$Year[srv])
+  # as.numeric(): the quantity vectors carry fleet names, which expect_equal()
+  # compares as an attribute.
+  mu  <- as.numeric(fit$quantities$index_hat[srv][row])
+  sd  <- as.numeric(fit$quantities$log_index_sd[srv][row])
+  x   <- osa$observed
+
+  truncated   <- stats::qnorm((stats::pnorm((x - mu) / sd) -
+                                 stats::pnorm(-mu / sd)) / stats::pnorm(mu / sd))
+  untruncated <- (x - mu) / sd
+
+  testthat::expect_equal(osa$residual, truncated, tolerance = 1e-6)
+  # The check only means something if the two forms actually differ here.
+  testthat::expect_gt(max(abs(truncated - untruncated)), 0.1)
+  # And the truncation has to be doing real work at this sd.
+  testthat::expect_gt(max(stats::pnorm(-mu / sd)), 0.1)
+})
+
+
+testthat::test_that("a Normal index keeps the untruncated OSA residual", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The companion to the test above: "Normal" is fitted as a plain normal, so its
+  # residual SHOULD be (obs - mu)/sd. This pins the split -- a change that gave
+  # every natural-scale fleet the truncated treatment would pass the test above
+  # and fail this one.
+  fit <- .tn_fixture("Normal", sd = 150, mode = 1)
+  osa <- suppressMessages(suppressWarnings(
+    Rceattle::osa_residuals(fit, source = "index", parallel = FALSE)))
+
+  idx <- fit$data_list$index_data
+  srv <- idx$Fleet_name == "Survey"
+  row <- match(osa$year, idx$Year[srv])
+  mu  <- as.numeric(fit$quantities$index_hat[srv][row])
+  sd  <- as.numeric(fit$quantities$log_index_sd[srv][row])
+
+  testthat::expect_equal(osa$residual, (osa$observed - mu) / sd, tolerance = 1e-6)
+})
+
+testthat::test_that("the TruncatedNormal OSA override is announced and recorded", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # `method` is overridden for these rows whatever the caller passed. A silent
+  # override is the kind of thing that cannot be accounted for when reading a
+  # Q-Q plot months later, so it is said once and recorded on the object.
+  fit <- .tn_fixture("TruncatedNormal", sd = 150, mode = 1)
+  testthat::expect_message(
+    osa <- suppressWarnings(
+      Rceattle::osa_residuals(fit, source = "index", parallel = FALSE)),
+    "oneStepGeneric")
+
+  m <- attr(osa, "method")
+  testthat::expect_equal(unname(m[["TruncatedNormal"]]), "oneStepGeneric")
+  testthat::expect_equal(unname(m[["default"]]), "oneStepGaussianOffMode")
+  # print() has to render the named form without erroring.
+  testthat::expect_output(print(osa), "TruncatedNormal = oneStepGeneric")
+
+  # A model with no truncated fleet says nothing and keeps the plain string, so
+  # the message cannot become background noise on every call.
+  ln <- .tn_fixture("Lognormal", sd = 0.2, mode = 1)
+  testthat::expect_no_message(
+    osa_ln <- suppressWarnings(
+      Rceattle::osa_residuals(ln, source = "index", parallel = FALSE)))
+  testthat::expect_identical(attr(osa_ln, "method"), "oneStepGaussianOffMode")
+})

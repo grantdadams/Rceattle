@@ -1,11 +1,3 @@
-# Rejection budget for a non-positive natural-scale index draw. Flat per row on
-# the univariate branch; the correlated branch scales it by the fleet's row
-# count, because a vector is rejected whenever any single row is non-positive
-# and the joint rejection probability climbs with the number of rows. Quoted in
-# the warning text only -- the budget itself is index_trunc_max_tries in
-# ceattle.cpp, and the two are kept in step by hand.
-.SIM_INDEX_MAX_TRIES <- 100L
-
 # Truncation mass P(draw <= 0) = Phi(-mu/sd) above which the simulated data no
 # longer follow the likelihood's own untruncated normal closely enough to
 # self-test on. Compared against the WORST row, not the fleet mean -- truncation
@@ -226,6 +218,28 @@
   ok <- drawn & is.finite(mu) & is.finite(sd) & sd > 0
   trunc_mass[ok] <- stats::pnorm(-mu[ok] / sd[ok])
 
+  # The budget the draw ACTUALLY applied to each row, reported by the template
+  # rather than duplicated here: the base constant on the univariate branch, and
+  # that scaled by the fleet's row count on the correlated one. Quoting the bare
+  # constant would misstate it eightfold on an 8-row covariance fleet.
+  budget <- suppressWarnings(as.numeric(sim_rep$index_trunc_budget_sim))
+  if (!length(budget)) budget <- rep(NA_real_, length(tries))
+
+  # Phi(-mu/sd) is the per-row rejection probability, which is the whole story
+  # only where rejection IS per row -- the univariate `Normal` branch. The
+  # correlated branch rejects the ENTIRE VECTOR whenever any row is non-positive,
+  # so the marginal understates it badly: an 8-row fleet whose worst margin is
+  # 31% is rejected about 81% of the time, and it is the joint rate that decides
+  # how far the accepted draws sit from the density the likelihood scores. The
+  # joint orthant probability of a correlated normal has no closed form, but the
+  # draw measures it -- `tries` counts rounds and every round past the first was
+  # a rejection -- so use the measured rate there and the analytic one here.
+  fam_row <- .index_family_codes(data_list$fleet_control$Index_distribution)[
+    match(idx$Fleet_code, data_list$fleet_control$Fleet_code)]
+  correlated <- drawn & !is.na(fam_row) & fam_row %in% c(1L, 2L)
+  rate <- ifelse(correlated & tries > 0, (tries - 1) / pmax(tries, 1), trunc_mass)
+  rate[!is.finite(rate)] <- 0
+
   fleet_of <- function(sel) unique(as.character(idx$Fleet_name[sel]))
   # Rows this function reports on, returned so the generic unusable-draw warning
   # can skip them rather than describe the same rows less usefully.
@@ -233,7 +247,8 @@
   nonpos <- fleet_of(nonpos_rows)
   # Worst row, not the fleet mean: truncation bites one marginal row at a time
   # and an average over a wide fleet hides exactly that row.
-  heavy  <- setdiff(fleet_of(trunc_mass > .SIM_INDEX_WARN_TRUNC), nonpos)
+  heavy  <- setdiff(fleet_of(rate > .SIM_INDEX_WARN_TRUNC), nonpos)
+  heavy_joint <- any(correlated & rate > .SIM_INDEX_WARN_TRUNC)
 
   # The remedy differs by family, so name it: a `Normal` fleet has a truncated
   # counterpart to switch to, a covariance fleet does not.
@@ -254,15 +269,22 @@
 
   if (length(nonpos)) {
     warning("Simulated a non-positive survey index for fleet(s) ",
-            paste(nonpos, collapse = ", "), ", after up to ", .SIM_INDEX_MAX_TRIES,
-            " redraws per row. data_check() requires Observation > 0, so ",
+            paste(nonpos, collapse = ", "), ", after up to ",
+            max(c(0, budget[nonpos_rows & is.finite(budget)])),
+            " redraws. data_check() requires Observation > 0, so ",
             "refitting this data set fails and self_test() counts the run as ",
             "not converged. ", remedy(nonpos), call. = FALSE)
   } else if (length(heavy)) {
-    worst <- max(trunc_mass[is.finite(trunc_mass)], na.rm = TRUE)
+    worst <- max(rate[is.finite(rate)], na.rm = TRUE)
     warning("The survey index for fleet(s) ", paste(heavy, collapse = ", "),
-            " puts up to ", round(100 * worst, 1), "% of its probability at or ",
-            "below zero (worst row). Those draws are redrawn until positive, so ",
+            if (heavy_joint)
+              paste0(" was rejected and redrawn on ", round(100 * worst, 1),
+                     "% of draws (a correlated fleet rejects the whole vector ",
+                     "if any row is non-positive). ")
+            else
+              paste0(" puts up to ", round(100 * worst, 1), "% of its ",
+                     "probability at or below zero (worst row). "),
+            "The draws are redrawn until positive, so ",
             "they follow the normal truncated at zero while the likelihood ",
             "scores the untruncated one, and a self_test() built on them tests ",
             "a different data-generating process. ", remedy(heavy),
@@ -939,12 +961,17 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
   add <- function(name) {
     val  <- sim_rep[[paste0(name, "_sim")]]
     mask <- sim_rep[[paste0(name, "_drawn_sim")]]
-    if (is.null(val)) return(invisible(NULL))
+    if (is.null(val) || is.null(mask)) return(invisible(NULL))
+    # Nothing drawn, nothing returned. The R gates here are coarser than the
+    # template's -- init_dev is additionally gated on initMode (equilibrium modes
+    # and OffsetEquilibrium fix it), and every process draw on
+    # simulate_period(0) -- so a state gate alone would hand back fitted values
+    # under the name of a truth, which is the exact failure this function's
+    # docstring warns about. The mask is what the draw actually wrote, so it
+    # settles it for every gate at once.
+    if (!any(mask != 0)) return(invisible(NULL))
     out[[name]] <<- val
-    if (!is.null(mask)) {
-      drawn <- array(as.logical(mask != 0), dim = dim(val))
-      out[[paste0(name, "_drawn")]] <<- drawn
-    }
+    out[[paste0(name, "_drawn")]] <<- array(as.logical(mask != 0), dim = dim(val))
     invisible(NULL)
   }
 
@@ -965,13 +992,18 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
   # attached when a group belonging to a requested process was actually drawn --
   # otherwise `!is.null(attr(x, "process_sim"))` would report process error on a
   # model that has none.
-  re <- sim_rep$beta_linkage_re_sim
-  if (length(re) && .sim_linkage_drawn(obj, state)) {
-    out$beta_linkage_re <- re
-    mask <- sim_rep$beta_linkage_re_drawn_sim
-    if (!is.null(mask) && length(mask) == length(re)) {
-      out$beta_linkage_re_drawn <- as.logical(mask != 0)
-    }
+  #
+  # Whether anything was drawn is read from the mask the draw itself wrote, not
+  # from .sim_linkage_drawn()'s R-side mirror of the template's gate: the two
+  # would have to be kept in step by hand, and the template already knows. The
+  # mirror is still needed by .sim_warn_process_absent(), which asks the
+  # hypothetical "would this process have been drawn had it been requested".
+  re   <- sim_rep$beta_linkage_re_sim
+  mask <- sim_rep$beta_linkage_re_drawn_sim
+  if (length(re) && !is.null(mask) && length(mask) == length(re) &&
+      any(mask != 0)) {
+    out$beta_linkage_re       <- re
+    out$beta_linkage_re_drawn <- as.logical(mask != 0)
   }
   if (!length(out)) NULL else out
 }
@@ -980,7 +1012,10 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 #' Does this model hold a random linkage on a process the caller asked for?
 #'
 #' Mirrors the gate in ceattle.cpp section 5.12b, including its skip of observed
-#' AR1 (QAR1) groups, so R and the template agree on what was drawn.
+#' AR1 (QAR1) groups. Used only for the HYPOTHETICAL question -- would this
+#' process be drawn if it were asked for -- which the template cannot answer,
+#' since it only reports what it did draw. What actually happened is read from
+#' `beta_linkage_re_drawn_sim` instead.
 #'
 #' @param obj The simulated object.
 #' @param state Integer switch vector from `.sim_state_codes()`.
@@ -1094,10 +1129,27 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #'   \code{sim_mod(process = )} / \code{self_test(process = )}, the operating
 #'   model's deviations are no longer what generated the data and the bias this
 #'   reports is an artefact. Compare against
-#'   \code{attr(sims, "process_sim")} in that case.
+#'   \code{attr(sims, "process_sim")} in that case. Passing a
+#'   \code{\link{self_test}} result that carries process draws warns, since the
+#'   attribute makes that case detectable rather than only documented.
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update
+
+  # Every statistic below is a deviation from `operating_mod`. That is the truth
+  # only when the replicates redrew the observations alone; with
+  # sim_mod(process = ) / self_test(process = ) the operating model's deviations
+  # are no longer what generated the data, so the "bias" reported here is an
+  # artefact of comparing against the wrong thing. self_test() carries the real
+  # deviations on its own output, so the mistake is detectable rather than merely
+  # documented.
+  if (!is.null(attr(simulation_mods, "process_sim"))) {
+    warning("compare_sim() measures deviation from `operating_mod`, but these ",
+            "replicates were produced with process error redrawn, so its ",
+            "deviations are not what generated the data and the bias reported ",
+            "here is an artefact. Compare against ",
+            "attr(simulation_mods, \"process_sim\") instead.", call. = FALSE)
+  }
 
   # Get differences
   sim_mre <- list()

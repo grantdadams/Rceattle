@@ -180,3 +180,33 @@ testthat::test_that("the analytical sd is refused where the likelihood reads it"
   d_off$fleet_control$Fleet_type[d_off$fleet_control$Fleet_name == "Survey"] <- "Off"
   testthat::expect_no_error(suppressWarnings(fit(d_off)))
 })
+
+
+testthat::test_that("plot_indexresidual and residuals() agree on sign and scale", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Two user-facing views of one quantity. Until 5.9.0 the plotter drew
+  # predicted - observed while residuals() returned observed - predicted, so the
+  # two were mirror images and a reader could take the sign of a survey residual
+  # backwards. Both are observed - predicted now; this pins that, on both scales.
+  for (fam in c("Lognormal", "Normal")) {
+    fit <- .ns_fixture(fam, sd = if (fam == "Lognormal") 0.2 else 20)
+
+    plotted <- Rceattle::plot_indexresidual(fit)$data
+    direct  <- stats::residuals(fit, type = "response", source = "index",
+                                scale = if (fam == "Lognormal") "log" else "natural")
+    testthat::skip_if(!nrow(plotted), "no index residuals")
+
+    # Same rows, same order: both drop Year <= 0 and keep the fitted window.
+    testthat::expect_equal(nrow(plotted), nrow(direct), label = fam)
+    testthat::expect_equal(as.numeric(plotted$Residual),
+                           as.numeric(direct$Residual),
+                           tolerance = 1e-10, label = fam)
+    # ...and it is the observed-minus-predicted orientation, not its negative.
+    testthat::expect_false(
+      isTRUE(all.equal(as.numeric(plotted$Residual),
+                       -as.numeric(direct$Residual))),
+      label = fam)
+  }
+})
