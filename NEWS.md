@@ -255,6 +255,25 @@
 
 ## Bug fixes
 
+* **`data_check()` requires the catchability columns each switch actually
+  reads.** `Index_sd` when `Estimate_index_sd = "Estimated"`,
+  `Catchability_prior_sd` under `Estimated-with-prior` and `AR1`,
+  `Time_varying_q_sd` under a penalized `Time_varying_q`, and
+  `Catchability_init` for every form that reads it. All three are taken as
+  `log()` when the parameter list is built, so a blank or non-positive entry
+  became a `NaN` or `-Inf` starting value and the objective was not finite at
+  the first evaluation -- reported by TMB, naming neither the fleet nor the
+  column. Each condition matches `build_map()`'s own gate, so settings that read
+  no starting value are not asked for one: a `Block` time-varying q carries no
+  penalty, `Estimate_index_sd = "Analytical"` derives the sd rather than
+  estimating it, and `Analytical` / `AnalyticalArith` catchability solves `q` in
+  closed form and never reads `Catchability_init`.
+
+* **A missing `Ceq` is reported instead of crashing `data_check()`.** A workbook
+  with the bioenergetics columns left blank reached `if (Ceq[sp] > 1)` with `NA`
+  and stopped on R's bare "missing value where TRUE/FALSE needed", which names
+  neither the column nor the species.
+
 * **`data_check()` reports fleets that share a `Selectivity_index` but disagree
   on the columns that shape the curve.** `Selectivity`, `Selectivity_dimension`,
   `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin` and `Sel_norm_bin_upper` are

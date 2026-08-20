@@ -359,7 +359,16 @@ data_check <- function(data_list) {
 
   # Bioenergetics: temperature-dependent consumption requires environmental driver
   if(!is.null(data_list$Ceq)){
-    for(sp in 1:data_list$nspp){
+    # NA reaches here from a workbook whose bioenergetics columns were left
+    # blank. Report it rather than letting `if (NA > 1)` throw R's bare
+    # "missing value where TRUE/FALSE needed", which names nothing.
+    .ceq_na <- which(is.na(data_list$Ceq[1:data_list$nspp]))
+    if(length(.ceq_na)){
+      errors <- c(errors, paste0("`Ceq` is missing for species ",
+                                 paste(.ceq_na, collapse = ", "),
+                                 ". Set the consumption equation (1 = temperature-independent) for every species."))
+    }
+    for(sp in setdiff(1:data_list$nspp, .ceq_na)){
       if(data_list$Ceq[sp] > 1){
         if(is.null(data_list$env_data) || ncol(data_list$env_data) < (data_list$Cindex[sp] + 1)){
           errors <- c(errors, paste0("Species ", sp, " uses temperature-dependent consumption (Ceq = ",
@@ -1023,14 +1032,18 @@ data_check <- function(data_list) {
   # A fleet carrying fitted index observations needs its catchability columns,
   # whatever its Fleet_type. The template scores an index row for any non-Off
   # fleet, so a fishery with a CPUE series is fitted like a survey -- but these
-  # three columns have no schema default, so on a fishery they arrive NA and the
-  # index would be fitted at an undefined q with an undefined sd. Required
-  # rather than defaulted: guessing a catchability form for someone's CPUE
-  # series is the kind of silent default this check exists to prevent.
+  # columns have no schema default, so on a fishery they arrive NA and the index
+  # would be fitted at an undefined q with an undefined sd. Required rather than
+  # defaulted: guessing a catchability form for someone's CPUE series is the
+  # kind of silent default this check exists to prevent.
+  #
+  # These two are read whatever the catchability form. The rest are conditional
+  # and are handled below -- Catchability_init in particular is unread under
+  # Analytical, which several working GOA hake configurations rely on.
   .idx_fleets <- .fleets_with_index(data_list)
   if (length(.idx_fleets)) {
     .fc  <- data_list$fleet_control
-    .need <- c("Catchability", "Catchability_init", "Estimate_index_sd")
+    .need <- c("Catchability", "Estimate_index_sd")
     .have <- intersect(.need, names(.fc))
     for (.cl in .have) {
       .bad <- .fc$Fleet_code %in% .idx_fleets & is.na(.fc[[.cl]])
@@ -1044,6 +1057,56 @@ data_check <- function(data_list) {
              "its catchability stays unmapped, so index_hat comes back NA and ",
              "reaches sdreport. Switch the fleet Off instead if it should carry ",
              "no index at all.", call. = FALSE)
+      }
+    }
+  }
+
+  # The remaining q columns are each required by the one switch that reads them.
+  # All are logged when the parameter list is built, so a blank or non-positive
+  # entry becomes a NaN or -Inf starting value and the objective is not finite
+  # at the first evaluation -- loudly, but from inside MakeADFun, where the
+  # message names neither the fleet nor the column.
+  #
+  # Every condition mirrors build_map()'s own gate, so a setting that reads no
+  # starting value is not asked for one. `Block` is deliberately absent from the
+  # time-varying set (a time block carries no penalty), and the analytical
+  # catchability forms are exempted below.
+  if (length(.idx_fleets)) {
+    .fc   <- data_list$fleet_control
+    .isq  <- .fc$Fleet_code %in% .idx_fleets
+    .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
+    .qest <- .col("Catchability") %in% c("Estimated", "Estimated-with-prior")
+
+    .req <- list(
+      list(col = "Index_sd",
+           when = .isq & .col("Estimate_index_sd") %in% c(1, "1"),
+           why  = "`Estimate_index_sd` estimates the observation sd, and its starting value is log(Index_sd)"),
+      list(col = "Catchability_prior_sd",
+           when = .isq & .col("Catchability") %in% c("Estimated-with-prior", "AR1"),
+           why  = "the catchability prior is scored at it, and AR1 starts its estimated sd from it"),
+      list(col = "Time_varying_q_sd",
+           when = .isq & (.qest | .col("Catchability") == "AR1") &
+                  .col("Time_varying_q") %in% c("IID", "AR1", "RandomWalk"),
+           why  = "the time-varying catchability deviations are penalized at this standard deviation"),
+      # Analytical / AnalyticalArith solve q in closed form and overwrite
+      # index_q (ceattle.cpp section 8.2), so they never read this column --
+      # several GOA hake configurations leave it at 0 and fit correctly.
+      list(col = "Catchability_init",
+           when = .isq & !(.col("Catchability") %in% c("Analytical", "AnalyticalArith")),
+           why  = "catchability is held at, or starts from, log(Catchability_init)")
+    )
+
+    for (.r in .req) {
+      .w <- .r$when
+      .w[is.na(.w)] <- FALSE
+      if (!any(.w)) next
+      .v   <- suppressWarnings(as.numeric(.col(.r$col)))
+      .bad <- .w & (is.na(.v) | !is.finite(.v) | .v <= 0)
+      if (any(.bad)) {
+        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
+             " need a positive `", .r$col, "`: ", .r$why, ". Without it the ",
+             "objective is not finite at the first evaluation, which surfaces ",
+             "as a TMB error naming none of this.", call. = FALSE)
       }
     }
   }
