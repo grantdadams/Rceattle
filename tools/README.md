@@ -1,9 +1,12 @@
 # tools/
 
-Ad-hoc verification harnesses. These are not part of `test_check()`: they run
-real fits, take minutes to hours, and answer questions a unit test cannot. Run
-them by hand (`Rscript tools/verify/<script>.R`) after a change to the
-simulation, the likelihood, or the MSE loop.
+`verify/` holds ad-hoc verification harnesses, run by hand. `ci/` holds scripts a
+GitHub Actions workflow calls.
+
+The harnesses are not part of `test_check()`: they run real fits, take minutes to
+hours, and answer questions a unit test cannot. Run them by hand
+(`Rscript tools/verify/<script>.R`) after a change to the simulation, the
+likelihood, or the MSE loop.
 
 Each script prints a pass/fail digest and leaves its numbers on stdout.
 
@@ -36,3 +39,24 @@ Each script prints a pass/fail digest and leaves its numbers on stdout.
 | `verify-sim-recovery-process.R` | Simulate a process, refit, and see what comes back. |
 | `verify-sim-recovery-M.R` | Whether the data actually inform M. Reproduces the documented limit: deviations recover, their SD does not. |
 | `verify-sim-local-optimum.R` | When recovery is poor, whether that basin is the MLE for the simulated data or a local optimum. |
+
+## ci/
+
+| Script | Does |
+|---|---|
+| `coverage-shard.R` | Runs one weight-balanced slice of `tests/testthat` under `covr` and writes `cobertura.xml`. Called once per shard by `.github/workflows/test-coverage.yaml`. |
+
+Coverage has to run the full `NOT_CRAN` suite serially (covr's line counters are
+per-process, so anything run in a testthat parallel worker goes uncounted), and
+the suite outgrew a single runner's 120-minute budget. `coverage-shard.R` splits
+it across four runners and Codecov merges the uploads. Preview a split without
+running any tests (the only mode that does not need `covr`):
+
+```sh
+COV_PLAN_ONLY=1 COV_SHARD=1 COV_SHARDS=4 Rscript tools/ci/coverage-shard.R
+```
+
+Balancing uses a static cost proxy read off each file (an optimization outweighs
+a `MakeADFun` build; a `.refit_like()` caller outweighs an optimization), not
+measured seconds. If the shards drift out of balance, the workflow's per-file
+elapsed times are the input for retuning the weights.
