@@ -224,3 +224,30 @@ testthat::test_that("the multinomial diet draw honours Diet_comp_weights", {
   # Weighting by w shrinks the spread by sqrt(w).
   testthat::expect_equal(mean(sdw / sd1), 1 / sqrt(w), tolerance = 0.12)
 })
+
+
+testthat::test_that("a diet row whose weighted sample size rounds to zero comes back empty", {
+  testthat::skip_if_not_installed("TMB")
+
+  # Regression: the write-back used to be gated on the draw having placed
+  # something, so a stomach whose N_s * Diet_comp_weights fell below one
+  # observation silently kept its OBSERVED proportions. A self_test() then
+  # refitted against the real diet on those rows and read suitability recovery
+  # as better than it was. The per-predator "frozen" warning could not see it --
+  # a predator with some stomachs drawn and some rounded away is not frozen.
+  # Compositions have always zeroed such a row; diet now does too.
+  mod <- .diet_sim_fit("Multinomial", 1e-4)
+
+  obs <- mod$data_list$diet_data$Stomach_proportion_by_weight
+  sim <- suppressWarnings(
+    Rceattle::sim_mod(mod, simulate = TRUE))$diet_data$Stomach_proportion_by_weight
+
+  # Every row the model fits is emptied, not carried over.
+  had <- obs > 0
+  testthat::expect_gt(sum(had), 0)
+  testthat::expect_true(all(sim[had] == 0))
+
+  # And it is announced rather than silent.
+  testthat::expect_warning(Rceattle::sim_mod(mod, simulate = TRUE),
+                           "came back empty")
+})

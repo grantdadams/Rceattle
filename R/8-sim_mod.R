@@ -386,6 +386,23 @@
 }
 
 
+#' Drop the sample size of a row that came back empty
+#'
+#' The composition density gates on `Sample_size`, not on the bins, so a row the
+#' draw left empty is still scored -- at `comp_offset` in every bin, a small
+#' uniformly-pulling term with no data behind it. `run_mse()` has always zeroed
+#' the sample size alongside the bins (R/10-run_mse.R); `sim_mod()` has to do the
+#' same, or `self_test()` refits against a term the operating model never
+#' generated.
+#'
+#' @param n Sample sizes, one per row.
+#' @param x Simulated bin matrix.
+#' @noRd
+.sim_zero_unsampled_n <- function(n, x) {
+  n * as.numeric(rowSums(x, na.rm = TRUE) > 0)
+}
+
+
 #' Resolve `process` to the template's `simulate_state` vector
 #'
 #' Process error is off unless asked for, because redrawing a process changes
@@ -719,7 +736,18 @@
 #' reported by a warning: a composition for a fleet with no catch that year comes
 #' back empty; a stomach whose predator has an empirical suitability, and a
 #' covariance survey fleet's observations outside its fitted window, keep their
-#' observed values.
+#' observed values. A composition, CAAL or diet row whose sample size times its
+#' weight rounds below one observation also comes back empty, and its
+#' \code{Sample_size} is dropped to zero so the refit does not score a row with
+#' no data behind it.
+#'
+#' One deliberate exception to draw-equals-density: compositions are drawn from
+#' the predicted proportions before \code{comp_offset} (the constant added to
+#' observed and predicted alike to keep \code{log(0)} out of the density,
+#' default 1e-5). A bin the model predicts at zero is therefore drawn at zero
+#' while the density scores it at \code{comp_offset}. The difference is about
+#' 4e-4 relative on a 20-bin composition and does not bias the round trip, since
+#' the offset is applied to both sides on the next fit.
 #'
 #' Simulating leaves the drawn values in the object's report environment, under
 #' names ending \code{_sim}. The estimates, the data and the objective function
@@ -770,8 +798,8 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
     # it is called; the catch and diet blocks below read the same report.
     #
     # The survey draw follows each fleet's own Index_distribution (ceattle.cpp,
-    # slot 0): lognormal, natural-scale normal, or a correlated draw from the
-    # fleet's covariance.
+    # slot 0): lognormal, natural-scale normal, natural-scale normal truncated at
+    # zero, or a correlated draw from the fleet's covariance.
     sim_obj <- .sim_obj(Rceattle)
     sim_state <- .sim_state_codes(process)
     sim_rep <- .sim_draw(sim_obj, state = sim_state)
@@ -815,6 +843,8 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
       .sim_check_rows(nrow(comp_sim), nrow(dat_sim$comp_data), "composition")
       .sim_check_cols(ncol(comp_sim), length(comp_cols), "composition")
       dat_sim$comp_data[, comp_cols] <- comp_sim[, seq_along(comp_cols), drop = FALSE]
+      dat_sim$comp_data$Sample_size <- .sim_zero_unsampled_n(
+        dat_sim$comp_data$Sample_size, comp_sim)
       .sim_warn_empty_comp(comp_sim, dat_sim$comp_data$Fleet_code, "composition")
     } else {
       dat_sim$comp_data[, comp_cols] <-
@@ -832,6 +862,8 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
       .sim_check_rows(nrow(caal_sim), nrow(dat_sim$caal_data), "CAAL")
       .sim_check_cols(ncol(caal_sim), length(caal_cols), "CAAL")
       dat_sim$caal_data[, caal_cols] <- caal_sim[, seq_along(caal_cols), drop = FALSE]
+      dat_sim$caal_data$Sample_size <- .sim_zero_unsampled_n(
+        dat_sim$caal_data$Sample_size, caal_sim)
       .sim_warn_empty_comp(caal_sim, dat_sim$caal_data$Fleet_code, "CAAL")
     } else {
       dat_sim$caal_data[, caal_cols] <-
@@ -914,6 +946,20 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
                 "than estimated. Those stomach proportions still set suitability ",
                 "and predation mortality, so a self_test() holds them fixed and ",
                 "recovery of predation is optimistic.", call. = FALSE)
+      }
+
+      # A stomach the draw placed nothing in comes back at zero rather than
+      # frozen (ceattle.cpp, diet SIMULATE block). The per-predator test above
+      # cannot see it: a predator with some stomachs drawn and some rounded away
+      # is not frozen. Count the emptied stomachs directly, as the composition
+      # draw does.
+      emptied <- was > 0 & kept == 0
+      if (any(emptied)) {
+        warning(sum(emptied), " diet row(s) came back empty for predator(s) ",
+                paste(unique(pred_sp[emptied]), collapse = ", "),
+                ". Their sample size times Diet_comp_weights rounded to zero, ",
+                "so the draw placed no prey items. Those rows carry no ",
+                "information into a refit.", call. = FALSE)
       }
     }
   }

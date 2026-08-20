@@ -4690,11 +4690,19 @@ Type objective_function<Type>::operator() () {
           // round(N_s)/N_s > 1 -- and data_check() rejects a stomach summing
           // above 1, which self_test() then reports as a failed replicate rather
           // than as bad data.
+          //
+          // A stomach whose weighted sample size rounds to zero places nothing,
+          // and comes back EMPTY rather than carrying its observed proportions
+          // over -- the same rule the composition draw follows (section 5.9).
+          // Keeping the observed values would hand the refit the real diet under
+          // a weight that says the stomach is worth less than one observation,
+          // and a self_test() would then score suitability recovery against data
+          // it was never asked to simulate.
           Type n_drawn = sim_counts.sum();
-          if(n_drawn > Type(0)){
-            for(int k = 0; k < n_prey; k++){
-              diet_sim(start_j + k, 1) = sim_counts(k) / n_drawn;
-            }
+          for(int k = 0; k < n_prey; k++){
+            diet_sim(start_j + k, 1) = (n_drawn > Type(0))
+              ? sim_counts(k) / n_drawn
+              : Type(0);
           }
         }
       }

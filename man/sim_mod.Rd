@@ -69,7 +69,18 @@ Rows the model predicts nothing for are left as they are, and each is
 reported by a warning: a composition for a fleet with no catch that year comes
 back empty; a stomach whose predator has an empirical suitability, and a
 covariance survey fleet's observations outside its fitted window, keep their
-observed values.
+observed values. A composition, CAAL or diet row whose sample size times its
+weight rounds below one observation also comes back empty, and its
+\code{Sample_size} is dropped to zero so the refit does not score a row with
+no data behind it.
+
+One deliberate exception to draw-equals-density: compositions are drawn from
+the predicted proportions before \code{comp_offset} (the constant added to
+observed and predicted alike to keep \code{log(0)} out of the density,
+default 1e-5). A bin the model predicts at zero is therefore drawn at zero
+while the density scores it at \code{comp_offset}. The difference is about
+4e-4 relative on a 20-bin composition and does not bias the round trip, since
+the offset is applied to both sides on the next fit.
 
 Simulating leaves the drawn values in the object's report environment, under
 names ending \code{_sim}. The estimates, the data and the objective function
