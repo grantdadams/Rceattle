@@ -830,6 +830,31 @@ data_check <- function(data_list) {
   }
 
   # catch_data must span hindcast years (use 0 where no catch occurred);
+  # A fleet carrying fitted index observations needs its catchability columns,
+  # whatever its Fleet_type. The template scores an index row for any non-Off
+  # fleet, so a fishery with a CPUE series is fitted like a survey -- but these
+  # three columns have no schema default, so on a fishery they arrive NA and the
+  # index would be fitted at an undefined q with an undefined sd. Required
+  # rather than defaulted: guessing a catchability form for someone's CPUE
+  # series is the kind of silent default this check exists to prevent.
+  .idx_fleets <- .fleets_with_index(data_list)
+  if (length(.idx_fleets)) {
+    .fc  <- data_list$fleet_control
+    .need <- c("Catchability", "Catchability_init", "Estimate_index_sd")
+    .have <- intersect(.need, names(.fc))
+    for (.cl in .have) {
+      .bad <- .fc$Fleet_code %in% .idx_fleets & is.na(.fc[[.cl]])
+      if (any(.bad)) {
+        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
+             " carry index_data but have no `", .cl, "`. An index is fitted for ",
+             "any fleet that is not Off -- a fishery with a CPUE series included ",
+             "-- so it needs the same catchability settings a survey does. Set `",
+             .cl, "` for those fleets, or set their index rows to Year < 0 if ",
+             "they are not meant to be fitted.", call. = FALSE)
+      }
+    }
+  }
+
   # index_data gaps are normal (biennial / triennial surveys, missed years).
   if(!is.null(data_list$styr) && !is.null(data_list$endyr) && has_data(data_list$catch_data)){
     missing_years <- setdiff(data_list$styr:data_list$endyr, unique(data_list$catch_data$Year))

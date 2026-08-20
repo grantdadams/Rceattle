@@ -20,7 +20,14 @@
 
   model_names_use <- .model_labels(Rceattle, model_names)
   fc <- Rceattle[[1]]$data_list$fleet_control
-  codes <- fc$Fleet_code[fc$Fleet_type == cfg$type]
+  # Catch belongs to fisheries by definition; an index belongs to whichever fleet
+  # carries index_data. Selecting surveys here dropped a fishery's CPUE rows from
+  # the figure without comment.
+  codes <- if (kind == "index") {
+    .fleets_with_index(Rceattle[[1]]$data_list, fitted_only = FALSE)
+  } else {
+    fc$Fleet_code[fc$Fleet_type == cfg$type]
+  }
   if (is.null(species)) species <- seq_len(Rceattle[[1]]$data_list$nspp)
 
   out <- list()
@@ -272,7 +279,12 @@ plot_indexresidual <- function(Rceattle,
     # have no residual to plot. Projection years are excluded unless asked for,
     # matching `.fleet_fit_df()` -- a projection row's "observation" is whatever
     # placeholder its workbook carries, which plots as a spurious residual.
-    keep <- dat$Species %in% species & dat$Year > 0
+    # Same fleet set as plot_index(). Without this an Off fleet's index rows were
+    # drawn as residuals indistinguishably from fitted ones -- GOA2018SS fleet 7
+    # is the case: 9 index rows on a fleet the likelihood never reads.
+    keep <- dat$Species %in% species & dat$Year > 0 &
+      dat$Fleet_code %in% .fleets_with_index(Rceattle[[i]]$data_list,
+                                             fitted_only = FALSE)
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next

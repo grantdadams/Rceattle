@@ -158,6 +158,36 @@ index_distribution_map <- c(
   "Normal" = 3
 )
 
+#' Fleet codes that carry survey-index observations the model fits
+#'
+#' An index is a property of the data, not of the fleet type: the template scores
+#' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
+#' series is fitted like a survey, on that fleet's own selectivity. Selecting on
+#' `Fleet_type == "Survey"` instead is what left such a fleet with its
+#' catchability frozen and its index absent from `plot_index()`.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param fitted_only Keep only rows the likelihood uses (positive `Year`, at or
+#'   before `endyr`). A prediction-only row is not an observation and must not,
+#'   for instance, make catchability estimable.
+#' @return Integer vector of `Fleet_code`s, possibly empty.
+#' @keywords internal
+#' @noRd
+.fleets_with_index <- function(data_list, fitted_only = TRUE) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(integer(0))
+  keep <- rep(TRUE, nrow(idx))
+  if (fitted_only) {
+    keep <- idx$Year > 0
+    if (!is.null(data_list$endyr)) keep <- keep & idx$Year <= data_list$endyr
+    if (!is.null(idx$Observation)) keep <- keep & !is.na(idx$Observation)
+  }
+  live <- fc$Fleet_code[!(fc$Fleet_type %in% c("Off", 0))]
+  as.integer(sort(intersect(unique(idx$Fleet_code[keep]), live)))
+}
+
+
 fleet_map <- c(
   "Fishery" = 1,
   "Survey" = 2,
