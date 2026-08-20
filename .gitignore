@@ -32,6 +32,11 @@ src/symbols.rds
 Rceattle_*.tar.gz
 
 # Test artifacts
+# testthat rewrites these on every failing run; they are a snapshot of the last
+# failure, not a fixture. (_snaps/ is deliberately NOT here -- those are the
+# tracked expected values for snapshot tests.)
+tests/testthat/testthat-problems.rds
+tests/testthat/_problems/
 tests/comparison/WHAM_growth_comparison/wham_model.RDS
 tests/comparison/WHAM_growth_comparison/wham_osa.RDS
 tests/comparison/WHAM_growth_comparison/rce_osa.RDS
