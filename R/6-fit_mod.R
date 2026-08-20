@@ -61,6 +61,13 @@
 #'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
 #'   pass -- an explicit argument always wins. `NULL` (default) applies no
 #'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param quiet_data_check Drop the warnings [data_check()] raises (errors still
+#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
+#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#'   re-validate a `data_list` the caller has already fitted once and would
+#'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+#'   Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -140,6 +147,7 @@ fit_mod <-
     suit_endyr = NULL,
     fit_control = NULL,
     config = NULL,
+    quiet_data_check = FALSE,
     ...){
 
     # Whether the caller supplied fit_control -- captured before the default is
@@ -441,8 +449,13 @@ fit_mod <-
     # Fill out switches if missing
     data_list <- Rceattle::switch_check(data_list)
 
-    # Check for data error
-    data_check(data_list)
+    # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
+    # still stop the fit. The diagnostic refits set it: they re-validate a
+    # data_list the caller already fitted once, so every warning it raises has
+    # been seen, and a retrospective or an MSE would otherwise repeat it once per
+    # peel or per iteration.
+    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
     # No-op when no build_*() supplied a `linkages` list. When

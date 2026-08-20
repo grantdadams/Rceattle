@@ -615,6 +615,121 @@ data_check <- function(data_list) {
       }
     }
 
+    # Per-fleet settings a shared Selectivity_index does not reconcile. Checked
+    # here rather than in build_map(), whose warnings fit_mod() suppresses.
+    #
+    # SHAPING columns are read per fleet by the cpp when it builds the curve, so
+    # a difference means the group does not share one selectivity. NA counts as
+    # its own value among them -- a blank Sel_norm_bin means "do not normalize",
+    # so blank against 2 is two different curves, not "inherit the lead's".
+    #
+    # Time_varying_sel is resolved by build_map(), which copies the lead fleet's
+    # deviation map over the group: the curves match and the other fleets'
+    # settings are discarded. NA there really is "unset", so it is skipped.
+    .sel_shaping_cols <- c("Selectivity", "Selectivity_dimension",
+                           "Bin_first_selected", "N_sel_bins",
+                           "Sel_norm_bin", "Sel_norm_bin_upper")
+    if ("Selectivity_index" %in% colnames(fc)) {
+      .live <- if ("Fleet_type" %in% colnames(fc)) {
+        !(fc$Fleet_type %in% c("Off", 0, "0"))
+      } else rep(TRUE, nrow(fc))
+      for (si in unique(fc$Selectivity_index[!is.na(fc$Selectivity_index) & .live])) {
+        rows <- which(!is.na(fc$Selectivity_index) & fc$Selectivity_index == si & .live)
+        if (length(rows) < 2) next
+        .differs <- function(col, na_is_a_value) {
+          if (!col %in% colnames(fc)) return(FALSE)
+          v <- as.character(fc[[col]][rows])
+          if (na_is_a_value) v[is.na(v)] <- "<blank>" else v <- v[!is.na(v)]
+          length(unique(v)) > 1
+        }
+        shaping <- Filter(function(cl) .differs(cl, na_is_a_value = TRUE),
+                          .sel_shaping_cols)
+        if (length(shaping)) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", si, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "), ") differ in ",
+            paste(shaping, collapse = ", "),
+            ". These are read per fleet when the curve is built, so the fleets ",
+            "will not share one selectivity. To mirror a fleet, copy its ",
+            "fleet_control row and change only the identity and catchability ",
+            "columns."))
+        }
+        if (.differs("Time_varying_sel", na_is_a_value = FALSE)) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", si, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "),
+            ") have different Time_varying_sel; the shared deviation block uses ",
+            "the first estimated fleet's setting and the others are ignored."))
+        }
+      }
+    }
+
+    # The same for a shared Catchability_index, and for the same reason.
+    #
+    # Fixed / Estimated / Estimated-with-prior share the one index_log_q the map
+    # wires up, so a difference resolves to the lead fleet's answer.
+    #
+    # The SOLVED forms do not: Analytical and AnalyticalArith solve q from the
+    # fleet's own residuals (ceattle.cpp 8.2, 8.2b), Environmental and AR1 build
+    # it from the fleet's own covariate, each overwriting index_q per fleet. A
+    # group containing one shares no catchability at all -- two Analytical fleets
+    # still solve separately -- so it is reported on the form, not only on a
+    # disagreement.
+    .q_solved <- c("Analytical", "AnalyticalArith", "Environmental", "AR1")
+    # Accept either spelling: a data list reaching data_check() straight from a
+    # workbook may still carry the integer codes.
+    .q_canon <- function(x) {
+      x <- trimws(as.character(x))
+      num <- suppressWarnings(as.integer(x))
+      out <- ifelse(!is.na(num), names(q_map)[match(num, q_map)], x)
+      out[is.na(out)] <- "<blank>"
+      out
+    }
+    if (all(c("Catchability_index", "Catchability") %in% colnames(fc))) {
+      .live <- if ("Fleet_type" %in% colnames(fc)) {
+        !(fc$Fleet_type %in% c("Off", 0, "0"))
+      } else rep(TRUE, nrow(fc))
+      for (qi in unique(fc$Catchability_index[!is.na(fc$Catchability_index) & .live])) {
+        rows <- which(!is.na(fc$Catchability_index) & fc$Catchability_index == qi & .live)
+        if (length(rows) < 2) next
+        qv <- .q_canon(fc$Catchability[rows])
+
+        solved <- intersect(unique(qv), .q_solved)
+        if (length(solved)) {
+          warning(paste0(
+            "Fleets sharing Catchability_index ", qi, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "), ") include ",
+            paste(solved, collapse = ", "),
+            ", which computes catchability per fleet. The group does not share ",
+            "one catchability despite sharing the index; give each fleet its own ",
+            "Catchability_index, or use an estimated q for the whole group."))
+        } else if (length(unique(qv)) > 1) {
+          warning(paste0(
+            "Fleets sharing Catchability_index ", qi, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "),
+            ") have different Catchability (", paste(unique(qv), collapse = ", "),
+            "); the shared catchability uses the first estimated fleet's setting ",
+            "and the others are ignored."))
+        }
+
+        # Time_varying_q is overloaded: for Environmental and AR1 it holds
+        # env_data column indices rather than a mode, so a difference there is
+        # not a mismatch and comparing them would be noise.
+        if ("Time_varying_q" %in% colnames(fc) &&
+            !any(qv %in% c("Environmental", "AR1"))) {
+          tv <- as.character(fc$Time_varying_q[rows])
+          tv <- tv[!is.na(tv)]
+          if (length(unique(tv)) > 1) {
+            warning(paste0(
+              "Fleets sharing Catchability_index ", qi, " (",
+              paste(fc$Fleet_name[rows], collapse = ", "),
+              ") have different Time_varying_q; the shared deviation block uses ",
+              "the first estimated fleet's setting and the others are ignored."))
+          }
+        }
+      }
+    }
+
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),

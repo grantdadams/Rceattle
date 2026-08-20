@@ -309,6 +309,16 @@ if its group's lead is, and a fleet whose own `Catchability` is `"Estimated"` is
 still fixed if its lead is `"Fixed"`. Give a fleet its own `Catchability_index`
 when it should be estimated independently.
 
+That describes `"Fixed"`, `"Estimated"` and `"Estimated-with-prior"`, which use
+the one shared q parameter. The **solved** forms do not: `"Analytical"` and
+`"AnalyticalArith"` solve q from each fleet's own residuals, and
+`"Environmental"` and `"AR1"` build it from each fleet's own covariate. A group
+containing one of these does **not** share a catchability — even when every
+fleet in it carries the same setting, since each still solves separately. Give
+those fleets their own `Catchability_index`, or use an estimated q for the whole
+group. `data_check()` warns on this, and on a `Catchability` or `Time_varying_q`
+that differs within a group.
+
 ### How an index is timed against mortality
 
 An index is predicted from the numbers its fleet sees, and that depends on the

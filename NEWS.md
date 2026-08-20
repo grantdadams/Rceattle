@@ -190,6 +190,40 @@
   `q: Estimated (fixed: no index data)`.
 
 
+* **A fishery's index is predicted from the year-averaged numbers.** A survey
+  index remains a snapshot at its observation month, `N exp(-(Month/12) Z)`. A
+  fishery index is CPUE, which integrates over the year alongside the catch:
+  `C_a = F_a Nbar_a` and effort cancels the `F` (`F_a = q_e E sel_a`), giving
+
+  ```
+  C/E = q * sum_a sel_a * Nbar_a * w_a,   Nbar_a = N_a (1 - exp(-Z_a)) / Z_a
+  ```
+
+  the same mean-numbers term the catch equation uses. A fishery's age composition
+  already uses this form, so the index now matches both the catch and the comps
+  for that fleet. `Month` is not read for a fishery's index rows.
+
+  The choice affects trend, not just scale, so catchability cannot absorb it. At
+  `Month = 6`, `exp(-Z/2)` approximates `Nbar/N` to within 1% at `Z = 0.5` but is
+  9.6% low at `Z = 1.5`. At `Month = 0` -- what both fishery-CPUE series in the
+  model repository use, and what the AMAK/ebswp `cpue_like` assumes -- the old
+  factor was `exp(0) = 1`, i.e. start-of-year numbers, against `Nbar/N` of 0.906
+  at `Z = 0.2`, 0.632 at `Z = 1.0` and 0.432 at `Z = 2.0`.
+
+  A seasonal fishery is covered by the same form: its exact window predictor
+  differs by a near-constant factor `q` takes up, with 1-3% trend error over `F`
+  0.05-0.8 for `M` between 0.1 and 0.5, against -29% to +33% for the snapshot.
+  Stock Synthesis splits the same way on its per-fleet survey timing.
+
+  Only a fishery carrying `index_data` is affected, so no bundled dataset moves
+  and `/golden-check` is bit-identical. For a snapshot-timed index on a fishery's
+  selectivity -- the AMAK/ebswp form, and what the EBS pollock ADMB bridge needs
+  -- put the index on its own `Survey` fleet and point that fleet's
+  `Selectivity_index` at the fishery so the two share one selectivity block.
+  Build that fleet by copying the fishery's whole `fleet_control` row: the
+  selectivity columns must agree for the mirroring to hold (see the vignette).
+
+
 * **`sim_mod(simulate = TRUE)` no longer works on an averaged model.** Simulating
   now evaluates the compiled model, so it needs one. A fit saved with
   `saveRDS()` still has it, and a fit whose `$obj` was dropped to save space is
@@ -231,6 +265,25 @@
   `build_map()` resolves it to the lead fleet's setting and the curves still
   match. To mirror a fleet, copy its `fleet_control` row and change only the
   identity and catchability columns.
+
+* **`data_check()` reports a shared `Catchability_index` that does not share a
+  catchability.** `Fixed`, `Estimated` and `Estimated-with-prior` use the group's
+  one q parameter, with the lead fleet settling a disagreement. The solved forms
+  do not: `Analytical` and `AnalyticalArith` solve q from each fleet's own
+  residuals, `Environmental` and `AR1` build it from each fleet's own covariate,
+  each overwriting `index_q` per fleet. A group containing one shares no
+  catchability even when every fleet in it carries the same setting, so it is
+  reported on the form rather than only on a disagreement. `Time_varying_q` is
+  compared too, except where it holds `env_data` indices rather than a mode.
+
+* **The diagnostic refits no longer repeat `data_check()`'s warnings.** These
+  describe the `data_list`, so a caller running `retrospective()`, `jitter()`,
+  `self_test()`, `profile()`, `run_mse()`, `remove_F()`, `sample_rec()` or
+  `reweight_comps()` has already seen them from the fit that produced the model,
+  and would otherwise get them again per peel, jitter, or MSE iteration.
+  `fit_mod()` gains `quiet_data_check` (default `FALSE`), which `.refit_like()`
+  sets for every refit. Errors still stop the fit, and convergence and TMB
+  warnings are unaffected.
 
 * **A fishery's index now appears in the index diagnostics.** `plot_index()`
   selected `Fleet_type == "Survey"`, so a fishery's index rows were dropped from

@@ -2321,13 +2321,49 @@ Type objective_function<Type>::operator() () {
 
     for(age = 0; age < nages(sp); age++) {
       for(sex = 0; sex < nsex(sp); sex++){
+
+        // Numbers the index sees, by fleet role.
+        //
+        // A survey is a snapshot at the observation month:
+        //     N_a * exp(-(mo/12) * Z_a)
+        //
+        // A fishery index is CPUE, which integrates over the year alongside the
+        // catch. Baranov gives C_a = F_a * Nbar_a, and effort cancels the F
+        // (F_a = q_e * E * sel_a), so C/E = q * sum_a sel_a * Nbar_a * w_a with
+        //     Nbar_a = N_a * (1 - exp(-Z_a)) / Z_a
+        // the same mean-numbers term section 9.1 uses for the catch. The
+        // observation month is not read for a fishery: the year-average has no
+        // instant to be taken at. SS3 splits the same way on its per-fleet
+        // survey timing (SS_expval.tpl: timing >= 0 -> exp(-Z * timing);
+        // timing < 0, required of every fishing fleet -> (1 - exp(-Z))/Z).
+        //
+        // A seasonal fishery is covered by the same form. Its exact predictor
+        // over a window [t1, t1+D] is
+        //     N_a * exp(-Zpre_a * t1) * (1 - exp(-Zwin_a * D)) / (Zwin_a * D)
+        //     Zpre_a = M_a + other fleets' F_a      (this fishery has yet to fish)
+        //     Zwin_a = M_a + F_a/D + other fleets' F_a
+        // Since Zwin*D = M*D + F, the window factor tracks F almost as the
+        // annual one does; the exp(-M*t1) offset carries no F, so q absorbs it.
+        // Trend error against the exact form is ~1.5% over F 0.05-0.8, against
+        // -29% to +33% for the snapshot.
+        //
+        // TODO: fit the window form directly when a fleet needs it. Requires t1
+        // and D per fleet, and seasonal dynamics to match -- the annual
+        // recursion spreads that fishery's F evenly across the year regardless.
+        Type n_index;
+        if(flt_type(index) == 1){
+          n_index = N_at_age(sp, sex, age, flt_yr) * (1.0 - exp( - Z_at_age(sp, sex, age, flt_yr))) / Z_at_age(sp, sex, age, flt_yr);
+        } else {
+          n_index = N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr));
+        }
+
         // Weight
         if(flt_units(index) == 1){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
+          index_hat(index_ind) += n_index * sel_at_age(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
         }
         // Numbers
         if(flt_units(index) == 2){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr);
+          index_hat(index_ind) += n_index * sel_at_age(index, sex, age, flt_yr);
         }
       }
     }

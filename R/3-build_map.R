@@ -1243,8 +1243,7 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # Per-fleet settings a shared Selectivity_index does not reconcile
       # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
       # Sel_norm_bin*, Time_varying_sel) are checked in data_check(): fit_mod()
-      # wraps this call in suppressWarnings(), so a warning raised here is never
-      # seen.
+      # wraps this call in suppressWarnings().
 
       # FIXME add checks for surveys sel sigma
 
@@ -1267,18 +1266,9 @@ adjust_map_shared_params <- function(map_list, data_list) {
       q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
       q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
-      # Error check selectivity type
-      if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
-        warning("Survey catchability of surveys with same Catchability_index is not the same")
-        warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-      }
-
-
-      # Error check time-varying selectivity type
-      if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-        warning("Time varying survey catchability of surveys with same Catchability_index is not the same")
-        warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-      }
+      # Catchability / Time_varying_q disagreement, and the solved q forms that
+      # cannot share a group at all, are checked in data_check(): fit_mod() wraps
+      # this call in suppressWarnings().
 
       # FIXME add checks for surveys q sigma
 
@@ -1292,11 +1282,10 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # fishery whose lead is Fixed stays fixed whatever its own Catchability
       # says.
       #
-      # TODO: what is NOT intended is that the disagreement is invisible. The
-      # two warnings above fire when the group's Catchability / Time_varying_q
-      # settings differ, but fit_mod() wraps build_map() in suppressWarnings()
-      # (see the TODO there), so a fleet whose own setting was overridden by the
-      # lead never hears about it.
+      # True for Fixed / Estimated / Estimated-with-prior only. The solved forms
+      # (Analytical, AnalyticalArith, Environmental, AR1) overwrite index_q per
+      # fleet in the cpp, so the group shares the parameter mapped here but not
+      # the catchability the model uses. data_check() reports both.
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
