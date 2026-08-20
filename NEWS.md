@@ -137,6 +137,30 @@
 
 ## Breaking changes
 
+* **A fishery carrying `index_data` now gets an estimable catchability, and fits
+  using one will change.** The TMB model has always fitted such a row: the index
+  likelihood gates on `flt_type(index) > 0`, which is fishery and survey alike,
+  and predicts it from that fleet's own selectivity and catchability -- what a
+  fishery CPUE series should use. But `build_map_catchability()` entered its
+  block only for `Fleet_type == "Survey"`, so a fishery's `index_log_q`, its
+  time-varying `index_q_dev` family and its `index_log_sd` all stayed mapped
+  out. `Catchability = "Estimated"` did nothing and the index was fitted at
+  `Catchability_init`.
+
+  Two known configurations move. **EBS pollock 2024** has a fleet named
+  `Fishery CPUE` (12 observations, 1965-1976) with `Catchability = "Estimated"`:
+  its objective goes 4217.46 to 4182.33, its catchability 1.0 to 3.31, and
+  spawning biomass shifts by 14.3% on average over 1964-2024 (66% in 1966,
+  -0.95% in the terminal year). It is an ADMB-bridging model, so the bridge
+  needs re-checking. **GOA sablefish 2023** has a `Fixed_gear_fishery` that
+  newly qualifies. No bundled dataset is affected -- all fourteen give an
+  identical set of catchability fleets before and after, so `/golden-check` is
+  bit-identical and says nothing about this.
+
+  A model that was relying on the old behaviour should set the fishery's
+  `Catchability` to `"Fixed"` to keep its catchability frozen.
+
+
 * **`sim_mod(simulate = TRUE)` no longer works on an averaged model.** Simulating
   now evaluates the compiled model, so it needs one. A fit saved with
   `saveRDS()` still has it, and a fit whose `$obj` was dropped to save space is
@@ -167,6 +191,38 @@
   the template no longer has, so warm starts from older fits keep working.
 
 ## Bug fixes
+
+* **A fishery's index now appears in the index diagnostics.** `plot_index()`
+  selected `Fleet_type == "Survey"`, so a fishery's index rows were dropped from
+  the figure without comment. Both `plot_index()` and `plot_indexresidual()` now
+  select the fleets that carry `index_data`. `plot_indexresidual()` previously
+  applied no fleet filter at all, so it also drew residuals for `Off` fleets --
+  `GOA2018SS` fleet 7 has nine such rows -- indistinguishably from fitted ones.
+
+* **`data_check()` requires the catchability settings wherever an index is
+  fitted.** `Catchability`, `Catchability_init` and `Estimate_index_sd` have no
+  schema default, so on a fishery they arrive `NA`; the fit then died with
+  `missing value where TRUE/FALSE needed` from inside `build_map()`, which
+  points nowhere useful. The error now names the fleet and the column. It is a
+  message improvement rather than a new restriction: those configurations did
+  not run before either.
+
+  It is not a completeness guarantee. A fishery that satisfies it can still
+  reach a non-finite objective through a column the chosen switch needs and this
+  check does not cover -- `Index_sd` under `Estimate_index_sd = 1`,
+  `Catchability_prior_sd` under `"Estimated-with-prior"`, `Time_varying_q_sd`
+  under a time-varying `Time_varying_q`. Those fail loudly at the first
+  evaluation, and they fail the same way for a survey.
+
+  Two limits worth knowing. An index needing a selectivity **different** from
+  the fishery's still has to be its own fleet: `sel_at_age` is indexed by fleet,
+  so one fleet has one selectivity and its index and its catch cannot differ.
+  The same is true of `flt_units`, so a CPUE series in numbers cannot sit on a
+  fleet whose catch is in weight. And where a fishery shares a
+  `Catchability_index` group with a survey, `adjust_map_shared_params()` copies
+  the donor fleet's map across the group, so the group's first fleet still
+  decides whether the block is estimated.
+
 
 * **Diagnostics for a natural-scale survey index no longer use log-scale
   formulas.** `Index_distribution` splits into two scales: `Lognormal` carries a

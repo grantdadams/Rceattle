@@ -1059,10 +1059,20 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
+  # Fleets whose catchability block is estimable. A fishery qualifies once it
+  # carries fitted index observations -- the template fits an index row for any
+  # non-Off fleet, but keying on Fleet_type left a fishery's q, time-varying q
+  # and index sd mapped out, so Catchability = "Estimated" did nothing. Surveys
+  # qualify unconditionally as before, so the union is additive and no existing
+  # model loses a parameter.
+  q_fleets <- union(
+    data_list$fleet_control$Fleet_code[data_list$fleet_control$Fleet_type == "Survey"],
+    .fleets_with_index(data_list))
+
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-    if(data_list$fleet_control$Fleet_type[i] == "Survey"){
+    if(flt %in% q_fleets){
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
