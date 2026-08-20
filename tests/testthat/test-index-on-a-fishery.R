@@ -163,3 +163,22 @@ testthat::test_that("a fishery with index data but no catchability settings is r
                                           phase = FALSE)))),
     "carry index_data but have no")
 })
+
+testthat::test_that("a SURVEY missing the same columns is rejected too", {
+  testthat::skip_if_not_installed("TMB")
+  # The check keys on the data, not the fleet type, so it has to fire for a
+  # survey as well. This is the regression net for the change: if it ever became
+  # fishery-only, a survey with a blank Catchability would go back to dying
+  # inside build_map() with "missing value where TRUE/FALSE needed".
+  for (col in c("Catchability", "Catchability_init", "Estimate_index_sd")) {
+    dat <- make_test_data(nyrs = 15, nages = 5, seed = 42)
+    srv <- which(dat$fleet_control$Fleet_type == "Survey")[1]
+    dat$fleet_control[[col]][srv] <- NA
+    testthat::expect_error(
+      suppressMessages(suppressWarnings(Rceattle::fit_mod(
+        dat, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+        fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                            phase = FALSE)))),
+      col, info = col)   # the message must name the offending column
+  }
+})

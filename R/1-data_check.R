@@ -849,8 +849,11 @@ data_check <- function(data_list) {
              " carry index_data but have no `", .cl, "`. An index is fitted for ",
              "any fleet that is not Off -- a fishery with a CPUE series included ",
              "-- so it needs the same catchability settings a survey does. Set `",
-             .cl, "` for those fleets, or set their index rows to Year < 0 if ",
-             "they are not meant to be fitted.", call. = FALSE)
+             .cl, "` for those fleets. Setting their index rows to Year < 0 ",
+             "stops them being fitted but does not remove the fleet's index: ",
+             "its catchability stays unmapped, so index_hat comes back NA and ",
+             "reaches sdreport. Switch the fleet Off instead if it should carry ",
+             "no index at all.", call. = FALSE)
       }
     }
   }
