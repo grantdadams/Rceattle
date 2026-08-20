@@ -133,6 +133,27 @@ data_check <- function(data_list) {
         "grammar AR1 uses the marginal SD); see ",
         "vignette('environmental-linkages-and-priors')."), call. = FALSE)
     }
+
+    # The age-by-year modes carry one deviation per age-year cell -- nages *
+    # nyrs_hind per species, which is 882 on GOA2018SS where a mapping defect
+    # gave 42 before 5.9.0. That field is flexible enough to absorb a trend that
+    # belongs to selectivity or to recruitment, and nothing else in a
+    # single-species model pins the level of M. Say so where the user can act
+    # on it; this is not an error, and a well-informed model is free to run it.
+    m1_2d <- data_list$M1_re %in% c(3, 6, "iid_age_year", "ar1_age_year")
+    m1_pr <- data_list$M1_use_prior
+    if (is.null(m1_pr)) m1_pr <- rep(0, length(m1_2d))
+    m1_2d <- m1_2d & !(as.numeric(m1_pr) > 0)
+    if (any(m1_2d, na.rm = TRUE)) {
+      m1_sp <- if (!is.null(data_list$spnames)) data_list$spnames[which(m1_2d)] else which(m1_2d)
+      warning(paste0(
+        "M1_re estimates an age-by-year deviation field for species ",
+        paste(m1_sp, collapse = ", "), " with no prior on M ",
+        "(M1_use_prior = FALSE). That is one deviation per age and year, which ",
+        "is confounded with selectivity and recruitment in a single-species ",
+        "model. Set build_M1(M1_use_prior = TRUE), or check that M is ",
+        "identified before reading the estimates."), call. = FALSE)
+    }
   }
 
   # `Q_block` is vestigial: it is never read (q time-blocking reuses the
@@ -696,13 +717,7 @@ data_check <- function(data_list) {
     .q_solved <- c("Analytical", "AnalyticalArith")
     # Accept either spelling: a data list reaching data_check() straight from a
     # workbook may still carry the integer codes.
-    .q_canon <- function(x) {
-      x <- trimws(as.character(x))
-      num <- suppressWarnings(as.integer(x))
-      out <- ifelse(!is.na(num), names(q_map)[match(num, q_map)], x)
-      out[is.na(out)] <- "<blank>"
-      out
-    }
+    .q_canon <- function(x) .canon_switch(x, q_map)
     if (all(c("Catchability_index", "Catchability") %in% colnames(fc))) {
       .live <- if ("Fleet_type" %in% colnames(fc)) {
         !(fc$Fleet_type %in% c("Off", 0, "0"))
@@ -1075,24 +1090,30 @@ data_check <- function(data_list) {
     .fc   <- data_list$fleet_control
     .isq  <- .fc$Fleet_code %in% .idx_fleets
     .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
-    .qest <- .col("Catchability") %in% c("Estimated", "Estimated-with-prior")
+    # Read the switches by canonical name whichever spelling they arrived in.
+    # fit_mod() and read_data() both run switch_check() -> revert_switches()
+    # first, but data_check() is callable on a hand-built list that has not, and
+    # the shared-block checks above already canonicalize for the same reason.
+    .qform <- .canon_switch(.col("Catchability"), q_map)
+    .qtv   <- .canon_switch(.col("Time_varying_q"), tv_q_map)
+    .qest  <- .qform %in% c("Estimated", "Estimated-with-prior")
 
     .req <- list(
       list(col = "Index_sd",
            when = .isq & .col("Estimate_index_sd") %in% c(1, "1"),
            why  = "`Estimate_index_sd` estimates the observation sd, and its starting value is log(Index_sd)"),
       list(col = "Catchability_prior_sd",
-           when = .isq & .col("Catchability") %in% c("Estimated-with-prior", "AR1"),
+           when = .isq & .qform %in% c("Estimated-with-prior", "AR1"),
            why  = "the catchability prior is scored at it, and AR1 starts its estimated sd from it"),
       list(col = "Time_varying_q_sd",
-           when = .isq & (.qest | .col("Catchability") == "AR1") &
-                  .col("Time_varying_q") %in% c("IID", "AR1", "RandomWalk"),
+           when = .isq & (.qest | .qform == "AR1") &
+                  .qtv %in% c("IID", "AR1", "RandomWalk"),
            why  = "the time-varying catchability deviations are penalized at this standard deviation"),
       # Analytical / AnalyticalArith solve q in closed form and overwrite
       # index_q (ceattle.cpp section 8.2), so they never read this column --
       # several GOA hake configurations leave it at 0 and fit correctly.
       list(col = "Catchability_init",
-           when = .isq & !(.col("Catchability") %in% c("Analytical", "AnalyticalArith")),
+           when = .isq & !(.qform %in% c("Analytical", "AnalyticalArith")),
            why  = "catchability is held at, or starts from, log(Catchability_init)")
     )
 

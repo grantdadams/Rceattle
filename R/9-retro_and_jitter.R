@@ -116,6 +116,15 @@
 #'   Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
 #'   this.
 #'
+#'   Catchability is estimated only for a fleet that carries fitted index rows
+#'   (see \code{\link{build_map}}), and a peel moves \code{endyr}. A survey whose
+#'   index observations all fall in the peeled-off years therefore has no q
+#'   estimated in that peel -- the parameter count is not constant across peels.
+#'   That is deliberate: a q with no index to inform it is a flat direction in
+#'   the likelihood. It does not affect Mohn's rho, which is computed from SSB,
+#'   but it does mean \code{npar} and the reported catchability differ between a
+#'   shallow and a deep peel for such a fleet.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)

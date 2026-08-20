@@ -151,6 +151,12 @@ diet_loglike_map <- c(
 #               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
 #               cpue_like. No lognormal bias correction; pair with a solved q
 #               (Analytical / AnalyticalArith) or an estimated q as needed.
+#   TruncatedNormal = the same natural-scale normal, left-truncated at zero:
+#               log f(x) = log phi(x; mu, sd) - log Phi(mu/sd). An index cannot
+#               be negative and data_check() will not accept one, so this is the
+#               only natural-scale family whose simulator and likelihood are the
+#               same distribution. Prefer it over "Normal" unless an exact ADMB
+#               comparison is needed.
 index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
@@ -158,6 +164,26 @@ index_distribution_map <- c(
   "Normal" = 3,
   "TruncatedNormal" = 4
 )
+
+#' Read a switch column by canonical name, whichever spelling it arrived in
+#'
+#' `switch_check()` -> `revert_switches()` upgrades integer codes to names, and
+#' every path through `fit_mod()` and `read_data()` runs it. `data_check()` is
+#' callable on a hand-built list that has not, so its checks canonicalize first
+#' rather than test one spelling and silently pass the other.
+#'
+#' @param x Column values, names or integer codes.
+#' @param map Named integer vector for this switch (e.g. `q_map`).
+#' @return Canonical names; `"<blank>"` where the value is missing.
+#' @noRd
+.canon_switch <- function(x, map) {
+  x <- trimws(as.character(x))
+  num <- suppressWarnings(as.integer(x))
+  out <- ifelse(!is.na(num), names(map)[match(num, map)], x)
+  out[is.na(out)] <- "<blank>"
+  out
+}
+
 
 #' Which index rows are fitted on the NATURAL scale?
 #'

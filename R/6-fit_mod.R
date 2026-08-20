@@ -446,8 +446,15 @@ fit_mod <-
     data_list$HCRorder <- extend_length(HCR$HCRorder)
     data_list$QnormHCR <- stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    # Fill out switches if missing
-    data_list <- Rceattle::switch_check(data_list)
+    # Fill out switches if missing. `quiet_data_check` covers switch_check()'s
+    # deprecation messages for the same reason it covers data_check()'s
+    # warnings: the diagnostic refits re-validate the caller's own data_list, so
+    # a retrospective would otherwise repeat them once per peel.
+    if (isTRUE(quiet_data_check)) {
+      data_list <- suppressMessages(Rceattle::switch_check(data_list))
+    } else {
+      data_list <- Rceattle::switch_check(data_list)
+    }
 
     # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
     # still stop the fit. The diagnostic refits set it: they re-validate a

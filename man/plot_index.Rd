@@ -45,6 +45,13 @@ arguments, retained for back-compatibility and ignored.}
 A \code{ggplot} object.
 }
 \description{
-Plots fitted survey CPUE indices: observed points with lognormal 95\%
-intervals and the model-predicted index, faceted by survey fleet.
+Plots fitted index series: observed points with 95\% observation intervals and
+the model-predicted index, faceted by fleet. Every fleet carrying
+\code{index_data} is drawn, a fishery with a CPUE series as much as a survey.
+}
+\details{
+The interval follows the fleet's \code{Index_distribution}: lognormal quantiles on
+a \code{"Lognormal"} fleet, and \verb{observed +/- 1.96 sd} truncated at zero on a
+natural-scale one (\code{"MVN"}, \code{"MVNORM"}, \code{"Normal"}, \code{"TruncatedNormal"}),
+whose sd is absolute and in the units of the index.
 }
