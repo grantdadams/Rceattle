@@ -16,8 +16,7 @@
   Compositions and CAAL are drawn in raw bin space, before tail accumulation and
   before `comp_offset`. Tail accumulation folds bins many-to-one, so a draw taken
   after it could not be written back; both families are closed under merging
-  categories, so drawing raw and letting the refit fold again is exact rather
-  than approximate.
+  categories, so drawing raw and letting the refit fold again is exact.
 
   `Comp_weights` / `CAAL_weights` / `Diet_comp_weights` now enter the draw as
   they enter the density: as an effective sample size for the multinomial
@@ -28,10 +27,12 @@
   estimator treats them as being. Any model with a composition weight other
   than 1 gives a different self-test than it did.
 
-  Rows the model cannot draw keep their observed values, and `sim_mod()` warns
-  for each: a fleet with no catch that year, a composition row with no sample
-  size, a predator under empirical suitability, and a covariance fleet outside
-  its fitted window.
+  A composition, CAAL or diet row whose sample size times its weight rounds
+  below one observation comes back empty, and its `Sample_size` is dropped to
+  zero so the refit does not score a row with no data behind it. Rows the model
+  cannot draw at all keep their observed values: a predator under empirical
+  suitability, and a covariance fleet outside its fitted window. `sim_mod()`
+  warns for each case.
 
   Simulated quantities are reported under names ending `_sim` (`catch_obs_sim`,
   `index_obs_sim`, `comp_obs_sim`, `caal_obs_sim`, `diet_obs_sim`), because TMB
@@ -118,13 +119,12 @@
 
 * **`quantities$log_index_sd` and `log_catch_sd` are renamed `index_sd` and
   `catch_sd`.** Neither was ever a log: both hold the observation standard
-  deviation the likelihood actually used for that row, whichever of the three
-  `Estimate_index_sd` / `Estimate_catch_sd` routes supplied it. For `index_sd`
-  the old name was wrong twice, because a natural-scale `Index_distribution`
-  (`MVN`, `MVNORM`, `Normal`, `TruncatedNormal`) carries an ABSOLUTE sd in the
-  units of the index rather than a log-scale one -- exactly the reading the name
-  talked people out of. The scale is a property of the family, not of the field,
-  so it is documented rather than encoded in the name.
+  deviation the likelihood used for that row, whichever of the three
+  `Estimate_index_sd` / `Estimate_catch_sd` routes supplied it. Its scale
+  depends on the family, so it is documented rather than encoded in the name:
+  log-scale for `Lognormal`, and an absolute sd in the units of the index for a
+  natural-scale `Index_distribution` (`MVN`, `MVNORM`, `Normal`,
+  `TruncatedNormal`).
 
   The old spellings are still returned on `$quantities` this release and will be
   removed in the next. Reading a fit saved before the rename keeps working:
@@ -132,8 +132,8 @@
   all accept either spelling.
 
   The TMB parameter `index_log_sd` is a different object -- the estimated
-  log-scale parameter, which really is a log -- and is unchanged, since renaming
-  it would break `inits` from existing fits.
+  log-scale parameter -- and is unchanged, since renaming it would break `inits`
+  from existing fits.
 
 ## Breaking changes
 
@@ -147,46 +147,18 @@
   `Catchability = "Estimated"` did nothing and the index was fitted at
   `Catchability_init`.
 
-  A fit moves only where a fishery actually carries fitted index rows, which is
-  rarer than it sounds because the usual practice is already to give a CPUE
-  series its own survey fleet. No bundled dataset is affected -- all fourteen
-  give an identical set of catchability fleets before and after, so
-  `/golden-check` is bit-identical and says nothing about this either way.
+  The same rule applies in reverse: a **survey** with no index rows no longer
+  gets an estimated catchability. A q with no index to inform it is a flat
+  direction in the likelihood, so this removes unidentified parameters.
 
-  Of 389 workbooks in the model repository, two carry such a fleet. EBS
-  pollock's `EBS_24_pollock_single_species_1964-2024.xlsx` has 12 Japanese CPUE
-  observations (1965-1976) on its fishery, but it is a hand-assembled *input*:
-  `01-build-data.R` moves those rows onto a separate survey fleet before
-  anything is fitted, and `02-bridge.R` reads it at `estimateMode = 4` with
-  every parameter fixed, so the model as run does not move. GOA sablefish's
-  `2023_5_sablefish.xlsx` has a `Fixed_gear_fishery` that would qualify, but
-  that workbook does not pass `data_check()` today for an unrelated reason
-  (`Fleet_code` must equal the row number), so it cannot be fitted either way.
+  Sharing takes precedence and is unchanged: a fleet with no index of its own is
+  still estimated if its `Catchability_index` group's lead fleet is estimated,
+  whatever its `Fleet_type`.
 
-  Anything fitting such a workbook directly does move: q is no longer pinned at
-  `Catchability_init`.
-
-  The same rule now applies in the other direction: a **survey** with no index
-  rows no longer gets an estimated catchability either. A q with no index to
-  inform it is a flat direction in the likelihood, so this removes unidentified
-  parameters rather than adding them. One model in `../Rceattle-models` is
-  affected -- `2019Sablefish.xlsx`, whose composition-only survey fleets
-  (`Domestic_longline_survey_old_sizeage_length_comp`,
-  `GOA_Trawl_survey_old_sizeage_length_comp`) carried `Catchability =
-  "Estimated"` with nothing to estimate it from. No bundled dataset is: the only
-  survey without index rows is `GOA2018SS` fleet 10, whose q is already `Fixed`.
-
-  Sharing is unchanged and takes precedence: a fleet with no index of its own is
-  still estimated if it shares a `Catchability_index` group whose lead fleet is
-  estimated, whatever its own `Fleet_type`. The group holds one q parameter, so
-  it can only carry one answer, and the lead gives it.
-
-  A model that was relying on the old behaviour should set the fleet's
-  `Catchability` to `"Fixed"` to keep its catchability frozen, or give it its own
-  `Catchability_index` if it should be estimated separately.
-
-  `print()` on a data list or a fit now marks such a fleet, so the
-  `fleet_control` column does not read as authoritative when it is not:
+  No bundled dataset is affected, so `/golden-check` is silent on this. A model
+  that relied on the old behaviour should set `Catchability = "Fixed"` to keep q
+  frozen, or give the fleet its own `Catchability_index` to estimate it
+  separately. `print()` on a data list or a fit now marks the case:
   `q: Estimated (fixed: no index data)`.
 
 
@@ -203,25 +175,17 @@
   already uses this form, so the index now matches both the catch and the comps
   for that fleet. `Month` is not read for a fishery's index rows.
 
-  The choice affects trend, not just scale, so catchability cannot absorb it. At
-  `Month = 6`, `exp(-Z/2)` approximates `Nbar/N` to within 1% at `Z = 0.5` but is
-  9.6% low at `Z = 1.5`. At `Month = 0` -- what both fishery-CPUE series in the
-  model repository use, and what the AMAK/ebswp `cpue_like` assumes -- the old
-  factor was `exp(0) = 1`, i.e. start-of-year numbers, against `Nbar/N` of 0.906
-  at `Z = 0.2`, 0.632 at `Z = 1.0` and 0.432 at `Z = 2.0`.
-
-  A seasonal fishery is covered by the same form: its exact window predictor
-  differs by a near-constant factor `q` takes up, with 1-3% trend error over `F`
-  0.05-0.8 for `M` between 0.1 and 0.5, against -29% to +33% for the snapshot.
-  Stock Synthesis splits the same way on its per-fleet survey timing.
+  The choice affects trend as well as scale, so catchability cannot absorb it;
+  the size of the difference over a range of Z is tabulated in
+  `vignette("model-options-and-functionality")`. Stock Synthesis splits the same
+  way on its per-fleet survey timing.
 
   Only a fishery carrying `index_data` is affected, so no bundled dataset moves
-  and `/golden-check` is bit-identical. For a snapshot-timed index on a fishery's
-  selectivity -- the AMAK/ebswp form, and what the EBS pollock ADMB bridge needs
+  and `/golden-check` is bit-identical. For a snapshot-timed index on a
+  fishery's selectivity -- the AMAK/ebswp form the EBS pollock ADMB bridge needs
   -- put the index on its own `Survey` fleet and point that fleet's
-  `Selectivity_index` at the fishery so the two share one selectivity block.
-  Build that fleet by copying the fishery's whole `fleet_control` row: the
-  selectivity columns must agree for the mirroring to hold (see the vignette).
+  `Selectivity_index` at the fishery, copying the fishery's whole
+  `fleet_control` row so the selectivity columns agree (see the vignette).
 
 
 * **`sim_mod(simulate = TRUE)` no longer works on an averaged model.** Simulating
@@ -300,6 +264,15 @@
   reconciled across the group, so the fleets end up with different
   catchabilities while `fleet_control` still says they share one. Naming every
   fleet in the group keeps them together.
+
+* **A catchability linkage on a fleet whose `Catchability` is `"Environmental"`
+  or `"AR1"` is now refused.** Those two forms build q from their own formula and
+  overwrite `index_q`, so the linkage offset was reported in
+  `q_linkage_offset` but never reached the likelihood: the linkage parameters
+  were free with an identically-zero gradient. Express the whole relationship as
+  the linkage and set `Catchability = "Estimated"`. This is a hard error, so a
+  configuration combining the two stops instead of fitting a linkage that does
+  nothing.
 
 * **The diagnostic refits no longer repeat `data_check()`'s warnings.** These
   describe the `data_list`, so a caller running `retrospective()`, `jitter()`,
@@ -397,34 +370,26 @@
   `oneStepGaussianOffMode`. Those residuals were `(obs - mu)/sd`, which is not
   standard normal under the density that was fitted. `osa_residuals()` now
   residualizes this family in its own call, with `method = "oneStepGeneric"`,
-  `range = c(0, Inf)` and `splineApprox = FALSE`, which integrates the density
-  over its actual support and returns `qnorm(F(x))` for the truncated
+  `splineApprox = FALSE` and a range starting at zero, which integrates the
+  density over its own support and returns `qnorm(F(x))` for the truncated
   `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`. The correction is the
   size of the truncated mass: on a fleet predicting 100 with an absolute sd of
   150, an observation exactly at the prediction moves from 0 to -0.44. `"Normal"`
-  is untouched -- it is genuinely untruncated -- and the two are now pinned
-  against their closed forms in
+  is untouched, and both are pinned against their closed forms in
   `tests/testthat/test-likelihood-index-truncated-normal.R`.
 
-  Three things follow from that group being residualized separately, all
-  documented in `?osa_residuals`. The exact integration evaluates the Laplace
-  marginal at arbitrary observations and does not always converge on a
-  random-effects model; rather than drop those rows to `NA` -- which would shrink
-  the sample `osa_diagnostics()` reports on without saying so -- the fleet is
-  recomputed under TMB's spline approximation and a warning says its residuals
-  are approximate. `sd` is `NA` for the group and `predicted` is the truncated
-  conditional mean rather than the fitted index. And because each
-  `oneStepPredict()` call marks the rows it is not residualizing as
-  unconditional, adding a truncated fleet shifts the other fleets' residuals on a
-  random-effects model -- a different, equally valid conditioning sequence, not a
-  wrong value.
+  Three consequences of residualizing that group separately, all documented in
+  `?osa_residuals`: the exact integration does not always converge on a
+  random-effects model, in which case the fleet falls back to TMB's spline
+  approximation with a warning rather than dropping rows to `NA`; `sd` is `NA`
+  for the group and `predicted` is the truncated conditional mean; and because
+  each `oneStepPredict()` call treats the rows it is not residualizing as
+  unconditional, adding a truncated fleet shifts the other fleets' residuals on
+  a random-effects model -- a different conditioning sequence, not a wrong value.
 
-  The override is announced rather than silent: `osa_residuals()` names the
-  fleets, says which method replaced the one that was passed, and notes that the
-  exact integration is slower. The returned object records what was used, so
-  `attr(x, "method")` is
-  `c(default = <method>, TruncatedNormal = "oneStepGeneric")` on such a model and
-  the plain string otherwise.
+  `osa_residuals()` names the fleets it overrode and the method it used, and
+  records it: `attr(x, "method")` is
+  `c(default = <method>, TruncatedNormal = "oneStepGeneric")` on such a model.
 
 * **`compare_sim()` warns when it is handed `process`-drawn replicates.** Every
   statistic it reports is a deviation from `operating_mod`, which is the truth

@@ -363,7 +363,7 @@ Recruitment has one such case worth knowing about. Under `srr_fun = 0` with `srr
 
 Two terms on one quantity do not compose into a distribution to draw from. Drawing at `R_sd` from the first alone ignores the second, and the second is not a density on the deviations alone either: it couples them to the stock-recruit parameters, which are estimated too. Either way the self-test would measure recovery against a process the model does not assume, so the deviations are not redrawn and `sim_mod()` says why. A random linkage on a recruitment parameter is a separate latent and is still drawn. Set `srr_fun` to the stock-recruit function itself to redraw the deviations.
 
-Because the fitted deviations are no longer what generated the data, the values that *did* come back attached to each replicate, each with a mask of the cells the draw touched:
+The fitted deviations are no longer what generated the data, so the values that *did* come back attached to each replicate, each with a mask of the cells the draw touched:
 
 ```{r}
 truth <- attr(sims, "process_sim")[["Sim_1"]]
