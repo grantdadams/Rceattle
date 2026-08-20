@@ -160,6 +160,38 @@ relative to the average across an age-range by specifying the lower
 absolute **age** for an age-based fleet (`6` means age 6, not the sixth bin) or
 a 1-based **length-bin ordinal** for a length-based one.
 
+### Sharing a selectivity between fleets
+
+Fleets given the same `Selectivity_index` share one selectivity parameter block,
+and the penalties and priors on it are accumulated once, on the group's first
+non-`Off` fleet.
+
+Sharing the parameters is not sufficient on its own. The columns that shape the
+curve are read **per fleet**, so they have to agree across the group or the
+fleets end up with different selectivities:
+
+| Column | If it differs within the group |
+|---|---|
+| `Selectivity`, `Selectivity_dimension`, `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`, `Sel_norm_bin_upper` | The fleets get **different curves** — mirroring fails |
+| `Time_varying_sel` | Resolved to the lead fleet's setting |
+| `Sel_start_year` | Resolved to the group's earliest year |
+
+A blank counts as a value in the first row: a blank `Sel_norm_bin` means "do not
+normalize", which is a different curve from normalizing at a bin. `data_check()`
+warns in all three cases, distinguishing divergence from resolution.
+
+The reliable way to mirror a fleet is to copy its `fleet_control` row and change
+only the identity and catchability columns:
+
+```r
+mirror <- fleet_control[fleet_control$Fleet_name == "Fishery", ]
+mirror$Fleet_name         <- "Fishery_CPUE"
+mirror$Fleet_code         <- nrow(fleet_control) + 1L
+mirror$Fleet_type         <- "Survey"
+mirror$Catchability_index <- mirror$Fleet_code
+fleet_control <- rbind(fleet_control, mirror)
+```
+
 ### Sex structure and relative selectivity
 
 Populations are modelled as one or two sexes via `nsex`. **Every selectivity
@@ -250,6 +282,74 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 
 If `Catchability` is `AR1` or `Environmental`, `Time_varying_q` can be an integer or character of integers
 specifying the environmental series in `env_data` to use (e.g. `Time_varying_q = 1` or `Time_varying_q = "1,2,3"`).
+
+### Which fleets get a catchability
+
+Catchability follows the **data**, not the fleet type. A fleet is given a q if it
+carries `index_data` the model fits — a fishery with a CPUE series as much as a
+survey. A fishery's index is predicted from that fishery's own selectivity, which
+is what CPUE should share; an index needing a *different* selectivity has to be
+its own fleet, since `sel_at_age` is one block per fleet (the same is true of
+`Observation_units`).
+
+A fleet with no fitted index rows gets **no** q, whatever `Catchability` says —
+a catchability with no index to inform it is a flat direction in the likelihood.
+This applies to a composition-only survey exactly as it does to an ordinary
+fishery. `print()` marks the case so the column does not read as authoritative:
+
+```
+[2] Fishery │ Fishery │ sel: Logistic │ q: Estimated (fixed: no index data)
+```
+
+The exception is sharing. Fleets with the same `Catchability_index` share one q
+parameter, so the group can only hold one answer to "is it estimated?", and the
+**lead** fleet — the group's first non-`Off` fleet — decides for all of them,
+regardless of type. A fleet with no index of its own is therefore still estimated
+if its group's lead is, and a fleet whose own `Catchability` is `"Estimated"` is
+still fixed if its lead is `"Fixed"`. Give a fleet its own `Catchability_index`
+when it should be estimated independently.
+
+### How an index is timed against mortality
+
+An index is predicted from the numbers its fleet sees, and that depends on the
+kind of observation. The model keys this on `Fleet_type`; there is no column to
+set.
+
+A **survey** index is a snapshot at the month given in `index_data`:
+
+$$\hat{I}_y = q \sum_a s_a\, N_{a,y}\, e^{-(\text{Month}/12) Z_{a,y}}\, w_a$$
+
+A **fishery** index is CPUE, which integrates over the year alongside the catch.
+Baranov gives $C_a = F_a \bar{N}_a$, and effort cancels the $F$ (since
+$F_a = q_e E s_a$):
+
+$$\hat{I}_y = q \sum_a s_a\, \bar{N}_{a,y}\, w_a,
+\qquad \bar{N}_{a,y} = N_{a,y}\frac{1 - e^{-Z_{a,y}}}{Z_{a,y}}$$
+
+$\bar{N}$ is the mean-numbers term the catch equation uses, and the one a
+fishery's age composition is already built on, so a fleet's index, catch, and
+comps are consistent by construction. `Month` is not read for a fishery's index
+rows.
+
+This affects trend, not just scale, so a constant $q$ cannot absorb it. At
+`Month = 6`, $e^{-Z/2}$ approximates $\bar{N}/N$ to within 1% at $Z = 0.5$ but is
+9.6% low at $Z = 1.5$; at `Month = 0` the snapshot factor is $e^0 = 1$, against
+$\bar{N}/N$ of 0.906 at $Z = 0.2$ and 0.432 at $Z = 2.0$. A seasonal fishery
+needs no special treatment — its exact window predictor differs from the
+year-average by a near-constant factor $q$ takes up (1–3% trend error across
+$F$ 0.05–0.8 for $M$ between 0.1 and 0.5, against 29–33% for a snapshot).
+
+### A snapshot-timed index on a fishery's selectivity
+
+This is the AMAK/ebswp CPUE form, and what an ADMB bridge needs. Give the index
+its own `Survey` fleet and point that fleet's `Selectivity_index` at the fishery:
+fleets sharing a `Selectivity_index` share one selectivity block, so the index
+gets the fishery's selectivity along with its own `Month` and its own q.
+
+Build the mirror fleet by copying the fishery's `fleet_control` row — see
+[Sharing a selectivity between fleets](#sharing-a-selectivity-between-fleets)
+for the columns that have to agree, and why a hand-authored row can silently get
+a different curve.
 
 ## 5. Composition likelihoods
 

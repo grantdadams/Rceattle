@@ -593,6 +593,13 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
+      # TODO: this suppressWarnings() swallows EVERY warning build_map() raises,
+      # including the shared-block ones that exist to be seen -- the
+      # "same Catchability_index is not the same" pair, and the
+      # Bin_first_selected / N_sel_bins ones CLAUDE.md calls the safety net for
+      # fleets sharing a selectivity block. A fishery whose q is overridden by
+      # its group's lead fleet is silent today because of this line. Narrow it to
+      # the warnings actually being suppressed, or let build_map() classify them.
       map <- suppressWarnings(build_map(data_list, start_par,
                                         debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
                                         random_rec = random_rec, random_sel = random_sel))

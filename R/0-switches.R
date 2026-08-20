@@ -213,7 +213,11 @@ index_distribution_map <- c(
 .fleets_with_index <- function(data_list, fitted_only = TRUE) {
   idx <- data_list$index_data
   fc  <- data_list$fleet_control
-  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(integer(0))
+  # nrow() is NULL for anything without dimensions -- a data_list carrying a
+  # scalar NA where a table is expected reaches here, and `!NULL` errors.
+  if (is.null(idx) || is.null(nrow(idx)) || !nrow(idx) || is.null(fc)) {
+    return(integer(0))
+  }
   keep <- rep(TRUE, nrow(idx))
   if (fitted_only) {
     keep <- idx$Year > 0
@@ -758,6 +762,28 @@ switch_check <- function(data_list){
       ". Setting Fleet_type = 'Off'."
     ))
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
+  }
+
+  # A fishery's index is predicted from the year-averaged numbers, which has no
+  # instant to be taken at, so Month is inert on its index rows (a survey's is
+  # read). Say so rather than let a workbook carry a month that does nothing.
+  .fsh_idx <- .fleets_with_index(data_list, fitted_only = TRUE)
+  if (length(.fsh_idx)) {
+    .fc <- data_list$fleet_control
+    .fsh_idx <- .fsh_idx[.fsh_idx %in% .fc$Fleet_code[.fc$Fleet_type %in% c(1, "1", "Fishery")]]
+    .im <- data_list$index_data
+    .dead_month <- .fsh_idx[vapply(.fsh_idx, function(fl) {
+      m <- suppressWarnings(as.numeric(.im$Month[.im$Fleet_code == fl & .im$Year > 0]))
+      any(!is.na(m) & m != 0)
+    }, logical(1))]
+    if (length(.dead_month)) {
+      message(paste0(
+        "'Month' is not read for the index of fishery fleet(s): ",
+        paste(.fc$Fleet_name[match(.dead_month, .fc$Fleet_code)], collapse = ", "),
+        ". A fishery index is predicted from the year-averaged numbers ",
+        "N*(1-exp(-Z))/Z. Put the index on its own Survey fleet, mirroring the ",
+        "fishery's Selectivity_index, if it should be timed to a month."))
+    }
   }
 
   # Default Sel_start_year to the fleet's first year of data (not styr). Earlier

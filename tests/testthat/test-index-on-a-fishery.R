@@ -111,17 +111,17 @@ testthat::test_that("a fishery's index is predicted from the fishery's own selec
   testthat::skip_if(is.na(row), "no fitted fishery index row")
 
   yr  <- td$index_ctl[row, 3] - td$styr + 1L
-  mo  <- td$index_n[row, 1]
   sp  <- 1L
   nag <- td$nages[sp]
 
-  # q * sum over ages of N * exp(-(mo/12) Z) * sel * weight, with sel taken from
-  # the FISHERY's own block.
+  # q * sum over ages of Nbar * sel * weight, with sel from the FISHERY's own
+  # block. Nbar = N (1 - exp(-Z)) / Z is the year-average a fishery's index uses
+  # (see test-index-timing.R), so the observation's month does not enter.
   contrib <- function(flt) {
     s <- 0
     for (a in seq_len(nag)) {
-      s <- s + q$N_at_age[sp, 1, a, yr] *
-        exp(-(mo / 12) * q$Z_at_age[sp, 1, a, yr]) *
+      Z <- q$Z_at_age[sp, 1, a, yr]
+      s <- s + q$N_at_age[sp, 1, a, yr] * (1 - exp(-Z)) / Z *
         q$sel_at_age[flt, 1, a, yr] *
         q$weight_hat[td$nspp * 2 + f$fsh, 1, a, yr]
     }
@@ -181,4 +181,67 @@ testthat::test_that("a SURVEY missing the same columns is rejected too", {
                                             phase = FALSE)))),
       col, info = col)   # the message must name the offending column
   }
+})
+
+
+testthat::test_that("a fishery with no index_data gets no catchability, unless it follows a lead", {
+  testthat::skip_if_not_installed("TMB")
+  # Two rules, and the sharing one is intended rather than a side effect. A
+  # Catchability_index group shares ONE q parameter, so it can hold only one
+  # answer to "is q estimated?", and the lead fleet decides for the group
+  # whatever the members' own Catchability says.
+  mk <- function(share) {
+    d  <- make_test_data(nyrs = 12, nages = 5, seed = 42)
+    fc <- d$fleet_control
+    srv <- which(fc$Fleet_type == "Survey")[1]
+    fsh <- which(fc$Fleet_type == "Fishery")[1]
+    d$fleet_control$Catchability[srv]      <- "Estimated"   # the lead estimates
+    d$fleet_control$Catchability_init[srv] <- 1
+    d$fleet_control$Catchability[fsh]      <- "Estimated"
+    d$fleet_control$Catchability_init[fsh] <- 1
+    d$fleet_control$Estimate_index_sd[fsh] <- 0
+    if (share) {
+      d$fleet_control$Catchability_index[fsh] <-
+        d$fleet_control$Catchability_index[srv]
+    }
+    d                                       # note: fishery has NO index_data
+  }
+  qmap <- function(d) {
+    fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+      d, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                          phase = FALSE))))
+    fc <- fit$data_list$fleet_control
+    fit$map$mapList$index_log_q[fc$Fleet_code[fc$Fleet_type == "Fishery"][1]]
+  }
+
+  # No index to inform it, and no group to follow: q stays fixed however the
+  # fleet_control is written.
+  testthat::expect_true(is.na(qmap(mk(share = FALSE))))
+  # Sharing with a lead that estimates: it follows the lead.
+  testthat::expect_false(is.na(qmap(mk(share = TRUE))))
+})
+
+
+testthat::test_that("print() marks a fleet whose q is not estimated for want of an index", {
+  testthat::skip_if_not_installed("TMB")
+  # The Catchability column reads as authoritative, and for a fleet with no
+  # index rows it is not: the q block is never opened. Say so in the outline
+  # rather than leave the reader to infer it from the map.
+  d  <- make_test_data(nyrs = 12, nages = 5, seed = 42)
+  fc <- d$fleet_control
+  fsh <- which(fc$Fleet_type == "Fishery")[1]
+  d$fleet_control$Catchability[fsh]      <- "Estimated"
+  d$fleet_control$Catchability_init[fsh] <- 1
+  d$fleet_control$Estimate_index_sd[fsh] <- 0
+
+  out <- capture.output(print(
+    suppressMessages(suppressWarnings(Rceattle::switch_check(d)))))
+  fsh_line <- grep("Fishery", out, value = TRUE)[1]
+  testthat::expect_match(fsh_line, "no index data", fixed = TRUE)
+
+  # The survey does carry index rows, so it is not marked -- otherwise the
+  # annotation would be on every line and say nothing.
+  srv_line <- grep("\\[1\\]", out, value = TRUE)[1]
+  testthat::expect_false(grepl("no index data", srv_line, fixed = TRUE))
 })

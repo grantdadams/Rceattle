@@ -1039,9 +1039,14 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 #' @title Helper to set map for Catchability parameters
 #'
-#' @description Maps survey catchability base parameters (\code{index_log_q}),
+#' @description Maps catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
-#'   (\code{index_q_beta}, \code{index_q_rho}).
+#'   (\code{index_q_beta}, \code{index_q_rho}) for every fleet that carries
+#'   fitted \code{index_data} -- a fishery with a CPUE series as much as a
+#'   survey. A fleet with no index rows gets none of them, whatever its
+#'   \code{Catchability} says, since a q with no index to inform it is a flat
+#'   direction. Sharing overrides this: \code{adjust_map_shared_params()} then
+#'   copies the lead fleet's slice across each \code{Catchability_index} group.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1059,15 +1064,21 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
-  # Fleets whose catchability block is estimable. A fishery qualifies once it
-  # carries fitted index observations -- the template fits an index row for any
-  # non-Off fleet, but keying on Fleet_type left a fishery's q, time-varying q
-  # and index sd mapped out, so Catchability = "Estimated" did nothing. Surveys
-  # qualify unconditionally as before, so the union is additive and no existing
-  # model loses a parameter.
-  q_fleets <- union(
-    data_list$fleet_control$Fleet_code[data_list$fleet_control$Fleet_type == "Survey"],
-    .fleets_with_index(data_list))
+  # Fleets whose catchability block is estimable: those carrying fitted index
+  # observations, whatever their Fleet_type. The template fits an index row for
+  # any non-Off fleet, so a fishery CPUE series is scored like a survey's index
+  # and needs its q the same way; keying on Fleet_type == "Survey" instead left a
+  # fishery's q, time-varying q and index sd mapped out, so Catchability =
+  # "Estimated" did nothing.
+  #
+  # The converse holds too, and is why this is the data and not the fleet type: a
+  # q with no index to inform it is a flat direction in the likelihood. A survey
+  # with no index rows no longer gets one either.
+  #
+  # A fleet with no index of its own can still end up estimated, by sharing a
+  # Catchability_index group whose LEAD estimates -- adjust_map_shared_params()
+  # copies the lead's slice over the group afterwards, which is intended.
+  q_fleets <- .fleets_with_index(data_list)
 
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
@@ -1229,32 +1240,11 @@ adjust_map_shared_params <- function(map_list, data_list) {
       sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
       sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
-      # Error check selectivity type
-      if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
-        warning("Survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Selectivity in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-      }
-
-
-      # Error check time-varying selectivity type
-      if(length(unique(data_list$fleet_control$Time_varying_sel[sel_duplicate_vec])) > 1){
-        warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-      }
-
-      # Bin_first_selected / N_sel_bins also shape the per-fleet selectivity map
-      # (which bins are estimated), and the maps below overwrite the mirrored
-      # fleet's with the lead's. Differing values within a group would therefore
-      # be silently ignored, so flag them the same way.
-      for (col in c("Bin_first_selected", "N_sel_bins")) {
-        vals <- data_list$fleet_control[[col]][sel_duplicate_vec]
-        if (length(unique(vals[!is.na(vals)])) > 1) {
-          warning(paste0("'", col, "' differs among fleets with the same Selectivity_index (",
-                         paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec], collapse = ", "),
-                         "): ", paste(vals, collapse = ", "),
-                         ". The shared selectivity uses the first fleet's value."))
-        }
-      }
+      # Per-fleet settings a shared Selectivity_index does not reconcile
+      # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
+      # Sel_norm_bin*, Time_varying_sel) are checked in data_check(): fit_mod()
+      # wraps this call in suppressWarnings(), so a warning raised here is never
+      # seen.
 
       # FIXME add checks for surveys sel sigma
 
@@ -1292,7 +1282,21 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
       # FIXME add checks for surveys q sigma
 
-      # Make catchability maps the same
+      # Make catchability maps the same.
+      #
+      # The group shares ONE q parameter, so it can carry only one answer to
+      # "is q estimated?", and the LEAD fleet -- first_est(), the group's first
+      # non-Off fleet -- decides it for everyone regardless of fleet type. That
+      # is intended: a fishery sharing a group whose lead estimates q follows the
+      # lead and is estimated too, even with no index_data of its own, and a
+      # fishery whose lead is Fixed stays fixed whatever its own Catchability
+      # says.
+      #
+      # TODO: what is NOT intended is that the disagreement is invisible. The
+      # two warnings above fire when the group's Catchability / Time_varying_q
+      # settings differ, but fit_mod() wraps build_map() in suppressWarnings()
+      # (see the TODO there), so a fleet whose own setting was overridden by the
+      # lead never hears about it.
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]

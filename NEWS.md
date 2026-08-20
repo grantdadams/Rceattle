@@ -137,28 +137,57 @@
 
 ## Breaking changes
 
-* **A fishery carrying `index_data` now gets an estimable catchability, and fits
-  using one will change.** The TMB model has always fitted such a row: the index
-  likelihood gates on `flt_type(index) > 0`, which is fishery and survey alike,
-  and predicts it from that fleet's own selectivity and catchability -- what a
-  fishery CPUE series should use. But `build_map_catchability()` entered its
-  block only for `Fleet_type == "Survey"`, so a fishery's `index_log_q`, its
-  time-varying `index_q_dev` family and its `index_log_sd` all stayed mapped
-  out. `Catchability = "Estimated"` did nothing and the index was fitted at
+* **A fishery carrying `index_data` now gets an estimable catchability.** The TMB
+  model has always fitted such a row: the index likelihood gates on
+  `flt_type(index) > 0`, which is fishery and survey alike, and predicts it from
+  that fleet's own selectivity and catchability -- what a fishery CPUE series
+  should use. But `build_map_catchability()` entered its block only for
+  `Fleet_type == "Survey"`, so a fishery's `index_log_q`, its time-varying
+  `index_q_dev` family and its `index_log_sd` all stayed mapped out.
+  `Catchability = "Estimated"` did nothing and the index was fitted at
   `Catchability_init`.
 
-  Two known configurations move. **EBS pollock 2024** has a fleet named
-  `Fishery CPUE` (12 observations, 1965-1976) with `Catchability = "Estimated"`:
-  its objective goes 4217.46 to 4182.33, its catchability 1.0 to 3.31, and
-  spawning biomass shifts by 14.3% on average over 1964-2024 (66% in 1966,
-  -0.95% in the terminal year). It is an ADMB-bridging model, so the bridge
-  needs re-checking. **GOA sablefish 2023** has a `Fixed_gear_fishery` that
-  newly qualifies. No bundled dataset is affected -- all fourteen give an
-  identical set of catchability fleets before and after, so `/golden-check` is
-  bit-identical and says nothing about this.
+  A fit moves only where a fishery actually carries fitted index rows, which is
+  rarer than it sounds because the usual practice is already to give a CPUE
+  series its own survey fleet. No bundled dataset is affected -- all fourteen
+  give an identical set of catchability fleets before and after, so
+  `/golden-check` is bit-identical and says nothing about this either way.
 
-  A model that was relying on the old behaviour should set the fishery's
-  `Catchability` to `"Fixed"` to keep its catchability frozen.
+  Of 389 workbooks in the model repository, two carry such a fleet. EBS
+  pollock's `EBS_24_pollock_single_species_1964-2024.xlsx` has 12 Japanese CPUE
+  observations (1965-1976) on its fishery, but it is a hand-assembled *input*:
+  `01-build-data.R` moves those rows onto a separate survey fleet before
+  anything is fitted, and `02-bridge.R` reads it at `estimateMode = 4` with
+  every parameter fixed, so the model as run does not move. GOA sablefish's
+  `2023_5_sablefish.xlsx` has a `Fixed_gear_fishery` that would qualify, but
+  that workbook does not pass `data_check()` today for an unrelated reason
+  (`Fleet_code` must equal the row number), so it cannot be fitted either way.
+
+  Anything fitting such a workbook directly does move: q is no longer pinned at
+  `Catchability_init`.
+
+  The same rule now applies in the other direction: a **survey** with no index
+  rows no longer gets an estimated catchability either. A q with no index to
+  inform it is a flat direction in the likelihood, so this removes unidentified
+  parameters rather than adding them. One model in `../Rceattle-models` is
+  affected -- `2019Sablefish.xlsx`, whose composition-only survey fleets
+  (`Domestic_longline_survey_old_sizeage_length_comp`,
+  `GOA_Trawl_survey_old_sizeage_length_comp`) carried `Catchability =
+  "Estimated"` with nothing to estimate it from. No bundled dataset is: the only
+  survey without index rows is `GOA2018SS` fleet 10, whose q is already `Fixed`.
+
+  Sharing is unchanged and takes precedence: a fleet with no index of its own is
+  still estimated if it shares a `Catchability_index` group whose lead fleet is
+  estimated, whatever its own `Fleet_type`. The group holds one q parameter, so
+  it can only carry one answer, and the lead gives it.
+
+  A model that was relying on the old behaviour should set the fleet's
+  `Catchability` to `"Fixed"` to keep its catchability frozen, or give it its own
+  `Catchability_index` if it should be estimated separately.
+
+  `print()` on a data list or a fit now marks such a fleet, so the
+  `fleet_control` column does not read as authoritative when it is not:
+  `q: Estimated (fixed: no index data)`.
 
 
 * **`sim_mod(simulate = TRUE)` no longer works on an averaged model.** Simulating
@@ -191,6 +220,17 @@
   the template no longer has, so warm starts from older fits keep working.
 
 ## Bug fixes
+
+* **`data_check()` reports fleets that share a `Selectivity_index` but disagree
+  on the columns that shape the curve.** `Selectivity`, `Selectivity_dimension`,
+  `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin` and `Sel_norm_bin_upper` are
+  read per fleet when selectivity is built, so a group differing on any of them
+  does not share one curve despite sharing the parameter block. A blank counts as
+  a value: an empty `Sel_norm_bin` means "do not normalize", a different curve
+  from normalizing at a bin. `Time_varying_sel` is reported separately, as
+  `build_map()` resolves it to the lead fleet's setting and the curves still
+  match. To mirror a fleet, copy its `fleet_control` row and change only the
+  identity and catchability columns.
 
 * **A fishery's index now appears in the index diagnostics.** `plot_index()`
   selected `Fleet_type == "Survey"`, so a fishery's index rows were dropped from
