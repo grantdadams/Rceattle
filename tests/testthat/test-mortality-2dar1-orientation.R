@@ -7,7 +7,9 @@
 # (helpers.R) builds kronecker(R_year, R_age) and is the outside check.
 
 testthat::test_that("the 2D-AR1 M density correlates ages by rho_age and years by rho_year", {
-  testthat::skip_on_cran()
+  # No skip_on_cran(): estimateMode = 3 builds the object without optimizing and
+  # the check reads obj$report(), so this runs in plain R CMD check. It is the
+  # only thing pinning the orientation, and a skipped test pins nothing.
   testthat::skip_if_not_installed("mvtnorm")
 
   d <- make_test_data()
