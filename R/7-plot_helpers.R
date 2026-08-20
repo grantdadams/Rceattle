@@ -99,24 +99,54 @@
 #'
 #' `line_col` is a base-graphics argument, so users pass base-graphics colours:
 #' `line_col = 1` and `line_col = c(1, 2, 4)` are as common in real scripts as
-#' `"black"` / `"#0072B2"`. ggplot2's manual scales take names and hex only, so
-#' an integer has to be resolved through the palette first -- otherwise
-#' `line_col = 1` errors as an invalid colour instead of drawing black.
+#' `"black"` / `"#0072B2"`. R's colour parser already reads the *string* `"1"` as
+#' a palette index, so a single small integer happens to survive; resolving it
+#' here makes that explicit and fixes the cases that do not, namely indices past
+#' the end of the palette (base wraps, ggplot2 does not).
+#'
+#' Invalid colours fail here, where the argument can be named, rather than deep
+#' inside `ggplot_build()` -- or, worse, silently: an `NA` colour renders as a
+#' missing line, so a bad `line_col` would otherwise produce a blank panel with
+#' no message.
 #'
 #' @param x Colours as a character vector, or integers indexing
 #'   [grDevices::palette()], or `NULL`.
-#' @return A character vector of colours, or `NULL` for `NULL` input.
+#' @return A character vector of colours, or `NULL` for `NULL`/empty input.
 #' @keywords internal
 #' @noRd
 .as_colour <- function(x) {
-  if (is.null(x)) return(NULL)
-  if (is.numeric(x)) {
-    pal <- grDevices::palette()
-    # Base recycles the palette by (i - 1) %% n, and treats 0 as "transparent".
-    out <- ifelse(x == 0, NA_character_, pal[(as.integer(x) - 1L) %% length(pal) + 1L])
-    return(out)
+  if (is.null(x) || length(x) == 0L) return(NULL)
+  if (is.logical(x) && all(is.na(x))) {
+    stop("`line_col` is NA. Pass colours, palette indices, or NULL for the ",
+         "default palette.", call. = FALSE)
   }
-  as.character(x)
+  if (is.numeric(x)) {
+    if (anyNA(x) || any(x < 0)) {
+      stop("`line_col` must be non-negative palette indices; got ",
+           paste(utils::head(x, 5), collapse = ", "), ".", call. = FALSE)
+    }
+    pal <- grDevices::palette()
+    # Base wraps the palette by (i - 1) %% n and reads 0 as the background,
+    # i.e. transparent.
+    return(ifelse(x == 0, NA_character_,
+                  pal[(as.integer(x) - 1L) %% length(pal) + 1L]))
+  }
+  if (!is.character(x) && !is.factor(x)) {
+    stop("`line_col` must be colour names, hex codes, or palette indices; got ",
+         class(x)[1], ".", call. = FALSE)
+  }
+  x <- as.character(x)
+  # Reject unrenderable colours now. grDevices::col2rgb() is the same parser
+  # ggplot2 eventually uses, so anything it accepts will draw.
+  bad <- vapply(x, function(one) {
+    if (is.na(one)) return(FALSE)   # NA is a legitimate "draw nothing"
+    inherits(try(grDevices::col2rgb(one), silent = TRUE), "try-error")
+  }, logical(1))
+  if (any(bad)) {
+    stop("`line_col` is not a valid colour: ",
+         paste(unique(x[bad]), collapse = ", "), ".", call. = FALSE)
+  }
+  x
 }
 
 
@@ -137,13 +167,11 @@
 #' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.
 #' @param aesthetics Which of `"colour"`/`"fill"` to add.
 #' @param line_col User-supplied colours, or `NULL` for the package default.
-#' @param levels Levels of the mapped discrete variable, in plotting order.
-#'   Colours are recycled over these, so the caller must pass the levels of the
-#'   variable actually mapped to colour.
+#'   Recycled over the mapped variable's levels in plotting order.
 #' @keywords internal
 .rceattle_scale <- function(p, discrete = TRUE,
                             aesthetics = c("colour", "fill"),
-                            line_col = NULL, levels = NULL) {
+                            line_col = NULL) {
   line_col <- .as_colour(line_col)
 
   # Build the scale for one aesthetic. Kept as a closure so "colour" and "fill"
@@ -157,16 +185,14 @@
              else ggplot2::scale_fill_viridis_c())
     }
     if (discrete) {
-      # Without levels there is nothing to name the colours by; fall back to a
-      # palette function, which ggplot2 applies in level order anyway.
-      if (is.null(levels)) {
-        return(ggplot2::discrete_scale(
-          aes_name,
-          palette = function(n) rep(line_col, length.out = n)))
-      }
-      vals <- stats::setNames(rep(line_col, length.out = length(levels)), levels)
-      return(if (aes_name == "colour") ggplot2::scale_colour_manual(values = vals)
-             else ggplot2::scale_fill_manual(values = vals))
+      # Applied in level order by a palette function rather than by naming the
+      # values. A named scale_*_manual() silently renders every series grey50
+      # when the names do not match the data's levels, so the caller would have
+      # to know the factor's levels exactly to use it safely -- and the
+      # documented contract is level order anyway.
+      return(ggplot2::discrete_scale(
+        aes_name,
+        palette = function(n) rep(line_col, length.out = n)))
     }
     # Continuous: the colours are ramp anchors. A single colour gives a flat
     # ramp, i.e. "draw it all in this colour", which is what a user asking for
@@ -263,35 +289,65 @@
   dl   <- models[[1]]$data_list
   nspp <- dl$nspp
   if (is.null(nspp) || is.na(nspp)) nspp <- length(dl$spnames)
+  if (!length(nspp) || nspp < 1L) {
+    # Blame the model, not `species` -- otherwise a malformed fit reports
+    # "`species` selected no species" for an argument the caller never passed.
+    stop("This model reports no species (`data_list$nspp` is ",
+         format(dl$nspp), ").", call. = FALSE)
+  }
 
   # Default labels come from the model; a model without them gets positional
   # ones so the legend is never blank.
   default_names <- dl$spnames
-  if (is.null(default_names) || length(default_names) == 0L) {
+  if (is.null(default_names) || length(default_names) != nspp) {
     default_names <- paste("Species", seq_len(nspp))
   }
   user_named <- !is.null(spnames)
   if (!user_named) spnames <- default_names
-  spnames <- rep(as.character(spnames), length.out = nspp)
+  # Recycling a short `spnames` would label species 3 with species 1's name --
+  # a plausible-looking wrong answer on a figure that goes into an assessment
+  # document. The un-helped behaviour (an NA strip) is at least visibly broken,
+  # so refuse instead of quietly inventing a label.
+  spnames <- as.character(spnames)
+  if (length(spnames) != nspp) {
+    stop("`spnames` has ", length(spnames), " name(s) but the model has ",
+         nspp, " species. Supply one name per species.", call. = FALSE)
+  }
 
   idx <- NULL
   if (is.null(species)) {
     idx <- seq_len(nspp)
+  } else if (is.factor(species)) {
+    # A factor of species names is a plausible input (e.g. carried out of a
+    # data frame); treat it as the character vector it prints as.
+    return(.resolve_species(models, as.character(species), spnames))
   } else if (is.character(species)) {
     if (length(species) == 1L && identical(tolower(species), "all")) {
       idx <- seq_len(nspp)
     } else {
+      # Match against the model's own names as well as any relabelling, so
+      # renaming species for display does not make them unselectable.
       hit <- match(species, spnames)
+      hit[is.na(hit)] <- match(species[is.na(hit)], default_names)
       if (all(!is.na(hit))) {
         idx <- hit
-      } else if (all(is.na(hit))) {
-        # Nothing matched: the old "species = species names" spelling. Keep every
-        # species and take the strings as labels, which is what they were.
-        if (!user_named) spnames <- rep(as.character(species), length.out = nspp)
+      } else if (all(is.na(hit)) && length(species) == nspp && !user_named) {
+        # The legacy spelling: `species` held one display label per species,
+        # which is how plot_selectivity() and plot_maturity() used it. Only
+        # this exact shape -- one string per species, no separate `spnames` --
+        # is read that way. Anything else is a selection, and a selection that
+        # matches nothing is a typo, not a relabelling: silently plotting every
+        # species under the user's misspelled names is the worst outcome
+        # available, so it is an error.
+        spnames <- as.character(species)
         idx <- seq_len(nspp)
-        message("`species` matched no species name, so it is being read as ",
-                "display labels. Pass labels as `spnames` and a selection ",
-                "(indices or names) as `species`.")
+        message("`species` matched no species name and supplies one string per ",
+                "species, so it is being read as display labels. Pass labels ",
+                "as `spnames` and a selection as `species`.")
+      } else if (all(is.na(hit))) {
+        stop("`species` matched no species name: ",
+             paste(species, collapse = ", "), ". This model has: ",
+             paste(default_names, collapse = ", "), ".", call. = FALSE)
       } else {
         warning("`species` did not match: ",
                 paste(species[is.na(hit)], collapse = ", "),
@@ -339,49 +395,55 @@
 #' @param lty Line type(s).
 #' @param alpha Fixed transparency, or `NULL` to leave it unset.
 #' @param lwd_by,lty_by Name of the data column keying each aesthetic when it
-#'   varies, or `NULL` if the plot has nothing to key it to.
-#' @param lwd_levels,lty_levels Levels of the corresponding keying variable, in
-#'   plotting order.
+#'   varies, or `NULL` if the plot has nothing to key it to. Values are applied
+#'   to that column's levels in plotting order.
 #' @return `list(mapping = <aes or NULL>, args = <fixed geom params>,
 #'   scales = <list of scale objects>)`.
 #' @keywords internal
 #' @noRd
 .rce_line_params <- function(lwd = 3, lty = 1, alpha = NULL,
-                             lwd_by = NULL, lwd_levels = NULL,
-                             lty_by = NULL, lty_levels = NULL) {
+                             lwd_by = NULL, lty_by = NULL) {
   args   <- list()
   scales <- list()
 
-  lwd <- if (length(lwd)) lwd else 3
-  lty <- if (length(lty)) lty else 1
+  # An NA or negative width does not draw: the line silently disappears, or the
+  # device errors deep inside the render. Catch it where the argument has a name.
+  if (is.null(lwd) || !length(lwd)) lwd <- 3
+  if (is.null(lty) || !length(lty)) lty <- 1
+  if (!is.numeric(lwd) || anyNA(lwd) || any(lwd < 0)) {
+    stop("`lwd` must be non-negative numbers; got ",
+         paste(utils::head(format(lwd), 5), collapse = ", "), ".", call. = FALSE)
+  }
+  if (anyNA(lty)) stop("`lty` must not be NA.", call. = FALSE)
 
-  # An aesthetic can only be mapped if there is a variable to map it to AND
-  # levels to name the values by. Otherwise the first value is used for all,
-  # which is what the caller gets when they vary an aesthetic on a plot that has
-  # no corresponding series.
-  map_lwd <- length(unique(lwd)) > 1L && !is.null(lwd_by) && length(lwd_levels)
-  map_lty <- length(unique(lty)) > 1L && !is.null(lty_by) && length(lty_levels)
+  # An aesthetic can only be mapped if the plot has a variable to key it to.
+  # Otherwise the first value is used throughout, which is what a caller gets
+  # for varying an aesthetic on a plot with no corresponding series.
+  map_lwd <- length(unique(lwd)) > 1L && !is.null(lwd_by)
+  map_lty <- length(unique(lty)) > 1L && !is.null(lty_by)
 
   if (length(unique(lwd)) > 1L && !map_lwd) {
-    warning("`lwd` varies but this plot has no per-series line width to map it ",
-            "to; using lwd = ", lwd[1], " throughout.", call. = FALSE)
+    warning("`lwd` varies but this plot draws one line width; using lwd = ",
+            lwd[1], " throughout.", call. = FALSE)
   }
   if (length(unique(lty)) > 1L && !map_lty) {
-    warning("`lty` varies but this plot has no per-series line type to map it ",
-            "to; using lty = ", lty[1], " throughout.", call. = FALSE)
+    warning("`lty` varies but this plot draws one line type; using lty = ",
+            lty[1], " throughout.", call. = FALSE)
   }
 
+  # Values are applied in level order by a palette function rather than by
+  # naming them: a named scale_*_manual() whose names miss the data's levels
+  # renders every line blank, and the caller cannot be expected to know the
+  # factor's levels.
   if (map_lwd) {
-    scales <- c(scales, list(ggplot2::scale_linewidth_manual(
-      values = stats::setNames(
-        rep(lwd, length.out = length(lwd_levels)) / 3, lwd_levels))))
+    scales <- c(scales, list(ggplot2::discrete_scale(
+      "linewidth", palette = function(n) rep(lwd, length.out = n) / 3)))
   } else {
     args$linewidth <- lwd[1] / 3
   }
   if (map_lty) {
-    scales <- c(scales, list(ggplot2::scale_linetype_manual(
-      values = stats::setNames(
-        rep(lty, length.out = length(lty_levels)), lty_levels))))
+    scales <- c(scales, list(ggplot2::discrete_scale(
+      "linetype", palette = function(n) rep(lty, length.out = n))))
   } else {
     args$linetype <- lty[1]
   }
@@ -428,19 +490,34 @@
 #' Use [.rce_year_filter()] instead where Year is a grouping or colour variable
 #' rather than the x axis; there, dropping rows is the point.
 #'
+#' One-sided limits are the common case (`plot_ssb(fit, minyr = 1990)`), so the
+#' unset end is passed as `NA` -- `coord_cartesian()` reads that as "take it from
+#' the data". Passing `NULL` through `c()` instead drops the element and yields a
+#' length-1 `xlim`, which ggplot2 rejects outright.
+#'
 #' @param minyr,maxyr First / last year to show, or `NULL` for no limit.
 #' @return A `coord_cartesian` layer, or `NULL` when neither limit is set.
 #' @keywords internal
 #' @noRd
 .rce_year_limits <- function(minyr = NULL, maxyr = NULL) {
   if (is.null(minyr) && is.null(maxyr)) return(NULL)
-  ggplot2::coord_cartesian(xlim = c(minyr, maxyr))
+  ggplot2::coord_cartesian(
+    xlim = c(if (is.null(minyr)) NA_real_ else as.numeric(minyr),
+             if (is.null(maxyr)) NA_real_ else as.numeric(maxyr)))
 }
 
 
 #' Restrict a plot frame to a year range, for plots where Year is not the x axis
 #'
 #' Thins a year fan (selectivity, mortality-at-age) to the requested window.
+#'
+#' Unlike [.rce_year_limits()], which clips the axis and keeps every row, this
+#' drops rows -- that is the point where Year is the colour or grouping variable.
+#' Emptying the frame entirely is an error rather than a blank panel, because a
+#' figure with nothing in it is never what the caller wanted; a window that only
+#' empties *some* panels just loses those rows, matching `plot_timeseries()`'s
+#' convention of clipping a `maxyr` past the end of a model's data.
+#'
 #' @param df A plot data frame.
 #' @param minyr,maxyr First / last year to keep, or `NULL` for no limit.
 #' @param year Name of the year column.
@@ -448,12 +525,22 @@
 #' @noRd
 .rce_year_filter <- function(df, minyr = NULL, maxyr = NULL, year = "Year") {
   if (is.null(df[[year]])) return(df)
+  if (!is.null(minyr) && (length(minyr) != 1L || is.na(minyr))) {
+    stop("`minyr` must be a single year.", call. = FALSE)
+  }
+  if (!is.null(maxyr) && (length(maxyr) != 1L || is.na(maxyr))) {
+    stop("`maxyr` must be a single year.", call. = FALSE)
+  }
   keep <- rep(TRUE, nrow(df))
   if (!is.null(minyr)) keep <- keep & df[[year]] >= minyr
   if (!is.null(maxyr)) keep <- keep & df[[year]] <= maxyr
+  # A comparison against an NA year gives NA, which subsets to a fabricated
+  # all-NA row rather than dropping it.
+  keep[is.na(keep)] <- FALSE
   if (!any(keep)) {
-    stop("No years left to plot between minyr = ", minyr, " and maxyr = ",
-         maxyr, ".", call. = FALSE)
+    stop("No years left to plot between minyr = ",
+         if (is.null(minyr)) "NULL" else minyr, " and maxyr = ",
+         if (is.null(maxyr)) "NULL" else maxyr, ".", call. = FALSE)
   }
   df[keep, , drop = FALSE]
 }
@@ -464,6 +551,11 @@
 #' Marks where the projection starts. Consolidates the identical `geom_vline()`
 #' that six plotters carried inline.
 #'
+#' Takes the **latest** hindcast year across the models rather than the last
+#' model's. On a retrospective peel list the models end in different years, and
+#' keying on whichever happens to be last puts the divider mid-hindcast and
+#' labels real data as projection.
+#'
 #' @param models A list of `Rceattle` fits.
 #' @param incl_proj Whether projection years are being drawn.
 #' @return A `geom_vline` layer, or `NULL`.
@@ -471,9 +563,13 @@
 #' @noRd
 .rce_proj_divider <- function(models, incl_proj = FALSE) {
   if (!isTRUE(incl_proj)) return(NULL)
-  endyr <- models[[length(models)]]$data_list$endyr
-  if (is.null(endyr) || is.na(endyr)) return(NULL)
-  ggplot2::geom_vline(xintercept = endyr, linetype = 2, colour = "grey50")
+  endyr <- vapply(models, function(m) {
+    e <- m$data_list$endyr
+    if (is.null(e) || !length(e)) NA_real_ else as.numeric(e[1])
+  }, numeric(1))
+  if (all(is.na(endyr))) return(NULL)
+  ggplot2::geom_vline(xintercept = max(endyr, na.rm = TRUE),
+                      linetype = 2, colour = "grey50")
 }
 
 
@@ -482,29 +578,47 @@
 #' `incl_mean` was documented as "include time series mean as horizontal line"
 #' on four plotters and implemented on none. The mean is taken over **hindcast
 #' years only**: a mean that folded in the projection would not be a historical
-#' reference, and would move when the projection horizon changed.
+#' reference, and would move when the projection horizon changed. `hind_endyr`
+#' is therefore required, not optional -- a caller that forgot it would silently
+#' get the projection-contaminated mean this exists to avoid.
+#'
+#' The mean line takes a colour only when the caller says colour encodes the
+#' model. Inferring that from `by` is wrong: this helper's own callers map
+#' colour to predator or to species, and adding a `colour = Model` layer to such
+#' a plot trains model names into that scale's legend.
 #'
 #' @param df The plot data frame.
 #' @param incl_mean Draw it?
 #' @param by Columns defining a group (a facet and/or a series), e.g.
 #'   `c("Species", "Model")`.
 #' @param value Name of the value column.
-#' @param hind_endyr Last hindcast year; rows after it are excluded.
+#' @param hind_endyr Last hindcast year; rows after it are excluded. Pass `NA`
+#'   to average every row deliberately.
 #' @param year Name of the year column.
+#' @param colour_by Column the plot maps to colour, or `NULL` if the mean line
+#'   should be drawn in a neutral grey.
 #' @return A `geom_hline` layer, or `NULL`.
 #' @keywords internal
 #' @noRd
 .rce_mean_line <- function(df, incl_mean = FALSE, by = NULL, value = "value",
-                           hind_endyr = NULL, year = "Year") {
+                           hind_endyr, year = "Year", colour_by = NULL) {
   if (!isTRUE(incl_mean)) return(NULL)
+  if (missing(hind_endyr)) {
+    stop("`hind_endyr` is required: the mean is over hindcast years only.",
+         call. = FALSE)
+  }
   hind <- df
-  if (!is.null(hind_endyr) && !is.null(hind[[year]])) {
-    hind <- hind[hind[[year]] <= hind_endyr, , drop = FALSE]
+  if (!is.null(hind_endyr) && !is.na(hind_endyr) && !is.null(hind[[year]])) {
+    hind <- hind[!is.na(hind[[year]]) & hind[[year]] <= hind_endyr, ,
+                 drop = FALSE]
   }
   hind <- hind[!is.na(hind[[value]]), , drop = FALSE]
   if (nrow(hind) == 0L) return(NULL)
 
+  # A grouping column must survive into the layer's data for faceting to place
+  # the line, so drop any the frame does not carry.
   by <- by[by %in% names(hind)]
+  by <- setdiff(by, ".mean")
   agg <- if (length(by)) {
     stats::aggregate(hind[[value]], by = hind[by], FUN = mean)
   } else {
@@ -512,16 +626,15 @@
   }
   names(agg)[ncol(agg)] <- ".mean"
 
-  # Colour follows Model when the plot separates models, so the mean line sits
-  # under the series it belongs to rather than in an unrelated colour.
-  mapping <- if ("Model" %in% by) {
-    ggplot2::aes(yintercept = .data$.mean, colour = .data$Model)
+  colour_by <- if (!is.null(colour_by) && colour_by %in% names(agg)) colour_by
+  args <- list(data = agg, inherit.aes = FALSE, linetype = 3)
+  if (is.null(colour_by)) {
+    args$mapping <- ggplot2::aes(yintercept = .data$.mean)
+    args$colour  <- "grey40"
   } else {
-    ggplot2::aes(yintercept = .data$.mean)
+    args$mapping <- ggplot2::aes(yintercept = .data$.mean,
+                                 colour = .data[[colour_by]])
   }
-  args <- list(data = agg, mapping = mapping, inherit.aes = FALSE,
-               linetype = 3)
-  if (!("Model" %in% by)) args$colour <- "grey40"
   do.call(ggplot2::geom_hline, args)
 }
 
@@ -531,38 +644,62 @@
 #' Factored out of `plot_timeseries()` so any plotter drawing a confidence
 #' interval reads `sdrep` the same way.
 #'
+#' The length must match **exactly**. `sdrep$value` holds the whole flattened
+#' series, so taking the first `n_need` of a longer block silently returns the
+#' standard errors of different cells -- a caller asking for one species, or for
+#' the hindcast out of a hindcast-plus-projection vector, would draw an interval
+#' that is wrong rather than absent.
+#'
 #' @param model An `Rceattle` fit.
 #' @param name Name of the ADREPORTed series.
 #' @param n_need How many values the caller needs.
-#' @return The first `n_need` standard errors, or `NULL` when the fit does not
-#'   carry them (no `sdreport`, or the series is `REPORT()`-only).
+#' @return `n_need` standard errors, or `NULL` when the fit does not carry
+#'   exactly that many (no `sdreport`, `REPORT()`-only series, or a shape the
+#'   caller cannot index unambiguously).
 #' @keywords internal
 #' @noRd
 .rce_series_sd <- function(model, name, n_need) {
   sdrep <- model$sdrep
   if (is.null(sdrep) || is.null(sdrep$value)) return(NULL)
   rows <- which(names(sdrep$value) == name)
-  if (length(rows) < n_need) return(NULL)
-  sdrep$sd[rows][seq_len(n_need)]
+  if (length(rows) != n_need) return(NULL)
+  sdrep$sd[rows]
+}
+
+
+#' Can this quantity carry a confidence interval at all?
+#'
+#' Reads the same `.RCEATTLE_QUANTITIES` registry that `as.data.frame.Rceattle()`
+#' uses, so the figure and the table agree on which series have standard errors.
+#' A quantity absent from the registry is a derived combination (ration is
+#' consumption x biomass; the M2 proportions are ratios) and has none.
+#'
+#' @param quantity REPORT name of the plotted quantity.
+#' @keywords internal
+#' @noRd
+.rce_quantity_adreport <- function(quantity) {
+  isTRUE(.RCEATTLE_QUANTITIES[[quantity]]$adreport)
 }
 
 
 #' Decline an `add_ci` request that the model cannot support
 #'
-#' Some plotted quantities are products or sums of ADREPORTed series (ration is
-#' consumption x biomass; the M2 proportions are ratios), so their standard
-#' error needs a covariance the fit does not carry by default. Silently ignoring
-#' `add_ci = TRUE` is what let these arguments look functional for so long, so
-#' say it once instead.
+#' Silently ignoring `add_ci = TRUE` is what let these arguments look functional
+#' for so long, so say it once instead. Kept quiet for a quantity the model was
+#' never going to report -- `F_spp` and the other `REPORT()`-only series would
+#' otherwise warn on every fit, which is the gate `plot_timeseries()` already
+#' applies.
 #'
 #' @param add_ci The user's request.
 #' @param quantity Name of the plotted quantity, for the message.
 #' @param reason Why it cannot be drawn.
+#' @param warn Emit the warning? Pass `FALSE` where the quantity is
+#'   `REPORT()`-only by design.
 #' @return `FALSE`, always -- so the caller can write `add_ci <- .rce_no_ci(...)`.
 #' @keywords internal
 #' @noRd
-.rce_no_ci <- function(add_ci, quantity, reason) {
-  if (isTRUE(add_ci)) {
+.rce_no_ci <- function(add_ci, quantity, reason, warn = TRUE) {
+  if (isTRUE(add_ci) && isTRUE(warn)) {
     warning("`add_ci = TRUE` is not available for ", quantity, ": ", reason,
             ". Drawing no confidence interval.", call. = FALSE)
   }
