@@ -43,18 +43,21 @@
 #' Gaussian block.
 #'
 #' `"TruncatedNormal"` rows are residualized in their own
-#' [TMB::oneStepPredict()] call, with `method = "oneStepGeneric"` and
-#' `range = c(0, Inf)`, whatever `method` is passed. Its density differs from
+#' [TMB::oneStepPredict()] call, with `method = "oneStepGeneric"` and a range
+#' starting at zero, whatever `method` is passed. Its density differs from
 #' `"Normal"` only by `log Phi(mu/sd)`, which is a function of the prediction and
 #' not of the observation, so a Gaussian method -- which reads the curvature of
 #' the density in the observation -- cannot see the truncation at all and returns
-#' the untruncated `(obs - mu)/sd`. Integrating over `(0, Inf)` instead gives the
-#' truncated CDF
-#' `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`
-#' exactly, so `qnorm(F(x))` is standard normal by the probability integral
-#' transform however hard the truncation bites. That group also runs with
+#' the untruncated `(obs - mu)/sd`. Integrating over the family's own support
+#' instead gives the truncated CDF
+#' `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`,
+#' so `qnorm(F(x))` is standard normal by the probability integral transform
+#' however hard the truncation bites. The upper limit is finite rather than
+#' `Inf` -- ten standard deviations past the largest fitted index in the group,
+#' which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+#' problem in a region it can solve. That group also runs with
 #' `splineApprox = FALSE`, because the spline shortcut integrates over whatever
-#' range its profile slice covered rather than over `(0, Inf)`. The range is a
+#' range its profile slice covered. The range is a
 #' property of the family, so it cannot be shared with the other fleets:
 #' `"Normal"` is genuinely untruncated, and a lognormal fleet's stored observation
 #' is `log(obs)`, which is negative for a small index.
@@ -308,9 +311,9 @@ osa_residuals <- function(fit,
   # fitted model wherever truncation carries real mass.
   #
   # oneStepGeneric integrates the density over `range` and normalizes by that
-  # integral, so `range = c(0, Inf)` gives
+  # integral, so a range starting at zero gives
   #   F(x) = [Phi((x-mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)
-  # exactly -- the truncated CDF, and qnorm(F(x)) is then standard normal by the
+  # -- the truncated CDF, and qnorm(F(x)) is then standard normal by the
   # probability integral transform. The range is a property of the FAMILY, not of
   # the call, so these rows are residualized separately: `"Normal"` is genuinely
   # untruncated and a lognormal fleet's obsvec entry is log(obs), which is
@@ -340,8 +343,9 @@ osa_residuals <- function(fit,
     message("osa_residuals(): fleet(s) ", paste(trunc_fleets, collapse = ", "),
             " use Index_distribution = \"TruncatedNormal\", whose truncation a ",
             "Gaussian method cannot see. Those ", sum(sel_trunc), " observation(s) ",
-            "are residualized with method = \"oneStepGeneric\" over (0, Inf) ",
-            "instead of \"", method, "\" -- exact, and slower. See ?osa_residuals.")
+            "are residualized with method = \"oneStepGeneric\" over the ",
+            "truncated support instead of \"", method,
+            "\" -- exact, and slower. See ?osa_residuals.")
   }
 
   # oneStepPredict(parallel = TRUE) calls TMB::openmp(), which can only resolve
@@ -373,7 +377,7 @@ osa_residuals <- function(fit,
   .trunc_range <- function(rows) {
     dr <- sel$data_row[rows]
     mu <- suppressWarnings(as.numeric(fit$quantities$index_hat[dr]))
-    sg <- suppressWarnings(as.numeric(fit$quantities$log_index_sd[dr]))
+    sg <- suppressWarnings(as.numeric(.observation_sd(fit$quantities, "index")[dr]))
     ob <- suppressWarnings(as.numeric(osa_dat$obsvec[sel$obs_pos[rows] + 1L]))
     hi <- suppressWarnings(max(c(mu + 10 * sg, ob * 1.5), na.rm = TRUE))
     if (!is.finite(hi) || hi <= 0) hi <- Inf   # nothing usable; fall back

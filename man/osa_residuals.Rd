@@ -141,18 +141,21 @@ L^-1 (obs - q*pred) -- the closed form \code{\link[TMB:oneStepPredict]{TMB::oneS
 Gaussian block.
 
 \code{"TruncatedNormal"} rows are residualized in their own
-\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call, with \code{method = "oneStepGeneric"} and
-\code{range = c(0, Inf)}, whatever \code{method} is passed. Its density differs from
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call, with \code{method = "oneStepGeneric"} and a range
+starting at zero, whatever \code{method} is passed. Its density differs from
 \code{"Normal"} only by \verb{log Phi(mu/sd)}, which is a function of the prediction and
 not of the observation, so a Gaussian method -- which reads the curvature of
 the density in the observation -- cannot see the truncation at all and returns
-the untruncated \code{(obs - mu)/sd}. Integrating over \verb{(0, Inf)} instead gives the
-truncated CDF
-\verb{F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)}
-exactly, so \code{qnorm(F(x))} is standard normal by the probability integral
-transform however hard the truncation bites. That group also runs with
+the untruncated \code{(obs - mu)/sd}. Integrating over the family's own support
+instead gives the truncated CDF
+\verb{F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)},
+so \code{qnorm(F(x))} is standard normal by the probability integral transform
+however hard the truncation bites. The upper limit is finite rather than
+\code{Inf} -- ten standard deviations past the largest fitted index in the group,
+which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
 \code{splineApprox = FALSE}, because the spline shortcut integrates over whatever
-range its profile slice covered rather than over \verb{(0, Inf)}. The range is a
+range its profile slice covered. The range is a
 property of the family, so it cannot be shared with the other fleets:
 \code{"Normal"} is genuinely untruncated, and a lognormal fleet's stored observation
 is \code{log(obs)}, which is negative for a small index.
