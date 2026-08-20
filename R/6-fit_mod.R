@@ -514,6 +514,11 @@ fit_mod <-
     )
     data_list$linkage_table <- .linkage_pool$table
     data_list$linkage_X     <- .linkage_pool$X
+
+    # A q linkage is applied per fleet and is not reconciled across a shared
+    # Catchability_index, so it can break a group data_check() has already
+    # passed. Checked here because the table above is what it reads.
+    if (!isTRUE(quiet_data_check)) .warn_q_linkage_shared_group(data_list)
     # (Fixed-effect covariates with missing years are rejected earlier, in
     # materialize_linkage(), before model.matrix() can silently drop NA rows.)
 

@@ -1238,6 +1238,16 @@ build_composition <- function(linkages = NULL) {
 # rejected up front rather than quietly changing q. See build_map_catchability.
 .Q_LINKAGE_UNESTIMATED_FORMS <- c("Fixed", "Analytical", "AnalyticalArith")
 
+# A second, different reason to refuse a q linkage. "Environmental" and "AR1" DO
+# estimate q, but they rebuild index_q from their own formula in the cpp,
+# assigning over the value that carries q_linkage_offset rather than adding to
+# it. The linkage is then accepted, REPORTed in q_linkage_offset as a live
+# covariate effect, and never enters the likelihood -- beta_linkage is left free
+# with an identically-zero gradient. Refuse it, and point at the linkage
+# equivalent: these two forms exist to be replaced by exactly that grammar, so a
+# user reaching for both wants the linkage on its own.
+.Q_LINKAGE_SELFBUILT_FORMS <- c("Environmental", "AR1")
+
 
 #' Reject q linkages on fleets whose catchability is not estimated
 #'
@@ -1286,6 +1296,24 @@ build_composition <- function(linkages = NULL) {
   # A fleet does not estimate q if its Catchability holds q fixed / solves it from
   # the data (Fixed / Analytical), or is absent (NA) -- a fleet with no survey index
   # has no catchability to link. A linkage on any of these cannot be estimated.
+  self <- flts[!is.na(forms) & forms %in% .Q_LINKAGE_SELFBUILT_FORMS]
+  if (length(self) > 0) {
+    stop(sprintf(
+      paste0("catchability linkage on fleet(s) %s whose Catchability (%s) builds ",
+             "q from its own formula: the cpp assigns index_q from that formula, ",
+             "overwriting the linkage offset instead of adding to it, so the ",
+             "linkage would be reported in q_linkage_offset but never enter the ",
+             "likelihood.\n",
+             "  Express the whole relationship as the linkage and set ",
+             "Catchability to \"Estimated\": a covariate effect is ",
+             "build_catchability(linkages = list(q = linkage_spec(~ covariate, ",
+             "by = ~ fleet))), an AR1 deviation is linkage_spec(ar1(1 | Year), ",
+             "by = ~ fleet); see vignette('environmental-linkages-and-priors')."),
+      paste(fleet_control$Fleet_name[self], collapse = ", "),
+      paste(unique(as.character(fleet_control$Catchability[self])), collapse = ", ")),
+      call. = FALSE)
+  }
+
   bad <- flts[is.na(forms) | forms %in% .Q_LINKAGE_UNESTIMATED_FORMS]
   if (length(bad) > 0) {
     stop(sprintf(

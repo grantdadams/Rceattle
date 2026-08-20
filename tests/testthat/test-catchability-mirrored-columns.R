@@ -2,10 +2,11 @@
 # -- the group's first non-Off fleet -- settles whether it is estimated. True for
 # Fixed / Estimated / Estimated-with-prior.
 #
-# Not for the solved forms: Analytical and AnalyticalArith solve q from each
-# fleet's own residuals, Environmental and AR1 build it from each fleet's own
-# covariate, each overwriting index_q per fleet. A group containing one shares no
-# catchability, even when every fleet in it agrees. data_check() reports both.
+# Not for Analytical / AnalyticalArith: those solve q from each fleet's own index
+# OBSERVATIONS, bypassing the shared parameter, so a group containing one shares
+# no catchability even when every fleet in it agrees. Environmental and AR1
+# rebuild index_q too, but from the group's shared parameters, so they DO share.
+# data_check() reports the analytical case.
 
 testthat::skip_on_cran()
 
@@ -124,15 +125,95 @@ testthat::test_that("Time_varying_q that differs within the group is reported", 
 })
 
 
-testthat::test_that("Time_varying_q is not compared where it holds env indices", {
-  # Under Environmental and AR1 the column carries env_data indices, not a mode,
-  # so comparing them across the group is noise. Only the solved-form warning
-  # should fire.
-  w <- .q_warnings(.q_group_dat(lead_q = "AR1", member_q = "AR1",
-                                lead_tvq = "1", member_tvq = "2"))
-  testthat::expect_length(w, 1)
-  testthat::expect_match(w[1], "does not share", fixed = TRUE)
-  testthat::expect_false(any(grepl("Time_varying_q", w, fixed = TRUE)))
+testthat::test_that("Environmental and AR1 share, and are not reported as solved", {
+  # These rebuild index_q per fleet, but from index_log_q / index_q_beta /
+  # index_q_dev, all mapped to the lead fleet's, against an env_index row that is
+  # not fleet specific. So the group does share, and must not be flagged as if it
+  # did not. Only the Time_varying_q difference is worth saying.
+  for (form in c("AR1", "Environmental")) {
+    w <- .q_warnings(.q_group_dat(lead_q = form, member_q = form,
+                                  lead_tvq = "1", member_tvq = "2"))
+    testthat::expect_false(any(grepl("does not share", w, fixed = TRUE)),
+                           info = form)
+    testthat::expect_true(any(grepl("different Time_varying_q", w, fixed = TRUE)),
+                          info = form)
+  }
+})
+
+
+testthat::test_that("an Environmental group shares its q, on a coefficient that is not zero", {
+  testthat::skip_if_not_installed("TMB")
+  # The claim, measured rather than reasoned, and made discriminating on two
+  # counts. At the parameter inits every env coefficient is 0, so index_q
+  # collapses to exp(index_log_q) and the comparison would only re-prove that
+  # index_log_q is map-tied -- equally true of a plain Estimated group. So
+  # index_q_beta is perturbed off zero first, and the two fleets are given
+  # DIFFERENT Time_varying_q, which is the documented claim: the lead's env
+  # series is the one the group uses.
+  d <- .q_group_dat(lead_q = "Environmental", member_q = "Environmental",
+                    lead_tvq = "1", member_tvq = "2")
+  d$fleet_control$Catchability_init <- c(2, 5, 5)[seq_len(nrow(d$fleet_control))]
+  n <- d$endyr - d$styr + 1L
+  d$env_data <- data.frame(Year  = d$styr:d$endyr,
+                           BTemp = as.numeric(scale(sin(seq_len(n)))),
+                           Ice   = as.numeric(scale(cos(seq_len(n)))))
+  fit_at <- function(dl, mutate_pars = identity) {
+    f <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+      dl, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                          phase = FALSE))))
+    p <- mutate_pars(f$estimated_params)
+    suppressMessages(suppressWarnings(Rceattle::fit_mod(
+      dl, inits = p, file = NULL, estimateMode = 3, msmMode = 0,
+      random_rec = FALSE,
+      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                          phase = FALSE))))
+  }
+  fit <- fit_at(d, function(p) { p$index_q_beta[] <- 0.4; p })
+  qq  <- fit$quantities$index_q
+
+  # The covariate is live, so this is not the flat exp(index_log_q) case.
+  testthat::expect_gt(length(unique(round(as.numeric(qq[1, ]), 10))), 1L)
+  # ...and the two fleets still agree, year by year, despite naming different
+  # env series and carrying different Catchability_init.
+  testthat::expect_equal(as.numeric(qq[1, ]), as.numeric(qq[3, ]),
+                         tolerance = 1e-10)
+
+  # Negative control: the same configuration with the member on its OWN
+  # Catchability_index must NOT agree, or the check above proves nothing.
+  d2 <- d
+  d2$fleet_control$Catchability_index[3] <- 3L
+  q2 <- fit_at(d2, function(p) { p$index_q_beta[] <- 0.4; p })$quantities$index_q
+  testthat::expect_false(isTRUE(all.equal(as.numeric(q2[1, ]),
+                                          as.numeric(q2[3, ]))))
+})
+
+
+testthat::test_that("AR1 catchability is not asserted to share while its deviates are inert", {
+  testthat::skip_if_not_installed("TMB")
+  # Deliberately NOT the Environmental test above. build_map() gates
+  # index_q_dev on Time_varying_q %in% c("IID","AR1","RandomWalk"), but for
+  # Catchability = "AR1" that column holds an env_data column index, so the
+  # deviate vector is mapped out entirely and index_q is constant. Until that is
+  # settled, "AR1 shares" cannot be distinguished from "AR1 has nothing to
+  # share", so this pins the state rather than claiming the conclusion.
+  d <- .q_group_dat(lead_q = "AR1", member_q = "AR1",
+                    lead_tvq = "1", member_tvq = "1")
+  n <- d$endyr - d$styr + 1L
+  d$env_data <- data.frame(Year = d$styr:d$endyr,
+                           BTemp = as.numeric(scale(sin(seq_len(n)))))
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    d, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                        phase = FALSE))))
+  free_devs <- sum(!is.na(fit$map$mapList$index_q_dev))
+  if (free_devs == 0L) {
+    testthat::succeed("QAR1 deviates are mapped out; sharing is untestable here")
+  } else {
+    qq <- fit$quantities$index_q
+    testthat::expect_equal(as.numeric(qq[1, ]), as.numeric(qq[3, ]),
+                           tolerance = 1e-10)
+  }
 })
 
 

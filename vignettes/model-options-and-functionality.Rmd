@@ -172,7 +172,7 @@ fleets end up with different selectivities:
 
 | Column | If it differs within the group |
 |---|---|
-| `Selectivity`, `Selectivity_dimension`, `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`, `Sel_norm_bin_upper` | The fleets get **different curves** — mirroring fails |
+| `Selectivity`, `Selectivity_dimension`, `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`, `Sel_norm_bin_upper`, `Sel_norm_scope`, `Sel_cap_bin` | The fleets get **different curves** — mirroring fails |
 | `Time_varying_sel` | Resolved to the lead fleet's setting |
 | `Sel_start_year` | Resolved to the group's earliest year |
 
@@ -309,15 +309,25 @@ if its group's lead is, and a fleet whose own `Catchability` is `"Estimated"` is
 still fixed if its lead is `"Fixed"`. Give a fleet its own `Catchability_index`
 when it should be estimated independently.
 
-That describes `"Fixed"`, `"Estimated"` and `"Estimated-with-prior"`, which use
-the one shared q parameter. The **solved** forms do not: `"Analytical"` and
-`"AnalyticalArith"` solve q from each fleet's own residuals, and
-`"Environmental"` and `"AR1"` build it from each fleet's own covariate. A group
-containing one of these does **not** share a catchability — even when every
-fleet in it carries the same setting, since each still solves separately. Give
-those fleets their own `Catchability_index`, or use an estimated q for the whole
-group. `data_check()` warns on this, and on a `Catchability` or `Time_varying_q`
-that differs within a group.
+The exception is `"Analytical"` and `"AnalyticalArith"`, which solve q from each
+fleet's own index observations rather than from the shared parameter. A group
+containing one does **not** share a catchability — even when every fleet in it
+carries the same setting, since each still solves separately. Give those fleets
+their own `Catchability_index`, or use an estimated q for the whole group.
+
+`"Environmental"` and `"AR1"` *do* share: they rebuild q from the group's shared
+parameters (`index_log_q`, `index_q_beta`, `index_q_dev`), so the whole group
+follows the lead fleet — including when the fleets name different environmental
+series in `Time_varying_q`, where the lead's series is the one used.
+A `"Fixed"` lead is a third case: nothing is estimated for the group and nothing
+is shared, so each fleet sits at its own `Catchability_init`. Where a q *is*
+estimated for the group, its starting value is the mean of the group's
+log `Catchability_init` — TMB averages the initial values of parameters mapped
+together — rather than the lead's; only the prior centre uses the lead's.
+
+`data_check()` warns on the analytical case, on a `Fixed` lead that leaves fleets
+on different inits, and on a `Catchability` or `Time_varying_q` that differs
+within a group.
 
 ### How an index is timed against mortality
 

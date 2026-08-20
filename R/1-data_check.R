@@ -626,9 +626,14 @@ data_check <- function(data_list) {
     # Time_varying_sel is resolved by build_map(), which copies the lead fleet's
     # deviation map over the group: the curves match and the other fleets'
     # settings are discarded. NA there really is "unset", so it is skipped.
+    # Sel_norm_scope and Sel_cap_bin belong here too: both are per-fleet
+    # DATA_IVECTORs read inside the curve builder (selectivity.hpp: the
+    # across-sex normalization reference, and the NonParametricRPM bin cap),
+    # not behind a flt_sel_lead gate.
     .sel_shaping_cols <- c("Selectivity", "Selectivity_dimension",
                            "Bin_first_selected", "N_sel_bins",
-                           "Sel_norm_bin", "Sel_norm_bin_upper")
+                           "Sel_norm_bin", "Sel_norm_bin_upper",
+                           "Sel_norm_scope", "Sel_cap_bin")
     if ("Selectivity_index" %in% colnames(fc)) {
       .live <- if ("Fleet_type" %in% colnames(fc)) {
         !(fc$Fleet_type %in% c("Off", 0, "0"))
@@ -669,13 +674,17 @@ data_check <- function(data_list) {
     # Fixed / Estimated / Estimated-with-prior share the one index_log_q the map
     # wires up, so a difference resolves to the lead fleet's answer.
     #
-    # The SOLVED forms do not: Analytical and AnalyticalArith solve q from the
-    # fleet's own residuals (ceattle.cpp 8.2, 8.2b), Environmental and AR1 build
-    # it from the fleet's own covariate, each overwriting index_q per fleet. A
-    # group containing one shares no catchability at all -- two Analytical fleets
-    # still solve separately -- so it is reported on the form, not only on a
-    # disagreement.
-    .q_solved <- c("Analytical", "AnalyticalArith", "Environmental", "AR1")
+    # Analytical and AnalyticalArith do not: they solve q from the fleet's own
+    # OBSERVATIONS (ceattle.cpp 8.2, 8.2b), bypassing the shared parameter, so a
+    # group containing one shares no catchability -- two Analytical fleets still
+    # solve separately. Reported on the form, not only on a disagreement.
+    #
+    # Environmental and AR1 also overwrite index_q per fleet (ceattle.cpp 6.4),
+    # but from index_log_q, index_q_beta and index_q_dev, all of which build_map()
+    # maps to the lead fleet's, against an env_index row that is not fleet
+    # specific. Those groups DO share, including when the fleets name different
+    # env series -- the lead's is used. Verified by fitting, not by inspection.
+    .q_solved <- c("Analytical", "AnalyticalArith")
     # Accept either spelling: a data list reaching data_check() straight from a
     # workbook may still carry the integer codes.
     .q_canon <- function(x) {
@@ -694,8 +703,32 @@ data_check <- function(data_list) {
         if (length(rows) < 2) next
         qv <- .q_canon(fc$Catchability[rows])
 
+        # The lead settles the form for the group: build_map_catchability()
+        # reads it, and adjust_map_shared_params() copies that slice over the
+        # rest. .group_lead() picks the same row.
+        lead_form <- qv[1]
+        init <- if ("Catchability_init" %in% colnames(fc)) {
+          suppressWarnings(as.numeric(fc$Catchability_init[rows]))
+        } else rep(NA_real_, length(rows))
+
         solved <- intersect(unique(qv), .q_solved)
-        if (length(solved)) {
+        if (identical(lead_form, "Fixed")) {
+          # Nothing is estimated, so there is no shared parameter to hold: the
+          # group's index_log_q is mapped out and each fleet sits at its own
+          # Catchability_init. Reported whenever that is not what the columns
+          # ask for -- a member wanting an estimated q, or inits that differ.
+          if (length(unique(qv)) > 1 ||
+              length(unique(init[!is.na(init)])) > 1) {
+            warning(paste0(
+              "Fleets sharing Catchability_index ", qi, " (",
+              paste(fc$Fleet_name[rows], collapse = ", "),
+              ") have a Fixed lead fleet, so no catchability is estimated for ",
+              "the group and none is shared: each fleet uses its own ",
+              "Catchability_init (",
+              paste(ifelse(is.na(init), "<blank>", format(init)), collapse = ", "),
+              ")."))
+          }
+        } else if (length(solved)) {
           warning(paste0(
             "Fleets sharing Catchability_index ", qi, " (",
             paste(fc$Fleet_name[rows], collapse = ", "), ") include ",
@@ -712,19 +745,18 @@ data_check <- function(data_list) {
             "and the others are ignored."))
         }
 
-        # Time_varying_q is overloaded: for Environmental and AR1 it holds
-        # env_data column indices rather than a mode, so a difference there is
-        # not a mismatch and comparing them would be noise.
-        if ("Time_varying_q" %in% colnames(fc) &&
-            !any(qv %in% c("Environmental", "AR1"))) {
+        # Time_varying_q is overloaded -- under Environmental and AR1 it names
+        # env_data columns rather than a mode -- but either way the group takes
+        # the lead fleet's, so a difference is worth reporting in both readings.
+        if ("Time_varying_q" %in% colnames(fc)) {
           tv <- as.character(fc$Time_varying_q[rows])
           tv <- tv[!is.na(tv)]
           if (length(unique(tv)) > 1) {
             warning(paste0(
               "Fleets sharing Catchability_index ", qi, " (",
               paste(fc$Fleet_name[rows], collapse = ", "),
-              ") have different Time_varying_q; the shared deviation block uses ",
-              "the first estimated fleet's setting and the others are ignored."))
+              ") have different Time_varying_q; the group uses the first ",
+              "estimated fleet's setting and the others are ignored."))
           }
         }
       }
@@ -1265,4 +1297,53 @@ data_check <- function(data_list) {
     chol(x)
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE))
+}
+
+
+#' Warn when a q linkage breaks a shared `Catchability_index` group
+#'
+#' `adjust_map_shared_params()` ties the group's `index_log_q` to the lead
+#' fleet's, but `ceattle.cpp` adds `q_linkage_offset(flt, yr)` per fleet
+#' afterwards, and nothing reconciles that. A linkage naming only some of a
+#' group's fleets therefore gives them different catchabilities while the
+#' `fleet_control` still says they share one. Measured on `BS2017SS` with fleets
+#' 4 and 7 in one group and the linkage on fleet 7: fleet 4 flat at 0.035, fleet
+#' 7 running 0.087-0.537. With every fleet in the group named, and equal
+#' coefficients, they stay together -- so this fires on a strict subset only.
+#'
+#' Separate from `data_check()` because the linkage table does not exist yet
+#' when that runs: `fit_mod()` pools it after the check.
+#'
+#' @param data_list A `data_list` carrying `linkage_table` and `fleet_control`.
+#' @keywords internal
+#' @noRd
+.warn_q_linkage_shared_group <- function(data_list) {
+  lt <- data_list$linkage_table
+  fc <- data_list$fleet_control
+  if (is.null(lt) || is.null(nrow(lt)) || !nrow(lt)) return(invisible())
+  if (is.null(fc) || is.null(fc$Catchability_index)) return(invisible())
+
+  qrows <- lt[as.character(lt$process) %in% c("q", "4"), , drop = FALSE]
+  if (!nrow(qrows)) return(invisible())
+  # `fleet` on the linkage table is a Fleet_code (linkage_spec() documents it as
+  # a 1-based Fleet_code), so compare against Fleet_code, not the row number.
+  linked <- unique(stats::na.omit(as.integer(qrows$fleet)))
+  if (!length(linked)) return(invisible())
+
+  live <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+  for (qi in unique(fc$Catchability_index[!is.na(fc$Catchability_index) & live])) {
+    rows <- which(!is.na(fc$Catchability_index) & fc$Catchability_index == qi & live)
+    if (length(rows) < 2) next
+    has <- fc$Fleet_code[rows] %in% linked
+    if (any(has) && !all(has)) {
+      warning(paste0(
+        "A catchability linkage names ", paste(fc$Fleet_name[rows][has], collapse = ", "),
+        " but not ", paste(fc$Fleet_name[rows][!has], collapse = ", "),
+        ", which share Catchability_index ", qi,
+        ". The linkage offset is added per fleet and is not shared, so the group ",
+        "will not have one catchability. Name every fleet in the group, or give ",
+        "the linked fleet its own Catchability_index."))
+    }
+  }
+  invisible()
 }

@@ -36,3 +36,11 @@ and which to hold fixed (a fixed parameter is mapped to \code{NA}), and which
 parameters share a single estimated value. One helper handles each process
 block (recruitment, M1, predation, selectivity, catchability, ...).
 }
+\details{
+Fleets sharing a \code{Selectivity_index} or a \code{Catchability_index} have the lead
+fleet's map slice copied over the rest of the group, so a per-fleet setting
+that differs within a group is resolved here rather than reported. Those
+disagreements are checked in \code{data_check()}, which \code{fit_mod()} runs first;
+\code{build_map()} does not call it, so a caller invoking \code{build_map()} directly
+should run \code{data_check()} too.
+}

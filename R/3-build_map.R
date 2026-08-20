@@ -14,6 +14,14 @@
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
 #'   meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.
 #'
+#' @details
+#' Fleets sharing a `Selectivity_index` or a `Catchability_index` have the lead
+#' fleet's map slice copied over the rest of the group, so a per-fleet setting
+#' that differs within a group is resolved here rather than reported. Those
+#' disagreements are checked in `data_check()`, which `fit_mod()` runs first;
+#' `build_map()` does not call it, so a caller invoking `build_map()` directly
+#' should run `data_check()` too.
+#'
 #' @return A list containing the factorized TMB map (`mapFactor`) and the
 #'   original map matrix/array list (`mapList`).
 #' @export
@@ -1169,6 +1177,50 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # - 6 = Fit to environmental index
+      #
+      # TODO: QAR1 is inert -- `index_q_dev` is never freed, so q is constant.
+      #
+      # `Catchability = "AR1"` and `Time_varying_q = "AR1"` are different
+      # switches that share a string. `Catchability = "AR1"` is the QAR1 FORM
+      # (Rogers et al. 2024): q = exp(log_q + beta * dev_y) with `index_q_dev` a
+      # latent AR1 process, and the environmental index an OBSERVATION of it
+      # (ceattle.cpp: 894 builds q, 4091 puts the AR1 density on the deviates,
+      # 4097 fits env_index to them). `Time_varying_q` then holds an `env_data`
+      # COLUMN INDEX, not a mode. `Time_varying_q = "AR1"` is instead a
+      # time-varying structure on an ordinary "Estimated" q.
+      #
+      # The deviate map above is gated on `Time_varying_q %in% c("IID", "AR1",
+      # "RandomWalk")`, which is right for the "Estimated" branch but reads the
+      # other switch's vocabulary here: a QAR1 fleet carries "1", never matches,
+      # and `index_q_dev` stays mapped out. The comment at the top of this block
+      # ("Catchability = 6 turns on time-varying deviates") records the intent.
+      # `git log -S` puts the break at e13b4452, which moved these switches from
+      # integer codes to strings -- the old `%in% c(1, 2, 4)` matched "1".
+      #
+      # Measured on BS2017SS fleet 7 (Catchability = "AR1", Time_varying_q = 1):
+      #   free index_q_dev  0 of 39, q constant, and random_q = TRUE does not
+      #                     rescue it (mapped out before TMB sees `random`)
+      #   index_q_beta      max|grad| = 0   (multiplies a zero vector)
+      #   index_q_rho       max|grad| = 0   (AR1 quadratic form vanishes)
+      #   index_q_dev_log_sd max|grad| = 39 = nyrs_hind -- the AR1 normalizing
+      #                     constant n*log(sigma) with nothing opposing it, so
+      #                     sigma is driven to 0. Divergent, not just flat.
+      # 4097 also degenerates to dnorm(env_index, 0, index_q_sd): the
+      # environmental index is fitted as noise about zero.
+      #
+      # Fix inside THIS block rather than by widening the gate above -- the two
+      # switches should drive separate code. Free
+      # `map_list$index_q_dev[flt, yrs_hind]` here alongside beta / rho / the
+      # sds. Then verify: q varies, beta and rho gradients are non-zero, sigma
+      # does not run away, and the GOA pollock fit still converges. Add a
+      # data_check() requirement for `Catchability_prior_sd` /
+      # `Time_varying_q_sd`, which are NA on BS2017SS and give a NaN objective
+      # with no error today.
+      #
+      # Not fixed here because it moves live advice: `Catchability = 6` is used
+      # by GOA pollock 2024/2025 (../Rceattle-models: GOA pollock/2024/02-bridge.R,
+      # 2024/05-update-data.R, GOA CEATTLE/Model runs/GOA_24 and GOA_25), and
+      # /golden-check cannot cover it -- no bundled model uses QAR1.
       if (data_list$fleet_control$Catchability[i] == "AR1") {
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
@@ -1282,10 +1334,11 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # fishery whose lead is Fixed stays fixed whatever its own Catchability
       # says.
       #
-      # True for Fixed / Estimated / Estimated-with-prior only. The solved forms
-      # (Analytical, AnalyticalArith, Environmental, AR1) overwrite index_q per
-      # fleet in the cpp, so the group shares the parameter mapped here but not
-      # the catchability the model uses. data_check() reports both.
+      # Not true for Analytical / AnalyticalArith: those solve index_q from each
+      # fleet's own observations, bypassing the parameter mapped here, so the
+      # group shares the parameter but not the catchability the model uses.
+      # Environmental and AR1 rebuild index_q too, but from these same shared
+      # parameters, so they do share. data_check() reports the former.
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]

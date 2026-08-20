@@ -267,14 +267,20 @@
   identity and catchability columns.
 
 * **`data_check()` reports a shared `Catchability_index` that does not share a
-  catchability.** `Fixed`, `Estimated` and `Estimated-with-prior` use the group's
-  one q parameter, with the lead fleet settling a disagreement. The solved forms
-  do not: `Analytical` and `AnalyticalArith` solve q from each fleet's own
-  residuals, `Environmental` and `AR1` build it from each fleet's own covariate,
-  each overwriting `index_q` per fleet. A group containing one shares no
-  catchability even when every fleet in it carries the same setting, so it is
-  reported on the form rather than only on a disagreement. `Time_varying_q` is
-  compared too, except where it holds `env_data` indices rather than a mode.
+  catchability.** Most forms use the group's one q parameter, with the lead
+  fleet settling a disagreement. `Analytical` and `AnalyticalArith` do not: they
+  solve q from each fleet's own index observations, bypassing that parameter, so
+  a group containing one shares no catchability even when every fleet in it
+  carries the same setting -- it is reported on the form rather than only on a
+  disagreement. `Environmental` and `AR1` do share, rebuilding q from the group's
+  shared parameters, including when the fleets name different environmental
+  series. `Time_varying_q` is compared too, in either reading.
+
+* **A catchability linkage that names only part of a shared `Catchability_index`
+  group is reported.** The linkage offset is added per fleet and is not
+  reconciled across the group, so the fleets end up with different
+  catchabilities while `fleet_control` still says they share one. Naming every
+  fleet in the group keeps them together.
 
 * **The diagnostic refits no longer repeat `data_check()`'s warnings.** These
   describe the `data_list`, so a caller running `retrospective()`, `jitter()`,
