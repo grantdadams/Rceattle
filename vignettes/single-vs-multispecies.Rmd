@@ -177,7 +177,7 @@ plot_mortality(ms_run)                    # M2-at-age, one line per year
 plot_mortality(ms_run, M2 = FALSE)        # M1-at-age instead
 plot_mortality(ms_run, type = "heatmap")  # the same series as an age x year tile
 
-# Predation (multi-species only) — these also accept single models only
+# Predation (multi-species only) — these accept model lists
 plot_b_eaten(Rceattle = mod_list, model_names = mod_names)
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
 ```
