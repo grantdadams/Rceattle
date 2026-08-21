@@ -13,6 +13,25 @@
   instead. `lwd` keeps the base-graphics scale, where the default `3` is a
   standard-weight line.
 
+* **The predation plotters honour the shared arguments.** `plot_b_eaten()`,
+  `plot_b_eaten_prop()`, `plot_m_at_age()`, `plot_m2_at_age_prop()` and
+  `plot_ration()` now use `line_col`, `lwd`, `lty`, `alpha`, `minyr`, `maxyr`,
+  `species`, `spnames` and `incl_mean`, all of which they previously declared
+  and ignored. They also accept `maxyr`, `lty`, `incl_mean` and `top_adj` where
+  those were missing entirely, so scripts passing them no longer stop with
+  `unused argument`.
+
+  In `plot_b_eaten_prop()` and `plot_m2_at_age_prop()` colour separates
+  predators and line type separates models, so `line_col` gives predator
+  colours; in `plot_ration()` and `plot_m_at_age()` line type separates the
+  sexes. Check the legend before assuming a colour vector maps to models.
+
+* **`add_ci = TRUE` says when it cannot draw an interval.** None of the
+  predation quantities carry standard errors -- `M_at_age` and
+  `B_eaten_as_prey` are `REPORT`ed but not `ADREPORT`ed, and consumption and the
+  M2 proportions are products and ratios of such series -- so the argument was
+  silently doing nothing. It now warns once and draws no ribbon.
+
 * **`species` and `spnames` mean the same thing everywhere.** `species` selects
   -- by index, name, logical mask, or `"all"`, in the order given -- and
   `spnames` labels. Several plotters previously read `species` as display
@@ -39,6 +58,9 @@
 * A `spnames` of the wrong length now stops rather than recycling, which had
   labelled one species with another's name. A `species` string matching no
   species now stops rather than silently plotting everything.
+
+* `plot_b_eaten()` labels its y axis in mt, the units the model reports biomass
+  eaten in. `plot_b_eaten_prop()` remains in million mt, as before.
 
 * `plot_timeseries(save = TRUE)` writes the years alongside the values, names
   the columns after the models, names the file after the species, and writes

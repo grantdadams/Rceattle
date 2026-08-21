@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_b_eaten}
 \alias{plot_b_eaten}
-\title{Plot biomass eaten}
+\title{Plot biomass eaten by predation}
 \usage{
 plot_b_eaten(
   Rceattle,
@@ -23,49 +23,68 @@ plot_b_eaten(
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
-  OM = TRUE
+  OM = TRUE,
+  maxyr = NULL,
+  lty = 1,
+  incl_mean = FALSE,
+  top_adj = 0.15
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{spnames}{Species names for legend}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+\item{add_ci}{Add a 95\% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.}
 
-\item{lwd}{Line width as specified by user}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{save}{Save figure to file?}
+\item{save}{Ignored. Only the time-series plotters write their series to CSV.}
 
-\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size in inches.}
 
-\item{height}{Figure height in inches}
+\item{minyr, maxyr}{First / last year to plot.}
 
-\item{minyr}{first year to plot}
+\item{incl_proj}{Include the projection years, with a dashed divider at the
+last hindcast year.}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
+\item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
+\code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{mod_cex}{Cex of text for model name legend}
-
-\item{alpha}{Shading for confidence intervals}
+\item{alpha}{Transparency of confidence ribbons and shaded areas.}
 
 \item{mod_avg}{TRUE/FALSE}
 
 \item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
+
+\item{lty}{Line type. A vector varies it across series.}
+
+\item{incl_mean}{Add a horizontal line at the hindcast mean of each series.}
+
+\item{top_adj}{Ignored. Base-graphics leftover; see \code{right_adj}.}
 }
 \description{
-Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+Total biomass of each species consumed by its predators, summed
+over sex and age. For an MSE object the projection is summarized across
+simulations with a mean and a 95\% interval.
 }

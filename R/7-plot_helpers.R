@@ -396,12 +396,17 @@
 #' @param lwd_by,lty_by Name of the data column keying each aesthetic when it
 #'   varies, or `NULL` if the plot has nothing to key it to. Values are applied
 #'   to that column's levels in plotting order.
+#' @param lwd_in_aes,lty_in_aes The plot's own `aes()` already maps this
+#'   aesthetic (as `plot_ration()` maps line type to sex). A single value then
+#'   leaves that mapping alone rather than flattening it to a constant; only a
+#'   vector overrides it, supplying one value per level.
 #' @return `list(mapping = <aes or NULL>, args = <fixed geom params>,
 #'   scales = <list of scale objects>)`.
 #' @keywords internal
 #' @noRd
 .rce_line_params <- function(lwd = 3, lty = 1, alpha = NULL,
-                             lwd_by = NULL, lty_by = NULL) {
+                             lwd_by = NULL, lty_by = NULL,
+                             lwd_in_aes = FALSE, lty_in_aes = FALSE) {
   args   <- list()
   scales <- list()
 
@@ -434,16 +439,20 @@
   # naming them: a named scale_*_manual() whose names miss the data's levels
   # renders every line blank, and the caller cannot be expected to know the
   # factor's levels.
+  #
+  # A fixed value would override an aesthetic the plot's own aes() maps -- on
+  # plot_ration() that flattens female and male onto one line -- so where the
+  # mapping already exists, a single value leaves it alone.
   if (map_lwd) {
     scales <- c(scales, list(ggplot2::discrete_scale(
       "linewidth", palette = function(n) rep(lwd, length.out = n) / 3)))
-  } else {
+  } else if (!lwd_in_aes) {
     args$linewidth <- lwd[1] / 3
   }
   if (map_lty) {
     scales <- c(scales, list(ggplot2::discrete_scale(
       "linetype", palette = function(n) rep(lty, length.out = n))))
-  } else {
+  } else if (!lty_in_aes) {
     args$linetype <- lty[1]
   }
   if (!is.null(alpha)) args$alpha <- alpha

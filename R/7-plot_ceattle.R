@@ -981,30 +981,17 @@ plot_maturity <-
   }
 
 
-#' Plot biomass eaten
+#' Plot biomass eaten by predation
 #'
-#' @description Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#' @description Total biomass of each species consumed by its predators, summed
+#'   over sex and age. For an MSE object the projection is summarized across
+#'   simulations with a mean and a 95% interval.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param save Save figure to file?
-#' @param width Figure width in inches
-#' @param height Figure height in inches
-#' @param minyr first year to plot
-#' @param incl_proj TRUE/FALSE include projections years
-#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
-#' @param mod_cex Cex of text for model name legend
-#' @param alpha Shading for confidence intervals
-#' @param mod_avg TRUE/FALSE
+#' @inheritParams rceattle-plot-args
+#' @param save Ignored. Only the time-series plotters write their series to CSV.
 #' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
+#' @param mod_avg TRUE/FALSE
 #'
 #' @export
 #'
@@ -1026,14 +1013,23 @@ plot_b_eaten <- function(Rceattle,
                          alpha = 0.4,
                          mod_avg = rep(FALSE, length(Rceattle)),
                          mse = FALSE,
-                         OM = TRUE) {
+                         OM = TRUE,
+                         maxyr = NULL,
+                         lty = 1,
+                         incl_mean = FALSE,
+                         top_adj = 0.15) {
 
   models <- .as_model_list(Rceattle, mse = mse, OM = OM)
   if (mse) incl_proj <- TRUE
   model_names_use <- .model_labels(models, model_names)
-  if (is.null(spnames)) spnames <- models[[1]]$data_list$spnames
-  nspp <- models[[1]]$data_list$nspp
-  if (is.null(species)) species <- seq_len(nspp)
+  sp_sel  <- .resolve_species(models, species, spnames)
+  species <- sp_sel$index
+  spnames <- sp_sel$spnames
+  # B_eaten_as_prey is REPORTed but not ADREPORTed, so there is no standard
+  # error to draw from.
+  add_ci <- .rce_no_ci(add_ci, "biomass eaten",
+                       "the model reports it without standard errors",
+                       warn = !mse)
 
   # Total biomass eaten as prey per species/year: sum of B_eaten_as_prey
   # over sex and age.
@@ -1062,10 +1058,12 @@ plot_b_eaten <- function(Rceattle,
     mdf <- data.frame(Species = agg$Species, Year = agg$Year, agg$value)
     p <- ggplot2::ggplot(mdf, ggplot2::aes(x = .data$Year)) +
       ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$l95, ymax = .data$u95),
-                           alpha = 0.3, fill = "grey40") +
-      ggplot2::geom_line(ggplot2::aes(y = .data$m), linewidth = 1) +
+                           alpha = alpha, fill = "grey40") +
+      ggplot2::geom_line(ggplot2::aes(y = .data$m), linewidth = lwd[1] / 3,
+                         linetype = lty[1]) +
       .facet_species(mdf, scales = "free_y") +
-      ggplot2::labs(x = "Year", y = "Biomass eaten as prey") +
+      .rce_year_limits(minyr, maxyr) +
+      ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)") +
       .rceattle_theme()
     return(.save_ggplot(p, file = file, suffix = "biomass_eaten",
                         width = width, height = height))
@@ -1073,16 +1071,19 @@ plot_b_eaten <- function(Rceattle,
 
   p <- ggplot2::ggplot(
     plot_df,
-    ggplot2::aes(x = .data$Year, y = .data$value, colour = .data$Model)) +
-    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::aes(x = .data$Year, y = .data$value, colour = .data$Model))
+  p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
+                                         lwd_by = "Model", lty_by = "Model"))
+  p <- p +
     .facet_species(plot_df, scales = "free_y") +
-    ggplot2::labs(x = "Year", y = "Biomass eaten as prey")
-  if (incl_proj) {
-    p <- p + ggplot2::geom_vline(
-      xintercept = models[[length(models)]]$data_list$endyr,
-      linetype = 2, colour = "grey50")
-  }
-  p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    .rce_proj_divider(models, incl_proj) +
+    .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model"),
+                   hind_endyr = models[[1]]$data_list$endyr,
+                   colour_by = "Model") +
+    .rce_year_limits(minyr, maxyr) +
+    ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)")
+  p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
+                       line_col = line_col)
   if (nlevels(plot_df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
   .save_ggplot(p, file = file, suffix = "biomass_eaten",
                width = width, height = height)
@@ -1094,24 +1095,13 @@ plot_b_eaten <- function(Rceattle,
 #'
 #' @description Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param top_adj Adjustment for top margin
-#' @param width Figure width in inches
-#' @param height Figure height in inches
-#' @param minyr first year to plot
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
-#' @param incl_proj TRUE/FALSE include projections years
-#' @param incl_mean TRUE/FALSE include horizontal long term mean
-#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
-#' @param mod_cex Cex of text for model name legend
+#' @details Colour separates **predators** and line type separates models here,
+#'   so `line_col` gives the predator colours and `lty` the model line types.
+#'   Panels are prey species.
+#'
+#' @inheritParams rceattle-plot-args
+#' @param mohns Ignored. Formerly annotated the figure with Mohn's rho from
+#'   [retrospective()]; add it with `ggplot2::labs(subtitle = ...)` instead.
 #'
 #' @export
 #'
@@ -1132,14 +1122,19 @@ plot_b_eaten_prop <-
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE,
-           mod_cex = 1) {
+           mod_cex = 1,
+           maxyr = NULL,
+           lty = 1) {
 
     models <- .as_model_list(Rceattle)
-    if (is.null(spnames)) spnames <- models[[1]]$data_list$spnames
     model_names_use <- .model_labels(models, model_names)
+    sp_sel  <- .resolve_species(models, species, spnames)
+    species <- sp_sel$index
+    spnames <- sp_sel$spnames
     nspp    <- models[[1]]$data_list$nspp
     max_sex <- max(models[[1]]$data_list$nsex)
-    if (is.null(species)) species <- 1:nspp
+    add_ci <- .rce_no_ci(add_ci, "biomass eaten by predator",
+                         "the model reports it without standard errors")
 
     # Biomass of prey ksp eaten by predator rsp (summed over sex/age), in
     # million mt. B_eaten indexing kept verbatim from the original.
@@ -1168,16 +1163,20 @@ plot_b_eaten_prop <-
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$value,
-                   colour = .data$Predator, linetype = .data$Model)) +
-      ggplot2::geom_line(linewidth = 1) +
+                   colour = .data$Predator, linetype = .data$Model))
+    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
+                                           lwd_by = "Model", lty_by = "Model",
+                                           lty_in_aes = TRUE))
+    p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
+      .rce_proj_divider(models, incl_proj) +
+      .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
+                     hind_endyr = models[[1]]$data_list$endyr,
+                     colour_by = "Predator") +
+      .rce_year_limits(minyr, maxyr) +
       ggplot2::labs(x = "Year", y = "Biomass eaten (million mt)")
-    if (incl_proj) {
-      p <- p + ggplot2::geom_vline(
-        xintercept = models[[length(models)]]$data_list$endyr,
-        linetype = 2, colour = "grey50")
-    }
-    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
+                         line_col = line_col)
     if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
     .save_ggplot(p, file = file, suffix = "biomass_eaten_by_predator",
                  width = width, height = height)
@@ -1193,20 +1192,8 @@ plot_b_eaten_prop <-
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param age Age to plot M at age
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param lwd Line width as specified by user
-#' @param lty Line type
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param width Figure width in inches
-#' @param height Figure height in inches
-#' @param minyr first year to plot
-#' @param incl_proj TRUE/FALSE include projections years
-#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
-#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#' @inheritParams rceattle-plot-args
+#' @param age Age to plot M at
 #'
 #' @export
 #'
@@ -1226,14 +1213,20 @@ plot_m_at_age <-
            height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           maxyr = NULL,
+           top_adj = 0.15) {
 
     Rceattle <- .as_model_list(Rceattle)
     model_names_use <- .model_labels(Rceattle, model_names)
-    if (is.null(spnames)) spnames <- Rceattle[[1]]$data_list$spnames
-    nspp <- Rceattle[[1]]$data_list$nspp
+    sp_sel  <- .resolve_species(Rceattle, species, spnames)
+    species <- sp_sel$index
+    spnames <- sp_sel$spnames
     nsex <- Rceattle[[1]]$data_list$nsex
-    if (is.null(species)) species <- seq_len(nspp)
+    # M_at_age is REPORTed but its ADREPORT is commented out in the template,
+    # so the fit carries no standard errors for it.
+    add_ci <- .rce_no_ci(add_ci, "M at age",
+                         "the model reports it without standard errors")
 
     # Total natural mortality (M1 + M2) at a single age, as a time series.
     df_list <- list()
@@ -1261,16 +1254,22 @@ plot_m_at_age <-
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$M,
-                   colour = .data$Model, linetype = .data$Sex)) +
-      ggplot2::geom_line(linewidth = 1) +
+                   colour = .data$Model, linetype = .data$Sex))
+    # Line type separates the sexes here, so `lty` supplies the sex values.
+    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
+                                           lwd_by = "Model", lty_by = "Sex",
+                                           lty_in_aes = TRUE))
+    p <- p +
       .facet_species(plot_df, scales = "free_y") +
+      .rce_proj_divider(Rceattle, incl_proj) +
+      .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
+                     value = "M",
+                     hind_endyr = Rceattle[[1]]$data_list$endyr,
+                     colour_by = "Model") +
+      .rce_year_limits(minyr, maxyr) +
       ggplot2::labs(x = "Year", y = paste0("M at age ", age))
-    if (incl_proj) {
-      p <- p + ggplot2::geom_vline(
-        xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
-        linetype = 2, colour = "grey50")
-    }
-    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
+                         line_col = line_col)
     if (length(unique(plot_df$Sex)) < 2L) p <- p + ggplot2::guides(linetype = "none")
     if (nlevels(plot_df$Model) < 2L)      p <- p + ggplot2::guides(colour = "none")
 
@@ -1283,23 +1282,12 @@ plot_m_at_age <-
 #'
 #' @description Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param age Age to plot M at age
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param top_adj Adjustment for top margin
-#' @param width Figure width in inches
-#' @param height Figure height in inches
-#' @param minyr first year to plot
-#' @param incl_proj TRUE/FALSE include projections years
-#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
-#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#' @details Colour separates **predators** and line type separates models, so
+#'   `line_col` gives the predator colours and `lty` the model line types.
+#'   Panels are prey species (and sex, where the prey is sexed).
+#'
+#' @inheritParams rceattle-plot-args
+#' @param age Prey age to plot the M2 proportions at
 #'
 #' @export
 #'
@@ -1319,18 +1307,24 @@ plot_m2_at_age_prop <-
            height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           maxyr = NULL,
+           lty = 1) {
 
     Rceattle <- .as_model_list(Rceattle)
-    if (is.null(spnames)) spnames <- Rceattle[[1]]$data_list$spnames
     model_names_use <- .model_labels(Rceattle, model_names)
+    sp_sel  <- .resolve_species(Rceattle, species, spnames)
+    species <- sp_sel$index
+    spnames <- sp_sel$spnames
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if (incl_proj) years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     nyrs_vec <- sapply(years, length)
     nyrs <- max(nyrs_vec)
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
-    if (is.null(species)) species <- 1:nspp
+    # A ratio of REPORT-only arrays: no standard errors to draw from.
+    add_ci <- .rce_no_ci(add_ci, "the M2 proportions",
+                         "they are a ratio of series the model reports without standard errors")
 
     # Proportion of M2 (predation mortality) on each prey age attributable to
     # each predator species (kept verbatim from the original extraction).
@@ -1373,16 +1367,21 @@ plot_m2_at_age_prop <-
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$Proportion,
-                   colour = .data$Predator, linetype = .data$Model)) +
-      ggplot2::geom_line(linewidth = 1) +
+                   colour = .data$Predator, linetype = .data$Model))
+    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
+                                           lwd_by = "Model", lty_by = "Model",
+                                           lty_in_aes = TRUE))
+    p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
+      .rce_proj_divider(Rceattle, incl_proj) +
+      .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
+                     value = "Proportion",
+                     hind_endyr = Rceattle[[1]]$data_list$endyr,
+                     colour_by = "Predator") +
+      .rce_year_limits(minyr, maxyr) +
       ggplot2::labs(x = "Year", y = paste0("M2 proportion at age ", age))
-    if (incl_proj) {
-      p <- p + ggplot2::geom_vline(
-        xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
-        linetype = 2, colour = "grey50")
-    }
-    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
+                         line_col = line_col)
     if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
 
     .save_ggplot(p, file = file, suffix = paste0("m2_at_age_prop", age),
@@ -1485,23 +1484,8 @@ plot_f <- function(Rceattle,
 #'
 #' @description Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
+#' @inheritParams rceattle-plot-args
 #' @param minage minage to plot ration (i.e. age "minage"+)
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param lwd Line width as specified by user
-#' @param lty Line type
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param width Figure width in inches
-#' @param height Figure height in inches
-#' @param minyr first year to plot
-#' @param incl_proj TRUE/FALSE include projections years
-#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
-#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
 #'
 #' @export
 #'
@@ -1521,15 +1505,22 @@ plot_ration <-
            height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           maxyr = NULL,
+           top_adj = 0.15) {
 
     models <- .as_model_list(Rceattle)
-    if (is.null(spnames)) spnames <- models[[1]]$data_list$spnames
     model_names_use <- .model_labels(models, model_names)
-    nspp  <- models[[1]]$data_list$nspp
+    sp_sel  <- .resolve_species(models, species, spnames)
+    species <- sp_sel$index
+    spnames <- sp_sel$spnames
     nsex  <- models[[1]]$data_list$nsex
     nages <- models[[1]]$data_list$nages
-    if (is.null(species)) species <- 1:nspp
+    # Consumption is the product of two REPORT-only arrays, so its standard
+    # error would need a covariance the fit does not carry.
+    add_ci <- .rce_no_ci(add_ci, "consumption", paste(
+      "it is a product of two series the model reports without standard",
+      "errors"))
 
     # Population-level consumption: ration (consumption_at_age) x
     # biomass-at-age, summed over age minage+, in million mt.
@@ -1559,17 +1550,22 @@ plot_ration <-
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$value,
-                   colour = .data$Model, linetype = .data$Sex)) +
-      ggplot2::geom_line(linewidth = 1) +
+                   colour = .data$Model, linetype = .data$Sex))
+    # Line type separates the sexes here, so `lty` supplies the sex values.
+    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
+                                           lwd_by = "Model", lty_by = "Sex",
+                                           lty_in_aes = TRUE))
+    p <- p +
       .facet_species(plot_df, scales = "free_y") +
+      .rce_proj_divider(models, incl_proj) +
+      .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
+                     hind_endyr = models[[1]]$data_list$endyr,
+                     colour_by = "Model") +
+      .rce_year_limits(minyr, maxyr) +
       ggplot2::labs(x = "Year",
                     y = paste0("Consumption (million mt), age ", minage, "+"))
-    if (incl_proj) {
-      p <- p + ggplot2::geom_vline(
-        xintercept = models[[length(models)]]$data_list$endyr,
-        linetype = 2, colour = "grey50")
-    }
-    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour")
+    p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
+                         line_col = line_col)
     if (length(unique(plot_df$Sex)) < 2L) p <- p + ggplot2::guides(linetype = "none")
     if (nlevels(plot_df$Model) < 2L)      p <- p + ggplot2::guides(colour = "none")
     .save_ggplot(p, file = file, suffix = paste0("ration", minage, "plus"),

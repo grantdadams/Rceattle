@@ -195,6 +195,23 @@ testthat::test_that("a mapped lwd applies lwd/3 in level order, like the fixed o
   testthat::expect_false(anyNA(b$data[[1]]$linewidth))
 })
 
+testthat::test_that("a single lty leaves an aesthetic the plot already maps alone", {
+  # plot_ration() and plot_m_at_age() map line type to sex in their own aes().
+  # Passing the scalar default as a fixed geom parameter would override that and
+  # draw both sexes as one solid line.
+  lp <- .rce_line_params(lty = 1, lty_by = "Sex", lty_in_aes = TRUE)
+  testthat::expect_null(lp$args$linetype)
+  testthat::expect_length(lp$scales, 0L)
+
+  # A vector still overrides, one value per level.
+  lp2 <- .rce_line_params(lty = c(1, 3), lty_by = "Sex", lty_in_aes = TRUE)
+  testthat::expect_length(lp2$scales, 1L)
+  testthat::expect_null(lp2$args$linetype)
+
+  # Where the plot does NOT map line type, a scalar is still applied.
+  testthat::expect_equal(.rce_line_params(lty = 2, lty_by = "Model")$args$linetype, 2)
+})
+
 testthat::test_that(".rce_line_params rejects widths that would not draw", {
   # NA silently removes the line; a negative width errors deep inside the device.
   testthat::expect_error(.rce_line_params(lwd = NA), "non-negative")
