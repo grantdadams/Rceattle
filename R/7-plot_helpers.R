@@ -147,6 +147,29 @@
 }
 
 
+#' Warn when a colour vector is too short for what it is about to colour
+#'
+#' `line_col` recycles, so too few colours silently merge series: on
+#' `plot_b_eaten_prop()`, whose colour separates predators, `line_col = 1` draws
+#' every predator in black. That reading is right -- colour follows the figure,
+#' not the model -- but it is not what a caller who meant "one model, one
+#' colour" expects, so say which variable the colours landed on.
+#'
+#' @param line_col The user's colours, or `NULL`.
+#' @param n Number of levels of the variable mapped to colour.
+#' @param what Name of that variable, for the message.
+#' @keywords internal
+#' @noRd
+.rce_check_line_col <- function(line_col, n, what) {
+  if (is.null(line_col) || n <= 1L || length(line_col) >= n) return(invisible())
+  warning("`line_col` has ", length(line_col), " colour",
+          if (length(line_col) > 1L) "s" else "", " but colour separates ", n,
+          " ", what, " on this figure, so they are recycled. Supply ", n,
+          " colours to tell them apart.", call. = FALSE)
+  invisible()
+}
+
+
 #' Add the standard colorblind-safe scales to a plot
 #'
 #' Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
@@ -396,17 +419,22 @@
 #' @param lwd_by,lty_by Name of the data column keying each aesthetic when it
 #'   varies, or `NULL` if the plot has nothing to key it to. Values are applied
 #'   to that column's levels in plotting order.
-#' @param lwd_in_aes,lty_in_aes The plot's own `aes()` already maps this
-#'   aesthetic (as `plot_ration()` maps line type to sex). A single value then
-#'   leaves that mapping alone rather than flattening it to a constant; only a
-#'   vector overrides it, supplying one value per level.
+#' @param lwd_n,lty_n Number of levels the keying column actually has. A column
+#'   with one level cannot carry a varying value, so saying so lets the caller
+#'   be told rather than having the extra values dropped in silence -- line type
+#'   keys on sex, and most models here are sex-combined.
+#' @param lty_in_aes The plot's own `aes()` already maps line type (as
+#'   `plot_ration()` maps it to sex). A single value then leaves that mapping
+#'   alone rather than flattening it to a constant; only a vector overrides it,
+#'   supplying one value per level.
 #' @return `list(mapping = <aes or NULL>, args = <fixed geom params>,
 #'   scales = <list of scale objects>)`.
 #' @keywords internal
 #' @noRd
 .rce_line_params <- function(lwd = 3, lty = 1, alpha = NULL,
                              lwd_by = NULL, lty_by = NULL,
-                             lwd_in_aes = FALSE, lty_in_aes = FALSE) {
+                             lwd_n = NULL, lty_n = NULL,
+                             lty_in_aes = FALSE) {
   args   <- list()
   scales <- list()
 
@@ -420,19 +448,31 @@
   }
   if (anyNA(lty)) stop("`lty` must not be NA.", call. = FALSE)
 
-  # An aesthetic can only be mapped if the plot has a variable to key it to.
-  # Otherwise the first value is used throughout, which is what a caller gets
-  # for varying an aesthetic on a plot with no corresponding series.
-  map_lwd <- length(unique(lwd)) > 1L && !is.null(lwd_by)
-  map_lty <- length(unique(lty)) > 1L && !is.null(lty_by)
+  # An aesthetic can only be mapped if the plot has a variable to key it to AND
+  # that variable separates more than one series. Otherwise the first value is
+  # used throughout, and the caller is told which of the two it hit.
+  has_lwd_key <- !is.null(lwd_by) && (is.null(lwd_n) || lwd_n > 1L)
+  has_lty_key <- !is.null(lty_by) && (is.null(lty_n) || lty_n > 1L)
+  map_lwd <- length(unique(lwd)) > 1L && has_lwd_key
+  map_lty <- length(unique(lty)) > 1L && has_lty_key
 
+  no_key_msg <- function(arg, by, n, value) {
+    if (is.null(by)) {
+      paste0("`", arg, "` varies but this plot draws one line ",
+             if (arg == "lwd") "width" else "type", "; using ", arg, " = ",
+             value, " throughout.")
+    } else {
+      paste0("`", arg, "` varies but this plot keys line ",
+             if (arg == "lwd") "width" else "type", " on ", by,
+             ", which has ", n, " level; using ", arg, " = ", value,
+             " throughout.")
+    }
+  }
   if (length(unique(lwd)) > 1L && !map_lwd) {
-    warning("`lwd` varies but this plot draws one line width; using lwd = ",
-            lwd[1], " throughout.", call. = FALSE)
+    warning(no_key_msg("lwd", lwd_by, lwd_n, lwd[1]), call. = FALSE)
   }
   if (length(unique(lty)) > 1L && !map_lty) {
-    warning("`lty` varies but this plot draws one line type; using lty = ",
-            lty[1], " throughout.", call. = FALSE)
+    warning(no_key_msg("lty", lty_by, lty_n, lty[1]), call. = FALSE)
   }
 
   # Values are applied in level order by a palette function rather than by
@@ -446,7 +486,7 @@
   if (map_lwd) {
     scales <- c(scales, list(ggplot2::discrete_scale(
       "linewidth", palette = function(n) rep(lwd, length.out = n) / 3)))
-  } else if (!lwd_in_aes) {
+  } else {
     args$linewidth <- lwd[1] / 3
   }
   if (map_lty) {
@@ -491,12 +531,11 @@
 
 #' Year-axis limits, for plots with Year on the x axis
 #'
-#' Clips rather than filters, so the returned plot's `$data` still holds the
-#' whole series -- the accuracy tests read `p$data` and compare it against the
-#' model's quantities, which a filtered frame would silently narrow.
-#'
-#' Use [.rce_year_filter()] instead where Year is a grouping or colour variable
-#' rather than the x axis; there, dropping rows is the point.
+#' Clips the axis without dropping rows, so a series continues to the panel edge
+#' rather than stopping short. The y scale is trained on every row, so use this
+#' only where the caller wants the full range kept; [.rce_year_filter()] narrows
+#' the data instead, which is what a `free_y` panel needs to rescale to the
+#' window.
 #'
 #' One-sided limits are the common case (`plot_ssb(fit, minyr = 1990)`), so the
 #' unset end is passed as `NA` -- `coord_cartesian()` reads that as "take it from
@@ -517,14 +556,18 @@
 
 #' Restrict a plot frame to a year range, for plots where Year is not the x axis
 #'
-#' Thins a year fan (selectivity, mortality-at-age) to the requested window.
+#' Narrows a plot to `minyr:maxyr` by dropping rows, so that a `free_y` panel
+#' rescales to what is actually shown. Clipping the axis instead
+#' ([.rce_year_limits()]) leaves the y scale trained on the hidden years, which
+#' on a series that has grown by two orders of magnitude squeezes the requested
+#' window into a few pixels at the bottom of the panel.
 #'
-#' Unlike [.rce_year_limits()], which clips the axis and keeps every row, this
-#' drops rows -- that is the point where Year is the colour or grouping variable.
+#' Also used to thin a year fan (selectivity, mortality-at-age), where Year is
+#' the colour or grouping variable rather than the x axis.
+#'
 #' Emptying the frame entirely is an error rather than a blank panel, because a
 #' figure with nothing in it is never what the caller wanted; a window that only
-#' empties *some* panels just loses those rows, matching `plot_timeseries()`'s
-#' convention of clipping a `maxyr` past the end of a model's data.
+#' empties *some* panels just loses those rows.
 #'
 #' @param df A plot data frame.
 #' @param minyr,maxyr First / last year to keep, or `NULL` for no limit.
@@ -581,6 +624,22 @@
 }
 
 
+#' Last hindcast year of each model, named by its plot label
+#'
+#' Feeds [.rce_mean_line()], which has to cut each model at its own `endyr`.
+#'
+#' @param models A list of `Rceattle` fits.
+#' @param labels Plot labels for those models, from [.model_labels()].
+#' @keywords internal
+#' @noRd
+.rce_model_endyr <- function(models, labels) {
+  stats::setNames(vapply(models, function(m) {
+    e <- m$data_list$endyr
+    if (is.null(e) || !length(e)) NA_real_ else as.numeric(e[1])
+  }, numeric(1)), labels)
+}
+
+
 #' Horizontal long-term mean line(s)
 #'
 #' `incl_mean` was documented as "include time series mean as horizontal line"
@@ -595,30 +654,44 @@
 #' colour to predator or to species, and adding a `colour = Model` layer to such
 #' a plot trains model names into that scale's legend.
 #'
+#' Models in one figure can end in different years -- a retrospective peel is
+#' the usual case -- so `hind_endyr` may be a vector named by model. Cutting
+#' every model at the first one's `endyr` averages a peel over years it never
+#' fitted, and the answer then depends on the order of the list.
+#'
 #' @param df The plot data frame.
 #' @param incl_mean Draw it?
 #' @param by Columns defining a group (a facet and/or a series), e.g.
 #'   `c("Species", "Model")`.
 #' @param value Name of the value column.
-#' @param hind_endyr Last hindcast year; rows after it are excluded. Pass `NA`
-#'   to average every row deliberately.
+#' @param hind_endyr Last hindcast year. A single year, or one per model named
+#'   by the levels of `model`. Pass `NA` to average every row deliberately.
 #' @param year Name of the year column.
+#' @param model Name of the model column, used to look up a per-model
+#'   `hind_endyr`.
 #' @param colour_by Column the plot maps to colour, or `NULL` if the mean line
 #'   should be drawn in a neutral grey.
 #' @return A `geom_hline` layer, or `NULL`.
 #' @keywords internal
 #' @noRd
 .rce_mean_line <- function(df, incl_mean = FALSE, by = NULL, value = "value",
-                           hind_endyr, year = "Year", colour_by = NULL) {
+                           hind_endyr, year = "Year", model = "Model",
+                           colour_by = NULL) {
   if (!isTRUE(incl_mean)) return(NULL)
   if (missing(hind_endyr)) {
     stop("`hind_endyr` is required: the mean is over hindcast years only.",
          call. = FALSE)
   }
   hind <- df
-  if (!is.null(hind_endyr) && !is.na(hind_endyr) && !is.null(hind[[year]])) {
-    hind <- hind[!is.na(hind[[year]]) & hind[[year]] <= hind_endyr, ,
-                 drop = FALSE]
+  if (!is.null(hind_endyr) && !all(is.na(hind_endyr)) && !is.null(hind[[year]])) {
+    cut_at <- if (length(hind_endyr) > 1L && !is.null(hind[[model]])) {
+      # One endyr per model, matched by name.
+      unname(hind_endyr[as.character(hind[[model]])])
+    } else {
+      hind_endyr[1]
+    }
+    keep <- !is.na(hind[[year]]) & !is.na(cut_at) & hind[[year]] <= cut_at
+    hind <- hind[keep, , drop = FALSE]
   }
   hind <- hind[!is.na(hind[[value]]), , drop = FALSE]
   if (nrow(hind) == 0L) return(NULL)
@@ -747,7 +820,10 @@
 #'   read as labels for back-compatibility.
 #' @param spnames Species labels, length `nspp`. Default: the model's own.
 #' @param line_col Line colours; names, hex, or base-graphics integers. `NULL`
-#'   uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.
+#'   uses the colorblind-safe Okabe-Ito palette. Colours are applied to
+#'   whichever variable the figure separates by colour, in legend order -- that
+#'   is not always the model, so check the legend. Too few colours are recycled,
+#'   with a warning.
 #' @param lwd Line width on the base-graphics scale: the default `3` renders as
 #'   a standard-weight ggplot line. A vector varies it across series.
 #' @param lty Line type. A vector varies it across series.

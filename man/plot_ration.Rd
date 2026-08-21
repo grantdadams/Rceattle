@@ -36,7 +36,10 @@ plot_ration(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
+uses the colorblind-safe Okabe-Ito palette. Colours are applied to
+whichever variable the figure separates by colour, in legend order -- that
+is not always the model, so check the legend. Too few colours are recycled,
+with a warning.}
 
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
@@ -69,4 +72,9 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 }
 \description{
 Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+}
+\details{
+Line type separates the sexes here, so \code{lty} supplies the sex line
+types and \code{line_col} the model colours. A sex-combined model has one sex, so
+a varying \code{lty} has nothing to key on and warns.
 }

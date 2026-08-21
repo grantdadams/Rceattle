@@ -15,16 +15,20 @@
 
 * **The predation plotters honour the shared arguments.** `plot_b_eaten()`,
   `plot_b_eaten_prop()`, `plot_m_at_age()`, `plot_m2_at_age_prop()` and
-  `plot_ration()` now use `line_col`, `lwd`, `lty`, `alpha`, `minyr`, `maxyr`,
-  `species`, `spnames` and `incl_mean`, all of which they previously declared
-  and ignored. They also accept `maxyr`, `lty`, `incl_mean` and `top_adj` where
-  those were missing entirely, so scripts passing them no longer stop with
-  `unused argument`.
+  `plot_ration()` now use `line_col`, `lwd`, `lty`, `minyr`, `maxyr` and
+  `incl_mean` (and `alpha`, where the figure has a ribbon), all of which they
+  previously declared and ignored. They also accept `maxyr`, `lty`, `incl_mean`
+  and `top_adj` where those were missing entirely, so scripts passing them no
+  longer stop with `unused argument`. `species` and `spnames` worked before and
+  now additionally take names, a logical mask and `"all"`, and validate.
 
   In `plot_b_eaten_prop()` and `plot_m2_at_age_prop()` colour separates
   predators and line type separates models, so `line_col` gives predator
   colours; in `plot_ration()` and `plot_m_at_age()` line type separates the
-  sexes. Check the legend before assuming a colour vector maps to models.
+  sexes. Check the legend before assuming a colour vector maps to models --
+  too few colours are recycled, now with a warning naming what they coloured.
+  A sex-combined model has one sex, so a varying `lty` on the latter two has
+  nothing to key on and warns rather than being dropped in silence.
 
 * **`add_ci = TRUE` says when it cannot draw an interval.** None of the
   predation quantities carry standard errors -- `M_at_age` and
@@ -61,6 +65,23 @@
 
 * `plot_b_eaten()` labels its y axis in mt, the units the model reports biomass
   eaten in. `plot_b_eaten_prop()` remains in million mt, as before.
+
+* `minyr` and `maxyr` narrow the data rather than only the axis, so a panel with
+  a free y scale rescales to the window. Clipping the axis alone left the scale
+  trained on the hidden years, which on a series spanning orders of magnitude
+  squeezed the requested window into the bottom of the panel.
+
+* `incl_mean` averages each model over **its own** hindcast, not the first
+  model's. On a retrospective peel the answer otherwise depended on the order of
+  the list.
+
+* `plot_m2_at_age_prop()` orders its prey panels the way `species` asked for,
+  like the other plotters, instead of alphabetically.
+
+* `plot_b_eaten(mse = TRUE)` draws its projection ribbon at `alpha` (default
+  0.4) rather than a fixed 0.3, honours `incl_mean`, validates `lwd` and `lty`
+  as the other paths do, and says that `line_col` does not apply when the
+  simulations are summarized into one band.
 
 * `plot_timeseries(save = TRUE)` writes the years alongside the values, names
   the columns after the models, names the file after the species, and writes

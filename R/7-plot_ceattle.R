@@ -410,7 +410,6 @@ plot_timeseries <- function(Rceattle,
                                  strip.position = "top")
   }
   p <- p +
-    .rce_year_limits(minyr, maxyr) +
     ggplot2::labs(x = "Year", y = ylab) +
     .rceattle_theme()
   # A quantity on an absolute scale is read against zero, so an axis starting at
@@ -1047,40 +1046,56 @@ plot_b_eaten <- function(Rceattle,
     }
   }
   plot_df <- do.call(rbind, df_list)
+  plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
   plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
   plot_df$Species <- factor(plot_df$Species, levels = spnames[species])
 
   if (mse) {
+    # Simulations are summarized into one band, so there are no model series to
+    # colour or to tell apart by line type.
+    if (!is.null(line_col)) {
+      warning("`line_col` is not used with `mse = TRUE`: the simulations are ",
+              "summarized into a single band, not drawn as separate series.",
+              call. = FALSE)
+    }
     agg <- stats::aggregate(value ~ Species + Year, plot_df,
       FUN = function(v) c(m = mean(v),
                           l95 = stats::quantile(v, 0.025, names = FALSE),
                           u95 = stats::quantile(v, 0.975, names = FALSE)))
     mdf <- data.frame(Species = agg$Species, Year = agg$Year, agg$value)
+    # One summarized series, so no keying variable -- but lwd / lty are still
+    # validated and applied through the same helper as everywhere else.
+    lp <- .rce_line_params(lwd = lwd, lty = lty)
     p <- ggplot2::ggplot(mdf, ggplot2::aes(x = .data$Year)) +
       ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$l95, ymax = .data$u95),
                            alpha = alpha, fill = "grey40") +
-      ggplot2::geom_line(ggplot2::aes(y = .data$m), linewidth = lwd[1] / 3,
-                         linetype = lty[1]) +
+      do.call(ggplot2::geom_line,
+              c(list(mapping = ggplot2::aes(y = .data$m)), lp$args))
+    p <- p +
       .facet_species(mdf, scales = "free_y") +
-      .rce_year_limits(minyr, maxyr) +
+      .rce_mean_line(mdf, incl_mean, by = "Species", value = "m",
+                     hind_endyr = max(.rce_model_endyr(models, model_names_use),
+                                      na.rm = TRUE)) +
       ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)") +
       .rceattle_theme()
     return(.save_ggplot(p, file = file, suffix = "biomass_eaten",
                         width = width, height = height))
   }
 
+  .rce_check_line_col(line_col, length(unique(plot_df$Model)), "models")
   p <- ggplot2::ggplot(
     plot_df,
     ggplot2::aes(x = .data$Year, y = .data$value, colour = .data$Model))
-  p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
-                                         lwd_by = "Model", lty_by = "Model"))
+  p <- .rce_add_line(p, .rce_line_params(
+    lwd = lwd, lty = lty,
+    lwd_by = "Model", lwd_n = length(unique(plot_df$Model)),
+    lty_by = "Model", lty_n = length(unique(plot_df$Model))))
   p <- p +
     .facet_species(plot_df, scales = "free_y") +
     .rce_proj_divider(models, incl_proj) +
     .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model"),
-                   hind_endyr = models[[1]]$data_list$endyr,
+                   hind_endyr = .rce_model_endyr(models, model_names_use),
                    colour_by = "Model") +
-    .rce_year_limits(minyr, maxyr) +
     ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)")
   p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                        line_col = line_col)
@@ -1157,24 +1172,27 @@ plot_b_eaten_prop <-
       }
     }
     plot_df <- do.call(rbind, df_list)
+    plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
     plot_df$Predator <- factor(plot_df$Predator, levels = spnames)
     plot_df$Prey     <- factor(plot_df$Prey, levels = spnames[species])
+    .rce_check_line_col(line_col, length(unique(plot_df$Predator)), "predators")
 
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$value,
                    colour = .data$Predator, linetype = .data$Model))
-    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
-                                           lwd_by = "Model", lty_by = "Model",
-                                           lty_in_aes = TRUE))
+    p <- .rce_add_line(p, .rce_line_params(
+      lwd = lwd, lty = lty,
+      lwd_by = "Model", lwd_n = length(unique(plot_df$Model)),
+      lty_by = "Model", lty_n = length(unique(plot_df$Model)),
+      lty_in_aes = TRUE))
     p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
       .rce_proj_divider(models, incl_proj) +
       .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
-                     hind_endyr = models[[1]]$data_list$endyr,
+                     hind_endyr = .rce_model_endyr(models, model_names_use),
                      colour_by = "Predator") +
-      .rce_year_limits(minyr, maxyr) +
-      ggplot2::labs(x = "Year", y = "Biomass eaten (million mt)")
+        ggplot2::labs(x = "Year", y = "Biomass eaten (million mt)")
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                          line_col = line_col)
     if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
@@ -1189,9 +1207,10 @@ plot_b_eaten_prop <-
 #'
 #' @description Function that plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param age Age to plot M at age
+#' @details Line type separates the sexes here, so `lty` supplies the sex line
+#'   types and `line_col` the model colours. A sex-combined model has one sex, so
+#'   a varying `lty` has nothing to key on and warns.
+#'
 #' @inheritParams rceattle-plot-args
 #' @param age Age to plot M at
 #'
@@ -1248,26 +1267,29 @@ plot_m_at_age <-
       }
     }
     plot_df <- do.call(rbind, df_list)
+    plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
     plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
     plot_df$Species <- factor(plot_df$Species, levels = spnames[species])
+    .rce_check_line_col(line_col, length(unique(plot_df$Model)), "models")
 
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$M,
                    colour = .data$Model, linetype = .data$Sex))
     # Line type separates the sexes here, so `lty` supplies the sex values.
-    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
-                                           lwd_by = "Model", lty_by = "Sex",
-                                           lty_in_aes = TRUE))
+    p <- .rce_add_line(p, .rce_line_params(
+      lwd = lwd, lty = lty,
+      lwd_by = "Model", lwd_n = length(unique(plot_df$Model)),
+      lty_by = "Sex",   lty_n = length(unique(plot_df$Sex)),
+      lty_in_aes = TRUE))
     p <- p +
       .facet_species(plot_df, scales = "free_y") +
       .rce_proj_divider(Rceattle, incl_proj) +
       .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
                      value = "M",
-                     hind_endyr = Rceattle[[1]]$data_list$endyr,
+                     hind_endyr = .rce_model_endyr(Rceattle, model_names_use),
                      colour_by = "Model") +
-      .rce_year_limits(minyr, maxyr) +
-      ggplot2::labs(x = "Year", y = paste0("M at age ", age))
+        ggplot2::labs(x = "Year", y = paste0("M at age ", age))
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                          line_col = line_col)
     if (length(unique(plot_df$Sex)) < 2L) p <- p + ggplot2::guides(linetype = "none")
@@ -1362,24 +1384,29 @@ plot_m2_at_age_prop <-
       }
     }
     plot_df <- do.call(rbind, df_list)
+    plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
     plot_df$Predator <- factor(plot_df$Predator, levels = spnames)
+    # Panels follow the order `species` asked for, as in the other plotters.
+    plot_df$Prey     <- factor(plot_df$Prey, levels = unique(plot_df$Prey))
+    .rce_check_line_col(line_col, length(unique(plot_df$Predator)), "predators")
 
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$Proportion,
                    colour = .data$Predator, linetype = .data$Model))
-    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
-                                           lwd_by = "Model", lty_by = "Model",
-                                           lty_in_aes = TRUE))
+    p <- .rce_add_line(p, .rce_line_params(
+      lwd = lwd, lty = lty,
+      lwd_by = "Model", lwd_n = length(unique(plot_df$Model)),
+      lty_by = "Model", lty_n = length(unique(plot_df$Model)),
+      lty_in_aes = TRUE))
     p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
       .rce_proj_divider(Rceattle, incl_proj) +
       .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
                      value = "Proportion",
-                     hind_endyr = Rceattle[[1]]$data_list$endyr,
+                     hind_endyr = .rce_model_endyr(Rceattle, model_names_use),
                      colour_by = "Predator") +
-      .rce_year_limits(minyr, maxyr) +
-      ggplot2::labs(x = "Year", y = paste0("M2 proportion at age ", age))
+        ggplot2::labs(x = "Year", y = paste0("M2 proportion at age ", age))
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                          line_col = line_col)
     if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
@@ -1484,6 +1511,10 @@ plot_f <- function(Rceattle,
 #'
 #' @description Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
 #'
+#' @details Line type separates the sexes here, so `lty` supplies the sex line
+#'   types and `line_col` the model colours. A sex-combined model has one sex, so
+#'   a varying `lty` has nothing to key on and warns.
+#'
 #' @inheritParams rceattle-plot-args
 #' @param minage minage to plot ration (i.e. age "minage"+)
 #'
@@ -1544,25 +1575,28 @@ plot_ration <-
       }
     }
     plot_df <- do.call(rbind, df_list)
+    plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
     plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
     plot_df$Species <- factor(plot_df$Species, levels = spnames[species])
+    .rce_check_line_col(line_col, length(unique(plot_df$Model)), "models")
 
     p <- ggplot2::ggplot(
       plot_df,
       ggplot2::aes(x = .data$Year, y = .data$value,
                    colour = .data$Model, linetype = .data$Sex))
     # Line type separates the sexes here, so `lty` supplies the sex values.
-    p <- .rce_add_line(p, .rce_line_params(lwd = lwd, lty = lty,
-                                           lwd_by = "Model", lty_by = "Sex",
-                                           lty_in_aes = TRUE))
+    p <- .rce_add_line(p, .rce_line_params(
+      lwd = lwd, lty = lty,
+      lwd_by = "Model", lwd_n = length(unique(plot_df$Model)),
+      lty_by = "Sex",   lty_n = length(unique(plot_df$Sex)),
+      lty_in_aes = TRUE))
     p <- p +
       .facet_species(plot_df, scales = "free_y") +
       .rce_proj_divider(models, incl_proj) +
       .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
-                     hind_endyr = models[[1]]$data_list$endyr,
+                     hind_endyr = .rce_model_endyr(models, model_names_use),
                      colour_by = "Model") +
-      .rce_year_limits(minyr, maxyr) +
-      ggplot2::labs(x = "Year",
+        ggplot2::labs(x = "Year",
                     y = paste0("Consumption (million mt), age ", minage, "+"))
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                          line_col = line_col)

@@ -36,7 +36,10 @@ plot_m2_at_age_prop(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
+uses the colorblind-safe Okabe-Ito palette. Colours are applied to
+whichever variable the figure separates by colour, in legend order -- that
+is not always the model, so check the legend. Too few colours are recycled,
+with a warning.}
 
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 

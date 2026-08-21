@@ -40,7 +40,10 @@ plot_ssb(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
+uses the colorblind-safe Okabe-Ito palette. Colours are applied to
+whichever variable the figure separates by colour, in legend order -- that
+is not always the model, so check the legend. Too few colours are recycled,
+with a warning.}
 
 \item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
 mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}

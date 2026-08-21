@@ -19,7 +19,10 @@ read as labels for back-compatibility.}
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
+uses the colorblind-safe Okabe-Ito palette. Colours are applied to
+whichever variable the figure separates by colour, in legend order -- that
+is not always the model, so check the legend. Too few colours are recycled,
+with a warning.}
 
 \item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
 a standard-weight ggplot line. A vector varies it across series.}
