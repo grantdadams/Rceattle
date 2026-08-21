@@ -32,45 +32,50 @@ plot_ssb(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. See above for what it maps to.}
 
-\item{species}{What species to include 1:nspp}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{spnames}{Species names for legend}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{add_ci}{If the confidence interval is to be added (see Details for how
-it is constructed)}
+\item{add_ci}{Add a 95\% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.}
 
-\item{lwd}{Line width as specified by user}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{save}{Save derived quantity?}
+\item{save}{Write the plotted series to CSV alongside the figure.}
 
-\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
 
-\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").}
+\item{legend.pos}{Ignored. Base-graphics leftover: legend placement. Use
+\code{p + ggplot2::theme(legend.position = "right")}.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size in inches.}
 
-\item{height}{Figure height in inches}
+\item{minyr, maxyr}{First / last year to plot.}
 
-\item{minyr}{First year to plot}
+\item{incl_proj}{Include the projection years, with a dashed divider at the
+last hindcast year.}
 
-\item{maxyr}{max year to plot}
+\item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
+\code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{incl_proj}{TRUE/FALSE, include projection years}
+\item{lty}{Line type. A vector varies it across series.}
 
-\item{mod_cex}{Cex of text for model name legend}
-
-\item{lty}{line type}
-
-\item{alpha}{shading for confidence intervals}
+\item{alpha}{Transparency of confidence ribbons and shaded areas.}
 
 \item{mod_avg}{TRUE/FALSE}
 
@@ -78,7 +83,7 @@ it is constructed)}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{reference}{Reference model}
+\item{reference}{Reference model, drawn in black at 1.5x \code{lwd}.}
 
 \item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
 model's \code{minage}.}

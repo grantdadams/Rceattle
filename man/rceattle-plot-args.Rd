@@ -40,10 +40,27 @@ last hindcast year.}
 
 \item{width, height}{Saved figure size in inches.}
 
-\item{right_adj, top_adj, mod_cex, legend.pos, single.plots, save, theta}{Base-graphics arguments from before the ggplot2 rewrite. Accepted so
-existing scripts keep running, and ignored. The returned object is a
-ggplot, so margins, legend placement and text size are set on it directly
-(e.g. \code{p + ggplot2::theme(legend.position = "right")}).}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
+
+\item{top_adj}{Ignored. Base-graphics leftover; see \code{right_adj}.}
+
+\item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
+\code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
+
+\item{legend.pos}{Ignored. Base-graphics leftover: legend placement. Use
+\code{p + ggplot2::theme(legend.position = "right")}.}
+
+\item{single.plots}{Ignored. Base-graphics leftover: one device per panel.
+The ggplot facets instead.}
+
+\item{theta}{Ignored. Base-graphics leftover: viewing angle of a \code{persp}
+surface, which is no longer drawn.}
+
+\item{ymax}{Ignored. Base-graphics leftover: y-axis maximum. Use
+\code{p + ggplot2::coord_cartesian(ylim = c(0, ymax))}.}
+
+\item{cex}{Ignored. Base-graphics leftover: point expansion.}
 }
 \value{
 A \code{ggplot} object.

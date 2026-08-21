@@ -50,37 +50,18 @@ rich.colors.short <- function(n,alpha=1){
 #' without projection F), and models fit before the `log_*` series existed. A
 #' non-positive or unreported value keeps the symmetric interval.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
+#' @inheritParams rceattle-plot-args
 #' @param output derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.
 #' @param ylab Y-axis label. `NULL` (default) derives one from `output` and the
 #'   model's `minage`.
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added (see Details for how
-#'   it is constructed)
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
+#' @param save Write the plotted series to CSV alongside the figure.
 #' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shading for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param zero_y Anchor the y-axis at zero. TRUE for the absolute series
 #'   (biomass, SSB, recruitment), where a truncated axis exaggerates change;
 #'   FALSE for the depletions, which are already on a relative scale.
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").
+#' @param reference Reference model, drawn in black at 1.5x `lwd`.
 #'
 #' @export
 #'
@@ -154,11 +135,6 @@ plot_timeseries <- function(Rceattle,
     if (!is.null(model_names)) model_names <- c(model_names, "Reference")
   }
 
-  # Species names
-  if(is.null(spnames)){
-    spnames =  Rceattle[[1]]$data_list$spnames
-  }
-
   # Extract years
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
   years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
@@ -180,11 +156,11 @@ plot_timeseries <- function(Rceattle,
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
-
-  if(is.null(species)){
-    species <- 1:nspp
-  }
-  spp <- species
+  # `species` selects (indices, names, a logical mask, or "all"); `spnames`
+  # labels. Shared with every other plotter so the pair means one thing.
+  sp_sel  <- .resolve_species(Rceattle, species, spnames)
+  spp     <- sp_sel$index
+  spnames <- sp_sel$spnames
 
   # Built here rather than in .ts_wrapper() because the age it names is
   # per-species data. An explicit `ylab` always wins.
@@ -218,29 +194,35 @@ plot_timeseries <- function(Rceattle,
 
     # Get SD of quantity
     if(add_ci & !mse){
-      sd_rows <- which(names(Rceattle[[i]]$sdrep$value) == output)
-      n_need <- nyrs_vec[i] * nspp
-      if (length(sd_rows) < n_need) {
+      # The series is ADREPORTed over the whole modelled period, flattened
+      # column-major with species varying fastest, so the first
+      # nspp * nyrs_hindcast values are exactly the years being plotted.
+      # n_total states that full shape, so the slice is checked rather than
+      # assumed -- an unexpected block length draws no interval instead of one
+      # belonging to different cells.
+      n_need  <- nyrs_vec[i] * nspp
+      n_total <- ncol(Rceattle[[i]]$quantities[[output]]) * nspp
+      sd_vals <- .rce_series_sd(Rceattle[[i]], output, n_need, n_total)
+      if (is.null(sd_vals)) {
         # Leave the SD array as NA and draw no ribbon. Only warn for a series
         # the model could have reported: F_spp and the other REPORT()-only
         # quantities never carry standard errors, so warning on them would fire
         # on every fit.
-        if (isTRUE(.RCEATTLE_QUANTITIES[[output]]$adreport))
-          warning("`", output, "` has no standard errors in model ", i,
-                  " (not reported by this fit, or the fit used getsd = FALSE); ",
-                  "drawing no confidence interval for it.", call. = FALSE)
+        .rce_no_ci(TRUE, paste0("`", output, "` in model ", i),
+                   paste("this fit carries no standard errors for it",
+                         "(not reported by the model, or getsd = FALSE)"),
+                   warn = .rce_quantity_adreport(output))
       } else {
         quantity_sd[, 1:nyrs_vec[i], i] <-
-          replace(quantity_sd[, 1:nyrs_vec[i], i],
-                  values = Rceattle[[i]]$sdrep$sd[sd_rows][1:n_need])
+          replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_vals)
 
         # Log-scale SD where the model reported one; the rest are recovered
         # from sd/x below.
-        log_rows <- which(names(Rceattle[[i]]$sdrep$value) == paste0("log_", output))
-        if (length(log_rows) >= n_need) {
+        log_vals <- .rce_series_sd(Rceattle[[i]], paste0("log_", output),
+                                   n_need, n_total)
+        if (!is.null(log_vals)) {
           quantity_log_sd[, 1:nyrs_vec[i], i] <-
-            replace(quantity_log_sd[, 1:nyrs_vec[i], i],
-                    values = Rceattle[[i]]$sdrep$sd[log_rows][1:n_need])
+            replace(quantity_log_sd[, 1:nyrs_vec[i], i], values = log_vals)
         }
       }
     }
@@ -391,26 +373,15 @@ plot_timeseries <- function(Rceattle,
     }
   }
 
-  # Line width / type: honour per-model lwd / lty. Map to Model (and add a
-  # manual scale below) only when they vary, so the uniform default adds no
-  # extra legend. lwd keeps the base-graphics convention where the default (3)
-  # renders as a standard-weight ggplot line (linewidth 1), hence lwd / 3.
-  vary_lwd <- length(unique(lwd)) > 1L
-  vary_lty <- length(unique(lty)) > 1L
-  line_map <- ggplot2::aes(linewidth = .data$Model, linetype = .data$Model)
-  if (!vary_lwd) line_map$linewidth <- NULL
-  if (!vary_lty) line_map$linetype  <- NULL
-  line_args <- list(mapping = line_map)
-  if (!vary_lwd) line_args$linewidth <- lwd[1] / 3
-  if (!vary_lty) line_args$linetype  <- lty[1]
-  p <- p + do.call(ggplot2::geom_line, line_args)
+  # Line width / type: honour per-model lwd / lty, keyed to Model when they
+  # vary so the uniform default adds no extra legend. The lwd / 3 bridge lives
+  # in the helper, which every other plotter now shares.
+  line_p <- .rce_line_params(lwd = lwd, lty = lty,
+                             lwd_by = "Model", lty_by = "Model")
+  p <- .rce_add_line(p, line_p)
 
   # Projection divider at the terminal hindcast year
-  if (incl_proj) {
-    p <- p + ggplot2::geom_vline(
-      xintercept = Rceattle[[length(Rceattle)]]$data_list$endyr,
-      linetype = 2, colour = "grey50")
-  }
+  p <- p + .rce_proj_divider(Rceattle, incl_proj)
 
   # Depletion reference points (per species)
   if (output %in% "ssb_depletion") {
@@ -435,33 +406,16 @@ plot_timeseries <- function(Rceattle,
                                  strip.position = "top")
   }
   p <- p +
-    ggplot2::coord_cartesian(xlim = c(minyr, maxyr)) +
+    .rce_year_limits(minyr, maxyr) +
     ggplot2::labs(x = "Year", y = ylab) +
     .rceattle_theme()
   # A quantity on an absolute scale is read against zero, so an axis starting at
   # the series minimum overstates how much it moves. Applied per panel, so
   # `scales = "free_y"` still fits each species.
   if (isTRUE(zero_y)) p <- p + ggplot2::expand_limits(y = 0)
-  if (is.null(line_col)) {
-    p <- .rceattle_scale(p)                       # default Okabe-Ito palette
-  } else {
-    # User-supplied colours, mapped to the model levels in plotting order.
-    cols <- stats::setNames(rep(line_col, length.out = nlevels(plot_df$Model)),
-                            levels(plot_df$Model))
-    p <- p + ggplot2::scale_colour_manual(values = cols) +
-      ggplot2::scale_fill_manual(values = cols)
-  }
-
-  # Per-model line width / type scales (only added when they vary).
-  lvl <- levels(plot_df$Model)
-  if (vary_lwd) {
-    p <- p + ggplot2::scale_linewidth_manual(
-      values = stats::setNames(rep(lwd, length.out = length(lvl)) / 3, lvl))
-  }
-  if (vary_lty) {
-    p <- p + ggplot2::scale_linetype_manual(
-      values = stats::setNames(rep(lty, length.out = length(lvl)), lvl))
-  }
+  # `line_col = NULL` keeps the default Okabe-Ito palette; supplied colours are
+  # applied to the model levels in plotting order.
+  p <- .rceattle_scale(p, line_col = line_col)
 
   # A single model needs no colour legend
   if (nlevels(plot_df$Model) < 2L) {

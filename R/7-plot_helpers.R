@@ -644,26 +644,32 @@
 #' Factored out of `plot_timeseries()` so any plotter drawing a confidence
 #' interval reads `sdrep` the same way.
 #'
-#' The length must match **exactly**. `sdrep$value` holds the whole flattened
-#' series, so taking the first `n_need` of a longer block silently returns the
-#' standard errors of different cells -- a caller asking for one species, or for
-#' the hindcast out of a hindcast-plus-projection vector, would draw an interval
+#' The block length must match `n_total` **exactly**. `sdrep$value` holds the
+#' whole flattened series, so taking the first `n_need` of a block of unverified
+#' length silently returns the standard errors of different cells -- an interval
 #' that is wrong rather than absent.
+#'
+#' Taking a leading slice is legitimate only when the caller knows the block's
+#' full shape, which is why `n_total` has to be stated rather than inferred. The
+#' species-by-year series are flattened column-major with the hindcast years
+#' first, so the first `nspp * nyrs_hindcast` values are exactly the hindcast --
+#' that is the one prefix any caller here needs.
 #'
 #' @param model An `Rceattle` fit.
 #' @param name Name of the ADREPORTed series.
-#' @param n_need How many values the caller needs.
-#' @return `n_need` standard errors, or `NULL` when the fit does not carry
-#'   exactly that many (no `sdreport`, `REPORT()`-only series, or a shape the
-#'   caller cannot index unambiguously).
+#' @param n_need How many leading values the caller wants.
+#' @param n_total Length the whole block must have. Defaults to `n_need`, i.e.
+#'   no slicing.
+#' @return `n_need` standard errors, or `NULL` when the fit does not carry a
+#'   block of exactly `n_total` (no `sdreport`, or a `REPORT()`-only series).
 #' @keywords internal
 #' @noRd
-.rce_series_sd <- function(model, name, n_need) {
+.rce_series_sd <- function(model, name, n_need, n_total = n_need) {
   sdrep <- model$sdrep
   if (is.null(sdrep) || is.null(sdrep$value)) return(NULL)
   rows <- which(names(sdrep$value) == name)
-  if (length(rows) != n_need) return(NULL)
-  sdrep$sd[rows]
+  if (length(rows) != n_total || n_need > n_total) return(NULL)
+  sdrep$sd[rows][seq_len(n_need)]
 }
 
 
@@ -747,11 +753,20 @@
 #'   last hindcast year.
 #' @param incl_mean Add a horizontal line at the hindcast mean of each series.
 #' @param width,height Saved figure size in inches.
-#' @param right_adj,top_adj,mod_cex,legend.pos,single.plots,save,theta
-#'   Base-graphics arguments from before the ggplot2 rewrite. Accepted so
-#'   existing scripts keep running, and ignored. The returned object is a
-#'   ggplot, so margins, legend placement and text size are set on it directly
-#'   (e.g. `p + ggplot2::theme(legend.position = "right")`).
+#' @param right_adj Ignored. Base-graphics leftover: the figure widened its
+#'   right margin to fit the legend. Set margins on the returned ggplot instead.
+#' @param top_adj Ignored. Base-graphics leftover; see `right_adj`.
+#' @param mod_cex Ignored. Base-graphics leftover: legend text size. Use
+#'   `p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))`.
+#' @param legend.pos Ignored. Base-graphics leftover: legend placement. Use
+#'   `p + ggplot2::theme(legend.position = "right")`.
+#' @param single.plots Ignored. Base-graphics leftover: one device per panel.
+#'   The ggplot facets instead.
+#' @param theta Ignored. Base-graphics leftover: viewing angle of a `persp`
+#'   surface, which is no longer drawn.
+#' @param ymax Ignored. Base-graphics leftover: y-axis maximum. Use
+#'   `p + ggplot2::coord_cartesian(ylim = c(0, ymax))`.
+#' @param cex Ignored. Base-graphics leftover: point expansion.
 #' @return A `ggplot` object.
 #' @name rceattle-plot-args
 #' @keywords internal
