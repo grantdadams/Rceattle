@@ -29,7 +29,8 @@ a standard-weight ggplot line. A vector varies it across series.}
 \item{lty}{Line type. A vector varies it across the levels of whatever the
 figure separates by line type.}
 
-\item{alpha}{Transparency of confidence ribbons and shaded areas.}
+\item{alpha}{Transparency of confidence ribbons and shaded areas, between 0
+and 1.}
 
 \item{add_ci}{Add a 95\% confidence interval. Only available where the
 plotted quantity carries standard errors; warns and draws none otherwise.}
@@ -92,4 +93,3 @@ Where colour encodes a continuous variable -- the year fan in
 colour draws the fan in that colour, several interpolate between them.
 }
 
-\keyword{internal}

@@ -187,6 +187,28 @@
 }
 
 
+#' Validate a transparency value
+#'
+#' `alpha` reaches the device unchecked otherwise: a value above 1 saturates the
+#' ribbon, and an `NA` or a vector draws nothing, in both cases without a
+#' message. Checked here, where the argument still has a name, like `line_col`
+#' and `lwd`.
+#'
+#' @param alpha The user's transparency, or `NULL` where the figure has no
+#'   ribbon or fan to apply it to.
+#' @return `alpha`, invisibly.
+#' @keywords internal
+#' @noRd
+.rce_check_alpha <- function(alpha) {
+  if (is.null(alpha)) return(invisible(alpha))
+  if (length(alpha) != 1L || !is.numeric(alpha) || is.na(alpha) ||
+      alpha < 0 || alpha > 1) {
+    stop("`alpha` must be a single number between 0 and 1.", call. = FALSE)
+  }
+  invisible(alpha)
+}
+
+
 #' Add the standard colorblind-safe scales to a plot
 #'
 #' Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
@@ -843,7 +865,8 @@
 #'   a standard-weight ggplot line. A vector varies it across series.
 #' @param lty Line type. A vector varies it across the levels of whatever the
 #'   figure separates by line type.
-#' @param alpha Transparency of confidence ribbons and shaded areas.
+#' @param alpha Transparency of confidence ribbons and shaded areas, between 0
+#'   and 1.
 #' @param add_ci Add a 95% confidence interval. Only available where the
 #'   plotted quantity carries standard errors; warns and draws none otherwise.
 #' @param minyr,maxyr First / last year to plot.
@@ -867,5 +890,4 @@
 #' @param cex Ignored. Base-graphics leftover: point expansion.
 #' @return A `ggplot` object.
 #' @name rceattle-plot-args
-#' @keywords internal
 NULL

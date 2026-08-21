@@ -104,6 +104,8 @@ plot_timeseries <- function(Rceattle,
                             suffix = NULL,
                             mod_avg = rep(FALSE, length(Rceattle))) {
 
+  .rce_check_alpha(alpha)
+
   ## Model object manipulation ----
   # Convert mse object to Rceattle list
   if(mse){
@@ -718,6 +720,7 @@ plot_selectivity <-
            colour_by = c("auto", "year", "model")) {
 
     colour_by <- match.arg(colour_by)
+    .rce_check_alpha(alpha)
     models <- .as_model_list(Rceattle)
     model_names_use <- .model_labels(models, model_names)
     sp_sel  <- .resolve_species(models, species, spnames)
@@ -787,10 +790,6 @@ plot_selectivity <-
     if (length(df_list) == 0L) {
       stop("No fleets to plot: `species` selected none of the fleets in this ",
            "model.", call. = FALSE)
-    }
-    if (length(alpha) != 1L || !is.numeric(alpha) || is.na(alpha) ||
-        alpha < 0 || alpha > 1) {
-      stop("`alpha` must be a single number between 0 and 1.", call. = FALSE)
     }
 
     plot_df <- do.call(rbind, df_list)
@@ -1238,6 +1237,7 @@ plot_b_eaten <- function(Rceattle,
                          incl_mean = FALSE,
                          top_adj = 0.15) {
 
+  .rce_check_alpha(alpha)
   models <- .as_model_list(Rceattle, mse = mse, OM = OM)
   if (mse) incl_proj <- TRUE
   model_names_use <- .model_labels(models, model_names)

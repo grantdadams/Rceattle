@@ -252,6 +252,25 @@ testthat::test_that("alpha is passed through only when supplied", {
   testthat::expect_equal(.rce_line_params(alpha = 0.25)$args$alpha, 0.25)
 })
 
+
+# --- .rce_check_alpha ---------------------------------------------------------
+testthat::test_that("a transparency outside [0, 1] stops, naming the argument", {
+  testthat::expect_error(.rce_check_alpha(1.5), "between 0 and 1")
+  testthat::expect_error(.rce_check_alpha(-0.5), "between 0 and 1")
+  testthat::expect_error(.rce_check_alpha(NA), "between 0 and 1")
+  # A vector would silently apply only its first element.
+  testthat::expect_error(.rce_check_alpha(c(0.2, 0.5)), "between 0 and 1")
+  testthat::expect_error(.rce_check_alpha("0.4"), "between 0 and 1")
+})
+
+testthat::test_that("a valid alpha, and NULL, pass through unchanged", {
+  testthat::expect_silent(.rce_check_alpha(0.4))
+  testthat::expect_silent(.rce_check_alpha(0))
+  testthat::expect_silent(.rce_check_alpha(1))
+  # NULL is the "this figure has no ribbon to shade" case, not an error.
+  testthat::expect_silent(.rce_check_alpha(NULL))
+})
+
 testthat::test_that(".rce_add_line reaches the built plot", {
   p <- ggplot2::ggplot(demo_df, ggplot2::aes(x = .data$x, y = .data$y,
                                              colour = .data$Model))

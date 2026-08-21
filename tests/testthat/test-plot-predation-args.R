@@ -341,3 +341,16 @@ testthat::test_that("the MSE path validates and honours its arguments", {
     Rceattle::plot_b_eaten(mse, mse = TRUE, line_col = "red"),
     "not used with")
 })
+
+testthat::test_that("an out-of-range alpha stops, naming the argument", {
+  fit <- ms_fit()
+  mse <- list(list(OM = fit), list(OM = fit), list(OM = fit))
+  # Out of range it saturates the ribbon or errors deep inside the device,
+  # neither of which names the argument -- the same contract as line_col / lwd.
+  testthat::expect_error(Rceattle::plot_b_eaten(mse, mse = TRUE, alpha = 1.5),
+                         "between 0 and 1")
+  testthat::expect_error(Rceattle::plot_b_eaten(fit, alpha = -0.1),
+                         "between 0 and 1")
+  testthat::expect_error(Rceattle::plot_b_eaten(fit, alpha = NA),
+                         "between 0 and 1")
+})

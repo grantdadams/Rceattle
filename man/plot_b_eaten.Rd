@@ -71,7 +71,8 @@ last hindcast year.}
 \item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
 \code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{alpha}{Transparency of confidence ribbons and shaded areas.}
+\item{alpha}{Transparency of confidence ribbons and shaded areas, between 0
+and 1.}
 
 \item{mod_avg}{TRUE/FALSE}
 

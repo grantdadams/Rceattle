@@ -78,7 +78,8 @@ last hindcast year.}
 \item{lty}{Line type. A vector varies it across the levels of whatever the
 figure separates by line type.}
 
-\item{alpha}{Transparency of confidence ribbons and shaded areas.}
+\item{alpha}{Transparency of confidence ribbons and shaded areas, between 0
+and 1.}
 
 \item{mod_avg}{TRUE/FALSE}
 
