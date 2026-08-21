@@ -49,22 +49,19 @@
   separates the models and the year fan moves to transparency, keeping the
   curves superimposed for comparison. `colour_by` forces either.
 
-* **Length-based fleets are drawn on length bins.** `Selectivity_dimension`
-  decides whether a fleet's selectivity is estimated on age or length, and the
-  model reports both `sel_at_age` and `sel_at_length`. `plot_selectivity()` read
-  `sel_at_age` for every fleet and labelled the axis "Age", so a length-based
-  fleet showed the growth-matrix conversion of its curve rather than the curve
-  that was fitted. Each fleet is now drawn on its own dimension, and a model
-  mixing the two returns one figure per dimension (a named list) rather than
-  putting ages and length bins on one axis.
+* **Length-based fleets are drawn on length bins.** `plot_selectivity()` read
+  `sel_at_age` for every fleet and labelled the axis "Age", so a fleet whose
+  `Selectivity_dimension` is `"Length"` showed the growth-matrix conversion of
+  its curve rather than the curve that was fitted. Each fleet is now drawn on its
+  own dimension, and a model mixing the two returns one figure per dimension (a
+  named list) rather than putting ages and length bins on one axis.
 
 * **`species` and `spnames` mean the same thing across these plotters.**
-  `species` selects
-  -- by index, name, logical mask, or `"all"`, in the order given -- and
-  `spnames` labels. Several plotters previously read `species` as display
-  labels; a character vector giving one label per species is still read that way,
-  with a message. `plot_timeseries()` and its wrappers (`plot_biomass()`,
-  `plot_ssb()`, `plot_recruitment()`, the depletions,
+  `species` selects -- by index, name, logical mask, or `"all"`, in the order
+  given -- and `spnames` labels. Several plotters previously read `species` as
+  display labels; a character vector giving one label per species is still read
+  that way, with a message. `plot_timeseries()` and its wrappers
+  (`plot_biomass()`, `plot_ssb()`, `plot_recruitment()`, the depletions,
   `plot_exploitable_biomass()`, `plot_f()`) gained selection by name.
 
 * **`data_check()` warns when `diet_data` does not cover every age of an
@@ -94,29 +91,28 @@ All are corrected, so figures regenerated from them will differ from earlier
 runs of the same model.
 
 * **`plot_m2_at_age_prop()` draws a share, not a contribution.** `M2_prop` holds
-  each predator's contribution to predation mortality: summing over predators
-  reproduces `M2_at_age` exactly, so the plotted "proportion" reached 1564 on
-  `BS2017MS`. The contributions are now divided by their total, giving shares in
-  [0, 1] that sum to 1 across predators for each prey age and year. A prey age
-  with no predation in a year leaves the shares undefined and draws nothing. The
-  y axis reads "Share of M2 at age `<age>` by predator".
+  each predator's contribution to M2, which sums over predators to `M2_at_age`,
+  so the plotted "proportion" reached 1564 on `BS2017MS`. The contributions are
+  now divided by their total, giving shares in [0, 1] that sum to 1 across
+  predators for each prey age and year; a prey age with no predation in a year
+  leaves them undefined and draws nothing. The y axis reads "Share of M2 at age
+  `<age>` by predator".
 
 * **`plot_ration()` multiplies the ration by average numbers-at-age, not
   biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
   numbers-at-age are in thousands, so the product is mt -- the way the template
-  itself forms total consumption (`avgN_at_age * ration`, `predation.hpp`).
-  Multiplying by biomass instead weighted the age-sum by weight-at-age, so the
-  plotted series was out by an age-composition-dependent factor and "million mt"
-  described nothing it computed. The average numbers, not the start-of-year
-  numbers: `N_at_age` overstates consumption by `1 / ((1 - exp(-Z)) / Z)` and
-  does not reconcile with `plot_b_eaten()`. On a fitted `BS2017MS` the first
-  year drops 38.3% for pollock, 20.1% for cod and 13.5% for arrowtooth
-  flounder.
+  forms total consumption (`avgN_at_age * ration`, `predation.hpp`). Multiplying
+  by biomass instead weighted the age-sum by weight-at-age, so "million mt"
+  described nothing it computed. Average numbers rather than start-of-year
+  numbers, so the series reconciles with `plot_b_eaten()`; under the default
+  `avgnMode = 0`, `N_at_age` would overstate it by `1 / ((1 - exp(-Z)) / Z)`. On
+  a fitted `BS2017MS` the first year drops 38.3% for pollock, 20.1% for cod and
+  13.5% for arrowtooth flounder.
 
 * **`plot_b_eaten()` is in million mt.** It plotted `B_eaten_as_prey` in the mt
   the model reports it in, while `plot_b_eaten_prop()` -- the same quantity
-  broken down by predator -- was in million mt, so the two figures could not be
-  read side by side. Both are now in million mt, the display unit the timeseries
+  broken down by predator -- was in million mt, so the two could not be read
+  side by side. Both are now in million mt, the display unit the timeseries
   plotters use. `p$data` moves by the same factor of 1e6.
 
 ## Bug fixes
@@ -146,9 +142,10 @@ runs of the same model.
   It is also omitted when the last hindcast year falls outside a `minyr`/`maxyr`
   window, rather than stretching the axis back to it.
 
-* An invalid `line_col` or `lwd` now stops with a message naming the argument.
-  Previously an `NA` colour or width drew nothing, giving a blank panel and no
-  explanation.
+* An invalid `line_col`, `lwd` or `alpha` now stops with a message naming the
+  argument. Previously an `NA` colour or width drew nothing, and a transparency
+  outside `[0, 1]` saturated the ribbon or errored inside the device, in both
+  cases with no explanation.
 
 * A `spnames` of the wrong length now stops rather than recycling, which had
   labelled one species with another's name. A `species` string matching no
@@ -197,6 +194,11 @@ runs of the same model.
   the columns after the models, names the file after the species, and writes
   only the species plotted. It previously wrote unlabelled columns for every
   species, with no year column.
+
+* The pkgdown site builds again. `simulate.Rceattle` (added in 5.9.0) was not
+  in `_pkgdown.yml`, and pkgdown stops on a documented topic missing from its
+  reference index. `?"rceattle-plot-args"` is listed there too, so the topic the
+  plotter help and the vignettes point at has a page on the site.
 
 ## Behavior changes
 
