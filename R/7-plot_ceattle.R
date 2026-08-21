@@ -1002,27 +1002,38 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 
 
 
-#' Plot M1 + M2
+#' Plot M1 or M2 at age
 #'
-#' @description Function that plots the M1 and M2 as estimated from Rceattle
+#' @description Mortality-at-age over the hindcast for one model: predation
+#'   mortality (`M2`, the default) or residual natural mortality (`M1`). One
+#'   component at a time, never their sum -- [plot_m_at_age()] draws total M
+#'   (M1 + M2) as a time series.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
+#' @param Rceattle A single [fit_mod()] object. A list of more than one is an
+#'   error; call it per model.
 #' @param incl_proj Include the projection years (TRUE/FALSE)
-#' @param zlim zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.
-#' @param type 0 = Tiles, 1 = contour, 2 = facet lines, 3 = persp
+#' @param type `"lines"` (default) draws M-at-age with one line per year;
+#'   `"heatmap"` (or `0`) draws the same series as an age-by-year tile plot.
+#'   Any other value gives the lines.
 #' @param width Plot width when saved "inches"
 #' @param height Plot height when saved "inches"
 #' @param title Additional title to add. Will also add species names if not NULL
-#' @param title_cex Font size for title
 #' @param species Species to plot. Plots all if null.
-#' @param log TRUE/FALSE use log M1 + M2
+#' @param log TRUE/FALSE plot the series on a log scale
 #' @param minyr First year to plot
-#' @param theta theta for persp plot
 #' @param maxage Plot up to this age. Plots all ages if NULL
-#' @param M2 TRUE/FALSE Use M2 only (True) or total M (False)
+#' @param M2 Draw predation mortality M2 (TRUE, the default) or residual
+#'   natural mortality M1 (FALSE). Neither is the sum of the two.
+#' @param zlim Ignored. Base-graphics leftover: the fill range of the tile
+#'   plot. Use `p + ggplot2::scale_fill_viridis_c(limits = ...)`.
+#' @param theta Ignored. Base-graphics leftover: viewing angle of a `persp`
+#'   surface, which is no longer drawn.
+#' @param title_cex Ignored. Base-graphics leftover: title font size. Use
+#'   `p + ggplot2::theme(plot.title = ggplot2::element_text(size = ...))`.
 #'
+#' @return A `ggplot`.
 #' @export
 plot_mortality <-
   function(Rceattle,
@@ -1060,7 +1071,8 @@ plot_mortality <-
     if (is.null(species)) species <- seq_len(nspp)
     spp <- intersect(species, seq_len(nspp))
 
-    # M-at-age over the selected years: M1 only (M2 = FALSE) or M1 + M2.
+    # M-at-age over the selected years: M2 (M2 = TRUE) or M1 (M2 = FALSE).
+    # One component or the other -- plot_m_at_age() is what sums them.
     yr_idx <- seq_len(nyrs) + (minyr - dl$styr)
     Msrc <- if (M2) Rceattle[[1]]$quantities$M2_at_age
             else    Rceattle[[1]]$quantities$M1_at_age
