@@ -70,10 +70,14 @@ the two gets one figure per dimension.
 \section{What the colours mean}{
 With one model, colour is the year, so time-varying selectivity reads as a
 fan and a time-invariant fleet collapses to a single line. With several
-models, colour separates the models and the year fan moves to transparency --
-faint at \code{styr}, solid at the last hindcast year -- so the models stay
-superimposed and comparable. \code{colour_by} overrides the choice either way.
+models, colour separates the models and the year fan moves to transparency,
+faintest at the earliest year drawn. The transparency scale spans the years
+shown across all models, so the same year is the same shade everywhere and a
+short retrospective peel stops short of solid. \code{colour_by} overrides the
+choice either way, and \code{alpha} sets the faintest end.
 
-Line type separates the sexes, and \code{lty} supplies its values.
+Line type separates the sexes, and \code{lty} supplies its values. Panels are
+fleets, so \code{spnames} does not label anything here -- it only lets \code{species}
+select by name.
 }
 

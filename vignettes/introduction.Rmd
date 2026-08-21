@@ -214,7 +214,7 @@ Each fleet is drawn on the dimension its selectivity was estimated on -- age, or
 plot_selectivity(model_2)
 
 # Overlay models; `line_col` and `lwd` apply as in the other plotters
-plot_selectivity(model_list, model_names = mod_names, lwd = 2)
+plot_selectivity(model_list, model_names = model_names, lwd = 2)
 
 # Plot composition fit
 plot_comp(model_2)

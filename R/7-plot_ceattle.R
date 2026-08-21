@@ -615,11 +615,15 @@ plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 #'
 #' With one model, colour is the year, so time-varying selectivity reads as a
 #' fan and a time-invariant fleet collapses to a single line. With several
-#' models, colour separates the models and the year fan moves to transparency --
-#' faint at `styr`, solid at the last hindcast year -- so the models stay
-#' superimposed and comparable. `colour_by` overrides the choice either way.
+#' models, colour separates the models and the year fan moves to transparency,
+#' faintest at the earliest year drawn. The transparency scale spans the years
+#' shown across all models, so the same year is the same shade everywhere and a
+#' short retrospective peel stops short of solid. `colour_by` overrides the
+#' choice either way, and `alpha` sets the faintest end.
 #'
-#' Line type separates the sexes, and `lty` supplies its values.
+#' Line type separates the sexes, and `lty` supplies its values. Panels are
+#' fleets, so `spnames` does not label anything here -- it only lets `species`
+#' select by name.
 #'
 #' @inheritParams rceattle-plot-args
 #' @param colour_by What colour separates: `"year"` (a fan), `"model"`, or
@@ -668,6 +672,13 @@ plot_selectivity <-
       # on an older workbook.
       dimn <- as.character(fc$Selectivity_dimension)
       dimn[is.na(dimn) | !nzchar(dimn)] <- "Age"
+      # Empirical selectivity is read straight into sel_at_age -- the template
+      # skips sel_type 0 when it fills sel_at_length (selectivity.hpp, "ESTIMATED
+      # SELECTIVITY") -- so a Fixed fleet is age-based whatever the column says,
+      # and reading the length array would draw it as identically zero. Scripts
+      # set Selectivity_dimension across every fleet at once, so this happens.
+      is_fixed <- as.character(fc$Selectivity) %in% c("Fixed", "0")
+      dimn[is_fixed] <- "Age"
 
       for (i in seq_len(nrow(fc))) {
         flt <- fc$Fleet_code[i]
@@ -678,9 +689,16 @@ plot_selectivity <-
         # is that curve pushed through the growth matrix, not what was fitted.
         sel  <- if (is_len) models[[k]]$quantities$sel_at_length
                 else        models[[k]]$quantities$sel_at_age
-        if (is.null(sel)) next
+        if (is.null(sel)) {
+          warning("Model ", model_names_use[k], " reports no ",
+                  if (is_len) "sel_at_length" else "sel_at_age",
+                  "; skipping fleet ", fc$Fleet_name[i], ".", call. = FALSE)
+          next
+        }
         nbin <- if (is_len) nlen[sp] else nages[sp]
         if (is.na(nbin) || nbin < 1L) next
+        # Length bins are 1-based ordinals (see the column schema); ages are
+        # offset by the species' minage.
         bins <- if (is_len) seq_len(nbin) else seq_len(nbin) - 1L + minage[sp]
 
         for (sex in seq_len(nsex[sp])) {
@@ -703,9 +721,17 @@ plot_selectivity <-
       stop("No fleets to plot: `species` selected none of the fleets in this ",
            "model.", call. = FALSE)
     }
+    if (length(alpha) != 1L || !is.numeric(alpha) || is.na(alpha) ||
+        alpha < 0 || alpha > 1) {
+      stop("`alpha` must be a single number between 0 and 1.", call. = FALSE)
+    }
+
     plot_df <- do.call(rbind, df_list)
     plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
-    plot_df$Model <- factor(plot_df$Model, levels = unique(model_names_use))
+    # droplevels: a species filter can leave a model with no rows, and an
+    # unused level would still make the figure look like an overlay.
+    plot_df$Model <- droplevels(
+      factor(plot_df$Model, levels = unique(model_names_use)))
     plot_df$Fleet <- factor(plot_df$Fleet, levels = unique(plot_df$Fleet))
 
     if (identical(colour_by, "auto")) {
@@ -713,13 +739,18 @@ plot_selectivity <-
     }
     if (identical(colour_by, "model")) {
       .rce_check_line_col(line_col, nlevels(plot_df$Model), "models")
+    } else if (nlevels(plot_df$Model) > 1L) {
+      warning("`colour_by = \"year\"` with ", nlevels(plot_df$Model),
+              " models draws them superimposed with nothing to tell them ",
+              "apart. Use colour_by = \"model\", or vary `lwd`.",
+              call. = FALSE)
     }
 
     # One figure per dimension: ages and length bins share neither an axis nor a
     # meaning, so putting them in one panel grid would invite reading across.
     dims <- unique(plot_df$Dimension)
     out <- lapply(dims, function(d) {
-      dd <- plot_df[plot_df$Dimension == d, , drop = FALSE]
+      dd <- droplevels(plot_df[plot_df$Dimension == d, , drop = FALSE])
       .plot_selectivity_one(dd, dimension = d, colour_by = colour_by,
                             line_col = line_col, lwd = lwd, lty = lty,
                             alpha = alpha,
@@ -741,12 +772,15 @@ plot_selectivity <-
   xlab <- if (identical(dimension, "Length")) "Length bin" else "Age"
 
   if (identical(colour_by, "model")) {
-    # Colour is the model, so the year fan moves to transparency: faint at the
-    # start of the hindcast, solid at its end, within each model.
+    # Colour is the model, so the year fan moves to transparency. The scale is
+    # trained on the years shown across all models, so a short retrospective
+    # peel stops short of solid rather than being rescaled to its own end --
+    # the same year reads as the same shade in every model.
     p <- ggplot2::ggplot(
       dd,
       ggplot2::aes(x = .data$Bin, y = .data$Selectivity,
-                   group = interaction(.data$Year, .data$Sex, .data$Model),
+                   group = interaction(.data$Year, .data$Sex, .data$Model,
+                                       .data$Fleet),
                    colour = .data$Model, alpha = .data$Year,
                    linetype = .data$Sex))
     lp <- .rce_line_params(lwd = lwd, lty = lty,
@@ -762,7 +796,8 @@ plot_selectivity <-
     p <- ggplot2::ggplot(
       dd,
       ggplot2::aes(x = .data$Bin, y = .data$Selectivity,
-                   group = interaction(.data$Year, .data$Sex, .data$Model),
+                   group = interaction(.data$Year, .data$Sex, .data$Model,
+                                       .data$Fleet),
                    colour = .data$Year, linetype = .data$Sex))
     lp <- .rce_line_params(lwd = lwd, lty = lty,
                            lwd_by = "Model",

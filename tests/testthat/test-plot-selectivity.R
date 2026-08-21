@@ -69,11 +69,14 @@ testthat::test_that("colour follows the model count, and colour_by overrides it"
   testthat::expect_equal(
     rlang::as_label(Rceattle::plot_selectivity(fit, colour_by = "model")$mapping$colour),
     "Model")
-  testthat::expect_equal(
-    rlang::as_label(Rceattle::plot_selectivity(list(fit, fit),
-                                               model_names = c("A", "B"),
-                                               colour_by = "year")$mapping$colour),
-    "Year")
+  # Forcing the year fan on an overlay leaves the models superimposed with
+  # nothing to tell them apart, so it warns.
+  testthat::expect_warning(
+    forced <- Rceattle::plot_selectivity(list(fit, fit),
+                                         model_names = c("A", "B"),
+                                         colour_by = "year"),
+    "nothing to tell them apart")
+  testthat::expect_equal(rlang::as_label(forced$mapping$colour), "Year")
 })
 
 testthat::test_that("line_col and lwd reach the drawn line", {
@@ -136,6 +139,72 @@ testthat::test_that("a length-based fleet is drawn on length bins, not ages", {
   testthat::expect_equal(
     f1$Selectivity[order(f1$Bin)],
     as.numeric(fit$quantities$sel_at_length[1, 1, seq_len(dl$nlengths[1]), 1]))
+})
+
+testthat::test_that("length bins are numbered from one", {
+  # The convention is a 1-based ordinal (see the column schema). Only the count
+  # and the ordering were pinned before, both invariant to a shift.
+  lf <- len_fit("Length")
+  p <- Rceattle::plot_selectivity(lf$fit)
+  testthat::expect_equal(min(p$data$Bin), 1L)
+  testthat::expect_equal(max(p$data$Bin), lf$data_list$nlengths[1])
+})
+
+testthat::test_that("a Fixed fleet stays on ages whatever the dimension column says", {
+  # Empirical selectivity is read into sel_at_age only -- the template skips
+  # sel_type 0 when filling sel_at_length -- so a Fixed fleet marked "Length"
+  # would be drawn as an identically-zero curve. Scripts set
+  # Selectivity_dimension across every fleet at once, which is how it happens.
+  testthat::skip_if_not_installed("TMB")
+  data("BS2017SS", package = "Rceattle")
+  d <- BS2017SS
+  d$fleet_control$Selectivity_dimension <- "Length"
+  fit <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = d, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))))
+  fc <- fit$data_list$fleet_control
+  fixed <- as.character(fc$Fleet_name[as.character(fc$Selectivity) %in%
+                                        c("Fixed", "0")])
+  testthat::skip_if(length(fixed) == 0, "no Fixed fleet in this dataset")
+
+  out <- Rceattle::plot_selectivity(fit)
+  # Mixed dimensions, so one figure each; the Fixed fleet is on the age one.
+  testthat::expect_setequal(names(out), c("age", "length"))
+  dd <- out$age$data[out$age$data$Fleet %in% fixed, ]
+  testthat::expect_gt(nrow(dd), 0)
+  testthat::expect_false(all(dd$Selectivity == 0))
+
+  row <- which(fc$Fleet_name == fixed[1])
+  nag <- fit$data_list$nages[fc$Species[row]]
+  yr1 <- dd[dd$Year == min(dd$Year), ]
+  testthat::expect_equal(
+    yr1$Selectivity[order(yr1$Bin)],
+    as.numeric(fit$quantities$sel_at_age[fc$Fleet_code[row], 1,
+                                         seq_len(nag), 1]))
+})
+
+testthat::test_that("alpha sets the faintest year of the fan", {
+  fit <- ss_fit()
+  two <- list(fit, fit)
+  b <- function(a) range(built(Rceattle::plot_selectivity(
+    two, model_names = c("A", "B"), alpha = a))$alpha)
+  testthat::expect_equal(b(0.25), c(0.25, 1))
+  testthat::expect_equal(b(0.6), c(0.6, 1))
+  # An out-of-range alpha draws invisible or over-saturated lines, so it stops.
+  testthat::expect_error(Rceattle::plot_selectivity(fit, alpha = 1.5), "between 0 and 1")
+  testthat::expect_error(Rceattle::plot_selectivity(fit, alpha = -0.5), "between 0 and 1")
+  testthat::expect_error(Rceattle::plot_selectivity(fit, alpha = NA), "between 0 and 1")
+})
+
+testthat::test_that("model_names given as a list still labels the models", {
+  # The package's own vignette builds model_names with list().
+  fit <- ss_fit()
+  p <- Rceattle::plot_selectivity(list(fit, fit), model_names = list("A", "B"))
+  testthat::expect_equal(levels(p$data$Model), c("A", "B"))
+  # Too few names merges models into one series, so it warns.
+  testthat::expect_warning(
+    Rceattle::plot_selectivity(list(fit, fit, fit), model_names = c("A", "B")),
+    "recycling")
 })
 
 testthat::test_that("an age-based fleet is still drawn on ages", {

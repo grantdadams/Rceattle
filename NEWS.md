@@ -90,6 +90,17 @@ runs of the same model.
 
 ## Bug fixes
 
+* `model_names` given as a `list()` works again, in every plotter. The package's
+  own vignettes build it that way, and a list produced a one-element list per
+  model that the plot frame could not bind. Supplying fewer names than models
+  now warns instead of silently drawing two models as one series.
+
+* A fleet with `Selectivity = "Fixed"` is drawn on ages whatever
+  `Selectivity_dimension` says. Empirical selectivity is read into `sel_at_age`
+  only, so such a fleet on a `"Length"` dimension would have been drawn as an
+  identically-zero curve -- and scripts commonly set `Selectivity_dimension`
+  across every fleet at once.
+
 * `plot_timeseries()` and its wrappers accept a one-sided year window again;
   `plot_ssb(fit, minyr = 1990)` previously errored.
 
@@ -132,6 +143,16 @@ runs of the same model.
   only the species plotted. It previously wrote unlabelled columns for every
   species, with no year column, to a file called `NULL_...csv` when `file` was
   not given.
+
+## Changes that may need a script edit
+
+* `plot_selectivity()`'s `species` used to be an ignored label argument whose
+  default was `c("Walleye pollock", "Pacific cod", "Arrowtooth flounder")`. It
+  now selects. Passing species names that only partly match the model's own
+  stops with a message naming both readings, rather than guessing -- which is
+  what a call copied from the old default does on a model whose species are
+  named differently. Pass labels as `spnames`, or the model's own names as
+  `species`.
 
 ## Changes that affect scripts reading `p$data`
 

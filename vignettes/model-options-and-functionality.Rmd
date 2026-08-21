@@ -551,9 +551,9 @@ to also write the figure to `stem_<plot>.png`.
 * `species` selects (by index, name, logical mask, or `"all"`, in the order
   given) and `spnames` labels.
 * Arguments left over from the base-graphics version — `right_adj`, `top_adj`,
-  `mod_cex`, `legend.pos`, `single.plots`, `theta` — are still accepted so
-  existing scripts run, and are ignored. Set the equivalent on the returned
-  ggplot instead, e.g.
+  `mod_cex`, `legend.pos`, `single.plots`, `theta` — are still accepted, and
+  ignored, by the plotters that had them; they were never added to the ones that
+  did not. Set the equivalent on the returned ggplot instead, e.g.
   `plot_biomass(fit) + ggplot2::theme(legend.position = "right")`.
 
 **Display units.** The model works in mt and thousands of fish: numbers-at-age

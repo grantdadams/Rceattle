@@ -6,8 +6,21 @@
 \usage{
 .model_labels(model_list, model_names = NULL)
 }
+\arguments{
+\item{model_list}{List of fits.}
+
+\item{model_names}{Labels, or \code{NULL} for positional ones.}
+}
 \description{
 Returns \code{model_names} if supplied, otherwise \code{"Model 1"}, \code{"Model 2"}, ... so
 the colour/legend mapping always has labels.
+}
+\details{
+\code{model_names} is often built as a \code{list()} -- the package's own vignettes do
+-- so it is flattened to character here. Left as a list it becomes a
+one-element list per model and the plot frame fails to bind.
+
+Too few names would be recycled, drawing two models as one series under one
+legend key, so that is a warning rather than a silent merge.
 }
 \keyword{internal}

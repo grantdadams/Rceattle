@@ -42,15 +42,33 @@
 #'
 #' Returns `model_names` if supplied, otherwise `"Model 1"`, `"Model 2"`, ... so
 #' the colour/legend mapping always has labels.
+#'
+#' `model_names` is often built as a `list()` -- the package's own vignettes do
+#' -- so it is flattened to character here. Left as a list it becomes a
+#' one-element list per model and the plot frame fails to bind.
+#'
+#' Too few names would be recycled, drawing two models as one series under one
+#' legend key, so that is a warning rather than a silent merge.
+#'
+#' @param model_list List of fits.
+#' @param model_names Labels, or `NULL` for positional ones.
 #' @keywords internal
 .model_labels <- function(model_list, model_names = NULL) {
+  n <- length(model_list)
   if (!is.null(model_names)) {
-    return(rep(model_names, length.out = length(model_list)))
+    model_names <- as.character(unlist(model_names))
+    if (length(model_names) != n) {
+      warning("`model_names` has ", length(model_names), " name",
+              if (length(model_names) == 1L) "" else "s", " for ", n,
+              " models; recycling. Models sharing a name are drawn as one ",
+              "series.", call. = FALSE)
+    }
+    return(rep(model_names, length.out = n))
   }
-  if (length(model_list) == 1L) {
+  if (n == 1L) {
     return("Model")
   }
-  paste("Model", seq_along(model_list))
+  paste("Model", seq_len(n))
 }
 
 #' Standard Rceattle ggplot theme
