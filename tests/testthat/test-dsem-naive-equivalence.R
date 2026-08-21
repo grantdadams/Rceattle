@@ -62,21 +62,16 @@ testthat::test_that("a naive DSEM reproduces the non-DSEM retrospective", {
   # -- so the spread across species is the sharper check than the values.
   testthat::expect_gt(stats::sd(as.numeric(pd$quantities$R_sd)), 1e-6)
 
-  # The two peels agree on sigma_R to a few percent, not exactly, and the gap is
-  # real rather than numerical. The recruitment-deviation density runs over every
-  # hindcast year -- endyr_peel appears nowhere in ceattle.cpp -- so a non-DSEM
-  # peel pins the peeled-year rec_dev at 0 and STILL SCORES them, contributing
-  # ~log(sigma) per peeled year and pulling sigma_R down. A DSEM peel
-  # marginalizes those states instead, so it carries no such term. Measured at
-  # one peel of 39 years: DSEM 1.0070/1.3465/0.8113 against plain
-  # 0.9955/1.3260/0.7990 -- the DSEM value larger in every species, ~1.5%, in the
-  # direction the argument predicts. It grows with peel depth, and it is the
-  # non-DSEM path that is biased. Everything downstream (hindcast, forecast,
-  # Mohn's rho) still agrees to the tolerances below.
+  # The two peels now agree on sigma_R, not merely to a few percent. They used
+  # not to: a non-DSEM peel pinned the peeled-year deviations and its density
+  # still scored them, which shrank the estimate as sqrt((N-k)/N) -- measured
+  # 0.985 at one peel of 39 and predicted 0.934 at five. The DSEM peel never had
+  # that problem because its latent states are marginalized, and that asymmetry
+  # is what identified the bug. retrospective() now leaves random-effect
+  # deviations free in the peeled years, so both models marginalize and the two
+  # agree. A reappearing gap here means the pinning has come back.
   testthat::expect_equal(as.numeric(pd$quantities$R_sd),
-                         as.numeric(pp$quantities$R_sd), tolerance = 0.05)
-  testthat::expect_true(all(as.numeric(pd$quantities$R_sd) >=
-                              as.numeric(pp$quantities$R_sd) - 1e-8))
+                         as.numeric(pp$quantities$R_sd), tolerance = 1e-3)
 
   keep <- seq_len(pd$data_list$endyr_peel - d$styr + 1L)
   fore <- (length(keep) + 1L):ncol(pd$quantities$R)
@@ -94,11 +89,9 @@ testthat::test_that("a naive DSEM reproduces the non-DSEM retrospective", {
                            tolerance = 1e-2, info = paste("forecast R sp", sp))
   }
 
-  # NOTE: this is a PEEL-1 contract. The sigma_R gap above grows with peel depth
-  # as sqrt((N-k)/N) -- at N = 39 that is -1.3% at k=1, -6.6% at k=5 (the
-  # retrospective() default) and -13.8% at k=10 -- so raising `peels` here
-  # without widening the tolerances will look like a regression when it is the
-  # known non-DSEM bias compounding.
+  # This now holds at any peel depth. It used to be a peel-1 contract only,
+  # because the sigma_R gap grew as sqrt((N-k)/N) and would have failed at the
+  # default peels = 5.
 
   # And the number a user actually reads.
   num <- vapply(rd$mohns, is.numeric, logical(1))

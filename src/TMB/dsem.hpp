@@ -134,7 +134,11 @@ void calculate_dsem(
     // x_tj entry is mapped out, and its value is computed here. A caller that
     // reads x_tj for such a node silently gets 0. Passed by reference, so it
     // cannot be confused with the by-value arrays above.
-    array<Type> &z_tj_out
+    array<Type> &z_tj_out,
+    int want_margvar,              // 1 -> also fill margvar_tj_out
+    vector<int> cond_j,            // 1 -> condition on this column (exclude its
+                                   //      innovations from margvar_tj_out)
+    array<Type> &margvar_tj_out    // Marginal variance of each latent state
 ) {
   using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
@@ -325,6 +329,50 @@ void calculate_dsem(
   //xhat_tj = tmp_tj.array();
   //tmp_tj = delta_k.reshaped( n_t, n_j );
   //delta_tj = tmp_tj.array();
+
+  // Marginal variance of each latent state: diag(Sigma), where
+  //   Sigma = (I-Rho)^-1 Gamma^T Gamma (I-Rho)^-T
+  // is the covariance the GMRF's precision Q = (I-Rho)^T (Gamma^T Gamma)^-1
+  // (I-Rho) inverts to. Writing B = (I-Rho)^-1 Gamma^T gives Sigma = B B^T, so
+  // the diagonal is the row-wise sum of squares of B.
+  //
+  // A caller centring a lognormal on these states needs THIS, not the
+  // conditional (innovation) variance: E[exp(x)] = 1 requires a mean of
+  // -Var_marginal/2, and the two coincide only for a state with no incoming
+  // lagged paths. For a first-order self-path with coefficient rho they differ
+  // by 1/(1-rho^2). Computed from the rescaled matrices so it is right under
+  // every constant_variance setting, and only when asked -- it costs one LU
+  // solve with n_k right-hand sides.
+  if( want_margvar == 1 ){
+    matrix<Type> GammaT_kk = matrix<Type>( Gamma_kk.transpose() );
+    matrix<Type> B_kk = inverseIminusRho_kk.solve( GammaT_kk );
+    for( int t = 0; t < n_t; t++ ){
+      for( int j = 0; j < n_j; j++ ){
+        Type v = 0;
+        int kk = j * n_t + t;
+        for( int m = 0; m < n_k; m++ ){
+          // Innovations of a conditioned-on column do not contribute. A
+          // covariate supplied as data is known, not random, so the variance a
+          // caller needs is the one GIVEN the covariates, not the variance in
+          // the joint prior. The difference is not small: for a first-order
+          // self-path with one covariate the joint version is larger by
+          // beta^2 * Var(covariate) / (1 - rho^2) -- measured at +67% for
+          // rho = 0.6, beta = 0.45, sigma = 0.55 -- and a bias correction built
+          // on it over-corrects by that factor, only when a covariate is
+          // present, so an IID sem looks perfect while a covariate model is
+          // wrong.
+          //
+          // The caller supplies this rather than it being read off
+          // familycode_j: family = "fixed" describes measurement error and is
+          // set on the LATENT columns too, so keying on it excludes everything
+          // and returns zero.
+          if( cond_j(m / n_t) == 1 ) continue;
+          v += B_kk(kk, m) * B_kk(kk, m);
+        }
+        margvar_tj_out(t, j) = v;
+      }
+    }
+  }
 
   // Apply GMRF
   array<Type> z_tj( n_t, n_j );

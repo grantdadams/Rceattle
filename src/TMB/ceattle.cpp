@@ -1106,12 +1106,29 @@ Type objective_function<Type>::operator() () {
   // parameterization is untouched.
   Type jnll_dsem = 0;
   array<Type> dsem_z_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_z_tj.setZero();
+  // Marginal variance of each latent state, for the lognormal bias correction
+  // below. Only computed when the correction is actually on -- it costs an LU
+  // solve with n_k right-hand sides per objective evaluation.
+  array<Type> dsem_margvar_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_margvar_tj.setZero();
+  int dsem_want_margvar = (bias_adjust_proc > 0) ? 1 : 0;
+  // Condition on every column except the recruitment-deviation ones: the
+  // environmental columns are data the model is given, so the correction needs
+  // the variance of recruitment GIVEN them, not the joint prior variance.
+  vector<int> dsem_cond_j(dsem_y_tj.cols());
+  dsem_cond_j.setOnes();
+  if(dsem_on == 1){
+    for(int sp2 = 0; sp2 < rec_dev_col.size(); sp2++){
+      if(rec_dev_col(sp2) >= 0 && rec_dev_col(sp2) < dsem_cond_j.size())
+        dsem_cond_j(rec_dev_col(sp2)) = 0;
+    }
+  }
   if(dsem_on == 1){
     calculate_dsem(jnll_dsem, dsem_options, dsem_RAM, dsem_RAMstart,
                    dsem_familycode_j, dsem_linkcode_j, dsem_sigmastart_j,
                    dsem_eps_tj, dsem_y_tj, dsem_obs_idx, dsem_unobs_idx,
                    dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
-                   dsem_x_tj, dsem_z_tj);
+                   dsem_x_tj, dsem_z_tj, dsem_want_margvar, dsem_cond_j,
+                   dsem_margvar_tj);
 
     // Dimension contract for THIS call site. calculate_dsem() checks its own
     // inputs against each other; nyrs_dsem and rec_dev_col are ours.
@@ -1140,18 +1157,26 @@ Type objective_function<Type>::operator() () {
       // whole-row assignment would be a dimension error, or worse would
       // misalign if the lengths happened to match.
       //
-      // TODO: lognormal bias correction. The GMRF centres the latent states at
-      // 0, while the standard recruitment density centres the deviations at
-      // -sigma^2/2 so that E[R] = R0. A DSEM model therefore has a different
-      // shrinkage target from the equivalent non-DSEM model, and init_dev keeps
-      // its correction either way. Not applied yet because the naive
-      // -bias_adjust_proc*R_sd^2/2 is only right for an IID sem: R_sd here is
-      // the GMRF's CONDITIONAL (innovation) SD, and the correction needs the
-      // MARGINAL SD of the recruitment-deviation column, which for a lagged sem
-      // (rho) is sigma/sqrt(1-rho^2) and is not stationary under
-      // constant_variance = "conditional". Deriving it from Sigma_kk is the fix.
+      // Lognormal bias correction. The GMRF centres its latent states at 0,
+      // while the standard density centres the deviations at -sigma^2/2 so that
+      // E[R] = R0. Without this a DSEM has a different shrinkage target from the
+      // equivalent non-DSEM model: SSB absorbs the offset, but R0 does not --
+      // measured 20-51% low on BS2017SS with an IID sem -- and dynamic B0 and
+      // the B40% proxy are keyed to R0.
+      //
+      // The correction is -Var/2 with Var the MARGINAL variance of this
+      // species' recruitment-deviation column, which is what makes E[exp(dev)]
+      // = 1. It is NOT -R_sd^2/2: R_sd is the GMRF's conditional (innovation)
+      // SD, and the two coincide only for a state with no incoming lagged
+      // paths. For a first-order self-path they differ by 1/(1-rho^2), so using
+      // R_sd would under-correct exactly the lagged sems a DSEM exists to fit.
+      // calculate_dsem() returns the marginal variance per state, taken from
+      // diag((I-Rho)^-1 Gamma^T Gamma (I-Rho)^-T) after any constant_variance
+      // rescaling, so it is correct term by term and year by year rather than
+      // relying on a stationary approximation.
       for(yr = 0; yr < nyrs_dsem; yr++){
-        rec_dev(sp, yr) = dsem_z_tj(yr, rec_dev_col(sp));
+        rec_dev(sp, yr) = dsem_z_tj(yr, rec_dev_col(sp))
+                          - bias_adjust_proc * dsem_margvar_tj(yr, rec_dev_col(sp)) / 2.0;
       }
     }
   }

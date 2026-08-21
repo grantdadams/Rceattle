@@ -21,6 +21,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( y_tj );
   DATA_IVECTOR( obs_idx );
   DATA_IVECTOR( unobs_idx );
+  DATA_IVECTOR( cond_j );        // 1 -> condition on this column
 
   PARAMETER_VECTOR( beta_z );
   PARAMETER_VECTOR( lnsigma_z );
@@ -30,9 +31,16 @@ Type objective_function<Type>::operator() () {
 
   Type jnll = 0;
   array<Type> z_tj( y_tj.rows(), y_tj.cols() ); z_tj.setZero();
+  // Marginal variance of each latent state. Reported so it can be checked
+  // against a closed form -- for a first-order self-path it must approach
+  // sigma^2 / (1 - rho^2) away from the series edges. The recruitment bias
+  // correction in ceattle.cpp is built on this, and nothing else tests it.
+  array<Type> margvar_tj( y_tj.rows(), y_tj.cols() ); margvar_tj.setZero();
   calculate_dsem( jnll, options, RAM, RAMstart, familycode_j, linkcode_j,
                   sigmastart_j, eps_tj, y_tj, obs_idx, unobs_idx,
-                  beta_z, lnsigma_z, mu_j, delta0_j, x_tj, z_tj );
+                  beta_z, lnsigma_z, mu_j, delta0_j, x_tj, z_tj,
+                  1, cond_j, margvar_tj );
   REPORT( z_tj );
+  REPORT( margvar_tj );
   return jnll;
 }

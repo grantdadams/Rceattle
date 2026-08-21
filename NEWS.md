@@ -2,6 +2,20 @@
 
 ## New features
 
+* **`hindcast_skill()` scores forecast skill across retrospective peels.** Each
+  peel projects the years it did not see, given the catch actually taken, and is
+  scored by mean absolute scaled error against either the full time-series
+  model's estimate (`reference = "model"`, the default) or the survey index
+  actually observed (`reference = "observed"`, classic hindcast
+  cross-validation). The naive baseline is the peel's own terminal estimate held
+  flat, so `MASE < 1` means the projection beats assuming nothing changes. This
+  answers a different question from Mohn's rho, which measures how an estimate
+  of a year moves as data accumulate rather than how well a year was predicted
+  -- so it is the diagnostic for comparing recruitment projection assumptions,
+  e.g. `proj_mean_rec = TRUE` against `FALSE` against a DSEM. Read short
+  horizons with care: at one year ahead the scaling denominator is a single
+  term, so a lucky persistence forecast gives a very large MASE.
+
 * **`fit_mod(dsem = build_DSEM(...))` fits a dynamic structural equation model
   on the recruitment deviations.** The deviations become the latent states of a
   GMRF, so environmental covariates and lagged or simultaneous paths drive
@@ -65,27 +79,33 @@
 
 ## Bug fixes
 
-* **`remove_F()` zeroed fitted HINDCAST fishing mortality whenever the
-  suitability window ended before `endyr`.** It wrote `-999` into `log_F` for
-  the column indices `(max(suit_endyr) + 1):projyr - styr + 1`. Where
-  `suit_endyr == endyr` those indices run past the end of `log_F`, so nothing
-  was selected and nothing happened -- which is every bundled example and every
-  golden model. Where the suitability window stops earlier, which is what the
-  real GOA and hake models use, the same expression lands inside the hindcast:
-  measured on BS2017SS with `suit_endyr = 2010`, it zeroed F for 2011-2017 and
-  inflated terminal hindcast SSB by 43%, 187% and 17% across the three species.
-  The returned object is used as the fitted hindcast with an unfished
-  projection, including by `run_mse()` to build the unfished reference every
-  performance metric is normalized against. The write also collapsed the
-  per-predator `suit_endyr` to a single scalar and applied across every fleet
-  and species.
+* **A retrospective peel no longer shrinks the estimated process SDs.** A peel
+  does not shorten the model -- it turns data off after `endyr_peel` -- and it
+  pinned the random-effect deviations in the peeled years: `rec_dev` at zero,
+  and `log_M1_dev`, `index_q_dev` and the three selectivity blocks carried
+  forward from the last fitted year. Those pinned values were still scored by
+  their densities, which is fabricated rather than missing data, and maximally
+  informative fabricated data: "the deviation was exactly zero", or for the
+  carried-forward random-walk blocks "the increment was exactly zero", is the
+  strongest evidence available for a small process SD. The estimate shrank as
+  `sqrt((N - k)/N)` in the number of peeled years `k` -- on a 39-year model,
+  -1.3% at one peel, **-6.6% at the default `peels = 5` and -13.8% at 10** --
+  and because it grew with peel depth it was a trend across peels, in the same
+  quantity Mohn's rho is computed from, leaving every peeled forecast
+  overconfident.
 
-  Removed rather than repaired: projection F is not a function of `log_F` at
-  all -- the template reads `log_F` only for hindcast years, and the unfished
-  projection comes from `estimateMode = 3` leaving the harvest control rule
-  unevaluated. Models whose suitability window ends at `endyr` are unaffected
-  (bit-identical); models with a truncated window will change, and the change is
-  the corruption being removed.
+  Deviations that are random effects are now left free in the peeled years, so
+  the Laplace approximation integrates them out, which is what no data should
+  mean. Deviations that are not random effects in a given model are still
+  pinned; free would leave them unidentified. This was already how
+  `beta_linkage_re` behaved -- it was never pinned -- and how a DSEM's latent
+  states behave, and neither carried the bias, which is what identified it.
+
+  Measured on BS2017SS: the deepest peel's recruitment SD now matches a DSEM
+  peel of the same model to 1e-6 at both one and five peels, against ratios of
+  0.985 and a predicted 0.934 before. Retrospectives and Mohn's rho on any model
+  with estimated random effects will change; that difference is the bias being
+  removed. Models with no random effects are unaffected.
 
 
 * **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
@@ -140,26 +160,6 @@
   the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
   with `projyr > endyr` will change; that difference is the bias being removed.
 
-
-## Known issues
-
-* **A retrospective peel shrinks the estimated recruitment SD, and more so the
-  deeper the peel.** This is in the standard recruitment path and predates the
-  DSEM work; it is recorded here because the DSEM comparison is what exposed it.
-  `retrospective()` does not shorten the model -- it turns data off after
-  `endyr_peel` -- and the recruitment-deviation density loops over every
-  hindcast year, so a peel pins the peeled-year deviations at 0 and then still
-  scores them. Each pinned zero contributes about `log(sigma)` to the objective,
-  which pulls the estimate down: with `N` hindcast years and `k` peeled,
-  `sigma_hat ~= sigma * sqrt((N - k) / N)`. On BS2017SS (N = 39) that is -1.3% at
-  one peel, **-6.6% at the default `peels = 5`, and -13.8% at `peels = 10`**.
-  Because it grows monotonically with peel depth it is a trend across peels, in
-  the same quantity Mohn's rho is computed from. A DSEM peel marginalizes those
-  states instead and carries no such term, which is why a naive DSEM and a
-  non-DSEM peel still differ by ~1.5% in the recruitment SD at one peel after
-  the fixes above. Fixing it means bounding the density by `endyr_peel`, which
-  would move published non-DSEM retrospectives, so it is recorded rather than
-  changed.
 
 # Rceattle 5.9.0
 

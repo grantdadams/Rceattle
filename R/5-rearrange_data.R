@@ -81,6 +81,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
 
+
   # Fail clearly on a malformed fleet_control rather than via a cryptic dplyr
   # error deep in the reshaping below. These identity / structural columns are
   # read by name (and by `$`) throughout; a missing one has no sensible default.

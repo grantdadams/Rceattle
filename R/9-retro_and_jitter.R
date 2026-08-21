@@ -313,25 +313,63 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
     # * Adjust map size ----
-    # Turn off forecasted parameters
+    # Turn off forecasted parameters -- but NOT the ones that are random
+    # effects.
+    #
+    # Pinning a deviation in the peeled years and then letting its density score
+    # the pinned value is fabricated data, and maximally informative fabricated
+    # data: "the deviation was exactly zero" (or, for the carried-forward
+    # random-walk blocks, "the increment was exactly zero") is the strongest
+    # evidence there is for a small process SD. It shrinks the estimate as
+    # sqrt((N - k)/N) in the number of peeled years -- -6.6% at the default
+    # peels = 5, -13.8% at 10 -- and because it grows with depth it is a trend
+    # across peels, in the same quantity Mohn's rho is computed from, and it
+    # makes every peeled forecast overconfident.
+    #
+    # A random effect does not need pinning: leaving it free lets the Laplace
+    # approximation integrate it out over the peeled years, which is what "no
+    # data" should mean. That is already how beta_linkage_re behaves here (it
+    # was never pinned) and how a DSEM's latent states behave, and neither is
+    # biased -- which is what identified this. A deviation that is NOT a random
+    # effect in this model is still pinned: free would leave it unidentified.
+    #
+    # Read the random blocks off the fitted object rather than re-deriving
+    # fit_mod()'s conditions (random_rec / random_q / random_sel / M1_re), so
+    # the two cannot drift apart.
     map <- Rceattle$map
-    map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
-    map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
+    .re_names <- tryCatch(
+      unique(names(Rceattle$obj$env$par)[Rceattle$obj$env$random]),
+      error = function(e) character(0))
+    .pin <- function(nm) !(nm %in% .re_names)
+    if (.pin("rec_dev")) {
+      map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
+      map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
+    }
 
-    map$mapList$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
-    map$mapFactor$log_M1_dev <- factor(map$mapList$log_M1_dev)
+    if (.pin("log_M1_dev")) {
+      map$mapList$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
+      map$mapFactor$log_M1_dev <- factor(map$mapList$log_M1_dev)
+    }
 
-    map$mapList$index_q_dev[,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
+    if (.pin("index_q_dev")) {
+      map$mapList$index_q_dev[,(nyrs_peel+1):nyrs] <- NA
+      map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
+    }
 
-    map$mapList$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$log_sel_slp_dev <- factor(map$mapList$log_sel_slp_dev)
+    if (.pin("log_sel_slp_dev")) {
+      map$mapList$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
+      map$mapFactor$log_sel_slp_dev <- factor(map$mapList$log_sel_slp_dev)
+    }
 
-    map$mapList$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
+    if (.pin("sel_inf_dev")) {
+      map$mapList$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- NA
+      map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
+    }
 
-    map$mapList$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
+    if (.pin("sel_coff_dev")) {
+      map$mapList$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- NA
+      map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
+    }
 
     # -- Map out Fdev for years with 0 catch to very low number
     zero_catch <- data_list$catch_data |>
