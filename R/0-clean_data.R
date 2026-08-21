@@ -136,6 +136,10 @@ clean_data <- function(data_list){
              data_list$styr:data_list$projyr else integer(0)
     data_list$env_data <- data.frame(Year = yrs)
   }
+  # ... and coerce whatever was supplied to a numeric data.frame with an
+  # integer Year, because that is what everything downstream reads (see
+  # .rce_numeric_env_data()).
+  data_list$env_data <- .rce_numeric_env_data(data_list$env_data)
 
   # index_cov: named list of survey-index variance-covariance matrices, keyed by
   # Fleet_name, used only by fleets with Index_distribution == "MVN" (the AMAK/ebswp
@@ -228,6 +232,125 @@ clean_data <- function(data_list){
   }
 
   return(.rce_as_data(data_list))
+}
+
+
+#' Coerce env_data to a numeric data.frame with an integer Year
+#'
+#' @description
+#' The environmental table is read as numbers everywhere it is used: it reaches
+#' TMB as `env_index`, a `DATA_MATRIX` built by `rearrange_data()`, and reaches
+#' the linkage grammar through `model.matrix()`. A table that carries text --
+#' a workbook column read back as character, a factor from a `stringsAsFactors`
+#' data.frame, a character matrix passed as `env_data` -- therefore fails much
+#' later and says nothing useful about where it came from: the mean-fill of
+#' missing years returns `NA` for the whole column ("argument is not numeric or
+#' logical: returning NA") and `MakeADFun()` stops with "Only numeric matrices,
+#' vectors, arrays, factors, lists or length-1-characters can be interfaced".
+#'
+#' Coerce once, on the way in, and name the column and the value when a cell is
+#' genuinely not a number rather than turning it into an `NA` that the
+#' mean-fill would then quietly replace with a column mean.
+#'
+#' `Year` is returned as an integer because it is matched against `styr`,
+#' `endyr` and the model years, which are integers; a fractional year is an
+#' error, not something to round.
+#'
+#' @param env_data the environmental table: a data.frame (or a matrix, which is
+#'   converted), or `NULL`.
+#'
+#' @return `env_data` as a data.frame whose columns are all numeric, with an
+#'   integer `Year` where that column is present. `NULL` passes through.
+#'
+#' @keywords internal
+#' @noRd
+.rce_numeric_env_data <- function(env_data) {
+  if (is.null(env_data)) return(NULL)
+
+  if (is.matrix(env_data)) {
+    env_data <- as.data.frame(env_data, stringsAsFactors = FALSE)
+  }
+  if (!is.data.frame(env_data)) {
+    stop("`env_data` must be a data.frame or a matrix; got ",
+         paste(class(env_data), collapse = "/"), ".", call. = FALSE)
+  }
+  # A tibble indexes differently from a data.frame in places downstream
+  # (`[, j]` keeps its class), so settle the class here too.
+  env_data <- as.data.frame(env_data, stringsAsFactors = FALSE)
+  if (ncol(env_data) == 0L) return(env_data)
+
+  for (nm in names(env_data)) {
+    col <- env_data[[nm]]
+
+    # A matrix column -- what `data.frame(Year = yrs, Qcov = ecov_matrix)`
+    # builds from a one-column matrix. as.matrix() would later expand it into
+    # several env_index columns, shifting every index a `Cindex` /
+    # `M1_indices` / `Time_varying_q` refers to, so flatten the one-column
+    # case and refuse the rest rather than renumber the indices silently.
+    if (is.matrix(col)) {
+      if (ncol(col) != 1L) {
+        stop(sprintf(
+          paste0("env_data column '%s' is a %d-column matrix; env_data takes ",
+                 "one value per year per column. Split it into separate ",
+                 "columns."),
+          nm, ncol(col)), call. = FALSE)
+      }
+      col <- as.vector(col)
+    }
+    # A list column of one value per year (what some readers produce) is a
+    # normal column written awkwardly, so flatten it; a ragged one is not.
+    if (is.list(col)) {
+      if (all(lengths(col) == 1L) && all(vapply(col, is.atomic, logical(1)))) {
+        col <- unlist(col, use.names = FALSE)
+      } else {
+        stop(sprintf(
+          paste0("env_data column '%s' is a list column with more than one ",
+                 "value per row; env_data takes one value per year per ",
+                 "column."), nm), call. = FALSE)
+      }
+    }
+
+    if (is.numeric(col)) {
+      num <- as.numeric(col)
+    } else if (is.logical(col)) {
+      # All-NA is how an empty workbook column reads back; a genuine TRUE/FALSE
+      # column is a 0/1 covariate.
+      num <- as.numeric(col)
+    } else {
+      chr <- trimws(as.character(col))
+      num <- suppressWarnings(as.numeric(chr))
+      # A blank cell reads back as NA (never ""), and the literal "NA"/"NaN"
+      # are legitimate ways to write "no value" -- all stay NA. Anything else
+      # that fails to convert is a typo or a stray label, and is reported.
+      bad <- !is.na(chr) & nzchar(chr) & is.na(num) &
+        !(tolower(chr) %in% c("na", "nan"))
+      if (any(bad)) {
+        vals <- unique(chr[bad])
+        stop(sprintf(
+          paste0("Non-numeric value(s) %s in env_data column '%s'; expected ",
+                 "numbers. env_data is read as numbers throughout (it becomes ",
+                 "the env_index matrix passed to TMB), so encode a label as a ",
+                 "numeric indicator column."),
+          paste(sprintf("'%s'", utils::head(vals, 5L)), collapse = ", "), nm),
+          call. = FALSE)
+      }
+    }
+
+    if (identical(nm, "Year")) {
+      frac <- is.finite(num) & (num != round(num))
+      if (any(frac)) {
+        stop(sprintf(
+          "env_data 'Year' has non-integer value(s) %s; expected whole years.",
+          paste(utils::head(unique(num[frac]), 5L), collapse = ", ")),
+          call. = FALSE)
+      }
+      num <- as.integer(round(num))
+    }
+
+    env_data[[nm]] <- num
+  }
+
+  env_data
 }
 
 

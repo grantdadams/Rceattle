@@ -1251,7 +1251,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     }
     # rw()/ar1() couple deviations by elapsed time, so the grouping variable
     # must be numeric (a real lag). IID is order-invariant, so it accepts any
-    # grouping (e.g. a regime label).
+    # grouping (e.g. a regime label coded 1/2/3). On the fit_mod() path every
+    # env_data column is numeric by the time it gets here -- clean_data()
+    # coerces the table, since it also becomes the env_index matrix TMB reads
+    # -- so this guard now only fires for a direct caller.
     if (re_structures[i] != "us" &&
         !is.numeric(env_data[[grp_var]]) &&
         anyNA(suppressWarnings(as.numeric(as.character(env_data[[grp_var]]))))) {

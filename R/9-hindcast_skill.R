@@ -54,8 +54,26 @@
 #'   projection is used for (SSB, recruitment); `"observed"` scores the only
 #'   thing that was really measured, and is the version comparable to MASE
 #'   values published for other assessment platforms.
+#' @param forecast_rec How the peeled years get their recruitment.
+#'   `"model"` (default here) uses the model's own projection rule, in
+#'   precedence order: `proj_mean_rec = TRUE` projects at mean recruitment,
+#'   whatever process the model carries, because that is what the setting means;
+#'   otherwise the LATENT STATES supply it where the deviations are random
+#'   effects (`random_rec = TRUE`, or a DSEM), so an AR1's autocorrelation or a
+#'   DSEM's lagged and covariate paths propagate into the forecast; otherwise
+#'   recruitment comes off the stock-recruit curve. `"mean"` forces the
+#'   historical mean for all of them, which is [retrospective()]'s default and
+#'   the convention Mohn's rho is computed under.
+#'
+#'   The default differs from [retrospective()]'s on purpose. A peel's forecast
+#'   years are hindcast years, so `proj_mean_rec` cannot reach them by itself,
+#'   and with `"mean"` every model forecasts identically -- which makes this
+#'   function unable to tell projection methods apart, the one thing it exists
+#'   to do. Measured on the GOA arrowtooth model, `proj_mean_rec = TRUE` and
+#'   `FALSE` returned byte-identical MASE under `"mean"`.
 #' @param retro Optionally an already-computed [retrospective()] result, to
-#'   avoid refitting when both are wanted.
+#'   avoid refitting when both are wanted. Note a `retro` computed with
+#'   [retrospective()]'s defaults carries `forecast_rec = "mean"`.
 #' @param ... Passed to [retrospective()] (`cores`, `getsd`, `rescale`).
 #'
 #' @return A list with
@@ -75,12 +93,14 @@
 hindcast_skill <- function(Rceattle = NULL, peels = 5,
                            quantity = c("ssb", "biomass", "R"),
                            reference = c("model", "observed"),
+                           forecast_rec = c("model", "mean"),
                            retro = NULL, ...) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
-  quantity  <- match.arg(quantity, several.ok = TRUE)
-  reference <- match.arg(reference, several.ok = TRUE)
+  quantity     <- match.arg(quantity, several.ok = TRUE)
+  reference    <- match.arg(reference, several.ok = TRUE)
+  forecast_rec <- match.arg(forecast_rec)
 
   for (q in quantity) {
     if (is.null(Rceattle$quantities[[q]])) {
@@ -89,7 +109,8 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
   }
 
   if (is.null(retro)) {
-    retro <- retrospective(Rceattle, peels = peels, ...)
+    retro <- retrospective(Rceattle, peels = peels,
+                           forecast_rec = forecast_rec, ...)
   }
   # retrospective() returns rev(c(list(Rceattle), peels)), so the LAST element
   # is the input model and the peels run deepest-first. Score only the peels;

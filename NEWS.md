@@ -160,6 +160,34 @@
   the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
   with `projyr > endyr` will change; that difference is the bias being removed.
 
+* **`env_data` is now read as numbers.** It is coerced to a data.frame of
+  numeric columns with an integer `Year` on the way in -- in `read_data()`,
+  `clean_data()` and `rearrange_data()` -- so a table supplied as a matrix, or
+  carrying a column that arrived as text (a workbook column formatted as text,
+  a factor, a character matrix), is usable rather than fatal. A column of text
+  previously survived to `MakeADFun()`, which stopped with "Only numeric
+  matrices, vectors, arrays, factors, lists or length-1-characters can be
+  interfaced" after the fill of missing years had already given up on it
+  ("argument is not numeric or logical: returning NA") and left it `NA` for
+  every year. A cell that is genuinely not a number now names its column and
+  its value instead of becoming an `NA` that the fill would replace with a
+  column mean -- a fabricated observation. Blank cells and the literal `NA` /
+  `NaN` still mean "no value" and are still filled.
+
+* **An `env_data` column with no values at all now warns.** There is no mean to
+  fill the missing years with, so the column reaches TMB as `NaN` for every
+  year, and any index pointed at it (`Cindex`, `M1_indices`, an
+  environmental `Time_varying_q`, a linkage covariate) makes the objective
+  `NaN` with nothing to say why.
+
+* **A compiled model that does not match the R code now says so.** `MakeADFun()`
+  reports a template variable the data and parameter lists do not supply as
+  "Error when reading the variable: '<name>'. Please check data and
+  parameters.", which reads like a problem with the data. The usual cause is a
+  build mismatch -- the C++ was not rebuilt after an update, or an older DLL is
+  still loaded in the session from before a reinstall -- and `fit_mod()` now
+  says that alongside the original message.
+
 
 # Rceattle 5.9.0
 

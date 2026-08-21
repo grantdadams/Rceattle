@@ -136,10 +136,14 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL,
+                          forecast_rec = c("mean", "model")) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  forecast_rec <- match.arg(forecast_rec)
 
   # A peel does not shorten the model: it sets endyr_peel and turns off DATA
   # after it, so a DSEM still spans every year. Its latent states stay free and
@@ -337,10 +341,34 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # fit_mod()'s conditions (random_rec / random_q / random_sel / M1_re), so
     # the two cannot drift apart.
     map <- Rceattle$map
-    .re_names <- tryCatch(
-      unique(names(Rceattle$obj$env$par)[Rceattle$obj$env$random]),
-      error = function(e) character(0))
-    .pin <- function(nm) !(nm %in% .re_names)
+    # ONE source of truth, recorded by fit_mod() at the hindcast build. Do NOT
+    # read Rceattle$obj$env$random: under estimateMode = 0 with a harvest
+    # control rule that object is the PROJECTION object, whose map turns every
+    # hindcast entry off, so its `random` declaration is EMPTY and every block
+    # would look like a fixed effect. That silently restored the old pinning on
+    # exactly the fits that carry an HCR -- measured -19.1% on peel-1 sigma_R --
+    # and it is the same field .states_supply reads below, so the two must not
+    # disagree.
+    #
+    # A block is left free only if it is BOTH a random effect and scored by a
+    # NORMALIZED density. The Laplace integral over a data-free tail is exactly
+    # 1 for a normalized Gaussian, so freeing it removes the fabricated term and
+    # nothing else. Two selectivity densities are unnormalized kernels
+    # (ceattle.cpp: the NonParametricPM random walk and the sel_coff_dev
+    # penalty, both written as dd^2/(2 sd^2) with no dnorm constant); freeing a
+    # tail under those contributes -k log(sigma) with no compensating term and
+    # pushes sel_dev_log_sd UP instead. Those stay pinned, where the
+    # carried-forward tail has a zero first difference and contributes exactly 0.
+    .re_names <- Rceattle$random_vars
+    if (is.null(.re_names)) {
+      warning("This fit does not record which blocks were random effects ",
+              "(fit_mod() before 5.10.0). The peel will pin every deviation, ",
+              "which shrinks the estimated process SDs with peel depth. Refit ",
+              "to get an unbiased retrospective.", call. = FALSE)
+      .re_names <- character(0)
+    }
+    .UNNORMALIZED <- c("sel_coff_dev")
+    .pin <- function(nm) !(nm %in% setdiff(.re_names, .UNNORMALIZED))
     if (.pin("rec_dev")) {
       map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
       map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
@@ -463,7 +491,41 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     # nothing is shrunk by fixing a coupled state. It also keeps a naive (IID)
     # DSEM reproducing the non-DSEM retrospective, which is the contract a user
     # comparing the two configurations relies on.
-    for(sp in 1:newmod$data_list$nspp){
+    # forecast_rec = "model" hands the peeled years to the model's own
+    # projection rule instead of assuming the mean. The peeled years are
+    # HINDCAST years, so proj_mean_rec -- which the template only reads past
+    # endyr -- cannot reach them on its own; but every rule is expressible here,
+    # and "mean" is already one of them. In precedence order:
+    #
+    #   proj_mean_rec = TRUE
+    #       mean recruitment. An explicit instruction to project at the mean
+    #       wins over any process the model carries, DSEM or otherwise -- it is
+    #       what the setting means.
+    #   proj_mean_rec = FALSE, deviations are random effects (random_rec, DSEM)
+    #       the LATENT STATES supply it, so write nothing. The peeled-year
+    #       states are estimated -- marginalized, not pinned -- so they carry
+    #       the process: an AR1's autocorrelation, or a DSEM's lagged and
+    #       covariate paths, propagates into the forecast instead of collapsing
+    #       to a constant. Overwriting would discard the process being compared.
+    #   proj_mean_rec = FALSE, deviations are fixed effects
+    #       recruitment off the stock-recruit curve, i.e. a zero deviation.
+    #       There is no process to consult.
+    #
+    # Without this a retrospective cannot distinguish projection methods at all:
+    # every peel forecasts at the historical mean whatever the model says, which
+    # is the one thing hindcast_skill() exists to compare.
+    #
+    # "mean" stays the default so Mohn's rho keeps the convention it has always
+    # had and stays comparable to published values.
+    .use_model_rec <- identical(forecast_rec, "model")
+    .mean_rec      <- isTRUE(as.logical(newmod$data_list$proj_mean_rec))
+    # Same source as .pin() above, or the two disagree: with random_rec = TRUE
+    # under an HCR, .pin() would pin rec_dev at 0 while this said the states
+    # supply it, and the "forecast" would be a deterministic zero deviation
+    # inherited from inits.
+    .states_supply <- .use_model_rec && !.mean_rec &&
+      (.has_dsem(newmod) || !.pin("rec_dev"))
+    if (!.states_supply) for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
@@ -475,6 +537,13 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
         # Already a log-scale deviation, so take the mean directly.
         rec_dev <- mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])
 
+      }
+
+      # Reached only with proj_mean_rec = FALSE and no recruitment process (the
+      # random-effect cases returned above): the projection comes off the
+      # stock-recruit curve, which is a zero deviation.
+      if (.use_model_rec && !.mean_rec) {
+        rec_dev <- 0
       }
 
       # - Update OM with devs
@@ -498,7 +567,18 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
         .rows <- peel_prj_yrs - styr + 1L
         stopifnot(length(.col) == 1L, !is.na(.col),
                   max(.rows) <= nrow(peeled_pars$dsem_x_tj))
-        peeled_pars$dsem_x_tj[.rows, .col] <- rec_dev
+        # ADD BACK the lognormal bias correction. The template derives
+        #   rec_dev = x_tj - bias_adjust_proc * margvar / 2
+        # so writing the intended deviation straight into x_tj lands margvar/2
+        # low -- measured at -22.1% in realised recruitment on BS2017SS with a
+        # naive sem at the default bias_adjust_proc, and worse for a lagged sem,
+        # where margvar is sigma^2/(1-rho^2) rather than sigma^2.
+        .mv <- newmod$quantities$dsem_margvar_tj
+        .adj <- if (!is.null(.mv) && nrow(.mv) >= max(.rows) && ncol(.mv) >= .col) {
+          as.numeric(.mv[.rows, .col])
+        } else rep(0, length(.rows))
+        .bias <- as.numeric(newmod$data_list$bias_adjust_proc %||% 1)
+        peeled_pars$dsem_x_tj[.rows, .col] <- rec_dev + .bias * .adj / 2
       }
     }
 

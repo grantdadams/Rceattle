@@ -73,7 +73,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     if (phase_cur>1) params_use <- obj$env$parList(opt$par)
 
     # Fit the model
-    obj <- TMB::MakeADFun(data,parameters =  params_use,random=random_use,DLL=model_name,map=map_use, silent = silent)
+    obj <- .rce_make_adfun(data,parameters =  params_use,random=random_use,DLL=model_name,map=map_use, silent = silent)
 
     if(use_gradient){
       opt <- nlminb(obj$par,obj$fn,obj$gr, control = control)

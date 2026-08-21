@@ -5156,6 +5156,12 @@ Type objective_function<Type>::operator() () {
     unweighted_jnll_comp(JNLL_DSEM, 0) += jnll_dsem;
   }
   REPORT(jnll_dsem);
+  // Reported so the bias correction can be read, inverted and tested from R.
+  // retrospective() needs it to write a target recruitment deviation into
+  // dsem_x_tj: the template subtracts margvar/2 when it derives rec_dev, so a
+  // caller writing the deviation directly lands that much low. A quota-relevant
+  // correction that cannot be inspected from R cannot be checked.
+  REPORT(dsem_margvar_tj);
 
   if (log_sigma_linkage.size() > 0) {
     int n_re = beta_linkage_re_all.size();

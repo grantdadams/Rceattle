@@ -1206,7 +1206,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if (sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0) { stop("Map of length 0: all NAs") }
-    obj <- TMB::MakeADFun(
+    obj <- .rce_make_adfun(
       data_list_reorganized,
       parameters = start_par,
       DLL        = TMBfilename,
@@ -1317,6 +1317,18 @@ fit_mod <-
           }
           mod_objects$identified <- identified
         }
+      }
+
+      # Record which parameter blocks the HINDCAST declared random. Reading this
+      # back off `$obj` later does not work: under estimateMode = 0 with a
+      # harvest control rule, `$obj` is the PROJECTION object, whose map comes
+      # from build_hcr_map(all_params_on = FALSE) and sets every hindcast entry
+      # to NA -- so TMB drops the whole `random` declaration and
+      # obj$env$random is empty. Anything asking "was this block a random
+      # effect?" would then get FALSE for every block, on exactly the fits that
+      # carry an HCR. retrospective() asks precisely that.
+      if (estimateMode %in% c(0, 1)) {
+        mod_objects$random_vars <- random_vars
       }
 
       # Capture the hindcast optimizer convergence snapshot now, before any

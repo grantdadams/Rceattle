@@ -557,8 +557,14 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
   # Environmental data ----
+  # readxl types a column from its cells, so one stray label (or a column
+  # formatted as text) reads the whole series back as character. env_data is
+  # numbers throughout -- it becomes the env_index matrix handed to TMB -- so
+  # coerce here and report the offending cell, rather than let it surface as a
+  # cryptic MakeADFun error a whole pipeline later.
   if("env_data" %in% sheetnames){
-    data_list$env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
+    data_list$env_data <- .rce_numeric_env_data(
+      as.data.frame(readxl::read_xlsx(file, sheet = "env_data")))
   }
 
 

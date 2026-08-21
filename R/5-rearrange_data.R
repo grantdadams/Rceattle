@@ -662,12 +662,36 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
 
   # 13 - Set up environmental indices ----
+  # - Coerce to a numeric data.frame first. No-op in the fit_mod() pipeline,
+  #   where clean_data() has already run; this closes the same gap on the
+  #   exported rearrange_data() path, where a character column would otherwise
+  #   make the mean-fill below return an all-NA column and hand TMB a character
+  #   matrix ("Only numeric matrices ... can be interfaced").
   # - Fill in missing years with column mean
+  data_list$env_data <- .rce_numeric_env_data(data_list$env_data)
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
   data_list$env_index <-  data_list$env_index %>%
     dplyr::select(-Year) %>%
     dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
     as.matrix()
+
+  # A column with no observation anywhere has no mean to fill with, so the
+  # mean-fill leaves it NaN for every year. TMB accepts that matrix and any
+  # index pointed at the column (Cindex, M1_indices, an env-driven Time_varying_q,
+  # a linkage covariate) then returns a NaN objective with nothing to say why.
+  # Say it here instead. A warning, not an error: an unused empty column is
+  # inert, and this is a released package.
+  if(ncol(data_list$env_index) > 0){
+    empty_env <- apply(data_list$env_index, 2, function(z) all(!is.finite(z)))
+    if(any(empty_env)){
+      warning("env_data column(s) ",
+              paste(sprintf("'%s'", colnames(data_list$env_index)[empty_env]),
+                    collapse = ", "),
+              " have no values in ", data_list$styr, ":", data_list$projyr,
+              ", so there is no mean to fill missing years with. Any index ",
+              "pointed at them makes the objective NaN.", call. = FALSE)
+    }
+  }
 
 
   # 14 - Set up ration_data ----
