@@ -176,8 +176,8 @@ Each row defines one fleet (fishery or survey) and controls how it is modeled. M
 #   "DoubleLogistic"     (3) -- ascending + descending dome-shaped logistic
 #   "DescendingLogistic" (4) -- descending logistic only (dome-shaped for oldest ages)
 #   "Hake"               (5) -- non-parametric selectivity à la Taylor et al. (Pacific hake)
-#   "2DAR1"              (6) -- 2D autoregressive random effects (age × year)
-#   "3DAR1"              (7) -- 3D autoregressive random effects (age × year × cohort)
+#   "2DAR1"              (6) -- 2D autoregressive random effects (bin × year)
+#   "3DAR1"              (7) -- 3D autoregressive random effects (bin × year × cohort)
 #
 # Selectivity_dimension: "Age" or "Length"
 #   Length-based selectivity requires an age-to-length transition matrix (see below).

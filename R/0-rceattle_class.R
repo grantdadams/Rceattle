@@ -204,11 +204,18 @@ logLik.Rceattle <- function(object, ...) {
 #'     the log scale by default (matching the lognormal likelihood; set
 #'     `scale = "natural"` for the arithmetic difference); for `comp` / `caal`
 #'     it is the difference in proportions, observed minus fitted.}
-#'   \item{`"pearson"`}{Standardized residuals. For `index` / `catch`,
+#'   \item{`"pearson"`}{Standardized residuals. For `catch` and a log-scale
+#'     survey index,
 #'     \eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
 #'     realized observation log-SD \eqn{\sigma} and the observation
-#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1); for
-#'     `comp` / `caal`,
+#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1). A
+#'     natural-scale index fleet (`Index_distribution` `"MVN"`, `"MVNORM"`,
+#'     `"Normal"` or `"TruncatedNormal"`) carries an ABSOLUTE \eqn{\sigma} and is
+#'     standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
+#'     covariance fleet gets its marginal residual, not the whitened one (use
+#'     `type = "osa"` for that), and `"TruncatedNormal"` is standardized on the
+#'     untruncated moments, so it is approximate where \eqn{\hat{o}/\sigma} is
+#'     small enough for truncation to shift the mean. For `comp` / `caal`,
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
 #'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
@@ -382,8 +389,20 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     obs <- idx$Observation
     hat <- as.numeric(q$index_hat)
     if (type == "pearson") {
-      sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
-      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
+      sigma <- .observation_sd(q, "index")
+      sigma <- if (!is.null(sigma)) as.numeric(sigma) else idx$Log_sd
+      # Standardize on the scale the fleet's own likelihood uses. The lognormal
+      # form below is wrong for a natural-scale family by orders of magnitude,
+      # not by a little: sigma there is ABSOLUTE, so -sigma^2/2 is a number the
+      # size of the index squared and every residual comes back at the same
+      # large constant (an absolute sd of 150 gives ~+75 for every row,
+      # regardless of fit).
+      nat <- .index_rows_natural_scale(d)
+      if (!length(nat)) nat <- rep(FALSE, length(obs))
+      res <- rep(NA_real_, length(obs))
+      res[!nat] <- (log(obs[!nat]) -
+                      (log(hat[!nat]) - ba_obs * sigma[!nat]^2 / 2)) / sigma[!nat]
+      res[nat]  <- (obs[nat] - hat[nat]) / sigma[nat]
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
@@ -413,7 +432,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     obs <- ctc$Catch
     hat <- as.numeric(q$catch_hat)
     if (type == "pearson") {
-      sigma <- if (!is.null(q$log_catch_sd)) as.numeric(q$log_catch_sd) else ctc$Log_sd
+      sigma <- .observation_sd(q, "catch")
+      sigma <- if (!is.null(sigma)) as.numeric(sigma) else ctc$Log_sd
       res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
@@ -887,4 +907,77 @@ as.data.frame.Rceattle <- function(x,
   out <- out[!vapply(out, is.null, logical(1))]
   if (!length(out)) return(empty)
   do.call(rbind, c(unname(out), list(make.row.names = FALSE)))
+}
+
+
+#' Simulate data from a fitted Rceattle model
+#'
+#' @description The [stats::simulate()] method for CEATTLE fits: draws `nsim`
+#' replicate data sets from the fitted observation model, and optionally from
+#' the process model as well.
+#'
+#' @details
+#' A wrapper on [sim_mod()], which documents the observation model in full. For
+#' expected values rather than draws, call `sim_mod(simulate = FALSE)`.
+#'
+#' Draws are taken by the TMB model, so `simulate()` needs a live `$obj`: a
+#' model loaded from disk has one, a [model_average()] result does not -- see
+#' [sim_mod()].
+#'
+#' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param nsim Number of replicate data sets to draw. Default 1.
+#' @param seed Optional seed. The caller's random state is restored afterwards,
+#'   per [stats::simulate()]. Recorded as `attr(, "seed")`.
+#' @param process Which process error to redraw alongside the observations.
+#'   `FALSE` (default) keeps the fitted deviations, so replicates differ only in
+#'   observation error. See [sim_mod()] for the alternatives.
+#' @param ... Currently unused.
+#'
+#' @return A list of `nsim` `data_list` objects -- always a list, including at
+#'   `nsim = 1`, so callers do not have to special-case the length. When
+#'   `process` redrew something, each element carries the deviations that
+#'   generated it as `attr(, "process_sim")`: a named list of whichever of
+#'   `rec_dev`, `init_dev`, `log_M1_dev` and `beta_linkage_re` were drawn, each
+#'   with a `_drawn` logical of the same shape marking the cells the draw
+#'   touched. Compare estimates against those rather than against `object` --
+#'   see [sim_mod()].
+#'
+#' @seealso [sim_mod()] for the observation model and the `process` options,
+#'   [self_test()] for simulating and refitting in one step.
+#'
+#' @examples
+#' \dontrun{
+#' fit  <- fit_mod(data_list = BS2017SS, estimateMode = 1)
+#' reps <- simulate(fit, nsim = 10, seed = 1)
+#' # ...and with recruitment redrawn as well:
+#' reps <- simulate(fit, nsim = 10, seed = 1, process = "recruitment")
+#' truth <- attr(reps[[1]], "process_sim")$rec_dev
+#' }
+#' @export
+simulate.Rceattle <- function(object, nsim = 1, seed = NULL,
+                              process = FALSE, ...) {
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be an Rceattle model fit.", call. = FALSE)
+  }
+  nsim <- as.integer(nsim)
+  if (length(nsim) != 1L || is.na(nsim) || nsim < 1L) {
+    stop("`nsim` must be a single positive integer.", call. = FALSE)
+  }
+
+  # The stats::simulate() convention: seeding is local, so a caller mid-stream
+  # is not silently displaced by having simulated.
+  if (!is.null(seed)) {
+    if (!exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      stats::runif(1)
+    }
+    old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    set.seed(seed)
+  }
+
+  out <- lapply(seq_len(nsim), function(i)
+    sim_mod(object, simulate = TRUE, process = process))
+  names(out) <- paste0("Sim_", seq_len(nsim))
+  if (!is.null(seed)) attr(out, "seed") <- seed
+  out
 }

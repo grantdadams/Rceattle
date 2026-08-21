@@ -102,6 +102,13 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   the matrix) — refer to a row by its constant, never a bare integer. Their **display
   names** live separately in `R/6-rename_output.R` (~L130–151) and are kept in sync by
   hand. If you add/reorder a likelihood component, update both the enum and the name vector.
+- **`Index_distribution` has a second hand-synced registry.** A family added to
+  `index_distribution_map` (`R/0-switches.R`) must also be classified in
+  `.index_rows_natural_scale()` in the same file, which is what `residuals(type =
+  "pearson")`, `plot_index()`'s observation interval and `plot_indexresidual()` read to
+  pick a scale. A natural-scale family that misses it does not error — it silently gets
+  the log-scale formula, whose `sigma^2/2` is then a number the size of the index
+  squared. `test-index-natural-scale-downstream.R` enumerates the map and is the net.
 - **Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
   `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the
   group, so any per-fleet setting that differs within a group is silently taken from the
@@ -166,6 +173,19 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   current assessment `endyr` each iteration. The invariant (MSE must not perturb the
   hindcast, under any `simulate_data` / `sample_rec`) is checked by
   `tools/verify/verify-mse-hindcast-invariant.R`.
+- **Every observation and process error is drawn in a `SIMULATE{}` block beside the
+  density that scores it** (`ceattle.cpp` sections 5.12b, 5.13, and one per likelihood
+  slot; the multivariate draws live in `comp_sim.hpp`). `sim_mod()` no longer implements
+  any observation model in R — it calls `obj$simulate()` once and writes the result back.
+  A new likelihood family therefore owes a draw. Three rules the existing blocks follow:
+  draw what the density assumes (bias-correction convention and scale included); REPORT
+  under a `*_sim` name, because TMB never clears the report environment and a draw under
+  the observed object's own name stays readable as the data; and don't draw what the
+  model does not define (two densities on one latent — the AMAK/Ianelli stock-recruit
+  penalty — have no distribution to draw from, so leave it and warn). A process draw also
+  reports a `*_drawn_sim` mask, since the deviation arrays are REPORTed whole.
+  `tools/verify/verify-sim-*.R` are the regression net here, as `verify-refit-like.R` is
+  for the refit paths — `/golden-check` reaches none of it.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are
   gitignored — don't commit them.
 
@@ -233,7 +253,16 @@ files), update all three before considering it done:
   user-facing change.
 - **`DESCRIPTION` `Version:`** — bump per semver: **patch** for bug fixes / docs, **minor**
   for new features, **major** for breaking API changes. Changes accumulate under the
-  current dev version until release.
+  current dev version until release. **"Breaking" here means no back-compat path**: a
+  removal that ships with a deprecation message and keeps old fits working is a *minor*
+  bump even when `NEWS.md` files it under `## Breaking changes` (5.7.0 and 5.9.0 are the
+  worked examples — `growth_re` was removed with a `switch_check()` deprecation message
+  and a `fit_mod()` guard that drops retired parameter blocks from `inits`).
+- **Don't open a NEWS section for a version `DESCRIPTION` never carries.** Intermediate
+  headings written mid-branch are folded into the shipped section before merge, and the
+  folding is noted rather than the entries renumbered — see the three folded gaps in
+  "Active context". A section for an unshipped version also breaks any `(x.y.z)`
+  cross-reference pointing at it.
 - **Vignettes** — update any `vignettes/*.Rmd` whose documented behavior or API changed
   (they're `eval = FALSE`, so at minimum they must still render).
 

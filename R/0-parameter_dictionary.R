@@ -57,8 +57,6 @@
     # -- growth ------------------------------------------------------------
     r("log_growth_pars", "K / L1 / Linf / m", "growth",
       "Mean growth-curve parameters (von Bertalanffy or Richards).", "[nspp, nsex, 4]"),
-    r("log_growth_par_devs", "growth deviations", "growth",
-      "Annual deviations on the growth-curve parameters.", "[nspp, nsex, nyrs, 4]"),
     r("growth_log_sd", "sigma_L1 / sigma_Linf", "growth",
       "Standard deviation of length-at-age at the minimum and maximum age.", "[nspp, nsex, 2]"),
     r("weight_length_pars", "alpha_wt / beta_wt", "growth",
@@ -121,8 +119,8 @@
       "Annual deviations on the non-parametric selectivity coefficients.", "[n_sel, nsex, n_sel_bins, nyrs_hind]"),
     r("sel_dev_log_sd", "sigma_sel", "selectivity",
       "Standard deviation of the time-varying selectivity deviations.", "[n_sel]"),
-    r("sel_curve_pen", "selectivity penalty weights", "selectivity",
-      "Weights on the non-parametric selectivity shape and curvature penalties; supplied via fleet_control, not estimated.", "[n_sel, 3]"),
+    r("sel_curve_pen", "selectivity penalty weights / AR1 correlations", "selectivity",
+      "Meaning depends on the fleet's Selectivity. For the non-parametric forms these are weights on the shape and curvature penalties, supplied via fleet_control and not estimated. For '2DAR1' and '3DAR1' the same slots hold estimated correlations: slot 1 across selectivity BINS, slot 2 across YEARS, and for 3DAR1 slot 3 across COHORTS.", "[n_sel, 3]"),
 
     # -- observation error / data weighting -------------------------------
     r("index_log_sd", "sigma_index", "observation",

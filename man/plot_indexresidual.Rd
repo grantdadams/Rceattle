@@ -31,7 +31,8 @@ plot_indexresidual(
 
 \item{width, height}{Saved figure size (inches).}
 
-\item{residual_type}{\code{"pearson"} (log index residuals) or \code{"osa"}.}
+\item{residual_type}{\code{"pearson"} (index residuals on the fleet's own scale)
+or \code{"osa"}.}
 
 \item{line_col, right_adj, top_adj, single.plots}{Deprecated base-graphics
 arguments, retained for back-compatibility and ignored.}
@@ -42,8 +43,22 @@ arguments, retained for back-compatibility and ignored.}
 A \code{ggplot} object.
 }
 \description{
-Plots log residuals \code{log(predicted) - log(observed)} of the survey index by
-year, faceted by survey fleet (\code{residual_type = "pearson"}, the default), or
-one-step-ahead (OSA) residual diagnostics for a single fit
-(\code{residual_type = "osa"}, via \code{\link[=osa_residuals]{osa_residuals()}} / \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
+Plots survey index residuals by year, faceted by survey fleet
+(\code{residual_type = "pearson"}, the default), or one-step-ahead (OSA) residual
+diagnostics for a single fit (\code{residual_type = "osa"}, via \code{\link[=osa_residuals]{osa_residuals()}} /
+\code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}).
+}
+\details{
+The residual is \strong{observed minus predicted}, taken on the scale the fleet is
+fitted on and read from its \code{Index_distribution}:
+\code{log(observed) - log(predicted)} for a log-scale (\code{"Lognormal"}) fleet, and
+\code{observed - predicted} for a natural-scale one (\code{"MVN"}, \code{"MVNORM"},
+\code{"Normal"}, \code{"TruncatedNormal"}), whose sd is absolute. A positive residual
+means the survey saw more than the model predicted. Panels carry different
+units where a model mixes the two families, which is why the y scale is free
+per fleet.
+
+Before 5.9.0 this plotted \code{predicted - observed}, the negative of what
+\code{\link[=residuals.Rceattle]{residuals.Rceattle()}} returns for the same fleet. Plots made with an earlier
+version are mirrored about zero relative to these.
 }

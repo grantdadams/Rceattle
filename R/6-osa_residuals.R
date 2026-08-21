@@ -34,12 +34,62 @@
 #' pseudo-likelihood are residualized under the full multinomial.
 #'
 #' Survey-index OSA residuals are supported for every index likelihood family
-#' (`Index_distribution`): lognormal IID (`"Lognormal"`) and natural-scale
-#' `"Normal"` residualize as independent normals on the log or natural scale; the
-#' correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened by the lower
-#' Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-#' multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
-#' closed form [TMB::oneStepPredict()] reproduces for a Gaussian block.
+#' (`Index_distribution`). Lognormal IID (`"Lognormal"`) residualizes on the log
+#' scale, and the natural-scale `"Normal"` and `"TruncatedNormal"` on the natural
+#' scale. The correlated covariance families (`"MVN"` / `"MVNORM"`) are whitened
+#' by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
+#' residuals are the multivariate-Gaussian one-step-ahead innovations
+#' L^-1 (obs - q*pred) -- the closed form [TMB::oneStepPredict()] reproduces for a
+#' Gaussian block.
+#'
+#' `"TruncatedNormal"` rows are residualized in their own
+#' [TMB::oneStepPredict()] call, with `method = "oneStepGeneric"` and a range
+#' starting at zero, whatever `method` is passed. Its density differs from
+#' `"Normal"` only by `log Phi(mu/sd)`, which is a function of the prediction and
+#' not of the observation, so a Gaussian method -- which reads the curvature of
+#' the density in the observation -- cannot see the truncation at all and returns
+#' the untruncated `(obs - mu)/sd`. Integrating over the family's own support
+#' instead gives the truncated CDF
+#' `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`,
+#' so `qnorm(F(x))` is standard normal by the probability integral transform
+#' however hard the truncation bites. The upper limit is finite rather than
+#' `Inf` -- ten standard deviations past the largest fitted index in the group,
+#' which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+#' problem in a region it can solve. That group also runs with
+#' `splineApprox = FALSE`, because the spline shortcut integrates over whatever
+#' range its profile slice covered. The range is a
+#' property of the family, so it cannot be shared with the other fleets:
+#' `"Normal"` is genuinely untruncated, and a lognormal fleet's stored observation
+#' is `log(obs)`, which is negative for a small index.
+#'
+#' The size of the correction is the truncated mass: on a fleet predicting 100
+#' with an absolute sd of 150 (a quarter of the density below zero), an
+#' observation exactly at the prediction has an untruncated residual of 0 and a
+#' truncated one of -0.44.
+#'
+#' Three consequences of that group being residualized separately, worth knowing
+#' before reading the output:
+#'
+#' * **On a model with random effects the exact integration can fail.** It
+#'   evaluates the Laplace marginal at arbitrary values of the observation, and
+#'   the inner problem does not always converge across the whole support. Rather
+#'   than return `NA` for those rows -- which would shrink the sample
+#'   [osa_diagnostics()] passes verdict on, without saying so -- the fleet is
+#'   recomputed under TMB's spline approximation and a warning says the residuals
+#'   for it are approximate. Fixed-effect models are unaffected.
+#' * **`sd` is `NA` and `predicted` means something different for this group.**
+#'   `oneStepGeneric` returns neither a standard deviation nor the fitted value;
+#'   `predicted` is the truncated conditional mean `E[x | x > 0]`, which sits
+#'   above the fitted index (163.8 against a fitted 100.0 on the fixture above),
+#'   not the fitted index itself. The residual is unaffected.
+#' * **Adding a `"TruncatedNormal"` fleet moves the other fleets' residuals on a
+#'   random-effects model.** Each [TMB::oneStepPredict()] call marks the rows it
+#'   is not residualizing as unconditional, which zeroes their data terms and so
+#'   changes the conditional distribution of the latent states. Both orderings
+#'   are valid probability-integral-transform sequences, so no value is wrong,
+#'   but catch and lognormal-index residuals will not match those from an
+#'   otherwise identical model with no truncated fleet. Fixed-effect models are
+#'   again unaffected, since their observations are independent.
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param source Character vector of observation sources to residualize: any of
@@ -90,9 +140,14 @@
 #'   bin for caal; `NA` otherwise), `index_label` (`"age"`/`"length"`/`NA`), `observed`,
 #'   `predicted`, `sd`, and `residual`. For aggregate series `observed` and
 #'   `predicted` are on the residualization scale -- log for lognormal catch/index,
-#'   natural scale for a `"Normal"` index, and the whitened (`L^-1`) scale for an
+#'   natural scale for a `"Normal"` or `"TruncatedNormal"` index, and the
+#'   whitened (`L^-1`) scale for an
 #'   `"MVN"`/`"MVNORM"` index; for compositions they are bin counts. Carries
-#'   `method` and `seed` attributes, and (when composition types
+#'   `method` and `seed` attributes -- `method` is the string that was passed,
+#'   except on a model with a `"TruncatedNormal"` index fleet, where it is the
+#'   named vector `c(default = <method>, TruncatedNormal = "oneStepGeneric")`
+#'   because that family is residualized with its own method (see above) -- and
+#'   (when composition types
 #'   are present) a `"pearson"` attribute holding the matching Pearson residuals
 #'   so [plot.rceattle_osa()] can show both. The attribute uses this data
 #'   frame's column names rather than the data-sheet names
@@ -247,6 +302,52 @@ osa_residuals <- function(fit,
   is_comp      <- sel$source %in% c("comp", "caal", "diet")
   sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
 
+  # `Index_distribution = "TruncatedNormal"` needs its own call. Its density
+  # differs from `"Normal"` only by the constant log Phi(mu/sd), which is a
+  # function of the prediction and not of the observation -- so a method that
+  # reads the curvature of the density IN THE OBSERVATION (the Gaussian ones,
+  # including the default) cannot see the truncation at all and returns the
+  # untruncated residual (x - mu)/sd. That is not standard normal under the
+  # fitted model wherever truncation carries real mass.
+  #
+  # oneStepGeneric integrates the density over `range` and normalizes by that
+  # integral, so a range starting at zero gives
+  #   F(x) = [Phi((x-mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)
+  # -- the truncated CDF, and qnorm(F(x)) is then standard normal by the
+  # probability integral transform. The range is a property of the FAMILY, not of
+  # the call, so these rows are residualized separately: `"Normal"` is genuinely
+  # untruncated and a lognormal fleet's obsvec entry is log(obs), which is
+  # negative for a small index, so neither may be given this range.
+  # Keyed off index_ll_type -- the SAME vector build_osa_data() used to decide
+  # whether this fleet's obsvec entry holds obs or log(obs). Reading
+  # fleet_control$Index_distribution instead would be a second source of truth
+  # for one decision, and the failure mode is silent and total: a (0, Inf) range
+  # applied to a fleet whose obsvec holds log(obs) integrates from 0 down past a
+  # negative observation and qnorm() gets nonsense.
+  fc_osa   <- fit$data_list$fleet_control
+  ill_osa  <- fit$obj$env$data$index_ll_type
+  sel_trunc <- rep(FALSE, nrow(sel))
+  if (!is.null(ill_osa) && length(ill_osa)) {
+    sel_trunc <- sel$source == "index" & ill_osa[sel$fleet_code] %in% 4L
+    sel_trunc[is.na(sel_trunc)] <- FALSE
+  }
+  sel_group <- paste0(sel_discrete, "|", sel_trunc)
+
+  # Say so. `method` is overridden for these rows whatever the caller passed, and
+  # a silent override is exactly the kind of thing that makes a Q-Q plot hard to
+  # account for later. Also flag the cost: the exact integration is several times
+  # slower per observation than a Gaussian approximation.
+  if (any(sel_trunc)) {
+    trunc_fleets <- unique(as.character(
+      fc_osa$Fleet_name[match(sel$fleet_code[sel_trunc], fc_osa$Fleet_code)]))
+    message("osa_residuals(): fleet(s) ", paste(trunc_fleets, collapse = ", "),
+            " use Index_distribution = \"TruncatedNormal\", whose truncation a ",
+            "Gaussian method cannot see. Those ", sum(sel_trunc), " observation(s) ",
+            "are residualized with method = \"oneStepGeneric\" over the ",
+            "truncated support instead of \"", method,
+            "\" -- exact, and slower. See ?osa_residuals.")
+  }
+
   # oneStepPredict(parallel = TRUE) calls TMB::openmp(), which can only resolve
   # the active model when a single TMB DLL is loaded; with several loaded (e.g.
   # Rceattle alongside WHAM, or the full test suite) it errors with "Multiple TMB
@@ -259,22 +360,76 @@ osa_residuals <- function(fit,
             "computing one-step-ahead residuals serially.")
   }
 
-  .run_osp <- function(rows, dsc) {
+  # Upper limit for the truncated group's exact integration. `range = c(0, Inf)`
+  # is mathematically what the support is, but integrate()'s infinite-limit
+  # substitution probes observations far out in the tail, and on a random-effects
+  # model the Laplace inner problem does not converge there: the integrand comes
+  # back non-finite, integrate() errors, and TMB's try() writes NA. On a 15-year
+  # fixture with random recruitment that lost 5 of 15 residuals -- silently, and
+  # under a warning blaming the fit's convergence.
+  #
+  # Bound it instead. The upper limit covers every fitted index in the group by
+  # ten of its own standard deviations, and every observation being residualized,
+  # so the mass discarded is below 1e-23 while the integrand stays in a region the
+  # inner problem can solve. oneStepGeneric normalizes over the range it is given,
+  # so what matters is that the range contains the observation and effectively all
+  # the density -- not that it reaches infinity.
+  .trunc_range <- function(rows) {
+    dr <- sel$data_row[rows]
+    mu <- suppressWarnings(as.numeric(fit$quantities$index_hat[dr]))
+    sg <- suppressWarnings(as.numeric(.observation_sd(fit$quantities, "index")[dr]))
+    ob <- suppressWarnings(as.numeric(osa_dat$obsvec[sel$obs_pos[rows] + 1L]))
+    hi <- suppressWarnings(max(c(mu + 10 * sg, ob * 1.5), na.rm = TRUE))
+    if (!is.finite(hi) || hi <= 0) hi <- Inf   # nothing usable; fall back
+    c(0, hi)
+  }
+
+  .run_osp <- function(rows, dsc, trunc = FALSE, spline = FALSE) {
     # The Gaussian methods are continuous-only, so discrete groups use the
     # generic (CDF-based) method, which supports randomized quantile residuals.
     # Parallelize only the continuous group; the discrete path uses the seeded
     # RNG, so keep it serial to stay bit-reproducible across runs.
-    osp <- function(par) TMB::oneStepPredict(
-      obj                 = obj_osa,
-      observation.name    = "obsvec",
-      data.term.indicator = "keep",
-      method              = if (dsc) "oneStepGeneric" else method,
-      subset              = sel$obs_pos[rows] + 1L,
-      discrete            = dsc,
-      parallel            = par,
-      seed                = seed,
-      trace               = trace,
-      ...)
+    osp <- function(par) {
+      args <- list(
+        obj                 = obj_osa,
+        observation.name    = "obsvec",
+        data.term.indicator = "keep",
+        method              = if (dsc || trunc) "oneStepGeneric" else method,
+        # Only the truncated family restricts the support; every other group
+        # keeps TMB's default (-Inf, Inf).
+        range               = if (trunc) .trunc_range(rows) else c(-Inf, Inf),
+        subset              = sel$obs_pos[rows] + 1L,
+        discrete            = dsc,
+        parallel            = par,
+        seed                = seed,
+        trace               = trace)
+      dots <- list(...)
+      if (length(dots) && (is.null(names(dots)) || !all(nzchar(names(dots))))) {
+        stop("osa_residuals(): all arguments passed through `...` to ",
+             "oneStepPredict() must be named; an unnamed one would be matched ",
+             "positionally against an argument this function already sets.",
+             call. = FALSE)
+      }
+      clash <- intersect(names(dots), names(args))
+      if (length(clash)) {
+        warning("osa_residuals(): ignoring ", paste(clash, collapse = ", "),
+                " passed through `...` -- ", if (length(clash) > 1) "these are"
+                else "this is", " set per observation group by this function ",
+                "(see ?osa_residuals). Use the `method` argument to choose a ",
+                "method.", call. = FALSE)
+      }
+      args <- c(args, dots[setdiff(names(dots), names(args))])
+      # `range` only binds the integration limits when oneStepGeneric integrates
+      # the density itself. Under its default splineApprox = TRUE it instead
+      # splines a tmbprofile() slice and integrates over the range that slice
+      # happened to cover, which does not respect the (0, Inf) support: on a
+      # fixture at mu = x = 100, sd = 150 that returns -0.790 where the exact
+      # truncated transform is -0.437. So the exact path is the one that makes
+      # this group worth splitting out. `spline` lets the caller below retry with
+      # the approximation when the exact path cannot finish -- see .run_osp().
+      if (trunc) args$splineApprox <- isTRUE(spline)
+      do.call(TMB::oneStepPredict, args)
+    }
 
     # oneStepPredict(parallel = TRUE) forks via mclapply. A worker that dies --
     # some model/observation combinations abort the child rather than return --
@@ -304,12 +459,47 @@ osa_residuals <- function(fit,
         obj_osa <<- .osa_build_obj(fit, osa_dat, force = TRUE)
         osp(FALSE)
       })
-    data.frame(.row = rows, observed = get_col(res, "observation"),
+    # oneStepGeneric returns no `observation` column, so the generic groups (the
+    # discrete compositions and the truncated index) would otherwise report NA
+    # for a value that is simply the obsvec entry that was residualized.
+    obs_col <- get_col(res, "observation")
+    if (all(is.na(obs_col))) {
+      obs_col <- as.numeric(osa_dat$obsvec[sel$obs_pos[rows] + 1L])
+    }
+    data.frame(.row = rows, observed = obs_col,
                predicted = get_col(res, "mean"), sd = get_col(res, "sd"),
                residual = res$residual)
   }
-  osa <- do.call(rbind, lapply(unique(sel_discrete),
-                  function(dsc) .run_osp(which(sel_discrete == dsc), dsc)))
+  osa <- do.call(rbind, lapply(unique(sel_group), function(g) {
+    rows  <- which(sel_group == g)
+    trunc <- sel_trunc[rows[1]]
+    res   <- .run_osp(rows, dsc = sel_discrete[rows[1]], trunc = trunc)
+
+    # The exact integration evaluates the Laplace marginal at arbitrary values of
+    # the observation, and on a random-effects model the inner Newton problem
+    # does not always converge there: integrate() errors and TMB writes NA. That
+    # is worse than an approximate residual -- the rows vanish, and
+    # osa_diagnostics() then passes verdict on whatever survived without saying
+    # how many it lost. Retry the whole group under TMB's spline approximation,
+    # which is robust but does NOT respect the (0, Inf) support, so the result is
+    # approximate in the same direction the Gaussian methods are. Retrying the
+    # whole group rather than the failed rows keeps one method per fleet.
+    if (trunc && any(!is.finite(res$residual))) {
+      n_bad <- sum(!is.finite(res$residual))
+      warning("osa_residuals(): exact integration of the TruncatedNormal ",
+              "density failed for ", n_bad, " of ", nrow(res), " observation(s) ",
+              "-- the Laplace inner problem does not converge across the whole ",
+              "support, which happens on models with random effects. The fleet ",
+              "was recomputed with TMB's spline approximation, so ITS RESIDUALS ",
+              "ARE APPROXIMATE and do not carry the truncation exactly. Treat ",
+              "them as indicative; the other fleets are unaffected.",
+              call. = FALSE)
+      res <- .run_osp(rows, dsc = sel_discrete[rows[1]], trunc = TRUE,
+                      spline = TRUE)
+      attr(res, "approx") <- TRUE
+    }
+    res
+  }))
   osa <- osa[order(osa$.row), , drop = FALSE]   # restore chronological 'sel' order
   index_label <- c("age", "length")[sel$comp_type + 1L]   # NA for aggregates
   fc <- fit$data_list$fleet_control                        # fleet code -> name
@@ -336,7 +526,13 @@ osa_residuals <- function(fit,
 
   rownames(out) <- NULL
   class(out) <- c("rceattle_osa", "data.frame")
-  attr(out, "method") <- method
+  # Record what was actually used, not what was asked for: the truncated index
+  # family is residualized with its own method regardless of `method`, so a
+  # single string would misdescribe those rows. Stays a plain string when nothing
+  # was overridden.
+  attr(out, "method") <- if (any(sel_trunc)) {
+    c(default = method, TruncatedNormal = "oneStepGeneric")
+  } else method
   attr(out, "seed")   <- seed
   # Per-species bin counts, so plot() can split joint-sex (Sex == 3) composition
   # bins onto a single age/length axis (males are stored as bins nbin+1 .. 2*nbin).
@@ -609,7 +805,12 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
 #' @export
 print.rceattle_osa <- function(x, ...) {
   cat("Rceattle one-step-ahead (OSA) residuals\n")
-  cat("  method:", attr(x, "method"), " seed:", attr(x, "seed"), "\n")
+  # `method` is a named vector when a family overrode the caller's choice.
+  m <- attr(x, "method")
+  m_txt <- if (length(m) > 1L && !is.null(names(m))) {
+    paste(paste0(names(m), " = ", m), collapse = ", ")
+  } else as.character(m)
+  cat("  method:", m_txt, " seed:", attr(x, "seed"), "\n")
   cat("  ", nrow(x), " residuals across ",
       length(unique(paste(x$source, x$fleet))), " data source(s)\n", sep = "")
   print(utils::head(as.data.frame(x), ...))

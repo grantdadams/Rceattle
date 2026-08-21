@@ -180,15 +180,18 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # (index_ll_type), matching what the cpp reads in OSA mode so oneStepPredict()
   # residualizes the same model that was fit:
   #   0 lognormal IID  -> log(obs)                     (dnorm on the log scale)
-  #   3 natural Normal -> obs                           (dnorm on the natural scale)
+  #   3 Normal, 4 TruncatedNormal -> obs                (dnorm on the natural
+  #       scale; family 4 adds the truncation constant in the cpp, which shifts
+  #       the density but not the value stored here)
   #   1/2 MVN / MVNORM -> z = L^-1 obs, whitened by the
   #       lower Cholesky of the fleet's covariance Sigma = L L', so the correlated
   #       block becomes independent standard normals (the cpp whitens the mean with
   #       the same L). The innovation z - L^-1(q*pred) is the multivariate-Gaussian
   #       one-step-ahead residual (Thygesen et al. 2017; the SAM/TMB construction).
   # The per-family scale is only needed for the OSA build; the ordinary fit reads
-  # obsvec only for family 0 (and reads index_obs directly for 1/2/3), so the fast
-  # path (build_osa == FALSE) keeps the original log(obs) layout for every fleet.
+  # obsvec only for family 0 (and reads index_obs directly for 1/2/3/4), so the
+  # fast path (build_osa == FALSE) keeps the original log(obs) layout for every
+  # fleet.
   index_ctl <- data_list$index_ctl
   index_obs <- data_list$index_obs
   index_obsvec_idx <- rep(-1L, nrow(index_obs))
@@ -229,14 +232,21 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
         }
         inc <- setdiff(inc, rows)
       }
-      # Natural-scale Normal (family 3): store the untransformed observation.
-      rows3 <- inc[ill[index_ctl[inc, 1]] == 3L]
-      if (length(rows3) > 0) {
-        index_obsvec_idx[rows3] <- append_obs(
-          value = index_obs[rows3, 1], source = "index", data_row = rows3,
-          fleet_code = index_ctl[rows3, 1], species = index_ctl[rows3, 2],
-          year = index_ctl[rows3, 3])
-        inc <- setdiff(inc, rows3)
+      # Natural-scale families -- "Normal" (3) and "TruncatedNormal" (4) -- store
+      # the UNTRANSFORMED observation, because that is what the cpp's OSA branch
+      # scores it against. Both belong here: family 4 differs only by the
+      # truncation constant, which is a function of the predicted index and not
+      # of the observation, so it changes the density but not the value stored.
+      # A natural-scale family that misses this list falls through to the
+      # lognormal default below and is residualized as log(obs) against a
+      # natural-scale mean.
+      rows_nat <- inc[ill[index_ctl[inc, 1]] %in% c(3L, 4L)]
+      if (length(rows_nat) > 0) {
+        index_obsvec_idx[rows_nat] <- append_obs(
+          value = index_obs[rows_nat, 1], source = "index", data_row = rows_nat,
+          fleet_code = index_ctl[rows_nat, 1], species = index_ctl[rows_nat, 2],
+          year = index_ctl[rows_nat, 3])
+        inc <- setdiff(inc, rows_nat)
       }
     }
     # Lognormal IID (family 0) -- and every fleet on the fast fitting path -- as
@@ -424,6 +434,23 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$comp_offset      <- comp_offset       # read by the TMB DATA_SCALAR
   data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR
   data_list$bias_adjust_proc <- bias_adjust_proc  # read by the TMB DATA_SCALAR
+
+  # Simulation switches, read by the TMB DATA_IVECTORs. Set here because this is
+  # the single funnel every data list passes through on its way to MakeADFun
+  # (rearrange_data() for a fit, .osa_build_obj() for a rebuild). Process error
+  # defaults OFF: redrawing a process changes what a self-test measures, so it
+  # is asked for rather than assumed. sim_mod() overrides them per call.
+  #   simulate_state : 0 recruitment (annual and initial), 1 M, 2 growth,
+  #                    3 catchability, 4 selectivity -- the linkage process
+  #                    codes, so the template can index by them directly
+  #   simulate_period: 0 the fitted window, 1 outside it. Only slot 0 is read
+  #                    by the template, and only by the PROCESS draws; the
+  #                    observation draws are ungated by period on purpose (see
+  #                    ceattle.cpp 2.4.2c). Slot 1 is reserved and inert.
+  if (is.null(data_list$simulate_state))  data_list$simulate_state  <- rep(0L, 5)
+  if (is.null(data_list$simulate_period)) data_list$simulate_period <- rep(1L, 2)
+  data_list$simulate_state  <- as.integer(data_list$simulate_state)
+  data_list$simulate_period <- as.integer(data_list$simulate_period)
 
   data_list
 }

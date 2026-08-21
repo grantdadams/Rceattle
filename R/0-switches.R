@@ -151,12 +151,109 @@ diet_loglike_map <- c(
 #               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
 #               cpue_like. No lognormal bias correction; pair with a solved q
 #               (Analytical / AnalyticalArith) or an estimated q as needed.
+#   TruncatedNormal = the same natural-scale normal, left-truncated at zero:
+#               log f(x) = log phi(x; mu, sd) - log Phi(mu/sd). An index cannot
+#               be negative and data_check() will not accept one, so this is the
+#               only natural-scale family whose simulator and likelihood are the
+#               same distribution. Prefer it over "Normal" unless an exact ADMB
+#               comparison is needed.
 index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
   "MVNORM" = 2,
-  "Normal" = 3
+  "Normal" = 3,
+  "TruncatedNormal" = 4
 )
+
+#' Read a switch column by canonical name, whichever spelling it arrived in
+#'
+#' `switch_check()` -> `revert_switches()` upgrades integer codes to names, and
+#' every path through `fit_mod()` and `read_data()` runs it. `data_check()` is
+#' callable on a hand-built list that has not, so its checks canonicalize first
+#' rather than test one spelling and silently pass the other.
+#'
+#' @param x Column values, names or integer codes.
+#' @param map Named integer vector for this switch (e.g. `q_map`).
+#' @return Canonical names; `"<blank>"` where the value is missing.
+#' @noRd
+.canon_switch <- function(x, map) {
+  x <- trimws(as.character(x))
+  num <- suppressWarnings(as.integer(x))
+  out <- ifelse(!is.na(num), names(map)[match(num, map)], x)
+  out[is.na(out)] <- "<blank>"
+  out
+}
+
+
+#' Which index rows are fitted on the NATURAL scale?
+#'
+#' `Index_distribution` splits into two scales, and almost everything downstream
+#' of the likelihood assumed the lognormal one. `Lognormal` (0) is a log-scale
+#' family whose `Log_sd` is a CV / log-sd; `MVN` (1), `MVNORM` (2), `Normal` (3)
+#' and `TruncatedNormal` (4) are natural-scale families whose sd is ABSOLUTE, in
+#' the units of the index. Applying a log-scale formula to the second group does
+#' not error -- it silently returns nonsense, because `sigma^2 / 2` is then a
+#' number the size of the index squared.
+#'
+#' A new natural-scale family has to be added to the vector below as well as to
+#' `index_distribution_map`, or every fleet using it silently reverts to the
+#' log-scale treatment this function exists to prevent.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @return Logical, one per `index_data` row; `FALSE` where the fleet is
+#'   lognormal or cannot be resolved.
+#' @keywords internal
+#' @noRd
+.index_rows_natural_scale <- function(data_list) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(logical(0))
+  fam <- fc$Index_distribution
+  if (is.null(fam)) return(rep(FALSE, nrow(idx)))
+  chr <- trimws(as.character(fam))
+  num <- suppressWarnings(as.integer(chr))
+  code <- ifelse(!is.na(num), num, as.integer(index_distribution_map[chr]))
+  code[is.na(code)] <- 0L
+  nat <- code %in% c(1L, 2L, 3L, 4L)   # MVN, MVNORM, Normal, TruncatedNormal
+  out <- nat[match(idx$Fleet_code, fc$Fleet_code)]
+  out[is.na(out)] <- FALSE
+  out
+}
+
+
+#' Fleet codes that carry survey-index observations the model fits
+#'
+#' An index is a property of the data, not of the fleet type: the template scores
+#' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
+#' series is fitted like a survey, on that fleet's own selectivity. Selecting on
+#' `Fleet_type == "Survey"` instead is what left such a fleet with its
+#' catchability frozen and its index absent from `plot_index()`.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param fitted_only Keep only rows the likelihood uses (positive `Year`, at or
+#'   before `endyr`). A prediction-only row is not an observation and must not,
+#'   for instance, make catchability estimable.
+#' @return Integer vector of `Fleet_code`s, possibly empty.
+#' @keywords internal
+#' @noRd
+.fleets_with_index <- function(data_list, fitted_only = TRUE) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  # nrow() is NULL for anything without dimensions -- a data_list carrying a
+  # scalar NA where a table is expected reaches here, and `!NULL` errors.
+  if (is.null(idx) || is.null(nrow(idx)) || !nrow(idx) || is.null(fc)) {
+    return(integer(0))
+  }
+  keep <- rep(TRUE, nrow(idx))
+  if (fitted_only) {
+    keep <- idx$Year > 0
+    if (!is.null(data_list$endyr)) keep <- keep & idx$Year <= data_list$endyr
+    if (!is.null(idx$Observation)) keep <- keep & !is.na(idx$Observation)
+  }
+  live <- fc$Fleet_code[!(fc$Fleet_type %in% c("Off", 0))]
+  as.integer(sort(intersect(unique(idx$Fleet_code[keep]), live)))
+}
+
 
 fleet_map <- c(
   "Fishery" = 1,
@@ -375,6 +472,23 @@ switch_check <- function(data_list){
     data_list$fleet_control, "Accumulation_age_lower")
   data_list$fleet_control <- drop_deprecated_col(
     data_list$fleet_control, "Accumulation_age_upper")
+
+  # `growth_re` and `growth_indices` are removed. `growth_re` was documented as
+  # the way to put random effects on growth, but nothing consumed it: the
+  # deviation array was mapped off in every configuration and the template gave
+  # it no density, so setting it changed no fit. Drop them with a message rather
+  # than silently, so a data list still carrying `growth_re = 1` says where the
+  # feature went instead of appearing to work.
+  for (.old in c("growth_re", "growth_indices")) {
+    if (!is.null(data_list[[.old]])) {
+      data_list[[.old]] <- NULL
+      message(sprintf(
+        paste0("'%s' is deprecated and ignored; it never had an effect on any ",
+               "fit. Specify time-varying growth with build_growth(linkages = ) ",
+               "-- see vignette('environmental-linkages-and-priors')."),
+        .old))
+    }
+  }
 
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0
@@ -674,6 +788,28 @@ switch_check <- function(data_list){
       ". Setting Fleet_type = 'Off'."
     ))
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
+  }
+
+  # A fishery's index is predicted from the year-averaged numbers, which has no
+  # instant to be taken at, so Month is inert on its index rows (a survey's is
+  # read). Say so rather than let a workbook carry a month that does nothing.
+  .fsh_idx <- .fleets_with_index(data_list, fitted_only = TRUE)
+  if (length(.fsh_idx)) {
+    .fc <- data_list$fleet_control
+    .fsh_idx <- .fsh_idx[.fsh_idx %in% .fc$Fleet_code[.fc$Fleet_type %in% c(1, "1", "Fishery")]]
+    .im <- data_list$index_data
+    .dead_month <- .fsh_idx[vapply(.fsh_idx, function(fl) {
+      m <- suppressWarnings(as.numeric(.im$Month[.im$Fleet_code == fl & .im$Year > 0]))
+      any(!is.na(m) & m != 0)
+    }, logical(1))]
+    if (length(.dead_month)) {
+      message(paste0(
+        "'Month' is not read for the index of fishery fleet(s): ",
+        paste(.fc$Fleet_name[match(.dead_month, .fc$Fleet_code)], collapse = ", "),
+        ". A fishery index is predicted from the year-averaged numbers ",
+        "N*(1-exp(-Z))/Z. Put the index on its own Survey fleet, mirroring the ",
+        "fishery's Selectivity_index, if it should be timed to a month."))
+    }
   }
 
   # Default Sel_start_year to the fleet's first year of data (not styr). Earlier

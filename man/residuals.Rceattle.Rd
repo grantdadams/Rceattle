@@ -56,11 +56,18 @@ Residual kinds (\code{type}):
 the log scale by default (matching the lognormal likelihood; set
 \code{scale = "natural"} for the arithmetic difference); for \code{comp} / \code{caal}
 it is the difference in proportions, observed minus fitted.}
-\item{\code{"pearson"}}{Standardized residuals. For \code{index} / \code{catch},
+\item{\code{"pearson"}}{Standardized residuals. For \code{catch} and a log-scale
+survey index,
 \eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
 realized observation log-SD \eqn{\sigma} and the observation
-bias-adjustment flag \eqn{b} (\code{bias_adjust_obs}, default 1); for
-\code{comp} / \code{caal},
+bias-adjustment flag \eqn{b} (\code{bias_adjust_obs}, default 1). A
+natural-scale index fleet (\code{Index_distribution} \code{"MVN"}, \code{"MVNORM"},
+\code{"Normal"} or \code{"TruncatedNormal"}) carries an ABSOLUTE \eqn{\sigma} and is
+standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
+covariance fleet gets its marginal residual, not the whitened one (use
+\code{type = "osa"} for that), and \code{"TruncatedNormal"} is standardized on the
+untruncated moments, so it is approximate where \eqn{\hat{o}/\sigma} is
+small enough for truncation to shift the mean. For \code{comp} / \code{caal},
 \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 N.}
 \item{\code{"osa"}}{One-step-ahead residuals via \code{\link[=osa_residuals]{osa_residuals()}}, which builds

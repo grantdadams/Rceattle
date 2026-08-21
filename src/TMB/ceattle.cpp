@@ -20,6 +20,7 @@
 
 #include "helper_functions.hpp"
 #include "comp_osa.hpp"
+#include "comp_sim.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"
 #include "recruitment.hpp"
@@ -224,7 +225,7 @@ Type objective_function<Type>::operator() () {
   //          process parameter (growth/M/recruit/...) to a column of the
   //          shared design matrix `linkage_X`. Empty when no build_*()
   //          supplied a `linkages` argument.
-  DATA_IVECTOR(linkage_process);       // process code (recruitment = 0, M = 1, growth = 2)
+  DATA_IVECTOR(linkage_process);       // process code (recruitment = 0, M = 1, growth = 2, q = 3, sel = 4)
   DATA_IVECTOR(linkage_param);         // per-process parameter code
   DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
   DATA_IVECTOR(linkage_sex);           // 1-based sex id; 0 = all
@@ -327,6 +328,26 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
+  // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
+  // Observations are always drawn; process error is a choice, so it is switched.
+  //
+  // simulate_state: which process. Slots 0 recruitment, 1 M, 2 growth,
+  // 3 catchability, 4 selectivity -- the same codes linkage_process uses, so a
+  // random linkage is gated by simulate_state(linkage_process(i)) with no
+  // translation. Default off: redrawing a process changes what self_test()
+  // measures, from recovering parameters to recovering a process. Recruitment
+  // covers init_dev too -- the initial age structure is recruitment from before
+  // styr, sharing R_sd and its bias correction.
+  //
+  // simulate_period: slot 0 the fitted window (0 < Year <= endyr), slot 1
+  // outside it. Only slot 0 is read, and only by the PROCESS draws, whose
+  // densities cover the hindcast alone. Observations are drawn in every period
+  // deliberately, because run_mse() splices the negative-Year rows back in as
+  // the next assessment's data. Slot 1 is reserved for a projection-period
+  // process draw and is inert today; sim_mod() exposes neither slot.
+  DATA_IVECTOR( simulate_state );
+  DATA_IVECTOR( simulate_period );
+
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( comp_n );                  // Month and sample size on observed age/length comp; columns = Month, Sample size
@@ -400,7 +421,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. Growth
   PARAMETER_ARRAY(log_growth_pars);                // Mean growth curve parameters [sp, sex, par]
-  PARAMETER_ARRAY(log_growth_par_devs);            // Random effects for growth curve parameters [sp, sex, year, par]
+  // Time-varying growth comes from growth_linkage_offset below.
   PARAMETER_ARRAY(growth_log_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
   PARAMETER_MATRIX(weight_length_pars);           // Length-weight parameters [sp, (alpha, beta)]
 
@@ -542,7 +563,10 @@ Type objective_function<Type>::operator() () {
   array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (mt, or thousands of fish)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (mt, or thousands of fish)
-  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (log scale, so unitless)
+  // As index_sd below, for the fishery. Catch is lognormal throughout, so this
+  // one is always a log-scale sd (unitless); it was still not a log of anything.
+  // Named log_catch_sd until 5.9.0.
+  vector<Type>  catch_sd(catch_obs.rows()); catch_sd.setZero();
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -575,7 +599,40 @@ Type objective_function<Type>::operator() () {
   vector<Type>  index_q_sd(n_flt); index_q_sd.setZero();                            // Vector of standard deviation of survey catchability prior
   vector<Type>  index_q_dev_sd(n_flt); index_q_dev_sd.setZero();                    // Vector of standard deviation of time-varying survey catchability deviation
   vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey biomass (kg)
-  vector<Type>  log_index_sd(index_obs.rows()); log_index_sd.setZero();               // Estimated/fixed log index sd (kg)
+  // Rejection bookkeeping for the natural-scale survey draws (sim_mod only).
+  // Counted per index_obs row, so a non-zero tries count marks the rows a
+  // rejection-capable branch drew: the untruncated "Normal" family and
+  // MVN/MVNORM, both of which have to redraw a non-positive index.
+  // "TruncatedNormal" draws by inverse CDF and never enters here. sim_mod()
+  // sizes the draw/density gap analytically from index_hat and index_sd
+  // rather than from these counts, which carry one draw per row per call.
+  vector<Type>  index_trunc_tries_sim(index_obs.rows());   index_trunc_tries_sim.setZero();
+  vector<Type>  index_trunc_rejects_sim(index_obs.rows()); index_trunc_rejects_sim.setZero();
+  // The marginal sd the draw itself used, per row, so sim_mod() can size the
+  // truncated mass as Phi(-index_hat/sd). Reported separately from index_sd
+  // because a covariance fleet draws from index_cov_mat and its index_sd
+  // holds whatever the (unused) Index_sd column happens to carry.
+  vector<Type>  index_trunc_sd_sim(index_obs.rows());      index_trunc_sd_sim.setZero();
+  // The budget ACTUALLY applied to each row: the base constant on the univariate
+  // branch, and that scaled by the fleet's row count on the correlated one,
+  // which rejects the whole vector at once. Reported per row rather than as the
+  // bare constant, because the constant is not the number the correlated draw
+  // uses and quoting it would misstate the very thing the warning is about.
+  vector<Type>  index_trunc_budget_sim(index_obs.rows()); index_trunc_budget_sim.setZero();
+  // Redraw budget, per row. Flat per row on the univariate branch; the
+  // correlated branch scales it by the fleet's row count, because a vector is
+  // rejected whenever any single row is non-positive and the joint rejection
+  // probability climbs with the number of rows. REPORTed below (under the _sim
+  // name every SIMULATE report takes, see section 5.12b) so sim_mod() quotes
+  // this value in its warning rather than carrying a second copy of it.
+  const int index_trunc_max_tries = 100;
+  // The observation sd the index likelihood actually used for each row, whichever
+  // of the three est_sigma_index routes supplied it. It is NOT a log: it is the
+  // sd itself, on the scale that fleet's Index_distribution works on -- a
+  // log-scale sd (unitless) for Lognormal, an ABSOLUTE sd in the units of the
+  // index for the natural-scale families. Named log_index_sd until 5.9.0, which
+  // was wrong on both counts.
+  vector<Type>  index_sd(index_obs.rows()); index_sd.setZero();
   vector<Type>  log_index_analytical_sd(n_flt); log_index_analytical_sd.setZero();    // Temporary vector to save analytical sd follow Ludwig and Walters 1994
   vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Temporary vector to save analytical sd follow Ludwig and Walters 1994
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
@@ -658,6 +715,98 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
+  // -- 5.12b. SIMULATE LINKAGE RANDOM EFFECTS (sim_mod(simulate = TRUE))
+  // Time-varying recruitment, M, growth, q and selectivity are all written the
+  // same way -- a random linkage -- so all five draw here, before the deviations
+  // are gathered below and the processes read them.
+  //
+  // Each structure draws from the density that scores it in section 14.6:
+  //   IID  N(0, sigma) per slot;
+  //   rw   N(0, sigma) on first differences; slot 0 is left alone, being a level
+  //        the density never sees and the map pins;
+  //   ar1  stationary, sigma the MARGINAL SD (draw standardized, then scale).
+  // Slots are in ascending time order, so "next slot" is "next year".
+  //
+  // beta_linkage_re_drawn_sim marks which slots this call actually wrote. The
+  // reported deviation vector spans EVERY random linkage, drawn or not, so
+  // without the mask a caller cannot tell a simulated slot from one left at its
+  // fitted value and would score recovery on both.
+  SIMULATE {
+    vector<Type> beta_linkage_re_drawn_sim(linkage_re_sigma.size());
+    beta_linkage_re_drawn_sim.setZero();
+    if (log_sigma_linkage.size() > 0 && simulate_period(0) == 1) {
+      int n_slot = linkage_re_sigma.size();
+      int n_grp  = log_sigma_linkage.size();
+
+      // Drawn only if EVERY row using the group names a process the caller asked
+      // for. Groups are per (process, param) in practice, so this matters only
+      // for a sigma shared across processes, where redrawing for one would
+      // quietly move the other.
+      vector<int> grp_used(n_grp), grp_draw(n_grp);
+      grp_used.setZero();
+      grp_draw.fill(1);
+      for (int i = 0; i < linkage_re_index.size(); ++i) {
+        if (linkage_re_index(i) < 0) continue;
+        int grp = linkage_re_sigma(linkage_re_index(i));
+        grp_used(grp) = 1;
+        // linkage_process also codes composition (5), which simulate_state does
+        // not cover because composition linkages carry priors, not random
+        // effects. Treat anything outside the five as "not asked for" rather
+        // than reading past the end of simulate_state.
+        int proc = linkage_process(i);
+        if (proc < 0 || proc >= simulate_state.size() || simulate_state(proc) != 1) {
+          grp_draw(grp) = 0;
+        }
+      }
+
+      for (int grp = 0; grp < n_grp; ++grp) {
+        if (grp_used(grp) == 0 || grp_draw(grp) == 0) continue;
+
+        // Rogers QAR1: the latent is measured by an observed covariate series, so
+        // redrawing it alone would leave the two describing different histories.
+        // Left as fitted; sim_mod() warns that it was.
+        if (linkage_re_obs(grp) >= 0) continue;
+
+        int len = 0;
+        for (int s = 0; s < n_slot; ++s) if (linkage_re_sigma(s) == grp) len++;
+        if (len == 0) continue;
+
+        vector<int> slot_of(len);
+        int j = 0;
+        for (int s = 0; s < n_slot; ++s) if (linkage_re_sigma(s) == grp) slot_of(j++) = s;
+
+        Type sigma = exp(log_sigma_linkage(grp));
+        vector<Type> re(len);
+        int st = linkage_re_struct(grp);
+
+        if (st == 1) {                                   // rw / RandomWalk
+          re(0) = linkage_re_integrate(slot_of(0))
+              ? beta_linkage_re(linkage_re_slot(slot_of(0)))
+              : beta_linkage_re_pen(linkage_re_slot(slot_of(0)));
+          for (int t = 1; t < len; ++t) re(t) = re(t - 1) + rnorm(Type(0), sigma);
+        } else if (st == 2) {                            // ar1
+          Type rho = rho_trans(trans_rho_linkage(linkage_re_rho(grp)));
+          AR1(rho).simulate(re);
+          re *= sigma;
+        } else {                                         // us / IID
+          for (int t = 0; t < len; ++t) re(t) = rnorm(Type(0), sigma);
+        }
+
+        for (int t = 0; t < len; ++t) {
+          if (linkage_re_integrate(slot_of(t))) {
+            beta_linkage_re(linkage_re_slot(slot_of(t))) = re(t);
+          } else {
+            beta_linkage_re_pen(linkage_re_slot(slot_of(t))) = re(t);
+          }
+          // A `rw` group keeps slot 0 at its fitted level -- the density never
+          // sees it -- so that slot is written but not drawn.
+          if (!(st == 1 && t == 0)) beta_linkage_re_drawn_sim(slot_of(t)) = 1;
+        }
+      }
+    }
+    REPORT(beta_linkage_re_drawn_sim);
+  }
+
   // Every deviation in one vector, indexed by RE slot: integrated deviations live
   // in beta_linkage_re, penalized ones in beta_linkage_re_pen, and
   // linkage_re_slot gives the position within whichever holds it. With no
@@ -668,6 +817,18 @@ Type objective_function<Type>::operator() () {
     beta_linkage_re_all(s) = linkage_re_integrate(s)
         ? beta_linkage_re(linkage_re_slot(s))
         : beta_linkage_re_pen(linkage_re_slot(s));
+  }
+
+  // THE _sim NAMING RULE, stated once here and referred to below.
+  // TMB never clears the report environment, so anything REPORTed inside a
+  // SIMULATE block stays visible in obj$report() for the rest of this object's
+  // life. Under the observed object's own name that would leave a random
+  // replicate readable as the data. Every draw is therefore reported under a
+  // name ending _sim, and the composition, CAAL and diet draws are written into
+  // separate copies (comp_sim, caal_sim, diet_sim) for the same reason.
+  SIMULATE {
+    vector<Type> beta_linkage_re_sim = beta_linkage_re_all;
+    REPORT(beta_linkage_re_sim);
   }
 
   // Effective linkage coefficient per table row. Fixed rows use their
@@ -922,7 +1083,6 @@ Type objective_function<Type>::operator() () {
         for(int par = 0; par < 4; par++){
           growth_parameters(sp, sex, yr, par) = exp(
             log_growth_pars(sp, sex, par)
-          + log_growth_par_devs(sp, sex, yr, par)
           + growth_linkage_offset(sp, sex, yr, par)
           ) + growth_linkage_offset_nat(sp, sex, yr, par);
         }
@@ -1145,6 +1305,170 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+
+  // 5.13. SIMULATE PROCESS ERROR (sim_mod(simulate = TRUE), simulate_state)
+  // Drawn before the dynamics consume the deviations, so the dynamics and every
+  // observation draw downstream are automatically consistent with the simulated
+  // process. WHAM keeps a second copy of its population dynamics (sim_pop) to
+  // re-derive after the fact; that is unnecessary here, because these deviations
+  // and their SDs are all parameters. rec_dev and init_dev are first read in the
+  // initial-numbers block below, so this is the last point both are untouched.
+  //
+  // Each draw uses the density that scores it in section 13, bias correction
+  // included, which is what makes simulated recruitment mean-unbiased.
+  //
+  // True when exactly one density scores rec_dev. False for the AMAK/Ianelli
+  // configuration (srr_fun == 0 with srr_pred_fun > 0), where the stock-recruit
+  // curve is fitted as a second penalty on the same deviation -- see the
+  // recruitment draw below. REPORTed so sim_mod() can warn without re-deriving it.
+  int rec_srr_single_density = !((srr_fun == 0) && (srr_pred_fun > 0));
+  REPORT(rec_srr_single_density);
+
+  SIMULATE {
+    // Masks marking which cells this call actually drew. Every deviation array
+    // is REPORTed whole -- hindcast and projection alike -- so without these a
+    // caller cannot tell a simulated cell from one left at its fitted value, and
+    // a recovery statistic taken over the whole array scores both.
+    matrix<Type> rec_dev_drawn_sim(rec_dev.rows(), rec_dev.cols());
+    matrix<Type> init_dev_drawn_sim(init_dev.rows(), init_dev.cols());
+    array<Type>  log_M1_dev_drawn_sim(log_M1_dev.dim);
+    rec_dev_drawn_sim.setZero();
+    init_dev_drawn_sim.setZero();
+    log_M1_dev_drawn_sim.setZero();
+
+    for(sp = 0; sp < nspp; sp++){
+
+      // The density covers the hindcast only -- projection recruitment comes
+      // from the harvest control rule or sample_rec() -- so the fitted window is
+      // the only period this can honestly redraw.
+      //
+      // srr_fun == 0 with srr_pred_fun > 0 is excluded (rec_srr_single_density,
+      // set above). That is the AMAK/Ianelli configuration, where section 13
+      // scores rec_dev once through JNLL_REC_DEV and again through
+      // JNLL_SRR_PENALTY over srr_hat_styr..srr_hat_endyr, so there is no single
+      // distribution to draw from. Nothing is drawn and sim_mod() says why; the
+      // full argument is in vignette("model-diagnostics").
+      if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density){
+        for(yr = 0; yr < nyrs_hind; yr++){
+          rec_dev(sp, yr) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
+          rec_dev_drawn_sim(sp, yr) = 1;
+        }
+      }
+
+      // Initial abundance-at-age: the same process, for years before styr. The
+      // gate is the density's own -- the equilibrium modes and
+      // OffsetEquilibrium (5) fix init_dev and carry no penalty, so there is
+      // nothing to draw. It also carries the rec_srr_single_density gate: a
+      // fresh initial age structure sitting on top of the FITTED hindcast
+      // deviations is not a history the model generated, so recruitment is
+      // redrawn whole or not at all.
+      if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density &&
+         (initMode > 1) && (initMode != 5)){
+        for(age = 1; age < nages(sp); age++){
+          init_dev(sp, age - 1) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
+          init_dev_drawn_sim(sp, age - 1) = 1;
+        }
+      }
+    }
+
+    // Natural mortality random effects. The IID modes are the AR1 code with
+    // rho = 0, so one construction covers all six: draw a standardized AR1 and
+    // scale by the marginal SD afterwards (SCALE()'s own simulate() is not
+    // used). Note M1_dev_log_sd is the INNOVATION sd; Sigma_M is the marginal.
+    //
+    // The draw is BROADCAST along whichever dimension the mode holds constant --
+    // modes 1/4 over years, modes 2/5 over ages. The map enforces that on the
+    // parameter vector, but this block writes the expanded array, so writing
+    // only the element the density reads would leave the rest at fitted values
+    // and the deviation would not be constant as the model assumes.
+    //
+    // Sex is the same story. build_map() gives the sexes separate deviations
+    // only at M1_model = 2; otherwise it maps male onto female, so they are one
+    // parameter. num_re_sexes is therefore the number of INDEPENDENT draws, and
+    // each is written to every sex sharing it -- write the female slice alone
+    // and the two sexes would carry different M, which the estimation model has
+    // no way to represent.
+    if(simulate_state(1) == 1 && simulate_period(0) == 1){
+      for(sp = 0; sp < nspp; sp++){
+        int num_re_sexes = (M1_model(sp) == 2 && nsex(sp) > 1) ? 2 : 1;
+
+        if((M1_re(sp) == 1) || (M1_re(sp) == 4)){        // by age, constant over years
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+          Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_a, 2)), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            vector<Type> M_re_age(nages(sp));
+            AR1(rho_M_a).simulate(M_re_age);
+            M_re_age *= Sigma_M;
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(age = 0; age < nages(sp); age++){
+                for(yr = 0; yr < nyrs; yr++){
+                  log_M1_dev(sp, sex, age, yr) = M_re_age(age);
+                  log_M1_dev_drawn_sim(sp, sex, age, yr) = 1;
+                }
+              }
+            }
+          }
+        }
+
+        if((M1_re(sp) == 2) || (M1_re(sp) == 5)){        // by year, constant over ages
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+          Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_y, 2)), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            vector<Type> M_re_yr(nyrs_hind);
+            AR1(rho_M_y).simulate(M_re_yr);
+            M_re_yr *= Sigma_M;
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(yr = 0; yr < nyrs_hind; yr++){
+                for(age = 0; age < nages(sp); age++){
+                  log_M1_dev(sp, sex, age, yr) = M_re_yr(yr);
+                  log_M1_dev_drawn_sim(sp, sex, age, yr) = 1;
+                }
+              }
+            }
+          }
+        }
+
+        if((M1_re(sp) == 3) || (M1_re(sp) == 6)){        // by age and year
+          Type sigma_M = exp(M1_dev_log_sd(sp, 0));
+          Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+          Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+          Type Sigma_M = pow(pow(sigma_M, 2) / ((1.0 - pow(rho_M_y, 2)) * (1.0 - pow(rho_M_a, 2))), 0.5);
+          for(int s = 0; s < num_re_sexes; s++){
+            array<Type> M_re_a_yr(nages(sp), nyrs_hind);
+            // Same argument order as the density in section 14 -- year on the
+            // outermost dimension, age on the fastest-running one.
+            SEPARABLE(AR1(rho_M_y), AR1(rho_M_a)).simulate(M_re_a_yr);
+            int sex_end = (num_re_sexes == 1) ? nsex(sp) : s + 1;
+            for(int sex = s; sex < sex_end; sex++){
+              for(age = 0; age < nages(sp); age++){
+                for(yr = 0; yr < nyrs_hind; yr++){
+                  log_M1_dev(sp, sex, age, yr) = Sigma_M * M_re_a_yr(age, yr);
+                  log_M1_dev_drawn_sim(sp, sex, age, yr) = 1;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Reported so the draw can be checked directly. Inferring it from the data
+    // it produces cannot tell "drew correctly" from "drew nothing, and the
+    // observation error moved". Each goes out with its drawn-cell mask.
+    matrix<Type> rec_dev_sim = rec_dev;
+    matrix<Type> init_dev_sim = init_dev;
+    array<Type>  log_M1_dev_sim = log_M1_dev;
+    REPORT(rec_dev_sim);
+    REPORT(init_dev_sim);
+    REPORT(log_M1_dev_sim);
+    REPORT(rec_dev_drawn_sim);
+    REPORT(init_dev_drawn_sim);
+    REPORT(log_M1_dev_drawn_sim);
+  }
 
   /** ------------------------------------------------------------------------ //
    * 6. POPULATION DYNAMICS EQUATIONS                                          //
@@ -1997,13 +2321,49 @@ Type objective_function<Type>::operator() () {
 
     for(age = 0; age < nages(sp); age++) {
       for(sex = 0; sex < nsex(sp); sex++){
+
+        // Numbers the index sees, by fleet role.
+        //
+        // A survey is a snapshot at the observation month:
+        //     N_a * exp(-(mo/12) * Z_a)
+        //
+        // A fishery index is CPUE, which integrates over the year alongside the
+        // catch. Baranov gives C_a = F_a * Nbar_a, and effort cancels the F
+        // (F_a = q_e * E * sel_a), so C/E = q * sum_a sel_a * Nbar_a * w_a with
+        //     Nbar_a = N_a * (1 - exp(-Z_a)) / Z_a
+        // the same mean-numbers term section 9.1 uses for the catch. The
+        // observation month is not read for a fishery: the year-average has no
+        // instant to be taken at. SS3 splits the same way on its per-fleet
+        // survey timing (SS_expval.tpl: timing >= 0 -> exp(-Z * timing);
+        // timing < 0, required of every fishing fleet -> (1 - exp(-Z))/Z).
+        //
+        // A seasonal fishery is covered by the same form. Its exact predictor
+        // over a window [t1, t1+D] is
+        //     N_a * exp(-Zpre_a * t1) * (1 - exp(-Zwin_a * D)) / (Zwin_a * D)
+        //     Zpre_a = M_a + other fleets' F_a      (this fishery has yet to fish)
+        //     Zwin_a = M_a + F_a/D + other fleets' F_a
+        // Since Zwin*D = M*D + F, the window factor tracks F almost as the
+        // annual one does; the exp(-M*t1) offset carries no F, so q absorbs it.
+        // Trend error against the exact form is ~1.5% over F 0.05-0.8, against
+        // -29% to +33% for the snapshot.
+        //
+        // TODO: fit the window form directly when a fleet needs it. Requires t1
+        // and D per fleet, and seasonal dynamics to match -- the annual
+        // recursion spreads that fishery's F evenly across the year regardless.
+        Type n_index;
+        if(flt_type(index) == 1){
+          n_index = N_at_age(sp, sex, age, flt_yr) * (1.0 - exp( - Z_at_age(sp, sex, age, flt_yr))) / Z_at_age(sp, sex, age, flt_yr);
+        } else {
+          n_index = N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr));
+        }
+
         // Weight
         if(flt_units(index) == 1){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
+          index_hat(index_ind) += n_index * sel_at_age(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
         }
         // Numbers
         if(flt_units(index) == 2){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr);
+          index_hat(index_ind) += n_index * sel_at_age(index, sex, age, flt_yr);
         }
       }
     }
@@ -2676,7 +3036,7 @@ Type objective_function<Type>::operator() () {
       error("Invalid 'Estimate_sigma_index'");
     }
 
-    log_index_sd(index_ind) = index_std_dev;
+    index_sd(index_ind) = index_std_dev;
 
     // Only include years from hindcast. Lognormal IID branch (index_ll_type == 0);
     // MVN covariance fleets (index_ll_type == 1) are handled in the per-fleet loop
@@ -2697,21 +3057,115 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Natural-scale normal (Index_loglike == "Normal", index_ll_type == 3): the
-    // residual (obs - q*pred) is normal with an ABSOLUTE sd (index_std_dev is the
-    // observation sd on the natural scale, not a log-scale CV), matching the AMAK
-    // avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2. No lognormal bias term.
-    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) && (index_ll_type(index) == 3)){
+    // Natural-scale normal: the residual (obs - q*pred) is normal with an
+    // ABSOLUTE sd (index_std_dev is the observation sd on the natural scale, not
+    // a log-scale CV). No lognormal bias term. Two families share this branch and
+    // differ only in whether the density is renormalized over the positive half
+    // line:
+    //
+    //   3  "Normal"           plain normal on (-inf, inf). Matches the AMAK
+    //                         avo_like/cpue_like = 0.5*(obs - q*pred)^2 / sd^2
+    //                         term for term, which is what the ADMB bridges
+    //                         compare against, so it is kept exactly as-is.
+    //   4  "TruncatedNormal"  normal left-truncated at zero. An index cannot be
+    //                         negative and data_check() will not accept one, so
+    //                         over the values the data can actually take the
+    //                         support is (0, inf) and the density has to be
+    //                         renormalized: log f = log phi(x; mu, sd)
+    //                         - log(1 - Phi(-mu/sd)), and 1 - Phi(-mu/sd)
+    //                         = Phi(mu/sd).
+    //
+    // The distinction is a modelling choice, not a correction: only family 4 has
+    // a simulator that draws from the same distribution the likelihood scores
+    // (see the draw below). Family 3's draw is exact for the untruncated normal
+    // it is fitted under, but has to reject the non-positive draws data_check()
+    // would refuse, so draw and density differ where the absolute sd is large
+    // relative to the index. Family 4 has no such gap.
+    //
+    // mu = q * (selected biomass) >= 0 and sd > 0, so mu/sd >= 0 and the
+    // truncation constant lies in [log(0.5), 0]: bounded, and no underflow is
+    // reachable.
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0) &&
+       ((index_ll_type(index) == 3) || (index_ll_type(index) == 4))){
       if(index_obs(index_ind, 0) > 0){
+        Type log_Z = (index_ll_type(index) == 4) ? log(pnorm(index_hat(index_ind) / index_std_dev)) : Type(0.0);
         if(osa_mode == 0){
           jnll_comp(JNLL_INDEX, index) -= dnorm(index_obs(index_ind, 0), index_hat(index_ind), index_std_dev, true);
+          jnll_comp(JNLL_INDEX, index) += log_Z;
         } else {
           // OSA: read the natural-scale observation from obsvec (build_osa_data()
-          // stores the untransformed obs for this family), keep-gated, so
-          // oneStepPredict() residualizes it as an independent normal.
+          // stores the untransformed obs for both families), keep-gated, so
+          // oneStepPredict() residualizes it against the same density that was fit.
           int pos = index_obsvec_idx(index_ind);
           if(pos >= 0){
             jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
+            jnll_comp(JNLL_INDEX, index) += keep(pos) * log_Z;
+          }
+        }
+      }
+    }
+
+    // -- Simulate the survey observation, for sim_mod(simulate = TRUE) --
+    // Families 0 (lognormal), 3 (normal) and 4 (truncated normal); the correlated
+    // families are drawn per fleet below, where their covariance lives. Each
+    // draws what its own density assumes.
+    //
+    // Outside the hindcast gate, deliberately: run_mse() splices the
+    // negative-Year rows in sign-flipped as the next assessment's data, so
+    // gating the draw would leave the projection carrying observations that were
+    // never simulated.
+    SIMULATE {
+      if((flt_type(index) > 0) && (index_ll_type(index) == 0)){
+        index_obs(index_ind, 0) = exp(rnorm(log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev));
+        // The density reads obsvec for this family; keep the two in step.
+        int sim_pos = index_obsvec_idx(index_ind);
+        if(sim_pos >= 0){
+          obsvec(sim_pos) = log(index_obs(index_ind, 0));
+        }
+      }
+      if((flt_type(index) > 0) && (index_ll_type(index) == 3)){
+        // "Normal": the density is untruncated, so the exact draw is a plain
+        // normal -- which can come back non-positive, and data_check() rejects
+        // that. Redraw, and count the rejections: the redrawn row follows the
+        // normal truncated at zero, not the untruncated one the likelihood
+        // scores, and sim_mod() warns when that is doing enough of the work to
+        // matter. Use "TruncatedNormal" to remove the gap rather than measure it.
+        Type sim_draw = rnorm(index_hat(index_ind), index_std_dev);
+        int  tn_tries = 0;
+        while((sim_draw <= Type(0)) && (tn_tries < index_trunc_max_tries)){
+          index_trunc_rejects_sim(index_ind) += 1;
+          sim_draw = rnorm(index_hat(index_ind), index_std_dev);
+          tn_tries++;
+        }
+        index_trunc_tries_sim(index_ind) += tn_tries + 1;
+        index_trunc_sd_sim(index_ind) = index_std_dev;
+        index_trunc_budget_sim(index_ind) = index_trunc_max_tries;
+        index_obs(index_ind, 0) = sim_draw;
+      }
+      if((flt_type(index) > 0) && (index_ll_type(index) == 4)){
+        // "TruncatedNormal": left-truncated at zero, by inverse CDF, matching the
+        // density above. With a = Phi(-mu/sd), drawing u uniformly on (a, 1) and
+        // returning mu + sd*Phi^-1(u) is an exact draw from the normal restricted
+        // to (0, inf) -- no rejection loop, no retry budget, and no draw that can
+        // come back non-positive for data_check() to reject.
+        Type a = pnorm(-index_hat(index_ind) / index_std_dev);
+        Type u = a + (Type(1.0) - a) * runif(Type(0.0), Type(1.0));
+        index_obs(index_ind, 0) = index_hat(index_ind) + index_std_dev * qnorm(u);
+      }
+      // Keep obsvec in step for both natural-scale families, in whichever layout
+      // it is currently carrying. build_osa_data() stores the UNTRANSFORMED
+      // observation for these families when the OSA data are built, which is
+      // what the OSA branch of the density above reads; on the ordinary fitting
+      // path it keeps the log(obs) layout it uses for every fleet. Writing the
+      // wrong one would leave obsvec_sim describing different data from
+      // index_obs_sim. Same reasoning as the MVN block below.
+      if((flt_type(index) > 0) && ((index_ll_type(index) == 3) || (index_ll_type(index) == 4))){
+        int sim_pos = index_obsvec_idx(index_ind);
+        if(sim_pos >= 0){
+          if(osa_mode == 0){
+            if(index_obs(index_ind, 0) > Type(0)) obsvec(sim_pos) = log(index_obs(index_ind, 0));
+          } else {
+            obsvec(sim_pos) = index_obs(index_ind, 0);
           }
         }
       }
@@ -2749,6 +3203,7 @@ Type objective_function<Type>::operator() () {
         vector<Type> resid(n_mvn);
         vector<Type> mu(n_mvn);
         vector<int>  posv(n_mvn);
+        vector<int>  rowv(n_mvn);   // index_obs row per Sigma position, for SIMULATE
         int k = 0;
         for(index_ind = 0; index_ind < index_obs.rows(); index_ind++){
           if((index_ctl(index_ind, 0) - 1) == index){
@@ -2757,6 +3212,7 @@ Type objective_function<Type>::operator() () {
               resid(k) = index_obs(index_ind, 0) - index_hat(index_ind);  // arithmetic residual (obs - q*pred)
               mu(k)    = index_hat(index_ind);
               posv(k)  = index_obsvec_idx(index_ind);
+              rowv(k)  = index_ind;
               k++;
             }
           }
@@ -2786,8 +3242,69 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+
+        // -- Simulate the correlated survey block --
+        // MVN and MVNORM differ only by a constant in the density, so they
+        // simulate identically; MVNORM_t draws mean-zero, hence adding mu back.
+        // Only the FITTED rows are drawn -- Sigma is dimensioned to exactly those,
+        // in the assembly order above -- so unlike the independent families, rows
+        // outside the fitted set keep the values they came in with.
+        SIMULATE {
+          // Redraw while any row is non-positive. The target is the joint normal
+          // truncated to the positive orthant, which has no closed-form inverse
+          // CDF, so rejection is the exact sampler here rather than a fallback;
+          // truncating each margin separately would be a different distribution
+          // and would break the correlation this likelihood models. There is no
+          // truncated family to switch to, so the draw/density gap stays.
+          //
+          // The budget scales with the row count (index_trunc_max_tries * n_mvn)
+          // because a vector is rejected if ANY row is non-positive.
+          //
+          // The acceptance test is at the TOP of the loop, so the draw written
+          // out has always been checked: an exhausted budget writes a
+          // non-positive index rather than an unexamined one, and sim_mod()
+          // reports it as any other non-positive draw.
+          vector<Type> sim_dev = MVNORM(index_cov_mat(index)).simulate();
+          int mvn_tries = 0;
+          while(true){
+            bool any_nonpos = false;
+            for(k = 0; k < n_mvn; k++){
+              if(mu(k) + sim_dev(k) <= Type(0)) any_nonpos = true;
+            }
+            if(!any_nonpos) break;
+            if(mvn_tries >= index_trunc_max_tries * n_mvn) break;   // budget spent; the non-positive draw stands and is reported
+            for(k = 0; k < n_mvn; k++){
+              if(mu(k) + sim_dev(k) <= Type(0)) index_trunc_rejects_sim(rowv(k)) += 1;
+            }
+            sim_dev = MVNORM(index_cov_mat(index)).simulate();
+            mvn_tries++;
+          }
+          for(k = 0; k < n_mvn; k++){
+            index_trunc_tries_sim(rowv(k)) += mvn_tries + 1;
+            index_trunc_sd_sim(rowv(k)) = sqrt(index_cov_mat(index)(k, k));
+            index_trunc_budget_sim(rowv(k)) = index_trunc_max_tries * n_mvn;
+            index_obs(rowv(k), 0) = mu(k) + sim_dev(k);
+            // obsvec holds log(obs) for this family on the ordinary fitting path
+            // (build_osa_data() only whitens it when the OSA data are built), so
+            // keep it in step on that path and leave the whitened layout alone.
+            int sim_pos = posv(k);
+            if((sim_pos >= 0) && (osa_mode == 0) && (index_obs(rowv(k), 0) > Type(0))){
+              obsvec(sim_pos) = log(index_obs(rowv(k), 0));
+            }
+          }
+        }
       }
     }
+  }
+
+  // Reported under a _sim name -- see the naming rule in section 5.12b.
+  SIMULATE {
+    matrix<Type> index_obs_sim = index_obs;
+    REPORT(index_obs_sim);
+    REPORT(index_trunc_tries_sim);
+    REPORT(index_trunc_rejects_sim);
+    REPORT(index_trunc_sd_sim);
+    REPORT(index_trunc_budget_sim);
   }
 
 
@@ -2812,7 +3329,7 @@ Type objective_function<Type>::operator() () {
       error("Invalid 'Estimate_sigma_catch'");
     }
 
-    log_catch_sd(fsh_ind) = fsh_std_dev; // Save estimated log_sd
+    catch_sd(fsh_ind) = fsh_std_dev; // the sd this row was actually fitted with
 
     // Add only years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1)){
@@ -2830,6 +3347,48 @@ Type objective_function<Type>::operator() () {
         // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
+
+    // -- Simulate the catch observation, for sim_mod(simulate = TRUE) --
+    // Same mean as the dnorm above, bias term included: the estimator fits to
+    // that mean, so a draw centred elsewhere biases every self-test.
+    //
+    // Outside the hindcast gate, deliberately. clean_data() appends a catch row
+    // per fishery per projection year with Catch = NA (99 of BS2017SS's 216)
+    // that sim_mod() has always filled; gating the draw leaves them NA and
+    // data_check() rejects the refit.
+    //
+    // catch_hat is 0 there, so the mean is log(0) = -inf and rnorm() returns it
+    // without drawing, giving exp(-inf) = 0. Safe only because SIMULATE runs on
+    // doubles -- do not share this mean with the dnorm above, where log(0) puts
+    // a NaN adjoint on the tape, and do not add a catch_hat > 0 guard, which
+    // would change how many random numbers the draw consumes.
+    SIMULATE {
+      catch_obs(fsh_ind, 0) = exp(rnorm(log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev));
+      // The density reads obsvec (log scale), the write-back reads catch_obs
+      // (natural scale); keep both in step. -1 outside the fitted window.
+      // Both writes last only for this evaluation -- DATA_ objects are re-read
+      // each call -- so the jnll a simulate call returns is still the original
+      // data's. Fit simulated data by building a new model on them.
+      int sim_pos = catch_obsvec_idx(fsh_ind);
+      if(sim_pos >= 0){
+        obsvec(sim_pos) = log(catch_obs(fsh_ind, 0));
+      }
+    }
+  }
+
+  // Reported under _sim names -- see the naming rule in section 5.12b.
+  //
+  // obsvec_sim holds the catch and survey-index entries redrawn and every other
+  // entry as observed, and that is all it will ever hold: the composition, CAAL
+  // and diet draws below write their own matrices and do not touch obsvec, since
+  // their densities read it only in OSA mode and sim_mod() never simulates from
+  // an OSA object. It is reported for inspection, not as a simulated data set --
+  // sim_mod() assembles the data_list from the per-type *_obs_sim matrices.
+  SIMULATE {
+    matrix<Type> catch_obs_sim = catch_obs;
+    vector<Type> obsvec_sim = obsvec;
+    REPORT(catch_obs_sim);
+    REPORT(obsvec_sim);
   }
 
 
@@ -2846,6 +3405,12 @@ Type objective_function<Type>::operator() () {
   // for now: either reword the "changes the decomposition, not the value" note to
   // admit the constant, or subtract it so the reported NLL is comparable across
   // versions.
+  //
+  // Simulated compositions go to this copy, not into the REPORTed comp_obs --
+  // see the _sim naming rule in section 5.12b. Rows the draw does not touch keep
+  // the observed values they were copied with.
+  matrix<Type> comp_sim = comp_obs;
+
   for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
@@ -2980,10 +3545,78 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+    // -- Simulate the composition, for sim_mod(simulate = TRUE) --
+    // Drawn in RAW bin space, from comp_hat before the transforms above.
+    // Tail accumulation folds bins many-to-one before the density, so a draw
+    // taken there has no way back; drawing raw and letting the refit fold is
+    // exact, both families being closed under merging categories. And
+    // comp_prop_offset is affine on obs and prediction alike, so drawing from
+    // the un-offset prediction is what keeps the round trip unbiased.
+    //
+    // Outside the year gate, deliberately: run_mse() reveals the negative-Year
+    // rows to the estimation model as new composition data.
+    SIMULATE {
+      int nbin_raw = ((comp_type == 0) ? nages(sp) : nlengths(sp)) * joint_adjust(comp_ind);
+      vector<Type> sim_p = comp_hat.row(comp_ind).segment(0, nbin_raw);
+      Type sim_tot = sim_p.sum();
+      Type n_nom = comp_n(comp_ind, 1);
+      // A row the draw cannot be taken for comes back EMPTY, not carried over and
+      // not filled in from the prediction. Two ways to get there, and they mean
+      // the same thing:
+      //   sim_tot == 0  nothing is predicted -- a fleet with no catch that year,
+      //                 or one switched off.
+      //   n_nom  == 0   nothing was sampled -- no sample size to draw at.
+      // comp_hat rows are normalized to sum to one, so falling back to the
+      // prediction would hand back noise-free proportions summing to one: a row
+      // that was never sampled, indistinguishable from a real full-weight
+      // composition. run_mse() decides "no catch, so no composition" by testing
+      // whether the row sums above zero (R/10-run_mse.R), and it zeroes
+      // Sample_size for empty rows and feeds them back in -- so the second case
+      // is reachable on the next assessment. sim_mod() warns on
+      // an empty row by the same test.
+      vector<Type> sim_out(nbin_raw); sim_out.setZero();
+
+      if((sim_tot > Type(0)) && (n_nom > Type(0))){
+        vector<Type> p = sim_p / sim_tot;
+        if(comp_ll_type(flt) == 1){
+          // Dirichlet-multinomial: the concentration already carries the weight
+          // (DM_pars_comp = exp(comp_weights)), so the draw is at the nominal N.
+          vector<Type> sim_alphas = p * n_nom * DM_pars_comp(flt);
+          sim_out = rdirmultinom_rce(n_nom, sim_alphas);
+        } else {
+          // Multinomial (and the AFSC pseudo-likelihood, which has no proper
+          // density of its own): comp_weights multiplies the log-likelihood, so
+          // it is an effective sample size and the draw has to match it, or the
+          // data are more informative than the estimator treats them as being.
+          sim_out = rmultinom_rce(n_nom * comp_weights(flt), p);
+        }
+      }
+      for(int b = 0; b < nbin_raw; b++){
+        comp_sim(comp_ind, b) = sim_out(b);
+      }
+      // Clear the ragged tail. comp_obs is sized to the widest row, so a row
+      // with fewer bins has padding columns that belong to no bin. The R draw
+      // overwrote the whole row; writing only the real bins would leave whatever
+      // was there, and rearrange_data() normalizes across ALL columns on the
+      // next fit -- diluting every real bin by the padding's share.
+      for(int b = nbin_raw; b < comp_sim.cols(); b++){
+        comp_sim(comp_ind, b) = Type(0);
+      }
+    }
+  }
+
+  SIMULATE {
+    matrix<Type> comp_obs_sim = comp_sim;
+    REPORT(comp_obs_sim);
   }
 
 
   // Slot 3 -- Conditional age at length (CAAL)
+  // Simulated CAAL goes to this copy, not into caal_obs, for the reason comp_sim
+  // and diet_sim exist: caal_obs is REPORTed further down.
+  matrix<Type> caal_sim = caal_obs;
+
   for(int caal_ind = 0; caal_ind < caal_hat.rows(); caal_ind++){
 
     flt = caal_ctl(caal_ind, 0) - 1;            // Temporary fishery index
@@ -3051,6 +3684,44 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+    // -- Simulate the conditional age-at-length, for sim_mod(simulate = TRUE) --
+    // Same construction as the marginal composition above, and for the same
+    // reasons: drawn from caal_hat before comp_prop_offset is added, so the round
+    // trip through a refit is unbiased, and outside the year gate so the rows
+    // run_mse() reveals to the estimation model are drawn too. CAAL has no tail
+    // accumulation, so there is no fold to undo here.
+    SIMULATE {
+      vector<Type> sim_p = caal_hat.row(caal_ind).segment(0, n_caal);
+      Type sim_tot = sim_p.sum();
+      Type n_nom = caal_n(caal_ind, 0);
+      vector<Type> sim_out(n_caal); sim_out.setZero();
+
+      if((sim_tot > Type(0)) && (n_nom > Type(0))){
+        vector<Type> p = sim_p / sim_tot;
+        if(caal_ll_type(flt) == 1){
+          vector<Type> sim_alphas = p * n_nom * DM_pars_caal(flt);
+          sim_out = rdirmultinom_rce(n_nom, sim_alphas);
+        } else {
+          sim_out = rmultinom_rce(n_nom * caal_weights(flt), p);
+        }
+      }
+      // As for the marginal composition: a row with nothing predicted or nothing
+      // sampled comes back empty rather than filled in from the prediction, and
+      // the ragged tail is cleared so a later normalization cannot dilute the
+      // real bins.
+      for(int b = 0; b < n_caal; b++){
+        caal_sim(caal_ind, b) = sim_out(b);
+      }
+      for(int b = n_caal; b < caal_sim.cols(); b++){
+        caal_sim(caal_ind, b) = Type(0);
+      }
+    }
+  }
+
+  SIMULATE {
+    matrix<Type> caal_obs_sim = caal_sim;
+    REPORT(caal_obs_sim);
   }
 
 
@@ -3348,7 +4019,9 @@ Type objective_function<Type>::operator() () {
           Type rho_y = rho_trans(sel_curve_pen(flt, 1));
 
           Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
-          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+          // As in the M 2D-AR1 above: SEPARABLE(f, g) puts f on the outermost
+          // dimension. tmp_AR2 is (bin, year), so year leads and bin follows.
+          jnll_comp(JNLL_SEL_DEV, flt) += SCALE(SEPARABLE(AR1(rho_y),AR1(rho_a)), Sigma_sig_sel)(tmp_AR2);
         } // end sex loop
       }
 
@@ -3374,8 +4047,12 @@ Type objective_function<Type>::operator() () {
           Eigen::SparseMatrix<Type> Q_sparse(num_rows, num_rows); // Precision matrix
 
           // -- Construct precision matrix
+          // Argument order is bin, year, cohort. construct_Q()'s own parameter
+          // names read the other way round, but its `age > 1` branch (previous
+          // bin, same year) multiplies the FIRST argument, and this ay_index is
+          // filled (bin, year) -- the mirror of WHAM's -- so the two inversions
+          // cancel. Do not "correct" this call to match those names.
           Q_sparse = construct_Q(nyrs_hind, n_sel_bins, ay_index,
-                                 // sel_rho_y(flt), sel_rho_a(flt), sel_rho_c(flt), // natural scale
                                  sel_curve_pen(flt, 0), sel_curve_pen(flt, 1), sel_curve_pen(flt, 2), // natural scale
                                  log(square(sel_dev_sd(flt))), 0); // Conditional variance
 
@@ -3709,7 +4386,12 @@ Type objective_function<Type>::operator() () {
             M_re_a_yr(age, yr) = log_M1_dev(sp, sex, age, yr);
           }
         }
-        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
+        // SEPARABLE(f, g) applies f to the OUTERMOST array dimension and g to
+        // the fastest-running one (TMB density.hpp). The array is
+        // (age, year), so the year correlation goes first and the age
+        // correlation second -- written the other way round, rho_M_a would
+        // correlate over years and rho_M_y over ages.
+        jnll_comp(JNLL_M_RE, sp) += SCALE(SEPARABLE(AR1(rho_M_y), AR1(rho_M_a)), Sigma_M)(M_re_a_yr);
       }
     }
   }
@@ -3843,6 +4525,11 @@ Type objective_function<Type>::operator() () {
 
 
   // 13.2. Diet likelihood components
+  // Simulated stomach contents go to this copy, not into the REPORTed diet_obs
+  // -- see the _sim naming rule in section 5.12b. Stomachs the model does not fit
+  // keep the observed values they were copied with.
+  matrix<Type> diet_sim = diet_obs;
+
   if((msmMode > 2) || (imax(suitMode) > 0)) {
 
     int current_j = 0; // Track position in diet_ctl
@@ -3949,7 +4636,84 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
+
+      // -- Simulate the stomach contents, for sim_mod(simulate = TRUE) --
+      // Drawn under the same family and from the same predicted proportions and
+      // concentration the density above uses.
+      //
+      // The composition is this stomach's prey plus the "other prey" balance, so
+      // the draw covers n_prey + 1 bins. Only the prey bins are written back:
+      // "other prey" is defined as whatever is left over and is recomputed from
+      // the prey proportions on the next fit, so storing it would double-count.
+      SIMULATE {
+        // Draw from the composition BEFORE the offset, rebuilt here from
+        // diet_hat so ordinary fitting pays nothing for it. The offset keeps
+        // log(0) out of the density rather than describing the stomachs, and the
+        // density's transform is affine, so drawing from the un-offset
+        // prediction is what keeps a simulate-then-refit round trip unbiased.
+        vector<Type> sim_p(n_prey + 1);
+        Type prey_sum = 0.0;
+        for(int k = 0; k < n_prey; k++){
+          sim_p(k) = diet_hat(start_j + k, 1);
+          prey_sum += sim_p(k);
+        }
+        sim_p(n_prey) = (prey_sum < Type(1.0)) ? Type(1.0) - prey_sum : Type(0.0);
+        Type sim_tot = sim_p.sum();
+        if(sim_tot > Type(0)) sim_p /= sim_tot;
+
+        if((N_s > Type(0)) && (sim_tot > Type(0))){
+          vector<Type> sim_counts(n_prey + 1);
+          switch(diet_ll_type(rsp)){
+          case 0: {
+            // The multinomial density is multiplied by diet_comp_weights, which
+            // makes it an effective sample size: weighting a multinomial
+            // log-likelihood by w is (up to a constant) a multinomial at w*N.
+            // Draw at that size, or a down-weighted fleet gets stomachs the
+            // likelihood treats as w times less informative than they are.
+            // (For the Dirichlet-multinomial the same parameter is log theta and
+            // already enters through the concentration below.)
+            Type n_eff = N_s * diet_comp_weights(rsp);
+            sim_counts = rmultinom_rce(n_eff, sim_p);
+            break;
+          }
+          case 1: {
+            vector<Type> sim_alphas = sim_p * N_s * DM_diet_par;
+            sim_counts = rdirmultinom_rce(N_s, sim_alphas);
+            break;
+          }
+          default:
+            error("Invalid 'diet_ll_type'");
+          }
+          // Divide by the number of observations actually PLACED, not by N_s.
+          // rmultinom_rce rounds N_s to a whole number, so with a fractional
+          // sample size the prey proportions would otherwise sum to
+          // round(N_s)/N_s > 1 -- and data_check() rejects a stomach summing
+          // above 1, which self_test() then reports as a failed replicate rather
+          // than as bad data.
+          //
+          // A stomach whose weighted sample size rounds to zero places nothing,
+          // and comes back EMPTY rather than carrying its observed proportions
+          // over -- the same rule the composition draw follows (section 5.9).
+          // Keeping the observed values would hand the refit the real diet under
+          // a weight that says the stomach is worth less than one observation,
+          // and a self_test() would then score suitability recovery against data
+          // it was never asked to simulate.
+          Type n_drawn = sim_counts.sum();
+          for(int k = 0; k < n_prey; k++){
+            diet_sim(start_j + k, 1) = (n_drawn > Type(0))
+              ? sim_counts(k) / n_drawn
+              : Type(0);
+          }
+        }
+      }
     }
+  }
+
+  // Reported under a _sim name -- see the naming rule in section 5.12b. Equal to
+  // diet_obs for a model with no diet likelihood, where nothing above is drawn.
+  SIMULATE {
+    matrix<Type> diet_obs_sim = diet_sim;
+    REPORT(diet_obs_sim);
   }
 
 
@@ -4102,7 +4866,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 14.4. Survey components
   REPORT( index_hat );
-  REPORT( log_index_sd );
+  REPORT( index_sd );
   REPORT( index_q );
   vector<Type>  log_index_hat = index_hat;  log_index_hat = log(index_hat.array());// Fixed n-at-age scaling coefficient
   REPORT( log_index_hat );
@@ -4138,7 +4902,7 @@ Type objective_function<Type>::operator() () {
   REPORT( F_at_age );
   REPORT( catch_hat );
   REPORT( max_catch_hat );
-  REPORT( log_catch_sd );
+  REPORT( catch_sd );
 
 
   // 14.6. Age/length composition

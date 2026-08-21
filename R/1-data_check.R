@@ -133,6 +133,27 @@ data_check <- function(data_list) {
         "grammar AR1 uses the marginal SD); see ",
         "vignette('environmental-linkages-and-priors')."), call. = FALSE)
     }
+
+    # The age-by-year modes carry one deviation per age-year cell -- nages *
+    # nyrs_hind per species, which is 882 on GOA2018SS where a mapping defect
+    # gave 42 before 5.9.0. That field is flexible enough to absorb a trend that
+    # belongs to selectivity or to recruitment, and nothing else in a
+    # single-species model pins the level of M. Say so where the user can act
+    # on it; this is not an error, and a well-informed model is free to run it.
+    m1_2d <- data_list$M1_re %in% c(3, 6, "iid_age_year", "ar1_age_year")
+    m1_pr <- data_list$M1_use_prior
+    if (is.null(m1_pr)) m1_pr <- rep(0, length(m1_2d))
+    m1_2d <- m1_2d & !(as.numeric(m1_pr) > 0)
+    if (any(m1_2d, na.rm = TRUE)) {
+      m1_sp <- if (!is.null(data_list$spnames)) data_list$spnames[which(m1_2d)] else which(m1_2d)
+      warning(paste0(
+        "M1_re estimates an age-by-year deviation field for species ",
+        paste(m1_sp, collapse = ", "), " with no prior on M ",
+        "(M1_use_prior = FALSE). That is one deviation per age and year, which ",
+        "is confounded with selectivity and recruitment in a single-species ",
+        "model. Set build_M1(M1_use_prior = TRUE), or check that M is ",
+        "identified before reading the estimates."), call. = FALSE)
+    }
   }
 
   # `Q_block` is vestigial: it is never read (q time-blocking reuses the
@@ -359,7 +380,16 @@ data_check <- function(data_list) {
 
   # Bioenergetics: temperature-dependent consumption requires environmental driver
   if(!is.null(data_list$Ceq)){
-    for(sp in 1:data_list$nspp){
+    # NA reaches here from a workbook whose bioenergetics columns were left
+    # blank. Report it rather than letting `if (NA > 1)` throw R's bare
+    # "missing value where TRUE/FALSE needed", which names nothing.
+    .ceq_na <- which(is.na(data_list$Ceq[1:data_list$nspp]))
+    if(length(.ceq_na)){
+      errors <- c(errors, paste0("`Ceq` is missing for species ",
+                                 paste(.ceq_na, collapse = ", "),
+                                 ". Set the consumption equation (1 = temperature-independent) for every species."))
+    }
+    for(sp in setdiff(1:data_list$nspp, .ceq_na)){
       if(data_list$Ceq[sp] > 1){
         if(is.null(data_list$env_data) || ncol(data_list$env_data) < (data_list$Cindex[sp] + 1)){
           errors <- c(errors, paste0("Species ", sp, " uses temperature-dependent consumption (Ceq = ",
@@ -615,6 +645,147 @@ data_check <- function(data_list) {
       }
     }
 
+    # Per-fleet settings a shared Selectivity_index does not reconcile. Checked
+    # here rather than in build_map(), whose warnings fit_mod() suppresses.
+    #
+    # SHAPING columns are read per fleet by the cpp when it builds the curve, so
+    # a difference means the group does not share one selectivity. NA counts as
+    # its own value among them -- a blank Sel_norm_bin means "do not normalize",
+    # so blank against 2 is two different curves, not "inherit the lead's".
+    #
+    # Time_varying_sel is resolved by build_map(), which copies the lead fleet's
+    # deviation map over the group: the curves match and the other fleets'
+    # settings are discarded. NA there really is "unset", so it is skipped.
+    # Sel_norm_scope and Sel_cap_bin belong here too: both are per-fleet
+    # DATA_IVECTORs read inside the curve builder (selectivity.hpp: the
+    # across-sex normalization reference, and the NonParametricRPM bin cap),
+    # not behind a flt_sel_lead gate.
+    .sel_shaping_cols <- c("Selectivity", "Selectivity_dimension",
+                           "Bin_first_selected", "N_sel_bins",
+                           "Sel_norm_bin", "Sel_norm_bin_upper",
+                           "Sel_norm_scope", "Sel_cap_bin")
+    if ("Selectivity_index" %in% colnames(fc)) {
+      .live <- if ("Fleet_type" %in% colnames(fc)) {
+        !(fc$Fleet_type %in% c("Off", 0, "0"))
+      } else rep(TRUE, nrow(fc))
+      for (si in unique(fc$Selectivity_index[!is.na(fc$Selectivity_index) & .live])) {
+        rows <- which(!is.na(fc$Selectivity_index) & fc$Selectivity_index == si & .live)
+        if (length(rows) < 2) next
+        .differs <- function(col, na_is_a_value) {
+          if (!col %in% colnames(fc)) return(FALSE)
+          v <- as.character(fc[[col]][rows])
+          if (na_is_a_value) v[is.na(v)] <- "<blank>" else v <- v[!is.na(v)]
+          length(unique(v)) > 1
+        }
+        shaping <- Filter(function(cl) .differs(cl, na_is_a_value = TRUE),
+                          .sel_shaping_cols)
+        if (length(shaping)) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", si, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "), ") differ in ",
+            paste(shaping, collapse = ", "),
+            ". These are read per fleet when the curve is built, so the fleets ",
+            "will not share one selectivity. To mirror a fleet, copy its ",
+            "fleet_control row and change only the identity and catchability ",
+            "columns."))
+        }
+        if (.differs("Time_varying_sel", na_is_a_value = FALSE)) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", si, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "),
+            ") have different Time_varying_sel; the shared deviation block uses ",
+            "the first estimated fleet's setting and the others are ignored."))
+        }
+      }
+    }
+
+    # The same for a shared Catchability_index, and for the same reason.
+    #
+    # Fixed / Estimated / Estimated-with-prior share the one index_log_q the map
+    # wires up, so a difference resolves to the lead fleet's answer.
+    #
+    # Analytical and AnalyticalArith do not: they solve q from the fleet's own
+    # OBSERVATIONS (ceattle.cpp 8.2, 8.2b), bypassing the shared parameter, so a
+    # group containing one shares no catchability -- two Analytical fleets still
+    # solve separately. Reported on the form, not only on a disagreement.
+    #
+    # Environmental and AR1 also overwrite index_q per fleet (ceattle.cpp 6.4),
+    # but from index_log_q, index_q_beta and index_q_dev, all of which build_map()
+    # maps to the lead fleet's, against an env_index row that is not fleet
+    # specific. Those groups DO share, including when the fleets name different
+    # env series -- the lead's is used. Verified by fitting, not by inspection.
+    .q_solved <- c("Analytical", "AnalyticalArith")
+    # Accept either spelling: a data list reaching data_check() straight from a
+    # workbook may still carry the integer codes.
+    .q_canon <- function(x) .canon_switch(x, q_map)
+    if (all(c("Catchability_index", "Catchability") %in% colnames(fc))) {
+      .live <- if ("Fleet_type" %in% colnames(fc)) {
+        !(fc$Fleet_type %in% c("Off", 0, "0"))
+      } else rep(TRUE, nrow(fc))
+      for (qi in unique(fc$Catchability_index[!is.na(fc$Catchability_index) & .live])) {
+        rows <- which(!is.na(fc$Catchability_index) & fc$Catchability_index == qi & .live)
+        if (length(rows) < 2) next
+        qv <- .q_canon(fc$Catchability[rows])
+
+        # The lead settles the form for the group: build_map_catchability()
+        # reads it, and adjust_map_shared_params() copies that slice over the
+        # rest. .group_lead() picks the same row.
+        lead_form <- qv[1]
+        init <- if ("Catchability_init" %in% colnames(fc)) {
+          suppressWarnings(as.numeric(fc$Catchability_init[rows]))
+        } else rep(NA_real_, length(rows))
+
+        solved <- intersect(unique(qv), .q_solved)
+        if (identical(lead_form, "Fixed")) {
+          # Nothing is estimated, so there is no shared parameter to hold: the
+          # group's index_log_q is mapped out and each fleet sits at its own
+          # Catchability_init. Reported whenever that is not what the columns
+          # ask for -- a member wanting an estimated q, or inits that differ.
+          if (length(unique(qv)) > 1 ||
+              length(unique(init[!is.na(init)])) > 1) {
+            warning(paste0(
+              "Fleets sharing Catchability_index ", qi, " (",
+              paste(fc$Fleet_name[rows], collapse = ", "),
+              ") have a Fixed lead fleet, so no catchability is estimated for ",
+              "the group and none is shared: each fleet uses its own ",
+              "Catchability_init (",
+              paste(ifelse(is.na(init), "<blank>", format(init)), collapse = ", "),
+              ")."))
+          }
+        } else if (length(solved)) {
+          warning(paste0(
+            "Fleets sharing Catchability_index ", qi, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "), ") include ",
+            paste(solved, collapse = ", "),
+            ", which computes catchability per fleet. The group does not share ",
+            "one catchability despite sharing the index; give each fleet its own ",
+            "Catchability_index, or use an estimated q for the whole group."))
+        } else if (length(unique(qv)) > 1) {
+          warning(paste0(
+            "Fleets sharing Catchability_index ", qi, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "),
+            ") have different Catchability (", paste(unique(qv), collapse = ", "),
+            "); the shared catchability uses the first estimated fleet's setting ",
+            "and the others are ignored."))
+        }
+
+        # Time_varying_q is overloaded -- under Environmental and AR1 it names
+        # env_data columns rather than a mode -- but either way the group takes
+        # the lead fleet's, so a difference is worth reporting in both readings.
+        if ("Time_varying_q" %in% colnames(fc)) {
+          tv <- as.character(fc$Time_varying_q[rows])
+          tv <- tv[!is.na(tv)]
+          if (length(unique(tv)) > 1) {
+            warning(paste0(
+              "Fleets sharing Catchability_index ", qi, " (",
+              paste(fc$Fleet_name[rows], collapse = ", "),
+              ") have different Time_varying_q; the group uses the first ",
+              "estimated fleet's setting and the others are ignored."))
+          }
+        }
+      }
+    }
+
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
@@ -745,6 +916,49 @@ data_check <- function(data_list) {
   # all there are no covariance fleets, which is precisely the case the stray
   # index_cov warning below is meant to catch.
   mvn_flts <- integer(0)
+  # The analytical sd (Ludwig and Walters 1994) is accumulated from squared LOG
+  # residuals, so it is a log-scale sd. What that costs depends on whether the
+  # family actually reads it, and the two groups differ:
+  #
+  #   Normal / TruncatedNormal read the sd as an ABSOLUTE value in index units,
+  #     so the likelihood itself is evaluated on the wrong scale. Refuse it.
+  #   MVN / MVNORM score through index_cov_mat and never read the scalar sd, so
+  #     the FIT is unaffected. But index_sd is still reported from it, and that
+  #     is what residuals(type = "pearson") and plot_index()'s interval divide
+  #     by, so the diagnostics are on the wrong scale. Warn rather than refuse a
+  #     model that fits correctly.
+  if(has_data(fc) && all(c("Index_distribution", "Estimate_index_sd") %in% colnames(fc))){
+    is_analytical <- fc$Estimate_index_sd %in% c("Analytical", 2, "2")
+    is_on <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+    fitted_scale <- fc$Index_distribution %in% c("Normal", "TruncatedNormal", 3, 4, "3", "4")
+    cov_scale    <- fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2")
+
+    bad <- which(is_analytical & is_on & fitted_scale)
+    if(length(bad)){
+      errors <- c(errors, paste0(
+        "Fleet(s) ", paste(fc$Fleet_name[bad], collapse = ", "),
+        " combine Estimate_index_sd = 'Analytical' with Index_distribution = '",
+        paste(unique(as.character(fc$Index_distribution[bad])), collapse = "', '"),
+        "'. The analytical sd is computed from log residuals, so it is a ",
+        "log-scale sd, while these families read the sd as an absolute value in ",
+        "the units of the index -- the likelihood would be evaluated on the ",
+        "wrong scale. Use Estimate_index_sd = 'Fixed' with an absolute Log_sd, ",
+        "or 'Estimated', or switch the fleet to Lognormal."))
+    }
+
+    noisy <- which(is_analytical & is_on & cov_scale)
+    if(length(noisy)){
+      warning(paste0(
+        "Fleet(s) ", paste(fc$Fleet_name[noisy], collapse = ", "),
+        " combine Estimate_index_sd = 'Analytical' with a covariance index ",
+        "family. The fit is unaffected -- MVN/MVNORM score through index_cov ",
+        "and never read the scalar sd -- but the reported index_sd is then a ",
+        "log-scale number, and residuals(type = 'pearson') and plot_index()'s ",
+        "observation interval divide by it. Read those two on this fleet with ",
+        "care, or set Estimate_index_sd = 'Fixed'."), call. = FALSE)
+    }
+  }
+
   if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
     mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
     for(flt in mvn_flts){
@@ -830,6 +1044,94 @@ data_check <- function(data_list) {
   }
 
   # catch_data must span hindcast years (use 0 where no catch occurred);
+  # A fleet carrying fitted index observations needs its catchability columns,
+  # whatever its Fleet_type. The template scores an index row for any non-Off
+  # fleet, so a fishery with a CPUE series is fitted like a survey -- but these
+  # columns have no schema default, so on a fishery they arrive NA and the index
+  # would be fitted at an undefined q with an undefined sd. Required rather than
+  # defaulted: guessing a catchability form for someone's CPUE series is the
+  # kind of silent default this check exists to prevent.
+  #
+  # These two are read whatever the catchability form. The rest are conditional
+  # and are handled below -- Catchability_init in particular is unread under
+  # Analytical, which several working GOA hake configurations rely on.
+  .idx_fleets <- .fleets_with_index(data_list)
+  if (length(.idx_fleets)) {
+    .fc  <- data_list$fleet_control
+    .need <- c("Catchability", "Estimate_index_sd")
+    .have <- intersect(.need, names(.fc))
+    for (.cl in .have) {
+      .bad <- .fc$Fleet_code %in% .idx_fleets & is.na(.fc[[.cl]])
+      if (any(.bad)) {
+        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
+             " carry index_data but have no `", .cl, "`. An index is fitted for ",
+             "any fleet that is not Off -- a fishery with a CPUE series included ",
+             "-- so it needs the same catchability settings a survey does. Set `",
+             .cl, "` for those fleets. Setting their index rows to Year < 0 ",
+             "stops them being fitted but does not remove the fleet's index: ",
+             "its catchability stays unmapped, so index_hat comes back NA and ",
+             "reaches sdreport. Switch the fleet Off instead if it should carry ",
+             "no index at all.", call. = FALSE)
+      }
+    }
+  }
+
+  # The remaining q columns are each required by the one switch that reads them.
+  # All are logged when the parameter list is built, so a blank or non-positive
+  # entry becomes a NaN or -Inf starting value and the objective is not finite
+  # at the first evaluation -- loudly, but from inside MakeADFun, where the
+  # message names neither the fleet nor the column.
+  #
+  # Every condition mirrors build_map()'s own gate, so a setting that reads no
+  # starting value is not asked for one. `Block` is deliberately absent from the
+  # time-varying set (a time block carries no penalty), and the analytical
+  # catchability forms are exempted below.
+  if (length(.idx_fleets)) {
+    .fc   <- data_list$fleet_control
+    .isq  <- .fc$Fleet_code %in% .idx_fleets
+    .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
+    # Read the switches by canonical name whichever spelling they arrived in.
+    # fit_mod() and read_data() both run switch_check() -> revert_switches()
+    # first, but data_check() is callable on a hand-built list that has not, and
+    # the shared-block checks above already canonicalize for the same reason.
+    .qform <- .canon_switch(.col("Catchability"), q_map)
+    .qtv   <- .canon_switch(.col("Time_varying_q"), tv_q_map)
+    .qest  <- .qform %in% c("Estimated", "Estimated-with-prior")
+
+    .req <- list(
+      list(col = "Index_sd",
+           when = .isq & .col("Estimate_index_sd") %in% c(1, "1"),
+           why  = "`Estimate_index_sd` estimates the observation sd, and its starting value is log(Index_sd)"),
+      list(col = "Catchability_prior_sd",
+           when = .isq & .qform %in% c("Estimated-with-prior", "AR1"),
+           why  = "the catchability prior is scored at it, and AR1 starts its estimated sd from it"),
+      list(col = "Time_varying_q_sd",
+           when = .isq & (.qest | .qform == "AR1") &
+                  .qtv %in% c("IID", "AR1", "RandomWalk"),
+           why  = "the time-varying catchability deviations are penalized at this standard deviation"),
+      # Analytical / AnalyticalArith solve q in closed form and overwrite
+      # index_q (ceattle.cpp section 8.2), so they never read this column --
+      # several GOA hake configurations leave it at 0 and fit correctly.
+      list(col = "Catchability_init",
+           when = .isq & !(.qform %in% c("Analytical", "AnalyticalArith")),
+           why  = "catchability is held at, or starts from, log(Catchability_init)")
+    )
+
+    for (.r in .req) {
+      .w <- .r$when
+      .w[is.na(.w)] <- FALSE
+      if (!any(.w)) next
+      .v   <- suppressWarnings(as.numeric(.col(.r$col)))
+      .bad <- .w & (is.na(.v) | !is.finite(.v) | .v <= 0)
+      if (any(.bad)) {
+        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
+             " need a positive `", .r$col, "`: ", .r$why, ". Without it the ",
+             "objective is not finite at the first evaluation, which surfaces ",
+             "as a TMB error naming none of this.", call. = FALSE)
+      }
+    }
+  }
+
   # index_data gaps are normal (biennial / triennial surveys, missed years).
   if(!is.null(data_list$styr) && !is.null(data_list$endyr) && has_data(data_list$catch_data)){
     missing_years <- setdiff(data_list$styr:data_list$endyr, unique(data_list$catch_data$Year))
@@ -969,7 +1271,12 @@ data_check <- function(data_list) {
       }
       diet_sum <- dd |> dplyr::group_by(Pred, Pred_age, Pred_sex, Year) |>
         dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
-      if(any(diet_sum$diet_sum > 1)){
+      # A stomach whose prey account for the whole diet sums to exactly 1, and a
+      # simulated one reaches that through a division that can land a bit above.
+      # Reject a real excess, not floating-point noise: the worst case there is
+      # a few ulps per prey bin, so 1e-12 is ample and stays strict enough to
+      # catch a genuinely malformed stomach.
+      if(any(diet_sum$diet_sum > 1 + 1e-12)){
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }
@@ -1074,4 +1381,53 @@ data_check <- function(data_list) {
     chol(x)
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE))
+}
+
+
+#' Warn when a q linkage breaks a shared `Catchability_index` group
+#'
+#' `adjust_map_shared_params()` ties the group's `index_log_q` to the lead
+#' fleet's, but `ceattle.cpp` adds `q_linkage_offset(flt, yr)` per fleet
+#' afterwards, and nothing reconciles that. A linkage naming only some of a
+#' group's fleets therefore gives them different catchabilities while the
+#' `fleet_control` still says they share one. Measured on `BS2017SS` with fleets
+#' 4 and 7 in one group and the linkage on fleet 7: fleet 4 flat at 0.035, fleet
+#' 7 running 0.087-0.537. With every fleet in the group named, and equal
+#' coefficients, they stay together -- so this fires on a strict subset only.
+#'
+#' Separate from `data_check()` because the linkage table does not exist yet
+#' when that runs: `fit_mod()` pools it after the check.
+#'
+#' @param data_list A `data_list` carrying `linkage_table` and `fleet_control`.
+#' @keywords internal
+#' @noRd
+.warn_q_linkage_shared_group <- function(data_list) {
+  lt <- data_list$linkage_table
+  fc <- data_list$fleet_control
+  if (is.null(lt) || is.null(nrow(lt)) || !nrow(lt)) return(invisible())
+  if (is.null(fc) || is.null(fc$Catchability_index)) return(invisible())
+
+  qrows <- lt[as.character(lt$process) %in% c("q", "4"), , drop = FALSE]
+  if (!nrow(qrows)) return(invisible())
+  # `fleet` on the linkage table is a Fleet_code (linkage_spec() documents it as
+  # a 1-based Fleet_code), so compare against Fleet_code, not the row number.
+  linked <- unique(stats::na.omit(as.integer(qrows$fleet)))
+  if (!length(linked)) return(invisible())
+
+  live <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+  for (qi in unique(fc$Catchability_index[!is.na(fc$Catchability_index) & live])) {
+    rows <- which(!is.na(fc$Catchability_index) & fc$Catchability_index == qi & live)
+    if (length(rows) < 2) next
+    has <- fc$Fleet_code[rows] %in% linked
+    if (any(has) && !all(has)) {
+      warning(paste0(
+        "A catchability linkage names ", paste(fc$Fleet_name[rows][has], collapse = ", "),
+        " but not ", paste(fc$Fleet_name[rows][!has], collapse = ", "),
+        ", which share Catchability_index ", qi,
+        ". The linkage offset is added per fleet and is not shared, so the group ",
+        "will not have one catchability. Name every fleet in the group, or give ",
+        "the linked fleet its own Catchability_index."))
+    }
+  }
+  invisible()
 }

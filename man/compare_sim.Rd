@@ -19,3 +19,13 @@ A data frame summarizing simulation performance metrics
 \description{
 Function to evaluate the simulation performance with regard to bias using the median relative error (MRE) and precision using the coefficient of variation.
 }
+\note{
+Compares against \code{operating_mod} only, so it is valid when the
+replicates redrew the observations alone. If they were produced with
+\code{sim_mod(process = )} / \code{self_test(process = )}, the operating
+model's deviations are no longer what generated the data and the bias this
+reports is an artefact. Compare against
+\code{attr(sims, "process_sim")} in that case. Passing a
+\code{\link{self_test}} result that carries process draws warns, since the
+attribute makes that case detectable rather than only documented.
+}

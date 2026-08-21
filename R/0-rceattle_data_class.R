@@ -115,6 +115,13 @@
     # Accept the legacy `Q_index` spelling for display of an un-upgraded list.
     q_col <- if ("Catchability_index" %in% colnames(fc)) "Catchability_index" else "Q_index"
     sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
+    # Fleets whose catchability block is actually opened: those carrying fitted
+    # index observations. A fleet with none gets no q however its Catchability
+    # column reads -- a q with no index to inform it is a flat direction -- so
+    # say so here rather than leave the column looking authoritative. It can
+    # still be estimated by following the lead of a shared q group, which the
+    # [shared: q<->N] annotation on the same line shows.
+    q_data <- tryCatch(.fleets_with_index(dl2), error = function(e) integer(0))
     n <- nrow(fc)
     # Two fixed left-hand columns -- "[code] name" and fleet type -- are padded to a
     # common width so the " - "-separated form fields line up down the block; the
@@ -134,7 +141,14 @@
       cells <- c(formatC(id_col[i],   width = -idw),
                  formatC(type_col[i], width = -typew))
       if (!is.na(sel))   cells <- c(cells, paste0("sel: ", sel))
-      if (!is.na(qform)) cells <- c(cells, paste0("q: ",   qform))
+      if (!is.na(qform)) {
+        qcell <- paste0("q: ", qform)
+        q_would_est <- !(qform %in% c("Fixed", "Analytical", "AnalyticalArith"))
+        if (q_would_est && !((fc$Fleet_code[i] %||% i) %in% q_data)) {
+          qcell <- paste0(qcell, " (fixed: no index data)")
+        }
+        cells <- c(cells, qcell)
+      }
       # Mirror annotations: fleets that share a selectivity / catchability block.
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA

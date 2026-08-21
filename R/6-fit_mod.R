@@ -61,6 +61,13 @@
 #'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
 #'   pass -- an explicit argument always wins. `NULL` (default) applies no
 #'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param quiet_data_check Drop the warnings [data_check()] raises (errors still
+#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
+#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#'   re-validate a `data_list` the caller has already fitted once and would
+#'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+#'   Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -140,6 +147,7 @@ fit_mod <-
     suit_endyr = NULL,
     fit_control = NULL,
     config = NULL,
+    quiet_data_check = FALSE,
     ...){
 
     # Whether the caller supplied fit_control -- captured before the default is
@@ -397,7 +405,6 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
-    data_list$growth_re       <- extend_length(growthFun$growth_re)
     # Plus-group SD-at-age style, resolved like growth_age_L1 below:
     # build_growth() value (if given) > existing data_list$growth_sd_style
     # (so a refit that rebuilds growth via build_growth(fun=) keeps the
@@ -408,7 +415,6 @@ fit_mod <-
     }
     gsd[is.na(gsd)] <- 1L   # WHAM
     data_list$growth_sd_style <- gsd
-    data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
     # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
     # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
@@ -440,11 +446,23 @@ fit_mod <-
     data_list$HCRorder <- extend_length(HCR$HCRorder)
     data_list$QnormHCR <- stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    # Fill out switches if missing
-    data_list <- Rceattle::switch_check(data_list)
+    # Fill out switches if missing. `quiet_data_check` covers switch_check()'s
+    # deprecation messages for the same reason it covers data_check()'s
+    # warnings: the diagnostic refits re-validate the caller's own data_list, so
+    # a retrospective would otherwise repeat them once per peel.
+    if (isTRUE(quiet_data_check)) {
+      data_list <- suppressMessages(Rceattle::switch_check(data_list))
+    } else {
+      data_list <- Rceattle::switch_check(data_list)
+    }
 
-    # Check for data error
-    data_check(data_list)
+    # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
+    # still stop the fit. The diagnostic refits set it: they re-validate a
+    # data_list the caller already fitted once, so every warning it raises has
+    # been seen, and a retrospective or an MSE would otherwise repeat it once per
+    # peel or per iteration.
+    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
     # No-op when no build_*() supplied a `linkages` list. When
@@ -503,6 +521,11 @@ fit_mod <-
     )
     data_list$linkage_table <- .linkage_pool$table
     data_list$linkage_X     <- .linkage_pool$X
+
+    # A q linkage is applied per fleet and is not reconciled across a shared
+    # Catchability_index, so it can break a group data_check() has already
+    # passed. Checked here because the table above is what it reads.
+    if (!isTRUE(quiet_data_check)) .warn_q_linkage_shared_group(data_list)
     # (Fixed-effect covariates with missing years are rejected earlier, in
     # materialize_linkage(), before model.matrix() can silently drop NA rows.)
 
@@ -562,6 +585,16 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
+      # Drop anything the template no longer has a parameter for, in skeleton
+      # order. `inits` from an older fit can carry a retired block (e.g.
+      # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
+      # template does not declare, but build_map() runs on start_par first and
+      # produces a map entry per element, so the stale name reached MakeADFun
+      # through the map and stopped with "Names in map must correspond to
+      # parameter names" -- a refit that failed on a parameter the model no
+      # longer has. Extra names are dropped silently because they are inert by
+      # definition; a MISSING one is the error above.
+      start_par <- start_par[names(.skel)]
       rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number
@@ -585,6 +618,13 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
+      # TODO: this suppressWarnings() swallows EVERY warning build_map() raises,
+      # including the shared-block ones that exist to be seen -- the
+      # "same Catchability_index is not the same" pair, and the
+      # Bin_first_selected / N_sel_bins ones CLAUDE.md calls the safety net for
+      # fleets sharing a selectivity block. A fishery whose q is overridden by
+      # its group's lead fleet is silent today because of this line. Narrow it to
+      # the warnings actually being suppressed, or let build_map() classify them.
       map <- suppressWarnings(build_map(data_list, start_par,
                                         debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
                                         random_rec = random_rec, random_sel = random_sel))

@@ -96,6 +96,14 @@ digest$bs_ss <- section({
 # --- BS2017MS multispecies: ConstantF EM, warm-started (pins suitability) ---
 digest$bs_ms <- section({
   data(BS2017SS); data(BS2017MS)
+  # Truncate the single-species model to the SAME projyr before fitting it.
+  # Warm-starting the multispecies fit from an untruncated one hands it rec_dev
+  # and log_M1_dev sized for 72 projection years against a model with 41, which
+  # fit_mod() rejects -- so this whole section used to abort and the digest
+  # recorded the error message instead of an MSE trajectory. It looked like a
+  # passing comparison because the same error was recorded before and after.
+  BS2017SS$projyr <- 2019
+  BS2017SS <- activate_proj(BS2017SS)
   ss <- suppressWarnings(Rceattle::fit_mod(
     data_list = BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
     random_rec = FALSE, msmMode = 0,

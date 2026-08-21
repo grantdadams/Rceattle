@@ -194,8 +194,6 @@ build_params <- function(data_list) {
     }
   }
 
-  param_list$log_growth_par_devs <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj, 4),
-                                         dimnames = list(data_list$spnames, sex_labels, yrs_proj, c("log_K", "log_L1", "log_Linf", "log_m")))  # RE growth parameters
   param_list$growth_log_sd <- array(0, dim = c(data_list$nspp, max_sex, 2),
                                    dimnames = list(data_list$spnames, sex_labels, c("log_sd_minage", "log_sd_maxage")))
   param_list$weight_length_pars <- matrix(0, nrow = data_list$nspp, ncol = 2,

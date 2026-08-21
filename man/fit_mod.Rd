@@ -30,6 +30,7 @@ fit_mod(
   suit_endyr = NULL,
   fit_control = NULL,
   config = NULL,
+  quiet_data_check = FALSE,
   ...
 )
 }
@@ -117,6 +118,14 @@ defaults of each field.}
 \code{suit_endyr}, \code{fit_control}) overlay only the arguments the caller did \emph{not}
 pass -- an explicit argument always wins. \code{NULL} (default) applies no
 configuration. Example: \code{fit_mod(data_list, config = load_config("run.yaml"))}.}
+
+\item{quiet_data_check}{Drop the warnings \code{\link[=data_check]{data_check()}} raises (errors still
+stop the fit). \code{FALSE} (default) for an ordinary fit. The diagnostic refits
+-- \code{\link[=retrospective]{retrospective()}}, \code{\link[=jitter]{jitter()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=profile]{profile()}}, \code{\link[=run_mse]{run_mse()}},
+\code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}} -- set it, since they
+re-validate a \code{data_list} the caller has already fitted once and would
+otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+Convergence and TMB warnings are unaffected.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},

@@ -297,6 +297,10 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 18) Survey/index biomass likelihood family (0 = lognormal IID, 1 = MVN covariance)
   data_list$index_ll_type <- .pull_int(data_list$fleet_control, "Index_distribution")
 
+  # NOTE: index timing carries no data element. The cpp reads it off `flt_type`
+  # (section 8.1): a survey's index is a snapshot at its observation month, a
+  # fishery's is the year-average N*(1-exp(-Z))/Z that CPUE is proportional to.
+
   data_list$index_log_q_prior <- log(data_list$fleet_control$Catchability_init)
 
   # Species names

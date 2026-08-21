@@ -16,6 +16,7 @@ S3method(print,Rceattle_run_config)
 S3method(print,rceattle_osa)
 S3method(profile,Rceattle)
 S3method(residuals,Rceattle)
+S3method(simulate,Rceattle)
 S3method(summary,Rceattle)
 S3method(summary,Rceattle_data)
 S3method(summary,rceattle_osa)
@@ -197,6 +198,7 @@ importFrom(stats,
   rgamma,
   rmultinom,
   sd,
+  simulate,
   vcov
 )
 importFrom(tidyselect,contains)

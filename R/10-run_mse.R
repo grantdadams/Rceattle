@@ -2,7 +2,8 @@
 # slimmed for storage; every other quantity is dropped to keep saved runs small.
 # Shared by run_mse() and mse_summary() so the retained set stays in one place.
 .mse_keep_quantities <- c(
-  "catch_hat", "log_catch_sd", "index_hat", "log_index_sd",
+  "catch_hat", "catch_sd", "index_hat", "index_sd",
+  "log_catch_sd", "log_index_sd",          # deprecated spellings, dropped next release
   "ssb_depletion", "biomass_depletion", "biomass", "ssb",
   "BO", "SB0", "SBF", "F_spp", "R",
   "M1_at_age", "M_at_age", "avg_rec",
@@ -28,8 +29,7 @@
 
 # Parameter blocks build_params() dimensions by styr:projyr, with the position
 # of their year dimension. Every other block is hindcast-length.
-.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L,
-                           log_growth_par_devs = 3L)
+.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L)
 
 # Data frames carried out to projyr -- exactly the ones clean_data() filters to
 # styr:projyr, so exactly the ones a shortened horizon truncates.
