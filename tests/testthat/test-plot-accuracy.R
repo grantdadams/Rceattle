@@ -84,6 +84,14 @@ testthat::test_that("minyr and maxyr narrow what the timeseries plotters draw", 
                          "No years left")
 })
 
+# The per-species reference-point frame a plot carries, ordered by species.
+# plot_f() and plot_depletionSSB() build it through the same helper, so one
+# accessor reads both.
+ref_lines <- function(p) {
+  d <- Filter(function(l) "target" %in% names(l$data), p$layers)[[1]]$data
+  d[order(as.character(d$Species)), ]
+}
+
 testthat::test_that("plot_f keys its reference lines to the species it drew", {
   # plot_f() is hand-written rather than a .ts_wrapper() child, and indexed
   # Ftarget and the facet labels with the raw `species`. That works for indices
@@ -97,23 +105,20 @@ testthat::test_that("plot_f keys its reference lines to the species it drew", {
                       fit_control = Rceattle::fit_control(verbose = 0))
   ))
   nm <- ss$data_list$spnames
-  ref <- function(p) {
-    d <- Filter(function(l) "Ftarget" %in% names(l$data), p$layers)[[1]]$data
-    d[order(as.character(d$Species)), ]
-  }
 
-  by_index <- ref(Rceattle::plot_f(ss, species = c(1, 3)))
-  by_name  <- ref(Rceattle::plot_f(ss, species = nm[c(1, 3)]))
+  by_index <- ref_lines(Rceattle::plot_f(ss, species = c(1, 3)))
+  by_name  <- ref_lines(Rceattle::plot_f(ss, species = nm[c(1, 3)]))
   testthat::expect_false(anyNA(by_name$Species))
   testthat::expect_equal(by_name, by_index, ignore_attr = TRUE)
   testthat::expect_setequal(as.character(by_index$Species), nm[c(1, 3)])
-  testthat::expect_equal(by_index$Ftarget,
+  testthat::expect_equal(by_index$target,
                          as.numeric(ss$quantities$Ftarget[c(1, 3)]))
 
   # `spnames` relabels the panels; the reference lines must follow.
   lab <- c("A", "B", "C")
   testthat::expect_setequal(
-    as.character(ref(Rceattle::plot_f(ss, species = 2, spnames = lab))$Species),
+    as.character(
+      ref_lines(Rceattle::plot_f(ss, species = 2, spnames = lab))$Species),
     "B")
 
   # lty was missing from plot_f's formals, so it stopped with `unused argument`.
@@ -273,4 +278,36 @@ testthat::test_that("plot_mortality plots M(1+2)-at-age", {
   by_pred <- by_pred[order(by_pred$Year), ]
   testthat::expect_equal(by_pred$value[seq_len(nyr)],
                          db$value[seq_len(nyr)], tolerance = 1e-8)
+})
+
+testthat::test_that("depletion reference lines come from one model, per species", {
+  # plot_timeseries() collected Ptarget / Plimit into a models x species matrix
+  # and subset it with the species indices, which flattens column-major. On a
+  # two-model overlay whose models carry different Ptarget, species 2's line was
+  # drawn from model 2's species 1. Models in one figure normally share their
+  # reference points, and then every row is identical, which is why it survived.
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  a <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  b <- a
+  b$data_list$Ptarget <- c(0.11, 0.22, 0.33)
+  b$data_list$Plimit  <- c(0.011, 0.022, 0.033)
+
+  # One horizontal line per panel can only show one model's value: the first.
+  for (mods in list(list(a, b), list(b, a))) {
+    d <- ref_lines(Rceattle::plot_depletionSSB(mods, model_names = c("x", "y")))
+    d <- d[match(a$data_list$spnames, as.character(d$Species)), ]
+    testthat::expect_equal(d$target, as.numeric(mods[[1]]$data_list$Ptarget))
+    testthat::expect_equal(d$limit, as.numeric(mods[[1]]$data_list$Plimit))
+  }
+
+  # A single model is unaffected, which is every bundled example.
+  d1 <- ref_lines(Rceattle::plot_depletionSSB(a))
+  testthat::expect_equal(d1$target[order(as.character(d1$Species))],
+                         as.numeric(a$data_list$Ptarget)[
+                           order(a$data_list$spnames)])
 })

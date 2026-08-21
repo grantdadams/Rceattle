@@ -30,6 +30,8 @@ plot_timeseries(
   OM = TRUE,
   reference = NULL,
   zero_y = FALSE,
+  ref_lines = NULL,
+  suffix = NULL,
   mod_avg = rep(FALSE, length(Rceattle))
 )
 }
@@ -98,6 +100,14 @@ if \code{line_col} is supplied.}
 \item{zero_y}{Anchor the y-axis at zero. TRUE for the absolute series
 (biomass, SSB, recruitment), where a truncated axis exaggerates change;
 FALSE for the depletions, which are already on a relative scale.}
+
+\item{ref_lines}{Internal. \verb{function(models, sp_sel)} returning per-species
+reference-point layers, added before the figure is saved. Supplied by
+\code{\link[=plot_f]{plot_f()}} and \code{\link[=plot_depletionSSB]{plot_depletionSSB()}} through \code{.ts_wrapper()}; \code{sp_sel} is
+the species resolution the panels were built from.}
+
+\item{suffix}{Internal. Overrides the \verb{<file>_<suffix>.png} stem, which
+otherwise names the series.}
 
 \item{mod_avg}{TRUE/FALSE}
 }

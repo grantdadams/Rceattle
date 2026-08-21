@@ -139,8 +139,15 @@ runs of the same model.
 * `plot_f()` keys its Ftarget and Flimit reference lines to the species it
   drew. It indexed `Ftarget` and the facet labels with the raw `species`
   argument, which works for indices but gives an `NA` facet key for a name --
-  on the same argument that newly accepts names. It also gained `lty`, which
-  every other timeseries plotter took.
+  on the same argument that newly accepts names.
+
+* `plot_depletionSSB()` draws the Ptarget and Plimit lines of **one** model, per
+  species. The two were collected into a models-by-species matrix and then
+  subset with the species indices, which flattens column-major: on a two-model
+  overlay whose models carry different `Ptarget`, species 2's line came from
+  model 2's species 1. Models in one figure normally share their reference
+  points, and then every row of that matrix is identical, which is why it went
+  unseen. The values now come from the first model.
 
 * A single `lty` reaches the figures that map line type themselves --
   `plot_ration()`, `plot_m_at_age()`, `plot_b_eaten_prop()`,
@@ -179,6 +186,14 @@ runs of the same model.
 
 * `plot_timeseries(save = TRUE)` needs a `file` stem, and stops without one. It
   previously wrote to a file called `NULL_...csv`.
+
+* `plot_f()` is now built by the same factory as the other timeseries plotters,
+  so it takes their full argument list -- it gains `lty`, `save`, `reference`,
+  `legend.pos` and `ylab`, none of which it accepted before. `plot_timeseries()`
+  gains two internal arguments, `ref_lines` and `suffix`, which the factory uses
+  to attach the F and depletion reference points; the reference-point layers are
+  consequently later in `p$layers` on the depletion plots than they were. The
+  rendered figures are unchanged.
 
 * `plot_selectivity()`'s `p$data` names the x variable `Bin`, not `Age`, and
   carries a `Dimension` column (`"Age"` or `"Length"`); the column holds an age

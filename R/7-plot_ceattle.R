@@ -64,7 +64,14 @@ rich.colors.short <- function(n,alpha=1){
 #' @param reference A model to overlay for comparison, drawn at 1.5x `lwd` and
 #'   labelled "Reference". It takes the next colour from the palette, or black
 #'   if `line_col` is supplied.
+#' @param ref_lines Internal. `function(models, sp_sel)` returning per-species
+#'   reference-point layers, added before the figure is saved. Supplied by
+#'   [plot_f()] and [plot_depletionSSB()] through `.ts_wrapper()`; `sp_sel` is
+#'   the species resolution the panels were built from.
+#' @param suffix Internal. Overrides the `<file>_<suffix>.png` stem, which
+#'   otherwise names the series.
 #'
+#' @importFrom stats quantile
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -93,6 +100,8 @@ plot_timeseries <- function(Rceattle,
                             OM = TRUE,
                             reference = NULL,
                             zero_y = FALSE,
+                            ref_lines = NULL,
+                            suffix = NULL,
                             mod_avg = rep(FALSE, length(Rceattle))) {
 
   ## Model object manipulation ----
@@ -184,14 +193,10 @@ plot_timeseries <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
-  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
 
   for (i in 1:length(Rceattle)) {
     # - Get quantities
-    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities[[output]][,1:nyrs_vec[i]]
 
     # Get SD of quantity
@@ -253,9 +258,6 @@ plot_timeseries <- function(Rceattle,
     quantity_lower50 <- array(ci50$lwr, dim = dim(quantity))
   } else {
     # - MSE objects
-    ptarget <- ptarget[1,]
-    plimit <- plimit[1,]
-
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
     quantity_lower95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.025) )
@@ -395,21 +397,6 @@ plot_timeseries <- function(Rceattle,
   # Projection divider at the terminal hindcast year
   p <- p + .rce_proj_divider(Rceattle, incl_proj, minyr, maxyr)
 
-  # Depletion reference points (per species)
-  if (output %in% "ssb_depletion") {
-    ref_df <- data.frame(
-      Species = factor(spnames[spp], levels = spnames[spp]),
-      target  = ptarget[spp],
-      limit   = plimit[spp])
-    p <- p +
-      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
-                          ggplot2::aes(yintercept = .data$target),
-                          colour = "blue", linetype = 2) +
-      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
-                          ggplot2::aes(yintercept = .data$limit),
-                          colour = "red", linetype = 2)
-  }
-
   # A single-species model needs no species strip: the facet label would name
   # the only thing on the plot. Faceting is what carries that label, so drop it
   # rather than blanking the strip and leaving its gap.
@@ -434,7 +421,15 @@ plot_timeseries <- function(Rceattle,
                              linewidth = "none", linetype = "none")
   }
 
-  .save_ggplot(p, file = file, suffix = paste0(output, "_trajectory"),
+  # Per-series reference points (F, depletion), supplied by the wrapper rather
+  # than switched on `output` here. They are handed the same `sp_sel` the panels
+  # were built from: resolving `species` a second time is what put plot_f()'s
+  # Ftarget lines in the wrong panel.
+  if (!is.null(ref_lines)) p <- p + ref_lines(Rceattle, sp_sel)
+
+  .save_ggplot(p, file = file,
+               suffix = if (is.null(suffix)) paste0(output, "_trajectory")
+                        else suffix,
                width = width, height = height)
 }
 
@@ -466,17 +461,78 @@ plot_timeseries <- function(Rceattle,
          R                   = paste0(age, "recruits (millions)"),
          ssb_depletion       = "SSB depletion",
          biomass_depletion   = "Biomass depletion",
+         F_spp               = "Fishing mortality (F)",
          output)
+}
+
+
+# Per-species reference lines: target in blue, limit in red, dashed. Shared by
+# the F and depletion hooks below, which differ only in where the two values
+# come from.
+#
+# `sp_sel` is the resolution plot_timeseries() built its panels from, so the
+# lines are keyed to the same species and labelled the same way. Both vectors
+# are indexed by the species index, never by the raw `species` argument.
+.rce_ref_hlines <- function(sp_sel, target, limit) {
+  if (is.null(target) || is.null(limit)) return(NULL)
+  target <- as.numeric(target)
+  limit  <- as.numeric(limit)
+  if (max(sp_sel$index) > min(length(target), length(limit))) return(NULL)
+  ref_df <- data.frame(
+    Species = factor(sp_sel$labels, levels = sp_sel$labels),
+    target  = target[sp_sel$index],
+    limit   = limit[sp_sel$index])
+  list(
+    ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+                        ggplot2::aes(yintercept = .data$target),
+                        colour = "blue", linetype = 2),
+    ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
+                        ggplot2::aes(yintercept = .data$limit),
+                        colour = "red", linetype = 2))
+}
+
+
+# Ptarget / Plimit for the depletion plots.
+#
+# Read from the first model. plot_timeseries() previously collected these into a
+# models x species matrix and then subset it with the species indices, which
+# flattens column-major: on a two-model overlay whose models carry different
+# Ptarget, species 2's line was drawn from model 2's species 1. It went unseen
+# because models in one figure normally share their reference points, and then
+# every row of the matrix is identical. One horizontal line per panel can only
+# show one model's value, so say which: the first.
+.depletion_reference_lines <- function(models, sp_sel) {
+  .rce_ref_hlines(sp_sel, models[[1]]$data_list$Ptarget,
+                  models[[1]]$data_list$Plimit)
+}
+
+
+# Ftarget / Flimit for plot_f(). These are estimated, so they come from
+# `quantities` rather than `data_list`.
+.f_reference_lines <- function(models, sp_sel) {
+  .rce_ref_hlines(sp_sel, models[[1]]$quantities$Ftarget,
+                  models[[1]]$quantities$Flimit)
 }
 
 
 # Build a plot_timeseries() wrapper that pins the derived series (`output`) for
 # one quantity while exposing plot_timeseries()'s full argument list unchanged.
-# The six timeseries plotters below differ only in that string, so they share one
-# body through this factory. The y-axis label is resolved inside
-# plot_timeseries() from .rce_ts_ylab(), which needs the model's minage.
-.ts_wrapper <- function(output, zero_y = FALSE) {
-  force(output); force(zero_y)
+# The timeseries plotters below differ only in that string and, for two of them,
+# a set of reference lines, so they share one body through this factory. The
+# y-axis label is resolved inside plot_timeseries() from .rce_ts_ylab(), which
+# needs the model's minage.
+#
+# `ref_lines` is a function(models, sp_sel) returning per-species reference
+# layers; `suffix` names the saved file when it differs from the series. Both
+# are handed to plot_timeseries(), which adds the layers before it saves, so the
+# reference lines reach the written PNG and the CSV still has the `file` it
+# needs. They exist so every timeseries plotter goes through this factory: F and
+# SSB depletion both draw reference points, and writing either by hand outside
+# it is how plot_f() came to take a different argument list from its siblings
+# and to resolve `species` its own way.
+.ts_wrapper <- function(output, zero_y = FALSE, ref_lines = NULL,
+                        suffix = NULL) {
+  force(output); force(zero_y); force(ref_lines); force(suffix)
   function(Rceattle,
            file = NULL,
            model_names = NULL,
@@ -506,6 +562,8 @@ plot_timeseries <- function(Rceattle,
                     output = output,
                     ylab = ylab,
                     zero_y = zero_y,
+                    ref_lines = ref_lines,
+                    suffix = suffix,
                     file = file,
                     model_names = model_names,
                     line_col = line_col,
@@ -588,7 +646,8 @@ plot_exploitable_biomass <- .ts_wrapper("exploitable_biomass", zero_y = TRUE)
 #' @export
 #'
 #' @return Returns and saves a figure with the SSB depletion trajectory.
-plot_depletionSSB <- .ts_wrapper("ssb_depletion", zero_y = TRUE)
+plot_depletionSSB <- .ts_wrapper("ssb_depletion", zero_y = TRUE,
+                                 ref_lines = .depletion_reference_lines)
 
 #' Plot SSB depletion (deprecated name)
 #'
@@ -1587,83 +1646,12 @@ plot_m2_at_age_prop <-
 #' @description Fishing mortality over time, one panel per species, with the
 #'   Ftarget (blue) and Flimit (red) reference points drawn per panel.
 #'
-#' @inheritParams rceattle-plot-args
-#' @param add_ci Ignored. `F_spp` is `REPORT`ed without standard errors, so
-#'   there is no interval to draw.
-#' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param mod_avg is the list a model average? (DEPRECATED)
-#' @importFrom stats quantile
-#' @importFrom grDevices png dev.off adjustcolor
-#' @importFrom graphics layout par plot.new abline legend polygon lines plot
+#' @inheritParams plot_timeseries
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
-plot_f <- function(Rceattle,
-                   file = NULL,
-                   model_names = NULL,
-                   line_col = NULL,
-                   species = NULL,
-                   spnames = NULL,
-                   add_ci = FALSE,
-                   lwd = 3,
-                   lty = 1,
-                   right_adj = 0,
-                   width = 7,
-                   height = 6.5,
-                   minyr = NULL,
-                   maxyr = NULL,
-                   incl_proj = FALSE,
-                   mod_cex = 1,
-                   alpha = 0.4,
-                   mod_avg = rep(FALSE, length(Rceattle)),
-                   mse = FALSE,
-                   OM = TRUE) {
-
-  # Fishing mortality shares the time-series machinery (output = "F_spp");
-  # only the Ftarget / Flimit reference lines are F-specific. Build the plot
-  # without saving, add the reference lines, then save so the F lines are
-  # included in the figure file.
-  p <- plot_timeseries(Rceattle, output = "F_spp",
-                       ylab = "Fishing mortality (F)",
-                       file = NULL, model_names = model_names,
-                       line_col = line_col, species = species,
-                       spnames = spnames, add_ci = add_ci, lwd = lwd,
-                       lty = lty,
-                       right_adj = right_adj, width = width, height = height,
-                       minyr = minyr, maxyr = maxyr, incl_proj = incl_proj,
-                       mod_cex = mod_cex, alpha = alpha, mod_avg = mod_avg,
-                       mse = mse, OM = OM)
-
-  # F reference points: target (blue) and limit (red), per species facet.
-  #
-  # Resolved through the same helper plot_timeseries() used, so the reference
-  # lines are keyed the way the panels are. Indexing Ftarget and the species
-  # labels with the raw argument works only for indices: `species = "Pollock"`
-  # gives an NA facet key, which puts the lines in the wrong panel.
-  models <- .as_model_list(Rceattle, mse = mse, OM = OM)
-  sp_sel  <- .resolve_species(models, species, spnames)
-  ftarget <- models[[1]]$quantities$Ftarget
-  flimit  <- models[[1]]$quantities$Flimit
-  if (!is.null(ftarget) && !is.null(flimit)) {
-    ref_df <- data.frame(
-      Species = factor(sp_sel$labels, levels = levels(p$data$Species)),
-      Ftarget = ftarget[sp_sel$index],
-      Flimit  = flimit[sp_sel$index])
-    p <- p +
-      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
-                          ggplot2::aes(yintercept = .data$Ftarget),
-                          colour = "blue", linetype = 2) +
-      ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
-                          ggplot2::aes(yintercept = .data$Flimit),
-                          colour = "red", linetype = 2)
-  }
-
-  .save_ggplot(p, file = file, suffix = "f_trajectory",
-               width = width, height = height)
-}
-
-
+#' @return Returns and saves a figure with the fishing mortality trajectory.
+plot_f <- .ts_wrapper("F_spp", ref_lines = .f_reference_lines,
+                      suffix = "f_trajectory")
 
 
 #' Plot ration
