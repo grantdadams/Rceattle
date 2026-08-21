@@ -31,7 +31,9 @@ plot_m2_at_age_prop(
 \item{file}{Optional file stem; the figure is written to
 \verb{<file>_<suffix>.png} if given.}
 
-\item{age}{Prey age to plot the M2 proportions at}
+\item{age}{Prey age to plot the M2 proportions at, on the prey species' own
+age scale rather than as an age-bin index. A prey species that has no such
+age is dropped, with a warning.}
 
 \item{model_names}{Legend labels for the models.}
 

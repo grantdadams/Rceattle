@@ -437,6 +437,89 @@
 }
 
 
+#' Resolve an age to its bin index in a species' at-age array
+#'
+#' The at-age arrays are indexed by BIN, 1 .. `nages[sp]`, while a species' ages
+#' run `minage[sp] .. minage[sp] + nages[sp] - 1`. The two coincide only at
+#' `minage = 1`, so an `age` argument passed straight through as a subscript
+#' plots a different age than the axis label claims for any other species -- and
+#' runs off the end of the array for an age the species does not carry.
+#'
+#' A species that has no such age is dropped rather than plotted wrong, since
+#' the ages differ between species in one figure. That matches how
+#' [.resolve_species()] handles a partly-matching selection.
+#'
+#' @param age The age to plot, on the species' own age scale.
+#' @param species Species indices being drawn.
+#' @param minage,nages The model's `minage` and `nages` vectors.
+#' @param spnames Species labels, for the messages.
+#' @param arg Name of the calling argument, for the messages.
+#' @return `list(species = <the species that carry this age>,
+#'   index = <their bin indices, same order>)`.
+#' @keywords internal
+#' @noRd
+.rce_age_index <- function(age, species, minage, nages, spnames, arg = "age") {
+  if (length(age) != 1L || !is.numeric(age) || !is.finite(age)) {
+    stop("`", arg, "` must be a single age.", call. = FALSE)
+  }
+  idx  <- as.integer(age) - as.integer(minage[species]) + 1L
+  keep <- idx >= 1L & idx <= nages[species]
+  if (!any(keep)) {
+    stop("No species has age ", age, ". Age ranges: ",
+         paste(sprintf("%s %d-%d", spnames[species], minage[species],
+                       minage[species] + nages[species] - 1L),
+               collapse = "; "), ".", call. = FALSE)
+  }
+  if (any(!keep)) {
+    warning("Age ", age, " is outside the age range of ",
+            paste(sprintf("%s (%d-%d)", spnames[species[!keep]],
+                          minage[species[!keep]],
+                          minage[species[!keep]] + nages[species[!keep]] - 1L),
+                  collapse = ", "), "; ",
+            if (sum(!keep) == 1L) "it is" else "they are",
+            " not drawn.", call. = FALSE)
+  }
+  list(species = species[keep], index = idx[keep])
+}
+
+
+#' Bin indices of the ages at or above `minage`, per species
+#'
+#' The `minage` argument of [plot_ration()] names an age ("age 3+"), not a bin,
+#' so it is resolved against each species' own age vector. A species with no age
+#' that old is dropped rather than summed over a shifted range.
+#'
+#' @param minage The lower age, on the species' own age scale.
+#' @param species Species indices being drawn.
+#' @param model_minage,nages The model's `minage` and `nages` vectors.
+#' @param spnames Species labels, for the messages.
+#' @return `list(species = <kept>, index = <list of bin-index vectors>)`.
+#' @keywords internal
+#' @noRd
+.rce_age_plus_index <- function(minage, species, model_minage, nages, spnames) {
+  if (length(minage) != 1L || !is.numeric(minage) || !is.finite(minage)) {
+    stop("`minage` must be a single age.", call. = FALSE)
+  }
+  idx <- lapply(species, function(sp) {
+    ages <- seq_len(nages[sp]) - 1L + as.integer(model_minage[sp])
+    which(ages >= minage)
+  })
+  keep <- lengths(idx) > 0L
+  if (!any(keep)) {
+    stop("No species has an age at or above ", minage, ". Age ranges: ",
+         paste(sprintf("%s %d-%d", spnames[species], model_minage[species],
+                       model_minage[species] + nages[species] - 1L),
+               collapse = "; "), ".", call. = FALSE)
+  }
+  if (any(!keep)) {
+    warning("No age at or above ", minage, " in ",
+            paste(spnames[species[!keep]], collapse = ", "),
+            "; not drawn.", call. = FALSE)
+  }
+  list(species = species[keep], index = idx[keep])
+}
+
+
 #' Line width / type / transparency parameters for a `geom_line()`
 #'
 #' A value that does not vary is passed as a fixed geom parameter, so the

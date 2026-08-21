@@ -31,7 +31,9 @@ plot_ration(
 \item{file}{Optional file stem; the figure is written to
 \verb{<file>_<suffix>.png} if given.}
 
-\item{minage}{minage to plot ration (i.e. age "minage"+)}
+\item{minage}{Youngest age to sum consumption over, so the figure is
+"age \code{minage}+". An age on the species' own scale, not an age-bin index; a
+species with no age that old is dropped, with a warning.}
 
 \item{model_names}{Legend labels for the models.}
 

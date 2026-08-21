@@ -271,6 +271,55 @@ testthat::test_that("a valid alpha, and NULL, pass through unchanged", {
   testthat::expect_silent(.rce_check_alpha(NULL))
 })
 
+
+# --- .rce_age_index / .rce_age_plus_index -------------------------------------
+# Ages run minage .. minage + nages - 1; the arrays are indexed 1 .. nages. The
+# two coincide only at minage = 1, which is every bundled dataset, so these are
+# the tests that hold the distinction.
+age_model <- list(minage = c(1L, 2L, 0L), nages = c(12L, 10L, 5L),
+                  spnames = c("Pollock", "Cod", "ATF"))
+
+testthat::test_that("an age resolves to its bin on each species' own scale", {
+  r <- with(age_model, .rce_age_index(3, 1:3, minage, nages, spnames))
+  testthat::expect_equal(r$species, 1:3)
+  # age 3: bin 3 at minage 1, bin 2 at minage 2, bin 4 at minage 0.
+  testthat::expect_equal(r$index, c(3L, 2L, 4L))
+})
+
+testthat::test_that("a species without the age is dropped, with a warning", {
+  testthat::expect_warning(
+    r <- with(age_model, .rce_age_index(1, 1:3, minage, nages, spnames)),
+    "Cod \\(2-11\\)")
+  testthat::expect_equal(r$species, c(1L, 3L))
+  testthat::expect_equal(r$index, c(1L, 2L))
+})
+
+testthat::test_that("an age no species carries is an error, not an empty plot", {
+  testthat::expect_error(
+    with(age_model, .rce_age_index(40, 1:3, minage, nages, spnames)),
+    "No species has age 40")
+  testthat::expect_error(
+    with(age_model, .rce_age_index(c(1, 2), 1:3, minage, nages, spnames)),
+    "single age")
+})
+
+testthat::test_that("`minage`+ keeps the bins at or above that age", {
+  r <- with(age_model, .rce_age_plus_index(3, 1:3, minage, nages, spnames))
+  # Pollock ages 1-12 -> bins 3:12; Cod 2-11 -> bins 2:10; ATF 0-4 -> bins 4:5.
+  testthat::expect_equal(r$index[[1]], 3:12)
+  testthat::expect_equal(r$index[[2]], 2:10)
+  testthat::expect_equal(r$index[[3]], 4:5)
+
+  # A species with nothing that old drops out; all of them is an error.
+  testthat::expect_warning(
+    r2 <- with(age_model, .rce_age_plus_index(11, 1:3, minage, nages, spnames)),
+    "ATF")
+  testthat::expect_equal(r2$species, c(1L, 2L))
+  testthat::expect_error(
+    with(age_model, .rce_age_plus_index(99, 1:3, minage, nages, spnames)),
+    "No species has an age at or above")
+})
+
 testthat::test_that(".rce_add_line reaches the built plot", {
   p <- ggplot2::ggplot(demo_df, ggplot2::aes(x = .data$x, y = .data$y,
                                              colour = .data$Model))

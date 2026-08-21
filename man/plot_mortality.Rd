@@ -53,7 +53,8 @@ surface, which is no longer drawn.}
 
 \item{species}{Species to plot. Plots all if null.}
 
-\item{maxage}{Plot up to this age. Plots all ages if NULL}
+\item{maxage}{Oldest age to draw, on the species' own age scale rather than
+as a count of age bins. \code{NULL} draws every age.}
 
 \item{title_cex}{Ignored. Base-graphics leftover: title font size. Use
 \code{p + ggplot2::theme(plot.title = ggplot2::element_text(size = ...))}.}

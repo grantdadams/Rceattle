@@ -51,6 +51,15 @@ as_two_sex <- function(fit, scale = 0.5) {
 
 built <- function(p, layer = 1L) ggplot2::ggplot_build(p)$data[[layer]]
 
+# Relabel a fit's ages so bin 1 is age `to` rather than age 1, leaving every
+# array untouched. Every bundled dataset is minage = 1, which is exactly why a
+# bin-index-read-as-an-age passes the whole suite; this is the fixture that
+# separates the two. `age = to` here must draw what `age = 1` drew before.
+shift_minage <- function(fit, to = 2L) {
+  fit$data_list$minage <- rep(as.integer(to), fit$data_list$nspp)
+  fit
+}
+
 # The five, with the column each maps to colour and the value column.
 predation_plotters <- list(
   list(fn = "plot_b_eaten",        colour = "models",    value = "value"),
@@ -353,4 +362,80 @@ testthat::test_that("an out-of-range alpha stops, naming the argument", {
                          "between 0 and 1")
   testthat::expect_error(Rceattle::plot_b_eaten(fit, alpha = NA),
                          "between 0 and 1")
+})
+
+
+# --- `age` / `minage` are ages, not bin indices -------------------------------
+# The axis label names an age ("M at age 3", "Consumption ... age 1+"). If the
+# argument is passed to the array as a subscript, that label describes the wrong
+# age for any species whose minage is not 1. shift_minage() is what exposes it:
+# at minage = 2, age 3 must draw what age 3 draws at minage = 1 shifted by one
+# bin, and age 1 must be refused rather than silently drawing age 2.
+
+testthat::test_that("plot_m_at_age reads `age` as an age, not a bin index", {
+  fit <- ms_fit()
+  shifted <- shift_minage(fit, 2L)
+
+  # Same underlying bin: age 1 at minage 1 is age 2 at minage 2.
+  testthat::expect_equal(Rceattle::plot_m_at_age(fit, age = 1)$data$M,
+                         Rceattle::plot_m_at_age(shifted, age = 2)$data$M)
+  # ...and the axis says so.
+  testthat::expect_equal(Rceattle::plot_m_at_age(shifted, age = 2)$labels$y,
+                         "M at age 2")
+
+  # An age the species does not have is refused, not read as a bin.
+  testthat::expect_error(Rceattle::plot_m_at_age(shifted, age = 1),
+                         "No species has age 1")
+  # Beyond the oldest age of EVERY species -- the species differ in age range
+  # (12, 12, 21 on BS2017MS), so one past the first species' plus group is still
+  # a real age for arrowtooth and only warns.
+  oldest <- max(fit$data_list$nages)
+  testthat::expect_error(Rceattle::plot_m_at_age(fit, age = oldest + 1),
+                         "No species has age")
+  testthat::expect_warning(Rceattle::plot_m_at_age(fit, age = 13),
+                           "outside the age range")
+  testthat::expect_error(Rceattle::plot_m_at_age(fit, age = c(1, 2)),
+                         "single age")
+})
+
+testthat::test_that("plot_m2_at_age_prop reads `age` on the prey's age scale", {
+  fit <- ms_fit()
+  shifted <- shift_minage(fit, 2L)
+  testthat::expect_equal(Rceattle::plot_m2_at_age_prop(fit, age = 1)$data$Proportion,
+                         Rceattle::plot_m2_at_age_prop(shifted, age = 2)$data$Proportion)
+  testthat::expect_error(Rceattle::plot_m2_at_age_prop(shifted, age = 1),
+                         "No species has age 1")
+})
+
+testthat::test_that("plot_ration sums from the age `minage` names", {
+  fit <- ms_fit()
+  shifted <- shift_minage(fit, 2L)
+  # "age 1+" on a minage = 1 model covers the same bins as "age 2+" on a
+  # minage = 2 one: every bin the species has.
+  testthat::expect_equal(Rceattle::plot_ration(fit, minage = 1)$data$value,
+                         Rceattle::plot_ration(shifted, minage = 2)$data$value)
+  # Dropping the first bin is the same operation on both.
+  testthat::expect_equal(Rceattle::plot_ration(fit, minage = 2)$data$value,
+                         Rceattle::plot_ration(shifted, minage = 3)$data$value)
+  testthat::expect_equal(Rceattle::plot_ration(shifted, minage = 2)$labels$y,
+                         "Consumption (million mt), age 2+")
+  # Above every species' oldest age there is nothing to sum.
+  oldest <- max(fit$data_list$nages)
+  testthat::expect_error(Rceattle::plot_ration(fit, minage = oldest + 1),
+                         "No species has an age at or above")
+})
+
+testthat::test_that("a species without the requested age is dropped, not shifted", {
+  fit <- ms_fit()
+  # Give species 1 a shorter age range than the others, so one species lacks an
+  # age the rest carry. A mixed model is the case the per-species resolution
+  # exists for.
+  mixed <- fit
+  mixed$data_list$nages[1] <- 5L
+  ages_kept <- function(p) sort(unique(as.character(p$data$Species)))
+
+  testthat::expect_warning(p <- Rceattle::plot_m_at_age(mixed, age = 7),
+                           "outside the age range")
+  testthat::expect_false(fit$data_list$spnames[1] %in% ages_kept(p))
+  testthat::expect_gt(length(ages_kept(p)), 0)
 })

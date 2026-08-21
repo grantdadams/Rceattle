@@ -202,6 +202,22 @@ runs of the same model.
 
 ## Behavior changes
 
+* **`age`, `minage` and `maxage` are ages, not age-bin indices.**
+  `plot_m_at_age(age =)`, `plot_m2_at_age_prop(age =)`, `plot_ration(minage =)`
+  and `plot_mortality(maxage =)` were passed to the at-age arrays as subscripts.
+  The arrays are indexed 1 to `nages`, while a species' ages run `minage` to
+  `minage + nages - 1`, so on any species with `minage != 1` the figure drew a
+  different age from the one its axis named -- and an age past the plus group
+  ran off the end of the array rather than being reported. Each is now resolved
+  against each species' own age vector, which is also what lets one figure hold
+  species with different age ranges. Only a model with `minage != 1` changes:
+  every bundled dataset is `minage = 1`, where the two readings coincide.
+
+  A species that has no such age is dropped with a warning naming it, rather
+  than drawn at a shifted age; an age no species carries is an error. Requesting
+  an age past the plus group of some but not all species therefore now draws the
+  species that have it instead of failing.
+
 * `plot_selectivity()`'s `species` used to be an ignored label argument whose
   default was `c("Walleye pollock", "Pacific cod", "Arrowtooth flounder")`. It
   now selects. Passing species names that only partly match the model's own

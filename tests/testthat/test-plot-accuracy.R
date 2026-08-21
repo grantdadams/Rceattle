@@ -275,6 +275,17 @@ testthat::test_that("the mortality and predation plotters draw their source arra
                          "GeomTile")
   testthat::expect_equal(geom1(p), "GeomLine")
 
+  # maxage names an age, not a count of bins. At minage = 1 the two agree; a
+  # shifted copy is what tells them apart -- ages 2..5, not bins 1..5.
+  testthat::expect_equal(max(Rceattle::plot_mortality(ms, maxage = 5)$data$Age), 5)
+  shifted <- ms
+  shifted$data_list$minage <- rep(2L, ms$data_list$nspp)
+  ds <- Rceattle::plot_mortality(shifted, maxage = 5)$data
+  testthat::expect_equal(max(ds$Age), 5)
+  testthat::expect_equal(min(ds$Age), 2)
+  testthat::expect_error(Rceattle::plot_mortality(shifted, maxage = 1),
+                         "below the youngest age")
+
   # plot_m_at_age: total M at a fixed age over time == M_at_age[sp, sex, age, ]
   pa <- Rceattle::plot_m_at_age(ms, age = 1)
   testthat::expect_s3_class(pa, "ggplot")

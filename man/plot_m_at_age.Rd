@@ -31,7 +31,9 @@ plot_m_at_age(
 \item{file}{Optional file stem; the figure is written to
 \verb{<file>_<suffix>.png} if given.}
 
-\item{age}{Age to plot M at}
+\item{age}{Age to plot M at, on the species' own age scale (so \code{age = 1} is
+age 1, not the first age bin, and means nothing to a species whose \code{minage}
+is 2). A species that has no such age is dropped, with a warning.}
 
 \item{model_names}{Legend labels for the models.}
 

@@ -1022,7 +1022,8 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @param species Species to plot. Plots all if null.
 #' @param log TRUE/FALSE plot the series on a log scale
 #' @param minyr First year to plot
-#' @param maxage Plot up to this age. Plots all ages if NULL
+#' @param maxage Oldest age to draw, on the species' own age scale rather than
+#'   as a count of age bins. `NULL` draws every age.
 #' @param M2 Draw predation mortality M2 (TRUE, the default) or residual
 #'   natural mortality M1 (FALSE). Neither is the sum of the two.
 #' @param zlim Ignored. Base-graphics leftover: the fill range of the tile
@@ -1064,8 +1065,17 @@ plot_mortality <-
     spnames     <- dl$spnames
     estdynamics <- dl$estDynamics
     nages       <- dl$nages
-    if (!is.null(maxage)) nages <- pmin(nages, maxage)
-    minage <- dl$minage
+    minage      <- dl$minage
+    # `maxage` is an age, so the number of bins it leaves is how many of the
+    # species' ages are at or below it -- pmin(nages, maxage) treats it as a bin
+    # count, which truncates in the wrong place for any minage but 1.
+    if (!is.null(maxage)) {
+      nages <- pmin(nages, pmax(0L, as.integer(maxage) - as.integer(minage) + 1L))
+      if (all(nages < 1L)) {
+        stop("`maxage` = ", maxage, " is below the youngest age of every ",
+             "species.", call. = FALSE)
+      }
+    }
     nsex   <- dl$nsex
     if (is.null(species)) species <- seq_len(nspp)
     spp <- intersect(species, seq_len(nspp))
@@ -1079,6 +1089,8 @@ plot_mortality <-
     df_list <- list()
     for (sp in spp) {
       if (estdynamics[sp] != 0) next
+      # A species whose youngest age is already above `maxage` has no bins left.
+      if (nages[sp] < 1L) next
       ages <- seq_len(nages[sp]) - 1 + minage[sp]
       for (sex in seq_len(nsex[sp])) {
         sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
@@ -1433,7 +1445,9 @@ plot_b_eaten_prop <-
 #'   and warns.
 #'
 #' @inheritParams rceattle-plot-args
-#' @param age Age to plot M at
+#' @param age Age to plot M at, on the species' own age scale (so `age = 1` is
+#'   age 1, not the first age bin, and means nothing to a species whose `minage`
+#'   is 2). A species that has no such age is dropped, with a warning.
 #'
 #' @export
 #'
@@ -1463,6 +1477,11 @@ plot_m_at_age <-
     species <- sp_sel$index
     spnames <- sp_sel$spnames
     nsex <- Rceattle[[1]]$data_list$nsex
+    # `age` is an age, not a bin index: the arrays run 1 .. nages while the ages
+    # run minage .. minage + nages - 1, so it is resolved per species.
+    age_sel <- .rce_age_index(age, species, Rceattle[[1]]$data_list$minage,
+                              Rceattle[[1]]$data_list$nages, spnames)
+    species <- age_sel$species
     # M_at_age is REPORTed but its ADREPORT is commented out in the template,
     # so the fit carries no standard errors for it.
     add_ci <- .rce_no_ci(add_ci, "M at age",
@@ -1474,7 +1493,9 @@ plot_m_at_age <-
       dl  <- Rceattle[[k]]$data_list
       yrs <- dl$styr:(if (incl_proj) dl$projyr else dl$endyr)
       Ma  <- Rceattle[[k]]$quantities$M_at_age
-      for (sp in species) {
+      for (j in seq_along(species)) {
+        sp  <- species[j]
+        bin <- age_sel$index[j]
         for (sex in seq_len(nsex[sp])) {
           sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
           df_list[[length(df_list) + 1L]] <- data.frame(
@@ -1482,7 +1503,7 @@ plot_m_at_age <-
             Species = spnames[sp],
             Sex     = sex_lab,
             Year    = yrs,
-            M       = as.numeric(Ma[sp, sex, age, seq_along(yrs)]),
+            M       = as.numeric(Ma[sp, sex, bin, seq_along(yrs)]),
             stringsAsFactors = FALSE)
         }
       }
@@ -1532,7 +1553,9 @@ plot_m_at_age <-
 #'   prey species (and sex, where the prey is sexed).
 #'
 #' @inheritParams rceattle-plot-args
-#' @param age Prey age to plot the M2 proportions at
+#' @param age Prey age to plot the M2 proportions at, on the prey species' own
+#'   age scale rather than as an age-bin index. A prey species that has no such
+#'   age is dropped, with a warning.
 #'
 #' @export
 #'
@@ -1567,6 +1590,10 @@ plot_m2_at_age_prop <-
     nyrs <- max(nyrs_vec)
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
+    # `age` is a prey age, not a bin index; resolve it per prey species.
+    age_sel <- .rce_age_index(age, species, Rceattle[[1]]$data_list$minage,
+                              Rceattle[[1]]$data_list$nages, spnames)
+    species <- age_sel$species
     # A ratio of REPORT-only arrays: no standard errors to draw from.
     add_ci <- .rce_no_ci(add_ci, "the M2 proportions",
                          "they are a ratio of series the model reports without standard errors")
@@ -1581,13 +1608,17 @@ plot_m2_at_age_prop <-
     # 1 across predators for every prey age and year.
     m2_at_age_prop <- array(NA, dim = c(nspp, nspp, 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      for (ksp in 1:nspp) {
+      for (j in seq_along(species)) {
+        ksp <- species[j]
+        # `age` is a PREY age here, so it resolves against the prey species'
+        # own minage -- the 4th dimension of M2_prop is the prey age bin.
+        k_bin <- age_sel$index[j]
         for (k_sex in 1:nsex[ksp]) {
           for (yr in 1:nyrs_vec[i]) {
             by_pred <- vapply(1:nspp, function(rsp)
               sum(Rceattle[[i]]$quantities$M2_prop[
                 c(rsp, (rsp + nspp) * (max(nsex) - 1)),
-                ksp + (nspp * (k_sex - 1)), , age, yr]),
+                ksp + (nspp * (k_sex - 1)), , k_bin, yr]),
               numeric(1))
             total <- sum(by_pred)
             # No predation on this prey age in this year leaves the shares
@@ -1678,7 +1709,9 @@ plot_f <- .ts_wrapper("F_spp", ref_lines = .f_reference_lines,
 #' @details Colour separates the models; line type separates the sexes.
 #'
 #' @inheritParams rceattle-plot-args
-#' @param minage minage to plot ration (i.e. age "minage"+)
+#' @param minage Youngest age to sum consumption over, so the figure is
+#'   "age `minage`+". An age on the species' own scale, not an age-bin index; a
+#'   species with no age that old is dropped, with a warning.
 #'
 #' @export
 #'
@@ -1709,6 +1742,12 @@ plot_ration <-
     spnames <- sp_sel$spnames
     nsex  <- models[[1]]$data_list$nsex
     nages <- models[[1]]$data_list$nages
+    # `minage` names an age ("age 3+"), not a bin, so the bins summed over are
+    # resolved against each species' own age vector rather than assumed to start
+    # at the same index for all of them.
+    age_sel <- .rce_age_plus_index(minage, species,
+                                   models[[1]]$data_list$minage, nages, spnames)
+    species <- age_sel$species
     # Consumption is the product of two REPORT-only arrays, so its standard
     # error would need a covariance the fit does not carry.
     add_ci <- .rce_no_ci(add_ci, "consumption", paste(
@@ -1733,12 +1772,13 @@ plot_ration <-
       yrs <- dl$styr:(if (incl_proj) dl$projyr else dl$endyr)
       Caa <- models[[k]]$quantities$consumption_at_age
       Naa <- models[[k]]$quantities$avgN_at_age
-      for (sp in species) {
-        ages <- minage:nages[sp]
+      for (j in seq_along(species)) {
+        sp   <- species[j]
+        bins <- age_sel$index[[j]]
         for (sex in seq_len(nsex[sp])) {
           sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
           val <- vapply(seq_along(yrs), function(yr)
-            sum(Caa[sp, sex, ages, yr] * Naa[sp, sex, ages, yr]),
+            sum(Caa[sp, sex, bins, yr] * Naa[sp, sex, bins, yr]),
             numeric(1)) / 1e6
           df_list[[length(df_list) + 1L]] <- data.frame(
             Model = model_names_use[k], Species = spnames[sp], Sex = sex_lab,
