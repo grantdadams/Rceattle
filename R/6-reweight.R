@@ -70,10 +70,13 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   }
   # A DSEM needs nothing special here: the loop reweights COMPOSITION data and
   # refits, and the recruitment structure travels through `inits` and the
-  # supplied map like any other parameter block. As with remove_F(), that only
-  # holds because fit_mod() no longer drops the dsem_* blocks out of a warm
-  # start -- each iteration used to reset the DSEM to its start values, so the
-  # weights converged against a model that was not the one being reweighted.
+  # supplied map like any other parameter block. Note this was refused by a
+  # blanket guard rather than because it was broken -- each iteration
+  # re-optimizes, so it reached the same optimum whatever the DSEM started from.
+  # One consequence worth knowing: the McAllister-Ianelli weight reads expected
+  # compositions, which depend on recruitment and so on the GMRF, so weights
+  # tuned under a DSEM are conditional on it and are not comparable to weights
+  # tuned without one.
   fc <- fit$data_list$fleet_control
 
   # Fleets the loop can tune: they carry composition data that is actually

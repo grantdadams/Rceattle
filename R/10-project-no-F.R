@@ -11,22 +11,33 @@
 #'
 remove_F <- function(Rceattle){
 
-  # A DSEM needs nothing special here. This sets projection F to zero and
-  # rebuilds at estimateMode = 3, so nothing is re-estimated: the DSEM's fitted
-  # parameters simply travel through `inits`. That only became true once
-  # fit_mod() stopped dropping the dsem_* blocks out of a warm start -- before
-  # that this rebuilt the model with the recruitment SD at its start value, and
-  # the F = 0 projection it returned was not the fitted model's.
+  # A DSEM needs nothing special here: nothing is re-estimated below, so the
+  # DSEM's fitted parameters simply travel through `inits`. That only became
+  # true once fit_mod() stopped dropping the dsem_* blocks out of a warm start.
 
   # * Years for F = 0 ----
-  # - don't want hindcast or it will bias suitability in Multi-species models
-  # suit_endyr is per-predator; project F = 0 only after the latest suitability window.
-  proj_years <- (max(Rceattle$data_list$suit_endyr)+1):Rceattle$data_list$projyr - Rceattle$data_list$styr + 1
-  fdevs_cols <- 1:ncol(Rceattle$estimated_params$log_F)
-  fdevs_change <- which(fdevs_cols %in% proj_years)
-
-  # * Set F to 0 ----
-  Rceattle$estimated_params$log_F[,fdevs_change] <- replace(Rceattle$estimated_params$log_F[,fdevs_change], values = -999)
+  # PROJECTION F IS NOT A FUNCTION OF log_F. The template reads exp(log_F(flt,
+  # yr)) only for yr < nyrs_hind (ceattle.cpp section 6); projection F is
+  # proj_F_prop * proj_F from the harvest control rule. What actually produces
+  # the unfished projection here is estimateMode = 3, which skips fit_mod()'s
+  # HCR section so `forecast` stays 0 and the template forces proj_F = 0.
+  #
+  # This used to also write -999 into log_F for
+  #   (max(suit_endyr) + 1):projyr - styr + 1
+  # which are column indices PAST the end of log_F whenever the suitability
+  # window runs to endyr -- so on every model where suit_endyr == endyr it
+  # selected nothing and did nothing. Where suit_endyr stops EARLIER, though, the
+  # same expression lands inside the hindcast and zeroed real fitted fishing
+  # mortality: measured on BS2017SS with suit_endyr = 2010, it zeroed F for
+  # 2011-2017 and inflated terminal hindcast SSB by 43% / 187% / 17%. The
+  # returned object is used as "the fitted hindcast with the projection
+  # unfished" -- including by run_mse() to build the unfished reference every
+  # performance metric is normalized against -- and the truncated suitability
+  # windows that trigger it are what the real GOA and hake models use. It also
+  # collapsed the per-predator suit_endyr to one scalar and wrote across every
+  # fleet and species. Removed: it never did anything in the intended case, and
+  # what it did in the other one contradicts this function's own comment about
+  # not touching the hindcast.
 
   # * Update fit ----
   # Rebuild with F = 0 in the projection, reusing the model's own configuration;

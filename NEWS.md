@@ -65,6 +65,29 @@
 
 ## Bug fixes
 
+* **`remove_F()` zeroed fitted HINDCAST fishing mortality whenever the
+  suitability window ended before `endyr`.** It wrote `-999` into `log_F` for
+  the column indices `(max(suit_endyr) + 1):projyr - styr + 1`. Where
+  `suit_endyr == endyr` those indices run past the end of `log_F`, so nothing
+  was selected and nothing happened -- which is every bundled example and every
+  golden model. Where the suitability window stops earlier, which is what the
+  real GOA and hake models use, the same expression lands inside the hindcast:
+  measured on BS2017SS with `suit_endyr = 2010`, it zeroed F for 2011-2017 and
+  inflated terminal hindcast SSB by 43%, 187% and 17% across the three species.
+  The returned object is used as the fitted hindcast with an unfished
+  projection, including by `run_mse()` to build the unfished reference every
+  performance metric is normalized against. The write also collapsed the
+  per-predator `suit_endyr` to a single scalar and applied across every fleet
+  and species.
+
+  Removed rather than repaired: projection F is not a function of `log_F` at
+  all -- the template reads `log_F` only for hindcast years, and the unfished
+  projection comes from `estimateMode = 3` leaving the harvest control rule
+  unevaluated. Models whose suitability window ends at `endyr` are unaffected
+  (bit-identical); models with a truncated window will change, and the change is
+  the corruption being removed.
+
+
 * **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
   does not declare the `dsem_*` blocks -- they come from the DSEM builder -- so
   `fit_mod()` dropped them out of any supplied `inits` and then refilled them

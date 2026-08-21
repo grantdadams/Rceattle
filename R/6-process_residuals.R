@@ -55,25 +55,37 @@ process_residuals <- function(fit,
   if (!inherits(fit, "Rceattle")) {
     stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
   }
-  # Refused on a DSEM, and this one is statistical rather than plumbing. The
-  # residual here is a posterior draw standardized by the process PRIOR:
-  # (draw - mean) / sd, one scalar sd per year. Under a DSEM the prior on the
-  # recruitment deviations is the GMRF, not an independent per-year normal, so
-  # that standardization is only right for an IID sem and is wrong by the
-  # lag/covariate structure for any other. rec_dev is also mapped out under a
-  # DSEM, so it appears in neither the joint precision nor cov.fixed and the
-  # deviations would have to be read from dsem_x_tj's recruitment columns.
-  # Doing it properly means standardizing by the GMRF's own Cholesky factor.
-  if (.has_dsem(fit)) {
-    stop("process_residuals() does not support a DSEM: the recruitment ",
-         "deviations are latent states of a GMRF, so standardizing them by a ",
-         "per-year normal prior -- which is what this function does -- would be ",
-         "correct only for an IID sem and wrong by the lag and covariate ",
-         "structure for any other. Doing it correctly needs the GMRF's Cholesky ",
-         "factor, not a scalar SD.", call. = FALSE)
-  }
-  if (is.null(fit$obj)) stop("'fit' has no TMB object ($obj).")
   process <- match.arg(process)
+
+  # Refused on a DSEM for "recruitment" and "initial" only -- "catchability" is
+  # untouched by one and must stay available. Two different reasons:
+  #
+  #   recruitment: not computable at all. rec_dev is mapped out under a DSEM
+  #     (fit_mod() maps it out because the template overwrites it from the
+  #     latent states), so it is in neither the joint precision nor cov.fixed
+  #     and there is no posterior to draw from. This is true for an IID sem too,
+  #     so it is not a question of narrowing the guard to structured sems.
+  #   initial: computable and SILENTLY WRONG. init_dev IS estimated under a
+  #     DSEM, and its density uses the DSEM-derived R_sd -- but the prior read
+  #     here comes from exp(R_log_sd), which under a DSEM is the mapped-out
+  #     placeholder rather than the SD the density used. Measured on BS2017SS:
+  #     0.7071 against the 0.9888/1.3321/0.7976 actually in force, a 28%/47%/-11%
+  #     error in the residual scale, returning plausible-looking numbers.
+  #
+  # Standardizing the recruitment deviations properly would need the GMRF's own
+  # Cholesky factor rather than a scalar SD per year.
+  if (.has_dsem(fit) && process %in% c("recruitment", "initial", "all")) {
+    stop("process_residuals(process = \"", process, "\") does not support a ",
+         "DSEM. Recruitment deviations are latent states of a GMRF: rec_dev is ",
+         "mapped out, so there is no posterior to draw from, and the GMRF is ",
+         "not the per-year normal prior this function standardizes by. The ",
+         "initial deviations are estimated but would be standardized by ",
+         "exp(R_log_sd), which under a DSEM is a mapped-out placeholder rather ",
+         "than the SD their density used. process = \"catchability\" is ",
+         "unaffected by a DSEM and still works.", call. = FALSE)
+  }
+
+  if (is.null(fit$obj)) stop("'fit' has no TMB object ($obj).")
 
   specs <- list(recruitment  = "rec_dev",
                 initial      = "init_dev",

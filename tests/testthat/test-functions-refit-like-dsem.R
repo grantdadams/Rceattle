@@ -93,6 +93,12 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
   # object and failed on `max(NULL)` instead of testing the guard.
   testthat::expect_error(Rceattle::process_residuals(built_only),
                          "does not support a DSEM")
+  # ...and process = "catchability" is NOT refused: index_q_dev is untouched by
+  # a DSEM, so blocking it would cost a valid diagnostic and explain it with a
+  # message about a process the caller did not ask for.
+  testthat::expect_error(
+    Rceattle::process_residuals(built_only, process = "catchability"),
+    "no TMB object")
 
   # retrospective(), jitter() and self_test() are deliberately NOT in this list
   # any more. retrospective() peels by MARGINALIZING the peeled-year latent

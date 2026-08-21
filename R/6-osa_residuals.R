@@ -214,9 +214,12 @@ osa_residuals <- function(fit,
   }
   # A DSEM needs nothing special here: these are one-step-ahead residuals for
   # the DATA, and TMB::oneStepPredict() integrates the random effects out
-  # whatever their structure -- the GMRF is just another random block. Unlike
-  # process_residuals(), nothing here standardizes a deviation by an assumed
-  # per-year prior, so there is no IID assumption to violate.
+  # whatever their structure -- the GMRF is just another random block, recovered
+  # through obj$env$random like any other. This function never refits, so it was
+  # never affected by the warm-start defect; it was refused by a blanket guard
+  # and nothing more. Unlike process_residuals(), nothing here standardizes a
+  # deviation by an assumed per-year prior, so there is no IID assumption to
+  # violate.
   if (is.null(fit$obj)) {
     stop("'fit' has no TMB object ($obj); OSA residuals require the fitted ",
          "model object.")

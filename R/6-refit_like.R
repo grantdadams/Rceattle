@@ -227,17 +227,11 @@
     !is.null(x$data_list$model_config$dsem)
 }
 
-# Diagnostics that refit a DSEM model are not supported yet. They fail in
-# assorted opaque ways rather than saying so: retrospective() dies zeroing
-# `inits$rec_dev`, which is length 0 under a DSEM because the deviations live in
-# the latent states; jitter() reports "0 of N returned" with the real cause
-# buried; self_test() throws "argument is of length zero". One directed message
-# instead, at the entry point.
-.stop_if_dsem <- function(Rceattle, what) {
-  if (.has_dsem(Rceattle)) {
-    stop(what, "() does not yet support a DSEM. Use the dev-DSEM branch for ",
-         "DSEM diagnostics.", call. = FALSE)
-  }
-  invisible(NULL)
-}
+# NOTE: .stop_if_dsem() used to live here, wrapping .has_dsem() in one generic
+# "does not yet support a DSEM" message. It has been removed rather than left
+# with a docstring that is no longer true: retrospective(), jitter(),
+# self_test(), profile(), remove_F(), reweight_comps() and osa_residuals() all
+# support a DSEM now. The two functions that still refuse -- run_mse() and
+# sample_rec() -- and the two processes process_residuals() refuses each say
+# something specific about WHY, which a shared message cannot do.
 

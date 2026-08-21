@@ -160,14 +160,26 @@ testthat::test_that("remove_F(), reweight_comps() and osa_residuals() keep the D
   testthat::expect_equal(as.numeric(rf$estimated_params$dsem_beta_z), bp,
                          tolerance = 1e-10)
 
+  # reweight_comps() RE-OPTIMIZES (estimateMode = 0), so a start value is not
+  # observable in its answer -- asserting "beta_z is not 0.707107" would pass
+  # even with the warm-start bug present, because any start reaches the same
+  # optimum. Verified by reproducing the bug: resetting every dsem_* block to the
+  # template and refitting returned 0.9888/1.3321/0.7976 anyway. So assert the
+  # property that IS at risk: the loop's answer must be the fit implied by the
+  # weights it converged on, not merely a converged fit.
   rw <- suppressWarnings(suppressMessages(
     Rceattle::reweight_comps(fit, n_iter = 2, verbose = FALSE)))
   br <- as.numeric(rw$estimated_params$dsem_beta_z)
   testthat::expect_equal(length(br), length(bp))
-  # Re-estimated against the new weights, so not equal to the parent -- but it
-  # must not have collapsed onto the start value for every species.
-  testthat::expect_gt(max(abs(br - START)), 1e-3)
-  testthat::expect_gt(stats::sd(br), 1e-6)
+
+  d2 <- d
+  d2$fleet_control$Comp_weights <- rw$data_list$fleet_control$Comp_weights
+  scratch <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d2, inits = NULL, file = NULL, estimateMode = 0,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = fc)))
+  testthat::expect_equal(br, as.numeric(scratch$estimated_params$dsem_beta_z),
+                         tolerance = 1e-2)
 
   # osa_residuals(): one-step-ahead residuals for the DATA. The random effects
   # are integrated out whatever their structure, so a DSEM must give the same
@@ -179,7 +191,6 @@ testthat::test_that("remove_F(), reweight_comps() and osa_residuals() keep the D
     Rceattle::osa_residuals(fit, source = "index", parallel = FALSE)))
   op <- suppressWarnings(suppressMessages(
     Rceattle::osa_residuals(fp, source = "index", parallel = FALSE)))
-  testthat::expect_equal(nrow(od), nrow(op))
   testthat::expect_true(all(is.finite(od$residual)))
   testthat::expect_equal(od$residual, op$residual, tolerance = 1e-3)
 })
