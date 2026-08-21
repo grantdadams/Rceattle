@@ -83,7 +83,9 @@ last hindcast year.}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{reference}{Reference model, drawn in black at 1.5x \code{lwd}.}
+\item{reference}{A model to overlay for comparison, drawn at 1.5x \code{lwd} and
+labelled "Reference". It takes the next colour from the palette, or black
+if \code{line_col} is supplied.}
 
 \item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
 model's \code{minage}.}

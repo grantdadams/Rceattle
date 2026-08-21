@@ -97,17 +97,14 @@
 
 #' Normalize a user colour specification to something ggplot2 accepts
 #'
-#' `line_col` is a base-graphics argument, so users pass base-graphics colours:
-#' `line_col = 1` and `line_col = c(1, 2, 4)` are as common in real scripts as
-#' `"black"` / `"#0072B2"`. R's colour parser already reads the *string* `"1"` as
-#' a palette index, so a single small integer happens to survive; resolving it
-#' here makes that explicit and fixes the cases that do not, namely indices past
-#' the end of the palette (base wraps, ggplot2 does not).
+#' `line_col` is a base-graphics argument and users pass base-graphics colours:
+#' `line_col = 1` and `line_col = c(1, 2, 4)` are as common as `"black"` or
+#' `"#0072B2"`. Base wraps indices past the end of the palette; ggplot2 does not,
+#' so they are resolved here.
 #'
-#' Invalid colours fail here, where the argument can be named, rather than deep
-#' inside `ggplot_build()` -- or, worse, silently: an `NA` colour renders as a
-#' missing line, so a bad `line_col` would otherwise produce a blank panel with
-#' no message.
+#' Invalid colours fail here, where the argument still has a name, rather than
+#' silently -- an `NA` colour draws nothing, so a bad `line_col` would otherwise
+#' give a blank panel and no message.
 #'
 #' @param x Colours as a character vector, or integers indexing
 #'   [grDevices::palette()], or `NULL`.
@@ -156,12 +153,11 @@
 #' qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
 #' use viridis. Both are colorblind-safe.
 #'
-#' `line_col` overrides the default. It supplies the palette for whichever
-#' variable the plot already maps to colour -- which is *not* always the model:
-#' see the shared argument documentation (`?rceattle-plot-args`). On a
-#' continuous colour aesthetic (a year fan) there is no set of levels to name,
-#' so the colours become the ramp anchors instead: one colour draws the whole
-#' fan in that colour, two or more interpolate between them in order.
+#' `line_col` overrides the default, supplying the palette for whichever
+#' variable the plot maps to colour -- not always the model; see
+#' `?rceattle-plot-args`. On a continuous colour aesthetic (a year fan) the
+#' colours are ramp anchors instead: one draws the fan in that colour, several
+#' interpolate between them.
 #'
 #' @param p A ggplot.
 #' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.
@@ -174,9 +170,8 @@
                             line_col = NULL) {
   line_col <- .as_colour(line_col)
 
-  # Build the scale for one aesthetic. Kept as a closure so "colour" and "fill"
-  # cannot drift apart -- a user's colours must reach both or the ribbon and its
-  # line disagree.
+  # One closure for both aesthetics, so a user's colours cannot reach the line
+  # but not its ribbon.
   scale_for <- function(aes_name) {
     if (is.null(line_col)) {
       return(if (discrete)
@@ -185,18 +180,16 @@
              else ggplot2::scale_fill_viridis_c())
     }
     if (discrete) {
-      # Applied in level order by a palette function rather than by naming the
-      # values. A named scale_*_manual() silently renders every series grey50
-      # when the names do not match the data's levels, so the caller would have
-      # to know the factor's levels exactly to use it safely -- and the
-      # documented contract is level order anyway.
+      # Applied in level order by a palette function. Naming the values instead
+      # renders every series grey50 whenever the names miss the data's levels,
+      # and level order is the documented contract anyway.
       return(ggplot2::discrete_scale(
         aes_name,
-        palette = function(n) rep(line_col, length.out = n)))
+        palette = function(n) rep(line_col, length.out = n),
+        na.value = "grey50"))
     }
-    # Continuous: the colours are ramp anchors. A single colour gives a flat
-    # ramp, i.e. "draw it all in this colour", which is what a user asking for
-    # `line_col = "black"` means.
+    # Continuous: ramp anchors. A single colour gives a flat ramp, which is what
+    # `line_col = "black"` is asking for.
     if (length(line_col) == 1L) {
       return(if (aes_name == "colour")
                ggplot2::scale_colour_gradient(low = line_col, high = line_col)
@@ -329,21 +322,29 @@
       # renaming species for display does not make them unselectable.
       hit <- match(species, spnames)
       hit[is.na(hit)] <- match(species[is.na(hit)], default_names)
+      legacy_shape <- length(species) == nspp && !user_named
       if (all(!is.na(hit))) {
         idx <- hit
-      } else if (all(is.na(hit)) && length(species) == nspp && !user_named) {
+      } else if (all(is.na(hit)) && legacy_shape) {
         # The legacy spelling: `species` held one display label per species,
         # which is how plot_selectivity() and plot_maturity() used it. Only
-        # this exact shape -- one string per species, no separate `spnames` --
-        # is read that way. Anything else is a selection, and a selection that
-        # matches nothing is a typo, not a relabelling: silently plotting every
-        # species under the user's misspelled names is the worst outcome
-        # available, so it is an error.
+        # this shape -- one string per species, no separate `spnames` -- is
+        # read that way.
         spnames <- as.character(species)
         idx <- seq_len(nspp)
-        message("`species` matched no species name and supplies one string per ",
+        message("`species` matched no species name and gives one string per ",
                 "species, so it is being read as display labels. Pass labels ",
                 "as `spnames` and a selection as `species`.")
+      } else if (legacy_shape) {
+        # One string per species, some matching and some not: it could be a
+        # relabelling with a collision or a selection with a typo, and the two
+        # give different figures. Say so rather than pick one.
+        stop("`species` gives one string per species but only ",
+             paste(species[!is.na(hit)], collapse = ", "), " match a species ",
+             "name. Read as labels it would rename all ", nspp,
+             "; read as a selection it would plot ", sum(!is.na(hit)),
+             ". Pass labels as `spnames`, or fix ",
+             paste(species[is.na(hit)], collapse = ", "), ".", call. = FALSE)
       } else if (all(is.na(hit))) {
         stop("`species` matched no species name: ",
              paste(species, collapse = ", "), ". This model has: ",
@@ -380,16 +381,14 @@
 
 #' Line width / type / transparency parameters for a `geom_line()`
 #'
-#' Generalizes the per-model `lwd` / `lty` handling that only `plot_timeseries()`
-#' had. A value that does not vary is passed as a **fixed** geom parameter, so
-#' the uniform default adds no spurious legend; a value that varies is **mapped**
-#' to the keying variable and given a manual scale.
+#' A value that does not vary is passed as a fixed geom parameter, so the
+#' uniform default adds no spurious legend; one that varies is mapped to the
+#' keying variable and given a scale.
 #'
-#' `lwd` keeps the base-graphics convention, where the package default of 3
-#' renders as a standard-weight ggplot line. That is the `lwd / 3` below, and it
-#' is load-bearing: every plotter converted to this helper previously hardcoded
-#' `linewidth = 1`, so `lwd = 3` must keep producing exactly that or every
-#' existing default figure changes.
+#' `lwd` keeps the base-graphics convention, where the default of 3 renders as a
+#' standard-weight ggplot line -- the `lwd / 3` below. Do not change that ratio:
+#' the plotters on this helper previously hardcoded `linewidth = 1`, so `lwd = 3`
+#' must keep producing exactly that or every existing default figure moves.
 #'
 #' @param lwd Line width(s), base-graphics scale (default 3 == linewidth 1).
 #' @param lty Line type(s).
@@ -690,11 +689,9 @@
 
 #' Decline an `add_ci` request that the model cannot support
 #'
-#' Silently ignoring `add_ci = TRUE` is what let these arguments look functional
-#' for so long, so say it once instead. Kept quiet for a quantity the model was
-#' never going to report -- `F_spp` and the other `REPORT()`-only series would
-#' otherwise warn on every fit, which is the gate `plot_timeseries()` already
-#' applies.
+#' Says so once rather than ignoring the request. Kept quiet for a quantity the
+#' model was never going to report: `F_spp` and the other `REPORT()`-only series
+#' would otherwise warn on every fit.
 #'
 #' @param add_ci The user's request.
 #' @param quantity Name of the plotted quantity, for the message.

@@ -27,11 +27,10 @@ qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
 use viridis. Both are colorblind-safe.
 }
 \details{
-\code{line_col} overrides the default. It supplies the palette for whichever
-variable the plot already maps to colour -- which is \emph{not} always the model:
-see the shared argument documentation (\code{?rceattle-plot-args}). On a
-continuous colour aesthetic (a year fan) there is no set of levels to name,
-so the colours become the ramp anchors instead: one colour draws the whole
-fan in that colour, two or more interpolate between them in order.
+\code{line_col} overrides the default, supplying the palette for whichever
+variable the plot maps to colour -- not always the model; see
+\code{?rceattle-plot-args}. On a continuous colour aesthetic (a year fan) the
+colours are ramp anchors instead: one draws the fan in that colour, several
+interpolate between them.
 }
 \keyword{internal}

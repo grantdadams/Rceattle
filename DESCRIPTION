@@ -1,6 +1,6 @@
 Package: Rceattle
 Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
-Version: 5.9.0
+Version: 5.10.0
 Authors@R:
     person(given = "Grant",
            family = "Adams",
@@ -25,7 +25,7 @@ LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
 Imports:
     dplyr,
-    ggplot2,
+    ggplot2 (>= 3.5.0),
     MASS,
     readxl,
     TMB (>= 1.7.16),

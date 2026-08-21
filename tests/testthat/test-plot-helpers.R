@@ -101,6 +101,15 @@ testthat::test_that(".resolve_species refuses to relabel every species from a ty
   testthat::expect_equal(res$index, 2L)
 })
 
+testthat::test_that(".resolve_species will not guess between relabelling and selecting", {
+  # One string per species with SOME matching is ambiguous: read as labels it
+  # renames all three, read as a selection it plots one. Both are plausible and
+  # they give different figures, so neither is chosen silently.
+  m <- fake_models()
+  testthat::expect_error(.resolve_species(m, c("Pollock", "Zzz", "Yyy")),
+                         "one string per species")
+})
+
 testthat::test_that(".resolve_species can still select by the model's own names after relabelling", {
   # Renaming species for display must not make them unselectable, and must not
   # fail by silently plotting everything.
@@ -258,6 +267,17 @@ testthat::test_that("line_col overrides a discrete colour scale", {
   testthat::expect_equal(
     built_colours(.rceattle_scale(p, aesthetics = "colour", line_col = "red")),
     "red")
+
+  # An NA level keeps the grey the named scales used to give it; without an
+  # explicit na.value it would draw nothing at all.
+  na_df <- data.frame(x = 1:4, y = 1:4,
+                      Model = factor(c("A", "A", NA, NA)))
+  na_p <- ggplot2::ggplot(na_df, ggplot2::aes(.data$x, .data$y,
+                                              colour = .data$Model)) +
+    ggplot2::geom_line()
+  testthat::expect_true("grey50" %in%
+    built_colours(.rceattle_scale(na_p, aesthetics = "colour",
+                                  line_col = c("red", "blue"))))
 })
 
 testthat::test_that("line_col reaches the fill aesthetic too", {

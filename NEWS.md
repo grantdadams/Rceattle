@@ -1,3 +1,55 @@
+# Rceattle 5.10.0
+
+## New features
+
+* **The `plot_*()` functions now share one set of arguments, and use them.**
+  Only `plot_timeseries()` ever honoured `line_col`, `lwd`, `lty` and `alpha`;
+  the others declared them and ignored them, so colours and line widths silently
+  did nothing. They are now resolved in one place and applied consistently.
+  `line_col` accepts colour names, hex codes, or base-graphics palette indices
+  (`line_col = 1`), and supplies the palette for whichever variable the figure
+  maps to colour -- check the legend, since that is not always the model. On a
+  year fan (`plot_selectivity()`, `plot_mortality()`) it gives the ramp anchors
+  instead. `lwd` keeps the base-graphics scale, where the default `3` is a
+  standard-weight line.
+
+* **`species` and `spnames` mean the same thing everywhere.** `species` selects
+  -- by index, name, logical mask, or `"all"`, in the order given -- and
+  `spnames` labels. Several plotters previously read `species` as display
+  labels; a character vector giving one label per species is still read that way,
+  with a message. `plot_timeseries()` and its wrappers (`plot_biomass()`,
+  `plot_ssb()`, `plot_recruitment()`, the depletions,
+  `plot_exploitable_biomass()`, `plot_f()`) gained selection by name.
+
+## Bug fixes
+
+* `plot_timeseries()` and its wrappers accept a one-sided year window again;
+  `plot_ssb(fit, minyr = 1990)` previously errored.
+
+* The projection divider is drawn at the latest hindcast year across the models
+  plotted, not at whichever model came last in the list. On a retrospective peel
+  the peels end in different years, so the divider could land mid-hindcast and
+  label real data as projection. Figures overlaying models with different `endyr`
+  -- including any using `reference =` -- will show the divider in a new place.
+
+* An invalid `line_col` or `lwd` now stops with a message naming the argument.
+  Previously an `NA` colour or width drew nothing, giving a blank panel and no
+  explanation.
+
+* A `spnames` of the wrong length now stops rather than recycling, which had
+  labelled one species with another's name. A `species` string matching no
+  species now stops rather than silently plotting everything.
+
+* `plot_timeseries(save = TRUE)` writes the years alongside the values, names
+  the columns after the models, names the file after the species, and writes
+  only the species plotted. It previously wrote unlabelled columns for every
+  species, with no year column, to a file called `NULL_...csv` when `file` was
+  not given.
+
+## Dependencies
+
+* `ggplot2` now requires >= 3.5.0.
+
 # Rceattle 5.9.0
 
 ## New features

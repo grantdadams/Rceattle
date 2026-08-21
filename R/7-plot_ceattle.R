@@ -61,7 +61,9 @@ rich.colors.short <- function(n,alpha=1){
 #' @param zero_y Anchor the y-axis at zero. TRUE for the absolute series
 #'   (biomass, SSB, recruitment), where a truncated axis exaggerates change;
 #'   FALSE for the depletions, which are already on a relative scale.
-#' @param reference Reference model, drawn in black at 1.5x `lwd`.
+#' @param reference A model to overlay for comparison, drawn at 1.5x `lwd` and
+#'   labelled "Reference". It takes the next colour from the palette, or black
+#'   if `line_col` is supplied.
 #'
 #' @export
 #'
@@ -299,25 +301,28 @@ plot_timeseries <- function(Rceattle,
   }
 
 
+  # Legend / CSV column labels for the models, defaulting to "Model 1", ...
+  model_names_use <- .model_labels(Rceattle, model_names)
+
   ## Save ----
   if (save) {
-    for (i in 1:nspp) {
-      dat <- data.frame(quantity[i, , ])
-      datup <- data.frame(quantity_upper95[i, , ])
-      datlow <- data.frame(quantity_lower95[i, , ])
-
-      dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
-      colnames(dat_new) <- rep(model_names[1], 3)
-
-      if (ncol(dat) > 1) {
-        for (j in 2:ncol(dat)) {
-          dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
-          colnames(dat_new2) <- rep(model_names[j], 3)
-          dat_new <- cbind(dat_new, dat_new2)
-        }
+    if (is.null(file)) {
+      stop("`save = TRUE` needs a `file` stem to write to.", call. = FALSE)
+    }
+    for (i in spp) {
+      dat_new <- data.frame(Year = years[[1]])
+      for (j in seq_along(Rceattle)) {
+        block <- data.frame(quantity[i, seq_along(years[[1]]), j],
+                            quantity_lower95[i, seq_along(years[[1]]), j],
+                            quantity_upper95[i, seq_along(years[[1]]), j])
+        colnames(block) <- paste0(model_names_use[j],
+                                  c("", "_lower95", "_upper95"))
+        dat_new <- cbind(dat_new, block)
       }
-
-      write.csv(dat_new, file = paste0(file, "_", output,"_species_", i, ".csv"))
+      utils::write.csv(dat_new, row.names = FALSE,
+                       file = paste0(file, "_", output, "_",
+                                     gsub("[^A-Za-z0-9]+", "_", spnames[i]),
+                                     ".csv"))
     }
   }
 
@@ -326,7 +331,6 @@ plot_timeseries <- function(Rceattle,
   # Build one row per (species, year, model) holding exactly the plotted
   # quantities (the same arrays, reshaped) so the returned ggplot's `$data` can
   # be tested against the model's source quantities.
-  model_names_use <- .model_labels(Rceattle, model_names)
   df_list <- list()
   for (k in seq_len(dim(quantity)[3])) {
     yk  <- years[[k]]
