@@ -6,6 +6,15 @@
 # that was actually taken, which is what a recruitment-projection assumption
 # (proj_mean_rec TRUE/FALSE, or a DSEM) should be judged on.
 
+# hindcast_skill() does not return the peel models, so recompute the one we need
+# rather than asserting against numbers the function itself produced.
+retro_peel_for <- function(hs, fit, peel) {
+  r <- suppressWarnings(suppressMessages(
+    Rceattle::retrospective(fit, peels = peel, cores = 1, getsd = FALSE,
+                            forecast_rec = "model")))
+  r$Rceattle_list[[1]]
+}
+
 testthat::test_that("hindcast_skill scores peels against the full model", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
@@ -24,31 +33,39 @@ testthat::test_that("hindcast_skill scores peels against the full model", {
                               "mae_forecast", "mae_naive", "mase") %in%
                               names(hs$mase)))
   testthat::expect_gt(nrow(hs$mase), 0)
-  testthat::expect_true(all(is.finite(hs$mase$mase) | is.na(hs$mase$mase)))
 
-  # The scored years must be the peeled ones, and only those: scoring a year the
-  # peel actually fitted would compare the model to itself and flatter it.
+  # NOTE on what is worth asserting here. `years_ahead == year - (endyr - peel)`,
+  # `year > endyr - peel` and `mase == mae_forecast/mae_naive` all restate the
+  # lines that computed them and cannot fail; `all(is.finite(x) | is.na(x))`
+  # passes for any numeric vector. They are omitted deliberately. What CAN fail
+  # is whether the three series are the right quantities from the right objects,
+  # which is what follows.
   endyr <- fit$data_list$endyr
-  testthat::expect_true(all(hs$by_year$year > endyr - hs$by_year$peel))
-  testthat::expect_true(all(hs$by_year$year <= endyr))
-  testthat::expect_equal(hs$by_year$years_ahead,
-                         hs$by_year$year - (endyr - hs$by_year$peel))
-
-  # The reference is the FULL model's estimate at those years, not the peel's.
   yr1 <- hs$by_year[hs$by_year$peel == 1, ]
   sp1 <- yr1[yr1$species == fit$data_list$spnames[1], ]
   col <- sp1$year - fit$data_list$styr + 1L
+
+  # reference: the FULL model's estimate at those years.
   testthat::expect_equal(sp1$reference,
                          as.numeric(fit$quantities$ssb[1, col]),
                          tolerance = 1e-8)
 
-  # ...and the naive forecast is one value held flat, so it must not vary within
-  # a peel x species block.
-  testthat::expect_equal(length(unique(sp1$naive)), 1L)
+  # forecast: the PEEL's own estimate at those years, and NOT the full model's.
+  # Nothing tested this, so a forecast column silently taken from the wrong
+  # object would have passed everything above.
+  peel1 <- retro_peel_for(hs, fit, peel = 1)
+  testthat::expect_equal(sp1$forecast,
+                         as.numeric(peel1$quantities$ssb[1, col]),
+                         tolerance = 1e-8)
+  testthat::expect_false(isTRUE(all.equal(sp1$forecast, sp1$reference,
+                                          tolerance = 1e-6)))
 
-  # MASE is the ratio of the two mean absolute errors it reports.
-  m <- hs$mase[hs$mase$peel == 1, ][1, ]
-  testthat::expect_equal(m$mase, m$mae_forecast / m$mae_naive, tolerance = 1e-10)
+  # naive: one value held flat, and specifically the peel's TERMINAL estimate.
+  testthat::expect_equal(length(unique(sp1$naive)), 1L)
+  testthat::expect_equal(unique(sp1$naive),
+                         as.numeric(peel1$quantities$ssb[1, (endyr - 1) -
+                                                           fit$data_list$styr + 1L]),
+                         tolerance = 1e-8)
 })
 
 testthat::test_that("hindcast_skill can score the held-out index instead", {
@@ -71,8 +88,13 @@ testthat::test_that("hindcast_skill can score the held-out index instead", {
   # scored value has to appear in index_data at that fleet and year.
   by <- hs$by_year[grepl("^index_fleet", hs$by_year$quantity), ]
   obs <- fit$data_list$index_data
+  # Match on FLEET and year, not year alone: with several fleets reporting in
+  # the same year, a year-only match is satisfied by any of them and would pass
+  # even if the reference were taken from the wrong fleet entirely.
   hit <- vapply(seq_len(min(nrow(by), 20L)), function(i) {
-    any(abs(obs$Observation[obs$Year == by$year[i]] - by$reference[i]) < 1e-8)
+    flt <- as.integer(sub("^index_fleet_", "", by$quantity[i]))
+    rows <- obs$Year == by$year[i] & obs$Fleet_code == flt
+    any(rows) && any(abs(obs$Observation[rows] - by$reference[i]) < 1e-8)
   }, logical(1))
   testthat::expect_true(all(hit))
 

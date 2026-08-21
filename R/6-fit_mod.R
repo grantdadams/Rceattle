@@ -563,30 +563,6 @@ fit_mod <-
     # attached, every path below is skipped and the model is textually the
     # non-DSEM model. That is what lets /golden-check gate this change.
     if (!is.null(dsem)) {
-      # Lognormal bias correction is NOT applied to the DSEM recruitment
-      # deviations (see the TODO in ceattle.cpp section 5.5b): the GMRF centres
-      # its latent states at 0, while the standard density centres rec_dev at
-      # -bias_adjust_proc*R_sd^2/2. The correction needs the MARGINAL SD of the
-      # recruitment column, which for a lagged sem is not R_sd -- R_sd is the
-      # GMRF's conditional (innovation) SD.
-      #
-      # The consequence is not confined to the deviations. SSB absorbs the
-      # offset and looks fine, but R0 does not: measured on BS2017SS with a
-      # naive (IID) sem, R0 came out 20-51% below the non-DSEM fit while
-      # terminal SSB agreed to 0.4%. Anything keyed to R0 -- dynamic B0, the
-      # Tier-3 B40% proxy, SPR-based reference points, projections that recruit
-      # off R0 -- inherits that shift. Say so rather than let a number that
-      # means something different from every other Rceattle fit go out unmarked.
-      if (isTRUE(as.logical(fit_control$bias_adjust_proc)) && verbose > 0) {
-        warning("Lognormal bias correction is not applied to the recruitment ",
-                "deviations of a DSEM, so this fit's R0 is not comparable to a ",
-                "non-DSEM fit of the same model -- measured 20-51% lower on ",
-                "BS2017SS with an IID sem, while SSB agreed to 0.4%. Reference ",
-                "points keyed to R0 (dynamic B0, the B40% proxy) carry that ",
-                "difference. Use bias_adjust_proc = FALSE for a fit that is ",
-                "comparable to the non-DSEM path.", call. = FALSE)
-      }
-
       # The build_*() specs are plain unclassed lists in this package, so tell a
       # specification from already-built objects structurally: built objects
       # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else

@@ -71,6 +71,16 @@
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
+#' @param forecast_rec How the peeled years get their recruitment. `"mean"`
+#'   (default) projects them at the bias-adjusted historical mean, which is the
+#'   convention Mohn's rho has always been computed under. `"model"` uses the
+#'   model's own projection rule instead, in precedence order: `proj_mean_rec =
+#'   TRUE` projects at mean recruitment whatever process the model carries;
+#'   otherwise the latent states supply it where the deviations are random
+#'   effects (`random_rec`, or a DSEM), so an AR1's autocorrelation or a DSEM's
+#'   lagged and covariate paths propagate into the forecast; otherwise
+#'   recruitment comes off the stock-recruit curve. Use `"model"` to compare
+#'   projection methods -- see [hindcast_skill()], which defaults to it.
 #' @param cores Number of cores to use for parallel peels. Default
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
@@ -286,10 +296,22 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
         dplyr::arrange(Species, Year)
     }
 
-    # * Rescale environmental predictors ----
+    # * Environmental predictors ----
+    # Trim ALWAYS, not only when rescaling. env_data is data the peel is
+    # supposed not to have: a QAR1 catchability (est_index_q = 6) fits
+    # index_q_dev to env_index over every hindcast year, and now that the peeled
+    # index_q_dev are free rather than pinned, leaving env_data full-length lets
+    # a peel estimate its post-peel catchability from post-peel environmental
+    # observations. That is look-ahead in a diagnostic whose entire purpose is
+    # to withhold the future. The same argument covers any linkage covariate.
+    # build_dsem_objects() full-joins the trimmed years back as NA, so a DSEM's
+    # latent dimensions are unchanged and it predicts those covariates from its
+    # own process instead of reading them.
+    data_list$env_data <- data_list$env_data |>
+      dplyr::filter(Year <= endyr_peel)
     if(rescale){
-      data_list$env_data <- data_list$env_data |>
-        dplyr::filter(Year <= endyr_peel)
+      # Standardize on the retained years only, so the peel does not centre its
+      # covariates using years it should not have seen.
       data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
     }
 

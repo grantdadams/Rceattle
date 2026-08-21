@@ -102,40 +102,48 @@ testthat::test_that("redrawing recruitment on a DSEM is refused by every spellin
   }
 })
 
-testthat::test_that("a DSEM fit warns that R0 is not comparable at the default bias correction", {
+testthat::test_that("a naive DSEM matches a non-DSEM fit at the DEFAULT bias correction", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("dsem")
 
-  # Lognormal bias correction is not applied to DSEM deviations. SSB absorbs the
-  # offset and looks fine; R0 does not -- 20-51% below the non-DSEM fit on
-  # BS2017SS with an IID sem -- and dynamic B0 and the B40% proxy are keyed to
-  # R0. The number must not go out unmarked.
+  # This used to assert a WARNING that R0 was not comparable, because the
+  # lognormal bias correction was not applied to the DSEM deviations. It is now,
+  # so the warning is gone and the property it warned about is the thing to
+  # test. R0 is the number that mattered: SSB absorbs the offset and looked
+  # fine, while R0 came out 20-51% low -- and dynamic B0 and the Tier-3 B40%
+  # proxy are keyed to R0.
+  #
+  # Deliberately at the DEFAULT bias_adjust_proc. The other equivalence test
+  # sets it FALSE so the two models share a parameterization, which is right for
+  # that comparison but leaves the SHIPPED default untested -- and the default
+  # is where the defect lived.
   d <- Rceattle::BS2017SS
   d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
-  mk <- function(bias) Rceattle::fit_control(phase = FALSE, getsd = FALSE,
-                                             verbose = 1, bias_adjust_proc = bias)
-  testthat::expect_warning(
-    suppressMessages(Rceattle::fit_mod(
-      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
-      random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
-      fit_control = mk(TRUE))),
-    "not comparable to a non-DSEM fit")
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  fd <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = fc)))
+  fp <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0, fit_control = fc)))
 
-  # Silent where the two paths ARE comparable.
-  testthat::expect_warning(
-    suppressMessages(Rceattle::fit_mod(
-      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
-      random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
-      fit_control = mk(FALSE))),
-    NA)
+  testthat::expect_equal(fd$opt$objective, fp$opt$objective, tolerance = 1e-6)
+  testthat::expect_equal(as.numeric(fd$quantities$R_sd),
+                         as.numeric(fp$quantities$R_sd), tolerance = 1e-4)
+  # The one that was 20-51% out.
+  testthat::expect_equal(as.numeric(fd$quantities$R0)[1:d$nspp],
+                         as.numeric(fp$quantities$R0)[1:d$nspp],
+                         tolerance = 1e-3)
+
+  # The correction is built on the marginal variance, which must be readable
+  # from R or it cannot be checked. For an IID sem it equals R_sd^2 exactly.
+  mv <- fd$quantities$dsem_margvar_tj
+  testthat::expect_false(is.null(mv))
+  testthat::expect_equal(as.numeric(mv[round(nrow(mv) / 2), 1]),
+                         as.numeric(fd$quantities$R_sd[1])^2, tolerance = 1e-6)
 })
-
-# The diagnostics that refit through `inits` were all silently broken by the
-# same defect: fit_mod() dropped the dsem_* blocks out of a warm start, so each
-# rebuilt the model with the recruitment SD at its start value (0.707107). They
-# work now; these pin that the DSEM actually survives the round trip rather than
-# merely that the call returns.
 
 testthat::test_that("remove_F(), reweight_comps() and osa_residuals() keep the DSEM", {
   testthat::skip_on_cran()

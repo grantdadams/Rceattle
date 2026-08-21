@@ -2,6 +2,23 @@
 
 ## New features
 
+* **`retrospective(forecast_rec = )` chooses how the peeled years get their
+  recruitment.** `"mean"` (the default, and what a retrospective has always
+  done) projects them at the bias-adjusted historical mean. `"model"` uses the
+  model's own rule instead: `proj_mean_rec = TRUE` projects at mean recruitment
+  whatever process the model carries; otherwise the latent states supply it
+  wherever the deviations are random effects (`random_rec`, or a DSEM), so an
+  AR1's autocorrelation or a DSEM's lagged and covariate paths propagate into
+  the forecast; otherwise recruitment comes off the stock-recruit curve.
+
+  This exists because a peel's forecast years are HINDCAST years, so
+  `proj_mean_rec` -- which the model only reads past `endyr` -- could not reach
+  them, and every peel forecast at the historical mean whatever the model said.
+  Measured on the GOA arrowtooth model, `proj_mean_rec = TRUE` and `FALSE`
+  returned byte-identical skill scores before this. `hindcast_skill()` defaults
+  to `"model"` for that reason; `retrospective()` keeps `"mean"` so Mohn's rho
+  stays comparable to published values.
+
 * **`hindcast_skill()` scores forecast skill across retrospective peels.** Each
   peel projects the years it did not see, given the catch actually taken, and is
   scored by mean absolute scaled error against either the full time-series
@@ -25,21 +42,34 @@
   versions.
 
   `retrospective()`, `jitter()` and `self_test()` work on a DSEM (below). The
-  rest of the refitting diagnostics do not yet -- `profile()`, `run_mse()`,
-  `remove_F()`, `sample_rec()`, `reweight_comps()`, `process_residuals()` and
-  `osa_residuals()` each stop with a message rather than silently refit a model
-  without the recruitment structure being tested. Lognormal bias correction is
-  not applied to the DSEM deviations yet, so a DSEM fit and its non-DSEM
-  analogue agree exactly only with `bias_adjust_proc = FALSE`.
+  `profile()`, `remove_F()`, `reweight_comps()` and `osa_residuals()` work too.
+  `run_mse()` and `sample_rec()` still stop with a message rather than silently
+  project a model without the recruitment structure being tested, and
+  `process_residuals()` refuses `"recruitment"` and `"initial"` -- it
+  standardizes a posterior draw by a per-year normal prior, which is not the
+  GMRF's prior, and under a DSEM the initial deviations would be scaled by a
+  mapped-out placeholder. `process_residuals(process = "catchability")` is
+  unaffected and works.
 
-* **A DSEM fit warns that its `R0` is not comparable to a non-DSEM fit.**
-  Lognormal bias correction is not applied to the DSEM recruitment deviations
-  yet, and while SSB absorbs the offset, `R0` does not: measured on BS2017SS
-  with a naive sem, `R0` came out 20-51% below the non-DSEM fit while terminal
-  SSB agreed to 0.4%. Dynamic B0, the Tier-3 B40% proxy and any projection that
-  recruits off `R0` inherit that difference, so `fit_mod()` now says so under
-  `verbose > 0` rather than letting the number go out unmarked. Fit with
-  `bias_adjust_proc = FALSE` for a model comparable to the non-DSEM path.
+* **Lognormal bias correction is now applied to a DSEM's recruitment
+  deviations, so `R0` is comparable to a non-DSEM fit again.** It was not
+  applied before, and while SSB absorbed the offset `R0` did not: measured on
+  BS2017SS with a naive sem, `R0` came out 20-51% below the non-DSEM fit while
+  terminal SSB agreed to 0.4%, and dynamic B0 and the Tier-3 B40% proxy are
+  keyed to `R0`.
+
+  The correction is `-Var/2` using the MARGINAL variance of each recruitment
+  column, taken from the GMRF and reported as `dsem_margvar_tj`. It is NOT
+  `-R_sd^2/2`: `R_sd` is the GMRF's conditional (innovation) SD, and the two
+  agree only for a state with no incoming lagged path -- for a first-order self
+  path they differ by `1/(1-rho^2)`, so the naive form would under-correct
+  exactly the lagged models a DSEM exists to fit. The variance is conditional on
+  the environmental columns, which are data rather than random; counting their
+  prior variance instead inflated it by `beta^2 Var(covariate)/(1-rho^2)`,
+  measured at +67%. Verified in `tools/verify/verify-dsem-recovery.R`: it
+  matches `sigma^2/(1-rho^2)` to +0.00%, collapses to `sigma^2` at `rho = 0`,
+  and a naive DSEM now reproduces a non-DSEM fit's objective, `R_sd` and `R0` at
+  the default `bias_adjust_proc`.
 
 * **`retrospective()`, `jitter()` and `self_test()` run on a DSEM.** A peel does
   not shorten the model -- it turns off data after `endyr_peel` -- so the latent

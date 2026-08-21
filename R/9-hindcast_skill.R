@@ -166,17 +166,68 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
   # which is the whole point, without letting it re-estimate anything.
   if ("observed" %in% reference) {
     idx_full <- Rceattle$data_list$index_data
+
+    # Analytical catchability solves q INSIDE the template from log(obs/pred)
+    # over every fitted index row, so handing the rebuild the held-out rows lets
+    # them set the q that the prediction is then scored against -- measured, a
+    # 4.2% shift in q on one fleet, moving the scored index_hat toward the very
+    # observations being scored, and moving the retained years too. Refuse
+    # rather than report a leaked skill score.
+    .q <- Rceattle$data_list$fleet_control$Catchability
+    .q_int <- suppressWarnings(as.integer(.q))
+    .analytic <- (!is.na(.q_int) & .q_int %in% c(3L, 7L)) |
+      (as.character(.q) %in% c("Analytical", "AnalyticalArith"))
+    if (any(.analytic, na.rm = TRUE)) {
+      stop("hindcast_skill(reference = \"observed\") cannot be used on a model ",
+           "with analytical catchability (fleet(s) ",
+           paste(unique(Rceattle$data_list$fleet_control$Fleet_name[which(.analytic)]),
+                 collapse = ", "),
+           "): q is solved inside the model from the index observations, so a ",
+           "peel asked to predict held-out rows would use those rows to set its ",
+           "own q and the score would be leaked. Use reference = \"model\".",
+           call. = FALSE)
+    }
+
     for (m in peel_models) {
       ep <- m$data_list$endyr_peel
       if (is.null(ep) || ep >= endyr) next
+      # Take the parent's SHAPE -- the peel's own data_list implies a different
+      # parameter geometry and the rebuild fails the inits check -- but put the
+      # PEEL's fixed inputs back. The peel carried weight-at-age, empirical
+      # selectivity and ration forward from its last fitted year, and handing
+      # the prediction the parent's copies would give it the true held-out
+      # values for all three, which is the leak this is avoiding.
       dl <- Rceattle$data_list
+      for (.nm in c("weight", "emp_sel", "ration_data")) {
+        if (!is.null(m$data_list[[.nm]])) dl[[.nm]] <- m$data_list[[.nm]]
+      }
+      dl$index_data <- idx_full
       dl$endyr_peel <- ep
       pred <- try(suppressWarnings(suppressMessages(.refit_like(
         data_list = dl, inits = m$estimated_params, map = m$map,
         estimateMode = 3, phase = FALSE, getsd = FALSE))), silent = TRUE)
-      if (inherits(pred, "try-error") || is.null(pred$quantities$index_hat)) next
-      ih <- as.numeric(pred$quantities$index_hat)
-      if (length(ih) != nrow(idx_full)) next
+      # Say WHY a peel could not be scored. Dropping it silently leaves the
+      # caller with "No peel had forecast years to score", which points at the
+      # peel horizon when the real cause is a failed rebuild.
+      if (inherits(pred, "try-error")) {
+        warning("Could not predict the held-out index for the peel at ",
+                "endyr_peel = ", ep, ": ",
+                conditionMessage(attr(pred, "condition")), call. = FALSE)
+        next
+      }
+      ih <- pred$quantities$index_hat
+      if (is.null(ih)) {
+        warning("The peel at endyr_peel = ", ep, " reported no index_hat.",
+                call. = FALSE)
+        next
+      }
+      ih <- as.numeric(ih)
+      if (length(ih) != nrow(idx_full)) {
+        warning("The peel at endyr_peel = ", ep, " predicted ", length(ih),
+                " index rows but index_data has ", nrow(idx_full),
+                "; cannot align them.", call. = FALSE)
+        next
+      }
 
       held <- which(idx_full$Year > ep & idx_full$Year <= endyr)
       for (flt in unique(idx_full$Fleet_code[held])) {
