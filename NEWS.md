@@ -67,6 +67,21 @@
   `plot_ssb()`, `plot_recruitment()`, the depletions,
   `plot_exploitable_biomass()`, `plot_f()`) gained selection by name.
 
+* **`data_check()` warns when `diet_data` does not cover every age of an
+  empirical-suitability predator.** Under `suitMode = 0` suitability is read
+  straight out of the diet data, so an age with no diet row is switched off
+  rather than estimated: a predator age with no rows gets `suit_other = 1` and
+  exerts no predation mortality, and a prey age with no rows is never eaten.
+  Neither raises an error or moves the likelihood, so a diet table truncated at
+  the wrong age silently drops part of the predation. The warning names the
+  species, sex and age range for each role.
+
+  Only prey-at-age-in-predator-at-age rows count toward coverage. The
+  aggregated diet formats, which `diet_data` selects with an age below the
+  species' `minage`, feed the diet likelihood but are skipped when the
+  suitability array is filled, so they cannot close a gap. Parametric
+  suitability (`suitMode > 0`) and single-species models are unaffected.
+
 ## Bug fixes -- figures whose numbers change
 
 Three predation plotters drew quantities that did not match their axis labels.
