@@ -1248,22 +1248,30 @@ data_check <- function(data_list) {
   if(has_data(data_list$diet_data)){
     dd <- data_list$diet_data
 
-    # Pred / prey age bounds. Index nages by the species each group is for:
+    # Pred / prey age bounds. Index by the species each group is for:
     # group_by() drops species absent from the column, so lining the maxima up
     # by position pairs species with the wrong limit. match() rather than
     # nages[Pred], because a species code of 0 drops from the subset and leaves
     # a short vector for the comparison to recycle against, and a negative one
     # errors; both become NA here.
-    nages_for <- function(sp) data_list$nages[match(sp, seq_along(data_list$nages))]
+    #
+    # `nages` is a COUNT of age bins, not the oldest age, so the oldest age a
+    # species has is minage + nages - 1. Comparing against nages alone is only
+    # right for minage = 1 -- at minage = 0 it accepts one age past the plus
+    # group, and at minage = 2 it rejects the plus group itself.
+    maxage_for <- function(sp){
+      i <- match(sp, seq_along(data_list$nages))
+      data_list$minage[i] + data_list$nages[i] - 1L
+    }
     pred_max <- dd |> dplyr::group_by(Pred) |>
       dplyr::summarise(Max_age = max(Pred_age))
-    if(any(pred_max$Max_age > nages_for(pred_max$Pred), na.rm = TRUE)){
-      errors <- c(errors, "Pred ages in 'diet_data' > 'nages'")
+    if(any(pred_max$Max_age > maxage_for(pred_max$Pred), na.rm = TRUE)){
+      errors <- c(errors, "Pred ages in 'diet_data' > oldest age ('minage' + 'nages' - 1)")
     }
     prey_max <- dd |> dplyr::group_by(Prey) |>
       dplyr::summarise(Max_age = max(Prey_age))
-    if(any(prey_max$Max_age > nages_for(prey_max$Prey), na.rm = TRUE)){
-      errors <- c(errors, "Prey ages in 'diet_data' > 'nages'")
+    if(any(prey_max$Max_age > maxage_for(prey_max$Prey), na.rm = TRUE)){
+      errors <- c(errors, "Prey ages in 'diet_data' > oldest age ('minage' + 'nages' - 1)")
     }
     # Duplicates
     if(sum(duplicated(dd)) > 0){
@@ -1382,7 +1390,7 @@ data_check <- function(data_list) {
 #' (`diet_data.hpp`) forms `Pred_age - minage(rsp)` / `Prey_age - minage(ksp)`
 #' and skips the row when either is negative, so the aggregated diet formats,
 #' which sit below `minage` (see the `diet_data` entry in
-#' [.rce_column_schema()]), never reach the suitability array and cannot close
+#' `.rce_column_schema()`), never reach the suitability array and cannot close
 #' a gap.
 #'
 #' Coverage ignores `Year`: a diet sampled in only some years is a design, not
@@ -1449,7 +1457,13 @@ data_check <- function(data_list) {
   # a species feeds, not how it is fed on.
   gaps <- character(0)
   for(sp in seq_len(nspp)){
-    ages <- minage[sp]:nages[sp]
+    # `nages` counts age bins; the ages themselves run minage .. minage+nages-1,
+    # as everywhere else in the package. `minage:nages` coincides with that only
+    # at minage = 1, which is what both bundled multispecies datasets use: at
+    # minage = 0 it demands a diet row for an age the species does not have, and
+    # at minage = 2 it stops one short and never checks the plus group -- the
+    # gap most likely to be there.
+    ages <- seq_len(nages[sp]) - 1L + minage[sp]
     for(sex in seq_len(nsex[sp])){
       sex_lab <- if(nsex[sp] == 1) "" else paste0(" (", c("female", "male")[sex], ")")
 

@@ -197,3 +197,44 @@ testthat::test_that("the coverage warning is scoped to empirical suitability and
   w <- testthat::capture_warnings(quiet_check(single))
   testthat::expect_length(w[grepl("empirical suitability", w)], 0)
 })
+
+
+testthat::test_that("age coverage follows minage, not the age count", {
+  testthat::skip_on_cran()
+
+  # `nages` counts age bins; the ages run minage .. minage+nages-1. Writing the
+  # expected set as `minage:nages` coincides with that only at minage = 1, which
+  # is what both bundled multispecies datasets use -- so every other test here
+  # passes either way. minage = 0 is supported (see test-growth-minage0.R).
+  data("BS2017MS", package = "Rceattle", envir = environment())
+  cleaned <- prep_ms(BS2017MS)
+  testthat::expect_true(all(cleaned$minage == 1))     # premise
+  testthat::expect_no_warning(quiet_check(cleaned))
+
+  # Shift species 1 to minage = 0 and move its diet rows down to match, so its
+  # coverage is still complete: ages 0..nages-1, all present.
+  shifted <- cleaned
+  shifted$minage[1] <- 0L
+  dd <- shifted$diet_data
+  i <- dd$Pred == 1 & dd$Pred_age >= 1
+  dd$Pred_age[i] <- dd$Pred_age[i] - 1L
+  j <- dd$Prey == 1 & dd$Prey_age >= 1
+  dd$Prey_age[j] <- dd$Prey_age[j] - 1L
+  shifted$diet_data <- dd
+
+  # minage:nages would demand a row at age `nages`, one past the plus group,
+  # and report it as an uncovered age that exerts no predation.
+  w <- testthat::capture_warnings(
+    Rceattle:::.check_diet_age_coverage(shifted, shifted$diet_data))
+  testthat::expect_length(grep("does not cover every age", w), 0)
+
+  # And the gap that IS there is still found: drop the real plus group.
+  holed <- shifted
+  holed$diet_data <- dd[!(dd$Pred == 1 & dd$Pred_age == shifted$nages[1] - 1L), ]
+  w2 <- testthat::capture_warnings(
+    Rceattle:::.check_diet_age_coverage(holed, holed$diet_data))
+  cov2 <- w2[grepl("does not cover every age", w2)]
+  testthat::expect_length(cov2, 1)
+  testthat::expect_match(cov2, paste0("as PREDATOR: no diet data at age ",
+                                      shifted$nages[1] - 1L), fixed = TRUE)
+})
