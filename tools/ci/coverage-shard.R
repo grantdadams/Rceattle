@@ -125,12 +125,12 @@ filter <- paste0("^(", paste(context_names, collapse = "|"), ")$")
 # its output only when that returns, so on a shard killed by `timeout-minutes`
 # the progress reporter's per-file times are never flushed -- the job log jumps
 # from "* DONE (Rceattle)" straight to "The operation was canceled". The shard
-# that overruns is the one that reports nothing, which is why the static weights
-# above have never been checked against measured seconds.
+# that overruns is the one that reports nothing.
 #
 # CoverageTimingReporter appends each file's time to this path as that file
 # ends, so the table is on disk even when the job is cancelled; the workflow
-# uploads it with `if: always()`. Feed the artifacts back into COST_* above.
+# uploads it with `if: always()`. Regenerate coverage-costs.tsv from those
+# artifacts whenever the suite's shape changes.
 timing_log <- Sys.getenv("COV_TIMING_LOG", unset = "")
 if (!nzchar(timing_log)) {
   timing_log <- file.path(getwd(), sprintf("coverage-timing-shard-%d.tsv", shard))

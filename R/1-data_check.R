@@ -1248,17 +1248,12 @@ data_check <- function(data_list) {
   if(has_data(data_list$diet_data)){
     dd <- data_list$diet_data
 
-    # Pred / prey age bounds. Index by the species each group is for:
-    # group_by() drops species absent from the column, so lining the maxima up
-    # by position pairs species with the wrong limit. match() rather than
-    # nages[Pred], because a species code of 0 drops from the subset and leaves
-    # a short vector for the comparison to recycle against, and a negative one
-    # errors; both become NA here.
-    #
-    # `nages` is a COUNT of age bins, not the oldest age, so the oldest age a
-    # species has is minage + nages - 1. Comparing against nages alone is only
-    # right for minage = 1 -- at minage = 0 it accepts one age past the plus
-    # group, and at minage = 2 it rejects the plus group itself.
+    # Pred / prey age bounds, against each species' own oldest age. `nages` is a
+    # COUNT of age bins, so that is minage + nages - 1. Index by the species the
+    # group is for: group_by() drops species absent from the column, so lining
+    # the maxima up by position pairs species with the wrong limit. match()
+    # sends an out-of-range species code to NA rather than to a short vector or
+    # an error.
     maxage_for <- function(sp){
       i <- match(sp, seq_along(data_list$nages))
       data_list$minage[i] + data_list$nages[i] - 1L
@@ -1457,12 +1452,8 @@ data_check <- function(data_list) {
   # `suitMode` describes how a species feeds, not how it is fed on.
   gaps <- character(0)
   for(sp in seq_len(nspp)){
-    # `nages` counts age bins; the ages themselves run minage .. minage+nages-1,
-    # as everywhere else in the package. `minage:nages` coincides with that only
-    # at minage = 1, which is what both bundled multispecies datasets use: at
-    # minage = 0 it demands a diet row for an age the species does not have, and
-    # at minage = 2 it stops one short and never checks the plus group -- the
-    # gap most likely to be there.
+    # `nages` counts age bins; the ages run minage .. minage+nages-1, as
+    # everywhere else in the package.
     ages <- seq_len(nages[sp]) - 1L + minage[sp]
     for(sex in seq_len(nsex[sp])){
       sex_lab <- if(nsex[sp] == 1) "" else paste0(" (", c("female", "male")[sex], ")")

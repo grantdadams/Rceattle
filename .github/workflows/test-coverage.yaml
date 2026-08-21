@@ -59,14 +59,12 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5, 6]
 
-    # Six shards, not four -- adding shards rather than minutes, as this comment
-    # already said to. At four, shard 3 ran 94 minutes against this budget while
-    # shards 1, 2 and 4 finished in 18, 26 and 12, on identical static weight, and
-    # then overran it outright on PR #110. The proxy in coverage-shard.R is what
-    # mis-ranks them: shard 1 carried the file that proxy calls heaviest by a
-    # factor of two and was the second-fastest shard of the four. Two more runners
-    # buy headroom while the per-file timings that script now writes collect the
-    # real numbers to replace the proxy with.
+    # Six shards, and add shards rather than minutes if this trips again. The
+    # static cost proxy in coverage-shard.R mis-ranks files badly: at four shards
+    # it split the suite into runs of 18, 26, 94 and 12 minutes, and the shard it
+    # called heaviest was the second-fastest of the four. Two extra runners buy
+    # headroom while the per-file timings written below collect the real numbers
+    # to replace the proxy with.
     timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -113,11 +111,11 @@ jobs:
       # per-file elapsed time to COV_TIMING_LOG as each file ends.
       #
       # The timings go to a file rather than the console because covr runs the
-      # suite in a subprocess and only surfaces its output when that returns: on
-      # PR #110's cancelled shard the job log went from "* DONE (Rceattle)"
-      # straight to "The operation was canceled", 115 minutes later, with no
-      # indication of what it had been doing. A file is on disk either way, and
-      # the upload below is `if: always()` so a cancelled shard still reports.
+      # suite in a subprocess and only surfaces its output when that returns, so
+      # a cancelled shard's log jumps straight from "* DONE (Rceattle)" to "The
+      # operation was canceled" with no indication of what it was doing. A file
+      # is on disk either way, and the upload below is `if: always()` so a
+      # cancelled shard still reports.
       - name: Test coverage (shard ${{ matrix.shard }})
         env:
           COV_SHARD: ${{ matrix.shard }}
