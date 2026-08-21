@@ -48,6 +48,14 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `pkgdown.yaml` + `test-coverage.yaml`. There is **no lint config** and no coverage gate.
   `pkgdown.yaml` runs on push to `main` and on PRs targeting `main` — **not** on `dev`, so a
   pkgdown break only surfaces once the PR is open.
+- **`_pkgdown.yml` lists every topic by name, and pkgdown stops on one it does not list**,
+  so a newly documented topic breaks the site until it is added. `simulate.Rceattle` did
+  exactly that on `dev` from 5.9.0, invisible because of the `main`-only trigger above.
+  `@keywords internal` is the other half of the trap: it drops a topic from the site
+  silently, which is wrong for one the help or a vignette tells users to read. After adding
+  a documented topic run
+  `Rscript -e 'pkgdown::build_reference_index(pkgdown::as_pkgdown("."))'` — seconds, and it
+  is the whole check.
 - **Slash commands** wrap these: `/recompile`, `/test [file]`, `/document`, `/check`,
   `/golden-check` (local, not tracked in the repo).
 
@@ -126,6 +134,14 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   on the fleet's own `Selectivity_dimension`: an absolute **age** for age-based fleets
   (offset by `minage`) or a 1-based **length-bin ordinal** for length-based (offset by 1).
   The cpp penalties loop over `nbins`, not `nages`.
+- **`nages` is a COUNT of age bins, not the oldest age.** A species' ages run
+  `minage .. minage + nages - 1`, and the array's 3rd dimension is a 1-based bin index, so
+  age `a` is at index `a - minage + 1`. `minage = 1` makes the two coincide, which is every
+  bundled dataset and all three live assessments — so a bin/age confusion passes every test
+  and every real model, and only shows up on the next `minage != 1` species. Write
+  `seq_len(nages[sp]) - 1 + minage[sp]` and mean it. Still wrong on this count:
+  `plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` index the
+  array directly while labelling the axis with an age.
 - **A new `data_list` element needs `write_data()` / `read_data()` support too**, or it
   round-trips to nothing and the feature is silently lossy through the standard xlsx
   format — this is how `index_cov` was lost.
@@ -228,6 +244,30 @@ Three subsystems sit in front of `fit_mod()`. The **developer guide**
   `/golden-check` (whose 4 models carry no linkage rows) — are the regression net for any
   linkage-path edit.
 
+## Plotting
+
+- **The shared argument vocabulary lives in `R/7-plot_helpers.R` and is documented once**,
+  in `?"rceattle-plot-args"` (`@inheritParams rceattle-plot-args`). `line_col`, `lwd`,
+  `lty`, `alpha`, `species`/`spnames`, `minyr`/`maxyr`, `incl_proj`, `incl_mean`,
+  `add_ci`, `model_names` each go through one resolver — `.as_colour()`,
+  `.rce_line_params()`, `.rce_check_alpha()`, `.resolve_species()`, `.rce_year_filter()`,
+  `.rce_proj_divider()`, `.rce_mean_line()`. Converting or adding a plotter means calling
+  those, not writing a second reading of the same argument; that divergence is what
+  `plot_f()` and `plot_selectivity()` were.
+  `line_col` and `lty` supply values for whatever **the figure** separates — predators in
+  `plot_b_eaten_prop()`, sex in `plot_ration()`, the year fan in `plot_selectivity()` — not
+  always the model. Say which in the function's own `@details`.
+- **Figures have no golden net.** `/golden-check` and `test-golden-regression.R` diff the
+  fit, so a plotter can change every number it draws and stay green. The regression net is
+  `tests/testthat/test-plot-*.R`, which asserts `p$data` and `ggplot_build()` output
+  against the model's own quantities. A change that could move a figure needs a
+  before/after `ggplot_build()` diff across the affected calls at the merge base — nothing
+  in the repo does that for you.
+- **Base-graphics arguments from before the ggplot migration are accepted and ignored**
+  (`right_adj`, `top_adj`, `mod_cex`, `legend.pos`, `single.plots`, `theta`, `ymax`,
+  `cex`), so the assessment scripts keep running. Keep them; document them as ignored with
+  the ggplot equivalent.
+
 ## Domain vocabulary (use these exact terms in plots/docs/messages)
 
 Rceattle implements fisheries stock assessments — match this vocabulary in axis labels,
@@ -268,17 +308,30 @@ files), update all three before considering it done:
 
 Full release / tag process lives in `inst/RELEASE-CHECKLIST.md`.
 
-## Sibling model repo
+## Sibling model repos
 
 `../Rceattle-models` holds the real assessments (EBS/GOA pollock, sablefish, arrowtooth,
-plaice, POP, …) and is a live consumer of this package's API — a breaking change here
-breaks scripts there. After one, sweep it:
-`grep -rn "<removed_fn>" --include=*.R "../Rceattle-models"`. The v4.7.0 ggplot migration
+plaice, POP, …) and `../GOA-ATF-ESP` holds the GOA arrowtooth assessment and its
+multispecies (cannibalism) run — the only live two-sex, `suitMode = 0` model, so it is what
+exercises the sexed and predation paths. Both are live consumers of this package's API — a
+breaking change here breaks scripts there. After one, sweep them:
+`grep -rn "<removed_fn>" --include=*.R "../Rceattle-models" "../GOA-ATF-ESP"`. The v4.7.0 ggplot migration
 is the cautionary case: `plot_*()` now return ggplot objects, so every
 `plot_x(...); mtext(...)` chain in those scripts failed with "plot.new has not been called
 yet". Caveats: some models there are partially implemented and don't run regardless, so not
 every hit needs chasing; and a static sweep catches removed/renamed API but not behavioural
 drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
+
+**Running them, when a sweep is not enough.** Neither repo caches a fitted object, so
+verifying against a real assessment means refitting — which is cheap: the terminal fit is
+under a minute for either pollock model and ~13 min for the ATF chain. Entry points are
+`../Rceattle-models/{GOA pollock/2025, EBS pollock/2024}/04-fit-and-diagnostics.R` (their
+`Data/` paths are relative to the *project* root, not the year folder) and
+`../GOA-ATF-ESP/R/Run_2025_ceattle.R`. Two traps: the ATF script cannot be sourced straight
+through on any version — it references three objects it never assigns (`:364`, `:480`,
+`:570`, the last gating the whole final figure block) — and its `file =` arguments write
+into the assessment repo, so run it from a sandbox that symlinks `Data/`. Force plots
+through `ggplot2::ggplot_build()`; one that assembles but cannot render is not a pass.
 
 ## Converting ADMB models
 
@@ -312,6 +365,11 @@ drift. Fitted `*.rds` are ~50 MB each — keep them out of git.
     recruitment fixes (`initMode = 0` random effects, the α-seeding fix, the Ianelli
     steepness prior), and `sim_mod()` drawing the index under the fleet's own
     `Index_distribution`. A model carrying GOA numbers forward needs a refit.
+  - **5.10.0 moves three predation figures' numbers** — `plot_m2_at_age_prop()` (a share
+    now, not a contribution), `plot_ration()` (× average numbers-at-age, not
+    biomass-at-age) and `plot_b_eaten()` (million mt, so `p$data` moves by 1e6). Any figure
+    regenerated from them differs from earlier runs of the same model. `plot_selectivity()`
+    also renames `p$data$Age` to `Bin`.
 - **Older paused work:** a multi-PR accessibility / code-review refactor (branch
   `accessibility-and-code-review`), plan in
   `~/Downloads/HANDOFF-accessibility-refactor-implementation.md`. Read it before resuming;
