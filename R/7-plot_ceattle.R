@@ -605,18 +605,30 @@ plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 
 #' Plot selectivity
 #'
-#' @description Function that plots the fishery and survey selectivity as estimated from Rceattle
+#' @description Selectivity over the hindcast, one panel per fleet. Each fleet
+#'   is drawn on the dimension it was estimated on: age for an age-based fleet,
+#'   length bin for a length-based one (`Selectivity_dimension`). A model mixing
+#'   the two gets one figure per dimension.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
-#' @param lwd Line width as specified by user
-#' @param width Figure width in inches
-#' @param height Figure height in inches
+#' @details
+#' # What the colours mean
 #'
+#' With one model, colour is the year, so time-varying selectivity reads as a
+#' fan and a time-invariant fleet collapses to a single line. With several
+#' models, colour separates the models and the year fan moves to transparency --
+#' faint at `styr`, solid at the last hindcast year -- so the models stay
+#' superimposed and comparable. `colour_by` overrides the choice either way.
+#'
+#' Line type separates the sexes, and `lty` supplies its values.
+#'
+#' @inheritParams rceattle-plot-args
+#' @param colour_by What colour separates: `"year"` (a fan), `"model"`, or
+#'   `"auto"` (the default) for year with a single model and model with several.
+#' @param alpha Transparency of the faintest year when the fan is drawn by
+#'   transparency, i.e. under `colour_by = "model"`.
+#'
+#' @return A `ggplot`, or for a model mixing age- and length-based fleets a
+#'   named list of them, one per dimension.
 #' @export
 plot_selectivity <-
   function(Rceattle,
@@ -625,62 +637,157 @@ plot_selectivity <-
            line_col = NULL,
            width = 7,
            height = 6.5,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
-           lwd = 3) {
+           species = NULL,
+           lwd = 3,
+           spnames = NULL,
+           lty = 1,
+           minyr = NULL,
+           maxyr = NULL,
+           alpha = 0.25,
+           colour_by = c("auto", "year", "model")) {
 
-    Rceattle <- .as_model_list(Rceattle)
-    fc     <- Rceattle[[1]]$data_list$fleet_control
-    nflt   <- nrow(fc)
-    nages  <- Rceattle[[1]]$data_list$nages
-    minage <- Rceattle[[1]]$data_list$minage
-    nsex   <- Rceattle[[1]]$data_list$nsex
-    styr   <- Rceattle[[1]]$data_list$styr
-    endyr  <- Rceattle[[1]]$data_list$endyr
-    hindyears <- styr:endyr
+    colour_by <- match.arg(colour_by)
+    models <- .as_model_list(Rceattle)
+    model_names_use <- .model_labels(models, model_names)
+    sp_sel  <- .resolve_species(models, species, spnames)
+    keep_sp <- sp_sel$index
 
-    # Selectivity-at-age over hindcast years for the first model:
-    # sel_at_age[fleet, sex, age, year] (year index 1 == styr).
-    sel <- Rceattle[[1]]$quantities$sel_at_age
-
+    # Every model contributes: reading only the first silently dropped the rest
+    # of an overlay. Each is read with its own fleet_control and dimensions,
+    # since a comparison run may differ in both.
     df_list <- list()
-    for (flt in seq_len(nflt)) {
-      sp <- fc$Species[fc$Fleet_code == flt]
-      if (length(sp) == 0) next
-      for (sex in seq_len(nsex[sp])) {
-        sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
-        for (yr in seq_along(hindyears)) {
-          df_list[[length(df_list) + 1L]] <- data.frame(
-            Fleet = as.character(fc$Fleet_name[fc$Fleet_code == flt]),
-            Sex   = sex_lab,
-            Age   = seq_len(nages[sp]) - 1 + minage[sp],
-            Year  = hindyears[yr],
-            Selectivity = as.numeric(sel[flt, sex, seq_len(nages[sp]), yr]),
-            stringsAsFactors = FALSE)
+    for (k in seq_along(models)) {
+      dl     <- models[[k]]$data_list
+      fc     <- dl$fleet_control
+      nages  <- dl$nages
+      minage <- dl$minage
+      nsex   <- dl$nsex
+      nlen   <- dl$nlengths
+      hindyears <- dl$styr:dl$endyr
+      # "Age" / "Length" per fleet; the column defaults to Age and may be blank
+      # on an older workbook.
+      dimn <- as.character(fc$Selectivity_dimension)
+      dimn[is.na(dimn) | !nzchar(dimn)] <- "Age"
+
+      for (i in seq_len(nrow(fc))) {
+        flt <- fc$Fleet_code[i]
+        sp  <- fc$Species[i]
+        if (is.na(sp) || !(sp %in% keep_sp)) next
+        is_len <- identical(dimn[i], "Length")
+        # A length-based fleet estimates selectivity on length bins; sel_at_age
+        # is that curve pushed through the growth matrix, not what was fitted.
+        sel  <- if (is_len) models[[k]]$quantities$sel_at_length
+                else        models[[k]]$quantities$sel_at_age
+        if (is.null(sel)) next
+        nbin <- if (is_len) nlen[sp] else nages[sp]
+        if (is.na(nbin) || nbin < 1L) next
+        bins <- if (is_len) seq_len(nbin) else seq_len(nbin) - 1L + minage[sp]
+
+        for (sex in seq_len(nsex[sp])) {
+          sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
+          for (yr in seq_along(hindyears)) {
+            df_list[[length(df_list) + 1L]] <- data.frame(
+              Model = model_names_use[k],
+              Fleet = as.character(fc$Fleet_name[i]),
+              Dimension = if (is_len) "Length" else "Age",
+              Sex   = sex_lab,
+              Bin   = bins,
+              Year  = hindyears[yr],
+              Selectivity = as.numeric(sel[flt, sex, seq_len(nbin), yr]),
+              stringsAsFactors = FALSE)
+          }
         }
       }
     }
+    if (length(df_list) == 0L) {
+      stop("No fleets to plot: `species` selected none of the fleets in this ",
+           "model.", call. = FALSE)
+    }
     plot_df <- do.call(rbind, df_list)
-    plot_df$Fleet <- factor(plot_df$Fleet, levels = unique(fc$Fleet_name))
+    plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
+    plot_df$Model <- factor(plot_df$Model, levels = unique(model_names_use))
+    plot_df$Fleet <- factor(plot_df$Fleet, levels = unique(plot_df$Fleet))
 
-    # Year-coloured selectivity-at-age curves, faceted by fleet. Time-varying
-    # selectivity shows as a colour fan; time-invariant collapses to one line.
-    p <- ggplot2::ggplot(
-      plot_df,
-      ggplot2::aes(x = .data$Age, y = .data$Selectivity,
-                   group = interaction(.data$Year, .data$Sex),
-                   colour = .data$Year, linetype = .data$Sex)) +
-      ggplot2::geom_line() +
-      ggplot2::facet_wrap(~ Fleet) +
-      ggplot2::scale_colour_viridis_c("Year") +
-      ggplot2::labs(x = "Age", y = "Selectivity") +
-      .rceattle_theme()
-    if (length(unique(plot_df$Sex)) < 2L) {
-      p <- p + ggplot2::guides(linetype = "none")
+    if (identical(colour_by, "auto")) {
+      colour_by <- if (nlevels(plot_df$Model) > 1L) "model" else "year"
+    }
+    if (identical(colour_by, "model")) {
+      .rce_check_line_col(line_col, nlevels(plot_df$Model), "models")
     }
 
-    .save_ggplot(p, file = file, suffix = "selectivity",
-                 width = width, height = height)
+    # One figure per dimension: ages and length bins share neither an axis nor a
+    # meaning, so putting them in one panel grid would invite reading across.
+    dims <- unique(plot_df$Dimension)
+    out <- lapply(dims, function(d) {
+      dd <- plot_df[plot_df$Dimension == d, , drop = FALSE]
+      .plot_selectivity_one(dd, dimension = d, colour_by = colour_by,
+                            line_col = line_col, lwd = lwd, lty = lty,
+                            alpha = alpha,
+                            file = if (is.null(file)) NULL else
+                              paste0(file, if (length(dims) > 1L)
+                                paste0("_", tolower(d)) else ""),
+                            width = width, height = height)
+    })
+    names(out) <- tolower(dims)
+    if (length(out) == 1L) out[[1]] else out
   }
+
+
+# Render one selectivity panel grid, for a single Selectivity_dimension.
+# Split out because a model mixing age- and length-based fleets needs one of
+# these per dimension and they differ only in the x axis label.
+.plot_selectivity_one <- function(dd, dimension, colour_by, line_col, lwd, lty,
+                                  alpha, file, width, height) {
+  xlab <- if (identical(dimension, "Length")) "Length bin" else "Age"
+
+  if (identical(colour_by, "model")) {
+    # Colour is the model, so the year fan moves to transparency: faint at the
+    # start of the hindcast, solid at its end, within each model.
+    p <- ggplot2::ggplot(
+      dd,
+      ggplot2::aes(x = .data$Bin, y = .data$Selectivity,
+                   group = interaction(.data$Year, .data$Sex, .data$Model),
+                   colour = .data$Model, alpha = .data$Year,
+                   linetype = .data$Sex))
+    lp <- .rce_line_params(lwd = lwd, lty = lty,
+                           lwd_by = "Model",
+                           lwd_n = nlevels(dd$Model),
+                           lty_by = "Sex",
+                           lty_n = length(unique(dd$Sex)),
+                           lty_in_aes = TRUE)
+    p <- .rce_add_line(p, lp)
+    p <- .rceattle_scale(p, aesthetics = "colour", line_col = line_col) +
+      ggplot2::scale_alpha_continuous(range = c(alpha, 1), guide = "none")
+  } else {
+    p <- ggplot2::ggplot(
+      dd,
+      ggplot2::aes(x = .data$Bin, y = .data$Selectivity,
+                   group = interaction(.data$Year, .data$Sex, .data$Model),
+                   colour = .data$Year, linetype = .data$Sex))
+    lp <- .rce_line_params(lwd = lwd, lty = lty,
+                           lwd_by = "Model",
+                           lwd_n = nlevels(dd$Model),
+                           lty_by = "Sex",
+                           lty_n = length(unique(dd$Sex)),
+                           lty_in_aes = TRUE)
+    p <- .rce_add_line(p, lp)
+    # Colour is the year, a magnitude, so `line_col` gives the ramp anchors.
+    p <- .rceattle_scale(p, discrete = FALSE, aesthetics = "colour",
+                         line_col = line_col)
+  }
+
+  p <- p +
+    ggplot2::facet_wrap(~ Fleet) +
+    ggplot2::labs(x = xlab, y = "Selectivity") +
+    .rceattle_theme()
+  if (length(unique(dd$Sex)) < 2L) p <- p + ggplot2::guides(linetype = "none")
+  if (nlevels(dd$Model) < 2L && identical(colour_by, "model")) {
+    p <- p + ggplot2::guides(colour = "none")
+  }
+
+  .save_ggplot(p, file = file, suffix = "selectivity",
+               width = width, height = height)
+}
 
 
 

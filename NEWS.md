@@ -36,6 +36,27 @@
   M2 proportions are products and ratios of such series -- so the argument was
   silently doing nothing. It now warns once and draws no ribbon.
 
+* **`plot_selectivity()` draws every model, on the right dimension, and uses its
+  arguments.** It previously read only the first fit, so a list of models
+  silently lost all but one; `model_names`, `line_col`, `lwd` and `species` were
+  declared and ignored; and `species` defaulted to three hard-coded Bering Sea
+  species names.
+
+  It now takes `line_col`, `lwd`, `lty` (which separates the sexes), `species`,
+  `spnames`, `minyr`, `maxyr` and `alpha`. With one model colour is still the
+  year, so the figure is unchanged apart from line width; with several, colour
+  separates the models and the year fan moves to transparency, keeping the
+  curves superimposed for comparison. `colour_by` forces either.
+
+* **Length-based fleets are drawn on length bins.** `Selectivity_dimension`
+  decides whether a fleet's selectivity is estimated on age or length, and the
+  model reports both `sel_at_age` and `sel_at_length`. `plot_selectivity()` read
+  `sel_at_age` for every fleet and labelled the axis "Age", so a length-based
+  fleet showed the growth-matrix conversion of its curve rather than the curve
+  that was fitted. Each fleet is now drawn on its own dimension, and a model
+  mixing the two returns one figure per dimension (a named list) rather than
+  putting ages and length bins on one axis.
+
 * **`species` and `spnames` mean the same thing everywhere.** `species` selects
   -- by index, name, logical mask, or `"all"`, in the order given -- and
   `spnames` labels. Several plotters previously read `species` as display
@@ -111,6 +132,13 @@ runs of the same model.
   only the species plotted. It previously wrote unlabelled columns for every
   species, with no year column, to a file called `NULL_...csv` when `file` was
   not given.
+
+## Changes that affect scripts reading `p$data`
+
+* `plot_selectivity()`'s data frame names the x variable `Bin`, not `Age`, and
+  carries a `Dimension` column (`"Age"` or `"Length"`). The column can hold an
+  age or a length-bin ordinal depending on the fleet, so it is no longer named
+  for one of them. It also gains a `Model` column, now that every model is drawn.
 
 ## Dependencies
 

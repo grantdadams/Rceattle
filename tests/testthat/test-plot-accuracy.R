@@ -142,10 +142,14 @@ testthat::test_that("plot_selectivity plots sel_at_age", {
   nyrshind <- ss$data_list$endyr - ss$data_list$styr + 1L
   nages1 <- ss$data_list$nages[fc$Species[fc$Fleet_code == 1]]
   flt1 <- as.character(fc$Fleet_name[fc$Fleet_code == 1])
+  # `Bin` is the fleet's own selectivity dimension -- an age here, a length-bin
+  # ordinal for a length-based fleet -- so it is not named `Age`.
   d <- p$data[p$data$Fleet == flt1 & p$data$Year == ss$data_list$endyr, ]
-  d <- d[order(d$Age), ]
+  d <- d[order(d$Bin), ]
   src <- as.numeric(ss$quantities$sel_at_age[1, 1, seq_len(nages1), nyrshind])
   testthat::expect_equal(d$Selectivity, src)
+  testthat::expect_setequal(unique(d$Dimension), "Age")
+  testthat::expect_equal(d$Bin, seq_len(nages1) - 1L + ss$data_list$minage[1])
 })
 
 # --- mortality-at-age ---------------------------------------------------------

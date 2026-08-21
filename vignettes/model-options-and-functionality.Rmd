@@ -533,6 +533,29 @@ further customized by adding ggplot2 layers
 (e.g. `plot_biomass(fit) + ggplot2::ggtitle("My title")`). Pass `file = "stem"`
 to also write the figure to `stem_<plot>.png`.
 
+**Shared arguments.** They take one common vocabulary, documented together in
+`?"rceattle-plot-args"`: `line_col`, `lwd`, `lty`, `alpha`, `species`,
+`spnames`, `minyr`, `maxyr`, `incl_proj`, `incl_mean`, `add_ci`, `model_names`,
+`file`, `width` and `height`.
+
+* `line_col` takes colour names, hex codes, or base-graphics palette indices
+  (`line_col = 1`), and `lwd` keeps the base-graphics scale where the default
+  `3` is a standard-weight line. Both apply to every plotter.
+* `line_col` and `lty` supply values for whichever variable the *figure*
+  separates by colour or line type — which is not always the model. In
+  `plot_b_eaten_prop()` colour separates predators; in `plot_ration()` line type
+  separates the sexes. Check the legend first. Too few colours are recycled,
+  with a warning naming what they coloured. Where colour is a magnitude — the
+  year fan in `plot_selectivity()` and `plot_mortality()` — `line_col` gives the
+  ramp anchors instead, so `line_col = "black"` draws the fan in black.
+* `species` selects (by index, name, logical mask, or `"all"`, in the order
+  given) and `spnames` labels.
+* Arguments left over from the base-graphics version — `right_adj`, `top_adj`,
+  `mod_cex`, `legend.pos`, `single.plots`, `theta` — are still accepted so
+  existing scripts run, and are ignored. Set the equivalent on the returned
+  ggplot instead, e.g.
+  `plot_biomass(fit) + ggplot2::theme(legend.position = "right")`.
+
 **Display units.** The model works in mt and thousands of fish: numbers-at-age
 are in thousands and weight-at-age in kg, so biomass and SSB come out in mt and
 recruitment in thousands of fish. The timeseries plotters rescale to
