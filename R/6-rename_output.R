@@ -44,8 +44,16 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   names(quantities$steepness) <- data_list$spnames
 
   # * Fleets ----
-  names(quantities$log_catch_sd) <- data_list$catch_data$Fleet_name
-  names(quantities$log_index_sd) <- data_list$index_data$Fleet_name
+  names(quantities$catch_sd) <- data_list$catch_data$Fleet_name
+  names(quantities$index_sd) <- data_list$index_data$Fleet_name
+
+  # Deprecated spellings, kept one release so existing scripts and saved
+  # workflows keep running. Neither was ever a log: both hold the observation sd
+  # the likelihood actually used, and for a natural-scale Index_distribution
+  # index_sd is an ABSOLUTE sd in index units, which is exactly what the old
+  # name talked people out of believing. Removed in the next minor release.
+  quantities$log_catch_sd <- quantities$catch_sd
+  quantities$log_index_sd <- quantities$index_sd
 
 
   # * 2D array ----
@@ -233,4 +241,24 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
     dplyr::pull(Diet_weights_mcallister)
 
   return(data_list)
+}
+
+
+#' Read an observation-sd vector under either spelling
+#'
+#' `index_sd` / `catch_sd` were named `log_index_sd` / `log_catch_sd` until
+#' 5.9.0. Neither was ever a log, and `index_sd` is an ABSOLUTE sd for a
+#' natural-scale `Index_distribution`, so the old name actively misled. Fits
+#' saved before the rename carry only the old name; a fresh report carries only
+#' the new one. Everything downstream reads through this.
+#'
+#' @param quantities A fit's `$quantities` list, or a TMB report.
+#' @param what `"index"` or `"catch"`.
+#' @return The sd vector, or `NULL` when neither name is present.
+#' @noRd
+.observation_sd <- function(quantities, what = c("index", "catch")) {
+  what <- match.arg(what)
+  got <- quantities[[paste0(what, "_sd")]]
+  if (is.null(got)) got <- quantities[[paste0("log_", what, "_sd")]]
+  got
 }

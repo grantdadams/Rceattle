@@ -116,6 +116,15 @@
 #'   Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
 #'   this.
 #'
+#'   Catchability is estimated only for a fleet that carries fitted index rows
+#'   (see \code{\link{build_map}}), and a peel moves \code{endyr}. A survey whose
+#'   index observations all fall in the peeled-off years therefore has no q
+#'   estimated in that peel -- the parameter count is not constant across peels.
+#'   That is deliberate: a q with no index to inform it is a flat direction in
+#'   the likelihood. It does not affect Mohn's rho, which is computed from SSB,
+#'   but it does mean \code{npar} and the reported catchability differ between a
+#'   shallow and a deep peel for such a fleet.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
@@ -402,16 +411,21 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     # Adjust forecased rec_dev in new mod for bias and refit.
     #
-    # Skipped under a DSEM. rec_dev there is DERIVED from the latent states, so
-    # writing it is a silent no-op -- the template overwrites it on the next
-    # evaluation of the objective, and the retrospective forecast would quietly
-    # not use the bias-adjusted value. The DSEM supplies the forecast
-    # recruitment process itself: the peeled-year states are drawn from the GMRF
-    # given the retained years, so lagged paths and covariates carry recruitment
-    # into the forecast instead of a single bias-corrected constant. Writing the
-    # constant into dsem_x_tj[, rec_dev_col] would REPLACE that process with a
-    # pinned mean, which is the pinning error this function is careful to avoid.
-    if (!.has_dsem(newmod)) for(sp in 1:newmod$data_list$nspp){
+    # Under a DSEM the same value has to be written into the LATENT STATE, not
+    # into rec_dev: the template overwrites rec_dev from the states on the next
+    # evaluation, so writing rec_dev alone is a silent no-op and the forecast
+    # quietly keeps the GMRF's own projection instead. That difference is not
+    # cosmetic -- against a non-DSEM peel it moved forecast recruitment by ~44%,
+    # because an IID GMRF projects the deviation to its prior mean while this
+    # sets it to the fitted mean deviation.
+    #
+    # Pinning IS correct here, unlike in the peel itself: this is the
+    # forecast-catch refit, where debug = TRUE already holds the whole hindcast
+    # fixed and only log_F is solved. No peeled likelihood is being computed, so
+    # nothing is shrunk by fixing a coupled state. It also keeps a naive (IID)
+    # DSEM reproducing the non-DSEM retrospective, which is the contract a user
+    # comparing the two configurations relies on.
+    for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
@@ -429,6 +443,25 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
       peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
         peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)],
         values =  rec_dev)
+
+      # ... and, under a DSEM, into the state rec_dev is derived FROM, or the
+      # line above is overwritten before it is ever read. rec_dev_col is 0-based
+      # (it indexes the C++ column), hence the + 1.
+      # Condition on the DSEM, not on dsem_x_tj: a non-DSEM fit carries a 0x0
+      # dsem_x_tj (not NULL), so keying off the matrix enters this block on
+      # every ordinary retrospective and is saved only by the row count being
+      # zero. Assert the rows fit rather than filtering them: they always do
+      # today (nyrs_dsem spans styr:endyr and the forecast years are inside it),
+      # and the one future state where the filter WOULD bite -- a DSEM rebuilt
+      # per peel over styr:endyr_peel -- is exactly where silently writing
+      # nothing would be the bug this block exists to fix.
+      if (!is.null(newmod$dsem) && !is.null(peeled_pars$dsem_x_tj)) {
+        .col <- newmod$dsem$tmb_inputs$data$rec_dev_col[sp] + 1L
+        .rows <- peel_prj_yrs - styr + 1L
+        stopifnot(length(.col) == 1L, !is.na(.col),
+                  max(.rows) <= nrow(peeled_pars$dsem_x_tj))
+        peeled_pars$dsem_x_tj[.rows, .col] <- rec_dev
+      }
     }
 
     newmod <- suppressMessages(
@@ -825,6 +858,14 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   is stopped, counted as non-converged and reported separately. Approximate:
 #'   the limit is checked when control returns to R, so it fires between the
 #'   optimizer's function evaluations rather than inside one.
+#' @param process passed to \code{\link{sim_mod}}. \code{FALSE} (default) keeps
+#'   the fitted process deviations, so the test measures whether the estimator
+#'   recovers its own parameters from new observations. Naming a process --
+#'   \code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
+#'   \code{TRUE}, ... -- redraws it too, so the test instead measures whether the
+#'   estimator recovers a process it has not been shown. The deviations behind
+#'   each replicate come back in \code{attr(result, "process_sim")}; see
+#'   \code{Value}.
 #'
 #' @return A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 #'   By default only the converged simulations, renumbered contiguously; a
@@ -837,9 +878,28 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #'   refit errored outright is returned as the condition object rather than a
 #'   model, so it cannot abort the run.
 #'
+#'   When \code{process} redrew something, \code{attr(, "process_sim")} holds the
+#'   deviations that generated each replicate's data -- a list keyed by the same
+#'   \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
+#'   \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
+#'   is a named list of whichever of \code{rec_dev}, \code{init_dev},
+#'   \code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
+#'   same-shaped \code{_drawn} logical marking the cells the draw touched --
+#'   restrict any recovery statistic to those, since the rest are fitted values
+#'   (see \code{\link{sim_mod}}). Compare estimates against these, not against
+#'   the operating model: its fitted deviations are no longer what generated the
+#'   data.
+#'
 #' @section Interpreting the spread:
 #' \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-#' compositions and CAAL. It does not redraw recruitment, so with
+#' compositions, CAAL and stomach contents. Some rows are deliberately left
+#' alone, and \code{\link{sim_mod}} warns about each: a predator whose
+#' suitability is empirical rather than estimated has no predicted diet to draw
+#' from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
+#' the years it is fitted to. Those data are held fixed across every replicate,
+#' so recovery of whatever they inform is optimistic.
+#'
+#' By default it does not redraw recruitment, so with
 #' \code{random_rec = TRUE} every replicate shares the operating model's single
 #' recruitment realization, and that realization is its shrunk empirical-Bayes
 #' modes rather than a draw from N(0, sigmaR). Two consequences: the spread
@@ -848,7 +908,9 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' model's own uncertainty bands, which include process error); and sigmaR is
 #' re-estimated from deviations that were shrunk toward zero the same way in
 #' every replicate, a downward bias that averaging over simulations does not
-#' remove.
+#' remove. Pass \code{process = "recruitment"} (or \code{"dynamics"}, or
+#' \code{TRUE}) to redraw it and remove both, at the cost of asking a different
+#' question -- see \code{process} above.
 #'
 #' @examples
 #' \donttest{
@@ -861,9 +923,23 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 #' sims <- self_test(ss_run, nsim = 10)
 #' }
 #' @export
-self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf) {
+self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf, process = FALSE) {
+  # `process` is last in the signature so positional calls keep their meaning.
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
+  }
+
+  # process = TRUE redraws the recruitment process, which a DSEM has no
+  # per-year density for; sim_mod() refuses it and says why. Checked here too so
+  # the message names self_test() rather than surfacing from inside a replicate.
+  # Resolved state vector, not the raw argument: "all" / "dynamics" /
+  # "recruitment" are all valid spellings that isTRUE() does not catch.
+  if (.sim_state_codes(process)[1L] == 1L && .has_dsem(Rceattle)) {
+    stop("self_test(): redrawing the recruitment process is not supported on ",
+         "a DSEM fit. The recruitment ",
+         "deviations are latent states of a GMRF, so there is no per-year ",
+         "density to redraw them from. Use process = FALSE to test recovery ",
+         "under fresh observation error.", call. = FALSE)
   }
 
   # A DSEM works here, and means the same thing it does without one. sim_mod()
@@ -926,8 +1002,13 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     set.seed(seed + i) # unique seed per sim for reproducibility under parallel
 
     # * Simulate new data
-    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate)
+    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate, process = process)
     data_list <- sim_data
+    # The deviations that generated this replicate, when process error was
+    # redrawn. Carried through so the caller compares estimates against what
+    # actually generated the data; the source model's fitted deviations are no
+    # longer the truth once a process has been redrawn.
+    truth <- attr(sim_data, "process_sim")
 
     # * Adjust initial values ----
     inits <- switch(start,
@@ -960,9 +1041,10 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
     # dispatcher filters below, so `debug = TRUE` can hand back the runs that
     # failed with their $convergence diagnostics intact.
     if (inherits(newmod, "condition")) {
-      return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod)))
+      return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod),
+                  truth = truth))
     }
-    list(model = newmod, converged = .refit_converged(newmod))
+    list(model = newmod, converged = .refit_converged(newmod), truth = truth)
   } # End run_one_sim closure
 
 
@@ -980,11 +1062,13 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # a failed run up with the seed (`seed + i`) that produced it.
   converged <- vapply(mod_list, function(x) isTRUE(x$converged), logical(1))
   errs      <- vapply(mod_list, function(x) x$error %||% NA_character_, character(1))
+  truths    <- lapply(mod_list, function(x) x$truth)
   mod_list  <- lapply(mod_list, function(x) x$model)
   # Unconditional, so `names(which(!attr(sims, "converged")))` works at every
   # length -- including the empty case, where a guarded assignment would have
   # left the attribute unnamed.
   names(mod_list) <- names(converged) <- paste0("Sim_", seq_along(mod_list))
+  names(truths) <- names(mod_list)
   .report_dropped(sum(!converged), length(converged), "simulation")
   .report_errors(errs, "simulation")
 
@@ -995,14 +1079,23 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   # short list. Otherwise the converged runs only, renumbered Sim_1..Sim_k --
   # a self-test is read as a distribution over runs, so the gaps carry no
   # meaning, and plot_biomass(model_names = names(sims)) stays contiguous.
+  # `process_sim` is subset and renumbered alongside the models so that
+  # attr(sims, "process_sim")[[k]] is always the truth behind sims[[k]].
   if (isTRUE(debug)) {
     attr(mod_list, "converged") <- converged
+    if (any(!vapply(truths, is.null, logical(1)))) {
+      attr(mod_list, "process_sim") <- truths
+    }
     return(mod_list)
   }
 
+  keep_truth <- truths[converged]
   mod_list <- mod_list[converged]
   if (length(mod_list) > 0) {
-    names(mod_list) <- paste0("Sim_", seq_along(mod_list))
+    names(mod_list) <- names(keep_truth) <- paste0("Sim_", seq_along(mod_list))
+  }
+  if (any(!vapply(keep_truth, is.null, logical(1)))) {
+    attr(mod_list, "process_sim") <- keep_truth
   }
   return(mod_list)
 }

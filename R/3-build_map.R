@@ -14,6 +14,14 @@
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
 #'   meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.
 #'
+#' @details
+#' Fleets sharing a `Selectivity_index` or a `Catchability_index` have the lead
+#' fleet's map slice copied over the rest of the group, so a per-fleet setting
+#' that differs within a group is resolved here rather than reported. Those
+#' disagreements are checked in `data_check()`, which `fit_mod()` runs first;
+#' `build_map()` does not call it, so a caller invoking `build_map()` directly
+#' should run `data_check()` too.
+#'
 #' @return A list containing the factorized TMB map (`mapFactor`) and the
 #'   original map matrix/array list (`mapList`).
 #' @export
@@ -332,10 +340,15 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     }
 
     # - M1_re = 3/6: Random effects varies by age and year (IID or 2D-AR1)
+    # One free deviation per age-year cell: the index vector must be
+    # 1:(nyrs_hind * nages_sp), not 1:nyrs_hind. The shorter form recycled into
+    # the age dimension without warning (an exact multiple), leaving the field
+    # with only nyrs_hind distinct parameters on a stride pattern while the
+    # density and the simulator both treated it as a full age x year grid.
     if(M1_re_model %in% c(3, 6)){
       if(M1_model == 1){ # Sex-invariant
         # - Random effects
-        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
 
         # Males mapped the same, if present
         if(nsex_sp == 2){
@@ -348,11 +361,11 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       if(nsex_sp == 2 & M1_model == 2){ # Two sex population and sex-specific
         # - Random effects
         # -- Females
-        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
 
         # -- Males
-        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + 1:(nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
       }
 
@@ -381,9 +394,14 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 
 #' @title Helper to set map for growth parameters
 #'
-#' @description Maps the fixed parameters (\code{log_growth_pars}) and the random effects
-#'   parameters (\code{log_growth_par_devs}, \code{growth_dev_log_sd}, \code{growth_rho}) based on
-#'   \code{growth_model} and \code{growth_re} settings.
+#' @description Maps the growth parameters (\code{log_growth_pars},
+#'   \code{growth_log_sd}, \code{weight_length_pars}) according to
+#'   \code{growth_model}. Everything starts mapped off and each growth function
+#'   turns on the parameters it uses.
+#'
+#'   Time-varying growth comes from the linkage grammar
+#'   (\code{build_growth(linkages = )}), whose random effects carry their own
+#'   density and map.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -393,7 +411,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 build_map_growth <- function(map_list, data_list, nyrs_hind) {
 
   # Map out growth parameters
-  growth_params <- c("log_growth_pars", "log_growth_par_devs", "weight_length_pars", "growth_log_sd")
+  growth_params <- c("log_growth_pars", "weight_length_pars", "growth_log_sd")
   map_list[growth_params] <- lapply(map_list[growth_params], function(x) replace(x, values = NA))
 
   # Loop through species and turn on based on model
@@ -402,8 +420,7 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     # * Switches ----
     nages_sp <- data_list$nages[sp]
     nsex_sp <- data_list$nsex[sp]
-    growth_model <- data_list$growth_model[sp] # Fixed effects model
-    growth_re_model <- data_list$growth_re[sp] # Random effects model
+    growth_model <- data_list$growth_model[sp]
 
     # * 1. Fixed effects ----
     if(growth_model %in% c(1, "vonBertalanffy")){ # Von Bertalanffy
@@ -976,9 +993,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           ind_dev_coff <- ind_dev_coff + length(dev_indices)
         }
 
-        # Rho
-        map_list$sel_curve_pen[flt,1] <- flt # year
-        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        # Rho. Slot 1 is the correlation across selectivity BINS, slot 2
+        # across YEARS -- the array passed to SEPARABLE() is (bin, year) and
+        # SEPARABLE(f, g) puts g on the fastest-running dimension. These two
+        # comments said the opposite until 5.9.0, as did the density itself.
+        map_list$sel_curve_pen[flt,1] <- flt # bin
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
       }
 
 
@@ -1010,9 +1030,13 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           ind_dev_coff <- ind_dev_coff + length(dev_indices)
         }
 
-        # Rho
-        map_list$sel_curve_pen[flt,1] <- flt # year
-        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        # Rho, as for 2DAR1 above: slot 1 across BINS, slot 2 across YEARS,
+        # slot 3 across COHORTS. construct_Q()'s own argument names are
+        # inverted relative to what they multiply, and Rceattle's ay_index fill
+        # is the mirror of WHAM's, so the two cancel -- the mapping here has
+        # always been bin/year/cohort, whatever these comments used to say.
+        map_list$sel_curve_pen[flt,1] <- flt # bin
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
         map_list$sel_curve_pen[flt,3] <- flt + n_flt * 2 # cohort
       }
     }
@@ -1023,9 +1047,14 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 #' @title Helper to set map for Catchability parameters
 #'
-#' @description Maps survey catchability base parameters (\code{index_log_q}),
+#' @description Maps catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
-#'   (\code{index_q_beta}, \code{index_q_rho}).
+#'   (\code{index_q_beta}, \code{index_q_rho}) for every fleet that carries
+#'   fitted \code{index_data} -- a fishery with a CPUE series as much as a
+#'   survey. A fleet with no index rows gets none of them, whatever its
+#'   \code{Catchability} says, since a q with no index to inform it is a flat
+#'   direction. Sharing overrides this: \code{adjust_map_shared_params()} then
+#'   copies the lead fleet's slice across each \code{Catchability_index} group.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1043,10 +1072,26 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
+  # Fleets whose catchability block is estimable: those carrying fitted index
+  # observations, whatever their Fleet_type. The template fits an index row for
+  # any non-Off fleet, so a fishery CPUE series is scored like a survey's index
+  # and needs its q the same way; keying on Fleet_type == "Survey" instead left a
+  # fishery's q, time-varying q and index sd mapped out, so Catchability =
+  # "Estimated" did nothing.
+  #
+  # The converse holds too, and is why this is the data and not the fleet type: a
+  # q with no index to inform it is a flat direction in the likelihood. A survey
+  # with no index rows no longer gets one either.
+  #
+  # A fleet with no index of its own can still end up estimated, by sharing a
+  # Catchability_index group whose LEAD estimates -- adjust_map_shared_params()
+  # copies the lead's slice over the group afterwards, which is intended.
+  q_fleets <- .fleets_with_index(data_list)
+
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-    if(data_list$fleet_control$Fleet_type[i] == "Survey"){
+    if(flt %in% q_fleets){
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
@@ -1132,6 +1177,50 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # - 6 = Fit to environmental index
+      #
+      # TODO: QAR1 is inert -- `index_q_dev` is never freed, so q is constant.
+      #
+      # `Catchability = "AR1"` and `Time_varying_q = "AR1"` are different
+      # switches that share a string. `Catchability = "AR1"` is the QAR1 FORM
+      # (Rogers et al. 2024): q = exp(log_q + beta * dev_y) with `index_q_dev` a
+      # latent AR1 process, and the environmental index an OBSERVATION of it
+      # (ceattle.cpp: 894 builds q, 4091 puts the AR1 density on the deviates,
+      # 4097 fits env_index to them). `Time_varying_q` then holds an `env_data`
+      # COLUMN INDEX, not a mode. `Time_varying_q = "AR1"` is instead a
+      # time-varying structure on an ordinary "Estimated" q.
+      #
+      # The deviate map above is gated on `Time_varying_q %in% c("IID", "AR1",
+      # "RandomWalk")`, which is right for the "Estimated" branch but reads the
+      # other switch's vocabulary here: a QAR1 fleet carries "1", never matches,
+      # and `index_q_dev` stays mapped out. The comment at the top of this block
+      # ("Catchability = 6 turns on time-varying deviates") records the intent.
+      # `git log -S` puts the break at e13b4452, which moved these switches from
+      # integer codes to strings -- the old `%in% c(1, 2, 4)` matched "1".
+      #
+      # Measured on BS2017SS fleet 7 (Catchability = "AR1", Time_varying_q = 1):
+      #   free index_q_dev  0 of 39, q constant, and random_q = TRUE does not
+      #                     rescue it (mapped out before TMB sees `random`)
+      #   index_q_beta      max|grad| = 0   (multiplies a zero vector)
+      #   index_q_rho       max|grad| = 0   (AR1 quadratic form vanishes)
+      #   index_q_dev_log_sd max|grad| = 39 = nyrs_hind -- the AR1 normalizing
+      #                     constant n*log(sigma) with nothing opposing it, so
+      #                     sigma is driven to 0. Divergent, not just flat.
+      # 4097 also degenerates to dnorm(env_index, 0, index_q_sd): the
+      # environmental index is fitted as noise about zero.
+      #
+      # Fix inside THIS block rather than by widening the gate above -- the two
+      # switches should drive separate code. Free
+      # `map_list$index_q_dev[flt, yrs_hind]` here alongside beta / rho / the
+      # sds. Then verify: q varies, beta and rho gradients are non-zero, sigma
+      # does not run away, and the GOA pollock fit still converges. Add a
+      # data_check() requirement for `Catchability_prior_sd` /
+      # `Time_varying_q_sd`, which are NA on BS2017SS and give a NaN objective
+      # with no error today.
+      #
+      # Not fixed here because it moves live advice: `Catchability = 6` is used
+      # by GOA pollock 2024/2025 (../Rceattle-models: GOA pollock/2024/02-bridge.R,
+      # 2024/05-update-data.R, GOA CEATTLE/Model runs/GOA_24 and GOA_25), and
+      # /golden-check cannot cover it -- no bundled model uses QAR1.
       if (data_list$fleet_control$Catchability[i] == "AR1") {
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
@@ -1203,32 +1292,10 @@ adjust_map_shared_params <- function(map_list, data_list) {
       sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
       sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
-      # Error check selectivity type
-      if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
-        warning("Survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Selectivity in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-      }
-
-
-      # Error check time-varying selectivity type
-      if(length(unique(data_list$fleet_control$Time_varying_sel[sel_duplicate_vec])) > 1){
-        warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-      }
-
-      # Bin_first_selected / N_sel_bins also shape the per-fleet selectivity map
-      # (which bins are estimated), and the maps below overwrite the mirrored
-      # fleet's with the lead's. Differing values within a group would therefore
-      # be silently ignored, so flag them the same way.
-      for (col in c("Bin_first_selected", "N_sel_bins")) {
-        vals <- data_list$fleet_control[[col]][sel_duplicate_vec]
-        if (length(unique(vals[!is.na(vals)])) > 1) {
-          warning(paste0("'", col, "' differs among fleets with the same Selectivity_index (",
-                         paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec], collapse = ", "),
-                         "): ", paste(vals, collapse = ", "),
-                         ". The shared selectivity uses the first fleet's value."))
-        }
-      }
+      # Per-fleet settings a shared Selectivity_index does not reconcile
+      # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
+      # Sel_norm_bin*, Time_varying_sel) are checked in data_check(): fit_mod()
+      # wraps this call in suppressWarnings().
 
       # FIXME add checks for surveys sel sigma
 
@@ -1251,22 +1318,27 @@ adjust_map_shared_params <- function(map_list, data_list) {
       q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
       q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
-      # Error check selectivity type
-      if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
-        warning("Survey catchability of surveys with same Catchability_index is not the same")
-        warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-      }
-
-
-      # Error check time-varying selectivity type
-      if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-        warning("Time varying survey catchability of surveys with same Catchability_index is not the same")
-        warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-      }
+      # Catchability / Time_varying_q disagreement, and the solved q forms that
+      # cannot share a group at all, are checked in data_check(): fit_mod() wraps
+      # this call in suppressWarnings().
 
       # FIXME add checks for surveys q sigma
 
-      # Make catchability maps the same
+      # Make catchability maps the same.
+      #
+      # The group shares ONE q parameter, so it can carry only one answer to
+      # "is q estimated?", and the LEAD fleet -- first_est(), the group's first
+      # non-Off fleet -- decides it for everyone regardless of fleet type. That
+      # is intended: a fishery sharing a group whose lead estimates q follows the
+      # lead and is estimated too, even with no index_data of its own, and a
+      # fishery whose lead is Fixed stays fixed whatever its own Catchability
+      # says.
+      #
+      # Not true for Analytical / AnalyticalArith: those solve index_q from each
+      # fleet's own observations, bypassing the parameter mapped here, so the
+      # group shares the parameter but not the catchability the model uses.
+      # Environmental and AR1 rebuild index_q too, but from these same shared
+      # parameters, so they do share. data_check() reports the former.
       if(!is.na(q_duplicate)){
         map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
         # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]

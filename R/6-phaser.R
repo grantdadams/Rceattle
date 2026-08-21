@@ -150,7 +150,6 @@ set_phases <- function(){
     log_gam_b = 5,     # Suitability parameter (size-preference sd)
     log_phi = 5,       # Suitability parameter (pred-prey vulnerability)
     log_growth_pars = 4,# Mean growth parameters
-    log_growth_par_devs = 5, # Random effects for growth parameters
     growth_log_sd = 4,   # SD in weight-at-age at youngest and oldest ages
     weight_length_pars = 5, # Weight-length parameters
     beta_linkage = 4 # Long-format linkage-table coefficients (env covariates on process params)

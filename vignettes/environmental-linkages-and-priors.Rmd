@@ -1216,6 +1216,22 @@ rather than applying a covariate/deviate to the wrong year.
   Rogers-AR1 catchability modes, the non-parametric selectivity forms, or the
   separable `M1_re = 6` (age × year), which keep using the switch-based path
   without a nudge.
+* **Only the grammar's random effects are simulated.** `sim_mod(process = )` and
+  `self_test(process = )` redraw catchability and selectivity where they are
+  written as a random linkage; the legacy `Time_varying_q` / `Time_varying_sel`
+  deviations carry densities in the template but no draw, so they keep their
+  fitted values and `sim_mod()` warns that they did. Recruitment and M are drawn
+  from their own switches (`M1_re`) as well as from linkages. Observed AR1
+  (Rogers QAR1) linkages are the one grammar form that is deliberately not
+  redrawn: the latent state is measured by an observed covariate series, and
+  redrawing the state alone would leave the two describing different histories.
+  A switch-based time-varying process therefore cannot have that process redrawn
+  in a self-test.
+* **`sigma` means different things in the two systems.** In a linkage,
+  `init = list(sigma = )` under `ar1()` is the **marginal** standard deviation.
+  The `M1_re` and 2DAR1/3DAR1 selectivity switches instead take the AR(1)
+  **innovation** SD, and scale it to a marginal of `sigma / sqrt(1 - rho^2)` —
+  the WHAM convention. The two coincide only at `rho = 0`.
 * **Age-dependent linkages on processes other than M** -- the
   `age_bin` stratum is consumed by the M accumulator today (a
   row's `age_bin == NA` broadcasts across ages; specific values

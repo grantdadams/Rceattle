@@ -16,6 +16,9 @@ permissions:
 jobs:
   pkgdown:
     runs-on: ubuntu-latest
+    # Observed successful runs are ~19 minutes; see the note in R-CMD-check.yaml
+    # for why an explicit ceiling matters on the Ubuntu runners.
+    timeout-minutes: 60
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:

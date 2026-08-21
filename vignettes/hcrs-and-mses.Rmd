@@ -112,6 +112,18 @@ You do not need to call `set.seed()` before `run_mse()` — the `seed`
 arguments fully control reproducibility. (You may still want
 `set.seed()` for plotting code that draws random colours or jitter.)
 
+Reproducibility holds *within* a package version, not across one. In 5.9.0 the
+observation draws moved from R into the TMB model, which displaces the
+random-number stream, so a seeded `run_mse()` or `self_test()` will not
+reproduce a run from 5.8.x.
+
+Two further points when comparing runs. The stream *position* is
+data-dependent: a covariance survey fleet redraws until every row is positive,
+and a multinomial composition draw stops early once the sample is exhausted, so
+changing an unrelated covariance or sample size moves everything drawn after it.
+And any model with an estimated suitability now varies its stomach contents,
+which it previously did not.
+
 For management-facing runs, record `packageVersion("Rceattle")` and
 the `seed` alongside the saved `.rds` so a later reviewer can rerun
 the exact same trajectories from the same package tag.

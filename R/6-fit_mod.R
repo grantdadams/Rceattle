@@ -68,6 +68,13 @@
 #'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
 #'   pass -- an explicit argument always wins. `NULL` (default) applies no
 #'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param quiet_data_check Drop the warnings [data_check()] raises (errors still
+#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
+#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#'   re-validate a `data_list` the caller has already fitted once and would
+#'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+#'   Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -148,6 +155,7 @@ fit_mod <-
     suit_endyr = NULL,
     fit_control = NULL,
     config = NULL,
+    quiet_data_check = FALSE,
     ...){
 
     # Whether the caller supplied fit_control -- captured before the default is
@@ -406,7 +414,6 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
-    data_list$growth_re       <- extend_length(growthFun$growth_re)
     # Plus-group SD-at-age style, resolved like growth_age_L1 below:
     # build_growth() value (if given) > existing data_list$growth_sd_style
     # (so a refit that rebuilds growth via build_growth(fun=) keeps the
@@ -417,7 +424,6 @@ fit_mod <-
     }
     gsd[is.na(gsd)] <- 1L   # WHAM
     data_list$growth_sd_style <- gsd
-    data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
     # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
     # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
@@ -449,11 +455,23 @@ fit_mod <-
     data_list$HCRorder <- extend_length(HCR$HCRorder)
     data_list$QnormHCR <- stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    # Fill out switches if missing
-    data_list <- Rceattle::switch_check(data_list)
+    # Fill out switches if missing. `quiet_data_check` covers switch_check()'s
+    # deprecation messages for the same reason it covers data_check()'s
+    # warnings: the diagnostic refits re-validate the caller's own data_list, so
+    # a retrospective would otherwise repeat them once per peel.
+    if (isTRUE(quiet_data_check)) {
+      data_list <- suppressMessages(Rceattle::switch_check(data_list))
+    } else {
+      data_list <- Rceattle::switch_check(data_list)
+    }
 
-    # Check for data error
-    data_check(data_list)
+    # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
+    # still stop the fit. The diagnostic refits set it: they re-validate a
+    # data_list the caller already fitted once, so every warning it raises has
+    # been seen, and a retrospective or an MSE would otherwise repeat it once per
+    # peel or per iteration.
+    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
     # No-op when no build_*() supplied a `linkages` list. When
@@ -512,6 +530,11 @@ fit_mod <-
     )
     data_list$linkage_table <- .linkage_pool$table
     data_list$linkage_X     <- .linkage_pool$X
+
+    # A q linkage is applied per fleet and is not reconciled across a shared
+    # Catchability_index, so it can break a group data_check() has already
+    # passed. Checked here because the table above is what it reads.
+    if (!isTRUE(quiet_data_check)) .warn_q_linkage_shared_group(data_list)
     # (Fixed-effect covariates with missing years are rejected earlier, in
     # materialize_linkage(), before model.matrix() can silently drop NA rows.)
 
@@ -540,6 +563,30 @@ fit_mod <-
     # attached, every path below is skipped and the model is textually the
     # non-DSEM model. That is what lets /golden-check gate this change.
     if (!is.null(dsem)) {
+      # Lognormal bias correction is NOT applied to the DSEM recruitment
+      # deviations (see the TODO in ceattle.cpp section 5.5b): the GMRF centres
+      # its latent states at 0, while the standard density centres rec_dev at
+      # -bias_adjust_proc*R_sd^2/2. The correction needs the MARGINAL SD of the
+      # recruitment column, which for a lagged sem is not R_sd -- R_sd is the
+      # GMRF's conditional (innovation) SD.
+      #
+      # The consequence is not confined to the deviations. SSB absorbs the
+      # offset and looks fine, but R0 does not: measured on BS2017SS with a
+      # naive (IID) sem, R0 came out 20-51% below the non-DSEM fit while
+      # terminal SSB agreed to 0.4%. Anything keyed to R0 -- dynamic B0, the
+      # Tier-3 B40% proxy, SPR-based reference points, projections that recruit
+      # off R0 -- inherits that shift. Say so rather than let a number that
+      # means something different from every other Rceattle fit go out unmarked.
+      if (isTRUE(as.logical(fit_control$bias_adjust_proc)) && verbose > 0) {
+        warning("Lognormal bias correction is not applied to the recruitment ",
+                "deviations of a DSEM, so this fit's R0 is not comparable to a ",
+                "non-DSEM fit of the same model -- measured 20-51% lower on ",
+                "BS2017SS with an IID sem, while SSB agreed to 0.4%. Reference ",
+                "points keyed to R0 (dynamic B0, the B40% proxy) carry that ",
+                "difference. Use bias_adjust_proc = FALSE for a fit that is ",
+                "comparable to the non-DSEM path.", call. = FALSE)
+      }
+
       # The build_*() specs are plain unclassed lists in this package, so tell a
       # specification from already-built objects structurally: built objects
       # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else
@@ -626,6 +673,32 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
+      # Drop anything the template no longer has a parameter for, in skeleton
+      # order. `inits` from an older fit can carry a retired block (e.g.
+      # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
+      # template does not declare, but build_map() runs on start_par first and
+      # produces a map entry per element, so the stale name reached MakeADFun
+      # through the map and stopped with "Names in map must correspond to
+      # parameter names" -- a refit that failed on a parameter the model no
+      # longer has. Extra names are dropped silently because they are inert by
+      # definition; a MISSING one is the error above.
+      # ...EXCEPT the DSEM blocks. build_params() does not declare them -- they
+      # come from build_dsem_objects() and are merged in below -- so they are
+      # not in .skel, and a bare start_par[names(.skel)] drops them. They are
+      # NOT inert: merge_dsem_params() then finds them missing and refills from
+      # the freshly built template, i.e. the START VALUES, silently discarding
+      # the warm start. That is invisible wherever the DSEM is estimated (any
+      # start reaches the same MLE) and wrong wherever it is PINNED --
+      # retrospective()'s forecast refit pins the whole DSEM, so every peel ran
+      # with beta_z at its start value (sigma_R = 0.707107 for every species),
+      # which put an 80% error in the peeled hindcast and flipped the sign of
+      # Mohn's rho. estimateMode = 2 reprojects from `inits` the same way.
+      # .DSEM_PARAM_NAMES, not grep("^dsem_"): this is the exact complement of
+      # the scrub that removes these blocks when the fit has no DSEM, so the two
+      # stay in step. A stray dsem_-prefixed name in a hand-built `inits` is
+      # dropped here as intended rather than surviving to die in MakeADFun.
+      start_par <- start_par[c(names(.skel),
+                               intersect(names(start_par), .DSEM_PARAM_NAMES))]
       rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number
@@ -686,6 +759,13 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
+      # TODO: this suppressWarnings() swallows EVERY warning build_map() raises,
+      # including the shared-block ones that exist to be seen -- the
+      # "same Catchability_index is not the same" pair, and the
+      # Bin_first_selected / N_sel_bins ones CLAUDE.md calls the safety net for
+      # fleets sharing a selectivity block. A fishery whose q is overridden by
+      # its group's lead fleet is silent today because of this line. Narrow it to
+      # the warnings actually being suppressed, or let build_map() classify them.
       map <- suppressWarnings(build_map(data_list, start_par,
                                         debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
                                         random_rec = random_rec, random_sel = random_sel))

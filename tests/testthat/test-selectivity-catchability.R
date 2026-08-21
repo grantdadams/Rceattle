@@ -70,10 +70,19 @@ testthat::test_that("Estimated catchability", {
                         verbose = 1))
   )
 
-  # Map
+  # Map. Catchability follows the DATA, not the fleet type: a fleet is given a q
+  # only where it carries fitted index_data. GOA2018SS fleet 10
+  # (ATF_bottom_trawl_length_comp) is a composition-only survey with no index
+  # rows, so it has no q to estimate -- a catchability with no index to inform it
+  # is a flat direction. Before 5.9.0 every Survey got one regardless.
   fleets <- 1:nflt
   fleets[ss_run$data_list$fleet_control$Fleet_type != "Survey"] <- NA
+  fleets[!(seq_len(nflt) %in% Rceattle:::.fleets_with_index(ss_run$data_list))] <- NA
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_log_q), fleets)
+  # ...and that really did drop a fleet, or the line above is doing nothing.
+  testthat::expect_true(
+    any(ss_run$data_list$fleet_control$Fleet_type == "Survey" &
+          !(seq_len(nflt) %in% Rceattle:::.fleets_with_index(ss_run$data_list))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
 
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))

@@ -14,7 +14,8 @@ self_test(
   phase = NULL,
   start = c("initial", "estimated"),
   debug = FALSE,
-  timeout = Inf
+  timeout = Inf,
+  process = FALSE
 )
 }
 \arguments{
@@ -78,6 +79,15 @@ check can catch, because the fit never returns. One that exceeds the limit
 is stopped, counted as non-converged and reported separately. Approximate:
 the limit is checked when control returns to R, so it fires between the
 optimizer's function evaluations rather than inside one.}
+
+\item{process}{passed to \code{\link{sim_mod}}. \code{FALSE} (default) keeps
+the fitted process deviations, so the test measures whether the estimator
+recovers its own parameters from new observations. Naming a process --
+\code{"recruitment"}, \code{"M"}, \code{"growth"}, \code{"dynamics"},
+\code{TRUE}, ... -- redraws it too, so the test instead measures whether the
+estimator recovers a process it has not been shown. The deviations behind
+each replicate come back in \code{attr(result, "process_sim")}; see
+\code{Value}.}
 }
 \value{
 A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
@@ -90,6 +100,18 @@ logical vector of the convergence verdicts in \code{attr(, "converged")}.
 Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
 refit errored outright is returned as the condition object rather than a
 model, so it cannot abort the run.
+
+When \code{process} redrew something, \code{attr(, "process_sim")} holds the
+deviations that generated each replicate's data -- a list keyed by the same
+\code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
+\code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
+is a named list of whichever of \code{rec_dev}, \code{init_dev},
+\code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
+same-shaped \code{_drawn} logical marking the cells the draw touched --
+restrict any recovery statistic to those, since the rest are fitted values
+(see \code{\link{sim_mod}}). Compare estimates against these, not against
+the operating model: its fitted deviations are no longer what generated the
+data.
 }
 \description{
 Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
@@ -97,7 +119,14 @@ Simulates data from an Rceattle model and refits the model to the simulated data
 \section{Interpreting the spread}{
 
 \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-compositions and CAAL. It does not redraw recruitment, so with
+compositions, CAAL and stomach contents. Some rows are deliberately left
+alone, and \code{\link{sim_mod}} warns about each: a predator whose
+suitability is empirical rather than estimated has no predicted diet to draw
+from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
+the years it is fitted to. Those data are held fixed across every replicate,
+so recovery of whatever they inform is optimistic.
+
+By default it does not redraw recruitment, so with
 \code{random_rec = TRUE} every replicate shares the operating model's single
 recruitment realization, and that realization is its shrunk empirical-Bayes
 modes rather than a draw from N(0, sigmaR). Two consequences: the spread
@@ -106,7 +135,9 @@ estimation uncertainty in SSB and recruitment (do not read it against the
 model's own uncertainty bands, which include process error); and sigmaR is
 re-estimated from deviations that were shrunk toward zero the same way in
 every replicate, a downward bias that averaging over simulations does not
-remove.
+remove. Pass \code{process = "recruitment"} (or \code{"dynamics"}, or
+\code{TRUE}) to redraw it and remove both, at the cost of asking a different
+question -- see \code{process} above.
 }
 
 \examples{

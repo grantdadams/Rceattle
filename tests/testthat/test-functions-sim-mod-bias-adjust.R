@@ -34,7 +34,7 @@ testthat::test_that("sim_mod() applies the model's own observation bias adjustme
 
     # Reproduce the draw the cpp's likelihood implies for this model.
     ih <- fit$quantities$index_hat
-    sd <- fit$quantities$log_index_sd
+    sd <- fit$quantities$index_sd
     set.seed(42)
     want <- exp(stats::rnorm(length(ih), mean = log(ih) - stored * sd^2 / 2, sd = sd))
 

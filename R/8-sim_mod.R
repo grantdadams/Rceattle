@@ -1,17 +1,16 @@
-# Rejection budget for a non-positive natural-scale index draw, as a multiple of
-# the fleet's row count. Correlated fleets reject the whole vector whenever any
-# single row is non-positive, so the joint rejection probability climbs with the
-# number of rows; scaling the budget the same way on both branches stops a wide
-# fleet from exhausting it while every row on its own is fine.
-.SIM_INDEX_MAX_TRIES <- 100L
-
-# Per-row rejection rate above which truncation is doing enough of the work that
-# the simulated data no longer follow the likelihood's own normal. Compared
-# against the WORST row, not the fleet mean -- truncation bites one marginal row
-# at a time, and a fleet average hides it. Set well below the rate that would
-# matter: rejecting even a twentieth of a row's draws already shifts that row's
-# mean by several percent.
-.SIM_INDEX_WARN_FRAC <- 0.02
+# Truncation mass P(draw <= 0) = Phi(-mu/sd) above which the simulated data no
+# longer follow the likelihood's own untruncated normal closely enough to
+# self-test on. Compared against the WORST row, not the fleet mean -- truncation
+# bites one marginal row at a time, and a fleet average hides it.
+#
+# Computed from the fit rather than counted from the draw. Each row is drawn once
+# per sim_mod() call, so an observed rejection rate can only take the values
+# 0, 1/2, 2/3, ... and is a "was this row ever redrawn" indicator rather than an
+# estimate of anything; mu and sd are both reported, so the probability is
+# available exactly and does not vary between replicates. Set well below the rate
+# that would matter: losing even a fiftieth of a row's mass to truncation already
+# shifts that row's mean by a noticeable fraction of an sd.
+.SIM_INDEX_WARN_TRUNC <- 0.02
 
 
 #' Resolve `Index_distribution` to its integer family code
@@ -35,230 +34,813 @@
 }
 
 
-#' Draw survey-index observations under each fleet's own likelihood
+#' Warn where a random linkage the caller asked for was left at its fitted values
 #'
-#' A simulator has to draw from the observation model the likelihood assumes, or
-#' `self_test()` measures recovery against a data-generating process the
-#' estimation model never saw. The four families need three different draws
-#' (`ceattle.cpp`, section 8.2):
+#' Observed AR1 (Rogers QAR1) is the one random linkage the template leaves
+#' alone: a new latent state paired with the original covariate observations
+#' would describe two different histories.
 #'
-#' * `Lognormal` (0): log scale, `exp(N(log(hat) - ba * sd^2 / 2, sd))`.
-#' * `Normal` (3): natural scale with an ABSOLUTE sd, `N(hat, sd)`, and no
-#'   lognormal bias term -- the likelihood has none.
-#' * `MVN` (1) / `MVNORM` (2): natural scale and correlated,
-#'   `hat + chol(Sigma)' z`. The two differ only by a constant in the
-#'   likelihood, so they simulate identically.
-#'
-#' Sigma is positional: its rows follow the fleet's *fitted* observations
-#' (`Year` in `(0, endyr]`, `Observation > 0`) in `index_data` order, the same
-#' predicate `.align_index_cov()` and `rearrange_data()` use. Rows outside that
-#' set -- projection years, since `data_check()` rejects a non-positive
-#' observation -- keep the values they came in with.
-#'
-#' A natural-scale draw (`Normal`, `MVN`) can come out non-positive, which no
-#' index can be and `data_check()` rejects -- the refit then fails and
-#' `self_test()` reports the run as not converged, which reads as a convergence
-#' problem rather than a simulation one. Non-positive draws are therefore
-#' redrawn, up to `.SIM_INDEX_MAX_TRIES` times, which samples the natural-scale
-#' families from the normal **truncated at zero**. That is the intended
-#' distribution for a strictly positive index, but it does shift the mean upward
-#' relative to an untruncated normal whenever the absolute sd is an appreciable
-#' fraction of the index -- the case where truncation bites is exactly the case
-#' where the untruncated normal was already a poor observation model. Lognormal
-#' fleets are positive by construction and are not affected. If a fleet still
-#' draws non-positive after the retries, warn rather than fail.
-#'
-#' @param data_list Data list being simulated into.
-#' @param index_hat Predicted index, one per `index_data` row.
-#' @param log_index_sd Per-row observation sd, as `ceattle.cpp` reports it: a
-#'   log-scale sd for `Lognormal`, an absolute one for `Normal`.
-#' @param ba_obs Observation bias-adjustment multiplier.
-#' @return Numeric vector of simulated observations, in `index_data` row order.
+#' @param obj The simulated TMB object.
+#' @param state Integer switch vector from `.sim_state_codes()`.
 #' @noRd
-.sim_index_obs <- function(data_list, index_hat, log_index_sd, ba_obs) {
-  idx <- data_list$index_data
-  fc  <- data_list$fleet_control
-  obs <- as.numeric(index_hat)
-  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(obs)
+.sim_warn_linkage_qar1 <- function(obj, state) {
+  d <- obj$env$data
+  obs <- d$linkage_re_obs
+  if (is.null(obs) || !length(obs) || all(obs < 0)) return(invisible(FALSE))
 
-  fam <- .index_family_codes(fc$Index_distribution)
-  if (!length(fam)) fam <- rep(0L, nrow(fc))
+  procs <- c("recruitment", "M", "growth", "catchability", "selectivity")
+  hit <- character(0)
+  for (i in seq_along(d$linkage_re_index)) {
+    slot <- d$linkage_re_index[i]
+    if (slot < 0) next
+    grp <- d$linkage_re_sigma[slot + 1L]
+    if (obs[grp + 1L] < 0) next
+    # Composition is a linkage process (code 5) with no simulate_state slot, so
+    # guard the index the way the template does rather than compare against NA.
+    p <- d$linkage_process[i]
+    if (is.na(p) || p < 0 || p >= length(state)) next
+    if (state[p + 1L] == 1L) hit <- c(hit, procs[p + 1L])
+  }
+  if (length(hit)) {
+    warning("Observed-AR1 (Rogers QAR1) linkage(s) on ",
+            paste(unique(hit), collapse = ", "),
+            " were not redrawn and keep their fitted values; every other random ",
+            "linkage on those processes was drawn. See ?sim_mod.",
+            call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
 
-  # Every fleet lognormal -- the column default, and the only family that existed
-  # before MVN/MVNORM/Normal. Draw all rows in one call, exactly as this did
-  # before the per-family dispatch, so a seeded self_test(), jitter() or
-  # run_mse(simulate_data = TRUE) on an existing model reproduces bit for bit.
-  # The per-fleet loop below consumes the RNG stream in a different order, which
-  # would silently change every simulated data set with more than one index fleet
-  # while leaving single-survey models looking unaffected.
-  if (all(fam == 0L)) {
-    return(exp(stats::rnorm(
-      n    = length(obs),
-      mean = log(index_hat) - ba_obs * (log_index_sd^2) / 2,
-      sd   = log_index_sd)))
+
+# The legacy time-varying catchability and selectivity deviations
+# (index_q_dev, log_sel_slp_dev, sel_inf_dev, sel_coff_dev) carry densities in
+# the template but have no SIMULATE block yet -- only the linkage-grammar
+# versions are drawn, so those deviations come back at their fitted values and
+# this says so.
+.sim_warn_process_unsimulated <- function(data_list, state) {
+  fc <- data_list$fleet_control
+  if (is.null(fc)) return(invisible(FALSE))
+  code <- function(x, map) {
+    if (is.null(x)) return(integer(0))
+    if (is.character(x)) unname(map[x]) else suppressWarnings(as.integer(x))
+  }
+  hit <- character(0)
+
+  # Block (3) is a time block with no penalty -- fixed structure, not process
+  # error -- so it is not something a draw would ever redraw.
+  if (state[4] == 1L) {
+    tvq <- code(fc$Time_varying_q, tv_q_map)
+    qq  <- code(fc$Catchability, q_map)
+    # Catchability 5/6 read Time_varying_q as an environmental index instead;
+    # 6 (Rogers AR1) is itself a random process on the deviations.
+    stochastic <- (tvq %in% c(1L, 2L, 4L) & !(qq %in% c(5L, 6L))) | qq %in% 6L
+    if (any(stochastic, na.rm = TRUE)) hit <- c(hit, "catchability")
+  }
+  if (state[5] == 1L) {
+    tvs <- code(fc$Time_varying_sel, tv_sel_map)
+    # The AR1 selectivity FORMS (2DAR1 = 6, 3DAR1 = 7) carry sel_coff_dev random
+    # effects of their own and ignore Time_varying_sel entirely, so keying only
+    # off that column would leave them frozen without a word -- the loudest case,
+    # since an AR1 selectivity field is exactly what someone redrawing
+    # selectivity means to test.
+    sel <- code(fc$Selectivity, sel_map)
+    if (any(tvs %in% c(1L, 2L, 4L, 5L), na.rm = TRUE) ||
+        any(sel %in% c(6L, 7L), na.rm = TRUE)) hit <- c(hit, "selectivity")
   }
 
-  nonpos <- character(0)   # still non-positive after the retries
-  heavy  <- character(0)   # positive only because truncation did the work
+  if (length(hit)) {
+    warning("Process error requested for ", paste(hit, collapse = " and "),
+            ", but this model uses the switch-based deviations ",
+            "(Time_varying_q / Time_varying_sel, or an AR1 selectivity form), ",
+            "which are not simulated. They keep their fitted values. Express ",
+            "the process as a random linkage to have it drawn -- see ",
+            "vignette('environmental-linkages-and-priors').", call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
 
-  for (i in seq_len(nrow(fc))) {
-    code <- fc$Fleet_code[i]
-    rows <- which(idx$Fleet_code == code)
-    if (!length(rows)) next
-    f <- fam[i]
 
-    if (f %in% c(1L, 2L)) {
-      fit_rows <- rows[idx$Year[rows] > 0 &
-                         idx$Year[rows] <= data_list$endyr &
-                         idx$Observation[rows] > 0]
-      # Sigma covers the fitted rows only -- in practice the rest are projection
-      # years (Year > endyr), since data_check() rejects Observation <= 0. Leave
-      # them at the values they came in with rather than writing the prediction
-      # there, which would present a projection year as an observation.
-      obs[setdiff(rows, fit_rows)] <- idx$Observation[setdiff(rows, fit_rows)]
-      if (!length(fit_rows)) next
-      nm    <- as.character(fc$Fleet_name[i])
-      Sigma <- data_list$index_cov[[nm]]
-      if (is.null(Sigma)) Sigma <- data_list$index_cov[[as.character(code)]]
-      if (is.null(Sigma)) {
-        stop(sprintf(paste0("Fleet '%s' uses an %s index likelihood but no covariance ",
-                            "matrix was supplied in index_cov, so its observations ",
-                            "cannot be simulated."),
-                     nm, c("MVN", "MVNORM")[f]), call. = FALSE)
-      }
-      Sigma <- as.matrix(Sigma)
-      Sigma <- (Sigma + t(Sigma)) / 2   # as rearrange_data() does
-      if (nrow(Sigma) != length(fit_rows)) {
-        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is %d x %d but the ",
-                            "fleet has %d fitted survey observations to simulate."),
-                     nm, nrow(Sigma), ncol(Sigma), length(fit_rows)), call. = FALSE)
-      }
-      L <- tryCatch(t(chol(Sigma)), error = function(e) {
-        stop(sprintf(paste0("Index covariance matrix for fleet '%s' is not positive ",
-                            "definite (%s), so it cannot be simulated from."),
-                     nm, conditionMessage(e)), call. = FALSE)
-      })
-      # Correlated rows, so a rejection has to redraw the whole vector. Budget
-      # scales with the number of rows: a vector is rejected if ANY row is
-      # non-positive, so the joint rejection probability grows with n and a flat
-      # budget would fail on wide fleets that are fine row by row.
-      n <- length(fit_rows)
-      draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
-      drawn <- rep(1L, n); rejected <- as.integer(draw <= 0)
-      tries <- 0L
-      while (any(draw <= 0) && tries < .SIM_INDEX_MAX_TRIES * n) {
-        draw <- index_hat[fit_rows] + as.numeric(L %*% stats::rnorm(n))
-        drawn <- drawn + 1L; rejected <- rejected + as.integer(draw <= 0)
-        tries <- tries + 1L
-      }
-      obs[fit_rows] <- draw
-      if (any(obs[fit_rows] <= 0)) nonpos <- c(nonpos, nm)
-      # Per-ROW rate, and the worst row rather than the fleet mean: truncation
-      # bites one marginal row at a time, and averaging over a wide fleet hides
-      # exactly the row that is being resampled.
-      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC) heavy <- c(heavy, nm)
+# A process the model gives no distribution to cannot be redrawn: M with
+# M1_re = 0, or growth with no random linkage on a growth parameter. Nothing is
+# drawn and nothing is wrong, but silence is indistinguishable from a draw that
+# worked, so say which process was left alone.
+.sim_warn_process_absent <- function(obj, state) {
+  hit <- character(0)
 
-    } else if (f == 3L) {
-      # Independent rows, so redraw only the offending ones.
-      obs[rows] <- stats::rnorm(length(rows), mean = index_hat[rows],
-                                sd = log_index_sd[rows])
-      drawn <- rep(1L, length(rows)); rejected <- as.integer(obs[rows] <= 0)
-      tries <- 0L
-      repeat {
-        bad <- which(obs[rows] <= 0)
-        if (!length(bad) || tries >= .SIM_INDEX_MAX_TRIES * length(rows)) break
-        obs[rows[bad]] <- stats::rnorm(length(bad), mean = index_hat[rows[bad]],
-                                       sd = log_index_sd[rows[bad]])
-        drawn[bad] <- drawn[bad] + 1L
-        rejected[bad] <- rejected[bad] + as.integer(obs[rows[bad]] <= 0)
-        tries <- tries + 1L
-      }
-      if (any(obs[rows] <= 0)) nonpos <- c(nonpos, as.character(fc$Fleet_name[i]))
-      if (max(rejected / drawn) > .SIM_INDEX_WARN_FRAC)
-        heavy <- c(heavy, as.character(fc$Fleet_name[i]))
+  m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
+  if (state[2] == 1L && !any(m1_re > 0, na.rm = TRUE) &&
+      !.sim_linkage_drawn(obj, c(0L, 1L, 0L, 0L, 0L))) {
+    hit <- c(hit, "M (M1_re = 0 and no random linkage on M)")
+  }
+  if (state[3] == 1L && !.sim_linkage_drawn(obj, c(0L, 0L, 1L, 0L, 0L))) {
+    hit <- c(hit, "growth (no random linkage on a growth parameter)")
+  }
 
+  if (length(hit)) {
+    warning("Process error requested for ", paste(hit, collapse = "; "),
+            ", but this model gives ", if (length(hit) > 1) "those" else "that",
+            " no distribution to draw from. Nothing was redrawn and the fitted ",
+            "values stand.", call. = FALSE)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
+
+
+# Recruitment scored by two densities has no single distribution to draw from,
+# so the template draws nothing (ceattle.cpp section 5.13) and this says so. The
+# gate is read from the template's own reported `rec_srr_single_density` rather
+# than re-derived here, so R and the draw cannot disagree about what happened.
+# The argument for leaving it alone is in vignette("model-diagnostics").
+.sim_warn_rec_srr_penalty <- function(sim_rep, state) {
+  if (state[1] != 1L) return(invisible(FALSE))
+  gate <- sim_rep$rec_srr_single_density
+  if (is.null(gate) || isTRUE(as.logical(gate))) return(invisible(FALSE))
+
+  warning("Recruitment was not redrawn: this model fits the stock-recruit curve ",
+          "as a penalty on the recruitment deviations (srr_fun = 0 with ",
+          "srr_pred_fun > 0, the AMAK/Ianelli configuration), so they are scored ",
+          "by two densities and have no single distribution to draw from. Their ",
+          "fitted values stand; a random linkage on a recruitment parameter is a ",
+          "separate latent and was drawn. Set srr_fun to the stock-recruit ",
+          "function itself to redraw the deviations.",
+          call. = FALSE)
+  invisible(TRUE)
+}
+
+
+# Truncation diagnostics for the natural-scale survey draws. An index cannot be
+# negative and data_check() rejects one, so a draw from an untruncated normal has
+# to be redrawn when it comes back non-positive; the template counts the attempts
+# and rejections per row (see ceattle.cpp) and this reads them.
+#
+# Two families land here, for the same reason: `Normal` (drawn row by row) and
+# `MVN`/`MVNORM` (the whole vector redrawn, since truncating each margin
+# separately would break the correlation the likelihood exists to model). In both
+# the redrawn data follow the normal truncated at zero while the likelihood
+# scores the untruncated one, so a self-test built on them measures a different
+# data-generating process. That gap is what these warnings are about.
+#
+# `TruncatedNormal` never enters here: it is fitted AND drawn as a normal
+# left-truncated at zero, by inverse CDF, so its draw already follows its own
+# likelihood. It is the fix for a `Normal` fleet that warns; there is no
+# equivalent for MVN, which has no closed-form truncated sampler.
+#
+# The size of the gap is read off the FIT, not counted from the draw: it is
+# P(draw <= 0) = Phi(-mu/sd), with mu = index_hat and sd = index_sd (which
+# holds the absolute sd for these families). Both are reported, so the
+# probability is exact and the same in every replicate. Counting rejections
+# instead would give a statistic with one observation per row per call, whose
+# only attainable values are 0, 1/2, 2/3, ... The counters are still what says
+# WHICH rows the rejection-capable branches drew, and the budget-exhausted case
+# is read from the draw itself.
+#
+# Returns, invisibly, a logical over index_data rows marking the ones it reported
+# as non-positive, so the caller's generic unusable-draw warning can skip them.
+.sim_warn_index_truncated <- function(sim_rep, data_list) {
+  tries <- as.numeric(sim_rep$index_trunc_tries_sim)
+  if (!length(tries) || !any(tries > 0)) return(invisible(FALSE))
+
+  idx <- data_list$index_data
+  obs <- idx$Observation
+  # Rows a rejection-capable branch drew: every `Normal` row, and the fitted rows
+  # of a covariance fleet. `TruncatedNormal` and lognormal rows never count here.
+  drawn <- tries > 0
+
+  # index_trunc_sd_sim is the sd the draw itself used, which for a covariance
+  # fleet comes from Sigma's diagonal rather than from the Index_sd column.
+  mu <- as.numeric(sim_rep$index_hat)
+  sd <- as.numeric(sim_rep$index_trunc_sd_sim)
+  if (!length(sd)) sd <- as.numeric(.observation_sd(sim_rep, "index"))
+  trunc_mass <- rep(0, length(tries))
+  ok <- drawn & is.finite(mu) & is.finite(sd) & sd > 0
+  trunc_mass[ok] <- stats::pnorm(-mu[ok] / sd[ok])
+
+  # The budget the draw ACTUALLY applied to each row, reported by the template
+  # rather than duplicated here: the base constant on the univariate branch, and
+  # that scaled by the fleet's row count on the correlated one. Quoting the bare
+  # constant would misstate it eightfold on an 8-row covariance fleet.
+  budget <- suppressWarnings(as.numeric(sim_rep$index_trunc_budget_sim))
+  if (!length(budget)) budget <- rep(NA_real_, length(tries))
+
+  # Phi(-mu/sd) is the per-row rejection probability, which is the whole story
+  # only where rejection IS per row -- the univariate `Normal` branch. The
+  # correlated branch rejects the ENTIRE VECTOR whenever any row is non-positive,
+  # so the marginal understates it badly: an 8-row fleet whose worst margin is
+  # 31% is rejected about 81% of the time, and it is the joint rate that decides
+  # how far the accepted draws sit from the density the likelihood scores. The
+  # joint orthant probability of a correlated normal has no closed form, but the
+  # draw measures it -- `tries` counts rounds and every round past the first was
+  # a rejection -- so use the measured rate there and the analytic one here.
+  fam_row <- .index_family_codes(data_list$fleet_control$Index_distribution)[
+    match(idx$Fleet_code, data_list$fleet_control$Fleet_code)]
+  correlated <- drawn & !is.na(fam_row) & fam_row %in% c(1L, 2L)
+  rate <- ifelse(correlated & tries > 0, (tries - 1) / pmax(tries, 1), trunc_mass)
+  rate[!is.finite(rate)] <- 0
+
+  fleet_of <- function(sel) unique(as.character(idx$Fleet_name[sel]))
+  # Rows this function reports on, returned so the generic unusable-draw warning
+  # can skip them rather than describe the same rows less usefully.
+  nonpos_rows <- drawn & is.finite(obs) & obs <= 0
+  nonpos <- fleet_of(nonpos_rows)
+  # Worst row, not the fleet mean: truncation bites one marginal row at a time
+  # and an average over a wide fleet hides exactly that row.
+  heavy  <- setdiff(fleet_of(rate > .SIM_INDEX_WARN_TRUNC), nonpos)
+  heavy_joint <- any(correlated & rate > .SIM_INDEX_WARN_TRUNC)
+
+  # The remedy differs by family, so name it: a `Normal` fleet has a truncated
+  # counterpart to switch to, a covariance fleet does not.
+  fam <- .index_family_codes(data_list$fleet_control$Index_distribution)
+  names(fam) <- as.character(data_list$fleet_control$Fleet_name)
+  remedy <- function(flts) {
+    codes <- fam[flts]
+    if (any(codes %in% 3L, na.rm = TRUE)) {
+      paste0("An absolute sd that large relative to the index means the ",
+             "untruncated normal is a poor observation model here. Use ",
+             "Index_distribution = \"TruncatedNormal\" to fit and simulate the ",
+             "same truncated density, or reduce the observation sd.")
     } else {
-      obs[rows] <- exp(stats::rnorm(
-        n    = length(rows),
-        mean = log(index_hat[rows]) - ba_obs * (log_index_sd[rows]^2) / 2,
-        sd   = log_index_sd[rows]))
+      paste0("Check the covariance against the scale of the index. MVN has no ",
+             "closed-form truncated sampler, so there is no family to switch to.")
     }
   }
 
   if (length(nonpos)) {
     warning("Simulated a non-positive survey index for fleet(s) ",
-            paste(unique(nonpos), collapse = ", "),
-            " after ", .SIM_INDEX_MAX_TRIES, " redraws. data_check() requires ",
-            "Observation > 0, so refitting this data set fails and self_test() ",
-            "counts the run as not converged. The observation error is large ",
-            "relative to the index: check the covariance, or the absolute sd, ",
-            "against the scale of the index.",
-            call. = FALSE)
+            paste(nonpos, collapse = ", "), ", after up to ",
+            max(c(0, budget[nonpos_rows & is.finite(budget)])),
+            " redraws. data_check() requires Observation > 0, so ",
+            "refitting this data set fails and self_test() counts the run as ",
+            "not converged. ", remedy(nonpos), call. = FALSE)
   } else if (length(heavy)) {
-    warning("Simulating the survey index for fleet(s) ",
-            paste(unique(heavy), collapse = ", "),
-            " needed a non-positive draw redrawn more than ",
-            round(100 * .SIM_INDEX_WARN_FRAC), "% of the time. The draws are ",
-            "positive, but they come from a normal truncated at zero rather ",
-            "than the normal the likelihood assumes, so a self_test() built on ",
-            "them tests a different data-generating process. The absolute sd is ",
-            "large relative to the index: check it, or the covariance, against ",
-            "the scale of the index.",
+    worst <- max(rate[is.finite(rate)], na.rm = TRUE)
+    warning("The survey index for fleet(s) ", paste(heavy, collapse = ", "),
+            if (heavy_joint)
+              paste0(" was rejected and redrawn on ", round(100 * worst, 1),
+                     "% of draws (a correlated fleet rejects the whole vector ",
+                     "if any row is non-positive). ")
+            else
+              paste0(" puts up to ", round(100 * worst, 1), "% of its ",
+                     "probability at or below zero (worst row). "),
+            "The draws are redrawn until positive, so ",
+            "they follow the normal truncated at zero while the likelihood ",
+            "scores the untruncated one, and a self_test() built on them tests ",
+            "a different data-generating process. ", remedy(heavy),
             call. = FALSE)
   }
-  obs
+  invisible(nonpos_rows)
+}
+
+
+#' Warn where a covariance survey fleet carries rows it cannot simulate
+#'
+#' The `MVN`/`MVNORM` draw is a correlated block, and the covariance is supplied
+#' for the fleet's FITTED observations only -- there is no covariance entry for a
+#' year the model does not fit, so those rows keep the values they came in with.
+#' The independent families have no such limit and redraw every row.
+#'
+#' That matters because `run_mse()` reveals the operating model's negative-`Year`
+#' rows to the estimation model as each assessment's new data. For a covariance
+#' fleet those rows were never drawn, so the estimation model would be handed
+#' survey observations carried over unchanged, and a management-strategy
+#' evaluation would report performance against a survey that never varied.
+#'
+#' @param data_list Data list being simulated into.
+#' @noRd
+.sim_warn_index_unsimulated <- function(data_list) {
+  fc  <- data_list$fleet_control
+  idx <- data_list$index_data
+  if (is.null(fc) || is.null(idx) || !nrow(idx)) return(invisible(FALSE))
+  fam <- .index_family_codes(fc$Index_distribution)
+  if (!length(fam)) return(invisible(FALSE))
+
+  hit <- character(0)
+  for (i in seq_len(nrow(fc))) {
+    if (!(fam[i] %in% c(1L, 2L))) next
+    rows <- which(idx$Fleet_code == fc$Fleet_code[i])
+    if (!length(rows)) next
+    outside <- idx$Year[rows] <= 0 | idx$Year[rows] > data_list$endyr
+    if (any(outside)) hit <- c(hit, as.character(fc$Fleet_name[i]))
+  }
+  if (length(hit)) {
+    warning("Fleet(s) ", paste(unique(hit), collapse = ", "),
+            " use a covariance (MVN/MVNORM) survey likelihood, whose covariance ",
+            "covers only the years the model fits, so their observations ",
+            "outside that window were not simulated and carry their original ",
+            "values. run_mse() reveals those rows to the estimation model as new ",
+            "survey data, so an MSE on this model evaluates against a survey ",
+            "that does not vary.", call. = FALSE)
+  }
+  invisible(length(hit) > 0)
+}
+
+
+#' Check a simulated matrix has the columns the data frame expects
+#'
+#' The write-back takes the first `n` columns positionally. `rearrange_data()`
+#' builds `comp_obs` with `dplyr::select(contains("Comp_"))` while
+#' `.composition_cols()` matches `^Comp_`, so a column named like `Total_Comp_n`
+#' puts the two out of step and every bin lands one place over -- silently, since
+#' the copy is still the right shape. Tested with `!=` rather than `<` because
+#' that mismatch shows up as an EXTRA simulated column, not a missing one.
+#'
+#' @param n_sim Columns the template returned.
+#' @param n_dat Bin columns in the data frame.
+#' @param what Data type name.
+#' @noRd
+.sim_check_cols <- function(n_sim, n_dat, what) {
+  if (n_sim != n_dat) {
+    stop("sim_mod(): the fitted model simulated ", n_sim, " ", what,
+         " bin columns but its data_list holds ", n_dat,
+         ". The two must describe the same bins.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Warn where a composition row came back with nothing in it
+#'
+#' A row sums to zero when the model predicts no composition for it -- a fleet
+#' with no catch that year, or one switched off -- and also when the effective
+#' sample size rounds away, which `Sample_size * weight` can do for a heavily
+#' down-weighted fleet. The first is meaningful and expected; the second is a
+#' fleet silently dropping out of the refit, so name both rather than let a
+#' `self_test()` score a replicate whose data quietly went missing.
+#'
+#' @param x Simulated bin matrix.
+#' @param fleet Fleet code per row.
+#' @param what Data type name.
+#' @noRd
+.sim_warn_empty_comp <- function(x, fleet, what) {
+  empty <- rowSums(x, na.rm = TRUE) <= 0
+  if (any(empty)) {
+    warning(sum(empty), " ", what, " row(s) came back empty for fleet(s) ",
+            paste(unique(fleet[empty]), collapse = ", "),
+            ". The model predicts no composition for them, or their sample size ",
+            "times the composition weight rounded to zero. Those rows carry no ",
+            "information into a refit.", call. = FALSE)
+  }
+  invisible(any(empty))
+}
+
+
+#' Drop the sample size of a row that came back empty
+#'
+#' The composition density gates on `Sample_size`, not on the bins, so a row the
+#' draw left empty is still scored -- at `comp_offset` in every bin, a small
+#' uniformly-pulling term with no data behind it. `run_mse()` has always zeroed
+#' the sample size alongside the bins (R/10-run_mse.R); `sim_mod()` has to do the
+#' same, or `self_test()` refits against a term the operating model never
+#' generated.
+#'
+#' @param n Sample sizes, one per row.
+#' @param x Simulated bin matrix.
+#' @noRd
+.sim_zero_unsampled_n <- function(n, x) {
+  n * as.numeric(rowSums(x, na.rm = TRUE) > 0)
+}
+
+
+#' Resolve `process` to the template's `simulate_state` vector
+#'
+#' Process error is off unless asked for, because redrawing a process changes
+#' what a self-test measures -- from "can the estimator recover these
+#' parameters" to "can it recover this process". The slots follow
+#' `ceattle.cpp`: recruitment, M and growth are the population dynamics;
+#' selectivity and catchability are the observation process.
+#'
+#' `"recruitment"` covers the initial age structure as well as the annual
+#' deviations. The initial numbers-at-age are recruitment from the years before
+#' `styr` -- `init_dev` and `rec_dev` share `R_sd` and the same bias correction,
+#' and `rec_dev` at year 0 feeds the initial scalar -- so they are one process.
+#'
+#' @param process `FALSE` / `"none"` for none, `TRUE` / `"all"` for every
+#'   process, `"dynamics"` for the population dynamics, `"observation"` for the
+#'   observation process, or any subset of `"recruitment"`, `"M"`, `"growth"`,
+#'   `"selectivity"`, `"catchability"`.
+#' @return Integer vector of length 5.
+#' @noRd
+.sim_state_codes <- function(process) {
+  # Slot order is the linkage process code (see .RCE_LINKAGE_PROCESS in
+  # 0-linkage_encode.R), so the template can index simulate_state by a
+  # linkage row's process directly. Keep the two in step.
+  slots <- c("recruitment", "M", "growth", "catchability", "selectivity")
+  out <- rep(0L, length(slots))
+  if (is.null(process) || isFALSE(process)) return(out)
+  if (isTRUE(process)) return(rep(1L, length(slots)))
+
+  chr <- as.character(process)
+  if (length(chr) == 1L && chr %in% c("none", "all", "dynamics", "observation")) {
+    if (chr == "none") return(out)
+    if (chr == "all")  return(rep(1L, length(slots)))
+    chr <- if (chr == "dynamics") slots[1:3] else slots[4:5]
+  }
+  bad <- setdiff(chr, slots)
+  if (length(bad)) {
+    stop("sim_mod(): unknown process(es) ", paste(bad, collapse = ", "),
+         ". Use FALSE, TRUE, \"dynamics\", \"observation\", or any of ",
+         paste(slots, collapse = ", "), ".", call. = FALSE)
+  }
+  out[match(chr, slots)] <- 1L
+  out
+}
+
+
+#' Get a TMB object that can run the template's `SIMULATE` blocks
+#'
+#' The draws live beside their densities in `ceattle.cpp`, so simulating means
+#' evaluating the compiled model. Usually the fit's own `TMB::MakeADFun` object
+#' does it, including one saved and reloaded (TMB re-tapes from the stored
+#' `obj$env$data`).
+#'
+#' A fit whose `$obj` was dropped to save space still carries its `data_list` and
+#' its estimates, which is all `.refit_like()` needs to rebuild the model without
+#' re-estimating it. The rebuild is the same model rather than an approximation,
+#' but that is checked rather than assumed -- see `.sim_check_rebuild()`.
+#'
+#' Rebuild at the mode the source was fitted under. `estimateMode = 3` builds the
+#' objective and stops, which leaves `catch_hat` at 0 on every projection row, so
+#' a fit that ran a projection needs one too -- mode 2 runs it from the supplied
+#' estimates without re-optimizing the hindcast.
+#'
+#' `model_average()` output cannot be rebuilt -- see the `stop()` below, which
+#' says why.
+#'
+#' @param Rceattle A fitted `Rceattle` model.
+#' @return A `TMB::MakeADFun` object at the model's estimates.
+#' @noRd
+.sim_obj <- function(Rceattle) {
+  if (!is.null(Rceattle$obj)) return(Rceattle$obj)
+
+  if (is.null(Rceattle$estimated_params) || is.null(Rceattle$data_list)) {
+    stop("sim_mod(simulate = TRUE) needs a fitted model, and this one carries ",
+         "neither a TMB object nor the estimates to rebuild one. Averaged ",
+         "models (model_average()) are the usual case: their quantities are an ",
+         "average over models rather than any one model's fit, so there are no ",
+         "parameters to simulate around. Simulate from one of the fits instead.",
+         call. = FALSE)
+  }
+
+  src_mode <- Rceattle$data_list$estimateMode
+  mode <- if (!is.null(src_mode) && src_mode %in% c(0, 2)) 2 else 3
+
+  rebuilt <- suppressMessages(.refit_like(
+    data_list    = Rceattle$data_list,
+    inits        = Rceattle$estimated_params,
+    estimateMode = mode))
+
+  .sim_check_rebuild(Rceattle, rebuilt)
+  rebuilt$obj
+}
+
+
+#' Confirm a rebuilt model is the one whose estimates it was given
+#'
+#' `.refit_like()` reconstructs the model specification from the `data_list`, so
+#' a `data_list` edited since the fit -- or one that no longer records everything
+#' the fit used -- rebuilds something else, which would then simulate around the
+#' wrong expected values.
+#'
+#' Check what the draws are made of: one predicted quantity per observation type
+#' that has a `SIMULATE` block, plus the observation standard deviations and the
+#' bias-adjustment multiplier. Extend the list whenever a new type gains a draw.
+#'
+#' The predicted quantities are checked against the fit's own stored values, so
+#' an edited `data_list` shows up as a mismatch. `bias_adjust_obs`
+#' cannot be checked that way: it enters neither of them and nothing outside the
+#' `data_list` records it, so the rebuild simply honours whatever the
+#' `data_list` now says. What is worth catching is its ABSENCE --
+#' `.refit_bias_adjust()` falls back to the `fit_control()` default when the
+#' field is missing, so a fit made with the correction off would rebuild with it
+#' on and every simulated catch would be mis-centred by `exp(sigma^2 / 2)`, with
+#' nothing to reveal it.
+#'
+#' An absent quantity is an error rather than a pass, since a rebuild that cannot
+#' be checked cannot be shown to be the same model.
+#'
+#' @param Rceattle The fit being simulated from.
+#' @param rebuilt The model returned by `.refit_like()`.
+#' @noRd
+.sim_check_rebuild <- function(Rceattle, rebuilt) {
+  # One per observation type with a SIMULATE block: catch, survey index,
+  # composition, CAAL and diet, with the two observation sd vectors the draws
+  # are scaled by. comp_hat and caal_hat are absent on a model carrying no such
+  # data, so they are checked only when the fit stored them.
+  qs <- c("catch_hat", "catch_sd", "index_hat", "index_sd", "diet_hat")
+  opt <- c("comp_hat", "caal_hat")
+  qs <- c(qs, opt[vapply(opt, function(q) !is.null(Rceattle$quantities[[q]]),
+                         logical(1))])
+  for (q in qs) {
+    # The two sd vectors are read rather than indexed: a fit saved before 5.9.0
+    # carries only log_index_sd / log_catch_sd, and the rebuild only the new
+    # spelling, so a plain lookup would report the model as unrebuildable.
+    want <- if (q %in% c("index_sd", "catch_sd")) {
+      .observation_sd(Rceattle$quantities, sub("_sd$", "", q))
+    } else Rceattle$quantities[[q]]
+    got  <- if (q %in% c("index_sd", "catch_sd")) {
+      .observation_sd(rebuilt$quantities, sub("_sd$", "", q))
+    } else rebuilt$quantities[[q]]
+    if (is.null(want) || is.null(got)) {
+      stop("sim_mod(): this model has no TMB object, and the rebuild cannot be ",
+           "checked because '", q, "' is missing, so there is no way to tell ",
+           "whether it is the same model. Refit with fit_mod() and simulate ",
+           "from that fit.", call. = FALSE)
+    }
+    if (length(want) != length(got) ||
+        !isTRUE(all.equal(as.numeric(want), as.numeric(got), tolerance = 1e-8))) {
+      stop("sim_mod(): this model has no TMB object, and rebuilding one from ",
+           "its data_list gives a different '", q, "', so the two no longer ",
+           "describe the same model. This happens when the data_list has been ",
+           "edited since the fit, or when the fit used a setting the data_list ",
+           "does not record. Refit with fit_mod() and simulate from that fit.",
+           call. = FALSE)
+    }
+  }
+
+  ba <- Rceattle$data_list$bias_adjust_obs
+  if (is.null(ba) || !length(ba) || anyNA(ba)) {
+    stop("sim_mod(): this model has no TMB object, and its data_list does not ",
+         "record 'bias_adjust_obs', so a rebuild cannot reproduce how the ",
+         "original draw was centred. Refit with fit_mod() and simulate from ",
+         "that fit.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Run the template's `SIMULATE` blocks once
+#'
+#' Called once per `sim_mod()` call. Each `obj$simulate()` re-runs the whole
+#' model and draws every simulated quantity, so calling it per data type would
+#' give each type a draw from a different replicate.
+#'
+#' `par` is passed explicitly because TMB defaults to `obj$env$last.par`, the
+#' last parameter vector evaluated, which after an optimization can be a step the
+#' optimizer rejected. `last.par.best` is the MLE, and is also where
+#' `fit$quantities` was reported from, so the draws and the expected values agree.
+#'
+#' The draw lasts only for this call: TMB re-reads `DATA_` objects each
+#' evaluation, so the object's data and objective are unchanged, and the `jnll`
+#' returned is still the original data's. Fit simulated data by building a new
+#' model on them, as `self_test()` and `run_mse()` do.
+#'
+#' @param obj A `TMB::MakeADFun` object from `.sim_obj()`.
+#' @return The report list, including the simulated `*_obs_sim` matrices.
+#' @noRd
+.sim_draw <- function(obj, state = NULL, period = NULL) {
+  if (!is.null(state) || !is.null(period)) {
+    # obj$env is by reference, so an override has to be undone or it would
+    # follow the caller's fitted object around for the rest of the session.
+    #
+    # Written as DOUBLE, not integer. fit_mod() sanitizes every DATA_ element to
+    # double before MakeADFun, and TMB re-reads the stored list on each
+    # evaluation, so handing back an integer where it stored a double fails with
+    # "Error when reading the variable" -- a DATA_IVECTOR reads a double vector
+    # perfectly well, it is the change of storage type that breaks it.
+    old <- obj$env$data[c("simulate_state", "simulate_period")]
+    on.exit(obj$env$data[names(old)] <- old, add = TRUE)
+    if (!is.null(state))  obj$env$data$simulate_state  <- as.double(state)
+    if (!is.null(period)) obj$env$data$simulate_period <- as.double(period)
+  }
+  tryCatch(
+    obj$simulate(par = obj$env$last.par.best),
+    error = function(e) {
+      # TMB re-tapes a stored model against the template loaded now. If that
+      # template wants an input the stored data list lacks, the failure is a bare
+      # "Error when reading the variable" with nothing to act on. Only name that
+      # cause when it is the one that happened -- any other error is passed
+      # through as itself rather than given a diagnosis it may not have.
+      msg <- conditionMessage(e)
+      if (grepl("reading the variable", msg, fixed = TRUE)) {
+        stop("sim_mod(): the model's stored data does not match the TMB ",
+             "template now loaded (", msg, "). This happens when the model was ",
+             "fitted with a different version of Rceattle. Refit it with this ",
+             "version and simulate from that fit.", call. = FALSE)
+      }
+      stop(e)
+    })
+}
+
+
+#' Check a simulated matrix lines up with the data frame it is written into
+#'
+#' The write-back copies by row position: `rearrange_data()` builds each `*_obs`
+#' matrix straight from its data frame, so row `i` of one is row `i` of the
+#' other. Editing `data_list` after the fit breaks that. The old R draw handed
+#' the mismatched vectors to `rnorm()`, which recycles the shorter one silently
+#' and returns a full-length wrong answer; fail instead.
+#'
+#' @param n_sim Rows the template returned.
+#' @param n_dat Rows of the data frame being written.
+#' @param what Name of the data type, for the message.
+#' @noRd
+.sim_check_rows <- function(n_sim, n_dat, what) {
+  if (n_sim != n_dat) {
+    stop("sim_mod(): the fitted model simulated ", n_sim, " ", what,
+         " rows but its data_list holds ", n_dat,
+         ". The two must line up row for row. This happens when data_list is ",
+         "edited after the fit -- simulate from the model as it was fitted.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Pull a simulated observation matrix out of the report list
+#'
+#' A template with no `SIMULATE` block for this data type returns a report
+#' lacking the entry, and the write-back would put `NULL` into the data frame.
+#' Since TMB always uses the template currently loaded, this really only fires on
+#' a stale shared object in a development session.
+#'
+#' @param rep Report list from `.sim_draw()`.
+#' @param name Name of the simulated object, e.g. `"catch_obs_sim"`.
+#' @return The matrix.
+#' @noRd
+.sim_report_obs <- function(rep, name) {
+  out <- rep[[name]]
+  if (is.null(out)) {
+    stop("sim_mod(): the loaded TMB template returned no simulated '", name,
+         "', so it has no simulator for this data type. Recompile the package ",
+         "(pkgload::load_all() or R CMD INSTALL) so the loaded model matches ",
+         "the installed source.", call. = FALSE)
+  }
+  out
+}
+
+
+#' Warn when a simulated observation is one the model cannot be refit on
+#'
+#' A non-finite or negative draw is not quietly dropped: `data_check()` rejects
+#' it, the refit errors, and `self_test()` counts the replicate as not converged
+#' -- which reads as a convergence problem rather than a data one. The usual
+#' cause is an observation standard deviation that never got a value
+#' (`Estimate_catch_sd = 1` with `Catch_sd` blank gives `exp(log(NA))`), or, for a
+#' natural-scale survey draw, observation error large relative to the index.
+#'
+#' @param x Simulated observations.
+#' @param fleet Fleet code per element, for the message.
+#' @param what Data type name.
+#' @param strictly_positive `TRUE` where zero is invalid too. `data_check()`
+#'   requires a survey index above zero, but accepts a catch of exactly zero --
+#'   and a fishery closed in a projection year legitimately draws one.
+#' @param skip Elements already reported elsewhere. The natural-scale index draw
+#'   is covered by `.sim_warn_index_truncated()`, which names the family to
+#'   switch to; warning again here would say less about the same rows twice.
+#' @noRd
+.sim_warn_unusable <- function(x, fleet, what, strictly_positive = FALSE,
+                               skip = FALSE) {
+  bad <- if (strictly_positive) !is.finite(x) | x <= 0 else !is.finite(x) | x < 0
+  bad <- bad & !skip
+  if (any(bad)) {
+    warning("Simulated an unusable ", what, " for fleet(s) ",
+            paste(unique(fleet[bad]), collapse = ", "),
+            ". data_check() rejects those observations, so refitting this data ",
+            "set fails and self_test() counts the run as not converged. Check ",
+            "the fleet's observation standard deviation against the scale of ",
+            "the data.", call. = FALSE)
+  }
+  invisible(x)
 }
 
 
 #' Simulate Rceattle data
 #'
-#' @description Simulates data used in Rceattle from the expected values estimated
-#' from an existing Rceattle model. The variances and uncertainty are consistent
-#' with those used in the operating model. The function simulates: survey biomass
-#' (under the fleet's own \code{Index_distribution} -- lognormal, natural-scale
-#' normal, or the correlated MVN/MVNORM draw from the supplied covariance),
-#' catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
-#' and total catch (log-normal).
+#' @description Simulates the data an Rceattle model would have produced, either
+#' as expected values or as a random draw. Every observation type is covered:
+#' survey biomass (under the fleet's own \code{Index_distribution} -- lognormal,
+#' natural-scale normal, or the correlated MVN/MVNORM draw from its covariance),
+#' total catch (lognormal), age/length composition and conditional
+#' age-at-length (multinomial or Dirichlet-multinomial), and stomach contents
+#' (multinomial or Dirichlet-multinomial).
+#'
+#' @details
+#' Every draw is taken by the TMB model itself, in a \code{SIMULATE} block beside
+#' the likelihood that defines it, so the two are edited together. A simulator
+#' that has drifted from its likelihood does not error -- it makes
+#' \code{\link{self_test}} report recovery against a process the likelihood
+#' never assumed.
+#'
+#' Consequently \code{simulate = TRUE} needs a model to evaluate. A model loaded
+#' from an \code{.Rdata}/\code{.rds} file has one, and a fit whose \code{$obj}
+#' was dropped to save space is rebuilt from its \code{data_list} and estimates,
+#' provided the rebuild reproduces the fit's own expected values.
+#' \code{\link{model_average}} output cannot be simulated from at all: its
+#' quantities are an average over models rather than any one model's fit, so no
+#' parameters produced them. \code{simulate = FALSE} reads only
+#' \code{$quantities} and draws no random numbers, so it works on any model.
+#'
+#' Rows the model predicts nothing for are left as they are, and each is
+#' reported by a warning: a composition for a fleet with no catch that year comes
+#' back empty; a stomach whose predator has an empirical suitability, and a
+#' covariance survey fleet's observations outside its fitted window, keep their
+#' observed values. A composition, CAAL or diet row whose sample size times its
+#' weight rounds below one observation also comes back empty, and its
+#' \code{Sample_size} is dropped to zero so the refit does not score a row with
+#' no data behind it.
+#'
+#' One deliberate exception to draw-equals-density: compositions are drawn from
+#' the predicted proportions before \code{comp_offset} (the constant added to
+#' observed and predicted alike to keep \code{log(0)} out of the density,
+#' default 1e-5). A bin the model predicts at zero is therefore drawn at zero
+#' while the density scores it at \code{comp_offset}. The difference is about
+#' 4e-4 relative on a 20-bin composition and does not bias the round trip, since
+#' the offset is applied to both sides on the next fit.
+#'
+#' Simulating leaves the drawn values in the object's report environment, under
+#' names ending \code{_sim}. The estimates, the data and the objective function
+#' are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
+#' model is unaffected.
 #'
 #' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
 #' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
 #'   If \code{FALSE}, returns the expected values (hats).
+#' @param process Which process error to redraw alongside the observations.
+#'   \code{FALSE} (default) or \code{"none"} keeps the fitted deviations;
+#'   \code{TRUE} or \code{"all"} redraws every process; \code{"dynamics"} covers
+#'   recruitment, natural mortality and growth, \code{"observation"} covers
+#'   catchability and selectivity. Any subset of \code{"recruitment"},
+#'   \code{"M"}, \code{"growth"}, \code{"catchability"} and
+#'   \code{"selectivity"} may be given instead. Ignored when
+#'   \code{simulate = FALSE}.
 #'
 #' @return A \code{data_list} object containing the simulated or expected data
-#'   values, formatted for use in \code{Rceattle}.
+#'   values, formatted for use in \code{Rceattle}. When \code{process} redrew
+#'   something, the deviations that generated the data are attached as
+#'   \code{attr(x, "process_sim")} -- a named list holding whichever of
+#'   \code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and
+#'   \code{beta_linkage_re} were drawn. Those are the truth a refit has to
+#'   recover; without them the only comparison available is against the original
+#'   fitted deviations, which are no longer the values that generated the data.
+#'
+#'   Each is accompanied by a logical of the same shape named with a
+#'   \code{_drawn} suffix (\code{rec_dev_drawn}, ...), \code{TRUE} where the draw
+#'   touched that cell. The draws cover the hindcast only, and
+#'   \code{beta_linkage_re} is one vector over every random-linkage slot whether
+#'   or not its process was asked for, so the arrays carry fitted values
+#'   alongside simulated ones. Restrict any recovery statistic to the
+#'   \code{_drawn} cells -- over the full array it reports perfect recovery on
+#'   the cells that were never redrawn.
 #' @export
 #'
-sim_mod <- function(Rceattle, simulate = FALSE) {
+sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
+
+  # A DSEM makes the recruitment deviations latent states of a GMRF, so there is
+  # no independent per-year density to redraw them from. The template's process
+  # draw is gated off under a DSEM (ceattle.cpp section 5.13) rather than
+  # drawing IID, which would discard the SEM's lagged paths, covariate effects
+  # and cross-species structure -- and would use the GMRF's CONDITIONAL SD,
+  # understating the marginal variance by 1/(1-rho^2). Say so instead of
+  # returning a data set whose recruitment process was silently not redrawn.
+  # Gate on the RESOLVED state vector, not on `process` itself: `process` also
+  # accepts "all", "dynamics" and "recruitment", and isTRUE() is FALSE for every
+  # one of them -- so those spellings walked straight past an earlier version of
+  # this guard and returned a data set whose recruitment was never redrawn, with
+  # no error and (under "all") a warning that listed the OTHER un-drawn processes
+  # and so read as confirmation that recruitment had been drawn.
+  if (.sim_state_codes(process)[1L] == 1L && .has_dsem(Rceattle)) {
+    stop("sim_mod(): redrawing the recruitment process is not supported on a ",
+         "DSEM fit. The recruitment ",
+         "deviations are latent states of a GMRF, not independent deviations, ",
+         "so there is no per-year density to draw from. Drawing the correct ",
+         "way needs x_tj ~ GMRF(Q) with rec_dev recomputed from it. Use ",
+         "process = FALSE to redraw the observations only.", call. = FALSE)
+  }
+
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
 
-  # Observation bias-adjustment multiplier (default 1). The index/catch
-  # lognormal likelihood fits to mean log(hat) - bias_adjust_obs * sigma^2/2
-  # (ceattle.cpp, JNLL_INDEX / JNLL_CATCH), so the simulator has to apply the
-  # SAME offset or the estimation model is fitted to data drawn from a different
-  # mean than its own likelihood assumes -- a systematic bias in scale (and so in
-  # catchability), not noise, which no number of simulations averages away.
-  # Mirrors residuals.Rceattle(), which resolves the flag the same way.
-  ba_obs <- dat_sim$bias_adjust_obs
-  if (is.null(ba_obs) && !is.null(Rceattle$obj)) {
-    ba_obs <- Rceattle$obj$env$data$bias_adjust_obs
-  }
-  if (is.null(ba_obs)) ba_obs <- 1
-  ba_obs <- as.numeric(ba_obs)[1]
-
-
   # Indices of abundance/biomass ----
-  log_index_sd <- quantities$log_index_sd
   index_hat <- quantities$index_hat
 
   if (simulate) {
-    # Per fleet, under its own Index_distribution: lognormal, natural-scale
-    # normal, or a correlated MVN/MVNORM draw from the supplied covariance.
-    # Drawing every fleet as lognormal (as this did) simulates from an
-    # observation model the likelihood does not assume, which a self-test then
-    # reports as if it had.
-    dat_sim$index_data$Observation <-
-      .sim_index_obs(dat_sim, index_hat, log_index_sd, ba_obs)
+    # Every simulated observation in one call. obj$simulate() re-runs the whole
+    # model and draws every type the template covers, so this is the only place
+    # it is called; the catch and diet blocks below read the same report.
+    #
+    # The survey draw follows each fleet's own Index_distribution (ceattle.cpp,
+    # slot 0): lognormal, natural-scale normal, natural-scale normal truncated at
+    # zero, or a correlated draw from the fleet's covariance.
+    sim_obj <- .sim_obj(Rceattle)
+    sim_state <- .sim_state_codes(process)
+    sim_rep <- .sim_draw(sim_obj, state = sim_state)
+    .sim_warn_linkage_qar1(sim_obj, sim_state)
+    .sim_warn_process_unsimulated(dat_sim, sim_state)
+    .sim_warn_process_absent(sim_obj, sim_state)
+    .sim_warn_rec_srr_penalty(sim_rep, sim_state)
+    index_sim <- .sim_report_obs(sim_rep, "index_obs_sim")
+    .sim_check_rows(nrow(index_sim), nrow(dat_sim$index_data), "index")
+    dat_sim$index_data$Observation <- as.numeric(index_sim[, 1])
+    .sim_warn_index_unsimulated(dat_sim)
+    # Runs first, and reports which rows it covered: a non-positive draw on a
+    # rejection-capable family gets the family-specific message from there
+    # rather than that one and the generic one below.
+    reported <- .sim_warn_index_truncated(sim_rep, dat_sim)
+    .sim_warn_unusable(dat_sim$index_data$Observation,
+                       dat_sim$index_data$Fleet_code, "survey index",
+                       strictly_positive = TRUE, skip = reported)
   } else {
     # Expected value
     dat_sim$index_data$Observation <- index_hat
@@ -266,116 +848,71 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Age/Length composition ----
-  if(nrow(dat_sim$comp_data) > 0){
-    comp_hat <- quantities$comp_hat
-    # Proportion columns found by name; the number of identifying columns
-    # ahead of them is not fixed.
+  # Drawn by the template, in RAW bin space (ceattle.cpp, slot 2). Tail
+  # accumulation folds bins before the density and the fold has no inverse, so a
+  # draw taken there could not be written back; drawing raw and letting the refit
+  # fold again is exact, because both families are closed under merging
+  # categories.
+  #
+  # Counts are stored, as the R draw stored them, and rearrange_data() normalizes
+  # each row on the next fit. A row the model predicts nothing for -- a fleet
+  # with no catch that year, or one switched off -- comes back as the prediction,
+  # which is zero, NOT as the values it went in with. run_mse() relies on that:
+  # it reads a zero row as "not sampled" and drops the sample size with it.
+  if (nrow(dat_sim$comp_data) > 0) {
     comp_cols <- .composition_cols(dat_sim$comp_data, "Comp_")
-    for (obs in 1:nrow(dat_sim$comp_data)) {
-      prob_vec <- comp_hat[obs, ]
-      sum_prob <- sum(prob_vec, na.rm = TRUE)
-      n_eff = dat_sim$comp_data$Sample_size[obs]
-      flt <- dat_sim$comp_data$Fleet_code[obs]
-
-      if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$Comp_distribution[flt])
-
-        # --- Multinomial ---
-        # "MultinomialAFSC" differs from "Multinomial" only in the likelihood's
-        # normalisation, not in the sampling distribution.
-        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
-          sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
-
-        # --- Dirichlet-multinomial ---
-        } else if(.ll == "DirichletMultinomial"){
-          # Theta is the overdispersion/precision parameter.
-          theta <- exp(Rceattle$estimated_params$comp_weights[flt])
-
-          # Dirichlet parameters alpha = theta * expected_proportions
-          alpha <- prob_vec * theta
-
-          # 1. Draw from Dirichlet
-          # Using a Gamma distribution trick to get Dirichlet draws
-          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
-          dir_draw <- dir_draw / sum(dir_draw)
-
-          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
-          sim_comp <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
-
-        } else {
-          stop(sprintf(
-            "sim_mod(): unsupported Comp_distribution '%s' for fleet %s.",
-            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
-        }
-
-        dat_sim$comp_data[obs, comp_cols] <- as.vector(sim_comp)
-      } else {
-        dat_sim$comp_data[obs, comp_cols] <- prob_vec
-      }
+    if (simulate) {
+      comp_sim <- .sim_report_obs(sim_rep, "comp_obs_sim")
+      .sim_check_rows(nrow(comp_sim), nrow(dat_sim$comp_data), "composition")
+      .sim_check_cols(ncol(comp_sim), length(comp_cols), "composition")
+      dat_sim$comp_data[, comp_cols] <- comp_sim[, seq_along(comp_cols), drop = FALSE]
+      dat_sim$comp_data$Sample_size <- .sim_zero_unsampled_n(
+        dat_sim$comp_data$Sample_size, comp_sim)
+      .sim_warn_empty_comp(comp_sim, dat_sim$comp_data$Fleet_code, "composition")
+    } else {
+      dat_sim$comp_data[, comp_cols] <-
+        quantities$comp_hat[, seq_along(comp_cols), drop = FALSE]
     }
   }
 
 
   # CAAL ----
-  caal_hat <- quantities$caal_hat
-  if(nrow(dat_sim$caal_data) > 0){
+  # As for the marginal composition above; CAAL has no tail accumulation.
+  if (nrow(dat_sim$caal_data) > 0) {
     caal_cols <- .composition_cols(dat_sim$caal_data, "CAAL_")
-    for (obs in 1:nrow(dat_sim$caal_data)) {
-      prob_vec <- caal_hat[obs, ]
-      sum_prob <- sum(prob_vec, na.rm = TRUE)
-      n_eff = dat_sim$caal_data$Sample_size[obs]
-      flt <- dat_sim$caal_data$Fleet_code[obs]
-
-      if (simulate && sum_prob > 0) {
-        .ll <- as.character(dat_sim$fleet_control$CAAL_distribution[flt])
-
-        # --- Multinomial ---
-        if(.ll %in% c("Multinomial", "MultinomialAFSC")){
-          sim_caal <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
-
-        # --- Dirichlet-multinomial ---
-        } else if(.ll == "DirichletMultinomial"){
-          # Theta is the overdispersion/precision parameter.
-          theta <- exp(Rceattle$estimated_params$caal_weights[flt])
-
-          # Dirichlet parameters alpha = theta * expected_proportions
-          alpha <- prob_vec * theta
-
-          # 1. Draw from Dirichlet
-          # Using a Gamma distribution trick to get Dirichlet draws
-          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
-          dir_draw <- dir_draw / sum(dir_draw)
-
-          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
-          sim_caal <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
-
-        } else {
-          stop(sprintf(
-            "sim_mod(): unsupported CAAL_distribution '%s' for fleet %s.",
-            .ll, dat_sim$fleet_control$Fleet_name[flt]), call. = FALSE)
-        }
-
-        dat_sim$caal_data[obs, caal_cols] <- as.vector(sim_caal)
-
-      } else {
-        dat_sim$caal_data[obs, caal_cols] <- prob_vec
-      }
+    if (simulate) {
+      caal_sim <- .sim_report_obs(sim_rep, "caal_obs_sim")
+      .sim_check_rows(nrow(caal_sim), nrow(dat_sim$caal_data), "CAAL")
+      .sim_check_cols(ncol(caal_sim), length(caal_cols), "CAAL")
+      dat_sim$caal_data[, caal_cols] <- caal_sim[, seq_along(caal_cols), drop = FALSE]
+      dat_sim$caal_data$Sample_size <- .sim_zero_unsampled_n(
+        dat_sim$caal_data$Sample_size, caal_sim)
+      .sim_warn_empty_comp(caal_sim, dat_sim$caal_data$Fleet_code, "CAAL")
+    } else {
+      dat_sim$caal_data[, caal_cols] <-
+        quantities$caal_hat[, seq_along(caal_cols), drop = FALSE]
     }
   }
 
 
-
   # Catch ----
-  log_catch_sd <- quantities$log_catch_sd
   catch_hat <- quantities$catch_hat
 
   if (simulate) {
-    # Log-normal simulation with bias correction
-    dat_sim$catch_data$Catch <- exp(stats::rnorm(
-      n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - ba_obs * (log_catch_sd^2) / 2,
-      sd = log_catch_sd
-    ))
+    # Drawn by the template's SIMULATE block, beside the catch density that
+    # defines it (ceattle.cpp, slot 1), rather than re-derived here. See
+    # ?sim_mod.
+    #
+    # Read from the draw taken in the index block above -- one obj$simulate() per
+    # sim_mod() call. Calling it again here would give catch a draw from a
+    # different replicate than the index, and consume twice the random numbers.
+    catch_sim <- .sim_report_obs(sim_rep, "catch_obs_sim")
+    .sim_check_rows(nrow(catch_sim), nrow(dat_sim$catch_data), "catch")
+    # Column 1 is the observation; the template writes the natural scale there
+    # (obsvec holds its log). Column 2 is the supplied sd, untouched.
+    dat_sim$catch_data$Catch <-
+      .sim_warn_unusable(as.numeric(catch_sim[, 1]),
+                         dat_sim$catch_data$Fleet_code, "catch")
   } else {
     # Expected values
     dat_sim$catch_data$Catch <- catch_hat
@@ -383,67 +920,189 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Diet (stomach content) ----
-  # NOT SIMULATED. The stomach proportions are carried through unchanged, so a
-  # self_test() on a multispecies model resamples every other data type and
-  # refits against the same diet data every time. Anything the diet informs --
-  # suitability above all -- is then recovered from data that never varied, and
-  # the test reads as more reassuring than it is. Say so rather than let a
-  # multispecies self-test look complete. BS2017MS carries 2025 diet rows.
+  # Drawn by the template alongside the catch, under each predator's own
+  # Diet_distribution (ceattle.cpp, section 13.2). Until this was added, a
+  # multispecies self_test() resampled every other data type and refit against
+  # the same stomachs every replicate, so suitability was recovered from data
+  # that never varied and the test read better than it was.
   #
-  # Implementing it means mirroring the cpp's stomach likelihood (section 13):
-  # rows are grouped by stomach, an "Other prey" bin holding 1 - sum(observed)
-  # is appended, both observed and predicted are offset by `comp_offset` and
-  # renormalized, and only then is the multinomial / Dirichlet-multinomial draw
-  # taken at Sample_size. The grouping is the unresolved part -- the cpp scans
-  # contiguous `stomach_id` runs and carries a TODO(review) noting that
-  # build_osa_data() instead matches on `which(stomach_id == i)`, so the two
-  # disagree if the rows are ever non-contiguous. That has to be settled before
-  # a simulator can rely on it.
+  # Only rows belonging to a stomach the model actually fits are redrawn: the
+  # template skips a predator whose suitability is not estimated, and those rows
+  # come back carrying the values they went in with. The "other prey" balance is
+  # not stored -- it is recomputed from the prey proportions on the next fit.
   if (simulate && !is.null(dat_sim$diet_data) && nrow(dat_sim$diet_data) > 0) {
-    warning("sim_mod() does not simulate diet (stomach content) data: ",
-            nrow(dat_sim$diet_data), " rows are carried through unchanged. ",
-            "A self_test() of a model fitted to diet data therefore does not ",
-            "propagate diet observation error, and recovery of suitability is ",
-            "optimistic.", call. = FALSE)
+    diet_sim <- .sim_report_obs(sim_rep, "diet_obs_sim")
+    .sim_check_rows(nrow(diet_sim), nrow(dat_sim$diet_data), "diet")
+    # Column 2 is Stomach_proportion_by_weight; column 1 is Sample_size.
+    kept <- as.numeric(diet_sim[, 2])
+    was  <- dat_sim$diet_data$Stomach_proportion_by_weight
+    dat_sim$diet_data$Stomach_proportion_by_weight <- kept
+
+    # Warn per predator, not once for the whole table. A model that estimates
+    # suitability for some predators and not others redraws only the former, and
+    # an aggregate test cannot see that: on BS2017MS with suitMode = c(4, 0, 4)
+    # the middle predator's stomachs are frozen while the table as a whole
+    # changes. Rows can also come back untouched because the stomach's sample
+    # size rounds to zero.
+    #
+    # This only matters where predation is modelled. Under empirical suitability
+    # the stomach proportions set suitability directly (predation.hpp,
+    # calculate_msvpa_suitability) and hence predation mortality, so a
+    # self_test() that holds them fixed makes recovery of predation look better
+    # than it is. In a single-species model the diet rows are inert and there is
+    # nothing to say.
+    if (!is.null(dat_sim$msmMode) && any(dat_sim$msmMode > 0)) {
+      pred_sp <- dat_sim$diet_data$Pred
+      frozen <- vapply(split(seq_along(kept), pred_sp),
+                       function(ix) all(abs(kept[ix] - was[ix]) < 1e-14),
+                       logical(1))
+      if (any(frozen)) {
+        sp <- names(frozen)[frozen]
+        nm <- if (!is.null(dat_sim$spnames)) {
+          paste(dat_sim$spnames[as.integer(sp)], collapse = ", ")
+        } else {
+          paste(sp, collapse = ", ")
+        }
+        warning("sim_mod() did not simulate the diet data for predator(s) ", nm,
+                ": the model predicts no stomach composition for them, usually ",
+                "because their suitability is empirical (suitMode = 0) rather ",
+                "than estimated. Those stomach proportions still set suitability ",
+                "and predation mortality, so a self_test() holds them fixed and ",
+                "recovery of predation is optimistic.", call. = FALSE)
+      }
+
+      # A stomach the draw placed nothing in comes back at zero rather than
+      # frozen (ceattle.cpp, diet SIMULATE block). The per-predator test above
+      # cannot see it: a predator with some stomachs drawn and some rounded away
+      # is not frozen. Count the emptied stomachs directly, as the composition
+      # draw does.
+      emptied <- was > 0 & kept == 0
+      if (any(emptied)) {
+        warning(sum(emptied), " diet row(s) came back empty for predator(s) ",
+                paste(unique(pred_sp[emptied]), collapse = ", "),
+                ". Their sample size times Diet_comp_weights rounded to zero, ",
+                "so the draw placed no prey items. Those rows carry no ",
+                "information into a refit.", call. = FALSE)
+      }
+    }
   }
 
-  # # Slot 5 -- Diet composition from lognormal suitability 4D
-  # # STALE: written for a 4D/5D diet_data array; diet_data is now a data.frame
-  # # (Pred, Prey, ..., Sample_size, Stomach_proportion_by_weight).
-  # if (length(dim(dat_sim$diet_data)) == 4) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (r_age in 1:dat_sim$nages[sp]) {
-  #             if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age,
-  #                                                                                                       ] > 0) > 0) {
-  #                 values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$mn_UobsWtAge_hat[sp,
-  #                                                                                                                     , r_age, ])  #FIXME change sample size
-  #             } else {
-  #                 values <- Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age, ]
-  #             }
-  #             dat_sim$diet_data[sp, , r_age, ] <- replace(dat_sim$diet_data[sp, , r_age, ], values = values)
-  #         }
-  #     }
-  # }
-  #
-  # # 5D
-  # if (length(dim(dat_sim$diet_data)) == 5) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (yr in 1:dat_sim$nyrs_fsh_comp[sp]) {
-  #             for (r_age in 1:dat_sim$nages[sp]) {
-  #                 if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$UobsWtAge_hat[sp, , r_age,
-  #                                                                                                        , yr] > 0) > 0) {
-  #                     values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$UobsWtAge_hat[sp,
-  #                                                                                                                      , r_age, , yr])  #FIXME change sample size
-  #                 } else {
-  #                     values <- Rceattle$quantities$UobsWtAge_hat[sp, , r_age, , yr]
-  #                 }
-  #                 dat_sim$diet_data[sp, , r_age, , yr] <- replace(dat_sim$diet_data[sp, , r_age, , yr], values = values)
-  #             }
-  #         }
-  #     }
-  # }
-
+  # When process error was redrawn, the deviations that generated these data are
+  # the truth a self-test has to recover. They are attached rather than added as
+  # a list element so the return value is still a plain data_list -- every
+  # existing caller keeps working, and fit_mod() ignores the attribute.
+  if (simulate && any(sim_state == 1L)) {
+    attr(dat_sim, "process_sim") <- .sim_process_truth(sim_rep, sim_state, sim_obj)
+  }
   return(dat_sim)
+}
+
+
+#' The process deviations a simulated data set was generated from
+#'
+#' Only the processes that were actually redrawn are returned: handing back a
+#' deviation that was NOT drawn would look like a truth to recover, when it is
+#' just the fitted value the refit is starting from.
+#'
+#' A process is only listed if the model gives it a distribution to draw from.
+#' Asking for M on a model with `M1_re = 0` draws nothing, so returning
+#' `log_M1_dev` there would return the fitted values, and a self-test would
+#' report perfect recovery of a process it never simulated.
+#'
+#' Each deviation comes back with a `_drawn` logical of the same shape. The
+#' template reports every deviation array whole -- the draws cover the hindcast
+#' only, and `beta_linkage_re` spans every random-linkage slot whether or not its
+#' process was asked for -- so the arrays carry fitted values alongside simulated
+#' ones. The mask is written by the draw itself (`ceattle.cpp` sections 5.12b and
+#' 5.13) rather than re-derived here, so it cannot disagree with what happened.
+#'
+#' @param sim_rep The report from one `obj$simulate()` call.
+#' @param state Integer switch vector from `.sim_state_codes()`.
+#' @param obj The simulated object, for the model's own switches.
+#' @return Named list of the drawn deviations and their `_drawn` masks, or NULL
+#'   if none were drawn.
+#' @noRd
+.sim_process_truth <- function(sim_rep, state, obj) {
+  out <- list()
+  # Carry the mask as a logical of the deviation's own shape, so
+  # `truth$rec_dev[truth$rec_dev_drawn]` is the set a recovery statistic should
+  # be taken over.
+  add <- function(name) {
+    val  <- sim_rep[[paste0(name, "_sim")]]
+    mask <- sim_rep[[paste0(name, "_drawn_sim")]]
+    if (is.null(val) || is.null(mask)) return(invisible(NULL))
+    # Nothing drawn, nothing returned. The R gates here are coarser than the
+    # template's -- init_dev is additionally gated on initMode (equilibrium modes
+    # and OffsetEquilibrium fix it), and every process draw on
+    # simulate_period(0) -- so a state gate alone would hand back fitted values
+    # under the name of a truth, which is the exact failure this function's
+    # docstring warns about. The mask is what the draw actually wrote, so it
+    # settles it for every gate at once.
+    if (!any(mask != 0)) return(invisible(NULL))
+    out[[name]] <<- val
+    out[[paste0(name, "_drawn")]] <<- array(as.logical(mask != 0), dim = dim(val))
+    invisible(NULL)
+  }
+
+  # rec_srr_single_density is the template's own gate on the recruitment draw
+  # (ceattle.cpp section 5.13): FALSE under the AMAK/Ianelli configuration, where
+  # the stock-recruit penalty scores rec_dev a second time and there is no single
+  # distribution to draw from. Nothing was drawn there, so nothing is returned.
+  if (state[1] == 1L && isTRUE(as.logical(sim_rep$rec_srr_single_density))) {
+    add("rec_dev")
+    add("init_dev")
+  }
+  m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))
+  if (state[2] == 1L && any(m1_re > 0, na.rm = TRUE)) {
+    add("log_M1_dev")
+  }
+  # One vector covering every random linkage, in the registry's slot order; the
+  # linkage table says which process and parameter each slot belongs to. Only
+  # attached when a group belonging to a requested process was actually drawn --
+  # otherwise `!is.null(attr(x, "process_sim"))` would report process error on a
+  # model that has none.
+  #
+  # Whether anything was drawn is read from the mask the draw itself wrote, not
+  # from .sim_linkage_drawn()'s R-side mirror of the template's gate: the two
+  # would have to be kept in step by hand, and the template already knows. The
+  # mirror is still needed by .sim_warn_process_absent(), which asks the
+  # hypothetical "would this process have been drawn had it been requested".
+  re   <- sim_rep$beta_linkage_re_sim
+  mask <- sim_rep$beta_linkage_re_drawn_sim
+  if (length(re) && !is.null(mask) && length(mask) == length(re) &&
+      any(mask != 0)) {
+    out$beta_linkage_re       <- re
+    out$beta_linkage_re_drawn <- as.logical(mask != 0)
+  }
+  if (!length(out)) NULL else out
+}
+
+
+#' Does this model hold a random linkage on a process the caller asked for?
+#'
+#' Mirrors the gate in ceattle.cpp section 5.12b, including its skip of observed
+#' AR1 (QAR1) groups. Used only for the HYPOTHETICAL question -- would this
+#' process be drawn if it were asked for -- which the template cannot answer,
+#' since it only reports what it did draw. What actually happened is read from
+#' `beta_linkage_re_drawn_sim` instead.
+#'
+#' @param obj The simulated object.
+#' @param state Integer switch vector from `.sim_state_codes()`.
+#' @noRd
+.sim_linkage_drawn <- function(obj, state) {
+  d <- obj$env$data
+  idx <- d$linkage_re_index
+  if (is.null(idx) || !length(idx)) return(FALSE)
+  for (i in seq_along(idx)) {
+    slot <- idx[i]
+    if (is.na(slot) || slot < 0) next
+    p <- d$linkage_process[i]
+    if (is.na(p) || p < 0 || p >= length(state) || state[p + 1L] != 1L) next
+    grp <- d$linkage_re_sigma[slot + 1L]
+    if (!is.null(d$linkage_re_obs) && d$linkage_re_obs[grp + 1L] >= 0) next
+    return(TRUE)
+  }
+  FALSE
 }
 
 #' Sample historical recruitment deviations into the projection
@@ -544,9 +1203,32 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #' @param simulation_mods List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data
 #' @param object character string specifying which part of the model to compare (default = "quantities")
 #' @return A data frame summarizing simulation performance metrics
+#' @note Compares against \code{operating_mod} only, so it is valid when the
+#'   replicates redrew the observations alone. If they were produced with
+#'   \code{sim_mod(process = )} / \code{self_test(process = )}, the operating
+#'   model's deviations are no longer what generated the data and the bias this
+#'   reports is an artefact. Compare against
+#'   \code{attr(sims, "process_sim")} in that case. Passing a
+#'   \code{\link{self_test}} result that carries process draws warns, since the
+#'   attribute makes that case detectable rather than only documented.
 #' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update
+
+  # Every statistic below is a deviation from `operating_mod`. That is the truth
+  # only when the replicates redrew the observations alone; with
+  # sim_mod(process = ) / self_test(process = ) the operating model's deviations
+  # are no longer what generated the data, so the "bias" reported here is an
+  # artefact of comparing against the wrong thing. self_test() carries the real
+  # deviations on its own output, so the mistake is detectable rather than merely
+  # documented.
+  if (!is.null(attr(simulation_mods, "process_sim"))) {
+    warning("compare_sim() measures deviation from `operating_mod`, but these ",
+            "replicates were produced with process error redrawn, so its ",
+            "deviations are not what generated the data and the bias reported ",
+            "here is an artefact. Compare against ",
+            "attr(simulation_mods, \"process_sim\") instead.", call. = FALSE)
+  }
 
   # Get differences
   sim_mre <- list()

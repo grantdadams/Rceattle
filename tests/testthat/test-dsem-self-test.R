@@ -63,3 +63,70 @@ testthat::test_that("self_test() refits a DSEM on simulated data", {
     testthat::expect_true(is.finite(st[[nm]]$opt$objective))
   }
 })
+
+# `process` accepts FALSE/TRUE, "none"/"all"/"dynamics"/"observation", and any
+# subset of the five process names. An earlier guard tested isTRUE(process),
+# which is FALSE for every character spelling -- so process = "recruitment" and
+# process = "all" walked past it and returned a data set whose recruitment was
+# never redrawn, silently. Under "all" it was worse than silent: the warning
+# enumerated the OTHER un-drawn processes and so read as confirmation that
+# recruitment HAD been drawn.
+
+testthat::test_that("redrawing recruitment on a DSEM is refused by every spelling", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  for (p in list(TRUE, "all", "dynamics", "recruitment",
+                 c("recruitment", "M"))) {
+    testthat::expect_error(
+      suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE, process = p)),
+      "not supported on a DSEM fit",
+      info = paste(deparse(p), collapse = " "))
+  }
+
+  # ...and the spellings that do NOT ask for recruitment must still work.
+  for (p in list(FALSE, "none", "observation", "M")) {
+    testthat::expect_error(
+      suppressWarnings(suppressMessages(
+        Rceattle::sim_mod(fit, simulate = TRUE, process = p))),
+      NA, info = paste(deparse(p), collapse = " "))
+  }
+})
+
+testthat::test_that("a DSEM fit warns that R0 is not comparable at the default bias correction", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  # Lognormal bias correction is not applied to DSEM deviations. SSB absorbs the
+  # offset and looks fine; R0 does not -- 20-51% below the non-DSEM fit on
+  # BS2017SS with an IID sem -- and dynamic B0 and the B40% proxy are keyed to
+  # R0. The number must not go out unmarked.
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  mk <- function(bias) Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                             verbose = 1, bias_adjust_proc = bias)
+  testthat::expect_warning(
+    suppressMessages(Rceattle::fit_mod(
+      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+      random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+      fit_control = mk(TRUE))),
+    "not comparable to a non-DSEM fit")
+
+  # Silent where the two paths ARE comparable.
+  testthat::expect_warning(
+    suppressMessages(Rceattle::fit_mod(
+      data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+      random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+      fit_control = mk(FALSE))),
+    NA)
+})
