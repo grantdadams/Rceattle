@@ -212,7 +212,11 @@ osa_residuals <- function(fit,
   if (!inherits(fit, "Rceattle")) {
     stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
   }
-  .stop_if_dsem(fit, "osa_residuals")
+  # A DSEM needs nothing special here: these are one-step-ahead residuals for
+  # the DATA, and TMB::oneStepPredict() integrates the random effects out
+  # whatever their structure -- the GMRF is just another random block. Unlike
+  # process_residuals(), nothing here standardizes a deviation by an assumed
+  # per-year prior, so there is no IID assumption to violate.
   if (is.null(fit$obj)) {
     stop("'fit' has no TMB object ($obj); OSA residuals require the fitted ",
          "model object.")

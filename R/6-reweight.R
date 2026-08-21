@@ -68,7 +68,12 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   if (!inherits(fit, "Rceattle")) {
     stop("`fit` must be a fitted Rceattle model.", call. = FALSE)
   }
-  .stop_if_dsem(fit, "reweight_comps")
+  # A DSEM needs nothing special here: the loop reweights COMPOSITION data and
+  # refits, and the recruitment structure travels through `inits` and the
+  # supplied map like any other parameter block. As with remove_F(), that only
+  # holds because fit_mod() no longer drops the dsem_* blocks out of a warm
+  # start -- each iteration used to reset the DSEM to its start values, so the
+  # weights converged against a model that was not the one being reweighted.
   fc <- fit$data_list$fleet_control
 
   # Fleets the loop can tune: they carry composition data that is actually

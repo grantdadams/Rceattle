@@ -88,8 +88,11 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
     list(data_list = Rceattle::BS2017SS,
          dsem = list(tmb_inputs = list(parameters = list(beta_z = 1)))),
     class = "Rceattle")
-  testthat::expect_error(Rceattle::remove_F(built_only),
-                         "does not yet support a DSEM")
+  # Pointed at a function that still refuses. remove_F() used to serve here and
+  # no longer does, at which point this ran remove_F()'s body against a fake
+  # object and failed on `max(NULL)` instead of testing the guard.
+  testthat::expect_error(Rceattle::process_residuals(built_only),
+                         "does not support a DSEM")
 
   # retrospective(), jitter() and self_test() are deliberately NOT in this list
   # any more. retrospective() peels by MARGINALIZING the peeled-year latent
@@ -97,14 +100,20 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
   # perturbs the DSEM starts while leaving the fixed covariate columns alone
   # (test-dsem-jitter.R); self_test() refits the DSEM on simulated observations
   # (test-dsem-self-test.R).
-  for (fn in c("remove_F")) {
-    testthat::expect_error(do.call(fn, list(fake)), "does not yet support a DSEM",
-                           info = fn)
-  }
-  testthat::expect_error(Rceattle::reweight_comps(fake), "does not yet support a DSEM")
-  # profile() is no longer a blanket refusal: a DSEM blocks only the slots it
-  # maps out (R_log_sd, rec_dev), and everything else profiles normally.
-  # See test-dsem-profile.R.
+  # remove_F(), reweight_comps() and osa_residuals() are no longer here either.
+  # All three refit or read through paths that carry the DSEM in `inits`, which
+  # only became true once fit_mod() stopped dropping the dsem_* blocks out of a
+  # warm start -- before that they silently rebuilt the model with the
+  # recruitment SD at its start value.
+  #
+  # profile() is no longer a blanket refusal either: a DSEM blocks only the
+  # slots it maps out (R_log_sd, rec_dev). See test-dsem-profile.R.
+  #
+  # process_residuals() still refuses, and for a statistical reason rather than
+  # a plumbing one: it standardizes a posterior draw by a per-year normal prior,
+  # which is the wrong prior for a GMRF unless the sem is IID.
+  testthat::expect_error(Rceattle::process_residuals(fake),
+                         "does not support a DSEM")
 })
 
 testthat::test_that("run_mse() and sample_rec() refuse a DSEM rather than mis-project it", {

@@ -10,7 +10,13 @@
 #' @export
 #'
 remove_F <- function(Rceattle){
-  .stop_if_dsem(Rceattle, "remove_F")
+
+  # A DSEM needs nothing special here. This sets projection F to zero and
+  # rebuilds at estimateMode = 3, so nothing is re-estimated: the DSEM's fitted
+  # parameters simply travel through `inits`. That only became true once
+  # fit_mod() stopped dropping the dsem_* blocks out of a warm start -- before
+  # that this rebuilt the model with the recruitment SD at its start value, and
+  # the F = 0 projection it returned was not the fitted model's.
 
   # * Years for F = 0 ----
   # - don't want hindcast or it will bias suitability in Multi-species models

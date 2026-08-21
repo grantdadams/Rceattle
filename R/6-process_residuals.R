@@ -55,7 +55,23 @@ process_residuals <- function(fit,
   if (!inherits(fit, "Rceattle")) {
     stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
   }
-  .stop_if_dsem(fit, "process_residuals")
+  # Refused on a DSEM, and this one is statistical rather than plumbing. The
+  # residual here is a posterior draw standardized by the process PRIOR:
+  # (draw - mean) / sd, one scalar sd per year. Under a DSEM the prior on the
+  # recruitment deviations is the GMRF, not an independent per-year normal, so
+  # that standardization is only right for an IID sem and is wrong by the
+  # lag/covariate structure for any other. rec_dev is also mapped out under a
+  # DSEM, so it appears in neither the joint precision nor cov.fixed and the
+  # deviations would have to be read from dsem_x_tj's recruitment columns.
+  # Doing it properly means standardizing by the GMRF's own Cholesky factor.
+  if (.has_dsem(fit)) {
+    stop("process_residuals() does not support a DSEM: the recruitment ",
+         "deviations are latent states of a GMRF, so standardizing them by a ",
+         "per-year normal prior -- which is what this function does -- would be ",
+         "correct only for an IID sem and wrong by the lag and covariate ",
+         "structure for any other. Doing it correctly needs the GMRF's Cholesky ",
+         "factor, not a scalar SD.", call. = FALSE)
+  }
   if (is.null(fit$obj)) stop("'fit' has no TMB object ($obj).")
   process <- match.arg(process)
 

@@ -130,3 +130,56 @@ testthat::test_that("a DSEM fit warns that R0 is not comparable at the default b
       fit_control = mk(FALSE))),
     NA)
 })
+
+# The diagnostics that refit through `inits` were all silently broken by the
+# same defect: fit_mod() dropped the dsem_* blocks out of a warm start, so each
+# rebuilt the model with the recruitment SD at its start value (0.707107). They
+# work now; these pin that the DSEM actually survives the round trip rather than
+# merely that the call returns.
+
+testthat::test_that("remove_F(), reweight_comps() and osa_residuals() keep the DSEM", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0,
+                              bias_adjust_proc = FALSE)
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 0,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = fc)))
+  bp <- as.numeric(fit$estimated_params$dsem_beta_z)
+  # The value the bug produced, so the assertions below name what they exclude.
+  START <- 0.707107
+
+  rf <- suppressWarnings(suppressMessages(Rceattle::remove_F(fit)))
+  # remove_F() rebuilds at estimateMode = 3 and re-estimates nothing, so the
+  # DSEM must come back EXACTLY, not merely close.
+  testthat::expect_equal(as.numeric(rf$estimated_params$dsem_beta_z), bp,
+                         tolerance = 1e-10)
+
+  rw <- suppressWarnings(suppressMessages(
+    Rceattle::reweight_comps(fit, n_iter = 2, verbose = FALSE)))
+  br <- as.numeric(rw$estimated_params$dsem_beta_z)
+  testthat::expect_equal(length(br), length(bp))
+  # Re-estimated against the new weights, so not equal to the parent -- but it
+  # must not have collapsed onto the start value for every species.
+  testthat::expect_gt(max(abs(br - START)), 1e-3)
+  testthat::expect_gt(stats::sd(br), 1e-6)
+
+  # osa_residuals(): one-step-ahead residuals for the DATA. The random effects
+  # are integrated out whatever their structure, so a DSEM must give the same
+  # index residuals as the non-DSEM fit of the same model.
+  fp <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 0,
+    random_rec = TRUE, msmMode = 0, fit_control = fc)))
+  od <- suppressWarnings(suppressMessages(
+    Rceattle::osa_residuals(fit, source = "index", parallel = FALSE)))
+  op <- suppressWarnings(suppressMessages(
+    Rceattle::osa_residuals(fp, source = "index", parallel = FALSE)))
+  testthat::expect_equal(nrow(od), nrow(op))
+  testthat::expect_true(all(is.finite(od$residual)))
+  testthat::expect_equal(od$residual, op$residual, tolerance = 1e-3)
+})
