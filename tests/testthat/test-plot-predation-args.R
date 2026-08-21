@@ -33,7 +33,7 @@ ms_fit <- local({
 as_two_sex <- function(fit, scale = 0.5) {
   d <- fit
   d$data_list$nsex <- rep(2L, d$data_list$nspp)
-  for (q in c("M_at_age", "consumption_at_age", "biomass_at_age")) {
+  for (q in c("M_at_age", "consumption_at_age", "biomass_at_age", "N_at_age")) {
     a <- d$quantities[[q]]
     if (is.null(a) || length(dim(a)) != 4L) next
     if (dim(a)[2] < 2L) {
@@ -213,6 +213,48 @@ testthat::test_that("species selects and orders panels the same way everywhere",
     testthat::expect_equal(f(fit, species = nm[2])$data[[col]],
                            f(fit, species = 2)$data[[col]], info = fn)
   }
+})
+
+testthat::test_that("plot_m2_at_age_prop draws shares that sum to one", {
+  # M2_prop holds each predator's contribution to M2, not a share of it --
+  # summing it over predators reproduces M2_at_age. Plotting that sum gave a
+  # "proportion" reaching 1500.
+  fit <- ms_fit()
+  d <- Rceattle::plot_m2_at_age_prop(fit)$data
+  testthat::expect_true(all(d$Proportion >= 0 & d$Proportion <= 1,
+                            na.rm = TRUE))
+
+  # The shares of one prey panel in one year account for all of its predation.
+  tot <- tapply(d$Proportion, list(d$Prey, d$Year), sum, na.rm = TRUE)
+  tot <- tot[!is.na(tot) & tot > 0]
+  testthat::expect_equal(as.numeric(tot), rep(1, length(tot)))
+
+  # The underlying contributions still reproduce M2_at_age, i.e. the
+  # normalisation is what changed, not the quantity.
+  q <- fit$quantities
+  testthat::expect_equal(sum(q$M2_prop[, 1, , 1, 1]), q$M2_at_age[1, 1, 1, 1])
+})
+
+testthat::test_that("plot_ration multiplies the ration by numbers, not biomass", {
+  # consumption_at_age is one fish's annual ration in kg; numbers-at-age are in
+  # thousands, so the product is mt. Multiplying by biomass-at-age weights the
+  # age-sum by weight-at-age and is not a quantity in any unit.
+  fit <- ms_fit()
+  q <- fit$quantities
+  sp <- 1L
+  ages <- seq_len(fit$data_list$nages[sp])
+  expected <- sum(q$consumption_at_age[sp, 1, ages, 1] *
+                    q$N_at_age[sp, 1, ages, 1]) / 1e6
+
+  d <- Rceattle::plot_ration(fit)$data
+  got <- d$value[as.character(d$Species) == fit$data_list$spnames[sp] &
+                   d$Year == min(d$Year)]
+  testthat::expect_equal(got, expected)
+
+  # And it is not the old biomass-weighted number.
+  wrong <- sum(q$consumption_at_age[sp, 1, ages, 1] *
+                 q$biomass_at_age[sp, 1, ages, 1]) / 1e6
+  testthat::expect_false(isTRUE(all.equal(got, wrong)))
 })
 
 testthat::test_that("the MSE path validates and honours its arguments", {

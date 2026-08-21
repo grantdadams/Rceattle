@@ -71,7 +71,10 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 \item{top_adj}{Ignored. Base-graphics leftover; see \code{right_adj}.}
 }
 \description{
-Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+Population-level consumption for ages \code{minage}+: the individual
+annual ration (kg/yr) multiplied by numbers-at-age and summed over age, in
+million mt. This is how the template forms total consumption
+(\code{avgN_at_age * ration}).
 }
 \details{
 Line type separates the sexes here, so \code{lty} supplies the sex line

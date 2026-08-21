@@ -44,6 +44,29 @@
   `plot_ssb()`, `plot_recruitment()`, the depletions,
   `plot_exploitable_biomass()`, `plot_f()`) gained selection by name.
 
+## Bug fixes -- figures whose numbers change
+
+Two predation plotters drew quantities that did not match their axis labels.
+Both are corrected, so figures regenerated from them will differ from earlier
+runs of the same model.
+
+* **`plot_m2_at_age_prop()` now draws a share, as its name and axis always
+  claimed.** `M2_prop` holds each predator's *contribution* to predation
+  mortality, not its share of it: summing over predators reproduces `M2_at_age`
+  exactly, so the "proportion" reached 1500 on `BS2017MS`. The contributions are
+  now divided by their total, giving shares in [0, 1] that sum to 1 across
+  predators for each prey age and year. A prey age with no predation in a year
+  leaves the shares undefined and draws nothing. The y axis reads "Share of M2
+  at age `<age>` by predator".
+
+* **`plot_ration()` multiplies the ration by numbers-at-age, not
+  biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
+  numbers-at-age are in thousands, so the product is mt -- the way the template
+  itself forms total consumption (`avgN_at_age * ration`). Multiplying by
+  biomass instead weighted the age-sum by weight-at-age, so the plotted series
+  was out by an age-composition-dependent factor and "million mt" described
+  nothing it computed.
+
 ## Bug fixes
 
 * `plot_timeseries()` and its wrappers accept a one-sided year window again;

@@ -1302,7 +1302,10 @@ plot_m_at_age <-
 
 #' Plot predation mortality by age and predator
 #'
-#' @description Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+#' @description Share of the predation mortality (M2) on each prey age that is
+#'   attributable to each predator species. The shares sum to 1 across
+#'   predators for every prey age and year; a year with no predation on that
+#'   age leaves them undefined and draws nothing.
 #'
 #' @details Colour separates **predators** and line type separates models, so
 #'   `line_col` gives the predator colours and `lty` the model line types.
@@ -1348,16 +1351,29 @@ plot_m2_at_age_prop <-
     add_ci <- .rce_no_ci(add_ci, "the M2 proportions",
                          "they are a ratio of series the model reports without standard errors")
 
-    # Proportion of M2 (predation mortality) on each prey age attributable to
-    # each predator species (kept verbatim from the original extraction).
+    # Share of the predation mortality on each prey age attributable to each
+    # predator species.
+    #
+    # M2_prop holds each predator's CONTRIBUTION to M2, not a share of it:
+    # summing it over predators reproduces M2_at_age exactly. Plotting that sum
+    # gave a "proportion" that reached 1500 on BS2017MS. Dividing by the total
+    # over predators gives the share the axis has always claimed, which sums to
+    # 1 across predators for every prey age and year.
     m2_at_age_prop <- array(NA, dim = c(nspp, nspp, 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for (ksp in 1:nspp) {
         for (k_sex in 1:nsex[ksp]) {
-          for (rsp in 1:nspp) {
-            for (yr in 1:nyrs_vec[i]) {
-              m2_at_age_prop[rsp, ksp, k_sex, yr, i] <- sum(Rceattle[[i]]$quantities$M2_prop[c(rsp, (rsp + nspp)*(max(nsex)-1)), ksp + (nspp*(k_sex-1)),,age,yr])
-            }
+          for (yr in 1:nyrs_vec[i]) {
+            by_pred <- vapply(1:nspp, function(rsp)
+              sum(Rceattle[[i]]$quantities$M2_prop[
+                c(rsp, (rsp + nspp) * (max(nsex) - 1)),
+                ksp + (nspp * (k_sex - 1)), , age, yr]),
+              numeric(1))
+            total <- sum(by_pred)
+            # No predation on this prey age in this year leaves the shares
+            # undefined rather than 0/0.
+            m2_at_age_prop[, ksp, k_sex, yr, i] <-
+              if (total > 0) by_pred / total else NA_real_
           }
         }
       }
@@ -1406,7 +1422,8 @@ plot_m2_at_age_prop <-
                      value = "Proportion",
                      hind_endyr = .rce_model_endyr(Rceattle, model_names_use),
                      colour_by = "Predator") +
-        ggplot2::labs(x = "Year", y = paste0("M2 proportion at age ", age))
+        ggplot2::labs(x = "Year",
+                      y = paste0("Share of M2 at age ", age, " by predator"))
     p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                          line_col = line_col)
     if (length(unique(plot_df$Model)) < 2L) p <- p + ggplot2::guides(linetype = "none")
@@ -1509,7 +1526,10 @@ plot_f <- function(Rceattle,
 
 #' Plot ration
 #'
-#' @description Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+#' @description Population-level consumption for ages `minage`+: the individual
+#'   annual ration (kg/yr) multiplied by numbers-at-age and summed over age, in
+#'   million mt. This is how the template forms total consumption
+#'   (`avgN_at_age * ration`).
 #'
 #' @details Line type separates the sexes here, so `lty` supplies the sex line
 #'   types and `line_col` the model colours. A sex-combined model has one sex, so
@@ -1553,20 +1573,24 @@ plot_ration <-
       "it is a product of two series the model reports without standard",
       "errors"))
 
-    # Population-level consumption: ration (consumption_at_age) x
-    # biomass-at-age, summed over age minage+, in million mt.
+    # Population-level consumption: individual ration x numbers-at-age, summed
+    # over age minage+. consumption_at_age is the annual ration of ONE fish
+    # (kg/yr) and numbers-at-age are in thousands, so the product is mt -- the
+    # same way the template forms it (avgN_at_age * ration in predation.hpp).
+    # Multiplying the ration by biomass instead weights the age-sum by
+    # weight-at-age and is not a quantity in any unit.
     df_list <- list()
     for (k in seq_along(models)) {
       dl  <- models[[k]]$data_list
       yrs <- dl$styr:(if (incl_proj) dl$projyr else dl$endyr)
       Caa <- models[[k]]$quantities$consumption_at_age
-      Baa <- models[[k]]$quantities$biomass_at_age
+      Naa <- models[[k]]$quantities$N_at_age
       for (sp in species) {
         ages <- minage:nages[sp]
         for (sex in seq_len(nsex[sp])) {
           sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
           val <- vapply(seq_along(yrs), function(yr)
-            sum(Caa[sp, sex, ages, yr] * Baa[sp, sex, ages, yr]),
+            sum(Caa[sp, sex, ages, yr] * Naa[sp, sex, ages, yr]),
             numeric(1)) / 1e6
           df_list[[length(df_list) + 1L]] <- data.frame(
             Model = model_names_use[k], Species = spnames[sp], Sex = sex_lab,

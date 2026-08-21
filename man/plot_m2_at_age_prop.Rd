@@ -71,7 +71,10 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 \item{lty}{Line type. A vector varies it across series.}
 }
 \description{
-Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+Share of the predation mortality (M2) on each prey age that is
+attributable to each predator species. The shares sum to 1 across
+predators for every prey age and year; a year with no predation on that
+age leaves them undefined and draws nothing.
 }
 \details{
 Colour separates \strong{predators} and line type separates models, so
