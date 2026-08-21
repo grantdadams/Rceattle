@@ -82,6 +82,11 @@
   suitability array is filled, so they cannot close a gap. Parametric
   suitability (`suitMode > 0`) and single-species models are unaffected.
 
+  A species with no prey rows at any age is not reported: nothing eating it is
+  a modelling choice, not a truncated table, and an apex predator in a
+  two-species run would otherwise warn on every fit. Only a partial gap in a
+  species that is eaten somewhere is evidence of truncation.
+
 ## Bug fixes -- figures whose numbers change
 
 Three predation plotters drew quantities that did not match their axis labels.

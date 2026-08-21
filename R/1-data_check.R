@@ -1452,9 +1452,9 @@ data_check <- function(data_list) {
   }
 
   # Predator coverage is owed only by a species that derives its own
-  # suitability from diet data; prey coverage is owed by every species, since
-  # any of them can be eaten by an empirical predator. `suitMode` describes how
-  # a species feeds, not how it is fed on.
+  # suitability from diet data; prey coverage is owed by every species that is
+  # eaten at all, since any of them can be eaten by an empirical predator.
+  # `suitMode` describes how a species feeds, not how it is fed on.
   gaps <- character(0)
   for(sp in seq_len(nspp)){
     # `nages` counts age bins; the ages themselves run minage .. minage+nages-1,
@@ -1484,17 +1484,23 @@ data_check <- function(data_list) {
           }))
       }
 
-      miss_prey <- setdiff(ages, covered(typed, sp, sex, nsex[sp],
-                                         "Prey_age", "Prey_sex", "Prey"))
+      # A species with NO prey rows at any age is not a truncated diet table --
+      # it is a species nothing in the model eats, which is a modelling choice
+      # and a common one (an apex predator in a two-species run). Warning about
+      # it fires on every fit of a correctly specified model and says nothing
+      # the author did not intend. Only a PARTIAL gap is evidence of truncation,
+      # so that is what is reported.
+      #
+      # The predator role keeps its all-ages case: a species that asked for
+      # empirical suitability and supplied no diet data at all did not choose
+      # to exert no predation, it just gets that.
+      prey_seen <- covered(typed, sp, sex, nsex[sp],
+                           "Prey_age", "Prey_sex", "Prey")
+      miss_prey <- if(length(prey_seen)) setdiff(ages, prey_seen) else integer(0)
       if(length(miss_prey)){
         gaps <- c(gaps, paste0(
-          "  ", spnames[sp], sex_lab, " as PREY: ",
-          if(length(miss_prey) == length(ages)){
-            "no diet data at any age -- nothing ever eats it."
-          } else {
-            paste0("no diet data at age ", runs(sort(miss_prey)),
-                   " -- those ages are never eaten.")
-          }))
+          "  ", spnames[sp], sex_lab, " as PREY: no diet data at age ",
+          runs(sort(miss_prey)), " -- those ages are never eaten."))
       }
     }
   }

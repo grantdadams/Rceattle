@@ -137,18 +137,53 @@ testthat::test_that("prey coverage is checked for every species, not just empiri
   # rows as a predator -- but pollock and arrowtooth still eat it empirically,
   # so it owes rows as prey. suitMode says how a species feeds, not how it is
   # fed on, so scoping the prey check to empirical species would miss this.
+  #
+  # Truncate cod's prey rows rather than removing them: a species with no prey
+  # rows at all is one nothing eats, which is a modelling choice and is not
+  # reported. A partial gap is the truncation this warns about.
+  top <- max(cleaned$diet_data$Prey_age[cleaned$diet_data$Prey == 2])
   mixed <- cleaned
   mixed$suitMode <- c(0, 2, 0)
-  mixed$diet_data <- cleaned$diet_data[cleaned$diet_data$Prey != 2, ]
+  mixed$diet_data <-
+    cleaned$diet_data[!(cleaned$diet_data$Prey == 2 &
+                          cleaned$diet_data$Prey_age == top), ]
   mixed <- suppressMessages(suppressWarnings(Rceattle::clean_data(mixed)))
 
   w <- testthat::capture_warnings(quiet_check(mixed))
   cov_warn <- w[grepl("empirical suitability", w)]
   testthat::expect_length(cov_warn, 1)
-  testthat::expect_match(cov_warn, "Cod as PREY: no diet data at any age",
+  testthat::expect_match(cov_warn, paste0("Cod as PREY: no diet data at age ", top),
                          fixed = TRUE)
   # It owes nothing as a predator, so that role is not reported for it.
   testthat::expect_false(grepl("Cod as PREDATOR", cov_warn))
+})
+
+
+testthat::test_that("a species nothing eats is not reported as a prey gap", {
+  testthat::skip_on_cran()
+
+  # An apex predator in a multispecies run has no prey rows at any age. That is
+  # the model the author specified, not a truncated diet table, and reporting it
+  # would warn on every fit of a correctly built model.
+  data("BS2017MS", package = "Rceattle", envir = environment())
+  cleaned <- prep_ms(BS2017MS)
+
+  uneaten <- cleaned
+  uneaten$diet_data <- cleaned$diet_data[cleaned$diet_data$Prey != 3, ]
+  uneaten <- suppressMessages(suppressWarnings(Rceattle::clean_data(uneaten)))
+
+  w <- testthat::capture_warnings(quiet_check(uneaten))
+  testthat::expect_length(grep("as PREY", w), 0)
+
+  # A predator that supplies no diet data at all is still reported: it asked for
+  # empirical suitability and gets none, which it did not choose.
+  nopred <- cleaned
+  nopred$diet_data <- cleaned$diet_data[cleaned$diet_data$Pred != 3, ]
+  nopred <- suppressMessages(suppressWarnings(Rceattle::clean_data(nopred)))
+
+  w2 <- testthat::capture_warnings(quiet_check(nopred))
+  testthat::expect_match(paste(w2, collapse = "\n"),
+                         "as PREDATOR: no diet data at any age")
 })
 
 
