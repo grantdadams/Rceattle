@@ -233,7 +233,7 @@ testthat::test_that("plot_selectivity plots sel_at_age", {
 })
 
 # --- mortality-at-age ---------------------------------------------------------
-testthat::test_that("plot_mortality plots M(1+2)-at-age", {
+testthat::test_that("the mortality and predation plotters draw their source arrays", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -250,6 +250,30 @@ testthat::test_that("plot_mortality plots M(1+2)-at-age", {
   d <- d[order(d$Age), ]
   src <- as.numeric(ms$quantities$M2_at_age[1, 1, seq_len(nages1), 1])
   testthat::expect_equal(d$M, src)
+  testthat::expect_equal(p$labels$y, "M2")
+
+  # M2 = FALSE draws M1, not the sum. The help said "total M (M1 + M2)" for
+  # this branch, and nothing here contradicted it.
+  p1 <- Rceattle::plot_mortality(ms, M2 = FALSE)
+  d1 <- p1$data[p1$data$Species == sp1 & p1$data$Year == ms$data_list$styr, ]
+  d1 <- d1[order(d1$Age), ]
+  testthat::expect_equal(
+    d1$M, as.numeric(ms$quantities$M1_at_age[1, 1, seq_len(nages1), 1]))
+  testthat::expect_equal(p1$labels$y, "M1")
+  # The two branches draw different arrays -- neither is the sum, which is what
+  # plot_m_at_age() draws from M_at_age. (M_at_age is defined as M1 + M2 in the
+  # template, but the REPORTed arrays only satisfy that once the multispecies
+  # iteration converges: M2_at_age is recomputed after M_at_age each pass, so on
+  # an estimateMode = 3 build it lags by one. Not an identity to assert here.)
+  testthat::expect_false(isTRUE(all.equal(d$M, d1$M)))
+
+  # type: "heatmap" tiles the same series; the default and anything else lines.
+  geom1 <- function(p) class(p$layers[[1]]$geom)[1]
+  testthat::expect_equal(geom1(Rceattle::plot_mortality(ms, type = "heatmap")),
+                         "GeomTile")
+  testthat::expect_equal(geom1(Rceattle::plot_mortality(ms, type = 0)),
+                         "GeomTile")
+  testthat::expect_equal(geom1(p), "GeomLine")
 
   # plot_m_at_age: total M at a fixed age over time == M_at_age[sp, sex, age, ]
   pa <- Rceattle::plot_m_at_age(ms, age = 1)
