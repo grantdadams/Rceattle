@@ -36,10 +36,9 @@ plot_m_at_age(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-whichever variable the figure separates by colour, in legend order -- that
-is not always the model, so check the legend. Too few colours are recycled,
-with a warning.}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
@@ -51,7 +50,8 @@ read as labels for back-compatibility.}
 \item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
 a standard-weight ggplot line. A vector varies it across series.}
 
-\item{lty}{Line type. A vector varies it across series.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
 \item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
 right margin to fit the legend. Set margins on the returned ggplot instead.}
@@ -74,7 +74,7 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 Function that plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 }
 \details{
-Line type separates the sexes here, so \code{lty} supplies the sex line
-types and \code{line_col} the model colours. A sex-combined model has one sex, so
-a varying \code{lty} has nothing to key on and warns.
+Colour separates the models; line type separates the sexes. A
+sex-combined model has one sex, so a varying \code{lty} has nothing to key on
+and warns.
 }

@@ -167,11 +167,10 @@
 
 #' Warn when a colour vector is too short for what it is about to colour
 #'
-#' `line_col` recycles, so too few colours silently merge series: on
-#' `plot_b_eaten_prop()`, whose colour separates predators, `line_col = 1` draws
-#' every predator in black. That reading is right -- colour follows the figure,
-#' not the model -- but it is not what a caller who meant "one model, one
-#' colour" expects, so say which variable the colours landed on.
+#' `line_col` recycles, so too few colours merge series: `line_col = 1` on
+#' `plot_b_eaten_prop()`, whose colour separates predators, draws every predator
+#' in black. The message names the variable the colours landed on, since a
+#' caller passing one colour usually meant one model.
 #'
 #' @param line_col The user's colours, or `NULL`.
 #' @param n Number of levels of the variable mapped to colour.
@@ -195,10 +194,8 @@
 #' use viridis. Both are colorblind-safe.
 #'
 #' `line_col` overrides the default, supplying the palette for whichever
-#' variable the plot maps to colour -- not always the model; see
-#' `?rceattle-plot-args`. On a continuous colour aesthetic (a year fan) the
-#' colours are ramp anchors instead: one draws the fan in that colour, several
-#' interpolate between them.
+#' variable the plot maps to colour (see `?rceattle-plot-args`). On a continuous
+#' colour aesthetic the colours are ramp anchors instead.
 #'
 #' @param p A ggplot.
 #' @param discrete Use the discrete (Okabe-Ito) or continuous (viridis) scale.
@@ -324,7 +321,7 @@
   nspp <- dl$nspp
   if (is.null(nspp) || is.na(nspp)) nspp <- length(dl$spnames)
   if (!length(nspp) || nspp < 1L) {
-    # Blame the model, not `species` -- otherwise a malformed fit reports
+    # Report the model, not the argument: a malformed fit would otherwise give
     # "`species` selected no species" for an argument the caller never passed.
     stop("This model reports no species (`data_list$nspp` is ",
          format(dl$nspp), ").", call. = FALSE)
@@ -338,10 +335,8 @@
   }
   user_named <- !is.null(spnames)
   if (!user_named) spnames <- default_names
-  # Recycling a short `spnames` would label species 3 with species 1's name --
-  # a plausible-looking wrong answer on a figure that goes into an assessment
-  # document. The un-helped behaviour (an NA strip) is at least visibly broken,
-  # so refuse instead of quietly inventing a label.
+  # Recycling a short `spnames` would label species 3 with species 1's name.
+  # Refuse instead.
   spnames <- as.character(spnames)
   if (length(spnames) != nspp) {
     stop("`spnames` has ", length(spnames), " name(s) but the model has ",
@@ -442,9 +437,11 @@
 #'   be told rather than having the extra values dropped in silence -- line type
 #'   keys on sex, and most models here are sex-combined.
 #' @param lty_in_aes The plot's own `aes()` already maps line type (as
-#'   `plot_ration()` maps it to sex). A single value then leaves that mapping
-#'   alone rather than flattening it to a constant; only a vector overrides it,
-#'   supplying one value per level.
+#'   `plot_ration()` maps it to sex). A vector then supplies one value per
+#'   level; a single non-default value is applied to every level through a
+#'   one-value palette, since passing it as a fixed geom parameter would
+#'   override the mapping and drop its legend. The default `lty = 1` is what the
+#'   first level already draws, so it is left alone and no default figure moves.
 #' @return `list(mapping = <aes or NULL>, args = <fixed geom params>,
 #'   scales = <list of scale objects>)`.
 #' @keywords internal
@@ -512,6 +509,19 @@
       "linetype", palette = function(n) rep(lty, length.out = n))))
   } else if (!lty_in_aes) {
     args$linetype <- lty[1]
+  } else if (!isTRUE(all.equal(as.vector(lty[1]), 1))) {
+    # The plot maps line type itself and `lty` is a single non-default value, so
+    # it applies to every level. Leaving it unset here is what silently dropped
+    # `plot_ration(fit, lty = 2)`: the argument had no effect and said nothing.
+    # Collapsing a key that does separate something is worth a word, since the
+    # figure then draws those levels alike.
+    if (!is.null(lty_n) && lty_n > 1L) {
+      warning("`lty` is one value but this plot keys line type on ", lty_by,
+              ", which has ", lty_n, " levels; they are drawn alike. Supply ",
+              lty_n, " line types to tell them apart.", call. = FALSE)
+    }
+    scales <- c(scales, list(ggplot2::discrete_scale(
+      "linetype", palette = function(n) rep(lty[1], length.out = n))))
   }
   if (!is.null(alpha)) args$alpha <- alpha
 
@@ -531,11 +541,11 @@
 }
 
 
-#' Add a `geom_line()` built from [.rce_line_params()], plus its scales
+#' Add a `geom_line()` built from `.rce_line_params()`, plus its scales
 #'
-#' The three-line incantation every converted plotter would otherwise repeat.
+#' Adds the geom and its scales, which every converted plotter needs together.
 #' @param p A ggplot.
-#' @param lp The list returned by [.rce_line_params()].
+#' @param lp The list returned by `.rce_line_params()`.
 #' @param ... Further arguments to [ggplot2::geom_line()].
 #' @keywords internal
 #' @noRd
@@ -547,45 +557,19 @@
 }
 
 
-#' Year-axis limits, for plots with Year on the x axis
-#'
-#' Clips the axis without dropping rows, so a series continues to the panel edge
-#' rather than stopping short. The y scale is trained on every row, so use this
-#' only where the caller wants the full range kept; [.rce_year_filter()] narrows
-#' the data instead, which is what a `free_y` panel needs to rescale to the
-#' window.
-#'
-#' One-sided limits are the common case (`plot_ssb(fit, minyr = 1990)`), so the
-#' unset end is passed as `NA` -- `coord_cartesian()` reads that as "take it from
-#' the data". Passing `NULL` through `c()` instead drops the element and yields a
-#' length-1 `xlim`, which ggplot2 rejects outright.
-#'
-#' @param minyr,maxyr First / last year to show, or `NULL` for no limit.
-#' @return A `coord_cartesian` layer, or `NULL` when neither limit is set.
-#' @keywords internal
-#' @noRd
-.rce_year_limits <- function(minyr = NULL, maxyr = NULL) {
-  if (is.null(minyr) && is.null(maxyr)) return(NULL)
-  ggplot2::coord_cartesian(
-    xlim = c(if (is.null(minyr)) NA_real_ else as.numeric(minyr),
-             if (is.null(maxyr)) NA_real_ else as.numeric(maxyr)))
-}
-
-
-#' Restrict a plot frame to a year range, for plots where Year is not the x axis
+#' Restrict a plot frame to a year range
 #'
 #' Narrows a plot to `minyr:maxyr` by dropping rows, so that a `free_y` panel
-#' rescales to what is actually shown. Clipping the axis instead
-#' ([.rce_year_limits()]) leaves the y scale trained on the hidden years, which
-#' on a series that has grown by two orders of magnitude squeezes the requested
+#' rescales to what is actually shown. Clipping the axis with
+#' `coord_cartesian()` leaves the y scale trained on the hidden years, which on
+#' a series that has grown by two orders of magnitude squeezes the requested
 #' window into a few pixels at the bottom of the panel.
 #'
 #' Also used to thin a year fan (selectivity, mortality-at-age), where Year is
 #' the colour or grouping variable rather than the x axis.
 #'
-#' Emptying the frame entirely is an error rather than a blank panel, because a
-#' figure with nothing in it is never what the caller wanted; a window that only
-#' empties *some* panels just loses those rows.
+#' An empty frame is an error, not a blank panel; a window that only empties
+#' *some* panels just loses those rows.
 #'
 #' @param df A plot data frame.
 #' @param minyr,maxyr First / last year to keep, or `NULL` for no limit.
@@ -625,26 +609,35 @@
 #' keying on whichever happens to be last puts the divider mid-hindcast and
 #' labels real data as projection.
 #'
+#' Drawn only when the boundary is inside the window being plotted. A
+#' `geom_vline()` trains the x scale like any other layer, so a divider outside
+#' a `minyr`/`maxyr` window would stretch the axis back to it and reintroduce
+#' the empty span the window was asked for to remove.
+#'
 #' @param models A list of `Rceattle` fits.
 #' @param incl_proj Whether projection years are being drawn.
+#' @param minyr,maxyr The plotted year window, or `NULL` for no limit.
 #' @return A `geom_vline` layer, or `NULL`.
 #' @keywords internal
 #' @noRd
-.rce_proj_divider <- function(models, incl_proj = FALSE) {
+.rce_proj_divider <- function(models, incl_proj = FALSE,
+                              minyr = NULL, maxyr = NULL) {
   if (!isTRUE(incl_proj)) return(NULL)
   endyr <- vapply(models, function(m) {
     e <- m$data_list$endyr
     if (is.null(e) || !length(e)) NA_real_ else as.numeric(e[1])
   }, numeric(1))
   if (all(is.na(endyr))) return(NULL)
-  ggplot2::geom_vline(xintercept = max(endyr, na.rm = TRUE),
-                      linetype = 2, colour = "grey50")
+  at <- max(endyr, na.rm = TRUE)
+  if (!is.null(minyr) && !is.na(minyr) && at < minyr) return(NULL)
+  if (!is.null(maxyr) && !is.na(maxyr) && at > maxyr) return(NULL)
+  ggplot2::geom_vline(xintercept = at, linetype = 2, colour = "grey50")
 }
 
 
 #' Last hindcast year of each model, named by its plot label
 #'
-#' Feeds [.rce_mean_line()], which has to cut each model at its own `endyr`.
+#' Feeds `.rce_mean_line()`, which has to cut each model at its own `endyr`.
 #'
 #' @param models A list of `Rceattle` fits.
 #' @param labels Plot labels for those models, from [.model_labels()].
@@ -812,21 +805,26 @@
 
 #' Shared plotting arguments
 #'
-#' The `plot_*()` functions take a common vocabulary, documented here once and
-#' inherited by each of them.
+#' A common vocabulary, documented here once and inherited by the plotters that
+#' take it: [plot_timeseries()] and its wrappers ([plot_biomass()], [plot_ssb()],
+#' [plot_recruitment()], the depletions, [plot_exploitable_biomass()],
+#' [plot_f()]), the predation plotters ([plot_b_eaten()], [plot_b_eaten_prop()],
+#' [plot_m_at_age()], [plot_m2_at_age_prop()], [plot_ration()]), and
+#' [plot_selectivity()]. Each argument means the same thing wherever it appears,
+#' but not every plotter takes every one -- `incl_mean` is on the predation
+#' plotters, `add_ci` only where the quantity carries standard errors, and
+#' `alpha` only where the figure has a ribbon or a fan. The remaining
+#' `plot_*()` functions still take their own arguments; see each one's help.
 #'
 #' @section How `line_col` and `lty` are applied:
 #'
 #' They supply values for whichever **discrete variable the plot already
 #' encodes with that aesthetic**, matched in level order -- which is not always
-#' the model. In [plot_b_eaten_prop()] colour separates predators; in
-#' [plot_ration()] line type separates sexes. Check what the figure's legend
-#' names before assuming a colour vector maps to your models.
+#' the model. Each function's help says what its own figure separates.
 #'
 #' Where colour encodes a continuous variable -- the year fan in
-#' [plot_selectivity()] and [plot_mortality()] -- `line_col` supplies the ramp
-#' anchors instead: one colour draws the fan in that colour, several interpolate
-#' between them.
+#' [plot_selectivity()] -- `line_col` supplies the ramp anchors instead: one
+#' colour draws the fan in that colour, several interpolate between them.
 #'
 #' @param Rceattle A single [fit_mod()] object or a list of them (overlaid).
 #' @param file Optional file stem; the figure is written to
@@ -838,13 +836,13 @@
 #'   read as labels for back-compatibility.
 #' @param spnames Species labels, length `nspp`. Default: the model's own.
 #' @param line_col Line colours; names, hex, or base-graphics integers. `NULL`
-#'   uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-#'   whichever variable the figure separates by colour, in legend order -- that
-#'   is not always the model, so check the legend. Too few colours are recycled,
-#'   with a warning.
+#'   uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+#'   the figure separates by colour, in legend order. Too few colours are
+#'   recycled, with a warning.
 #' @param lwd Line width on the base-graphics scale: the default `3` renders as
 #'   a standard-weight ggplot line. A vector varies it across series.
-#' @param lty Line type. A vector varies it across series.
+#' @param lty Line type. A vector varies it across the levels of whatever the
+#'   figure separates by line type.
 #' @param alpha Transparency of confidence ribbons and shaded areas.
 #' @param add_ci Add a 95% confidence interval. Only available where the
 #'   plotted quantity carries standard errors; warns and draws none otherwise.

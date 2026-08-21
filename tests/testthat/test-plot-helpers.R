@@ -195,18 +195,33 @@ testthat::test_that("a mapped lwd applies lwd/3 in level order, like the fixed o
   testthat::expect_false(anyNA(b$data[[1]]$linewidth))
 })
 
-testthat::test_that("a single lty leaves an aesthetic the plot already maps alone", {
+testthat::test_that("lty reaches a plot that maps line type in its own aes()", {
   # plot_ration() and plot_m_at_age() map line type to sex in their own aes().
-  # Passing the scalar default as a fixed geom parameter would override that and
-  # draw both sexes as one solid line.
+  # A fixed geom parameter would override that mapping and drop its legend, so
+  # the value goes through a scale instead.
+
+  # The default is what the first level already draws: leave the mapping alone,
+  # so no default figure moves.
   lp <- .rce_line_params(lty = 1, lty_by = "Sex", lty_in_aes = TRUE)
   testthat::expect_null(lp$args$linetype)
   testthat::expect_length(lp$scales, 0L)
 
-  # A vector still overrides, one value per level.
+  # A vector overrides, one value per level.
   lp2 <- .rce_line_params(lty = c(1, 3), lty_by = "Sex", lty_in_aes = TRUE)
   testthat::expect_length(lp2$scales, 1L)
   testthat::expect_null(lp2$args$linetype)
+
+  # A single non-default value applies to EVERY level. Dropping it here is what
+  # made `plot_ration(fit, lty = 2)` silently do nothing on a sex-combined fit.
+  lp3 <- .rce_line_params(lty = 2, lty_by = "Sex", lty_n = 1L, lty_in_aes = TRUE)
+  testthat::expect_null(lp3$args$linetype)
+  testthat::expect_length(lp3$scales, 1L)
+  testthat::expect_equal(lp3$scales[[1]]$palette(3), rep(2, 3))
+
+  # ... and says so when the key it collapses does separate something.
+  testthat::expect_warning(
+    .rce_line_params(lty = 2, lty_by = "Sex", lty_n = 2L, lty_in_aes = TRUE),
+    "drawn alike")
 
   # Where the plot does NOT map line type, a scalar is still applied.
   testthat::expect_equal(.rce_line_params(lty = 2, lty_by = "Model")$args$linetype, 2)
@@ -342,27 +357,6 @@ testthat::test_that("line_col supplies ramp anchors on a continuous colour scale
 
 
 # --- year window --------------------------------------------------------------
-testthat::test_that(".rce_year_limits clips without filtering", {
-  # Year on the x axis: p$data must stay complete, because the accuracy tests
-  # compare it against the model's own quantities.
-  testthat::expect_null(.rce_year_limits(NULL, NULL))
-  testthat::expect_s3_class(.rce_year_limits(1990, 2000), "CoordCartesian")
-  testthat::expect_equal(.rce_year_limits(1990, 2000)$limits$x, c(1990, 2000))
-})
-
-testthat::test_that(".rce_year_limits accepts a one-sided window", {
-  # `plot_ssb(fit, minyr = 1990)` is the single commonest use of the argument.
-  # c(1990, NULL) is length 1, which ggplot2 rejects outright.
-  p <- ggplot2::ggplot(demo_df, ggplot2::aes(.data$x, .data$y)) +
-    ggplot2::geom_line()
-  testthat::expect_no_error(
-    ggplot2::ggplot_build(p + .rce_year_limits(minyr = 2)))
-  testthat::expect_no_error(
-    ggplot2::ggplot_build(p + .rce_year_limits(maxyr = 3)))
-  testthat::expect_equal(.rce_year_limits(minyr = 2)$limits$x, c(2, NA))
-  testthat::expect_equal(.rce_year_limits(maxyr = 3)$limits$x, c(NA, 3))
-})
-
 testthat::test_that(".rce_year_filter drops rows outside the window", {
   df <- data.frame(Year = 1990:1999, v = 1:10)
   testthat::expect_equal(nrow(.rce_year_filter(df, 1995, 1997)), 3L)
@@ -404,6 +398,16 @@ testthat::test_that(".rce_proj_divider draws at the latest hindcast year", {
   # A model without an endyr must not produce a vline at NA.
   testthat::expect_null(
     .rce_proj_divider(list(list(data_list = list(endyr = NULL))), TRUE))
+})
+
+testthat::test_that(".rce_proj_divider stays out of a window it falls outside", {
+  # A vline trains the x scale, so a divider at 2017 on a minyr = 2020 window
+  # would stretch the axis back to 2017 -- the empty span the window removed.
+  m <- list(list(data_list = list(endyr = 2017)))
+  testthat::expect_null(.rce_proj_divider(m, TRUE, minyr = 2020))
+  testthat::expect_null(.rce_proj_divider(m, TRUE, maxyr = 2010))
+  testthat::expect_equal(
+    .rce_proj_divider(m, TRUE, minyr = 2000, maxyr = 2050)$data$xintercept, 2017)
 })
 
 testthat::test_that(".rce_mean_line averages hindcast years only", {

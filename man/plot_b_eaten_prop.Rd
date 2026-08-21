@@ -35,10 +35,9 @@ plot_b_eaten_prop(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-whichever variable the figure separates by colour, in legend order -- that
-is not always the model, so check the legend. Too few colours are recycled,
-with a warning.}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
@@ -73,13 +72,13 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 \item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
 \code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{lty}{Line type. A vector varies it across series.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 }
 \description{
 Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 }
 \details{
-Colour separates \strong{predators} and line type separates models here,
-so \code{line_col} gives the predator colours and \code{lty} the model line types.
-Panels are prey species.
+Colour separates predators; line type separates models. Panels are
+prey species.
 }

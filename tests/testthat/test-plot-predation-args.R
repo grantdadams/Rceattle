@@ -33,7 +33,8 @@ ms_fit <- local({
 as_two_sex <- function(fit, scale = 0.5) {
   d <- fit
   d$data_list$nsex <- rep(2L, d$data_list$nspp)
-  for (q in c("M_at_age", "consumption_at_age", "biomass_at_age", "N_at_age")) {
+  for (q in c("M_at_age", "consumption_at_age", "biomass_at_age", "N_at_age",
+              "avgN_at_age")) {
     a <- d$quantities[[q]]
     if (is.null(a) || length(dim(a)) != 4L) next
     if (dim(a)[2] < 2L) {
@@ -124,6 +125,29 @@ testthat::test_that("line type keys on model where the figure separates models",
   # plot_b_eaten maps no line type of its own, so a scalar applies to the line.
   testthat::expect_equal(
     unique(built(Rceattle::plot_b_eaten(fit, lty = 2))$linetype), 2)
+})
+
+testthat::test_that("a single lty reaches the line where the plot keys line type", {
+  # Every bundled model is sex-combined, so `plot_ration(fit, lty = 2)` is the
+  # commonest call there is on these two -- and it drew solid, silently, because
+  # the value was dropped rather than applied to the one level.
+  fit <- ms_fit()
+  for (fn in c("plot_ration", "plot_m_at_age")) {
+    f <- getExportedValue("Rceattle", fn)
+    testthat::expect_equal(unique(built(f(fit, lty = 2))$linetype), 2,
+                           label = fn)
+    # The default leaves the plot's own scale alone, which draws "solid".
+    testthat::expect_equal(unique(built(f(fit))$linetype), "solid", label = fn)
+  }
+  # Same for the two whose line type keys on model, drawn with one model.
+  for (fn in c("plot_b_eaten_prop", "plot_m2_at_age_prop")) {
+    f <- getExportedValue("Rceattle", fn)
+    testthat::expect_equal(unique(built(f(fit, lty = 2))$linetype), 2,
+                           label = fn)
+  }
+  # Collapsing a key that does separate something warns.
+  testthat::expect_warning(
+    Rceattle::plot_ration(as_two_sex(fit), lty = 2), "drawn alike")
 })
 
 testthat::test_that("a varying lty warns when its key has one level", {
@@ -235,26 +259,62 @@ testthat::test_that("plot_m2_at_age_prop draws shares that sum to one", {
   testthat::expect_equal(sum(q$M2_prop[, 1, , 1, 1]), q$M2_at_age[1, 1, 1, 1])
 })
 
-testthat::test_that("plot_ration multiplies the ration by numbers, not biomass", {
+testthat::test_that("plot_ration multiplies the ration by average numbers", {
   # consumption_at_age is one fish's annual ration in kg; numbers-at-age are in
   # thousands, so the product is mt. Multiplying by biomass-at-age weights the
   # age-sum by weight-at-age and is not a quantity in any unit.
+  #
+  # avgN_at_age, not N_at_age: predation.hpp forms consumption as
+  # avgN_at_age * ration, so start-of-year numbers overstate it by
+  # 1 / ((1 - exp(-Z)) / Z).
   fit <- ms_fit()
   q <- fit$quantities
   sp <- 1L
   ages <- seq_len(fit$data_list$nages[sp])
   expected <- sum(q$consumption_at_age[sp, 1, ages, 1] *
-                    q$N_at_age[sp, 1, ages, 1]) / 1e6
+                    q$avgN_at_age[sp, 1, ages, 1]) / 1e6
 
   d <- Rceattle::plot_ration(fit)$data
   got <- d$value[as.character(d$Species) == fit$data_list$spnames[sp] &
                    d$Year == min(d$Year)]
   testthat::expect_equal(got, expected)
 
-  # And it is not the old biomass-weighted number.
-  wrong <- sum(q$consumption_at_age[sp, 1, ages, 1] *
-                 q$biomass_at_age[sp, 1, ages, 1]) / 1e6
-  testthat::expect_false(isTRUE(all.equal(got, wrong)))
+  # And it is neither the old biomass-weighted number nor the start-of-year one.
+  for (wrong_q in c("biomass_at_age", "N_at_age")) {
+    wrong <- sum(q$consumption_at_age[sp, 1, ages, 1] *
+                   q[[wrong_q]][sp, 1, ages, 1]) / 1e6
+    testthat::expect_false(isTRUE(all.equal(got, wrong)),
+                           label = paste("plot_ration used", wrong_q))
+  }
+})
+
+testthat::test_that("total consumption accounts for the biomass eaten as prey", {
+  # The identity that ties this figure to plot_b_eaten(): the ration a predator
+  # takes is spent on modelled prey plus other food, so consumption over ALL
+  # ages must be at least the biomass those predators ate, and the gap is the
+  # other-food term. This is what fixes the numbers array -- N_at_age breaks it
+  # in the wrong direction for a reason that has nothing to do with other food.
+  fit <- ms_fit()
+  q  <- fit$quantities
+  dl <- fit$data_list
+
+  # plot_ration(minage = 1) sums every age, in million mt, per species.
+  d  <- Rceattle::plot_ration(fit, minage = 1)$data
+  yr <- min(d$Year)
+  consumed <- vapply(seq_len(dl$nspp), function(sp)
+    sum(d$value[as.character(d$Species) == dl$spnames[sp] & d$Year == yr]),
+    numeric(1))
+
+  # B_eaten[pred, prey, pred_age, prey_age, yr], summed over every prey and age
+  # for each predator, in million mt.
+  yr_i  <- yr - dl$styr + 1L
+  ms    <- max(dl$nsex)
+  eaten <- vapply(seq_len(dl$nspp), function(rsp)
+    sum(q$B_eaten[c(rsp, (rsp + dl$nspp) * (ms - 1)), , , , yr_i]) / 1e6,
+    numeric(1))
+
+  testthat::expect_true(all(consumed >= eaten))
+  testthat::expect_true(any(eaten > 0))
 })
 
 testthat::test_that("the MSE path validates and honours its arguments", {

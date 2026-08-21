@@ -39,10 +39,9 @@ plot_b_eaten(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-whichever variable the figure separates by colour, in legend order -- that
-is not always the model, so check the legend. Too few colours are recycled,
-with a warning.}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
 \item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
 mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
@@ -80,7 +79,8 @@ last hindcast year.}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{lty}{Line type. A vector varies it across series.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
 \item{incl_mean}{Add a horizontal line at the hindcast mean of each series.}
 

@@ -13,6 +13,7 @@ plot_f(
   spnames = NULL,
   add_ci = FALSE,
   lwd = 3,
+  lty = 1,
   right_adj = 0,
   width = 7,
   height = 6.5,
@@ -27,38 +28,48 @@ plot_f(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{spnames}{Species names for legend}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{add_ci}{NOT WORKING If the confidence interval is to be added}
+\item{add_ci}{Ignored. \code{F_spp} is \code{REPORT}ed without standard errors, so
+there is no interval to draw.}
 
-\item{lwd}{Line width as specified by user}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
-\item{width}{plot width}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
 
-\item{height}{plot height}
+\item{width, height}{Saved figure size in inches.}
 
-\item{minyr}{First year to plot}
+\item{minyr, maxyr}{First / last year to plot.}
 
-\item{maxyr}{max year to plot}
+\item{incl_proj}{Include the projection years, with a dashed divider at the
+last hindcast year.}
 
-\item{incl_proj}{TRUE/FALSE, include projection years}
+\item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
+\code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{mod_cex}{Cex of text for model name legend}
-
-\item{alpha}{shading for confidence intervals}
+\item{alpha}{Transparency of confidence ribbons and shaded areas.}
 
 \item{mod_avg}{is the list a model average? (DEPRECATED)}
 
@@ -70,5 +81,6 @@ function.}
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function that plots the F time series per species from Rceattle
+Fishing mortality over time, one panel per species, with the
+Ftarget (blue) and Flimit (red) reference points drawn per panel.
 }

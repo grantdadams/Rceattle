@@ -30,10 +30,9 @@ plot_selectivity(
 \item{model_names}{Legend labels for the models.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-whichever variable the figure separates by colour, in legend order -- that
-is not always the model, so check the legend. Too few colours are recycled,
-with a warning.}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
 \item{width, height}{Saved figure size in inches.}
 
@@ -47,7 +46,8 @@ a standard-weight ggplot line. A vector varies it across series.}
 
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{lty}{Line type. A vector varies it across series.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
 \item{minyr, maxyr}{First / last year to plot.}
 

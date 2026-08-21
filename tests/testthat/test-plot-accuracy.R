@@ -47,6 +47,81 @@ testthat::test_that("time-series plotters match as.data.frame() quantities", {
   check(Rceattle::plot_f(ss),                   "F_spp")  # wraps plot_timeseries
 })
 
+testthat::test_that("minyr and maxyr narrow what the timeseries plotters draw", {
+  # `minyr` was the argument the standardization was meant to make work, and it
+  # is the one with no coverage: a plotter that ignores it still passes every
+  # accuracy check above, because those align on the years the plot shows.
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  styr  <- ss$data_list$styr
+  endyr <- ss$data_list$endyr
+  cut   <- styr + 5L
+
+  for (fn in c("plot_biomass", "plot_ssb", "plot_recruitment", "plot_f",
+               "plot_ssb_depletion", "plot_exploitable_biomass")) {
+    f <- getExportedValue("Rceattle", fn)
+    testthat::expect_equal(min(f(ss, minyr = cut)$data$Year), cut, label = fn)
+    testthat::expect_equal(max(f(ss, maxyr = cut)$data$Year), cut, label = fn)
+    testthat::expect_equal(range(f(ss, minyr = cut, maxyr = cut + 3L)$data$Year),
+                           c(cut, cut + 3L), label = fn)
+    # Unset, the window is the model's own.
+    testthat::expect_equal(range(f(ss)$data$Year), c(styr, endyr), label = fn)
+  }
+
+  # Narrowing the data, not just the axis: the panel's y scale must follow the
+  # window. Clipping the axis alone leaves it trained on the hidden years.
+  full <- ggplot2::ggplot_build(Rceattle::plot_biomass(ss))
+  cutp <- ggplot2::ggplot_build(Rceattle::plot_biomass(ss, minyr = endyr - 2L))
+  testthat::expect_false(isTRUE(all.equal(full$layout$panel_params[[1]]$y.range,
+                                          cutp$layout$panel_params[[1]]$y.range)))
+
+  testthat::expect_error(Rceattle::plot_biomass(ss, minyr = endyr + 50L),
+                         "No years left")
+})
+
+testthat::test_that("plot_f keys its reference lines to the species it drew", {
+  # plot_f() is hand-written rather than a .ts_wrapper() child, and indexed
+  # Ftarget and the facet labels with the raw `species`. That works for indices
+  # and gives an NA facet key for a name, which puts the reference lines in the
+  # wrong panel -- on the same argument NEWS advertises as newly accepting names.
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  ss <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))
+  ))
+  nm <- ss$data_list$spnames
+  ref <- function(p) {
+    d <- Filter(function(l) "Ftarget" %in% names(l$data), p$layers)[[1]]$data
+    d[order(as.character(d$Species)), ]
+  }
+
+  by_index <- ref(Rceattle::plot_f(ss, species = c(1, 3)))
+  by_name  <- ref(Rceattle::plot_f(ss, species = nm[c(1, 3)]))
+  testthat::expect_false(anyNA(by_name$Species))
+  testthat::expect_equal(by_name, by_index, ignore_attr = TRUE)
+  testthat::expect_setequal(as.character(by_index$Species), nm[c(1, 3)])
+  testthat::expect_equal(by_index$Ftarget,
+                         as.numeric(ss$quantities$Ftarget[c(1, 3)]))
+
+  # `spnames` relabels the panels; the reference lines must follow.
+  lab <- c("A", "B", "C")
+  testthat::expect_setequal(
+    as.character(ref(Rceattle::plot_f(ss, species = 2, spnames = lab))$Species),
+    "B")
+
+  # lty was missing from plot_f's formals, so it stopped with `unused argument`.
+  testthat::expect_equal(
+    unique(ggplot2::ggplot_build(Rceattle::plot_f(ss, lty = 2))$data[[1]]$linetype),
+    2)
+})
+
 # --- fit diagnostics (index/catch) --------------------------------------------
 testthat::test_that("index/catch fit plots plot the model's predictions", {
   testthat::skip_if_not_installed("TMB")
@@ -180,12 +255,22 @@ testthat::test_that("plot_mortality plots M(1+2)-at-age", {
   src2 <- as.numeric(ms$quantities$M_at_age[1, 1, 1, seq_len(nyr)])
   testthat::expect_equal(d2$M[seq_len(nyr)], src2)
 
-  # plot_b_eaten: total biomass eaten as prey == sum of B_eaten_as_prey
+  # plot_b_eaten: total biomass eaten as prey == sum of B_eaten_as_prey, in
+  # million mt (the model reports it in mt).
   pb <- Rceattle::plot_b_eaten(ms)
   testthat::expect_s3_class(pb, "ggplot")
   be <- ms$quantities$B_eaten_as_prey
   tot1 <- apply(be[, , , seq_len(nyr), drop = FALSE], c(1, 4), sum)[1, ]
   db <- pb$data[pb$data$Species == sp1, ]
   db <- db[order(db$Year), ]
-  testthat::expect_equal(db$value[seq_len(nyr)], as.numeric(tot1))
+  testthat::expect_equal(db$value[seq_len(nyr)], as.numeric(tot1) / 1e6)
+
+  # ... on the same scale as plot_b_eaten_prop(), which splits the same
+  # quantity by predator. Summing that over predators recovers this.
+  pp <- Rceattle::plot_b_eaten_prop(ms)
+  by_pred <- stats::aggregate(value ~ Year, data = pp$data[pp$data$Prey == sp1, ],
+                              FUN = sum)
+  by_pred <- by_pred[order(by_pred$Year), ]
+  testthat::expect_equal(by_pred$value[seq_len(nyr)],
+                         db$value[seq_len(nyr)], tolerance = 1e-8)
 })

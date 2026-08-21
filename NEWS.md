@@ -2,16 +2,18 @@
 
 ## New features
 
-* **The `plot_*()` functions now share one set of arguments, and use them.**
-  Only `plot_timeseries()` ever honoured `line_col`, `lwd`, `lty` and `alpha`;
-  the others declared them and ignored them, so colours and line widths silently
-  did nothing. They are now resolved in one place and applied consistently.
+* **The timeseries, predation and selectivity plotters now share one set of
+  arguments, and use them.** Only `plot_timeseries()` ever honoured `line_col`,
+  `lwd`, `lty` and `alpha`; the others declared them and ignored them, so
+  colours and line widths silently did nothing. They are now resolved in one
+  place, documented once in `?"rceattle-plot-args"`, and applied consistently.
   `line_col` accepts colour names, hex codes, or base-graphics palette indices
   (`line_col = 1`), and supplies the palette for whichever variable the figure
-  maps to colour -- check the legend, since that is not always the model. On a
-  year fan (`plot_selectivity()`, `plot_mortality()`) it gives the ramp anchors
+  maps to colour; on `plot_selectivity()`'s year fan it gives the ramp anchors
   instead. `lwd` keeps the base-graphics scale, where the default `3` is a
-  standard-weight line.
+  standard-weight line. The remaining plotters -- `plot_mortality()`,
+  `plot_maturity()`, `plot_comp()`, `plot_data()`, `plot_stock_recruit()`, the
+  index, catch and diet families -- still take their own arguments.
 
 * **The predation plotters honour the shared arguments.** `plot_b_eaten()`,
   `plot_b_eaten_prop()`, `plot_m_at_age()`, `plot_m2_at_age_prop()` and
@@ -22,13 +24,12 @@
   longer stop with `unused argument`. `species` and `spnames` worked before and
   now additionally take names, a logical mask and `"all"`, and validate.
 
-  In `plot_b_eaten_prop()` and `plot_m2_at_age_prop()` colour separates
-  predators and line type separates models, so `line_col` gives predator
-  colours; in `plot_ration()` and `plot_m_at_age()` line type separates the
-  sexes. Check the legend before assuming a colour vector maps to models --
-  too few colours are recycled, now with a warning naming what they coloured.
-  A sex-combined model has one sex, so a varying `lty` on the latter two has
-  nothing to key on and warns rather than being dropped in silence.
+  `line_col` and `lty` follow the figure, not the model: colour separates
+  predators in `plot_b_eaten_prop()` and `plot_m2_at_age_prop()`, and line type
+  separates the sexes in `plot_ration()` and `plot_m_at_age()`. Each function's
+  help says which. Too few colours are recycled, now with a warning naming what
+  they coloured, and a varying `lty` whose key has one level warns rather than
+  being dropped in silence.
 
 * **`add_ci = TRUE` says when it cannot draw an interval.** None of the
   predation quantities carry standard errors -- `M_at_age` and
@@ -57,7 +58,8 @@
   mixing the two returns one figure per dimension (a named list) rather than
   putting ages and length bins on one axis.
 
-* **`species` and `spnames` mean the same thing everywhere.** `species` selects
+* **`species` and `spnames` mean the same thing across these plotters.**
+  `species` selects
   -- by index, name, logical mask, or `"all"`, in the order given -- and
   `spnames` labels. Several plotters previously read `species` as display
   labels; a character vector giving one label per species is still read that way,
@@ -67,33 +69,43 @@
 
 ## Bug fixes -- figures whose numbers change
 
-Two predation plotters drew quantities that did not match their axis labels.
-Both are corrected, so figures regenerated from them will differ from earlier
+Three predation plotters drew quantities that did not match their axis labels.
+All are corrected, so figures regenerated from them will differ from earlier
 runs of the same model.
 
-* **`plot_m2_at_age_prop()` now draws a share, as its name and axis always
-  claimed.** `M2_prop` holds each predator's *contribution* to predation
-  mortality, not its share of it: summing over predators reproduces `M2_at_age`
-  exactly, so the "proportion" reached 1500 on `BS2017MS`. The contributions are
-  now divided by their total, giving shares in [0, 1] that sum to 1 across
-  predators for each prey age and year. A prey age with no predation in a year
-  leaves the shares undefined and draws nothing. The y axis reads "Share of M2
-  at age `<age>` by predator".
+* **`plot_m2_at_age_prop()` draws a share, not a contribution.** `M2_prop` holds
+  each predator's contribution to predation mortality: summing over predators
+  reproduces `M2_at_age` exactly, so the plotted "proportion" reached 1564 on
+  `BS2017MS`. The contributions are now divided by their total, giving shares in
+  [0, 1] that sum to 1 across predators for each prey age and year. A prey age
+  with no predation in a year leaves the shares undefined and draws nothing. The
+  y axis reads "Share of M2 at age `<age>` by predator".
 
-* **`plot_ration()` multiplies the ration by numbers-at-age, not
+* **`plot_ration()` multiplies the ration by average numbers-at-age, not
   biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
   numbers-at-age are in thousands, so the product is mt -- the way the template
-  itself forms total consumption (`avgN_at_age * ration`). Multiplying by
-  biomass instead weighted the age-sum by weight-at-age, so the plotted series
-  was out by an age-composition-dependent factor and "million mt" described
-  nothing it computed.
+  itself forms total consumption (`avgN_at_age * ration`, `predation.hpp`).
+  Multiplying by biomass instead weighted the age-sum by weight-at-age, so the
+  plotted series was out by an age-composition-dependent factor and "million mt"
+  described nothing it computed. The average numbers, not the start-of-year
+  numbers: `N_at_age` overstates consumption by `1 / ((1 - exp(-Z)) / Z)` and
+  does not reconcile with `plot_b_eaten()`. On a fitted `BS2017MS` the first
+  year drops 38.3% for pollock, 20.1% for cod and 13.5% for arrowtooth
+  flounder.
+
+* **`plot_b_eaten()` is in million mt.** It plotted `B_eaten_as_prey` in the mt
+  the model reports it in, while `plot_b_eaten_prop()` -- the same quantity
+  broken down by predator -- was in million mt, so the two figures could not be
+  read side by side. Both are now in million mt, the display unit the timeseries
+  plotters use. `p$data` moves by the same factor of 1e6.
 
 ## Bug fixes
 
-* `model_names` given as a `list()` works again, in every plotter. The package's
-  own vignettes build it that way, and a list produced a one-element list per
-  model that the plot frame could not bind. Supplying fewer names than models
-  now warns instead of silently drawing two models as one series.
+* `model_names` given as a `list()` works again, in every plotter that labels
+  models. The package's own vignettes build it that way, and a list produced a
+  one-element list per model that the plot frame could not bind. Supplying fewer
+  names than models now warns instead of silently drawing two models as one
+  series.
 
 * A fleet with `Selectivity = "Fixed"` is drawn on ages whatever
   `Selectivity_dimension` says. Empirical selectivity is read into `sel_at_age`
@@ -101,14 +113,13 @@ runs of the same model.
   identically-zero curve -- and scripts commonly set `Selectivity_dimension`
   across every fleet at once.
 
-* `plot_timeseries()` and its wrappers accept a one-sided year window again;
-  `plot_ssb(fit, minyr = 1990)` previously errored.
-
 * The projection divider is drawn at the latest hindcast year across the models
   plotted, not at whichever model came last in the list. On a retrospective peel
   the peels end in different years, so the divider could land mid-hindcast and
   label real data as projection. Figures overlaying models with different `endyr`
   -- including any using `reference =` -- will show the divider in a new place.
+  It is also omitted when the last hindcast year falls outside a `minyr`/`maxyr`
+  window, rather than stretching the axis back to it.
 
 * An invalid `line_col` or `lwd` now stops with a message naming the argument.
   Previously an `NA` colour or width drew nothing, giving a blank panel and no
@@ -118,13 +129,25 @@ runs of the same model.
   labelled one species with another's name. A `species` string matching no
   species now stops rather than silently plotting everything.
 
-* `plot_b_eaten()` labels its y axis in mt, the units the model reports biomass
-  eaten in. `plot_b_eaten_prop()` remains in million mt, as before.
-
 * `minyr` and `maxyr` narrow the data rather than only the axis, so a panel with
   a free y scale rescales to the window. Clipping the axis alone left the scale
   trained on the hidden years, which on a series spanning orders of magnitude
-  squeezed the requested window into the bottom of the panel.
+  squeezed the requested window into the bottom of the panel. They also now work
+  on the predation plotters, which declared them and ignored them, and
+  `plot_timeseries(save = TRUE)` writes the same window it plots.
+
+* `plot_f()` keys its Ftarget and Flimit reference lines to the species it
+  drew. It indexed `Ftarget` and the facet labels with the raw `species`
+  argument, which works for indices but gives an `NA` facet key for a name --
+  on the same argument that newly accepts names. It also gained `lty`, which
+  every other timeseries plotter took.
+
+* A single `lty` reaches the figures that map line type themselves --
+  `plot_ration()`, `plot_m_at_age()`, `plot_b_eaten_prop()`,
+  `plot_m2_at_age_prop()` and `plot_selectivity()`. It is applied to every level
+  of whatever the figure keys line type on, and warns when that key has more
+  than one level, since they are then drawn alike. The default `lty = 1` leaves
+  the figure's own line types alone.
 
 * `incl_mean` averages each model over **its own** hindcast, not the first
   model's. On a retrospective peel the answer otherwise depended on the order of
@@ -141,10 +164,9 @@ runs of the same model.
 * `plot_timeseries(save = TRUE)` writes the years alongside the values, names
   the columns after the models, names the file after the species, and writes
   only the species plotted. It previously wrote unlabelled columns for every
-  species, with no year column, to a file called `NULL_...csv` when `file` was
-  not given.
+  species, with no year column.
 
-## Changes that may need a script edit
+## Behavior changes
 
 * `plot_selectivity()`'s `species` used to be an ignored label argument whose
   default was `c("Walleye pollock", "Pacific cod", "Arrowtooth flounder")`. It
@@ -152,14 +174,17 @@ runs of the same model.
   stops with a message naming both readings, rather than guessing -- which is
   what a call copied from the old default does on a model whose species are
   named differently. Pass labels as `spnames`, or the model's own names as
-  `species`.
+  `species`. A call passing one label per species, none of which match, is still
+  read as labels.
 
-## Changes that affect scripts reading `p$data`
+* `plot_timeseries(save = TRUE)` needs a `file` stem, and stops without one. It
+  previously wrote to a file called `NULL_...csv`.
 
-* `plot_selectivity()`'s data frame names the x variable `Bin`, not `Age`, and
-  carries a `Dimension` column (`"Age"` or `"Length"`). The column can hold an
-  age or a length-bin ordinal depending on the fleet, so it is no longer named
-  for one of them. It also gains a `Model` column, now that every model is drawn.
+* `plot_selectivity()`'s `p$data` names the x variable `Bin`, not `Age`, and
+  carries a `Dimension` column (`"Age"` or `"Length"`); the column holds an age
+  or a length-bin ordinal depending on the fleet, so it is no longer named for
+  one of them. It also gains a `Model` column, now that every model is drawn.
+  `plot_b_eaten()`'s `value` column is in million mt (see above).
 
 ## Dependencies
 

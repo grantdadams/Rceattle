@@ -28,9 +28,7 @@ use viridis. Both are colorblind-safe.
 }
 \details{
 \code{line_col} overrides the default, supplying the palette for whichever
-variable the plot maps to colour -- not always the model; see
-\code{?rceattle-plot-args}. On a continuous colour aesthetic (a year fan) the
-colours are ramp anchors instead: one draws the fan in that colour, several
-interpolate between them.
+variable the plot maps to colour (see \code{?rceattle-plot-args}). On a continuous
+colour aesthetic the colours are ramp anchors instead.
 }
 \keyword{internal}

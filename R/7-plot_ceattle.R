@@ -309,12 +309,14 @@ plot_timeseries <- function(Rceattle,
     if (is.null(file)) {
       stop("`save = TRUE` needs a `file` stem to write to.", call. = FALSE)
     }
+    # The CSV holds what the figure holds, so it is cut to the same window.
+    save_idx <- which(years[[1]] >= minyr & years[[1]] <= maxyr)
     for (i in spp) {
-      dat_new <- data.frame(Year = years[[1]])
+      dat_new <- data.frame(Year = years[[1]][save_idx])
       for (j in seq_along(Rceattle)) {
-        block <- data.frame(quantity[i, seq_along(years[[1]]), j],
-                            quantity_lower95[i, seq_along(years[[1]]), j],
-                            quantity_upper95[i, seq_along(years[[1]]), j])
+        block <- data.frame(quantity[i, save_idx, j],
+                            quantity_lower95[i, save_idx, j],
+                            quantity_upper95[i, save_idx, j])
         colnames(block) <- paste0(model_names_use[j],
                                   c("", "_lower95", "_upper95"))
         dat_new <- cbind(dat_new, block)
@@ -351,6 +353,11 @@ plot_timeseries <- function(Rceattle,
     }
   }
   plot_df <- do.call(rbind, df_list)
+  # Narrow to the requested window, rather than clipping the axis over it. The
+  # species panels use scales = "free_y", so a scale trained on the hidden years
+  # squeezes the window the caller asked for into the bottom of the panel.
+  # `maxyr` has already truncated `years` above; `minyr` is applied here.
+  plot_df <- .rce_year_filter(plot_df, minyr, maxyr)
   plot_df$Species <- factor(plot_df$Species, levels = spnames[spp])
   plot_df$Model   <- factor(plot_df$Model, levels = unique(model_names_use))
 
@@ -380,12 +387,13 @@ plot_timeseries <- function(Rceattle,
   # Line width / type: honour per-model lwd / lty, keyed to Model when they
   # vary so the uniform default adds no extra legend. The lwd / 3 bridge lives
   # in the helper, which every other plotter now shares.
+  .rce_check_line_col(line_col, nlevels(plot_df$Model), "models")
   line_p <- .rce_line_params(lwd = lwd, lty = lty,
                              lwd_by = "Model", lty_by = "Model")
   p <- .rce_add_line(p, line_p)
 
   # Projection divider at the terminal hindcast year
-  p <- p + .rce_proj_divider(Rceattle, incl_proj)
+  p <- p + .rce_proj_divider(Rceattle, incl_proj, minyr, maxyr)
 
   # Depletion reference points (per species)
   if (output %in% "ssb_depletion") {
@@ -746,8 +754,7 @@ plot_selectivity <-
               call. = FALSE)
     }
 
-    # One figure per dimension: ages and length bins share neither an axis nor a
-    # meaning, so putting them in one panel grid would invite reading across.
+    # One figure per dimension: ages and length bins do not share an axis.
     dims <- unique(plot_df$Dimension)
     out <- lapply(dims, function(d) {
       dd <- droplevels(plot_df[plot_df$Dimension == d, , drop = FALSE])
@@ -1172,8 +1179,10 @@ plot_b_eaten <- function(Rceattle,
                        "the model reports it without standard errors",
                        warn = !mse)
 
-  # Total biomass eaten as prey per species/year: sum of B_eaten_as_prey
-  # over sex and age.
+  # Total biomass eaten as prey per species/year: sum of B_eaten_as_prey over
+  # sex and age. The model reports it in mt; the /1e6 puts it in million mt,
+  # the display unit every other biomass axis in the package uses -- including
+  # plot_b_eaten_prop(), which breaks this same quantity down by predator.
   df_list <- list()
   for (k in seq_along(models)) {
     dl  <- models[[k]]$data_list
@@ -1183,7 +1192,7 @@ plot_b_eaten <- function(Rceattle,
     for (sp in species) {
       df_list[[length(df_list) + 1L]] <- data.frame(
         Model = model_names_use[k], Species = spnames[sp],
-        Year = yrs, value = as.numeric(tot[sp, ]),
+        Year = yrs, value = as.numeric(tot[sp, ]) / 1e6,
         stringsAsFactors = FALSE)
     }
   }
@@ -1218,7 +1227,7 @@ plot_b_eaten <- function(Rceattle,
       .rce_mean_line(mdf, incl_mean, by = "Species", value = "m",
                      hind_endyr = max(.rce_model_endyr(models, model_names_use),
                                       na.rm = TRUE)) +
-      ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)") +
+      ggplot2::labs(x = "Year", y = "Biomass eaten as prey (million mt)") +
       .rceattle_theme()
     return(.save_ggplot(p, file = file, suffix = "biomass_eaten",
                         width = width, height = height))
@@ -1234,11 +1243,11 @@ plot_b_eaten <- function(Rceattle,
     lty_by = "Model", lty_n = length(unique(plot_df$Model))))
   p <- p +
     .facet_species(plot_df, scales = "free_y") +
-    .rce_proj_divider(models, incl_proj) +
+    .rce_proj_divider(models, incl_proj, minyr, maxyr) +
     .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model"),
                    hind_endyr = .rce_model_endyr(models, model_names_use),
                    colour_by = "Model") +
-    ggplot2::labs(x = "Year", y = "Biomass eaten as prey (mt)")
+    ggplot2::labs(x = "Year", y = "Biomass eaten as prey (million mt)")
   p <- .rceattle_scale(p + .rceattle_theme(), aesthetics = "colour",
                        line_col = line_col)
   if (nlevels(plot_df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")
@@ -1252,9 +1261,8 @@ plot_b_eaten <- function(Rceattle,
 #'
 #' @description Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 #'
-#' @details Colour separates **predators** and line type separates models here,
-#'   so `line_col` gives the predator colours and `lty` the model line types.
-#'   Panels are prey species.
+#' @details Colour separates predators; line type separates models. Panels are
+#'   prey species.
 #'
 #' @inheritParams rceattle-plot-args
 #' @param mohns Ignored. Formerly annotated the figure with Mohn's rho from
@@ -1330,7 +1338,7 @@ plot_b_eaten_prop <-
       lty_in_aes = TRUE))
     p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
-      .rce_proj_divider(models, incl_proj) +
+      .rce_proj_divider(models, incl_proj, minyr, maxyr) +
       .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
                      hind_endyr = .rce_model_endyr(models, model_names_use),
                      colour_by = "Predator") +
@@ -1349,9 +1357,9 @@ plot_b_eaten_prop <-
 #'
 #' @description Function that plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 #'
-#' @details Line type separates the sexes here, so `lty` supplies the sex line
-#'   types and `line_col` the model colours. A sex-combined model has one sex, so
-#'   a varying `lty` has nothing to key on and warns.
+#' @details Colour separates the models; line type separates the sexes. A
+#'   sex-combined model has one sex, so a varying `lty` has nothing to key on
+#'   and warns.
 #'
 #' @inheritParams rceattle-plot-args
 #' @param age Age to plot M at
@@ -1426,7 +1434,7 @@ plot_m_at_age <-
       lty_in_aes = TRUE))
     p <- p +
       .facet_species(plot_df, scales = "free_y") +
-      .rce_proj_divider(Rceattle, incl_proj) +
+      .rce_proj_divider(Rceattle, incl_proj, minyr, maxyr) +
       .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
                      value = "M",
                      hind_endyr = .rce_model_endyr(Rceattle, model_names_use),
@@ -1449,9 +1457,8 @@ plot_m_at_age <-
 #'   predators for every prey age and year; a year with no predation on that
 #'   age leaves them undefined and draws nothing.
 #'
-#' @details Colour separates **predators** and line type separates models, so
-#'   `line_col` gives the predator colours and `lty` the model line types.
-#'   Panels are prey species (and sex, where the prey is sexed).
+#' @details Colour separates predators; line type separates models. Panels are
+#'   prey species (and sex, where the prey is sexed).
 #'
 #' @inheritParams rceattle-plot-args
 #' @param age Prey age to plot the M2 proportions at
@@ -1559,7 +1566,7 @@ plot_m2_at_age_prop <-
       lty_in_aes = TRUE))
     p <- p +
       ggplot2::facet_wrap(~ Prey, scales = "free_y") +
-      .rce_proj_divider(Rceattle, incl_proj) +
+      .rce_proj_divider(Rceattle, incl_proj, minyr, maxyr) +
       .rce_mean_line(plot_df, incl_mean, by = c("Prey", "Predator", "Model"),
                      value = "Proportion",
                      hind_endyr = .rce_model_endyr(Rceattle, model_names_use),
@@ -1577,27 +1584,14 @@ plot_m2_at_age_prop <-
 
 #' plot F
 #'
-#' @description Function that plots the F time series per species from Rceattle
+#' @description Fishing mortality over time, one panel per species, with the
+#'   Ftarget (blue) and Flimit (red) reference points drawn per panel.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
-#' @param spnames Species names for legend
-#' @param add_ci NOT WORKING If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height plot height
-#' @param width plot width
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
+#' @inheritParams rceattle-plot-args
+#' @param add_ci Ignored. `F_spp` is `REPORT`ed without standard errors, so
+#'   there is no interval to draw.
 #' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param maxyr max year to plot
-#' @param alpha shading for confidence intervals
 #' @param mod_avg is the list a model average? (DEPRECATED)
 #' @importFrom stats quantile
 #' @importFrom grDevices png dev.off adjustcolor
@@ -1613,6 +1607,7 @@ plot_f <- function(Rceattle,
                    spnames = NULL,
                    add_ci = FALSE,
                    lwd = 3,
+                   lty = 1,
                    right_adj = 0,
                    width = 7,
                    height = 6.5,
@@ -1634,22 +1629,27 @@ plot_f <- function(Rceattle,
                        file = NULL, model_names = model_names,
                        line_col = line_col, species = species,
                        spnames = spnames, add_ci = add_ci, lwd = lwd,
+                       lty = lty,
                        right_adj = right_adj, width = width, height = height,
                        minyr = minyr, maxyr = maxyr, incl_proj = incl_proj,
                        mod_cex = mod_cex, alpha = alpha, mod_avg = mod_avg,
                        mse = mse, OM = OM)
 
   # F reference points: target (blue) and limit (red), per species facet.
+  #
+  # Resolved through the same helper plot_timeseries() used, so the reference
+  # lines are keyed the way the panels are. Indexing Ftarget and the species
+  # labels with the raw argument works only for indices: `species = "Pollock"`
+  # gives an NA facet key, which puts the lines in the wrong panel.
   models <- .as_model_list(Rceattle, mse = mse, OM = OM)
-  sp_all  <- if (is.null(spnames)) models[[1]]$data_list$spnames else spnames
-  if (is.null(species)) species <- seq_along(sp_all)
+  sp_sel  <- .resolve_species(models, species, spnames)
   ftarget <- models[[1]]$quantities$Ftarget
   flimit  <- models[[1]]$quantities$Flimit
   if (!is.null(ftarget) && !is.null(flimit)) {
     ref_df <- data.frame(
-      Species = factor(sp_all[species], levels = levels(p$data$Species)),
-      Ftarget = ftarget[species],
-      Flimit  = flimit[species])
+      Species = factor(sp_sel$labels, levels = levels(p$data$Species)),
+      Ftarget = ftarget[sp_sel$index],
+      Flimit  = flimit[sp_sel$index])
     p <- p +
       ggplot2::geom_hline(data = ref_df, inherit.aes = FALSE,
                           ggplot2::aes(yintercept = .data$Ftarget),
@@ -1669,13 +1669,13 @@ plot_f <- function(Rceattle,
 #' Plot ration
 #'
 #' @description Population-level consumption for ages `minage`+: the individual
-#'   annual ration (kg/yr) multiplied by numbers-at-age and summed over age, in
-#'   million mt. This is how the template forms total consumption
-#'   (`avgN_at_age * ration`).
+#'   annual ration (kg/yr) multiplied by average numbers-at-age and summed over
+#'   age, in million mt. This is how the template forms total consumption
+#'   (`avgN_at_age * ration`, `predation.hpp`), so it is the consumption that
+#'   generates the predation mortality in [plot_m2_at_age_prop()] and the
+#'   biomass in [plot_b_eaten()], plus the other-food term.
 #'
-#' @details Line type separates the sexes here, so `lty` supplies the sex line
-#'   types and `line_col` the model colours. A sex-combined model has one sex, so
-#'   a varying `lty` has nothing to key on and warns.
+#' @details Colour separates the models; line type separates the sexes.
 #'
 #' @inheritParams rceattle-plot-args
 #' @param minage minage to plot ration (i.e. age "minage"+)
@@ -1715,10 +1715,16 @@ plot_ration <-
       "it is a product of two series the model reports without standard",
       "errors"))
 
-    # Population-level consumption: individual ration x numbers-at-age, summed
-    # over age minage+. consumption_at_age is the annual ration of ONE fish
-    # (kg/yr) and numbers-at-age are in thousands, so the product is mt -- the
-    # same way the template forms it (avgN_at_age * ration in predation.hpp).
+    # Population-level consumption: individual ration x average numbers-at-age,
+    # summed over age minage+. consumption_at_age is the annual ration of ONE
+    # fish (kg/yr) and numbers-at-age are in thousands, so the product is mt.
+    #
+    # avgN_at_age, not N_at_age: the template multiplies the ration by the
+    # year's average numbers (predation.hpp, `avgN_at_age(rsp, ...) * pred_rat`),
+    # and ration_hat is B_eaten_as_pred / avgN_at_age. Start-of-year numbers
+    # would overstate consumption by 1 / ((1 - exp(-Z)) / Z) and would not
+    # reconcile with plot_b_eaten().
+    #
     # Multiplying the ration by biomass instead weights the age-sum by
     # weight-at-age and is not a quantity in any unit.
     df_list <- list()
@@ -1726,7 +1732,7 @@ plot_ration <-
       dl  <- models[[k]]$data_list
       yrs <- dl$styr:(if (incl_proj) dl$projyr else dl$endyr)
       Caa <- models[[k]]$quantities$consumption_at_age
-      Naa <- models[[k]]$quantities$N_at_age
+      Naa <- models[[k]]$quantities$avgN_at_age
       for (sp in species) {
         ages <- minage:nages[sp]
         for (sex in seq_len(nsex[sp])) {
@@ -1758,7 +1764,7 @@ plot_ration <-
       lty_in_aes = TRUE))
     p <- p +
       .facet_species(plot_df, scales = "free_y") +
-      .rce_proj_divider(models, incl_proj) +
+      .rce_proj_divider(models, incl_proj, minyr, maxyr) +
       .rce_mean_line(plot_df, incl_mean, by = c("Species", "Model", "Sex"),
                      hind_endyr = .rce_model_endyr(models, model_names_use),
                      colour_by = "Model") +

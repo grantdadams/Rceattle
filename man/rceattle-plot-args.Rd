@@ -19,15 +19,15 @@ read as labels for back-compatibility.}
 \item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
 \item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
-uses the colorblind-safe Okabe-Ito palette. Colours are applied to
-whichever variable the figure separates by colour, in legend order -- that
-is not always the model, so check the legend. Too few colours are recycled,
-with a warning.}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
 \item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
 a standard-weight ggplot line. A vector varies it across series.}
 
-\item{lty}{Line type. A vector varies it across series.}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
 \item{alpha}{Transparency of confidence ribbons and shaded areas.}
 
@@ -69,22 +69,27 @@ surface, which is no longer drawn.}
 A \code{ggplot} object.
 }
 \description{
-The \verb{plot_*()} functions take a common vocabulary, documented here once and
-inherited by each of them.
+A common vocabulary, documented here once and inherited by the plotters that
+take it: \code{\link[=plot_timeseries]{plot_timeseries()}} and its wrappers (\code{\link[=plot_biomass]{plot_biomass()}}, \code{\link[=plot_ssb]{plot_ssb()}},
+\code{\link[=plot_recruitment]{plot_recruitment()}}, the depletions, \code{\link[=plot_exploitable_biomass]{plot_exploitable_biomass()}},
+\code{\link[=plot_f]{plot_f()}}), the predation plotters (\code{\link[=plot_b_eaten]{plot_b_eaten()}}, \code{\link[=plot_b_eaten_prop]{plot_b_eaten_prop()}},
+\code{\link[=plot_m_at_age]{plot_m_at_age()}}, \code{\link[=plot_m2_at_age_prop]{plot_m2_at_age_prop()}}, \code{\link[=plot_ration]{plot_ration()}}), and
+\code{\link[=plot_selectivity]{plot_selectivity()}}. Each argument means the same thing wherever it appears,
+but not every plotter takes every one -- \code{incl_mean} is on the predation
+plotters, \code{add_ci} only where the quantity carries standard errors, and
+\code{alpha} only where the figure has a ribbon or a fan. The remaining
+\verb{plot_*()} functions still take their own arguments; see each one's help.
 }
 \section{How \code{line_col} and \code{lty} are applied}{
 
 
 They supply values for whichever \strong{discrete variable the plot already
 encodes with that aesthetic}, matched in level order -- which is not always
-the model. In \code{\link[=plot_b_eaten_prop]{plot_b_eaten_prop()}} colour separates predators; in
-\code{\link[=plot_ration]{plot_ration()}} line type separates sexes. Check what the figure's legend
-names before assuming a colour vector maps to your models.
+the model. Each function's help says what its own figure separates.
 
 Where colour encodes a continuous variable -- the year fan in
-\code{\link[=plot_selectivity]{plot_selectivity()}} and \code{\link[=plot_mortality]{plot_mortality()}} -- \code{line_col} supplies the ramp
-anchors instead: one colour draws the fan in that colour, several interpolate
-between them.
+\code{\link[=plot_selectivity]{plot_selectivity()}} -- \code{line_col} supplies the ramp anchors instead: one
+colour draws the fan in that colour, several interpolate between them.
 }
 
 \keyword{internal}
