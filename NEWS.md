@@ -101,6 +101,11 @@ runs of the same model.
 
 ## Bug fixes
 
+* **The `diet_data` age-bound check compares each species against its own
+  `nages`.** It matched them by position, so a species missing from the `Pred`
+  or `Prey` column shifted every later species onto the wrong age limit and
+  could reject a valid table. Out-of-range ages are still caught.
+
 * `model_names` given as a `list()` works again, in every plotter that labels
   models. The package's own vignettes build it that way, and a list produced a
   one-element list per model that the plot frame could not bind. Supplying fewer

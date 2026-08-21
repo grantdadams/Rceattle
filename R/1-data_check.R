@@ -1248,16 +1248,21 @@ data_check <- function(data_list) {
   if(has_data(data_list$diet_data)){
     dd <- data_list$diet_data
 
-    # Pred age bounds
+    # Pred / prey age bounds. Index nages by the species each group is for:
+    # group_by() drops species absent from the column, so lining the maxima up
+    # by position pairs species with the wrong limit. match() rather than
+    # nages[Pred], because a species code of 0 drops from the subset and leaves
+    # a short vector for the comparison to recycle against, and a negative one
+    # errors; both become NA here.
+    nages_for <- function(sp) data_list$nages[match(sp, seq_along(data_list$nages))]
     pred_max <- dd |> dplyr::group_by(Pred) |>
-      dplyr::summarise(Max_age = max(Pred_age)) |> dplyr::arrange(Pred)
-    if(any(pred_max$Max_age > data_list$nages)){
+      dplyr::summarise(Max_age = max(Pred_age))
+    if(any(pred_max$Max_age > nages_for(pred_max$Pred), na.rm = TRUE)){
       errors <- c(errors, "Pred ages in 'diet_data' > 'nages'")
     }
-    # Prey age bounds
     prey_max <- dd |> dplyr::group_by(Prey) |>
-      dplyr::summarise(Max_age = max(Prey_age)) |> dplyr::arrange(Prey)
-    if(any(prey_max$Max_age > data_list$nages)){
+      dplyr::summarise(Max_age = max(Prey_age))
+    if(any(prey_max$Max_age > nages_for(prey_max$Prey), na.rm = TRUE)){
       errors <- c(errors, "Prey ages in 'diet_data' > 'nages'")
     }
     # Duplicates
