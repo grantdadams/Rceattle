@@ -128,6 +128,26 @@ if (nzchar(Sys.getenv("COV_PLAN_ONLY"))) {
 context_names <- sub("\\.[rR]$", "", sub("^test-", "", mine))
 filter <- paste0("^(", paste(context_names, collapse = "|"), ")$")
 
+# Per-file timings, written as the run goes.
+#
+# covr::package_coverage(code = ) evaluates `code` in a subprocess and surfaces
+# its output only when that returns, so on a shard killed by `timeout-minutes`
+# the progress reporter's per-file times are never flushed -- the job log jumps
+# from "* DONE (Rceattle)" straight to "The operation was canceled". The shard
+# that overruns is the one that reports nothing, which is why the static weights
+# above have never been checked against measured seconds.
+#
+# CoverageTimingReporter appends each file's time to this path as that file
+# ends, so the table is on disk even when the job is cancelled; the workflow
+# uploads it with `if: always()`. Feed the artifacts back into COST_* above.
+timing_log <- Sys.getenv("COV_TIMING_LOG", unset = "")
+if (!nzchar(timing_log)) {
+  timing_log <- file.path(getwd(), sprintf("coverage-timing-shard-%d.tsv", shard))
+}
+timing_src <- normalizePath(file.path("tools", "ci", "coverage-timing.R"),
+                            winslash = "/", mustWork = TRUE)
+message(sprintf("\nPer-file timings -> %s", timing_log))
+
 # `load_package = "installed"` picks up covr's instrumented build rather than the
 # source tree, and `package =` makes the test environment's parent the Rceattle
 # namespace so the internal helpers the suite calls resolve (see CLAUDE.md).
@@ -136,10 +156,18 @@ filter <- paste0("^(", paste(context_names, collapse = "|"), ")$")
 # coverage before it is written. R-CMD-check is the correctness gate for this
 # suite -- test-coverage is deliberately non-blocking -- and the progress
 # reporter prints any failure into this log.
+#
+# MultiReporter leaves the progress reporter's console output exactly as it was
+# and writes the timing rows alongside it.
 code <- sprintf(
-  'testthat::test_dir(%s, package = "Rceattle", load_package = "installed",
-                      filter = %s, reporter = "progress", stop_on_failure = FALSE)',
-  deparse1(test_dir), deparse1(filter)
+  'source(%s)
+   testthat::test_dir(%s, package = "Rceattle", load_package = "installed",
+                      filter = %s, stop_on_failure = FALSE,
+                      reporter = testthat::MultiReporter$new(reporters = list(
+                        testthat::ProgressReporter$new(),
+                        CoverageTimingReporter$new(%s))))',
+  deparse1(timing_src), deparse1(test_dir), deparse1(filter),
+  deparse1(timing_log)
 )
 
 install_path <- Sys.getenv("RUNNER_TEMP", unset = "")
