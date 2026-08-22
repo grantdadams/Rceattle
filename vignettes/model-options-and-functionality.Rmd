@@ -273,7 +273,7 @@ Set the `Catchability` column of `fleet_control`:
 | `2` | `"Estimated-with-prior"` | Estimated with a Normal prior |
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>). **Not implemented** -- `data_check()` rejects it. |
-| `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 5.8.1** -- express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
+| `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 4.9.0** (recorded in the 5.8.1 notes) -- express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
 | `6` | `"AR1"` | Annual AR(1) deviations on log-q fit to a single index (Rogers et al. 2024) |
 | `7` | `"AnalyticalArith"` | q solved from the fleet's own index observations using the AMAK arithmetic-mean estimator; pair with `Index_distribution = "MVN"` for a supplied covariance |
 

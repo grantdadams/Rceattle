@@ -61,7 +61,7 @@
 #' # Beverton-Holt fitted to the hindcast, with a prior on steepness.
 #' build_srr(srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt",
 #'           srr_est_mode = "Estimated",
-#'           srr_prior_mean = 0.8, srr_prior_sd = 0.15)
+#'           srr_prior = 0.8, srr_prior_sd = 0.15)
 #'
 #' # Mean recruitment: no stock-recruit relationship fitted.
 #' build_srr(srr_fun = "mean")

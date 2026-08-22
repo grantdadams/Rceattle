@@ -12,7 +12,14 @@
 
 fc_base <- function() {
   d <- make_test_data(nyrs = 4, nages = 3)
-  suppressMessages(suppressWarnings(switch_check(d)))
+  d <- suppressMessages(suppressWarnings(switch_check(d)))
+  # switch_check() does not create Sel_shape_dir (it is only defaulted where a
+  # non-parametric fleet needs it), so without this one of the three columns
+  # this file exists for was silently skipped by the `next` below.
+  if (is.null(d$fleet_control$Sel_shape_dir)) {
+    d$fleet_control$Sel_shape_dir <- "Decreasing"
+  }
+  d
 }
 
 test_that("an invalid value in any of the three is an error, naming the fleet", {
@@ -22,8 +29,12 @@ test_that("an invalid value in any of the three is an error, naming the fleet", 
     Sel_shape_dir         = c("Decreasing", "Increasing"),
     Sel_shape_mode        = c("Directional", "Smooth")
   )
+  checked <- 0L
   for (col in names(cases)) {
+    testthat::expect_false(is.null(base$fleet_control[[col]]),
+                           info = paste(col, "missing from the fixture -- it would be skipped"))
     if (is.null(base$fleet_control[[col]])) next
+    checked <- checked + 1L
     d <- base
     d$fleet_control[[col]][1] <- "Agee"     # a plausible typo, not gibberish
     err <- validate_switches(d)
@@ -37,10 +48,26 @@ test_that("an invalid value in any of the three is an error, naming the fleet", 
                             info = paste(col, "error omits the valid value", v))
     }
   }
+  # All three, or the loop passed by skipping.
+  testthat::expect_equal(checked, 3L)
 })
 
-test_that("every valid value passes, in both spellings", {
+test_that("every valid value passes, in the spellings the consumers accept", {
   base <- fc_base()
+  # rearrange_data() matches Selectivity_dimension on the exact strings only, so
+  # the integer spelling is deliberately NOT valid -- it would reach the
+  # template as NA. Pin that, since the map carries an integer side.
+  d0 <- base; d0$fleet_control$Selectivity_dimension <- 1
+  testthat::expect_gt(length(validate_switches(d0)), 0)
+
+  for (v in c("Smooth", "smooth", 1)) {
+    d <- base; d$fleet_control$Sel_shape_mode <- v
+    testthat::expect_length(validate_switches(d), 0)
+  }
+  for (v in c("Increasing", "increasing", "-1", "Decreasing")) {
+    d <- base; d$fleet_control$Sel_shape_dir <- v
+    testthat::expect_length(validate_switches(d), 0)
+  }
   for (v in c("Age", "Length")) {
     d <- base
     d$fleet_control$Selectivity_dimension <- v

@@ -66,7 +66,7 @@
 ##' @export
 #' @examples
 #' # Tier 3 NPFMC control rule: F40% as FABC, F35% as FOFL.
-#' build_hcr(HCR = "NPFMC", DynamicHCR = FALSE, FsprTarget = 0.4, FsprLimit = 0.35)
+#' build_hcr(HCR = "NPFMC", DynamicHCR = FALSE, Ftarget = 0.4, Flimit = 0.35)
 #'
 #' # No fishing: the projection a B0 reference point is read from.
 #' build_hcr(HCR = "NoFishing")

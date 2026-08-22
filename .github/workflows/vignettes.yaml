@@ -60,6 +60,10 @@ jobs:
         with:
           use-public-rspm: true
 
+      # rmarkdown::render() needs pandoc. pkgdown.yaml and R-CMD-check.yaml both
+      # pin it; the runner image happens to carry one, but do not rely on that.
+      - uses: r-lib/actions/setup-pandoc@v2
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rmarkdown, any::knitr, any::devtools

@@ -79,7 +79,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   stopped at 7, omitting `DoubleNormal` (8), `NonParametricPM` (9) and
   `LogisticPM` (11); `Catchability` stopped at 6, omitting `AnalyticalArith` (7).
   `PowerEquation` is now marked as not implemented, and the 5.8.1 deprecation of
-  `"Environmental"` is recorded with the linkage that replaces it.
+  `"Environmental"` (deprecated in 4.9.0) is recorded with the linkage that replaces it.
 
 * **`Index_distribution` is documented.** It had no vignette coverage at all,
   despite deciding whether an index is scored on the log or the natural scale --

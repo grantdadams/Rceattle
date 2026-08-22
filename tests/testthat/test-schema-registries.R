@@ -20,74 +20,32 @@ test_that("write_template() emits every fleet_control column the schema defines"
   testthat::expect_length(validate_switches(d2), 0)
 })
 
-test_that("every model-level switch in the config schema carries its full allowed set", {
-  # .rce_config_schema() is a second, hand-written dictionary of the model-level
-  # switches, used to comment the YAML that save_config() writes. It hardcodes
-  # some allowed sets instead of reading the map, which is how estimateMode's
-  # DebugOptimize went missing from the comments while being a real mode.
+test_that("every model-level switch's allowed set survives into the YAML comment", {
+  # .rce_config_schema() projects from .rce_model_switch_schema(), so comparing
+  # the two would be a tautology. What is worth pinning is the PROJECTION: that
+  # every value of the governing map reaches the comment text a user reads in a
+  # saved config, exactly and not as a substring of a longer name.
   dict <- .rce_config_schema()
-
-  pairs <- list(
-    estimateMode = estimateMode_map,
-    initMode     = initMode_map,
-    suitMode     = suitMode_map,
-    msmMode      = msmMode_map
-  )
+  pairs <- list(estimateMode = estimateMode_map, initMode = initMode_map,
+                suitMode = suitMode_map, msmMode = msmMode_map)
 
   for (nm in names(pairs)) {
     entry <- dict[[nm]]
-    testthat::expect_false(is.null(entry),
-                           info = paste(nm, "absent from .rce_config_schema()"))
+    testthat::expect_false(is.null(entry), info = paste(nm, "absent from the config schema"))
     if (is.null(entry)) next
-
-    # The value set may be carried as `allowed`, or written into `doc`.
-    txt <- paste(c(as.character(entry$allowed), as.character(entry$doc)), collapse = " ")
-    for (canon in names(pairs[[nm]])) {
-      testthat::expect_true(
-        grepl(canon, txt, fixed = TRUE),
-        info = paste0(nm, ": '", canon, "' is a valid value the YAML comment never mentions"))
-    }
+    # The comment is written as "A / B / C"; split it rather than substring-match,
+    # or `MSVPA` is satisfied by `TypeIIIMSVPA`.
+    got <- trimws(strsplit(paste(entry$allowed, collapse = " "), "/", fixed = TRUE)[[1]])
+    testthat::expect_setequal(got[nzchar(got)], names(pairs[[nm]]))
   }
-})
-
-test_that("the parameter dictionary covers every parameter the template declares", {
-  # .PAR_INFO maps the TMB parameter names to what a user actually chose to
-  # estimate; error messages, diagnostics and output summaries read it. A
-  # parameter missing from it surfaces to the user under its raw internal name.
-  cpp <- c("src/TMB/ceattle.cpp", testthat::test_path("..", "..", "src", "TMB", "ceattle.cpp"))
-  cpp <- cpp[file.exists(cpp)]
-  testthat::skip_if(length(cpp) == 0, "src/TMB/ceattle.cpp not available")
-  src <- paste(readLines(cpp[1], warn = FALSE), collapse = "\n")
-
-  # Declared parameters, ignoring anything inside a /* ... */ comment block --
-  # ceattle.cpp keeps several retired predation parameters commented out.
-  src <- gsub("/\\*.*?\\*/", "", src, perl = TRUE)
-  m <- regmatches(src, gregexpr("PARAMETER[A-Z_]*\\(\\s*[A-Za-z0-9_]+\\s*\\)", src, perl = TRUE))[[1]]
-  declared <- unique(gsub(".*\\(\\s*([A-Za-z0-9_]+)\\s*\\).*", "\\1", m))
-  testthat::expect_gt(length(declared), 20)
-
-  # Parameters belonging to features the model declares but does not implement.
-  # They exist so the template compiles; no user can estimate one, so no error
-  # message needs to name them. Pinned, so the list cannot quietly grow.
-  stubbed <- c(
-    "index_q_pow",                                  # Catchability = PowerEquation (rejected in data_check)
-    "logH_1", "logH_1a", "logH_1b", "logH_2", "logH_3", "H_4"  # Kinzey-Punt predation, msmMode 3-9
-  )
-
-  known <- c(.PAR_INFO$internal, stubbed)
-  missing_from_dict <- setdiff(declared, known)
-  testthat::expect_length(missing_from_dict, 0)
-
-  # And the exemption must stay honest: a stubbed parameter that gains a real
-  # implementation should be documented, not left on this list.
-  testthat::expect_length(intersect(.PAR_INFO$internal, stubbed), 0)
 })
 
 
 test_that("the hand-coded defaults still equal the schema's", {
   # Some defaults cannot be schema-driven: the bioenergetics scalars are
-  # per-species (`rep(x, nspp)`) and only filled when the model is
-  # multispecies, which the schema's flat `default` field cannot express. They
+  # per-species (`rep(x, nspp)`) and are filled only in SINGLE-species mode
+  # (`if (msmMode == 0)`), precisely because they are never read there -- which
+  # the schema's flat `default` field cannot express. They
   # stay imperative in switch_check(), and the schema rows carry the same
   # values as documentation. Nothing kept the two in step; this does.
   #
@@ -95,10 +53,24 @@ test_that("the hand-coded defaults still equal the schema's", {
   # one default while switch_check() applies another.
   sc <- .rce_column_schema()
 
-  hand_coded <- list(
-    Ceq = 1L, Cindex = 0L, Pvalue = 1, fday = 365,
-    CA = 0, CB = 0, Qc = 0, Tco = 0, Tcm = 0, Tcl = 0, CK1 = 0, CK4 = 0
-  )
+  # Read the values out of switch_check() rather than restating them here --
+  # a literal copy in the test is a third place for them to drift, and would
+  # stay green when the source changed, which is the one thing this must catch.
+  sw <- c("R/0-switches.R", testthat::test_path("..", "..", "R", "0-switches.R"))
+  sw <- sw[file.exists(sw)]
+  testthat::skip_if(length(sw) == 0, "R/0-switches.R not available")
+  lines <- readLines(sw[1], warn = FALSE)
+  from <- grep("bioenergetics_defaults <- list\\(", lines)[1]
+  testthat::expect_false(is.na(from))
+  to <- from + which(grepl("^\\s*\\)\\s*$", lines[(from + 1):(from + 30)]))[1]
+  block <- lines[(from + 1):(to - 1)]
+
+  hand_coded <- list()
+  for (l in block) {
+    m <- regmatches(l, regexec("^\\s*([A-Za-z0-9_]+)\\s*=\\s*rep\\(\\s*([0-9.eE+-]+)L?", l))[[1]]
+    if (length(m) == 3) hand_coded[[m[2]]] <- as.numeric(m[3])
+  }
+  testthat::expect_gt(length(hand_coded), 8L)
 
   checked <- 0L
   for (nm in names(hand_coded)) {
@@ -148,22 +120,9 @@ test_that("the model-level switch table is complete and internally consistent", 
   }
 })
 
-test_that("the config schema projects from the switch table, not a hand-kept copy", {
-  # The payoff: a value added to a map appears in the comments save_config()
-  # writes, without anyone remembering to update a second description.
-  dict <- .rce_config_schema()
-  t <- .rce_model_switch_schema()
-
-  for (nm in c("msmMode", "estimateMode", "initMode", "suitMode")) {
-    testthat::expect_identical(dict[[nm]]$doc, t[[nm]]$doc,
-                               info = paste(nm, "doc has drifted from the table"))
-    map <- get(t[[nm]]$allowed, envir = asNamespace("Rceattle"))
-    for (v in names(map)) {
-      testthat::expect_true(grepl(v, paste(dict[[nm]]$allowed, collapse = " "), fixed = TRUE),
-                            info = paste0(nm, ": '", v, "' missing from the config comment"))
-    }
-  }
-})
+# (The former "projects, not a hand-kept copy" test was removed: once the
+#  projection landed it compared a value with itself. The test above pins the
+#  property that actually matters -- that the values reach the user.)
 
 
 test_that("scope and tmb_target on the switch table are true, not just present", {

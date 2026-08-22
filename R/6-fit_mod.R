@@ -108,9 +108,17 @@
 #'     applied. This is the Cole Monnahan / AFSC GOA pollock convention.}
 #' }
 #'
-#' Modes 1 and 5 differ by exactly one term: both start from an unfished equilibrium, but (1)
-#' seeds it with \eqn{R_0} while (5) seeds it with the first year's realized recruitment. On a
-#' stock whose first year was not average, that is not a small difference.
+#' Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
+#' recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+#' year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
+#' year was not average, that is not a small difference.
+#'
+#' \eqn{R_{init}} is not always \eqn{R_0}: under a random-about-mean stock-recruit relationship
+#' the two are equal, but under Beverton-Holt or Ricker \eqn{R_{init}} is the equilibrium
+#' recruitment implied by the curve.
+#'
+#' **In multispecies mode the decay uses \eqn{M1} only**, so predation mortality (\eqn{M2}) does
+#' not enter the initial age structure under any of these modes.
 #'
 #' @return A list of class "Rceattle" including:
 #'

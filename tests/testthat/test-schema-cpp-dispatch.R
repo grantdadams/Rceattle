@@ -11,11 +11,13 @@
 # "reachable from R but handled before dispatch", which otherwise lives as prose
 # in three different phrasings.
 
-# Strip comments before scanning. A retired feature is commented out rather than
-# deleted here -- `// DATA_INTEGER(est_diet);` and `// DATA_INTEGER(avgnMode);`
-# both sit at the top of ceattle.cpp -- so a scanner reading the raw text calls a
-# dead declaration live, and the guard passes on a column that reaches the model
-# as nothing.
+# Strip comments before scanning, for two reasons. A retired feature is commented
+# out rather than deleted here -- `// DATA_INTEGER(est_diet);` and
+# `// DATA_INTEGER(avgnMode);` both sit at the top of ceattle.cpp -- so a scanner
+# reading the raw text calls a dead declaration live. And the whole Kinzey
+# predation block in predation.hpp is inside a /* ... */, so its `switch
+# (msmMode)` would otherwise be reported as live dispatch; it is also what
+# unbalances the brace count for every file concatenated after it.
 strip_cpp_comments <- function(src) {
   src <- gsub("(?s)/\\*.*?\\*/", "", src, perl = TRUE)
   gsub("//[^\n]*", "", src, perl = TRUE)
@@ -24,6 +26,7 @@ strip_cpp_comments <- function(src) {
 # Read `case N:` labels belonging to `switch (var)`, at brace depth 1 only. A
 # nested switch -- switch(flt_sex) inside switch(flt_type) -- must not leak its
 # labels into the outer one.
+
 cpp_switch_cases <- function(src, var) {
   starts <- gregexpr(paste0("switch\\s*\\(\\s*", var, "\\s*(\\([^)]*\\))?\\s*\\)"),
                      src, perl = TRUE)[[1]]
@@ -71,6 +74,7 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
   files <- list.files(dir[1], pattern = "\\.(cpp|hpp)$", full.names = TRUE)
   src <- paste(vapply(files, function(f) paste(readLines(f, warn = FALSE), collapse = "\n"),
                       character(1)), collapse = "\n")
+  src <- strip_cpp_comments(src)
 
   srr_all <- c(.SRR_FUNS, .SRR_DEPRECATED_FUNS)
 
@@ -96,6 +100,17 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          map_only_why = "there is no AFSC variant of the CAAL likelihood",
          cpp_only = integer(0), cpp_only_why = character(0)),
 
+    list(var = "est_sigma_index", values = estimate_sd_map,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "est_sigma_fsh", values = estimate_sd_map,
+         map_only = c(Analytical = 2),
+         map_only_why = paste("KNOWN GAP: the catch-sigma dispatch has no case 2, so",
+                              "Estimate_catch_sd = 'Analytical' passes every R check and then",
+                              "errors inside the template. est_sigma_index does implement it."),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
     list(var = "diet_ll_type", values = diet_loglike_map,
          map_only = integer(0), map_only_why = character(0),
          cpp_only = integer(0), cpp_only_why = character(0)),
@@ -118,13 +133,16 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          cpp_only = 3L,
          cpp_only_why = "non-parametric growth is stubbed and calls error('not yet implemented')"),
 
-    list(var = "msmMode", values = msmMode_map,
-         map_only = c(SingleSpecies = 0, MSVPA = 1, TypeIIIMSVPA = 2),
-         map_only_why = "the implemented modes are handled outside predation.hpp's switch",
-         cpp_only = 3:9,
-         cpp_only_why = "the Kinzey-Punt and Holling forms are stubbed; data_check() rejects msmMode 3-9")
+    # msmMode is deliberately absent from this list. The only `switch (msmMode)`
+    # in the template sits inside the commented-out Kinzey predation block
+    # (predation.hpp), so there is NO live dispatch to compare against -- the
+    # implemented modes are handled by `if (msmMode == ...)` in ceattle.cpp.
+    # A row here would have to be justified by dead code; see the separate test
+    # below, which pins the absence instead.
+    NULL
   )
 
+  spec <- Filter(Negate(is.null), spec)
   for (s in spec) {
     cpp <- cpp_switch_cases(src, s$var)
     testthat::expect_gt(length(cpp), 0)
@@ -154,10 +172,18 @@ test_that("the not-yet-implemented inventory is stated, not just tolerated", {
   growth <- paste(readLines(file.path(dir[1], "growth.hpp"), warn = FALSE), collapse = "\n")
   testthat::expect_match(growth, "Non-parametric growth not yet implemented", fixed = TRUE)
 
+  # The Kinzey-Punt predation forms are not "stubbed" in the sense growth is --
+  # the whole block is commented out, so msmMode 3-9 have no branch at all, live
+  # or erroring. Pin that, so the day someone uncomments it this test says so.
+  pred <- paste(readLines(file.path(dir[1], "predation.hpp"), warn = FALSE), collapse = "\n")
+  testthat::expect_match(pred, "switch (msmMode)", fixed = TRUE)
+  testthat::expect_length(cpp_switch_cases(strip_cpp_comments(pred), "msmMode"), 0)
+
   # msmMode 3-9 must be refused in R, not silently accepted and dispatched.
   d <- make_test_data(nyrs = 4, nages = 3)
   d$msmMode <- 5
-  testthat::expect_error(suppressWarnings(suppressMessages(data_check(d))))
+  testthat::expect_error(suppressWarnings(suppressMessages(data_check(d))),
+                         "Kinzey")
 })
 
 

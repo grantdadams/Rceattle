@@ -169,8 +169,10 @@ knitr::kable(mse_summ$species, digits = 2)
 knitr::kable(mse_summ$fleet, digits = 2)
 ```
 
-Metric columns are named syntactically (`om_ssb`, `em_catch`, ...), with the `om_` and `em_`
-prefixes separating what the operating model did from what the estimation model believed.
+Metric columns are named syntactically -- `avg_catch`, `catch_iav`, `ssb_rmse_terminal`,
+`om_p_overfishing`, `em_p_overfished` -- with the `om_` and `em_` prefixes separating what the
+operating model did from what the estimation model believed. `p_overfishing_false_pos` and its
+siblings are where the two disagree.
 
 ------------------------------------------------------------------------
 

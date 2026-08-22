@@ -25,7 +25,10 @@ calls_in <- function(expr, acc = list()) {
             as.character(fn[[3]]) else NA_character_
     if (!is.na(nm)) {
       args <- names(as.list(expr))[-1]
-      acc[[length(acc) + 1L]] <- list(fn = nm, args = if (is.null(args)) character(0) else args)
+      qualified <- is.call(fn) && identical(as.character(fn[[1]]), "::") &&
+        identical(as.character(fn[[2]]), "Rceattle")
+      acc[[length(acc) + 1L]] <- list(fn = nm, qualified = qualified,
+                                      args = if (is.null(args)) character(0) else args)
     }
     for (el in as.list(expr)[-1]) if (!missing(el)) acc <- calls_in(el, acc)
   }
@@ -51,6 +54,9 @@ test_that("vignettes call only exported functions, with arguments those function
   exported <- getNamespaceExports(ns)
   internal <- setdiff(ls(ns, all.names = TRUE), exported)
 
+  # Functions whose `...` is validated rather than forwarded.
+  .rce_dots_are_checked <- "fit_mod"
+
   bad_fn <- character(0)
   bad_arg <- character(0)
 
@@ -67,10 +73,20 @@ test_that("vignettes call only exported functions, with arguments those function
         bad_fn <- c(bad_fn, paste0(basename(f), ": ", cl$fn, "()"))
         next
       }
-      if (!cl$fn %in% exported) next          # base/other packages: not ours
+      # A `Rceattle::fn()` call names this package explicitly, so an unknown
+      # name there is a renamed or removed export -- the most likely drift, and
+      # what a bare `next` used to swallow.
+      if (!cl$fn %in% exported) {
+        if (isTRUE(cl$qualified)) bad_fn <- c(bad_fn, paste0(basename(f), ": Rceattle::", cl$fn, "()"))
+        next                                   # otherwise base/another package
+      }
 
       fm <- names(formals(get(cl$fn, envir = ns)))
-      if (!length(fm) || "..." %in% fm) next  # dots absorb anything
+      if (!length(fm)) next
+      # `...` normally absorbs anything, but fit_mod() stops on an unknown name
+      # rather than passing it on, so its arguments ARE checkable -- and it is
+      # the most-called function in the vignettes by a wide margin.
+      if ("..." %in% fm && !cl$fn %in% .rce_dots_are_checked) next
       supplied <- cl$args[nzchar(cl$args)]
       unknown  <- setdiff(supplied, fm)
       if (length(unknown)) {
