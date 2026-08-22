@@ -1,0 +1,151 @@
+# Every switch code exists three times: as a name in an R map (R/0-switches.R or
+# R/0-build_srr_and_M.R), as a string literal in build_map()/build_params(), and
+# as a `case` label in the C++. Nothing binds them. A code added to a map with
+# no branch to run, or a branch with no name to select it, is invisible until a
+# user picks the option and gets silence or the wrong arm.
+#
+# This test binds the first and third: it reads the `case` labels out of the
+# template and requires them to be exactly the map's values, minus a PINNED
+# exemption in each direction. The exemptions are the point -- they are the
+# machine-checked inventory of "implemented in C++ but unreachable from R" and
+# "reachable from R but handled before dispatch", which otherwise lives as prose
+# in three different phrasings.
+
+# Read `case N:` labels belonging to `switch (var)`, at brace depth 1 only. A
+# nested switch -- switch(flt_sex) inside switch(flt_type) -- must not leak its
+# labels into the outer one.
+cpp_switch_cases <- function(src, var) {
+  starts <- gregexpr(paste0("switch\\s*\\(\\s*", var, "\\s*(\\([^)]*\\))?\\s*\\)"),
+                     src, perl = TRUE)[[1]]
+  if (starts[1] == -1L) return(integer(0))
+
+  # Brace depth over the whole file, computed once and vectorised. A per-
+  # character R loop over the concatenated template costs ~30 s; this is
+  # milliseconds, and the drift check has to be cheap enough to always run.
+  ob <- gregexpr("{", src, fixed = TRUE)[[1]]
+  cb <- gregexpr("}", src, fixed = TRUE)[[1]]
+  ob <- ob[ob > 0L]; cb <- cb[cb > 0L]
+  br <- c(ob, cb)
+  step <- c(rep(1L, length(ob)), rep(-1L, length(cb)))
+  o <- order(br); br <- br[o]; step <- step[o]
+  depth <- cumsum(step)                     # depth immediately AFTER each brace
+
+  out <- integer(0)
+  for (st in starts) {
+    open_i <- which(br > st & step == 1L)
+    if (!length(open_i)) next
+    k <- open_i[1]; body_depth <- depth[k]   # depth just inside the switch body
+    shut <- which(seq_along(br) > k & depth == body_depth - 1L)
+    if (!length(shut)) next
+    from <- br[k]; to <- br[shut[1]]
+
+    block <- substr(src, from, to)
+    m <- gregexpr("case\\s+-?\\d+\\s*:", block, perl = TRUE)[[1]]
+    if (m[1] == -1L) next
+    abs_pos <- from + m - 1L
+    # A case belongs to THIS switch only at depth 1 of its body; a nested
+    # switch -- switch(flt_sex) inside switch(flt_type) -- sits deeper.
+    at <- findInterval(abs_pos, br)
+    keep <- depth[pmax(at, 1L)] == body_depth
+    txt <- regmatches(block, gregexpr("case\\s+-?\\d+\\s*:", block, perl = TRUE))[[1]]
+    # Keep the sign: comp_ll_type dispatches `case -1:` (MultinomialAFSC).
+    out <- c(out, as.integer(sub("case\\s+(-?\\d+)\\s*:", "\\1", txt[keep])))
+  }
+  sort(unique(out))
+}
+
+test_that("every C++ dispatch branch matches the R map that selects it", {
+  dir <- c("src/TMB", testthat::test_path("..", "..", "src", "TMB"))
+  dir <- dir[dir.exists(dir)]
+  testthat::skip_if(length(dir) == 0, "src/TMB not available")
+  files <- list.files(dir[1], pattern = "\\.(cpp|hpp)$", full.names = TRUE)
+  src <- paste(vapply(files, function(f) paste(readLines(f, warn = FALSE), collapse = "\n"),
+                      character(1)), collapse = "\n")
+
+  srr_all <- c(.SRR_FUNS, .SRR_DEPRECATED_FUNS)
+
+  # var = the C++ switch; values = what R can encode; exemptions carry a reason,
+  # and the reason is why the exemption is allowed to exist at all.
+  spec <- list(
+    list(var = "sel_type", values = sel_map,
+         map_only = c(Fixed = 0),
+         map_only_why = "Fixed selectivity is applied before the dispatch, not by it",
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "flt_type", values = fleet_map,
+         map_only = c(Off = 0),
+         map_only_why = "an Off fleet is dropped from the likelihood before dispatch",
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "comp_ll_type", values = comp_loglike_map,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "caal_ll_type", values = comp_loglike_map,
+         map_only = c(MultinomialAFSC = -1),
+         map_only_why = "there is no AFSC variant of the CAAL likelihood",
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "diet_ll_type", values = diet_loglike_map,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "HCR", values = hcr_map,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "srr_fun", values = srr_all,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "srr_pred_fun", values = srr_all,
+         map_only = integer(0), map_only_why = character(0),
+         cpp_only = integer(0), cpp_only_why = character(0)),
+
+    list(var = "growth_model", values = .GROWTH_FUN_TO_INT,
+         map_only = c(empirical = 0),
+         map_only_why = "empirical growth reads the weight-at-age input; it has no growth curve to dispatch",
+         cpp_only = 3L,
+         cpp_only_why = "non-parametric growth is stubbed and calls error('not yet implemented')"),
+
+    list(var = "msmMode", values = msmMode_map,
+         map_only = c(SingleSpecies = 0, MSVPA = 1, TypeIIIMSVPA = 2),
+         map_only_why = "the implemented modes are handled outside predation.hpp's switch",
+         cpp_only = 3:9,
+         cpp_only_why = "the Kinzey-Punt and Holling forms are stubbed; data_check() rejects msmMode 3-9")
+  )
+
+  for (s in spec) {
+    cpp <- cpp_switch_cases(src, s$var)
+    testthat::expect_gt(length(cpp), 0)
+    r <- sort(unique(unname(s$values)))
+
+    # A C++ branch R cannot select. Anything beyond the pinned set is a code
+    # someone implemented and no user can reach.
+    testthat::expect_setequal(setdiff(cpp, r), sort(unique(as.integer(s$cpp_only))))
+
+    # A value R can produce with no branch to run it -- either handled before
+    # dispatch, or a silent fall-through to `default`.
+    testthat::expect_setequal(setdiff(r, cpp), sort(unique(as.integer(s$map_only))))
+  }
+})
+
+test_that("the not-yet-implemented inventory is stated, not just tolerated", {
+  # Each stubbed branch above must actually be stubbed, so the exemption cannot
+  # quietly become a real-but-unreachable implementation.
+  #
+  # skip_on_cran: the msmMode half builds a fixture, which is the whole runtime
+  # of this file. The dispatch comparison above stays static and sub-second.
+  testthat::skip_on_cran()
+  dir <- c("src/TMB", testthat::test_path("..", "..", "src", "TMB"))
+  dir <- dir[dir.exists(dir)]
+  testthat::skip_if(length(dir) == 0, "src/TMB not available")
+
+  growth <- paste(readLines(file.path(dir[1], "growth.hpp"), warn = FALSE), collapse = "\n")
+  testthat::expect_match(growth, "Non-parametric growth not yet implemented", fixed = TRUE)
+
+  # msmMode 3-9 must be refused in R, not silently accepted and dispatched.
+  d <- make_test_data(nyrs = 4, nages = 3)
+  d$msmMode <- 5
+  testthat::expect_error(suppressWarnings(suppressMessages(data_check(d))))
+})
