@@ -399,3 +399,102 @@
 
   out
 }
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Model-level switches
+#
+# The switches that configure the MODEL rather than a workbook column:
+# msmMode, estimateMode, initMode and the rest. They live in maps in
+# R/0-switches.R and R/0-build_srr_and_M.R, are defaulted in switch_check(),
+# and are documented in fit_mod() and the build_*() constructors -- with no one
+# place saying what the full set is.
+#
+# A SECOND table rather than rows in .rce_column_schema(): these are not
+# workbook columns, and write_data(), read_data(), the meta sheet and the
+# R/data.R drift guard all iterate that list. Adding non-columns to it would
+# put them in the workbook.
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+#' One model-level switch
+#'
+#' @param name Canonical name, as `fit_mod()` or a `build_*()` takes it.
+#' @param doc One sentence: what it selects.
+#' @param allowed Name of the map defining its values, in the package namespace.
+#' @param default The value applied when the user supplies none.
+#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"` -- whether one
+#'   value configures the model or one value per species/fleet is expected.
+#' @param tmb_target The `DATA_*` object it reaches, where it reaches one.
+#' @param set_by The function that takes it.
+#' @keywords internal
+#' @noRd
+.rce_switch <- function(name, doc, allowed = NA_character_, default = NA,
+                        scope = "scalar", tmb_target = NA_character_,
+                        set_by = "fit_mod") {
+  list(name = name, doc = doc, allowed = allowed, default = default,
+       scope = scope, tmb_target = tmb_target, set_by = set_by)
+}
+
+#' The model-level switches
+#'
+#' @description
+#' Companion to [.rce_column_schema()], for the switches that are not workbook
+#' columns. `.rce_config_schema()` projects from this, so the comments
+#' `save_config()` writes list every valid value rather than a hand-kept subset;
+#' `test-schema-cpp-dispatch.R` checks the ones that reach the template against
+#' the `case` labels that consume them.
+#'
+#' @return A named list of switch definitions, keyed by canonical name.
+#' @keywords internal
+#' @noRd
+.rce_model_switch_schema <- function() {
+  rows <- list(
+    .rce_switch("msmMode",
+      "Predation-mortality mode: single-species, or which multispecies form.",
+      allowed = "msmMode_map", default = 0L, tmb_target = "msmMode"),
+    .rce_switch("estimateMode",
+      "What the fit does: hindcast, projection, or a build-only debug pass.",
+      allowed = "estimateMode_map", default = 0L),
+    .rce_switch("initMode",
+      "How the initial age structure is derived. See ?fit_mod.",
+      allowed = "initMode_map", default = 2L),
+    .rce_switch("suitMode",
+      "How predator-prey suitability is derived, per predator.",
+      allowed = "suitMode_map", default = 0L, scope = "per-species"),
+    .rce_switch("avgnMode",
+      "Average abundance-at-age approximation in the predation equations.",
+      default = 0L),
+    .rce_switch("HCR",
+      "Harvest control rule applied in the projection.",
+      allowed = "hcr_map", default = 0L, set_by = "build_hcr"),
+    .rce_switch("srr_fun",
+      "Stock-recruit form fitted to the hindcast.",
+      allowed = ".SRR_FUNS", default = 0L, scope = "per-species",
+      tmb_target = "srr_fun", set_by = "build_srr"),
+    .rce_switch("srr_pred_fun",
+      "Stock-recruit form used to predict recruitment in the projection.",
+      allowed = ".SRR_FUNS", default = 0L, scope = "per-species",
+      tmb_target = "srr_pred_fun", set_by = "build_srr"),
+    .rce_switch("srr_est_mode",
+      "Whether the stock-recruit parameters are fixed, estimated, or given a prior.",
+      allowed = "srr_est_mode_map", default = 1L, set_by = "build_srr"),
+    .rce_switch("M1_model",
+      "Residual natural mortality: fixed, or estimated at which resolution.",
+      allowed = ".M1_MODELS", default = 0L, scope = "per-species",
+      set_by = "build_M1"),
+    .rce_switch("growth_model",
+      "Growth curve: empirical weight-at-age, or which parametric form.",
+      allowed = ".GROWTH_FUN_TO_INT", default = 0L, scope = "per-species",
+      tmb_target = "growth_model", set_by = "build_growth"),
+    .rce_switch("estDynamics",
+      "Whether population dynamics are estimated, or numbers-at-age supplied.",
+      allowed = "estDynamics_map", default = 0L, scope = "per-species",
+      tmb_target = "estDynamics")
+  )
+  stats::setNames(rows, vapply(rows, function(r) r$name, character(1)))
+}
+
+#' Names of the model-level switches
+#' @keywords internal
+#' @noRd
+.rce_model_switch_names <- function() names(.rce_model_switch_schema())

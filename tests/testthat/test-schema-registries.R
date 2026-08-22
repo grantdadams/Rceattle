@@ -114,3 +114,53 @@ test_that("the hand-coded defaults still equal the schema's", {
   # an empty loop.
   testthat::expect_gt(checked, 8L)
 })
+
+
+test_that("the model-level switch table is complete and internally consistent", {
+  # The switches that configure the model rather than a workbook column. They
+  # lived in maps, were defaulted in switch_check(), documented in fit_mod()'s
+  # roxygen and re-described in .rce_config_schema() -- four places, hand-kept.
+  t <- .rce_model_switch_schema()
+  testthat::expect_gt(length(t), 10)
+
+  for (nm in names(t)) {
+    row <- t[[nm]]
+    testthat::expect_identical(row$name, nm)
+    testthat::expect_true(nzchar(row$doc), info = paste(nm, "has no doc"))
+    testthat::expect_true(row$scope %in% c("scalar", "per-species", "per-fleet"),
+                          info = paste(nm, "has an unknown scope:", row$scope))
+
+    # A named map must resolve, or the config comment silently loses its values.
+    if (!is.na(row$allowed)) {
+      m <- tryCatch(get(row$allowed, envir = asNamespace("Rceattle")),
+                    error = function(e) NULL)
+      testthat::expect_false(is.null(m),
+                             info = paste0(nm, ": allowed = '", row$allowed,
+                                           "' does not resolve"))
+      testthat::expect_gt(length(m), 1)
+      # The default must be a value the map actually defines.
+      if (!is.na(row$default)) {
+        testthat::expect_true(as.numeric(row$default) %in% unname(m),
+                              info = paste0(nm, ": default ", row$default,
+                                            " is not in ", row$allowed))
+      }
+    }
+  }
+})
+
+test_that("the config schema projects from the switch table, not a hand-kept copy", {
+  # The payoff: a value added to a map appears in the comments save_config()
+  # writes, without anyone remembering to update a second description.
+  dict <- .rce_config_schema()
+  t <- .rce_model_switch_schema()
+
+  for (nm in c("msmMode", "estimateMode", "initMode", "suitMode")) {
+    testthat::expect_identical(dict[[nm]]$doc, t[[nm]]$doc,
+                               info = paste(nm, "doc has drifted from the table"))
+    map <- get(t[[nm]]$allowed, envir = asNamespace("Rceattle"))
+    for (v in names(map)) {
+      testthat::expect_true(grepl(v, paste(dict[[nm]]$allowed, collapse = " "), fixed = TRUE),
+                            info = paste0(nm, ": '", v, "' missing from the config comment"))
+    }
+  }
+})
