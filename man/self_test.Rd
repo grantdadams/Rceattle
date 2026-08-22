@@ -5,7 +5,7 @@
 \title{Self-test simulation analysis}
 \usage{
 self_test(
-  Rceattle = NULL,
+  object = NULL,
   nsim = 50,
   simulate = TRUE,
   seed = 123,
@@ -15,11 +15,13 @@ self_test(
   start = c("initial", "estimated"),
   debug = FALSE,
   timeout = Inf,
-  process = FALSE
+  process = FALSE,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{nsim}{number of simulations}
 
@@ -88,6 +90,16 @@ recovers its own parameters from new observations. Naming a process --
 estimator recovers a process it has not been shown. The deviations behind
 each replicate come back in \code{attr(result, "process_sim")}; see
 \code{Value}.}
+
+\item{fit_control}{optional \code{\link{fit_control}()} bundle for the refits.
+Only \code{phase} and \code{getsd} are read -- those are what these
+diagnostics forward to each refit -- and setting any other field is an
+error rather than a silent no-op. Only fields you change from
+\code{fit_control()}'s own defaults are applied, so
+\code{fit_control(getsd = FALSE)} cannot also change \code{phase}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....

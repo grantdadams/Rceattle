@@ -5,18 +5,20 @@
 \title{Jitter analysis}
 \usage{
 jitter(
-  Rceattle = NULL,
+  object = NULL,
   njitter = 50,
   sd = 0.2,
   phase = FALSE,
   seed = 123,
   cores = NULL,
   getsd = NULL,
-  timeout = Inf
+  timeout = Inf,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{njitter}{the number of jitters to run}
 
@@ -49,6 +51,16 @@ catch, because the fit never returns. One that exceeds the limit is stopped,
 counted as non-converged and reported separately. Approximate: the limit is
 checked when control returns to R, so it fires between the optimizer's
 function evaluations rather than inside one.}
+
+\item{fit_control}{optional \code{\link{fit_control}()} bundle for the refits.
+Only \code{phase} and \code{getsd} are read -- those are what these
+diagnostics forward to each refit -- and setting any other field is an
+error rather than a silent no-op. Only fields you change from
+\code{fit_control()}'s own defaults are applied, so
+\code{fit_control(getsd = FALSE)} cannot also change \code{phase}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 a list of 1. \code{Rceattle_list}, the converged jitters, and
@@ -59,6 +71,12 @@ is what fraction of random starts reach the same optimum.
 }
 \description{
 Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
+}
+\note{
+Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
+on a numeric vector reaches this function and reports a missing model rather
+than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
+base-graphics behaviour.
 }
 \examples{
 \donttest{

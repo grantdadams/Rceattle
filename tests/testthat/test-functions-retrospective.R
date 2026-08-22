@@ -309,7 +309,8 @@ testthat::test_that("self_test inherits the source model's phasing", {
   # phased (retrospective fixes phase = TRUE, jitter exposes it), taking
   # .refit_like()'s phase = FALSE default with no way to change it. On a model
   # that needs phasing the refits then land many orders of magnitude from the
-  # optimum and are all dropped.
+  # optimum and are all dropped. (Since 5.11.0 retrospective() exposes `phase`
+  # as an argument too, defaulting to the TRUE it used to hardcode.)
   #
   # Phasing is a property of the refit, not of the fixture, so assert on the
   # resolved default rather than on a fit: `phase_params` is attached by
@@ -320,8 +321,11 @@ testthat::test_that("self_test inherits the source model's phasing", {
   testthat::expect_null(eval(fml$phase))          # NULL = inherit
 
   # The new arguments are appended, so documented positional calls keep meaning.
+  # The fitted model is `object` since 5.11.0; `Rceattle` still works and is
+  # declared last, which is what keeps positional calls binding to `object`.
   testthat::expect_equal(names(fml)[1:6],
-                         c("Rceattle", "nsim", "simulate", "seed", "cores", "getsd"))
+                         c("object", "nsim", "simulate", "seed", "cores", "getsd"))
+  testthat::expect_equal(names(fml)[length(fml)], "Rceattle")
 
   phased   <- structure(list(phase_params = list(dummy = 0)), class = "Rceattle")
   unphased <- structure(list(), class = "Rceattle")

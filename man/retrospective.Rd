@@ -5,22 +5,30 @@
 \title{Retrospective peels}
 \usage{
 retrospective(
-  Rceattle = NULL,
+  object = NULL,
   peels = 5,
   rescale = FALSE,
   nyrs_forecast = 3,
+  phase = TRUE,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
 \item{rescale}{TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.}
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
+
+\item{phase}{whether each peel is refitted in phases (default \code{TRUE}).
+A peel restarts from the unpeeled fit's starting values with a year removed;
+without phasing the parameters barely move, the peels sit on top of the full
+model, and Mohn's rho is biased towards zero. Change it only deliberately.}
 
 \item{cores}{Number of cores to use for parallel peels. Default
 \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
@@ -33,6 +41,17 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
 \code{sdrep}); the returned peel models then carry standard errors only
 when \code{getsd} is \code{TRUE}.}
+
+\item{fit_control}{optional \code{\link{fit_control}()} bundle for the refits.
+Only \code{phase} and \code{getsd} are read -- those are what these
+diagnostics forward to each refit -- and setting any other field is an
+error rather than a silent no-op. Only fields you change from
+\code{fit_control()}'s own defaults are applied, so
+\code{fit_control(getsd = FALSE)} cannot also un-phase the refits; use the
+function's own \code{phase} argument for that.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for

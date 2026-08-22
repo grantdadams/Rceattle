@@ -4,10 +4,10 @@
 \alias{sim_mod}
 \title{Simulate Rceattle data}
 \usage{
-sim_mod(Rceattle, simulate = FALSE, process = FALSE)
+sim_mod(object = NULL, simulate = FALSE, process = FALSE, Rceattle = NULL)
 }
 \arguments{
-\item{Rceattle}{A CEATTLE model object exported from \code{Rceattle}.}
+\item{object}{A CEATTLE model object exported from \code{Rceattle}.}
 
 \item{simulate}{Logical. If \code{TRUE}, simulates data from distributions.
 If \code{FALSE}, returns the expected values (hats).}
@@ -20,6 +20,9 @@ catchability and selectivity. Any subset of \code{"recruitment"},
 \code{"M"}, \code{"growth"}, \code{"catchability"} and
 \code{"selectivity"} may be given instead. Ignored when
 \code{simulate = FALSE}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A \code{data_list} object containing the simulated or expected data
