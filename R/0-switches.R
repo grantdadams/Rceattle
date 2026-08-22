@@ -120,6 +120,26 @@ tv_q_map <- c(
   "RandomWalk" = 4
 )
 
+# Whether a fleet's selectivity is indexed by age or by length bin. Read in
+# rearrange_data(), build_params() and data_check(); a value outside this set
+# silently became NA and entered the fit as a missing dimension.
+sel_dimension_map <- c(
+  "Age"    = 0,
+  "Length" = 1
+)
+
+# Direction of the (directional-mode) NonParametric shape penalty.
+sel_shape_dir_map <- c(
+  "Decreasing" = 0,
+  "Increasing" = 1
+)
+
+# Shape-penalty mode: one-sided directional (ADMB/AMAK) or two-sided smooth.
+sel_shape_mode_map <- c(
+  "Directional" = 0,
+  "Smooth"      = 1
+)
+
 comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
   "Multinomial" = 0,
@@ -705,9 +725,13 @@ switch_check <- function(data_list){
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
   data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch, conditions = .dflt_when)
   data_list$fleet_control$Index_distribution <- .rce_apply_default(data_list$fleet_control$Index_distribution, "Index_distribution", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
-  # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only the
-  # covariance survey) leaves the other rows NA, which should default to Lognormal.
-  data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <- "Lognormal"
+  # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only
+  # the covariance survey) leaves the other rows NA, which should take the same
+  # default. Read it from the schema rather than repeating the literal -- the
+  # value belongs in one place, and this line sat three lines below the
+  # schema-driven call that already knows it.
+  data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <-
+    .sch[["Index_distribution"]]$default
   data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
@@ -860,6 +884,16 @@ switch_check <- function(data_list){
 #' @importFrom rlang .data
 #' @keywords internal
 #' @noRd
+# Legacy spellings of a canonical switch VALUE (as distinct from the schema's
+# column aliases, which rename a whole column). Upgraded on the way in, because
+# switch_check() accepted these while validate_switches() rejected them -- so a
+# model written with one loaded, ran switch_check() unchanged, and then failed
+# its own data check with "Invalid 'Selectivity'".
+.rce_switch_value_aliases <- c(
+  "Non-parametric" = "NonParametric"
+)
+
+
 revert_switches <- function(data_list) {
 
   # Helper: convert integer codes to map names. Numeric-looking strings ("0",
@@ -871,6 +905,13 @@ revert_switches <- function(data_list) {
     x_num <- suppressWarnings(as.numeric(x_char))
     is_num <- !is.na(x_num)
     x_char[is_num] <- as.character(x_num[is_num])
+    # Upgrade a legacy spelling before matching, so it lands on the canonical
+    # name rather than passing through to be rejected later.
+    alias_hit <- match(x_char, names(.rce_switch_value_aliases))
+    if (any(!is.na(alias_hit))) {
+      x_char[!is.na(alias_hit)] <-
+        unname(.rce_switch_value_aliases[alias_hit[!is.na(alias_hit)]])
+    }
     idx <- match(x_char, as.character(map))
     matched <- !is.na(idx)
     if (any(matched)) {
@@ -923,8 +964,46 @@ revert_switches <- function(data_list) {
 #'
 #' @keywords internal
 #' @noRd
+#' The value map a column is validated against, from the schema
+#'
+#' @description
+#' `.rce_column_schema()` names the governing map on each `type = "switch"` row
+#' (`allowed = "sel_map"`). Resolving it here is what makes the schema
+#' authoritative for *which* values a column may take: adding a switch column
+#' means adding a row, not another hardcoded map reference in this file.
+#'
+#' The per-column subset predicate and the wording of the error stay at the call
+#' site. They are not uniform -- `Time_varying_q` is exempt while `Catchability`
+#' is `"Environmental"`, `Catchability` itself allows `NA`, and the newer
+#' columns may be absent entirely on a list `switch_check()` has not yet seen --
+#' and flattening that into one generic loop would lose real behaviour.
+#'
+#' @param col Canonical column name.
+#' @return The named map, or `NULL` if the schema declares none.
+#' @keywords internal
+#' @noRd
+.rce_allowed_map <- function(col) {
+  nm <- .rce_column_schema()[[col]]$allowed
+  if (is.null(nm) || all(is.na(nm))) return(NULL)
+  get(nm, envir = asNamespace("Rceattle"))
+}
+
+
 validate_switches <- function(data_list = NULL){
   errors <- character(0)
+
+  # Governing maps, resolved from the schema's `allowed` field.
+  fleet_map              <- .rce_allowed_map("Fleet_type")
+  sel_map                <- .rce_allowed_map("Selectivity")
+  tv_sel_map             <- .rce_allowed_map("Time_varying_sel")
+  sel_norm_scope_map     <- .rce_allowed_map("Sel_norm_scope")
+  q_map                  <- .rce_allowed_map("Catchability")
+  tv_q_map               <- .rce_allowed_map("Time_varying_q")
+  comp_loglike_map       <- .rce_allowed_map("Comp_distribution")
+  index_distribution_map <- .rce_allowed_map("Index_distribution")
+  sel_dimension_map      <- .rce_allowed_map("Selectivity_dimension")
+  sel_shape_dir_map      <- .rce_allowed_map("Sel_shape_dir")
+  sel_shape_mode_map     <- .rce_allowed_map("Sel_shape_mode")
 
   # Validate fleet_control inputs ----
   # The newer switch columns can be absent here: data_check() is callable on a
@@ -954,6 +1033,31 @@ validate_switches <- function(data_list = NULL){
     data_list$fleet_control |>
       dplyr::filter(.data$Fleet_type != "Off" &
                       !.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
+  } else .fc_none
+
+  # Three columns that reached the fit unvalidated until 5.12.0. A typo in any
+  # of them resolved to NA rather than erroring: `Selectivity_dimension` became
+  # a missing selectivity dimension, and the two Sel_shape_* columns a missing
+  # penalty mode. Nothing downstream re-checked them.
+  invalid_sel_dim <- if (.fc_has("Selectivity_dimension")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$Fleet_type != "Off" &
+                      !.data$Selectivity_dimension %in%
+                        c(sel_dimension_map, names(sel_dimension_map)))
+  } else .fc_none
+
+  invalid_sel_shape_dir <- if (.fc_has("Sel_shape_dir")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$Fleet_type != "Off" & !is.na(.data$Sel_shape_dir) &
+                      !.data$Sel_shape_dir %in%
+                        c(sel_shape_dir_map, names(sel_shape_dir_map)))
+  } else .fc_none
+
+  invalid_sel_shape_mode <- if (.fc_has("Sel_shape_mode")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$Fleet_type != "Off" & !is.na(.data$Sel_shape_mode) &
+                      !.data$Sel_shape_mode %in%
+                        c(sel_shape_mode_map, names(sel_shape_mode_map)))
   } else .fc_none
 
   invalid_comp_ll <- data_list$fleet_control |>
@@ -1009,6 +1113,27 @@ validate_switches <- function(data_list = NULL){
                               paste(invalid_tv_q$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ", paste(range(tv_q_map), collapse = ":")," or one of:",
                               paste(names(tv_q_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_dim) > 0) {
+    errors <- c(errors, paste("Invalid 'Selectivity_dimension' specified for fleets:",
+                              paste(invalid_sel_dim$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_dimension_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_shape_dir) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_shape_dir' specified for fleets:",
+                              paste(invalid_sel_shape_dir$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_shape_dir_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_shape_mode) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_shape_mode' specified for fleets:",
+                              paste(invalid_sel_shape_mode$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_shape_mode_map), collapse = ", ")))
   }
 
   if(nrow(invalid_comp_ll) > 0) {

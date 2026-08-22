@@ -61,8 +61,8 @@ configuration, which top-level \code{data_list} elements are \strong{Required},
 \strong{Optional} (used if supplied, otherwise default-filled by \code{\link[=clean_data]{clean_data()}}), or
 \strong{Ignored} (not consulted because the feature that would use them is switched
 off). It answers "what do I actually need to supply for \emph{this} model?" without
-having to read \code{\link[=data_check]{data_check()}} or the switch tables -- the same conditions
-\code{\link[=data_check]{data_check()}} enforces at fit time (they share one declarative table).
+having to read the validation code or the switch tables -- the same conditions
+enforced at fit time (they share one declarative table).
 }
 \details{
 The configuration can be given either as an existing (possibly partial)
@@ -88,5 +88,5 @@ data_requirements(msmMode = 1)
 data_requirements(BS2017SS)
 }
 \seealso{
-\code{\link[=data_check]{data_check()}}, \code{\link[=clean_data]{clean_data()}}, \code{\link[=build_data]{build_data()}}.
+\code{\link[=clean_data]{clean_data()}}, \code{\link[=build_data]{build_data()}}.
 }

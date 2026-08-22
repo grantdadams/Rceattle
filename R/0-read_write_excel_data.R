@@ -72,7 +72,15 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Fleet control ----
-  xcel_list$fleet_control <- as.data.frame(data_list$fleet_control)
+  # Schema order, as the control and bioenergetics sheets already use. Two
+  # workbooks written by different versions then differ by their contents, not
+  # by the order someone happened to build the data frame in -- which makes a
+  # diff between them readable. Columns the schema does not know are kept, at
+  # the end, rather than silently dropped.
+  .fc_out <- as.data.frame(data_list$fleet_control)
+  .fc_order <- c(intersect(.rce_schema_names("fleet_control"), names(.fc_out)),
+                 setdiff(names(.fc_out), .rce_schema_names("fleet_control")))
+  xcel_list$fleet_control <- .fc_out[, .fc_order, drop = FALSE]
   names_used <- c(names_used, "fleet_control")
 
 
@@ -231,26 +239,62 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
     alpha_wt_len = 1e-4, beta_wt_len = 3, pop_age_transition_index = 1,
     sigma_rec = 1, other_food = 1e6, estDynamics = 0)
 
-  # fleet_control: one survey + one fishery on canonical column names. The full
-  # column set is written explicitly (some columns -- e.g. Time_varying_q -- are
-  # read by convert_switches()/rearrange_data() and are not schema-defaulted).
-  d$fleet_control <- data.frame(
-    Fleet_name = c("Survey", "Fishery"), Fleet_code = 1:2,
-    Fleet_type = c("Survey", "Fishery"), Species = 1L, Month = 0L,
-    Selectivity_index = 1:2, Selectivity = "Logistic",
-    Selectivity_dimension = "Age", N_sel_bins = NA,
-    Sel_curve_pen1 = NA, Sel_curve_pen2 = NA, Time_varying_sel = 0L,
-    Time_varying_sel_sd = 1, Bin_first_selected = 1L,
-    Sel_norm_bin = NA, Sel_norm_bin_upper = NA,
-    Comp_distribution = "Multinomial", Comp_weights = 1,
-    CAAL_distribution = 0L, CAAL_weights = 1, Observation_units = 1L,
-    Weight_index = 1L, Age_transition_index = 1L,
-    Catchability_index = c(1L, NA), Catchability = c("Fixed", NA),
-    Catchability_init = c(1, NA), Catchability_prior_sd = c(0.2, NA),
-    Time_varying_q = c(0L, NA), Time_varying_q_sd = c(1, NA),
-    Estimate_index_sd = c(0L, NA), Index_sd = c(1, NA),
-    Estimate_catch_sd = c(NA, 0L), Catch_sd = c(NA, 1),
-    Proj_F_proportion = c(NA, 1), stringsAsFactors = FALSE)
+  # fleet_control: one survey + one fishery, on EVERY column the schema defines.
+  #
+  # The column set is derived from the schema rather than written out here, so a
+  # column added to the schema appears in the next template. The hand-written
+  # list this replaces had fallen 14 columns behind -- and a column missing from
+  # the template is how a user never learns the option exists: they fill in what
+  # they were given, and the feature stays off.
+  #
+  # Seed values come from the schema default where there is one, and NA
+  # otherwise. NA is a real answer for most of these ("do not normalize", "no
+  # cap", "no accumulation"), and for the rest it is the honest one: the
+  # template cannot know the fleet's month or its catchability.
+  .sch_fc <- .rce_schema_names("fleet_control")
+  d$fleet_control <- as.data.frame(
+    stats::setNames(lapply(.sch_fc, function(nm) {
+      row <- .rce_column_schema()[[nm]]
+      if (!is.null(row$has_default) && isTRUE(row$has_default) &&
+          !is.null(row$default) && length(row$default) == 1L) {
+        rep(row$default, 2L)
+      } else {
+        rep(NA, 2L)
+      }
+    }), .sch_fc),
+    stringsAsFactors = FALSE)
+
+  # The identity and the worked example: one survey, one fishery. Everything
+  # else is a default or a blank for the user to fill in.
+  d$fleet_control$Fleet_name            <- c("Survey", "Fishery")
+  d$fleet_control$Fleet_code            <- 1:2
+  d$fleet_control$Fleet_type            <- c("Survey", "Fishery")
+  d$fleet_control$Species               <- 1L
+  d$fleet_control$Selectivity_index     <- 1:2
+  d$fleet_control$Selectivity           <- "Logistic"
+  d$fleet_control$Selectivity_dimension <- "Age"
+  d$fleet_control$Bin_first_selected    <- 1L
+  d$fleet_control$Comp_distribution     <- "Multinomial"
+  d$fleet_control$Comp_weights          <- 1
+  d$fleet_control$CAAL_distribution     <- 0L
+  d$fleet_control$CAAL_weights          <- 1
+  d$fleet_control$Observation_units     <- 1L
+  d$fleet_control$Weight_index          <- 1L
+  d$fleet_control$Age_transition_index  <- 1L
+  # Catchability applies to the survey; catch error to the fishery.
+  d$fleet_control$Catchability_index    <- c(1L, NA)
+  d$fleet_control$Catchability          <- c("Fixed", NA)
+  d$fleet_control$Catchability_init     <- c(1, NA)
+  d$fleet_control$Catchability_prior_sd <- c(0.2, NA)
+  d$fleet_control$Time_varying_q        <- c(0L, NA)
+  d$fleet_control$Time_varying_q_sd     <- c(1, NA)
+  d$fleet_control$Estimate_index_sd     <- c(0L, NA)
+  d$fleet_control$Index_sd              <- c(1, NA)
+  d$fleet_control$Estimate_catch_sd     <- c(NA, 0L)
+  d$fleet_control$Catch_sd              <- c(NA, 1)
+  d$fleet_control$Proj_F_proportion     <- c(NA, 1)
+  d$fleet_control$Time_varying_sel      <- 0L
+  d$fleet_control$Time_varying_sel_sd   <- 1
 
   # Placeholder observations (flat) -- replace with real data before fitting.
   d$index_data <- data.frame(Fleet_name = "Survey", Fleet_code = 1L, Species = 1L,

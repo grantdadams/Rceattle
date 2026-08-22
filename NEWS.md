@@ -11,6 +11,59 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.11.1
+
+## Documentation
+
+* **The vignettes can now be executed.** They still render without running their
+  code by default -- several chunks fit real models -- but
+  `RCEATTLE_EVAL_VIGNETTES=true` turns evaluation on, and a new weekly
+  `vignettes.yaml` CI job runs them for real. Nothing executed them before, so an
+  API break in a vignette was invisible until a user copied the code. That is how
+  `hcrs-and-mses.Rmd` kept calling `knitr::kable()` on `mse_summary()` for several
+  releases after it started returning a list; that code is fixed, and the
+  per-entity structure (`$species`, `$fleet`, `$total`, `$meta`) is now explained.
+
+* **The switch tables document every value the model accepts.** `Selectivity`
+  stopped at 7, omitting `DoubleNormal` (8), `NonParametricPM` (9) and
+  `LogisticPM` (11); `Catchability` stopped at 6, omitting `AnalyticalArith` (7).
+  `PowerEquation` is now marked as not implemented, and the 5.8.1 deprecation of
+  `"Environmental"` is recorded with the linkage that replaces it.
+
+* **`Index_distribution` is documented.** It had no vignette coverage at all,
+  despite deciding whether an index is scored on the log or the natural scale --
+  and despite a second, hand-synced registry (`.index_rows_natural_scale()`) that
+  a new natural-scale family must also be added to, or it silently gets the
+  log-scale residual formula.
+
+* `reweight_comps(fleets =)` is documented, as is the log scale `Comp_weights`
+  takes under a Dirichlet-multinomial. `fit_mod()`'s `initMode` moves from an
+  849-character `@param` into an **Initial age structure** section, and
+  `suitMode` / `avgnMode` now say "declared but not implemented" in one voice
+  rather than three. Examples added to `build_srr()`, `build_hcr()`,
+  `mse_summary()`, `sim_mod()`, `model_average()`, `osa_residuals()` and
+  `run_mse()`.
+
+* The vignettes and `build_data()`'s help no longer tell users to call
+  `data_check()`, which is internal; they point at `build_data(.check = TRUE)`.
+
+## Internal
+
+* **The C++ dispatch branches are pinned to the R maps that select them**
+  (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
+  inventory of what is implemented in the template but unreachable from R
+  (non-parametric growth; `msmMode` 3-9) and what R can encode but the dispatch
+  never sees. The schema's `tmb_target` field, previously set on no rows, now
+  carries the rename for 27 columns and is checked against both ends of it.
+
+* `R/data.R`'s field dictionary is pinned against the switch maps: a documented
+  code the map does not define, or a map value the dictionary omits, now fails.
+  It also may no longer present a deprecated alias as a canonical column.
+
+* `.rce_config_schema()` reads `estimateMode_map` and `msmMode_map` instead of
+  hardcoding them, so the comments `save_config()` writes list every valid value.
+  `estimateMode` was missing `DebugOptimize`.
+
 # Rceattle 5.11.0
 
 ## New features

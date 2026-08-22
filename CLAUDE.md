@@ -56,7 +56,10 @@ projection, MSE, diagnostics, plotting — is R.
     Selectivity bin columns are indices on the fleet's own `Selectivity_dimension`.
 11. **`nages` is a count of age bins, not the oldest age.** Ages run
     `minage .. minage + nages - 1`; age `a` sits at index `a - minage + 1`. `minage = 1` hides
-    every confusion, and that is every bundled dataset and all three live assessments.
+    every confusion, and that is every bundled dataset and all three live assessments — so write
+    `seq_len(nages[sp]) - 1 + minage[sp]` and mean it. A plotter taking an `age`/`minage`
+    argument resolves it with `.rce_age_index()` / `.rce_age_plus_index()`, never by indexing
+    the array directly.
 12. **`linkage.hpp` and `R/0-linkage_encode.R` are in lockstep.** Their process and param codes
     must match — change one, change both. This is the seam DSEM extends. In a linkage formula the
     fixed part goes straight to `model.matrix()`, so a time block is `~ cut(Year, ...)` — there
@@ -89,8 +92,8 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   it. A plain `new.env()` fails with `could not find function "data_check"`.
 - **A test that runs a real `fit_mod()` optimization needs `testthat::skip_on_cran()`** so plain
   `R CMD check` stays fast. Leave fast unit tests unguarded.
-- **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`.
-  No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
+- **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`
+  + `vignettes.yaml` (weekly, non-blocking). No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
   gets no pkgdown CI — run `/pkgdown-check` yourself.
 - **Slash commands:** `/recompile`, `/test [file]`, `/document`, `/check`, `/golden-check`,
   `/verify`, `/new-column`, `/doc-sync`, `/pkgdown-check`, `/ecosystem-sweep`, `/handoff`.
@@ -111,8 +114,11 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `helpers-*.R` / `fixtures/` sit alongside. Fast fixtures: `make_test_data()` (single-species)
   or `make_msm_test_data()` (multispecies, incl. diet) with `estimateMode = 3` build a
   non-optimized object. `tests/comparison/` holds WHAM cross-checks (not part of `test_check`).
-- **`vignettes/`** are `eval = FALSE` — they only need to render, so **nothing executes their
-  code and no CI job checks it**. An API break in a vignette is invisible until a user hits it.
+- **`vignettes/`** do not execute their code by default — several chunks fit real models, so
+  running them is far too slow for `R CMD check`. Set `RCEATTLE_EVAL_VIGNETTES=true` to execute
+  them, which is what the weekly `vignettes.yaml` job does. On a PR the guard is
+  `test-vignette-api.R`, which parses every chunk and checks each Rceattle call names an
+  exported function with arguments it has; that catches renames, not return-shape drift.
   `data/` has the bundled example datasets.
 - **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, ADMB conversion).
   The untracked `dev/` is scratch and does not survive a clone.

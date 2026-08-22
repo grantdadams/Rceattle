@@ -12,7 +12,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")
 )
 ```
 
@@ -125,6 +125,12 @@ below (integers or strings both work):
 | `5` | `"Hake"` | Non-parametric à la Taylor et al. (Pacific hake) |
 | `6` | `"2DAR1"` | 2D AR(1) bin × year (Cheng et al. 2024) |
 | `7` | `"3DAR1"` | 3D AR(1) bin × year × cohort |
+| `8` | `"DoubleNormal"` | Six-parameter double normal (Stock Synthesis pattern 24) |
+| `9` | `"NonParametricPM"` | Ianelli non-parametric with the ADMB AMAK ("pm") penalty; see `Sel_avgsel_pen`, `Sel_cap_bin` |
+| `11` | `"LogisticPM"` | AMAK ("pm") logistic: multiplicative inflection/slope deviations plus a free age-1 log-selectivity |
+
+There is no `10`: the integer codes are frozen, because renumbering one would
+silently reinterpret every saved config and every fitted `.rds` that carries it.
 
 The AR(1) forms reuse the `Sel_curve_pen` columns as logit-scale correlations,
 one per dimension: `Sel_curve_pen1` across selectivity **bins** (ages or length
@@ -266,9 +272,36 @@ Set the `Catchability` column of `fleet_control`:
 | `1` | `"Estimated"` | q estimated as a free parameter |
 | `2` | `"Estimated-with-prior"` | Estimated with a Normal prior |
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
-| `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>) |
-| `5` | `"Environmental"` | q linked to an environmental index (`Catchability_index`) |
+| `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>). **Not implemented** -- `data_check()` rejects it. |
+| `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 5.8.1** -- express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
 | `6` | `"AR1"` | Annual AR(1) deviations on log-q fit to a single index (Rogers et al. 2024) |
+| `7` | `"AnalyticalArith"` | q solved from the fleet's own index observations using the AMAK arithmetic-mean estimator; pair with `Index_distribution = "MVN"` for a supplied covariance |
+
+### Index likelihood (`Index_distribution`)
+
+How an index observation is scored, per fleet. This is the one switch whose
+choice also changes how residuals and plots are computed, so it is worth setting
+deliberately rather than inheriting.
+
+| Value | String | Scale | Description |
+|:---:|---|---|---|
+| `0` | `"Lognormal"` | log | Independent lognormal on `log(obs)`. The historical default. `Log_sd` is a log-scale CV. |
+| `1` | `"MVN"` | natural | The AMAK/`ebswp` `DoCovBTS = 1` bare quadratic form `0.5 · r' Σ⁻¹ r` on the residual `obs − q·pred`. Drops the normalizing constant, so the reported value matches ADMB. Needs `index_cov`. |
+| `2` | `"MVNORM"` | natural | The full multivariate-normal negative log-density. Identical fit to `"MVN"` (the extra term is constant), but properly normalized. Needs `index_cov`. |
+| `3` | `"Normal"` | natural | Normal on `obs − q·pred`, with `Log_sd` read as an **absolute** natural-scale sd, not a CV. No lognormal bias correction. |
+| `4` | `"TruncatedNormal"` | natural | The same normal, left-truncated at zero. An index cannot be negative, so this is the only natural-scale family whose simulator and likelihood are the same distribution. **Prefer it over `"Normal"`** unless you need an exact ADMB comparison. |
+
+The `MVN` families take a user-supplied variance-covariance matrix (e.g. a
+VAST-derived Σ) through `index_cov`, and pair naturally with
+`Catchability = "AnalyticalArith"` for the AMAK arithmetic-mean q.
+
+**A family's scale is recorded in two places.** Adding one to
+`index_distribution_map` is not enough: it must also be classified in
+`.index_rows_natural_scale()`, which is what `residuals(type = "pearson")`,
+`plot_index()`'s observation interval and `plot_indexresidual()` read. A
+natural-scale family that misses it does not error -- it silently gets the
+log-scale formula, whose `σ²/2` term is then a number the size of the index
+squared.
 
 Time-varying behavior is set by `Time_varying_q` (per fleet):
 

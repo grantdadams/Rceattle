@@ -57,6 +57,14 @@
 #'
 #'
 #' @return A \code{list} containing the stock recruitment relationship settings
+#' @examples
+#' # Beverton-Holt fitted to the hindcast, with a prior on steepness.
+#' build_srr(srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt",
+#'           srr_est_mode = "Estimated",
+#'           srr_prior_mean = 0.8, srr_prior_sd = 0.15)
+#'
+#' # Mean recruitment: no stock-recruit relationship fitted.
+#' build_srr(srr_fun = "mean")
 #' @export
 #'
 build_srr <- function(srr_fun = 0,  #srr_model

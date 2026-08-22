@@ -269,8 +269,8 @@ print.Rceattle_run_config <- function(x, ...) {
   d <- function(doc, allowed = NULL) list(doc = doc, allowed = allowed)
   list(
     # model_config scalars
-    msmMode  = d("Predation-mortality mode",
-                 "0 single-species / 1 Holsman MSVPA / 2 Holling-III MSVPA"),
+    msmMode  = d("Predation-mortality mode (Holsman MSVPA / Holling-III MSVPA)",
+                 allowed(msmMode_map)),
     initMode = d("Initial age-structure mode", allowed(initMode_map)),
     avgnMode = d("Average-N mode"),
     suitMode = d("Predator-prey suitability mode", allowed(suitMode_map)),
@@ -283,7 +283,7 @@ print.Rceattle_run_config <- function(x, ...) {
     selFun   = d("Selectivity specification (build_selectivity)"),
     compFun  = d("Composition specification (build_composition)"),
     # estimation controls
-    estimateMode = d("0 hindcast+HCR / 1 hindcast only / 2 projection / 3 build"),
+    estimateMode = d(allowed(estimateMode_map)),
     random_rec = d("Estimate recruitment deviations as random effects"),
     random_q   = d("Estimate time-varying catchability as random effects"),
     random_sel = d("Estimate time-varying selectivity as random effects"),

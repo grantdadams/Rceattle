@@ -64,6 +64,12 @@
 ##'
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points.
 ##' @export
+#' @examples
+#' # Tier 3 NPFMC control rule: F40% as FABC, F35% as FOFL.
+#' build_hcr(HCR = "NPFMC", DynamicHCR = FALSE, FsprTarget = 0.4, FsprLimit = 0.35)
+#'
+#' # No fishing: the projection a B0 reference point is read from.
+#' build_hcr(HCR = "NoFishing")
 ##'
 build_hcr <- function(HCR = 0, DynamicHCR = FALSE, Ftarget = 0.40, Flimit = 0.35, Ptarget = 0.4, Plimit = 0.0, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5, Fmult = 1, HCRorder = 1) {
   if(0 %in% Alpha & HCR %in% c(5, "NPFMC")){stop(paste0("Alpha = 0 for NPFMC Tier 3 HCR, divide by zero error"))}

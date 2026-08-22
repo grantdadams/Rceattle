@@ -58,3 +58,13 @@ display strings (e.g. \code{om_terminal_depletion_dynamic} ->
 \description{
 Management strategy evaluation performance metric summary
 }
+\examples{
+\dontrun{
+mse <- load_mse(dir = "mse_runs")
+s <- mse_summary(mse)
+s$species   # one row per species
+s$fleet     # one row per fleet
+s$total     # across the whole system
+s$meta      # nsim, nspp, nflts, HCR
+}
+}

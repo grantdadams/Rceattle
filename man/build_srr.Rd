@@ -90,3 +90,12 @@ the same scaling.
 
 When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 }
+\examples{
+# Beverton-Holt fitted to the hindcast, with a prior on steepness.
+build_srr(srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt",
+          srr_est_mode = "Estimated",
+          srr_prior_mean = 0.8, srr_prior_sd = 0.15)
+
+# Mean recruitment: no stock-recruit relationship fitted.
+build_srr(srr_fun = "mean")
+}

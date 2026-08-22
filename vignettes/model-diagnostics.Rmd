@@ -12,7 +12,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE,
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true"),
   fig.width = 7,
   fig.height = 5
 )
@@ -225,10 +225,24 @@ tuned <- reweight_comps(model_1, n_iter = 10, tol = 0.01)
 tuned$reweight$history    # weight per fleet, per iteration
 ```
 
+Restrict it to particular fleets with `fleets =`, taking either `Fleet_code`
+values or names matching `fleet_control$Fleet_name` — give ids or names, not a
+mix, since R coerces `c(1, "Survey")` to character.
+
+```{r}
+tuned <- reweight_comps(model_1, fleets = c("Survey_1", "Fishery_1"))
+```
+
+Only multinomial fleets are tuned. A Dirichlet-multinomial fleet estimates its
+own weight inside the likelihood, so tuning it externally would compete with
+that estimate; those fleets are named and skipped.
+
 The alternatives are Francis (2011) reweighting, applied by hand, and estimating
 the weights directly with a Dirichlet-multinomial likelihood
 (`Comp_distribution = "DirichletMultinomial"`), which avoids the iteration
-entirely.
+entirely — note that under that likelihood `Comp_weights` is read as the **log**
+of the starting weight, so the template default of `1` is a starting weight of
+*e*, and a weight of 1 is written as `0`.
 
 Because OSA residuals for discrete composition data are randomized quantile
 residuals, they are stochastic; `osa_residuals()` takes a `seed` for

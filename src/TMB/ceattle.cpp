@@ -3651,9 +3651,13 @@ Type objective_function<Type>::operator() () {
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (caal_n(caal_ind, 0) > 0)){
 
       if(osa_mode == 0){
-        // ---- Normal fitting: weighted density read from caal_obs (unchanged) ----
-        // NOTE: the unweighted bookkeeping below previously wrote to slot 2
-        // (the comp slot) instead of slot 3; corrected here to slot 3.
+        // ---- Normal fitting ----
+        // Two parallel accumulators per CAAL fleet:
+        //   jnll_comp(JNLL_CAAL, flt)            weighted by caal_weights(flt); enters the objective.
+        //   unweighted_jnll_comp(JNLL_CAAL, flt) unweighted; reported so Francis and
+        //                                        McAllister-Ianelli reweighting can read the raw likelihood.
+        // Both address JNLL_CAAL, not JNLL_COMP: age composition and conditional
+        // age-at-length are separate likelihood rows (see the JnllRow enum).
         switch(caal_ll_type(flt)){
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
