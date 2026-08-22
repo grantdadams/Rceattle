@@ -149,3 +149,44 @@ test_that("the not-yet-implemented inventory is stated, not just tolerated", {
   d$msmMode <- 5
   testthat::expect_error(suppressWarnings(suppressMessages(data_check(d))))
 })
+
+
+test_that("every schema tmb_target is really produced and really consumed", {
+  # The third leg of the triangle. test-schema-canonical.R pins the schema
+  # against the docs, the test above pins the C++ dispatch against the maps, and
+  # this pins the rename in between: a column whose `tmb_target` names an object
+  # rearrange_data() never assigns, or that the template never declares, is a
+  # column that silently reaches the model as nothing.
+  rd  <- c("R/5-rearrange_data.R", testthat::test_path("..", "..", "R", "5-rearrange_data.R"))
+  cpp <- c("src/TMB/ceattle.cpp",  testthat::test_path("..", "..", "src", "TMB", "ceattle.cpp"))
+  rd  <- rd[file.exists(rd)]; cpp <- cpp[file.exists(cpp)]
+  testthat::skip_if(length(rd) == 0 || length(cpp) == 0, "source not available")
+
+  rearrange <- paste(readLines(rd[1],  warn = FALSE), collapse = "\n")
+  template  <- paste(readLines(cpp[1], warn = FALSE), collapse = "\n")
+
+  schema  <- .rce_column_schema()
+  targets <- vapply(schema,
+                    function(r) if (is.null(r$tmb_target)) NA_character_ else r$tmb_target,
+                    character(1))
+  targets <- targets[!is.na(targets)]
+  testthat::expect_gt(length(targets), 20)
+
+  for (col in names(targets)) {
+    tgt <- targets[[col]]
+
+    # rearrange_data() must assign it -- unless the column already carries the
+    # template's name, in which case it passes through untouched and there is
+    # no rename to find.
+    if (!identical(tgt, col)) {
+      testthat::expect_match(
+        rearrange, paste0("data_list\\$", tgt, "\\s*<-"), perl = TRUE,
+        info = paste0(col, " -> ", tgt, ": rearrange_data() never assigns it"))
+    }
+
+    # ...and the template must declare it, or nothing reads it.
+    testthat::expect_match(
+      template, paste0("DATA_[A-Z]+\\(\\s*", tgt, "\\s*\\)"), perl = TRUE,
+      info = paste0(col, " -> ", tgt, ": ceattle.cpp declares no such DATA_ object"))
+  }
+})
