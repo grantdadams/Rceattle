@@ -1,3 +1,16 @@
+<!--
+Version-numbering note. Three gaps in this file are deliberate, not lost entries:
+
+  * 4.14.0 was a real DESCRIPTION version whose entries were folded into 5.0.0.
+  * 5.2.0-5.2.4 were likewise folded into 5.3.0.
+  * main's 4.9.0 / 4.9.1 are the same recruitment changes this line carries as
+    5.5.0 / 5.5.1, applied to the two lines separately.
+
+No tag existed above 4.8.0 while these were in flight, so nobody could have installed an
+intermediate. Note the folding rather than renumbering: a section for a version DESCRIPTION
+never carries breaks any (x.y.z) cross-reference pointing at it.
+-->
+
 # Rceattle 5.11.0
 
 ## New features

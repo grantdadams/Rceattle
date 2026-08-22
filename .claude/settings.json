@@ -1,0 +1,34 @@
+{
+  "$comment": [
+    "Shared house rules for this repo. Committed. Per-machine overrides belong in",
+    "settings.local.json, which is gitignored. .Rbuildignore keeps the whole .claude/",
+    "directory out of the package tarball.",
+    "",
+    "Allow-list only: documentation for the model families Rceattle is checked against",
+    "(TMB, WHAM, SAM, SS3, FIMS), R's own docs, and the literature its likelihoods cite.",
+    "There is deliberately no deny block -- see CLAUDE.md for the rules that are enforced",
+    "by review rather than by permissions."
+  ],
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kaskr.github.io)",
+      "WebFetch(domain:timjmiller.github.io)",
+      "WebFetch(domain:noaa-fims.github.io)",
+      "WebFetch(domain:sdmtmb.github.io)",
+      "WebFetch(domain:pbs-assess.github.io)",
+      "WebFetch(domain:pbs-assess.r-universe.dev)",
+      "WebFetch(domain:glmmtmb.github.io)",
+      "WebFetch(domain:paulbuerkner.com)",
+      "WebFetch(domain:stat.ethz.ch)",
+      "WebFetch(domain:cran.r-project.org)",
+      "WebFetch(domain:www.rdocumentation.org)",
+      "WebFetch(domain:rdrr.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "WebFetch(domain:www.sciencedirect.com)",
+      "WebFetch(domain:link.springer.com)"
+    ]
+  }
+}
