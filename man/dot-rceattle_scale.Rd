@@ -4,7 +4,12 @@
 \alias{.rceattle_scale}
 \title{Add the standard colorblind-safe scales to a plot}
 \usage{
-.rceattle_scale(p, discrete = TRUE, aesthetics = c("colour", "fill"))
+.rceattle_scale(
+  p,
+  discrete = TRUE,
+  aesthetics = c("colour", "fill"),
+  line_col = NULL
+)
 }
 \arguments{
 \item{p}{A ggplot.}
@@ -12,10 +17,18 @@
 \item{discrete}{Use the discrete (Okabe-Ito) or continuous (viridis) scale.}
 
 \item{aesthetics}{Which of \code{"colour"}/\code{"fill"} to add.}
+
+\item{line_col}{User-supplied colours, or \code{NULL} for the package default.
+Recycled over the mapped variable's levels in plotting order.}
 }
 \description{
 Discrete aesthetics (series identity, e.g. model) use the Okabe-Ito
 qualitative palette; continuous aesthetics (ordered magnitude, e.g. year)
 use viridis. Both are colorblind-safe.
+}
+\details{
+\code{line_col} overrides the default, supplying the palette for whichever
+variable the plot maps to colour (see \code{?rceattle-plot-args}). On a continuous
+colour aesthetic the colours are ramp anchors instead.
 }
 \keyword{internal}

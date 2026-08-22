@@ -205,11 +205,16 @@ plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci 
 
 ```
 
-Diagnostic plots cover selectivity, composition fits, index fits, and catch fits. Selectivity and composition plots take a single model; index and catch plots take one or more.
+Diagnostic plots cover selectivity, composition fits, index fits, and catch fits. Composition plots take a single model; selectivity, index and catch plots take one or more.
+
+Each fleet is drawn on the dimension its selectivity was estimated on -- age, or length bin for a fleet whose `Selectivity_dimension` is `"Length"`. With one model, colour is the year, so time-varying selectivity reads as a fan. With several, colour separates the models and the fan moves to transparency.
 
 ```{r, eval = FALSE}
 # Selectivity
 plot_selectivity(model_2)
+
+# Overlay models; `line_col` and `lwd` apply as in the other plotters
+plot_selectivity(model_list, model_names = model_names, lwd = 2)
 
 # Plot composition fit
 plot_comp(model_2)

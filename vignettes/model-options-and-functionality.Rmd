@@ -533,6 +533,38 @@ further customized by adding ggplot2 layers
 (e.g. `plot_biomass(fit) + ggplot2::ggtitle("My title")`). Pass `file = "stem"`
 to also write the figure to `stem_<plot>.png`.
 
+**Shared arguments.** The timeseries plotters (`plot_biomass`, `plot_ssb`,
+`plot_recruitment`, the depletions, `plot_exploitable_biomass`, `plot_f`), the
+predation plotters (`plot_b_eaten`, `plot_b_eaten_prop`, `plot_m_at_age`,
+`plot_m2_at_age_prop`, `plot_ration`) and `plot_selectivity` take one common
+vocabulary, documented together in `?"rceattle-plot-args"`: `line_col`, `lwd`,
+`lty`, `alpha`, `species`, `spnames`, `minyr`, `maxyr`, `incl_proj`,
+`incl_mean`, `add_ci`, `model_names`, `file`, `width` and `height`. Each word
+means the same thing wherever it appears, but not every plotter takes every one
+— `incl_mean` is on the predation plotters, `add_ci` only where the quantity
+carries standard errors, and `alpha` only where the figure has a ribbon or a
+fan. Check `args()`. The other plotters still take their own arguments.
+
+* `line_col` takes colour names, hex codes, or base-graphics palette indices
+  (`line_col = 1`), and `lwd` keeps the base-graphics scale where the default
+  `3` is a standard-weight line.
+* `line_col` and `lty` supply values for whichever variable the *figure*
+  separates by colour or line type — which is not always the model. In
+  `plot_b_eaten_prop()` colour separates predators; in `plot_ration()` line type
+  separates the sexes. Each function's help says which. Too few colours are
+  recycled, with a warning naming what they coloured. Where colour is a
+  magnitude — the year fan in `plot_selectivity()` — `line_col` gives the ramp
+  anchors, so `line_col = "black"` draws the fan in black.
+* `species` selects (by index, name, logical mask, or `"all"`, in the order
+  given) and `spnames` labels.
+* `minyr` and `maxyr` narrow the data, not just the axis, so a panel with a free
+  y scale rescales to the window.
+* Arguments left over from the base-graphics version — `right_adj`, `top_adj`,
+  `mod_cex`, `legend.pos`, `single.plots`, `theta` — are still accepted, and
+  ignored, by the plotters that had them; they were never added to the ones that
+  did not. Set the equivalent on the returned ggplot instead, e.g.
+  `plot_biomass(fit) + ggplot2::theme(legend.position = "right")`.
+
 **Display units.** The model works in mt and thousands of fish: numbers-at-age
 are in thousands and weight-at-age in kg, so biomass and SSB come out in mt and
 recruitment in thousands of fish. The timeseries plotters rescale to

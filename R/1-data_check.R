@@ -1248,17 +1248,25 @@ data_check <- function(data_list) {
   if(has_data(data_list$diet_data)){
     dd <- data_list$diet_data
 
-    # Pred age bounds
-    pred_max <- dd |> dplyr::group_by(Pred) |>
-      dplyr::summarise(Max_age = max(Pred_age)) |> dplyr::arrange(Pred)
-    if(any(pred_max$Max_age > data_list$nages)){
-      errors <- c(errors, "Pred ages in 'diet_data' > 'nages'")
+    # Pred / prey age bounds, against each species' own oldest age. `nages` is a
+    # COUNT of age bins, so that is minage + nages - 1. Index by the species the
+    # group is for: group_by() drops species absent from the column, so lining
+    # the maxima up by position pairs species with the wrong limit. match()
+    # sends an out-of-range species code to NA rather than to a short vector or
+    # an error.
+    maxage_for <- function(sp){
+      i <- match(sp, seq_along(data_list$nages))
+      data_list$minage[i] + data_list$nages[i] - 1L
     }
-    # Prey age bounds
+    pred_max <- dd |> dplyr::group_by(Pred) |>
+      dplyr::summarise(Max_age = max(Pred_age))
+    if(any(pred_max$Max_age > maxage_for(pred_max$Pred), na.rm = TRUE)){
+      errors <- c(errors, "Pred ages in 'diet_data' > oldest age ('minage' + 'nages' - 1)")
+    }
     prey_max <- dd |> dplyr::group_by(Prey) |>
-      dplyr::summarise(Max_age = max(Prey_age)) |> dplyr::arrange(Prey)
-    if(any(prey_max$Max_age > data_list$nages)){
-      errors <- c(errors, "Prey ages in 'diet_data' > 'nages'")
+      dplyr::summarise(Max_age = max(Prey_age))
+    if(any(prey_max$Max_age > maxage_for(prey_max$Prey), na.rm = TRUE)){
+      errors <- c(errors, "Prey ages in 'diet_data' > oldest age ('minage' + 'nages' - 1)")
     }
     # Duplicates
     if(sum(duplicated(dd)) > 0){
@@ -1309,6 +1317,9 @@ data_check <- function(data_list) {
         }
       }
     }
+
+    # Age coverage under empirical (MSVPA) suitability.
+    .check_diet_age_coverage(data_list, dd)
   }
   # diet_data presence required when msmMode > 0 (declarative requirement table).
   errors <- c(errors, .rce_check_presence(data_list, "diet_data"))
@@ -1359,6 +1370,146 @@ data_check <- function(data_list) {
   if(length(errors) > 0){
     stop(paste(errors, collapse = "\n"))
   }
+}
+
+
+#' Warn about ages that empirical suitability cannot see
+#'
+#' Under `suitMode = 0` suitability comes straight from `diet_data`, so an age
+#' with no diet row is switched off rather than estimated: a predator age with
+#' no rows gets `suit_other = 1` from `calculate_msvpa_suitability()`
+#' (`predation.hpp`) and exerts no predation, and a prey age with no rows is
+#' never eaten. Neither raises an error or moves the likelihood.
+#'
+#' Only prey-at-age-in-predator-at-age rows count. `organize_diet_obs()`
+#' (`diet_data.hpp`) forms `Pred_age - minage(rsp)` / `Prey_age - minage(ksp)`
+#' and skips the row when either is negative, so the aggregated diet formats,
+#' which sit below `minage` (see the `diet_data` entry in
+#' `.rce_column_schema()`), never reach the suitability array and cannot close
+#' a gap.
+#'
+#' Coverage ignores `Year`: a diet sampled in only some years is a design, not
+#' a gap.
+#'
+#' @param data_list An Rceattle data list, post-`switch_check()`.
+#' @param dd Its `diet_data` table.
+#' @return `NULL`, invisibly. Called for the warnings.
+#' @noRd
+.check_diet_age_coverage <- function(data_list, dd){
+
+  if(!isTRUE(any(data_list$msmMode > 0))) return(invisible(NULL))
+  if(is.null(data_list$suitMode) || is.null(data_list$minage) ||
+     is.null(data_list$nages)   || is.null(data_list$nsex)) return(invisible(NULL))
+  if(!all(c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age") %in%
+          colnames(dd))) return(invisible(NULL))
+
+  nspp    <- data_list$nspp
+  suit    <- rep(data_list$suitMode, length.out = nspp)
+  minage  <- data_list$minage
+  nages   <- data_list$nages
+  nsex    <- data_list$nsex
+  spnames <- data_list$spnames
+  if(is.null(spnames) || length(spnames) != nspp) spnames <- paste("Species", seq_len(nspp))
+
+  empirical <- which(suit == 0)
+  if(length(empirical) == 0) return(invisible(NULL))
+
+  # Rows the suitability array reads: both species in range, both ages at or
+  # above minage.
+  in_range <- dd$Pred %in% seq_len(nspp) & dd$Prey %in% seq_len(nspp)
+  dd <- dd[in_range, , drop = FALSE]
+  if(nrow(dd) == 0) return(invisible(NULL))
+  typed <- dd[dd$Pred_age >= minage[dd$Pred] & dd$Prey_age >= minage[dd$Prey], ,
+              drop = FALSE]
+  # Only an empirical-suitability predator's rows build suitability, so only
+  # they can cover a prey age.
+  typed <- typed[typed$Pred %in% empirical, , drop = FALSE]
+
+  # "11, 12, 13, 20" -> "11-13, 20"
+  runs <- function(x){
+    if(length(x) == 0) return("")
+    brk <- c(0, which(diff(x) != 1), length(x))
+    paste(vapply(seq_len(length(brk) - 1), function(i){
+      seg <- x[(brk[i] + 1):brk[i + 1]]
+      if(length(seg) == 1) as.character(seg) else paste0(seg[1], "-", seg[length(seg)])
+    }, character(1)), collapse = ", ")
+  }
+
+  # A sex-combined row (sex 0) covers both sexes; a sexed row covers only its
+  # own. `organize_diet_obs()` reads the sex column only for a two-sex species,
+  # so for a one-sex species every row counts whatever it says.
+  covered <- function(tab, sp, sex, nsex_sp, age_col, sex_col, sp_col){
+    hit <- tab[[sp_col]] == sp
+    if(nsex_sp == 2){
+      hit <- hit & (tab[[sex_col]] == 0 | tab[[sex_col]] == sex)
+    }
+    unique(tab[[age_col]][hit])
+  }
+
+  # Predator coverage is owed only by a species that derives its own
+  # suitability from diet data; prey coverage is owed by every species that is
+  # eaten at all, since any of them can be eaten by an empirical predator.
+  # `suitMode` describes how a species feeds, not how it is fed on.
+  gaps <- character(0)
+  for(sp in seq_len(nspp)){
+    # `nages` counts age bins; the ages run minage .. minage+nages-1, as
+    # everywhere else in the package.
+    ages <- seq_len(nages[sp]) - 1L + minage[sp]
+    for(sex in seq_len(nsex[sp])){
+      sex_lab <- if(nsex[sp] == 1) "" else paste0(" (", c("female", "male")[sex], ")")
+
+      # A species with no rows in a role at all is reported as such rather
+      # than as "ages 1-N".
+      miss_pred <- if(sp %in% empirical){
+        setdiff(ages, covered(typed, sp, sex, nsex[sp],
+                              "Pred_age", "Pred_sex", "Pred"))
+      } else integer(0)
+      if(length(miss_pred)){
+        gaps <- c(gaps, paste0(
+          "  ", spnames[sp], sex_lab, " as PREDATOR: ",
+          if(length(miss_pred) == length(ages)){
+            "no diet data at any age -- it exerts no predation."
+          } else {
+            paste0("no diet data at age ", runs(sort(miss_pred)),
+                   " -- those ages exert no predation.")
+          }))
+      }
+
+      # A species with NO prey rows at any age is not a truncated diet table --
+      # it is a species nothing in the model eats, which is a modelling choice
+      # and a common one (an apex predator in a two-species run). Warning about
+      # it fires on every fit of a correctly specified model and says nothing
+      # the author did not intend. Only a PARTIAL gap is evidence of truncation,
+      # so that is what is reported.
+      #
+      # The predator role keeps its all-ages case: a species that asked for
+      # empirical suitability and supplied no diet data at all did not choose
+      # to exert no predation, it just gets that.
+      prey_seen <- covered(typed, sp, sex, nsex[sp],
+                           "Prey_age", "Prey_sex", "Prey")
+      miss_prey <- if(length(prey_seen)) setdiff(ages, prey_seen) else integer(0)
+      if(length(miss_prey)){
+        gaps <- c(gaps, paste0(
+          "  ", spnames[sp], sex_lab, " as PREY: no diet data at age ",
+          runs(sort(miss_prey)), " -- those ages are never eaten."))
+      }
+    }
+  }
+
+  if(length(gaps)){
+    warning(paste0(
+      "'diet_data' does not cover every age of a species using empirical ",
+      "suitability (suitMode = 0), and empirical suitability is read straight ",
+      "from the diet data, so an uncovered age is switched out of the ",
+      "predation calculation rather than estimated:\n",
+      paste(gaps, collapse = "\n"),
+      "\nSupply diet rows for those ages, or pool them into the plus group. ",
+      "Rows with an age below the species' 'minage' are the aggregated diet ",
+      "formats and do not count here -- only prey-at-age-in-predator-at-age ",
+      "rows build MSVPA suitability."), call. = FALSE)
+  }
+
+  invisible(NULL)
 }
 
 

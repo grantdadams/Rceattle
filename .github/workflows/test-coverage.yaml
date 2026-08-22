@@ -57,11 +57,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
 
-    # A quarter of the suite plus ~5 minutes of install/compile. 120 is roughly 3x
-    # the expected shard runtime and stays well under GitHub's 360-minute hard cap;
-    # if it ever trips again, add shards rather than minutes.
+    # Six shards, and add shards rather than minutes if this trips again. The
+    # static cost proxy in coverage-shard.R mis-ranks files badly: at four shards
+    # it split the suite into runs of 18, 26, 94 and 12 minutes, and the shard it
+    # called heaviest was the second-fastest of the four. Two extra runners buy
+    # headroom while the per-file timings written below collect the real numbers
+    # to replace the proxy with.
     timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -104,15 +107,21 @@ jobs:
           needs: coverage
 
       # The script picks this shard's files, runs them under covr, and writes
-      # cobertura.xml. It prints the whole shard plan and a per-file elapsed time,
-      # so a run that gets cancelled still shows exactly where it was -- the single
-      # serial job used to buffer all of that into a testthat.Rout that only got
-      # cat'd at the end, which is why the PR #109 timeout said nothing.
+      # cobertura.xml. It prints the whole shard plan up front, and writes a
+      # per-file elapsed time to COV_TIMING_LOG as each file ends.
+      #
+      # The timings go to a file rather than the console because covr runs the
+      # suite in a subprocess and only surfaces its output when that returns, so
+      # a cancelled shard's log jumps straight from "* DONE (Rceattle)" to "The
+      # operation was canceled" with no indication of what it was doing. A file
+      # is on disk either way, and the upload below is `if: always()` so a
+      # cancelled shard still reports.
       - name: Test coverage (shard ${{ matrix.shard }})
         env:
           COV_SHARD: ${{ matrix.shard }}
           # Derived from the matrix, so adding a shard above is the only edit needed.
           COV_SHARDS: ${{ strategy.job-total }}
+          COV_TIMING_LOG: ${{ runner.temp }}/coverage-timing-shard-${{ matrix.shard }}.tsv
         run: Rscript tools/ci/coverage-shard.R
 
       - uses: codecov/codecov-action@v5
@@ -129,6 +138,17 @@ jobs:
           # commit SHA, so the merged report is the whole suite; without a distinct
           # name the shards are hard to tell apart when one fails to upload.
           name: shard-${{ matrix.shard }}
+
+      # always(), not failure(): the run this exists for is the one the timeout
+      # cancels, and a cancelled job is not a failed one. This is the table that
+      # replaces the static COST_* proxy in tools/ci/coverage-shard.R.
+      - name: Upload per-file timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-timing-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/coverage-timing-shard-${{ matrix.shard }}.tsv
+          if-no-files-found: warn
 
       - name: Upload test results
         if: failure()

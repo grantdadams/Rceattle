@@ -170,12 +170,14 @@ plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 plot_m2_at_age_prop(Rceattle = mod_list, model_names = mod_names)
 
-# plot_mortality() accepts only a single model; call separately per model
-plot_mortality(ms_run)   # tile plot of total mortality-at-age across years
-plot_mortality(ms_run, type = 2)  # facet line version
-plot_mortality(ms_run, M2 = FALSE) # total M (M1 + M2); M2 = TRUE plots M2 only
+# plot_mortality() accepts only a single model; call separately per model.
+# It draws one component at a time, never the sum: use plot_m_at_age() above for
+# total M (M1 + M2).
+plot_mortality(ms_run)                    # M2-at-age, one line per year
+plot_mortality(ms_run, M2 = FALSE)        # M1-at-age instead
+plot_mortality(ms_run, type = "heatmap")  # the same series as an age x year tile
 
-# Predation (multi-species only) — these also accept single models only
+# Predation (multi-species only) — these accept model lists
 plot_b_eaten(Rceattle = mod_list, model_names = mod_names)
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
 ```
