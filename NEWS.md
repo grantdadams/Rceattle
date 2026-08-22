@@ -41,34 +41,42 @@
   `dsem = NULL` (the default) is unchanged and bit-identical to previous
   versions.
 
-  `retrospective()`, `jitter()` and `self_test()` work on a DSEM (below). The
-  `profile()`, `remove_F()`, `reweight_comps()` and `osa_residuals()` work too,
-  and `sample_rec()` works where the latent states span the projection (below).
-  `run_mse()` still stops with a message rather than silently
-  project a model without the recruitment structure being tested, and
-  `process_residuals()` refuses `"recruitment"` and `"initial"` -- it
-  standardizes a posterior draw by a per-year normal prior, which is not the
-  GMRF's prior, and under a DSEM the initial deviations would be scaled by a
-  mapped-out placeholder. `process_residuals(process = "catchability")` is
-  unaffected and works.
+  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `remove_F()`,
+  `reweight_comps()` and `osa_residuals()` all work on a DSEM (below), as does
+  `sample_rec()` where the latent states span the projection. `run_mse()`
+  still stops with a message rather than project a model without the
+  recruitment structure being tested, and `process_residuals()` refuses
+  `"recruitment"` and `"initial"` -- it standardizes a posterior draw by a
+  per-year normal prior, which is not the GMRF's prior, and under a DSEM the
+  initial deviations would be scaled by a mapped-out placeholder.
+  `process_residuals(process = "catchability")` is unaffected and works.
 
 * **`sample_rec()` draws a DSEM's projected recruitment from the fitted
   process.** Recruitment deviations under a DSEM are not independent -- a
   self-path makes them autocorrelated, covariate paths make them respond to the
   environment, and a cross-species path couples the stocks -- so resampling the
-  hindcast would project a different process from the one estimated. The
-  projection is now drawn from the same GMRF that scored the fit, conditional on
-  the hindcast states, which is what `dsem::simulate()` does. `sample_rec =
-  FALSE` gives that conditional mean rather than a draw. All columns are drawn
-  together, so cross-species and shared-covariate paths are preserved.
+  hindcast projects a different process from the one estimated. The projection
+  is now drawn from the GMRF that scored the fit, conditional on everything the
+  fit already knows, as `dsem::simulate()` does. All columns are drawn jointly,
+  so cross-species and shared-covariate paths carry through.
 
-  This requires `build_DSEM(estimate_projection = TRUE)`: with the default
-  `FALSE` the latent field stops at `endyr`, the likelihood says nothing about
-  the projection years, and anything written there would be an extrapolation
-  rather than a draw from the fitted process. `sample_rec()` stops and names the
-  setting in that case. The draw is written into the latent states, not into
-  `rec_dev` -- under a DSEM the template derives `rec_dev` from the states, so
-  writing `rec_dev` alone would be silently overwritten.
+  A covariate supplied over the projection is a known future value, not
+  something to draw. Under `family = "fixed"` those states are pinned by the
+  map, and the draw conditions on them, so projected recruitment responds to the
+  climate scenario as specified.
+
+  `sample_rec = FALSE` gives the conditional mean, matching what the argument
+  means without a DSEM: projected recruitment at `R0 * exp(mean deviation)`,
+  not at the lognormal median.
+
+  Two settings are required, and `sample_rec()` names whichever is missing.
+  `build_DSEM(estimate_projection = TRUE)`, so the latent states span the years
+  being drawn -- with the default `FALSE` they stop at `endyr` and a projection
+  draw would extrapolate past the likelihood's support. And
+  `build_srr(proj_mean_rec = FALSE)`, so projected recruitment reads the
+  deviations at all; under mean-recruitment projection it is `avg_R` in every
+  draw. Without a DSEM the second case warns rather than stopping, as that
+  behavior is unchanged.
 
 * **Lognormal bias correction is now applied to a DSEM's recruitment
   deviations, so `R0` is comparable to a non-DSEM fit again.** It was not
