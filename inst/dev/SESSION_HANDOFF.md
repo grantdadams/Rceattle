@@ -5,44 +5,69 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-Branch `api-names-docs-and-guards` — PR A of three, targeting `dev`. Carries the Stage 6 API
-work (done, both numeric gates exact) plus the Claude-tooling, drift-guard and documentation
-work. PR B (schema authority, the `nages` figure fix) and PR C (`write_template`, model-switch
-table) stack on it.
+Branch `api-names-docs-and-guards`, targeting `dev`. Base was 5.10.0; the branch is at **5.12.0**.
+It carries Stages 0-6 of the Claude-readiness plan in seven commits:
+
+| Stage | What | Version |
+|---|---|---|
+| 6 | the diagnostics take the fitted model as `object`; DM weight-scale report; `fit_control=` on the refit diagnostics | 5.11.0 |
+| 0 | `.claude/` shared; CLAUDE.md restructured into 14 numbered hard rules; `inst/dev/` created | — |
+| 1 | drift guards: C++ dispatch vs the R maps, `tmb_target`, the registries, vignette API | — |
+| 2 | vignettes executable behind an env var + weekly CI; switch tables completed; comment sweep | 5.11.1 |
+| 3-4 | schema authoritative for allowed values; three unvalidated columns now error; `write_template()` schema-derived | 5.12.0 |
+| 5 | `.rce_model_switch_schema()`; `.rce_config_schema()` projects from it | — |
+
+The plan calls for this to land as **three PRs by risk tier** (0-2 + 6 cannot move a number;
+3 + the figure work can; 4-5 can). It is currently one branch; splitting it is the next step.
 
 ## Done & verified
 
-- **`dev` merged to `main` in PR #106.** `main` is at 5.8.1; `dev` carries everything since —
-  the linkage grammar, column schema,
-  `build_data()`/`model_config()`, `save_config()`/`load_config()` + `fit_mod(config=)`, the
-  `JnllRow` enum, `build_growth(sd_plus_group=)`, the `mse_summary()` per-entity reshape, the
-  `.refit_like()` collapse, `reweight_comps()`, and the recruitment / stock-recruit work.
-- **5.11.0 API names** — the fitted model is `object` across ten diagnostics, old names shimmed
-  and silent. Verified 2026-08-22: suite 6925 pass / 0 fail on the committed state; golden 4-model capture
-  `identical()` TRUE with every field at `0.000e+00`; `verify-refit-like.R` bit-identical across
-  all 32 fits; ecosystem sweep found 15 old-name call sites, all shimmed, and zero calls passing
-  both spellings.
-- **The golden reference on `dev` is `ss = 10241.0304272585`** (with `ms = 10267.2478324443`,
-  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`). Measured, not quoted. A different
-  value that had been recorded in the local agent file was wrong and has been corrected.
+- **Stage 6**: suite 6925 pass / 0 fail. Golden 4-model capture `identical()` TRUE, every field
+  `0.000e+00`. `verify-refit-like.R` bit-identical across all 32 fits. Ecosystem sweep found 15
+  old-name call sites, all shimmed, and zero calls passing both spellings.
+- **The golden reference on `dev` is `ss = 10241.0304272585`** (`ms = 10267.2478324443`,
+  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), measured against a `dev` worktree.
+  A different value had been recorded in the local agent file and was wrong.
+- **The Stage 3 hard error was pre-flighted, not assumed.** A report-only pass over every
+  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and **not one** value the
+  new check rejects. That is why it ships as an error rather than a warning, and why this is
+  5.12.0 rather than 6.0.0.
+- Every drift guard was mutation-tested: renumbering a map value, adding an undispatched code,
+  dropping a documented one, and removing the deprecated SRR codes each turn the suite red.
+
+## For Grant's review
+
+1. **`write_data()` now writes `fleet_control` in schema order**, matching what the control and
+   bioenergetics sheets already did. Values round-trip identically on all three bundled datasets.
+   But **`Month` moves from column 5 to column 48**, because the schema declares it late. That is
+   a worse layout for a human reading the workbook. Options: reorder the schema rows so the
+   workbook reads sensibly, or drop the fleet_control reordering. **Your call.**
+2. **`.PAR_INFO` omits 7 declared parameters** -- `index_q_pow` and the six Kinzey-Punt
+   `logH_*`/`H_4`. All belong to stubbed features, so they are pinned as exempt rather than
+   documented. If any of those features is being picked up, the exemption should go.
+3. **`flt_sel_ind` is dead.** `rearrange_data()` computes it from `Fleet_code` on every fit and
+   nothing -- R or C++ -- reads it. Left alone because removing it is a behaviour change, not a
+   cleanup.
+4. **`inst/dev/CLEANUP_BACKLOG.md` Tier 0 lists 9 known defects** taken from FIXME text in the
+   source, including that **QAR1 is inert** (`Time_varying_q = "AR1"` can be set and does
+   nothing, `R/3-build_map.R:1181`) and that `run_mse()`'s catch fill-in does not work for
+   `assessment_period > 1`. Each needs an issue if it is real.
 
 ## Known flags
 
-- **5.10.0 moved three predation figures' numbers** — `plot_m2_at_age_prop()` (a share now, not
-  a contribution), `plot_ration()` (× average numbers-at-age, not biomass-at-age) and
-  `plot_b_eaten()` (million mt, so `p$data` moves by 1e6). Any figure regenerated from them
-  differs from earlier runs of the same model. `plot_selectivity()` also renames `p$data$Age` to
-  `Bin`.
-- **Result-changing changes on this line that are not labelled breaking** — the mode-5
-  selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%), parameter bounds previously applied
-  to the wrong parameters, composition weights warm-starting from `inits`, failed `run_mse()`
-  simulations returning only a marker, the `mse_summary()` reshape, the recruitment fixes
-  (`initMode = 0` random effects, the α-seeding fix, the Ianelli steepness prior), and
-  `sim_mod()` drawing the index under the fleet's own `Index_distribution`. **A model carrying
-  GOA numbers forward needs a refit.**
-- The open `nages` age-indexing defect in three predation plotters is recorded in
-  `inst/dev/TRAPS.md`, not here — a known unfixed defect should not live in the file this
-  command rewrites every session. Scheduled for PR B with a `minage != 1` fixture.
+- **5.10.0 moved three predation figures' numbers** -- `plot_m2_at_age_prop()` (a share now, not
+  a contribution), `plot_ration()` (x average numbers-at-age) and `plot_b_eaten()` (million mt).
+  Any figure regenerated from them differs from earlier runs. `plot_selectivity()` also renames
+  `p$data$Age` to `Bin`.
+- **Result-changing changes on this line that are not labelled breaking**: the mode-5 selectivity
+  penalty fix (GOA Pacific cod SSB 2050 -14.1%), parameter bounds previously applied to the wrong
+  parameters, composition weights warm-starting from `inits`, failed `run_mse()` simulations
+  returning only a marker, the `mse_summary()` reshape, the recruitment fixes, and `sim_mod()`
+  drawing the index under the fleet's own `Index_distribution`. **A model carrying GOA numbers
+  forward needs a refit.**
+- The `nages` age-vs-index defect in the three predation plotters **is fixed** (`d4cdfb2f`), and
+  the class is now closed by `minage != 1` fixtures. CLAUDE.md's "still wrong" note was stale and
+  has been corrected. The same class survives in the template at `src/TMB/ceattle.cpp:1943`.
 
 ## Blocked
 
@@ -50,11 +75,11 @@ Nothing.
 
 ## Resume here
 
-PR A: finish the Stage 1 drift guards and the Stage 2 documentation sweep, then open the PR.
-The `write_template()` coverage test in Stage 1 is deliberately `skip()`ped until PR C.
+Split the branch into the three PRs, or open it as one if that is preferred. Then work the
+`inst/dev/CLEANUP_BACKLOG.md` Tier 0 list into issues.
 
 ## Older paused work
 
 A multi-PR accessibility / code-review refactor on branch `accessibility-and-code-review`. Its
 plan is at `~/Downloads/HANDOFF-accessibility-refactor-implementation.md` (outside the repo, so
-it does not survive a clone — ask Grant for it). Read it before resuming; do not start fresh.
+it does not survive a clone -- ask Grant for it). Read it before resuming; do not start fresh.
