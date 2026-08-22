@@ -69,14 +69,19 @@
   means without a DSEM: projected recruitment at `R0 * exp(mean deviation)`,
   not at the lognormal median.
 
-  Two settings are required, and `sample_rec()` names whichever is missing.
-  `build_DSEM(estimate_projection = TRUE)`, so the latent states span the years
-  being drawn -- with the default `FALSE` they stop at `endyr` and a projection
-  draw would extrapolate past the likelihood's support. And
-  `build_srr(proj_mean_rec = FALSE)`, so projected recruitment reads the
-  deviations at all; under mean-recruitment projection it is `avg_R` in every
-  draw. Without a DSEM the second case warns rather than stopping, as that
-  behavior is unchanged.
+  This needs `build_DSEM(estimate_projection = TRUE)`, so the latent states
+  span the years being drawn; with the default `FALSE` they stop at `endyr`,
+  and a projection draw would extrapolate past the likelihood's support.
+  `sample_rec()` says so rather than extrapolating.
+
+* **`build_DSEM(estimate_projection = TRUE)` now overrides
+  `build_srr(proj_mean_rec = )`.** The two are contradictory -- under
+  mean-recruitment projection the model projects `avg_R` past `endyr`, so the
+  SEM's projection states are fitted and then reach only the dynamic B0/BF
+  reference series -- and `proj_mean_rec` defaults to `TRUE`, so asking for a
+  SEM-projected recruitment was inert unless you also changed the stock-recruit
+  setup. Estimating the projection now wins, and `fit_mod(verbose > 0)` reports
+  it. Set `estimate_projection = FALSE` to keep mean-recruitment projection.
 
 * **Lognormal bias correction is now applied to a DSEM's recruitment
   deviations, so `R0` is comparable to a non-DSEM fit again.** It was not

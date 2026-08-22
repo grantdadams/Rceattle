@@ -31,10 +31,11 @@
 #'   (\code{styr:endyr}) only, leaving the projection years out of the DSEM
 #'   likelihood; projection recruitment then comes from the usual method (mean
 #'   recruitment or the stock-recruit relationship). \code{TRUE} extends them to
-#'   \code{projyr} and projects recruitment through the SEM -- pair it with
-#'   \code{proj_mean_rec = FALSE} (required): under mean-recruitment projection
-#'   the projected recruitment is \code{avg_R} and the SEM's projection states
-#'   reach only the dynamic B0/BF reference series.
+#'   \code{projyr} and projects recruitment through the SEM. This overrides
+#'   \code{build_srr(proj_mean_rec = )}: under mean-recruitment projection the
+#'   projected recruitment is \code{avg_R} and the SEM's projection states
+#'   would reach only the dynamic B0/BF reference series, so \code{fit_mod()}
+#'   turns mean-recruitment projection off and says so.
 #'   \code{FALSE} leaves the projection years out, rather than holding them
 #'   fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 #'   the last hindcast years and pull on the terminal recruitment deviations.
@@ -557,19 +558,20 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
   # estimate_projection (DSEM latent projection states) overlaps with
-  # proj_mean_rec (SRR projection method). It is contradictory to estimate
-  # projection-period DSEM states while projecting recruitment from mean
-  # recruitment (proj_mean_rec == 0 / FALSE), because those states are then
-  # never used.
+  # proj_mean_rec (SRR projection method): under mean-recruitment projection
+  # the template sets R = avg_R past endyr, so the SEM's projection states
+  # reach only the dynamic B0/BF reference series (which does set the ABC under
+  # DynamicHCR = 1) and the states are otherwise fitted and then ignored.
+  # fit_mod() resolves this by letting estimate_projection win, so this only
+  # fires for a direct caller that built the objects itself.
   if( isTRUE(dsem_settings$estimate_projection) &&
       isTRUE(as.logical(data_list$proj_mean_rec)) ){
     warning("`estimate_projection = TRUE` with `proj_mean_rec = TRUE`: ",
             "projected recruitment is set to avg_R, so the SEM's projection ",
-            "states do not drive it -- they reach only the dynamic B0/BF ",
-            "reference series (which does set the ABC under DynamicHCR = 1). ",
-            "Set `proj_mean_rec = FALSE` to project recruitment through the ",
-            "SEM, or `estimate_projection = FALSE` to leave the projection ",
-            "years out of the DSEM.", call. = FALSE)
+            "states do not drive it. Set `proj_mean_rec = FALSE` to project ",
+            "recruitment through the SEM, or `estimate_projection = FALSE` to ",
+            "leave the projection years out of the DSEM. fit_mod() applies the ",
+            "first of those for you.", call. = FALSE)
   }
 
   # Number of DSEM time steps, and whether they cover the projection. The C++

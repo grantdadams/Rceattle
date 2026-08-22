@@ -142,13 +142,21 @@ results <- c(results, ok(
           as.matrix(a$estimated_params$dsem_x_tj)[pj, ])) < 1e-12 &&
     !is.null(b2$quantities$R)))
 
-# ---- 6. the two contradictory-by-default settings are refused ----------------
+# ---- 6. estimate_projection overrides mean-recruitment projection -----------
+# The two settings are contradictory, and build_srr() defaults proj_mean_rec to
+# TRUE, so asking for a SEM-projected recruitment would otherwise be inert by
+# default: R = avg_R past endyr, identical in every draw. estimate_projection
+# wins, and the fit records that.
 fit_mean <- fit_one(d, proj_mean_rec = TRUE)
-e1 <- tryCatch({Rceattle::sample_rec(fit_mean, update_model = FALSE); ""},
-               error = conditionMessage)
+set.seed(21); r1 <- Rceattle::sample_rec(fit_mean, update_model = TRUE)$quantities$R
+set.seed(22); r2 <- Rceattle::sample_rec(fit_mean, update_model = TRUE)$quantities$R
+pyr <- (n_h + 1L):ncol(r1)
 results <- c(results, ok(
-  "proj_mean_rec = TRUE is refused, not silently deterministic",
-  grepl("proj_mean_rec = FALSE", e1)))
+  "estimate_projection overrides proj_mean_rec",
+  as.integer(fit_mean$data_list$proj_mean_rec) == 0L &&
+    max(abs(r1[1, pyr] - r2[1, pyr])) > 0,
+  sprintf("proj_mean_rec recorded as %s; projected R differs across seeds by %.3g",
+          fit_mean$data_list$proj_mean_rec, max(abs(r1[1, pyr] - r2[1, pyr])))))
 
 d_noproj <- d
 fit_np <- suppressWarnings(suppressMessages(Rceattle::fit_mod(

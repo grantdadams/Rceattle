@@ -45,10 +45,11 @@ Default \code{FALSE} builds the latent states over the hindcast
 (\code{styr:endyr}) only, leaving the projection years out of the DSEM
 likelihood; projection recruitment then comes from the usual method (mean
 recruitment or the stock-recruit relationship). \code{TRUE} extends them to
-\code{projyr} and projects recruitment through the SEM -- pair it with
-\code{proj_mean_rec = FALSE} (required): under mean-recruitment projection
-the projected recruitment is \code{avg_R} and the SEM's projection states
-reach only the dynamic B0/BF reference series.
+\code{projyr} and projects recruitment through the SEM. This overrides
+\code{build_srr(proj_mean_rec = )}: under mean-recruitment projection the
+projected recruitment is \code{avg_R} and the SEM's projection states
+would reach only the dynamic B0/BF reference series, so \code{fit_mod()}
+turns mean-recruitment projection off and says so.
 \code{FALSE} leaves the projection years out, rather than holding them
 fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 the last hindcast years and pull on the terminal recruitment deviations.}

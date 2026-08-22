@@ -563,6 +563,27 @@ fit_mod <-
     # attached, every path below is skipped and the model is textually the
     # non-DSEM model. That is what lets /golden-check gate this change.
     if (!is.null(dsem)) {
+      # estimate_projection = TRUE says the SEM supplies projected recruitment,
+      # so it overrides proj_mean_rec. The two are otherwise contradictory:
+      # under mean-recruitment projection the template sets R = avg_R past
+      # endyr and the estimated projection states reach only the dynamic B0/BF
+      # reference series, so the SEM would be fitted over the projection and
+      # then ignored there. Overriding before the DSEM is built keeps one
+      # answer -- build_dsem_objects() reads proj_mean_rec too.
+      .ep <- if (is.list(dsem) && !is.null(dsem$tmb_inputs)) {
+        isTRUE(dsem$dsem_settings$estimate_projection)
+      } else isTRUE(dsem$estimate_projection)
+      if (.ep && isTRUE(as.logical(data_list$proj_mean_rec))) {
+        if (verbose > 0) {
+          message("DSEM `estimate_projection = TRUE`: projecting recruitment ",
+                  "through the SEM rather than at mean recruitment ",
+                  "(`proj_mean_rec` set to FALSE). Use ",
+                  "`estimate_projection = FALSE` to keep mean-recruitment ",
+                  "projection.")
+        }
+        data_list$proj_mean_rec <- 0L
+      }
+
       # The build_*() specs are plain unclassed lists in this package, so tell a
       # specification from already-built objects structurally: built objects
       # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else

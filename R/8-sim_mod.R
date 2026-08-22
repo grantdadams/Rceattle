@@ -1156,19 +1156,18 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
     }
     # ... and the deviations have to REACH projected recruitment. Under
     # proj_mean_rec the template projects recruitment at avg_R, so the drawn
-    # states reach only the dynamic B0/BF reference series and projected
-    # recruitment is identical in every draw. build_DSEM() already warns at fit
-    # time; enforce it here too, because a "sampled" projection that is
-    # silently deterministic reaches an ABC looking like it carries
-    # uncertainty. The two settings this needs are contradictory by default,
-    # since build_srr() defaults proj_mean_rec = TRUE.
+    # states reach only the dynamic B0/BF reference series and every draw
+    # returns the same recruitment. fit_mod() lets estimate_projection override
+    # proj_mean_rec, so a fitted model cannot carry this combination; the guard
+    # is here for an object assembled another way, because a "sampled"
+    # projection that is silently deterministic reaches an ABC looking like it
+    # carries uncertainty.
     if (.mean_rec) {
-      stop("sample_rec() cannot draw projected recruitment while ",
-           "proj_mean_rec = TRUE: recruitment is projected at avg_R, so the ",
-           "drawn states reach only the dynamic B0/BF reference series and ",
-           "every draw returns the same recruitment. Refit with ",
-           "build_srr(proj_mean_rec = FALSE) to project recruitment through ",
-           "the SEM.", call. = FALSE)
+      stop("This model projects recruitment at avg_R (proj_mean_rec = TRUE), ",
+           "so the drawn states would reach only the dynamic B0/BF reference ",
+           "series and every draw would return the same recruitment. Refit ",
+           "with fit_mod(), which projects through the SEM whenever the DSEM ",
+           "estimates the projection.", call. = FALSE)
     }
     if (is.null(Rceattle$dsem$sem_full) ||
         is.null(Rceattle$estimated_params$dsem_x_tj)) {
