@@ -1,3 +1,62 @@
+# Rceattle 5.11.0
+
+## New features
+
+* **The diagnostics all take the fitted model as `object`.** The same argument
+  was previously spelled `Rceattle` in `retrospective()`, `jitter()`,
+  `self_test()`, `sim_mod()`, `sample_rec()`, `remove_F()` and
+  `model_average()`, and `fit` in `reweight_comps()`, `osa_residuals()` and
+  `process_residuals()` -- so which name to use depended on which diagnostic you
+  reached for, and `Rceattle` collided with the package name
+  (`Rceattle::retrospective(Rceattle = mod)`). All ten now take `object`, matching
+  `convergence_diagnostics()` and R's own `summary()`/`coef()`/`vcov()` methods.
+
+  **Existing scripts keep working unchanged.** The old names are still accepted
+  and are silent in this release; they begin warning in a future version. To find
+  your own call sites early, set
+  `options(Rceattle.warn_deprecated_args = TRUE)`. Supplying both names for one
+  model is an error rather than a guess.
+
+  Positional calls -- `retrospective(ss_run, peels = 10)` -- are unaffected.
+  `profile()` keeps `fitted` because it is an S3 method for `stats::profile()`,
+  and `mse_summary(mse =)` and `compare_sim(operating_mod =)` keep their names
+  because they take an MSE result and a simulation set, not a fitted model.
+
+* **`sim_mod()`, `sample_rec()`, `remove_F()` and `model_average()` now say what
+  is wrong when they are given something that is not a fitted model.** They
+  previously failed further in with `argument is of length zero` or
+  `invalid 'type' (list) of argument`.
+
+* **`fit_mod()` reports a composition weight of 1 on a Dirichlet-multinomial
+  fleet.** That likelihood reads `Comp_weights`,
+  `CAAL_weights` and `Diet_comp_weights` as the LOG of the starting weight, so
+  the value `write_template()` seeds (1) is a starting weight of e, and a weight
+  of 1 is written as 0. A model built from the template and switched to a
+  Dirichlet-multinomial previously started at e with nothing saying so. Only an
+  exact 1 is reported, so a deliberate value is left alone, and Off fleets and
+  fleets carrying no composition data are skipped. It fires once per fit, and
+  the diagnostic refits suppress it the way they already suppress
+  `data_check()`. No value and no fit changes -- this is a message.
+
+* **`retrospective()`, `jitter()` and `self_test()` accept
+  `fit_control = fit_control(...)`,** matching `fit_mod()`. Only `phase` and
+  `getsd` are read, because those are what these diagnostics forward to each
+  refit; setting any other field is an error rather than a silent no-op.
+  Supplying it replaces the defaults they otherwise infer from the fitted model.
+  Omitting it -- the default -- leaves every existing call behaving exactly as
+  before.
+
+* **`?jitter` now records that attaching Rceattle masks `base::jitter()`.** The
+  function keeps its name; call `base::jitter()` for the base-graphics
+  behaviour.
+
+## Deprecations
+
+* `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
+  above. Accepted silently now, warning from 5.12.0, removed in 6.0.0.
+* `rearrange_dat()` now names its removal version (6.0.0) rather than
+  deprecating open-endedly. Use `rearrange_data()`.
+
 # Rceattle 5.10.0
 
 ## New features

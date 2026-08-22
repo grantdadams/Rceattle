@@ -879,10 +879,12 @@ check_caal_data <- function(data_list) {
 
 
 #' @rdname rearrange_data
-#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`
-#'   kept for backwards compatibility; please use `rearrange_data()`.
+#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`,
+#'   kept so older scripts keep running. It is scheduled for removal in 6.0.0;
+#'   use `rearrange_data()`.
 #' @export
 rearrange_dat <- function(data_list){
-  .Deprecated("rearrange_data")
+  .Deprecated("rearrange_data",
+              msg = "rearrange_dat() is deprecated and will be removed in Rceattle 6.0.0; use rearrange_data().")
   rearrange_data(data_list)
 }
