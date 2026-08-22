@@ -16,13 +16,17 @@ It carries Stages 0-6 of the Claude-readiness plan in seven commits:
 | 2 | vignettes executable behind an env var + weekly CI; switch tables completed; comment sweep | 5.11.1 |
 | 3-4 | schema authoritative for allowed values; three unvalidated columns now error; `write_template()` schema-derived | 5.12.0 |
 | 5 | `.rce_model_switch_schema()`; `.rce_config_schema()` projects from it | — |
+| — | fixes for everything the two adversarial reviews found (16 findings) | 5.12.0 |
 
 The plan calls for this to land as **three PRs by risk tier** (0-2 + 6 cannot move a number;
 3 + the figure work can; 4-5 can). It is currently one branch; splitting it is the next step.
 
 ## Done & verified
 
-- **Stage 6**: suite 6925 pass / 0 fail. Golden 4-model capture `identical()` TRUE, every field
+- **Final state**: suite **7248 pass / 0 fail / 3 skip**; golden `identical()` to the `dev`
+  baseline; `verify-refit-like.R` bit-identical across all 32 fits; all seven new `@examples`
+  execute cleanly through `tools::Rd2ex`.
+- **Stage 6** (at the time): suite 6925 pass / 0 fail. Golden 4-model capture `identical()` TRUE, every field
   `0.000e+00`. `verify-refit-like.R` bit-identical across all 32 fits. Ecosystem sweep found 15
   old-name call sites, all shimmed, and zero calls passing both spellings.
 - **The golden reference on `dev` is `ss = 10241.0304272585`** (`ms = 10267.2478324443`,
