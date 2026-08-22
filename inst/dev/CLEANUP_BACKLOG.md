@@ -3,6 +3,10 @@
 The 74 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
 
+**Cite the marker text, not a line number.** These references have gone stale three times --
+twice when roxygen was added above them, once from an unrelated `ceattle.cpp` edit. Grep for the
+quoted FIXME text instead; it moves with the code.
+
 Three tiers: a **known defect** is a wrong answer waiting for the right input and should become a
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
@@ -18,8 +22,8 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 
 | Where | Condition | Consequence |
 |---|---|---|
-| `src/TMB/ceattle.cpp:1943` | `minage > 1` | "will bomb". Same class as the `nages`-is-a-count trap, but in the **template** rather than the plotters — the R-side plotting instances are fixed and fixture-covered; this one is not. Every bundled dataset and all three live assessments have `minage = 1`, so nothing exercises it. |
-| `src/TMB/ceattle.cpp:641` | `nlengths < nages` | "will blow up" in the composition block. |
+| `src/TMB/ceattle.cpp` (`will bomb if minage > 1`) | `minage > 1` | "will bomb". Same class as the `nages`-is-a-count trap, but in the **template** rather than the plotters — the R-side plotting instances are fixed and fixture-covered; this one is not. Every bundled dataset and all three live assessments have `minage = 1`, so nothing exercises it. |
+| `src/TMB/ceattle.cpp` (`will blow up if nlengths is less than nages`) | `nlengths < nages` | "will blow up" in the composition block. |
 | `R/10-run_mse.R:556` | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
 | `R/10-mse_summary.R:458` | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
 | `R/3-build_map.R:1181` | **`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024) | **QAR1 is inert** — DEPRECATED in 5.12.0 with a warning at fit time; still unfixed. The deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode. It never matches, `index_q_dev` stays mapped out, and q is constant. These are two different switches sharing a string; the source comment says so explicitly, and an earlier draft of this file named the wrong one. |
@@ -27,7 +31,7 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 | `R/3-build_map.R:692` | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
 | `R/6-fit_mod.R:658` | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
 | `R/10-mse_summary.R:494` | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
-| `src/TMB/ceattle.cpp:3401` | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |
+| `src/TMB/ceattle.cpp` (`dmultinom_osa` renormalization note) | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |
 
 ## Tier 1 — stated limitations, currently by design
 

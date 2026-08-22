@@ -104,11 +104,12 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          map_only = integer(0), map_only_why = character(0),
          cpp_only = integer(0), cpp_only_why = character(0)),
 
+    # No exemption: `case 2` (the Ludwig and Walters analytical sigma) was added
+    # in 5.12.0, so this now matches est_sigma_index exactly. The exemption that
+    # stood here recorded the gap; this test failing when it was fixed is the
+    # guard working, not a regression.
     list(var = "est_sigma_fsh", values = estimate_sd_map,
-         map_only = c(Analytical = 2),
-         map_only_why = paste("KNOWN GAP: the catch-sigma dispatch has no case 2, so",
-                              "Estimate_catch_sd = 'Analytical' passes every R check and then",
-                              "errors inside the template. est_sigma_index does implement it."),
+         map_only = integer(0), map_only_why = character(0),
          cpp_only = integer(0), cpp_only_why = character(0)),
 
     list(var = "diet_ll_type", values = diet_loglike_map,
