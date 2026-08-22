@@ -53,9 +53,12 @@ The plan calls for this to land as **three PRs by risk tier** (0-2 + 6 cannot mo
    nothing -- R or C++ -- reads it. Left alone because removing it is a behaviour change, not a
    cleanup.
 4. **`inst/dev/CLEANUP_BACKLOG.md` Tier 0 lists 9 known defects** taken from FIXME text in the
-   source, including that **QAR1 is inert** (`Time_varying_q = "AR1"` can be set and does
-   nothing, `R/3-build_map.R:1181`) and that `run_mse()`'s catch fill-in does not work for
-   `assessment_period > 1`. Each needs an issue if it is real.
+   source, including that **QAR1 is inert** -- `Catchability = "AR1"` (the Rogers et al. 2024
+   form) can be set and does nothing, because the deviate map is gated on `Time_varying_q`,
+   which under QAR1 holds an `env_data` column index rather than a mode
+   (`R/3-build_map.R:1181`). Note this is **not** `Time_varying_q = "AR1"`, which is a
+   different switch sharing the same string and works correctly. Also that `run_mse()`'s catch
+   fill-in does not work for `assessment_period > 1`. Each needs an issue if it is real.
 
 ## Known flags
 
@@ -84,6 +87,17 @@ Split the branch into the three PRs, or open it as one if that is preferred. The
 
 ## Older paused work
 
-A multi-PR accessibility / code-review refactor on branch `accessibility-and-code-review`. Its
-plan is at `~/Downloads/HANDOFF-accessibility-refactor-implementation.md` (outside the repo, so
-it does not survive a clone -- ask Grant for it). Read it before resuming; do not start fresh.
+**The `accessibility-and-code-review` refactor is superseded, not outstanding.** The branch is
+gone from local and remote, its plan
+(`~/Downloads/HANDOFF-accessibility-refactor-implementation.md`) no longer exists, and no commit
+in any branch mentions it. Verified 2026-08-22 against `dev`: three of its four locked "chosen
+extras" have landed by other routes -- the `JnllRow` enum (`ceattle.cpp:2963`, 148 uses), the
+repaired cpp section index (47 numbered sections), and real Doxygen `@file`/`@brief` blocks on
+the previously bare headers.
+
+**The one concrete leftover is splitting `R/0-build_srr_and_M.R`** -- still 1,497 lines and 29
+functions in one file, and still the grab-bag the plan named. It is in
+`inst/dev/CLEANUP_BACKLOG.md`.
+
+Anything else that plan contained is unrecoverable from the repo. Do not resume from the branch
+name or the handoff path; both are dead references.

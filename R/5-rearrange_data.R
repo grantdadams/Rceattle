@@ -111,10 +111,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 0) Vector to save  species
   data_list$flt_spp <- .pull_int0(data_list$fleet_control, "Species")
 
-  # - 1) Fleet pointer
-  data_list$flt_sel_ind <- .pull_int0(data_list$fleet_control, "Fleet_code")
-
-  # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+  # - 1) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
   data_list$flt_type <- .pull_int(data_list$fleet_control, "Fleet_type")
 
   # - 3) Month of observation

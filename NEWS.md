@@ -38,6 +38,25 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * **`write_data()` writes `fleet_control` in schema column order**, as the
   control and bioenergetics sheets already did. Values are unchanged and
   round-tripping is identical; only the column order in the workbook moves.
+  The schema order was also tidied so the workbook reads sensibly: `Month` now
+  sits with the fleet identity columns rather than behind 26 selectivity
+  columns, and `Index_distribution` heads the index-observation block with the
+  standard-error settings it governs.
+
+## Deprecations
+
+* **`Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) is deprecated,
+  and warns that it is currently inert.** `build_map()` gates the log-q
+  deviates on `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under
+  this form `Time_varying_q` holds an `env_data` column index rather than a
+  mode -- so the deviates are never estimated and q is returned constant. The
+  fit ran and reported a time-invariant catchability where a time-varying one
+  was asked for, silently. Express it as a linkage instead:
+  `build_catchability(linkages = list(q = linkage_spec(ar1(1 | Year), by = ~ fleet)))`.
+
+  Note this is **not** `Time_varying_q = "AR1"`, a different switch sharing the
+  same string, which puts an AR1 structure on an ordinary `"Estimated"` q and
+  works correctly.
 
 ## Bug fixes
 
@@ -99,6 +118,11 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `data_check()`, which is internal; they point at `build_data(.check = TRUE)`.
 
 ## Internal
+
+* Removed `flt_sel_ind`. `rearrange_data()` computed it from `Fleet_code` on
+  every fit and nothing read it -- it was declared in no `DATA_` object and
+  referenced nowhere in the package or the assessment repos.
+
 
 * **The C++ dispatch branches are pinned to the R maps that select them**
   (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked

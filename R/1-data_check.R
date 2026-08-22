@@ -52,6 +52,36 @@ data_check <- function(data_list) {
     errors <- c(errors, "'PowerEquation' catchability not yet implemented")
   }
 
+  # Catchability = "AR1" is the QAR1 form (Rogers et al. 2024):
+  # q = exp(log_q + beta * dev_y), with `index_q_dev` a latent AR1 process and
+  # the environmental index an observation of it.
+  #
+  # It does not work. build_map() gates the deviates on
+  # `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
+  # `Time_varying_q` holds an `env_data` COLUMN INDEX rather than a mode -- so a
+  # QAR1 fleet never matches, `index_q_dev` stays mapped out, and q comes back
+  # constant. Nothing errors: the fit runs and reports a time-invariant q where
+  # the user asked for a time-varying one.
+  #
+  # Warn rather than stop, so an existing model still runs and its author can
+  # see what they actually got. Note this is a DIFFERENT switch from
+  # `Time_varying_q = "AR1"`, which is an AR1 structure on an ordinary
+  # "Estimated" q and works correctly.
+  if(!is.null(data_list$fleet_control$Catchability) &&
+     any(data_list$fleet_control$Catchability %in% c("AR1", 6), na.rm = TRUE)){
+    qar1_flts <- data_list$fleet_control$Fleet_name[
+      data_list$fleet_control$Catchability %in% c("AR1", 6)]
+    warning(paste0(
+      "Catchability = 'AR1' (QAR1) is deprecated and currently INERT for ",
+      "fleet(s) ", paste(qar1_flts, collapse = ", "), ". The AR1 deviates on ",
+      "log-q are never estimated, so q is returned constant -- the fit will ",
+      "run and report a time-invariant catchability. Express a time-varying q ",
+      "as a linkage instead:\n  build_catchability(linkages = list(q = ",
+      "linkage_spec(ar1(1 | Year), by = ~ fleet)))\n",
+      "This is not the same switch as Time_varying_q = 'AR1', which works."),
+      call. = FALSE)
+  }
+
   # Catchability = "Environmental" (Estimate_q = 5) is superseded by a q
   # linkage. The old form still fits -- it keeps its own C++ path and exact
   # numerics -- but names covariates by position in Time_varying_q rather than
