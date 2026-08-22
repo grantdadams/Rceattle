@@ -151,29 +151,18 @@ importFrom(ggplot2,
   ylim
 )
 importFrom(grDevices,
-  adjustcolor,
   col2rgb,
-  dev.off,
-  png,
   rgb
 )
 importFrom(graphics,
-  abline,
   axis,
   box,
   curve,
   filled.contour,
   image,
-  layout,
-  legend,
-  lines,
   mtext,
-  par,
   persp,
-  plot,
-  plot.new,
   points,
-  polygon,
   symbols,
   text
 )

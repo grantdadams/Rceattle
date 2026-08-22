@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_mortality}
 \alias{plot_mortality}
-\title{Plot M1 + M2}
+\title{Plot M1 or M2 at age}
 \usage{
 plot_mortality(
   Rceattle,
@@ -23,16 +23,20 @@ plot_mortality(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object. A list of more than one is an
+error; call it per model.}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
 
 \item{incl_proj}{Include the projection years (TRUE/FALSE)}
 
-\item{zlim}{zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.}
+\item{zlim}{Ignored. Base-graphics leftover: the fill range of the tile
+plot. Use \code{p + ggplot2::scale_fill_viridis_c(limits = ...)}.}
 
-\item{type}{0 = Tiles, 1 = contour, 2 = facet lines, 3 = persp}
+\item{type}{\code{"lines"} (default) draws M-at-age with one line per year;
+\code{"heatmap"} (or \code{0}) draws the same series as an age-by-year tile plot.
+Any other value gives the lines.}
 
 \item{width}{Plot width when saved "inches"}
 
@@ -40,20 +44,30 @@ function.}
 
 \item{title}{Additional title to add. Will also add species names if not NULL}
 
-\item{log}{TRUE/FALSE use log M1 + M2}
+\item{log}{TRUE/FALSE plot the series on a log scale}
 
 \item{minyr}{First year to plot}
 
-\item{theta}{theta for persp plot}
+\item{theta}{Ignored. Base-graphics leftover: viewing angle of a \code{persp}
+surface, which is no longer drawn.}
 
 \item{species}{Species to plot. Plots all if null.}
 
-\item{maxage}{Plot up to this age. Plots all ages if NULL}
+\item{maxage}{Oldest age to draw, on the species' own age scale rather than
+as a count of age bins. \code{NULL} draws every age.}
 
-\item{title_cex}{Font size for title}
+\item{title_cex}{Ignored. Base-graphics leftover: title font size. Use
+\code{p + ggplot2::theme(plot.title = ggplot2::element_text(size = ...))}.}
 
-\item{M2}{TRUE/FALSE Use M2 only (True) or total M (False)}
+\item{M2}{Draw predation mortality M2 (TRUE, the default) or residual
+natural mortality M1 (FALSE). Neither is the sum of the two.}
+}
+\value{
+A \code{ggplot}.
 }
 \description{
-Function that plots the M1 and M2 as estimated from Rceattle
+Mortality-at-age over the hindcast for one model: predation
+mortality (\code{M2}, the default) or residual natural mortality (\code{M1}). One
+component at a time, never their sum -- \code{\link[=plot_m_at_age]{plot_m_at_age()}} draws total M
+(M1 + M2) as a time series.
 }

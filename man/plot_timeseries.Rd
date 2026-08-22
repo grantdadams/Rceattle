@@ -30,64 +30,85 @@ plot_timeseries(
   OM = TRUE,
   reference = NULL,
   zero_y = FALSE,
+  ref_lines = NULL,
+  suffix = NULL,
   mod_avg = rep(FALSE, length(Rceattle))
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
 \item{output}{derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.}
 
 \item{ylab}{Y-axis label. \code{NULL} (default) derives one from \code{output} and the
 model's \code{minage}.}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
-\item{species}{What species to include 1:nspp}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{spnames}{Species names for legend}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{add_ci}{If the confidence interval is to be added (see Details for how
-it is constructed)}
+\item{add_ci}{Add a 95\% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.}
 
-\item{lwd}{Line width as specified by user}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{save}{Save derived quantity?}
+\item{save}{Write the plotted series to CSV alongside the figure.}
 
-\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").}
+\item{legend.pos}{Ignored. Base-graphics leftover: legend placement. Use
+\code{p + ggplot2::theme(legend.position = "right")}.}
 
-\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size in inches.}
 
-\item{height}{Figure height in inches}
+\item{minyr, maxyr}{First / last year to plot.}
 
-\item{minyr}{First year to plot}
+\item{incl_proj}{Include the projection years, with a dashed divider at the
+last hindcast year.}
 
-\item{maxyr}{max year to plot}
+\item{mod_cex}{Ignored. Base-graphics leftover: legend text size. Use
+\code{p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))}.}
 
-\item{incl_proj}{TRUE/FALSE, include projection years}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 
-\item{mod_cex}{Cex of text for model name legend}
-
-\item{lty}{line type}
-
-\item{alpha}{shading for confidence intervals}
+\item{alpha}{Transparency of confidence ribbons and shaded areas, between 0
+and 1.}
 
 \item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{reference}{Reference model}
+\item{reference}{A model to overlay for comparison, drawn at 1.5x \code{lwd} and
+labelled "Reference". It takes the next colour from the palette, or black
+if \code{line_col} is supplied.}
 
 \item{zero_y}{Anchor the y-axis at zero. TRUE for the absolute series
 (biomass, SSB, recruitment), where a truncated axis exaggerates change;
 FALSE for the depletions, which are already on a relative scale.}
+
+\item{ref_lines}{Internal. \verb{function(models, sp_sel)} returning per-species
+reference-point layers, added before the figure is saved. Supplied by
+\code{\link[=plot_f]{plot_f()}} and \code{\link[=plot_depletionSSB]{plot_depletionSSB()}} through \code{.ts_wrapper()}; \code{sp_sel} is
+the species resolution the panels were built from.}
+
+\item{suffix}{Internal. Overrides the \verb{<file>_<suffix>.png} stem, which
+otherwise names the series.}
 
 \item{mod_avg}{TRUE/FALSE}
 }

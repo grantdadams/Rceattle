@@ -33,47 +33,38 @@ files    <- sort(list.files(test_dir, pattern = "^test-.*\\.[rR]$"))
 stopifnot(length(files) > 0)
 
 
-# --- Cost proxy --------------------------------------------------------------
-# Balancing on file COUNT alone puts every heavy fit in one shard by accident, so
-# each file is weighted by what it makes the model do. These weights are a static
-# proxy read off the source, not measured seconds -- the ratios are what matter:
-# an optimization dominates a build, and a diagnostic that refits in a loop
-# dominates a single optimization.
+# --- Cost: measured seconds --------------------------------------------------
+# coverage-costs.tsv holds measured seconds per test file, regenerated from the
+# coverage-timing-shard-* artifacts the workflow uploads.
 #
-# The workflow's reporter now prints a per-file elapsed time, so a future pass can
-# replace this proxy with the real table.
-COST_BASE  <- 1     # sourcing the file, fixtures, plain unit tests
-COST_BUILD <- 1     # fit_mod(estimateMode = 3 or 4) -- MakeADFun, no optimization
-COST_FIT   <- 12    # a real optimization (estimateMode 0/1/2, and the default)
-COST_REFIT <- 40    # a .refit_like() caller: re-invokes fit_mod() in a loop
+# It replaced a static proxy that counted fit_mod() / refit calls in the source.
+# That proxy was not merely imprecise, it was mis-ranked: it scored
+# test-functions-retrospective.R at 1042 for a file that takes 105 s and
+# test-functions-sim-mod-comp.R at 118 for one that takes 412 s. Every shard
+# carried identical proxy weight (1653) while their real runtimes were 18, 26,
+# 94 and 12 minutes, and the 94-minute one eventually overran the job timeout.
+# It could not have been corrected from the job logs either, because covr runs
+# the suite in a subprocess whose output appears only when it returns -- the
+# shard that overran was the one that reported nothing.
+#
+# A file the table does not know gets COST_UNMEASURED, deliberately larger than
+# the median file so a new test is not assumed free and packed alongside a heavy
+# one. Counting calls in the source is NOT used as the fallback: that is the
+# estimator this replaced, and a wrong number in the right units is harder to
+# spot than an obvious placeholder. The next timing run measures it for real.
+COST_UNMEASURED <- 60
 
-# The eight .refit_like() entry points (R/6-refit_like.R) plus sim_mod(), which
-# draws through a built model.
-REFIT_CALLS <- c("run_mse", "retrospective", "jitter", "self_test", "profile",
-                 "remove_F", "sample_rec", "reweight_comps")
-
-count_matches <- function(txt, pattern) {
-  m <- gregexpr(pattern, txt, perl = TRUE)[[1]]
-  if (identical(as.integer(m), -1L)) 0L else length(m)
-}
+COST_TABLE <- local({
+  p <- file.path("tools", "ci", "coverage-costs.tsv")
+  if (!file.exists(p)) return(NULL)
+  tab <- utils::read.delim(p, stringsAsFactors = FALSE)
+  stats::setNames(as.numeric(tab$seconds), tab$file)
+})
 
 file_cost <- function(path) {
-  txt <- paste(readLines(path, warn = FALSE), collapse = "\n")
-
-  fits   <- count_matches(txt, "fit_mod\\s*\\(")
-  builds <- count_matches(txt, "estimateMode\\s*=\\s*[34]\\b")
-  refits <- sum(vapply(REFIT_CALLS,
-                       function(f) count_matches(txt, paste0("\\b", f, "\\s*\\(")),
-                       integer(1)))
-
-  # Anything not explicitly built is assumed to optimize -- fit_mod()'s own
-  # default estimateMode does.
-  optimizations <- max(0L, fits - builds)
-
-  COST_BASE +
-    COST_BUILD * builds +
-    COST_FIT   * optimizations +
-    COST_REFIT * refits
+  measured <- COST_TABLE[[basename(path)]]
+  if (!is.null(measured) && !is.na(measured)) return(measured)
+  COST_UNMEASURED
 }
 
 costs <- vapply(file.path(test_dir, files), file_cost, numeric(1))
@@ -106,11 +97,11 @@ stopifnot(length(mine) > 0)
 message(sprintf("Coverage shard %d of %d -- %d of %d test files",
                 shard, nshard, length(mine), length(files)))
 for (b in seq_len(nshard)) {
-  message(sprintf("  shard %d: %3d files, weight %6.0f%s",
-                  b, sum(plan$bin == b), plan$load[b],
+  message(sprintf("  shard %d: %3d files, %5.1f min%s",
+                  b, sum(plan$bin == b), plan$load[b] / 60,
                   if (b == shard) "   <- this runner" else ""))
 }
-message("\nFiles in this shard:")
+message("\nFiles in this shard (estimated seconds, from coverage-costs.tsv):")
 for (f in mine) message(sprintf("  %-52s %5.0f", f, costs[[f]]))
 
 if (nzchar(Sys.getenv("COV_PLAN_ONLY"))) {
@@ -128,6 +119,26 @@ if (nzchar(Sys.getenv("COV_PLAN_ONLY"))) {
 context_names <- sub("\\.[rR]$", "", sub("^test-", "", mine))
 filter <- paste0("^(", paste(context_names, collapse = "|"), ")$")
 
+# Per-file timings, written as the run goes.
+#
+# covr::package_coverage(code = ) evaluates `code` in a subprocess and surfaces
+# its output only when that returns, so on a shard killed by `timeout-minutes`
+# the progress reporter's per-file times are never flushed -- the job log jumps
+# from "* DONE (Rceattle)" straight to "The operation was canceled". The shard
+# that overruns is the one that reports nothing.
+#
+# CoverageTimingReporter appends each file's time to this path as that file
+# ends, so the table is on disk even when the job is cancelled; the workflow
+# uploads it with `if: always()`. Regenerate coverage-costs.tsv from those
+# artifacts whenever the suite's shape changes.
+timing_log <- Sys.getenv("COV_TIMING_LOG", unset = "")
+if (!nzchar(timing_log)) {
+  timing_log <- file.path(getwd(), sprintf("coverage-timing-shard-%d.tsv", shard))
+}
+timing_src <- normalizePath(file.path("tools", "ci", "coverage-timing.R"),
+                            winslash = "/", mustWork = TRUE)
+message(sprintf("\nPer-file timings -> %s", timing_log))
+
 # `load_package = "installed"` picks up covr's instrumented build rather than the
 # source tree, and `package =` makes the test environment's parent the Rceattle
 # namespace so the internal helpers the suite calls resolve (see CLAUDE.md).
@@ -136,10 +147,18 @@ filter <- paste0("^(", paste(context_names, collapse = "|"), ")$")
 # coverage before it is written. R-CMD-check is the correctness gate for this
 # suite -- test-coverage is deliberately non-blocking -- and the progress
 # reporter prints any failure into this log.
+#
+# MultiReporter leaves the progress reporter's console output exactly as it was
+# and writes the timing rows alongside it.
 code <- sprintf(
-  'testthat::test_dir(%s, package = "Rceattle", load_package = "installed",
-                      filter = %s, reporter = "progress", stop_on_failure = FALSE)',
-  deparse1(test_dir), deparse1(filter)
+  'source(%s)
+   testthat::test_dir(%s, package = "Rceattle", load_package = "installed",
+                      filter = %s, stop_on_failure = FALSE,
+                      reporter = testthat::MultiReporter$new(reporters = list(
+                        testthat::ProgressReporter$new(),
+                        CoverageTimingReporter$new(%s))))',
+  deparse1(timing_src), deparse1(test_dir), deparse1(filter),
+  deparse1(timing_log)
 )
 
 install_path <- Sys.getenv("RUNNER_TEMP", unset = "")

@@ -205,7 +205,16 @@ reference:
   - profile.Rceattle
   - self_test
   - sim_mod
+  - simulate.Rceattle
   - compare_sim
+
+- title: "Plotting — shared arguments"
+  desc: >
+    The common vocabulary the timeseries, predation and selectivity plotters
+    share: line_col, lwd, lty, alpha, species, spnames, minyr/maxyr, incl_proj,
+    incl_mean, add_ci and model_names.
+  contents:
+  - rceattle-plot-args
 
 - title: "Plotting — population dynamics"
   desc: Visualize biomass, recruitment, SSB, and depletion trajectories.

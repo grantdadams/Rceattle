@@ -1,3 +1,253 @@
+# Rceattle 5.10.0
+
+## New features
+
+* **The timeseries, predation and selectivity plotters now share one set of
+  arguments, and use them.** Only `plot_timeseries()` ever honoured `line_col`,
+  `lwd`, `lty` and `alpha`; the others declared them and ignored them, so
+  colours and line widths silently did nothing. They are now resolved in one
+  place, documented once in `?"rceattle-plot-args"`, and applied consistently.
+  `line_col` accepts colour names, hex codes, or base-graphics palette indices
+  (`line_col = 1`), and supplies the palette for whichever variable the figure
+  maps to colour; on `plot_selectivity()`'s year fan it gives the ramp anchors
+  instead. `lwd` keeps the base-graphics scale, where the default `3` is a
+  standard-weight line. The remaining plotters -- `plot_mortality()`,
+  `plot_maturity()`, `plot_comp()`, `plot_data()`, `plot_stock_recruit()`, the
+  index, catch and diet families -- still take their own arguments.
+
+* **The predation plotters honour the shared arguments.** `plot_b_eaten()`,
+  `plot_b_eaten_prop()`, `plot_m_at_age()`, `plot_m2_at_age_prop()` and
+  `plot_ration()` now use `line_col`, `lwd`, `lty`, `minyr`, `maxyr` and
+  `incl_mean` (and `alpha`, where the figure has a ribbon), all of which they
+  previously declared and ignored. They also accept `maxyr`, `lty`, `incl_mean`
+  and `top_adj` where those were missing entirely, so scripts passing them no
+  longer stop with `unused argument`. `species` and `spnames` worked before and
+  now additionally take names, a logical mask and `"all"`, and validate.
+
+  `line_col` and `lty` follow the figure, not the model: colour separates
+  predators in `plot_b_eaten_prop()` and `plot_m2_at_age_prop()`, and line type
+  separates the sexes in `plot_ration()` and `plot_m_at_age()`. Each function's
+  help says which. Too few colours are recycled, now with a warning naming what
+  they coloured, and a varying `lty` whose key has one level warns rather than
+  being dropped in silence.
+
+* **`add_ci = TRUE` says when it cannot draw an interval.** None of the
+  predation quantities carry standard errors -- `M_at_age` and
+  `B_eaten_as_prey` are `REPORT`ed but not `ADREPORT`ed, and consumption and the
+  M2 proportions are products and ratios of such series -- so the argument was
+  silently doing nothing. It now warns once and draws no ribbon.
+
+* **`plot_selectivity()` draws every model, on the right dimension, and uses its
+  arguments.** It previously read only the first fit, so a list of models
+  silently lost all but one; `model_names`, `line_col`, `lwd` and `species` were
+  declared and ignored; and `species` defaulted to three hard-coded Bering Sea
+  species names.
+
+  It now takes `line_col`, `lwd`, `lty` (which separates the sexes), `species`,
+  `spnames`, `minyr`, `maxyr` and `alpha`. With one model colour is still the
+  year, so the figure is unchanged apart from line width; with several, colour
+  separates the models and the year fan moves to transparency, keeping the
+  curves superimposed for comparison. `colour_by` forces either.
+
+* **Length-based fleets are drawn on length bins.** `plot_selectivity()` read
+  `sel_at_age` for every fleet and labelled the axis "Age", so a fleet whose
+  `Selectivity_dimension` is `"Length"` showed the growth-matrix conversion of
+  its curve rather than the curve that was fitted. Each fleet is now drawn on its
+  own dimension, and a model mixing the two returns one figure per dimension (a
+  named list) rather than putting ages and length bins on one axis.
+
+* **`species` and `spnames` mean the same thing across these plotters.**
+  `species` selects -- by index, name, logical mask, or `"all"`, in the order
+  given -- and `spnames` labels. Several plotters previously read `species` as
+  display labels; a character vector giving one label per species is still read
+  that way, with a message. `plot_timeseries()` and its wrappers
+  (`plot_biomass()`, `plot_ssb()`, `plot_recruitment()`, the depletions,
+  `plot_exploitable_biomass()`, `plot_f()`) gained selection by name.
+
+* **`data_check()` warns when `diet_data` does not cover every age of an
+  empirical-suitability predator.** Under `suitMode = 0` suitability is read
+  straight out of the diet data, so an age with no diet row is switched off
+  rather than estimated: a predator age with no rows gets `suit_other = 1` and
+  exerts no predation mortality, and a prey age with no rows is never eaten.
+  Neither raises an error or moves the likelihood, so a diet table truncated at
+  the wrong age silently drops part of the predation. The warning names the
+  species, sex and age range for each role.
+
+  Only prey-at-age-in-predator-at-age rows count toward coverage. The
+  aggregated diet formats, which `diet_data` selects with an age below the
+  species' `minage`, feed the diet likelihood but are skipped when the
+  suitability array is filled, so they cannot close a gap. Parametric
+  suitability (`suitMode > 0`) and single-species models are unaffected.
+
+  A species with no prey rows at any age is not reported: nothing eating it is
+  a modelling choice, not a truncated table, and an apex predator in a
+  two-species run would otherwise warn on every fit. Only a partial gap in a
+  species that is eaten somewhere is evidence of truncation.
+
+## Bug fixes -- figures whose numbers change
+
+Three predation plotters drew quantities that did not match their axis labels.
+All are corrected, so figures regenerated from them will differ from earlier
+runs of the same model.
+
+* **`plot_m2_at_age_prop()` draws a share, not a contribution.** `M2_prop` holds
+  each predator's contribution to M2, which sums over predators to `M2_at_age`,
+  so the plotted "proportion" reached 1564 on `BS2017MS`. The contributions are
+  now divided by their total, giving shares in [0, 1] that sum to 1 across
+  predators for each prey age and year; a prey age with no predation in a year
+  leaves them undefined and draws nothing. The y axis reads "Share of M2 at age
+  `<age>` by predator".
+
+* **`plot_ration()` multiplies the ration by average numbers-at-age, not
+  biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
+  numbers-at-age are in thousands, so the product is mt -- the way the template
+  forms total consumption (`avgN_at_age * ration`, `predation.hpp`). Multiplying
+  by biomass instead weighted the age-sum by weight-at-age, so "million mt"
+  described nothing it computed. Average numbers rather than start-of-year
+  numbers, so the series reconciles with `plot_b_eaten()`; under the default
+  `avgnMode = 0`, `N_at_age` would overstate it by `1 / ((1 - exp(-Z)) / Z)`. On
+  a fitted `BS2017MS` the first year drops 38.3% for pollock, 20.1% for cod and
+  13.5% for arrowtooth flounder.
+
+* **`plot_b_eaten()` is in million mt.** It plotted `B_eaten_as_prey` in the mt
+  the model reports it in, while `plot_b_eaten_prop()` -- the same quantity
+  broken down by predator -- was in million mt, so the two could not be read
+  side by side. Both are now in million mt, the display unit the timeseries
+  plotters use. `p$data` moves by the same factor of 1e6.
+
+## Bug fixes
+
+* **The `diet_data` age-bound check compares each species against its own
+  `nages`.** It matched them by position, so a species missing from the `Pred`
+  or `Prey` column shifted every later species onto the wrong age limit and
+  could reject a valid table. Out-of-range ages are still caught.
+
+* `model_names` given as a `list()` works again, in every plotter that labels
+  models. The package's own vignettes build it that way, and a list produced a
+  one-element list per model that the plot frame could not bind. Supplying fewer
+  names than models now warns instead of silently drawing two models as one
+  series.
+
+* A fleet with `Selectivity = "Fixed"` is drawn on ages whatever
+  `Selectivity_dimension` says. Empirical selectivity is read into `sel_at_age`
+  only, so such a fleet on a `"Length"` dimension would have been drawn as an
+  identically-zero curve -- and scripts commonly set `Selectivity_dimension`
+  across every fleet at once.
+
+* The projection divider is drawn at the latest hindcast year across the models
+  plotted, not at whichever model came last in the list. On a retrospective peel
+  the peels end in different years, so the divider could land mid-hindcast and
+  label real data as projection. Figures overlaying models with different `endyr`
+  -- including any using `reference =` -- will show the divider in a new place.
+  It is also omitted when the last hindcast year falls outside a `minyr`/`maxyr`
+  window, rather than stretching the axis back to it.
+
+* An invalid `line_col`, `lwd` or `alpha` now stops with a message naming the
+  argument. Previously an `NA` colour or width drew nothing, and a transparency
+  outside `[0, 1]` saturated the ribbon or errored inside the device, in both
+  cases with no explanation.
+
+* A `spnames` of the wrong length now stops rather than recycling, which had
+  labelled one species with another's name. A `species` string matching no
+  species now stops rather than silently plotting everything.
+
+* `minyr` and `maxyr` narrow the data rather than only the axis, so a panel with
+  a free y scale rescales to the window. Clipping the axis alone left the scale
+  trained on the hidden years, which on a series spanning orders of magnitude
+  squeezed the requested window into the bottom of the panel. They also now work
+  on the predation plotters, which declared them and ignored them, and
+  `plot_timeseries(save = TRUE)` writes the same window it plots.
+
+* `plot_f()` keys its Ftarget and Flimit reference lines to the species it
+  drew. It indexed `Ftarget` and the facet labels with the raw `species`
+  argument, which works for indices but gives an `NA` facet key for a name --
+  on the same argument that newly accepts names.
+
+* `plot_depletionSSB()` draws the Ptarget and Plimit lines of **one** model, per
+  species. The two were collected into a models-by-species matrix and then
+  subset with the species indices, which flattens column-major: on a two-model
+  overlay whose models carry different `Ptarget`, species 2's line came from
+  model 2's species 1. Models in one figure normally share their reference
+  points, and then every row of that matrix is identical, which is why it went
+  unseen. The values now come from the first model.
+
+* A single `lty` reaches the figures that map line type themselves --
+  `plot_ration()`, `plot_m_at_age()`, `plot_b_eaten_prop()`,
+  `plot_m2_at_age_prop()` and `plot_selectivity()`. It is applied to every level
+  of whatever the figure keys line type on, and warns when that key has more
+  than one level, since they are then drawn alike. The default `lty = 1` leaves
+  the figure's own line types alone.
+
+* `incl_mean` averages each model over **its own** hindcast, not the first
+  model's. On a retrospective peel the answer otherwise depended on the order of
+  the list.
+
+* `plot_m2_at_age_prop()` orders its prey panels the way `species` asked for,
+  like the other plotters, instead of alphabetically.
+
+* `plot_b_eaten(mse = TRUE)` draws its projection ribbon at `alpha` (default
+  0.4) rather than a fixed 0.3, honours `incl_mean`, validates `lwd` and `lty`
+  as the other paths do, and says that `line_col` does not apply when the
+  simulations are summarized into one band.
+
+* `plot_timeseries(save = TRUE)` writes the years alongside the values, names
+  the columns after the models, names the file after the species, and writes
+  only the species plotted. It previously wrote unlabelled columns for every
+  species, with no year column.
+
+* The pkgdown site builds again. `simulate.Rceattle` (added in 5.9.0) was not
+  in `_pkgdown.yml`, and pkgdown stops on a documented topic missing from its
+  reference index. `?"rceattle-plot-args"` is listed there too, so the topic the
+  plotter help and the vignettes point at has a page on the site.
+
+## Behavior changes
+
+* **`age`, `minage` and `maxage` are ages, not age-bin indices.**
+  `plot_m_at_age(age =)`, `plot_m2_at_age_prop(age =)`, `plot_ration(minage =)`
+  and `plot_mortality(maxage =)` were passed to the at-age arrays as subscripts.
+  The arrays are indexed 1 to `nages`, while a species' ages run `minage` to
+  `minage + nages - 1`, so on any species with `minage != 1` the figure drew a
+  different age from the one its axis named -- and an age past the plus group
+  ran off the end of the array rather than being reported. Each is now resolved
+  against each species' own age vector, which is also what lets one figure hold
+  species with different age ranges. Only a model with `minage != 1` changes:
+  every bundled dataset is `minage = 1`, where the two readings coincide.
+
+  A species that has no such age is dropped with a warning naming it, rather
+  than drawn at a shifted age; an age no species carries is an error. Requesting
+  an age past the plus group of some but not all species therefore now draws the
+  species that have it instead of failing.
+
+* `plot_selectivity()`'s `species` used to be an ignored label argument whose
+  default was `c("Walleye pollock", "Pacific cod", "Arrowtooth flounder")`. It
+  now selects. Passing species names that only partly match the model's own
+  stops with a message naming both readings, rather than guessing -- which is
+  what a call copied from the old default does on a model whose species are
+  named differently. Pass labels as `spnames`, or the model's own names as
+  `species`. A call passing one label per species, none of which match, is still
+  read as labels.
+
+* `plot_timeseries(save = TRUE)` needs a `file` stem, and stops without one. It
+  previously wrote to a file called `NULL_...csv`.
+
+* `plot_f()` is now built by the same factory as the other timeseries plotters,
+  so it takes their full argument list -- it gains `lty`, `save`, `reference`,
+  `legend.pos` and `ylab`, none of which it accepted before. `plot_timeseries()`
+  gains two internal arguments, `ref_lines` and `suffix`, which the factory uses
+  to attach the F and depletion reference points; the reference-point layers are
+  consequently later in `p$layers` on the depletion plots than they were. The
+  rendered figures are unchanged.
+
+* `plot_selectivity()`'s `p$data` names the x variable `Bin`, not `Age`, and
+  carries a `Dimension` column (`"Age"` or `"Length"`); the column holds an age
+  or a length-bin ordinal depending on the fleet, so it is no longer named for
+  one of them. It also gains a `Model` column, now that every model is drawn.
+  `plot_b_eaten()`'s `value` column is in million mt (see above).
+
+## Dependencies
+
+* `ggplot2` now requires >= 3.5.0.
+
 # Rceattle 5.9.0
 
 ## New features
