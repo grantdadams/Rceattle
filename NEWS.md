@@ -60,6 +60,20 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Bug fixes
 
+* **`Estimate_catch_sd = "Analytical"` now works.** The option was documented in
+  the schema, accepted by `validate_switches()`, and treated as a real mode by
+  `build_map()` (which maps `catch_log_sd` out) -- but the template's dispatch
+  had only cases 0 and 1, so a model using it passed every R-side check and then
+  died inside the fit with `Invalid 'Estimate_sigma_catch'`. The Ludwig and
+  Walters (1994) concentrated estimator,
+  `sigma_hat = sqrt(sum(log(obs) - log(pred))^2 / n)`, is now implemented,
+  mirroring `Estimate_index_sd = "Analytical"`, which had it all along. The
+  fitted value is reported as `log_catch_analytical_sd`.
+
+  Note this concentrates sigma out of the catch likelihood, so the catch data
+  no longer pins F as tightly as a fixed sd does, and the objective is not
+  comparable to a fixed-sd fit. A model that does not ask for it is unaffected.
+
 * **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
   `validate_switches()` rejected it**, so a model written that way loaded, was
   normalised to nothing, and then failed its own data check. It is now upgraded

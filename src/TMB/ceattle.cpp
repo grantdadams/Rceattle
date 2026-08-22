@@ -567,6 +567,10 @@ Type objective_function<Type>::operator() () {
   // one is always a log-scale sd (unitless); it was still not a log of anything.
   // Named log_catch_sd until 5.9.0.
   vector<Type>  catch_sd(catch_obs.rows()); catch_sd.setZero();
+  // Concentrated (analytical) catch sd, the Ludwig and Walters (1994) estimator
+  // used when Estimate_catch_sd = 2. Mirrors log_index_analytical_sd below.
+  vector<Type>  log_catch_analytical_sd(n_flt); log_catch_analytical_sd.setZero();
+  vector<Type>  catch_n_obs(n_flt); catch_n_obs.setZero();  // fitted catch rows per fleet
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -2528,6 +2532,35 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+  // -- 9.1b. Analytical catch sigma, following Ludwig and Walters (1994)
+  //
+  // The concentrated MLE of the lognormal sd: sqrt( sum(log(obs) - log(pred))^2 / n ).
+  // Computed here because catch_hat is complete and the likelihood below reads it.
+  //
+  // The row predicate matches the likelihood's own -- a fitted year, a fishery,
+  // and a positive observation -- so the sd is estimated over exactly the rows
+  // it is then applied to. The positive-observation guard matters: log(0) is
+  // -inf and would poison the sum for the whole fleet.
+  catch_n_obs.setZero();
+  log_catch_analytical_sd.setZero();
+  for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
+
+    flt = catch_ctl(fsh_ind, 0) - 1;
+    flt_yr = catch_ctl(fsh_ind, 2);
+
+    if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1) && (catch_obs(fsh_ind, 0) > 0)){
+      catch_n_obs(flt) += 1;
+      log_catch_analytical_sd(flt) += square( log(catch_obs(fsh_ind, 0)) - log(catch_hat(fsh_ind)) );
+    }
+  }
+
+  for(flt = 0; flt < n_flt; flt++){
+    if(catch_n_obs(flt) > 0){
+      log_catch_analytical_sd(flt) = sqrt(log_catch_analytical_sd(flt) / catch_n_obs(flt));
+    }
+  }
+
+
   // 9.2 Exploitable biomass ----
   exploitable_biomass.setZero();
 
@@ -3324,6 +3357,9 @@ Type objective_function<Type>::operator() () {
       break;
     case 1:     // Estimated standard deviation
       fsh_std_dev = exp(catch_log_sd(flt));
+      break;
+    case 2:     // Analytical (Ludwig and Walters 1994); see section 9.1b
+      fsh_std_dev = log_catch_analytical_sd(flt);
       break;
     default:
       error("Invalid 'Estimate_sigma_catch'");
@@ -4907,6 +4943,7 @@ Type objective_function<Type>::operator() () {
   REPORT( catch_hat );
   REPORT( max_catch_hat );
   REPORT( catch_sd );
+  REPORT( log_catch_analytical_sd );
 
 
   // 14.6. Age/length composition
