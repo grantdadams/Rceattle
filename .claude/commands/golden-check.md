@@ -8,7 +8,8 @@ snapshot.
 
 **Prefer the committed `tests/testthat/test-golden-regression.R`.** It pins the same four
 objectives, additionally asserts each is a *converged* optimum rather than merely a
-reproducible number, and carries `skip_on_cran()` / `skip_on_covr()`. Run it with
+reproducible number, and carries `skip_on_cran()` / `skip_on_covr()`. Note it also runs a
+second, larger "golden reference by configuration" block, so it is heavier than these four fits. Run it with
 `NOT_CRAN=true`. Use the recipe below when that test fails and you need to see *which*
 quantity moved -- it diffs full fit objects (`par`, `jnll_comp`, SSB, R), not just the
 objective.
@@ -73,7 +74,8 @@ Wrap everything in one `export PATH=/usr/bin:$PATH && NOT_CRAN=true Rscript -e '
 6. If `dev/golden-ref.rds` does **not** exist: save these as the reference and report
    "pinned new golden reference" — only do this on a known-good commit.
    If it **does** exist: load it and report the MAX absolute deviation per field per model.
-   **PASS** if every field is within ~1e-8; otherwise **FAIL** and show the largest-deviating
+   **PASS** if every field is within `1e-6` -- the same tolerance the committed
+   `test-golden-regression.R` uses, so the two gates cannot disagree; otherwise **FAIL** and show the largest-deviating
    fields so I can investigate. NOTE: `goa_ms` (fixed-M GOA multispecies) has a flat
    likelihood ridge — its `par`/`ssb` are ridge-sensitive across *different* code, though
    deterministic on same-code re-runs; judge it primarily on `obj` (and `jnll`). The

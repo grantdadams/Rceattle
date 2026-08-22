@@ -16,15 +16,23 @@ Scope, in order of importance:
 - `../GOA-ATF-ESP` — GOA arrowtooth and its cannibalism run: the only live two-sex,
   `suitMode = 0` model, so it is what exercises the sexed and predation paths.
 - The other sibling directories under `../` (`CEATTLE`, `Climate_MSE*`, `hake-CEATTLE`,
-  `GOAceattle`, `Rceattle_MSE`, …) — real runs, lower priority.
+  `GOAceattle`, `Rceattle_MSE`, …) — real runs, lower priority. `../Rceattle-models` also
+  holds Pacific hake.
 - **Ignore `EBS_CEATTLE_TMB`** — a vendored fork, not a consumer.
 
 ## Invocation
 
+Grep the two consumers explicitly. Do not `cd` to a parent and filter -- the repo sits one
+level below the ecosystem root, and a wrong level sweeps a dozen unrelated repositories while
+the `Rceattle/` self-exclusion silently stops matching, so every internal call site is reported
+as a consumer hit.
+
 ```
-cd "../.."   # the ecosystem root that holds Rceattle/ and its siblings
-grep -rn "$ARGUMENTS" --include="*.R" . | grep -v "^\./Rceattle/"
+grep -rn "$ARGUMENTS" --include="*.R" "../Rceattle-models" "../GOA-ATF-ESP"
 ```
+
+To widen to the other sibling run directories, add them by name (`../CEATTLE`,
+`../Climate_MSE`, `../hake-CEATTLE`, `../GOAceattle`, `../Rceattle_MSE`, ...).
 
 Also count `.xlsx` workbooks if the change touches a schema column or its validation — they are
 inputs the change is about to be applied to, and a grep over `.R` will not see them.

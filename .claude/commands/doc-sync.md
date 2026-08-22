@@ -15,8 +15,10 @@ git diff <merge-base>...HEAD -- NEWS.md DESCRIPTION | head -40
 
 ## What to check
 
-1. **Did `R/`, `src/` or `man/` change without a `NEWS.md` bullet?** Repo/tooling-only changes
-   (`.claude/`, `tools/`, `.github/`) are exempt; say which exemption you applied.
+1. **Did `R/`, `src/` or `man/` change without a `NEWS.md` bullet?** Exempt: repo tooling
+   (`.claude/`, `tools/`, `.github/`) and developer notes (`inst/dev/`) -- they change no
+   behaviour a user can observe, and `/handoff` rewrites `inst/dev/SESSION_HANDOFF.md` every
+   session. Say which exemption you applied.
 2. **Is the `DESCRIPTION` `Version:` bumped, and at the right level?** Patch for bug fixes and
    docs, minor for new features, major for breaking. **"Breaking" here means no back-compat
    path** — a removal that ships with a deprecation message and keeps old fits working is a

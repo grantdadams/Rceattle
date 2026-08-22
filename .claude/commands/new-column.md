@@ -20,13 +20,14 @@ Stop and ask rather than guess if any of these is unclear:
 - **What is the unit and the scale?** State it. A weight that is a log under one distribution
   and natural-scale under another (`Comp_weights`) needs that in the `doc` string, not just in
   a vignette.
-- **Is it a bin index?** `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin1/2`,
-  `Sel_pen_first_bin`, `Sel_pen_last_bin` and `Sel_cap_bin` are indices on the fleet's own
+- **Is it a bin index?** `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`,
+  `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and `Sel_cap_bin` are indices
+  on the fleet's own
   `Selectivity_dimension`: an absolute **age** for age-based fleets (offset by `minage`) or a
   1-based **length-bin ordinal** for length-based. The cpp penalties loop over `nbins`, not
   `nages`.
 - **Is it read per fleet inside a shared parameter block?** Fleets sharing a
-  `Selectivity_index` / `Q_index` share ONE block, and `adjust_map_shared_params()` copies the
+  `Selectivity_index` / `Catchability_index` share ONE block, and `adjust_map_shared_params()` copies the
   donor fleet's slice over the rest — so a per-fleet setting that differs within a group is
   silently taken from the donor. If the column can differ within a group, say what happens.
 

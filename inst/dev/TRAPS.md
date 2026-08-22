@@ -39,7 +39,8 @@ not sufficient — the build environment can rewrite `man/` and `NAMESPACE` too.
 
 ## Shared parameter blocks
 
-**Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.**
+**Fleets sharing a `Selectivity_index` / `Catchability_index` share ONE parameter block.**
+(`Q_index` is a deprecated alias of `Catchability_index`; the schema upgrades it on read.)
 `adjust_map_shared_params()` copies the donor fleet's map slice over the rest of the group, so
 any per-fleet setting that differs within a group is silently taken from the donor
 (`Sel_start_year`, `Bin_first_selected`, `N_sel_bins`, …). The donor is the first *estimated*
@@ -81,6 +82,47 @@ repo's tooling and were wrong. The constants are platform-independent (verified 
 and macOS/arm64 to 16 digits), but on a new machine capture the baseline **before** the change
 you want to test — a failure you cannot attribute is worse than no check.
 
+## The refit path, and the eight callers
+
+**Eight entry points re-invoke `fit_mod()` through `.refit_like()`** (`R/6-refit_like.R`), which
+rebuilds the HCR / SR / M1 / growth specs from a source `data_list` and exposes each per-caller
+divergence as a named override:
+
+`retrospective()` · `jitter()` · `self_test()` · `profile()` · `run_mse()` · `remove_F()` ·
+`sample_rec()` · `reweight_comps()`
+
+`tools/verify/verify-refit-like.R` covers **six**. `sample_rec(update_model = TRUE)` and
+`reweight_comps()` are **not in it** and must be checked by hand.
+
+**`run_mse()` pins the OM's stock-recruit and suitability reference windows to the pristine
+`om$`**, not the advancing `om_use$`, so the hindcast does not drift through the projection —
+essential for multispecies, whose predation suitability must stay fixed. In `.refit_like()` these
+are the `srr_mse_switchyr` / `srr_hat_styr` / `srr_hat_endyr` / `suit_styr` / `suit_endyr`
+overrides. The EM instead advances `srr_mse_switchyr` to its current assessment `endyr` each
+iteration. `tools/verify/verify-mse-hindcast-invariant.R` checks the invariant.
+
+## The SIMULATE contract
+
+Every observation and process error is drawn in a `SIMULATE{}` block **beside the density that
+scores it** (`ceattle.cpp` sections 5.12b and 5.13, plus one per likelihood slot; the
+multivariate draws live in `comp_sim.hpp`). `sim_mod()` implements no observation model in R — it
+calls `obj$simulate()` once and writes the result back. **A new likelihood family therefore owes
+a draw.** Three rules, with their reasons:
+
+1. **Draw what the density assumes** — bias-correction convention and scale included. A draw that
+   does not match its own density makes a self-test look biased when the model is fine.
+2. **REPORT under a `*_sim` name.** TMB never clears the report environment, so a draw REPORTed
+   under the observed object's own name reads back as the data. A process draw also reports a
+   `*_drawn_sim` mask, since the deviation arrays are REPORTed whole.
+3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
+   stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
+
+## The open `nages` defect in three predation plotters
+
+`plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` index the age array
+directly while labelling the axis with an age. Silent on every bundled dataset and all three live
+assessments, because all have `minage = 1`. Wrong on the next `minage != 1` species.
+
 ## Coverage gaps in the golden check
 
 `/golden-check` fits four models and diffs the result. It does not reach:
@@ -96,7 +138,8 @@ you want to test — a failure you cannot attribute is worse than no check.
 - **Selectivity normalization.** No bundled dataset enters the normalization block in
   `selectivity.hpp` — every one has `Sel_norm_bin` all-`NA` except one-sex `Atka2022` — so the
   four reference fits pass trivially through any change to it. `GOA2018SS` *is* reachable
-  (species 9, arrowtooth, is two-sex) once you set a named `Sel_norm_bin`; that is exactly how
+  (**species 2**, arrowtooth, is the two-sex one -- `nsex = c(1, 2, 1)`; 9 is the `Fleet_code` of
+  `ATF_bottom_trawl`, not a species index) once you set a named `Sel_norm_bin`; that is exactly how
   `681f3ba0` shipped with `test-selectivity-normalization.R` failing.
 - **Growth.** `growth_fun` is unset on BS2017SS and GOA2018SS, so `growth.hpp`'s SDAA path —
   `sd_plus_group` included — is never exercised. Covered constructively by the

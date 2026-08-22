@@ -12,13 +12,13 @@ table) stack on it.
 
 ## Done & verified
 
-- **`dev` → `main` released through the 5.6.1 PR (#106).** `main` released through 4.9.1; `dev`
-  carries everything from 4.10.0 onward — the linkage grammar, column schema,
+- **`dev` merged to `main` in PR #106.** `main` is at 5.8.1; `dev` carries everything since —
+  the linkage grammar, column schema,
   `build_data()`/`model_config()`, `save_config()`/`load_config()` + `fit_mod(config=)`, the
   `JnllRow` enum, `build_growth(sd_plus_group=)`, the `mse_summary()` per-entity reshape, the
   `.refit_like()` collapse, `reweight_comps()`, and the recruitment / stock-recruit work.
 - **5.11.0 API names** — the fitted model is `object` across ten diagnostics, old names shimmed
-  and silent. Verified 2026-08-21: suite 6923 pass / 0 fail; golden 4-model capture
+  and silent. Verified 2026-08-22: suite 6925 pass / 0 fail on the committed state; golden 4-model capture
   `identical()` TRUE with every field at `0.000e+00`; `verify-refit-like.R` bit-identical across
   all 32 fits; ecosystem sweep found 15 old-name call sites, all shimmed, and zero calls passing
   both spellings.
@@ -40,9 +40,9 @@ table) stack on it.
   (`initMode = 0` random effects, the α-seeding fix, the Ianelli steepness prior), and
   `sim_mod()` drawing the index under the fleet's own `Index_distribution`. **A model carrying
   GOA numbers forward needs a refit.**
-- **`plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` still index
-  the age array directly while labelling the axis with an age.** Silent on every bundled dataset
-  and all three live assessments (`minage = 1`). Scheduled for PR B with a `minage != 1` fixture.
+- The open `nages` age-indexing defect in three predation plotters is recorded in
+  `inst/dev/TRAPS.md`, not here — a known unfixed defect should not live in the file this
+  command rewrites every session. Scheduled for PR B with a `minage != 1` fixture.
 
 ## Blocked
 
@@ -55,5 +55,6 @@ The `write_template()` coverage test in Stage 1 is deliberately `skip()`ped unti
 
 ## Older paused work
 
-A multi-PR accessibility / code-review refactor on branch `accessibility-and-code-review`. Read
-its handoff before resuming; do not start from scratch.
+A multi-PR accessibility / code-review refactor on branch `accessibility-and-code-review`. Its
+plan is at `~/Downloads/HANDOFF-accessibility-refactor-implementation.md` (outside the repo, so
+it does not survive a clone — ask Grant for it). Read it before resuming; do not start fresh.

@@ -35,9 +35,13 @@ projection, MSE, diagnostics, plotting — is R.
    Add a column with `/new-column`; consume it by its canonical name. Don't hardcode a default,
    an allowed-value set, or a column order anywhere else.
 5. **Behaviour, API, or doc change ⇒ `NEWS.md` + `DESCRIPTION` `Version:` + the affected
-   vignette + `_pkgdown.yml`, in the same commit.** `/doc-sync` checks this.
+   vignette, in the same commit** — plus `_pkgdown.yml` when a documented topic appears or
+   disappears. `/doc-sync` checks this. Repo tooling (`.claude/`, `tools/`, `.github/`) and
+   developer notes (`inst/dev/`) are exempt: they change no behaviour a user can observe.
    **"Breaking" means no back-compat path**: a removal that ships with a deprecation message and
    keeps old fits working is a *minor* bump, even when NEWS files it under `## Breaking changes`.
+   `growth_re` is the worked example — removed with a `switch_check()` deprecation message and a
+   `fit_mod()` guard dropping retired parameter blocks from `inits`, and shipped as a minor.
 6. **Never hand-edit `man/*.Rd` or `NAMESPACE`.** Run `/document`. Check `git diff DESCRIPTION`
    **first** — if the roxygen version key moved, the `man/` churn is the version, not your change.
 7. **TMB source is inert until `pkgload::load_all(".")`.** Then test with
@@ -48,13 +52,15 @@ projection, MSE, diagnostics, plotting — is R.
    survives into a fit is the worst failure mode this repo has.
 10. **Fleet invariants.** `fleet_control$Fleet_code` must equal the row number — arrays are
     dimensioned by `nrow()` but indexed by `Fleet_code`, so read columns by row index `i`, never
-    by `flt`. Fleets sharing a `Selectivity_index` / `Q_index` share ONE parameter block.
+    by `flt`. Fleets sharing a `Selectivity_index` / `Catchability_index` share ONE parameter block.
     Selectivity bin columns are indices on the fleet's own `Selectivity_dimension`.
 11. **`nages` is a count of age bins, not the oldest age.** Ages run
     `minage .. minage + nages - 1`; age `a` sits at index `a - minage + 1`. `minage = 1` hides
     every confusion, and that is every bundled dataset and all three live assessments.
 12. **`linkage.hpp` and `R/0-linkage_encode.R` are in lockstep.** Their process and param codes
-    must match — change one, change both. This is the seam DSEM extends.
+    must match — change one, change both. This is the seam DSEM extends. In a linkage formula the
+    fixed part goes straight to `model.matrix()`, so a time block is `~ cut(Year, ...)` — there
+    is **no bespoke `block()` helper**, and adding one would be a second grammar.
 13. **Commits: plain messages, no `Co-Authored-By` trailer.** Imperative subject, ≤72 chars; the
     body says *why*, and gives the numbers that changed.
 14. **`../Rceattle-models` and `../GOA-ATF-ESP` consume this API.** Sweep after a breaking change
@@ -83,9 +89,9 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   it. A plain `new.env()` fails with `could not find function "data_check"`.
 - **A test that runs a real `fit_mod()` optimization needs `testthat::skip_on_cran()`** so plain
   `R CMD check` stays fast. Leave fast unit tests unguarded.
-- **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`
-  + `vignettes.yaml` (weekly). No lint config, no coverage gate. **`pkgdown.yaml` triggers on
-  `main` only**, so a PR to `dev` gets no pkgdown CI — run `/pkgdown-check` yourself.
+- **CI:** `.github/workflows/R-CMD-check.yaml` (multi-OS) + `pkgdown.yaml` + `test-coverage.yaml`.
+  No lint config, no coverage gate. **`pkgdown.yaml` triggers on `main` only**, so a PR to `dev`
+  gets no pkgdown CI — run `/pkgdown-check` yourself.
 - **Slash commands:** `/recompile`, `/test [file]`, `/document`, `/check`, `/golden-check`,
   `/verify`, `/new-column`, `/doc-sync`, `/pkgdown-check`, `/ecosystem-sweep`, `/handoff`.
 
@@ -105,8 +111,9 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `helpers-*.R` / `fixtures/` sit alongside. Fast fixtures: `make_test_data()` (single-species)
   or `make_msm_test_data()` (multispecies, incl. diet) with `estimateMode = 3` build a
   non-optimized object. `tests/comparison/` holds WHAM cross-checks (not part of `test_check`).
-- **`vignettes/`** render without executing unless `RCEATTLE_EVAL_VIGNETTES=true`; a weekly CI
-  job runs them for real. `data/` has the bundled example datasets.
+- **`vignettes/`** are `eval = FALSE` — they only need to render, so **nothing executes their
+  code and no CI job checks it**. An API break in a vignette is invisible until a user hits it.
+  `data/` has the bundled example datasets.
 - **`inst/dev/`** — committed developer notes (handoff, traps, sibling repos, ADMB conversion).
   The untracked `dev/` is scratch and does not survive a clone.
 
@@ -164,8 +171,9 @@ argument means, its allowed values, its default. Anything longer belongs in `@de
 vignette. Give internal helpers `@noRd` (not just `@keywords internal`) so they generate no
 `.Rd`. **Never insert a helper between a function's roxygen block and its definition** —
 contiguous `#'` lines are ONE block and bind to whichever object follows, so the helper silently
-steals the `@export` and the original loses it. Tests won't catch it; only the next
-`document()` will.
+steals the `@export` and the `@importFrom` tags, and the original loses them. Tests won't catch
+it (NAMESPACE isn't regenerated); only the next `document()` will. **Put helpers above the block
+or after the function.**
 
 ## Domain vocabulary (use these exact terms in plots, docs and messages)
 
@@ -208,13 +216,19 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that
   likelihood reads the column as a log.
+- **`fit_mod(estimateMode=)`** takes a string or the integer behind it: `"Estimate"` (0) =
+  hindcast + HCR projection, `"Hindcast"` (1) = hindcast only, `"Projection"` (2) =
+  projection-only from `inits`, `"DebugBuild"` (3) = build without optimizing,
+  `"DebugOptimize"` (4). Prefer the strings.
 - **`fit_mod(estimateMode = 4)` returns a placeholder objective** (`dummy*dummy`), because
   `build_map()` maps out every hindcast parameter. Don't read anything into a mode-4 objective,
   gradient, or Hessian. **Mode 3 returns the real objective**, so `obj$fn()` / `obj$gr()` are
   usable for diagnosing a model before fitting it — the analogue of WHAM's
   `fit_wham(do.fit = FALSE)` and SAM's `sam.fit(run = FALSE)`.
-- **`fit_control(getsd = FALSE)` leaves `sdrep` NULL**, so `vcov()` returns NULL and uncertainty
-  bands are NA.
+- **`fit_control()` bundles the optimizer and uncertainty knobs** — `getsd`, `bias.correct`,
+  `loopnum`, `newtonsteps`, `getJointPrecision`, `nlminb_control`, and the bias-adjustment
+  flags. `getsd = FALSE` leaves `sdrep` NULL, so `vcov()` returns NULL and uncertainty bands
+  are NA. The refit diagnostics forward only `phase` and `getsd`.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not
   the advancing `om_use$`, so the hindcast does not drift through the projection — essential for
   multispecies, whose predation suitability must stay fixed.
