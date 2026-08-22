@@ -11,6 +11,57 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.12.0
+
+## Breaking changes
+
+* **Three `fleet_control` columns are now validated: `Selectivity_dimension`,
+  `Sel_shape_dir` and `Sel_shape_mode`.** A typo in any of them previously
+  resolved to `NA` rather than erroring -- `Selectivity_dimension` became a
+  missing selectivity dimension, the two `Sel_shape_*` columns a missing penalty
+  mode -- and nothing downstream re-checked it, so the model fitted and reported
+  a number on an input nobody had accepted. A workbook carrying an invalid value
+  will now refuse to load.
+
+  Each column is checked against exactly what its consumer implements, so no
+  working spelling is refused: `Sel_shape_mode` accepts `"Smooth"`, `"smooth"`
+  and `1`; `Sel_shape_dir` accepts `"Increasing"`, `"increasing"` and `"-1"`
+  (the ADMB sign convention). `Selectivity_dimension` accepts only `"Age"` and
+  `"Length"`, because those are the only values `rearrange_data()` matches -- an
+  integer there produced `NA` and reached the template as a missing dimension.
+  A blank cell takes the schema default rather than erroring.
+
+  This was pre-flighted rather than assumed: a report-only pass over every
+  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and not
+  one value the new check rejects.
+
+* **`write_data()` writes `fleet_control` in schema column order**, as the
+  control and bioenergetics sheets already did. Values are unchanged and
+  round-tripping is identical; only the column order in the workbook moves.
+
+## Bug fixes
+
+* **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
+  `validate_switches()` rejected it**, so a model written that way loaded, was
+  normalised to nothing, and then failed its own data check. It is now upgraded
+  to `"NonParametric"` on the way in.
+
+## New features
+
+* **`write_template()` writes every column the schema defines.** The
+  hand-written list had fallen 14 columns behind, and a column missing from the
+  template is how a user never learns an option exists. The penalty weights
+  `Sel_curve_pen1/2/3` are deliberately left blank rather than seeded with their
+  schema default of 0: `switch_check()` converts `Sel_shape_sd` /
+  `Sel_curvature_sd` / `Sel_devmag_sd` into a weight only where the raw weight
+  is still blank, so a seeded 0 would silently disable that interface and leave
+  a non-parametric fit with no shape penalty at all.
+
+* **The model-level switches have one table**, `.rce_model_switch_schema()`, and
+  the comments `save_config()` writes are projected from it. `estimateMode`'s
+  `DebugOptimize` was a real mode the comments never mentioned, and `msmMode`
+  was described in prose naming none of its canonical values.
+
 # Rceattle 5.11.1
 
 ## Documentation
@@ -152,7 +203,9 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 ## Deprecations
 
 * `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
-  above. Accepted silently now, warning from 5.12.0, removed in 6.0.0.
+  above. Accepted silently now, warning from 5.13.0, removed in 6.0.0. (5.11.0 and
+  5.12.0 are both unreleased on this line, so the silent grace period has not
+  yet reached a user; the warning moves with it.)
 * `rearrange_dat()` now names its removal version (6.0.0) rather than
   deprecating open-endedly. Use `rearrange_data()`.
 

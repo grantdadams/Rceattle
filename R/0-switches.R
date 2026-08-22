@@ -128,10 +128,14 @@ sel_dimension_map <- c(
   "Length" = 1
 )
 
-# Direction of the (directional-mode) NonParametric shape penalty.
+# Direction of the (directional-mode) NonParametric shape penalty. The integer
+# side is the ADMB sign-of-the-weight convention that .is_incr reads below:
+# -1 means increasing, because the penalty weight is negated. Writing 1 here
+# would be read as "not increasing" and apply the penalty in the opposite
+# direction, so the map must carry the convention the code implements.
 sel_shape_dir_map <- c(
-  "Decreasing" = 0,
-  "Increasing" = 1
+  "Decreasing" =  0,
+  "Increasing" = -1
 )
 
 # Shape-penalty mode: one-sided directional (ADMB/AMAK) or two-sided smooth.
@@ -139,6 +143,7 @@ sel_shape_mode_map <- c(
   "Directional" = 0,
   "Smooth"      = 1
 )
+
 
 comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
@@ -732,6 +737,12 @@ switch_check <- function(data_list){
   # schema-driven call that already knows it.
   data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <-
     .sch[["Index_distribution"]]$default
+  # Same for Selectivity_dimension: .rce_apply_default() fills a MISSING column,
+  # never a blank cell, and a partially-assigned column
+  # (fleet_control$Selectivity_dimension[i] <- "Length") is a live idiom in the
+  # assessment scripts. Without this the blank rows would now be a hard error.
+  data_list$fleet_control$Selectivity_dimension[is.na(data_list$fleet_control$Selectivity_dimension)] <-
+    .sch[["Selectivity_dimension"]]$default
   data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
@@ -983,8 +994,18 @@ revert_switches <- function(data_list) {
 #' @keywords internal
 #' @noRd
 .rce_allowed_map <- function(col) {
-  nm <- .rce_column_schema()[[col]]$allowed
-  if (is.null(nm) || all(is.na(nm))) return(NULL)
+  row <- .rce_column_schema()[[col]]
+  if (is.null(row)) {
+    stop("Internal: '", col, "' is not in the column schema.", call. = FALSE)
+  }
+  nm <- row$allowed
+  if (is.null(nm) || all(is.na(nm))) {
+    # Returning NULL here would make every value invalid and print
+    # "Please use one of:" with nothing after it -- loud, but pointing the user
+    # at their data instead of at the schema row that is actually missing.
+    stop("Internal: the schema declares no `allowed` map for '", col, "'.",
+         call. = FALSE)
+  }
   get(nm, envir = asNamespace("Rceattle"))
 }
 
@@ -1014,24 +1035,32 @@ validate_switches <- function(data_list = NULL){
   .fc_none <- data_list$fleet_control[0, , drop = FALSE]
   .fc_has <- function(col) !is.null(data_list$fleet_control[[col]])
 
+  # Every predicate below exempts an Off fleet. data_check() is callable on a
+  # list read straight from a workbook, where Fleet_type may still be the
+  # integer 0 -- and `0 != "Off"` coerces to `"0" != "Off"`, which is TRUE, so a
+  # bare string comparison would validate the fleets it means to skip.
+  # Canonicalize once, and compare against that.
+  .fleet_type_canon <- .canon_switch(data_list$fleet_control$Fleet_type, fleet_map)
+  data_list$fleet_control$.rce_is_on <- .fleet_type_canon != "Off"
+
   invalid_flt_type <- data_list$fleet_control |>
     dplyr::filter(!.data$Fleet_type %in% c(fleet_map, names(fleet_map)))
 
   invalid_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Selectivity %in% c(sel_map, names(sel_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Selectivity %in% c(sel_map, names(sel_map)))
 
   invalid_tv_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
 
   invalid_q <- data_list$fleet_control |>
     dplyr::filter(!.data$Catchability %in% c(NA, q_map, names(q_map)))
 
   invalid_tv_q <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
+    dplyr::filter(.data$.rce_is_on & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
   invalid_sel_norm_scope <- if (.fc_has("Sel_norm_scope")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" &
+      dplyr::filter(.data$.rce_is_on &
                       !.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
   } else .fc_none
 
@@ -1039,36 +1068,43 @@ validate_switches <- function(data_list = NULL){
   # of them resolved to NA rather than erroring: `Selectivity_dimension` became
   # a missing selectivity dimension, and the two Sel_shape_* columns a missing
   # penalty mode. Nothing downstream re-checked them.
+  # Each of these is validated against exactly what its CONSUMER implements,
+  # not against the map alone. rearrange_data() matches Selectivity_dimension on
+  # the exact strings and yields NA for anything else -- including an integer --
+  # so the integer side of its map must not validate. The two Sel_shape_*
+  # columns are read case-insensitively in one spelling each, and Sel_shape_dir
+  # additionally accepts "-1" (the ADMB sign convention), so refusing those
+  # would reject input the model implements.
   invalid_sel_dim <- if (.fc_has("Selectivity_dimension")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" &
-                      !.data$Selectivity_dimension %in%
-                        c(sel_dimension_map, names(sel_dimension_map)))
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Selectivity_dimension) &
+                      !.data$Selectivity_dimension %in% names(sel_dimension_map))
   } else .fc_none
 
+  .dir_ok <- c(names(sel_shape_dir_map), "increasing", "decreasing", "-1", "0")
   invalid_sel_shape_dir <- if (.fc_has("Sel_shape_dir")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" & !is.na(.data$Sel_shape_dir) &
-                      !.data$Sel_shape_dir %in%
-                        c(sel_shape_dir_map, names(sel_shape_dir_map)))
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_shape_dir) &
+                      !.data$Sel_shape_dir %in% .dir_ok)
   } else .fc_none
 
+  .mode_ok <- c(names(sel_shape_mode_map), "smooth", "directional",
+                unname(sel_shape_mode_map))
   invalid_sel_shape_mode <- if (.fc_has("Sel_shape_mode")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" & !is.na(.data$Sel_shape_mode) &
-                      !.data$Sel_shape_mode %in%
-                        c(sel_shape_mode_map, names(sel_shape_mode_map)))
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_shape_mode) &
+                      !.data$Sel_shape_mode %in% .mode_ok)
   } else .fc_none
 
   invalid_comp_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_caal_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_index_ll <- if (.fc_has("Index_distribution")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" &
+      dplyr::filter(.data$.rce_is_on &
                       !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
   } else .fc_none
 

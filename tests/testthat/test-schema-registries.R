@@ -164,3 +164,61 @@ test_that("the config schema projects from the switch table, not a hand-kept cop
     }
   }
 })
+
+
+test_that("scope and tmb_target on the switch table are true, not just present", {
+  # The table is read by anyone deciding whether a switch takes one value or a
+  # vector. `srr_fun` is a DATA_INTEGER scalar; calling it per-species would
+  # invite a length error or a silent first-element truncation.
+  t <- .rce_model_switch_schema()
+  cpp <- c("src/TMB/ceattle.cpp", testthat::test_path("..", "..", "src", "TMB", "ceattle.cpp"))
+  cpp <- cpp[file.exists(cpp)]
+  testthat::skip_if(length(cpp) == 0, "src/TMB/ceattle.cpp not available")
+  src <- paste(readLines(cpp[1], warn = FALSE), collapse = "\n")
+
+  for (nm in names(t)) {
+    tgt <- t[[nm]]$tmb_target
+    if (is.na(tgt)) next
+    # A declared target must exist, and its DATA_ kind must match the scope:
+    # DATA_INTEGER / DATA_SCALAR is one value, DATA_IVECTOR / DATA_VECTOR many.
+    m <- regmatches(src, regexpr(paste0("DATA_[A-Z]+\\(\\s*", tgt, "\\s*\\)"),
+                                 src, perl = TRUE))
+    testthat::expect_length(m, 1)
+    if (!length(m)) next
+    is_vector <- grepl("VECTOR", m, fixed = TRUE)
+    testthat::expect_equal(
+      is_vector, t[[nm]]$scope != "scalar",
+      info = paste0(nm, ": declared scope '", t[[nm]]$scope, "' but the template says ", m))
+  }
+})
+
+
+test_that("a schema column declaring `allowed` is either validated or knowingly not", {
+  # `allowed` says which values are legal. A column that declares one and is
+  # never checked documents a rule nothing enforces -- the state this work set
+  # out to end. These four are known-unvalidated; the list must not grow
+  # silently.
+  sw <- c("R/0-switches.R", testthat::test_path("..", "..", "R", "0-switches.R"))
+  sw <- sw[file.exists(sw)]
+  testthat::skip_if(length(sw) == 0, "R/0-switches.R not available")
+  lines <- readLines(sw[1], warn = FALSE)
+  start <- grep("^validate_switches <- function", lines)[1]
+  # Bound the function at the next top-level definition, or the whole tail is
+  # swept in and any column named by a LATER helper looks validated.
+  after <- grep("^[A-Za-z_.][A-Za-z0-9_.]* <- function", lines)
+  end <- after[after > start]
+  end <- if (length(end)) end[1] - 1L else length(lines)
+  validator <- paste(lines[start:end], collapse = "\n")
+
+  sc <- .rce_column_schema()
+  declares <- names(Filter(function(r) !is.null(r$allowed) && !all(is.na(r$allowed)), sc))
+
+  not_validated <- Filter(function(nm) !grepl(nm, validator, fixed = TRUE), declares)
+
+  # Pinned, with the reason each is outstanding.
+  known <- c("estDynamics",        # a control-sheet scalar, checked in model_config()
+             "Estimate_index_sd",  # read numerically before validation runs
+             "Estimate_catch_sd",
+             "Diet_distribution")  # per-species, resolved to an integer early
+  testthat::expect_setequal(not_validated, known)
+})

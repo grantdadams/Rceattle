@@ -287,7 +287,7 @@ print.Rceattle_run_config <- function(x, ...) {
     avgnMode = .from_switch_table("avgnMode"),
     suitMode = .from_switch_table("suitMode"),
     niter    = d("Number of predation iterations"),
-    HCR      = d("Harvest control rule (build_hcr)"),
+    HCR = .from_switch_table("HCR"),
     recFun   = d("Stock-recruit specification (build_srr)"),
     M1Fun    = d("Natural-mortality specification (build_M1)"),
     growthFun= d("Growth specification (build_growth)"),

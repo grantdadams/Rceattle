@@ -251,11 +251,26 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
   # otherwise. NA is a real answer for most of these ("do not normalize", "no
   # cap", "no accumulation"), and for the rest it is the honest one: the
   # template cannot know the fleet's month or its catchability.
+  # A schema default is what the FIT applies when a column is absent. It is not
+  # always the right thing to write into a starter workbook: seeding a column
+  # here supplies a value on the user's behalf, and some columns treat "supplied"
+  # differently from "absent".
+  #
+  # Sel_curve_pen1/2/3 are the case that matters. Their schema default is 0, but
+  # switch_check() converts Sel_shape_sd / Sel_curvature_sd / Sel_devmag_sd into
+  # a penalty weight ONLY where the raw weight is still NA -- so a seeded 0 makes
+  # the documented SD interface silently do nothing, and a non-parametric fit
+  # runs with no shape penalty at all. It also disarms the guard that stops a
+  # model whose non-parametric selectivity has no penalty chosen. Both are
+  # silent, and both change the fitted selectivity, hence SSB, hence the ABC.
+  .no_seed <- c("Sel_curve_pen1", "Sel_curve_pen2", "Sel_curve_pen3")
+
   .sch_fc <- .rce_schema_names("fleet_control")
   d$fleet_control <- as.data.frame(
     stats::setNames(lapply(.sch_fc, function(nm) {
       row <- .rce_column_schema()[[nm]]
-      if (!is.null(row$has_default) && isTRUE(row$has_default) &&
+      if (!nm %in% .no_seed &&
+          !is.null(row$has_default) && isTRUE(row$has_default) &&
           !is.null(row$default) && length(row$default) == 1L) {
         rep(row$default, 2L)
       } else {
