@@ -118,3 +118,60 @@ fit_control <- function(
   class(ans) <- c("Rceattle_fit_control", "list")
   ans
 }
+
+
+#' Read the refit knobs a diagnostic can actually honour
+#'
+#' @description
+#' `retrospective()`, `jitter()` and `self_test()` refit through `.refit_like()`,
+#' which forwards `phase` and `getsd` from its caller. The rest of
+#' `fit_control()` either comes off the source `data_list` (`loopnum`,
+#' `bias_adjust_obs`, `bias_adjust_proc`, `comp_offset`) or falls back to
+#' `.refit_like()`'s own defaults (`newtonsteps`, `nlminb_control`, `rel_tol`,
+#' `use_gradient`, ...). Accepting a whole `fit_control()` and quietly dropping
+#' those would leave a user believing every peel had used them.
+#'
+#' So a field this path cannot reach is an error, not a silent no-op -- but only
+#' when the caller changed it from `fit_control()`'s default, since
+#' `fit_control(phase = TRUE)` returns the whole list, defaults included.
+#'
+#' **Only fields the caller actually changed are applied.** `fit_control()`
+#' defaults `phase` to `FALSE`, but `retrospective()` phases its peels because
+#' otherwise the parameters do not move from the full-model fit. Applying every
+#' field would mean `fit_control(getsd = FALSE)` -- a request about standard
+#' errors -- silently un-phasing every peel and flattening Mohn's rho. To ask
+#' for something that happens to equal `fit_control()`'s default, use the
+#' function's own argument (`retrospective(phase = FALSE)`).
+#'
+#' @param fit_control a `fit_control()` object, or `NULL`.
+#' @param fn calling function, for the message.
+#'
+#' @return A named list of the honoured knobs the caller changed. Empty if they
+#'   changed none; `NULL` if `fit_control` was `NULL`.
+#' @keywords internal
+#' @noRd
+.rce_refit_control <- function(fit_control, fn) {
+  if (is.null(fit_control)) return(NULL)
+  if (!inherits(fit_control, "Rceattle_fit_control")) {
+    stop(sprintf("%s(): `fit_control` must come from fit_control().", fn),
+         call. = FALSE)
+  }
+
+  honoured <- c("phase", "getsd")
+  defaults <- fit_control()
+  changed  <- function(nms) {
+    nms[!vapply(nms, function(n) identical(fit_control[[n]], defaults[[n]]),
+                logical(1))]
+  }
+
+  unreachable <- changed(setdiff(names(fit_control), honoured))
+  if (length(unreachable)) {
+    stop(sprintf(
+      "%s() refits through .refit_like(), which takes only %s from fit_control(). It cannot apply %s. Set %s in the fit_mod() call that produced the model -- note that .refit_like() recovers only `loopnum`, `comp_offset` and the bias-adjustment flags from it, and refits under the defaults for the rest.",
+      fn, paste(sprintf("`%s`", honoured), collapse = " and "),
+      paste(sprintf("`%s`", unreachable), collapse = ", "),
+      if (length(unreachable) == 1) "it" else "them"), call. = FALSE)
+  }
+
+  fit_control[changed(honoured)]
+}
