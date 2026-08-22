@@ -36,10 +36,14 @@ Type objective_function<Type>::operator() () {
   // sigma^2 / (1 - rho^2) away from the series edges. The recruitment bias
   // correction in ceattle.cpp is built on this, and nothing else tests it.
   array<Type> margvar_tj( y_tj.rows(), y_tj.cols() ); margvar_tj.setZero();
+  matrix<Type> Q(0, 0);
+  array<Type> xhat_tj( y_tj.rows(), y_tj.cols() ); xhat_tj.setZero();
+  array<Type> delta_tj( y_tj.rows(), y_tj.cols() ); delta_tj.setZero();
   calculate_dsem( jnll, options, RAM, RAMstart, familycode_j, linkcode_j,
                   sigmastart_j, eps_tj, y_tj, obs_idx, unobs_idx,
                   beta_z, lnsigma_z, mu_j, delta0_j, x_tj, z_tj,
-                  1, cond_j, margvar_tj );
+                  Q, xhat_tj, delta_tj, 0, 1, cond_j, margvar_tj );
+  REPORT( Q );
   REPORT( z_tj );
   REPORT( margvar_tj );
   return jnll;

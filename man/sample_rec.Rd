@@ -9,7 +9,7 @@ sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
 \arguments{
 \item{Rceattle}{CEATTLE model object exported from \code{Rceattle}}
 
-\item{sample_rec}{Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.}
+\item{sample_rec}{Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation. Under a DSEM, TRUE draws from the fitted process and FALSE gives its conditional mean.}
 
 \item{update_model}{Update model dynamics. Default = TRUE}
 
@@ -20,4 +20,14 @@ Rceattle model
 }
 \description{
 Sample historical recruitment deviations into the projection
+}
+\details{
+Under a DSEM the recruitment deviations are the latent states of a GMRF and
+are not independent, so they are not resampled: the projection is drawn from
+the same precision that scored the fit, conditional on the hindcast states,
+and all columns are drawn jointly so cross-species and shared-covariate paths
+are preserved. That requires the latent field to span the projection --
+\code{build_DSEM(estimate_projection = TRUE)} -- because with the default
+\code{FALSE} the field stops at \code{endyr} and the model says nothing
+about the projection years.
 }

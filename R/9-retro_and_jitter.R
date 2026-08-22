@@ -146,7 +146,6 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-`%||%` <- function(a, b) if (is.null(a)) b else a
 
 retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL,
                           forecast_rec = c("mean", "model")) {

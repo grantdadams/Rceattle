@@ -135,6 +135,16 @@ void calculate_dsem(
     // reads x_tj for such a node silently gets 0. Passed by reference, so it
     // cannot be confused with the by-value arrays above.
     array<Type> &z_tj_out,
+    matrix<Type> &Q_out,           // Precision of the latent field, so a caller
+                                   //   can draw from the SAME density that
+                                   //   scores it (dsem's simulate() does this:
+                                   //   rmvnorm_prec(xhat + delta, Q)). REPORTed
+                                   //   by the caller -- REPORT() needs `this`,
+                                   //   which a free function does not have.
+    array<Type> &xhat_out,         // Linear predictor, the GMRF's mean
+    array<Type> &delta_out,        // Initial-condition offset
+    int do_simulate,               // 1 -> DRAW the latent states from GMRF(Q)
+                                   //      instead of scoring the supplied ones
     int want_margvar,              // 1 -> also fill margvar_tj_out
     vector<int> cond_j,            // 1 -> condition on this column (exclude its
                                    //      innovations from margvar_tj_out)
@@ -393,8 +403,22 @@ void calculate_dsem(
     //inverseV_kk.compute(V_kk);
     //Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * inverseV_kk.solve(IminusRho_kk);
 
-    // Centered GMRF
+    // Centered GMRF. Under do_simulate the states are DRAWN from this same Q
+    // rather than scored -- one implementation of the process, so a simulated
+    // data set cannot drift from the density that fitted it. The draw is a
+    // deviation about the linear predictor, so the predictor is added back.
+    if( do_simulate == 1 ){
+      vector<Type> dev_k = GMRF(Q_kk).simulate();
+      array<Type> draw_tj( n_t, n_j );
+      for( int t2 = 0; t2 < n_t; t2++ ){
+        for( int j2 = 0; j2 < n_j; j2++ ){
+          draw_tj(t2,j2) = dev_k(j2 * n_t + t2) + xhat_tj(t2,j2) + delta_tj(t2,j2);
+        }
+      }
+      x_tj = draw_tj;
+    }
     jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
+    Q_out = matrix<Type>( Q_kk );
     z_tj = x_tj;
     //REPORT( Q_kk );
   }
@@ -624,10 +648,28 @@ void calculate_dsem(
     // Get GMRF for data
     //REPORT( Q_oo );
     //REPORT( dev_o );
+    if( do_simulate == 1 ){
+      // Same Q the density below uses. obs_idx maps the drawn subvector back
+      // onto the state matrix; with unobs_idx empty that is every state.
+      vector<Type> draw_o = GMRF( Q_oo ).simulate();
+      for( int o = 0; o < obs_idx.size(); o++ ){
+        int k2 = obs_idx(o);
+        int j2 = k2 / n_t;
+        int t2 = k2 - j2 * n_t;
+        x_tj(t2,j2) = draw_o(o) + xhat_tj(t2,j2) + delta_tj(t2,j2);
+        dev_o(o) = draw_o(o);
+      }
+      z_tj = x_tj;
+    }
     jnll_gmrf = GMRF( Q_oo )( dev_o );
+    // With unobs_idx empty this spans every state, so it is the field's full
+    // precision; with a projecting parameterization it is the observed block.
+    Q_out = matrix<Type>( Q_oo );
   }
   // Hand the resolved states back before the observation loop consumes them.
   z_tj_out = z_tj;
+  xhat_out  = xhat_tj;
+  delta_out = delta_tj;
 
   // The four branches above are independent ifs and jnll_gmrf starts at zero, so
   // an unrecognized value would leave the latent states with NO process density

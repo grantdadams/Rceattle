@@ -1107,24 +1107,92 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 
 #' Sample historical recruitment deviations into the projection
 #'
+#' @details
+#' Under a DSEM the recruitment deviations are the latent states of a GMRF and
+#' are not independent, so they are not resampled: the projection is drawn from
+#' the same precision that scored the fit, conditional on the hindcast states,
+#' and all columns are drawn jointly so cross-species and shared-covariate paths
+#' are preserved. That requires the latent field to span the projection --
+#' \code{build_DSEM(estimate_projection = TRUE)} -- because with the default
+#' \code{FALSE} the field stops at \code{endyr} and the model says nothing
+#' about the projection years.
+#'
 #' @param Rceattle CEATTLE model object exported from \code{Rceattle}
-#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
+#' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation. Under a DSEM, TRUE draws from the fitted process and FALSE gives its conditional mean.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #'
 #' @returns Rceattle model
 #' @export
 #'
+
 sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0){
 
-  # Under a DSEM the recruitment deviations are derived from the latent states
-  # x_tj, so a draw written into rec_dev is overwritten on the next evaluation
-  # of the objective -- the sampled recruitment would silently not be used.
-  # Drawing into x_tj[, rec_dev_col] instead is the open design question.
+  # A DSEM's recruitment deviations are not iid -- a self-path makes them
+  # autocorrelated, covariate paths make them respond to the environment, and a
+  # cross-species path couples the stocks -- so the projection is DRAWN FROM THE
+  # FITTED GMRF, conditional on the hindcast states, rather than resampled.
+  # Resampling would project a different process from the one estimated.
+  #
+  # That draw only exists where the likelihood does. With build_DSEM(
+  # estimate_projection = FALSE) the latent field stops at endyr and the model
+  # says nothing about the projection years, so there is no distribution to draw
+  # from -- anything written there would be an extrapolation. Require the field
+  # to span the projection instead of inventing one.
+  # Normalize once: the DSEM branch below and the standard branch used to test
+  # this differently (isTRUE() against a bare if()), so sample_rec = 1 resampled
+  # on one path and returned the deterministic projection on the other.
+  sample_rec <- isTRUE(as.logical(sample_rec))
+
+  .mean_rec <- isTRUE(as.logical(Rceattle$data_list$proj_mean_rec))
   if (.has_dsem(Rceattle)) {
-    stop("sample_rec() does not yet support a DSEM: the recruitment deviations ",
-         "come from the latent states, so a draw into rec_dev is not used.",
-         call. = FALSE)
+    if (!isTRUE(Rceattle$dsem$covers_projection)) {
+      stop("sample_rec() needs the DSEM's latent states to span the ",
+           "projection, so that projected recruitment can be drawn from the ",
+           "process that was fitted. This model was built with ",
+           "build_DSEM(estimate_projection = FALSE), whose states stop at ",
+           "endyr. Rebuild with build_DSEM(estimate_projection = TRUE).",
+           call. = FALSE)
+    }
+    # ... and the deviations have to REACH projected recruitment. Under
+    # proj_mean_rec the template projects recruitment at avg_R, so the drawn
+    # states reach only the dynamic B0/BF reference series and projected
+    # recruitment is identical in every draw. build_DSEM() already warns at fit
+    # time; enforce it here too, because a "sampled" projection that is
+    # silently deterministic reaches an ABC looking like it carries
+    # uncertainty. The two settings this needs are contradictory by default,
+    # since build_srr() defaults proj_mean_rec = TRUE.
+    if (.mean_rec) {
+      stop("sample_rec() cannot draw projected recruitment while ",
+           "proj_mean_rec = TRUE: recruitment is projected at avg_R, so the ",
+           "drawn states reach only the dynamic B0/BF reference series and ",
+           "every draw returns the same recruitment. Refit with ",
+           "build_srr(proj_mean_rec = FALSE) to project recruitment through ",
+           "the SEM.", call. = FALSE)
+    }
+    if (is.null(Rceattle$dsem$sem_full) ||
+        is.null(Rceattle$estimated_params$dsem_x_tj)) {
+      stop("This fit carries a DSEM specification but not the built objects, ",
+           "so its recruitment process cannot be projected. Refit before ",
+           "sampling recruitment.", call. = FALSE)
+    }
+    # With estimate_projection = TRUE the GMRF density SPANS the projection, so
+    # a trend imposed on the states is a deviation the likelihood penalizes. It
+    # survives the rebuild below (which does not optimize) but would be pulled
+    # back by any later optimization.
+    if (any(as.numeric(rec_trend) != 0)) {
+      warning("rec_trend imposes a trend on latent states the DSEM's density ",
+              "scores over the projection, so it survives this rebuild but ",
+              "would be shrunk by any later re-optimization of the model.",
+              call. = FALSE)
+    }
+  } else if (.mean_rec) {
+    # The same no-op on the standard path, where it is pre-existing behaviour:
+    # warn rather than break projections that already run this way.
+    warning("proj_mean_rec = TRUE, so recruitment is projected at avg_R and ",
+            "the deviations sample_rec() writes do not drive it. Use ",
+            "build_srr(proj_mean_rec = FALSE) for the draws to take effect.",
+            call. = FALSE)
   }
 
   # Years for simulations
@@ -1140,6 +1208,19 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 
   # Replace future rec devs ----
   #FIXME - update non-sample rec for stock recruit relationship
+  # Draw ONCE for all species: the GMRF is a joint distribution over every
+  # column, so drawing them independently per species would drop any
+  # cross-species or shared-covariate path the sem carries.
+  # Draw ONCE for all columns: the GMRF is a joint distribution, so drawing
+  # per species would drop any cross-species or shared-covariate path, and the
+  # whole drawn field is written back -- keeping only the recruitment columns
+  # would leave the object's recdevs correlated with a future environment it no
+  # longer stores.
+  if (.has_dsem(Rceattle)) {
+    Rceattle$estimated_params$dsem_x_tj <-
+      .dsem_draw_projection(Rceattle, sample = sample_rec)
+  }
+
   for(sp in 1:Rceattle$data_list$nspp){
 
     # -- where SR curve is estimated directly
@@ -1164,6 +1245,45 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
         rec_dev <- mean((log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs]) +
           log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       }
+    }
+
+    # - Under a DSEM the deviation comes from the drawn latent state, not from
+    #   resampling. The state is what the template reads, so the trend is
+    #   applied in state space; writing rec_dev alone would be overwritten on
+    #   the next objective evaluation and silently do nothing. rec_dev is then
+    #   set to what the template will derive, so anything reading the object
+    #   before the rebuild sees the same deviations.
+    if (.has_dsem(Rceattle)) {
+      .col  <- Rceattle$dsem$tmb_inputs$data$rec_dev_col[sp] + 1L
+      .X    <- Rceattle$estimated_params$dsem_x_tj
+      .rows <- (nrow(.X) - proj_nyrs + 1):nrow(.X)
+      .trend <- log((1 + (rec_trend[sp] / proj_nyrs) * 1:proj_nyrs))
+
+      # The template derives rec_dev = x - bias * margvar / 2 (ceattle.cpp
+      # section 5.5b), so the correction has to be mirrored exactly. A shape
+      # mismatch would silently shift projected recruitment by exp(margvar/2)
+      # -- around 26% on a typical fit -- so it is an error, not a fallback.
+      .mv <- Rceattle$quantities$dsem_margvar_tj
+      if (is.null(.mv) || ncol(.mv) < .col || nrow(.mv) < max(.rows)) {
+        stop("This model does not report a DSEM marginal variance of the ",
+             "right shape, so the lognormal bias correction the template ",
+             "applies cannot be mirrored. Refit before sampling recruitment.",
+             call. = FALSE)
+      }
+      .adj <- as.numeric(Rceattle$data_list$bias_adjust_proc %||% 1) *
+        as.numeric(.mv[.rows, .col]) / 2
+
+      # sample_rec = FALSE means MEAN recruitment on the standard path above, so
+      # it has to mean the same here: adding the correction back leaves
+      # rec_dev at the conditional mean, and projected R at R0 * exp(that) --
+      # the process mean. Without it the projection would sit at the lognormal
+      # MEDIAN instead, a silent ~26% reduction in a deterministic projection
+      # that sets the ABC. Compare retrospective(), which adds it back the same
+      # way for the same reason.
+      .X[.rows, .col] <- as.numeric(.X[.rows, .col]) + .trend +
+        if (sample_rec) 0 else .adj
+      Rceattle$estimated_params$dsem_x_tj <- .X
+      rec_dev <- as.numeric(.X[.rows, .col]) - .adj
     }
 
     # - Update OM with devs

@@ -122,13 +122,30 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
                          "does not support a DSEM")
 })
 
-testthat::test_that("run_mse() and sample_rec() refuse a DSEM rather than mis-project it", {
-  # Recruitment deviations are DERIVED from the latent states under a DSEM, so
-  # sample_rec()'s draw into rec_dev would be overwritten on the next objective
-  # evaluation -- the sampled recruitment silently unused. And whether x_tj is
-  # projyr-dimensioned depends on build_DSEM(estimate_projection), which the
-  # static .mse_proj_param_yrdim table cannot express. Both are deferred, so
-  # both must fail loudly.
+testthat::test_that("sample_rec() requires a DSEM whose states span the projection", {
+  # Projected recruitment is DRAWN from the fitted GMRF, conditional on the
+  # hindcast states. That draw only exists where the likelihood does: with
+  # estimate_projection = FALSE the field stops at endyr, so the model says
+  # nothing about the projection years and anything written there would be an
+  # extrapolation rather than a draw from the fitted process. Refuse, and name
+  # the setting that fixes it -- a generic "unsupported" leaves the user
+  # nowhere.
+  fake <- structure(
+    list(data_list = c(Rceattle::BS2017SS,
+                       list(dsem_settings = Rceattle::build_DSEM(
+                         sem = "recdevs1 <-> recdevs1, 0, sigmaR1, 1"))),
+         dsem = list(covers_projection = FALSE)),
+    class = "Rceattle")
+
+  testthat::expect_error(Rceattle::sample_rec(fake),
+                         "estimate_projection = TRUE")
+})
+
+testthat::test_that("run_mse() refuses a DSEM rather than mis-project it", {
+  # Whether x_tj is projyr-dimensioned depends on build_DSEM(
+  # estimate_projection), which the static .mse_proj_param_yrdim table cannot
+  # express -- a shortened OM refit would carry a full-horizon x_tj against
+  # shortened eps_tj/y_tj. Deferred, so it must fail loudly.
   fake <- structure(
     list(data_list = c(Rceattle::BS2017SS,
                        list(dsem_settings = Rceattle::build_DSEM(
@@ -136,7 +153,5 @@ testthat::test_that("run_mse() and sample_rec() refuse a DSEM rather than mis-pr
     class = "Rceattle")
 
   testthat::expect_error(Rceattle::run_mse(om = fake, em = fake, nsim = 1),
-                         "does not yet support a DSEM")
-  testthat::expect_error(Rceattle::sample_rec(fake),
                          "does not yet support a DSEM")
 })

@@ -10,7 +10,8 @@ retrospective(
   rescale = FALSE,
   nyrs_forecast = 3,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  forecast_rec = c("mean", "model")
 )
 }
 \arguments{
@@ -33,6 +34,16 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
 \code{sdrep}); the returned peel models then carry standard errors only
 when \code{getsd} is \code{TRUE}.}
+
+\item{forecast_rec}{How the peeled years get their recruitment. \code{"mean"}
+(default) projects them at the bias-adjusted historical mean, which is the
+convention Mohn's rho has always been computed under. \code{"model"} uses the
+model's own projection rule instead, in precedence order: \code{proj_mean_rec = TRUE} projects at mean recruitment whatever process the model carries;
+otherwise the latent states supply it where the deviations are random
+effects (\code{random_rec}, or a DSEM), so an AR1's autocorrelation or a DSEM's
+lagged and covariate paths propagate into the forecast; otherwise
+recruitment comes off the stock-recruit curve. Use \code{"model"} to compare
+projection methods -- see \code{\link[=hindcast_skill]{hindcast_skill()}}, which defaults to it.}
 }
 \value{
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for

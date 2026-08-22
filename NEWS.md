@@ -42,14 +42,33 @@
   versions.
 
   `retrospective()`, `jitter()` and `self_test()` work on a DSEM (below). The
-  `profile()`, `remove_F()`, `reweight_comps()` and `osa_residuals()` work too.
-  `run_mse()` and `sample_rec()` still stop with a message rather than silently
+  `profile()`, `remove_F()`, `reweight_comps()` and `osa_residuals()` work too,
+  and `sample_rec()` works where the latent states span the projection (below).
+  `run_mse()` still stops with a message rather than silently
   project a model without the recruitment structure being tested, and
   `process_residuals()` refuses `"recruitment"` and `"initial"` -- it
   standardizes a posterior draw by a per-year normal prior, which is not the
   GMRF's prior, and under a DSEM the initial deviations would be scaled by a
   mapped-out placeholder. `process_residuals(process = "catchability")` is
   unaffected and works.
+
+* **`sample_rec()` draws a DSEM's projected recruitment from the fitted
+  process.** Recruitment deviations under a DSEM are not independent -- a
+  self-path makes them autocorrelated, covariate paths make them respond to the
+  environment, and a cross-species path couples the stocks -- so resampling the
+  hindcast would project a different process from the one estimated. The
+  projection is now drawn from the same GMRF that scored the fit, conditional on
+  the hindcast states, which is what `dsem::simulate()` does. `sample_rec =
+  FALSE` gives that conditional mean rather than a draw. All columns are drawn
+  together, so cross-species and shared-covariate paths are preserved.
+
+  This requires `build_DSEM(estimate_projection = TRUE)`: with the default
+  `FALSE` the latent field stops at `endyr`, the likelihood says nothing about
+  the projection years, and anything written there would be an extrapolation
+  rather than a draw from the fitted process. `sample_rec()` stops and names the
+  setting in that case. The draw is written into the latent states, not into
+  `rec_dev` -- under a DSEM the template derives `rec_dev` from the states, so
+  writing `rec_dev` alone would be silently overwritten.
 
 * **Lognormal bias correction is now applied to a DSEM's recruitment
   deviations, so `R0` is comparable to a non-DSEM fit again.** It was not

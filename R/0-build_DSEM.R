@@ -780,3 +780,101 @@ check_dsem_spec <- function(data_list, dsem) {
   structure(list(status = .conv_overall(out), checks = out),
             class = "Rceattle_convergence")
 }
+
+# Draw the DSEM's UNKNOWN projection states from the precision that scores them.
+#
+# This is the conditional draw of the unknown projection nodes given everything
+# the fit already knows, taken from the GMRF the model was fitted with -- the
+# mechanism dsem's own simulate() uses, rmvnorm_prec(xhat + delta, Q).
+# Partitioning the field into drawn (P) and known (H):
+#
+#   x_P | x_H  ~  N( mu_P - Q_PP^-1 Q_PH (x_H - mu_H),  Q_PP^-1 )
+#
+# so a projected recruitment deviation inherits whatever the sem says: a
+# self-path makes it persist, covariate paths make it respond to the
+# environment, and a cross-species path couples the stocks. Drawing iid instead
+# would project a different process from the one estimated.
+#
+# WHAT GOES IN P IS THE WHOLE POINT. Not every projection node is unknown. Under
+# family = "fixed" a covariate column of x_tj IS the environmental data, pinned
+# by the map; where env_data extends past endyr those projection nodes are KNOWN
+# FUTURE VALUES -- a climate scenario the projection is meant to respond to.
+# Drawing them instead of conditioning on them replaces the scenario with noise
+# and returns the no-covariate answer, which is the opposite of what a
+# climate-linked assessment is asking for. It also inflates the draw variance,
+# against a bias correction the template computes CONDITIONAL on the
+# environment (that is what dsem_cond_j is for in ceattle.cpp section 5.5b). So
+# P is read off the MAP: draw what is estimated, condition on what is fixed,
+# wherever it sits.
+#
+# Requires the latent field to SPAN the projection -- build_DSEM(
+# estimate_projection = TRUE). With estimate_projection = FALSE the GMRF stops
+# at endyr, the likelihood says nothing about projection years, and any draw
+# there is an extrapolation rather than a draw from the model.
+#' @noRd
+.dsem_draw_projection <- function(fit, sample = TRUE) {
+  q <- fit$quantities
+  Q <- q$dsem_Q
+  if (is.null(Q) || !length(Q)) {
+    stop("This model reports no DSEM precision, so its projection states ",
+         "cannot be drawn from the fitted process. Either it carries no DSEM, ",
+         "or it predates the reporting of `dsem_Q` and must be refitted.",
+         call. = FALSE)
+  }
+  X   <- as.matrix(fit$estimated_params$dsem_x_tj)
+  mu  <- as.matrix(q$dsem_xhat_tj) + as.matrix(q$dsem_delta_tj)
+  n_t <- nrow(X); n_j <- ncol(X)
+  if (nrow(Q) != n_t * n_j) {
+    stop("The reported DSEM precision is ", nrow(Q), "x", ncol(Q),
+         " but the latent field is ", n_t, "x", n_j,
+         "; they cannot be aligned.", call. = FALSE)
+  }
+
+  n_hind <- fit$data_list$endyr - fit$data_list$styr + 1L
+  if (n_t <= n_hind) {
+    stop("The DSEM's latent states stop at endyr, so the model says nothing ",
+         "about the projection years and they cannot be drawn from it. ",
+         "Rebuild with build_DSEM(estimate_projection = TRUE).", call. = FALSE)
+  }
+
+  # k = j * n_t + t in the template's 0-based indexing, which is column-major
+  # over x_tj -- so as.numeric(X)[k] is the node the GMRF scores at k.
+  k_of <- function(t, j) (j - 1L) * n_t + t
+  proj <- as.integer(unlist(lapply(seq_len(n_j), function(j)
+    k_of((n_hind + 1L):n_t, j))))
+
+  # NA in the map means the node is FIXED -- a known value to condition on, not
+  # something to draw. An absent map means nothing is fixed.
+  mp <- fit$map$mapList$dsem_x_tj
+  estimated <- if (is.null(mp)) rep(TRUE, n_t * n_j) else !is.na(as.numeric(mp))
+  if (length(estimated) != n_t * n_j) {
+    stop("The DSEM's parameter map covers ", length(estimated), " states but ",
+         "the latent field has ", n_t * n_j, "; they cannot be aligned.",
+         call. = FALSE)
+  }
+
+  P <- proj[estimated[proj]]
+  if (!length(P)) {
+    stop("Every projection state of this DSEM is fixed, so there is nothing ",
+         "to draw. The recruitment deviations must be estimated over the ",
+         "projection for the process to supply them.", call. = FALSE)
+  }
+  H <- setdiff(seq_len(n_t * n_j), P)
+
+  Qpp <- Q[P, P, drop = FALSE]
+  Qph <- Q[P, H, drop = FALSE]
+  dev_h <- as.numeric(X)[H] - as.numeric(mu)[H]
+  cond_mu <- as.numeric(mu)[P] - solve(Qpp, Qph %*% dev_h)
+
+  out <- X
+  if (isTRUE(sample)) {
+    # Draw N(0, Qpp^-1) from the precision, as dsem::simulate() does.
+    L <- chol(Qpp)              # Qpp = L'L, so backsolve(L, z) ~ N(0, Qpp^-1)
+    out[P] <- as.numeric(cond_mu) + backsolve(L, stats::rnorm(length(P)))
+  } else {
+    # The conditional MEAN -- the deterministic counterpart of the draw, and
+    # what the process expects given everything already known.
+    out[P] <- as.numeric(cond_mu)
+  }
+  out
+}

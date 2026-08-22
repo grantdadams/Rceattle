@@ -1111,6 +1111,27 @@ Type objective_function<Type>::operator() () {
   // solve with n_k right-hand sides per objective evaluation.
   array<Type> dsem_margvar_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_margvar_tj.setZero();
   int dsem_want_margvar = (bias_adjust_proc > 0) ? 1 : 0;
+  // Draw the DSEM's latent states from the SAME precision the density uses,
+  // rather than reproducing the recursion in R. A DSEM's recruitment deviations
+  // are not iid -- a self-path makes them autocorrelated and covariate paths
+  // make them respond to the environment -- so an iid draw would simulate a
+  // different process from the one estimated. The flag is set only inside a
+  // SIMULATE block, which TMB activates only for Type = double, so the draw
+  // never runs while taping.
+  // Precision and mean of the latent field, handed back so R can draw from the
+  // SAME density that scores it -- the mechanism dsem's own simulate() uses
+  // (rmvnorm_prec(xhat + delta, Q)). Without these a caller has to reproduce
+  // the recursion, which is a second implementation of the process and free to
+  // drift from the first.
+  matrix<Type> dsem_Q(0, 0);
+  array<Type> dsem_xhat_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_xhat_tj.setZero();
+  array<Type> dsem_delta_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_delta_tj.setZero();
+  int dsem_do_sim = 0;
+  SIMULATE {
+    if(dsem_on == 1 && simulate_state(0) == 1 && simulate_period(0) == 1){
+      dsem_do_sim = 1;
+    }
+  }
   // Condition on every column except the recruitment-deviation ones: the
   // environmental columns are data the model is given, so the correction needs
   // the variance of recruitment GIVEN them, not the joint prior variance.
@@ -1127,7 +1148,8 @@ Type objective_function<Type>::operator() () {
                    dsem_familycode_j, dsem_linkcode_j, dsem_sigmastart_j,
                    dsem_eps_tj, dsem_y_tj, dsem_obs_idx, dsem_unobs_idx,
                    dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
-                   dsem_x_tj, dsem_z_tj, dsem_want_margvar, dsem_cond_j,
+                   dsem_x_tj, dsem_z_tj, dsem_Q, dsem_xhat_tj, dsem_delta_tj,
+                   dsem_do_sim, dsem_want_margvar, dsem_cond_j,
                    dsem_margvar_tj);
 
     // Dimension contract for THIS call site. calculate_dsem() checks its own
@@ -5162,6 +5184,9 @@ Type objective_function<Type>::operator() () {
   // caller writing the deviation directly lands that much low. A quota-relevant
   // correction that cannot be inspected from R cannot be checked.
   REPORT(dsem_margvar_tj);
+  REPORT(dsem_Q);
+  REPORT(dsem_xhat_tj);
+  REPORT(dsem_delta_tj);
 
   if (log_sigma_linkage.size() > 0) {
     int n_re = beta_linkage_re_all.size();

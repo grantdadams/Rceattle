@@ -231,7 +231,8 @@
 # "does not yet support a DSEM" message. It has been removed rather than left
 # with a docstring that is no longer true: retrospective(), jitter(),
 # self_test(), profile(), remove_F(), reweight_comps() and osa_residuals() all
-# support a DSEM now. The two functions that still refuse -- run_mse() and
-# sample_rec() -- and the two processes process_residuals() refuses each say
-# something specific about WHY, which a shared message cannot do.
+# support a DSEM now, and sample_rec() does where the latent states span the
+# projection. What still refuses -- run_mse(), sample_rec() on a hindcast-only
+# field, and two of process_residuals()' processes -- each says something
+# specific about WHY, which a shared message cannot do.
 
