@@ -741,8 +741,24 @@ switch_check <- function(data_list){
   # never a blank cell, and a partially-assigned column
   # (fleet_control$Selectivity_dimension[i] <- "Length") is a live idiom in the
   # assessment scripts. Without this the blank rows would now be a hard error.
-  data_list$fleet_control$Selectivity_dimension[is.na(data_list$fleet_control$Selectivity_dimension)] <-
-    .sch[["Selectivity_dimension"]]$default
+  #
+  # Announced under the same gate as the missing-column default (growth
+  # estimated, so a length-based selectivity is on the table), and naming the
+  # fleets, because only some rows are being filled: a blank left on a
+  # growth-estimated model is where the author meant "Length", and an age-based
+  # curve on a length-based fleet changes the fit without saying so.
+  .sel_dim_blank <- which(is.na(data_list$fleet_control$Selectivity_dimension))
+  if (length(.sel_dim_blank) > 0) {
+    if (isTRUE(.dflt_when$growth_estimated)) {
+      .lbl <- data_list$fleet_control$Fleet_name
+      .lbl <- if (is.null(.lbl)) .sel_dim_blank else .lbl[.sel_dim_blank]
+      message(sprintf(
+        "'Selectivity_dimension' is blank for fleet(s) %s in 'fleet_control', assuming '%s'",
+        paste(.lbl, collapse = ", "), .sch[["Selectivity_dimension"]]$default))
+    }
+    data_list$fleet_control$Selectivity_dimension[.sel_dim_blank] <-
+      .sch[["Selectivity_dimension"]]$default
+  }
   data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
