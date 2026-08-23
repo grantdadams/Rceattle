@@ -643,10 +643,19 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
   vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
 
-  // -- 4.8. Composition data - FIXME: will blow up if nlengths is less than nages
+  // -- 4.8. Composition data
+  // age_hat / age_obs_hat are indexed by AGE (up to nages*2 for joint-sex comps),
+  // whatever dimension the fleet's composition data are on: a length-composition
+  // fleet is built at age first and converted through the age-length transition.
+  // comp_obs is only as wide as the workbook's Comp_ columns, which for a
+  // length-only model is nlengths -- so sizing these from it wrote past the
+  // matrix whenever nlengths < nages. Eigen does not bounds-check in a release
+  // build, so that was a silent write into adjacent memory, not a crash. Width
+  // is the larger of the two so the REPORTed objects never shrink either.
+  int max_age_cols = std::max(static_cast<int>(comp_obs.cols()), max_age * 2);
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (numbers)
-  matrix<Type>  age_hat = comp_obs; age_hat.setZero();                              // Estimated catch at true age
-  matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age (accounts for ageing error)
+  matrix<Type>  age_hat(comp_obs.rows(), max_age_cols); age_hat.setZero();          // Estimated catch at true age
+  matrix<Type>  age_obs_hat(comp_obs.rows(), max_age_cols); age_obs_hat.setZero();  // Estimated catch at observed age (accounts for ageing error)
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp
   matrix<Type>  caal_hat = caal_obs; caal_hat.setZero();                            // Estimated CAAL
   array<Type>   pred_CAAL(n_flt, max_sex, max_age, max_nlengths, nyrs); pred_CAAL.setZero(); // Predicted CAAL for each fleet
@@ -1825,9 +1834,21 @@ Type objective_function<Type>::operator() () {
         // -- 6.6.1. Recruitment
 
         // - Calculate recruitment.
-        Type ssb_tmp = ssb(sp, yr - minage(sp));
+        // Recruits arriving at age minage in year yr were spawned in
+        // yr - minage, which is before styr while yr < minage. There is no
+        // modelled SSB then, so those years take the equilibrium mean R0 with
+        // their own deviation (srr_fun 0) rather than a stock-recruit
+        // prediction. This follows Stock Synthesis, which covers the pre-start
+        // period with an equilibrium age composition plus early recruitment
+        // deviations instead of extending the relationship backwards; WHAM
+        // avoids the boundary by fixing the lag at one year. The guard cannot
+        // fire at minage = 1, which is every bundled dataset and all three live
+        // assessments.
+        int spawn_yr = yr - minage(sp);
+        int srr_use = (spawn_yr < 0) ? 0 : srr_switch;
+        Type ssb_tmp = (spawn_yr < 0) ? Type(0.0) : ssb(sp, spawn_yr);
 
-        R(sp, yr) = calculate_recruitment(srr_switch, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+        R(sp, yr) = calculate_recruitment(srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
         N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
@@ -1946,13 +1967,20 @@ Type objective_function<Type>::operator() () {
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
             // FIXME: will bomb if minage > 1
-            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SB0(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
-            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            // Same pre-styr spawning-year guard as the hindcast recruitment
+            // above: before the relationship has an SSB to read, the reference
+            // points take the equilibrium mean.
+            int rp_spawn_yr = yr - minage(sp);
+            int rp_srr_use = (rp_spawn_yr < 0) ? 0 : srr_pred_fun;
+            int rp_yr = (rp_spawn_yr < 0) ? 0 : rp_spawn_yr;
+
+            NByage0(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), SB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            NByageF(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
 
           } // End recruitment switch
 
@@ -2131,8 +2159,12 @@ Type objective_function<Type>::operator() () {
         if(proj_mean_rec == 0){
 
           // - Calculate recruitment (with linkage offsets pre-added).
-          Type ssb_tmp = ssb(sp, yr-minage(sp));
-          R(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+          // Pre-styr spawning year takes the equilibrium mean, as in the
+          // hindcast block; reachable only if the hindcast is shorter than minage.
+          int proj_spawn_yr = yr - minage(sp);
+          int proj_srr_use = (proj_spawn_yr < 0) ? 0 : srr_pred_fun;
+          Type ssb_tmp = (proj_spawn_yr < 0) ? Type(0.0) : ssb(sp, proj_spawn_yr);
+          R(sp, yr) = calculate_recruitment(proj_srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
         }
 
         N_at_age(sp, 0, 0 , yr) = R(sp, yr) * sex_ratio(sp, 0);
@@ -2235,10 +2267,14 @@ Type objective_function<Type>::operator() () {
       // Year 1+
       for(yr = 1; yr < nyrs; yr++){
         // - Calculate recruitment (with linkage offsets pre-added).
-        Type ssb_tmp = ssb(sp, yr-minage(sp));
+        // Pre-styr spawning year takes the equilibrium mean, as in the
+        // hindcast block.
+        int hat_spawn_yr = yr - minage(sp);
+        int hat_srr_use = (hat_spawn_yr < 0) ? 0 : srr_pred_fun;
+        Type ssb_tmp = (hat_spawn_yr < 0) ? Type(0.0) : ssb(sp, hat_spawn_yr);
 
         // Note: Expected recruitment does not include deviations, so we pass Type(0.0)
-        R_hat(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+        R_hat(sp, yr) = calculate_recruitment(hat_srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
       }
     }
 
@@ -3687,6 +3723,12 @@ Type objective_function<Type>::operator() () {
     vector<Type> caal_obs_tmp = caal_obs.row(caal_ind).segment(0, n_caal); // Observed proportion
     vector<Type> caal_hat_tmp = caal_hat.row(caal_ind).segment(0, n_caal); // Expected proportion
 
+    // Proportions kept pre-offset and pre-numbers for the AFSC pseudo-likelihood
+    // (caal_ll_type == -1), which reads proportions directly. Mirrors the
+    // comp_obs_prop / comp_hat_prop copies in the age-composition slot above.
+    vector<Type> caal_obs_prop = caal_obs_tmp;
+    vector<Type> caal_hat_prop = caal_hat_tmp;
+
     // Add offset (for some reason can't do above in single line....)
     caal_obs_tmp += comp_prop_offset;
     caal_hat_tmp += comp_prop_offset;
@@ -3708,6 +3750,19 @@ Type objective_function<Type>::operator() () {
         // Both address JNLL_CAAL, not JNLL_COMP: age composition and conditional
         // age-at-length are separate likelihood rows (see the JnllRow enum).
         switch(caal_ll_type(flt)){
+
+        case -1:  // AFSC/AMAK multinomial pseudo-likelihood, as for age comps
+          // Same form as comp_ll_type == -1 (see the age-composition slot):
+          // sum_a N * (obs_a + off) * log((hat_a + off) / (obs_a + off)), read
+          // off the proportions rather than the numbers vector. It drops the
+          // multinomial normalizing constant, so it is a pseudo-likelihood
+          // rather than a density -- which is why the OSA branch below
+          // residualizes it under the full multinomial, as comps do.
+          for(int age_ind = 0; age_ind < n_caal; age_ind++){
+            jnll_comp(JNLL_CAAL, flt) -= caal_weights(flt) * Type(caal_n(caal_ind, 0)) * (caal_obs_prop(age_ind) + comp_prop_offset) * log((caal_hat_prop(age_ind) + comp_prop_offset) / (caal_obs_prop(age_ind) + comp_prop_offset));
+            unweighted_jnll_comp(JNLL_CAAL, flt) -= Type(caal_n(caal_ind, 0)) * (caal_obs_prop(age_ind) + comp_prop_offset) * log((caal_hat_prop(age_ind) + comp_prop_offset) / (caal_obs_prop(age_ind) + comp_prop_offset));
+          }
+          break;
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);

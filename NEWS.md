@@ -13,6 +13,51 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 # Rceattle 5.13.0
 
+## Bug fixes
+
+* **Recruitment at `minage > 1` read memory instead of spawning biomass.**
+  Recruits arriving at age `minage` in year `yr` were spawned in `yr - minage`,
+  so for the first `minage - 1` hindcast years the stock-recruit relationship
+  indexed `ssb()` at a negative column. Eigen does not bounds-check in a release
+  build, so this did not error -- it returned whatever was in adjacent memory.
+  On a `nages = 5` Beverton-Holt fixture, recruitment in those years came back
+  as `8.6e-314`, `is.finite()` reported TRUE, and the objective moved from
+  14407.38 (`minage = 1`) to 15162.60 (`2`) and 17532.15 (`3`) purely from the
+  values read. It was only reachable with an active stock-recruit relationship:
+  `srr_fun = 0` never calls the relationship with a spawning biomass.
+
+  Those years now take the equilibrium mean `R0` with the recruitment deviation
+  already estimated for them, following Stock Synthesis, which covers the
+  pre-start period with an equilibrium age composition plus early recruitment
+  deviations rather than extending the relationship backwards. (WHAM avoids the
+  boundary by fixing the recruitment lag at one year regardless of the recruit
+  age.) All four sites are guarded -- hindcast recruitment, the equilibrium and
+  dynamic reference points, the projection, and `R_hat`.
+
+  **No fit anyone runs today changes**: every bundled dataset and all three live
+  assessments are `minage = 1`, where the guard cannot fire. The four
+  golden-reference models are unmoved.
+
+* **`CAAL_distribution = "MultinomialAFSC"` now works.** `CAAL_distribution`
+  shares `comp_loglike_map` with `Comp_distribution`, so the value passed
+  `validate_switches()` and then died inside the template with
+  `Invalid 'caal_ll_type'` -- the CAAL dispatch had only cases 0 and 1. The AFSC
+  multinomial pseudo-likelihood is now implemented for conditional age-at-length
+  in the same form already used for age composition, reading the CAAL row's
+  proportions with its own sample size and weight. As for age comps it is a
+  pseudo-likelihood rather than a density, so OSA residuals are taken under the
+  full multinomial and the simulation draw is multinomial.
+
+* **A model with `nlengths < nages` wrote past the end of two matrices.**
+  `age_hat` and `age_obs_hat` are indexed by age -- up to `nages * 2` for
+  joint-sex composition -- but were sized from `comp_obs`, whose width is the
+  number of `Comp_` columns in the workbook. For a model whose composition data
+  are all length-based with fewer length bins than ages, that width is
+  `nlengths` and the writes ran off the end. Unchecked in a release build, so
+  the effect was a silent write into adjacent memory rather than a crash. Both
+  are now sized by age, and never narrower than the observations, so no
+  REPORTed object shrinks.
+
 ## MSE
 
 * **A scalar `cap` is now an annual ceiling, not an assessment-interval one.**
