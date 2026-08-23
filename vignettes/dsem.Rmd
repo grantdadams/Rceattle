@@ -106,6 +106,25 @@ model2 <- Rceattle::fit_mod(
 summary(model2)
 ```
 
+### Screen the specification before fitting
+
+`fit_mod()` does not check a SEM for you. `check_dsem_spec()` runs the cheap
+Tier-1 checks against the built objects and the model's `env_data`, and is worth
+a call before committing to a long fit:
+
+```{r}
+gp   <- clean_data(GOApollock)
+spec <- build_DSEM(sem = sem_iid, family = "fixed")
+check_dsem_spec(gp, build_dsem_objects(spec, data_list = gp))
+```
+
+It reports predictors observed in only a few hindcast years (a sparse latent can
+absorb recruitment variance and drive `sigmaR` to zero), a collinear lag-aligned
+design, covariates spanning orders of magnitude in SD, and a variable with no
+exogenous variance of its own. That last one is the quiet failure: a variable
+whose two-headed path is pinned at zero is computed rather than estimated, so the
+`env_data` series supplied for it is never read.
+
 ### Compare the two fits
 
 ```{r}

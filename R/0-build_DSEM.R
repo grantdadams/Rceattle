@@ -683,6 +683,10 @@ merge_dsem_map <- function(map, dsem) {
 #'     predictors).
 #'   \item \code{covariate_scale} -- recruitment covariates spanning orders of
 #'     magnitude in SD (ill-conditioning; consider standardizing).
+#'   \item \code{covariate_variance} -- an observed recruitment predictor with
+#'     no exogenous variance of its own (no two-headed path, or one fixed at
+#'     zero). Such a variable is deterministic: the model computes it rather
+#'     than reading \code{env_data}, so the series supplied has no effect.
 #' }
 #'
 #' @param data_list A cleaned data list (must carry \code{env_data},
@@ -697,22 +701,67 @@ check_dsem_spec <- function(data_list, dsem) {
                      class = "Rceattle_convergence")
   sf <- tryCatch(dsem$sem_full, error = function(e) NULL)
   ed <- data_list$env_data
-  if (is.null(sf) || is.null(ed) || is.null(ed$Year)) return(empty)
+  if (is.null(sf)) return(empty)
+  out <- list()
+  finish <- function(out) structure(list(status = .conv_overall(out),
+                                         checks = out),
+                                    class = "Rceattle_convergence")
+
+  # T1.4 -- a variable with no exogenous variance
+  # dsem's projecting parameterizations compute such a variable from its
+  # incoming paths instead of estimating it, so the env_data supplied for it is
+  # never read (scaling that column leaves the objective bit-identical), it
+  # drops out of the reported precision that sample_rec() draws from, and the
+  # recruitment bias correction cannot condition on it.
+  #
+  # The rule is dsem's own: a lag-0 two-headed self-path whose parameter AND
+  # start are both zero. Not "has no two-headed path" -- make_dsem_ram() adds an
+  # estimated V[x] row for any variable that lacks one, so a missing line is the
+  # ordinary way to ask for a freely estimated variance.
+  #
+  # Over every variable in the sem rather than the recruitment predictors alone,
+  # because a variable two steps upstream of recruitment does the same thing.
+  # Runs before the env_data checks below, which it does not need.
+  sf_dir <- abs(suppressWarnings(as.numeric(sf$direction)))
+  sf_par <- suppressWarnings(as.numeric(sf$parameter))
+  sf_st  <- suppressWarnings(as.numeric(sf$start))
+  sf_lag <- suppressWarnings(as.numeric(sf$lag))
+  all_vars <- unique(c(as.character(sf$first), as.character(sf$second)))
+  novar <- all_vars[vapply(all_vars, function(p) {
+    rows <- which(sf$first == p & sf$second == p & sf_dir == 2 &
+                  (is.na(sf_lag) | sf_lag == 0))
+    if (length(rows) == 0) return(FALSE)
+    all((is.na(sf_par[rows]) | sf_par[rows] == 0) &
+        (is.na(sf_st[rows])  | sf_st[rows]  == 0))
+  }, logical(1))]
+  if (length(novar) > 0) {
+    out$covariate_variance <- .conv_record(
+      "covariate_variance", "spec", "WARN",
+      sprintf(paste0(
+        "Variable(s) with no exogenous variance: %s. Each is deterministic, so ",
+        "the env_data supplied for it is not read and it drops out of the ",
+        "precision sample_rec() draws from. Give it a non-zero variance (e.g. ",
+        "`%s <-> %s, 0, sd%s, 1`)."),
+        paste(novar, collapse = ", "), novar[1], novar[1], novar[1]),
+      data.frame(variable = novar, row.names = NULL))
+  }
+
+  # Everything below reads env_data.
+  if (is.null(ed) || is.null(ed$Year)) return(finish(out))
 
   # Recruitment paths: one-headed (direction 1) arrows into a latent node.
   is_rec <- grepl(.dsem_latent_pattern(), as.character(sf$second)) &
             as.numeric(sf$direction) == 1
   rec <- sf[is_rec, , drop = FALSE]
-  if (nrow(rec) == 0) return(empty)
+  if (nrow(rec) == 0) return(finish(out))
 
   preds <- intersect(unique(as.character(rec$first)), colnames(ed))
-  if (length(preds) == 0) return(empty)
+  if (length(preds) == 0) return(finish(out))
 
   styr <- data_list$styr; endyr <- data_list$endyr
   yrs  <- styr:endyr
   nyr  <- length(yrs)
   edh  <- ed[ed$Year %in% yrs, , drop = FALSE]
-  out  <- list()
 
   # T1.1 -- latent observability of recruitment predictors
   cov_frac <- vapply(preds, function(p) sum(!is.na(edh[[p]])) / nyr, numeric(1))
@@ -779,8 +828,7 @@ check_dsem_spec <- function(data_list, dsem) {
     }
   }
 
-  structure(list(status = .conv_overall(out), checks = out),
-            class = "Rceattle_convergence")
+  finish(out)
 }
 
 # Draw the DSEM's UNKNOWN projection states from the precision that scores them.
@@ -805,9 +853,9 @@ check_dsem_spec <- function(data_list, dsem) {
 # and returns the no-covariate answer, which is the opposite of what a
 # climate-linked assessment is asking for. It also inflates the draw variance,
 # against a bias correction the template computes CONDITIONAL on the
-# environment (that is what dsem_cond_j is for in ceattle.cpp section 5.5b). So
-# P is read off the MAP: draw what is estimated, condition on what is fixed,
-# wherever it sits.
+# environment (that is what dsem_cond_k is for in ceattle.cpp section 5.5b, and
+# it is built from the same per-cell rule). So P is read off the MAP: draw what
+# is estimated, condition on what is fixed, wherever it sits.
 #
 # Requires the latent field to SPAN the projection -- build_DSEM(
 # estimate_projection = TRUE). With estimate_projection = FALSE the GMRF stops
@@ -827,9 +875,18 @@ check_dsem_spec <- function(data_list, dsem) {
   mu  <- as.matrix(q$dsem_xhat_tj) + as.matrix(q$dsem_delta_tj)
   n_t <- nrow(X); n_j <- ncol(X)
   if (nrow(Q) != n_t * n_j) {
+    # Under the projecting parameterizations the template reports the precision
+    # of the OBSERVED block only, indexed by position within obs_idx rather than
+    # by the stacked cell k, so it is short whenever the sem carries a
+    # deterministic variable. Name that as the usual cause without claiming it
+    # is the only one -- a mis-wired precision reaches here too.
     stop("The reported DSEM precision is ", nrow(Q), "x", ncol(Q),
          " but the latent field is ", n_t, "x", n_j,
-         "; they cannot be aligned.", call. = FALSE)
+         "; they cannot be aligned. Usually this means a variable in the sem ",
+         "has no exogenous variance -- its two-headed path is pinned at zero -- ",
+         "so the model computes that variable instead of estimating it. Give it ",
+         "a non-zero variance (e.g. `BT <-> BT, 0, sdBT, 1`); ",
+         "check_dsem_spec() names the variable.", call. = FALSE)
   }
 
   n_hind <- fit$data_list$endyr - fit$data_list$styr + 1L

@@ -227,12 +227,9 @@
     !is.null(x$data_list$model_config$dsem)
 }
 
-# NOTE: .stop_if_dsem() used to live here, wrapping .has_dsem() in one generic
-# "does not yet support a DSEM" message. It has been removed rather than left
-# with a docstring that is no longer true: retrospective(), jitter(),
-# self_test(), profile(), remove_F(), reweight_comps() and osa_residuals() all
-# support a DSEM now, and sample_rec() does where the latent states span the
-# projection. What still refuses -- run_mse(), sample_rec() on a hindcast-only
-# field, and two of process_residuals()' processes -- each says something
-# specific about WHY, which a shared message cannot do.
+# There is deliberately no shared "does not support a DSEM" refusal. The places
+# that still refuse -- run_mse(), sample_rec() on a hindcast-only field,
+# process_residuals() for "recruitment" and "initial", and profile() on
+# `R_log_sd` or `rec_dev` -- each say something specific about why, which one
+# generic message cannot.
 

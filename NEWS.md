@@ -51,6 +51,18 @@
   initial deviations would be scaled by a mapped-out placeholder.
   `process_residuals(process = "catchability")` is unaffected and works.
 
+* **`check_dsem_spec()` screens a specification before it is fitted**,
+  reporting sparse predictors, a collinear lag-aligned design, covariates
+  spanning orders of magnitude in SD, and any variable with no exogenous
+  variance of its own. That last one matters more than it reads: a variable
+  whose lag-0 two-headed path is pinned at zero (`BT <-> BT, 0, NA, 0`) is
+  deterministic, so the model computes it from its incoming paths and the
+  `env_data` series supplied for it is never read -- scaling that column leaves
+  the objective bit-identical. It also drops out of the reported precision, so
+  `sample_rec()` cannot draw a projection. Omitting the two-headed line entirely
+  is a different thing and is fine: `dsem` then adds a freely estimated
+  variance. `fit_mod()` does not run this check for you.
+
 * **`sample_rec()` draws a DSEM's projected recruitment from the fitted
   process.** Recruitment deviations under a DSEM are not independent -- a
   self-path makes them autocorrelated, covariate paths make them respond to the
@@ -90,18 +102,28 @@
   terminal SSB agreed to 0.4%, and dynamic B0 and the Tier-3 B40% proxy are
   keyed to `R0`.
 
-  The correction is `-Var/2` using the MARGINAL variance of each recruitment
-  column, taken from the GMRF and reported as `dsem_margvar_tj`. It is NOT
-  `-R_sd^2/2`: `R_sd` is the GMRF's conditional (innovation) SD, and the two
-  agree only for a state with no incoming lagged path -- for a first-order self
-  path they differ by `1/(1-rho^2)`, so the naive form would under-correct
-  exactly the lagged models a DSEM exists to fit. The variance is conditional on
-  the environmental columns, which are data rather than random; counting their
-  prior variance instead inflated it by `beta^2 Var(covariate)/(1-rho^2)`,
-  measured at +67%. Verified in `tools/verify/verify-dsem-recovery.R`: it
-  matches `sigma^2/(1-rho^2)` to +0.00%, collapses to `sigma^2` at `rho = 0`,
-  and a naive DSEM now reproduces a non-DSEM fit's objective, `R_sd` and `R0` at
-  the default `bias_adjust_proc`.
+  The correction is `-Var/2` using the variance of each recruitment state,
+  taken from the GMRF and reported as `dsem_margvar_tj`. It is NOT `-R_sd^2/2`:
+  `R_sd` is the GMRF's conditional (innovation) SD, and the two agree only for a
+  state with no incoming lagged path -- for a first-order self path they differ
+  by `1/(1-rho^2)`, so the naive form would under-correct exactly the lagged
+  models a DSEM exists to fit.
+
+  The variance is conditional on the environmental values the model was given,
+  which are data rather than random; counting their prior variance instead
+  inflated it by `beta^2 Var(covariate)/(1-rho^2)`, measured at +67%. **What
+  counts as given is decided per year, not per series**, because `env_data` is
+  padded to the model's full span: a covariate that starts after `styr`, has a
+  gap, or carries no projection scenario is a free latent state in exactly those
+  years. Treating the whole series as known under-corrects there -- measured on
+  BS2017SS with a hindcast-only covariate, projected recruitment 17.1% high.
+  Verified in `tools/verify/verify-dsem-recovery.R` (matches `sigma^2/(1-rho^2)`
+  to +0.00%, collapses to `sigma^2` at `rho = 0`) and in
+  `test-dsem-bias-correction.R`, which checks it against
+  `diag(solve(Q[unknown, unknown]))` from the model's own reported precision for
+  covariates observed everywhere, observed partly, and autoregressive. A naive
+  DSEM reproduces a non-DSEM fit's objective, `R_sd` and `R0` at the default
+  `bias_adjust_proc`.
 
 * **`retrospective()`, `jitter()` and `self_test()` run on a DSEM.** A peel does
   not shorten the model -- it turns off data after `endyr_peel` -- so the latent

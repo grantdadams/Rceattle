@@ -44,11 +44,17 @@ dsem_data <- function(d) {
        y_tj         = array(as.numeric(d$y_tj),   dim = dim(d$y_tj)),
        obs_idx      = if (is.null(d$obs_idx))   integer(0) else as.integer(d$obs_idx),
        unobs_idx    = if (is.null(d$unobs_idx)) integer(0) else as.integer(d$unobs_idx),
-       # Condition on everything except the recruitment column, matching what
-       # ceattle.cpp passes: the covariate is data, so the variance wanted is
-       # the one given it.
-       cond_j       = { cj <- rep(1L, ncol(d$y_tj))
-                        cj[as.integer(d$rec_dev_col) + 1L] <- 0L; cj })
+       # The cells the model is given, matching what ceattle.cpp builds: a
+       # finite env_data value, per cell, so a covariate with a gap is known
+       # where it was observed and random where it was not. The recruitment
+       # columns and the deterministic unobs_idx cells are excluded, as there.
+       cond_k       = { y  <- as.matrix(d$y_tj)
+                        ck <- as.integer(is.finite(as.vector(y)))
+                        ck[as.vector(col(y)) %in%
+                           (as.integer(d$rec_dev_col) + 1L)] <- 0L
+                        if (length(d$unobs_idx))
+                          ck[as.integer(d$unobs_idx) + 1L] <- 0L
+                        ck })
 }
 
 # ---- 1. recovery of a lagged, covariate-driven process ----------------------

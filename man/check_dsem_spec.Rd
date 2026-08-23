@@ -33,5 +33,9 @@ correlation of the lag-aligned recruitment design matrix (collinear
 predictors).
 \item \code{covariate_scale} -- recruitment covariates spanning orders of
 magnitude in SD (ill-conditioning; consider standardizing).
+\item \code{covariate_variance} -- an observed recruitment predictor with
+no exogenous variance of its own (no two-headed path, or one fixed at
+zero). Such a variable is deterministic: the model computes it rather
+than reading \code{env_data}, so the series supplied has no effect.
 }
 }

@@ -1132,15 +1132,51 @@ Type objective_function<Type>::operator() () {
       dsem_do_sim = 1;
     }
   }
-  // Condition on every column except the recruitment-deviation ones: the
-  // environmental columns are data the model is given, so the correction needs
-  // the variance of recruitment GIVEN them, not the joint prior variance.
-  vector<int> dsem_cond_j(dsem_y_tj.cols());
-  dsem_cond_j.setOnes();
+  // Which latent cells the model is GIVEN, so the bias correction below uses
+  // the variance of recruitment conditional on them. A cell is given when
+  // env_data supplied a finite value for that variable in that year.
+  //
+  // Per CELL: build_dsem_objects() pads env_data to the model's full span, so a
+  // covariate that starts late, has a gap, or carries no projection scenario is
+  // a free latent state in those years. Treating the whole column as known
+  // under-corrects there -- 17.1% high on projected recruitment measured on
+  // BS2017SS with a hindcast-only covariate, and 48.8% once the covariate is
+  // autoregressive.
+  //
+  // Two exclusions:
+  //
+  //   Recruitment-deviation columns, outright. They are latent by construction,
+  //   so a stray value in one cannot zero that species' correction.
+  //
+  //   dsem_unobs_idx, the cells the projecting parameterizations compute rather
+  //   than estimate. calculate_dsem() overwrites z_tj at those cells from the
+  //   deterministic projection and never reads y there -- scaling such a column
+  //   leaves the objective bit-identical -- so they are not values the model is
+  //   given. They also carry no exogenous variance, which would make the
+  //   conditioning solve singular.
+  //
+  // A variable with a measurement likelihood (family other than "fixed") is
+  // conditioned on its OBSERVATION rather than on a pinned state, which
+  // understates the correction by the measurement variance: exact at a small
+  // observation SD (0.2% at SD = 0.05) and up to 8% on recruitment at SD = 1.
+  // Treating it as unknown instead would be the joint prior variance, which is
+  // wrong by more and in the same direction as the defect above.
+  vector<int> dsem_cond_k(dsem_y_tj.rows() * dsem_y_tj.cols());
+  dsem_cond_k.setZero();
   if(dsem_on == 1){
-    for(int sp2 = 0; sp2 < rec_dev_col.size(); sp2++){
-      if(rec_dev_col(sp2) >= 0 && rec_dev_col(sp2) < dsem_cond_j.size())
-        dsem_cond_j(rec_dev_col(sp2)) = 0;
+    int n_t_dsem = dsem_y_tj.rows();
+    for(int j2 = 0; j2 < dsem_y_tj.cols(); j2++){
+      bool is_rec = false;
+      for(int sp2 = 0; sp2 < rec_dev_col.size(); sp2++)
+        if(rec_dev_col(sp2) == j2) is_rec = true;
+      if(is_rec) continue;
+      for(int t2 = 0; t2 < n_t_dsem; t2++)
+        if(R_FINITE(asDouble(dsem_y_tj(t2, j2))))
+          dsem_cond_k(j2 * n_t_dsem + t2) = 1;
+    }
+    for(int u = 0; u < dsem_unobs_idx.size(); u++){
+      if(dsem_unobs_idx(u) >= 0 && dsem_unobs_idx(u) < dsem_cond_k.size())
+        dsem_cond_k(dsem_unobs_idx(u)) = 0;
     }
   }
   if(dsem_on == 1){
@@ -1149,7 +1185,7 @@ Type objective_function<Type>::operator() () {
                    dsem_eps_tj, dsem_y_tj, dsem_obs_idx, dsem_unobs_idx,
                    dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
                    dsem_x_tj, dsem_z_tj, dsem_Q, dsem_xhat_tj, dsem_delta_tj,
-                   dsem_do_sim, dsem_want_margvar, dsem_cond_j,
+                   dsem_do_sim, dsem_want_margvar, dsem_cond_k,
                    dsem_margvar_tj);
 
     // Dimension contract for THIS call site. calculate_dsem() checks its own

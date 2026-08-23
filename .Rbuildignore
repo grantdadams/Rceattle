@@ -34,3 +34,4 @@
 ^docs$
 ^covr$
 ^fims\.log$
+^tests/benchmarks$

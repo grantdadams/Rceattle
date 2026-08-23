@@ -146,9 +146,17 @@ void calculate_dsem(
     int do_simulate,               // 1 -> DRAW the latent states from GMRF(Q)
                                    //      instead of scoring the supplied ones
     int want_margvar,              // 1 -> also fill margvar_tj_out
-    vector<int> cond_j,            // 1 -> condition on this column (exclude its
-                                   //      innovations from margvar_tj_out)
-    array<Type> &margvar_tj_out    // Marginal variance of each latent state
+    vector<int> cond_k,            // 1 -> this CELL is a value the model is
+                                   //      given, so margvar_tj_out is the
+                                   //      variance CONDITIONAL on it. Stacked
+                                   //      k = j * n_t + t, like the RAM. Every
+                                   //      cell marked here MUST carry exogenous
+                                   //      variance -- a deterministic one makes
+                                   //      the conditioning solve singular and
+                                   //      returns NaN.
+    array<Type> &margvar_tj_out    // Variance of each latent state given the
+                                   //   cells cond_k marks known; 0 for those
+                                   //   cells, which carry no variance at all
 ) {
   using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
@@ -340,47 +348,89 @@ void calculate_dsem(
   //tmp_tj = delta_k.reshaped( n_t, n_j );
   //delta_tj = tmp_tj.array();
 
-  // Marginal variance of each latent state: diag(Sigma), where
-  //   Sigma = (I-Rho)^-1 Gamma^T Gamma (I-Rho)^-T
-  // is the covariance the GMRF's precision Q = (I-Rho)^T (Gamma^T Gamma)^-1
-  // (I-Rho) inverts to. Writing B = (I-Rho)^-1 Gamma^T gives Sigma = B B^T, so
-  // the diagonal is the row-wise sum of squares of B.
+  // Variance of each latent state GIVEN the cells cond_k marks as known, which
+  // is what a caller centring a lognormal on these states needs: E[exp(x)] = 1
+  // requires a mean of -Var/2. Writing B = (I-Rho)^-1 Gamma^T, the joint
+  // covariance is Sigma = B B^T, and for known cells K and unknown cells U the
+  // conditional covariance is the Schur complement
+  //   Var(x_U | x_K) = Sigma_UU - Sigma_UK Sigma_KK^-1 Sigma_KU.
+  // Only its diagonal is wanted. A known cell is data, so its entry is 0.
   //
-  // A caller centring a lognormal on these states needs THIS, not the
-  // conditional (innovation) variance: E[exp(x)] = 1 requires a mean of
-  // -Var_marginal/2, and the two coincide only for a state with no incoming
-  // lagged paths. For a first-order self-path with coefficient rho they differ
-  // by 1/(1-rho^2). Computed from the rescaled matrices so it is right under
-  // every constant_variance setting, and only when asked -- it costs one LU
-  // solve with n_k right-hand sides.
+  // Not the innovation variance: for a first-order self-path the two differ by
+  // 1/(1-rho^2). Not the joint prior variance either: a covariate given as data
+  // drives the MEAN of recruitment, not its spread, and treating it as random
+  // inflates the correction by beta^2 Var(cov) / (1-rho^2) -- +67% at rho =
+  // 0.6, beta = 0.45, sigma = 0.55.
+  //
+  // Per CELL, because a covariate can be known in some years and not others.
+  // Measured on BS2017SS with a covariate observed over the hindcast only, a
+  // per-column rule gave 0.781 in the projection years against a true 1.098:
+  // 17.1% high on projected recruitment once exponentiated.
+  //
+  // The Schur complement rather than dropping the known cells' innovations,
+  // which gives Var(x_U | e_K) and matches only when no unknown cell feeds a
+  // known one -- an autoregressive covariate with a leading gap does. The solve
+  // is |K| x |K|, smaller than the n_k-column solve for B above.
   if( want_margvar == 1 ){
     matrix<Type> GammaT_kk = matrix<Type>( Gamma_kk.transpose() );
     matrix<Type> B_kk = inverseIminusRho_kk.solve( GammaT_kk );
-    for( int t = 0; t < n_t; t++ ){
-      for( int j = 0; j < n_j; j++ ){
-        Type v = 0;
-        int kk = j * n_t + t;
-        for( int m = 0; m < n_k; m++ ){
-          // Innovations of a conditioned-on column do not contribute. A
-          // covariate supplied as data is known, not random, so the variance a
-          // caller needs is the one GIVEN the covariates, not the variance in
-          // the joint prior. The difference is not small: for a first-order
-          // self-path with one covariate the joint version is larger by
-          // beta^2 * Var(covariate) / (1 - rho^2) -- measured at +67% for
-          // rho = 0.6, beta = 0.45, sigma = 0.55 -- and a bias correction built
-          // on it over-corrects by that factor, only when a covariate is
-          // present, so an IID sem looks perfect while a covariate model is
-          // wrong.
-          //
-          // The caller supplies this rather than it being read off
-          // familycode_j: family = "fixed" describes measurement error and is
-          // set on the LATENT columns too, so keying on it excludes everything
-          // and returns zero.
-          if( cond_j(m / n_t) == 1 ) continue;
-          v += B_kk(kk, m) * B_kk(kk, m);
-        }
-        margvar_tj_out(t, j) = v;
+
+    if( cond_k.size() != n_k )
+      Rf_error("calculate_dsem: cond_k has %d entries, expected %d (n_t * n_j)",
+               (int)cond_k.size(), n_k);
+
+    // Partition the cells. Index vectors, so the blocks below are plain row
+    // selections out of B.
+    int n_known = 0;
+    for( int kk = 0; kk < n_k; kk++ ) if( cond_k(kk) == 1 ) n_known++;
+    int n_unk = n_k - n_known;
+    vector<int> K_idx( n_known ), U_idx( n_unk );
+    int ik = 0, iu = 0;
+    for( int kk = 0; kk < n_k; kk++ ){
+      if( cond_k(kk) == 1 ) K_idx(ik++) = kk; else U_idx(iu++) = kk;
+    }
+
+    // diag(Sigma_UU): the row-wise sum of squares of B over the unknown cells.
+    vector<Type> v_u( n_unk ); v_u.setZero();
+    for( int u = 0; u < n_unk; u++ ){
+      for( int m = 0; m < n_k; m++ ) v_u(u) += B_kk(U_idx(u), m) * B_kk(U_idx(u), m);
+    }
+
+    // Subtract the part the known cells explain. Skipped entirely when nothing
+    // is known, which is the ordinary covariate-free sem and leaves it at the
+    // marginal variance it has always had.
+    if( n_known > 0 ){
+      matrix<Type> B_K( n_known, n_k ), B_U( n_unk, n_k );
+      for( int i = 0; i < n_known; i++ ) B_K.row(i) = B_kk.row( K_idx(i) );
+      for( int i = 0; i < n_unk;   i++ ) B_U.row(i) = B_kk.row( U_idx(i) );
+
+      matrix<Type> Sigma_KK = B_K * B_K.transpose();      // [n_known x n_known]
+      matrix<Type> Sigma_KU = B_K * B_U.transpose();      // [n_known x n_unk]
+
+      // atomic::matinv rather than an Eigen decomposition: Sigma_KK is dense,
+      // symmetric and positive definite, and this is the inverse TMB tapes
+      // efficiently. Positive definite is the CALLER'S contract: a conditioned
+      // cell with no exogenous variance has an all-zero row of B, and matinv
+      // then returns NaN with nothing to say. It cannot be checked here --
+      // TMB's getParameterOrder pass evaluates the template with a dummy
+      // parameter vector, so every variance reads as zero and any value test
+      // fires on a healthy model. ceattle.cpp keeps such cells out of cond_k
+      // structurally (they are the unobs_idx set) and check_dsem_spec() reports
+      // the specification that would produce one.
+      matrix<Type> A_KU = atomic::matinv( Sigma_KK ) * Sigma_KU;
+      for( int u = 0; u < n_unk; u++ ){
+        Type expl = 0;
+        for( int i = 0; i < n_known; i++ ) expl += Sigma_KU(i, u) * A_KU(i, u);
+        v_u(u) -= expl;
       }
+    }
+
+    // A known cell is data: no variance, and no bias correction owed on it.
+    margvar_tj_out.setZero();
+    for( int u = 0; u < n_unk; u++ ){
+      int kk = U_idx(u);
+      int j2 = kk / n_t;
+      margvar_tj_out( kk - j2 * n_t, j2 ) = v_u(u);
     }
   }
 

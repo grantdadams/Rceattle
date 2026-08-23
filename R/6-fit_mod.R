@@ -562,7 +562,32 @@ fit_mod <-
     # dsem = NULL is the default and must stay completely inert: with no DSEM
     # attached, every path below is skipped and the model is textually the
     # non-DSEM model. That is what lets /golden-check gate this change.
-    if (!is.null(dsem)) {
+    if (is.null(dsem)) {
+      # A DSEM fit's own data_list carries its specification, and re-fitting
+      # from that data_list with dsem = NULL is the ordinary way to compare a
+      # model with and without one. Clear the specification, or the fit reports
+      # a DSEM it does not have: every diagnostic guard reads dsem_settings, and
+      # save_config() would write out a `dsem:` block that load_config() then
+      # replays as a different model (measured at 86.2 nll on BS2017SS). This is
+      # the data_list counterpart of the `inits` scrub further down.
+      data_list$dsem_settings <- NULL
+      data_list$model_config$dsem <- NULL
+    } else {
+      # The build_*() specs are plain unclassed lists in this package, so tell a
+      # specification from already-built objects structurally: built objects
+      # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else
+      # is a mistake worth naming -- without this, a bare list with a $sem
+      # element would be silently accepted and its family / estimate_projection
+      # quietly defaulted. Checked first so a bad `dsem` is named here rather
+      # than by a base R error a few lines further down.
+      .dsem_built <- is.list(dsem) && !is.null(dsem$tmb_inputs)
+      .dsem_spec  <- is.list(dsem) && "sem" %in% names(dsem)
+      if (!.dsem_built && !.dsem_spec) {
+        stop("`dsem` must be a specification from build_DSEM() (or built ",
+             "objects from build_dsem_objects()); got ",
+             paste(class(dsem), collapse = "/"), ".", call. = FALSE)
+      }
+
       # estimate_projection = TRUE says the SEM supplies projected recruitment,
       # so it overrides proj_mean_rec. The two are otherwise contradictory:
       # under mean-recruitment projection the template sets R = avg_R past
@@ -570,7 +595,7 @@ fit_mod <-
       # reference series, so the SEM would be fitted over the projection and
       # then ignored there. Overriding before the DSEM is built keeps one
       # answer -- build_dsem_objects() reads proj_mean_rec too.
-      .ep <- if (is.list(dsem) && !is.null(dsem$tmb_inputs)) {
+      .ep <- if (.dsem_built) {
         isTRUE(dsem$dsem_settings$estimate_projection)
       } else isTRUE(dsem$estimate_projection)
       if (.ep && isTRUE(as.logical(data_list$proj_mean_rec))) {
@@ -584,29 +609,19 @@ fit_mod <-
         data_list$proj_mean_rec <- 0L
       }
 
-      # The build_*() specs are plain unclassed lists in this package, so tell a
-      # specification from already-built objects structurally: built objects
-      # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else
-      # is a mistake worth naming -- without this, a bare list with a $sem
-      # element would be silently accepted and its family / estimate_projection
-      # quietly defaulted.
-      if (is.list(dsem) && !is.null(dsem$tmb_inputs)) {
+      if (.dsem_built) {
         mod_objects$dsem <- dsem
         # Record the specification alongside the built objects. .refit_like()
         # and the diagnostic guards read data_list$dsem_settings, so a fit built
         # from pre-built objects would otherwise look DSEM-free to them.
         data_list$dsem_settings <- dsem$dsem_settings
-      } else if (is.list(dsem) && "sem" %in% names(dsem)) {
+      } else {
         data_list$dsem_settings <- dsem
         mod_objects$dsem <- build_dsem_objects(
           dsem_settings = dsem,
           debug         = estimateMode %in% c(2, 4),   # match build_map()
           data_list     = data_list)
         data_list$dsem_settings$sem <- mod_objects$dsem$sem
-      } else {
-        stop("`dsem` must be a specification from build_DSEM() (or built ",
-             "objects from build_dsem_objects()); got ",
-             paste(class(dsem), collapse = "/"), ".", call. = FALSE)
       }
 
       # DSEM and a recruitment linkage both claim the recruitment deviations.
@@ -622,10 +637,6 @@ fit_mod <-
              "`recFun = build_srr(linkages = ...)`, not both.", call. = FALSE)
       }
 
-      # The C++ side has not landed yet: ceattle.cpp neither includes dsem.hpp
-      # nor declares the DSEM DATA/PARAMETER blocks, so handing these objects to
-      # MakeADFun would fail deep inside TMB with an opaque message about
-      # unknown data names. Fail here instead, with somewhere to go.
     }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -1522,7 +1533,15 @@ fit_mod <-
         mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
                           suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
                           M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
-                          selFun = selFun, compFun = compFun, dsem = dsem),
+                          # The SPECIFICATION, never the built objects. A run
+                          # config is written back out as a build_DSEM() call
+                          # (.RCE_CONFIG_BUILDERS), and built objects share only
+                          # `sem` with that function's arguments -- so storing
+                          # them would drop `family`, `estimate_projection` and
+                          # `sigmaR_prior_sd`, and load_config() would rebuild a
+                          # different model without saying so.
+                          selFun = selFun, compFun = compFun,
+                          dsem = data_list$dsem_settings),
         estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
         random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
         fc = fit_control),

@@ -110,6 +110,7 @@ articles:
   contents:
   - model-parameterizations
   - environmental-linkages-and-priors
+  - dsem
 
 - title: Contributing
   desc: Extending and maintaining the package internals.
