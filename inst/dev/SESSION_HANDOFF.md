@@ -85,6 +85,13 @@ Nothing.
 Split the branch into the three PRs, or open it as one if that is preferred. Then work the
 `inst/dev/CLEANUP_BACKLOG.md` Tier 0 list into issues.
 
+Queued and not started: `inst/dev/CONTRIBUTOR-EXPERIENCE.md` — making the codebase navigable to
+a fisheries scientist, drawn from a review of FIMS. **Item 0 comes first and is a conversation,
+not code**: ask the sibling-repo authors where they actually stopped, because the ordering of
+A-H rests on an assumption nobody has tested. A-E and H are doc and tooling; G is additive; F is
+the only item that can break a caller and needs `/golden-check` + `/ecosystem-sweep`. Each recipe
+ships with a drift guard or it is not done. It carries its own start prompt.
+
 ## Older paused work
 
 **The `accessibility-and-code-review` refactor is superseded, not outstanding.** The branch is
