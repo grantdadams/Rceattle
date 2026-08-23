@@ -1754,14 +1754,21 @@ Type objective_function<Type>::operator() () {
             if(age == 0){
               R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
               N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
-              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+              // The male slot only exists where some species is two-sex; a
+              // one-sex species has sex_ratio 1 (set above), so this is 0 either
+              // way, but the index itself is out of range when max_sex is 1.
+              if(nsex(sp) > 1){
+                N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+              }
             }
 
             // - Estimate  as free parameters
             if(initMode == 0){
               if(age > 0){
                 N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age-1)) * sex_ratio(sp, 0);
-                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
+                if(nsex(sp) > 1){
+                  N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
+                }
               }
             }
 
@@ -1887,7 +1894,9 @@ Type objective_function<Type>::operator() () {
         R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
-        N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
+        if(nsex(sp) > 1){
+          N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
+        }
 
 
         // -- 6.6.2. Ages beyond recruitment
@@ -1999,7 +2008,15 @@ Type objective_function<Type>::operator() () {
 
 
           // - Option 2: Use SRR
-          if(proj_mean_rec == 0){
+          // Reached whenever a curve exists, not only when the projection runs
+          // on it. proj_mean_rec = 1 (the build_srr() default) with an estimated
+          // curve otherwise matched NEITHER arm -- Option 1a excludes
+          // srr_pred_fun >= 2 -- and reference-point recruitment stayed 0 for
+          // every year after the first, so SB0 decayed towards zero and
+          // SB0(sp, nyrs-1) is what HCR 5 and 6 read as the depletion reference.
+          // Projection recruitment itself is unaffected: that switch is read
+          // separately in 6.8, so mean-recruitment projections stay mean.
+          if((proj_mean_rec == 0) | (srr_pred_fun >= 2)){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
             // Reference-point spawning biomass exists for every year, so unlike
@@ -2022,18 +2039,22 @@ Type objective_function<Type>::operator() () {
 
           } // End recruitment switch
 
-          // Account for sex ratio
+          // Account for sex ratio. The male slot only exists where some species
+          // is two-sex; a one-sex species has sex_ratio 1 (set in 6.4), so the
+          // male value is 0 either way, but the index is out of range when
+          // max_sex is 1.
           NByage0(sp, 0, 0, yr) = NByage0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          NByage0(sp, 1, 0, yr) = NByage0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           NByageF(sp, 0, 0, yr) = NByageF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          NByageF(sp, 1, 0, yr) = NByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           N_at_age_dB0(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          N_at_age_dB0(sp, 1, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          N_at_age_dBF(sp, 1, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
+
+          if(nsex(sp) > 1){
+            // Males (divide by sex_ratio because we multiplied in the lines above)
+            NByage0(sp, 1, 0, yr) = NByage0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            NByageF(sp, 1, 0, yr) = NByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            N_at_age_dB0(sp, 1, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            N_at_age_dBF(sp, 1, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+          }
 
 
           // N-at-age year > 1
@@ -2207,7 +2228,9 @@ Type objective_function<Type>::operator() () {
         }
 
         N_at_age(sp, 0, 0 , yr) = R(sp, yr) * sex_ratio(sp, 0);
-        N_at_age(sp, 1, 0 , yr) = R(sp, yr) * (1 - sex_ratio(sp, 0));
+        if(nsex(sp) > 1){
+          N_at_age(sp, 1, 0 , yr) = R(sp, yr) * (1 - sex_ratio(sp, 0));
+        }
 
 
         // -- 6.8.2. Ages > recruitment

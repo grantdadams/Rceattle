@@ -15,6 +15,50 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Bug fixes
 
+* **Reference points ignored an estimated stock-recruit curve unless the
+  projection also used it.** Reference-point recruitment is set by two arms:
+  one for mean recruitment, requiring `proj_mean_rec = TRUE` *and* no curve, and
+  one for the curve, requiring `proj_mean_rec = FALSE`. A model with an
+  estimated Beverton-Holt or Ricker and `proj_mean_rec` left at its default of
+  `TRUE` matched neither, so `NByage0` and `NByageF` stayed 0 for every year
+  after the first and `SB0` was the initial cohort decaying away — on a five-age
+  fixture, 3.344 falling to 1.230 over six years instead of holding at 3.344.
+  `SB0` in the terminal year is the depletion reference HCR 5 and HCR 6 read, so
+  this inflated perceived depletion and the catch advice that follows from it.
+  The curve arm now applies whenever `srr_pred_fun` is a stock-recruit form.
+  Projection recruitment is unaffected — that switch is read separately, so a
+  mean-recruitment projection stays mean. No bundled dataset or golden reference
+  reaches the gap, because the default `srr_pred_fun` is mean recruitment.
+
+* **Ten writes to the male slot ran past the end of the sex dimension.** Arrays
+  carrying a sex are dimensioned by `max_sex`, the largest `nsex` over species,
+  so where *every* species is one-sex that dimension has length 1 and sex index
+  1 does not exist. The "males take `1 - sex_ratio`" half of each recruitment
+  and sex-ratio assignment wrote it unconditionally. The value is 0 — a one-sex
+  species has `sex_ratio` set to 1 first — but the index is out of range, and
+  the template is compiled without bounds checking, so it was a silent write
+  into the next age of the same species and year, surviving only because the
+  age loop overwrote it immediately. Reproduced on BS2017SS by compiling with
+  `safebounds = TRUE`, which raises Eigen's range assertion; guarded, the same
+  fit is clean at an unchanged objective. Affects BS2017SS and BS2017MS, and any
+  model whose species are all one-sex.
+
+* **`comp_data$Sex` was never checked against `nsex`.** `M1_base`, `weight` and
+  `ration_data` are all validated; composition was not. A joint row (`Sex = 3`)
+  on a one-sex species is the damaging case, because the two registries
+  disagree: `check_composition_data()` sizes it at `nages` while the template
+  writes it out to `nages * 2`, so the surplus landed in the next observation's
+  predicted composition and silently changed that observation's likelihood.
+  `Sex = 2` on a one-sex species is the same class — the template reads a sex
+  index that does not exist. Both are now refused with a message naming the
+  species. `Sex = 0` and `Sex = 1` are unaffected.
+
+* **`build_srr(proj_mean_rec =)` was documented backwards.** The roxygen said
+  0 = mean recruitment and 1 = the stock-recruit relationship; the template
+  reads 1 as mean recruitment and 0 as the relationship, and the argument
+  defaults to `TRUE`. Anyone who set it from the documentation got the opposite
+  of what they asked for. Corrected, with the reference-point behaviour stated.
+
 * **Recruitment at `minage > 1` read memory instead of spawning biomass.**
   Recruits arriving at age `minage` in year `yr` were spawned in `yr - minage`,
   so for the first `minage - 1` hindcast years the stock-recruit relationship

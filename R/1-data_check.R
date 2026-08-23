@@ -374,6 +374,24 @@ data_check <- function(data_list) {
     errors <- c(errors, "'weight' has more sexes than specified in 'nsex'")
   }
 
+  # comp_data Sex is an encoding (0 = combined, 1 = female, 2 = male, 3 = joint
+  # female and male), not a count, so it is checked by meaning rather than
+  # against max(Sex): a male-only or a joint row needs a second sex to exist.
+  # A joint row on a one-sex species is the damaging one -- the template writes
+  # that row out to 2 * nages while check_composition_data() requires only nages
+  # columns, so the surplus lands in the next observation's predicted
+  # composition and quietly changes its likelihood.
+  if(has_data(data_list$comp_data)){
+    bad_sex <- data_list$comp_data$Sex %in% c(2, 3) &
+      data_list$nsex[data_list$comp_data$Species] == 1
+    if(any(bad_sex, na.rm = TRUE)){
+      errors <- c(errors, paste0(
+        "'comp_data' has male-only or joint composition (Sex 2 or 3) for one-sex species ",
+        paste(sort(unique(data_list$comp_data$Species[bad_sex])), collapse = ", "),
+        ". Use Sex = 0 (combined) or set 'nsex' to 2 for those species."))
+    }
+  }
+
   # ration_data
   if(has_data(data_list$ration_data)){
     if(any(data_list$ration_data |>

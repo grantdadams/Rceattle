@@ -157,8 +157,20 @@ test_that("HCR 2's EM overfished threshold is the OM's own absolute rule", {
 test_that("run_mse() and mse_summary() still carry the rules these tests copy", {
   # The two tests above check arithmetic against a local copy, so pin the
   # originals: a copy that silently stops matching its source tests nothing.
-  mse   <- readLines(testthat::test_path("..", "..", "R", "10-run_mse.R"), warn = FALSE)
-  summ  <- readLines(testthat::test_path("..", "..", "R", "10-mse_summary.R"), warn = FALSE)
+  # Skipped where the sources are absent -- under R CMD check the tests run
+  # against the INSTALLED package, whose R/ holds Rceattle.rdb rather than the
+  # .R files, so reading them unguarded is an error rather than a check.
+  find_src <- function(f) {
+    p <- c(file.path("R", f), testthat::test_path("..", "..", "R", f))
+    p[file.exists(p)]
+  }
+  mse_p  <- find_src("10-run_mse.R")
+  summ_p <- find_src("10-mse_summary.R")
+  testthat::skip_if(length(mse_p) == 0 || length(summ_p) == 0,
+                    "R/ sources not available")
+
+  mse  <- readLines(mse_p[1],  warn = FALSE)
+  summ <- readLines(summ_p[1], warn = FALSE)
 
   expect_true(any(grepl("cap * new_catch_data$Catch[yr_ind] / yr_tot",
                         mse, fixed = TRUE)))
