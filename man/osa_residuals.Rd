@@ -217,6 +217,14 @@ uninformative; their \code{residual} standardises the observation against that
 same mean and is therefore biased positive.
 }
 
+\examples{
+\dontrun{
+data(BS2017SS)
+fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+osa <- osa_residuals(fit, source = c("index", "comp"))
+plot(osa)
+}
+}
 \references{
 Thygesen, U.H., et al. 2017. Validation of ecological state space models using
 the Laplace approximation. Environ. Ecol. Stat. 24:317-339.

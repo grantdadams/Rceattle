@@ -200,6 +200,13 @@
 #'   Sci. 82:1-13.
 #'
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
+#' @examples
+#' \dontrun{
+#' data(BS2017SS)
+#' fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+#' osa <- osa_residuals(fit, source = c("index", "comp"))
+#' plot(osa)
+#' }
 #' @export
 osa_residuals <- function(object = NULL,
                           source   = c("ecov", "index", "catch", "comp", "caal"),

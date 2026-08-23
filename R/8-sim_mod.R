@@ -785,6 +785,15 @@
 #'   alongside simulated ones. Restrict any recovery statistic to the
 #'   \code{_drawn} cells -- over the full array it reports perfect recovery on
 #'   the cells that were never redrawn.
+#' @examples
+#' \dontrun{
+#' data(BS2017SS)
+#' fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+#' # Expected values only -- no observation error drawn.
+#' sim_mod(fit)
+#' # One stochastic replicate, drawn from each fleet's own likelihood.
+#' sim_mod(fit, simulate = TRUE)
+#' }
 #' @export
 #'
 sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle = NULL) {

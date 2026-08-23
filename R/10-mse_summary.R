@@ -112,6 +112,15 @@
 #'   `"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
 #'   `attr(summ$species, "labels")`.
 #'
+#' @examples
+#' \dontrun{
+#' mse <- load_mse(dir = "mse_runs")
+#' s <- mse_summary(mse)
+#' s$species   # one row per species
+#' s$fleet     # one row per fleet
+#' s$total     # across the whole system
+#' s$meta      # nsim, nspp, nflts, HCR
+#' }
 #' @export
 #'
 mse_summary <- function(mse, om_only = FALSE){

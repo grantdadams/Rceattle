@@ -496,13 +496,14 @@ plot_timeseries <- function(Rceattle,
 
 # Ptarget / Plimit for the depletion plots.
 #
-# Read from the first model. plot_timeseries() previously collected these into a
-# models x species matrix and then subset it with the species indices, which
-# flattens column-major: on a two-model overlay whose models carry different
-# Ptarget, species 2's line was drawn from model 2's species 1. It went unseen
-# because models in one figure normally share their reference points, and then
-# every row of the matrix is identical. One horizontal line per panel can only
-# show one model's value, so say which: the first.
+# One horizontal line per panel can only show one model's value, so it reads the
+# first model, and the axis label says so.
+#
+# Take the value per model and index it directly. Collecting the models into a
+# models x species matrix and subsetting that with species indices flattens
+# column-major, so on an overlay whose models carry different Ptarget, species 2
+# is drawn from model 2's species 1. It is invisible whenever the models share
+# their reference points, which is the normal case.
 .depletion_reference_lines <- function(models, sp_sel) {
   .rce_ref_hlines(sp_sel, models[[1]]$data_list$Ptarget,
                   models[[1]]$data_list$Plimit)

@@ -90,3 +90,13 @@ names ending \code{_sim}. The estimates, the data and the objective function
 are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
 model is unaffected.
 }
+\examples{
+\dontrun{
+data(BS2017SS)
+fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+# Expected values only -- no observation error drawn.
+sim_mod(fit)
+# One stochastic replicate, drawn from each fleet's own likelihood.
+sim_mod(fit, simulate = TRUE)
+}
+}

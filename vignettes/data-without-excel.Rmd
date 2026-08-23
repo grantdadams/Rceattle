@@ -12,7 +12,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE,
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true"),
   fig.width = 7,
   fig.height = 5
 )
@@ -24,7 +24,7 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 - Generating inputs programmatically (e.g., multi-scenario loops or sensitivity analyses)
 - Integrating Rceattle into pipelines that don't use Excel
 
-Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
+Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result is validated by `build_data(.check = TRUE)` (the default) and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
 
 If you would rather start from a workbook than a list, `write_template()` writes a minimal, structurally complete single-species starter workbook on the current column names that you can open, edit, and read back with `read_data()`:
 
@@ -63,7 +63,7 @@ dat            # <Rceattle data>: dimensions -> fleets -> processes -> ...
 
 ### Which inputs does my model need?
 
-Rather than reading the table below by hand, ask `data_requirements()`: it reports, for a given configuration, which blocks are **Required**, **Optional** (used if supplied, otherwise default-filled), or **Ignored** (not consulted because the feature is off) — the exact conditions `data_check()` enforces at fit time.
+Rather than reading the table below by hand, ask `data_requirements()`: it reports, for a given configuration, which blocks are **Required**, **Optional** (used if supplied, otherwise default-filled), or **Ignored** (not consulted because the feature is off) — the exact conditions the fit-time validation enforces.
 
 ```{r}
 data_requirements(msmMode = 0)            # single-species: predation Ignored
@@ -487,7 +487,7 @@ M1 can also be estimated rather than fixed. See `?build_M1` for options includin
 
 An optional time series used in environment-recruitment, -M1, -catchability, or -growth relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
 
-Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and `data_check()` will only complain when a feature actually needs an index (env-q catchability, `Ceq[sp] > 1`, or any env linkage).
+Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and validation only complains when a feature actually needs an index (env-q catchability, `Ceq[sp] > 1`, or any env linkage).
 
 ```{r}
 simData$env_data <- data.frame(

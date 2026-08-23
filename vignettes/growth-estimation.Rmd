@@ -13,7 +13,7 @@ vignette: >
   comment = "#>",
   fig.width = 7,
   fig.height = 5,
-  eval = FALSE
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")
   )
 ```
   

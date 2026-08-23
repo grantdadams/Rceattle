@@ -71,6 +71,43 @@ test_that("schema-driven defaults fill the documented values", {
   expect_true(all(out$fleet_control$Index_distribution == "Lognormal"))
 })
 
+
+# A BLANK Selectivity_dimension cell is a different event from an absent column:
+# .rce_apply_default() fills only the latter. The blank fill is what keeps the
+# partial-assignment idiom working, but it also decides the fleet's selectivity
+# dimension, so on a model that estimates growth -- the case where "Length" was
+# plausibly meant -- it has to say which fleets it filled.
+test_that("a blank Selectivity_dimension takes the default, announced when growth is estimated", {
+  d <- BS2017SS
+  d$fleet_control$Selectivity_dimension <- NA_character_
+  d$fleet_control$Selectivity_dimension[1] <- "Length"
+
+  # growth_model == 0: filled, silently.
+  d0 <- d; d0$growth_model <- rep(0L, d0$nspp)
+  msgs0 <- capture_messages(out0 <- switch_check(d0))
+  expect_false(any(grepl("Selectivity_dimension", msgs0, fixed = TRUE)))
+  expect_equal(out0$fleet_control$Selectivity_dimension[1], "Length")
+  expect_true(all(out0$fleet_control$Selectivity_dimension[-1] == "Age"))
+
+  # growth_model > 0: same fill, but named.
+  d1 <- d; d1$growth_model <- rep(1L, d1$nspp)
+  msgs1 <- capture_messages(out1 <- switch_check(d1))
+  hit <- grep("'Selectivity_dimension' is blank for fleet\\(s\\)", msgs1, value = TRUE)
+  expect_length(hit, 1)
+  expect_true(grepl("assuming 'Age'", hit, fixed = TRUE))
+  # Exactly the blank fleets are named -- split the list rather than
+  # substring-match, or "Pollock" is satisfied by "BT_Pollock".
+  named <- trimws(strsplit(
+    sub("^.*fleet\\(s\\) (.*) in 'fleet_control'.*$", "\\1", hit), ",", fixed = TRUE)[[1]])
+  expect_setequal(named, d1$fleet_control$Fleet_name[-1])
+  expect_equal(out1$fleet_control$Selectivity_dimension[1], "Length")
+
+  # No blanks -> no message, whatever growth is doing.
+  d2 <- d1; d2$fleet_control$Selectivity_dimension <- "Age"
+  msgs2 <- capture_messages(switch_check(d2))
+  expect_false(any(grepl("is blank for fleet", msgs2, fixed = TRUE)))
+})
+
 test_that("default messages fire for ungated messaged columns and stay silent otherwise", {
   d <- BS2017SS   # single-species, no estimated growth, no CAAL data
   for (col in c("Selectivity_dimension", "Comp_distribution", "Month",

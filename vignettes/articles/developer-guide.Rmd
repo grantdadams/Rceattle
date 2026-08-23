@@ -6,7 +6,7 @@ title: "Developer guide"
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")
 )
 ```
 

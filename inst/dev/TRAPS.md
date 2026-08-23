@@ -117,11 +117,17 @@ a draw.** Three rules, with their reasons:
 3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
    stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
 
-## The open `nages` defect in three predation plotters
+## The `nages` age-vs-index class, and what closes it
 
-`plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` index the age array
-directly while labelling the axis with an age. Silent on every bundled dataset and all three live
-assessments, because all have `minage = 1`. Wrong on the next `minage != 1` species.
+`plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` once indexed the
+age array directly while labelling the axis with an age. They now resolve the argument per
+species through `.rce_age_index()` / `.rce_age_plus_index()`.
+
+The class is closed by fixtures, not by those three fixes. `test-plot-predation-args.R` shifts a
+fitted model to `minage = 2` and requires `age = 2` to draw what `age = 1` drew before;
+`test-plot-smoke.R` runs the rest of the exported plotters against a `minage = 3` model. Without
+a `minage != 1` fixture the whole suite passes on a bin index read as an age, because every
+bundled dataset and all three live assessments have `minage = 1`.
 
 ## Coverage gaps in the golden check
 

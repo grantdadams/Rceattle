@@ -126,3 +126,57 @@ testthat::test_that("plot_indexresidual honours incl_proj", {
     testthat::expect_true(any(yrs_of(ss, incl_proj = TRUE) > ss$data_list$endyr))
   })
 })
+
+
+# --- the whole family at minage != 1 ------------------------------------------
+# `nages` is a COUNT of age bins, not the oldest age: ages run
+# minage .. minage + nages - 1, and the array's 3rd dimension is a 1-based bin
+# index, so age `a` sits at index `a - minage + 1`. Every bundled dataset and
+# all three live assessments have minage = 1, which makes the two coincide -- so
+# a bin index read as an age passes every other test in this suite and every
+# real model, and only surfaces on the next minage != 1 species.
+#
+# test-plot-predation-args.R pins the five predation plotters against that
+# specifically. This sweeps the REST of the exported family, so the class is
+# closed rather than the five instances: a plotter that indexes an age array
+# directly will either error or silently mislabel here.
+testthat::test_that("every exported plotter runs on a minage != 1 model", {
+  testthat::skip_if_not_installed("TMB")
+
+  data("BS2017SS")
+  dat <- BS2017SS
+  dat$minage <- rep(3L, dat$nspp)   # ages 3 .. 3 + nages - 1
+
+  fit <- suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = dat, estimateMode = 3, msmMode = 0,
+                      fit_control = Rceattle::fit_control(verbose = 0))))
+
+  testthat::expect_equal(unique(fit$data_list$minage), 3L)
+
+  plotters <- c("plot_biomass", "plot_ssb", "plot_recruitment", "plot_depletion",
+                "plot_exploitable_biomass", "plot_index", "plot_catch", "plot_f",
+                "plot_selectivity", "plot_maturity", "plot_mortality",
+                "plot_stock_recruit", "plot_comp", "plot_data",
+                "plot_indexresidual", "plot_catchresidual", "plot_sel_vs_mat")
+
+  failed <- character(0)
+  ran <- 0L
+  with_null_device({
+    for (fn in plotters) {
+      if (!exists(fn, envir = asNamespace("Rceattle"))) next
+      f <- get(fn, envir = asNamespace("Rceattle"))
+      ran <- ran + 1L
+      tryCatch({
+        p <- suppressMessages(suppressWarnings(f(fit)))
+        # A ggplot that assembles but cannot build is not a pass.
+        if (inherits(p, "ggplot")) invisible(ggplot2::ggplot_build(p))
+      }, error = function(e) {
+        failed <<- c(failed, paste0(fn, "(): ", conditionMessage(e)))
+      })
+    }
+  })
+
+  # Guard against the whole loop silently skipping.
+  testthat::expect_gt(ran, 10L)
+  testthat::expect_equal(failed, character(0))
+})

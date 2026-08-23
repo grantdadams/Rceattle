@@ -30,3 +30,11 @@ an Rceattle object with derived quantities weighted by the specified weights. Th
 \description{
 Model average of derived quantities
 }
+\examples{
+\dontrun{
+# Equal weights across two candidate models.
+model_average(list(fit1, fit2), weights = c(1, 1))
+# Weighted by AIC, with bootstrapped uncertainty.
+model_average(list(fit1, fit2), weights = c(0.7, 0.3), uncertainty = TRUE)
+}
+}

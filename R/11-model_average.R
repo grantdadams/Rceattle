@@ -8,6 +8,13 @@
 #' @param nboot Number of bootstraps taken from asymptotic distribution of MLEs. Default = 10000
 #'
 #' @return an Rceattle object with derived quantities weighted by the specified weights. The length of the derived quantities spans the years which overlap across all models.
+#' @examples
+#' \dontrun{
+#' # Equal weights across two candidate models.
+#' model_average(list(fit1, fit2), weights = c(1, 1))
+#' # Weighted by AIC, with bootstrapped uncertainty.
+#' model_average(list(fit1, fit2), weights = c(0.7, 0.3), uncertainty = TRUE)
+#' }
 #' @export
 #'
 model_average <- function(object = NULL, weights = NULL, uncertainty = FALSE, nboot = 10000, Rceattle = NULL){

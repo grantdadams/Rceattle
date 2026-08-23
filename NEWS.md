@@ -11,6 +11,122 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.12.0
+
+## Breaking changes
+
+* **Three `fleet_control` columns are now validated: `Selectivity_dimension`,
+  `Sel_shape_dir` and `Sel_shape_mode`.** A typo in any of them previously
+  resolved to `NA` rather than erroring -- `Selectivity_dimension` became a
+  missing selectivity dimension, the two `Sel_shape_*` columns a missing penalty
+  mode -- and nothing downstream re-checked it, so the model fitted and reported
+  a number on an input nobody had accepted. A workbook carrying an invalid value
+  will now refuse to load.
+
+  Each column is checked against exactly what its consumer implements, so no
+  working spelling is refused: `Sel_shape_mode` accepts `"Smooth"`, `"smooth"`
+  and `1`; `Sel_shape_dir` accepts `"Increasing"`, `"increasing"` and `"-1"`
+  (the ADMB sign convention). `Selectivity_dimension` accepts only `"Age"` and
+  `"Length"`, because those are the only values `rearrange_data()` matches -- an
+  integer there produced `NA` and reached the template as a missing dimension.
+
+  A blank `Selectivity_dimension` cell takes the schema default (`"Age"`) rather
+  than erroring, so the partial-assignment idiom
+  (`fleet_control$Selectivity_dimension[i] <- "Length"`) keeps working. On a
+  model that estimates growth -- where `"Length"` was plausibly meant -- the fill
+  now names the fleets it applied to instead of happening silently. **This can
+  move a fit** on a model that carried blanks: those fleets previously reached
+  the template as a missing dimension, which sizes selectivity by `nlengths`
+  rather than `nages`, and so changes a max-normalized curve. No bundled dataset
+  or golden model is affected -- none carries the column at all.
+
+  This was pre-flighted rather than assumed: a report-only pass over every
+  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and not
+  one value the new check rejects.
+
+* **`write_data()` writes `fleet_control` in schema column order**, as the
+  control and bioenergetics sheets already did. Values are unchanged and
+  round-tripping is identical; only the column order in the workbook moves.
+
+## Bug fixes
+
+* **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
+  `validate_switches()` rejected it**, so a model written that way loaded, was
+  normalised to nothing, and then failed its own data check. It is now upgraded
+  to `"NonParametric"` on the way in.
+
+## New features
+
+* **`write_template()` writes every column the schema defines.** The
+  hand-written list had fallen 14 columns behind, and a column missing from the
+  template is how a user never learns an option exists. The penalty weights
+  `Sel_curve_pen1/2/3` are deliberately left blank rather than seeded with their
+  schema default of 0: `switch_check()` converts `Sel_shape_sd` /
+  `Sel_curvature_sd` / `Sel_devmag_sd` into a weight only where the raw weight
+  is still blank, so a seeded 0 would silently disable that interface and leave
+  a non-parametric fit with no shape penalty at all.
+
+* **The model-level switches have one table**, `.rce_model_switch_schema()`, and
+  the comments `save_config()` writes are projected from it. `estimateMode`'s
+  `DebugOptimize` was a real mode the comments never mentioned, and `msmMode`
+  was described in prose naming none of its canonical values. Each comment now
+  gives the integer code beside the readable name
+  (`SingleSpecies (0) / MSVPA (1) / TypeIIIMSVPA (2)`), since a saved config
+  writes the switch as the number.
+
+# Rceattle 5.11.1
+
+## Documentation
+
+* **The vignettes can now be executed.** They still render without running their
+  code by default -- several chunks fit real models -- but
+  `RCEATTLE_EVAL_VIGNETTES=true` turns evaluation on, and a new weekly
+  `vignettes.yaml` CI job runs them for real. Nothing executed them before, so an
+  API break in a vignette was invisible until a user copied the code. That is how
+  `hcrs-and-mses.Rmd` kept calling `knitr::kable()` on `mse_summary()` for several
+  releases after it started returning a list; that code is fixed, and the
+  per-entity structure (`$species`, `$fleet`, `$total`, `$meta`) is now explained.
+
+* **The switch tables document every value the model accepts.** `Selectivity`
+  stopped at 7, omitting `DoubleNormal` (8), `NonParametricPM` (9) and
+  `LogisticPM` (11); `Catchability` stopped at 6, omitting `AnalyticalArith` (7).
+  `PowerEquation` is now marked as not implemented, and the 5.8.1 deprecation of
+  `"Environmental"` (deprecated in 4.9.0) is recorded with the linkage that replaces it.
+
+* **`Index_distribution` is documented.** It had no vignette coverage at all,
+  despite deciding whether an index is scored on the log or the natural scale --
+  and despite a second, hand-synced registry (`.index_rows_natural_scale()`) that
+  a new natural-scale family must also be added to, or it silently gets the
+  log-scale residual formula.
+
+* `reweight_comps(fleets =)` is documented, as is the log scale `Comp_weights`
+  takes under a Dirichlet-multinomial. `fit_mod()`'s `initMode` moves from an
+  849-character `@param` into an **Initial age structure** section, and
+  `suitMode` / `avgnMode` now say "declared but not implemented" in one voice
+  rather than three. Examples added to `build_srr()`, `build_hcr()`,
+  `mse_summary()`, `sim_mod()`, `model_average()`, `osa_residuals()` and
+  `run_mse()`.
+
+* The vignettes and `build_data()`'s help no longer tell users to call
+  `data_check()`, which is internal; they point at `build_data(.check = TRUE)`.
+
+## Internal
+
+* **The C++ dispatch branches are pinned to the R maps that select them**
+  (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
+  inventory of what is implemented in the template but unreachable from R
+  (non-parametric growth; `msmMode` 3-9) and what R can encode but the dispatch
+  never sees. The schema's `tmb_target` field, previously set on no rows, now
+  carries the rename for 27 columns and is checked against both ends of it.
+
+* `R/data.R`'s field dictionary is pinned against the switch maps: a documented
+  code the map does not define, or a map value the dictionary omits, now fails.
+  It also may no longer present a deprecated alias as a canonical column.
+
+* `.rce_config_schema()` reads `estimateMode_map` and `msmMode_map` instead of
+  hardcoding them, so the comments `save_config()` writes list every valid value.
+  `estimateMode` was missing `DebugOptimize`.
+
 # Rceattle 5.11.0
 
 ## New features
@@ -99,7 +215,9 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 ## Deprecations
 
 * `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
-  above. Accepted silently now, warning from 5.12.0, removed in 6.0.0.
+  above. Accepted silently now, warning from 5.13.0, removed in 6.0.0. (5.11.0 and
+  5.12.0 are both unreleased on this line, so the silent grace period has not
+  yet reached a user; the warning moves with it.)
 * `rearrange_dat()` now names its removal version (6.0.0) rather than
   deprecating open-endedly. Use `rearrange_data()`.
 

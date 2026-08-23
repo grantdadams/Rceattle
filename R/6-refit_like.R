@@ -179,7 +179,7 @@
 #' `DATA_SCALAR` and uses them as a plain multiplier on the correction
 #' (`bias_adjust_obs * sigma^2 / 2`), so a fractional value is a partial
 #' bias-adjustment ramp, not a malformed flag -- `as.logical()` would quantize
-#' 0.5 up to 1 and reintroduce a smaller version of the bug this recovers from.
+#' 0.5 up to 1 and apply a full bias correction where a half one was configured.
 #' `DATA_SCALAR` also means a vector would fail in `MakeADFun`, so taking the
 #' first element cannot silently pick the wrong one.
 #'

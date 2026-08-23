@@ -51,13 +51,13 @@ suggestion, so a typo is caught here rather than surfacing much later in a
 fit. Legacy top-level names (\code{fsh_biom}, \code{srv_biom}, \code{wt}, \code{pmature}, \code{Pyrs})
 are mapped to their canonical equivalents.
 
-Full validation runs at fit time in \code{\link[=data_check]{data_check()}}. \code{build_data()} runs only
+Full validation runs at fit time, inside \code{fit_mod()}. \code{build_data()} runs only
 a light presence pre-check (\code{.check = TRUE}) so a missing \emph{required} block is
 reported at construction with a clear message. The pre-check reads an attached
 \code{\link[=model_config]{model_config()}}, so a configuration carried on the object is accounted for.
 Requirements that depend on fit-time settings passed directly to \code{\link[=fit_mod]{fit_mod()}}
 and stored nowhere on the data list are not knowable here and are left to
-\code{\link[=data_check]{data_check()}}; see \code{\link[=data_requirements]{data_requirements()}} to preview them.
+that fit-time validation; see \code{\link[=data_requirements]{data_requirements()}} to preview them.
 }
 \examples{
 # Copy-and-edit a bundled dataset.
@@ -67,6 +67,6 @@ dat <- build_data(base = BS2017SS, projyr = 2060)
 data_requirements(msmMode = 0)
 }
 \seealso{
-\code{\link[=read_data]{read_data()}}, \code{\link[=clean_data]{clean_data()}}, \code{\link[=data_requirements]{data_requirements()}}, \code{\link[=data_check]{data_check()}},
+\code{\link[=read_data]{read_data()}}, \code{\link[=clean_data]{clean_data()}}, \code{\link[=data_requirements]{data_requirements()}},
 \code{\link[=combine_data]{combine_data()}}, \code{\link[=fit_mod]{fit_mod()}}.
 }
