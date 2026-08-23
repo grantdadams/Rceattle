@@ -1,6 +1,6 @@
 # Cleanup backlog
 
-The 81 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
+The 79 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
 
 **Cite the marker text, not a line number.** These references have gone stale three times --
@@ -11,8 +11,10 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-Counts by area: `src/TMB/ceattle.cpp` 29 · `R/3-build_map.R` 7 · `src/TMB/predation.hpp` 5 ·
-`R/10-run_mse.R` 5 · `R/9-retro_and_jitter.R` 4 · `R/5-rearrange_data.R` 4 · rest singletons.
+Counts by area: `src/TMB/ceattle.cpp` 29 · `src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 ·
+`R/3-build_map.R` 5 · `R/10-run_mse.R` 5 · `R/9-retro_and_jitter.R` 4 · `R/5-rearrange_data.R` 4 ·
+rest singletons. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
+variable in `R/6-process_residuals.R`.
 
 ---
 
@@ -28,7 +30,7 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 | `R/10-mse_summary.R` (`will bug if not survey`) | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
 | ~~`R/3-build_map.R` (`QAR1 is inert`)~~ | ~~**`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024)~~ | **Resolved in 5.12.0**: `data_check()` now errors on it, so the branch is unreachable. It was inert — the deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode, so `index_q_dev` stayed mapped out and q was constant. Not repaired: the Rogers form is implemented correctly by a q linkage (`ar1(1 \| Year)` with `observe`), which GOA pollock 2025 runs. Remaining cleanup is to delete the dead branch and code 6 from `q_map`. These are two different switches sharing a string; an earlier draft of this file named the wrong one. |
 | `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. The catch-sigma case of this shape was fixed in 5.12.0; this one remains. |
-| `R/3-build_map.R` (`will fail if random_sel = TRUE?`) | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
+| ~~`R/3-build_map.R` (`will fail if random_sel = TRUE?`)~~ | ~~`random_sel = TRUE` + `Time_varying_sel = "Block"`~~ | **Resolved in 5.13.0**: confirmed real, and worse than "will fail". The block parameters live in `log_sel_slp_dev`/`sel_inf_dev`, and `fit_mod()` declared those arrays random unconditionally — but the template scores selectivity deviates only for `IID`/`AR1`/`RandomWalk`/`RandomWalkAscending`, so blocks were Laplace-integrated against **no density**, `sel_dev_log_sd` mapped out so there was no variance either. Measured: 8 parameters random, `JNLL_SEL_DEV` identically 0, objective `NaN`, real fit dead with TMB's `NA/NaN gradient evaluation`. Now refused with a message naming the fleets and the way out. `test-selectivity-random-sel-block.R` carries the reproduction and a drift guard pinning `Block` as the only mode the template leaves unscored. |
 | `R/6-fit_mod.R` (`swallows EVERY warning build_map() raises`) | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
 | `R/10-mse_summary.R` (`EM uses fixed-depletion proxy for HCR 2`) | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
 | `src/TMB/ceattle.cpp` (`dmultinom_osa` renormalization note) | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |

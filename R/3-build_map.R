@@ -560,6 +560,36 @@ build_map_predation <- function(map_list, data_list) {
   return(map_list)
 }
 
+#' Fleets whose selectivity deviates are estimated but carry no density
+#'
+#' `Time_varying_sel = "Block"` estimates one deviate per block and the template
+#' scores none of them -- a block is a fixed effect, and "time blocks with no
+#' penalty" is what the switch means. Every other time-varying mode that
+#' estimates a deviate also defines a term for it, so this is the one
+#' configuration that has nothing to integrate against. `fit_mod()` reads this
+#' to refuse `random_sel = TRUE` on such a fleet.
+#'
+#' @param fleet_control The `fleet_control` table, with canonical switch strings.
+#' @param map_list The `$mapList` from [build_map()]; NA marks a fixed element.
+#' @return The `Fleet_code`s affected, `integer(0)` when there are none.
+#' @noRd
+.rce_unscored_sel_dev_fleets <- function(fleet_control, map_list) {
+  tv <- fleet_control$Time_varying_sel
+  cand <- fleet_control$Fleet_code[fleet_control$Fleet_type != "Off" &
+                                     !is.na(tv) & tv == "Block"]
+  if (!length(cand)) return(integer(0))
+
+  # A Block fleet only matters if build_map() actually turned its deviates on --
+  # with no Selectivity_block column the Block arm is skipped and the fleet is
+  # time-invariant.
+  estimated <- vapply(cand, function(flt) {
+    any(!is.na(map_list$log_sel_slp_dev[, flt, , , drop = FALSE])) ||
+      any(!is.na(map_list$sel_inf_dev[, flt, , , drop = FALSE]))
+  }, logical(1))
+
+  cand[estimated]
+}
+
 #' @title Helper to set map for Selectivity parameters
 #'
 #' @description Maps base selectivity parameters (\code{log_sel_slp}, \code{sel_inf},
@@ -688,8 +718,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
 
-            # Turn off main parameters
-            #FIXME will fail if random_sel = TRUE?
+            # Turn off main parameters: under blocks each block carries its own
+            # slope and inflection, so the mean they would deviate from is not
+            # separately identified. The block parameters are therefore fixed
+            # effects with no penalty, which is why fit_mod() refuses to
+            # integrate them out (see .rce_unscored_sel_dev_fleets()).
             map_list$log_sel_slp[1, flt, sex] <- NA
             map_list$sel_inf[1, flt, sex] <- NA
           }

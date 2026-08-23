@@ -730,6 +730,31 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
+      # Selectivity deviates are integrated out only where the template scores
+      # them. The densities on log_sel_slp_dev / sel_inf_dev are gated on
+      # Time_varying_sel being IID, AR1, RandomWalk or RandomWalkAscending
+      # (ceattle.cpp, JNLL_SEL_DEV). "Block" is deliberately unscored -- one
+      # fixed parameter per block, no penalty -- and sel_dev_log_sd is mapped
+      # out for it too, so there is not even a variance to estimate. Integrating
+      # a flat block against nothing is an improper random effect: the marginal
+      # objective is NaN, and TMB reports it as "NA/NaN gradient evaluation",
+      # which names neither selectivity nor random_sel.
+      blocked <- .rce_unscored_sel_dev_fleets(data_list$fleet_control, map$mapList)
+      if (length(blocked)) {
+        stop("Cannot use `random_sel = TRUE` with `Time_varying_sel = \"Block\"` ",
+             "on fleet(s) ", paste(blocked, collapse = ", "), ". Selectivity ",
+             "blocks are fixed effects carrying no penalty, so there is no ",
+             "density to integrate them against. Either set ",
+             "`Time_varying_sel` to \"IID\" or \"RandomWalk\" on those fleets, ",
+             "or fit with `random_sel = FALSE` (blocks are then estimated as ",
+             "the fixed effects they are).")
+      }
+
+      # Listed whether or not the maps are empty. TMB drops a fully-mapped name
+      # itself, but TMBphase() reads `length(random) > 0` to decide whether to
+      # pin the RE variance hyperparameters in every phase (see the note above),
+      # so dropping an empty array here would change a phased fit rather than
+      # tidy it.
       random_vars <- c(random_vars, "log_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
     if (sum(data_list$M1_re) > 0) {

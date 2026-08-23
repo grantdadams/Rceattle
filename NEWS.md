@@ -11,6 +11,29 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.13.0
+
+## Bug fixes
+
+* **`random_sel = TRUE` is now refused on a fleet with `Time_varying_sel =
+  "Block"`,** instead of producing a NaN objective. Selectivity blocks are
+  fixed effects -- one slope and inflection per block, with no penalty, which
+  is what the switch means -- so `build_map()` maps the block parameters into
+  `log_sel_slp_dev` / `sel_inf_dev` and turns the main parameters off.
+  `fit_mod()` then added those arrays to TMB's `random` unconditionally, but
+  the template scores selectivity deviates only under `"IID"`, `"AR1"`,
+  `"RandomWalk"` and `"RandomWalkAscending"`. The block parameters were
+  therefore integrated against no density at all, with `sel_dev_log_sd` mapped
+  out so there was no variance to estimate either. The marginal objective came
+  back `NaN` and the fit died with TMB's `NA/NaN gradient evaluation`, which
+  names neither selectivity nor `random_sel`. The error now says which fleets
+  and what to change.
+
+  No bundled dataset or reference model reaches this -- `BS2017SS` and
+  `BS2017MS` set `Time_varying_sel` to `"Off"` throughout, `GOA2018SS` to
+  `"Off"` and `"RandomWalkAscending"` -- and no fit that works today changes.
+  `"Block"` remains fully supported with `random_sel = FALSE`.
+
 # Rceattle 5.12.0
 
 ## Breaking changes
