@@ -5,21 +5,25 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-Branch `api-names-docs-and-guards`, targeting `dev`. Base was 5.10.0; the branch is at **5.12.0**.
-It carries Stages 0-6 of the Claude-readiness plan in seven commits:
+**Four stacked PRs are pushed and ready to open**, each a strict prefix of the next, all four on
+`dev`. Open and merge them in order; each is independently reviewable and its own CI runs.
 
-| Stage | What | Version |
-|---|---|---|
-| 6 | the diagnostics take the fitted model as `object`; DM weight-scale report; `fit_control=` on the refit diagnostics | 5.11.0 |
-| 0 | `.claude/` shared; CLAUDE.md restructured into 14 numbered hard rules; `inst/dev/` created | — |
-| 1 | drift guards: C++ dispatch vs the R maps, `tmb_target`, the registries, vignette API | — |
-| 2 | vignettes executable behind an env var + weekly CI; switch tables completed; comment sweep | 5.11.1 |
-| 3-4 | schema authoritative for allowed values; three unvalidated columns now error; `write_template()` schema-derived | 5.12.0 |
-| 5 | `.rce_model_switch_schema()`; `.rce_config_schema()` projects from it | — |
-| — | fixes for everything the two adversarial reviews found (16 findings) | 5.12.0 |
+| Branch | Commits | Contents | Can it move a number? |
+|---|---|---|---|
+| `pr1-api-tooling-and-guards` | 8 | Stage 6 `object=` API, Stage 0 Claude tooling + CLAUDE.md, Stage 1 drift guards | **No** — and it carries the guards the rest rely on, so merge it first |
+| `pr2-schema-authority` | +5 | Stage 2 docs, Stage 3 schema authority, Stage 4/5, both adversarial-review rounds | **Yes — this is the one that can refuse a workbook** |
+| `pr3-schema-order-and-qar1` | +2 | fleet_control column order, `flt_sel_ind` removal, QAR1 deprecation | changes workbook layout only |
+| `pr4-analytical-catch-sigma` | +1 | `Estimate_catch_sd = "Analytical"` implemented in the template | new capability; golden bit-identical |
 
-The plan calls for this to land as **three PRs by risk tier** (0-2 + 6 cannot move a number;
-3 + the figure work can; 4-5 can). It is currently one branch; splitting it is the next step.
+`api-object-argument` is the old integration branch, at the same commit as `pr3`. It can be
+deleted once the four are open.
+
+**The single thing to read closely in pr2** is the three-column hard error
+(`Selectivity_dimension`, `Sel_shape_dir`, `Sel_shape_mode`). It is the only change in the whole
+series that can refuse a workbook that previously loaded. It was pre-flighted over every workbook
+in the ecosystem -- 196 with a `fleet_control` sheet, **zero** rejected -- and each column is
+validated against exactly the spellings its consumer implements, so no working input is refused.
+It could not be split out of pr2 without hunk surgery on two schema files.
 
 ## Done & verified
 
@@ -82,8 +86,10 @@ Nothing.
 
 ## Resume here
 
-Split the branch into the three PRs, or open it as one if that is preferred. Then work the
-`inst/dev/CLEANUP_BACKLOG.md` Tier 0 list into issues.
+Open the four PRs above, in order. Then work `inst/dev/CLEANUP_BACKLOG.md` using
+`inst/dev/BACKLOG-PLAN.md`, which sequences it by who is exposed rather than by tier label and
+says what covers each item -- the short version being that `/golden-check` will be green through
+almost all of it, because none of the four reference models reaches these inputs.
 
 Queued and not started: `inst/dev/CONTRIBUTOR-EXPERIENCE.md` — making the codebase navigable to
 a fisheries scientist, drawn from a review of FIMS. **Item 0 comes first and is a conversation,

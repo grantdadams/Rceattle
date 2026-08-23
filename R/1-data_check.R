@@ -1040,6 +1040,51 @@ data_check <- function(data_list) {
     }
   }
 
+  # An analytical sd is concentrated out of the likelihood, so it is defined
+  # only where there are fitted residuals to concentrate. A fleet that carries
+  # observation rows but none inside the fitted window (or none positive) has
+  # no residuals: the sd falls through as 0, which the likelihood never reads
+  # but the reported sd and the simulation draw both do -- rnorm(mean, 0) is a
+  # deterministic observation that sim_mod() would write back as data. Refuse
+  # it here rather than let a zero sd reach a fit.
+  .analytical_needs_rows <- function(switch_col, data_name, obs_col, label,
+                                     fishery_only = FALSE) {
+    if (!has_data(fc) || !switch_col %in% colnames(fc)) return(character(0))
+    dat <- data_list[[data_name]]
+    if (!has_data(dat) || !all(c("Fleet_code", "Year", obs_col) %in% colnames(dat))) {
+      return(character(0))
+    }
+    # A missing endyr is its own error, reported above; don't chain off it.
+    if (length(data_list$endyr) != 1 || is.na(data_list$endyr)) return(character(0))
+    on <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+    # The catch estimator counts fishery rows only, so a non-fishery fleet's
+    # catch rows are outside its predicate and are not what this checks.
+    if (fishery_only) on <- on & fc$Fleet_type %in% c("Fishery", 1, "1")
+    ana <- fc[[switch_col]] %in% c("Analytical", 2, "2")
+    obs <- suppressWarnings(as.numeric(dat[[obs_col]]))
+    yr  <- suppressWarnings(as.numeric(dat$Year))
+    bad <- character(0)
+    for (i in which(ana & on)) {
+      rows <- which(dat$Fleet_code == fc$Fleet_code[i])
+      if (!length(rows)) next          # no rows at all: the sd is never read
+      fitted <- rows[!is.na(yr[rows]) & yr[rows] > 0 & yr[rows] <= data_list$endyr &
+                       !is.na(obs[rows]) & obs[rows] > 0]
+      if (!length(fitted)) bad <- c(bad, as.character(fc$Fleet_name[i]))
+    }
+    if (!length(bad)) return(character(0))
+    paste0("Fleet(s) ", paste(bad, collapse = ", "), " set ", switch_col,
+           " = 'Analytical' but have no fitted ", label, " observation -- every ",
+           "row is outside the hindcast (Year > endyr, or a negative Year) or is ",
+           "not positive. The analytical sd is the sd that minimises the ",
+           "likelihood over those residuals, so with none it is undefined. Supply ",
+           "observations inside the hindcast, or set ", switch_col,
+           " = 'Fixed' or 'Estimated'.")
+  }
+  errors <- c(errors,
+              .analytical_needs_rows("Estimate_index_sd", "index_data", "Observation", "index"),
+              .analytical_needs_rows("Estimate_catch_sd", "catch_data", "Catch", "catch",
+                                     fishery_only = TRUE))
+
   if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
     mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))
     for(flt in mvn_flts){

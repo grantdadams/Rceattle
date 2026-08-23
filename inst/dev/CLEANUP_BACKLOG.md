@@ -1,7 +1,11 @@
 # Cleanup backlog
 
-The 74 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
+The 81 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
+
+**Cite the marker text, not a line number.** These references have gone stale three times --
+twice when roxygen was added above them, once from an unrelated `ceattle.cpp` edit. Grep for the
+quoted FIXME text instead; it moves with the code.
 
 Three tiers: a **known defect** is a wrong answer waiting for the right input and should become a
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
@@ -18,17 +22,16 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 
 | Where | Condition | Consequence |
 |---|---|---|
-| `src/TMB/ceattle.cpp:1943` | `minage > 1` | "will bomb". Same class as the `nages`-is-a-count trap, but in the **template** rather than the plotters — the R-side plotting instances are fixed and fixture-covered; this one is not. Every bundled dataset and all three live assessments have `minage = 1`, so nothing exercises it. |
-| `src/TMB/ceattle.cpp:641` | `nlengths < nages` | "will blow up" in the composition block. |
-| `R/10-run_mse.R:556` | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
-| `R/10-mse_summary.R:458` | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
-| ~~`R/3-build_map.R:1181`~~ | ~~**`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024)~~ | **Resolved in 5.12.0**: `data_check()` now errors on it, so the branch is unreachable. It was inert — the deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode, so `index_q_dev` stayed mapped out and q was constant. Not repaired: the Rogers form is implemented correctly by a q linkage (`ar1(1 \| Year)` with `observe`), which GOA pollock 2025 runs. Remaining cleanup is to delete the dead branch and code 6 from `q_map`. These are two different switches sharing a string; an earlier draft of this file named the wrong one. |
-| `src/TMB/ceattle.cpp:3321` | `Estimate_catch_sd = "Analytical"` (2) | The catch-sigma dispatch has **only `case 0:` and `case 1:`**, so a setting the schema documents, `validate_switches()` accepts and `build_map()` treats as real dies inside the template with `Invalid 'Estimate_sigma_catch'`. `est_sigma_index` implements case 2; this does not. Pinned as a known gap in `test-schema-cpp-dispatch.R`. |
-| `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. |
-| `R/3-build_map.R:692` | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
-| `R/6-fit_mod.R:658` | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
-| `R/10-mse_summary.R:494` | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
-| `src/TMB/ceattle.cpp:3401` | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |
+| `src/TMB/ceattle.cpp` (`will bomb if minage > 1`) | `minage > 1` | "will bomb". Same class as the `nages`-is-a-count trap, but in the **template** rather than the plotters — the R-side plotting instances are fixed and fixture-covered; this one is not. Every bundled dataset and all three live assessments have `minage = 1`, so nothing exercises it. |
+| `src/TMB/ceattle.cpp` (`will blow up if nlengths is less than nages`) | `nlengths < nages` | "will blow up" in the composition block. |
+| `R/10-run_mse.R` (`does not work for assessments that don't occur annually`) | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
+| `R/10-mse_summary.R` (`will bug if not survey`) | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
+| ~~`R/3-build_map.R` (`QAR1 is inert`)~~ | ~~**`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024)~~ | **Resolved in 5.12.0**: `data_check()` now errors on it, so the branch is unreachable. It was inert — the deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode, so `index_q_dev` stayed mapped out and q was constant. Not repaired: the Rogers form is implemented correctly by a q linkage (`ar1(1 \| Year)` with `observe`), which GOA pollock 2025 runs. Remaining cleanup is to delete the dead branch and code 6 from `q_map`. These are two different switches sharing a string; an earlier draft of this file named the wrong one. |
+| `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. The catch-sigma case of this shape was fixed in 5.12.0; this one remains. |
+| `R/3-build_map.R` (`will fail if random_sel = TRUE?`) | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
+| `R/6-fit_mod.R` (`swallows EVERY warning build_map() raises`) | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
+| `R/10-mse_summary.R` (`EM uses fixed-depletion proxy for HCR 2`) | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
+| `src/TMB/ceattle.cpp` (`dmultinom_osa` renormalization note) | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |
 
 ## Tier 1 — stated limitations, currently by design
 
