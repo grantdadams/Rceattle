@@ -1,6 +1,6 @@
 # Cleanup backlog
 
-The 74 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
+The 81 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
 
 **Cite the marker text, not a line number.** These references have gone stale three times --
@@ -24,13 +24,13 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 |---|---|---|
 | `src/TMB/ceattle.cpp` (`will bomb if minage > 1`) | `minage > 1` | "will bomb". Same class as the `nages`-is-a-count trap, but in the **template** rather than the plotters — the R-side plotting instances are fixed and fixture-covered; this one is not. Every bundled dataset and all three live assessments have `minage = 1`, so nothing exercises it. |
 | `src/TMB/ceattle.cpp` (`will blow up if nlengths is less than nages`) | `nlengths < nages` | "will blow up" in the composition block. |
-| `R/10-run_mse.R:556` | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
-| `R/10-mse_summary.R:458` | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
-| `R/3-build_map.R:1181` | **`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024) | **QAR1 is inert** — DEPRECATED in 5.12.0 with a warning at fit time; still unfixed. The deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode. It never matches, `index_q_dev` stays mapped out, and q is constant. These are two different switches sharing a string; the source comment says so explicitly, and an earlier draft of this file named the wrong one. |
-| `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. | The catch-sigma case of this shape was fixed in 5.12.0; this one remains. |
-| `R/3-build_map.R:692` | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
-| `R/6-fit_mod.R:658` | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
-| `R/10-mse_summary.R:494` | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
+| `R/10-run_mse.R` (`does not work for assessments that don't occur annually`) | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
+| `R/10-mse_summary.R` (`will bug if not survey`) | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
+| `R/3-build_map.R` (`QAR1 is inert`) | **`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024) | **QAR1 is inert** — DEPRECATED in 5.12.0 with a warning at fit time; still unfixed. The deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode. It never matches, `index_q_dev` stays mapped out, and q is constant. These are two different switches sharing a string; the source comment says so explicitly, and an earlier draft of this file named the wrong one. |
+| `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. The catch-sigma case of this shape was fixed in 5.12.0; this one remains. |
+| `R/3-build_map.R` (`will fail if random_sel = TRUE?`) | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
+| `R/6-fit_mod.R` (`swallows EVERY warning build_map() raises`) | any | `suppressWarnings()` swallows *every* warning `build_map()` raises, not just the intended one. |
+| `R/10-mse_summary.R` (`EM uses fixed-depletion proxy for HCR 2`) | HCR 2 | the EM uses a fixed-depletion proxy (`0.5 * 0.35`) rather than the configured target. |
 | `src/TMB/ceattle.cpp` (`dmultinom_osa` renormalization note) | `Comp_distribution` case 0 | fitting routes through `dmultinom_osa()`, which renormalizes `p`. **Reported value only** -- the FIXME states the gradient and MLE are unchanged (an additive constant), so this is a reporting discrepancy, not a wrong fit. |
 
 ## Tier 1 — stated limitations, currently by design

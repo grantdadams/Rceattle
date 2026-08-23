@@ -6,7 +6,7 @@ that make several of these safe to touch.
 
 ## The shape of the problem
 
-74 `TODO`/`FIXME` markers, triaged into three tiers. **The tiers are not a priority order.** A
+81 `TODO`/`FIXME` markers, triaged into three tiers. **The tiers are not a priority order.** A
 Tier 0 "known defect" that no live assessment can reach is less urgent than a Tier 1 limitation
 every MSE run hits. Sequence by *who is exposed*, not by tier label.
 
