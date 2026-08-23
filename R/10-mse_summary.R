@@ -490,8 +490,9 @@ mse_summary <- function(mse, om_only = FALSE){
 
           # * EM: P(SSB < SSBlimit) ----
           # Every arm reads the depletion the run was configured with. HCR 2
-          # (constant catch / constant F) has no target of its own, so the
-          # overfished threshold is the configured limit, as in the final arm.
+          # ("ConstantF") fishes at a fixed rate rather than toward a
+          # depletion target, so the overfished threshold is the configured
+          # limit, as in the final arm.
           em_thresh <- if(HCR == 2)                              Plimit[sp]
                        else if(HCR == 4)                         0.5 * Ptarget[sp]
                        else if(HCR == 5)                         0.5 * Plimit[sp]
