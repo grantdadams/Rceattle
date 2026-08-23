@@ -13,26 +13,23 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 # Rceattle 5.13.0
 
-## Bug fixes
+## MSE
 
-* **`random_sel = TRUE` is now refused on a fleet with `Time_varying_sel =
-  "Block"`,** instead of producing a NaN objective. Selectivity blocks are
-  fixed effects -- one slope and inflection per block, with no penalty, which
-  is what the switch means -- so `build_map()` maps the block parameters into
-  `log_sel_slp_dev` / `sel_inf_dev` and turns the main parameters off.
-  `fit_mod()` then added those arrays to TMB's `random` unconditionally, but
-  the template scores selectivity deviates only under `"IID"`, `"AR1"`,
-  `"RandomWalk"` and `"RandomWalkAscending"`. The block parameters were
-  therefore integrated against no density at all, with `sel_dev_log_sd` mapped
-  out so there was no variance to estimate either. The marginal objective came
-  back `NaN` and the fit died with TMB's `NA/NaN gradient evaluation`, which
-  names neither selectivity nor `random_sel`. The error now says which fleets
-  and what to change.
+* **A scalar `cap` is now an annual ceiling, not an assessment-interval one.**
+  `run_mse()` filled catch for every year of the assessment interval and then
+  tested the cap against the sum over all of them, so at
+  `assessment_period = 2` a one-year cap was applied to a two-year total,
+  roughly halving projected catch. The cap is now applied within each projection
+  year. At `assessment_period = 1` each group is a single year and the
+  calculation is unchanged, so **no existing MSE result moves**; the
+  species-specific vector form was always per row and is untouched.
 
-  No bundled dataset or reference model reaches this -- `BS2017SS` and
-  `BS2017MS` set `Time_varying_sel` to `"Off"` throughout, `GOA2018SS` to
-  `"Off"` and `"RandomWalkAscending"` -- and no fit that works today changes.
-  `"Block"` remains fully supported with `random_sel = FALSE`.
+* **`mse_summary()` scored HCR 2 against a hardcoded depletion.** The estimation
+  model's `P(SSB < SSBlimit)` used a literal `0.5 * 0.35` under HCR 2 while
+  every other arm read the configured value, so a run with a non-default
+  `Plimit` was reported against the wrong reference point. It now reads
+  `Plimit`, matching the fallback arm. A run configured with the old implied
+  values is unaffected.
 
 # Rceattle 5.12.0
 

@@ -551,9 +551,19 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       if(!is.null(cap)){
         # Applied across species
         if(length(cap) == 1){
-          new_catch_data$Catch[dat_fill_ind] <- ifelse(sum(new_catch_data$Catch[dat_fill_ind]) > cap,
-                                                       cap * new_catch_data$Catch[dat_fill_ind]/sum(new_catch_data$Catch[dat_fill_ind]),
-                                                       new_catch_data$Catch[dat_fill_ind]) # FIXME: does not work for assessments that don't occur annually
+          # The cap is an ANNUAL ceiling on total removals across species, so it
+          # is applied within each projection year. `dat_fill_ind` spans the whole
+          # assessment interval, which is more than one year whenever
+          # assessment_period > 1; summing over it would hold a multi-year total
+          # to one year's cap. At assessment_period = 1 each group is a single
+          # year and this is the previous calculation exactly.
+          for(cap_yr in unique(new_catch_data$Year[dat_fill_ind])){
+            yr_ind <- dat_fill_ind[new_catch_data$Year[dat_fill_ind] == cap_yr]
+            yr_tot <- sum(new_catch_data$Catch[yr_ind])
+            if(yr_tot > cap){
+              new_catch_data$Catch[yr_ind] <- cap * new_catch_data$Catch[yr_ind] / yr_tot
+            }
+          }
         } else { # Species-specific
           new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
         }
