@@ -200,6 +200,14 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   (`SingleSpecies (0) / MSVPA (1) / TypeIIIMSVPA (2)`), since a saved config
   writes the switch as the number.
 
+## Minor improvements
+
+* **`quantities$NbyageSPR` now carries dimension names.** Its first dimension is
+  a reference point rather than a species -- `c("F0", "Flimit", "Ftarget",
+  "Finit")` -- so reading it no longer means knowing that slot 3 is `Finit`.
+  Species and age bins are labelled to match the other numbers-at-age arrays.
+  Positional indexing is unchanged.
+
 # Rceattle 5.11.1
 
 ## Documentation

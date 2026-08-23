@@ -114,6 +114,19 @@ testthat::test_that("all four SPRs match an independent recomputation", {
                            tolerance = 1e-8, info = nm)
   }
 
+  # The reported slot labels have to match the order section 6.2 writes them in.
+  # Nothing downstream reads NbyageSPR, so a silent drift between the labels and
+  # the write order would surface only in someone's diagnostic plot. Survivorship
+  # falls as the F applied rises, which orders the four slots uniquely here
+  # (F = 0 < Finit 0.10 < Ftarget 0.15 < Flimit 0.25).
+  n <- fit$quantities$NbyageSPR
+  testthat::expect_equal(dimnames(n)[[1]], c("F0", "Flimit", "Ftarget", "Finit"))
+  surv <- vapply(c("F0", "Finit", "Ftarget", "Flimit"),
+                 function(lab) sum(n[lab, 1, seq_len(fit$obj$env$data$nages[1])]), numeric(1))
+  testthat::expect_true(all(diff(surv) < 0))
+  # Every slot starts at one recruit.
+  testthat::expect_equal(unname(n[, 1, 1]), rep(1, 4))
+
   # The four really are distinct under these rates, so the loop above compared
   # four different numbers rather than one repeated.
   got <- vapply(c("SPR0", "SPRlimit", "SPRtarget", "SPRFinit"),
