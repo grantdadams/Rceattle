@@ -644,15 +644,29 @@ Type objective_function<Type>::operator() () {
   vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
 
   // -- 4.8. Composition data
-  // age_hat / age_obs_hat are indexed by AGE (up to nages*2 for joint-sex comps),
-  // whatever dimension the fleet's composition data are on: a length-composition
-  // fleet is built at age first and converted through the age-length transition.
-  // comp_obs is only as wide as the workbook's Comp_ columns, which for a
-  // length-only model is nlengths -- so sizing these from it wrote past the
-  // matrix whenever nlengths < nages. Eigen does not bounds-check in a release
-  // build, so that was a silent write into adjacent memory, not a crash. Width
-  // is the larger of the two so the REPORTed objects never shrink either.
-  int max_age_cols = std::max(static_cast<int>(comp_obs.cols()), max_age * 2);
+  // age_hat / age_obs_hat are indexed by AGE, whatever dimension the fleet's
+  // composition data are on: a length-composition fleet is built at age first
+  // and converted through the age-length transition. comp_obs is only as wide as
+  // the workbook's Comp_ columns, which for a length-only model is nlengths -- so
+  // sizing these from it wrote past the matrix whenever nlengths < nages. Eigen
+  // does not bounds-check in a release build, so that was a silent write into
+  // adjacent memory, not a crash. Width is the widest age index any composition
+  // row actually writes -- nages(sp), or nages(sp) * 2 for a joint-sex row
+  // (comp_ctl column 2 == 3) -- and never narrower than comp_obs, so no REPORTed
+  // object shrinks and none gains all-zero columns it never had.
+  // The species index is range-checked because this runs at allocation time:
+  // nothing between rearrange_data() and MakeADFun validates comp_data$Species,
+  // and a non-numeric one arrives here as NA_integer_. Reading nages() at that
+  // index would size the two matrices below from garbage.
+  int max_age_cols = static_cast<int>(comp_obs.cols());
+  for(int comp_row = 0; comp_row < comp_ctl.rows(); comp_row++){
+    int comp_row_sp = comp_ctl(comp_row, 1) - 1;
+    if((comp_row_sp < 0) | (comp_row_sp >= nspp)){
+      error("comp_data Species on row %d is not in 1..nspp", comp_row + 1);
+    }
+    int comp_row_cols = (comp_ctl(comp_row, 2) == 3) ? nages(comp_row_sp) * 2 : nages(comp_row_sp);
+    if(comp_row_cols > max_age_cols){ max_age_cols = comp_row_cols; }
+  }
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (numbers)
   matrix<Type>  age_hat(comp_obs.rows(), max_age_cols); age_hat.setZero();          // Estimated catch at true age
   matrix<Type>  age_obs_hat(comp_obs.rows(), max_age_cols); age_obs_hat.setZero();  // Estimated catch at observed age (accounts for ageing error)
@@ -1834,21 +1848,21 @@ Type objective_function<Type>::operator() () {
         // -- 6.6.1. Recruitment
 
         // - Calculate recruitment.
-        // Recruits arriving at age minage in year yr were spawned in
-        // yr - minage, which is before styr while yr < minage. There is no
-        // modelled SSB then, so those years take the equilibrium mean R0 with
-        // their own deviation (srr_fun 0) rather than a stock-recruit
-        // prediction. This follows Stock Synthesis, which covers the pre-start
-        // period with an equilibrium age composition plus early recruitment
-        // deviations instead of extending the relationship backwards; WHAM
-        // avoids the boundary by fixing the lag at one year. The guard cannot
-        // fire at minage = 1, which is every bundled dataset and all three live
-        // assessments.
+        // Recruits arriving at age minage in year yr were spawned in yr - minage,
+        // before styr while yr < minage. With no modelled SSB those years take
+        // R_init * exp(rec_dev) -- equilibrium recruitment at F = Finit, exactly
+        // what year 0 gets, so ages seeded from the same equilibrium agree.
+        // Stock Synthesis treats the pre-start period the same way; WHAM avoids
+        // it by fixing the lag at one year. Cannot fire at minage = 1.
         int spawn_yr = yr - minage(sp);
         int srr_use = (spawn_yr < 0) ? 0 : srr_switch;
         Type ssb_tmp = (spawn_yr < 0) ? Type(0.0) : ssb(sp, spawn_yr);
+        // Not R0(sp, yr): under a stock-recruit hindcast build_map() maps the
+        // mean-recruit parameter out and only R0(sp, 0) is overwritten with the
+        // derived (alpha - 1/SPR0)/Beta, leaving R0(sp, yr) at its starting value.
+        Type rec_mean = (spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
-        R(sp, yr) = calculate_recruitment(srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+        R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
         N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
@@ -1966,21 +1980,23 @@ Type objective_function<Type>::operator() () {
           if(proj_mean_rec == 0){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
-            // FIXME: will bomb if minage > 1
-            // Same pre-styr spawning-year guard as the hindcast recruitment
-            // above: before the relationship has an SSB to read, the reference
-            // points take the equilibrium mean.
-            int rp_spawn_yr = yr - minage(sp);
-            int rp_srr_use = (rp_spawn_yr < 0) ? 0 : srr_pred_fun;
-            int rp_yr = (rp_spawn_yr < 0) ? 0 : rp_spawn_yr;
+            // Reference-point spawning biomass exists for every year, so unlike
+            // the hindcast there is always something for the curve to read and
+            // the minage lag only has to stay in bounds: yr < minage takes the
+            // first year's value. Year 0 is the F = Finit equilibrium the
+            // hindcast is seeded from, so under initMode 1-5 these years come
+            // back at R_init anyway. This block runs from yr = 1, so the lag
+            // cannot go negative at minage = 1.
+            int rp_yr = yr - minage(sp);
+            if(rp_yr < 0){ rp_yr = 0; }
 
-            NByage0(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), SB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
-            NByageF(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(rp_srr_use, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
 
           } // End recruitment switch
 
@@ -2159,12 +2175,13 @@ Type objective_function<Type>::operator() () {
         if(proj_mean_rec == 0){
 
           // - Calculate recruitment (with linkage offsets pre-added).
-          // Pre-styr spawning year takes the equilibrium mean, as in the
-          // hindcast block; reachable only if the hindcast is shorter than minage.
+          // Pre-styr spawning year takes R_init, as in the hindcast block;
+          // reachable only if the hindcast is shorter than minage.
           int proj_spawn_yr = yr - minage(sp);
           int proj_srr_use = (proj_spawn_yr < 0) ? 0 : srr_pred_fun;
           Type ssb_tmp = (proj_spawn_yr < 0) ? Type(0.0) : ssb(sp, proj_spawn_yr);
-          R(sp, yr) = calculate_recruitment(proj_srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+          Type proj_rec_mean = (proj_spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
+          R(sp, yr) = calculate_recruitment(proj_srr_use, proj_rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
         }
 
         N_at_age(sp, 0, 0 , yr) = R(sp, yr) * sex_ratio(sp, 0);
@@ -2267,14 +2284,24 @@ Type objective_function<Type>::operator() () {
       // Year 1+
       for(yr = 1; yr < nyrs; yr++){
         // - Calculate recruitment (with linkage offsets pre-added).
-        // Pre-styr spawning year takes the equilibrium mean, as in the
-        // hindcast block.
+        // Pre-styr spawning year takes R_init, the SAME anchor the realised
+        // recruitment above uses. Expected and realised then differ only by
+        // rec_dev, so the stock-recruit penalty at 15.x scores the deviation and
+        // nothing else -- there is no spawning biomass in these years to carry
+        // information about the curve's level. Anchoring this side on the curve
+        // instead (R_hat's own first year) leaves a mean-versus-curve level gap
+        // that the penalty reads as signal: under the Ianelli configuration
+        // (srr_fun mean, srr_pred_fun BevertonHolt) that added a fixed 0.83 nats
+        // per guarded year, pulling rec_pars against alpha and Beta from years
+        // with no data. Identical for BevertonHolt/BevertonHolt and
+        // Ricker/Ricker, where R_init is already R_hat's first-year value.
         int hat_spawn_yr = yr - minage(sp);
         int hat_srr_use = (hat_spawn_yr < 0) ? 0 : srr_pred_fun;
         Type ssb_tmp = (hat_spawn_yr < 0) ? Type(0.0) : ssb(sp, hat_spawn_yr);
+        Type hat_rec_mean = (hat_spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
         // Note: Expected recruitment does not include deviations, so we pass Type(0.0)
-        R_hat(sp, yr) = calculate_recruitment(hat_srr_use, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+        R_hat(sp, yr) = calculate_recruitment(hat_srr_use, hat_rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
       }
     }
 

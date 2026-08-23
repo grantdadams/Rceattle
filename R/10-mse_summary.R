@@ -489,17 +489,34 @@ mse_summary <- function(mse, om_only = FALSE){
           em_f_flimit <- c(em_f_flimit, em_q$F_spp[sp, end_yr_col] > em_Flimit)
 
           # * EM: P(SSB < SSBlimit) ----
-          # Every arm reads the depletion the run was configured with. HCR 2
-          # ("ConstantF") fishes at a fixed rate rather than toward a
-          # depletion target, so the overfished threshold is the configured
-          # limit, as in the final arm.
-          em_thresh <- if(HCR == 2)                              Plimit[sp]
-                       else if(HCR == 4)                         0.5 * Ptarget[sp]
-                       else if(HCR == 5)                         0.5 * Plimit[sp]
-                       else if(HCR == 6 & Ptarget[sp] == 0.40)   0.25
-                       else if(HCR == 6)                         0.5 * Ptarget[sp]
-                       else                                      Plimit[sp]
-          em_sb_sblimit <- c(em_sb_sblimit, em_q$ssb_depletion[sp, end_yr_col] < em_thresh)
+          # HCR 2 ("ConstantF") fishes at a fixed rate and carries no depletion
+          # target, so it takes the absolute 0.5 * SBF that ssb_limit_thresh()
+          # already gives the OM -- read from the same helper so the two cannot
+          # drift, and gated on msmMode as the OM arm is. The cross-tab then
+          # compares the EM and the OM on one criterion. The remaining arms are
+          # depletions the run was configured with.
+          # Under msmMode > 0 both sides fall through to Plimit, which defaults
+          # to 0 and so reports the stock as never overfished. That is the OM's
+          # own multispecies rule (see the msmMode branch below), so the two
+          # still agree; set Plimit explicitly for a multispecies ConstantF run.
+          if(HCR == 2 & msmMode == 0){
+            em_thr <- ssb_limit_thresh(HCR, DynamicHCR, Ptarget[sp], Plimit[sp],
+                                       SBF_val        = em_q$SBF[sp, end_yr_col],
+                                       DynamicSBF_val = em_q$DynamicSBF[sp, end_yr_col])
+            # Branch on the helper's own scale flag, as the OM arm does, so a
+            # later change to that arm cannot leave this one comparing an
+            # absolute biomass against a depletion.
+            em_below <- if(em_thr$is_dep) em_q$ssb_depletion[sp, end_yr_col] < em_thr$val
+                        else              em_q$ssb[sp,            end_yr_col] < em_thr$val
+          } else {
+            em_thresh <- if(HCR == 4)                            0.5 * Ptarget[sp]
+                         else if(HCR == 5)                       0.5 * Plimit[sp]
+                         else if(HCR == 6 & Ptarget[sp] == 0.40) 0.25
+                         else if(HCR == 6)                       0.5 * Ptarget[sp]
+                         else                                    Plimit[sp]
+            em_below <- em_q$ssb_depletion[sp, end_yr_col] < em_thresh
+          }
+          em_sb_sblimit <- c(em_sb_sblimit, em_below)
 
           # * OM at the SAME assess year (for cross-tab and SSB MSE) ----
           # - OM F > Flimit (Tier-3 aware for single-species mode)

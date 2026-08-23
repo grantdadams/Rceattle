@@ -26,13 +26,27 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   values read. It was only reachable with an active stock-recruit relationship:
   `srr_fun = 0` never calls the relationship with a spawning biomass.
 
-  Those years now take the equilibrium mean `R0` with the recruitment deviation
-  already estimated for them, following Stock Synthesis, which covers the
-  pre-start period with an equilibrium age composition plus early recruitment
-  deviations rather than extending the relationship backwards. (WHAM avoids the
-  boundary by fixing the recruitment lag at one year regardless of the recruit
-  age.) All four sites are guarded -- hindcast recruitment, the equilibrium and
-  dynamic reference points, the projection, and `R_hat`.
+  Those years now take `R_init`, equilibrium recruitment at `F = Finit`, with
+  the recruitment deviation already estimated for them -- the same expression
+  the first year is built from, `R_init * exp(rec_dev)`, so the whole
+  pre-start-spawned block rests on one equilibrium. This follows Stock
+  Synthesis, which covers the pre-start period with an equilibrium age
+  composition plus early recruitment deviations rather than extending the
+  relationship backwards. (WHAM avoids the boundary by fixing the recruitment
+  lag at one year regardless of the recruit age.) Not `R0`: under a
+  Beverton-Holt or Ricker hindcast the mean-recruit parameter is mapped out and
+  only the first column of `R0` is overwritten with the derived
+  `(alpha - 1/SPR0)/Beta`, so `R0` in a later year is still the starting value.
+  On the same fixture the objective now moves 14407.38 / 13959.97 / 13587.67
+  across `minage` 1/2/3, and recruitment in the guarded years sits at the
+  equilibrium instead of `8.6e-314`.
+
+  All four sites are guarded. Expected recruitment (`R_hat`) takes the same
+  `R_init` anchor, so in these years it differs from realised recruitment only
+  by `rec_dev` and the stock-recruit penalty scores the deviation alone -- there
+  is no spawning biomass to carry information about the curve's level. The
+  reference points keep the relationship entirely and only clamp the lag into
+  range, since reference-point spawning biomass exists for every year.
 
   **No fit anyone runs today changes**: every bundled dataset and all three live
   assessments are `minage = 1`, where the guard cannot fire. The four
@@ -55,8 +69,12 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   are all length-based with fewer length bins than ages, that width is
   `nlengths` and the writes ran off the end. Unchecked in a release build, so
   the effect was a silent write into adjacent memory rather than a crash. Both
-  are now sized by age, and never narrower than the observations, so no
-  REPORTed object shrinks.
+  are now sized from the widest age index the model's own composition rows will
+  be written at -- `nages`, or `nages * 2` for a joint-sex row -- and never
+  narrower than the observations. Sizing them at `nages * 2` unconditionally
+  would also close the overrun, but `age_hat` is REPORTed and assessment scripts
+  read it, so a single-sex model must not gain trailing all-zero columns it
+  never had.
 
 ## MSE
 
@@ -65,16 +83,40 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   tested the cap against the sum over all of them, so at
   `assessment_period = 2` a one-year cap was applied to a two-year total,
   roughly halving projected catch. The cap is now applied within each projection
-  year. At `assessment_period = 1` each group is a single year and the
-  calculation is unchanged, so **no existing MSE result moves**; the
-  species-specific vector form was always per row and is untouched.
+  year.
+
+  The same line carried a second and larger defect, so **any stored MSE result
+  using a scalar `cap` changes, at every `assessment_period` including 1, and
+  whether or not the cap ever bound**. It was
+  `ifelse(sum(x) > cap, cap * x / sum(x), x)` with a length-1 test, and
+  `ifelse()` returns the shape of its test -- so whichever branch was taken was
+  truncated to its first element and then recycled across every row. Two species
+  landing 80 t and 20 t came out as:
+
+  | scalar `cap` | old | new |
+  |---|---|---|
+  | 50 (binds)         | 40 t, 40 t -- 80 t total, over a 50 t ceiling | 40 t, 10 t |
+  | 500 (never binds)  | 80 t, 80 t -- 160 t total, catch invented     | 80 t, 20 t |
+
+  The non-binding case is the more serious one: a cap set generously enough to
+  be inert still rewrote every species' catch to the first species' value. Only
+  an exactly equal split across species was unaffected. The species-specific
+  vector form of `cap` was always per row and is untouched.
 
 * **`mse_summary()` scored HCR 2 against a hardcoded depletion.** The estimation
-  model's `P(SSB < SSBlimit)` used a literal `0.5 * 0.35` under HCR 2 while
-  every other arm read the configured value, so a run with a non-default
-  `Plimit` was reported against the wrong reference point. It now reads
-  `Plimit`, matching the fallback arm. A run configured with the old implied
-  values is unaffected.
+  model's `P(SSB < SSBlimit)` used a literal `0.5 * 0.35` under HCR 2, on the
+  depletion scale, while the operating-model arm scored the same rule as an
+  absolute `0.5 * SBF` -- so the EM/OM cross-tab compared two different
+  criteria. In single-species mode the EM now reads `ssb_limit_thresh()`, the
+  helper the OM already uses, so both sides apply one rule and it cannot drift.
+  `Plimit` is not that rule: it defaults to 0, which would report a default
+  single-species ConstantF run as never overfished.
+
+  Under `msmMode > 0` both sides still fall through to `Plimit`, so a
+  multispecies ConstantF run left at the default `Plimit = 0` reports
+  `P(SSB < SSBlimit)` as 0. That is the operating model's own long-standing
+  multispecies rule and the two sides agree, so it is left alone here -- but set
+  `Plimit` explicitly on a multispecies ConstantF run.
 
 ## Other changes
 
