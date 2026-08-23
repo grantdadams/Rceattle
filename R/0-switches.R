@@ -1143,3 +1143,84 @@ convert_switches <- function(data_list) {
 
   return(data_list)
 }
+
+
+#' Report composition weights that are on the log scale
+#'
+#' @description
+#' A composition weight is read on a scale set by its distribution. Under a
+#' multinomial it multiplies the input sample size directly; under a
+#' Dirichlet-multinomial the model uses `exp(weight)` (`ceattle.cpp`,
+#' `DM_pars_comp = exp(comp_weights)`), so the column holds the LOG of the
+#' starting weight. A value of 1 is therefore a starting weight of e, and a
+#' weight of 1 is written as 0.
+#'
+#' `write_template()` seeds these columns with 1, so a model built from the
+#' template and switched to a Dirichlet-multinomial starts at e without anything
+#' saying so. This reports it once per fit, naming the fleets, so the value is a
+#' choice rather than an inherited default.
+#'
+#' Called from `fit_mod()`, not from `switch_check()`: `switch_check()` is a
+#' re-entrant normalizer that `build_params()` and `build_map()` also call, so
+#' reporting there printed the same message three times per fit and roughly
+#' twenty times per `retrospective()`.
+#'
+#' Only an exact 1 is reported -- the template value. Any other number was typed
+#' deliberately and needs no comment. Off fleets and fleets carrying no data for
+#' the composition in question are skipped: their weight is never read.
+#'
+#' @param data_list a data list, after `switch_check()` has resolved the
+#'   distribution columns.
+#' @return `data_list`, unchanged. This reports; it never edits.
+#' @keywords internal
+#' @noRd
+.rce_flag_dm_weight_scale <- function(data_list) {
+  is_dm <- function(x) !is.na(x) & as.character(x) %in% c("1", "DirichletMultinomial")
+
+  # Fleet codes with at least one row actually fitted (Year > 0 marks a fitted
+  # row; a negative year is carried but not fitted).
+  fitted_codes <- function(df) {
+    if (is.null(df) || !nrow(df)) return(integer(0))
+    if (!all(c("Fleet_code", "Year") %in% names(df))) return(integer(0))
+    unique(as.integer(df$Fleet_code[!is.na(df$Year) & df$Year > 0]))
+  }
+
+  fc <- data_list$fleet_control
+  if (!is.null(fc)) {
+    on <- if (is.null(fc$Fleet_type)) rep(TRUE, nrow(fc)) else
+      as.character(fc$Fleet_type) != "Off"
+
+    for (spec in list(list("Comp_distribution", "Comp_weights", data_list$comp_data),
+                      list("CAAL_distribution", "CAAL_weights", data_list$caal_data))) {
+      dist_col <- spec[[1]]; wt_col <- spec[[2]]
+      if (is.null(fc[[dist_col]]) || is.null(fc[[wt_col]])) next
+      has_data <- fc$Fleet_code %in% fitted_codes(spec[[3]])
+      hit <- which(on & has_data & is_dm(fc[[dist_col]]) &
+                     !is.na(fc[[wt_col]]) & fc[[wt_col]] == 1)
+      if (length(hit)) {
+        who <- if (!is.null(fc$Fleet_name)) fc$Fleet_name[hit] else fc$Fleet_code[hit]
+        message("'", wt_col, "' is 1 on Dirichlet-multinomial fleet(s) ",
+                paste(who, collapse = ", "),
+                ". That likelihood reads the column as a log, so this is a starting ",
+                "weight of e (", signif(exp(1), 4), "). Use 0 for a starting weight of 1.")
+      }
+    }
+  }
+
+  dw <- data_list$Diet_comp_weights
+  dd <- data_list$Diet_distribution
+  # Length-guarded: this runs before data_check(), and recycling a ragged pair
+  # here would raise a warning ahead of the check that names the real problem.
+  if (!is.null(dw) && !is.null(dd) && length(dw) == length(dd)) {
+    hit <- which(is_dm(dd) & !is.na(dw) & dw == 1)
+    if (length(hit)) {
+      who <- if (!is.null(data_list$spnames)) data_list$spnames[hit] else hit
+      message("'Diet_comp_weights' is 1 for Dirichlet-multinomial predator(s) ",
+              paste(who, collapse = ", "),
+              ". That likelihood reads the value as a log, so this is a starting ",
+              "weight of e (", signif(exp(1), 4), "). Use 0 for a starting weight of 1.")
+    }
+  }
+
+  data_list
+}

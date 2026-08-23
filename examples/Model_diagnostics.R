@@ -82,7 +82,7 @@ plot_catch(ms_run) # Fitted catch series
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # we can also do retrospective peels and calculate Mohn's Rho on the CEATTLE
 # NOTE: this is using mean historical F for projections as we changed it above
-ss_run_retro <- Rceattle::retrospective(Rceattle = ss_run, peels = 5)
+ss_run_retro <- Rceattle::retrospective(ss_run, peels = 5)
 
 # Look at Mohns rho
 ss_run_retro$mohns
@@ -97,7 +97,7 @@ plot_biomass(ss_run_retro$Rceattle_list, incl_proj = TRUE)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Jitter ----
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-jitters <- Rceattle::jitter(Rceattle = ss_run, njitter = 10, phase = TRUE)
+jitters <- Rceattle::jitter(ss_run, njitter = 10, phase = TRUE)
 hist(log(jitters$nll - min(jitters$nll)))
 
 

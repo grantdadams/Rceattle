@@ -62,8 +62,14 @@ COST_TABLE <- local({
 })
 
 file_cost <- function(path) {
-  measured <- COST_TABLE[[basename(path)]]
-  if (!is.null(measured) && !is.na(measured)) return(measured)
+  # Single-bracket, NOT [[: COST_TABLE is a named ATOMIC vector, and `[[` on a
+  # name it does not carry throws "subscript out of bounds" rather than
+  # returning NULL. That made the COST_UNMEASURED fallback below unreachable and
+  # turned any new test file into a hard CI failure across every shard. `[`
+  # yields NA for an absent name, and NULL[nm] is length 0 when the tsv is
+  # missing entirely, so both fall through to the placeholder as intended.
+  measured <- unname(COST_TABLE[basename(path)])
+  if (length(measured) == 1L && !is.na(measured)) return(measured)
   COST_UNMEASURED
 }
 

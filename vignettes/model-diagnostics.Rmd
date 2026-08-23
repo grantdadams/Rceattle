@@ -256,7 +256,7 @@ residuals(model_1, type = "process")
 A retrospective analysis removes the most recent years of data one peel at a time and re-fits the model. Mohn's rho summarizes how the terminal estimates shift across peels; for SSB, a rho outside ±0.2 generally signals a problem worth investigating.
 
 ```{r}
-model_1_retro <- retrospective(Rceattle = model_1, peels = 5)
+model_1_retro <- retrospective(model_1, peels = 5)
 
 # Mohn's rho for each quantity
 model_1_retro$mohns
@@ -296,7 +296,7 @@ A peel that did not converge is dropped and a message reports how many, so `Rcea
 Jitter testing re-fits the model from many randomly perturbed starting values and checks whether the optimizer keeps returning the same minimum negative log-likelihood (NLL). A spread of NLL values across jitters points to multiple local minima, so the results should be treated with caution.
 
 ```{r}
-jitters <- jitter(Rceattle = model_1, njitter = 10, phase = TRUE)  # default njitter = 50
+jitters <- jitter(model_1, njitter = 10, phase = TRUE)  # default njitter = 50
 
 # Histogram of NLL differences relative to the best run
 hist(log(jitters$nll - min(jitters$nll)),
@@ -447,6 +447,6 @@ plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 To average estimates across model variants, see `?model_average`.
 
 ```{r}
-mod_avg <- model_average(Rceattle = list(model_1, model_1), weights = c(1,1))
+mod_avg <- model_average(list(model_1, model_1), weights = c(1,1))
 plot_biomass(mod_avg)
 ```

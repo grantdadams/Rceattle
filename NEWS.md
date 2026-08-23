@@ -1,3 +1,108 @@
+<!--
+Version-numbering note. Three gaps in this file are deliberate, not lost entries:
+
+  * 4.14.0 was a real DESCRIPTION version whose entries were folded into 5.0.0.
+  * 5.2.0-5.2.4 were likewise folded into 5.3.0.
+  * main's 4.9.0 / 4.9.1 are the same recruitment changes this line carries as
+    5.5.0 / 5.5.1, applied to the two lines separately.
+
+No tag existed above 4.8.0 while these were in flight, so nobody could have installed an
+intermediate. Note the folding rather than renumbering: a section for a version DESCRIPTION
+never carries breaks any (x.y.z) cross-reference pointing at it.
+-->
+
+# Rceattle 5.11.0
+
+## New features
+
+* **The diagnostics all take the fitted model as `object`.** The same argument
+  was previously spelled `Rceattle` in `retrospective()`, `jitter()`,
+  `self_test()`, `sim_mod()`, `sample_rec()`, `remove_F()` and
+  `model_average()`, and `fit` in `reweight_comps()`, `osa_residuals()` and
+  `process_residuals()` -- so which name to use depended on which diagnostic you
+  reached for, and `Rceattle` collided with the package name
+  (`Rceattle::retrospective(Rceattle = mod)`). All ten now take `object`, matching
+  `convergence_diagnostics()` and R's own `summary()`/`coef()`/`vcov()` methods.
+
+  **Existing scripts keep working unchanged.** The old names are still accepted
+  and are silent in this release; they begin warning in a future version. To find
+  your own call sites early, set
+  `options(Rceattle.warn_deprecated_args = TRUE)`. Supplying both names for one
+  model is an error rather than a guess.
+
+  Positional calls are unaffected: the old name is the last formal on every one
+  of the ten, and the new `phase` and `fit_control` arguments below are appended
+  after the arguments that predate them rather than inserted among them.
+  `profile()` keeps `fitted` because it is an S3 method for `stats::profile()`,
+  and `mse_summary(mse =)` and `compare_sim(operating_mod =)` keep their names
+  because they take an MSE result and a simulation set, not a fitted model.
+
+* **`sim_mod()`, `sample_rec()`, `remove_F()` and `model_average()` now say what
+  is wrong when they are given something that is not a fitted model.** They
+  previously failed further in with `argument is of length zero` or
+  `invalid 'type' (list) of argument`.
+
+* **`fit_mod()` reports a composition weight of 1 on a Dirichlet-multinomial
+  fleet.** That likelihood reads `Comp_weights`,
+  `CAAL_weights` and `Diet_comp_weights` as the LOG of the starting weight, so
+  the value `write_template()` seeds (1) is a starting weight of e, and a weight
+  of 1 is written as 0. A model built from the template and switched to a
+  Dirichlet-multinomial previously started at e with nothing saying so. Only an
+  exact 1 is reported, so a deliberate value is left alone, and Off fleets and
+  fleets carrying no composition data are skipped. It fires once per fit, and
+  the diagnostic refits suppress it the way they already suppress
+  `data_check()`. No value and no fit changes -- this is a message.
+
+* **`retrospective()`, `jitter()` and `self_test()` accept
+  `fit_control = fit_control(...)`,** matching `fit_mod()`. Only `phase` and
+  `getsd` are read, because those are what these diagnostics forward to each
+  refit; setting any other field is an error rather than a silent no-op.
+  Supplying it replaces the defaults they otherwise infer from the fitted model.
+  Omitting it -- the default -- leaves every existing call behaving exactly as
+  before.
+
+  Which fields you asked for is read from what you **set** -- named in the
+  `fit_control()` call, or assigned to afterwards (`ctl$getsd <- TRUE`) -- not
+  from whether the value differs from a default. So `fit_control(getsd = TRUE)`
+  and `fit_control(phase = FALSE)` do what they say even though `TRUE` and
+  `FALSE` are those fields' defaults. A field you never touch keeps the
+  diagnostic's own default, which is not always `fit_control()`'s:
+  `retrospective()` phases its peels where `fit_control()` does not, so
+  `fit_control(getsd = FALSE)` asks about standard errors and cannot also
+  flatten Mohn's rho.
+
+* **`?rceattle-refit-args` documents the vocabulary `retrospective()`,
+  `jitter()` and `self_test()` share** -- `object`, `cores`, `fit_control`, and
+  what `fit_control()` reaches through a refit -- the way
+  `?rceattle-plot-args` already does for the plotters. `phase`, `getsd` and
+  `timeout` stay on each function, because their defaults and what they mean for
+  that diagnostic differ.
+
+* **`retrospective()` takes `phase`,** the value it previously fixed internally.
+  The default is `TRUE`, which is what it always used: a peel restarts from the
+  unpeeled fit's starting values with a year removed, so without phasing the
+  parameters barely move, the peels sit on top of the full model, and Mohn's rho
+  is biased towards zero. No peel changes unless you set it.
+
+* **`?jitter` now records that attaching Rceattle masks `base::jitter()`.** The
+  function keeps its name; call `base::jitter()` for the base-graphics
+  behaviour.
+
+## Bug fixes
+
+* **A parallel `retrospective()`, `jitter()` or `self_test()` called under the
+  deprecated `Rceattle =` name no longer sends the fitted model to each Windows
+  worker twice.** The PSOCK path exports the caller's whole frame, and both
+  argument names were bound to the same model. macOS and Linux use FORK and were
+  never affected. No result changes -- this is transfer time and worker memory.
+
+## Deprecations
+
+* `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
+  above. Accepted silently now, warning from 5.12.0, removed in 6.0.0.
+* `rearrange_dat()` now names its removal version (6.0.0) rather than
+  deprecating open-endedly. Use `rearrange_data()`.
+
 # Rceattle 5.10.0
 
 ## New features

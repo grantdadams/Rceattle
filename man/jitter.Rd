@@ -5,18 +5,20 @@
 \title{Jitter analysis}
 \usage{
 jitter(
-  Rceattle = NULL,
+  object = NULL,
   njitter = 50,
   sd = 0.2,
   phase = FALSE,
   seed = 123,
   cores = NULL,
   getsd = NULL,
-  timeout = Inf
+  timeout = Inf,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{njitter}{the number of jitters to run}
 
@@ -31,10 +33,9 @@ reads as multimodality rather than as an unphased fit.}
 \item{seed}{random number seed. Each jitter \code{i} uses \code{seed + i}
 so results are reproducible under both sequential and parallel execution.}
 
-\item{cores}{Number of cores to use for parallel jitters. Default
-\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-running under \code{R CMD check} (which sets
-\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+\item{cores}{Number of cores for the parallel refits. Default \code{NULL} picks
+\code{parallel::detectCores() - 6}, capped at 2 under \verb{R CMD check} (which sets
+\verb{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 
 \item{getsd}{whether each jitter runs \code{TMB::sdreport}. Jitter compares
 objectives and point estimates across starts, so \code{FALSE} is faster
@@ -49,6 +50,12 @@ catch, because the fit never returns. One that exceeds the limit is stopped,
 counted as non-converged and reported separately. Approximate: the limit is
 checked when control returns to R, so it fires between the optimizer's
 function evaluations rather than inside one.}
+
+\item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
+\code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 a list of 1. \code{Rceattle_list}, the converged jitters, and
@@ -59,6 +66,12 @@ is what fraction of random starts reach the same optimum.
 }
 \description{
 Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
+}
+\note{
+Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
+on a numeric vector reaches this function and reports a missing model rather
+than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
+base-graphics behaviour.
 }
 \examples{
 \donttest{

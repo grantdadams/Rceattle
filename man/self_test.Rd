@@ -5,7 +5,7 @@
 \title{Self-test simulation analysis}
 \usage{
 self_test(
-  Rceattle = NULL,
+  object = NULL,
   nsim = 50,
   simulate = TRUE,
   seed = 123,
@@ -15,11 +15,13 @@ self_test(
   start = c("initial", "estimated"),
   debug = FALSE,
   timeout = Inf,
-  process = FALSE
+  process = FALSE,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{nsim}{number of simulations}
 
@@ -30,10 +32,9 @@ values from the model are used.}
 \item{seed}{random number seed. Each simulation \code{i} uses \code{seed + i}
 so results are reproducible under both sequential and parallel execution.}
 
-\item{cores}{Number of cores to use for parallel simulations. Default
-\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-running under \code{R CMD check} (which sets
-\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+\item{cores}{Number of cores for the parallel refits. Default \code{NULL} picks
+\code{parallel::detectCores() - 6}, capped at 2 under \verb{R CMD check} (which sets
+\verb{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 
 \item{getsd}{whether each refit runs \code{TMB::sdreport}. Self-test compares
 the refit point estimates to the operating model, so \code{FALSE} is faster
@@ -88,6 +89,12 @@ recovers its own parameters from new observations. Naming a process --
 estimator recovers a process it has not been shown. The deviations behind
 each replicate come back in \code{attr(result, "process_sim")}; see
 \code{Value}.}
+
+\item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
+\code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....

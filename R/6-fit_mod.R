@@ -456,6 +456,13 @@ fit_mod <-
       data_list <- Rceattle::switch_check(data_list)
     }
 
+    # A Dirichlet-multinomial reads its composition weight as a log, so the
+    # template's seed value of 1 is a starting weight of e. Reported here rather
+    # than inside switch_check(), which build_params() and build_map() also call
+    # -- that would print it three times per fit. Reports only; changes nothing.
+    if (isTRUE(quiet_data_check)) suppressMessages(.rce_flag_dm_weight_scale(data_list))
+    else .rce_flag_dm_weight_scale(data_list)
+
     # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
     # still stop the fit. The diagnostic refits set it: they re-validate a
     # data_list the caller already fitted once, so every warning it raises has

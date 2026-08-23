@@ -381,6 +381,61 @@ push/PR to `main`/`master` and weekly; `pkgdown.yaml` rebuilds this site.
   re-fitting. (See also the [Stock Synthesis conversion](../stock-synthesis-conversion.html)
   article.)
 
+## The argument names, and what is deliberately left alone
+
+The diagnostics take the fitted model as `object` (5.11.0). `Rceattle` and `fit`
+still work and are silent; they warn from 5.12.0 and go in 6.0.0. To find your
+own call sites now:
+
+```r
+options(Rceattle.warn_deprecated_args = TRUE)
+```
+
+Three keep their own names on purpose. `profile()` takes `fitted` because it is
+an S3 method for `stats::profile()`, and renaming a method's first formal away
+from its generic fails `R CMD check`. `mse_summary(mse = )` and
+`compare_sim(operating_mod = )` take an MSE result and a set of simulations, not
+a fitted model, so their names say more than `object` would.
+
+The rest of the surface below is **known-awkward and deliberately unchanged**.
+It is recorded here so it is not reopened each time someone reads the API cold.
+
+*Switch codes are frozen.* Renumbering any of them silently reinterprets every
+saved `run_config` YAML, every workbook, and every fitted `.rds` in
+`../Rceattle-models` and `../GOA-ATF-ESP` — the same integer would mean
+something new with nothing to signal it. This outweighs the readability of a
+tidier numbering, so these stay as they are:
+
+* `estimateMode` 0 = "Estimate" but 1 = "Hindcast", which reads backwards.
+* `srr_fun`'s valid set is non-contiguous: 0/2/4 are live, 1/3/5 soft-deprecated.
+* `sel_map` skips 10.
+* `initMode` 1 (`Equilibrium`) and 5 (`OffsetEquilibrium`) differ by one term.
+* `msmMode` accepts 3–9, then `data_check()` rejects them.
+
+*Overloaded columns.* `Time_varying_q` is a mode code for most fleets but a
+1-based `env_data` column index (possibly comma-separated, `"1,3"`) when
+`Catchability` is 5 or 6. `Sel_curve_pen1` is a penalty weight for
+selectivity 2/9/11 and `Sel_curve_pen2` a curvature penalty for 2/9, while for
+6/7 both are logit-scale AR1 correlations. Re-encoding either
+would break existing workbooks; they are documented in the column schema
+instead.
+
+*Argument counts and names.* `fit_mod()` and `run_mse()` both take upwards of
+twenty arguments, and the iteration counts are spelled `peels`, `njitter`,
+`nsim` and `n_iter` -- each idiomatic where it appears. `fit_mod()` also still
+accepts the optimizer arguments that moved onto `fit_control()`, with a warning;
+the live list is `.deprecated_ctl_args` in `R/6-fit_mod.R`.
+
+*One more collision.* `compare_sim()` has an argument named `object` that is a
+character selector for which part of the model to compare, not a fitted model.
+It predates this release and is left alone for the same reason `operating_mod`
+is, but it is the one place where `object` means something else.
+
+*`profile()` is the odd diagnostic out.* It refits like `retrospective()`,
+`jitter()` and `self_test()` but takes only a bare `getsd=` -- no `phase`, no
+`fit_control` -- so every profile point refits at `.refit_like()`'s unphased
+default. Worth knowing when reading a profile that looks flatter than expected.
+
 ## See also
 
 * [GitHub wiki](https://github.com/grantdadams/Rceattle/wiki) — the original

@@ -30,8 +30,9 @@
 #' Each pass writes the new weight to both, so the returned model's data list
 #' rebuilds the tuned model from scratch.
 #'
-#' @param fit An `Rceattle` model fitted at `estimateMode` `"Estimate"` (0) or
-#'   `"Hindcast"` (1) -- the modes that optimize the hindcast.
+#' @param object An `Rceattle` model fitted at `estimateMode` `"Estimate"` (0) or `"Hindcast"` (1) -- the modes that optimize the hindcast.
+#' @param fit deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
 #' @param n_iter Maximum number of iterations (default 10).
 #' @param tol Relative change in the weights below which to stop (default 0.01).
 #' @param fleets Fleets to tune, as `Fleet_code` values or as names matching
@@ -62,20 +63,24 @@
 #' tuned$reweight$history      # weight per fleet, per iteration
 #' }
 #' @export
-reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
-                           verbose = TRUE) {
+reweight_comps <- function(object = NULL, n_iter = 10, tol = 0.01, fleets = NULL,
+                           verbose = TRUE, fit = NULL) {
+  # `fit` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(fit))
+    object <- .rce_deprecated_arg(fit, !missing(object), "fit", "object", "reweight_comps")
 
-  if (!inherits(fit, "Rceattle")) {
-    stop("`fit` must be a fitted Rceattle model.", call. = FALSE)
+
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model.", call. = FALSE)
   }
-  fc <- fit$data_list$fleet_control
+  fc <- object$data_list$fleet_control
 
   # Fleets the loop can tune: they carry composition data that is actually
   # fitted, and their likelihood takes the weight as a multiplier rather than
   # estimating it. A negative year marks a row carried but not fitted, and the
   # McAllister-Ianelli weight averages over fitted rows alone, so a fleet with
   # none of them has no weight to tune towards.
-  cd <- fit$data_list$comp_data
+  cd <- object$data_list$comp_data
   has_comp <- unique(cd$Fleet_code[cd$Fleet_code > 0 & cd$Year > 0])
   dist <- as.character(fc$Comp_distribution)
   multinom <- fc$Fleet_code[dist %in% c("Multinomial", "MultinomialAFSC")]
@@ -115,9 +120,9 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
          "multinomial likelihood.", call. = FALSE)
   }
 
-  estimate_mode <- fit$data_list$estimateMode
+  estimate_mode <- object$data_list$estimateMode
   if (!is.null(estimate_mode) && estimate_mode > 1) {
-    stop("`fit` was run at estimateMode ", estimate_mode, ", which does not ",
+    stop("`object` was run at estimateMode ", estimate_mode, ", which does not ",
          "optimize the hindcast, so the weights cannot be tuned: every pass ",
          "would return the same value and report convergence. Refit at ",
          "\"Estimate\" or \"Hindcast\" first.", call. = FALSE)
@@ -127,10 +132,10 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   # user-supplied map, drop phasing the model may need to reach its optimum, and
   # return the tuned fit without standard errors. `phase` may be a named list of
   # per-parameter phases, so it travels verbatim rather than as a flag.
-  fc_cfg     <- fit$run_config$fit_control
+  fc_cfg     <- object$run_config$fit_control
   fit_phase  <- if (is.null(fc_cfg$phase)) FALSE else fc_cfg$phase
   fit_getsd  <- if (is.null(fc_cfg$getsd)) FALSE else fc_cfg$getsd
-  fit_map    <- fit$map
+  fit_map    <- object$map
 
   history <- NULL
   converged <- FALSE
@@ -140,10 +145,10 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
     iter_run <- iter
 
     # Weight implied by the current fit, per fleet.
-    implied <- fit$data_list$fleet_control$Comp_weights_mcallister[
-      match(eligible, fit$data_list$fleet_control$Fleet_code)]
+    implied <- object$data_list$fleet_control$Comp_weights_mcallister[
+      match(eligible, object$data_list$fleet_control$Fleet_code)]
     if (all(is.na(implied))) {
-      stop("The fit carries no McAllister-Ianelli weights; it must be fitted ",
+      stop("The fitted model carries no McAllister-Ianelli weights; it must be fitted ",
            "with composition data before it can be reweighted.", call. = FALSE)
     }
     # The weight has to be finite and positive to be usable: zero drops the
@@ -158,7 +163,7 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
            "composition data with non-zero sample sizes.", call. = FALSE)
     }
 
-    current <- fit$estimated_params$comp_weights[eligible]
+    current <- object$estimated_params$comp_weights[eligible]
     # Relative move, guarding a zero denominator.
     rel <- abs(implied - current) / pmax(abs(current), .Machine$double.eps)
     history <- rbind(history, data.frame(
@@ -182,12 +187,12 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
     # it keeps fit_mod()'s "this column is being ignored" warning quiet, which
     # here would fire once per fleet per pass on a weighting the loop is setting
     # deliberately.
-    inits <- fit$estimated_params
+    inits <- object$estimated_params
     inits$comp_weights[eligible] <- implied
-    data_list <- fit$data_list
+    data_list <- object$data_list
     data_list$fleet_control$Comp_weights[eligible] <- implied
 
-    fit <- .refit_like(data_list = data_list, inits = inits,
+    object <- .refit_like(data_list = data_list, inits = inits,
                        map = fit_map, estimateMode = estimate_mode,
                        phase = fit_phase, getsd = fit_getsd)
 
@@ -204,10 +209,10 @@ reweight_comps <- function(fit, n_iter = 10, tol = 0.01, fleets = NULL,
   # agree; re-assert it from the returned fit rather than relying on that, since
   # this is the guarantee the docs make -- saving this data_list and refitting
   # from scratch reproduces the tuned model.
-  fit$data_list$fleet_control$Comp_weights[eligible] <-
-    fit$estimated_params$comp_weights[eligible]
+  object$data_list$fleet_control$Comp_weights[eligible] <-
+    object$estimated_params$comp_weights[eligible]
 
-  fit$reweight <- list(history = history, iterations = iter_run,
+  object$reweight <- list(history = history, iterations = iter_run,
                        converged = converged, tol = tol, fleets = eligible)
-  fit
+  object
 }

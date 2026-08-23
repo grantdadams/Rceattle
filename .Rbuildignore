@@ -34,3 +34,4 @@
 ^docs$
 ^covr$
 ^fims\.log$
+^inst/dev/SESSION_HANDOFF\.md$

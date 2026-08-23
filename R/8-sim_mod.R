@@ -754,7 +754,9 @@
 #' are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
 #' model is unaffected.
 #'
-#' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
+#' @param object A CEATTLE model object exported from \code{Rceattle}.
+#' @param Rceattle deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
 #' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
 #'   If \code{FALSE}, returns the expected values (hats).
 #' @param process Which process error to redraw alongside the observations.
@@ -785,9 +787,19 @@
 #'   the cells that were never redrawn.
 #' @export
 #'
-sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
-  dat_sim <- Rceattle$data_list
-  quantities <- Rceattle$quantities
+sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle = NULL) {
+  # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(Rceattle))
+    object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "sim_mod")
+
+  # Without this a NULL model surfaces as "argument is of length zero"
+  # several lines later, rather than naming the argument at fault.
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model (from fit_mod()).", call. = FALSE)
+  }
+
+  dat_sim <- object$data_list
+  quantities <- object$quantities
 
   # Indices of abundance/biomass ----
   index_hat <- quantities$index_hat
@@ -800,7 +812,7 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
     # The survey draw follows each fleet's own Index_distribution (ceattle.cpp,
     # slot 0): lognormal, natural-scale normal, natural-scale normal truncated at
     # zero, or a correlated draw from the fleet's covariance.
-    sim_obj <- .sim_obj(Rceattle)
+    sim_obj <- .sim_obj(object)
     sim_state <- .sim_state_codes(process)
     sim_rep <- .sim_draw(sim_obj, state = sim_state)
     .sim_warn_linkage_qar1(sim_obj, sim_state)
@@ -1084,7 +1096,9 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 
 #' Sample historical recruitment deviations into the projection
 #'
-#' @param Rceattle CEATTLE model object exported from \code{Rceattle}
+#' @param object CEATTLE model object exported from \code{Rceattle}
+#' @param Rceattle deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
 #' @param sample_rec Include resampled recruitment deviations from the hindcast in the OM projection. Resampled deviations are used rather than drawing from N(0, sigmaR) because the initial deviations bias R0 low. If FALSE, uses the mean recruitment deviation.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
@@ -1092,57 +1106,64 @@ sim_mod <- function(Rceattle, simulate = FALSE, process = FALSE) {
 #' @returns Rceattle model
 #' @export
 #'
-sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0){
+sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, rec_trend = 0, Rceattle = NULL){
+  # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(Rceattle))
+    object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "sample_rec")
+
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model (from fit_mod()).", call. = FALSE)
+  }
 
   # Years for simulations
-  hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+  hind_yrs <- (object$data_list$styr) : object$data_list$endyr
   hind_nyrs <- length(hind_yrs)
-  proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+  proj_yrs <- (object$data_list$endyr + 1) : object$data_list$projyr
   proj_nyrs <- length(proj_yrs)
 
   # - Adjust rec trend
   if(length(rec_trend)==1){
-    rec_trend = rep(rec_trend, Rceattle$data_list$nspp)
+    rec_trend = rep(rec_trend, object$data_list$nspp)
   }
 
   # Replace future rec devs ----
   #FIXME - update non-sample rec for stock recruit relationship
-  for(sp in 1:Rceattle$data_list$nspp){
+  for(sp in 1:object$data_list$nspp){
 
     # -- where SR curve is estimated directly
-    if(Rceattle$data_list$srr_fun == Rceattle$data_list$srr_pred_fun){
+    if(object$data_list$srr_fun == object$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        rec_dev <- sample(x = object$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(Rceattle$quantities$R0[sp]) # - Scale mean rec for rec trend
+        rec_dev <- log(mean(object$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(object$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
     }
 
     # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
-    if(Rceattle$data_list$srr_fun != Rceattle$data_list$srr_pred_fun){
+    if(object$data_list$srr_fun != object$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = (log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs],
+        rec_dev <- sample(x = (log(object$quantities$R) - log(object$quantities$R_hat))[sp, 1:hind_nyrs],
                           size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
         # `log(R) - log(R_hat)` is already a log-scale deviation centred near
         # zero, so its mean is routinely negative and the outer log() this
         # used to take returned NaN. Take the mean deviation directly and add
         # the log trend, mirroring the sampling branch above.
-        rec_dev <- mean((log(Rceattle$quantities$R) - log(Rceattle$quantities$R_hat))[sp, 1:hind_nyrs]) +
+        rec_dev <- mean((log(object$quantities$R) - log(object$quantities$R_hat))[sp, 1:hind_nyrs]) +
           log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       }
     }
 
     # - Update OM with devs
-    Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
-      Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
+    object$estimated_params$rec_dev[sp,proj_yrs - object$data_list$styr + 1] <- replace(
+      object$estimated_params$rec_dev[sp,proj_yrs - object$data_list$styr + 1],
       values =  rec_dev)
   }
 
   if(update_model){
     # * Update fit ----
-    estMode <- Rceattle$data_list$estimateMode
-    Rceattle <-
+    estMode <- object$data_list$estimateMode
+    object <-
       suppressWarnings(
         suppressMessages(
           # Rebuild so the resampled projection recruitment propagates into the
@@ -1150,16 +1171,16 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
           # specification across the refit -- HCR, stock-recruit, M, growth, and
           # the catchability / selectivity / composition linkages.
           .refit_like(
-            data_list    = Rceattle$data_list,
-            inits        = Rceattle$estimated_params,
+            data_list    = object$data_list,
+            inits        = object$estimated_params,
             estimateMode = 3,
             getsd        = TRUE)
         )
       )
-    Rceattle$data_list$estimateMode <- estMode
+    object$data_list$estimateMode <- estMode
   }
 
-  return(Rceattle)
+  return(object)
 }
 
 #' Evaluate simulation performance
