@@ -655,16 +655,26 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      # TODO: this suppressWarnings() swallows EVERY warning build_map() raises,
-      # including the shared-block ones that exist to be seen -- the
-      # "same Catchability_index is not the same" pair, and the
-      # Bin_first_selected / N_sel_bins ones CLAUDE.md calls the safety net for
-      # fleets sharing a selectivity block. A fishery whose q is overridden by
-      # its group's lead fleet is silent today because of this line. Narrow it to
-      # the warnings actually being suppressed, or let build_map() classify them.
-      map <- suppressWarnings(build_map(data_list, start_par,
-                                        debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
-                                        random_rec = random_rec, random_sel = random_sel))
+      # build_map() warns about configurations the caller asked for and will not
+      # get: an M1 model wanting sex-specific mortality on a single-sex species,
+      # a Time_varying_sel the selectivity form ignores, a Laplace request the
+      # map cannot honour. Each one changes what is estimated, so it has to be
+      # seen. They are de-duplicated rather than passed straight through because
+      # build_map() raises the selectivity ones once per fleet and per sex, and
+      # because .refit_like() re-enters fit_mod() once per retrospective peel,
+      # jitter and MSE simulation -- unfiltered, one real warning becomes
+      # hundreds of identical lines and stops being read.
+      seen <- character(0)
+      map <- withCallingHandlers(
+        build_map(data_list, start_par,
+                  debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
+                  random_rec = random_rec, random_sel = random_sel),
+        warning = function(w) {
+          msg <- conditionMessage(w)
+          if (msg %in% seen) invokeRestart("muffleWarning")
+          seen <<- c(seen, msg)
+        }
+      )
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 

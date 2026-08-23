@@ -31,6 +31,35 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `Plimit`, matching the fallback arm. A run configured with the old implied
   values is unaffected.
 
+## Other changes
+
+* **`fit_mod()` no longer suppresses every warning `build_map()` raises.** The
+  suppression hid messages that exist to be seen -- an M1 model asking for
+  sex-specific mortality on a single-sex species, a `Time_varying_sel` the
+  selectivity form ignores, a Laplace request the map cannot honour. Each
+  changes what is estimated. They are now de-duplicated and passed through, so
+  a retrospective or MSE that re-enters `fit_mod()` once per peel or simulation
+  prints each distinct warning once rather than hundreds of times.
+
+* **`random_sel = TRUE` is now refused on a fleet with `Time_varying_sel =
+  "Block"`,** instead of producing a NaN objective. Selectivity blocks are
+  fixed effects -- one slope and inflection per block, with no penalty, which
+  is what the switch means -- so `build_map()` maps the block parameters into
+  `log_sel_slp_dev` / `sel_inf_dev` and turns the main parameters off.
+  `fit_mod()` then added those arrays to TMB's `random` unconditionally, but
+  the template scores selectivity deviates only under `"IID"`, `"AR1"`,
+  `"RandomWalk"` and `"RandomWalkAscending"`. The block parameters were
+  therefore integrated against no density at all, with `sel_dev_log_sd` mapped
+  out so there was no variance to estimate either. The marginal objective came
+  back `NaN` and the fit died with TMB's `NA/NaN gradient evaluation`, which
+  names neither selectivity nor `random_sel`. The error now says which fleets
+  and what to change.
+
+  No bundled dataset or reference model reaches this -- `BS2017SS` and
+  `BS2017MS` set `Time_varying_sel` to `"Off"` throughout, `GOA2018SS` to
+  `"Off"` and `"RandomWalkAscending"` -- and no fit that works today changes.
+  `"Block"` remains fully supported with `random_sel = FALSE`.
+
 # Rceattle 5.12.0
 
 ## Breaking changes
