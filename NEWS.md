@@ -15,6 +15,23 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Breaking changes
 
+* **A Beverton-Holt or Ricker stock-recruit curve can no longer be combined
+  with `msmMode > 0`.** `data_check()` now refuses it. Those curves anchor
+  steepness, `R0` and `R_init` on spawning biomass per recruit, and SPR is not
+  defined under predation: total mortality carries `M2`, which scales with
+  predator abundance, so per-recruit spawning output is not a property of the
+  prey stock alone. The template has always declined to compute it under
+  multispecies mode -- but the code that consumes it was never gated to match,
+  so `SPR0 = 0` reached it. With `srr_fun >= 2` that is a division by zero:
+  `R0` and `R_init` came back `-Inf` and the objective `NaN`. With the Ianelli
+  configuration (`srr_fun` mean, `srr_pred_fun` Beverton-Holt or Ricker) it was
+  worse, because **the fit ran to completion** and reported a finite objective
+  with `steepness` silently 0 and `R_hat` `-Inf`.
+
+  Nothing that produced a usable fit is refused. Use
+  `build_srr(srr_fun = "mean", srr_pred_fun = "mean")` under predation, or fit
+  the stock-recruit curve in single-species mode.
+
 * **Three `fleet_control` columns are now validated: `Selectivity_dimension`,
   `Sel_shape_dir` and `Sel_shape_mode`.** A typo in any of them previously
   resolved to `NA` rather than erroring -- `Selectivity_dimension` became a
@@ -182,6 +199,14 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   gives the integer code beside the readable name
   (`SingleSpecies (0) / MSVPA (1) / TypeIIIMSVPA (2)`), since a saved config
   writes the switch as the number.
+
+## Minor improvements
+
+* **`quantities$NbyageSPR` now carries dimension names.** Its first dimension is
+  a reference point rather than a species -- `c("F0", "Flimit", "Ftarget",
+  "Finit")` -- so reading it no longer means knowing that slot 3 is `Finit`.
+  Species and age bins are labelled to match the other numbers-at-age arrays.
+  Positional indexing is unchanged.
 
 # Rceattle 5.11.1
 

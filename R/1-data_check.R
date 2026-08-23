@@ -1464,6 +1464,42 @@ data_check <- function(data_list) {
     errors <- c(errors, "msmMode > 0 requires other_food > 0 for all species; zero values cause divide-by-zero in suitability")
   }
 
+  # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
+  # steepness, R0 and R_init are all derived from SPR0 or SPRFinit. Under
+  # predation those are not defined -- total mortality carries M2, which scales
+  # with predator abundance, so per-recruit spawning output is not a property of
+  # the prey stock alone -- and section 6.2 of the template does not compute
+  # them. The consumers in section 6.3 were never gated to match, so SPR0 = 0
+  # reached them: with srr_fun >= 2 that is 1/0, giving R0 = -Inf and a NaN
+  # objective; with the Ianelli configuration (srr_fun < 2, srr_pred_fun >= 2)
+  # it is worse, because the fit RUNS -- steepness comes out 0, R_hat -Inf, and
+  # the objective is finite. Refuse the combination rather than report either.
+  # Resolve through .SRR_FUNS rather than comparing the raw value: build_srr()
+  # coerces to an integer code, but a hand-built data_list can still carry the
+  # string, and in R `"mean" >= 2` is TRUE -- a character comparison that would
+  # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
+  # value is validate_switches()' business to report, not this check's.
+  .srr_needs_spr <- function(x) {
+    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(FALSE)
+    code <- if (is.numeric(x)) as.integer(x) else unname(.SRR_FUNS[as.character(x)])
+    isTRUE(!is.na(code) && code >= 2L)
+  }
+  if(!is.null(data_list$msmMode) && any(data_list$msmMode > 0)){
+    bad_srr <- c(if(.srr_needs_spr(data_list$srr_fun)) "srr_fun",
+                 if(.srr_needs_spr(data_list$srr_pred_fun)) "srr_pred_fun")
+    if(length(bad_srr)){
+      errors <- c(errors, paste0(
+        "msmMode > 0 cannot be combined with a Beverton-Holt or Ricker ",
+        paste(bad_srr, collapse = " / "), ". Those curves are anchored on ",
+        "spawning biomass per recruit, which is undefined under predation: ",
+        "total mortality includes M2, so per-recruit spawning output depends on ",
+        "predator abundance rather than on the prey stock alone. SPR0 is left at ",
+        "0 and the derived steepness, R0 and R_init are meaningless. Use ",
+        "build_srr(srr_fun = 'mean', srr_pred_fun = 'mean'), or fit the ",
+        "stock-recruit curve in single-species mode."))
+    }
+  }
+
   # Bioenergetics scalars: required (length nspp) when msmMode > 0. switch_check
   # fills these with safe sentinels in single-species mode, so the only way
   # they're missing or wrong-length here is in multispecies mode. The 12 scalars
