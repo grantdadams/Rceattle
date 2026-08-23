@@ -24,6 +24,7 @@
 #include "growth.hpp"
 #include "selectivity.hpp"
 #include "recruitment.hpp"
+#include "spr.hpp"
 #include "bioenergetics.hpp"
 #include "predation.hpp"
 #include "diet_data.hpp"
@@ -581,7 +582,10 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicB0(nspp, nyrs); DynamicB0.setZero();                         // Estimated dynamic  biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S_at_age-R curve)
-  array<Type>   NbyageSPR(4, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
+  // Zeroed explicitly, like every other array here: the recursion writes only
+  // ages below a species' own nages, and nothing at all under predation, so the
+  // rest is read from the REPORT as whatever it was initialised to.
+  array<Type>   NbyageSPR(4, nspp, max_age); NbyageSPR.setZero();                   // Numbers at age per recruit for the SPR reference points; slots 0-3 are F = 0, Flimit, Ftarget, Finit
   vector<Type>  SPRlimit(nspp); SPRlimit.setZero();                                 // Estimated Plimit SPR
   vector<Type>  SPRtarget(nspp); SPRtarget.setZero();                               // Estimated Ptarget SPR
   vector<Type>  SPR0(nspp); SPR0.setZero();                                         // Estimated spawning biomass per recruit at F = 0
@@ -1521,36 +1525,54 @@ Type objective_function<Type>::operator() () {
     SPRFinit.setZero();
     SPRlimit.setZero();
     SPRtarget.setZero();
+    // Not defined under predation: M carries M2, which scales with predator
+    // abundance, so spawning output per recruit would not be a property of the
+    // prey stock alone. data_check() refuses the switch combinations that read
+    // these downstream.
     if(msmMode == 0){
       for(sp = 0; sp < nspp; sp++) {
 
-        //FIXME: set to 1
-        NbyageSPR(0, sp, 0) = 1.0; // F = 0
-        NbyageSPR(1, sp, 0) = 1.0; // F = Flimit
-        NbyageSPR(2, sp, 0) = 1.0; // F = Ftarget
-        NbyageSPR(3, sp, 0) = 1.0; // F = Finit
+        int na = nages(sp);
+        int term_yr = nyrs_hind - 1;      // rates for a reference point are the terminal hindcast year's
+        wt_idx_ssb = 2 * sp + 1;
 
-        for(age = 1; age < nages(sp)-1; age++) {
-          NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
-          NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_at_age(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel in the forecast
-          NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_at_age(sp, 0, age-1, nyrs_hind - 1)));
-          NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, 0) + Finit(sp)));
+        // The four schedules. Flimit and Ftarget are selectivity-scaled and
+        // read the terminal hindcast year; Finit is the flat F that generated
+        // the initial age structure, so it is constant across ages and reads
+        // year 0, weight included.
+        // FIXME: time-vary sel in the forecast
+        vector<Type> Z_unfished(na), Z_limit(na), Z_target(na), Z_init(na);
+        vector<Type> wt_term(na), wt_first(na), mature_at_age(na), female_at_age(na);
+
+        for(age = 0; age < na; age++){
+          Z_unfished(age) = M_at_age(sp, 0, age, term_yr);
+          Z_limit(age)    = M_at_age(sp, 0, age, term_yr) + Flimit_at_age(sp, 0, age, term_yr);
+          Z_target(age)   = M_at_age(sp, 0, age, term_yr) + Ftarget_at_age(sp, 0, age, term_yr);
+          Z_init(age)     = M_at_age(sp, 0, age, 0) + Finit(sp);
+
+          wt_term(age)      = weight_hat(wt_idx_ssb, 0, age, term_yr);
+          wt_first(age)     = weight_hat(wt_idx_ssb, 0, age, 0);
+          //FIXME: use estimated sex_ratio for two-sex models?
+          mature_at_age(age) = maturity(sp, age);
+          female_at_age(age) = sex_ratio(sp, age);
         }
 
-        // Plus group
-        NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M_at_age(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M_at_age(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
-        NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Flimit_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Flimit_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-        NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-        NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
+        vector<Type> n_unfished = per_recruit_survivors(Z_unfished);
+        vector<Type> n_limit    = per_recruit_survivors(Z_limit);
+        vector<Type> n_target   = per_recruit_survivors(Z_target);
+        vector<Type> n_init     = per_recruit_survivors(Z_init);
 
-        // Calculate SPRss_
-        //FIXME: use estimated sex_ratio for two-sex models?
-        for(age = 0; age < nages(sp); age++) {
-          wt_idx_ssb = 2 * sp + 1;
-          SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
-          SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-          SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-          SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight_hat( wt_idx_ssb, 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
+        SPR0(sp)      = spawning_biomass_per_recruit(n_unfished, Z_unfished, wt_term,  mature_at_age, female_at_age, spawn_month(sp));
+        SPRlimit(sp)  = spawning_biomass_per_recruit(n_limit,    Z_limit,    wt_term,  mature_at_age, female_at_age, spawn_month(sp));
+        SPRtarget(sp) = spawning_biomass_per_recruit(n_target,   Z_target,   wt_term,  mature_at_age, female_at_age, spawn_month(sp));
+        SPRFinit(sp)  = spawning_biomass_per_recruit(n_init,     Z_init,     wt_first, mature_at_age, female_at_age, spawn_month(sp));
+
+        // Reported for inspection; slot order matches the four calls above.
+        for(age = 0; age < na; age++){
+          NbyageSPR(0, sp, age) = n_unfished(age);
+          NbyageSPR(1, sp, age) = n_limit(age);
+          NbyageSPR(2, sp, age) = n_target(age);
+          NbyageSPR(3, sp, age) = n_init(age);
         }
       }
     }

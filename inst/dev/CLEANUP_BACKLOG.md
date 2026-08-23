@@ -1,6 +1,6 @@
 # Cleanup backlog
 
-The 81 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
+The 79 `TODO` / `FIXME` markers in the source, triaged. **Add to this file; don't fix these
 unasked.** Fix the one in the file you were already asked to touch, in the same commit.
 
 **Cite the marker text, not a line number.** These references have gone stale three times --

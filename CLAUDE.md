@@ -113,7 +113,8 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   — don't renumber or rename wholesale.**
 - **`src/TMB/`** — `ceattle.cpp` is the main model (numbered section index); process logic lives
   in headers (`recruitment.hpp`, `selectivity.hpp`, `predation.hpp`, `growth.hpp`, `linkage.hpp`,
-  `comp_osa.hpp`, `comp_sim.hpp`, `helper_functions.hpp`, `bioenergetics.hpp`, `diet_data.hpp`).
+  `spr.hpp`, `comp_osa.hpp`, `comp_sim.hpp`, `helper_functions.hpp`, `bioenergetics.hpp`,
+  `diet_data.hpp`).
   `jnll_comp` rows are addressed by the **`JnllRow` enum** — refer to a row by its constant,
   never a bare integer. Display names live separately in `R/6-rename_output.R` and are kept in
   sync by hand; adding or reordering a component means updating both.
