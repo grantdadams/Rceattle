@@ -1,3 +1,40 @@
+#' Shared refit-diagnostic arguments
+#'
+#' A common vocabulary, documented here once and inherited by the diagnostics
+#' that refit the model: [retrospective()], [jitter()] and [self_test()]. Each
+#' argument means the same thing wherever it appears. `phase`, `getsd` and
+#' `timeout` are deliberately **not** here -- their defaults and their
+#' consequences for the diagnostic differ, so each function documents its own.
+#' [profile()] refits too but takes only `cores` and a bare `getsd`.
+#'
+#' @section What `fit_control()` reaches:
+#'
+#' These diagnostics refit through an internal helper that forwards `phase` and
+#' `getsd` and nothing else. Every other field either comes off the fitted
+#' model's own `data_list` (`loopnum`, `comp_offset`, the bias-adjustment flags)
+#' or takes `fit_control()`'s default. Setting one of those is an error rather
+#' than a silent no-op, so a field you set is a field the refit used.
+#'
+#' Only the fields you set are applied -- named in the `fit_control()` call, or
+#' assigned to afterwards (`ctl$getsd <- TRUE`). One you never touch keeps the
+#' diagnostic's own default, which is not always `fit_control()`'s --
+#' [retrospective()] phases its peels where `fit_control()` does not -- so
+#' `fit_control(getsd = FALSE)` asks about standard errors and changes nothing
+#' else. Setting a field to the value that is already `fit_control()`'s default
+#' still counts as setting it.
+#'
+#' @param object an Rceattle model fit using [fit_mod()].
+#' @param Rceattle deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
+#' @param cores Number of cores for the parallel refits. Default `NULL` picks
+#'   `parallel::detectCores() - 6`, capped at 2 under `R CMD check` (which sets
+#'   `_R_CHECK_LIMIT_CORES_`). Set to 1 to force sequential execution.
+#' @param fit_control optional [fit_control()] bundle for the refits. Only
+#'   `phase` and `getsd` are read; see **What `fit_control()` reaches**.
+#' @name rceattle-refit-args
+NULL
+
+
 #' Parallel `lapply` over a cluster, using FORK where the platform allows.
 #'
 #' @description
@@ -67,33 +104,20 @@
 #' 2. Fits the peeled model.
 #' 3. Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
 #'
-#' @param object an Rceattle model fit using \code{\link{fit_mod}}
-#' @param Rceattle deprecated name for `object`, still accepted so existing
-#'   scripts keep working. Supplying both is an error.
+#' @inheritParams rceattle-refit-args
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
-#' @param cores Number of cores to use for parallel peels. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
-#' @param phase whether each peel is refitted in phases (default \code{TRUE}).
-#'   A peel restarts from the unpeeled fit's starting values with a year removed;
-#'   without phasing the parameters barely move, the peels sit on top of the full
-#'   model, and Mohn's rho is biased towards zero. Change it only deliberately.
-#' @param fit_control optional \code{\link{fit_control}()} bundle for the refits.
-#'   Only \code{phase} and \code{getsd} are read -- those are what these
-#'   diagnostics forward to each refit -- and setting any other field is an
-#'   error rather than a silent no-op. Only fields you change from
-#'   \code{fit_control()}'s own defaults are applied, so
-#'   \code{fit_control(getsd = FALSE)} cannot also un-phase the refits; use the
-#'   function's own \code{phase} argument for that.
 #' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
 #'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
 #'   effect on rho. Default \code{NULL} inherits the input model's setting
 #'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
 #'   \code{sdrep}); the returned peel models then carry standard errors only
 #'   when \code{getsd} is \code{TRUE}.
+#' @param phase whether each peel is refitted in phases (default \code{TRUE}).
+#'   A peel restarts from the unpeeled fit's starting values with a year removed;
+#'   without phasing the parameters barely move, the peels sit on top of the full
+#'   model, and Mohn's rho is biased towards zero. Change it only deliberately.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
 #'   each species.
@@ -149,10 +173,15 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, phase = TRUE, cores = NULL, getsd = NULL, fit_control = NULL, Rceattle = NULL) {
-  # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
+retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL, phase = TRUE, fit_control = NULL, Rceattle = NULL) {
+  # `phase` and `fit_control` are appended after the arguments that predate them,
+  # so a positional call keeps its meaning. The deprecated `Rceattle` formal sits
+  # last; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "retrospective")
+  # Cleared once consumed: .parallel_lapply() exports every binding in this frame
+  # to the PSOCK workers, and two names for one fitted model send it twice.
+  Rceattle <- NULL
 
   if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
@@ -591,9 +620,7 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 #'   than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
 #'   base-graphics behaviour.
 #'
-#' @param object an Rceattle model fit using \code{\link{fit_mod}}
-#' @param Rceattle deprecated name for `object`, still accepted so existing
-#'   scripts keep working. Supplying both is an error.
+#' @inheritParams rceattle-refit-args
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
 #' @param phase as in \code{\link{fit_mod}} default = FALSE. Jitters restart from
@@ -603,16 +630,6 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 #'   reads as multimodality rather than as an unphased fit.
 #' @param seed random number seed. Each jitter \code{i} uses \code{seed + i}
 #'   so results are reproducible under both sequential and parallel execution.
-#' @param cores Number of cores to use for parallel jitters. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
-#' @param fit_control optional \code{\link{fit_control}()} bundle for the refits.
-#'   Only \code{phase} and \code{getsd} are read -- those are what these
-#'   diagnostics forward to each refit -- and setting any other field is an
-#'   error rather than a silent no-op. Only fields you change from
-#'   \code{fit_control()}'s own defaults are applied, so
-#'   \code{fit_control(getsd = FALSE)} cannot also change \code{phase}.
 #' @param getsd whether each jitter runs \code{TMB::sdreport}. Jitter compares
 #'   objectives and point estimates across starts, so \code{FALSE} is faster
 #'   with no effect on that comparison. Default \code{NULL} inherits the input
@@ -647,6 +664,9 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "jitter")
+  # Cleared once consumed: .parallel_lapply() exports every binding in this frame
+  # to the PSOCK workers, and two names for one fitted model send it twice.
+  Rceattle <- NULL
 
   if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
@@ -762,25 +782,13 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
 #'
 #' @description Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
 #'
-#' @param object an Rceattle model fit using \code{\link{fit_mod}}
-#' @param Rceattle deprecated name for `object`, still accepted so existing
-#'   scripts keep working. Supplying both is an error.
+#' @inheritParams rceattle-refit-args
 #' @param seed random number seed. Each simulation \code{i} uses \code{seed + i}
 #'   so results are reproducible under both sequential and parallel execution.
 #' @param nsim number of simulations
 #' @param simulate passed to \code{\link{sim_mod}}. If \code{TRUE} (default),
 #'   data are simulated with observation error; if \code{FALSE}, expected
 #'   values from the model are used.
-#' @param cores Number of cores to use for parallel simulations. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
-#' @param fit_control optional \code{\link{fit_control}()} bundle for the refits.
-#'   Only \code{phase} and \code{getsd} are read -- those are what these
-#'   diagnostics forward to each refit -- and setting any other field is an
-#'   error rather than a silent no-op. Only fields you change from
-#'   \code{fit_control()}'s own defaults are applied, so
-#'   \code{fit_control(getsd = FALSE)} cannot also change \code{phase}.
 #' @param getsd whether each refit runs \code{TMB::sdreport}. Self-test compares
 #'   the refit point estimates to the operating model, so \code{FALSE} is faster
 #'   with no effect on that comparison. Default \code{NULL} inherits the input
@@ -890,6 +898,9 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "self_test")
+  # Cleared once consumed: .parallel_lapply() exports every binding in this frame
+  # to the PSOCK workers, and two names for one fitted model send it twice.
+  Rceattle <- NULL
 
   # `process` stays after the arguments that predate it so positional calls keep
   # their meaning. The deprecated `Rceattle` formal sits last; see R/0-deprecate.R.

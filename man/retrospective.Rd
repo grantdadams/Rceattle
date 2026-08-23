@@ -9,15 +9,15 @@ retrospective(
   peels = 5,
   rescale = FALSE,
   nyrs_forecast = 3,
-  phase = TRUE,
   cores = NULL,
   getsd = NULL,
+  phase = TRUE,
   fit_control = NULL,
   Rceattle = NULL
 )
 }
 \arguments{
-\item{object}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
@@ -25,15 +25,9 @@ retrospective(
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
 
-\item{phase}{whether each peel is refitted in phases (default \code{TRUE}).
-A peel restarts from the unpeeled fit's starting values with a year removed;
-without phasing the parameters barely move, the peels sit on top of the full
-model, and Mohn's rho is biased towards zero. Change it only deliberately.}
-
-\item{cores}{Number of cores to use for parallel peels. Default
-\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-running under \code{R CMD check} (which sets
-\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+\item{cores}{Number of cores for the parallel refits. Default \code{NULL} picks
+\code{parallel::detectCores() - 6}, capped at 2 under \verb{R CMD check} (which sets
+\verb{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 
 \item{getsd}{whether each peel runs \code{TMB::sdreport} (standard errors).
 Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
@@ -42,13 +36,13 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 \code{sdrep}); the returned peel models then carry standard errors only
 when \code{getsd} is \code{TRUE}.}
 
-\item{fit_control}{optional \code{\link{fit_control}()} bundle for the refits.
-Only \code{phase} and \code{getsd} are read -- those are what these
-diagnostics forward to each refit -- and setting any other field is an
-error rather than a silent no-op. Only fields you change from
-\code{fit_control()}'s own defaults are applied, so
-\code{fit_control(getsd = FALSE)} cannot also un-phase the refits; use the
-function's own \code{phase} argument for that.}
+\item{phase}{whether each peel is refitted in phases (default \code{TRUE}).
+A peel restarts from the unpeeled fit's starting values with a year removed;
+without phasing the parameters barely move, the peels sit on top of the full
+model, and Mohn's rho is biased towards zero. Change it only deliberately.}
+
+\item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
+\code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}

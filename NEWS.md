@@ -30,7 +30,9 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `options(Rceattle.warn_deprecated_args = TRUE)`. Supplying both names for one
   model is an error rather than a guess.
 
-  Positional calls -- `retrospective(ss_run, peels = 10)` -- are unaffected.
+  Positional calls are unaffected: the old name is the last formal on every one
+  of the ten, and the new `phase` and `fit_control` arguments below are appended
+  after the arguments that predate them rather than inserted among them.
   `profile()` keeps `fitted` because it is an S3 method for `stats::profile()`,
   and `mse_summary(mse =)` and `compare_sim(operating_mod =)` keep their names
   because they take an MSE result and a simulation set, not a fitted model.
@@ -59,9 +61,40 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   Omitting it -- the default -- leaves every existing call behaving exactly as
   before.
 
+  Which fields you asked for is read from what you **set** -- named in the
+  `fit_control()` call, or assigned to afterwards (`ctl$getsd <- TRUE`) -- not
+  from whether the value differs from a default. So `fit_control(getsd = TRUE)`
+  and `fit_control(phase = FALSE)` do what they say even though `TRUE` and
+  `FALSE` are those fields' defaults. A field you never touch keeps the
+  diagnostic's own default, which is not always `fit_control()`'s:
+  `retrospective()` phases its peels where `fit_control()` does not, so
+  `fit_control(getsd = FALSE)` asks about standard errors and cannot also
+  flatten Mohn's rho.
+
+* **`?rceattle-refit-args` documents the vocabulary `retrospective()`,
+  `jitter()` and `self_test()` share** -- `object`, `cores`, `fit_control`, and
+  what `fit_control()` reaches through a refit -- the way
+  `?rceattle-plot-args` already does for the plotters. `phase`, `getsd` and
+  `timeout` stay on each function, because their defaults and what they mean for
+  that diagnostic differ.
+
+* **`retrospective()` takes `phase`,** the value it previously fixed internally.
+  The default is `TRUE`, which is what it always used: a peel restarts from the
+  unpeeled fit's starting values with a year removed, so without phasing the
+  parameters barely move, the peels sit on top of the full model, and Mohn's rho
+  is biased towards zero. No peel changes unless you set it.
+
 * **`?jitter` now records that attaching Rceattle masks `base::jitter()`.** The
   function keeps its name; call `base::jitter()` for the base-graphics
   behaviour.
+
+## Bug fixes
+
+* **A parallel `retrospective()`, `jitter()` or `self_test()` called under the
+  deprecated `Rceattle =` name no longer sends the fitted model to each Windows
+  worker twice.** The PSOCK path exports the caller's whole frame, and both
+  argument names were bound to the same model. macOS and Linux use FORK and were
+  never affected. No result changes -- this is transfer time and worker memory.
 
 ## Deprecations
 

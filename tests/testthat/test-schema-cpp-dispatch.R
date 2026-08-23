@@ -11,6 +11,16 @@
 # "reachable from R but handled before dispatch", which otherwise lives as prose
 # in three different phrasings.
 
+# Strip comments before scanning. A retired feature is commented out rather than
+# deleted here -- `// DATA_INTEGER(est_diet);` and `// DATA_INTEGER(avgnMode);`
+# both sit at the top of ceattle.cpp -- so a scanner reading the raw text calls a
+# dead declaration live, and the guard passes on a column that reaches the model
+# as nothing.
+strip_cpp_comments <- function(src) {
+  src <- gsub("(?s)/\\*.*?\\*/", "", src, perl = TRUE)
+  gsub("//[^\n]*", "", src, perl = TRUE)
+}
+
 # Read `case N:` labels belonging to `switch (var)`, at brace depth 1 only. A
 # nested switch -- switch(flt_sex) inside switch(flt_type) -- must not leak its
 # labels into the outer one.
@@ -163,7 +173,8 @@ test_that("every schema tmb_target is really produced and really consumed", {
   testthat::skip_if(length(rd) == 0 || length(cpp) == 0, "source not available")
 
   rearrange <- paste(readLines(rd[1],  warn = FALSE), collapse = "\n")
-  template  <- paste(readLines(cpp[1], warn = FALSE), collapse = "\n")
+  # Commented out is retired, not declared; see strip_cpp_comments() above.
+  template  <- strip_cpp_comments(paste(readLines(cpp[1], warn = FALSE), collapse = "\n"))
 
   schema  <- .rce_column_schema()
   targets <- vapply(schema,
@@ -180,7 +191,8 @@ test_that("every schema tmb_target is really produced and really consumed", {
     # no rename to find.
     if (!identical(tgt, col)) {
       testthat::expect_match(
-        rearrange, paste0("data_list\\$", tgt, "\\s*<-"), perl = TRUE,
+        rearrange,
+        paste0("data_list(\\$", tgt, "|\\[\\[\"", tgt, "\"\\]\\])\\s*<-"), perl = TRUE,
         info = paste0(col, " -> ", tgt, ": rearrange_data() never assigns it"))
     }
 
@@ -189,4 +201,62 @@ test_that("every schema tmb_target is really produced and really consumed", {
       template, paste0("DATA_[A-Z]+\\(\\s*", tgt, "\\s*\\)"), perl = TRUE,
       info = paste0(col, " -> ", tgt, ": ceattle.cpp declares no such DATA_ object"))
   }
+})
+
+
+test_that("every renamed template input is either a schema tmb_target or pinned", {
+  # The loop above walks only the rows that already carry a `tmb_target`, so on
+  # its own it cannot see a rename nobody recorded. This closes that end: every
+  # object rearrange_data() assigns AND the template declares must be accounted
+  # for -- as some column's `tmb_target`, or by name in the exemption below.
+  #
+  # A column reaching the model under a name the schema never mentions is the
+  # same failure `tmb_target` exists to catch, one level up.
+  rd  <- c("R/5-rearrange_data.R", testthat::test_path("..", "..", "R", "5-rearrange_data.R"))
+  cpp <- c("src/TMB/ceattle.cpp",  testthat::test_path("..", "..", "src", "TMB", "ceattle.cpp"))
+  rd  <- rd[file.exists(rd)]; cpp <- cpp[file.exists(cpp)]
+  testthat::skip_if(length(rd) == 0 || length(cpp) == 0, "source not available")
+
+  rearrange <- paste(readLines(rd[1],  warn = FALSE), collapse = "\n")
+  # Commented out is retired, not declared; see strip_cpp_comments() above.
+  template  <- strip_cpp_comments(paste(readLines(cpp[1], warn = FALSE), collapse = "\n"))
+
+  declared <- regmatches(template,
+                         gregexpr("DATA_[A-Z_]+\\(\\s*[A-Za-z0-9_.]+\\s*\\)", template, perl = TRUE))[[1]]
+  declared <- unique(trimws(sub("^DATA_[A-Z_]+\\(", "", sub("\\)$", "", declared))))
+
+  # Both spellings of the assignment, so writing one as data_list[["x"]] <- does
+  # not quietly drop it out of the guard's view.
+  assigned <- regmatches(rearrange, gregexpr(
+    "data_list(\\$[A-Za-z0-9_.]+|\\[\\[\"[A-Za-z0-9_.]+\"\\]\\])\\s*<-",
+    rearrange, perl = TRUE))[[1]]
+  assigned <- unique(gsub("^data_list(\\$|\\[\\[\")|(\"\\]\\])?\\s*<-$", "", assigned,
+                          perl = TRUE))
+
+  built <- intersect(assigned, declared)
+
+  # Template inputs that are NOT a single workbook column, so no schema row can
+  # own them. Each is either a whole data sheet assembled by rearrange_data()
+  # (the *_obs / *_ctl / *_n triples, the biological sheets) or a value that
+  # arrives from somewhere other than the workbook -- Ftarget_percent and
+  # Flimit_percent come from build_hcr(), env_index from the environmental
+  # covariates, index_cov_const from index_cov.
+  not_a_column <- c(
+    "age_error", "age_trans_matrix", "caal_ctl", "caal_n", "caal_obs",
+    "catch_ctl", "catch_n", "catch_obs", "comp_ctl", "comp_n", "comp_obs",
+    "diet_ctl", "diet_obs", "emp_sel_ctl", "emp_sel_obs", "env_index",
+    "Flimit_percent", "Ftarget_percent", "index_cov_const", "index_ctl",
+    "index_n", "index_obs", "lengths", "maturity", "n_stomach_obs",
+    "NByageFixed", "ration_data", "sex_ratio", "stomach_id", "weight_obs")
+
+  schema  <- .rce_column_schema()
+  targets <- vapply(schema,
+                    function(r) if (is.null(r$tmb_target)) NA_character_ else r$tmb_target,
+                    character(1))
+  targets <- unname(targets[!is.na(targets)])
+
+  testthat::expect_setequal(setdiff(built, targets), not_a_column)
+
+  # And the exemption may not quietly outlive the thing it exempts.
+  testthat::expect_setequal(intersect(not_a_column, built), not_a_column)
 })

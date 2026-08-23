@@ -116,7 +116,69 @@ fit_control <- function(
     nlminb_control      = nlminb_control
   )
   class(ans) <- c("Rceattle_fit_control", "list")
+
+  # Which fields the caller actually named. The returned list holds every field,
+  # defaults included, so the value alone cannot say whether it was asked for --
+  # and `fit_control(getsd = TRUE)` is a request even though TRUE is the default.
+  # `match.call()` resolves positional and partially-matched arguments to their
+  # full names first. The `$<-`/`[[<-`/`[<-` methods below keep it current when
+  # the bundle is edited afterwards. Read it with `.rce_fit_control_supplied()`.
+  attr(ans, "supplied") <- names(as.list(match.call())[-1])
   ans
+}
+
+
+# Editing a bundle after the fact -- `ctl$getsd <- TRUE`, or the `[[<-` that
+# modifyList() uses -- is a request just as much as naming the field in the
+# fit_control() call, and the value cannot say so when it equals the default.
+# These record it. Nothing else about assignment changes.
+.rce_record_supplied <- function(x, y, i) {
+  nm <- if (is.character(i)) i else names(y)[i]
+  nm <- nm[!is.na(nm) & nzchar(nm)]
+  attr(y, "supplied") <- union(attr(x, "supplied"), nm)
+  y
+}
+
+#' @export
+#' @noRd
+`$<-.Rceattle_fit_control` <- function(x, name, value) {
+  .rce_record_supplied(x, NextMethod(), name)
+}
+
+#' @export
+#' @noRd
+`[[<-.Rceattle_fit_control` <- function(x, i, value) {
+  .rce_record_supplied(x, NextMethod(), i)
+}
+
+#' @export
+#' @noRd
+`[<-.Rceattle_fit_control` <- function(x, i, value) {
+  .rce_record_supplied(x, NextMethod(), i)
+}
+
+
+#' Which `fit_control()` fields the caller asked for
+#'
+#' @description
+#' A field counts as asked for if the caller named it in the `fit_control()`
+#' call or assigned to it afterwards. Restricted to fields the bundle still
+#' carries, so deleting one (`ctl$getsd <- NULL`) withdraws the request.
+#'
+#' A value that no longer matches the default also counts, whatever the record
+#' says. That is the fallback for a bundle whose record did not survive -- one
+#' rebuilt by `load_config()` from the non-default fields, or by `structure()`.
+#'
+#' @param fit_control an `Rceattle_fit_control` object.
+#' @return Character vector of field names.
+#' @keywords internal
+#' @noRd
+.rce_fit_control_supplied <- function(fit_control) {
+  defaults <- fit_control()
+  nms      <- intersect(names(fit_control), names(defaults))
+  edited   <- nms[!vapply(nms, function(n) identical(fit_control[[n]], defaults[[n]]),
+                          logical(1))]
+  union(intersect(attr(fit_control, "supplied"), nms), edited)
 }
 
 
@@ -132,22 +194,27 @@ fit_control <- function(
 #' those would leave a user believing every peel had used them.
 #'
 #' So a field this path cannot reach is an error, not a silent no-op -- but only
-#' when the caller changed it from `fit_control()`'s default, since
-#' `fit_control(phase = TRUE)` returns the whole list, defaults included.
+#' when the caller changed it from `fit_control()`'s default. `.refit_like()`
+#' builds a fresh `fit_control()` naming only `phase`, `loopnum`, `getsd`,
+#' `verbose` and the bias-adjustment flags, so an unreachable field left at its
+#' default is what the refit uses anyway, and refusing it would be pedantry.
 #'
-#' **Only fields the caller actually changed are applied.** `fit_control()`
-#' defaults `phase` to `FALSE`, but `retrospective()` phases its peels because
-#' otherwise the parameters do not move from the full-model fit. Applying every
-#' field would mean `fit_control(getsd = FALSE)` -- a request about standard
-#' errors -- silently un-phasing every peel and flattening Mohn's rho. To ask
-#' for something that happens to equal `fit_control()`'s default, use the
-#' function's own argument (`retrospective(phase = FALSE)`).
+#' **`phase` and `getsd` are read from what the caller SET**, via
+#' `.rce_fit_control_supplied()` -- named in the `fit_control()` call or
+#' assigned to afterwards -- not from whether the value differs from a
+#' default. The two disagree: `fit_control()` defaults `phase` to `FALSE`, but
+#' `retrospective()` phases its peels because otherwise the parameters do not
+#' move from the full-model fit and Mohn's rho is biased towards zero. Keying on
+#' the value would mean `fit_control(getsd = FALSE)` -- a request about standard
+#' errors -- silently un-phasing every peel, while `fit_control(getsd = TRUE)`
+#' did nothing at all. Keying on the name gives each field exactly what was
+#' asked for and nothing else.
 #'
 #' @param fit_control a `fit_control()` object, or `NULL`.
 #' @param fn calling function, for the message.
 #'
-#' @return A named list of the honoured knobs the caller changed. Empty if they
-#'   changed none; `NULL` if `fit_control` was `NULL`.
+#' @return A named list of the honoured knobs the caller asked for. Empty if
+#'   they asked for none; `NULL` if `fit_control` was `NULL`.
 #' @keywords internal
 #' @noRd
 .rce_refit_control <- function(fit_control, fn) {
@@ -173,5 +240,5 @@ fit_control <- function(
       if (length(unreachable) == 1) "it" else "them"), call. = FALSE)
   }
 
-  fit_control[changed(honoured)]
+  fit_control[intersect(honoured, .rce_fit_control_supplied(fit_control))]
 }

@@ -208,6 +208,14 @@ reference:
   - simulate.Rceattle
   - compare_sim
 
+- title: "Diagnostics — shared arguments"
+  desc: >
+    The common vocabulary retrospective(), jitter() and self_test() share:
+    object, cores and fit_control, and what fit_control() reaches through a
+    refit.
+  contents:
+  - rceattle-refit-args
+
 - title: "Plotting — shared arguments"
   desc: >
     The common vocabulary the timeseries, predation and selectivity plotters

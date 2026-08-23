@@ -71,6 +71,41 @@ test_that("the deprecated name is declared last, so positional calls still bind 
   }
 })
 
+test_that("a new argument is appended, so an existing positional call still means what it did", {
+  # The leading formals as 5.10.0 shipped them, with only the fitted model
+  # renamed. An assessment script calling retrospective(mod, 5, FALSE, 3, 4)
+  # means cores = 4; inserting an argument ahead of `cores` would rebind that 4
+  # to something else with no error and no warning. New arguments go on the end.
+  pre_rename <- list(
+    retrospective = c("object", "peels", "rescale", "nyrs_forecast", "cores", "getsd"),
+    jitter        = c("object", "njitter", "sd", "phase", "seed", "cores", "getsd", "timeout"),
+    self_test     = c("object", "nsim", "simulate", "seed", "cores", "getsd", "phase",
+                      "start", "debug", "timeout", "process")
+  )
+  for (fn in names(pre_rename)) {
+    nms <- names(formals(get(fn, envir = asNamespace("Rceattle"))))
+    expect_identical(nms[seq_along(pre_rename[[fn]])], pre_rename[[fn]],
+                     info = paste(fn, "reordered an argument that predates 5.11.0"))
+  }
+})
+
+test_that("the deprecated formal is cleared, so a PSOCK worker gets the model once", {
+  # clusterExport() serializes each name in the exported frame separately, so
+  # while both `object` and the old name are bound to the fit, every Windows
+  # worker receives a whole fitted model twice. The old name is the spelling the
+  # assessment scripts use, so that is the common path, not the rare one.
+  for (fn in c("retrospective", "jitter", "self_test")) {
+    body_txt <- paste(deparse(body(get(fn, envir = asNamespace("Rceattle")))),
+                      collapse = "\n")
+    cleared  <- regexpr("Rceattle <- NULL", body_txt, fixed = TRUE)
+    exported <- regexpr(".parallel_lapply(", body_txt, fixed = TRUE)
+
+    expect_gt(cleared, 0)
+    expect_gt(exported, 0)
+    expect_lt(cleared, exported)
+  }
+})
+
 test_that("the old name still reaches the model, and does so silently", {
   m <- not_a_fit()
   for (fn in names(deprecated_model_args)) {
