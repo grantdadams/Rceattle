@@ -455,8 +455,6 @@ mse_summary <- function(mse, om_only = FALSE){
 
     ## Perceived status (EM) and OM at matching assess years ----
     if(!om_only){
-      spp_rows <- which(flt_spp == sp) # FIXME: May want to select only fisheries (will bug if not survey)
-
       em_f_flimit          <- c()
       em_sb_sblimit        <- c()
       om_f_flimit_assess   <- c()
