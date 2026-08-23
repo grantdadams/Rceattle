@@ -89,6 +89,23 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Bug fixes
 
+* **`write_data()` no longer fails on a workbook that predates a control or
+  bioenergetics switch.** Both sheets were assembled from the full schema
+  object list -- the control sheet by `rbind()`, which drops a `NULL`, and the
+  bioenergetics sheet by hard-coded row index into a fixed-height matrix. An
+  absent object therefore aborted the whole write with `arguments imply
+  differing number of rows` or `number of items to replace is not a multiple of
+  replacement length`. The live Pacific hake workbook hits this: it predates
+  `alpha_wt_len` / `beta_wt_len`, so `read_data()` then `write_data()` could not
+  round-trip it. Both sheets now write the objects the `data_list` actually
+  carries, in schema order, as `fleet_control` already did.
+
+  Absent objects are dropped rather than written at their schema default: the
+  default belongs to the model, and baking one into a workbook would turn a
+  value `switch_check()` announces at fit time into one the file asserts.
+  Keying the bioenergetics rows by name also retires the duplicate row-order
+  list that had to be kept in sync with the schema by hand.
+
 * **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
   `validate_switches()` rejected it**, so a model written that way loaded, was
   normalised to nothing, and then failed its own data check. It is now upgraded
