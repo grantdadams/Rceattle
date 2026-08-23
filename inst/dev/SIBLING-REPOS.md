@@ -38,8 +38,38 @@ That is cheaper than it sounds: the terminal fit is under a minute for either po
 | GOA pollock 2025 | `../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` |
 | EBS pollock 2024 | `../Rceattle-models/EBS pollock/2024/04-fit-and-diagnostics.R` |
 | GOA arrowtooth | `../GOA-ATF-ESP/R/Run_2025_ceattle.R` |
+| Pacific hake MSE | `../Rceattle-models/Pacific hake/04-mse.R` |
+
+**The hake MSE is the one script that runs `run_mse()` end to end**, and the only routine
+exercise of three-species predation with estimated suitability, of `suitMode` differing per
+predator, and of Dirichlet-multinomial comps carrying a prior on their own weight. Golden
+covers none of that: its four models are single- and multi-species Bering Sea and Gulf of
+Alaska hindcasts, with no MSE and no estimated suitability. Run it after touching predation,
+suitability, the DM likelihood, `sim_mod()`, or `run_mse()`.
+
+Its four fits take ~3.5 min together on an M-series Mac, plus ~2 min for `nsim = 2, cores = 2`.
+Reference objectives (verified equal on `dev` and `pr3-schema-order-and-qar1`, 2026-08-22):
+
+| Stage | -log L |
+|---|---|
+| single-species | 2133.8207228717 |
+| single-species + category-1 HCR | 2134.4713926593 |
+| MSVPA, estimated M | 2137.4433306648 |
+| estimated suitability | 2260.7063099135 |
+
+All four were bit-identical across the two branches (delta 0.000e+00), as was the vulnerability
+matrix: 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). The script's own
+inline comments give the first three ~5 higher and the fourth as 2262.318: those are Rceattle
+5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that folder
+records the "clean" values, which are what the current package reproduces.
 
 Traps:
+
+- **`run_mse(cores > 1)` works under `pkgload::load_all()`** because `.parallel_lapply()` forks;
+  a PSOCK fallback would not see the loaded tree. Do not assume a parallel MSE failure is the
+  model.
+- `mse_summary()` returns a ragged list (`species`, `fleet`, `total`, `meta`), not a data frame.
+  `as.data.frame()` on it errors -- that is the caller's bug, not a broken MSE.
 
 - The pollock scripts' `Data/` paths are relative to the **project** root, not the year folder.
 - **The ATF script cannot be sourced straight through on any version** — it references three

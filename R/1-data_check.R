@@ -54,32 +54,83 @@ data_check <- function(data_list) {
 
   # Catchability = "AR1" is the QAR1 form (Rogers et al. 2024):
   # q = exp(log_q + beta * dev_y), with `index_q_dev` a latent AR1 process and
-  # the environmental index an observation of it.
+  # the environmental index an OBSERVATION of it.
   #
   # It does not work. build_map() gates the deviates on
   # `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
   # `Time_varying_q` holds an `env_data` COLUMN INDEX rather than a mode -- so a
   # QAR1 fleet never matches, `index_q_dev` stays mapped out, and q comes back
-  # constant. Nothing errors: the fit runs and reports a time-invariant q where
-  # the user asked for a time-varying one.
+  # constant. Nothing errors.
   #
-  # Warn rather than stop, so an existing model still runs and its author can
-  # see what they actually got. Note this is a DIFFERENT switch from
-  # `Time_varying_q = "AR1"`, which is an AR1 structure on an ordinary
-  # "Estimated" q and works correctly.
+  # The damage is not confined to q, so the warning does not stop at "q is
+  # constant". Measured on BS2017SS fleet 7, estimateMode = 3: the
+  # "Catchability deviates" likelihood row accumulates 54.8 from deviates that
+  # are identically zero (the AR1 normalizing constant, plus the environmental
+  # index fitted as noise about zero), so the reported objective is not
+  # comparable with any other model's; and `index_q_dev_log_sd` is left free
+  # with a gradient of nyrs_hind and nothing opposing it, so its sigma is
+  # driven to zero. Divergent, not merely flat.
+  #
+  # Stop rather than warn. A warned fit still returns a summary() that looks
+  # ordinary, and nothing downstream can tell that its q is constant or its
+  # objective inflated -- which is the failure this package cannot ship. It is
+  # also the severity 'PowerEquation' already carries a few lines above, and
+  # that switch is merely unimplemented rather than actively divergent.
+  #
+  # The cost of stopping is now small: GOA pollock 2025 runs the linkage form
+  # (../Rceattle-models: GOA pollock/2025/04-fit-and-diagnostics.R), and the
+  # remaining Catchability = 6 call sites are Rceattle 3.3.1-era scripts.
+  #
+  # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is an
+  # AR1 structure on an ordinary "Estimated" q and works correctly.
   if(!is.null(data_list$fleet_control$Catchability) &&
      any(data_list$fleet_control$Catchability %in% c("AR1", 6), na.rm = TRUE)){
-    qar1_flts <- data_list$fleet_control$Fleet_name[
-      data_list$fleet_control$Catchability %in% c("AR1", 6)]
-    warning(paste0(
-      "Catchability = 'AR1' (QAR1) is deprecated and currently INERT for ",
-      "fleet(s) ", paste(qar1_flts, collapse = ", "), ". The AR1 deviates on ",
-      "log-q are never estimated, so q is returned constant -- the fit will ",
-      "run and report a time-invariant catchability. Express a time-varying q ",
-      "as a linkage instead:\n  build_catchability(linkages = list(q = ",
-      "linkage_spec(ar1(1 | Year), by = ~ fleet)))\n",
-      "This is not the same switch as Time_varying_q = 'AR1', which works."),
-      call. = FALSE)
+    qar1 <- which(data_list$fleet_control$Catchability %in% c("AR1", 6))
+
+    # Name each fleet with the environmental series it points at, so the
+    # replacement below can be filled in without decoding the column index.
+    # `Time_varying_q` indexes the covariates, i.e. env_data without its Year
+    # column. Anything outside 1..ncovs is named generically and left to the
+    # range check further down; force it to NA first, because a 0 or a negative
+    # index would drop or invert elements rather than return one per fleet.
+    covs <- setdiff(colnames(data_list$env_data), "Year")
+    # `[[` not `$`: on a data.frame `$` partial-matches, so a fleet_control
+    # without `Time_varying_q` would silently hand back `Time_varying_q_sd` --
+    # a starting SD read as a covariate index. The NULL branch is defensive
+    # only: validate_switches() requires the column, so a data_list without it
+    # dies there before this message is ever printed.
+    tvq <- data_list$fleet_control[["Time_varying_q"]]
+    idx <- if (is.null(tvq)) rep(NA_integer_, length(qar1))
+           else suppressWarnings(as.integer(tvq[qar1]))
+    idx[is.na(idx) | idx < 1L | idx > length(covs)] <- NA_integer_
+    cov_of <- covs[idx]
+    cov_of[is.na(cov_of)] <- "<env_data column>"
+
+    codes <- data_list$fleet_control$Fleet_code
+    codes <- if (is.null(codes)) qar1 else codes[qar1]
+    qar1_flts <- paste0(data_list$fleet_control$Fleet_name[qar1],
+                        " (Fleet_code ", codes,
+                        ", env_data column '", cov_of, "')")
+
+    errors <- c(errors, paste0(
+      "Catchability = 'AR1' (QAR1) is removed: it never worked, and is now an ",
+      "error rather than a silently constant q. Fleet(s) ",
+      paste(qar1_flts, collapse = ", "), ". The AR1 deviates on log-q were ",
+      "never estimated, so q came back constant, the objective carried the ",
+      "AR1 normalizing constant and fitted the environmental index as noise ",
+      "about zero, and the deviation sd was left free and divergent. Express ",
+      "it as a linkage, which implements the Rogers et al. (2024) form ",
+      "correctly:\n",
+      "  build_catchability(linkages = list(q = linkage_spec(\n",
+      "    ~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,\n",
+      "    observe = \"<that fleet's env_data column>\", obs_sd = <its ",
+      "measurement SD>)))\n",
+      "and pass it to fit_mod(qFun = ). `observe` is what makes it the QAR1 ",
+      "form rather than a free AR1 on q: it names the series the deviates are ",
+      "observed against. `obs_sd` is that series' measurement SD, which the ",
+      "old switch never asked for and you must supply. GOA pollock 2025 is a ",
+      "worked example.\n",
+      "This is not the same switch as Time_varying_q = 'AR1', which works."))
   }
 
   # Catchability = "Environmental" (Estimate_q = 5) is superseded by a q

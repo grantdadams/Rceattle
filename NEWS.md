@@ -43,16 +43,45 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   columns, and `Index_distribution` heads the index-observation block with the
   standard-error settings it governs.
 
-## Deprecations
+* **`Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) is now an
+  error.** It never worked. `build_map()` gates the log-q deviates on
+  `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
+  `Time_varying_q` holds an `env_data` column index rather than a mode -- so
+  the deviates were never estimated and q came back constant. The fit ran and
+  reported a time-invariant catchability where a time-varying one was asked
+  for, silently.
 
-* **`Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) is deprecated,
-  and warns that it is currently inert.** `build_map()` gates the log-q
-  deviates on `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under
-  this form `Time_varying_q` holds an `env_data` column index rather than a
-  mode -- so the deviates are never estimated and q is returned constant. The
-  fit ran and reported a time-invariant catchability where a time-varying one
-  was asked for, silently. Express it as a linkage instead:
-  `build_catchability(linkages = list(q = linkage_spec(ar1(1 | Year), by = ~ fleet)))`.
+  It errors rather than warns because a warned fit still returns a `summary()`
+  that looks ordinary, and nothing downstream can tell that its q is constant
+  or its objective inflated. That is the severity `Catchability =
+  "PowerEquation"` already carried, and that switch is merely unimplemented
+  rather than actively divergent. The code is kept in `q_map` so the message
+  below is what a user gets, rather than a generic invalid-switch error.
+
+  Measured on BS2017SS fleet 7, the `Catchability deviates`
+  likelihood row accumulates 54.8 from deviates that are identically zero --
+  the AR1 normalizing constant, plus the environmental index fitted as noise
+  about zero -- so the reported objective is not comparable with any other
+  model's; and `index_q_dev_log_sd` is left free with a gradient of
+  `nyrs_hind` and nothing opposing it, driving its sigma to zero.
+
+  The Rogers form is available as a linkage. `observe` is what makes it QAR1
+  rather than a free AR1 on q -- it names the environmental series the
+  deviates are observed against, the one the legacy switch identified by
+  column index in `Time_varying_q` -- and `obs_sd` is that series' measurement
+  SD, which the legacy switch never asked for and must now be supplied:
+
+  ```r
+  build_catchability(linkages = list(q = linkage_spec(
+    ~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,
+    observe = "<that fleet's env_data column>", obs_sd = <its measurement SD>)))
+  ```
+
+  and pass it to `fit_mod(qFun = )`. `GOA pollock/2025/04-fit-and-diagnostics.R`
+  in `../Rceattle-models` is a worked example: it runs exactly this form.
+
+  The schema marks the code removed too, so `?BS2017SS` and the workbook meta
+  sheet say so before a model is built rather than only at fit time.
 
   Note this is **not** `Time_varying_q = "AR1"`, a different switch sharing the
   same string, which puts an AR1 structure on an ordinary `"Estimated"` q and
@@ -122,7 +151,6 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * Removed `flt_sel_ind`. `rearrange_data()` computed it from `Fleet_code` on
   every fit and nothing read it -- it was declared in no `DATA_` object and
   referenced nowhere in the package or the assessment repos.
-
 
 * **The C++ dispatch branches are pinned to the R maps that select them**
   (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
