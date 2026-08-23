@@ -33,10 +33,16 @@ test_that("every model-level switch's allowed set survives into the YAML comment
     entry <- dict[[nm]]
     testthat::expect_false(is.null(entry), info = paste(nm, "absent from the config schema"))
     if (is.null(entry)) next
-    # The comment is written as "A / B / C"; split it rather than substring-match,
-    # or `MSVPA` is satisfied by `TypeIIIMSVPA`.
+    # The comment is written as "A (0) / B (1) / C (2)"; split it rather than
+    # substring-match, or `MSVPA` is satisfied by `TypeIIIMSVPA`.
     got <- trimws(strsplit(paste(entry$allowed, collapse = " "), "/", fixed = TRUE)[[1]])
-    testthat::expect_setequal(got[nzchar(got)], names(pairs[[nm]]))
+    got <- got[nzchar(got)]
+    testthat::expect_setequal(sub(" \\(-?[0-9]+\\)$", "", got), names(pairs[[nm]]))
+
+    # The saved value is the integer, so the code must reach the comment too --
+    # a name-only list cannot decode `msmMode: 1.0`.
+    codes <- as.integer(sub("^.*\\((-?[0-9]+)\\)$", "\\1", got))
+    testthat::expect_setequal(codes, unname(pairs[[nm]]))
   }
 })
 

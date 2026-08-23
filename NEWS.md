@@ -29,7 +29,16 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   (the ADMB sign convention). `Selectivity_dimension` accepts only `"Age"` and
   `"Length"`, because those are the only values `rearrange_data()` matches -- an
   integer there produced `NA` and reached the template as a missing dimension.
-  A blank cell takes the schema default rather than erroring.
+
+  A blank `Selectivity_dimension` cell takes the schema default (`"Age"`) rather
+  than erroring, so the partial-assignment idiom
+  (`fleet_control$Selectivity_dimension[i] <- "Length"`) keeps working. On a
+  model that estimates growth -- where `"Length"` was plausibly meant -- the fill
+  now names the fleets it applied to instead of happening silently. **This can
+  move a fit** on a model that carried blanks: those fleets previously reached
+  the template as a missing dimension, which sizes selectivity by `nlengths`
+  rather than `nages`, and so changes a max-normalized curve. No bundled dataset
+  or golden model is affected -- none carries the column at all.
 
   This was pre-flighted rather than assumed: a report-only pass over every
   workbook in the ecosystem found 196 carrying a `fleet_control` sheet and not
@@ -60,7 +69,10 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * **The model-level switches have one table**, `.rce_model_switch_schema()`, and
   the comments `save_config()` writes are projected from it. `estimateMode`'s
   `DebugOptimize` was a real mode the comments never mentioned, and `msmMode`
-  was described in prose naming none of its canonical values.
+  was described in prose naming none of its canonical values. Each comment now
+  gives the integer code beside the readable name
+  (`SingleSpecies (0) / MSVPA (1) / TypeIIIMSVPA (2)`), since a saved config
+  writes the switch as the number.
 
 # Rceattle 5.11.1
 

@@ -265,7 +265,12 @@ print.Rceattle_run_config <- function(x, ...) {
 #' @keywords internal
 #' @noRd
 .rce_config_schema <- function() {
-  allowed <- function(map) paste(names(map), collapse = " / ")
+  # Name AND integer code for every value. A saved config writes the switch as
+  # the number (`msmMode: 1.0`), so a comment listing only the readable names
+  # cannot be used to decode the line it sits above.
+  allowed <- function(map) {
+    paste0(names(map), " (", unname(map), ")", collapse = " / ")
+  }
   d <- function(doc, allowed = NULL) list(doc = doc, allowed = allowed)
 
   # Model-level switches project from .rce_model_switch_schema(), so the
