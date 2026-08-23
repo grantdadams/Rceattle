@@ -1738,3 +1738,35 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     design_names = character(0)
   )
 }
+
+
+#' @keywords internal
+#' @noRd
+# Base stratum a process uses when the user omits `by` in linkage_spec(): the
+# fleet-indexed processes key by fleet, everything else by species. Composition
+# is split -- the fleet DM weights (theta_comp / theta_caal) key by fleet, the
+# per-predator diet weight (theta_diet) by species.
+.default_stratum <- function(process_label, param) {
+  if (process_label %in% c("q", "sel")) return(~ fleet)
+  if (process_label == "comp") {
+    return(if (identical(as.character(param), "theta_diet")) ~ species else ~ fleet)
+  }
+  ~ species                                    # recruitment, M, growth
+}
+
+# Fill an omitted `by` with the process's base stratum; an explicitly-set `by`
+# (a formula, or NULL for a single shared coefficient) is left as the user gave it.
+.resolve_auto_by <- function(spec, process_label, param) {
+  if (isTRUE(spec$by_auto)) spec$by <- .default_stratum(process_label, param)
+  spec
+}
+
+.stamp_param <- function(val, param, process_label = NULL) {
+  stamp1 <- function(s) {
+    s <- .set_linkage_param(s, param)
+    if (!is.null(process_label)) s <- .resolve_auto_by(s, process_label, param)
+    s
+  }
+  if (inherits(val, "Rceattle_linkage_spec")) return(stamp1(val))
+  lapply(val, stamp1)
+}
