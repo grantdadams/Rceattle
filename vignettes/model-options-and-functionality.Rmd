@@ -274,7 +274,7 @@ Set the `Catchability` column of `fleet_control`:
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>). **Not implemented** -- `data_check()` rejects it. |
 | `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 4.9.0** (recorded in the 5.8.1 notes) -- express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
-| `6` | `"AR1"` | Annual AR(1) deviations on log-q fit to a single index (Rogers et al. 2024) |
+| `6` | `"AR1"` | **Removed in 5.12.0** -- `data_check()` errors on it. It never worked: the log-q deviates were gated on `Time_varying_q`, which under this form holds an `env_data` column index rather than a mode, so q came back constant. Express the Rogers et al. (2024) form as a q linkage instead: `linkage_spec(~ ar1(1 | Year), by = ~ fleet, observe = "<column>", obs_sd = <SD>)`. |
 | `7` | `"AnalyticalArith"` | q solved from the fleet's own index observations using the AMAK arithmetic-mean estimator; pair with `Index_distribution = "MVN"` for a supplied covariance |
 
 ### Index likelihood (`Index_distribution`)
@@ -348,10 +348,10 @@ containing one does **not** share a catchability — even when every fleet in it
 carries the same setting, since each still solves separately. Give those fleets
 their own `Catchability_index`, or use an estimated q for the whole group.
 
-`"Environmental"` and `"AR1"` *do* share: they rebuild q from the group's shared
-parameters (`index_log_q`, `index_q_beta`, `index_q_dev`), so the whole group
-follows the lead fleet — including when the fleets name different environmental
-series in `Time_varying_q`, where the lead's series is the one used.
+`"Environmental"` *does* share: it rebuilds q from the group's shared parameters
+(`index_log_q`, `index_q_beta`), so the whole group follows the lead fleet —
+including when the fleets name different environmental series in
+`Time_varying_q`, where the lead's series is the one used.
 A `"Fixed"` lead is a third case: nothing is estimated for the group and nothing
 is shared, so each fleet sits at its own `Catchability_init`. Where a q *is*
 estimated for the group, its starting value is the mean of the group's
