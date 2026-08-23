@@ -189,31 +189,31 @@ testthat::test_that("an Environmental group shares its q, on a coefficient that 
 })
 
 
-testthat::test_that("AR1 catchability is not asserted to share while its deviates are inert", {
+testthat::test_that("a shared q group carrying AR1 catchability is refused, not shared", {
   testthat::skip_if_not_installed("TMB")
-  # Deliberately NOT the Environmental test above. build_map() gates
-  # index_q_dev on Time_varying_q %in% c("IID","AR1","RandomWalk"), but for
+  # This used to pin the inert state: build_map() gates index_q_dev on
+  # Time_varying_q %in% c("IID","AR1","RandomWalk"), but for
   # Catchability = "AR1" that column holds an env_data column index, so the
-  # deviate vector is mapped out entirely and index_q is constant. Until that is
-  # settled, "AR1 shares" cannot be distinguished from "AR1 has nothing to
-  # share", so this pins the state rather than claiming the conclusion.
+  # deviates were mapped out entirely and index_q was constant -- which made
+  # "AR1 shares" indistinguishable from "AR1 has nothing to share".
+  #
+  # Settled in 5.12.0: the switch is refused outright, so the question does not
+  # arise. Sharing under a q linkage is covered by test-linkage-catchability.R;
+  # the refusal itself by test-catchability-qar1-deprecation.R. This asserts the
+  # group case specifically, because a lead and a member both set to AR1 is how
+  # the inert path was reached.
   d <- .q_group_dat(lead_q = "AR1", member_q = "AR1",
                     lead_tvq = "1", member_tvq = "1")
   n <- d$endyr - d$styr + 1L
   d$env_data <- data.frame(Year = d$styr:d$endyr,
                            BTemp = as.numeric(scale(sin(seq_len(n)))))
-  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
-    d, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
-    fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
-                                        phase = FALSE))))
-  free_devs <- sum(!is.na(fit$map$mapList$index_q_dev))
-  if (free_devs == 0L) {
-    testthat::succeed("QAR1 deviates are mapped out; sharing is untestable here")
-  } else {
-    qq <- fit$quantities$index_q
-    testthat::expect_equal(as.numeric(qq[1, ]), as.numeric(qq[3, ]),
-                           tolerance = 1e-10)
-  }
+
+  testthat::expect_error(
+    suppressMessages(suppressWarnings(Rceattle::fit_mod(
+      d, file = NULL, estimateMode = 3, msmMode = 0, random_rec = FALSE,
+      fit_control = Rceattle::fit_control(getsd = FALSE, verbose = 0,
+                                          phase = FALSE)))),
+    "QAR1")
 })
 
 

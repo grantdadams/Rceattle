@@ -1178,7 +1178,13 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # - 6 = Fit to environmental index
       #
-      # TODO: QAR1 is inert -- `index_q_dev` is never freed, so q is constant.
+      # DEAD as of 5.12.0: `data_check()` errors on `Catchability = "AR1"`, so
+      # nothing reaches this branch. Do NOT "fix" it -- the Rogers form is
+      # implemented correctly by a q linkage (`ar1(1 | Year)` with `observe`),
+      # which GOA pollock 2025 runs in production; repairing this path would
+      # leave two implementations of one model. Delete the branch, and code 6
+      # from `q_map`, once no workbook in the ecosystem still carries a 6.
+      # The account below records why it never worked.
       #
       # `Catchability = "AR1"` and `Time_varying_q = "AR1"` are different
       # switches that share a string. `Catchability = "AR1"` is the QAR1 FORM

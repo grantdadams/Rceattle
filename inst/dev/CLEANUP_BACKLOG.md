@@ -22,7 +22,7 @@ These say, in the source, that the code is wrong under a stated condition. Each 
 | `src/TMB/ceattle.cpp:641` | `nlengths < nages` | "will blow up" in the composition block. |
 | `R/10-run_mse.R:556` | assessment interval ≠ 1 year | the catch fill-in "does not work for assessments that don't occur annually" — i.e. any `assessment_period > 1` MSE. |
 | `R/10-mse_summary.R:458` | a species whose fleets are not all surveys | "will bug if not survey" when selecting rows per species. |
-| `R/3-build_map.R:1181` | **`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024) | **QAR1 is inert** — the deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode. It never matches, `index_q_dev` stays mapped out, and q is constant. These are two different switches sharing a string; the source comment says so explicitly, and an earlier draft of this file named the wrong one. |
+| ~~`R/3-build_map.R:1181`~~ | ~~**`Catchability = "AR1"`** (the QAR1 form, Rogers et al. 2024)~~ | **Resolved in 5.12.0**: `data_check()` now errors on it, so the branch is unreachable. It was inert — the deviate map is gated on `Time_varying_q %in% c("IID","AR1","RandomWalk")`, but under `Catchability = "AR1"` that column holds an `env_data` **column index**, not a mode, so `index_q_dev` stayed mapped out and q was constant. Not repaired: the Rogers form is implemented correctly by a q linkage (`ar1(1 \| Year)` with `observe`), which GOA pollock 2025 runs. Remaining cleanup is to delete the dead branch and code 6 from `q_map`. These are two different switches sharing a string; an earlier draft of this file named the wrong one. |
 | `src/TMB/ceattle.cpp:3321` | `Estimate_catch_sd = "Analytical"` (2) | The catch-sigma dispatch has **only `case 0:` and `case 1:`**, so a setting the schema documents, `validate_switches()` accepts and `build_map()` treats as real dies inside the template with `Invalid 'Estimate_sigma_catch'`. `est_sigma_index` implements case 2; this does not. Pinned as a known gap in `test-schema-cpp-dispatch.R`. |
 | `src/TMB/ceattle.cpp` (`caal_ll_type`) | `CAAL_distribution = "MultinomialAFSC"` | Same shape, one severity down: passes `validate_switches()` and errors in the template. |
 | `R/3-build_map.R:692` | `random_sel = TRUE` | "will fail" — marked with a question mark, so unconfirmed. |
@@ -45,6 +45,12 @@ than fixing.
   (`src/TMB/ceattle.cpp:1514`, `:1522`).
 
 ## Tier 2 — design notes and refactor wishes
+
+- **Split `R/0-build_srr_and_M.R`** (1,497 lines, 29 functions). It carries the stock-recruit
+  constructors, the M1 constructors and the growth constructors in one file, and is the single
+  outstanding item from the superseded `accessibility-and-code-review` plan. The `R/` numeric
+  prefixes are meaningful, so a split keeps the `0-` prefix (e.g. `0-build_srr.R`,
+  `0-build_m1.R`, `0-build_growth.R`).
 
 No user-visible consequence; do them opportunistically.
 
@@ -81,5 +87,5 @@ Six, each a judgement about what the right behaviour *is*:
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live
   modes are handled by `if (msmMode == ...)` in `ceattle.cpp`.
   `test-schema-cpp-dispatch.R` pins both, and pins the absence of the switch.
-- `flt_sel_ind` — `rearrange_data()` computes it from `Fleet_code` and nothing reads it. Inert;
-  removing it is a behaviour change, not a cleanup.
+- ~~`flt_sel_ind`~~ — removed in 5.12.0. It was computed from `Fleet_code` on every fit and read
+  by nothing.

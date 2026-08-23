@@ -47,8 +47,73 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * **`write_data()` writes `fleet_control` in schema column order**, as the
   control and bioenergetics sheets already did. Values are unchanged and
   round-tripping is identical; only the column order in the workbook moves.
+  The schema order was also tidied so the workbook reads sensibly: `Month` now
+  sits with the fleet identity columns rather than behind 26 selectivity
+  columns, and `Index_distribution` heads the index-observation block with the
+  standard-error settings it governs.
+
+* **`Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) is now an
+  error.** It never worked. `build_map()` gates the log-q deviates on
+  `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
+  `Time_varying_q` holds an `env_data` column index rather than a mode -- so
+  the deviates were never estimated and q came back constant. The fit ran and
+  reported a time-invariant catchability where a time-varying one was asked
+  for, silently.
+
+  It errors rather than warns because a warned fit still returns a `summary()`
+  that looks ordinary, and nothing downstream can tell that its q is constant
+  or its objective inflated. That is the severity `Catchability =
+  "PowerEquation"` already carried, and that switch is merely unimplemented
+  rather than actively divergent. The code is kept in `q_map` so the message
+  below is what a user gets, rather than a generic invalid-switch error.
+
+  Measured on BS2017SS fleet 7, the `Catchability deviates`
+  likelihood row accumulates 54.8 from deviates that are identically zero --
+  the AR1 normalizing constant, plus the environmental index fitted as noise
+  about zero -- so the reported objective is not comparable with any other
+  model's; and `index_q_dev_log_sd` is left free with a gradient of
+  `nyrs_hind` and nothing opposing it, driving its sigma to zero.
+
+  The Rogers form is available as a linkage. `observe` is what makes it QAR1
+  rather than a free AR1 on q -- it names the environmental series the
+  deviates are observed against, the one the legacy switch identified by
+  column index in `Time_varying_q` -- and `obs_sd` is that series' measurement
+  SD, which the legacy switch never asked for and must now be supplied:
+
+  ```r
+  build_catchability(linkages = list(q = linkage_spec(
+    ~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,
+    observe = "<that fleet's env_data column>", obs_sd = <its measurement SD>)))
+  ```
+
+  and pass it to `fit_mod(qFun = )`. `GOA pollock/2025/04-fit-and-diagnostics.R`
+  in `../Rceattle-models` is a worked example: it runs exactly this form.
+
+  The schema marks the code removed too, so `?BS2017SS` and the workbook meta
+  sheet say so before a model is built rather than only at fit time.
+
+  Note this is **not** `Time_varying_q = "AR1"`, a different switch sharing the
+  same string, which puts an AR1 structure on an ordinary `"Estimated"` q and
+  works correctly.
 
 ## Bug fixes
+
+* **`write_data()` no longer fails on a workbook that predates a control or
+  bioenergetics switch.** Both sheets were assembled from the full schema
+  object list -- the control sheet by `rbind()`, which drops a `NULL`, and the
+  bioenergetics sheet by hard-coded row index into a fixed-height matrix. An
+  absent object therefore aborted the whole write with `arguments imply
+  differing number of rows` or `number of items to replace is not a multiple of
+  replacement length`. The live Pacific hake workbook hits this: it predates
+  `alpha_wt_len` / `beta_wt_len`, so `read_data()` then `write_data()` could not
+  round-trip it. Both sheets now write the objects the `data_list` actually
+  carries, in schema order, as `fleet_control` already did.
+
+  Absent objects are dropped rather than written at their schema default: the
+  default belongs to the model, and baking one into a workbook would turn a
+  value `switch_check()` announces at fit time into one the file asserts.
+  Keying the bioenergetics rows by name also retires the duplicate row-order
+  list that had to be kept in sync with the schema by hand.
 
 * **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
   `validate_switches()` rejected it**, so a model written that way loaded, was
@@ -111,6 +176,10 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `data_check()`, which is internal; they point at `build_data(.check = TRUE)`.
 
 ## Internal
+
+* Removed `flt_sel_ind`. `rearrange_data()` computed it from `Fleet_code` on
+  every fit and nothing read it -- it was declared in no `DATA_` object and
+  referenced nowhere in the package or the assessment repos.
 
 * **The C++ dispatch branches are pinned to the R maps that select them**
   (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
