@@ -567,9 +567,10 @@ Type objective_function<Type>::operator() () {
   // one is always a log-scale sd (unitless); it was still not a log of anything.
   // Named log_catch_sd until 5.9.0.
   vector<Type>  catch_sd(catch_obs.rows()); catch_sd.setZero();
-  // Concentrated (analytical) catch sd, the Ludwig and Walters (1994) estimator
-  // used when Estimate_catch_sd = 2. Mirrors log_index_analytical_sd below.
-  vector<Type>  log_catch_analytical_sd(n_flt); log_catch_analytical_sd.setZero();
+  // Concentrated (analytical) catch sd used when Estimate_catch_sd = 2; a
+  // log-scale sd (unitless), not a log of anything. Mirrors
+  // index_analytical_sd below.
+  vector<Type>  catch_analytical_sd(n_flt); catch_analytical_sd.setZero();
   vector<Type>  catch_n_obs(n_flt); catch_n_obs.setZero();  // fitted catch rows per fleet
 
   // -- 4.6. Biological reference points
@@ -637,8 +638,8 @@ Type objective_function<Type>::operator() () {
   // index for the natural-scale families. Named log_index_sd until 5.9.0, which
   // was wrong on both counts.
   vector<Type>  index_sd(index_obs.rows()); index_sd.setZero();
-  vector<Type>  log_index_analytical_sd(n_flt); log_index_analytical_sd.setZero();    // Temporary vector to save analytical sd follow Ludwig and Walters 1994
-  vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Temporary vector to save analytical sd follow Ludwig and Walters 1994
+  vector<Type>  index_analytical_sd(n_flt); index_analytical_sd.setZero();          // Concentrated (analytical) index sd used when Estimate_index_sd = 2; a log-scale sd, not a log
+  vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Analytical catchability (not an sd) used when Catchability = 3; "AnalyticalArith" (7) has its own block at 8.2b
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
   vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
 
@@ -2470,8 +2471,12 @@ Type objective_function<Type>::operator() () {
 
 
   // --8.4. Calculate analytical sigma following Ludwig and Walters 1994
+  //
+  // The positive-observation guard is parity with the catch estimator below,
+  // not a live fix: data_check() already refuses a non-positive index
+  // observation, so no such row reaches here today.
   index_n_obs.setZero();
-  log_index_analytical_sd.setZero();
+  index_analytical_sd.setZero();
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
     index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
@@ -2480,15 +2485,17 @@ Type objective_function<Type>::operator() () {
     if(flt_yr > 0){
       flt_yr = flt_yr - styr;
 
-      if(flt_yr < nyrs_hind){
+      if((flt_yr < nyrs_hind) && (index_obs(index_ind, 0) > 0)){
         index_n_obs(index) += 1; // Add one if survey is used
-        log_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
+        index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
       }
     }
   }
 
   for(index = 0 ; index < n_flt; index ++){
-    log_index_analytical_sd(index) = sqrt(log_index_analytical_sd(index) / index_n_obs(index));
+    if(index_n_obs(index) > 0){
+      index_analytical_sd(index) = concentrated_lognormal_sd(index_analytical_sd(index) / index_n_obs(index), bias_adjust_obs);
+    }
   }
 
 
@@ -2534,15 +2541,21 @@ Type objective_function<Type>::operator() () {
 
   // -- 9.1b. Analytical catch sigma, following Ludwig and Walters (1994)
   //
-  // The concentrated MLE of the lognormal sd: sqrt( sum(log(obs) - log(pred))^2 / n ).
+  // The sd that minimises the catch density, accumulating the squared log
+  // residuals here and concentrating them in concentrated_lognormal_sd().
   // Computed here because catch_hat is complete and the likelihood below reads it.
   //
   // The row predicate matches the likelihood's own -- a fitted year, a fishery,
   // and a positive observation -- so the sd is estimated over exactly the rows
-  // it is then applied to. The positive-observation guard matters: log(0) is
-  // -inf and would poison the sum for the whole fleet.
+  // it is then applied to. The positive-observation guard matters: a zero-catch
+  // year is legal input, and log(0) is -inf, which would poison the sd for the
+  // whole fleet.
+  //
+  // It reads catch_obs, not obsvec, so oneStepPredict()'s candidate value never
+  // reaches it: the sd enters an OSA sweep as a fixed full-data number, the way
+  // an estimated sd held at its MLE would.
   catch_n_obs.setZero();
-  log_catch_analytical_sd.setZero();
+  catch_analytical_sd.setZero();
   for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
 
     flt = catch_ctl(fsh_ind, 0) - 1;
@@ -2550,13 +2563,13 @@ Type objective_function<Type>::operator() () {
 
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1) && (catch_obs(fsh_ind, 0) > 0)){
       catch_n_obs(flt) += 1;
-      log_catch_analytical_sd(flt) += square( log(catch_obs(fsh_ind, 0)) - log(catch_hat(fsh_ind)) );
+      catch_analytical_sd(flt) += square( log(catch_obs(fsh_ind, 0)) - log(catch_hat(fsh_ind)) );
     }
   }
 
   for(flt = 0; flt < n_flt; flt++){
     if(catch_n_obs(flt) > 0){
-      log_catch_analytical_sd(flt) = sqrt(log_catch_analytical_sd(flt) / catch_n_obs(flt));
+      catch_analytical_sd(flt) = concentrated_lognormal_sd(catch_analytical_sd(flt) / catch_n_obs(flt), bias_adjust_obs);
     }
   }
 
@@ -3062,8 +3075,8 @@ Type objective_function<Type>::operator() () {
     case 1:     // Estimated standard deviation
       index_std_dev = exp(index_log_sd(index));
       break;
-    case 2:     // Analytical
-      index_std_dev = log_index_analytical_sd(index);
+    case 2:     // Analytical (Ludwig and Walters 1994); see section 8.4
+      index_std_dev = index_analytical_sd(index);
       break;
     default:
       error("Invalid 'Estimate_sigma_index'");
@@ -3359,7 +3372,7 @@ Type objective_function<Type>::operator() () {
       fsh_std_dev = exp(catch_log_sd(flt));
       break;
     case 2:     // Analytical (Ludwig and Walters 1994); see section 9.1b
-      fsh_std_dev = log_catch_analytical_sd(flt);
+      fsh_std_dev = catch_analytical_sd(flt);
       break;
     default:
       error("Invalid 'Estimate_sigma_catch'");
@@ -4943,7 +4956,7 @@ Type objective_function<Type>::operator() () {
   REPORT( catch_hat );
   REPORT( max_catch_hat );
   REPORT( catch_sd );
-  REPORT( log_catch_analytical_sd );
+  REPORT( catch_analytical_sd );
 
 
   // 14.6. Age/length composition

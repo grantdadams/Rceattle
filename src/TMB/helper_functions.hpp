@@ -72,6 +72,35 @@ bool isFinite(Type x){
 template <class Type> Type square(Type x){return x*x;}
 
 
+/**
+ * @brief Concentrated (analytical) sd of a lognormal observation likelihood.
+ *
+ * Catch and index observations are fit as
+ * `log(obs) ~ N(log(pred) - b * sigma^2 / 2, sigma)`, where `b` is the
+ * bias-adjustment flag `bias_adjust_obs` (1 = predictions are mean-unbiased,
+ * Rceattle's default; 0 = median-unbiased). Minimising that density over sigma
+ * with `S` = mean squared log residual gives
+ *
+ *   sigma^2 = 2 * S / (sqrt(1 + b^2 * S) + 1)
+ *
+ * which is the Ludwig and Walters (1994) estimator `sigma = sqrt(S)` when
+ * `b = 0`, and shrinks it as the bias term takes up part of the residual. The
+ * form above is the rationalised version of `2 (sqrt(1 + b^2 S) - 1) / b^2`;
+ * it needs no branch at `b = 0` and stays accurate for small `b`, where that
+ * expression cancels to zero.
+ *
+ * @param mean_sq_resid  S, the mean of squared `log(obs) - log(pred)`.
+ * @param bias_adjust    b, the bias-adjustment flag applied by the density.
+ * @return The sd that minimises the lognormal negative log-likelihood.
+ */
+template <class Type>
+Type concentrated_lognormal_sd(Type mean_sq_resid, Type bias_adjust)
+{
+  return sqrt( Type(2.0) * mean_sq_resid /
+               (sqrt(Type(1.0) + square(bias_adjust) * mean_sq_resid) + Type(1.0)) );
+}
+
+
 // Function to calculate the first difference
 template <class Type>
 vector<Type> first_difference(const vector<Type> &x)

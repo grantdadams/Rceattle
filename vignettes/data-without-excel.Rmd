@@ -267,6 +267,8 @@ simData$fleet_control <- data.frame(
   # Estimate_catch_sd:
   #   0 = fix at Log_sd from catch_data (treats catch as known)
   #   1 = estimate
+  #   2 = analytical sigma (Ludwig & Walters 1994); concentrates the sd out of
+  #       the catch likelihood, so catch stops pinning F as tightly
   Estimate_catch_sd  = rep(c(NA, 0),  nspp),
   Catch_sd     = rep(c(NA, 1),  nspp),
 

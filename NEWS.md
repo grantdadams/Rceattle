@@ -64,15 +64,45 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   the schema, accepted by `validate_switches()`, and treated as a real mode by
   `build_map()` (which maps `catch_log_sd` out) -- but the template's dispatch
   had only cases 0 and 1, so a model using it passed every R-side check and then
-  died inside the fit with `Invalid 'Estimate_sigma_catch'`. The Ludwig and
-  Walters (1994) concentrated estimator,
-  `sigma_hat = sqrt(sum(log(obs) - log(pred))^2 / n)`, is now implemented,
-  mirroring `Estimate_index_sd = "Analytical"`, which had it all along. The
-  fitted value is reported as `log_catch_analytical_sd`.
+  died inside the fit with `Invalid 'Estimate_sigma_catch'`. It is now
+  implemented, mirroring `Estimate_index_sd = "Analytical"`, and the fitted
+  value is reported per fleet as `catch_analytical_sd`.
 
   Note this concentrates sigma out of the catch likelihood, so the catch data
   no longer pins F as tightly as a fixed sd does, and the objective is not
   comparable to a fixed-sd fit. A model that does not ask for it is unaffected.
+
+* **Both analytical observation sds now account for the lognormal bias
+  adjustment**, so `Estimate_index_sd = "Analytical"` changes fits that use it.
+  Rceattle fits an index or catch series to a mean-unbiased prediction,
+  `log(obs) ~ N(log(pred) - b*sigma^2/2, sigma)` with `b = bias_adjust_obs`
+  (default 1). The Ludwig and Walters (1994) form
+  `sigma = sqrt(mean((log(obs) - log(pred))^2))` is the sd that minimises that
+  density only when `b = 0`, so on a default fit the option did not return the
+  concentrated estimate it advertised. The sd used is now
+
+  ```
+  sigma^2 = 2*S / (sqrt(1 + b^2*S) + 1),   S = mean((log(obs) - log(pred))^2)
+  ```
+
+  which reduces to the Ludwig-Walters form at `b = 0`. On the three `BS2017SS`
+  fisheries the old expression sat 4-17% high and left up to 1.6 units of
+  negative log-likelihood on the table. No bundled dataset, reference model or
+  live assessment sets either switch to `"Analytical"`, so no fit anyone runs
+  today moves; a model that does use it will. The one workbook in the ecosystem
+  that sets it (`Pacific hake/Data/Bridging/hake_bridging6_2022.xlsx`, read only
+  by a deprecated script) returned a `NaN` objective before this change too --
+  its second index fleet has a zero predicted index in every hindcast year.
+
+* **A fishery asking for an analytical catch sd with nothing to estimate it
+  from is now refused by `data_check()`**, as is the index equivalent. With no
+  fitted positive observation the sd is undefined, and it used to fall through
+  as 0 -- which the likelihood never reads, but the reported `index_sd` /
+  `catch_sd` and the `sim_mod()` draw both do, and `rnorm(mean, 0)` is a
+  deterministic observation. A zero-catch year is legal input, so this is
+  reachable on the catch side; on the index side `data_check()` already refused
+  a non-positive observation, and the matching guard added to the index
+  estimator is parity rather than a live fix.
 
 * **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
   `validate_switches()` rejected it**, so a model written that way loaded, was
