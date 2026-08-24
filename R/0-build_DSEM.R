@@ -39,6 +39,30 @@
 #'   \code{FALSE} leaves the projection years out, rather than holding them
 #'   fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 #'   the last hindcast years and pull on the terminal recruitment deviations.
+#' @param constant_variance What a \code{<->} term means when the sem carries
+#'   lagged paths. Passed to \code{dsem::dsem_control}; the three settings are
+#'   identical for a sem with no lags.
+#'   \describe{
+#'     \item{\code{"conditional"}}{the default, and \code{dsem}'s. A
+#'       \code{<->} term is the DISTURBANCE (innovation) variance, in the
+#'       structural-equation sense the RAM notation comes from. The marginal
+#'       variance then grows along the causal graph -- for a first-order
+#'       self-path it is \eqn{\sigma^2 / (1 - \rho^2)}, so it diverges as
+#'       \eqn{\rho \to 1}.}
+#'     \item{\code{"marginal"}}{rescales \code{Gamma} and \code{(I - Rho)} so the
+#'       marginal variance is constant. This is the time-series convention used
+#'       by \code{ar1(1 | Year)} elsewhere in Rceattle, and by WHAM's
+#'       \code{Ecov} AR1 and \code{glmmTMB}'s \code{ar1()}, where the estimated
+#'       SD is the marginal one.}
+#'     \item{\code{"diagonal"}}{also holds the marginal variance constant, but
+#'       preserves the conditional correlation rather than the conditional
+#'       variance.}
+#'   }
+#'   The choice matters for the recruitment SD reported by \code{summary()} and
+#'   for what \code{sigmaR_prior_sd} centres on: under \code{"conditional"} the
+#'   prior lands on the innovation SD, while \code{data_list$sigma_rec} is an
+#'   assessment's marginal recruitment SD. Those coincide for an IID sem, and
+#'   differ by \eqn{1/(1 - \rho^2)} once a self-path is added.
 #'
 #' @description
 #' The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.
@@ -48,10 +72,13 @@
 build_DSEM <- function(sem = NULL,
                        family = "fixed",
                        sigmaR_prior_sd = NA,
-                       estimate_projection = FALSE
+                       estimate_projection = FALSE,
+                       constant_variance = c("conditional", "marginal", "diagonal")
 ){
+  constant_variance <- match.arg(constant_variance)
   return(list(sem = sem, family = family, sigmaR_prior_sd = sigmaR_prior_sd,
-              estimate_projection = estimate_projection))
+              estimate_projection = estimate_projection,
+              constant_variance = constant_variance))
 }
 
 
@@ -79,6 +106,34 @@ parse_path <- function( path ){
   }
   path.1 <- strsplit(path.1, "[<>]")[[1]]
   list(first = path.1[1], second = path.1[length(path.1)], direction = direction)
+}
+
+
+#' Put one space either side of every arrow in a sem
+#'
+#' @description
+#' `dsem::make_dsem_ram()` decides whether a variable already has a variance of
+#' its own by comparing the path string it would add -- `paste(v, "<->", v)`,
+#' single-spaced -- against the paths already in the model, with no whitespace
+#' normalization. A sem whose columns are aligned (`recdevs1  <->  recdevs1`)
+#' therefore fails to match, dsem appends a second variance row for the same
+#' node, and `MakeADFun()` then dies inside the dsem DLL -- a segfault on a
+#' multi-variable sem, an error on a single-variable one, either way with a
+#' traceback that says nothing about the spacing. Normalizing on the way in
+#' makes an aligned sem mean exactly what it reads as.
+#'
+#' `<->` is protected before `->` and `<-` are touched, so the three arrows
+#' cannot rewrite each other's halves.
+#'
+#' @param sem the sem text, or `NULL`.
+#' @return `sem` with each arrow surrounded by exactly one space.
+#' @noRd
+.dsem_normalize_arrows <- function(sem) {
+  if (is.null(sem) || !length(sem)) return(sem)
+  x <- gsub("[ \t]*<->[ \t]*", "\001", sem)
+  x <- gsub("[ \t]*->[ \t]*", " -> ", x)
+  x <- gsub("[ \t]*<-[ \t]*", " <- ", x)
+  gsub("\001", " <-> ", x, fixed = TRUE)
 }
 
 
@@ -328,6 +383,10 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     dsem_settings$sem <- sem
   }
 
+  # Put one space either side of every arrow, so a sem written with its columns
+  # aligned means the same thing as one written compactly.
+  dsem_settings$sem <- .dsem_normalize_arrows(dsem_settings$sem)
+
   # DSEM time span. With estimate_projection = FALSE the state space is built
   # over the HINDCAST ONLY, so projection years are absent from the GMRF
   # entirely rather than present-but-pinned.
@@ -459,12 +518,44 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
          call. = FALSE)
   }
 
+  # Two variance terms on one node is the failure the arrow normalization above
+  # exists to prevent, and it is fatal inside the dsem DLL rather than reported.
+  # Catch it here, on the model table dsem itself builds, so any OTHER route to
+  # it -- a sem that genuinely names the same self-loop twice, or a future dsem
+  # that adds a default row for a different reason -- is named rather than
+  # crashing the session.
+  .ram <- dsem::make_dsem_ram(dsem_settings$sem, times = seq_len(nrow(dsem_data)),
+                              variables = colnames(dsem_data), quiet = TRUE)
+  .self <- .ram$model[abs(as.numeric(.ram$model$direction)) == 2 &
+                        .ram$model$first == .ram$model$second &
+                        as.numeric(.ram$model$lag) == 0, , drop = FALSE]
+  .dup <- unique(.self$first[duplicated(.self$first)])
+  if (length(.dup) > 0) {
+    stop("Variable(s) ", paste(.dup, collapse = ", "), " carry two variance ",
+         "terms (`<->` self-loops at lag 0) in this sem: ",
+         paste(sprintf("'%s'", .self$name[.self$first %in% .dup]), collapse = ", "),
+         ". One variable takes one variance. Remove the duplicate row, or, if ",
+         "you did not write one, leave the variance out entirely and dsem will ",
+         "estimate it.", call. = FALSE)
+  }
+
+  # constant_variance decides what a `<->` term means once the sem carries lagged
+  # paths -- the disturbance variance (dsem's default, and the SEM reading) or
+  # the marginal one. Defaulted here as well as in build_DSEM(), so a spec
+  # assembled by hand or restored from a config written before this argument
+  # existed keeps dsem's default rather than becoming NULL.
+  .cv <- dsem_settings$constant_variance
+  if (is.null(.cv) || !length(.cv)) .cv <- "conditional"
+  .cv <- match.arg(as.character(.cv)[1],
+                   c("conditional", "marginal", "diagonal"))
+
   fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
                          tsdata = stats::ts(dsem_data),
                          family = dsem_family,
                          control = dsem::dsem_control(use_REML = FALSE,
                                                  quiet = TRUE,
-                                                 run_model = FALSE))
+                                                 run_model = FALSE,
+                                                 constant_variance = .cv))
 
   # Extract dsem map and parameter objects
   # - Create mapList object
@@ -701,6 +792,16 @@ check_dsem_spec <- function(data_list, dsem) {
                      class = "Rceattle_convergence")
   sf <- tryCatch(dsem$sem_full, error = function(e) NULL)
   ed <- data_list$env_data
+  # A build_DSEM() SPECIFICATION carries `sem` but no `sem_full`, and passing one
+  # here is the natural mistake -- the argument is named `dsem` and that is what
+  # fit_mod(dsem = ) takes. Returning an empty pass would report OK on a
+  # specification nothing has looked at. Say what to call instead.
+  if (is.null(sf) && is.list(dsem) && "sem" %in% names(dsem)) {
+    stop("`dsem` is a build_DSEM() specification, which carries no `sem_full`, ",
+         "so there is nothing to check. Build it first:\n",
+         "  check_dsem_spec(data_list, build_dsem_objects(dsem, data_list = data_list))",
+         call. = FALSE)
+  }
   if (is.null(sf)) return(empty)
   out <- list()
   finish <- function(out) structure(list(status = .conv_overall(out),
@@ -935,5 +1036,82 @@ check_dsem_spec <- function(data_list, dsem) {
     # what the process expects given everything already known.
     out[P] <- as.numeric(cond_mu)
   }
+  out
+}
+
+
+#' Draw a DSEM's whole latent field from the density that scored it
+#'
+#' @description
+#' The process-error draw for a DSEM. Where the standard recruitment process is
+#' redrawn one year at a time from `N(-bias*sigma^2/2, sigma)`, a DSEM's
+#' deviations are the latent states of a GMRF -- a self-path makes them
+#' autocorrelated, covariate paths make them respond to the environment, and a
+#' cross-species path couples the stocks -- so the whole field is drawn at once
+#' from the same precision the density uses, exactly as `dsem::simulate()` does.
+#'
+#' Only the RECRUITMENT-deviation columns are redrawn, conditional on every
+#' other column held at its fitted value. The covariate columns are data --
+#' under `family = "fixed"` they *are* the `env_data` series -- so redrawing
+#' them would simulate a different environment rather than a different
+#' recruitment process, and nothing writes the new series back into `env_data`
+#' anyway. Selecting the recdev columns by name rather than by the map matters:
+#' dsem does not map an observed covariate cell off, so a map-based rule redraws
+#' the environmental data.
+#'
+#' The caller writes the result back into `dsem_x_tj`; the template then derives
+#' `rec_dev` from it, so the lognormal bias correction is applied once, where it
+#' always is, rather than reproduced here.
+#'
+#' @param fit a fitted `Rceattle` model carrying a DSEM.
+#' @return A matrix the shape of `dsem_x_tj`.
+#' @noRd
+.dsem_draw_process <- function(fit) {
+  q  <- fit$quantities
+  Q  <- q$dsem_Q
+  if (is.null(Q) || !length(Q)) {
+    stop("This model reports no DSEM precision, so its recruitment process ",
+         "cannot be redrawn from the density that scored it. Refit with the ",
+         "current version.", call. = FALSE)
+  }
+  Q  <- as.matrix(Q)
+  X  <- as.matrix(fit$estimated_params$dsem_x_tj)
+  mu <- as.matrix(q$dsem_xhat_tj) + as.matrix(q$dsem_delta_tj)
+  n_k <- nrow(X) * ncol(X)
+  if (nrow(Q) != n_k) {
+    stop("The reported DSEM precision is ", nrow(Q), "x", ncol(Q),
+         " but the latent field is ", nrow(X), "x", ncol(X),
+         "; they cannot be aligned. Usually this means a variable in the sem ",
+         "has no exogenous variance -- its two-headed path is pinned at zero -- ",
+         "so the model computes that variable instead of estimating it. ",
+         "check_dsem_spec() names the variable.", call. = FALSE)
+  }
+
+  rc <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L   # 0-based in the C++
+  if (is.null(rc) || !length(rc)) {
+    stop("This fit does not record which latent columns carry the recruitment ",
+         "deviations, so the process cannot be redrawn. Refit before ",
+         "simulating.", call. = FALSE)
+  }
+  mp  <- fit$map$mapList$dsem_x_tj
+  est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
+  in_rec <- rep(FALSE, n_k)
+  in_rec[unlist(lapply(rc, function(j) (j - 1L) * nrow(X) + seq_len(nrow(X))))] <- TRUE
+  E <- which(est & in_rec); F_ <- setdiff(seq_len(n_k), E)
+  if (!length(E)) {
+    stop("Every recruitment-deviation state is fixed in this model, so there ",
+         "is no process to redraw.", call. = FALSE)
+  }
+
+  m <- as.numeric(mu)[E]
+  if (length(F_)) {
+    m <- m - solve(Q[E, E, drop = FALSE],
+                   Q[E, F_, drop = FALSE] %*%
+                     (as.numeric(X)[F_] - as.numeric(mu)[F_]))
+  }
+  # Qee = U'U from chol(), so backsolve(U, z) ~ N(0, Qee^-1).
+  U <- chol(Q[E, E, drop = FALSE])
+  out <- X
+  out[E] <- as.numeric(m) + backsolve(U, stats::rnorm(length(E)))
   out
 }

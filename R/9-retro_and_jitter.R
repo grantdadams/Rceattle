@@ -344,22 +344,58 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     }
 
     # * Environmental predictors ----
-    # Trim ALWAYS, not only when rescaling. env_data is data the peel is
-    # supposed not to have: a QAR1 catchability (est_index_q = 6) fits
-    # index_q_dev to env_index over every hindcast year, and now that the peeled
-    # index_q_dev are free rather than pinned, leaving env_data full-length lets
-    # a peel estimate its post-peel catchability from post-peel environmental
-    # observations. That is look-ahead in a diagnostic whose entire purpose is
-    # to withhold the future. The same argument covers any linkage covariate.
-    # build_dsem_objects() full-joins the trimmed years back as NA, so a DSEM's
-    # latent dimensions are unchanged and it predicts those covariates from its
-    # own process instead of reading them.
-    data_list$env_data <- data_list$env_data |>
-      dplyr::filter(Year <= endyr_peel)
-    if(rescale){
-      # Standardize on the retained years only, so the peel does not centre its
-      # covariates using years it should not have seen.
-      data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
+    # Withhold post-peel covariate VALUES, always, not only when rescaling.
+    # env_data is data the peel is supposed not to have: a QAR1 catchability
+    # (est_index_q = 6) fits index_q_dev to env_index over every hindcast year,
+    # and now that the peeled index_q_dev are free rather than pinned, leaving
+    # env_data full-length lets a peel estimate its post-peel catchability from
+    # post-peel environmental observations -- look-ahead in a diagnostic whose
+    # whole purpose is to withhold the future.
+    #
+    # Blank the values; do NOT drop the rows. Linkage design matrices are built
+    # POSITIONALLY from env_data (materialize_linkage() -> model.matrix()), so
+    # dropping rows drops design columns and random-effect levels, and `inits`
+    # -- carried from the parent fit -- no longer matches the model the peel
+    # builds. On GOA pollock 2025, which carries ar1(1|Year) and rw(1|Year)
+    # linkages, that refused every peel outright: beta_linkage 241 vs 237,
+    # beta_linkage_re 110 vs 108.
+    #
+    # A FIXED-EFFECT linkage covariate is exempt: materialize_linkage() rejects
+    # an NA in one by design, because model.matrix() would silently drop the row
+    # and misalign the whole design. Those columns keep their values and the
+    # peel is told which they are, once. Everything else -- a state-space
+    # `observe` covariate, a DSEM covariate, an env_index column read by
+    # Time_varying_q / Cindex / M1_indices -- is blanked, and the mean-fill in
+    # rearrange_data() replaces it with the retained years' mean.
+    .post_peel <- data_list$env_data$Year > endyr_peel
+    .env_cols  <- setdiff(names(data_list$env_data), "Year")
+    .keep      <- intersect(.env_cols, .rce_linkage_fixed_covariates(data_list))
+    .blank     <- setdiff(.env_cols, .keep)
+    if (any(.post_peel) && length(.blank) > 0) {
+      data_list$env_data[.post_peel, .blank] <- NA_real_
+    }
+    if (any(.post_peel) && length(.keep) > 0 && i == 1L) {
+      warning("Covariate(s) ", paste(.keep, collapse = ", "), " enter the model ",
+              "as fixed-effect linkage terms, which may not be NA, so each peel ",
+              "still sees their post-peel values. Mohn's rho for a model with a ",
+              "fixed-effect environmental covariate is conditional on that ",
+              "covariate being known.", call. = FALSE)
+    }
+    if(rescale && length(.env_cols) > 0){
+      # Standardize on the RETAINED years only, so the peel does not centre its
+      # covariates using years it is supposed not to have seen. The centre and
+      # scale come from those years and are then applied to the whole column,
+      # which keeps a kept fixed-effect covariate on the same scale as the years
+      # the peel was fit to. A column with no retained variation is left alone
+      # rather than turned into NaN.
+      .kept <- as.matrix(data_list$env_data[!.post_peel, .env_cols, drop = FALSE])
+      .ctr  <- colMeans(.kept, na.rm = TRUE)
+      .scl  <- apply(.kept, 2, stats::sd, na.rm = TRUE)
+      for (j in seq_along(.env_cols)) {
+        if (!is.finite(.ctr[j]) || !is.finite(.scl[j]) || .scl[j] == 0) next
+        data_list$env_data[[.env_cols[j]]] <-
+          (data_list$env_data[[.env_cols[j]]] - .ctr[j]) / .scl[j]
+      }
     }
 
     # * Adjust parameters ----
@@ -387,47 +423,24 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 
     # * Adjust map size ----
     # Turn off forecasted parameters -- but NOT the ones that are random
-    # effects.
+    # effects. A pinned deviation is still scored by its density, and "the
+    # deviation was exactly zero" is the strongest possible evidence for a small
+    # process SD; leaving a random effect free lets the Laplace approximation
+    # integrate it out instead, which is what no data should mean. The NEWS
+    # entry for 5.15.0 carries the measured bias (-6.6% at peels = 5).
     #
-    # Pinning a deviation in the peeled years and then letting its density score
-    # the pinned value is fabricated data, and maximally informative fabricated
-    # data: "the deviation was exactly zero" (or, for the carried-forward
-    # random-walk blocks, "the increment was exactly zero") is the strongest
-    # evidence there is for a small process SD. It shrinks the estimate as
-    # sqrt((N - k)/N) in the number of peeled years -- -6.6% at the default
-    # peels = 5, -13.8% at 10 -- and because it grows with depth it is a trend
-    # across peels, in the same quantity Mohn's rho is computed from, and it
-    # makes every peeled forecast overconfident.
-    #
-    # A random effect does not need pinning: leaving it free lets the Laplace
-    # approximation integrate it out over the peeled years, which is what "no
-    # data" should mean. That is already how beta_linkage_re behaves here (it
-    # was never pinned) and how a DSEM's latent states behave, and neither is
-    # biased -- which is what identified this. A deviation that is NOT a random
-    # effect in this model is still pinned: free would leave it unidentified.
-    #
-    # Read the random blocks off the fitted object rather than re-deriving
-    # fit_mod()'s conditions (random_rec / random_q / random_sel / M1_re), so
-    # the two cannot drift apart.
-    map <- object$map
-    # ONE source of truth, recorded by fit_mod() at the hindcast build. Do NOT
-    # read object$obj$env$random: under estimateMode = 0 with a harvest
-    # control rule that object is the PROJECTION object, whose map turns every
-    # hindcast entry off, so its `random` declaration is EMPTY and every block
-    # would look like a fixed effect. That silently restored the old pinning on
-    # exactly the fits that carry an HCR -- measured -19.1% on peel-1 sigma_R --
-    # and it is the same field .states_supply reads below, so the two must not
-    # disagree.
-    #
-    # A block is left free only if it is BOTH a random effect and scored by a
-    # NORMALIZED density. The Laplace integral over a data-free tail is exactly
+    # A block is freed only if it is BOTH a random effect and scored by a
+    # NORMALIZED density: the Laplace integral over a data-free tail is exactly
     # 1 for a normalized Gaussian, so freeing it removes the fabricated term and
-    # nothing else. Two selectivity densities are unnormalized kernels
-    # (ceattle.cpp: the NonParametricPM random walk and the sel_coff_dev
-    # penalty, both written as dd^2/(2 sd^2) with no dnorm constant); freeing a
-    # tail under those contributes -k log(sigma) with no compensating term and
-    # pushes sel_dev_log_sd UP instead. Those stay pinned, where the
-    # carried-forward tail has a zero first difference and contributes exactly 0.
+    # nothing else. The two selectivity kernels below are written dd^2/(2 sd^2)
+    # with no dnorm constant, so freeing their tail would push sel_dev_log_sd UP.
+    map <- object$map
+    # random_vars is recorded by fit_mod() at the HINDCAST build, and is the one
+    # source of truth. object$obj$env$random is not: under estimateMode = 0 with
+    # a harvest control rule that object is the projection object, whose map
+    # turns every hindcast entry off, so its `random` declaration is empty and
+    # every block reads as a fixed effect. .states_supply below reads the same
+    # field, so the two cannot disagree.
     .re_names <- object$random_vars
     if (is.null(.re_names)) {
       warning("This fit does not record which blocks were random effects ",
@@ -544,48 +557,23 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     map$mapList$log_F[,(nyrs_peel+1):nyrs] <- object$map$mapList$log_F[,(nyrs_peel+1):nyrs]
     map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
-    # Adjust forecased rec_dev in new mod for bias and refit.
+    # The peeled years' recruitment, for the forecast-catch refit. Under a DSEM
+    # the value goes into the LATENT STATE, not into rec_dev -- the template
+    # derives rec_dev from the states, so writing rec_dev alone is a silent
+    # no-op. Pinning is correct here, unlike in the peel itself: debug = TRUE
+    # already holds the whole hindcast fixed and only log_F is solved, so no
+    # peeled likelihood is computed and nothing is shrunk by fixing a state.
     #
-    # Under a DSEM the same value has to be written into the LATENT STATE, not
-    # into rec_dev: the template overwrites rec_dev from the states on the next
-    # evaluation, so writing rec_dev alone is a silent no-op and the forecast
-    # quietly keeps the GMRF's own projection instead. That difference is not
-    # cosmetic -- against a non-DSEM peel it moved forecast recruitment by ~44%,
-    # because an IID GMRF projects the deviation to its prior mean while this
-    # sets it to the fitted mean deviation.
-    #
-    # Pinning IS correct here, unlike in the peel itself: this is the
-    # forecast-catch refit, where debug = TRUE already holds the whole hindcast
-    # fixed and only log_F is solved. No peeled likelihood is being computed, so
-    # nothing is shrunk by fixing a coupled state. It also keeps a naive (IID)
-    # DSEM reproducing the non-DSEM retrospective, which is the contract a user
-    # comparing the two configurations relies on.
-    # forecast_rec = "model" hands the peeled years to the model's own
-    # projection rule instead of assuming the mean. The peeled years are
-    # HINDCAST years, so proj_mean_rec -- which the template only reads past
-    # endyr -- cannot reach them on its own; but every rule is expressible here,
-    # and "mean" is already one of them. In precedence order:
-    #
-    #   proj_mean_rec = TRUE
-    #       mean recruitment. An explicit instruction to project at the mean
-    #       wins over any process the model carries, DSEM or otherwise -- it is
-    #       what the setting means.
-    #   proj_mean_rec = FALSE, deviations are random effects (random_rec, DSEM)
-    #       the LATENT STATES supply it, so write nothing. The peeled-year
-    #       states are estimated -- marginalized, not pinned -- so they carry
-    #       the process: an AR1's autocorrelation, or a DSEM's lagged and
-    #       covariate paths, propagates into the forecast instead of collapsing
-    #       to a constant. Overwriting would discard the process being compared.
-    #   proj_mean_rec = FALSE, deviations are fixed effects
-    #       recruitment off the stock-recruit curve, i.e. a zero deviation.
-    #       There is no process to consult.
-    #
-    # Without this a retrospective cannot distinguish projection methods at all:
-    # every peel forecasts at the historical mean whatever the model says, which
-    # is the one thing hindcast_skill() exists to compare.
-    #
-    # "mean" stays the default so Mohn's rho keeps the convention it has always
-    # had and stays comparable to published values.
+    # forecast_rec chooses the rule, in precedence order:
+    #   proj_mean_rec = TRUE                    mean recruitment, whatever
+    #                                           process the model carries
+    #   FALSE, deviations are random effects    the latent states supply it, so
+    #                                           write nothing -- an AR1's
+    #                                           autocorrelation or a DSEM's
+    #                                           covariate paths propagate
+    #   FALSE, deviations are fixed effects     off the stock-recruit curve,
+    #                                           i.e. a zero deviation
+    # "mean" is the default so Mohn's rho keeps the convention it has always had.
     .use_model_rec <- identical(forecast_rec, "model")
     .mean_rec      <- isTRUE(as.logical(newmod$data_list$proj_mean_rec))
     # Same source as .pin() above, or the two disagree: with random_rec = TRUE
@@ -1134,29 +1122,14 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
     stop("Object is not of class 'Rceattle'")
   }
 
-  # process = TRUE redraws the recruitment process, which a DSEM has no
-  # per-year density for; sim_mod() refuses it and says why. Checked here too so
-  # the message names self_test() rather than surfacing from inside a replicate.
-  # Resolved state vector, not the raw argument: "all" / "dynamics" /
-  # "recruitment" are all valid spellings that isTRUE() does not catch.
-  if (.sim_state_codes(process)[1L] == 1L && .has_dsem(object)) {
-    stop("self_test(): redrawing the recruitment process is not supported on ",
-         "a DSEM fit. The recruitment ",
-         "deviations are latent states of a GMRF, so there is no per-year ",
-         "density to redraw them from. Use process = FALSE to test recovery ",
-         "under fresh observation error.", call. = FALSE)
-  }
-
-  # A DSEM works here, and means the same thing it does without one. sim_mod()
-  # draws new OBSERVATIONS in R from the fitted quantities -- it does not redraw
-  # the process random effects -- so a self test holds the estimated recruitment
-  # deviations fixed and asks whether the model recovers itself from fresh
-  # observation error. Under a DSEM those deviations come from the latent
-  # states, which are likewise held at their fitted values, so the DSEM's own
-  # process is NOT re-realized across replicates. That is the same limitation the
-  # standard recruitment path already has, not a new one, but it is worth
-  # knowing: a clean self test says nothing about how well the SEM structure is
-  # identified across recruitment realizations.
+  # A DSEM means the same thing here it does without one. With process = FALSE
+  # (the default) the recruitment deviations are held at their fitted values --
+  # under a DSEM, the latent states are -- and the test asks whether the model
+  # recovers itself from fresh observation error alone. process = TRUE
+  # re-realizes the process too: sim_mod() draws the whole latent field from the
+  # fitted precision, so the SEM's lagged paths, covariate effects and
+  # cross-species structure are preserved across replicates, which is what makes
+  # a self test able to say whether the SEM structure is identified.
   #
   # No map is passed to .refit_like() below, so fit_mod() rebuilds one and fills
   # in the DSEM blocks itself.
@@ -1495,27 +1468,63 @@ profile.Rceattle <- function(fitted = NULL,
     param        <- a$param   # resolve to real parameter slot
   }
 
+  # Under a DSEM the recruitment SD is the SEM's two-headed self-loop, not
+  # R_log_sd -- which the template overwrites and fit_mod() maps out. Profiling
+  # R_log_sd would vary a parameter with exactly zero gradient and return a flat
+  # curve that reads as "the data are uninformative". Send `sigmaR` / `R_sd` to
+  # the parameter that actually carries it, so the alias means the same thing on
+  # both parameterizations and a user does not have to know which they are on.
+  #
+  # beta_z is on the NATURAL scale (R_sd is its absolute value, the sign of a
+  # Cholesky factor not being identified), so the alias's implied log transform
+  # does not apply here. `slots` still indexes by species; the species -> beta_z
+  # translation happens here.
+  if (.has_dsem(fitted) && identical(param, "R_log_sd")) {
+    idx <- fitted$dsem$tmb_inputs$data$rec_sd_idx
+    if (is.null(idx)) {
+      stop("This fit carries a DSEM specification but not the built objects, ",
+           "so its recruitment SD cannot be located. Refit before profiling.",
+           call. = FALSE)
+    }
+    # `slots` is defaulted to species 1 further down, AFTER this block, so apply
+    # the same default here or a call that omits it resolves to no species at
+    # all and redirects to dsem_beta_z[].
+    if (is.null(slots) || !length(slots)) slots <- list(1L)
+    sp <- vapply(slots, function(s) as.integer(s)[1], integer(1))
+    if (any(is.na(sp) | sp < 1L | sp > length(idx))) {
+      stop("`slots` for the recruitment SD must be species indices in 1:",
+           length(idx), ".", call. = FALSE)
+    }
+    fixed_sp <- sp[idx[sp] < 1L]
+    if (length(fixed_sp)) {
+      stop("Species ", paste(fixed_sp, collapse = ", "), " fix the recruitment ",
+           "SD in the sem (no estimated `<->` self-loop), so there is nothing ",
+           "to profile. Give that species a start value, e.g. ",
+           "`recdevs", fixed_sp[1], " <-> recdevs", fixed_sp[1],
+           ", 0, sigmaR", fixed_sp[1], ", 1`.", call. = FALSE)
+    }
+    slots     <- lapply(idx[sp], function(k) as.integer(k))
+    param     <- "dsem_beta_z"
+    transform <- "identity"
+    message("Profiling the recruitment SD as dsem_beta_z[",
+            paste(idx[sp], collapse = ", "), "] -- the sem's variance path, on ",
+            "the natural scale. R_sd is its absolute value.")
+  }
+
   if (!param %in% names(fitted$estimated_params)) {
     stop("`param` '", param, "' not found in fitted$estimated_params.")
   }
 
-  # Under a DSEM the template OVERWRITES rec_dev from the latent states and R_sd
-  # from the SEM's variance path, so fit_mod() maps both blocks out. Profiling
-  # one would vary a parameter with exactly zero gradient: the objective would
-  # not move, and the result would be a FLAT profile that reads as "the data are
-  # uninformative about this" rather than "this parameter is not connected to
-  # anything". Refuse instead, and name where the quantity actually lives.
-  # Everything else -- M1, R0, alpha, beta, an arbitrary slot -- profiles
-  # normally under a DSEM.
-  if (.has_dsem(fitted) && param %in% c("R_log_sd", "rec_dev")) {
-    stop("profile() cannot profile '", param, "' on a DSEM fit: it is mapped ",
-         "out, because the recruitment ",
-         if (param == "R_log_sd") "SD comes from the SEM's variance path" else
-           "deviations come from the latent states",
-         ", so the profile would be flat rather than informative. The ",
-         "recruitment SD is dsem_beta_z[rec_sd_idx[sp]] -- profile that slot ",
-         "directly, remembering it is a Cholesky factor whose sign is not ",
-         "identified (R_sd is its absolute value).", call. = FALSE)
+  # rec_dev has no such home: under a DSEM it is DERIVED from the latent states
+  # on every evaluation, so it carries no gradient at all and there is no single
+  # parameter that stands for it.
+  if (.has_dsem(fitted) && identical(param, "rec_dev")) {
+    stop("profile() cannot profile 'rec_dev' on a DSEM fit: the deviations are ",
+         "derived from the latent states on every evaluation, so the block is ",
+         "mapped out and the profile would be flat rather than informative. ",
+         "Profile the SEM path that drives them, or use ",
+         "process_residuals(process = \"recruitment\") to check the process ",
+         "itself.", call. = FALSE)
   }
 
   par_array <- fitted$estimated_params[[param]]

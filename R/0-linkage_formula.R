@@ -110,3 +110,44 @@ LINKAGE_STRUCTURES <- c(
   }
   invisible(formula)
 }
+
+
+#' env_data columns that enter a model as fixed-effect linkage terms
+#'
+#' @description
+#' `materialize_linkage()` refuses an NA in a fixed-effect linkage covariate,
+#' because `model.matrix()` silently drops that row and misaligns the whole
+#' design. Anything that wants to withhold covariate values -- a retrospective
+#' peel -- therefore has to know which columns it must leave alone.
+#'
+#' Covariates that appear only inside a bar term (`(1 | Year)`, `ar1(1 | Year)`)
+#' are not fixed terms and are not returned: a grouping variable is a level
+#' label, and a state-space `observe` covariate is masked in the observation
+#' rather than read as a design column.
+#'
+#' @param data_list a data list carrying the per-process linkage specs
+#'   (`srr_linkages`, `M1_linkages`, `growth_linkages`, `q_linkages`,
+#'   `sel_linkages`, `comp_linkages`), as `fit_mod()` stores them.
+#'
+#' @return A character vector of column names, possibly empty.
+#'
+#' @keywords internal
+#' @noRd
+.rce_linkage_fixed_covariates <- function(data_list) {
+  groups <- c("srr_linkages", "M1_linkages", "growth_linkages",
+              "q_linkages", "sel_linkages", "comp_linkages")
+  specs <- list()
+  collect <- function(x) {
+    if (inherits(x, "Rceattle_linkage_spec")) { specs[[length(specs) + 1L]] <<- x }
+    else if (is.list(x)) for (e in x) collect(e)
+    invisible(NULL)
+  }
+  for (g in groups) collect(data_list[[g]])
+  if (length(specs) == 0L) return(character(0))
+  out <- unlist(lapply(specs, function(s) {
+    p <- tryCatch(.parse_linkage_formula(s$formula), error = function(e) NULL)
+    if (is.null(p)) return(character(0))
+    all.vars(p$fixed)
+  }), use.names = FALSE)
+  unique(out)
+}

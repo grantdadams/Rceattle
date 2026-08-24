@@ -217,8 +217,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # this is deferred rather than guessed at.
   if (.has_dsem(om) || .has_dsem(em)) {
     stop("run_mse() does not yet support a DSEM. Fit the operating and ",
-         "estimation models without one, or use the dev-DSEM branch.",
-         call. = FALSE)
+         "estimation models without one.", call. = FALSE)
   }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
