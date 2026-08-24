@@ -96,8 +96,7 @@ test_that("every C++ dispatch branch matches the R map that selects it", {
          cpp_only = integer(0), cpp_only_why = character(0)),
 
     list(var = "caal_ll_type", values = comp_loglike_map,
-         map_only = c(MultinomialAFSC = -1),
-         map_only_why = "there is no AFSC variant of the CAAL likelihood",
+         map_only = integer(0), map_only_why = character(0),
          cpp_only = integer(0), cpp_only_why = character(0)),
 
     list(var = "est_sigma_index", values = estimate_sd_map,

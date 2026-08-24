@@ -11,6 +11,186 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.13.0
+
+## Bug fixes
+
+* **Reference points ignored an estimated stock-recruit curve unless the
+  projection also used it.** Reference-point recruitment is set by two arms:
+  one for mean recruitment, requiring `proj_mean_rec = TRUE` *and* no curve, and
+  one for the curve, requiring `proj_mean_rec = FALSE`. A model with an
+  estimated Beverton-Holt or Ricker and `proj_mean_rec` left at its default of
+  `TRUE` matched neither, so `NByage0` and `NByageF` stayed 0 for every year
+  after the first and `SB0` was the initial cohort decaying away — on a five-age
+  fixture, 3.344 falling to 1.230 over six years instead of holding at 3.344.
+  `SB0` in the terminal year is the depletion reference HCR 5 and HCR 6 read, so
+  this inflated perceived depletion and the catch advice that follows from it.
+  The curve arm now applies whenever `srr_pred_fun` is a stock-recruit form.
+  Projection recruitment is unaffected — that switch is read separately, so a
+  mean-recruitment projection stays mean. No bundled dataset or golden reference
+  reaches the gap, because the default `srr_pred_fun` is mean recruitment.
+
+* **Ten writes to the male slot ran past the end of the sex dimension.** Arrays
+  carrying a sex are dimensioned by `max_sex`, the largest `nsex` over species,
+  so where *every* species is one-sex that dimension has length 1 and sex index
+  1 does not exist. The "males take `1 - sex_ratio`" half of each recruitment
+  and sex-ratio assignment wrote it unconditionally. The value is 0 — a one-sex
+  species has `sex_ratio` set to 1 first — but the index is out of range, and
+  the template is compiled without bounds checking, so it was a silent write
+  into the next age of the same species and year, surviving only because the
+  age loop overwrote it immediately. Reproduced on BS2017SS by compiling with
+  `safebounds = TRUE`, which raises Eigen's range assertion; guarded, the same
+  fit is clean at an unchanged objective. Affects BS2017SS and BS2017MS, and any
+  model whose species are all one-sex.
+
+* **`comp_data$Sex` was never checked against `nsex`.** `M1_base`, `weight` and
+  `ration_data` are all validated; composition was not. A joint row (`Sex = 3`)
+  on a one-sex species is the damaging case, because the two registries
+  disagree: `check_composition_data()` sizes it at `nages` while the template
+  writes it out to `nages * 2`, so the surplus landed in the next observation's
+  predicted composition and silently changed that observation's likelihood.
+  `Sex = 2` on a one-sex species is the same class — the template reads a sex
+  index that does not exist. Both are now refused with a message naming the
+  species. `Sex = 0` and `Sex = 1` are unaffected.
+
+* **`build_srr(proj_mean_rec =)` was documented backwards.** The roxygen said
+  0 = mean recruitment and 1 = the stock-recruit relationship; the template
+  reads 1 as mean recruitment and 0 as the relationship, and the argument
+  defaults to `TRUE`. Anyone who set it from the documentation got the opposite
+  of what they asked for. Corrected, with the reference-point behaviour stated.
+
+* **Recruitment at `minage > 1` read memory instead of spawning biomass.**
+  Recruits arriving at age `minage` in year `yr` were spawned in `yr - minage`,
+  so for the first `minage - 1` hindcast years the stock-recruit relationship
+  indexed `ssb()` at a negative column. Eigen does not bounds-check in a release
+  build, so this did not error -- it returned whatever was in adjacent memory.
+  On a `nages = 5` Beverton-Holt fixture, recruitment in those years came back
+  as `8.6e-314`, `is.finite()` reported TRUE, and the objective moved from
+  14407.38 (`minage = 1`) to 15162.60 (`2`) and 17532.15 (`3`) purely from the
+  values read. It was only reachable with an active stock-recruit relationship:
+  `srr_fun = 0` never calls the relationship with a spawning biomass.
+
+  Those years now take `R_init`, equilibrium recruitment at `F = Finit`, with
+  the recruitment deviation already estimated for them -- the same expression
+  the first year is built from, `R_init * exp(rec_dev)`, so the whole
+  pre-start-spawned block rests on one equilibrium. This follows Stock
+  Synthesis, which covers the pre-start period with an equilibrium age
+  composition plus early recruitment deviations rather than extending the
+  relationship backwards. (WHAM avoids the boundary by fixing the recruitment
+  lag at one year regardless of the recruit age.) Not `R0`: under a
+  Beverton-Holt or Ricker hindcast the mean-recruit parameter is mapped out and
+  only the first column of `R0` is overwritten with the derived
+  `(alpha - 1/SPR0)/Beta`, so `R0` in a later year is still the starting value.
+  On the same fixture the objective now moves 14407.38 / 13959.97 / 13587.67
+  across `minage` 1/2/3, and recruitment in the guarded years sits at the
+  equilibrium instead of `8.6e-314`.
+
+  All four sites are guarded. Expected recruitment (`R_hat`) takes the same
+  `R_init` anchor, so in these years it differs from realised recruitment only
+  by `rec_dev` and the stock-recruit penalty scores the deviation alone -- there
+  is no spawning biomass to carry information about the curve's level. The
+  reference points keep the relationship entirely and only clamp the lag into
+  range, since reference-point spawning biomass exists for every year.
+
+  **No fit anyone runs today changes**: every bundled dataset and all three live
+  assessments are `minage = 1`, where the guard cannot fire. The four
+  golden-reference models are unmoved.
+
+* **`CAAL_distribution = "MultinomialAFSC"` now works.** `CAAL_distribution`
+  shares `comp_loglike_map` with `Comp_distribution`, so the value passed
+  `validate_switches()` and then died inside the template with
+  `Invalid 'caal_ll_type'` -- the CAAL dispatch had only cases 0 and 1. The AFSC
+  multinomial pseudo-likelihood is now implemented for conditional age-at-length
+  in the same form already used for age composition, reading the CAAL row's
+  proportions with its own sample size and weight. As for age comps it is a
+  pseudo-likelihood rather than a density, so OSA residuals are taken under the
+  full multinomial and the simulation draw is multinomial.
+
+* **A model with `nlengths < nages` wrote past the end of two matrices.**
+  `age_hat` and `age_obs_hat` are indexed by age -- up to `nages * 2` for
+  joint-sex composition -- but were sized from `comp_obs`, whose width is the
+  number of `Comp_` columns in the workbook. For a model whose composition data
+  are all length-based with fewer length bins than ages, that width is
+  `nlengths` and the writes ran off the end. Unchecked in a release build, so
+  the effect was a silent write into adjacent memory rather than a crash. Both
+  are now sized from the widest age index the model's own composition rows will
+  be written at -- `nages`, or `nages * 2` for a joint-sex row -- and never
+  narrower than the observations. Sizing them at `nages * 2` unconditionally
+  would also close the overrun, but `age_hat` is REPORTed and assessment scripts
+  read it, so a single-sex model must not gain trailing all-zero columns it
+  never had.
+
+## MSE
+
+* **A scalar `cap` is now an annual ceiling, not an assessment-interval one.**
+  `run_mse()` filled catch for every year of the assessment interval and then
+  tested the cap against the sum over all of them, so at
+  `assessment_period = 2` a one-year cap was applied to a two-year total,
+  roughly halving projected catch. The cap is now applied within each projection
+  year.
+
+  The same line carried a second and larger defect, so **any stored MSE result
+  using a scalar `cap` changes, at every `assessment_period` including 1, and
+  whether or not the cap ever bound**. It was
+  `ifelse(sum(x) > cap, cap * x / sum(x), x)` with a length-1 test, and
+  `ifelse()` returns the shape of its test -- so whichever branch was taken was
+  truncated to its first element and then recycled across every row. Two species
+  landing 80 t and 20 t came out as:
+
+  | scalar `cap` | old | new |
+  |---|---|---|
+  | 50 (binds)         | 40 t, 40 t -- 80 t total, over a 50 t ceiling | 40 t, 10 t |
+  | 500 (never binds)  | 80 t, 80 t -- 160 t total, catch invented     | 80 t, 20 t |
+
+  The non-binding case is the more serious one: a cap set generously enough to
+  be inert still rewrote every species' catch to the first species' value. Only
+  an exactly equal split across species was unaffected. The species-specific
+  vector form of `cap` was always per row and is untouched.
+
+* **`mse_summary()` scored HCR 2 against a hardcoded depletion.** The estimation
+  model's `P(SSB < SSBlimit)` used a literal `0.5 * 0.35` under HCR 2, on the
+  depletion scale, while the operating-model arm scored the same rule as an
+  absolute `0.5 * SBF` -- so the EM/OM cross-tab compared two different
+  criteria. In single-species mode the EM now reads `ssb_limit_thresh()`, the
+  helper the OM already uses, so both sides apply one rule and it cannot drift.
+  `Plimit` is not that rule: it defaults to 0, which would report a default
+  single-species ConstantF run as never overfished.
+
+  Under `msmMode > 0` both sides still fall through to `Plimit`, so a
+  multispecies ConstantF run left at the default `Plimit = 0` reports
+  `P(SSB < SSBlimit)` as 0. That is the operating model's own long-standing
+  multispecies rule and the two sides agree, so it is left alone here -- but set
+  `Plimit` explicitly on a multispecies ConstantF run.
+
+## Other changes
+
+* **`fit_mod()` no longer suppresses every warning `build_map()` raises.** The
+  suppression hid messages that exist to be seen -- an M1 model asking for
+  sex-specific mortality on a single-sex species, a `Time_varying_sel` the
+  selectivity form ignores, a Laplace request the map cannot honour. Each
+  changes what is estimated. They are now de-duplicated and passed through, so
+  a retrospective or MSE that re-enters `fit_mod()` once per peel or simulation
+  prints each distinct warning once rather than hundreds of times.
+
+* **`random_sel = TRUE` is now refused on a fleet with `Time_varying_sel =
+  "Block"`,** instead of producing a NaN objective. Selectivity blocks are
+  fixed effects -- one slope and inflection per block, with no penalty, which
+  is what the switch means -- so `build_map()` maps the block parameters into
+  `log_sel_slp_dev` / `sel_inf_dev` and turns the main parameters off.
+  `fit_mod()` then added those arrays to TMB's `random` unconditionally, but
+  the template scores selectivity deviates only under `"IID"`, `"AR1"`,
+  `"RandomWalk"` and `"RandomWalkAscending"`. The block parameters were
+  therefore integrated against no density at all, with `sel_dev_log_sd` mapped
+  out so there was no variance to estimate either. The marginal objective came
+  back `NaN` and the fit died with TMB's `NA/NaN gradient evaluation`, which
+  names neither selectivity nor `random_sel`. The error now says which fleets
+  and what to change.
+
+  No bundled dataset or reference model reaches this -- `BS2017SS` and
+  `BS2017MS` set `Time_varying_sel` to `"Off"` throughout, `GOA2018SS` to
+  `"Off"` and `"RandomWalkAscending"` -- and no fit that works today changes.
+  `"Block"` remains fully supported with `random_sel = FALSE`.
+
 # Rceattle 5.12.0
 
 ## Breaking changes

@@ -647,10 +647,33 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
   vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
 
-  // -- 4.8. Composition data - FIXME: will blow up if nlengths is less than nages
+  // -- 4.8. Composition data
+  // age_hat / age_obs_hat are indexed by AGE, whatever dimension the fleet's
+  // composition data are on: a length-composition fleet is built at age first
+  // and converted through the age-length transition. comp_obs is only as wide as
+  // the workbook's Comp_ columns, which for a length-only model is nlengths -- so
+  // sizing these from it wrote past the matrix whenever nlengths < nages. Eigen
+  // does not bounds-check in a release build, so that was a silent write into
+  // adjacent memory, not a crash. Width is the widest age index any composition
+  // row actually writes -- nages(sp), or nages(sp) * 2 for a joint-sex row
+  // (comp_ctl column 2 == 3) -- and never narrower than comp_obs, so no REPORTed
+  // object shrinks and none gains all-zero columns it never had.
+  // The species index is range-checked because this runs at allocation time:
+  // nothing between rearrange_data() and MakeADFun validates comp_data$Species,
+  // and a non-numeric one arrives here as NA_integer_. Reading nages() at that
+  // index would size the two matrices below from garbage.
+  int max_age_cols = static_cast<int>(comp_obs.cols());
+  for(int comp_row = 0; comp_row < comp_ctl.rows(); comp_row++){
+    int comp_row_sp = comp_ctl(comp_row, 1) - 1;
+    if((comp_row_sp < 0) | (comp_row_sp >= nspp)){
+      error("comp_data Species on row %d is not in 1..nspp", comp_row + 1);
+    }
+    int comp_row_cols = (comp_ctl(comp_row, 2) == 3) ? nages(comp_row_sp) * 2 : nages(comp_row_sp);
+    if(comp_row_cols > max_age_cols){ max_age_cols = comp_row_cols; }
+  }
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (numbers)
-  matrix<Type>  age_hat = comp_obs; age_hat.setZero();                              // Estimated catch at true age
-  matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age (accounts for ageing error)
+  matrix<Type>  age_hat(comp_obs.rows(), max_age_cols); age_hat.setZero();          // Estimated catch at true age
+  matrix<Type>  age_obs_hat(comp_obs.rows(), max_age_cols); age_obs_hat.setZero();  // Estimated catch at observed age (accounts for ageing error)
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp
   matrix<Type>  caal_hat = caal_obs; caal_hat.setZero();                            // Estimated CAAL
   array<Type>   pred_CAAL(n_flt, max_sex, max_age, max_nlengths, nyrs); pred_CAAL.setZero(); // Predicted CAAL for each fleet
@@ -1731,14 +1754,21 @@ Type objective_function<Type>::operator() () {
             if(age == 0){
               R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
               N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
-              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+              // The male slot only exists where some species is two-sex; a
+              // one-sex species has sex_ratio 1 (set above), so this is 0 either
+              // way, but the index itself is out of range when max_sex is 1.
+              if(nsex(sp) > 1){
+                N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+              }
             }
 
             // - Estimate  as free parameters
             if(initMode == 0){
               if(age > 0){
                 N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age-1)) * sex_ratio(sp, 0);
-                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
+                if(nsex(sp) > 1){
+                  N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
+                }
               }
             }
 
@@ -1847,12 +1877,26 @@ Type objective_function<Type>::operator() () {
         // -- 6.6.1. Recruitment
 
         // - Calculate recruitment.
-        Type ssb_tmp = ssb(sp, yr - minage(sp));
+        // Recruits arriving at age minage in year yr were spawned in yr - minage,
+        // before styr while yr < minage. With no modelled SSB those years take
+        // R_init * exp(rec_dev) -- equilibrium recruitment at F = Finit, exactly
+        // what year 0 gets, so ages seeded from the same equilibrium agree.
+        // Stock Synthesis treats the pre-start period the same way; WHAM avoids
+        // it by fixing the lag at one year. Cannot fire at minage = 1.
+        int spawn_yr = yr - minage(sp);
+        int srr_use = (spawn_yr < 0) ? 0 : srr_switch;
+        Type ssb_tmp = (spawn_yr < 0) ? Type(0.0) : ssb(sp, spawn_yr);
+        // Not R0(sp, yr): under a stock-recruit hindcast build_map() maps the
+        // mean-recruit parameter out and only R0(sp, 0) is overwritten with the
+        // derived (alpha - 1/SPR0)/Beta, leaving R0(sp, yr) at its starting value.
+        Type rec_mean = (spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
-        R(sp, yr) = calculate_recruitment(srr_switch, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+        R(sp, yr) = calculate_recruitment(srr_use, rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
-        N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
+        if(nsex(sp) > 1){
+          N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
+        }
 
 
         // -- 6.6.2. Ages beyond recruitment
@@ -1964,32 +2008,53 @@ Type objective_function<Type>::operator() () {
 
 
           // - Option 2: Use SRR
-          if(proj_mean_rec == 0){
+          // Reached whenever a curve exists, not only when the projection runs
+          // on it. proj_mean_rec = 1 (the build_srr() default) with an estimated
+          // curve otherwise matched NEITHER arm -- Option 1a excludes
+          // srr_pred_fun >= 2 -- and reference-point recruitment stayed 0 for
+          // every year after the first, so SB0 decayed towards zero and
+          // SB0(sp, nyrs-1) is what HCR 5 and 6 read as the depletion reference.
+          // Projection recruitment itself is unaffected: that switch is read
+          // separately in 6.8, so mean-recruitment projections stay mean.
+          if((proj_mean_rec == 0) | (srr_pred_fun >= 2)){
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
-            // FIXME: will bomb if minage > 1
-            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SB0(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
-            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            // Reference-point spawning biomass exists for every year, so unlike
+            // the hindcast there is always something for the curve to read and
+            // the minage lag only has to stay in bounds: yr < minage takes the
+            // first year's value. Year 0 is the F = Finit equilibrium the
+            // hindcast is seeded from, so under initMode 1-5 these years come
+            // back at R_init anyway. This block runs from yr = 1, so the lag
+            // cannot go negative at minage = 1.
+            int rp_yr = yr - minage(sp);
+            if(rp_yr < 0){ rp_yr = 0; }
+
+            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), SBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, yr-minage(sp)), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSB0(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
+            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), DynamicSBF(sp, rp_yr), alpha(sp, yr), Beta(sp, yr), rdev, SPR0(sp));
 
           } // End recruitment switch
 
-          // Account for sex ratio
+          // Account for sex ratio. The male slot only exists where some species
+          // is two-sex; a one-sex species has sex_ratio 1 (set in 6.4), so the
+          // male value is 0 either way, but the index is out of range when
+          // max_sex is 1.
           NByage0(sp, 0, 0, yr) = NByage0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          NByage0(sp, 1, 0, yr) = NByage0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           NByageF(sp, 0, 0, yr) = NByageF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          NByageF(sp, 1, 0, yr) = NByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           N_at_age_dB0(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          N_at_age_dB0(sp, 1, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
-
           N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          N_at_age_dBF(sp, 1, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
+
+          if(nsex(sp) > 1){
+            // Males (divide by sex_ratio because we multiplied in the lines above)
+            NByage0(sp, 1, 0, yr) = NByage0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            NByageF(sp, 1, 0, yr) = NByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            N_at_age_dB0(sp, 1, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+            N_at_age_dBF(sp, 1, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0));
+          }
 
 
           // N-at-age year > 1
@@ -2153,12 +2218,19 @@ Type objective_function<Type>::operator() () {
         if(proj_mean_rec == 0){
 
           // - Calculate recruitment (with linkage offsets pre-added).
-          Type ssb_tmp = ssb(sp, yr-minage(sp));
-          R(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
+          // Pre-styr spawning year takes R_init, as in the hindcast block;
+          // reachable only if the hindcast is shorter than minage.
+          int proj_spawn_yr = yr - minage(sp);
+          int proj_srr_use = (proj_spawn_yr < 0) ? 0 : srr_pred_fun;
+          Type ssb_tmp = (proj_spawn_yr < 0) ? Type(0.0) : ssb(sp, proj_spawn_yr);
+          Type proj_rec_mean = (proj_spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
+          R(sp, yr) = calculate_recruitment(proj_srr_use, proj_rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), rec_dev(sp, yr), SPR0(sp));
         }
 
         N_at_age(sp, 0, 0 , yr) = R(sp, yr) * sex_ratio(sp, 0);
-        N_at_age(sp, 1, 0 , yr) = R(sp, yr) * (1 - sex_ratio(sp, 0));
+        if(nsex(sp) > 1){
+          N_at_age(sp, 1, 0 , yr) = R(sp, yr) * (1 - sex_ratio(sp, 0));
+        }
 
 
         // -- 6.8.2. Ages > recruitment
@@ -2257,10 +2329,24 @@ Type objective_function<Type>::operator() () {
       // Year 1+
       for(yr = 1; yr < nyrs; yr++){
         // - Calculate recruitment (with linkage offsets pre-added).
-        Type ssb_tmp = ssb(sp, yr-minage(sp));
+        // Pre-styr spawning year takes R_init, the SAME anchor the realised
+        // recruitment above uses. Expected and realised then differ only by
+        // rec_dev, so the stock-recruit penalty at 15.x scores the deviation and
+        // nothing else -- there is no spawning biomass in these years to carry
+        // information about the curve's level. Anchoring this side on the curve
+        // instead (R_hat's own first year) leaves a mean-versus-curve level gap
+        // that the penalty reads as signal: under the Ianelli configuration
+        // (srr_fun mean, srr_pred_fun BevertonHolt) that added a fixed 0.83 nats
+        // per guarded year, pulling rec_pars against alpha and Beta from years
+        // with no data. Identical for BevertonHolt/BevertonHolt and
+        // Ricker/Ricker, where R_init is already R_hat's first-year value.
+        int hat_spawn_yr = yr - minage(sp);
+        int hat_srr_use = (hat_spawn_yr < 0) ? 0 : srr_pred_fun;
+        Type ssb_tmp = (hat_spawn_yr < 0) ? Type(0.0) : ssb(sp, hat_spawn_yr);
+        Type hat_rec_mean = (hat_spawn_yr < 0) ? R_init(sp) : R0(sp, yr);
 
         // Note: Expected recruitment does not include deviations, so we pass Type(0.0)
-        R_hat(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp, yr), ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
+        R_hat(sp, yr) = calculate_recruitment(hat_srr_use, hat_rec_mean, ssb_tmp, alpha(sp, yr), Beta(sp, yr), Type(0.0), SPR0(sp));
       }
     }
 
@@ -3709,6 +3795,12 @@ Type objective_function<Type>::operator() () {
     vector<Type> caal_obs_tmp = caal_obs.row(caal_ind).segment(0, n_caal); // Observed proportion
     vector<Type> caal_hat_tmp = caal_hat.row(caal_ind).segment(0, n_caal); // Expected proportion
 
+    // Proportions kept pre-offset and pre-numbers for the AFSC pseudo-likelihood
+    // (caal_ll_type == -1), which reads proportions directly. Mirrors the
+    // comp_obs_prop / comp_hat_prop copies in the age-composition slot above.
+    vector<Type> caal_obs_prop = caal_obs_tmp;
+    vector<Type> caal_hat_prop = caal_hat_tmp;
+
     // Add offset (for some reason can't do above in single line....)
     caal_obs_tmp += comp_prop_offset;
     caal_hat_tmp += comp_prop_offset;
@@ -3730,6 +3822,19 @@ Type objective_function<Type>::operator() () {
         // Both address JNLL_CAAL, not JNLL_COMP: age composition and conditional
         // age-at-length are separate likelihood rows (see the JnllRow enum).
         switch(caal_ll_type(flt)){
+
+        case -1:  // AFSC/AMAK multinomial pseudo-likelihood, as for age comps
+          // Same form as comp_ll_type == -1 (see the age-composition slot):
+          // sum_a N * (obs_a + off) * log((hat_a + off) / (obs_a + off)), read
+          // off the proportions rather than the numbers vector. It drops the
+          // multinomial normalizing constant, so it is a pseudo-likelihood
+          // rather than a density -- which is why the OSA branch below
+          // residualizes it under the full multinomial, as comps do.
+          for(int age_ind = 0; age_ind < n_caal; age_ind++){
+            jnll_comp(JNLL_CAAL, flt) -= caal_weights(flt) * Type(caal_n(caal_ind, 0)) * (caal_obs_prop(age_ind) + comp_prop_offset) * log((caal_hat_prop(age_ind) + comp_prop_offset) / (caal_obs_prop(age_ind) + comp_prop_offset));
+            unweighted_jnll_comp(JNLL_CAAL, flt) -= Type(caal_n(caal_ind, 0)) * (caal_obs_prop(age_ind) + comp_prop_offset) * log((caal_hat_prop(age_ind) + comp_prop_offset) / (caal_obs_prop(age_ind) + comp_prop_offset));
+          }
+          break;
 
         case 0: {  // Full multinomial -- via the OSA conditional-binomial decomposition (keep == 1)
           data_indicator<vector<Type>, Type> keep_ones(caal_obs_tmp, true);

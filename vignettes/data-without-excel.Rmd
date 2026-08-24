@@ -189,7 +189,8 @@ Each row defines one fleet (fishery or survey) and controls how it is modeled. M
 #   "Analytical"           (3) -- Ludwig & Walters / Martell (1994) analytical Q
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
-#   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
+#   "AR1"                  (6) -- REMOVED in 5.12.0; data_check() errors. Use a q
+#                                  linkage with ar1(1 | Year) and observe = <column>
 #   NA                         -- not applicable (use for fisheries without CPUE)
 
 # Comp_distribution / CAAL_distribution options:
