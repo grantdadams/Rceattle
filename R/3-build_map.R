@@ -1274,10 +1274,25 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
       # Per-fleet settings a shared Selectivity_index does not reconcile
       # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
-      # Sel_norm_bin*, Time_varying_sel) are checked in data_check(): fit_mod()
-      # wraps this call in suppressWarnings().
+      # Sel_norm_bin*, Time_varying_sel) are checked in data_check().
 
-      # FIXME add checks for surveys sel sigma
+      # The deviation sd is one estimated parameter for the whole group, and TMB
+      # takes the first member's starting value, so a differing Time_varying_sel_sd
+      # on any other fleet is discarded. Only when it is estimated: with
+      # random_sel = FALSE the map is NA and each fleet keeps its own value.
+      if (!is.na(sel_duplicate) && !is.na(map_list$sel_dev_log_sd[sel_duplicate])) {
+        sd_grp <- data_list$fleet_control$Time_varying_sel_sd[sel_duplicate_vec]
+        if (length(unique(sd_grp[!is.na(sd_grp)])) > 1) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", sel_index[i], " (",
+            paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec], collapse = ", "),
+            ") have different Time_varying_sel_sd. The group estimates one ",
+            "deviation sd, started from ",
+            data_list$fleet_control$Fleet_name[sel_duplicate], "'s value (",
+            sd_grp[which(sel_duplicate_vec == sel_duplicate)][1],
+            "); the others are ignored."))
+        }
+      }
 
       # Make selectivity maps the same if selectivity is the same
       if(!is.na(sel_duplicate)){
@@ -1299,10 +1314,17 @@ adjust_map_shared_params <- function(map_list, data_list) {
       q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
       # Catchability / Time_varying_q disagreement, and the solved q forms that
-      # cannot share a group at all, are checked in data_check(): fit_mod() wraps
-      # this call in suppressWarnings().
+      # cannot share a group at all, are checked in data_check().
 
-      # FIXME add checks for surveys q sigma
+      # There is no q equivalent of the selectivity sd check above.
+      # index_q_log_sd and index_q_dev_log_sd are mapped out for every fleet and
+      # never turned back on, so each fleet keeps its own Catchability_prior_sd
+      # and Time_varying_q_sd and the two copies below are NA over NA. The
+      # deviation sd is not estimable even with the deviates integrated out
+      # under random_q: on a 40-year index with the observation sd FIXED and q
+      # deviations injected at 0.4, the marginal MLE pins to the lower bound at
+      # observation sd 0.1 and above, and reaches only 0.06 at 0.05. An
+      # estimated value would read as "q is constant" on data that are not.
 
       # Make catchability maps the same.
       #
