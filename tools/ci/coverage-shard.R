@@ -52,6 +52,15 @@ stopifnot(length(files) > 0)
 # one. Counting calls in the source is NOT used as the fallback: that is the
 # estimator this replaced, and a wrong number in the right units is harder to
 # spot than an obvious placeholder. The next timing run measures it for real.
+#
+# A recorded 0 counts as unknown too, and that is the important half. No test
+# file in this suite runs in under half a second, so a 0 in the table never means
+# "fast" -- it means the file was in a shard that was cancelled before reaching
+# it, so the regeneration had no row to write. Trusting those zeros is what made
+# this self-perpetuating: 36 of them, each adding nothing to a bin's load,
+# cascaded onto whichever bin was lightest and put 59 of 171 files on one runner
+# with a 17.8-minute estimate. That runner was cancelled at 120 minutes, wrote no
+# timings, and so kept its zeros for the next run.
 COST_UNMEASURED <- 60
 
 COST_TABLE <- local({
@@ -69,12 +78,19 @@ file_cost <- function(path) {
   # yields NA for an absent name, and NULL[nm] is length 0 when the tsv is
   # missing entirely, so both fall through to the placeholder as intended.
   measured <- unname(COST_TABLE[basename(path)])
-  if (length(measured) == 1L && !is.na(measured)) return(measured)
+  if (length(measured) == 1L && !is.na(measured) && measured > 0) return(measured)
   COST_UNMEASURED
 }
 
 costs <- vapply(file.path(test_dir, files), file_cost, numeric(1))
 names(costs) <- files
+
+# Tracked separately rather than by testing `costs == COST_UNMEASURED`, which
+# would also count a file that genuinely measured 60 s.
+is_unmeasured <- vapply(files, function(f) {
+  m <- unname(COST_TABLE[f])
+  !(length(m) == 1L && !is.na(m) && m > 0)
+}, logical(1))
 
 
 # --- Longest-processing-time bin packing -------------------------------------
@@ -82,14 +98,23 @@ names(costs) <- files
 # spread like this suite's it lands within a few percent of a perfect split, and
 # unlike round-robin it is stable: adding a light test file does not reshuffle
 # the heavy ones onto different shards.
+#
+# Ties in load go to the shard holding the fewest files. `which.min()` alone
+# always answers with the lowest index, so any run of equal-cost files -- the
+# degenerate case being equal-and-zero -- stacks onto one runner however many
+# there are. File count is the tie-break because it is what actually differs
+# then, and it keeps the split sane even if every cost were identical.
 assign_shards <- function(costs, nshard) {
   ord    <- order(costs, decreasing = TRUE)
   load   <- numeric(nshard)
+  count  <- integer(nshard)
   bin    <- integer(length(costs))
   for (i in ord) {
-    b        <- which.min(load)
+    light    <- which(load == min(load))
+    b        <- light[which.min(count[light])]
     bin[i]   <- b
     load[b]  <- load[b] + costs[i]
+    count[b] <- count[b] + 1L
   }
   list(bin = bin, load = load)
 }
@@ -107,6 +132,13 @@ for (b in seq_len(nshard)) {
                   b, sum(plan$bin == b), plan$load[b] / 60,
                   if (b == shard) "   <- this runner" else ""))
 }
+n_unmeasured <- sum(is_unmeasured)
+if (n_unmeasured > 0) {
+  message(sprintf(
+    "\n%d of %d files have no measured cost and are counted at %d s. Regenerate\ntools/ci/coverage-costs.tsv from the coverage-timing-shard-* artifacts to\nreplace the placeholders with real times.",
+    n_unmeasured, length(files), COST_UNMEASURED))
+}
+
 message("\nFiles in this shard (estimated seconds, from coverage-costs.tsv):")
 for (f in mine) message(sprintf("  %-52s %5.0f", f, costs[[f]]))
 
