@@ -130,6 +130,14 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   row without complaint rather than erroring. Checking it means rendering to
   HTML and counting cells.
 
+* **`vignette("introduction")` plots SSB depletion where it says it does.** The
+  "SSB depletion" example called `plot_depletion()` — the *biomass* depletion
+  plotter, and the same call as the line above it — so the two examples drew
+  identical figures under different labels. It calls `plot_depletionSSB()` now.
+
+* The `Time_varying_sel` soft-deprecation message now names `ar1(1 | Year)`
+  alongside `rw(1 | Year)`, as the `Time_varying_q` message already did.
+
 # Rceattle 5.15.0
 
 ## Behavior changes
