@@ -1,8 +1,8 @@
 # Every switch code exists three times: as a name in an R map (R/0-switches.R or
-# R/0-build_srr_and_M.R), as a string literal in build_map()/build_params(), and
-# as a `case` label in the C++. Nothing binds them. A code added to a map with
-# no branch to run, or a branch with no name to select it, is invisible until a
-# user picks the option and gets silence or the wrong arm.
+# a R/0-build_*.R constructor), as a string literal in build_map() or
+# build_params(), and as a `case` label in the C++. Nothing binds them. A code
+# added to a map with no branch to run, or a branch with no name to select it,
+# is invisible until a user picks the option and gets silence or the wrong arm.
 #
 # This test binds the first and third: it reads the `case` labels out of the
 # template and requires them to be exactly the map's values, minus a PINNED

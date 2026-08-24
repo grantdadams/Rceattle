@@ -406,9 +406,9 @@
 #
 # The switches that configure the MODEL rather than a workbook column:
 # msmMode, estimateMode, initMode and the rest. They live in maps in
-# R/0-switches.R and R/0-build_srr_and_M.R, are defaulted in switch_check(),
-# and are documented in fit_mod() and the build_*() constructors -- with no one
-# place saying what the full set is.
+# R/0-switches.R and the R/0-build_*.R constructors, are defaulted in
+# switch_check(), and are documented in fit_mod() and the build_*()
+# constructors -- with no one place saying what the full set is.
 #
 # A SECOND table rather than rows in .rce_column_schema(): these are not
 # workbook columns, and write_data(), read_data(), the meta sheet and the
