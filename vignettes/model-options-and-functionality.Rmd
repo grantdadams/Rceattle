@@ -572,7 +572,7 @@ See `?build_hcr` for more details.
 | `fit_mod(estimateMode = 2, HCR = build_hcr(...))` | Forward projection under a fixed HCR |
 | `sample_rec()` | Bootstrap historical recruitment deviations (with optional `rec_trend`) into the projection |
 | `remove_F()` | Refit a model with F = 0 (used internally for dynamic reference points) |
-| `run_mse()` | Closed-loop MSE: refit EM at intervals of `assessment_period`, sample new data at `sampling_period` |
+| `run_mse()` | Closed-loop MSE: refit EM on the `assessment_period` schedule (a period, or the years themselves), sample new data at `sampling_period` |
 | `load_mse()` | Reload per-simulation `.rds` files written when `dir =` is supplied |
 | `check_mse()` | Validate which OM/EM simulations converged |
 | `mse_summary()` | Per-fleet performance metrics: mean catch, IAV, P(closed), P(F > Flimit), P(SSB < SSBlimit), terminal depletion |

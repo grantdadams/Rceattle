@@ -37,7 +37,7 @@ run_mse(
 
 \item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
 
-\item{assessment_period}{Period of years that each assessment is taken}
+\item{assessment_period}{Assessment schedule. A single number is the period in years between assessments, counted from the operating model's terminal year. A vector is the explicit set of years an assessment is completed. Default = 1.}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
@@ -53,7 +53,7 @@ run_mse(
 
 \item{cap}{A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL}
 
-\item{catch_mult}{A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
+\item{catch_mult}{A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists. Default = NULL}
 
 \item{seed}{seed for the simulation}
 
@@ -80,6 +80,48 @@ A list of operating models (differ by simulated recruitment determined by \code{
 \description{
 Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
 }
+\section{Assessment schedule}{
+A single \code{assessment_period} is a fixed cycle. A vector is the schedule
+itself, for a design whose years are not evenly spaced -- one assessment
+missed inside an otherwise biennial cycle, for instance:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+run_mse(om, em, assessment_period = setdiff(biennial, 2031))
+}\if{html}{\out{</div>}}
+
+Every year must be after the operating model's terminal year and within the
+projection horizon; a year outside that window is an error rather than being
+dropped. One missed assessment and a permanently longer cycle are different
+questions, and the second does not answer the first.
+
+A schedule must name two or more years. One year on its own cannot be told
+from a period, and the two readings are a world apart, so it is refused
+rather than guessed at.
+}
+
+\section{Catch multiplier}{
+\code{catch_mult} multiplies the catch the estimation model's control rule
+recommends, before \code{cap} and before the exploitable-biomass limit. Given as
+a \code{data.frame} it applies only in the years and species it lists, which is
+how a buffer held for the years advice is stale is expressed:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{buffer <- expand.grid(Year = 2031:2032, Species = seq_len(om$data_list$nspp))
+buffer$mult <- 0.90
+run_mse(om, em, assessment_period = setdiff(biennial, 2031),
+        catch_mult = buffer)
+}\if{html}{\out{</div>}}
+
+\code{Species} is the species number, matching the catch data's own column, and
+any (year, species) pair the table omits is multiplied by 1.
+
+Note that this reduces catch, not ABC. Where realized catch sits well below
+ABC -- GOA arrowtooth flounder, for one -- reducing ABC changes removals only
+to the extent the fishery attains it, while reducing catch changes them in
+full. Either scale the multiplier by recent attainment,
+\code{1 - (1 - mult) * attainment}, or report the unscaled result as an upper
+bound on the effect of the reduction.
+}
+
 \examples{
 \dontrun{
 data(BS2017SS)

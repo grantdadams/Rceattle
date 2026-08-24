@@ -11,6 +11,90 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.17.0
+
+## MSE
+
+* **`run_mse(assessment_period =)` takes an explicit vector of assessment
+  years.** A single number is the period it always was; a vector is the
+  schedule itself — the exact years an assessment is completed.
+
+  A skipped assessment is one gap in an otherwise regular cycle, and a period
+  cannot express it. Standing in a triennial period for a missed biennial
+  assessment answers a different question and the error does not have a
+  known sign: a permanent longer cycle overstates how the cost of stale advice
+  compounds, while being blind to the state the stock happened to be in when
+  the single gap opened.
+
+  ```r
+  biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+  run_mse(om, em, assessment_period = setdiff(biennial, 2031))
+  ```
+
+  Every year must be after the operating model's terminal year and within the
+  projection horizon (the earlier of the two models' `projyr` and `endyr`).
+  A year outside that window is an error rather than being dropped: dropping it
+  would run a schedule the caller did not ask for, with nothing in the returned
+  object to say so. The years are sorted and de-duplicated, and the assessment
+  nodes carry them in their names, as they already did.
+
+  A schedule must name **two or more** years: one year on its own cannot be
+  told from a period, and the two readings of, say, `2029` are a world apart.
+  It is refused with a message saying which reading was taken, rather than
+  guessed at.
+
+  A scalar is also now required to be a whole year of at least 1, and to leave
+  room for at least one assessment inside the projection. A fractional period
+  set the operating model's terminal year to a fraction, which nothing
+  downstream indexes on; a period longer than the projection used to surface as
+  `seq()` reporting on the sign of its `by` argument. Nothing that produced a
+  usable number is refused.
+
+* **`run_mse(catch_mult =)` takes a `data.frame` of `Year`, `Species` and
+  `mult`.** A single number or a vector of length `nspp` is unchanged and
+  applies in every projection year. A `data.frame` applies only in the year and
+  species pairs it lists; every pair it omits is multiplied by 1.
+
+  The vector form is a permanent harvest cut, so it cannot express a buffer
+  held only while advice is stale — the case a missed assessment raises.
+
+  ```r
+  buffer <- expand.grid(Year = 2031:2032, Species = seq_len(om$data_list$nspp))
+  buffer$mult <- 0.90
+  run_mse(om, em, assessment_period = setdiff(biennial, 2031),
+          catch_mult = buffer)
+  ```
+
+  `Species` is the species number, matching the catch data's own column.
+  The table is validated at the call rather than inside the simulation loop: a
+  year outside the projection, a species number out of range, a non-finite or
+  negative multiplier, and two rows for the same year and species are all
+  errors. Each of those otherwise reads as *no reduction* — `match()` returns
+  `NA` for an unmatched pair and takes the first of a duplicated one — in a run
+  that finishes and looks ordinary. A vector `catch_mult` is now checked for
+  finiteness and sign for the same reason.
+
+  Note that this multiplies **catch**, not the ABC the control rule produces.
+  Where realized catch sits well below ABC — GOA arrowtooth flounder, for one —
+  reducing ABC changes removals only to the extent the fishery attains it,
+  while reducing catch changes them in full. Scale the multiplier by recent
+  attainment, `1 - (1 - mult) * attainment`, or report the unscaled result as an
+  upper bound on the effect of the reduction. `?run_mse` and
+  `vignette("hcrs-and-mses")` both carry the caveat.
+
+* No stored MSE result changes. `assessment_period = 1` and a scalar
+  `catch_mult` take the same paths they did, and `tools/verify/verify-mse-schedule.R`
+  checks that a schedule given as years reproduces the equivalent period exactly.
+
+## Documentation
+
+* `vignette("hcrs-and-mses")` gains a worked missed-assessment scenario, and its
+  reproducibility section now names **5.13.0** alongside 5.9.0. Both moved the
+  random-number stream — 5.9.0 by moving the observation draws from R into the
+  template, 5.13.0 by drawing the index under the fleet's own
+  `Index_distribution` — so a seeded `run_mse()` reproduces across neither.
+
+
 # Rceattle 5.16.0
 
 ## Breaking changes

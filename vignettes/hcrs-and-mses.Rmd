@@ -115,7 +115,9 @@ arguments fully control reproducibility. (You may still want
 Reproducibility holds *within* a package version, not across one. In 5.9.0 the
 observation draws moved from R into the TMB model, which displaces the
 random-number stream, so a seeded `run_mse()` or `self_test()` will not
-reproduce a run from 5.8.x.
+reproduce a run from 5.8.x. 5.13.0 is the same kind of boundary: the index is
+drawn under the fleet's own `Index_distribution` from that release, which moves
+the stream again.
 
 Two further points when comparing runs. The stream *position* is
 data-dependent: a covariance survey fleet redraws until every row is positive,
@@ -248,6 +250,47 @@ mse4 <- run_mse(
   sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
 )
 ```
+
+------------------------------------------------------------------------
+
+## A missed assessment, and a buffer while advice is stale
+
+The scenarios above all set a *period*: an assessment every second or fourth year, for as long as the projection runs. A skipped assessment is a different thing — one gap in an otherwise regular cycle — and `assessment_period` also takes the schedule itself, as a vector of the years an assessment is completed.
+
+```{r, message = FALSE, echo = TRUE, eval = FALSE}
+biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+miss_yr  <- biennial[ceiling(length(biennial) / 3)]
+
+mse6 <- run_mse(
+  om = om, em = em,
+  nsim = 10,
+  assessment_period = setdiff(biennial, miss_yr), # every year but miss_yr
+  sampling_period = c(1, 2)
+)
+```
+
+The distinction matters for the answer, not just the bookkeeping. A triennial period is a permanent policy and its cost compounds; one missed assessment is a single episode of stale advice, and how much it costs depends on the state the stock was in when the gap opened.
+
+To pair the gap with a precautionary reduction, give `catch_mult` a `data.frame` of `Year`, `Species` and `mult`. It applies only in the pairs listed, so the reduction can be held for the years advice is stale and lifted once the next assessment lands. `Species` is the species number, and any pair the table omits is multiplied by 1.
+
+```{r, message = FALSE, echo = TRUE, eval = FALSE}
+# 10% reduction over the gap: the missed year and the year that follows it.
+buffer <- expand.grid(Year = miss_yr:(miss_yr + 1),
+                      Species = seq_len(om$data_list$nspp))
+buffer$mult <- 0.90
+
+mse7 <- run_mse(
+  om = om, em = em,
+  nsim = 10,
+  assessment_period = setdiff(biennial, miss_yr),
+  sampling_period = c(1, 2),
+  catch_mult = buffer
+)
+```
+
+Run these against a baseline that differs *only* in the schedule — same `om`, same `em`, same `seed` — so each replicate sees the same recruitment deviations and the same observation error, and the scenarios can be compared as paired within-replicate differences.
+
+One caveat to carry into any write-up: `catch_mult` multiplies catch, not ABC. A real ABC reduction changes removals only to the extent the fishery attains ABC, and for a stock whose catch sits well below ABC it changes them hardly at all. Either scale the multiplier by recent attainment, `1 - (1 - mult) * attainment`, or report the unscaled result as an upper bound on the effect of the reduction.
 
 ------------------------------------------------------------------------
 
