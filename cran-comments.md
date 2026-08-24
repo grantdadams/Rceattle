@@ -16,11 +16,27 @@ the package tarball via `.Rbuildignore`.
 
 0 errors | 0 warnings | 1 note
 
-The note is the `installed size is 11.3 Mb` flag, driven by the bundled
-example datasets in `data/` (Bering Sea, Gulf of Alaska, Georges Bank,
-and Atka mackerel applications shipped to make the vignettes runnable
-without an external download). We are tracking moving the largest of
-these to `inst/extdata/` for the next release.
+Measured at 5.15.0 with `rcmdcheck(args = c("--no-manual", "--as-cran"))`
+on macOS, R 4.5.x. The note is `checking CRAN incoming feasibility`, and
+it flags three things, all expected for a first submission:
+
+- **New submission.**
+- **`Remotes` in `DESCRIPTION`.** A devtools field for installing
+  `TMBhelper` from GitHub during development. It must be removed before
+  submission; CRAN does not accept it.
+- **`TMBhelper` not in a mainstream repository.** See the submission note
+  below: it is in `Suggests:` and the package works without it.
+
+Installed size is reported as INFO rather than a note on this toolchain
+(14.6 Mb: `data` 5.1 Mb, `libs` 4.3 Mb, `R` 2.0 Mb, `extdata` 1.3 Mb),
+driven by the bundled example datasets in `data/` (Bering Sea, Gulf of
+Alaska, Georges Bank, and Atka mackerel applications shipped to make the
+vignettes runnable without an external download). It may still be raised
+as a note on other platforms. We are tracking moving the largest of these
+to `inst/extdata/`.
+
+**The source tarball is 33.9 Mb, which is well over what CRAN accepts.**
+Shrinking `data/` is a prerequisite for submission, not just a tidy-up.
 
 ## Downstream dependencies
 
