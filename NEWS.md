@@ -15,6 +15,82 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## New features
 
+* **`build_DSEM(constant_variance = )` chooses what a `<->` term means** once the
+  SEM carries lagged paths, passed through to `dsem::dsem_control()`. `dsem`
+  inherits RAM notation from the `sem` package, where a `<->` self-loop is the
+  DISTURBANCE variance -- conditional on the incoming paths -- so the marginal
+  variance grows along the causal graph, reaching `sigma^2 / (1 - rho^2)` for a
+  first-order self-path. `"marginal"` and `"diagonal"` rescale `Gamma` and
+  `(I - Rho)` to hold the marginal variance constant instead, which is the
+  time-series convention `ar1(1 | Year)` already uses here, and WHAM's `Ecov`
+  AR(1) and `glmmTMB`'s `ar1()` use elsewhere.
+
+  **The default is unchanged** -- `"conditional"`, which is `dsem`'s -- so no
+  existing fit moves. The argument only makes the choice reachable, and the
+  three settings are identical for a SEM with no lags: measured on `GOApollock`,
+  all three return an objective of 24246.37659. On a lagged SEM with rho = 0.6,
+  the ratio of marginal variance to `R_sd^2` is 1.5625 under `"conditional"` --
+  exactly `1/(1 - 0.6^2)` -- and 1.0000 under `"marginal"`.
+
+  Two consequences of the default are now documented in `vignette("dsem")`
+  rather than left implicit. The lognormal bias correction uses the MARGINAL
+  variance (reported as `quantities$dsem_margvar_tj`), which is what makes
+  `E[exp(rec_dev)] = 1` and is not `R_sd^2` once the SEM is lagged. And
+  `sigmaR_prior_sd` centres on `data_list$sigma_rec`, an assessment's marginal
+  recruitment SD, so under `"conditional"` that prior lands on the innovation
+  SD -- the same quantity for an IID SEM, and different by `1/(1 - rho^2)` once
+  a self-path is added.
+
+
+* **A SEM written with its columns aligned now means what it reads as.**
+  `dsem::make_dsem_ram()` decides whether a variable already has a variance of
+  its own by comparing the path string it would add -- `paste(v, "<->", v)`,
+  single-spaced -- against the paths already in the model, with no whitespace
+  normalization. So `recdevs1  <->  recdevs1` failed to match, dsem appended a
+  second variance row for the same node, and `MakeADFun()` then died inside the
+  dsem DLL: a **segfault** on a multi-variable SEM, an error on a
+  single-variable one, either way with a traceback that said nothing about
+  spacing. `build_dsem_objects()` now puts exactly one space either side of
+  every arrow before handing the SEM to dsem, and rejects a genuine duplicate
+  variance term by name. Aligning a SEM's columns is the natural way to write
+  one, and every SEM in the package's own tests, examples and vignette happened
+  to be single-spaced, so nothing here could catch it.
+
+* **`process_residuals(process = "recruitment")` works on a DSEM**, by whitening
+  the latent states with the process precision instead of dividing by a scalar
+  SD. Conditioning on the states the model was given -- the observed covariates,
+  which are fixed in the map -- the estimated states have precision `Q[E, E]`,
+  and `r = chol(Q[E, E]) %*% (draw - conditional mean)` is approximately iid
+  N(0, 1) under a correctly specified SEM. That is the same claim the scalar
+  path makes and exact in the same sense; it is the generalization of SAM's
+  `procres()` to a correlated process. `"initial"` now reads the recruitment SD
+  the density actually used (`quantities$R_sd`, which the template sets from the
+  SEM) rather than `exp(R_log_sd)`, a mapped-out placeholder under a DSEM --
+  measured on BS2017SS at 0.7071 against the 0.9888 / 1.3321 / 0.7976 in force.
+  `"all"` therefore returns all three processes.
+
+* **`sim_mod(process = TRUE)` and `self_test(process = TRUE)` redraw a DSEM's
+  recruitment process**, by drawing the whole latent field from the same
+  precision the density uses -- as `dsem::simulate()` does -- and substituting it
+  into the parameter vector, so the template derives `rec_dev` from the drawn
+  states and applies the lognormal bias correction once, where it always is. The
+  states the model was given stay put: under `family = "fixed"` the covariate
+  columns are the environmental data, and redrawing them would simulate
+  different data rather than a different process. Drawing IID instead -- what
+  the template's own process draw would have done -- would have discarded the
+  SEM's lagged paths, covariate effects and cross-species structure, and used
+  the GMRF's conditional SD, understating the marginal variance by
+  `1 / (1 - rho^2)`.
+
+* **`profile(param = "sigmaR")` profiles a DSEM's recruitment SD** instead of
+  refusing. The alias now resolves to `dsem_beta_z[rec_sd_idx[sp]]` -- the SEM's
+  variance path, on the natural scale, since `R_sd` is its absolute value --
+  so the alias means the same thing on both parameterizations and `slots` still
+  indexes by species. Profiling `rec_dev` is still refused: under a DSEM it is
+  derived from the latent states on every evaluation, carries no gradient, and
+  has no single parameter standing for it.
+
+
 * **`retrospective(forecast_rec = )` chooses how the peeled years get their
   recruitment.** `"mean"` (the default, and what a retrospective has always
   done) projects them at the bias-adjusted historical mean. `"model"` uses the
@@ -54,15 +130,13 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `dsem = NULL` (the default) is unchanged and bit-identical to previous
   versions.
 
-  `retrospective()`, `jitter()`, `self_test()`, `profile()`, `remove_F()`,
-  `reweight_comps()` and `osa_residuals()` all work on a DSEM (below), as does
-  `sample_rec()` where the latent states span the projection. `run_mse()`
-  still stops with a message rather than project a model without the
-  recruitment structure being tested, and `process_residuals()` refuses
-  `"recruitment"` and `"initial"` -- it standardizes a posterior draw by a
-  per-year normal prior, which is not the GMRF's prior, and under a DSEM the
-  initial deviations would be scaled by a mapped-out placeholder.
-  `process_residuals(process = "catchability")` is unaffected and works.
+  **The whole diagnostic suite runs on a DSEM.** `retrospective()`, `jitter()`,
+  `self_test()`, `profile()`, `process_residuals()`, `sim_mod()`,
+  `osa_residuals()`, `remove_F()` and `reweight_comps()` all work, as does
+  `sample_rec()` where the latent states span the projection. Each is described
+  below where it needed something specific. `run_mse()` is the one exception: it
+  stops with a message rather than project a model without the recruitment
+  structure being tested.
 
 * **`check_dsem_spec()` screens a specification before it is fitted**,
   reporting sparse predictors, a collinear lag-aligned design, covariates
@@ -175,6 +249,27 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   without a DSEM are unaffected.
 
 ## Bug fixes
+
+* **A retrospective peel no longer refuses a model with a linkage on
+  `env_data`.** Withholding post-peel covariate values was done by dropping the
+  rows, and linkage design matrices are built POSITIONALLY from `env_data`
+  (`materialize_linkage()` -> `model.matrix()`), so dropping rows dropped design
+  columns and random-effect levels -- and `inits`, carried from the parent fit,
+  no longer matched the model the peel built. On the GOA pollock 2025
+  configuration, which carries `ar1(1 | Year)` and `rw(1 | Year)` linkages, every
+  peel stopped outright: `beta_linkage` 241 against 237, `beta_linkage_re` 110
+  against 108. The values are now blanked in place and the row count is
+  preserved. A fixed-effect linkage covariate is exempt -- `materialize_linkage()`
+  rejects an NA in one by design, because `model.matrix()` would silently drop
+  the row and misalign the whole design -- and the peel says once which
+  covariates it therefore still sees.
+
+* **`check_dsem_spec()` no longer reports OK on a specification nothing has
+  looked at.** It reads `sem_full`, which only a built object carries, so a
+  `build_DSEM()` specification -- the natural thing to pass, given the argument
+  is named `dsem` and that is what `fit_mod(dsem = )` takes -- returned an empty
+  pass. It now names the call to make instead.
+
 
 * **A retrospective peel no longer shrinks the estimated process SDs.** A peel
   does not shorten the model -- it turns data off after `endyr_peel` -- and it

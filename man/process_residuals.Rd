@@ -58,6 +58,24 @@ prior (\code{Time_varying_q = 1} or \code{2}); for a random-walk or AR1 catchabi
 prior the marginal-SD standardization ignores the prior correlation, so those
 residuals are approximate and a warning is emitted.
 }
+\section{On a DSEM fit}{
+
+A DSEM makes the recruitment deviations the latent states of a Gaussian
+Markov random field, so there is no per-year normal prior to divide by.
+\code{"recruitment"} instead whitens the states with the process precision:
+conditioning on the states the model was given -- the observed covariates --
+the estimated states have precision \eqn{Q_{EE}}, and
+\eqn{r = U (x_E - m)} with \eqn{Q_{EE} = U^{\top} U} has covariance
+\eqn{I}. So the claim is the same as on the standard path, and exact in the
+same sense. One residual is returned per hindcast year per species; a
+covariate's own latent states are not residualized here.
+
+\code{"initial"} standardizes by the recruitment SD the density actually used,
+which under a DSEM comes from the SEM's variance path rather than from
+\code{R_log_sd} (mapped out, and a placeholder). \code{"catchability"} is untouched by
+a DSEM.
+}
+
 \references{
 Nielsen, A., and Berg, C.W. 2014. Estimation of time-varying selectivity in
 stock assessments using state-space models. Fish. Res. 158:96-101.

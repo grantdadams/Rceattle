@@ -589,7 +589,7 @@
 #' @param obj A `TMB::MakeADFun` object from `.sim_obj()`.
 #' @return The report list, including the simulated `*_obs_sim` matrices.
 #' @noRd
-.sim_draw <- function(obj, state = NULL, period = NULL) {
+.sim_draw <- function(obj, state = NULL, period = NULL, par = NULL) {
   if (!is.null(state) || !is.null(period)) {
     # obj$env is by reference, so an override has to be undone or it would
     # follow the caller's fitted object around for the rest of the session.
@@ -605,7 +605,7 @@
     if (!is.null(period)) obj$env$data$simulate_period <- as.double(period)
   }
   tryCatch(
-    obj$simulate(par = obj$env$last.par.best),
+    obj$simulate(par = if (is.null(par)) obj$env$last.par.best else par),
     error = function(e) {
       # TMB re-tapes a stored model against the template loaded now. If that
       # template wants an input the stored data list lacks, the failure is a bare
@@ -807,27 +807,16 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     stop("`object` must be a fitted Rceattle model (from fit_mod()).", call. = FALSE)
   }
 
-  # A DSEM makes the recruitment deviations latent states of a GMRF, so there is
-  # no independent per-year density to redraw them from. The template's process
-  # draw is gated off under a DSEM (ceattle.cpp section 5.13) rather than
-  # drawing IID, which would discard the SEM's lagged paths, covariate effects
-  # and cross-species structure -- and would use the GMRF's CONDITIONAL SD,
-  # understating the marginal variance by 1/(1-rho^2). Say so instead of
-  # returning a data set whose recruitment process was silently not redrawn.
-  # Gate on the RESOLVED state vector, not on `process` itself: `process` also
-  # accepts "all", "dynamics" and "recruitment", and isTRUE() is FALSE for every
-  # one of them -- so those spellings walked straight past an earlier version of
-  # this guard and returned a data set whose recruitment was never redrawn, with
-  # no error and (under "all") a warning that listed the OTHER un-drawn processes
-  # and so read as confirmation that recruitment had been drawn.
-  if (.sim_state_codes(process)[1L] == 1L && .has_dsem(object)) {
-    stop("sim_mod(): redrawing the recruitment process is not supported on a ",
-         "DSEM fit. The recruitment ",
-         "deviations are latent states of a GMRF, not independent deviations, ",
-         "so there is no per-year density to draw from. Drawing the correct ",
-         "way needs x_tj ~ GMRF(Q) with rec_dev recomputed from it. Use ",
-         "process = FALSE to redraw the observations only.", call. = FALSE)
-  }
+  # A DSEM's recruitment deviations are latent states of a GMRF, so there is no
+  # independent per-year density to redraw them from. The template's IID process
+  # draw is gated off under a DSEM (ceattle.cpp section 5.13); the field is drawn
+  # here instead, from the SAME precision the density uses, and written into
+  # dsem_x_tj so the template derives rec_dev from it and applies the lognormal
+  # bias correction once, where it always is.
+  #
+  # Gate on the RESOLVED state vector rather than on `process`, which also
+  # accepts "all", "dynamics" and "recruitment" -- isTRUE() is FALSE for each.
+  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L && .has_dsem(object)
 
   dat_sim <- object$data_list
   quantities <- object$quantities
@@ -845,7 +834,30 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     # zero, or a correlated draw from the fleet's covariance.
     sim_obj <- .sim_obj(object)
     sim_state <- .sim_state_codes(process)
-    sim_rep <- .sim_draw(sim_obj, state = sim_state)
+
+    # Under a DSEM the recruitment process is redrawn HERE rather than in the
+    # template: the field is drawn from the reported precision and substituted
+    # into the parameter vector, so the template derives rec_dev from the drawn
+    # states and applies the lognormal bias correction once, where it always is.
+    # Substituting into `par` rather than rebuilding keeps the observation draws
+    # on the same object -- a rebuild would trip .sim_check_rebuild(), which
+    # (correctly) reports a model whose predictions have moved.
+    sim_par <- NULL
+    if (.draw_dsem_process) {
+      sim_par <- sim_obj$env$last.par.best
+      .xi <- which(names(sim_par) == "dsem_x_tj")
+      .drawn <- .dsem_draw_process(object)
+      .mp <- object$map$mapList$dsem_x_tj
+      .est <- if (is.null(.mp)) seq_along(.drawn) else which(!is.na(as.numeric(.mp)))
+      if (length(.xi) != length(.est)) {
+        stop("sim_mod(): the DSEM latent block has ", length(.xi), " entries in ",
+             "the parameter vector but ", length(.est), " estimated states in ",
+             "the map; the redrawn process cannot be substituted.", call. = FALSE)
+      }
+      sim_par[.xi] <- as.numeric(.drawn)[.est]
+    }
+
+    sim_rep <- .sim_draw(sim_obj, state = sim_state, par = sim_par)
     .sim_warn_linkage_qar1(sim_obj, sim_state)
     .sim_warn_process_unsimulated(dat_sim, sim_state)
     .sim_warn_process_absent(sim_obj, sim_state)
@@ -1167,9 +1179,8 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
   # says nothing about the projection years, so there is no distribution to draw
   # from -- anything written there would be an extrapolation. Require the field
   # to span the projection instead of inventing one.
-  # Normalize once: the DSEM branch below and the standard branch used to test
-  # this differently (isTRUE() against a bare if()), so sample_rec = 1 resampled
-  # on one path and returned the deterministic projection on the other.
+  # One reading of `sample_rec` for both branches below, so a non-logical value
+  # (sample_rec = 1) means the same thing on each.
   sample_rec <- isTRUE(as.logical(sample_rec))
 
   .mean_rec <- isTRUE(as.logical(object$data_list$proj_mean_rec))

@@ -727,21 +727,16 @@ fit_mod <-
       # parameter names" -- a refit that failed on a parameter the model no
       # longer has. Extra names are dropped silently because they are inert by
       # definition; a MISSING one is the error above.
-      # ...EXCEPT the DSEM blocks. build_params() does not declare them -- they
-      # come from build_dsem_objects() and are merged in below -- so they are
-      # not in .skel, and a bare start_par[names(.skel)] drops them. They are
-      # NOT inert: merge_dsem_params() then finds them missing and refills from
-      # the freshly built template, i.e. the START VALUES, silently discarding
-      # the warm start. That is invisible wherever the DSEM is estimated (any
-      # start reaches the same MLE) and wrong wherever it is PINNED --
-      # retrospective()'s forecast refit pins the whole DSEM, so every peel ran
-      # with beta_z at its start value (sigma_R = 0.707107 for every species),
-      # which put an 80% error in the peeled hindcast and flipped the sign of
-      # Mohn's rho. estimateMode = 2 reprojects from `inits` the same way.
-      # .DSEM_PARAM_NAMES, not grep("^dsem_"): this is the exact complement of
-      # the scrub that removes these blocks when the fit has no DSEM, so the two
-      # stay in step. A stray dsem_-prefixed name in a hand-built `inits` is
-      # dropped here as intended rather than surviving to die in MakeADFun.
+      # ...EXCEPT the DSEM blocks, which build_params() does not declare (they
+      # come from build_dsem_objects() and are merged in below), so a bare
+      # start_par[names(.skel)] would drop them. They are not inert: dropped,
+      # merge_dsem_params() refills them from the freshly built template, i.e.
+      # the START values, discarding the warm start -- which matters wherever
+      # the DSEM is PINNED rather than estimated (retrospective()'s forecast
+      # refit, estimateMode = 2).
+      # .DSEM_PARAM_NAMES, not grep("^dsem_"), so this stays the exact
+      # complement of the scrub below that removes these blocks when the fit has
+      # no DSEM.
       start_par <- start_par[c(names(.skel),
                                intersect(names(start_par), .DSEM_PARAM_NAMES))]
       rm(.skel, .missing, .shared, .badlen)

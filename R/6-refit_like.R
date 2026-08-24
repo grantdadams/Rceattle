@@ -227,9 +227,9 @@
     !is.null(x$data_list$model_config$dsem)
 }
 
-# There is deliberately no shared "does not support a DSEM" refusal. The places
-# that still refuse -- run_mse(), sample_rec() on a hindcast-only field,
-# process_residuals() for "recruitment" and "initial", and profile() on
-# `R_log_sd` or `rec_dev` -- each say something specific about why, which one
-# generic message cannot.
+# There is deliberately no shared "does not support a DSEM" refusal. Only three
+# places refuse at all -- run_mse(), sample_rec() on a hindcast-only field, and
+# profile() on `rec_dev` -- and each says something specific about why, which one
+# generic message could not. Everything else runs on a DSEM; see
+# vignette("model-diagnostics") for what differs.
 

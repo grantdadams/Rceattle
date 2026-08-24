@@ -8,7 +8,8 @@ build_DSEM(
   sem = NULL,
   family = "fixed",
   sigmaR_prior_sd = NA,
-  estimate_projection = FALSE
+  estimate_projection = FALSE,
+  constant_variance = c("conditional", "marginal", "diagonal")
 )
 }
 \arguments{
@@ -53,6 +54,31 @@ turns mean-recruitment projection off and says so.
 \code{FALSE} leaves the projection years out, rather than holding them
 fixed: fixed states still sit in the GMRF, where lagged paths tie them to
 the last hindcast years and pull on the terminal recruitment deviations.}
+
+\item{constant_variance}{What a \code{<->} term means when the sem carries
+lagged paths. Passed to \code{dsem::dsem_control}; the three settings are
+identical for a sem with no lags.
+\describe{
+\item{\code{"conditional"}}{the default, and \code{dsem}'s. A
+\code{<->} term is the DISTURBANCE (innovation) variance, in the
+structural-equation sense the RAM notation comes from. The marginal
+variance then grows along the causal graph -- for a first-order
+self-path it is \eqn{\sigma^2 / (1 - \rho^2)}, so it diverges as
+\eqn{\rho \to 1}.}
+\item{\code{"marginal"}}{rescales \code{Gamma} and \code{(I - Rho)} so the
+marginal variance is constant. This is the time-series convention used
+by \code{ar1(1 | Year)} elsewhere in Rceattle, and by WHAM's
+\code{Ecov} AR1 and \code{glmmTMB}'s \code{ar1()}, where the estimated
+SD is the marginal one.}
+\item{\code{"diagonal"}}{also holds the marginal variance constant, but
+preserves the conditional correlation rather than the conditional
+variance.}
+}
+The choice matters for the recruitment SD reported by \code{summary()} and
+for what \code{sigmaR_prior_sd} centres on: under \code{"conditional"} the
+prior lands on the innovation SD, while \code{data_list$sigma_rec} is an
+assessment's marginal recruitment SD. Those coincide for an IID sem, and
+differ by \eqn{1/(1 - \rho^2)} once a self-path is added.}
 }
 \description{
 The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.
