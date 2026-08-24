@@ -11,6 +11,51 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.14.0
+
+## Minor improvements
+
+* **A shared selectivity group now says when it discards a fleet's deviation
+  sd.** Fleets sharing a `Selectivity_index` estimate one `sel_dev_log_sd`, and
+  TMB starts a shared parameter from the first group member's value, so a
+  different `Time_varying_sel_sd` on any other fleet in the group was dropped in
+  silence. `build_map()` now warns, naming the group, its fleets, and the value
+  actually used. The warning is gated on the map slot rather than on
+  `random_sel`, so it cannot fire in the common case where the sd is fixed and
+  each fleet does keep its own value. No fit changes.
+
+* **`rearrange_data()` no longer iterates once over an empty `age_error`.** The
+  loop used `1:nrow()`, which runs for `i = 1` and then `i = 0` on a frame with
+  no rows. It is `seq_len()` now. No bundled dataset ships an empty `age_error`,
+  so no fit that works today changes.
+
+## Internal
+
+* **`R/0-build_srr_and_M.R` is split into one file per process.** It had reached
+  1,497 lines and 52 top-level objects carrying six unrelated constructors, only
+  three of which its name described: 612 lines were catchability, selectivity and
+  composition linkage machinery. It is now `0-build_srr.R`, `0-build_m1.R`,
+  `0-build_growth.R`, `0-build_catchability.R`, `0-build_selectivity.R` and
+  `0-build_composition.R`. `.coerce_switch_arg` moves to `0-switches.R` beside
+  the other switch coercion helpers, and the three linkage stratum helpers to
+  `0-build_linkage.R`. A pure relocation: every one of the 441 top-level object
+  bodies is unchanged, and the multiset of non-blank lines across `R/` is
+  identical before and after. Exports, `NAMESPACE` and the pkgdown reference
+  index are untouched, since all three index topics rather than files.
+
+* **The composition and CAAL row normalization is one helper.** The two blocks
+  were the same five lines twice; `.normalise_rows()` replaces both, keeping the
+  zero-row guard, which is load-bearing because `t(apply())` does not preserve
+  the shape of a matrix with no rows.
+
+* **Four stale or incorrect source comments corrected**, in `build_params()`,
+  `clean_data()`, the template's fishing-mortality section, and the two
+  shared-parameter blocks in `build_map()` that still claimed `fit_mod()`
+  suppresses their warnings. Documented in `inst/dev/CLEANUP_BACKLOG.md`, which
+  also now records why the time-varying catchability deviation sd is not
+  estimable: with the deviates integrated out under `random_q` it still pins to
+  its lower bound on an index carrying q variation at a known sd of 0.4.
+
 # Rceattle 5.13.0
 
 ## Bug fixes
