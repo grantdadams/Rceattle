@@ -356,10 +356,14 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
   # - Prepend one all-NA latent column per registry entry, in model order. All-NA
   #   is what marks them as states rather than observations downstream.
+  # Base R rather than mutate(!!nm := ): the tidy-eval `:=` is not an object this
+  # package imports, so R CMD check reports it as an undefined global. Column
+  # ORDER is load-bearing -- rec_dev_col indexes x_tj by position -- so each
+  # latent column goes to the front, and iterating in reverse leaves them in
+  # model order.
   for(nm in rev(latent_cols)){
-    dsem_data <- dsem_data %>%
-      dplyr::mutate(!!nm := NA_real_) %>%
-      dplyr::relocate(dplyr::all_of(nm))
+    dsem_data[[nm]] <- NA_real_
+    dsem_data <- dsem_data[, c(nm, setdiff(names(dsem_data), nm)), drop = FALSE]
   }
 
   # - Drop the Year column once all recdev columns are added
