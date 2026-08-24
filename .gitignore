@@ -65,3 +65,9 @@ scratchpad/
 
 # FIMS comparison-run artifact
 fims.log
+
+# devtools::build_vignettes() artifacts: knitr figures, and the workbooks the
+# data-input vignettes write to demonstrate write_data() / write_template().
+/figure/
+vignettes/BS2017SS.xlsx
+vignettes/my_data_template.xlsx
