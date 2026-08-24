@@ -35,15 +35,17 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Minor improvements
 
-* **A shared selectivity or catchability group now says when it discards a
-  fleet's deviation sd.** Fleets sharing a `Selectivity_index` estimate one
-  `sel_dev_log_sd`, and TMB starts a shared parameter from the first group
-  member's value, so a different `Time_varying_sel_sd` elsewhere in the group was
-  dropped in silence. `build_map()` now warns, naming the group, its fleets, and
-  the value actually used, and does the same for `Time_varying_q_sd` across a
-  shared `Catchability_index`. Both are gated on the map slot rather than on
-  `random_sel` / `random_q`, so neither can fire in the case where the sd is
-  fixed and each fleet does keep its own value. No fit changes.
+* **A shared selectivity or catchability group now says that no fleet keeps its
+  own deviation sd.** Fleets sharing a `Selectivity_index` estimate one
+  `sel_dev_log_sd` between them. TMB collapses a shared parameter to the mean of
+  its members' starting values, and that sd is held on the log scale, so the
+  group starts at the **geometric mean** of their `Time_varying_sel_sd` — a
+  value none of the rows asks for, reached in silence. `build_map()` now warns
+  once per group, naming its fleets, their differing values and the geometric
+  mean the group starts from, and does the same for `Time_varying_q_sd` across a
+  shared `Catchability_index`. Both read the finished map, so they cover only
+  fleets whose sd is actually estimated: with it fixed, or on an `Off` fleet,
+  each fleet keeps its own value and there is nothing to report. No fit changes.
 
 * **`rearrange_data()` no longer iterates once over an empty `age_error`.** The
   loop used `1:nrow()`, which runs for `i = 1` and then `i = 0` on a frame with
@@ -65,9 +67,10 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   index are untouched, since all three index topics rather than files.
 
 * **The composition and CAAL row normalization is one helper.** The two blocks
-  were the same five lines twice; `.normalise_rows()` replaces both, keeping the
-  zero-row guard, which is load-bearing because `t(apply())` does not preserve
-  the shape of a matrix with no rows.
+  were the same five lines twice; `.normalise_rows()` replaces both. It divides
+  by the row sums instead of going through `t(apply())`, which returned a
+  transposed matrix for a single-bin composition; every multi-bin result is
+  unchanged. The zero-row guard stays.
 
 * **Four stale or incorrect source comments corrected**, in `build_params()`,
   `clean_data()`, the template's fishing-mortality section, and the two

@@ -97,17 +97,25 @@ said, so each struck row records what it actually turned out to be.
   them and this default is the only thing that creates the required `DATA_VECTOR`s. Kept, with the
   reason and with `999` named as the placeholder `fit_mod()` fills in.
 - ~~`R/3-build_map.R` (`add checks for surveys sel sigma`)~~ — **Done in 5.14.0.** Real: fleets
-  sharing a `Selectivity_index` estimate one `sel_dev_log_sd` and TMB starts it from the first
-  member's value, so a differing `Time_varying_sel_sd` was discarded silently. Now warns, gated on
-  the map slot rather than on `random_sel`, so it cannot fire when the sd is fixed per fleet.
+  sharing a `Selectivity_index` estimate one `sel_dev_log_sd` between them, and a differing
+  `Time_varying_sel_sd` was reconciled silently. Not to the first member's value, which is the
+  intuition to unlearn: TMB's `updateMap()` collapses a shared parameter with
+  `tapply(par, map, mean)`, and this one is held on the log scale, so the group starts at the
+  **geometric mean** of its estimated members' values — `sqrt(0.3 * 0.7) = 0.4583` for a
+  two-fleet group at 0.3 and 0.7, a value neither row asks for. `.warn_shared_dev_sd()` reports
+  it, once per group, and runs at the END of `build_map()`: `build_map_f_and_data_weights()`
+  maps the parameter out for `Off` fleets and `build_map_fixed_natage()` for a fixed-dynamics
+  species, both after the sharing pass, so a check placed inside
+  `adjust_map_shared_params()` counts fleets that end up estimating nothing.
 - ~~`R/3-build_map.R` (`add checks for surveys q sigma`)~~ — **Done in 5.14.0, after fixing the
   reason there was nothing to check.** `index_q_dev_log_sd` was mapped out for every fleet and
   never turned back on, so no shared group could discard it. That was itself the defect:
   `random_sel` frees `sel_dev_log_sd` alongside the selectivity deviates it integrates out, but
   `random_q` integrated the catchability deviates out and left their sd fixed at
   `Time_varying_q_sd`. Now symmetric, so `random_q = TRUE` estimates it — **and any fit using that
-  flag moves.** With the sd estimable the shared-group copy is meaningful, so the q check exists
-  alongside the selectivity one.
+  flag moves.** With the sd estimable the shared-group copy is meaningful, so a shared
+  `Catchability_index` goes through the same `.warn_shared_dev_sd()` check, on the same
+  geometric-mean footing described in the row above.
 
   Caveat, measured rather than assumed: on a 40-year index with the observation sd FIXED and q
   deviations injected at a true sd of 0.4, the marginal MLE pins to its lower bound at observation

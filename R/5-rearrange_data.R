@@ -30,13 +30,17 @@
 
 # Scale each observation to proportions, as the composition and CAAL
 # likelihoods expect. An all-zero or all-NA row divides by zero and is set to 0,
-# i.e. no information from that row. The zero-row guard is load-bearing:
-# `t(apply())` on a matrix with no rows does not preserve its shape.
+# i.e. no information from that row. Divides by the row sums rather than going
+# through `t(apply())`, which returns a transposed 1 x nrow matrix when the
+# input has a single bin column. The zero-row guard is load-bearing: a matrix
+# with no rows divides by a zero-length vector and loses its dimensions.
 .normalise_rows <- function(m) {
   if (nrow(m) == 0) return(m)
-  m <- t(apply(m, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE)))
+  storage.mode(m) <- "numeric"
+  m <- m / rowSums(m, na.rm = TRUE)
   m[is.infinite(m)] <- 0
   m[is.na(m)] <- 0
+  colnames(m) <- NULL   # as before: the bin columns reach TMB unnamed
   m
 }
 

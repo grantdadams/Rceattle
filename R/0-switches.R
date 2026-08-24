@@ -1406,7 +1406,7 @@ convert_switches <- function(data_list) {
 #' Coerce a string/integer switch argument to its canonical integer code.
 #'
 #' Shared validation for the integer-returning `build_*()` switch arguments
-#' (`srr_fun`, `M1_model`). Accepts a canonical string key from `map` or a
+#' (`srr_fun`, `M1_model`, `sd_plus_group`). Accepts a canonical string key from `map` or a
 #' legacy integer code (a value of `map`, or a `deprecated` code); errors on
 #' anything else and calls `warn_fn(int)` when a deprecated code is supplied.
 #'

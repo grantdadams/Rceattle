@@ -73,6 +73,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # --- Debug Mode ---
   map_list <- build_map_debug(map_list, debug)
 
+  # Last, so they read the final map: build_map_f_and_data_weights() maps
+  # sel_dev_log_sd out for "Off" fleets, build_map_fixed_natage() maps both out
+  # for a fixed-dynamics species, and build_map_debug() maps out everything.
+  .warn_shared_dev_sd(map_list, data_list, "Selectivity_index",
+                      "Time_varying_sel_sd", "sel_dev_log_sd")
+  .warn_shared_dev_sd(map_list, data_list, "Catchability_index",
+                      "Time_varying_q_sd", "index_q_dev_log_sd")
+
   # --- Final Steps ---
   map_list_grande <- list()
   map_list_grande$mapFactor <- lapply(map_list, factor)
@@ -82,6 +90,35 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 }
 
 ## Helper Functions ----
+
+# Fleets sharing a Selectivity_index or a Catchability_index estimate ONE
+# deviation sd between them. TMB collapses a shared parameter to the mean of its
+# members' starting values, and both sds are held on the log scale, so the group
+# starts at the GEOMETRIC MEAN of the members' values -- no fleet keeps the one
+# in its own row. Warned once per group, over the members that are actually
+# estimated: a fleet whose map slot is NA keeps its own value and contributes
+# nothing to the mean.
+.warn_shared_dev_sd <- function(map_list, data_list, index_col, sd_col, par) {
+  fc <- data_list$fleet_control
+  if (is.null(fc[[index_col]]) || is.null(fc[[sd_col]])) return(invisible(NULL))
+
+  for (idx in unique(fc[[index_col]][!is.na(fc[[index_col]])])) {
+    grp  <- which(fc[[index_col]] == idx)
+    est  <- grp[!is.na(map_list[[par]][fc$Fleet_code[grp]])]
+    vals <- fc[[sd_col]][est]
+    if (length(est) < 2 || length(unique(vals)) < 2) next
+
+    warning(paste0(
+      "Fleets sharing ", index_col, " ", idx, " (",
+      paste(fc$Fleet_name[est], collapse = ", "),
+      ") have different ", sd_col, " (", paste(vals, collapse = ", "),
+      "). The group estimates one deviation sd, and it starts at the geometric ",
+      "mean of those values (", signif(exp(mean(log(vals))), 4),
+      ") -- the mean on the log scale TMB takes for a shared parameter -- so no ",
+      "fleet keeps the value in its own row."))
+  }
+  invisible(NULL)
+}
 
 #' @title Helper to set map for Recruitment parameters
 #'
@@ -1283,30 +1320,15 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
     # If selectivity is the same as a previous index
     if(sel_test){
-      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
       sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
       # Per-fleet settings a shared Selectivity_index does not reconcile
       # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
       # Sel_norm_bin*, Time_varying_sel) are checked in data_check().
 
-      # The deviation sd is one estimated parameter for the whole group, and TMB
-      # takes the first member's starting value, so a differing Time_varying_sel_sd
-      # on any other fleet is discarded. Only when it is estimated: with
-      # random_sel = FALSE the map is NA and each fleet keeps its own value.
-      if (!is.na(sel_duplicate) && !is.na(map_list$sel_dev_log_sd[sel_duplicate])) {
-        sd_grp <- data_list$fleet_control$Time_varying_sel_sd[sel_duplicate_vec]
-        if (length(unique(sd_grp[!is.na(sd_grp)])) > 1) {
-          warning(paste0(
-            "Fleets sharing Selectivity_index ", sel_index[i], " (",
-            paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec], collapse = ", "),
-            ") have different Time_varying_sel_sd. The group estimates one ",
-            "deviation sd, started from ",
-            data_list$fleet_control$Fleet_name[sel_duplicate], "'s value (",
-            sd_grp[which(sel_duplicate_vec == sel_duplicate)][1],
-            "); the others are ignored."))
-        }
-      }
+      # A differing Time_varying_sel_sd across the group is reported by
+      # .warn_shared_dev_sd(), which runs at the end of build_map() because two
+      # later steps still map this parameter out.
 
       # Make selectivity maps the same if selectivity is the same
       if(!is.na(sel_duplicate)){
@@ -1324,31 +1346,15 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
     # If catchability is the same as a previous index
     if(q_test){
-      q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
       q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
       # Catchability / Time_varying_q disagreement, and the solved q forms that
       # cannot share a group at all, are checked in data_check().
 
-      # Same as the selectivity sd above: under random_q the group estimates one
-      # deviation sd and TMB starts it from the first member's value, so a
-      # differing Time_varying_q_sd elsewhere in the group is discarded. Without
-      # random_q the map is NA and each fleet keeps its own value.
-      # index_q_log_sd is a prior sd the assessor sets, never estimated, so a
-      # differing Catchability_prior_sd is always honoured per fleet.
-      if (!is.na(q_duplicate) && !is.na(map_list$index_q_dev_log_sd[q_duplicate])) {
-        sd_grp <- data_list$fleet_control$Time_varying_q_sd[q_duplicate_vec]
-        if (length(unique(sd_grp[!is.na(sd_grp)])) > 1) {
-          warning(paste0(
-            "Fleets sharing Catchability_index ", q_index[i], " (",
-            paste(data_list$fleet_control$Fleet_name[q_duplicate_vec], collapse = ", "),
-            ") have different Time_varying_q_sd. The group estimates one ",
-            "deviation sd, started from ",
-            data_list$fleet_control$Fleet_name[q_duplicate], "'s value (",
-            sd_grp[which(q_duplicate_vec == q_duplicate)][1],
-            "); the others are ignored."))
-        }
-      }
+      # A differing Time_varying_q_sd across the group is reported by
+      # .warn_shared_dev_sd(), as for selectivity. index_q_log_sd is a prior sd
+      # the assessor sets, never estimated, so a differing Catchability_prior_sd
+      # is always honoured per fleet.
 
       # Make catchability maps the same.
       #
