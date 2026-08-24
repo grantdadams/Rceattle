@@ -92,6 +92,13 @@ sel_norm_scope_map <- c(
   "AcrossSexes" = 1   # one pooled reference; relative sex selectivity retained
 )
 
+# "AR1" (2) is REMOVED and refused by data_check(); it is kept in the map, as
+# q_map keeps its own removed forms, so that a workbook carrying the integer 2
+# still canonicalizes and the refusal can name the fleet and the replacement
+# instead of reporting a bare "invalid value". It was never an AR1: the template
+# scores value 2 with the same independent normal penalty as value 1, and there
+# is no correlation parameter for the selectivity deviations to read. An AR1 on a
+# selectivity parameter is a selectivity linkage -- ar1(1 | Year).
 tv_sel_map <-c(
   "Off" = 0,
   "IID" = 1,
@@ -112,6 +119,11 @@ q_map <- c(
   "AnalyticalArith" = 7
 )
 
+# "AR1" (2) is REMOVED and refused by data_check(), for the same reason and on
+# the same terms as tv_sel_map's -- the template gives value 2 the identical
+# independent normal penalty as value 1 (`index_varying_q == 1 || == 2`), and
+# index_q_rho is read only on the QAR1 catchability path that this release also
+# removes. An AR1 on catchability is a q linkage -- ar1(1 | Year).
 tv_q_map <- c(
   "Off" = 0,
   "IID" = 1,

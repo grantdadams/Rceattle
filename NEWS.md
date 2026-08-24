@@ -13,7 +13,81 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 # Rceattle 5.16.0
 
+## Breaking changes
+
+* **`Time_varying_sel = "AR1"` and `Time_varying_q = "AR1"` (value `2`) are
+  removed.** `data_check()` errors on them, naming the fleet and the
+  replacement.
+
+  Neither was ever an AR1. The template scores value `2` with the same
+  independent normal penalty as value `1` — `flt_varying_sel == 1 || == 2` and
+  `index_varying_q == 1 || == 2` — and neither deviation block has a correlation
+  parameter to read: `index_q_rho` belongs to the `Catchability = "AR1"` (QAR1)
+  path removed in 5.12.0, and there is no selectivity equivalent at all. So the
+  name promised an autocorrelation the model does not fit, on a value the
+  schema's own column descriptions never listed.
+
+  **Nothing that produced a usable number is refused.** Every fit under value `2`
+  was an IID fit; setting the switch to `"IID"` reproduces it exactly, and the
+  error says so. Pre-flighted over every `fleet_control` sheet in the ecosystem:
+  173 workbooks carry the sheet, and **zero** set `"AR1"` on either switch.
+
+  `Time_varying_q` is exempt where it is not a mode. Under
+  `Catchability = "Environmental"` that column holds a 1-based `env_data`
+  *column index*, so a fleet naming env column 2 carries a literal `2` that
+  canonicalizes to `"AR1"`; refusing it would reject a working model for a
+  setting nobody made. `validate_switches()` and the soft-deprecation carry the
+  same exemption.
+
+  An error rather than a silent alias, for the reason the QAR1 removal gives: a
+  warned fit returns a `summary()` that looks ordinary, and nothing downstream
+  can tell that the deviations the assessor asked to be *correlated* are
+  independent.
+
+  The replacement is the linkage grammar, which already fits the stationary AR1
+  these names promised — `SCALE(AR1(rho), sigma)` with `sigma` the **marginal**
+  sd, reducing to the IID density at `rho = 0`:
+
+  ```r
+  build_catchability(linkages = list(
+    q = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+
+  build_selectivity(linkages = list(
+    inf_asc = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+  ```
+
+  It is also strictly more expressive: per selectivity *parameter* rather than
+  per fleet, with the deviation sd estimated or fixed, an `integrate = FALSE`
+  penalized form, priors, bounds and an estimation phase. Both switches were
+  already soft-deprecated in favour of it, and that message named
+  `ar1(1 | Year)` as the AR1 replacement while the switch value silently did
+  something else.
+
 ## Bug fixes
+
+* **`Time_varying_sel_sd` is validated, as `Time_varying_q_sd` already was.**
+  `build_params()` takes `log(Time_varying_sel_sd)` exactly as it takes
+  `log(Time_varying_q_sd)`, so a blank or non-positive value was the same
+  `-Inf`/`NaN` starting value and the same non-finite objective reported from
+  inside `MakeADFun`, naming neither the fleet nor the column. It additionally
+  made the geometric mean `build_map()` reports for a shared `Selectivity_index`
+  group `NaN`.
+
+  Required only where the template actually reads the sd, which is a property of
+  the (`Selectivity`, `Time_varying_sel`) pair rather than of either alone:
+  the logistic family under `IID` / `RandomWalk` / `RandomWalkAscending`, `Hake`
+  under `IID`, and `NonParametric`/`NonParametricPM` under `RandomWalk`.
+  `LogisticPM` weights its two walks by `Sel_curve_pen1` and `Sel_curve_pen3`
+  and is excluded, as are `Block`, `Fixed`, `2DAR1` and `3DAR1`.
+
+  Pre-flighted over every `fleet_control` sheet in the ecosystem, after the
+  legacy column spellings are resolved as `switch_check()` resolves them
+  (`Sel_sd_prior` is `Time_varying_sel_sd`): **173 workbooks carry the sheet and
+  one is refused** — `Pacific hake/Data/Old files/hake_from_ss.xlsx`, whose
+  `Hake_fishery` pairs `Selectivity = "Hake"` and `Time_varying_sel = "IID"`
+  with a sd of 0. That is `dnorm(dev, 0, 0)`; the workbook cannot produce a
+  finite objective, and its two sd values appear transposed against the survey
+  row. Nothing that fitted is refused.
 
 * **The model spec tree shows a parameter carrying more than one linkage.** The
   grammar lets one parameter hold a *list* of specs — a shared prior plus a
@@ -22,6 +96,39 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   model's six linkage rows displayed as `NULL`, and they were the three carrying
   the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
   when stacked, so the count is the number of linkages the model actually holds.
+
+## Documentation
+
+* **`vignette("model-parameterizations")` gives the fishery index predictor.**
+  The equations vignette still showed the survey snapshot
+  `N e^{-Month·Z}` for CPUE, which 5.9.0 replaced for a fishery with the
+  year-average `N̄ = N (1 − e^{−Z}) / Z`. The two vignettes disagreed about the
+  equation this release exists to correct. The predictor is now split by
+  `Fleet_type`, with the Baranov derivation and the SS3 correspondence.
+
+  The survey half was wrong too, independently of 5.9.0: it wrote
+  `e^{-Month·Z}` where the template computes `exp(-(Month/12)·Z)`, so the
+  documented exponent was out by a factor of twelve.
+
+* Same vignette: the `Selectivity` list gained `DoubleNormal` (8),
+  `NonParametricPM` (9) and `LogisticPM` (11) and the note that there is no 10;
+  `N_sel_bins` is described in bins rather than ages; and the four
+  "`Time_varying_sel = 2`, `sigma` is estimated" equation blocks now name what
+  actually does that, `fit_mod(random_sel = TRUE)`.
+
+* **Three switch-table rows in `vignette("model-options-and-functionality")` no
+  longer break their table.** A `|` inside a table cell is a column separator
+  even inside a code span, so `linkage_spec(~ ar1(1 | Year))` written into a
+  three-column row rendered a spurious fourth column. One of the three is the
+  `Catchability = "AR1"` row added in 5.12.0, which has been rendering that way
+  since. Escaping as `\|` fixes the table but leaves a visible backslash in a
+  snippet meant to be copied, so the replacement code moved out of the cells and
+  into fenced blocks below each table, where a pipe is just a pipe.
+
+  Nothing catches this today: `R CMD check` does not execute the vignettes,
+  `test-vignette-api.R` parses only the R chunks, and pandoc renders a ragged
+  row without complaint rather than erroring. Checking it means rendering to
+  HTML and counting cells.
 
 # Rceattle 5.15.0
 

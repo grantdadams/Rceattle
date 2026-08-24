@@ -414,7 +414,13 @@ tidier numbering, so these stay as they are:
 
 *Overloaded columns.* `Time_varying_q` is a mode code for most fleets but a
 1-based `env_data` column index (possibly comma-separated, `"1,3"`) when
-`Catchability` is 5 or 6. `Sel_curve_pen1` is a penalty weight for
+`Catchability` is `Environmental` (5). Code 6 was the other such form and is
+removed, but the overload is not academic: it is why the `Time_varying_q` mode
+checks — `validate_switches()`, the soft-deprecation, and the 5.16.0 `"AR1"`
+refusal — all exempt those fleets. A check that forgets it rejects a working
+model for a value the assessor never set as a mode.
+
+`Sel_curve_pen1` is a penalty weight for
 selectivity 2/9/11 and `Sel_curve_pen2` a curvature penalty for 2/9, while for
 6/7 both are logit-scale AR1 correlations. Re-encoding either
 would break existing workbooks; they are documented in the column schema
