@@ -53,14 +53,10 @@ stopifnot(length(files) > 0)
 # estimator this replaced, and a wrong number in the right units is harder to
 # spot than an obvious placeholder. The next timing run measures it for real.
 #
-# A recorded 0 counts as unknown too, and that is the important half. No test
-# file in this suite runs in under half a second, so a 0 in the table never means
-# "fast" -- it means the file was in a shard that was cancelled before reaching
-# it, so the regeneration had no row to write. Trusting those zeros is what made
-# this self-perpetuating: 36 of them, each adding nothing to a bin's load,
-# cascaded onto whichever bin was lightest and put 59 of 171 files on one runner
-# with a 17.8-minute estimate. That runner was cancelled at 120 minutes, wrote no
-# timings, and so kept its zeros for the next run.
+# A recorded 0 is trusted, because it is real: the 36 files carrying one measure
+# 0.003 s each, 0.1 minutes for all of them together. They are the trivial
+# validation tests. What made those zeros dangerous was never their value but
+# the tie-break below.
 COST_UNMEASURED <- 60
 
 COST_TABLE <- local({
@@ -78,7 +74,7 @@ file_cost <- function(path) {
   # yields NA for an absent name, and NULL[nm] is length 0 when the tsv is
   # missing entirely, so both fall through to the placeholder as intended.
   measured <- unname(COST_TABLE[basename(path)])
-  if (length(measured) == 1L && !is.na(measured) && measured > 0) return(measured)
+  if (length(measured) == 1L && !is.na(measured)) return(measured)
   COST_UNMEASURED
 }
 
@@ -89,7 +85,7 @@ names(costs) <- files
 # would also count a file that genuinely measured 60 s.
 is_unmeasured <- vapply(files, function(f) {
   m <- unname(COST_TABLE[f])
-  !(length(m) == 1L && !is.na(m) && m > 0)
+  !(length(m) == 1L && !is.na(m))
 }, logical(1))
 
 
@@ -100,10 +96,12 @@ is_unmeasured <- vapply(files, function(f) {
 # the heavy ones onto different shards.
 #
 # Ties in load go to the shard holding the fewest files. `which.min()` alone
-# always answers with the lowest index, so any run of equal-cost files -- the
-# degenerate case being equal-and-zero -- stacks onto one runner however many
-# there are. File count is the tie-break because it is what actually differs
-# then, and it keeps the split sane even if every cost were identical.
+# always answers with the lowest index, and a 0-cost file leaves the load it was
+# placed on unchanged, so the same bin stays lightest and takes every one of
+# them: 36 zero-cost files put 59 of 171 on a single runner, which was then
+# cancelled at the 120-minute timeout. Any run of equal-cost files does this;
+# equal-and-zero is only the case that occurs here. File count is the tie-break
+# because it is what actually differs then.
 assign_shards <- function(costs, nshard) {
   ord    <- order(costs, decreasing = TRUE)
   load   <- numeric(nshard)

@@ -19,6 +19,12 @@ testthat::skip_on_cran()
 
 testthat::test_that("simulated stomach contents are a valid diet composition", {
   testthat::skip_if_not_installed("TMB")
+  # 28 s here, but covr rebuilds the TMB model at -O0 and this multispecies
+  # simulate-and-refit is the file's dominant cost there: shard 5 of the coverage
+  # run spent ~100 of its 120 minutes inside this file and was cancelled before
+  # writing a timing row for it. The two draw tests below are the same code path
+  # at a tenth of the cost.
+  testthat::skip_on_covr()
 
   mod <- .diet_sim_fit("Multinomial", 1)
   set.seed(2)
@@ -60,6 +66,8 @@ testthat::test_that("a model without an estimated suitability leaves diet alone"
 
 testthat::test_that("a fractional Sample_size still yields a valid composition", {
   testthat::skip_if_not_installed("TMB")
+  # The file's other 27-second fit, and the same -O0 story as the first block.
+  testthat::skip_on_covr()
 
   # The draw places a whole number of observations, so dividing the counts by a
   # fractional Sample_size would give proportions summing to round(N)/N > 1 --
