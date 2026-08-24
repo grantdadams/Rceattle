@@ -1246,8 +1246,8 @@ Type objective_function<Type>::operator() () {
 
   // 5.12. FISHING MORTALITY and FSPRs
   // Outside the multi-species iteration loop: hindcast F needs no M. The
-  // forecast arm below is provisional -- section 6.7 recomputes it at line
-  // 2191 once the HCR has the reference points.
+  // forecast arm below is provisional -- section 6.7 recomputes it once the
+  // HCR has its reference points.
   F_spp.setZero();
   F_flt_age.setZero();
   F_at_age.setZero();
