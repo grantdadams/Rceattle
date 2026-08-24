@@ -11,6 +11,72 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.14.0
+
+## Behavior changes
+
+* **`random_q = TRUE` now estimates the catchability deviation standard
+  deviation.** `random_sel` has always freed `sel_dev_log_sd` alongside the
+  selectivity deviates it integrates out; `random_q` integrated the catchability
+  deviates out but left `index_q_dev_log_sd` mapped, so the deviations were
+  smoothed at whatever `Time_varying_q_sd` the workbook happened to carry. The
+  two are symmetric now: integrating the deviates out is what turns their sd into
+  a marginal variance rather than one half of a degenerate joint mode.
+  **Any fit using `random_q = TRUE` moves**; every other fit is unchanged, since
+  the parameter stays mapped without the flag. `index_q_log_sd`, the prior sd the
+  assessor sets on q itself, is still never estimated.
+
+  How well the sd is informed depends on the series. On a 40-year index with the
+  observation sd held fixed and q deviations injected at a true sd of 0.4, the
+  estimate reaches its lower bound when the observation sd is 0.1 or larger, and
+  recovers 0.06 at 0.05 -- i.e. a short or noisy index can return a value that
+  reads as a constant q. That is visible in the estimate and its gradient, so
+  check both rather than assuming the sd is informed.
+
+## Minor improvements
+
+* **A shared selectivity or catchability group now says that no fleet keeps its
+  own deviation sd.** Fleets sharing a `Selectivity_index` estimate one
+  `sel_dev_log_sd` between them. TMB collapses a shared parameter to the mean of
+  its members' starting values, and that sd is held on the log scale, so the
+  group starts at the **geometric mean** of their `Time_varying_sel_sd` — a
+  value none of the rows asks for, reached in silence. `build_map()` now warns
+  once per group, naming its fleets, their differing values and the geometric
+  mean the group starts from, and does the same for `Time_varying_q_sd` across a
+  shared `Catchability_index`. Both read the finished map, so they cover only
+  fleets whose sd is actually estimated: with it fixed, or on an `Off` fleet,
+  each fleet keeps its own value and there is nothing to report. No fit changes.
+
+* **`rearrange_data()` no longer iterates once over an empty `age_error`.** The
+  loop used `1:nrow()`, which runs for `i = 1` and then `i = 0` on a frame with
+  no rows. It is `seq_len()` now. No bundled dataset ships an empty `age_error`,
+  so no fit that works today changes.
+
+## Internal
+
+* **`R/0-build_srr_and_M.R` is split into one file per process.** It had reached
+  1,497 lines and 52 top-level objects carrying six unrelated constructors, only
+  three of which its name described: 612 lines were catchability, selectivity and
+  composition linkage machinery. It is now `0-build_srr.R`, `0-build_m1.R`,
+  `0-build_growth.R`, `0-build_catchability.R`, `0-build_selectivity.R` and
+  `0-build_composition.R`. `.coerce_switch_arg` moves to `0-switches.R` beside
+  the other switch coercion helpers, and the three linkage stratum helpers to
+  `0-build_linkage.R`. A pure relocation: every one of the 441 top-level object
+  bodies is unchanged, and the multiset of non-blank lines across `R/` is
+  identical before and after. Exports, `NAMESPACE` and the pkgdown reference
+  index are untouched, since all three index topics rather than files.
+
+* **The composition and CAAL row normalization is one helper.** The two blocks
+  were the same five lines twice; `.normalise_rows()` replaces both. It divides
+  by the row sums instead of going through `t(apply())`, which returned a
+  transposed matrix for a single-bin composition; every multi-bin result is
+  unchanged. The zero-row guard stays.
+
+* **Four stale or incorrect source comments corrected**, in `build_params()`,
+  `clean_data()`, the template's fishing-mortality section, and the two
+  shared-parameter blocks in `build_map()` that still claimed `fit_mod()`
+  suppresses their warnings. Documented in `inst/dev/CLEANUP_BACKLOG.md`.
+
 # Rceattle 5.13.0
 
 ## Bug fixes

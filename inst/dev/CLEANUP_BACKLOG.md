@@ -11,9 +11,10 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-Counts by area: `src/TMB/ceattle.cpp` 26 · `src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 ·
-`R/3-build_map.R` 5 · `R/9-retro_and_jitter.R` 4 · `R/5-rearrange_data.R` 4 · `R/10-run_mse.R` 4 ·
-rest singletons. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
+64 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 25 ·
+`src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
+`R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
+rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
 variable in `R/6-process_residuals.R`.
 
 ---
@@ -66,24 +67,89 @@ than fixing.
 
 ## Tier 2 — design notes and refactor wishes
 
-- **Split `R/0-build_srr_and_M.R`** (1,497 lines, 29 functions). It carries the stock-recruit
-  constructors, the M1 constructors and the growth constructors in one file, and is the single
-  outstanding item from the superseded `accessibility-and-code-review` plan. The `R/` numeric
-  prefixes are meaningful, so a split keeps the `0-` prefix (e.g. `0-build_srr.R`,
-  `0-build_m1.R`, `0-build_growth.R`).
+Cleared in 5.14.0 except where noted. As in Tier 0, three of these were not what their marker
+said, so each struck row records what it actually turned out to be.
 
-No user-visible consequence; do them opportunistically.
+- ~~**Split `R/0-build_srr_and_M.R`**~~ — **Done in 5.14.0**, but not as described. The file was
+  1,497 lines and **52** top-level objects, not 29, and the three-way srr/M1/growth split named
+  here would have stranded 612 lines (41%): catchability, selectivity and composition linkage
+  machinery that touches none of those three. Split six ways instead, one file per process, all
+  keeping the `0-` prefix. `.coerce_switch_arg` went to `0-switches.R` beside `.canon_switch()`
+  (it is generic over `srr_fun`/`M1_model`/`sd_plus_group`); `.default_stratum`,
+  `.resolve_auto_by` and `.stamp_param` went to `0-build_linkage.R`, which already called the
+  last of them. The roxygen block for `.check_q_linkage_support` was bound to
+  `.message_auto_fleet_linkages` and is reattached. Pure relocation: 441 object bodies unchanged,
+  and the multiset of non-blank lines across `R/` is identical.
+- ~~`R/5-rearrange_data.R` (empty comp/CAAL frames, `age_error`)~~ — **Done in 5.14.0.** The comp
+  and CAAL blocks were the same five lines twice; now one `.normalise_rows()`. The zero-row guard
+  stays — `t(apply())` does not preserve the shape of a matrix with no rows. `age_error` keeps its
+  `as.data.frame()` coercion, which is load-bearing because the loop mixes `$` and positional
+  `[i, ]` access, and its `1:nrow()` becomes `seq_len()`.
+- ~~`R/2-build_params.R` (`variance and AR1 parameters`)~~ — **Not work.** Both already exist
+  directly above the marker (`log_sigma_linkage`, `trans_rho_linkage`), and the `else` branch
+  zeroes every name the `if` branch sets. A leftover placeholder at a section boundary; deleted.
+- ~~`src/TMB/ceattle.cpp` (`can probably outside iter loop`)~~ — **Not work.** Section 5.12 is
+  already ~260 lines above the only `iter` loop. The comment now states what the placement means,
+  including that the forecast arm is provisional and recomputed in section 6.7.
+- ~~`R/0-clean_data.R` (`may be redundant now?`)~~ — **Half right, and not the half that matters.**
+  The template does derive `SB0`/`B0` itself, and reads `MSSB0`/`MSB0` only to overwrite that under
+  `msmMode > 0`. But neither has `read_data()`/`write_data()` support, so no workbook can supply
+  them and this default is the only thing that creates the required `DATA_VECTOR`s. Kept, with the
+  reason and with `999` named as the placeholder `fit_mod()` fills in.
+- ~~`R/3-build_map.R` (`add checks for surveys sel sigma`)~~ — **Done in 5.14.0.** Real: fleets
+  sharing a `Selectivity_index` estimate one `sel_dev_log_sd` between them, and a differing
+  `Time_varying_sel_sd` was reconciled silently. Not to the first member's value, which is the
+  intuition to unlearn: TMB's `updateMap()` collapses a shared parameter with
+  `tapply(par, map, mean)`, and this one is held on the log scale, so the group starts at the
+  **geometric mean** of its estimated members' values — `sqrt(0.3 * 0.7) = 0.4583` for a
+  two-fleet group at 0.3 and 0.7, a value neither row asks for. `.warn_shared_dev_sd()` reports
+  it, once per group, and runs at the END of `build_map()`: `build_map_f_and_data_weights()`
+  maps the parameter out for `Off` fleets and `build_map_fixed_natage()` for a fixed-dynamics
+  species, both after the sharing pass, so a check placed inside
+  `adjust_map_shared_params()` counts fleets that end up estimating nothing.
+- ~~`R/3-build_map.R` (`add checks for surveys q sigma`)~~ — **Done in 5.14.0, after fixing the
+  reason there was nothing to check.** `index_q_dev_log_sd` was mapped out for every fleet and
+  never turned back on, so no shared group could discard it. That was itself the defect:
+  `random_sel` frees `sel_dev_log_sd` alongside the selectivity deviates it integrates out, but
+  `random_q` integrated the catchability deviates out and left their sd fixed at
+  `Time_varying_q_sd`. Now symmetric, so `random_q = TRUE` estimates it — **and any fit using that
+  flag moves.** With the sd estimable the shared-group copy is meaningful, so a shared
+  `Catchability_index` goes through the same `.warn_shared_dev_sd()` check, on the same
+  geometric-mean footing described in the row above.
 
-- `R/10-run_mse.R:510` — extract `run_one_sim()` as a top-level internal helper.
-- `R/3-build_map.R:1163` — express the mapping as a formula.
-- `R/3-build_map.R:1300`, `:1325` — add checks for survey selectivity / q sigma.
-- `R/3-build_map.R:338`, `:388` — sex-varying `M1_rho` (noted as hard to estimate).
-- `R/5-rearrange_data.R:404`, `:428`, `:560` — tidier handling of empty comp/CAAL frames and the
-  `age_error` data frame.
-- `R/2-build_params.R:269` — variance and AR1 parameters.
-- `R/0-clean_data.R:174` — possibly redundant now.
-- `src/TMB/ceattle.cpp:1216` — hoist out of the iteration loop.
-- `src/TMB/ceattle.cpp:2350` — fit the window form directly when a fleet needs it.
+  Caveat, measured rather than assumed: on a 40-year index with the observation sd FIXED and q
+  deviations injected at a true sd of 0.4, the marginal MLE pins to its lower bound at observation
+  sd 0.1, 0.3 and 1.0, and reaches only 0.06 at 0.05. A short or noisy index can therefore return
+  an sd that reads as a constant q. That is a diagnostic to check, not a reason to withhold the
+  parameter -- the estimate and its gradient show it, and whether the series informs it is the
+  assessor's call. `index_q_log_sd`, the prior sd on q itself, stays fixed: estimating the width of
+  one's own prior is not meaningful.
+
+Still open. No user-visible consequence; do them opportunistically.
+
+- `R/10-run_mse.R` (`extract run_one_sim as a top-level internal helper`) — 455 lines, 18 free
+  variables. Three hazards, all verified: `%!in%` is defined **inside `run_mse()`** and is not a
+  package-level object; the `<<-` in the OM-no-F handler currently resolves to the closure's own
+  `sim_list` and would walk to the namespace if the handler moves out; and `estimate_mode_base`
+  and `sim_dat` exist as both `run_mse()` locals and closure-local re-assignments, so the closure
+  does not depend on the outer copies. Note also that the closure's environment is passed to
+  `.parallel_lapply()` for the PSOCK export, so the free-variable set is load-bearing for
+  parallelism, and that `test-mse-cap-and-hcr2-threshold.R` greps this file for literal source
+  strings and must move in lockstep. Needs `verify-mse-repro.R` and `verify-mse-om-horizon.R` as
+  before/after digests.
+- `R/3-build_map.R` (`use formula`) — retiring the `Time_varying_q` overload that holds
+  comma-separated `env_data` column indices in favour of the q linkage. Deprecates a public switch
+  path, so it needs a shim, not an opportunistic edit.
+- `R/3-build_map.R` (`may want sex-varying?? Hard to estimate`) — `M1_rho` already has a sex
+  dimension, but the mode-6 branch offsets by `nspp` to avoid colliding with the mode-4/5
+  `sp`-valued rho, and going sex-varying needs that counter scheme reworked. The markers say the
+  obstacle is estimability; decide that first.
+- `src/TMB/ceattle.cpp` (`fit the window form directly when a fleet needs it`) — needs `t1` and
+  `D` per fleet plumbed through to the template, **plus seasonal dynamics that do not exist**: the
+  annual recursion spreads F evenly across the year, so the window predictor would be inconsistent
+  with the dynamics fitted against it. The derivation above the marker already quantifies the
+  current approximation at ~1.5% trend error over F 0.05–0.8, against −29% to +33% for the
+  snapshot it replaced.
 - The `logH_*` / `H_4` / `log_gam_*` markers belong to the stubbed Kinzey-Punt predation forms
   (`msmMode` 3–9) and the gamma predator selectivity. They are pinned as stubbed in
   `tests/testthat/test-schema-registries.R`; leave them until that work is picked up.

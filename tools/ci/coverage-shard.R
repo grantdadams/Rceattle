@@ -52,6 +52,11 @@ stopifnot(length(files) > 0)
 # one. Counting calls in the source is NOT used as the fallback: that is the
 # estimator this replaced, and a wrong number in the right units is harder to
 # spot than an obvious placeholder. The next timing run measures it for real.
+#
+# A recorded 0 is trusted, because it is real: the 36 files carrying one measure
+# 0.003 s each, 0.1 minutes for all of them together. They are the trivial
+# validation tests. What made those zeros dangerous was never their value but
+# the tie-break below.
 COST_UNMEASURED <- 60
 
 COST_TABLE <- local({
@@ -76,20 +81,38 @@ file_cost <- function(path) {
 costs <- vapply(file.path(test_dir, files), file_cost, numeric(1))
 names(costs) <- files
 
+# Tracked separately rather than by testing `costs == COST_UNMEASURED`, which
+# would also count a file that genuinely measured 60 s.
+is_unmeasured <- vapply(files, function(f) {
+  m <- unname(COST_TABLE[f])
+  !(length(m) == 1L && !is.na(m))
+}, logical(1))
+
 
 # --- Longest-processing-time bin packing -------------------------------------
 # Heaviest file first, each one onto whichever shard is currently lightest. For a
 # spread like this suite's it lands within a few percent of a perfect split, and
 # unlike round-robin it is stable: adding a light test file does not reshuffle
 # the heavy ones onto different shards.
+#
+# Ties in load go to the shard holding the fewest files. `which.min()` alone
+# always answers with the lowest index, and a 0-cost file leaves the load it was
+# placed on unchanged, so the same bin stays lightest and takes every one of
+# them: 36 zero-cost files put 59 of 171 on a single runner, which was then
+# cancelled at the 120-minute timeout. Any run of equal-cost files does this;
+# equal-and-zero is only the case that occurs here. File count is the tie-break
+# because it is what actually differs then.
 assign_shards <- function(costs, nshard) {
   ord    <- order(costs, decreasing = TRUE)
   load   <- numeric(nshard)
+  count  <- integer(nshard)
   bin    <- integer(length(costs))
   for (i in ord) {
-    b        <- which.min(load)
+    light    <- which(load == min(load))
+    b        <- light[which.min(count[light])]
     bin[i]   <- b
     load[b]  <- load[b] + costs[i]
+    count[b] <- count[b] + 1L
   }
   list(bin = bin, load = load)
 }
@@ -107,6 +130,13 @@ for (b in seq_len(nshard)) {
                   b, sum(plan$bin == b), plan$load[b] / 60,
                   if (b == shard) "   <- this runner" else ""))
 }
+n_unmeasured <- sum(is_unmeasured)
+if (n_unmeasured > 0) {
+  message(sprintf(
+    "\n%d of %d files have no measured cost and are counted at %d s. Regenerate\ntools/ci/coverage-costs.tsv from the coverage-timing-shard-* artifacts to\nreplace the placeholders with real times.",
+    n_unmeasured, length(files), COST_UNMEASURED))
+}
+
 message("\nFiles in this shard (estimated seconds, from coverage-costs.tsv):")
 for (f in mine) message(sprintf("  %-52s %5.0f", f, costs[[f]]))
 

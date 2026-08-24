@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.
+#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
+#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -668,7 +668,8 @@ fit_mod <-
       map <- withCallingHandlers(
         build_map(data_list, start_par,
                   debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
-                  random_rec = random_rec, random_sel = random_sel),
+                  random_rec = random_rec, random_sel = random_sel,
+                  random_q = random_q),
         warning = function(w) {
           msg <- conditionMessage(w)
           if (msg %in% seen) invokeRestart("muffleWarning")

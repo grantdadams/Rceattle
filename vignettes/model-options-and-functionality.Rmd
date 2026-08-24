@@ -181,6 +181,7 @@ fleets end up with different selectivities:
 | `Selectivity`, `Selectivity_dimension`, `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin`, `Sel_norm_bin_upper`, `Sel_norm_scope`, `Sel_cap_bin` | The fleets get **different curves** — mirroring fails |
 | `Time_varying_sel` | Resolved to the lead fleet's setting |
 | `Sel_start_year` | Resolved to the group's earliest year |
+| `Time_varying_sel_sd` | Honoured per fleet while it is **fixed**. Under `random_sel = TRUE` the group estimates one deviation sd, and TMB averages the initial values of parameters mapped together — this one on the log scale, so the group starts at the *geometric* mean of its estimated members' values and no fleet keeps its own. `build_map()` warns |
 
 A blank counts as a value in the first row: a blank `Sel_norm_bin` means "do not
 normalize", which is a different curve from normalizing at a bin. `data_check()`
@@ -357,6 +358,13 @@ is shared, so each fleet sits at its own `Catchability_init`. Where a q *is*
 estimated for the group, its starting value is the mean of the group's
 log `Catchability_init` — TMB averages the initial values of parameters mapped
 together — rather than the lead's; only the prior centre uses the lead's.
+
+`Time_varying_q_sd` is shared the same way once it is estimated, which is
+`random_q = TRUE` with a `Time_varying_q` of `"IID"`, `"AR1"` or `"RandomWalk"`:
+the group gets one deviation sd starting at the geometric mean of its estimated
+members' values, and `build_map()` warns when they differ. While the sd is
+fixed, each fleet keeps its own. `Catchability_prior_sd` is a prior sd the
+assessor sets and is never estimated, so it is always honoured per fleet.
 
 `data_check()` warns on the analytical case, on a `Fixed` lead that leaves fleets
 on different inits, and on a `Catchability` or `Time_varying_q` that differs

@@ -1401,3 +1401,63 @@ convert_switches <- function(data_list) {
 
   data_list
 }
+
+
+#' Coerce a string/integer switch argument to its canonical integer code.
+#'
+#' Shared validation for the integer-returning `build_*()` switch arguments
+#' (`srr_fun`, `M1_model`, `sd_plus_group`). Accepts a canonical string key from `map` or a
+#' legacy integer code (a value of `map`, or a `deprecated` code); errors on
+#' anything else and calls `warn_fn(int)` when a deprecated code is supplied.
+#'
+#' @param x user input (length-1+ character or numeric).
+#' @param map named integer vector mapping canonical string -> integer code.
+#' @param what argument name, used in messages.
+#' @param deprecated integer codes that are accepted but soft-deprecated.
+#' @param warn_fn `function(int)` emitting the deprecation warning, or `NULL`.
+#' @param length_exact_one require length 1 (`srr_fun`) vs length >= 1 (`M1_model`).
+#' @param legacy_note text appended inside the integer-range error message.
+#' @keywords internal
+#' @noRd
+.coerce_switch_arg <- function(x, map, what,
+                               deprecated = integer(0),
+                               warn_fn = NULL,
+                               length_exact_one = FALSE,
+                               legacy_note = "") {
+  if (length_exact_one) {
+    if (length(x) != 1L) {
+      stop(sprintf("`%s` must be length 1", what), call. = FALSE)
+    }
+  } else if (length(x) == 0L) {
+    stop(sprintf("`%s` must have length >= 1", what), call. = FALSE)
+  }
+  if (is.numeric(x)) {
+    int <- as.integer(x)
+    allowed <- c(unname(map), deprecated)
+    if (anyNA(int) || any(!int %in% allowed)) {
+      stop(sprintf(
+        "integer `%s` must be one of: %s (= %s%s)",
+        what,
+        paste(map, collapse = ", "),
+        paste(names(map), collapse = "/"),
+        legacy_note), call. = FALSE)
+    }
+    if (length(deprecated) > 0L && any(int %in% deprecated) && !is.null(warn_fn)) {
+      warn_fn(int)
+    }
+    return(int)
+  }
+  if (is.character(x)) {
+    bad <- setdiff(x, names(map))
+    if (length(bad) > 0L) {
+      stop(sprintf(
+        "unknown `%s` value(s): %s; allowed: %s",
+        what,
+        paste(unique(bad), collapse = ", "),
+        paste(names(map), collapse = ", ")), call. = FALSE)
+    }
+    return(unname(map[x]))
+  }
+  stop(sprintf("`%s` must be a string or integer; got %s",
+               what, class(x)[1]), call. = FALSE)
+}

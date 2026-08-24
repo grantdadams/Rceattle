@@ -28,6 +28,22 @@
 .pull_int  <- function(fc, col) as.integer(fc[[col]])
 .pull_int0 <- function(fc, col) as.integer(fc[[col]]) - 1
 
+# Scale each observation to proportions, as the composition and CAAL
+# likelihoods expect. An all-zero or all-NA row divides by zero and is set to 0,
+# i.e. no information from that row. Divides by the row sums rather than going
+# through `t(apply())`, which returns a transposed 1 x nrow matrix when the
+# input has a single bin column. The zero-row guard is load-bearing: a matrix
+# with no rows divides by a zero-length vector and loses its dimensions.
+.normalise_rows <- function(m) {
+  if (nrow(m) == 0) return(m)
+  storage.mode(m) <- "numeric"
+  m <- m / rowSums(m, na.rm = TRUE)
+  m[is.infinite(m)] <- 0
+  m[is.na(m)] <- 0
+  colnames(m) <- NULL   # as before: the bin columns reach TMB unnamed
+  m
+}
+
 #' Effective selectivity start year, resolved across mirrored fleets
 #'
 #' Fleets sharing a `Selectivity_index` share one set of selectivity deviations,
@@ -398,11 +414,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
-  if(nrow(data_list$comp_obs) > 0){ #FIXME: probably cleaner way to deal with this
-    data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
-    data_list$comp_obs[is.infinite(data_list$comp_obs)] <- 0
-    data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
-  }
+  data_list$comp_obs <- .normalise_rows(data_list$comp_obs)
   data_list <- check_composition_data(data_list)
 
   # 5 - CAAL data ----
@@ -422,11 +434,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
-  if(nrow(data_list$caal_obs) > 0){#FIXME: probably cleaner way to deal with this
-    data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
-    data_list$caal_obs[is.infinite(data_list$caal_obs)] <- 0
-    data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
-  }
+  data_list$caal_obs <- .normalise_rows(data_list$caal_obs)
   data_list <- check_caal_data(data_list)
 
   # * Get lengths from CAAL ----
@@ -554,8 +562,11 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # 9 - Rearrange age_error matrices ----
   arm <- array(0, dim = c(data_list$nspp, max_age, max_age))
 
-  data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
-  for (i in 1:nrow(data_list$age_error)) {
+  # age_error may arrive as a tibble or a matrix, and the loop below mixes `$`
+  # column access with positional `[i, ]` -- the two disagree on both. Coerce to
+  # a plain data frame first so each row reads the same way whatever was passed.
+  data_list$age_error <- as.data.frame(data_list$age_error)
+  for (i in seq_len(nrow(data_list$age_error))) {
     sp <- as.numeric(as.character(data_list$age_error$Species[i]))
     true_age <- as.numeric(as.character(data_list$age_error$True_age[i])) - data_list$minage[sp] + 1
 
