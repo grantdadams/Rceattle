@@ -528,8 +528,8 @@
 #'
 #' `lwd` keeps the base-graphics convention, where the default of 3 renders as a
 #' standard-weight ggplot line -- the `lwd / 3` below. Do not change that ratio:
-#' the plotters on this helper previously hardcoded `linewidth = 1`, so `lwd = 3`
-#' must keep producing exactly that or every existing default figure moves.
+#' every default figure in the package and in the assessment scripts is drawn at
+#' `linewidth = 1`, so `lwd = 3` must keep producing exactly that.
 #'
 #' @param lwd Line width(s), base-graphics scale (default 3 == linewidth 1).
 #' @param lty Line type(s).

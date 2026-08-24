@@ -69,16 +69,15 @@ model1 <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec   = TRUE,
   msmMode      = 0,
-  phase        = FALSE,
   initMode     = 2,
-  verbose      = 1)
+  fit_control  = fit_control(phase = FALSE, verbose = 1))
 
 summary(model1)
 ```
 
 ### Model 2: bottom temperature → recruitment
 
-The SEM below specifies (i) a one-year AR(1) process for scaled bottom temperature, (ii) a one-year-lagged effect of temperature on recruitment, and (iii) the recruitment-deviation variance. Phasing (`phase = TRUE`) helps the model reach a sensible starting point before the SEM parameters are turned on.
+The SEM below specifies (i) a one-year AR(1) process for scaled bottom temperature, (ii) a one-year-lagged effect of temperature on recruitment, and (iii) the recruitment-deviation variance. Phasing (`fit_control(phase = TRUE)`) helps the model reach a sensible starting point before the SEM parameters are turned on.
 
 ```{r}
 sem_iid <- "
@@ -99,9 +98,8 @@ model2 <- Rceattle::fit_mod(
                             family = "fixed"),
   random_rec   = TRUE,
   msmMode      = 0,
-  phase        = TRUE,
   initMode     = 2,
-  verbose      = 1)
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
 
 summary(model2)
 ```
@@ -147,7 +145,7 @@ print(model2$data_list$dsem_settings$sem)
 
 # Parameter estimates aligned with the SEM rows
 summ <- summary(model2$dsem)
-summ$Estimate <- model2$estimated_params$beta_z
+summ$Estimate <- model2$estimated_params$dsem_beta_z
 knitr::kable(summ)
 ```
 
@@ -170,8 +168,7 @@ model3 <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec   = TRUE,
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1)
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
 
 summary(model3)
 ```
@@ -199,8 +196,7 @@ model4 <- Rceattle::fit_mod(
   dsem         = build_DSEM(sem    = sem_3spp,
                             family = "fixed"),
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1)
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
 
 summary(model4)
 ```
@@ -217,6 +213,6 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 ## Tips
 
-- **Phasing.** DSEM-linked models can be sensitive to starting values. Setting `phase = TRUE` fits the assessment in stages and typically reaches a better starting point before the SEM parameters are turned on.
+- **Phasing.** DSEM-linked models can be sensitive to starting values. Setting `fit_control(phase = TRUE)` fits the assessment in stages and typically reaches a better starting point before the SEM parameters are turned on.
 - **Estimating vs. fixing parameters.** Any SEM term written *without* a `start_value` is treated as fixed and is not estimated. Provide a start value to estimate the term.
 - **Projections.** Latent DSEM states are not estimated for projection years by default. Set `estimate_projection = TRUE` if you need them — this adds parameters and can complicate estimation.

@@ -178,6 +178,15 @@
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
+#' @examples
+#' \dontrun{
+#' data(BS2017SS)
+#' om <- fit_mod(BS2017SS, estimateMode = "Estimate", HCR = build_hcr("NPFMC"))
+#' # Closed loop: assess every 2 years, survey every year, 10 simulations.
+#' mse <- run_mse(om = om, em = om, nsim = 10,
+#'                assessment_period = 2, sampling_period = 1)
+#' mse_summary(mse)$species
+#' }
 #' @export
 run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA, cores = NULL){
 

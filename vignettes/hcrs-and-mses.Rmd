@@ -12,7 +12,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")
 )
 ```
 
@@ -156,11 +156,23 @@ plot_depletionSSB(
 ## Summary statistics
 
 `mse_summary()` reduces the trajectories to performance statistics for comparing strategies.
+It returns a **list**, because the metrics are computed on three different entities: `$species`
+(one row per species), `$fleet` (one row per fleet), and `$total` (a named vector across the
+whole system). `$meta` records what the summary was built from -- the number of simulations,
+species and fleets, and the harvest control rule.
 
 ```{r, warning = FALSE, echo = TRUE}
 mse_summ <- mse_summary(mse1)
-knitr::kable(mse_summ, digits = 2)
+names(mse_summ)
+
+knitr::kable(mse_summ$species, digits = 2)
+knitr::kable(mse_summ$fleet, digits = 2)
 ```
+
+Metric columns are named syntactically -- `avg_catch`, `catch_iav`, `ssb_rmse_terminal`,
+`om_p_overfishing`, `em_p_overfished` -- with the `om_` and `em_` prefixes separating what the
+operating model did from what the estimation model believed. `p_overfishing_false_pos` and its
+siblings are where the two disagree.
 
 ------------------------------------------------------------------------
 
@@ -298,12 +310,20 @@ mse5 <- run_mse(
 
 # Overall summary
 
-Tagging each summary with an `MSE` label and stacking them puts the strategies side by side in one table.
+Tagging each summary with an `MSE` label and stacking them puts the strategies side by side in
+one table. Stack the entity you want to compare on -- here the per-species metrics -- rather
+than the whole list.
 
 ```{r, echo = TRUE}
-mse_summ$MSE = 1
-mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
+stack_species <- function(x, label) {
+  out <- x$species
+  out$MSE <- label
+  out
+}
 
-knitr::kable(do.call("rbind", list(mse_summ, mse_summ2)) |>
-               dplyr::relocate(MSE), digits = 2)
+knitr::kable(
+  rbind(stack_species(mse_summary(mse1), 1),
+        stack_species(mse_summary(mse2), 2)) |>
+    dplyr::relocate(MSE),
+  digits = 2)
 ```

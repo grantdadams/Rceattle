@@ -5,18 +5,19 @@
 \title{One-step-ahead (OSA) residuals for an Rceattle model}
 \usage{
 osa_residuals(
-  fit,
+  object = NULL,
   source = c("ecov", "index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   parallel = TRUE,
   seed = 123,
   trace = FALSE,
-  ...
+  ...,
+  fit = NULL
 )
 }
 \arguments{
-\item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
+\item{object}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
 \item{source}{Character vector of observation sources to residualize: any of
 \code{"ecov"}, \code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}, or \code{"all"}.
@@ -62,6 +63,9 @@ of randomized-quantile residuals. Default \code{123}.}
 \item{trace}{Logical; print \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} progress. Default \code{FALSE}.}
 
 \item{...}{Further arguments passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}.}
+
+\item{fit}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A data frame of class \code{rceattle_osa} with one row per residualized
@@ -213,6 +217,14 @@ uninformative; their \code{residual} standardises the observation against that
 same mean and is therefore biased positive.
 }
 
+\examples{
+\dontrun{
+data(BS2017SS)
+fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+osa <- osa_residuals(fit, source = c("index", "comp"))
+plot(osa)
+}
+}
 \references{
 Thygesen, U.H., et al. 2017. Validation of ecological state space models using
 the Laplace approximation. Environ. Ecol. Stat. 24:317-339.

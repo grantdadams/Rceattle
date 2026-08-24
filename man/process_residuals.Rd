@@ -5,20 +5,22 @@
 \title{Process residuals for an Rceattle model's random-effect processes}
 \usage{
 process_residuals(
-  fit,
+  object = NULL,
   process = c("recruitment", "initial", "catchability", "all"),
-  seed = 123
+  seed = 123,
+  fit = NULL
 )
 }
 \arguments{
-\item{fit}{A fitted \code{Rceattle} model. The targeted deviations must be
-estimated -- as random effects (e.g. \code{random_rec = TRUE}) or as penalized
-fixed effects -- with a usable covariance.}
+\item{object}{A fitted \code{Rceattle} model. The targeted deviations must be estimated -- as random effects (e.g. \code{random_rec = TRUE}) or as penalized fixed effects -- with a usable covariance.}
 
 \item{process}{One of \code{"recruitment"}, \code{"initial"}, \code{"catchability"}, or
 \code{"all"}.}
 
 \item{seed}{Seed for the posterior draw. Default 123.}
+
+\item{fit}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A data frame of class \code{rceattle_osa} (so it can be passed to

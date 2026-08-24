@@ -53,6 +53,8 @@ navbar:
         href: articles/growth-estimation.html
       - text: "Environmental linkages and priors"
         href: articles/environmental-linkages-and-priors.html
+      - text: "Dynamic structural equation models"
+        href: articles/dsem.html
       - text: "--- Diagnostics & Inference ---"
       - text: "Model diagnostics"
         href: articles/model-diagnostics.html
@@ -212,6 +214,14 @@ reference:
   - sim_mod
   - simulate.Rceattle
   - compare_sim
+
+- title: "Diagnostics — shared arguments"
+  desc: >
+    The common vocabulary retrospective(), jitter() and self_test() share:
+    object, cores and fit_control, and what fit_control() reaches through a
+    refit.
+  contents:
+  - rceattle-refit-args
 
 - title: "Plotting — shared arguments"
   desc: >

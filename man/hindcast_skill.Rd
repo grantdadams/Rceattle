@@ -5,7 +5,7 @@
 \title{Forecast skill across retrospective peels}
 \usage{
 hindcast_skill(
-  Rceattle = NULL,
+  object = NULL,
   peels = 5,
   quantity = c("ssb", "biomass", "R"),
   reference = c("model", "observed"),
@@ -15,7 +15,7 @@ hindcast_skill(
 )
 }
 \arguments{
-\item{Rceattle}{A fitted Rceattle model (the full time series).}
+\item{object}{A fitted Rceattle model (the full time series).}
 
 \item{peels}{Number of peels. Passed to \code{\link[=retrospective]{retrospective()}}.}
 

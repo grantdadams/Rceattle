@@ -80,3 +80,13 @@ A list of operating models (differ by simulated recruitment determined by \code{
 \description{
 Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
 }
+\examples{
+\dontrun{
+data(BS2017SS)
+om <- fit_mod(BS2017SS, estimateMode = "Estimate", HCR = build_hcr("NPFMC"))
+# Closed loop: assess every 2 years, survey every year, 10 simulations.
+mse <- run_mse(om = om, em = om, nsim = 10,
+               assessment_period = 2, sampling_period = 1)
+mse_summary(mse)$species
+}
+}

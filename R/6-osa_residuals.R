@@ -91,7 +91,9 @@
 #'   otherwise identical model with no truncated fleet. Fixed-effect models are
 #'   again unaffected, since their observations are independent.
 #'
-#' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
+#' @param object A fitted object of class `Rceattle` (from [fit_mod()]).
+#' @param fit deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
 #' @param source Character vector of observation sources to residualize: any of
 #'   `"ecov"`, `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`, or `"all"`.
 #'   Defaults to the five non-diet sources (`diet` is opt-in because it applies
@@ -198,40 +200,49 @@
 #'   Sci. 82:1-13.
 #'
 #' @seealso [osa_diagnostics()], [plot.rceattle_osa()], [process_residuals()]
+#' @examples
+#' \dontrun{
+#' data(BS2017SS)
+#' fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+#' osa <- osa_residuals(fit, source = c("index", "comp"))
+#' plot(osa)
+#' }
 #' @export
-osa_residuals <- function(fit,
+osa_residuals <- function(object = NULL,
                           source   = c("ecov", "index", "catch", "comp", "caal"),
                           method   = "oneStepGaussianOffMode",
                           discrete = FALSE,
                           parallel = TRUE,
                           seed     = 123,
                           trace    = FALSE,
-                          ...) {
+                          ..., fit = NULL) {
+  # `fit` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(fit))
+    object <- .rce_deprecated_arg(fit, !missing(object), "fit", "object", "osa_residuals")
+
 
   # ---- Validate the fit ----
-  if (!inherits(fit, "Rceattle")) {
-    stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model (from fit_mod()).")
   }
   # A DSEM needs nothing special here: these are one-step-ahead residuals for
   # the DATA, and TMB::oneStepPredict() integrates the random effects out
-  # whatever their structure -- the GMRF is just another random block, recovered
-  # through obj$env$random like any other. This function never refits, so it was
-  # never affected by the warm-start defect; it was refused by a blanket guard
-  # and nothing more. Unlike process_residuals(), nothing here standardizes a
-  # deviation by an assumed per-year prior, so there is no IID assumption to
-  # violate.
-  if (is.null(fit$obj)) {
-    stop("'fit' has no TMB object ($obj); OSA residuals require the fitted ",
+  # whatever their structure -- the GMRF is just another random block, reached
+  # through obj$env$random like any other. Unlike process_residuals(), nothing
+  # here standardizes a deviation by an assumed per-year prior, so there is no
+  # IID assumption to violate.
+  if (is.null(object$obj)) {
+    stop("`object` has no TMB object ($obj); OSA residuals require the fitted ",
          "model object.")
   }
-  em <- fit$data_list$estimateMode
+  em <- object$data_list$estimateMode
   if (!is.null(em) && em >= 3) {
     stop("OSA residuals require a model optimized with estimateMode < 3 ",
          "(the returned objective for estimateMode >= 3 is a debug placeholder ",
          "that oneStepPredict cannot differentiate).")
   }
-  if (is.null(fit$obj$env$last.par.best)) {
-    stop("'fit' does not appear to have been optimized; OSA residuals require ",
+  if (is.null(object$obj$env$last.par.best)) {
+    stop("`object` does not appear to have been optimized; OSA residuals require ",
          "a converged fit.")
   }
 
@@ -247,7 +258,7 @@ osa_residuals <- function(fit,
   # fit_control(osa = TRUE): build_osa_data() reads only the *_ctl / *_obs
   # arrays the template already carries, and `obs_ctl` maps each obsvec position
   # back to its source. The same regenerated data is reused by .osa_build_obj().
-  osa_dat <- build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  osa_dat <- build_osa_data(object$obj$env$data, build_osa = TRUE)
   obs_ctl <- osa_dat$obs_ctl
 
   # ---- Select the obsvec positions to residualize ----
@@ -293,7 +304,7 @@ osa_residuals <- function(fit,
   # from obsvec and use the unweighted, proper density that oneStepPredict needs.
   # It leaves the aggregate catch/index likelihood unchanged, so the same
   # rebuilt object serves all observation types.
-  obj_osa <- .osa_build_obj(fit, osa_dat)
+  obj_osa <- .osa_build_obj(object, osa_dat)
 
   # ---- Compute the OSA residuals ----
   # oneStepPredict() applies a single `discrete` setting per call, but the
@@ -332,8 +343,8 @@ osa_residuals <- function(fit,
   # for one decision, and the failure mode is silent and total: a (0, Inf) range
   # applied to a fleet whose obsvec holds log(obs) integrates from 0 down past a
   # negative observation and qnorm() gets nonsense.
-  fc_osa   <- fit$data_list$fleet_control
-  ill_osa  <- fit$obj$env$data$index_ll_type
+  fc_osa   <- object$data_list$fleet_control
+  ill_osa  <- object$obj$env$data$index_ll_type
   sel_trunc <- rep(FALSE, nrow(sel))
   if (!is.null(ill_osa) && length(ill_osa)) {
     sel_trunc <- sel$source == "index" & ill_osa[sel$fleet_code] %in% 4L
@@ -384,8 +395,8 @@ osa_residuals <- function(fit,
   # the density -- not that it reaches infinity.
   .trunc_range <- function(rows) {
     dr <- sel$data_row[rows]
-    mu <- suppressWarnings(as.numeric(fit$quantities$index_hat[dr]))
-    sg <- suppressWarnings(as.numeric(.observation_sd(fit$quantities, "index")[dr]))
+    mu <- suppressWarnings(as.numeric(object$quantities$index_hat[dr]))
+    sg <- suppressWarnings(as.numeric(.observation_sd(object$quantities, "index")[dr]))
     ob <- suppressWarnings(as.numeric(osa_dat$obsvec[sel$obs_pos[rows] + 1L]))
     hi <- suppressWarnings(max(c(mu + 10 * sg, ob * 1.5), na.rm = TRUE))
     if (!is.finite(hi) || hi <= 0) hi <- Inf   # nothing usable; fall back
@@ -464,7 +475,7 @@ osa_residuals <- function(fit,
       tryCatch(osp(TRUE), error = function(e) {
         message("osa_residuals(): the parallel one-step-ahead loop failed (",
                 conditionMessage(e), "); recomputing serially.")
-        obj_osa <<- .osa_build_obj(fit, osa_dat, force = TRUE)
+        obj_osa <<- .osa_build_obj(object, osa_dat, force = TRUE)
         osp(FALSE)
       })
     # oneStepGeneric returns no `observation` column, so the generic groups (the
@@ -510,7 +521,7 @@ osa_residuals <- function(fit,
   }))
   osa <- osa[order(osa$.row), , drop = FALSE]   # restore chronological 'sel' order
   index_label <- c("age", "length")[sel$comp_type + 1L]   # NA for aggregates
-  fc <- fit$data_list$fleet_control                        # fleet code -> name
+  fc <- object$data_list$fleet_control                        # fleet code -> name
   fleet_name <- if (!is.null(fc)) {
     fc$Fleet_name[match(sel$fleet_code, fc$Fleet_code)]
   } else NA_character_
@@ -544,15 +555,15 @@ osa_residuals <- function(fit,
   attr(out, "seed")   <- seed
   # Per-species bin counts, so plot() can split joint-sex (Sex == 3) composition
   # bins onto a single age/length axis (males are stored as bins nbin+1 .. 2*nbin).
-  attr(out, "nages")    <- fit$data_list$nages
-  attr(out, "nlengths") <- fit$data_list$nlengths
+  attr(out, "nages")    <- object$data_list$nages
+  attr(out, "nlengths") <- object$data_list$nlengths
 
   # Attach the matching Pearson residuals for composition sources so the
   # plot() method can show OSA and Pearson bubbles side by side.
   comp_types <- intersect(unique(out$source), c("comp", "caal"))
   if (length(comp_types) > 0) {
     pear <- tryCatch(
-      stats::residuals(fit, type = "pearson", source = comp_types),
+      stats::residuals(object, type = "pearson", source = comp_types),
       error = function(e) NULL)
     # residuals() is a general-purpose method and names its columns in the
     # data-sheet style (Fleet_code, Year, Observed, ...); this data frame names

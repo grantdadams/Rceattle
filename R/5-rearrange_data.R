@@ -112,10 +112,7 @@ rearrange_data <- function(data_list, build_osa = FALSE){
   # - 0) Vector to save  species
   data_list$flt_spp <- .pull_int0(data_list$fleet_control, "Species")
 
-  # - 1) Fleet pointer
-  data_list$flt_sel_ind <- .pull_int0(data_list$fleet_control, "Fleet_code")
-
-  # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+  # - 1) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
   data_list$flt_type <- .pull_int(data_list$fleet_control, "Fleet_type")
 
   # - 3) Month of observation
@@ -904,10 +901,12 @@ check_caal_data <- function(data_list) {
 
 
 #' @rdname rearrange_data
-#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`
-#'   kept for backwards compatibility; please use `rearrange_data()`.
+#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`,
+#'   kept so older scripts keep running. It is scheduled for removal in 6.0.0;
+#'   use `rearrange_data()`.
 #' @export
 rearrange_dat <- function(data_list){
-  .Deprecated("rearrange_data")
+  .Deprecated("rearrange_data",
+              msg = "rearrange_dat() is deprecated and will be removed in Rceattle 6.0.0; use rearrange_data().")
   rearrange_data(data_list)
 }

@@ -6,7 +6,15 @@ docs/
 .RData
 .Ruserdata
 .DS_Store
-.claude
+# Claude Code. settings.json, commands/ and agents/ are committed shared house
+# rules -- see .claude/README.md. Everything else under .claude/ is ignored by
+# default, so anything future tooling writes there is not committed by accident.
+# .Rbuildignore keeps the whole directory out of the package tarball.
+.claude/*
+!.claude/settings.json
+!.claude/commands/
+!.claude/agents/
+!.claude/README.md
 .mcp.json
 inst/doc
 /doc/

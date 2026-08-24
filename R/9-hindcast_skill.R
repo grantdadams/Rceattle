@@ -41,7 +41,7 @@
 #' of the scaling, not of the model, and it is shared with the `ss3diags`
 #' implementation the definition matches.
 #'
-#' @param Rceattle A fitted Rceattle model (the full time series).
+#' @param object A fitted Rceattle model (the full time series).
 #' @param peels Number of peels. Passed to [retrospective()].
 #' @param quantity Quantities to score against the full model. Any of `"ssb"`,
 #'   `"biomass"`, `"R"`. Ignored when `reference = "observed"`.
@@ -90,29 +90,35 @@
 #' 119-127.
 #'
 #' @export
-hindcast_skill <- function(Rceattle = NULL, peels = 5,
+hindcast_skill <- function(object = NULL, peels = 5,
                            quantity = c("ssb", "biomass", "R"),
                            reference = c("model", "observed"),
                            forecast_rec = c("model", "mean"),
                            retro = NULL, ...) {
-  if (!inherits(Rceattle, "Rceattle")) {
-    stop("Object is not of class 'Rceattle'")
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model (from fit_mod()).",
+         call. = FALSE)
   }
   quantity     <- match.arg(quantity, several.ok = TRUE)
   reference    <- match.arg(reference, several.ok = TRUE)
   forecast_rec <- match.arg(forecast_rec)
 
-  for (q in quantity) {
-    if (is.null(Rceattle$quantities[[q]])) {
-      stop("`quantity` '", q, "' is not reported by this fit.", call. = FALSE)
+  # Only where `quantity` is actually read. Under reference = "observed" the
+  # score is the predicted survey index, so refusing a fit that does not report
+  # the default `biomass` would reject a model this function can serve.
+  if ("model" %in% reference) {
+    for (q in quantity) {
+      if (is.null(object$quantities[[q]])) {
+        stop("`quantity` '", q, "' is not reported by this fit.", call. = FALSE)
+      }
     }
   }
 
   if (is.null(retro)) {
-    retro <- retrospective(Rceattle, peels = peels,
+    retro <- retrospective(object, peels = peels,
                            forecast_rec = forecast_rec, ...)
   }
-  # retrospective() returns rev(c(list(Rceattle), peels)), so the LAST element
+  # retrospective() returns rev(c(list(object), peels)), so the LAST element
   # is the input model and the peels run deepest-first. Score only the peels;
   # comparing the parent to itself would give MASE 0 and mean nothing.
   ml <- retro$Rceattle_list
@@ -123,11 +129,11 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
   }
   peel_models <- ml[-length(ml)]
 
-  styr   <- Rceattle$data_list$styr
-  endyr  <- Rceattle$data_list$endyr
-  nspp   <- Rceattle$data_list$nspp
-  spnames <- if (!is.null(Rceattle$data_list$spnames)) {
-    Rceattle$data_list$spnames
+  styr   <- object$data_list$styr
+  endyr  <- object$data_list$endyr
+  nspp   <- object$data_list$nspp
+  spnames <- if (!is.null(object$data_list$spnames)) {
+    object$data_list$spnames
   } else as.character(seq_len(nspp))
 
   by_year <- list()
@@ -140,7 +146,7 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
     last <- ep - styr + 1L
 
     for (q in quantity) {
-      ref <- Rceattle$quantities[[q]]
+      ref <- object$quantities[[q]]
       fc  <- m$quantities[[q]]
       if (is.null(fc) || ncol(fc) < max(cols)) next
       for (sp in seq_len(nspp)) {
@@ -165,7 +171,7 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
   # and map. That yields the peel's PREDICTION at observations it never fitted,
   # which is the whole point, without letting it re-estimate anything.
   if ("observed" %in% reference) {
-    idx_full <- Rceattle$data_list$index_data
+    idx_full <- object$data_list$index_data
 
     # Analytical catchability solves q INSIDE the template from log(obs/pred)
     # over every fitted index row, so handing the rebuild the held-out rows lets
@@ -173,14 +179,30 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
     # 4.2% shift in q on one fleet, moving the scored index_hat toward the very
     # observations being scored, and moving the retained years too. Refuse
     # rather than report a leaked skill score.
-    .q <- Rceattle$data_list$fleet_control$Catchability
+    # Which codes those are comes from the schema, not from a literal here: the
+    # allowed set is `q_map`, and a second copy of it would drift the first time
+    # a catchability form is added or retired.
+    .q_map <- .rce_allowed_map("Catchability")
+    .analytic_names <- c("Analytical", "AnalyticalArith")
+    # Assert rather than intersect quietly: if either form is ever renamed, an
+    # empty code set would take the integer arm dead, and the name arm below
+    # reads the same literals, so BOTH would stop matching and the leak guard
+    # would vanish without erroring.
+    if (!all(.analytic_names %in% names(.q_map))) {
+      stop("Internal: the Catchability map no longer names ",
+           paste(setdiff(.analytic_names, names(.q_map)), collapse = ", "),
+           "; hindcast_skill() cannot tell which fleets solve q analytically.",
+           call. = FALSE)
+    }
+    .analytic_codes <- unname(.q_map[.analytic_names])
+    .q <- object$data_list$fleet_control$Catchability
     .q_int <- suppressWarnings(as.integer(.q))
-    .analytic <- (!is.na(.q_int) & .q_int %in% c(3L, 7L)) |
-      (as.character(.q) %in% c("Analytical", "AnalyticalArith"))
+    .analytic <- (!is.na(.q_int) & .q_int %in% .analytic_codes) |
+      (as.character(.q) %in% .analytic_names)
     if (any(.analytic, na.rm = TRUE)) {
       stop("hindcast_skill(reference = \"observed\") cannot be used on a model ",
            "with analytical catchability (fleet(s) ",
-           paste(unique(Rceattle$data_list$fleet_control$Fleet_name[which(.analytic)]),
+           paste(unique(object$data_list$fleet_control$Fleet_name[which(.analytic)]),
                  collapse = ", "),
            "): q is solved inside the model from the index observations, so a ",
            "peel asked to predict held-out rows would use those rows to set its ",
@@ -197,7 +219,7 @@ hindcast_skill <- function(Rceattle = NULL, peels = 5,
       # selectivity and ration forward from its last fitted year, and handing
       # the prediction the parent's copies would give it the true held-out
       # values for all three, which is the leak this is avoiding.
-      dl <- Rceattle$data_list
+      dl <- object$data_list
       for (.nm in c("weight", "emp_sel", "ration_data")) {
         if (!is.null(m$data_list[[.nm]])) dl[[.nm]] <- m$data_list[[.nm]]
       }

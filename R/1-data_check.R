@@ -52,6 +52,87 @@ data_check <- function(data_list) {
     errors <- c(errors, "'PowerEquation' catchability not yet implemented")
   }
 
+  # Catchability = "AR1" is the QAR1 form (Rogers et al. 2024):
+  # q = exp(log_q + beta * dev_y), with `index_q_dev` a latent AR1 process and
+  # the environmental index an OBSERVATION of it.
+  #
+  # It does not work. build_map() gates the deviates on
+  # `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
+  # `Time_varying_q` holds an `env_data` COLUMN INDEX rather than a mode -- so a
+  # QAR1 fleet never matches, `index_q_dev` stays mapped out, and q comes back
+  # constant. Nothing errors.
+  #
+  # The damage is not confined to q, so the warning does not stop at "q is
+  # constant". Measured on BS2017SS fleet 7, estimateMode = 3: the
+  # "Catchability deviates" likelihood row accumulates 54.8 from deviates that
+  # are identically zero (the AR1 normalizing constant, plus the environmental
+  # index fitted as noise about zero), so the reported objective is not
+  # comparable with any other model's; and `index_q_dev_log_sd` is left free
+  # with a gradient of nyrs_hind and nothing opposing it, so its sigma is
+  # driven to zero. Divergent, not merely flat.
+  #
+  # Stop rather than warn. A warned fit still returns a summary() that looks
+  # ordinary, and nothing downstream can tell that its q is constant or its
+  # objective inflated -- which is the failure this package cannot ship. It is
+  # also the severity 'PowerEquation' already carries a few lines above, and
+  # that switch is merely unimplemented rather than actively divergent.
+  #
+  # The cost of stopping is now small: GOA pollock 2025 runs the linkage form
+  # (../Rceattle-models: GOA pollock/2025/04-fit-and-diagnostics.R), and the
+  # remaining Catchability = 6 call sites are Rceattle 3.3.1-era scripts.
+  #
+  # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is an
+  # AR1 structure on an ordinary "Estimated" q and works correctly.
+  if(!is.null(data_list$fleet_control$Catchability) &&
+     any(data_list$fleet_control$Catchability %in% c("AR1", 6), na.rm = TRUE)){
+    qar1 <- which(data_list$fleet_control$Catchability %in% c("AR1", 6))
+
+    # Name each fleet with the environmental series it points at, so the
+    # replacement below can be filled in without decoding the column index.
+    # `Time_varying_q` indexes the covariates, i.e. env_data without its Year
+    # column. Anything outside 1..ncovs is named generically and left to the
+    # range check further down; force it to NA first, because a 0 or a negative
+    # index would drop or invert elements rather than return one per fleet.
+    covs <- setdiff(colnames(data_list$env_data), "Year")
+    # `[[` not `$`: on a data.frame `$` partial-matches, so a fleet_control
+    # without `Time_varying_q` would silently hand back `Time_varying_q_sd` --
+    # a starting SD read as a covariate index. The NULL branch is defensive
+    # only: validate_switches() requires the column, so a data_list without it
+    # dies there before this message is ever printed.
+    tvq <- data_list$fleet_control[["Time_varying_q"]]
+    idx <- if (is.null(tvq)) rep(NA_integer_, length(qar1))
+           else suppressWarnings(as.integer(tvq[qar1]))
+    idx[is.na(idx) | idx < 1L | idx > length(covs)] <- NA_integer_
+    cov_of <- covs[idx]
+    cov_of[is.na(cov_of)] <- "<env_data column>"
+
+    codes <- data_list$fleet_control$Fleet_code
+    codes <- if (is.null(codes)) qar1 else codes[qar1]
+    qar1_flts <- paste0(data_list$fleet_control$Fleet_name[qar1],
+                        " (Fleet_code ", codes,
+                        ", env_data column '", cov_of, "')")
+
+    errors <- c(errors, paste0(
+      "Catchability = 'AR1' (QAR1) is removed: it never worked, and is now an ",
+      "error rather than a silently constant q. Fleet(s) ",
+      paste(qar1_flts, collapse = ", "), ". The AR1 deviates on log-q were ",
+      "never estimated, so q came back constant, the objective carried the ",
+      "AR1 normalizing constant and fitted the environmental index as noise ",
+      "about zero, and the deviation sd was left free and divergent. Express ",
+      "it as a linkage, which implements the Rogers et al. (2024) form ",
+      "correctly:\n",
+      "  build_catchability(linkages = list(q = linkage_spec(\n",
+      "    ~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,\n",
+      "    observe = \"<that fleet's env_data column>\", obs_sd = <its ",
+      "measurement SD>)))\n",
+      "and pass it to fit_mod(qFun = ). `observe` is what makes it the QAR1 ",
+      "form rather than a free AR1 on q: it names the series the deviates are ",
+      "observed against. `obs_sd` is that series' measurement SD, which the ",
+      "old switch never asked for and you must supply. GOA pollock 2025 is a ",
+      "worked example.\n",
+      "This is not the same switch as Time_varying_q = 'AR1', which works."))
+  }
+
   # Catchability = "Environmental" (Estimate_q = 5) is superseded by a q
   # linkage. The old form still fits -- it keeps its own C++ path and exact
   # numerics -- but names covariates by position in Time_varying_q rather than
@@ -958,6 +1039,51 @@ data_check <- function(data_list) {
         "care, or set Estimate_index_sd = 'Fixed'."), call. = FALSE)
     }
   }
+
+  # An analytical sd is concentrated out of the likelihood, so it is defined
+  # only where there are fitted residuals to concentrate. A fleet that carries
+  # observation rows but none inside the fitted window (or none positive) has
+  # no residuals: the sd falls through as 0, which the likelihood never reads
+  # but the reported sd and the simulation draw both do -- rnorm(mean, 0) is a
+  # deterministic observation that sim_mod() would write back as data. Refuse
+  # it here rather than let a zero sd reach a fit.
+  .analytical_needs_rows <- function(switch_col, data_name, obs_col, label,
+                                     fishery_only = FALSE) {
+    if (!has_data(fc) || !switch_col %in% colnames(fc)) return(character(0))
+    dat <- data_list[[data_name]]
+    if (!has_data(dat) || !all(c("Fleet_code", "Year", obs_col) %in% colnames(dat))) {
+      return(character(0))
+    }
+    # A missing endyr is its own error, reported above; don't chain off it.
+    if (length(data_list$endyr) != 1 || is.na(data_list$endyr)) return(character(0))
+    on <- !(fc$Fleet_type %in% c("Off", 0, "0"))
+    # The catch estimator counts fishery rows only, so a non-fishery fleet's
+    # catch rows are outside its predicate and are not what this checks.
+    if (fishery_only) on <- on & fc$Fleet_type %in% c("Fishery", 1, "1")
+    ana <- fc[[switch_col]] %in% c("Analytical", 2, "2")
+    obs <- suppressWarnings(as.numeric(dat[[obs_col]]))
+    yr  <- suppressWarnings(as.numeric(dat$Year))
+    bad <- character(0)
+    for (i in which(ana & on)) {
+      rows <- which(dat$Fleet_code == fc$Fleet_code[i])
+      if (!length(rows)) next          # no rows at all: the sd is never read
+      fitted <- rows[!is.na(yr[rows]) & yr[rows] > 0 & yr[rows] <= data_list$endyr &
+                       !is.na(obs[rows]) & obs[rows] > 0]
+      if (!length(fitted)) bad <- c(bad, as.character(fc$Fleet_name[i]))
+    }
+    if (!length(bad)) return(character(0))
+    paste0("Fleet(s) ", paste(bad, collapse = ", "), " set ", switch_col,
+           " = 'Analytical' but have no fitted ", label, " observation -- every ",
+           "row is outside the hindcast (Year > endyr, or a negative Year) or is ",
+           "not positive. The analytical sd is the sd that minimises the ",
+           "likelihood over those residuals, so with none it is undefined. Supply ",
+           "observations inside the hindcast, or set ", switch_col,
+           " = 'Fixed' or 'Estimated'.")
+  }
+  errors <- c(errors,
+              .analytical_needs_rows("Estimate_index_sd", "index_data", "Observation", "index"),
+              .analytical_needs_rows("Estimate_catch_sd", "catch_data", "Catch", "catch",
+                                     fishery_only = TRUE))
 
   if(has_data(fc) && "Index_distribution" %in% colnames(fc)){
     mvn_flts <- which(fc$Index_distribution %in% c("MVN", "MVNORM", 1, 2, "1", "2"))

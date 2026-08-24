@@ -21,7 +21,7 @@
 \item{param}{Name of the parameter to profile. Two ways to specify it:
 \describe{
 \item{Raw parameter slot}{any name in
-\code{Rceattle$estimated_params}; tested for \code{"R_log_sd"},
+\code{fitted$estimated_params}; tested for \code{"R_log_sd"},
 \code{"rec_pars"}, and \code{"log_M1"}. \code{slots} must index
 into the full array and \code{transform} controls the scale.}
 \item{Natural-scale alias}{convenience shortcut for the three

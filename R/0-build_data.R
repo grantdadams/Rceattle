@@ -78,13 +78,13 @@
 #' fit. Legacy top-level names (`fsh_biom`, `srv_biom`, `wt`, `pmature`, `Pyrs`)
 #' are mapped to their canonical equivalents.
 #'
-#' Full validation runs at fit time in [data_check()]. `build_data()` runs only
+#' Full validation runs at fit time, inside `fit_mod()`. `build_data()` runs only
 #' a light presence pre-check (`.check = TRUE`) so a missing *required* block is
 #' reported at construction with a clear message. The pre-check reads an attached
 #' [model_config()], so a configuration carried on the object is accounted for.
 #' Requirements that depend on fit-time settings passed directly to [fit_mod()]
 #' and stored nowhere on the data list are not knowable here and are left to
-#' [data_check()]; see [data_requirements()] to preview them.
+#' that fit-time validation; see [data_requirements()] to preview them.
 #'
 #' @param base Optional existing Rceattle data list to start from and override.
 #' @param file Optional path to an Rceattle xlsx workbook; read via [read_data()]
@@ -97,7 +97,7 @@
 #'
 #' @return An Rceattle data list (a bare `list`, as from [read_data()]).
 #'
-#' @seealso [read_data()], [clean_data()], [data_requirements()], [data_check()],
+#' @seealso [read_data()], [clean_data()], [data_requirements()],
 #'   [combine_data()], [fit_mod()].
 #' @examples
 #' # Copy-and-edit a bundled dataset.

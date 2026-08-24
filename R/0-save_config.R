@@ -266,17 +266,34 @@ print.Rceattle_run_config <- function(x, ...) {
 #' @keywords internal
 #' @noRd
 .rce_config_schema <- function() {
-  allowed <- function(map) paste(names(map), collapse = " / ")
+  # Name AND integer code for every value. A saved config writes the switch as
+  # the number (`msmMode: 1.0`), so a comment listing only the readable names
+  # cannot be used to decode the line it sits above.
+  allowed <- function(map) {
+    paste0(names(map), " (", unname(map), ")", collapse = " / ")
+  }
   d <- function(doc, allowed = NULL) list(doc = doc, allowed = allowed)
+
+  # Model-level switches project from .rce_model_switch_schema(), so the
+  # comments written into a saved config list every value the map defines. They
+  # were hand-kept here, which is how estimateMode's DebugOptimize came to be a
+  # real mode that the YAML comment never mentioned.
+  .from_switch_table <- function(nm) {
+    row <- .rce_model_switch_schema()[[nm]]
+    if (is.null(row)) return(NULL)
+    map <- if (!is.na(row$allowed)) {
+      tryCatch(get(row$allowed, envir = asNamespace("Rceattle")), error = function(e) NULL)
+    } else NULL
+    d(row$doc, if (is.null(map)) NULL else allowed(map))
+  }
   list(
     # model_config scalars
-    msmMode  = d("Predation-mortality mode",
-                 "0 single-species / 1 Holsman MSVPA / 2 Holling-III MSVPA"),
-    initMode = d("Initial age-structure mode", allowed(initMode_map)),
-    avgnMode = d("Average-N mode"),
-    suitMode = d("Predator-prey suitability mode", allowed(suitMode_map)),
+    msmMode  = .from_switch_table("msmMode"),
+    initMode = .from_switch_table("initMode"),
+    avgnMode = .from_switch_table("avgnMode"),
+    suitMode = .from_switch_table("suitMode"),
     niter    = d("Number of predation iterations"),
-    HCR      = d("Harvest control rule (build_hcr)"),
+    HCR = .from_switch_table("HCR"),
     recFun   = d("Stock-recruit specification (build_srr)"),
     dsem     = d("DSEM on recruitment deviations (build_DSEM)"),
     M1Fun    = d("Natural-mortality specification (build_M1)"),
@@ -285,7 +302,7 @@ print.Rceattle_run_config <- function(x, ...) {
     selFun   = d("Selectivity specification (build_selectivity)"),
     compFun  = d("Composition specification (build_composition)"),
     # estimation controls
-    estimateMode = d("0 hindcast+HCR / 1 hindcast only / 2 projection / 3 build"),
+    estimateMode = .from_switch_table("estimateMode"),
     random_rec = d("Estimate recruitment deviations as random effects"),
     random_q   = d("Estimate time-varying catchability as random effects"),
     random_sel = d("Estimate time-varying selectivity as random effects"),

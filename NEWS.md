@@ -1,4 +1,17 @@
-# Rceattle 5.10.0
+<!--
+Version-numbering note. Three gaps in this file are deliberate, not lost entries:
+
+  * 4.14.0 was a real DESCRIPTION version whose entries were folded into 5.0.0.
+  * 5.2.0-5.2.4 were likewise folded into 5.3.0.
+  * main's 4.9.0 / 4.9.1 are the same recruitment changes this line carries as
+    5.5.0 / 5.5.1, applied to the two lines separately.
+
+No tag existed above 4.8.0 while these were in flight, so nobody could have installed an
+intermediate. Note the folding rather than renumbering: a section for a version DESCRIPTION
+never carries breaks any (x.y.z) cross-reference pointing at it.
+-->
+
+# Rceattle 5.13.0
 
 ## New features
 
@@ -161,6 +174,457 @@
   p-value is a boundary test, so neither is interpretable in the usual way. Fits
   without a DSEM are unaffected.
 
+## Bug fixes
+
+* **A retrospective peel no longer shrinks the estimated process SDs.** A peel
+  does not shorten the model -- it turns data off after `endyr_peel` -- and it
+  pinned the random-effect deviations in the peeled years: `rec_dev` at zero,
+  and `log_M1_dev`, `index_q_dev` and the three selectivity blocks carried
+  forward from the last fitted year. Those pinned values were still scored by
+  their densities, which is fabricated rather than missing data, and maximally
+  informative fabricated data: "the deviation was exactly zero", or for the
+  carried-forward random-walk blocks "the increment was exactly zero", is the
+  strongest evidence available for a small process SD. The estimate shrank as
+  `sqrt((N - k)/N)` in the number of peeled years `k` -- on a 39-year model,
+  -1.3% at one peel, **-6.6% at the default `peels = 5` and -13.8% at 10** --
+  and because it grew with peel depth it was a trend across peels, in the same
+  quantity Mohn's rho is computed from, leaving every peeled forecast
+  overconfident.
+
+  Deviations that are random effects are now left free in the peeled years, so
+  the Laplace approximation integrates them out, which is what no data should
+  mean. Deviations that are not random effects in a given model are still
+  pinned; free would leave them unidentified. This was already how
+  `beta_linkage_re` behaved -- it was never pinned -- and how a DSEM's latent
+  states behave, and neither carried the bias, which is what identified it.
+
+  Measured on BS2017SS: the deepest peel's recruitment SD now matches a DSEM
+  peel of the same model to 1e-6 at both one and five peels, against ratios of
+  0.985 and a predicted 0.934 before. Retrospectives and Mohn's rho on any model
+  with estimated random effects will change; that difference is the bias being
+  removed. Models with no random effects are unaffected.
+
+* **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
+  does not declare the `dsem_*` blocks -- they come from the DSEM builder -- so
+  `fit_mod()` dropped them out of any supplied `inits` and then refilled them
+  from a freshly built template, i.e. their START values. This was invisible
+  wherever the DSEM was re-estimated (any start reaches the same optimum) and
+  wrong wherever it was held fixed. `retrospective()` holds the whole DSEM fixed
+  in its forecast refit, so every peel ran with the recruitment SD at its start
+  value: 0.707107 for every species regardless of the fit. On BS2017SS with a
+  naive sem that put an 80% error in the peeled hindcast and flipped the sign of
+  Mohn's rho (-0.49 against +0.13). Only models ESTIMATING the recruitment SD
+  were affected; a sem that fixes it reads the fixed value and never saw this.
+  `profile()` on a DSEM fit was affected the same way -- every grid point reset
+  the model -- as was `estimateMode = 2`, which reprojected from the reset
+  values.
+
+* **`retrospective()`'s forecast bias adjustment did nothing on a DSEM.** It
+  wrote `rec_dev`, which the template overwrites from the latent states on the
+  next evaluation, so the retrospective forecast silently kept the GMRF's own
+  projection instead of the bias-adjusted mean -- a 44% difference in forecast
+  recruitment against the non-DSEM path. It now writes the latent state that
+  `rec_dev` is derived from.
+
+  Together these two restore the contract a naive (IID) DSEM is judged by: it
+  now reproduces a non-DSEM retrospective (hindcast and forecast recruitment
+  within 1e-3, Mohn's rho within 0.004, against 0.80 and 3.40 before).
+
+* **`sim_mod(process = )` ignored its DSEM guard for every spelling but `TRUE`.**
+  The guard tested `isTRUE(process)`, which is `FALSE` for `"all"`,
+  `"dynamics"` and `"recruitment"`, so those returned a data set whose
+  recruitment process had not been redrawn, with no error -- and under `"all"`
+  the accompanying warning listed the other un-drawn processes, which read as
+  confirmation that recruitment had been drawn. It now tests the resolved
+  process vector. `self_test(process = )` had the same hole.
+
+* **`retrospective(rescale = TRUE)` had no effect on a DSEM.** With
+  `family = "fixed"` the covariate columns of the DSEM's latent state matrix ARE
+  the environmental data, held fixed by the map, and their values reach the
+  model as parameter starting values -- which a refit inherits from the parent
+  fit rather than rebuilding. So the peel carried the parent's unrescaled
+  covariate and the rescaling was silently discarded: every path coefficient and
+  the whole latent state matrix came back bit-identical with and without it. The
+  stale block is now dropped so the rebuild supplies covariates standardized on
+  the retained years.
+
+* **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
+  of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
+  They were previously built to `projyr` and held fixed, which still leaves them
+  in the GMRF, where lagged paths tie them to the last hindcast years and pull on
+  the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
+  with `projyr > endyr` will change; that difference is the bias being removed.
+
+* **An `env_data` column with no values at all now warns.** There is no mean to
+  fill the missing years with, so the column reaches TMB as `NaN` for every
+  year, and any index pointed at it (`Cindex`, `M1_indices`, an
+  environmental `Time_varying_q`, a linkage covariate) makes the objective
+  `NaN` with nothing to say why.
+
+* **A compiled model that does not match the R code now says so.** `MakeADFun()`
+  reports a template variable the data and parameter lists do not supply as
+  "Error when reading the variable: '<name>'. Please check data and
+  parameters.", which reads like a problem with the data. The usual cause is a
+  build mismatch -- the C++ was not rebuilt after an update, or an older DLL is
+  still loaded in the session from before a reinstall -- and `fit_mod()` now
+  says that alongside the original message.
+
+## Breaking changes
+
+* **`env_data` is now read as numbers.** It is coerced to a data.frame of
+  numeric columns with an integer `Year` on the way in -- in `read_data()`,
+  `clean_data()` and `rearrange_data()` -- so a table supplied as a matrix, or
+  carrying a column that arrived as text (a workbook column formatted as text,
+  a factor, a character matrix), is usable rather than fatal. A column of text
+  previously survived to `MakeADFun()`, which stopped with "Only numeric
+  matrices, vectors, arrays, factors, lists or length-1-characters can be
+  interfaced" after the fill of missing years had already given up on it
+  ("argument is not numeric or logical: returning NA") and left it `NA` for
+  every year. A cell that is genuinely not a number now names its column and
+  its value instead of becoming an `NA` that the fill would replace with a
+  column mean -- a fabricated observation. Blank cells and the literal `NA` /
+  `NaN` still mean "no value" and are still filled.
+
+## Dependencies
+
+* **`dsem` is a new Suggests, pinned to `== 3.0.0`.** `src/TMB/dsem.hpp` is
+  vendored from that version and `build_dsem_objects()` harvests
+  `dsem::dsem(run_model = FALSE)`'s TMB inputs directly, so a different `dsem`
+  can emit a data layout the compiled template cannot read. The pin is exact
+  rather than a minimum for that reason, and `build_dsem_objects()` checks it
+  and says so. Only DSEM models need it; every other fit is unaffected.
+
+* `utils` is now imported (`utils::head`, `utils::packageVersion`).
+
+
+# Rceattle 5.12.0
+
+## Breaking changes
+
+* **Three `fleet_control` columns are now validated: `Selectivity_dimension`,
+  `Sel_shape_dir` and `Sel_shape_mode`.** A typo in any of them previously
+  resolved to `NA` rather than erroring -- `Selectivity_dimension` became a
+  missing selectivity dimension, the two `Sel_shape_*` columns a missing penalty
+  mode -- and nothing downstream re-checked it, so the model fitted and reported
+  a number on an input nobody had accepted. A workbook carrying an invalid value
+  will now refuse to load.
+
+  Each column is checked against exactly what its consumer implements, so no
+  working spelling is refused: `Sel_shape_mode` accepts `"Smooth"`, `"smooth"`
+  and `1`; `Sel_shape_dir` accepts `"Increasing"`, `"increasing"` and `"-1"`
+  (the ADMB sign convention). `Selectivity_dimension` accepts only `"Age"` and
+  `"Length"`, because those are the only values `rearrange_data()` matches -- an
+  integer there produced `NA` and reached the template as a missing dimension.
+
+  A blank `Selectivity_dimension` cell takes the schema default (`"Age"`) rather
+  than erroring, so the partial-assignment idiom
+  (`fleet_control$Selectivity_dimension[i] <- "Length"`) keeps working. On a
+  model that estimates growth -- where `"Length"` was plausibly meant -- the fill
+  now names the fleets it applied to instead of happening silently. **This can
+  move a fit** on a model that carried blanks: those fleets previously reached
+  the template as a missing dimension, which sizes selectivity by `nlengths`
+  rather than `nages`, and so changes a max-normalized curve. No bundled dataset
+  or golden model is affected -- none carries the column at all.
+
+  This was pre-flighted rather than assumed: a report-only pass over every
+  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and not
+  one value the new check rejects.
+
+* **`write_data()` writes `fleet_control` in schema column order**, as the
+  control and bioenergetics sheets already did. Values are unchanged and
+  round-tripping is identical; only the column order in the workbook moves.
+  The schema order was also tidied so the workbook reads sensibly: `Month` now
+  sits with the fleet identity columns rather than behind 26 selectivity
+  columns, and `Index_distribution` heads the index-observation block with the
+  standard-error settings it governs.
+
+* **`Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) is now an
+  error.** It never worked. `build_map()` gates the log-q deviates on
+  `Time_varying_q %in% c("IID", "AR1", "RandomWalk")`, but under this form
+  `Time_varying_q` holds an `env_data` column index rather than a mode -- so
+  the deviates were never estimated and q came back constant. The fit ran and
+  reported a time-invariant catchability where a time-varying one was asked
+  for, silently.
+
+  It errors rather than warns because a warned fit still returns a `summary()`
+  that looks ordinary, and nothing downstream can tell that its q is constant
+  or its objective inflated. That is the severity `Catchability =
+  "PowerEquation"` already carried, and that switch is merely unimplemented
+  rather than actively divergent. The code is kept in `q_map` so the message
+  below is what a user gets, rather than a generic invalid-switch error.
+
+  Measured on BS2017SS fleet 7, the `Catchability deviates`
+  likelihood row accumulates 54.8 from deviates that are identically zero --
+  the AR1 normalizing constant, plus the environmental index fitted as noise
+  about zero -- so the reported objective is not comparable with any other
+  model's; and `index_q_dev_log_sd` is left free with a gradient of
+  `nyrs_hind` and nothing opposing it, driving its sigma to zero.
+
+  The Rogers form is available as a linkage. `observe` is what makes it QAR1
+  rather than a free AR1 on q -- it names the environmental series the
+  deviates are observed against, the one the legacy switch identified by
+  column index in `Time_varying_q` -- and `obs_sd` is that series' measurement
+  SD, which the legacy switch never asked for and must now be supplied:
+
+  ```r
+  build_catchability(linkages = list(q = linkage_spec(
+    ~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,
+    observe = "<that fleet's env_data column>", obs_sd = <its measurement SD>)))
+  ```
+
+  and pass it to `fit_mod(qFun = )`. `GOA pollock/2025/04-fit-and-diagnostics.R`
+  in `../Rceattle-models` is a worked example: it runs exactly this form.
+
+  The schema marks the code removed too, so `?BS2017SS` and the workbook meta
+  sheet say so before a model is built rather than only at fit time.
+
+  Note this is **not** `Time_varying_q = "AR1"`, a different switch sharing the
+  same string, which puts an AR1 structure on an ordinary `"Estimated"` q and
+  works correctly.
+
+## Bug fixes
+
+* **`Estimate_catch_sd = "Analytical"` now works.** The option was documented in
+  the schema, accepted by `validate_switches()`, and treated as a real mode by
+  `build_map()` (which maps `catch_log_sd` out) -- but the template's dispatch
+  had only cases 0 and 1, so a model using it passed every R-side check and then
+  died inside the fit with `Invalid 'Estimate_sigma_catch'`. It is now
+  implemented, mirroring `Estimate_index_sd = "Analytical"`, and the fitted
+  value is reported per fleet as `catch_analytical_sd`.
+
+  Note this concentrates sigma out of the catch likelihood, so the catch data
+  no longer pins F as tightly as a fixed sd does, and the objective is not
+  comparable to a fixed-sd fit. A model that does not ask for it is unaffected.
+
+* **Both analytical observation sds now account for the lognormal bias
+  adjustment**, so `Estimate_index_sd = "Analytical"` changes fits that use it.
+  Rceattle fits an index or catch series to a mean-unbiased prediction,
+  `log(obs) ~ N(log(pred) - b*sigma^2/2, sigma)` with `b = bias_adjust_obs`
+  (default 1). The Ludwig and Walters (1994) form
+  `sigma = sqrt(mean((log(obs) - log(pred))^2))` is the sd that minimises that
+  density only when `b = 0`, so on a default fit the option did not return the
+  concentrated estimate it advertised. The sd used is now
+
+  ```
+  sigma^2 = 2*S / (sqrt(1 + b^2*S) + 1),   S = mean((log(obs) - log(pred))^2)
+  ```
+
+  which reduces to the Ludwig-Walters form at `b = 0`. On the three `BS2017SS`
+  fisheries the old expression sat 4-17% high and left up to 1.6 units of
+  negative log-likelihood on the table. No bundled dataset, reference model or
+  live assessment sets either switch to `"Analytical"`, so no fit anyone runs
+  today moves; a model that does use it will. The one workbook in the ecosystem
+  that sets it (`Pacific hake/Data/Bridging/hake_bridging6_2022.xlsx`, read only
+  by a deprecated script) returned a `NaN` objective before this change too --
+  its second index fleet has a zero predicted index in every hindcast year.
+
+* **A fishery asking for an analytical catch sd with nothing to estimate it
+  from is now refused by `data_check()`**, as is the index equivalent. With no
+  fitted positive observation the sd is undefined, and it used to fall through
+  as 0 -- which the likelihood never reads, but the reported `index_sd` /
+  `catch_sd` and the `sim_mod()` draw both do, and `rnorm(mean, 0)` is a
+  deterministic observation. A zero-catch year is legal input, so this is
+  reachable on the catch side; on the index side `data_check()` already refused
+  a non-positive observation, and the matching guard added to the index
+  estimator is parity rather than a live fix.
+
+* **`write_data()` no longer fails on a workbook that predates a control or
+  bioenergetics switch.** Both sheets were assembled from the full schema
+  object list -- the control sheet by `rbind()`, which drops a `NULL`, and the
+  bioenergetics sheet by hard-coded row index into a fixed-height matrix. An
+  absent object therefore aborted the whole write with `arguments imply
+  differing number of rows` or `number of items to replace is not a multiple of
+  replacement length`. The live Pacific hake workbook hits this: it predates
+  `alpha_wt_len` / `beta_wt_len`, so `read_data()` then `write_data()` could not
+  round-trip it. Both sheets now write the objects the `data_list` actually
+  carries, in schema order, as `fleet_control` already did.
+
+  Absent objects are dropped rather than written at their schema default: the
+  default belongs to the model, and baking one into a workbook would turn a
+  value `switch_check()` announces at fit time into one the file asserts.
+  Keying the bioenergetics rows by name also retires the duplicate row-order
+  list that had to be kept in sync with the schema by hand.
+
+* **`switch_check()` accepted the selectivity spelling `"Non-parametric"` while
+  `validate_switches()` rejected it**, so a model written that way loaded, was
+  normalised to nothing, and then failed its own data check. It is now upgraded
+  to `"NonParametric"` on the way in.
+
+## New features
+
+* **`write_template()` writes every column the schema defines.** The
+  hand-written list had fallen 14 columns behind, and a column missing from the
+  template is how a user never learns an option exists. The penalty weights
+  `Sel_curve_pen1/2/3` are deliberately left blank rather than seeded with their
+  schema default of 0: `switch_check()` converts `Sel_shape_sd` /
+  `Sel_curvature_sd` / `Sel_devmag_sd` into a weight only where the raw weight
+  is still blank, so a seeded 0 would silently disable that interface and leave
+  a non-parametric fit with no shape penalty at all.
+
+* **The model-level switches have one table**, `.rce_model_switch_schema()`, and
+  the comments `save_config()` writes are projected from it. `estimateMode`'s
+  `DebugOptimize` was a real mode the comments never mentioned, and `msmMode`
+  was described in prose naming none of its canonical values. Each comment now
+  gives the integer code beside the readable name
+  (`SingleSpecies (0) / MSVPA (1) / TypeIIIMSVPA (2)`), since a saved config
+  writes the switch as the number.
+
+# Rceattle 5.11.1
+
+## Documentation
+
+* **The vignettes can now be executed.** They still render without running their
+  code by default -- several chunks fit real models -- but
+  `RCEATTLE_EVAL_VIGNETTES=true` turns evaluation on, and a new weekly
+  `vignettes.yaml` CI job runs them for real. Nothing executed them before, so an
+  API break in a vignette was invisible until a user copied the code. That is how
+  `hcrs-and-mses.Rmd` kept calling `knitr::kable()` on `mse_summary()` for several
+  releases after it started returning a list; that code is fixed, and the
+  per-entity structure (`$species`, `$fleet`, `$total`, `$meta`) is now explained.
+
+* **The switch tables document every value the model accepts.** `Selectivity`
+  stopped at 7, omitting `DoubleNormal` (8), `NonParametricPM` (9) and
+  `LogisticPM` (11); `Catchability` stopped at 6, omitting `AnalyticalArith` (7).
+  `PowerEquation` is now marked as not implemented, and the 5.8.1 deprecation of
+  `"Environmental"` (deprecated in 4.9.0) is recorded with the linkage that replaces it.
+
+* **`Index_distribution` is documented.** It had no vignette coverage at all,
+  despite deciding whether an index is scored on the log or the natural scale --
+  and despite a second, hand-synced registry (`.index_rows_natural_scale()`) that
+  a new natural-scale family must also be added to, or it silently gets the
+  log-scale residual formula.
+
+* `reweight_comps(fleets =)` is documented, as is the log scale `Comp_weights`
+  takes under a Dirichlet-multinomial. `fit_mod()`'s `initMode` moves from an
+  849-character `@param` into an **Initial age structure** section, and
+  `suitMode` / `avgnMode` now say "declared but not implemented" in one voice
+  rather than three. Examples added to `build_srr()`, `build_hcr()`,
+  `mse_summary()`, `sim_mod()`, `model_average()`, `osa_residuals()` and
+  `run_mse()`.
+
+* The vignettes and `build_data()`'s help no longer tell users to call
+  `data_check()`, which is internal; they point at `build_data(.check = TRUE)`.
+
+## Internal
+
+* Removed `flt_sel_ind`. `rearrange_data()` computed it from `Fleet_code` on
+  every fit and nothing read it -- it was declared in no `DATA_` object and
+  referenced nowhere in the package or the assessment repos.
+
+* **The C++ dispatch branches are pinned to the R maps that select them**
+  (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
+  inventory of what is implemented in the template but unreachable from R
+  (non-parametric growth; `msmMode` 3-9) and what R can encode but the dispatch
+  never sees. The schema's `tmb_target` field, previously set on no rows, now
+  carries the rename for 27 columns and is checked against both ends of it.
+
+* `R/data.R`'s field dictionary is pinned against the switch maps: a documented
+  code the map does not define, or a map value the dictionary omits, now fails.
+  It also may no longer present a deprecated alias as a canonical column.
+
+* `.rce_config_schema()` reads `estimateMode_map` and `msmMode_map` instead of
+  hardcoding them, so the comments `save_config()` writes list every valid value.
+  `estimateMode` was missing `DebugOptimize`.
+
+# Rceattle 5.11.0
+
+## New features
+
+* **The diagnostics all take the fitted model as `object`.** The same argument
+  was previously spelled `Rceattle` in `retrospective()`, `jitter()`,
+  `self_test()`, `sim_mod()`, `sample_rec()`, `remove_F()` and
+  `model_average()`, and `fit` in `reweight_comps()`, `osa_residuals()` and
+  `process_residuals()` -- so which name to use depended on which diagnostic you
+  reached for, and `Rceattle` collided with the package name
+  (`Rceattle::retrospective(Rceattle = mod)`). All ten now take `object`, matching
+  `convergence_diagnostics()` and R's own `summary()`/`coef()`/`vcov()` methods.
+
+  **Existing scripts keep working unchanged.** The old names are still accepted
+  and are silent in this release; they begin warning in a future version. To find
+  your own call sites early, set
+  `options(Rceattle.warn_deprecated_args = TRUE)`. Supplying both names for one
+  model is an error rather than a guess.
+
+  Positional calls are unaffected: the old name is the last formal on every one
+  of the ten, and the new `phase` and `fit_control` arguments below are appended
+  after the arguments that predate them rather than inserted among them.
+  `profile()` keeps `fitted` because it is an S3 method for `stats::profile()`,
+  and `mse_summary(mse =)` and `compare_sim(operating_mod =)` keep their names
+  because they take an MSE result and a simulation set, not a fitted model.
+
+* **`sim_mod()`, `sample_rec()`, `remove_F()` and `model_average()` now say what
+  is wrong when they are given something that is not a fitted model.** They
+  previously failed further in with `argument is of length zero` or
+  `invalid 'type' (list) of argument`.
+
+* **`fit_mod()` reports a composition weight of 1 on a Dirichlet-multinomial
+  fleet.** That likelihood reads `Comp_weights`,
+  `CAAL_weights` and `Diet_comp_weights` as the LOG of the starting weight, so
+  the value `write_template()` seeds (1) is a starting weight of e, and a weight
+  of 1 is written as 0. A model built from the template and switched to a
+  Dirichlet-multinomial previously started at e with nothing saying so. Only an
+  exact 1 is reported, so a deliberate value is left alone, and Off fleets and
+  fleets carrying no composition data are skipped. It fires once per fit, and
+  the diagnostic refits suppress it the way they already suppress
+  `data_check()`. No value and no fit changes -- this is a message.
+
+* **`retrospective()`, `jitter()` and `self_test()` accept
+  `fit_control = fit_control(...)`,** matching `fit_mod()`. Only `phase` and
+  `getsd` are read, because those are what these diagnostics forward to each
+  refit; setting any other field is an error rather than a silent no-op.
+  Supplying it replaces the defaults they otherwise infer from the fitted model.
+  Omitting it -- the default -- leaves every existing call behaving exactly as
+  before.
+
+  Which fields you asked for is read from what you **set** -- named in the
+  `fit_control()` call, or assigned to afterwards (`ctl$getsd <- TRUE`) -- not
+  from whether the value differs from a default. So `fit_control(getsd = TRUE)`
+  and `fit_control(phase = FALSE)` do what they say even though `TRUE` and
+  `FALSE` are those fields' defaults. A field you never touch keeps the
+  diagnostic's own default, which is not always `fit_control()`'s:
+  `retrospective()` phases its peels where `fit_control()` does not, so
+  `fit_control(getsd = FALSE)` asks about standard errors and cannot also
+  flatten Mohn's rho.
+
+* **`?rceattle-refit-args` documents the vocabulary `retrospective()`,
+  `jitter()` and `self_test()` share** -- `object`, `cores`, `fit_control`, and
+  what `fit_control()` reaches through a refit -- the way
+  `?rceattle-plot-args` already does for the plotters. `phase`, `getsd` and
+  `timeout` stay on each function, because their defaults and what they mean for
+  that diagnostic differ.
+
+* **`retrospective()` takes `phase`,** the value it previously fixed internally.
+  The default is `TRUE`, which is what it always used: a peel restarts from the
+  unpeeled fit's starting values with a year removed, so without phasing the
+  parameters barely move, the peels sit on top of the full model, and Mohn's rho
+  is biased towards zero. No peel changes unless you set it.
+
+* **`?jitter` now records that attaching Rceattle masks `base::jitter()`.** The
+  function keeps its name; call `base::jitter()` for the base-graphics
+  behaviour.
+
+## Bug fixes
+
+* **A parallel `retrospective()`, `jitter()` or `self_test()` called under the
+  deprecated `Rceattle =` name no longer sends the fitted model to each Windows
+  worker twice.** The PSOCK path exports the caller's whole frame, and both
+  argument names were bound to the same model. macOS and Linux use FORK and were
+  never affected. No result changes -- this is transfer time and worker memory.
+
+## Deprecations
+
+* `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
+  above. Accepted silently now, warning from 5.14.0, removed in 6.0.0. (The
+  releases on this line are unreleased, so the silent grace period has not yet
+  reached a user; the warning horizon moves with it. Turning it on is one edit
+  to `.rce_deprecate_warn()`.)
+* `rearrange_dat()` now names its removal version (6.0.0) rather than
+  deprecating open-endedly. Use `rearrange_data()`.
+
+# Rceattle 5.10.0
+
+## New features
+
 * **The timeseries, predation and selectivity plotters now share one set of
   arguments, and use them.** Only `plot_timeseries()` ever honoured `line_col`,
   `lwd`, `lty` and `alpha`; the others declared them and ignored them, so
@@ -243,116 +707,38 @@
   two-species run would otherwise warn on every fit. Only a partial gap in a
   species that is eaten somewhere is evidence of truncation.
 
+## Bug fixes -- figures whose numbers change
+
+Three predation plotters drew quantities that did not match their axis labels.
+All are corrected, so figures regenerated from them will differ from earlier
+runs of the same model.
+
+* **`plot_m2_at_age_prop()` draws a share, not a contribution.** `M2_prop` holds
+  each predator's contribution to M2, which sums over predators to `M2_at_age`,
+  so the plotted "proportion" reached 1564 on `BS2017MS`. The contributions are
+  now divided by their total, giving shares in [0, 1] that sum to 1 across
+  predators for each prey age and year; a prey age with no predation in a year
+  leaves them undefined and draws nothing. The y axis reads "Share of M2 at age
+  `<age>` by predator".
+
+* **`plot_ration()` multiplies the ration by average numbers-at-age, not
+  biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
+  numbers-at-age are in thousands, so the product is mt -- the way the template
+  forms total consumption (`avgN_at_age * ration`, `predation.hpp`). Multiplying
+  by biomass instead weighted the age-sum by weight-at-age, so "million mt"
+  described nothing it computed. Average numbers rather than start-of-year
+  numbers, so the series reconciles with `plot_b_eaten()`; under the default
+  `avgnMode = 0`, `N_at_age` would overstate it by `1 / ((1 - exp(-Z)) / Z)`. On
+  a fitted `BS2017MS` the first year drops 38.3% for pollock, 20.1% for cod and
+  13.5% for arrowtooth flounder.
+
+* **`plot_b_eaten()` is in million mt.** It plotted `B_eaten_as_prey` in the mt
+  the model reports it in, while `plot_b_eaten_prop()` -- the same quantity
+  broken down by predator -- was in million mt, so the two could not be read
+  side by side. Both are now in million mt, the display unit the timeseries
+  plotters use. `p$data` moves by the same factor of 1e6.
+
 ## Bug fixes
-
-* **A retrospective peel no longer shrinks the estimated process SDs.** A peel
-  does not shorten the model -- it turns data off after `endyr_peel` -- and it
-  pinned the random-effect deviations in the peeled years: `rec_dev` at zero,
-  and `log_M1_dev`, `index_q_dev` and the three selectivity blocks carried
-  forward from the last fitted year. Those pinned values were still scored by
-  their densities, which is fabricated rather than missing data, and maximally
-  informative fabricated data: "the deviation was exactly zero", or for the
-  carried-forward random-walk blocks "the increment was exactly zero", is the
-  strongest evidence available for a small process SD. The estimate shrank as
-  `sqrt((N - k)/N)` in the number of peeled years `k` -- on a 39-year model,
-  -1.3% at one peel, **-6.6% at the default `peels = 5` and -13.8% at 10** --
-  and because it grew with peel depth it was a trend across peels, in the same
-  quantity Mohn's rho is computed from, leaving every peeled forecast
-  overconfident.
-
-  Deviations that are random effects are now left free in the peeled years, so
-  the Laplace approximation integrates them out, which is what no data should
-  mean. Deviations that are not random effects in a given model are still
-  pinned; free would leave them unidentified. This was already how
-  `beta_linkage_re` behaved -- it was never pinned -- and how a DSEM's latent
-  states behave, and neither carried the bias, which is what identified it.
-
-  Measured on BS2017SS: the deepest peel's recruitment SD now matches a DSEM
-  peel of the same model to 1e-6 at both one and five peels, against ratios of
-  0.985 and a predicted 0.934 before. Retrospectives and Mohn's rho on any model
-  with estimated random effects will change; that difference is the bias being
-  removed. Models with no random effects are unaffected.
-
-
-* **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
-  does not declare the `dsem_*` blocks -- they come from the DSEM builder -- so
-  `fit_mod()` dropped them out of any supplied `inits` and then refilled them
-  from a freshly built template, i.e. their START values. This was invisible
-  wherever the DSEM was re-estimated (any start reaches the same optimum) and
-  wrong wherever it was held fixed. `retrospective()` holds the whole DSEM fixed
-  in its forecast refit, so every peel ran with the recruitment SD at its start
-  value: 0.707107 for every species regardless of the fit. On BS2017SS with a
-  naive sem that put an 80% error in the peeled hindcast and flipped the sign of
-  Mohn's rho (-0.49 against +0.13). Only models ESTIMATING the recruitment SD
-  were affected; a sem that fixes it reads the fixed value and never saw this.
-  `profile()` on a DSEM fit was affected the same way -- every grid point reset
-  the model -- as was `estimateMode = 2`, which reprojected from the reset
-  values.
-
-* **`retrospective()`'s forecast bias adjustment did nothing on a DSEM.** It
-  wrote `rec_dev`, which the template overwrites from the latent states on the
-  next evaluation, so the retrospective forecast silently kept the GMRF's own
-  projection instead of the bias-adjusted mean -- a 44% difference in forecast
-  recruitment against the non-DSEM path. It now writes the latent state that
-  `rec_dev` is derived from.
-
-  Together these two restore the contract a naive (IID) DSEM is judged by: it
-  now reproduces a non-DSEM retrospective (hindcast and forecast recruitment
-  within 1e-3, Mohn's rho within 0.004, against 0.80 and 3.40 before).
-
-* **`sim_mod(process = )` ignored its DSEM guard for every spelling but `TRUE`.**
-  The guard tested `isTRUE(process)`, which is `FALSE` for `"all"`,
-  `"dynamics"` and `"recruitment"`, so those returned a data set whose
-  recruitment process had not been redrawn, with no error -- and under `"all"`
-  the accompanying warning listed the other un-drawn processes, which read as
-  confirmation that recruitment had been drawn. It now tests the resolved
-  process vector. `self_test(process = )` had the same hole.
-
-
-* **`retrospective(rescale = TRUE)` had no effect on a DSEM.** With
-  `family = "fixed"` the covariate columns of the DSEM's latent state matrix ARE
-  the environmental data, held fixed by the map, and their values reach the
-  model as parameter starting values -- which a refit inherits from the parent
-  fit rather than rebuilding. So the peel carried the parent's unrescaled
-  covariate and the rescaling was silently discarded: every path coefficient and
-  the whole latent state matrix came back bit-identical with and without it. The
-  stale block is now dropped so the rebuild supplies covariates standardized on
-  the retained years.
-
-* **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
-  of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
-  They were previously built to `projyr` and held fixed, which still leaves them
-  in the GMRF, where lagged paths tie them to the last hindcast years and pull on
-  the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
-  with `projyr > endyr` will change; that difference is the bias being removed.
-
-* **`env_data` is now read as numbers.** It is coerced to a data.frame of
-  numeric columns with an integer `Year` on the way in -- in `read_data()`,
-  `clean_data()` and `rearrange_data()` -- so a table supplied as a matrix, or
-  carrying a column that arrived as text (a workbook column formatted as text,
-  a factor, a character matrix), is usable rather than fatal. A column of text
-  previously survived to `MakeADFun()`, which stopped with "Only numeric
-  matrices, vectors, arrays, factors, lists or length-1-characters can be
-  interfaced" after the fill of missing years had already given up on it
-  ("argument is not numeric or logical: returning NA") and left it `NA` for
-  every year. A cell that is genuinely not a number now names its column and
-  its value instead of becoming an `NA` that the fill would replace with a
-  column mean -- a fabricated observation. Blank cells and the literal `NA` /
-  `NaN` still mean "no value" and are still filled.
-
-* **An `env_data` column with no values at all now warns.** There is no mean to
-  fill the missing years with, so the column reaches TMB as `NaN` for every
-  year, and any index pointed at it (`Cindex`, `M1_indices`, an
-  environmental `Time_varying_q`, a linkage covariate) makes the objective
-  `NaN` with nothing to say why.
-
-* **A compiled model that does not match the R code now says so.** `MakeADFun()`
-  reports a template variable the data and parameter lists do not supply as
-  "Error when reading the variable: '<name>'. Please check data and
-  parameters.", which reads like a problem with the data. The usual cause is a
-  build mismatch -- the C++ was not rebuilt after an update, or an older DLL is
-  still loaded in the session from before a reinstall -- and `fit_mod()` now
-  says that alongside the original message.
 
 * **The `diet_data` age-bound check compares each species against its own
   `nages`.** It matched them by position, so a species missing from the `Pred`
@@ -437,37 +823,6 @@
   reference index. `?"rceattle-plot-args"` is listed there too, so the topic the
   plotter help and the vignettes point at has a page on the site.
 
-## Bug fixes -- figures whose numbers change
-
-Three predation plotters drew quantities that did not match their axis labels.
-All are corrected, so figures regenerated from them will differ from earlier
-runs of the same model.
-
-* **`plot_m2_at_age_prop()` draws a share, not a contribution.** `M2_prop` holds
-  each predator's contribution to M2, which sums over predators to `M2_at_age`,
-  so the plotted "proportion" reached 1564 on `BS2017MS`. The contributions are
-  now divided by their total, giving shares in [0, 1] that sum to 1 across
-  predators for each prey age and year; a prey age with no predation in a year
-  leaves them undefined and draws nothing. The y axis reads "Share of M2 at age
-  `<age>` by predator".
-
-* **`plot_ration()` multiplies the ration by average numbers-at-age, not
-  biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
-  numbers-at-age are in thousands, so the product is mt -- the way the template
-  forms total consumption (`avgN_at_age * ration`, `predation.hpp`). Multiplying
-  by biomass instead weighted the age-sum by weight-at-age, so "million mt"
-  described nothing it computed. Average numbers rather than start-of-year
-  numbers, so the series reconciles with `plot_b_eaten()`; under the default
-  `avgnMode = 0`, `N_at_age` would overstate it by `1 / ((1 - exp(-Z)) / Z)`. On
-  a fitted `BS2017MS` the first year drops 38.3% for pollock, 20.1% for cod and
-  13.5% for arrowtooth flounder.
-
-* **`plot_b_eaten()` is in million mt.** It plotted `B_eaten_as_prey` in the mt
-  the model reports it in, while `plot_b_eaten_prop()` -- the same quantity
-  broken down by predator -- was in million mt, so the two could not be read
-  side by side. Both are now in million mt, the display unit the timeseries
-  plotters use. `p$data` moves by the same factor of 1e6.
-
 ## Behavior changes
 
 * **`age`, `minage` and `maxage` are ages, not age-bin indices.**
@@ -515,7 +870,6 @@ runs of the same model.
 ## Dependencies
 
 * `ggplot2` now requires >= 3.5.0.
-
 
 # Rceattle 5.9.0
 
@@ -1100,7 +1454,6 @@ notes describe what actually shipped. No code changes.
   quantity are unchanged -- only the printed likelihood value moves. Compare
   likelihoods within a version, not across this boundary.
 
-
 # Rceattle 5.8.0
 
 ## New features
@@ -1292,8 +1645,6 @@ notes describe what actually shipped. No code changes.
   thousands of fish.
 
 
-
-
 # Rceattle 5.7.0
 
 ## Breaking changes
@@ -1459,7 +1810,6 @@ notes describe what actually shipped. No code changes.
   Management Council" in `?build_hcr`, and "the the diet" in the `diet_data`
   schema description, which is written verbatim into the bundled
   `meta_data_names.xlsx` (regenerated to match).
-
 
 # Rceattle 5.6.1
 

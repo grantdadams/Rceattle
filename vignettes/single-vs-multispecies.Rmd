@@ -12,7 +12,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE,
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true"),
   fig.width = 7,
   fig.height = 5
 )
