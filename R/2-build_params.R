@@ -266,8 +266,6 @@ build_params <- function(data_list) {
     param_list$log_obs_sd_linkage <- numeric(0)
   }
 
-  #TODO variance and AR1 parameters
-
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
