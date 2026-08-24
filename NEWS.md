@@ -11,6 +11,17 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.14.1
+
+## Documentation
+
+* **Two misspellings corrected where they described a switch value.**
+  `vignette("model-parameterizations")` wrote "specificed" for the
+  `Time_varying_sel = 3` block form in three places, and both that vignette and
+  `build_map_selectivity()` wrote "selecitivty" for the
+  `Selectivity = "NonParametric"` form of Ianelli et al. (2018). Text only; no
+  switch, default or fit changes.
+
 # Rceattle 5.14.0
 
 ## Behavior changes

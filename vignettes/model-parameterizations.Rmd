@@ -125,7 +125,7 @@ $$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,
 Multiple age-based selectivity functions are supported by Rceattle. They are controlled by `Selectivity_index`, `Selectivity`, `N_sel_bins`, `Time_varying_sel`, `Time_varying_sel_sd`, and `Bin_first_selected` in fleet_control sheet of an Rceattle data file. They are defined as follows:
 
 * `Selectivity_index`:	index to use if selectivities of different surveys are to be the same
-* `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake), 6 or "2DAR1" for age by year, 7 or "3DAR1" sensu Cheng et al (2025).
+* `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selectivity sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake), 6 or "2DAR1" for age by year, 7 or "3DAR1" sensu Cheng et al (2025).
 * `N_sel_bins`:	Number of ages to estimate non-parametric selectivity. For example, if `minage = 1` and selectivity parameters are estimated up till age-6, `N_sel_bins = 6` and if `minage = 0` and selectivity parameters are estimated up till age-6, `N_sel_bins = 7`.  Not used otherwise
 * `Time_varying_sel`:	Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, descending logistic, or non-parametric selectivity (`Selectivity = 5 or "Hake"`). 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3 = time blocks with no penalty, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. 
 * `Time_varying_sel_sd`:	The sd of the time-varying selectivity deviates. With `random_sel = FALSE` in `fit_mod()` it is fixed at this value, per fleet. With `random_sel = TRUE` the deviates are integrated out and this sd is *estimated*, so the value here is only a starting value — and fleets sharing a `Selectivity_index` share one estimated sd, started at the geometric mean of theirs. `Time_varying_q_sd` is the catchability equivalent, under `random_q`.
@@ -161,7 +161,7 @@ Penalized likelihood: `Time_varying_sel = 1`
 $$\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) $$
 Random effect: `Time_varying_sel = 2` $\hat\sigma^{\phi}_{f_i}$ is estimated
 $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
-Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specificed:
+Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specified:
 $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
@@ -180,7 +180,7 @@ Penalized likelihood: `Time_varying_sel = 1`
 $$\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) $$
 Random effect: `Time_varying_sel = 2` $\hat\sigma^{\phi}_{f_i}$ is estimated
 $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
-Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specificed:
+Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specified:
 $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
@@ -212,7 +212,7 @@ Penalized likelihood: `Time_varying_sel = 1`
 $$\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) $$
 Random effect: `Time_varying_sel = 2` $\hat\sigma^{\phi}_{f_i}$ is estimated
 $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
-Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specificed:
+Block: `Time_varying_sel = 3` main parameters are set to 0 and the following is specified:
 $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
