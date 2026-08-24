@@ -5,80 +5,92 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**Four stacked PRs are pushed and ready to open**, each a strict prefix of the next, all four on
-`dev`. Open and merge them in order; each is independently reviewable and its own CI runs.
+**PR #119 releases `dev` onto `main`: 5.8.1 → 5.15.0, 133 commits.** It is the first release on
+this line since 5.8.1, and it carries nine merged PRs (#109, #110, #112–#118) plus three commits
+added on the PR itself. `main` is 0 commits ahead, so the merge is a fast-forward.
 
-| Branch | Commits | Contents | Can it move a number? |
-|---|---|---|---|
-| `pr1-api-tooling-and-guards` | 8 | Stage 6 `object=` API, Stage 0 Claude tooling + CLAUDE.md, Stage 1 drift guards | **No** — and it carries the guards the rest rely on, so merge it first |
-| `pr2-schema-authority` | +5 | Stage 2 docs, Stage 3 schema authority, Stage 4/5, both adversarial-review rounds | **Yes — this is the one that can refuse a workbook** |
-| `pr3-schema-order-and-qar1` | +2 | fleet_control column order, `flt_sel_ind` removal, QAR1 deprecation | changes workbook layout only |
-| `pr4-analytical-catch-sigma` | +1 | `Estimate_catch_sd = "Analytical"` implemented in the template | new capability; golden bit-identical |
+Open as a **draft** until CI reports. Once merged, tag `v5.15.0` and draft a GitHub Release from
+it — `inst/RELEASE-CHECKLIST.md` §3. The `pkgdown` workflow rebuilds on the `release` event.
 
-`api-object-argument` is the old integration branch, at the same commit as `pr3`. It can be
-deleted once the four are open.
+## Done & verified on #119
 
-**The single thing to read closely in pr2** is the three-column hard error
-(`Selectivity_dimension`, `Sel_shape_dir`, `Sel_shape_mode`). It is the only change in the whole
-series that can refuse a workbook that previously loaded. It was pre-flighted over every workbook
-in the ecosystem -- 196 with a `fleet_control` sheet, **zero** rejected -- and each column is
-validated against exactly the spellings its consumer implements, so no working input is refused.
-It could not be split out of pr2 without hunk surgery on two schema files.
+- **Suite green**: 0 failures, 3 skips (`NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`).
+- **Golden bit-identical** on all four reference models — but see the caveat below; it does not
+  cover the 5.15.0 changes.
+- **Pacific hake MSE run end to end on this branch AND on `main`**, and the hindcast is identical
+  across the whole release: 2133.821 / 2134.471 / 2137.443 / 2260.706, vulnerability ATF→hake
+  0.8172141 and SBF→hake 0.7685885. `run_mse()` completed both sims; `mse_summary()` returned all
+  four blocks. **The `-1.612` on the estimated-suitability stage is not a regression** — it is
+  against a 5.6.1 inline comment in `../Rceattle-models/Pacific hake/04-mse.R`, and `main` returns
+  the same 2260.706. That comment is stale; the folder `README.md` only pins the first three.
+- **Ecosystem sweep clean.** No exported symbol removed or added between `main` and `dev`;
+  `NAMESPACE` gains only three `Rceattle_fit_control` replacement methods and `simulate.Rceattle`.
+  Every deprecated spelling still live downstream resolves through a shim: `right_adj` ×154,
+  `est_M1` ×40, `srr_pred_fun` ×24, `qFun` ×7, `single.plots` ×7, `rearrange_dat` ×6.
+- `urlchecker::url_check()` clean (20 URLs); `_pkgdown.yml` covers every export.
 
-## Done & verified
+## The 5.15.0 work, and what actually covers it
 
-- **Final state**: suite **7248 pass / 0 fail / 3 skip**; golden `identical()` to the `dev`
-  baseline; `verify-refit-like.R` bit-identical across all 32 fits; all seven new `@examples`
-  execute cleanly through `tools::Rd2ex`.
-- **Stage 6** (at the time): suite 6925 pass / 0 fail. Golden 4-model capture `identical()` TRUE, every field
-  `0.000e+00`. `verify-refit-like.R` bit-identical across all 32 fits. Ecosystem sweep found 15
-  old-name call sites, all shimmed, and zero calls passing both spellings.
-- **The golden reference on `dev` is `ss = 10241.0304272585`** (`ms = 10267.2478324443`,
-  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), measured against a `dev` worktree.
-  A different value had been recorded in the local agent file and was wrong.
-- **The Stage 3 hard error was pre-flighted, not assumed.** A report-only pass over every
-  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and **not one** value the
-  new check rejects. That is why it ships as an error rather than a warning, and why this is
-  5.12.0 rather than 6.0.0.
-- Every drift guard was mutation-tested: renumbering a map value, adding an undispatched code,
-  dropping a documented one, and removing the deprecated SRR codes each turn the suite red.
+`MSSB0` is the multispecies unfished SSB. The template discards its own equilibrium `SB0` under
+`msmMode > 0` and reads this `DATA_VECTOR` instead, so `ssb_depletion` is `ssb / MSSB0`. No
+workbook can supply it: `clean_data()` seeds `.RCE_MSSB0_PLACEHOLDER` (999 mt) and `fit_mod()`
+section 10.2 derives the real value by projecting under no fishing.
+
+- **It was written only into `data_list_reorganized`**, so the returned `data_list` kept the 999
+  and every refit off a fitted object re-entered the template with it — `.refit_like()`,
+  `remove_F()`, every `run_mse()` projection. `SB0` is also the HCR threshold and the `posfun`
+  floor on `ssb_depletion - Plimit`, so a multispecies refit compared SSB against 999 mt. Fixed.
+- **`mse_summary()` divided by the placeholder regardless.** With `HCR = "NoFishing"` no unfished
+  reference is ever derived (section 10 is gated on `HCR != "NoFishing"`), and the hake model
+  reported a terminal depletion of 2.68e3 where the dynamic reference gave 0.96. `NA` now.
+- **`DynamicHCR` was unusable under multispecies**: the no-HCR arm of the depletion block ran
+  unconditionally and overwrote `ssb/DynamicSB0`, pinning terminal depletion at exactly 1.
+  Gated on `DynamicHCR == 0` now. **That arm is correct as written** — with `HCR = 0` the
+  projection is unfished, so terminal-year SSB *is* multispecies SB0, given enough projection
+  years to equilibrate.
+
+**`/golden-check` is silent on all of it.** The golden recipe passes no HCR, so `HCR = 0`: the
+reference-point penalties never enter the objective and `SB0` is overwritten by `MSSB0` anyway.
+The net is `test-dynamics-unfished-reference.R` (9 assertions, mutation-tested — removing the
+persistence line leaves `MSSB0` at 999 where the fit derived 27796.7 and 189.7 mt), a before/after
+probe against the pre-change build on BS2017MS, and the hake MSE.
 
 ## For Grant's review
 
-1. **`write_data()` now writes `fleet_control` in schema order**, matching what the control and
-   bioenergetics sheets already did. Values round-trip identically on all three bundled datasets.
-   But **`Month` moves from column 5 to column 48**, because the schema declares it late. That is
-   a worse layout for a human reading the workbook. Options: reorder the schema rows so the
-   workbook reads sensibly, or drop the fleet_control reordering. **Your call.**
-2. **`.PAR_INFO` omits 7 declared parameters** -- `index_q_pow` and the six Kinzey-Punt
-   `logH_*`/`H_4`. All belong to stubbed features, so they are pinned as exempt rather than
-   documented. If any of those features is being picked up, the exemption should go.
-3. **`flt_sel_ind` is dead.** `rearrange_data()` computes it from `Fleet_code` on every fit and
-   nothing -- R or C++ -- reads it. Left alone because removing it is a behaviour change, not a
-   cleanup.
-4. **`inst/dev/CLEANUP_BACKLOG.md` Tier 0 lists 9 known defects** taken from FIXME text in the
-   source, including that **QAR1 is inert** -- `Catchability = "AR1"` (the Rogers et al. 2024
-   form) can be set and does nothing, because the deviate map is gated on `Time_varying_q`,
-   which under QAR1 holds an `env_data` column index rather than a mode
-   (`R/3-build_map.R:1181`). Note this is **not** `Time_varying_q = "AR1"`, which is a
-   different switch sharing the same string and works correctly. Also that `run_mse()`'s catch
-   fill-in does not work for `assessment_period > 1`. Each needs an issue if it is real.
+1. **`SB0`/`SBF` are still carried on `M_at_age`** under predation, whose `M2` comes from the
+   *fished* predator field — an unfished reference built on a fished mortality. Correcting it needs
+   an equilibrium `M2` that `calculate_msvpa_predation()` does not compute: it carries three
+   variants (fished, dB0, dBF), and an equilibrium pair means 6 new arrays and 6 new solver
+   parameters inside the `iter` fixed-point loop. Measured on BS2017MS at `estimateMode = 4`:
+   switching `NByageF` to `M_at_age_dBF` alone moved `SBF` by 5.27; `NByage0` to `M_at_age_dB0`
+   moved summed `NByage0` by 16808.7. Marked `TODO(review)` at the site, deferred as too invasive
+   for a release PR. **Settle the definition first**: `NByage0` is not a strict equilibrium — mean
+   recruitment and terminal-year weights, but year-specific M1 and R0 — so "equilibrium M2" here
+   means dB0 without recruitment deviations.
+2. `DynamicSB0`/`DynamicSBF` now decay to spawning on the M they were propagated on. Only bites
+   when `spawn_month != 0` **and** `msmMode > 0`; no bundled dataset carries both, so nothing
+   measurable moved. Worth confirming against a real assessment that has a spawning month.
+3. **PR #119 grew past its original scope.** It began as a release of already-reviewed commits and
+   now also carries a template change and a behaviour change to multispecies refits. Those are
+   verified, but they were not part of what #109–#118 were reviewed as.
 
 ## Known flags
 
-- **5.10.0 moved three predation figures' numbers** -- `plot_m2_at_age_prop()` (a share now, not
-  a contribution), `plot_ration()` (x average numbers-at-age) and `plot_b_eaten()` (million mt).
-  Any figure regenerated from them differs from earlier runs. `plot_selectivity()` also renames
-  `p$data$Age` to `Bin`.
-- **Result-changing changes on this line that are not labelled breaking**: the mode-5 selectivity
-  penalty fix (GOA Pacific cod SSB 2050 -14.1%), parameter bounds previously applied to the wrong
-  parameters, composition weights warm-starting from `inits`, failed `run_mse()` simulations
-  returning only a marker, the `mse_summary()` reshape, the recruitment fixes, and `sim_mod()`
-  drawing the index under the fleet's own `Index_distribution`. **A model carrying GOA numbers
-  forward needs a refit.**
-- The `nages` age-vs-index defect in the three predation plotters **is fixed** (`d4cdfb2f`), and
-  the class is now closed by `minage != 1` fixtures. CLAUDE.md's "still wrong" note was stale and
-  has been corrected. The same class survives in the template at `src/TMB/ceattle.cpp:1943`.
+- **A model carrying GOA numbers forward needs a refit.** Result-changing changes on this line not
+  labelled breaking: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%),
+  parameter bounds previously applied to the wrong parameters, `remove_F()` zeroing fitted hindcast
+  F when `suit_endyr < endyr`, composition weights warm-starting from `inits`, failed `run_mse()`
+  simulations returning only a marker, the `mse_summary()` reshape, the recruitment fixes, and
+  `sim_mod()` drawing the index under the fleet's own `Index_distribution`.
+- **5.10.0 moved three predation figures' numbers** — `plot_m2_at_age_prop()` (a share, not a
+  contribution), `plot_ration()` (× average numbers-at-age) and `plot_b_eaten()` (million mt).
+  `plot_selectivity()` also renames `p$data$Age` to `Bin`.
+- **MSE projection statistics are not comparable across 5.13.0.** `sim_mod()` draws the index
+  under the fleet's own `Index_distribution` now, which shifts the RNG stream. At `nsim = 2` the
+  hake summary swung `catch_iav` 0.25 vs 0.74 between branches on identical OM and EM fits.
+- The golden reference on `dev` is `ss = 10241.0304272585` (`ms = 10267.2478324443`,
+  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), pinned in
+  `test-golden-regression.R`.
 
 ## Blocked
 
@@ -86,31 +98,21 @@ Nothing.
 
 ## Resume here
 
-Open the four PRs above, in order. Then work `inst/dev/CLEANUP_BACKLOG.md` using
-`inst/dev/BACKLOG-PLAN.md`, which sequences it by who is exposed rather than by tier label and
-says what covers each item -- the short version being that `/golden-check` will be green through
-almost all of it, because none of the four reference models reaches these inputs.
+Merge #119 once CI is green, then tag and release. After that, `inst/dev/CLEANUP_BACKLOG.md` has
+64 items left (Tier 0 and Tier 2 are cleared); `inst/dev/BACKLOG-PLAN.md` sequences them by who is
+exposed. The equilibrium-`M2` item above is the largest and wants its own PR with the hake MSE as
+its check, since golden cannot see it.
 
-Queued and not started: `inst/dev/CONTRIBUTOR-EXPERIENCE.md` — making the codebase navigable to
-a fisheries scientist, drawn from a review of FIMS. **Item 0 comes first and is a conversation,
-not code**: ask the sibling-repo authors where they actually stopped, because the ordering of
-A-H rests on an assumption nobody has tested. A-E and H are doc and tooling; G is additive; F is
-the only item that can break a caller and needs `/golden-check` + `/ecosystem-sweep`. Each recipe
-ships with a drift guard or it is not done. It carries its own start prompt.
+Queued and not started: `inst/dev/CONTRIBUTOR-EXPERIENCE.md`. **Item 0 comes first and is a
+conversation, not code**: ask the sibling-repo authors where they actually stopped. A–E and H are
+doc and tooling; G is additive; F is the only item that can break a caller and needs
+`/golden-check` + `/ecosystem-sweep`.
 
 ## Older paused work
 
 **The `accessibility-and-code-review` refactor is superseded, not outstanding.** The branch is
-gone from local and remote, its plan
-(`~/Downloads/HANDOFF-accessibility-refactor-implementation.md`) no longer exists, and no commit
-in any branch mentions it. Verified 2026-08-22 against `dev`: three of its four locked "chosen
-extras" have landed by other routes -- the `JnllRow` enum (`ceattle.cpp:2963`, 148 uses), the
-repaired cpp section index (47 numbered sections), and real Doxygen `@file`/`@brief` blocks on
-the previously bare headers.
-
-**Its one concrete leftover, splitting `R/0-build_srr_and_M.R`, is done in 5.14.0** -- six files,
-one per process, since 612 of its 1,497 lines were fleet-process machinery the srr/M1/growth split
-would have stranded. Nothing of that plan is now outstanding.
-
-Anything else that plan contained is unrecoverable from the repo. Do not resume from the branch
-name or the handoff path; both are dead references.
+gone from local and remote, its plan no longer exists, and no commit in any branch mentions it.
+Three of its four locked "chosen extras" landed by other routes — the `JnllRow` enum, the repaired
+cpp section index, and Doxygen `@file`/`@brief` blocks on the previously bare headers. Its one
+concrete leftover, splitting `R/0-build_srr_and_M.R`, is done in 5.14.0. Nothing of that plan is
+outstanding. Do not resume from the branch name or the handoff path; both are dead references.
