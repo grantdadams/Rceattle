@@ -100,15 +100,22 @@ said, so each struck row records what it actually turned out to be.
   sharing a `Selectivity_index` estimate one `sel_dev_log_sd` and TMB starts it from the first
   member's value, so a differing `Time_varying_sel_sd` was discarded silently. Now warns, gated on
   the map slot rather than on `random_sel`, so it cannot fire when the sd is fixed per fleet.
-- ~~`R/3-build_map.R` (`add checks for surveys q sigma`)~~ — **No such defect.** `index_q_log_sd`
-  and `index_q_dev_log_sd` are mapped out for every fleet and never turned back on, so each fleet
-  keeps its own `Catchability_prior_sd` / `Time_varying_q_sd` and the shared-group copies are NA
-  over NA. **Estimating the deviation sd was tried and rejected**, and this is the row to read
-  before trying again: `random_q` already integrates the deviates out, and turning the sd on is a
-  three-line change, but it is not identifiable. On a 40-year index with the observation sd FIXED
-  and q deviations injected at a true sd of 0.4, the marginal MLE pins to the lower bound at
-  observation sd 0.1, 0.3 and 1.0, and reaches only 0.06 at 0.05. It would report "q is constant"
-  on data that are not. The `random_sel` / `random_q` asymmetry is therefore deliberate.
+- ~~`R/3-build_map.R` (`add checks for surveys q sigma`)~~ — **Done in 5.14.0, after fixing the
+  reason there was nothing to check.** `index_q_dev_log_sd` was mapped out for every fleet and
+  never turned back on, so no shared group could discard it. That was itself the defect:
+  `random_sel` frees `sel_dev_log_sd` alongside the selectivity deviates it integrates out, but
+  `random_q` integrated the catchability deviates out and left their sd fixed at
+  `Time_varying_q_sd`. Now symmetric, so `random_q = TRUE` estimates it — **and any fit using that
+  flag moves.** With the sd estimable the shared-group copy is meaningful, so the q check exists
+  alongside the selectivity one.
+
+  Caveat, measured rather than assumed: on a 40-year index with the observation sd FIXED and q
+  deviations injected at a true sd of 0.4, the marginal MLE pins to its lower bound at observation
+  sd 0.1, 0.3 and 1.0, and reaches only 0.06 at 0.05. A short or noisy index can therefore return
+  an sd that reads as a constant q. That is a diagnostic to check, not a reason to withhold the
+  parameter -- the estimate and its gradient show it, and whether the series informs it is the
+  assessor's call. `index_q_log_sd`, the prior sd on q itself, stays fixed: estimating the width of
+  one's own prior is not meaningful.
 
 Still open. No user-visible consequence; do them opportunistically.
 

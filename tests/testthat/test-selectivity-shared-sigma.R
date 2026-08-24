@@ -69,6 +69,29 @@ test_that("agreeing fleets are silent", {
 })
 
 
+test_that("random_q estimates the catchability deviation sd, and random_sel the selectivity one", {
+  # The two are symmetric: integrating the deviates out is what makes their sd a
+  # marginal variance rather than one half of a degenerate joint mode. Without
+  # the flag the sd stays at its fleet_control value.
+  d <- make_test_data()
+  d$fleet_control$Catchability[1]      <- "Estimated"
+  d$fleet_control$Time_varying_q[1]    <- "IID"
+  d$fleet_control$Time_varying_q_sd[1] <- 0.2
+
+  est <- function(rq) {
+    m <- suppressWarnings(suppressMessages(
+      Rceattle::fit_mod(d, estimateMode = 3, msmMode = 0, random_q = rq)))
+    m$map$mapFactor
+  }
+
+  expect_true(all(is.na(est(FALSE)$index_q_dev_log_sd)))
+  expect_true(any(!is.na(est(TRUE)$index_q_dev_log_sd)))
+
+  # index_q_log_sd is a prior sd the assessor sets; random_q must not free it.
+  expect_true(all(is.na(est(TRUE)$index_q_log_sd)))
+})
+
+
 test_that("a fixed deviation sd is honoured per fleet, so it does not warn", {
   # random_sel = FALSE leaves sel_dev_log_sd mapped out. Nothing is shared and
   # nothing is discarded, so differing values are legitimate.

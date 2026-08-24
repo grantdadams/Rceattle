@@ -1176,6 +1176,20 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         if(data_list$fleet_control$Time_varying_q[i] %in% c("IID", "AR1", "RandomWalk")){
           map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + (1:nyrs_hind) - 1
           ind_q_dev <- ind_q_dev + nyrs_hind
+
+          # Estimate the deviation sd when the deviates are integrated out
+          # (random_q), matching what random_sel does for sel_dev_log_sd. As
+          # fixed effects the joint mode of deviates and sd is degenerate, so
+          # without random_q it stays at Time_varying_q_sd. Block is excluded:
+          # it scores no deviate at this sd. index_q_log_sd is a prior sd the
+          # assessor sets and is never estimated.
+          #
+          # How well it is informed depends on the series. A short or noisy
+          # index can drive it to its lower bound, which reads as a constant q
+          # -- check the estimate and its gradient before believing one.
+          if(isTRUE(as.logical(data_list$random_q))){
+            map_list$index_q_dev_log_sd[flt] <- flt
+          }
         }
 
         # Turn on first deviate for random walk
@@ -1316,15 +1330,25 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # Catchability / Time_varying_q disagreement, and the solved q forms that
       # cannot share a group at all, are checked in data_check().
 
-      # There is no q equivalent of the selectivity sd check above.
-      # index_q_log_sd and index_q_dev_log_sd are mapped out for every fleet and
-      # never turned back on, so each fleet keeps its own Catchability_prior_sd
-      # and Time_varying_q_sd and the two copies below are NA over NA. The
-      # deviation sd is not estimable even with the deviates integrated out
-      # under random_q: on a 40-year index with the observation sd FIXED and q
-      # deviations injected at 0.4, the marginal MLE pins to the lower bound at
-      # observation sd 0.1 and above, and reaches only 0.06 at 0.05. An
-      # estimated value would read as "q is constant" on data that are not.
+      # Same as the selectivity sd above: under random_q the group estimates one
+      # deviation sd and TMB starts it from the first member's value, so a
+      # differing Time_varying_q_sd elsewhere in the group is discarded. Without
+      # random_q the map is NA and each fleet keeps its own value.
+      # index_q_log_sd is a prior sd the assessor sets, never estimated, so a
+      # differing Catchability_prior_sd is always honoured per fleet.
+      if (!is.na(q_duplicate) && !is.na(map_list$index_q_dev_log_sd[q_duplicate])) {
+        sd_grp <- data_list$fleet_control$Time_varying_q_sd[q_duplicate_vec]
+        if (length(unique(sd_grp[!is.na(sd_grp)])) > 1) {
+          warning(paste0(
+            "Fleets sharing Catchability_index ", q_index[i], " (",
+            paste(data_list$fleet_control$Fleet_name[q_duplicate_vec], collapse = ", "),
+            ") have different Time_varying_q_sd. The group estimates one ",
+            "deviation sd, started from ",
+            data_list$fleet_control$Fleet_name[q_duplicate], "'s value (",
+            sd_grp[which(q_duplicate_vec == q_duplicate)][1],
+            "); the others are ignored."))
+        }
+      }
 
       # Make catchability maps the same.
       #

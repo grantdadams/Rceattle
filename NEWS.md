@@ -13,16 +13,37 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 # Rceattle 5.14.0
 
+## Behavior changes
+
+* **`random_q = TRUE` now estimates the catchability deviation standard
+  deviation.** `random_sel` has always freed `sel_dev_log_sd` alongside the
+  selectivity deviates it integrates out; `random_q` integrated the catchability
+  deviates out but left `index_q_dev_log_sd` mapped, so the deviations were
+  smoothed at whatever `Time_varying_q_sd` the workbook happened to carry. The
+  two are symmetric now: integrating the deviates out is what turns their sd into
+  a marginal variance rather than one half of a degenerate joint mode.
+  **Any fit using `random_q = TRUE` moves**; every other fit is unchanged, since
+  the parameter stays mapped without the flag. `index_q_log_sd`, the prior sd the
+  assessor sets on q itself, is still never estimated.
+
+  How well the sd is informed depends on the series. On a 40-year index with the
+  observation sd held fixed and q deviations injected at a true sd of 0.4, the
+  estimate reaches its lower bound when the observation sd is 0.1 or larger, and
+  recovers 0.06 at 0.05 -- i.e. a short or noisy index can return a value that
+  reads as a constant q. That is visible in the estimate and its gradient, so
+  check both rather than assuming the sd is informed.
+
 ## Minor improvements
 
-* **A shared selectivity group now says when it discards a fleet's deviation
-  sd.** Fleets sharing a `Selectivity_index` estimate one `sel_dev_log_sd`, and
-  TMB starts a shared parameter from the first group member's value, so a
-  different `Time_varying_sel_sd` on any other fleet in the group was dropped in
-  silence. `build_map()` now warns, naming the group, its fleets, and the value
-  actually used. The warning is gated on the map slot rather than on
-  `random_sel`, so it cannot fire in the common case where the sd is fixed and
-  each fleet does keep its own value. No fit changes.
+* **A shared selectivity or catchability group now says when it discards a
+  fleet's deviation sd.** Fleets sharing a `Selectivity_index` estimate one
+  `sel_dev_log_sd`, and TMB starts a shared parameter from the first group
+  member's value, so a different `Time_varying_sel_sd` elsewhere in the group was
+  dropped in silence. `build_map()` now warns, naming the group, its fleets, and
+  the value actually used, and does the same for `Time_varying_q_sd` across a
+  shared `Catchability_index`. Both are gated on the map slot rather than on
+  `random_sel` / `random_q`, so neither can fire in the case where the sd is
+  fixed and each fleet does keep its own value. No fit changes.
 
 * **`rearrange_data()` no longer iterates once over an empty `age_error`.** The
   loop used `1:nrow()`, which runs for `i = 1` and then `i = 0` on a frame with
@@ -51,10 +72,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * **Four stale or incorrect source comments corrected**, in `build_params()`,
   `clean_data()`, the template's fishing-mortality section, and the two
   shared-parameter blocks in `build_map()` that still claimed `fit_mod()`
-  suppresses their warnings. Documented in `inst/dev/CLEANUP_BACKLOG.md`, which
-  also now records why the time-varying catchability deviation sd is not
-  estimable: with the deviates integrated out under `random_q` it still pins to
-  its lower bound on an index carrying q variation at a known sd of 0.4.
+  suppresses their warnings. Documented in `inst/dev/CLEANUP_BACKLOG.md`.
 
 # Rceattle 5.13.0
 

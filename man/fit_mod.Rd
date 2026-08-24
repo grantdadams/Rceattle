@@ -62,9 +62,9 @@ placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.}
+\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_q_sd}. The default is FALSE.}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.}
+\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_sel_sd}. The default is FALSE.}
 
 \item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
