@@ -72,7 +72,7 @@ testthat::test_that("self_test() refits a DSEM on simulated data", {
 # enumerated the OTHER un-drawn processes and so read as confirmation that
 # recruitment HAD been drawn.
 
-testthat::test_that("redrawing recruitment on a DSEM is refused by every spelling", {
+testthat::test_that("redrawing recruitment on a DSEM works by every spelling", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("dsem")
@@ -85,13 +85,30 @@ testthat::test_that("redrawing recruitment on a DSEM is refused by every spellin
     fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
                                         verbose = 0))))
 
+  # Every spelling that resolves to "redraw recruitment" must reach the GMRF
+  # draw. `process` accepts TRUE, "all", "dynamics", "recruitment" and a vector
+  # containing it, and isTRUE() is FALSE for all but the first -- so a guard
+  # written against the raw argument rather than the resolved state vector lets
+  # four of these five through silently.
+  drawn <- list()
   for (p in list(TRUE, "all", "dynamics", "recruitment",
                  c("recruitment", "M"))) {
-    testthat::expect_error(
-      suppressWarnings(Rceattle::sim_mod(fit, simulate = TRUE, process = p)),
-      "not supported on a DSEM fit",
-      info = paste(deparse(p), collapse = " "))
+    lab <- paste(deparse(p), collapse = " ")
+    set.seed(4)
+    sim <- suppressWarnings(suppressMessages(
+      Rceattle::sim_mod(fit, simulate = TRUE, process = p)))
+    testthat::expect_s3_class(sim, "Rceattle_data")
+    drawn[[lab]] <- sim$index_data$Observation
   }
+
+  # ...and the draw is a DRAW: two calls differ, and they differ from the
+  # observation-only draw. A silent no-op would return identical data and look
+  # like a working process simulation.
+  set.seed(4); a <- suppressWarnings(suppressMessages(
+    Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE)))$index_data$Observation
+  set.seed(9); b <- suppressWarnings(suppressMessages(
+    Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE)))$index_data$Observation
+  testthat::expect_false(isTRUE(all.equal(a, b)))
 
   # ...and the spellings that do NOT ask for recruitment must still work.
   for (p in list(FALSE, "none", "observation", "M")) {

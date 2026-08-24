@@ -88,17 +88,22 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
     list(data_list = Rceattle::BS2017SS,
          dsem = list(tmb_inputs = list(parameters = list(beta_z = 1)))),
     class = "Rceattle")
-  # Pointed at a function that still refuses. remove_F() used to serve here and
-  # no longer does, at which point this ran remove_F()'s body against a fake
-  # object and failed on `max(NULL)` instead of testing the guard.
-  testthat::expect_error(Rceattle::process_residuals(built_only),
-                         "does not support a DSEM")
-  # ...and process = "catchability" is NOT refused: index_q_dev is untouched by
-  # a DSEM, so blocking it would cost a valid diagnostic and explain it with a
-  # message about a process the caller did not ask for.
+  # Test the DETECTOR, not whichever exported function happens to refuse today.
+  # This assertion has already had to be re-pointed once -- remove_F() used to
+  # serve and stopped refusing, at which point it ran remove_F()'s body against
+  # a fake object and failed on `max(NULL)` instead of testing the guard. Now
+  # process_residuals() has stopped refusing too. .has_dsem() is what is
+  # actually under test, so ask it directly and the test stops chasing.
+  testthat::expect_true(Rceattle:::.has_dsem(built_only))
+  testthat::expect_true(Rceattle:::.has_dsem(fake))
+  testthat::expect_false(Rceattle:::.has_dsem(
+    structure(list(data_list = Rceattle::BS2017SS), class = "Rceattle")))
+
+  # run_mse() is the one caller that still refuses a DSEM, so it is the live
+  # check that the detector is wired to a refusal at all.
   testthat::expect_error(
-    Rceattle::process_residuals(built_only, process = "catchability"),
-    "no TMB object")
+    Rceattle::run_mse(om = built_only, em = built_only),
+    "does not yet support a DSEM")
 
   # retrospective(), jitter() and self_test() are deliberately NOT in this list
   # any more. retrospective() peels by MARGINALIZING the peeled-year latent
@@ -112,14 +117,15 @@ testthat::test_that("the refitting diagnostics that cannot handle a DSEM refuse 
   # warm start -- before that they silently rebuilt the model with the
   # recruitment SD at its start value.
   #
-  # profile() is no longer a blanket refusal either: a DSEM blocks only the
-  # slots it maps out (R_log_sd, rec_dev). See test-dsem-profile.R.
+  # profile() is no longer a blanket refusal either: a DSEM blocks only rec_dev,
+  # and the recruitment-SD aliases redirect to the sem's variance path. See
+  # test-dsem-profile.R.
   #
-  # process_residuals() still refuses, and for a statistical reason rather than
-  # a plumbing one: it standardizes a posterior draw by a per-year normal prior,
-  # which is the wrong prior for a GMRF unless the sem is IID.
-  testthat::expect_error(Rceattle::process_residuals(fake),
-                         "does not support a DSEM")
+  # process_residuals() no longer refuses: recruitment residuals are whitened by
+  # the process precision rather than divided by a per-year normal SD. See
+  # test-dsem-process-residuals.R. What it still needs is a FITTED object, since
+  # the whitening reads the reported precision and the joint posterior.
+  testthat::expect_error(Rceattle::process_residuals(fake), "no TMB object")
 })
 
 testthat::test_that("sample_rec() requires a DSEM whose states span the projection", {
