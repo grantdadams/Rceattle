@@ -59,7 +59,7 @@ print(model1$data_list$dsem_settings$sem)
 
 ```{r, echo=TRUE, message=FALSE}
 # mu_j, lnsigma_j, delta0_j, x_tj
-print(model1$estimated_params$beta_z)
+print(model1$estimated_params$dsem_beta_z)
 ```
 
 ----
@@ -107,7 +107,7 @@ plot_recruitment(list(model1, model2), model_names = 1:2)
 
 ```{r, echo=TRUE, message=FALSE}
 summ <- summary(model1$dsem)
-summ$Estimate <- model1$estimated_params$beta_z
+summ$Estimate <- model1$estimated_params$dsem_beta_z
 knitr::kable(summ)
 ```
 
@@ -115,6 +115,6 @@ knitr::kable(summ)
 
 ```{r, echo=TRUE, message=FALSE}
 summ <- summary(model2$dsem)
-summ$Estimate <- model2$estimated_params$beta_z
+summ$Estimate <- model2$estimated_params$dsem_beta_z
 knitr::kable(summ)
 ```

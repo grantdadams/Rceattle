@@ -9,7 +9,8 @@ build_map(
   params,
   debug = FALSE,
   random_rec = FALSE,
-  random_sel = FALSE
+  random_sel = FALSE,
+  random_q = NULL
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ meaning the variance parameter (\code{R_log_sd}) is estimated.}
 
 \item{random_sel}{Logical. If TRUE, treats selectivity deviations as random effects,
 meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.}
+
+\item{random_q}{Logical. If TRUE, treats catchability deviations as random effects,
+meaning the variance parameter (\code{index_q_dev_log_sd}) is estimated. Defaults
+to \code{data_list$random_q}, which is what \code{fit_mod()} stores there.}
 }
 \value{
 A list containing the factorized TMB map (\code{mapFactor}) and the

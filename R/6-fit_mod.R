@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.
+#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
+#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -804,16 +804,27 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      # TODO: this suppressWarnings() swallows EVERY warning build_map() raises,
-      # including the shared-block ones that exist to be seen -- the
-      # "same Catchability_index is not the same" pair, and the
-      # Bin_first_selected / N_sel_bins ones CLAUDE.md calls the safety net for
-      # fleets sharing a selectivity block. A fishery whose q is overridden by
-      # its group's lead fleet is silent today because of this line. Narrow it to
-      # the warnings actually being suppressed, or let build_map() classify them.
-      map <- suppressWarnings(build_map(data_list, start_par,
-                                        debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
-                                        random_rec = random_rec, random_sel = random_sel))
+      # build_map() warns about configurations the caller asked for and will not
+      # get: an M1 model wanting sex-specific mortality on a single-sex species,
+      # a Time_varying_sel the selectivity form ignores, a Laplace request the
+      # map cannot honour. Each one changes what is estimated, so it has to be
+      # seen. They are de-duplicated rather than passed straight through because
+      # build_map() raises the selectivity ones once per fleet and per sex, and
+      # because .refit_like() re-enters fit_mod() once per retrospective peel,
+      # jitter and MSE simulation -- unfiltered, one real warning becomes
+      # hundreds of identical lines and stops being read.
+      seen <- character(0)
+      map <- withCallingHandlers(
+        build_map(data_list, start_par,
+                  debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
+                  random_rec = random_rec, random_sel = random_sel,
+                  random_q = random_q),
+        warning = function(w) {
+          msg <- conditionMessage(w)
+          if (msg %in% seen) invokeRestart("muffleWarning")
+          seen <<- c(seen, msg)
+        }
+      )
 
       # DSEM map entries, if any. Assigned by name rather than concatenated:
       # this block can run more than once in a fit, and c() would append a second
@@ -919,6 +930,31 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
+      # Selectivity deviates are integrated out only where the template scores
+      # them. The densities on log_sel_slp_dev / sel_inf_dev are gated on
+      # Time_varying_sel being IID, AR1, RandomWalk or RandomWalkAscending
+      # (ceattle.cpp, JNLL_SEL_DEV). "Block" is deliberately unscored -- one
+      # fixed parameter per block, no penalty -- and sel_dev_log_sd is mapped
+      # out for it too, so there is not even a variance to estimate. Integrating
+      # a flat block against nothing is an improper random effect: the marginal
+      # objective is NaN, and TMB reports it as "NA/NaN gradient evaluation",
+      # which names neither selectivity nor random_sel.
+      blocked <- .rce_unscored_sel_dev_fleets(data_list$fleet_control, map$mapList)
+      if (length(blocked)) {
+        stop("Cannot use `random_sel = TRUE` with `Time_varying_sel = \"Block\"` ",
+             "on fleet(s) ", paste(blocked, collapse = ", "), ". Selectivity ",
+             "blocks are fixed effects carrying no penalty, so there is no ",
+             "density to integrate them against. Either set ",
+             "`Time_varying_sel` to \"IID\" or \"RandomWalk\" on those fleets, ",
+             "or fit with `random_sel = FALSE` (blocks are then estimated as ",
+             "the fixed effects they are).")
+      }
+
+      # Listed whether or not the maps are empty. TMB drops a fully-mapped name
+      # itself, but TMBphase() reads `length(random) > 0` to decide whether to
+      # pin the RE variance hyperparameters in every phase (see the note above),
+      # so dropping an empty array here would change a phased fit rather than
+      # tidy it.
       random_vars <- c(random_vars, "log_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
     if (sum(data_list$M1_re) > 0) {

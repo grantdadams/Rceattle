@@ -6,7 +6,7 @@ that make several of these safe to touch.
 
 ## The shape of the problem
 
-81 `TODO`/`FIXME` markers, triaged into three tiers. **The tiers are not a priority order.** A
+79 `TODO`/`FIXME` markers, triaged into three tiers. **The tiers are not a priority order.** A
 Tier 0 "known defect" that no live assessment can reach is less urgent than a Tier 1 limitation
 every MSE run hits. Sequence by *who is exposed*, not by tier label.
 
@@ -66,11 +66,10 @@ before scheduling it.** It may already work.
 
 ### Fourth — the structural one
 
-**8. Split `R/0-build_srr_and_M.R`** (1,497 lines, 29 functions: stock-recruit, M1 and growth
-constructors in one file). The last outstanding item from the superseded
-`accessibility-and-code-review` plan. Pure refactor, no behaviour, but it touches the
-`build_*()` public surface, so it needs `/golden-check` and an `../Rceattle-models` sweep. Keep
-the `0-` prefix — the `R/` numbering is meaningful.
+~~**8. Split `R/0-build_srr_and_M.R`**~~ — **done in 5.14.0**, six ways rather than three: 612 of
+its 1,497 lines were catchability, selectivity and composition machinery, which the srr/M1/growth
+split named here would have stranded. See the struck row in `CLEANUP_BACKLOG.md` for what moved
+where and how the relocation was verified.
 
 ### Never — the ones to leave alone
 

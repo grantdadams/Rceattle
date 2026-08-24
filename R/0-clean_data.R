@@ -174,8 +174,12 @@ clean_data <- function(data_list){
   #         survey observations (see .align_index_cov above).
   data_list <- .align_index_cov(data_list)
 
-  # --- 2. Add temp multi-species SB0 ----
-  #FIXME:may be redundant now?
+  # --- 2. Multi-species unfished SSB and biomass (metric tons) ----
+  # Required DATA_VECTORs, and no workbook can supply them: neither has
+  # read_data()/write_data() support, so this is the only thing that creates
+  # them. The template derives SB0/B0 itself and reads these only to overwrite
+  # it under msmMode > 0, where fit_mod() fills them from a no-fishing
+  # projection; 999 is the placeholder standing in until it does.
   if(is.null(data_list$MSSB0)){
     data_list$MSSB0 <- rep(999, data_list$nspp)
     data_list$MSB0 <- rep(999, data_list$nspp)

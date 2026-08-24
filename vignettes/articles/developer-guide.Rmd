@@ -384,7 +384,7 @@ push/PR to `main`/`master` and weekly; `pkgdown.yaml` rebuilds this site.
 ## The argument names, and what is deliberately left alone
 
 The diagnostics take the fitted model as `object` (5.11.0). `Rceattle` and `fit`
-still work and are silent; they warn from 5.14.0 and go in 6.0.0. To find your
+still work and are silent; they warn from a later minor and go in 6.0.0. To find your
 own call sites now:
 
 ```r

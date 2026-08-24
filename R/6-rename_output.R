@@ -100,6 +100,13 @@ rename_output <- function(data_list = NULL, quantities = NULL){
   dimnames(quantities$N_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  # 3D, and the only quantity whose first dimension is a reference point rather
+  # than a species: numbers at age per recruit, in the order section 6.2 writes
+  # them. Unlabelled it reads as NbyageSPR[3, 1, ], which requires knowing that
+  # 3 is Finit. Ages follow the convention above -- the label is the age bin
+  # index, so it is the age itself only when minage is 1.
+  dimnames(quantities$NbyageSPR) <- list(c("F0", "Flimit", "Ftarget", "Finit"),
+                                         data_list$spnames, paste0("Age", 1:max_age))
   # `growth_parameters` and `growth_linkage_offset` carry only the
   # mean-growth params (log_K, log_L1, log_Linf, log_m); the SD
   # endpoints in `GROWTH_LINKAGE_PARAMS` live on `growth_log_sd` and

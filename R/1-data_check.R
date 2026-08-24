@@ -374,6 +374,24 @@ data_check <- function(data_list) {
     errors <- c(errors, "'weight' has more sexes than specified in 'nsex'")
   }
 
+  # comp_data Sex is an encoding (0 = combined, 1 = female, 2 = male, 3 = joint
+  # female and male), not a count, so it is checked by meaning rather than
+  # against max(Sex): a male-only or a joint row needs a second sex to exist.
+  # A joint row on a one-sex species is the damaging one -- the template writes
+  # that row out to 2 * nages while check_composition_data() requires only nages
+  # columns, so the surplus lands in the next observation's predicted
+  # composition and quietly changes its likelihood.
+  if(has_data(data_list$comp_data)){
+    bad_sex <- data_list$comp_data$Sex %in% c(2, 3) &
+      data_list$nsex[data_list$comp_data$Species] == 1
+    if(any(bad_sex, na.rm = TRUE)){
+      errors <- c(errors, paste0(
+        "'comp_data' has male-only or joint composition (Sex 2 or 3) for one-sex species ",
+        paste(sort(unique(data_list$comp_data$Species[bad_sex])), collapse = ", "),
+        ". Use Sex = 0 (combined) or set 'nsex' to 2 for those species."))
+    }
+  }
+
   # ration_data
   if(has_data(data_list$ration_data)){
     if(any(data_list$ration_data |>
@@ -1462,6 +1480,42 @@ data_check <- function(data_list) {
   if(!is.null(data_list$msmMode) && data_list$msmMode > 0 &&
      !is.null(data_list$other_food) && any(data_list$other_food == 0, na.rm = TRUE)){
     errors <- c(errors, "msmMode > 0 requires other_food > 0 for all species; zero values cause divide-by-zero in suitability")
+  }
+
+  # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
+  # steepness, R0 and R_init are all derived from SPR0 or SPRFinit. Under
+  # predation those are not defined -- total mortality carries M2, which scales
+  # with predator abundance, so per-recruit spawning output is not a property of
+  # the prey stock alone -- and section 6.2 of the template does not compute
+  # them. The consumers in section 6.3 were never gated to match, so SPR0 = 0
+  # reached them: with srr_fun >= 2 that is 1/0, giving R0 = -Inf and a NaN
+  # objective; with the Ianelli configuration (srr_fun < 2, srr_pred_fun >= 2)
+  # it is worse, because the fit RUNS -- steepness comes out 0, R_hat -Inf, and
+  # the objective is finite. Refuse the combination rather than report either.
+  # Resolve through .SRR_FUNS rather than comparing the raw value: build_srr()
+  # coerces to an integer code, but a hand-built data_list can still carry the
+  # string, and in R `"mean" >= 2` is TRUE -- a character comparison that would
+  # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
+  # value is validate_switches()' business to report, not this check's.
+  .srr_needs_spr <- function(x) {
+    if (is.null(x) || length(x) != 1L || all(is.na(x))) return(FALSE)
+    code <- if (is.numeric(x)) as.integer(x) else unname(.SRR_FUNS[as.character(x)])
+    isTRUE(!is.na(code) && code >= 2L)
+  }
+  if(!is.null(data_list$msmMode) && any(data_list$msmMode > 0)){
+    bad_srr <- c(if(.srr_needs_spr(data_list$srr_fun)) "srr_fun",
+                 if(.srr_needs_spr(data_list$srr_pred_fun)) "srr_pred_fun")
+    if(length(bad_srr)){
+      errors <- c(errors, paste0(
+        "msmMode > 0 cannot be combined with a Beverton-Holt or Ricker ",
+        paste(bad_srr, collapse = " / "), ". Those curves are anchored on ",
+        "spawning biomass per recruit, which is undefined under predation: ",
+        "total mortality includes M2, so per-recruit spawning output depends on ",
+        "predator abundance rather than on the prey stock alone. SPR0 is left at ",
+        "0 and the derived steepness, R0 and R_init are meaningless. Use ",
+        "build_srr(srr_fun = 'mean', srr_pred_fun = 'mean'), or fit the ",
+        "stock-recruit curve in single-species mode."))
+    }
   }
 
   # Bioenergetics scalars: required (length nspp) when msmMode > 0. switch_check

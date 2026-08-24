@@ -108,9 +108,9 @@ extras" have landed by other routes -- the `JnllRow` enum (`ceattle.cpp:2963`, 1
 repaired cpp section index (47 numbered sections), and real Doxygen `@file`/`@brief` blocks on
 the previously bare headers.
 
-**The one concrete leftover is splitting `R/0-build_srr_and_M.R`** -- still 1,497 lines and 29
-functions in one file, and still the grab-bag the plan named. It is in
-`inst/dev/CLEANUP_BACKLOG.md`.
+**Its one concrete leftover, splitting `R/0-build_srr_and_M.R`, is done in 5.14.0** -- six files,
+one per process, since 612 of its 1,497 lines were fleet-process machinery the srr/M1/growth split
+would have stranded. Nothing of that plan is now outstanding.
 
 Anything else that plan contained is unrecoverable from the repo. Do not resume from the branch
 name or the handoff path; both are dead references.

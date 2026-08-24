@@ -13,6 +13,9 @@
 #'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
 #'   meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.
+#' @param random_q Logical. If TRUE, treats catchability deviations as random effects,
+#'   meaning the variance parameter (\code{index_q_dev_log_sd}) is estimated. Defaults
+#'   to `data_list$random_q`, which is what `fit_mod()` stores there.
 #'
 #' @details
 #' Fleets sharing a `Selectivity_index` or a `Catchability_index` have the lead
@@ -25,7 +28,13 @@
 #' @return A list containing the factorized TMB map (`mapFactor`) and the
 #'   original map matrix/array list (`mapList`).
 #' @export
-build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE,
+                      random_sel = FALSE, random_q = NULL) {
+
+  # Last in the signature so existing positional calls keep working. NULL means
+  # "read it off the data_list", where fit_mod() puts it, so a caller that set
+  # it there rather than passing it still gets the deviation sd estimated.
+  if (is.null(random_q)) random_q <- isTRUE(as.logical(data_list$random_q))
 
   # Fill in defaulted switches and upgrade any deprecated column names
   data_list <- Rceattle::switch_check(data_list)
@@ -55,7 +64,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 
-  map_list <- build_map_catchability(map_list, data_list, nyrs_hind)
+  map_list <- build_map_catchability(map_list, data_list, nyrs_hind, random_q)
 
   # After the per-process builders, not before: a linkage supplies the level
   # of the parameter it targets, so it must have the last word on whether
@@ -73,6 +82,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # --- Debug Mode ---
   map_list <- build_map_debug(map_list, debug)
 
+  # Last, so they read the final map: build_map_f_and_data_weights() maps
+  # sel_dev_log_sd out for "Off" fleets, build_map_fixed_natage() maps both out
+  # for a fixed-dynamics species, and build_map_debug() maps out everything.
+  .warn_shared_dev_sd(map_list, data_list, "Selectivity_index",
+                      "Time_varying_sel_sd", "sel_dev_log_sd")
+  .warn_shared_dev_sd(map_list, data_list, "Catchability_index",
+                      "Time_varying_q_sd", "index_q_dev_log_sd")
+
   # --- Final Steps ---
   map_list_grande <- list()
   map_list_grande$mapFactor <- lapply(map_list, factor)
@@ -82,6 +99,35 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 }
 
 ## Helper Functions ----
+
+# Fleets sharing a Selectivity_index or a Catchability_index estimate ONE
+# deviation sd between them. TMB collapses a shared parameter to the mean of its
+# members' starting values, and both sds are held on the log scale, so the group
+# starts at the GEOMETRIC MEAN of the members' values -- no fleet keeps the one
+# in its own row. Warned once per group, over the members that are actually
+# estimated: a fleet whose map slot is NA keeps its own value and contributes
+# nothing to the mean.
+.warn_shared_dev_sd <- function(map_list, data_list, index_col, sd_col, par) {
+  fc <- data_list$fleet_control
+  if (is.null(fc[[index_col]]) || is.null(fc[[sd_col]])) return(invisible(NULL))
+
+  for (idx in unique(fc[[index_col]][!is.na(fc[[index_col]])])) {
+    grp  <- which(fc[[index_col]] == idx)
+    est  <- grp[!is.na(map_list[[par]][fc$Fleet_code[grp]])]
+    vals <- fc[[sd_col]][est]
+    if (length(est) < 2 || length(unique(vals)) < 2) next
+
+    warning(paste0(
+      "Fleets sharing ", index_col, " ", idx, " (",
+      paste(fc$Fleet_name[est], collapse = ", "),
+      ") have different ", sd_col, " (", paste(vals, collapse = ", "),
+      "). The group estimates one deviation sd, and it starts at the geometric ",
+      "mean of those values (", signif(exp(mean(log(vals))), 4),
+      ") -- the mean on the log scale TMB takes for a shared parameter -- so no ",
+      "fleet keeps the value in its own row."))
+  }
+  invisible(NULL)
+}
 
 #' @title Helper to set map for Recruitment parameters
 #'
@@ -560,6 +606,36 @@ build_map_predation <- function(map_list, data_list) {
   return(map_list)
 }
 
+#' Fleets whose selectivity deviates are estimated but carry no density
+#'
+#' `Time_varying_sel = "Block"` estimates one deviate per block and the template
+#' scores none of them -- a block is a fixed effect, and "time blocks with no
+#' penalty" is what the switch means. Every other time-varying mode that
+#' estimates a deviate also defines a term for it, so this is the one
+#' configuration that has nothing to integrate against. `fit_mod()` reads this
+#' to refuse `random_sel = TRUE` on such a fleet.
+#'
+#' @param fleet_control The `fleet_control` table, with canonical switch strings.
+#' @param map_list The `$mapList` from [build_map()]; NA marks a fixed element.
+#' @return The `Fleet_code`s affected, `integer(0)` when there are none.
+#' @noRd
+.rce_unscored_sel_dev_fleets <- function(fleet_control, map_list) {
+  tv <- fleet_control$Time_varying_sel
+  cand <- fleet_control$Fleet_code[fleet_control$Fleet_type != "Off" &
+                                     !is.na(tv) & tv == "Block"]
+  if (!length(cand)) return(integer(0))
+
+  # A Block fleet only matters if build_map() actually turned its deviates on --
+  # with no Selectivity_block column the Block arm is skipped and the fleet is
+  # time-invariant.
+  estimated <- vapply(cand, function(flt) {
+    any(!is.na(map_list$log_sel_slp_dev[, flt, , , drop = FALSE])) ||
+      any(!is.na(map_list$sel_inf_dev[, flt, , , drop = FALSE]))
+  }, logical(1))
+
+  cand[estimated]
+}
+
 #' @title Helper to set map for Selectivity parameters
 #'
 #' @description Maps base selectivity parameters (\code{log_sel_slp}, \code{sel_inf},
@@ -688,8 +764,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
 
-            # Turn off main parameters
-            #FIXME will fail if random_sel = TRUE?
+            # Turn off main parameters: under blocks each block carries its own
+            # slope and inflection, so the mean they would deviate from is not
+            # separately identified. The block parameters are therefore fixed
+            # effects with no penalty, which is why fit_mod() refuses to
+            # integrate them out (see .rce_unscored_sel_dev_fleets()).
             map_list$log_sel_slp[1, flt, sex] <- NA
             map_list$sel_inf[1, flt, sex] <- NA
           }
@@ -1059,9 +1138,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
 #' @param nyrs_hind Number of historical years.
+#' @param random_q Logical. If TRUE, the deviation sd (\code{index_q_dev_log_sd})
+#'   is estimated rather than held at \code{Time_varying_q_sd}.
 #'
 #' @return Updated \code{map_list}.
-build_map_catchability <- function(map_list, data_list, nyrs_hind) {
+build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FALSE) {
 
   # -- Catchability indices
   ind_q_dev <- 1
@@ -1128,13 +1209,12 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 2 = "AR1"
       # - 3 = "Block" time blocks with no penalty
       # - 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
-      # - If estimate_q == 5 or 6; "Time_varying_q" determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y or to fit to.
-      # - Catchability = 6 turns on time-varying deviates
+      # - Under Catchability = "Environmental", "Time_varying_q" names the
+      #   env_data columns for log(q_y) = q_mu + beta * index_y rather than a mode.
 
       # -- Set up time varying catchability if used (account for missing years)
-      if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
-          data_list$fleet_control$Time_varying_q[i] %in% c("IID", "Block", "AR1", "RandomWalk")) |
-         data_list$fleet_control$Catchability[i] == "AR1"){
+      if(data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
+         data_list$fleet_control$Time_varying_q[i] %in% c("IID", "Block", "AR1", "RandomWalk")){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
@@ -1144,6 +1224,20 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         if(data_list$fleet_control$Time_varying_q[i] %in% c("IID", "AR1", "RandomWalk")){
           map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + (1:nyrs_hind) - 1
           ind_q_dev <- ind_q_dev + nyrs_hind
+
+          # Estimate the deviation sd when the deviates are integrated out
+          # (random_q), matching what random_sel does for sel_dev_log_sd. As
+          # fixed effects the joint mode of deviates and sd is degenerate, so
+          # without random_q it stays at Time_varying_q_sd. Block is excluded:
+          # it scores no deviate at this sd. index_q_log_sd is a prior sd the
+          # assessor sets and is never estimated.
+          #
+          # How well it is informed depends on the series. A short or noisy
+          # index can drive it to its lower bound, which reads as a constant q
+          # -- check the estimate and its gradient before believing one.
+          if(isTRUE(random_q)){
+            map_list$index_q_dev_log_sd[flt] <- flt
+          }
         }
 
         # Turn on first deviate for random walk
@@ -1176,70 +1270,12 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         ind_beta_q <- ind_beta_q + max(turn_on)
       }
 
-      # - 6 = Fit to environmental index
-      #
-      # DEAD as of 5.12.0: `data_check()` errors on `Catchability = "AR1"`, so
-      # nothing reaches this branch. Do NOT "fix" it -- the Rogers form is
-      # implemented correctly by a q linkage (`ar1(1 | Year)` with `observe`),
-      # which GOA pollock 2025 runs in production; repairing this path would
-      # leave two implementations of one model. Delete the branch, and code 6
-      # from `q_map`, once no workbook in the ecosystem still carries a 6.
-      # The account below records why it never worked.
-      #
-      # `Catchability = "AR1"` and `Time_varying_q = "AR1"` are different
-      # switches that share a string. `Catchability = "AR1"` is the QAR1 FORM
-      # (Rogers et al. 2024): q = exp(log_q + beta * dev_y) with `index_q_dev` a
-      # latent AR1 process, and the environmental index an OBSERVATION of it
-      # (ceattle.cpp: 894 builds q, 4091 puts the AR1 density on the deviates,
-      # 4097 fits env_index to them). `Time_varying_q` then holds an `env_data`
-      # COLUMN INDEX, not a mode. `Time_varying_q = "AR1"` is instead a
-      # time-varying structure on an ordinary "Estimated" q.
-      #
-      # The deviate map above is gated on `Time_varying_q %in% c("IID", "AR1",
-      # "RandomWalk")`, which is right for the "Estimated" branch but reads the
-      # other switch's vocabulary here: a QAR1 fleet carries "1", never matches,
-      # and `index_q_dev` stays mapped out. The comment at the top of this block
-      # ("Catchability = 6 turns on time-varying deviates") records the intent.
-      # `git log -S` puts the break at e13b4452, which moved these switches from
-      # integer codes to strings -- the old `%in% c(1, 2, 4)` matched "1".
-      #
-      # Measured on BS2017SS fleet 7 (Catchability = "AR1", Time_varying_q = 1):
-      #   free index_q_dev  0 of 39, q constant, and random_q = TRUE does not
-      #                     rescue it (mapped out before TMB sees `random`)
-      #   index_q_beta      max|grad| = 0   (multiplies a zero vector)
-      #   index_q_rho       max|grad| = 0   (AR1 quadratic form vanishes)
-      #   index_q_dev_log_sd max|grad| = 39 = nyrs_hind -- the AR1 normalizing
-      #                     constant n*log(sigma) with nothing opposing it, so
-      #                     sigma is driven to 0. Divergent, not just flat.
-      # 4097 also degenerates to dnorm(env_index, 0, index_q_sd): the
-      # environmental index is fitted as noise about zero.
-      #
-      # Fix inside THIS block rather than by widening the gate above -- the two
-      # switches should drive separate code. Free
-      # `map_list$index_q_dev[flt, yrs_hind]` here alongside beta / rho / the
-      # sds. Then verify: q varies, beta and rho gradients are non-zero, sigma
-      # does not run away, and the GOA pollock fit still converges. Add a
-      # data_check() requirement for `Catchability_prior_sd` /
-      # `Time_varying_q_sd`, which are NA on BS2017SS and give a NaN objective
-      # with no error today.
-      #
-      # Not fixed here because it moves live advice: `Catchability = 6` is used
-      # by GOA pollock 2024/2025 (../Rceattle-models: GOA pollock/2024/02-bridge.R,
-      # 2024/05-update-data.R, GOA CEATTLE/Model runs/GOA_24 and GOA_25), and
-      # /golden-check cannot cover it -- no bundled model uses QAR1.
-      if (data_list$fleet_control$Catchability[i] == "AR1") {
-        if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
-          warning("Cant fit catchability deviates to multiple indices")
-        }
-        map_list$index_q_beta[flt, 1] <- 1 + ind_beta_q # The effect size
-        ind_beta_q <- ind_beta_q + 1
-
-        map_list$index_q_rho[flt] <- flt # Correlation coeff
-
-        # Turn on standard deviations
-        map_list$index_q_log_sd[flt] <- flt # Obseration error
-        map_list$index_q_dev_log_sd[flt] <- flt # AR1 process error
-      }
+      # `Catchability = "AR1"` (the QAR1 form of Rogers et al. 2024) had a branch
+      # here. It is gone: `data_check()` refuses the switch and points at the q
+      # linkage (`ar1(1 | Year)` with `observe`), which implements the form
+      # correctly and is what GOA pollock 2025 runs. The code is still carried in
+      # `q_map` so a workbook that has one is recognised and gets that migration
+      # message, rather than a generic "invalid value" from validate_switches().
 
       # Standard deviation of surveys index
       # - 0 = use CV from index_data
@@ -1295,15 +1331,15 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
     # If selectivity is the same as a previous index
     if(sel_test){
-      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
       sel_duplicate <- first_est(which(sel_index_tested == sel_index[i]))
 
       # Per-fleet settings a shared Selectivity_index does not reconcile
       # (Selectivity, Selectivity_dimension, Bin_first_selected, N_sel_bins,
-      # Sel_norm_bin*, Time_varying_sel) are checked in data_check(): fit_mod()
-      # wraps this call in suppressWarnings().
+      # Sel_norm_bin*, Time_varying_sel) are checked in data_check().
 
-      # FIXME add checks for surveys sel sigma
+      # A differing Time_varying_sel_sd across the group is reported by
+      # .warn_shared_dev_sd(), which runs at the end of build_map() because two
+      # later steps still map this parameter out.
 
       # Make selectivity maps the same if selectivity is the same
       if(!is.na(sel_duplicate)){
@@ -1321,14 +1357,15 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
     # If catchability is the same as a previous index
     if(q_test){
-      q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
       q_duplicate <- first_est(which(q_index_tested == q_index[i]))
 
       # Catchability / Time_varying_q disagreement, and the solved q forms that
-      # cannot share a group at all, are checked in data_check(): fit_mod() wraps
-      # this call in suppressWarnings().
+      # cannot share a group at all, are checked in data_check().
 
-      # FIXME add checks for surveys q sigma
+      # A differing Time_varying_q_sd across the group is reported by
+      # .warn_shared_dev_sd(), as for selectivity. index_q_log_sd is a prior sd
+      # the assessor sets, never estimated, so a differing Catchability_prior_sd
+      # is always honoured per fleet.
 
       # Make catchability maps the same.
       #
