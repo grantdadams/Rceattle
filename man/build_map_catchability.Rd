@@ -4,7 +4,7 @@
 \alias{build_map_catchability}
 \title{Helper to set map for Catchability parameters}
 \usage{
-build_map_catchability(map_list, data_list, nyrs_hind)
+build_map_catchability(map_list, data_list, nyrs_hind, random_q = FALSE)
 }
 \arguments{
 \item{map_list}{The current TMB map list.}
@@ -12,6 +12,9 @@ build_map_catchability(map_list, data_list, nyrs_hind)
 \item{data_list}{The data list containing model settings.}
 
 \item{nyrs_hind}{Number of historical years.}
+
+\item{random_q}{Logical. If TRUE, the deviation sd (\code{index_q_dev_log_sd})
+is estimated rather than held at \code{Time_varying_q_sd}.}
 }
 \value{
 Updated \code{map_list}.

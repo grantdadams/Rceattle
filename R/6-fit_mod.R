@@ -668,7 +668,8 @@ fit_mod <-
       map <- withCallingHandlers(
         build_map(data_list, start_par,
                   debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
-                  random_rec = random_rec, random_sel = random_sel),
+                  random_rec = random_rec, random_sel = random_sel,
+                  random_q = random_q),
         warning = function(w) {
           msg <- conditionMessage(w)
           if (msg %in% seen) invokeRestart("muffleWarning")

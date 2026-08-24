@@ -13,6 +13,9 @@
 #'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
 #'   meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.
+#' @param random_q Logical. If TRUE, treats catchability deviations as random effects,
+#'   meaning the variance parameter (\code{index_q_dev_log_sd}) is estimated. Defaults
+#'   to `data_list$random_q`, which is what `fit_mod()` stores there.
 #'
 #' @details
 #' Fleets sharing a `Selectivity_index` or a `Catchability_index` have the lead
@@ -25,7 +28,13 @@
 #' @return A list containing the factorized TMB map (`mapFactor`) and the
 #'   original map matrix/array list (`mapList`).
 #' @export
-build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE,
+                      random_sel = FALSE, random_q = NULL) {
+
+  # Last in the signature so existing positional calls keep working. NULL means
+  # "read it off the data_list", where fit_mod() puts it, so a caller that set
+  # it there rather than passing it still gets the deviation sd estimated.
+  if (is.null(random_q)) random_q <- isTRUE(as.logical(data_list$random_q))
 
   # Fill in defaulted switches and upgrade any deprecated column names
   data_list <- Rceattle::switch_check(data_list)
@@ -55,7 +64,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 
-  map_list <- build_map_catchability(map_list, data_list, nyrs_hind)
+  map_list <- build_map_catchability(map_list, data_list, nyrs_hind, random_q)
 
   # After the per-process builders, not before: a linkage supplies the level
   # of the parameter it targets, so it must have the last word on whether
@@ -1129,9 +1138,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
 #' @param nyrs_hind Number of historical years.
+#' @param random_q Logical. If TRUE, the deviation sd (\code{index_q_dev_log_sd})
+#'   is estimated rather than held at \code{Time_varying_q_sd}.
 #'
 #' @return Updated \code{map_list}.
-build_map_catchability <- function(map_list, data_list, nyrs_hind) {
+build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FALSE) {
 
   # -- Catchability indices
   ind_q_dev <- 1
@@ -1224,7 +1235,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
           # How well it is informed depends on the series. A short or noisy
           # index can drive it to its lower bound, which reads as a constant q
           # -- check the estimate and its gradient before believing one.
-          if(isTRUE(as.logical(data_list$random_q))){
+          if(isTRUE(random_q)){
             map_list$index_q_dev_log_sd[flt] <- flt
           }
         }

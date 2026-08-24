@@ -193,3 +193,34 @@ test_that("a shared Catchability_index reports the same way", {
   expect_match(hit, "Catchability_index 1")
   expect_match(hit, "0.4", fixed = TRUE)
 })
+
+
+test_that("build_map() takes random_q directly, and still reads the data_list", {
+  # random_rec and random_sel were arguments while random_q was only ever read
+  # off data_list, so a direct build_map() call could not ask for it. It is an
+  # argument now, defaulting to what fit_mod() stores, so both routes work.
+  d <- make_test_data()
+  d$fleet_control$Catchability[1]      <- "Estimated"
+  d$fleet_control$Time_varying_q[1]    <- "IID"
+  d$fleet_control$Time_varying_q_sd[1] <- 0.2
+
+  # A build_map()-ready data_list: fit_mod() prepares one on the way to the map.
+  fit <- suppressWarnings(suppressMessages(
+    Rceattle::fit_mod(d, estimateMode = 3, msmMode = 0, random_q = FALSE)))
+  dl <- fit$data_list
+  dl$random_q <- NULL                          # as if fit_mod() never ran
+  p  <- suppressWarnings(Rceattle::build_params(dl))
+
+  est <- function(...) {
+    m <- suppressWarnings(suppressMessages(Rceattle::build_map(dl, p, ...)))
+    any(!is.na(m$mapList$index_q_dev_log_sd))
+  }
+
+  expect_false(est())                          # no flag anywhere
+  expect_true(est(random_q = TRUE))            # passed directly
+  expect_false(est(random_q = FALSE))          # explicitly off
+
+  dl$random_q <- 1                             # what fit_mod() stores
+  expect_true(est())                           # picked up by default
+  expect_false(est(random_q = FALSE))          # an explicit argument still wins
+})
