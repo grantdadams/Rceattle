@@ -95,7 +95,10 @@ said, so each struck row records what it actually turned out to be.
   The template does derive `SB0`/`B0` itself, and reads `MSSB0`/`MSB0` only to overwrite that under
   `msmMode > 0`. But neither has `read_data()`/`write_data()` support, so no workbook can supply
   them and this default is the only thing that creates the required `DATA_VECTOR`s. Kept, with the
-  reason and with `999` named as the placeholder `fit_mod()` fills in.
+  reason and with `999` named as the placeholder `fit_mod()` fills in. **Correction, 5.15.0:**
+  section 10.2 filled it into `data_list_reorganized` only, so the *returned* `data_list` kept the
+  999 and every refit off a fitted object re-entered the template with it. Fixed by carrying
+  `MSSB0`/`MSB0` onto `mod_objects$data_list`.
 - ~~`R/3-build_map.R` (`add checks for surveys sel sigma`)~~ — **Done in 5.14.0.** Real: fleets
   sharing a `Selectivity_index` estimate one `sel_dev_log_sd` between them, and a differing
   `Time_varying_sel_sd` was reconciled silently. Not to the first member's value, which is the

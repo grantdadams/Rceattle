@@ -658,7 +658,17 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
-      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp]) # FIXME: SBO is adjusted in wrapper function
+      # Terminal year, as in the single-species arm above. The multispecies
+      # SB0 is the same in every year -- the template overwrites its own
+      # derivation with the `MSSB0` input -- so this reads the same number a
+      # bare `SB0[sp]` did, and keeps reading the right one if that changes.
+      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
+
+      # An unfished reference is only derived for a run carrying a harvest
+      # control rule, so under `HCR = "NoFishing"` MSSB0 is still the
+      # placeholder. Dividing by it reports SSB/999 as a depletion -- on the
+      # Pacific hake three-species model that read 2.7e3. Not defined here.
+      terminal_sb0_om[terminal_sb0_om == .RCE_MSSB0_PLACEHOLDER] <- NA_real_
       terminal_dynamic_sb0_om <- if (length(mse_no_f)) {
         sapply(mse_no_f, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
       } else NA_real_

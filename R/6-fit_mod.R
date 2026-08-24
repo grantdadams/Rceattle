@@ -1380,6 +1380,15 @@ fit_mod <-
     mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
+    # Unfished SSB and biomass under predation (metric tons). Section 10.2
+    # derives these by projecting under no fishing and writes them into the
+    # reorganized copy it refits from, so the fitted object has to carry them
+    # forward: anything that refits from `data_list` alone -- `.refit_like()`,
+    # `remove_F()`, every `run_mse()` projection -- would otherwise re-enter the
+    # template at the 999 mt placeholder and read SSB/999 as depletion.
+    mod_objects$data_list$MSSB0 <- data_list_reorganized$MSSB0
+    mod_objects$data_list$MSB0  <- data_list_reorganized$MSB0
+
     # OSA residual metadata for the aggregate (index/catch) series, mapping
     # obsvec positions to fleet/species/year/age. osa_residuals() rebuilds the
     # full composition / caal / diet metadata on demand, so only the aggregate

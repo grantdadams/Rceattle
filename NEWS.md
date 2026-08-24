@@ -11,6 +11,68 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.15.0
+
+## Behavior changes
+
+* **`DynamicSB0` and `DynamicSBF` decay to spawning on their own mortality.**
+  Both are carried forward on predation mortality solved at their own fishing
+  rate (`M_at_age_dB0`, `M_at_age_dBF`) but then applied `M_at_age` — the
+  *fished* mortality — over the fraction of the year to spawning. They now use
+  the same M they were propagated on.
+
+  Only a model with a non-zero `spawn_month` is affected, and only under
+  predation: with `spawn_month = 0` the term is `exp(0)`, and with `msmMode = 0`
+  the two mortalities are identical. No bundled dataset carries both, so
+  `/golden-check` is bit-identical.
+
+  The equilibrium pair, `NByage0`/`SB0` and `NByageF`/`SBF`, is **not** fixed
+  here: it is still carried on `M_at_age`, so under predation an unfished
+  reference point is built on a fished predation rate. Marked with a
+  `TODO(review)` in the template.
+
+* **A multispecies model can report depletion against `DynamicSB0`.** With
+  `HCR = 0` the projection runs unfished, so SSB in the last projection year is
+  multispecies SB0 once `projyr` is far enough out to equilibrate, and that is
+  the reference `ssb_depletion` uses. That arm ran unconditionally, so it also
+  overwrote the `DynamicHCR = TRUE` result, leaving no way to get a dynamic-B0
+  depletion out of a multispecies model. It is now skipped under `DynamicHCR`.
+  Runs with `DynamicHCR = FALSE` are unchanged.
+
+## Bug fixes
+
+* **A multispecies fit now carries its unfished SSB (`MSSB0`) on the returned
+  object.** Under `msmMode > 0` the template discards its own equilibrium SB0
+  and reads the `MSSB0` `DATA_VECTOR` instead, so `ssb_depletion` is
+  `ssb / MSSB0`. No workbook can supply it — `clean_data()` seeds it at a 999 mt
+  placeholder and `fit_mod()` derives the real value by projecting under no
+  fishing. That derived value was written only into the reorganized copy the
+  projection refits from, so the **returned** `data_list` kept the 999, and
+  everything that refits from a fitted object — `.refit_like()`, `remove_F()`,
+  and every `run_mse()` projection — re-entered the template with the
+  placeholder.
+
+  **Any multispecies refit carrying a harvest control rule moves.** `SB0` is not
+  only the depletion denominator: it is also the HCR threshold and the
+  `posfun` floor on `ssb_depletion - Plimit`, so a refit was comparing spawning
+  biomass against 999 mt. A single `fit_mod()` call was already correct — the
+  fit itself used the derived value — so `/golden-check` is bit-identical and
+  no hindcast changes.
+
+* **`mse_summary()` no longer reports SSB/999 as a terminal depletion.** An
+  unfished reference is only derived for a run carrying a harvest control rule,
+  so under `HCR = "NoFishing"` `MSSB0` is still the placeholder. The
+  multispecies arm divided by it anyway: on the Pacific hake three-species
+  model `OM: Terminal SSB Depletion` read **2.68e3** while
+  `OM: Terminal SSB Depletion (Dynamic)`, which uses the model's own
+  `DynamicSB0`, read a sane 0.96. It is `NA` now, which is what an undefined
+  reference point should report. The dynamic column is unchanged.
+
+  That arm also indexed `SB0[sp]` on an `nspp × nyrs` matrix, reading year 1
+  rather than the terminal year. Masked today because the multispecies
+  overwrite makes every year identical; corrected so it stays right if that
+  changes.
+
 # Rceattle 5.14.1
 
 ## Documentation

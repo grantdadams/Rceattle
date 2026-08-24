@@ -2088,10 +2088,13 @@ Type objective_function<Type>::operator() () {
         for(age = 0; age < nages(sp); age++) {
 
           wt_idx_ssb = 2 * sp + 1;
+          // TODO(review): under predation SB0/SBF are carried on M_at_age,
+          // whose M2 is the fished predator field. Needs an equilibrium M2
+          // solved from NByage0/NByageF; the dB0/dBF pair below is consistent.
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
-          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age_dBF(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
 
           for(sex = 0; sex < nsex(sp); sex ++){
 
@@ -3083,8 +3086,11 @@ Type objective_function<Type>::operator() () {
         ssb_depletion(sp, yr) = ssb(sp, yr)/DynamicSB0(sp, yr);
       }
 
-      // Multi-species and no HCR (MSSB0 is input otherwises)
-      if((HCR == 0) & (msmMode > 0)){
+      // Multi-species, no HCR: the projection runs unfished, so SSB in the last
+      // projection year is multispecies SB0 once `projyr` is far enough out to
+      // equilibrate. Excluded under DynamicHCR, where DynamicSB0 is the
+      // reference and this would overwrite it.
+      if((HCR == 0) & (msmMode > 0) & (DynamicHCR == 0)){
         biomass_depletion(sp, yr) = biomass(sp, yr)/biomass(sp, nyrs-1);
         ssb_depletion(sp, yr) = ssb(sp, yr)/ssb(sp, nyrs-1);
       }
