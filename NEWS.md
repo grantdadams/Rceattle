@@ -11,6 +11,18 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.16.0
+
+## Bug fixes
+
+* **The model spec tree shows a parameter carrying more than one linkage.** The
+  grammar lets one parameter hold a *list* of specs — a shared prior plus a
+  fleet-specific random walk, which is how GOA pollock 2025 is configured — and
+  `print()` read `$formula` off that list and rendered `NULL`. Three of that
+  model's six linkage rows displayed as `NULL`, and they were the three carrying
+  the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
+  when stacked, so the count is the number of linkages the model actually holds.
+
 # Rceattle 5.15.0
 
 ## Behavior changes
