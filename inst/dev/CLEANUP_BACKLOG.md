@@ -11,7 +11,7 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-64 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 25 ·
+65 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 26 ·
 `src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
 `R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
 rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
@@ -156,8 +156,16 @@ Still open. No user-visible consequence; do them opportunistically.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
-Six, each a judgement about what the right behaviour *is*:
+Seven, each a judgement about what the right behaviour *is*:
 
+- `src/TMB/ceattle.cpp` (`this denominator is the TERMINAL PROJECTION YEAR's own biomass`) —
+  what multispecies depletion should mean with no harvest control rule. Under
+  `HCR == 0 & msmMode > 0` the block divides by `biomass(sp, nyrs-1)` rather than an unfished
+  reference, so `depletion` is 1 in the terminal year by construction, and it runs after and
+  overwrites both `DynamicHCR` arms. An unfished multispecies reference needs predation removed
+  as well as F — `remove_F()`'s job — so this may be deliberate, but the reported quantity is
+  not `B/B0`. Pre-existing and identical on `dev`; traces to `dc5530a7`, before the
+  `ceattle_v01_11.cpp` rename.
 - `R/0-rceattle_class.R:268` — whether `residuals(source = "all")` should include diet, given
   `osa_residuals("all")` does.
 - `R/0-rceattle_class.R:420`, `:452` — how held-out rows (`Year <= 0`) carrying a positive

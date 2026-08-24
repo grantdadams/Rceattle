@@ -3296,6 +3296,17 @@ Type objective_function<Type>::operator() () {
       }
 
       // Multi-species and no HCR (MSSB0 is input otherwises)
+      // TODO(review): this denominator is the TERMINAL PROJECTION YEAR's own
+      // biomass, not an unfished reference, so `depletion` here is "relative to
+      // the last year of the projection" and is 1 in that year by construction.
+      // It also runs last, so it OVERWRITES the DynamicHCR arms above: a
+      // multispecies model with no harvest control rule gets this whatever
+      // DynamicHCR says. An unfished multispecies reference needs predation
+      // removed as well as F, which is what remove_F() exists for, so the
+      // choice may be deliberate -- but the quantity reported under the name
+      // `depletion` is then not B/B0 and should not be read as one. Decide
+      // whether to key this off remove_F(), take MSSB0 as an input here too, or
+      // report it under a different name.
       if((HCR == 0) & (msmMode > 0)){
         biomass_depletion(sp, yr) = biomass(sp, yr)/biomass(sp, nyrs-1);
         ssb_depletion(sp, yr) = ssb(sp, yr)/ssb(sp, nyrs-1);
