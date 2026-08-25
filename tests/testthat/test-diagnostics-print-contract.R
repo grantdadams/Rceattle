@@ -194,6 +194,14 @@ testthat::test_that("a profile says whether the grid brackets the minimum", {
   testthat::expect_true(any(grepl("status: FAIL", none)))
   testthat::expect_true(any(grepl("no grid point converged", none)))
 
+  # A second basin: min-to-max spans grid points the profile actually rules
+  # out, so reporting it as one interval would overstate what the data allow.
+  bimodal <- shown(mk(c(20, 12, 4, 9, 12, 9, 4.5, 20)))
+  testthat::expect_true(any(grepl("not contiguous", bimodal)))
+  testthat::expect_true(any(grepl("above the cutoff", bimodal)))
+  # The ordinary case says nothing of the kind.
+  testthat::expect_false(any(grepl("not contiguous", txt)))
+
   # A cross-profile gets no interval -- the cutoff would be chisq_k/2 and the
   # region is not an interval -- but every cell is still edge-tested.
   g <- expand.grid(slot_1 = c(0.1, 0.2, 0.3), slot_2 = c(0.1, 0.2, 0.3))

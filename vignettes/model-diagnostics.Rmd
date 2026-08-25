@@ -78,7 +78,8 @@ et al. (2015) give asymmetric, life-history-dependent alternatives (−0.15 to
 reached the same optimum. `print(sims, rate = )` is the fraction of simulations
 that must converge before a self-test counts as clean. `print(prof, cutoff = )`
 bounds the reported interval; the default 1.92 is the 95% profile-likelihood
-cutoff for one parameter, $\chi^2_1(0.95)/2$.
+cutoff for one parameter — half the 0.95 quantile of a chi-square on one degree
+of freedom.
 
 Two of them report something the numbers alone cannot. A self-test drops its
 non-converged runs before returning, so the length of what comes back is not the

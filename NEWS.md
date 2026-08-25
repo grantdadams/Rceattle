@@ -87,10 +87,11 @@ version throughout.
 ## Documentation
 
 * `vignette("hcrs-and-mses")` attributed the per-fleet `Index_distribution`
-  index draw to 5.13.0; it landed in **5.9.0**. 5.13.0 is a reproducibility
-  boundary for `run_mse(simulate_data = TRUE)` on its own terms — the scalar
-  `cap` rewrite and the new `CAAL_distribution = "MultinomialAFSC"` draw — and
-  its `NEWS.md` entry now says so.
+  index draw to 5.13.0; it landed in **5.9.0**. It also had 5.13.0 breaking
+  reproducibility for every seeded `run_mse()`, where it breaks it for two
+  kinds of run — one using a scalar `cap`, and one whose control rule reads
+  reference points from an estimated stock-recruit curve. Both the vignette and
+  the 5.13.0 `NEWS.md` entry now say which.
 
 * The 5.18.0 entry gives the runtime the common-random-numbers fix cost:
   refitting the operating model over its whole projection was worth **9% on a
@@ -761,12 +762,13 @@ version throughout.
   multispecies rule and the two sides agree, so it is left alone here -- but set
   `Plimit` explicitly on a multispecies ConstantF run.
 
-* **A reproducibility boundary.** The `cap` rewrite above changes the catch
-  taken, and the new `CAAL_distribution = "MultinomialAFSC"` draw adds a draw
-  to the stream for any model carrying one, so a seeded
-  `run_mse(simulate_data = TRUE)` from 5.12.0 does not reproduce here. 5.9.0
-  and 5.18.0 are the other two boundaries; `vignette("hcrs-and-mses")` lists
-  all three. `simulate_data = FALSE` is unchanged to the bit.
+* **A reproducibility boundary, for two kinds of run.** A seeded `run_mse()`
+  from 5.12.0 does not reproduce here if it used a scalar `cap` — the rewrite
+  above changes the catch taken, cap binding or not — or if its control rule
+  read reference points from an estimated stock-recruit curve, which the
+  `NByage0` / `SB0` fix above moves. A run with neither is unaffected by this
+  release. That is unlike 5.9.0 and 5.18.0, which move the random stream for
+  every seeded run; `vignette("hcrs-and-mses")` lists all three.
 
 ## Other changes
 

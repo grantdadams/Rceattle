@@ -1,6 +1,6 @@
 # The vocabulary and the machinery the refit diagnostics share: the argument
 # documentation retrospective(), jitter() and self_test() inherit, and the
-# parallel dispatcher those three and run_mse() all refit through.
+# parallel dispatcher those three plus profile() and run_mse() refit through.
 
 #' Shared refit-diagnostic arguments
 #'

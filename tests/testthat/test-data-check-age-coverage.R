@@ -150,6 +150,25 @@ test_that("a table held as a matrix is checked, not thrown on", {
 })
 
 
+test_that("a tibble is read like a data frame, not reported as broken", {
+  # read_data() wraps every sheet in as.data.frame(), but a hand-built
+  # data_list may hold a tibble -- and `tbl[, "Species"]` on one is a
+  # one-column tibble, not a vector, so it coerces to NA and would report
+  # every row as not a species number. `$` handled this before, so this is a
+  # case the fix must not lose.
+  skip_if_not_installed("tibble")
+  dl <- goa()
+  # .name_repair = "minimal": the shipped maturity table carries trailing
+  # unnamed columns, which tibble refuses to name for us. They are ignored
+  # either way -- the age columns are found by name.
+  dl$maturity <- tibble::as_tibble(dl$maturity, .name_repair = "minimal")
+
+  err <- check_err(dl)
+  expect_false(any(grepl("maturity\\$Species must be the species number", err)))
+  expect_false(any(grepl("maturity\\$Species must match the row order", err)))
+})
+
+
 test_that("a Species column that is not a species number is reported", {
   # `NA != i` is NA and which() drops it, so an unusable column left the row
   # order silently unchecked -- the one thing this block exists to check.

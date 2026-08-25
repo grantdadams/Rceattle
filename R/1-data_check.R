@@ -497,7 +497,11 @@ data_check <- function(data_list) {
     # numbers are 1..nspp: a table carrying species 1, 3, 4 reads as level codes
     # 1, 2, 3 and passes the row-order test it should fail.
     if("Species" %in% colnames(tbl)){
-      sp_col <- suppressWarnings(as.numeric(as.character(tbl[, "Species"])))
+      # `[[` for a data.frame or tibble, `[,` for a matrix: neither form works
+      # on both. `tbl[, "Species"]` on a TIBBLE is a one-column tibble, not a
+      # vector, so it would coerce to NA and report every row.
+      sp_raw <- if(is.matrix(tbl)) tbl[, "Species"] else tbl[["Species"]]
+      sp_col <- suppressWarnings(as.numeric(as.character(sp_raw)))
       not_a_number <- which(is.na(sp_col) | sp_col != round(sp_col))
       if(length(not_a_number)){
         # Reported rather than passed over: `NA != i` is NA, so an unusable

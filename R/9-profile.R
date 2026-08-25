@@ -379,7 +379,12 @@ profile.Rceattle <- function(fitted = NULL,
 #' profile-likelihood one: the grid values within `cutoff` of the minimum, where
 #' the default 1.92 is \eqn{\chi^2_1(0.95)/2}. It is read off the grid, so it is
 #' no finer than the spacing of `values`, and it is reported as open on either
-#' side the grid does not close. No interval is given for a cross-profile over
+#' side the grid does not close. It is also referenced to the best GRID point
+#' rather than to the unconstrained MLE, which the object does not carry: the
+#' grid minimum sits at or above the MLE, so the interval errs wide. And it is
+#' reported as a range, so a profile with a second basin -- or a failed point
+#' inside the range -- is called out as not contiguous rather than left to read
+#' as one interval. No interval is given for a cross-profile over
 #' two or more cells -- the cutoff would be \eqn{\chi^2_k(0.95)/2} and the region
 #' is not an interval.
 #'
@@ -441,6 +446,16 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
         if (lo == min(v)) "<=" else "", num(lo),
         " to ", if (hi == max(v)) ">=" else "", num(hi),
         "\n", sep = "")
+    # min-to-max is an interval only if the grid points between them are all
+    # inside it. A profile with a second basin -- or one non-converged point in
+    # the middle -- would otherwise be reported as one wide interval that
+    # includes values the profile actually rules out.
+    span <- which(v >= lo & v <= hi)
+    if (!all(within[span])) {
+      cat("  not contiguous: ", sum(!within[span]),
+          " grid point(s) inside that range are above the cutoff or did not ",
+          "converge -- read $nll rather than the range\n", sep = "")
+    }
   }
 
   if (any(at_edge)) {
