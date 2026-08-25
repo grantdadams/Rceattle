@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.
+#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
+#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -37,16 +37,15 @@
 #'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 #'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
 #'   \code{"TypeIIIMSVPA"} (2). Higher integer
-#'   codes (Kinzey-Punt, Holling forms) are not yet implemented.
-#' @param avgnMode The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.
-#' @param initMode how the population is initialized, as a string alias or integer code.
-#'   \code{"FreeParams"} (0) = initial age-structure estimated as free parameters;
-#'   \code{"Equilibrium"} (1) = unfished (Finit = 0) equilibrium age-structure estimated out from R0 + mortality (M1);
-#'   \code{"NonEquilibrium"} (2, the default) = non-equilibrium age-structure estimated out from R0, mortality (M1), and initial population deviates;
-#'   \code{"FishedNonEquilibrium"} (3) = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0, mortality (M1), and initial population deviates;
-#'   \code{"FishedNonEquilibriumScaled"} (4) = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0;
-#'   \code{"OffsetEquilibrium"} (5) = unfished (Finit = 0) equilibrium age-structure seeded by the first-year recruitment (\code{R_init * exp(rec_dev[year 1])}) decayed by residual natural mortality M1, closed with the usual geometric plus group at the maximum age, with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention). Mode 5 differs from \code{"Equilibrium"} by exactly one term: both start from the initial equilibrium recruitment \code{R_init}, but 5 displaces it by the year-1 recruitment deviation. Under a random-about-mean stock-recruit relationship \code{R_init} equals \code{R0}; under Beverton-Holt or Ricker it is the equilibrium recruitment implied by the curve. Note the decay uses M1 only, so in multispecies mode predation mortality (M2) does not enter the initial age structure.
-#' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability. The length-based modes (1, 3, 5) are not yet implemented and are rejected by `data_check()`; use a weight-based mode (2, 4, 6) or empirical suitability (0).
+#'   codes (Kinzey-Punt, Holling forms) are declared but not implemented, and are
+#'   rejected by the data check.
+#' @param avgnMode the average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z(1 - exp(-Z))} (the MSVPA form), is implemented; the alternatives are declared but have no effect.
+#' @param initMode how the population is initialized, as a string alias or integer
+#'   code: \code{"FreeParams"} (0), \code{"Equilibrium"} (1),
+#'   \code{"NonEquilibrium"} (2, the default), \code{"FishedNonEquilibrium"} (3),
+#'   \code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5). See
+#'   the \strong{Initial age structure} section below for what each one estimates.
+#' @param suitMode how predator-prey suitability is derived, per predator (a single value or a vector of length \code{nspp}): 0 = empirical from diet data (Holsman et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 = weight-based normal. The length-based forms (1, 3, 5) are declared but not implemented and are rejected by the data check.
 #' @param suit_styr The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct start year per predator. Defaults to `styr` in `data_list`. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr The last year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length `nspp` sets a distinct end year per predator. Defaults to `endyr` in `data_list`. Used when diet data were sampled from a subset of years.
 #' @param fit_control A list returned by [fit_control()] that bundles the
@@ -61,6 +60,13 @@
 #'   `suit_endyr`, `fit_control`) overlay only the arguments the caller did *not*
 #'   pass -- an explicit argument always wins. `NULL` (default) applies no
 #'   configuration. Example: `fit_mod(data_list, config = load_config("run.yaml"))`.
+#' @param quiet_data_check Drop the warnings the fit-time validation raises (errors still
+#'   stop the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
+#'   -- [retrospective()], [jitter()], [self_test()], [profile()], [run_mse()],
+#'   [remove_F()], [sample_rec()], [reweight_comps()] -- set it, since they
+#'   re-validate a `data_list` the caller has already fitted once and would
+#'   otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+#'   Convergence and TMB warnings are unaffected.
 #' @param ... Deprecated optimizer / sdreport / phasing arguments
 #'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
 #'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
@@ -82,6 +88,37 @@
 #' because the implementations have not been validated against the
 #' current parameter set. See \code{src/TMB/predation.hpp}.
 #'
+#'
+#' @section Initial age structure:
+#' What \code{initMode} estimates, and from what:
+#' \describe{
+#'   \item{\code{"FreeParams"} (0)}{The initial age-structure is estimated directly, one free
+#'     parameter per age.}
+#'   \item{\code{"Equilibrium"} (1)}{Unfished (\eqn{F_{init} = 0}) equilibrium age-structure,
+#'     carried out from \eqn{R_0} and residual natural mortality \eqn{M1}.}
+#'   \item{\code{"NonEquilibrium"} (2)}{As (1), plus estimated initial population deviates, so
+#'     the first year need not sit at equilibrium. The default.}
+#'   \item{\code{"FishedNonEquilibrium"} (3)}{As (2), with an estimated initial fishing
+#'     mortality \eqn{F_{init}} added to the mortality that shapes the first year.}
+#'   \item{\code{"FishedNonEquilibriumScaled"} (4)}{As (3), but \eqn{F_{init}} scales
+#'     \eqn{R_0} rather than entering the mortality directly.}
+#'   \item{\code{"OffsetEquilibrium"} (5)}{Unfished equilibrium seeded by the first year's
+#'     recruitment, \code{R_init * exp(rec_dev[1])}, decayed by \eqn{M1} and closed with the
+#'     usual geometric plus group. Initial deviates are turned off and no init-dev penalty is
+#'     applied. This is the Cole Monnahan / AFSC GOA pollock convention.}
+#' }
+#'
+#' Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
+#' recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+#' year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
+#' year was not average, that is not a small difference.
+#'
+#' \eqn{R_{init}} is not always \eqn{R_0}: under a random-about-mean stock-recruit relationship
+#' the two are equal, but under Beverton-Holt or Ricker \eqn{R_{init}} is the equilibrium
+#' recruitment implied by the curve.
+#'
+#' **In multispecies mode the decay uses \eqn{M1} only**, so predation mortality (\eqn{M2}) does
+#' not enter the initial age structure under any of these modes.
 #'
 #' @return A list of class "Rceattle" including:
 #'
@@ -140,6 +177,7 @@ fit_mod <-
     suit_endyr = NULL,
     fit_control = NULL,
     config = NULL,
+    quiet_data_check = FALSE,
     ...){
 
     # Whether the caller supplied fit_control -- captured before the default is
@@ -397,7 +435,6 @@ fit_mod <-
     data_list$sel_linkages    <- selFun$linkages
     data_list$comp_linkages   <- compFun$linkages
     data_list$growth_model    <- extend_length(growthFun$growth_model)
-    data_list$growth_re       <- extend_length(growthFun$growth_re)
     # Plus-group SD-at-age style, resolved like growth_age_L1 below:
     # build_growth() value (if given) > existing data_list$growth_sd_style
     # (so a refit that rebuilds growth via build_growth(fun=) keeps the
@@ -408,7 +445,6 @@ fit_mod <-
     }
     gsd[is.na(gsd)] <- 1L   # WHAM
     data_list$growth_sd_style <- gsd
-    data_list$growth_indices  <- growthFun$growth_indices
     # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
     # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
     # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
@@ -440,11 +476,30 @@ fit_mod <-
     data_list$HCRorder <- extend_length(HCR$HCRorder)
     data_list$QnormHCR <- stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    # Fill out switches if missing
-    data_list <- Rceattle::switch_check(data_list)
+    # Fill out switches if missing. `quiet_data_check` covers switch_check()'s
+    # deprecation messages for the same reason it covers data_check()'s
+    # warnings: the diagnostic refits re-validate the caller's own data_list, so
+    # a retrospective would otherwise repeat them once per peel.
+    if (isTRUE(quiet_data_check)) {
+      data_list <- suppressMessages(Rceattle::switch_check(data_list))
+    } else {
+      data_list <- Rceattle::switch_check(data_list)
+    }
 
-    # Check for data error
-    data_check(data_list)
+    # A Dirichlet-multinomial reads its composition weight as a log, so the
+    # workbook default of 1 is a starting weight of e. Reported here rather
+    # than inside switch_check(), which build_params() and build_map() also call
+    # -- that would print it three times per fit. Reports only; changes nothing.
+    if (isTRUE(quiet_data_check)) suppressMessages(.rce_flag_dm_weight_scale(data_list))
+    else .rce_flag_dm_weight_scale(data_list)
+
+    # Check for data error. `quiet_data_check` drops the WARNINGS only -- errors
+    # still stop the fit. The diagnostic refits set it: they re-validate a
+    # data_list the caller already fitted once, so every warning it raises has
+    # been seen, and a retrospective or an MSE would otherwise repeat it once per
+    # peel or per iteration.
+    if (isTRUE(quiet_data_check)) suppressWarnings(data_check(data_list))
+    else data_check(data_list)
 
     # * Pool process linkages into a global table + design matrix ----
     # No-op when no build_*() supplied a `linkages` list. When
@@ -503,6 +558,11 @@ fit_mod <-
     )
     data_list$linkage_table <- .linkage_pool$table
     data_list$linkage_X     <- .linkage_pool$X
+
+    # A q linkage is applied per fleet and is not reconciled across a shared
+    # Catchability_index, so it can break a group data_check() has already
+    # passed. Checked here because the table above is what it reads.
+    if (!isTRUE(quiet_data_check)) .warn_q_linkage_shared_group(data_list)
     # (Fixed-effect covariates with missing years are rejected earlier, in
     # materialize_linkage(), before model.matrix() can silently drop NA rows.)
 
@@ -562,6 +622,16 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
+      # Drop anything the model no longer has a parameter for, in skeleton
+      # order. `inits` from an older fit can carry a retired block (e.g.
+      # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
+      # template does not declare, but build_map() runs on start_par first and
+      # produces a map entry per element, so the stale name reached MakeADFun
+      # through the map and stopped with "Names in map must correspond to
+      # parameter names" -- a refit that failed on a parameter the model no
+      # longer has. Extra names are dropped silently because they are inert by
+      # definition; a MISSING one is the error above.
+      start_par <- start_par[names(.skel)]
       rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number
@@ -585,9 +655,27 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par,
-                                        debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
-                                        random_rec = random_rec, random_sel = random_sel))
+      # build_map() warns about configurations the caller asked for and will not
+      # get: an M1 model wanting sex-specific mortality on a single-sex species,
+      # a Time_varying_sel the selectivity form ignores, a Laplace request the
+      # map cannot honour. Each one changes what is estimated, so it has to be
+      # seen. They are de-duplicated rather than passed straight through because
+      # build_map() raises the selectivity ones once per fleet and per sex, and
+      # because .refit_like() re-enters fit_mod() once per retrospective peel,
+      # jitter and MSE simulation -- unfiltered, one real warning becomes
+      # hundreds of identical lines and stops being read.
+      seen <- character(0)
+      map <- withCallingHandlers(
+        build_map(data_list, start_par,
+                  debug = estimateMode %in% c(2, 4), # turn off hindcast parameters in projection / debug mode
+                  random_rec = random_rec, random_sel = random_sel,
+                  random_q = random_q),
+        warning = function(w) {
+          msg <- conditionMessage(w)
+          if (msg %in% seen) invokeRestart("muffleWarning")
+          seen <<- c(seen, msg)
+        }
+      )
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
@@ -653,6 +741,31 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
+      # Selectivity deviates are integrated out only where the model scores
+      # them. The densities on log_sel_slp_dev / sel_inf_dev are gated on
+      # Time_varying_sel being IID, AR1, RandomWalk or RandomWalkAscending
+      # (ceattle.cpp, JNLL_SEL_DEV). "Block" is deliberately unscored -- one
+      # fixed parameter per block, no penalty -- and sel_dev_log_sd is mapped
+      # out for it too, so there is not even a variance to estimate. Integrating
+      # a flat block against nothing is an improper random effect: the marginal
+      # objective is NaN, and TMB reports it as "NA/NaN gradient evaluation",
+      # which names neither selectivity nor random_sel.
+      blocked <- .rce_unscored_sel_dev_fleets(data_list$fleet_control, map$mapList)
+      if (length(blocked)) {
+        stop("Cannot use `random_sel = TRUE` with `Time_varying_sel = \"Block\"` ",
+             "on fleet(s) ", paste(blocked, collapse = ", "), ". Selectivity ",
+             "blocks are fixed effects carrying no penalty, so there is no ",
+             "density to integrate them against. Either set ",
+             "`Time_varying_sel` to \"IID\" or \"RandomWalk\" on those fleets, ",
+             "or fit with `random_sel = FALSE` (blocks are then estimated as ",
+             "the fixed effects they are).")
+      }
+
+      # Listed whether or not the maps are empty. TMB drops a fully-mapped name
+      # itself, but TMBphase() reads `length(random) > 0` to decide whether to
+      # pin the RE variance hyperparameters in every phase (see the note above),
+      # so dropping an empty array here would change a phased fit rather than
+      # tidy it.
       random_vars <- c(random_vars, "log_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
     if (sum(data_list$M1_re) > 0) {
@@ -1167,6 +1280,13 @@ fit_mod <-
             quantities <- obj$report(obj$env$last.par.best)
             SB0        <- quantities$ssb[, ncol(quantities$ssb)]
             B0         <- quantities$biomass[, ncol(quantities$biomass)]
+            # Mark the species whose unfished reference is now a real
+            # no-fishing projection rather than the placeholder. Recorded
+            # explicitly because the alternative -- recognising the placeholder
+            # by its value -- is a float comparison against 999 that would also
+            # null a legitimately-derived 999 mt, and cannot see a workbook that
+            # supplied its own MSSB0.
+            data_list_reorganized$MSSB0_derived[params_on] <- TRUE
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on]  <- B0[params_on]
 
@@ -1266,6 +1386,16 @@ fit_mod <-
 
     mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+
+    # Unfished SSB and biomass under predation (metric tons). Section 10.2
+    # derives these by projecting under no fishing and writes them into the
+    # reorganized copy it refits from, so the fitted object has to carry them
+    # forward: anything that refits from `data_list` alone -- `.refit_like()`,
+    # `remove_F()`, every `run_mse()` projection -- would otherwise re-enter the
+    # template at the 999 mt placeholder and read SSB/999 as depletion.
+    mod_objects$data_list$MSSB0_derived <- data_list_reorganized$MSSB0_derived
+    mod_objects$data_list$MSSB0 <- data_list_reorganized$MSSB0
+    mod_objects$data_list$MSB0  <- data_list_reorganized$MSB0
 
     # OSA residual metadata for the aggregate (index/catch) series, mapping
     # obsvec positions to fleet/species/year/age. osa_residuals() rebuilds the

@@ -269,6 +269,24 @@ test_that("a REPORT-only series does not warn about missing standard errors", {
                                               add_ci = TRUE))
 })
 
+test_that("an out-of-range alpha stops before anything is drawn", {
+  testthat::skip_if_not_installed("ggplot2")
+  # alpha shades the confidence ribbon. Out of range it saturates the ribbon or
+  # errors deep inside the device, neither of which names the argument -- the
+  # same contract line_col and lwd already have.
+  m <- .fake_ts_model("R", c(5e5, 3e5), c(1e5, 5e4))
+  expect_error(Rceattle::plot_recruitment(m, add_ci = TRUE, alpha = 1.5),
+               "between 0 and 1")
+  expect_error(Rceattle::plot_recruitment(m, add_ci = TRUE, alpha = -0.1),
+               "between 0 and 1")
+  expect_error(Rceattle::plot_recruitment(m, add_ci = TRUE, alpha = NA),
+               "between 0 and 1")
+  expect_error(Rceattle::plot_recruitment(m, alpha = c(0.2, 0.4)),
+               "between 0 and 1")
+  expect_s3_class(Rceattle::plot_recruitment(m, add_ci = TRUE, alpha = 0.2),
+                  "ggplot")
+})
+
 test_that("as.data.frame() and the plotter report the same interval", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("ggplot2")

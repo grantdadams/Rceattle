@@ -20,43 +20,65 @@ plot_m2_at_age_prop(
   height = 6.5,
   incl_proj = FALSE,
   incl_mean = FALSE,
-  add_ci = FALSE
+  add_ci = FALSE,
+  maxyr = NULL,
+  lty = 1
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{age}{Age to plot M at age}
+\item{age}{Prey age to plot the M2 proportions at, on the prey species' own
+age scale rather than as an age-bin index. A prey species that has no such
+age is dropped, with a warning.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
-\item{spnames}{Species names for legend}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{lwd}{Line width as specified by user}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Ignored. Base-graphics leftover: the figure widened its
+right margin to fit the legend. Set margins on the returned ggplot instead.}
 
-\item{top_adj}{Adjustment for top margin}
+\item{top_adj}{Ignored. Base-graphics leftover; see \code{right_adj}.}
 
-\item{minyr}{first year to plot}
+\item{minyr, maxyr}{First / last year to plot.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size in inches.}
 
-\item{height}{Figure height in inches}
+\item{incl_proj}{Include the projection years, with a dashed divider at the
+last hindcast year.}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
+\item{incl_mean}{Add a horizontal line at the hindcast mean of each series.}
 
-\item{incl_mean}{TRUE/FALSE include time series mean as horizontal line}
+\item{add_ci}{Add a 95\% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.}
 
-\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
 }
 \description{
-Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+Share of the predation mortality (M2) on each prey age that is
+attributable to each predator species. The shares sum to 1 across
+predators for every prey age and year; a year with no predation on that
+age leaves them undefined and draws nothing.
+}
+\details{
+Colour separates predators; line type separates models. Panels are
+prey species (and sex, where the prey is sexed).
 }

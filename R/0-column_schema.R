@@ -43,7 +43,8 @@
 #   aliases     chr  deprecated old names accepted on read (upgraded in place).
 #   status      chr  "live" (used by the model) | "orphan" (documented but read
 #                    nowhere -- excluded from generated docs once dropped).
-#   tmb_target  chr  the downstream DATA_*/derived object, for reference.
+#   tmb_target  chr  the object in the model this column feeds. Not always a
+#                    plain rename: index_log_q_prior is log(Catchability_init).
 #
 # The `doc` string is the single authoritative description for each column: it
 # is written verbatim into the generated `meta_data_names.xlsx` Description and
@@ -103,59 +104,59 @@
     .rce_col("pop_age_transition_index", "control", "Integer: age transition matrix (e.g. growth trajectory) index to use deriving length-based predation", type = "integer"),
     .rce_col("sigma_rec", "control", "Numeric: fixed or initial value of standard deviation for recruitment deviates", aliases = "sigma_rec_prior"),
     .rce_col("other_food", "control", "Numeric: other food in the ecosystem for each species (kg)"),
-    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only"),
+    .rce_col("estDynamics", "control", "Integer: switch to estimate or fix numbers-at-age: \r\n0 = estimate dynamics\r\n1 = use input numbers-at-age in NbyageFixed, \r\n2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient\r\n3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.", type = "switch", allowed = "estDynamics_map", has_default = TRUE, default = 0, default_msg = "'estDynamics' are not included in data, assuming 0", default_scope = "per-species (rep(0, nspp)); documentation-only", tmb_target = "estDynamics"),
 
     # ======================================================================
     # fleet_control sheet, in canonical column order
     # ======================================================================
     .rce_col("Fleet_name", "fleet_control", "Name of survey or fishery", type = "character"),
     .rce_col("Fleet_code", "fleet_control", "Index of survey/fishery (does not restart for each species)", type = "integer"),
-    .rce_col("Fleet_type", "fleet_control", "0 = Do not estimate (fixes all parameters for this fleet to initial values)\r\n1 = Fishery\r\n2 = Survey", type = "switch", allowed = "fleet_map"),
-    .rce_col("Species", "fleet_control", "Species number", type = "integer"),
-    .rce_col("Selectivity_index", "fleet_control", "Index to mirror selectivities (otherwise, same as fleet_code)", type = "integer"),
-    .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk (AMAK 'pm')\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map"),
-    .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'", default_msg_when = "growth_estimated"),
-    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, or 9).", type = "integer", aliases = "Nselages"),
-    .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9) selectivity (the intuitive alternative is Sel_curvature_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Sel_curve_pen3", "fleet_control", "Deviation-magnitude penalty weight (Sel_curve_pen3) for non-parametric / LogisticPM selectivity.", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
-    .rce_col("Time_varying_sel", "fleet_control", "Whether to estimate time-varying selectivity for logistic, double logistic, descending logistic, or non-parametric forms.\r\n0 = no\r\n1 = penalized deviates given sel_sd_prior (or random effects if \"random_sel\" is selected in \"fit_mod\")\r\n3 = time blocks with no penalty\r\n4 = random walk following Dorn\r\n5 = random walk on the ascending portion of double logistic only.", type = "switch", allowed = "tv_sel_map"),
+    .rce_col("Fleet_type", "fleet_control", "0 = Do not estimate (fixes all parameters for this fleet to initial values)\r\n1 = Fishery\r\n2 = Survey", type = "switch", allowed = "fleet_map", tmb_target = "flt_type"),
+    .rce_col("Species", "fleet_control", "Species number", type = "integer", tmb_target = "flt_spp"),
+    .rce_col("Month", "fleet_control", "Observation month for the fleet (0 = not specified).", type = "integer", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Month' not specified in 'fleet_control', assuming 0", tmb_target = "flt_month"),
+    .rce_col("Selectivity_index", "fleet_control", "Index used to give fleets the SAME selectivity (otherwise, same as Fleet_code). Fleets sharing a value share one selectivity parameter block, with its penalties and priors accumulated once on the group's first non-Off fleet.\r\nSharing the parameters is not enough on its own: the columns that shape the curve are read per fleet and must agree across the group, or the fleets end up with different selectivities. data_check() reports any that differ. To mirror a fleet, copy its fleet_control row and change only the identity and catchability columns.\r\nSee vignette('model-options-and-functionality'), 'Sharing a selectivity between fleets'.", type = "integer", tmb_target = "flt_sel_lead"),
+    .rce_col("Selectivity", "fleet_control", "0 = fixed (empirical selectivity from srv_emp_sel)\r\n1 = logistic\r\n2 = non-parametric (Ianelli et al. 2018)\r\n3 = double logistic\r\n4 = descending logistic\r\n5 = non-parametric (Taylor et al. 2014, 'Hake')\r\n6 = 2D AR1 (age x year)\r\n7 = 3D AR1 (Cheng et al. 2024)\r\n8 = double normal\r\n9 = non-parametric random walk (AMAK 'pm')\r\n11 = logistic with a free age-1 selectivity (AMAK 'pm')\r\nWhether a form is age- or length-based is set by Selectivity_dimension, not by the code.", type = "switch", allowed = "sel_map", tmb_target = "flt_sel_type"),
+    .rce_col("Selectivity_dimension", "fleet_control", "\"Age\" or \"Length\".", type = "character", meta = TRUE, has_default = TRUE, default = "Age", default_msg = "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'", default_msg_when = "growth_estimated", tmb_target = "flt_sel_dim", allowed = "sel_dimension_map"),
+    .rce_col("N_sel_bins", "fleet_control", "Number of age or length bins to estimate for non-parametric and AR1 selectivity (Selectivity = 2, 5, 6, 7, or 9).", type = "integer", aliases = "Nselages", tmb_target = "flt_n_sel_bins"),
+    .rce_col("Sel_curve_pen1", "fleet_control", "Shape/smoothness penalty weight for non-parametric (type 2/9) and LogisticPM (11) selectivity (the intuitive alternative is Sel_shape_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across selectivity BINS (ages or length bins, per Selectivity_dimension).", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Sel_curve_pen2", "fleet_control", "2nd-difference curvature penalty weight for non-parametric (type 2/9) selectivity (the intuitive alternative is Sel_curvature_sd). The 2DAR1/3DAR1 forms (6/7) reuse this column as a logit-scale AR1 correlation, across YEARS.", has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Sel_curve_pen3", "fleet_control", "Deviation-magnitude penalty weight (Sel_curve_pen3) for non-parametric / LogisticPM selectivity. The 3DAR1 form (7) reuses this column as a logit-scale AR1 correlation, across COHORTS.", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'", default_msg_when = "np_hake"),
+    .rce_col("Time_varying_sel", "fleet_control", "Whether to estimate time-varying selectivity for logistic, double logistic, descending logistic, or non-parametric forms.\r\n0 or \"Off\" = no\r\n1 or \"IID\" = penalized deviates given Time_varying_sel_sd (or random effects if \"random_sel\" is selected in \"fit_mod\")\r\n2 or \"AR1\" = REMOVED in 5.16.0; data_check() errors on it. It was never an AR1 -- it was scored as \"IID\" -- so use \"IID\" for the same fit, or a selectivity linkage with ar1(1 | Year) for a real one.\r\n3 or \"Block\" = time blocks with no penalty\r\n4 or \"RandomWalk\" = random walk following Dorn\r\n5 or \"RandomWalkAscending\" = random walk on the ascending portion of double logistic only.\r\nSoft-deprecated as a whole: the linkage grammar expresses the same deviations per selectivity parameter, with the deviation sd estimated or fixed. See vignette('model-options-and-functionality').", type = "switch", allowed = "tv_sel_map", tmb_target = "flt_varying_sel"),
     .rce_col("Time_varying_sel_sd", "fleet_control", "The fixed or initial sd to use for time varying selectivity if set to 1, 4, or 5.", aliases = c("Sel_sd_prior", "Time_varying_sel_sd_prior")),
-    .rce_col("Sel_start_year", "fleet_control", "First year the fleet's time-varying selectivity deviations are estimated and penalized (NA -> earliest year of data across fleets sharing the Selectivity_index, bounded below by styr).", type = "integer", meta = TRUE, has_default = TRUE, default = NA),
-    .rce_col("Bin_first_selected", "fleet_control", "Age/length bin at which selectivity becomes non-zero", type = "integer", aliases = "Age_first_selected"),
+    .rce_col("Sel_start_year", "fleet_control", "First year the fleet's time-varying selectivity deviations are estimated and penalized (NA -> earliest year of data across fleets sharing the Selectivity_index, bounded below by styr).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_sel_start_yr"),
+    .rce_col("Bin_first_selected", "fleet_control", "Age/length bin at which selectivity becomes non-zero", type = "integer", aliases = "Age_first_selected", tmb_target = "bin_first_selected"),
     .rce_col("Sel_shape_sd", "fleet_control", "Shape/smoothness selectivity penalty expressed as a standard deviation (an intuitive alternative to Sel_curve_pen1); weight = 1/(2*sd^2). NonParametric (2/9) and LogisticPM (11).", meta = TRUE),
     .rce_col("Sel_curvature_sd", "fleet_control", "2nd-difference curvature selectivity penalty expressed as a standard deviation (Sel_curve_pen2); NonParametric-only.", meta = TRUE),
     .rce_col("Sel_devmag_sd", "fleet_control", "Deviation-magnitude selectivity penalty expressed as a standard deviation (Sel_curve_pen3). NonParametric (2/9) and LogisticPM (11).", meta = TRUE),
-    .rce_col("Sel_shape_dir", "fleet_control", "Direction of the (directional-mode) NonParametric shape penalty when Sel_shape_sd is used: \"Decreasing\" (default) or \"Increasing\".", type = "character", meta = TRUE),
-    .rce_col("Sel_pen_first_bin", "fleet_control", "First bin (age or length) for the non-parametric shape penalty (NA -> Bin_first_selected).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_first_age"),
-    .rce_col("Sel_pen_last_bin", "fleet_control", "Last (left) bin of the shape-penalty pairs (NA -> nbins-2).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_last_age"),
-    .rce_col("Sel_shape_mode", "fleet_control", "Shape-penalty mode: \"Directional\" (default) or \"Smooth\" (two-sided d^2, RTMB).", type = "character", meta = TRUE, has_default = TRUE, default = NA),
-    .rce_col("Sel_avgsel_pen", "fleet_control", "Weight on the AMAK avgsel base-level penalty (type 9); 0 = off (default), 10 matches AMAK.", meta = TRUE, has_default = TRUE, default = 0),
-    .rce_col("Sel_cap_bin", "fleet_control", "NonParametricRPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age"),
-    .rce_col("Sel_norm_bin", "fleet_control", "Age/length bin at which selectivity = 1. An absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. \r\nIf NA, it will not normalize selectivity. \r\nIf < 0, will normalize selectivity by the max. \r\n\r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes -- and so whether relative sex-specific selectivity survives -- is 'Sel_norm_scope'. NA does not normalize either way, leaving the relative scale free. \r\nRelative sex selectivity is only informed by the data where the composition is joint (comp_data Sex = 3); sex-specific rows (Sex = 1 or 2) each sum to 1 and carry no sex-ratio information. Selectivity = 'Hake' always normalizes within sex regardless of either column.", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected", "Sel_norm_bin1")),
-    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2")),
-    .rce_col("Sel_norm_scope", "fleet_control", "Whether selectivity normalization pools its reference across sexes. Orthogonal to 'Sel_norm_bin', which says WHERE the reference is taken (a named bin, or the max). \r\n\"WithinSex\" = each sex is divided by its own reference, so both reach 1 and only the SHAPE differs by sex (relative sex-specific selectivity removed). \r\n\"AcrossSexes\" (default) = one reference pooled over both sexes, so the less-selected sex stays below 1 (relative sex-specific selectivity retained). \r\nNo effect on a one-sex species, or where 'Sel_norm_bin' is NA (nothing is normalized). \r\nNOTE: before v5.8.0 a named bin always implied \"WithinSex\"; max-normalization always implied \"AcrossSexes\". Set this column explicitly to \"WithinSex\" to restore the old behaviour of a two-sex fleet that normalizes at a named bin.", type = "switch", allowed = "sel_norm_scope_map", has_default = TRUE, default = "AcrossSexes", default_msg = "'Sel_norm_scope' not specified in 'fleet_control'; assuming 'AcrossSexes'. NOTE: a two-sex fleet normalizing at a named 'Sel_norm_bin' previously used a per-sex reference -- set 'Sel_norm_scope' to 'WithinSex' to keep that behaviour.", default_msg_when = "sel_norm_scope_flip"),
-    .rce_col("Comp_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "MultinomialAFSC", default_msg = "'Comp_distribution' not specified in 'fleet_control', assuming 'MultinomialAFSC'", aliases = "Comp_loglike"),
-    .rce_col("Comp_weights", "fleet_control", "Composition weight, on a scale set by 'Comp_distribution'. \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Comp_weights), so the column is the LOG of the starting weight -- the usual template value of 1 is a starting weight of e, not 1; use 0 for a weight of 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given. \r\nSee 'Comp_weights_mcallister' for the weight a fit implies, and reweight_comps() to tune towards it."),
-    .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", default_msg_when = "has_caal", aliases = "CAAL_loglike"),
-    .rce_col("CAAL_weights", "fleet_control", "Conditional age-at-length composition weight, on a scale set by 'CAAL_distribution' (as for 'Comp_weights'). \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(CAAL_weights), so the column is the LOG of the starting weight -- the default of 1 is a starting weight of e, not 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1", default_msg_when = "has_caal"),
-    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA),
-    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA),
-    .rce_col("Observation_units", "fleet_control", "1 = catch/index is weight (mt) \r\n2 = catch/index is in numbers (thousands of fish) \r\nThe model works in mt and thousands of fish throughout: numbers-at-age are thousands and weight-at-age is kg, so their product is mt.", type = "integer", aliases = c("Weight1_Numbers2", "weight1_Numbers2")),
-    .rce_col("Weight_index", "fleet_control", "Weight index to use for calculation of derived quantities", type = "integer"),
-    .rce_col("Age_transition_index", "fleet_control", "Age transition matrix (e.g. growth trajectory) index to used convert age to length", type = "integer"),
-    .rce_col("Catchability_index", "fleet_control", "index to use if catchability coefficients are to be set the same", type = "integer", aliases = "Q_index"),
-    .rce_col("Catchability", "fleet_control", "Catchability form. Accepts integer codes or readable strings:\r\n0 or \"Fixed\" = fixed at Catchability_init\r\n1 or \"Estimated\" = estimate as a free parameter\r\n2 or \"Estimated-with-prior\" = estimate with a normal prior N(Catchability_init, Catchability_prior_sd)\r\n3 or \"Analytical\" = geometric-mean analytical q following Ludwig and Walters 1994\r\n4 or \"PowerEquation\" = power equation (NOT YET IMPLEMENTED)\r\n5 or \"Environmental\" = linear equation log(q_y) = q_mu + beta * index_y; the environmental index is specified by Time_varying_q\r\n6 or \"AR1\" = AR1 random deviates fit to an environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005), index specified by Time_varying_q\r\n7 or \"AnalyticalArith\" = arithmetic-mean analytical q (AMAK/ebswp form, pair with the MVN survey likelihood)", type = "switch", allowed = "q_map", aliases = "Estimate_q"),
-    .rce_col("Catchability_init", "fleet_control", "Starting value or fixed value for catchability", aliases = c("Q_prior", "Q_init")),
-    .rce_col("Catchability_prior_sd", "fleet_control", "Standard deviation for q prior", aliases = "Q_sd_prior"),
-    .rce_col("Time_varying_q", "fleet_control", "0 = no\r\n1 = penalized deviate or random effect \r\n3 = time blocks with no penalty\r\n4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)\r\nIf Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y\r\nIf \"random_q\" is selected in fit_mod, penalized deviates (1) and random walk parameters (4) will be treated as random effects", type = "switch", allowed = "tv_q_map"),
-    .rce_col("Time_varying_q_sd", "fleet_control", "starting or fixed sd to use for the random walk of time varying q if set to 1", aliases = "Time_varying_q_sd_prior"),
-    .rce_col("Estimate_index_sd", "fleet_control", "0 = use input \"Log_sd\" from index_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map", aliases = "Estimate_survey_sd"),
+    .rce_col("Sel_shape_dir", "fleet_control", "Direction of the (directional-mode) NonParametric shape penalty when Sel_shape_sd is used: \"Decreasing\" (default) or \"Increasing\".", type = "character", meta = TRUE, allowed = "sel_shape_dir_map"),
+    .rce_col("Sel_pen_first_bin", "fleet_control", "First bin (age or length) for the non-parametric shape penalty (NA -> Bin_first_selected).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_first_age", tmb_target = "flt_sel_pen_first_bin"),
+    .rce_col("Sel_pen_last_bin", "fleet_control", "Last (left) bin of the shape-penalty pairs (NA -> nbins-2).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_pen_last_age", tmb_target = "flt_sel_pen_last_bin"),
+    .rce_col("Sel_shape_mode", "fleet_control", "Shape-penalty mode: \"Directional\" (default) or \"Smooth\" (two-sided d^2, RTMB).", type = "character", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_sel_shape_mode", allowed = "sel_shape_mode_map"),
+    .rce_col("Sel_avgsel_pen", "fleet_control", "Weight on the AMAK avgsel base-level penalty (type 9); 0 = off (default), 10 matches AMAK.", meta = TRUE, has_default = TRUE, default = 0, tmb_target = "flt_sel_avgsel_pen"),
+    .rce_col("Sel_cap_bin", "fleet_control", "NonParametricRPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age", tmb_target = "flt_sel_cap_bin"),
+    .rce_col("Sel_norm_bin", "fleet_control", "Age/length bin at which selectivity = 1. An absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. \r\nIf NA, it will not normalize selectivity. \r\nIf < 0, will normalize selectivity by the max. \r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes is 'Sel_norm_scope'. See vignette('model-options-and-functionality'), 'Sex structure and relative selectivity'.", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected", "Sel_norm_bin1"), tmb_target = "sel_norm_bin1"),
+    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2"), tmb_target = "sel_norm_bin2"),
+    .rce_col("Sel_norm_scope", "fleet_control", "Whether selectivity normalization pools its reference across sexes. Orthogonal to 'Sel_norm_bin', which says WHERE the reference is taken (a named bin, or the max). \r\n\"WithinSex\" = each sex is divided by its own reference, so both reach 1 and only the SHAPE differs by sex (relative sex-specific selectivity removed). \r\n\"AcrossSexes\" (default) = one reference pooled over both sexes, so the less-selected sex stays below 1 (relative sex-specific selectivity retained). \r\nNo effect on a one-sex species, or where 'Sel_norm_bin' is NA (nothing is normalized).", type = "switch", allowed = "sel_norm_scope_map", has_default = TRUE, default = "AcrossSexes", default_msg = "'Sel_norm_scope' not specified in 'fleet_control'; assuming 'AcrossSexes'. NOTE: a two-sex fleet normalizing at a named 'Sel_norm_bin' previously used a per-sex reference -- set 'Sel_norm_scope' to 'WithinSex' to keep that behaviour.", default_msg_when = "sel_norm_scope_flip", tmb_target = "sel_norm_scope"),
+    .rce_col("Comp_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "MultinomialAFSC", default_msg = "'Comp_distribution' not specified in 'fleet_control', assuming 'MultinomialAFSC'", aliases = "Comp_loglike", tmb_target = "comp_ll_type"),
+    .rce_col("Comp_weights", "fleet_control", "Composition weight, on a scale set by 'Comp_distribution'. \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Comp_weights), so the column is the LOG of the starting weight -- a value of 1 is a starting weight of e; use 0 for a weight of 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given. \r\nSee 'Comp_weights_mcallister' for the weight a fit implies, and reweight_comps() to tune towards it."),
+    .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", default_msg_when = "has_caal", aliases = "CAAL_loglike", tmb_target = "caal_ll_type"),
+    .rce_col("CAAL_weights", "fleet_control", "Conditional age-at-length composition weight, on a scale set by 'CAAL_distribution', exactly as 'Comp_weights' is. Under a Dirichlet-multinomial the column is the LOG of the starting weight, so the default of 1 is a starting weight of e.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1", default_msg_when = "has_caal"),
+    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_young"),
+    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_old"),
+    .rce_col("Observation_units", "fleet_control", "1 = catch/index is weight (mt) \r\n2 = catch/index is in numbers (thousands of fish) \r\nThe model works in mt and thousands of fish throughout: numbers-at-age are thousands and weight-at-age is kg, so their product is mt.", type = "integer", aliases = c("Weight1_Numbers2", "weight1_Numbers2"), tmb_target = "flt_units"),
+    .rce_col("Weight_index", "fleet_control", "Weight index to use for calculation of derived quantities", type = "integer", tmb_target = "flt_wt_index"),
+    .rce_col("Age_transition_index", "fleet_control", "Age transition matrix (e.g. growth trajectory) index to used convert age to length", type = "integer", tmb_target = "flt_age_transition_index"),
+    .rce_col("Catchability_index", "fleet_control", "Index used to give fleets the SAME catchability (otherwise, same as Fleet_code). Fleets sharing a value share one q parameter, so the group carries only one answer to whether q is estimated: the group's first non-Off fleet decides for all of them, regardless of fleet type. Give a fleet its own value when it should be estimated independently.\r\n'Analytical' and 'AnalyticalArith' are the exception -- they solve q from each fleet's own index observations, so a group containing one does NOT share a catchability. data_check() reports that case, a Fixed lead that leaves fleets on different inits, and a Catchability or Time_varying_q that differs within a group.\r\nSee vignette('model-options-and-functionality'), 'Which fleets get a catchability'.", type = "integer", aliases = "Q_index", tmb_target = "flt_q_lead"),
+    .rce_col("Catchability", "fleet_control", "Catchability form. Accepts integer codes or readable strings:\r\n0 or \"Fixed\" = fixed at Catchability_init\r\n1 or \"Estimated\" = estimate as a free parameter\r\n2 or \"Estimated-with-prior\" = estimate with a normal prior N(Catchability_init, Catchability_prior_sd)\r\n3 or \"Analytical\" = geometric-mean analytical q following Ludwig and Walters 1994\r\n4 or \"PowerEquation\" = power equation (NOT YET IMPLEMENTED)\r\n5 or \"Environmental\" = linear equation log(q_y) = q_mu + beta * index_y; the environmental index is specified by Time_varying_q\r\n6 or \"AR1\" = REMOVED; data_check() errors. The deviates were never estimated, so q came back constant. Express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and 'observe'; the error gives the call.\r\n7 or \"AnalyticalArith\" = arithmetic-mean analytical q (AMAK/ebswp form, pair with the MVN survey likelihood)\r\nApplies to any fleet carrying index_data, a fishery with a CPUE series included. A fleet with NO fitted index rows gets no catchability whatever this says, unless it follows the lead of a shared Catchability_index group. See vignette('model-options-and-functionality').", type = "switch", allowed = "q_map", aliases = "Estimate_q", tmb_target = "est_index_q"),
+    .rce_col("Catchability_init", "fleet_control", "Starting value or fixed value for catchability. Must be positive on any fleet that carries index_data, whatever its Fleet_type -- it has no default, and it is logged to seed index_log_q, so a blank or zero gives a non-finite starting value. Not read under Analytical or AnalyticalArith, which solve q from the data.", aliases = c("Q_prior", "Q_init"), tmb_target = "index_log_q_prior"),
+    .rce_col("Catchability_prior_sd", "fleet_control", "Standard deviation for the q prior. Must be positive under Estimated-with-prior, where the prior is scored at it, and under AR1, where the estimated sd starts from it.", aliases = "Q_sd_prior"),
+    .rce_col("Time_varying_q", "fleet_control", "0 or \"Off\" = no\r\n1 or \"IID\" = penalized deviate or random effect\r\n2 or \"AR1\" = REMOVED in 5.16.0; data_check() errors on it. It was never an AR1 -- it was scored as \"IID\" -- so use \"IID\" for the same fit, or a q linkage with ar1(1 | Year) for a real one.\r\n3 or \"Block\" = time blocks with no penalty\r\n4 or \"RandomWalk\" = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)\r\nIf Catchability = 5, this holds the env_data column index for log(q_y) = q_mu + beta * index_y, not a mode.\r\nUnder fit_mod(random_q = TRUE), IID (1) and RandomWalk (4) deviations become random effects.\r\nSoft-deprecated as a whole: the linkage grammar expresses the same deviations, with the deviation sd estimated or fixed. See vignette('model-options-and-functionality').", type = "switch", allowed = "tv_q_map", tmb_target = "index_varying_q"),
+    .rce_col("Time_varying_q_sd", "fleet_control", "Starting or fixed sd for the time-varying q deviations. Must be positive when Time_varying_q is IID, AR1 or RandomWalk, which penalize the deviations at it; Block needs none.", aliases = "Time_varying_q_sd_prior"),
+    .rce_col("Index_distribution", "fleet_control", "Survey/index biomass observation likelihood family.\r\n0 or \"Lognormal\" (default) = independent lognormal on the log observation, with the bias correction.\r\n1 \"MVN\" / 2 \"MVNORM\" = multivariate normal on the natural-scale residual, with a user-supplied covariance in index_cov; they differ only by a constant.\r\n3 \"Normal\" = independent normal on the natural-scale residual with an ABSOLUTE sd from Log_sd (not a log-scale CV). Matches AMAK avo_like/cpue_like term for term, so it is what the ADMB bridges compare against.\r\n4 \"TruncatedNormal\" = the same normal, left-truncated at zero. Prefer it to 3 unless an exact ADMB comparison is needed: an index cannot be negative, so this is the only natural-scale family whose likelihood and simulator are the same distribution.", type = "switch", allowed = "index_distribution_map", meta = TRUE, has_default = TRUE, default = "Lognormal", aliases = "Index_loglike", tmb_target = "index_ll_type"),
+    .rce_col("Estimate_index_sd", "fleet_control", "0 = use input \"Log_sd\" from index_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map", aliases = "Estimate_survey_sd", tmb_target = "est_sigma_index"),
     .rce_col("Index_sd", "fleet_control", "Starting value to be used if \"Estimate_index_sd\" = 1", aliases = c("Survey_sd_prior", "Index_sd_prior")),
-    .rce_col("Estimate_catch_sd", "fleet_control", "0 = use input \"Log_sd\" from catch_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map"),
+    .rce_col("Estimate_catch_sd", "fleet_control", "0 = use input \"Log_sd\" from catch_data\r\n1 = estimate as free parameter\r\n2 = estimate analytically following Ludwig and Walters (1994)", type = "switch", allowed = "estimate_sd_map", tmb_target = "est_sigma_fsh"),
     .rce_col("Catch_sd", "fleet_control", "Starting value to be used if Estimate_catch_sd = 1", aliases = "Catch_sd_prior"),
-    .rce_col("Index_distribution", "fleet_control", "Survey/index biomass observation likelihood family. 0 or \"Lognormal\" (default) = independent lognormal; \"MVN\"/\"MVNORM\" use a multivariate normal with a user-supplied covariance in index_cov.", type = "switch", allowed = "index_distribution_map", meta = TRUE, has_default = TRUE, default = "Lognormal", aliases = "Index_loglike"),
-    .rce_col("Month", "fleet_control", "Observation month for the fleet (0 = not specified).", type = "integer", meta = TRUE, has_default = TRUE, default = 0, default_msg = "'Month' not specified in 'fleet_control', assuming 0"),
     .rce_col("Proj_F_proportion", "fleet_control", "The proportion of future fishing mortality assigned to this fleet", aliases = "proj_F_prop"),
 
     # ---- Orphans: documented historically but read nowhere in the model ----
@@ -179,7 +180,7 @@
     .rce_col("CK4", "bioenergetics_control", "Parameter for temperature scaling function of maximum consumption specified by Ceq", has_default = TRUE, default = 0, default_scope = "single-species mode (msmMode == 0), per-species"),
     # Per-predator-species vectors defaulted by switch_check
     # (rep(0, nspp) / rep(1, nspp)); their defaulting stays imperative there.
-    .rce_col("Diet_distribution", "bioenergetics_control", "Diet composition likelihood distribution per predator species:\r\n0 = multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "diet_loglike_map", meta = TRUE, aliases = "Diet_loglike"),
+    .rce_col("Diet_distribution", "bioenergetics_control", "Diet composition likelihood distribution per predator species:\r\n0 = multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "diet_loglike_map", meta = TRUE, aliases = "Diet_loglike", tmb_target = "diet_ll_type"),
     .rce_col("Diet_comp_weights", "bioenergetics_control", "Diet composition weight per predator species, on a scale set by 'Diet_distribution' (as for 'Comp_weights'). \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Diet_comp_weights), so the column is the LOG of the starting weight. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given.", meta = TRUE)
   )
 
@@ -398,3 +399,104 @@
 
   out
 }
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Model-level switches
+#
+# The switches that configure the MODEL rather than a workbook column:
+# msmMode, estimateMode, initMode and the rest. They live in maps in
+# R/0-switches.R and the R/0-build_*.R constructors, are defaulted in
+# switch_check(), and are documented in fit_mod() and the build_*()
+# constructors -- with no one place saying what the full set is.
+#
+# A SECOND table rather than rows in .rce_column_schema(): these are not
+# workbook columns, and write_data(), read_data(), the meta sheet and the
+# R/data.R drift guard all iterate that list. Adding non-columns to it would
+# put them in the workbook.
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+#' One model-level switch
+#'
+#' @param name Canonical name, as `fit_mod()` or a `build_*()` takes it.
+#' @param doc One sentence: what it selects.
+#' @param allowed Name of the map defining its values, in the package namespace.
+#' @param default The value applied when the user supplies none.
+#' @param scope `"scalar"`, `"per-species"`, or `"per-fleet"` -- whether one
+#'   value configures the model or one value per species/fleet is expected.
+#' @param tmb_target The `DATA_*` object it reaches, where it reaches one.
+#' @param set_by The function that takes it.
+#' @keywords internal
+#' @noRd
+.rce_switch <- function(name, doc, allowed = NA_character_, default = NA,
+                        scope = "scalar", tmb_target = NA_character_,
+                        set_by = "fit_mod") {
+  list(name = name, doc = doc, allowed = allowed, default = default,
+       scope = scope, tmb_target = tmb_target, set_by = set_by)
+}
+
+#' The model-level switches
+#'
+#' @description
+#' Companion to `.rce_column_schema()`, for the switches that are not workbook
+#' columns. `.rce_config_schema()` projects from this, so the comments
+#' `save_config()` writes list every valid value rather than a hand-kept subset;
+#' `test-schema-cpp-dispatch.R` checks the ones that reach the model against
+#' the `case` labels that consume them.
+#'
+#' @return A named list of switch definitions, keyed by canonical name.
+#' @keywords internal
+#' @noRd
+.rce_model_switch_schema <- function() {
+  rows <- list(
+    .rce_switch("msmMode",
+      "Predation-mortality mode: single-species, Holsman et al. (2015) MSVPA (Type II), or Holling Type III MSVPA.",
+      allowed = "msmMode_map", default = 0L, tmb_target = "msmMode"),
+    .rce_switch("estimateMode",
+      "What the fit does: hindcast, projection, or a build-only debug pass.",
+      allowed = "estimateMode_map", default = 0L),
+    .rce_switch("initMode",
+      "How the initial age structure is derived. See ?fit_mod.",
+      allowed = "initMode_map", default = 2L, tmb_target = "initMode"),
+    .rce_switch("suitMode",
+      "How predator-prey suitability is derived, per predator.",
+      allowed = "suitMode_map", default = 0L, scope = "per-species",
+      tmb_target = "suitMode"),
+    .rce_switch("avgnMode",
+      "Average abundance-at-age approximation in the predation equations. Only mode 0 is implemented; the alternatives are declared and have no effect.",
+      default = 0L),
+    .rce_switch("HCR",
+      "Harvest control rule applied in the projection.",
+      allowed = "hcr_map", default = 0L, set_by = "build_hcr"),
+    .rce_switch("srr_fun",
+      "Stock-recruit form fitted to the hindcast.",
+      allowed = ".SRR_FUNS", default = 0L,
+      tmb_target = "srr_fun", set_by = "build_srr"),
+    .rce_switch("srr_pred_fun",
+      "Stock-recruit form used to predict recruitment in the projection.",
+      allowed = ".SRR_FUNS", default = 0L,
+      tmb_target = "srr_pred_fun", set_by = "build_srr"),
+    .rce_switch("srr_est_mode",
+      "Whether the stock-recruit parameters are fixed, estimated, or given a prior.",
+      allowed = "srr_est_mode_map", default = 1L, tmb_target = "srr_est_mode",
+      set_by = "build_srr"),
+    .rce_switch("M1_model",
+      "Residual natural mortality: fixed, or estimated at which resolution.",
+      allowed = ".M1_MODELS", default = 0L, scope = "per-species",
+      set_by = "build_M1"),
+    .rce_switch("growth_model",
+      "Growth curve: empirical weight-at-age, or which parametric form.",
+      allowed = ".GROWTH_FUN_TO_INT", default = 0L, scope = "per-species",
+      tmb_target = "growth_model", set_by = "build_growth"),
+    .rce_switch("estDynamics",
+      "Whether population dynamics are estimated, or numbers-at-age supplied.",
+      allowed = "estDynamics_map", default = 0L, scope = "per-species",
+      tmb_target = "estDynamics")
+  )
+  stats::setNames(rows, vapply(rows, function(r) r$name, character(1)))
+}
+
+#' Names of the model-level switches
+#' @keywords internal
+#' @noRd
+.rce_model_switch_names <- function() names(.rce_model_switch_schema())

@@ -124,3 +124,89 @@ test_that("R/data.R @format documents exactly the fleet_control schema columns",
 
   testthat::expect_setequal(labs, sc_meta)
 })
+
+
+test_that("R/data.R documents the switch codes the maps actually define", {
+  # The @format block is the field dictionary a user reads before filling in a
+  # workbook, so a code documented there that the map does not define is an
+  # invented switch -- and a map value the block omits is an option nobody can
+  # find. The prose itself is deliberately NOT compared against the schema
+  # `doc`: the two are written in different registers (Rd markup here, plain
+  # workbook text there), and forcing them equal would strip the \code{}
+  # markup that makes the help page readable. The codes are the part that must
+  # agree, and they are machine-checkable.
+  candidates <- c("R/data.R", testthat::test_path("..", "..", "R", "data.R"))
+  data_r <- candidates[file.exists(candidates)]
+  testthat::skip_if(length(data_r) == 0, "R/data.R source not available")
+  lines <- readLines(data_r[1])
+
+  start <- grep("fleet_control: controls", lines)
+  end   <- min(grep('^"BS2017SS"', lines))
+  block <- lines[start:end]
+  item  <- grep("\\\\item\\{", block, value = TRUE)
+  labs  <- sub(".*\\\\item\\{([^}]*)\\}.*", "\\1", item)
+  text  <- sub("^#' \\\\item\\{[^}]*\\}\\{(.*)\\}\\s*$", "\\1", item)
+
+  # column -> the map that defines its valid values
+  documented_maps <- list(
+    Fleet_type       = fleet_map,
+    Selectivity      = sel_map,
+    Time_varying_sel = tv_sel_map,
+    Time_varying_q   = tv_q_map
+  )
+
+  for (col in names(documented_maps)) {
+    i <- match(col, labs)
+    testthat::expect_false(is.na(i), info = paste(col, "has no @format item"))
+    map <- documented_maps[[col]]
+
+    # Pairs are written both ways: `1 = "Logistic"` and `0 or 'Off' = ...`.
+    pairs <- regmatches(text[i],
+      gregexpr('[0-9]+ *(?:=|or) *["\']([A-Za-z0-9_-]+)["\']', text[i], perl = TRUE))[[1]]
+    testthat::expect_gt(length(pairs), 0)
+
+    code <- as.integer(sub('^([0-9]+).*', '\\1', pairs))
+    name <- sub('.*["\']([A-Za-z0-9_-]+)["\'].*', '\\1', pairs)
+
+    # Every documented pair must be exactly what the map says.
+    for (k in seq_along(code)) {
+      testthat::expect_true(name[k] %in% names(map),
+        info = paste0(col, ": '", name[k], "' is documented but not in the map"))
+      if (name[k] %in% names(map)) {
+        testthat::expect_equal(unname(map[[name[k]]]), code[k],
+          info = paste0(col, ": '", name[k], "' documented as ", code[k],
+                        " but the map says ", unname(map[[name[k]]])))
+      }
+    }
+
+    # And every live map value must be findable in the docs. `Time_varying_q`
+    # is exempt: it is overloaded, holding an env_data column index rather than
+    # a mode when Catchability is Environmental or AR1.
+    if (col != "Time_varying_q") {
+      missing_from_docs <- setdiff(names(map), name)
+      testthat::expect_length(missing_from_docs, 0)
+    }
+  }
+})
+
+
+test_that("R/data.R does not present a deprecated alias as a canonical column", {
+  # Hard rule: consume a column by its canonical name. The field dictionary is
+  # the one place a user learns which name to type, so a legacy spelling here
+  # teaches the wrong one -- and read_data() would silently upgrade it anyway.
+  candidates <- c("R/data.R", testthat::test_path("..", "..", "R", "data.R"))
+  data_r <- candidates[file.exists(candidates)]
+  testthat::skip_if(length(data_r) == 0, "R/data.R source not available")
+  lines <- readLines(data_r[1])
+  block <- lines[grep("fleet_control: controls", lines):min(grep('^"BS2017SS"', lines))]
+
+  labs <- sub(".*\\\\item\\{([^}]*)\\}.*", "\\1",
+              grep("\\\\item\\{", block, value = TRUE))
+  labs <- trimws(unlist(strsplit(labs, ",\\s*")))
+
+  schema  <- .rce_column_schema()
+  aliases <- unlist(lapply(schema, function(r) r$aliases), use.names = FALSE)
+  aliases <- aliases[!is.na(aliases)]
+
+  testthat::expect_length(intersect(labs, aliases), 0)
+})

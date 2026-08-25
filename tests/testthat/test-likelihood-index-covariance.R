@@ -167,30 +167,65 @@ testthat::test_that("index_cov is re-aligned when the fitted year range changes 
   testthat::expect_equal(S3[nyrs + 1L, 1L], 0)                               # no spurious cross term
 })
 
+# The two natural-scale families, fitted on the same data, differ by exactly the
+# truncation constant. "Normal" is the plain density -- it is what the ADMB
+# bridges compare against term for term, so it must stay untruncated --
+# and "TruncatedNormal" renormalizes it over (0, Inf).
+.natural_scale_fixture <- function(family, sd = 20) {
+  dat <- make_test_data(nyrs = 8, nages = 5, seed = 42)
+  srv <- dat$fleet_control$Fleet_name == "Survey"
+  dat$fleet_control$Index_distribution[srv] <- family
+  dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
+  dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- sd   # ABSOLUTE sd
+  Rceattle::fit_mod(data_list = dat, estimateMode = 3,
+                    fit_control = fit_control(phase = FALSE, verbose = 0))
+}
+
 testthat::test_that("Normal index likelihood is the natural-scale -dnorm with an absolute sd", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  nages <- 5; nyrs <- 8
-  dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
-  srv <- dat$fleet_control$Fleet_name == "Survey"
-  dat$fleet_control$Index_distribution[srv] <- "Normal"           # natural-scale normal
-  dat$fleet_control$Catchability[srv]  <- "AnalyticalArith"
-  dat$index_data$Log_sd[dat$index_data$Fleet_name == "Survey"] <- 20   # ABSOLUTE sd
-
-  fit <- Rceattle::fit_mod(data_list = dat, estimateMode = 3,
-                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  fit <- .natural_scale_fixture("Normal")
   rep <- fit$obj$report(); td <- fit$obj$env$data
   sel <- which(td$index_ctl[, 1] == 1 & td$index_ctl[, 3] > 0 &
                  td$index_ctl[, 3] <= td$endyr & td$index_obs[, 1] > 0)
-  # 0.5*(obs - q*pred)^2 / sd^2 + normalizing constant = -sum dnorm(obs, pred, sd)
+  # 0.5*(obs - q*pred)^2 / sd^2 + normalizing constant = -sum dnorm(obs, pred, sd).
+  # No truncation term: that is "TruncatedNormal", below.
   ll_R <- -sum(dnorm(td$index_obs[sel, 1], rep$index_hat[sel], 20, log = TRUE))
   testthat::expect_equal(rep$jnll_comp[1, 1], ll_R, tolerance = 1e-8)
 
-  # Regression: a non-MVN family (0/3) carries a 1x1 dummy Sigma and must NOT
+  # Regression: a non-MVN family (0/3/4) carries a 1x1 dummy Sigma and must NOT
   # enter the MVN block (Index_distribution >= 1 there previously segfaulted for
   # "Normal" by applying MVNORM(1x1) to a length-nyrs residual).
   testthat::expect_false(is.null(fit$obj))
+})
+
+testthat::test_that("TruncatedNormal adds the log Phi(mu/sd) renormalization and nothing else", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # sd large relative to the index, so the constant is far from zero and the
+  # comparison has power. mu > 0 always, so log Phi(mu/sd) lies in [log(0.5), 0]
+  # and the term is bounded however extreme the fixture.
+  fit_t <- .natural_scale_fixture("TruncatedNormal", sd = 80)
+  fit_n <- .natural_scale_fixture("Normal",          sd = 80)
+
+  rep_t <- fit_t$obj$report(); td <- fit_t$obj$env$data
+  rep_n <- fit_n$obj$report()
+  sel <- which(td$index_ctl[, 1] == 1 & td$index_ctl[, 3] > 0 &
+                 td$index_ctl[, 3] <= td$endyr & td$index_obs[, 1] > 0)
+
+  ll_R <- -sum(dnorm(td$index_obs[sel, 1], rep_t$index_hat[sel], 80, log = TRUE)) +
+    sum(log(pnorm(rep_t$index_hat[sel] / 80)))
+  testthat::expect_equal(rep_t$jnll_comp[1, 1], ll_R, tolerance = 1e-8)
+
+  # The two families sit on the same predicted index -- the truncation constant
+  # is the ONLY difference between them...
+  testthat::expect_equal(rep_t$index_hat, rep_n$index_hat, tolerance = 1e-10)
+  testthat::expect_equal(rep_t$jnll_comp[1, 1] - rep_n$jnll_comp[1, 1],
+                         sum(log(pnorm(rep_t$index_hat[sel] / 80))), tolerance = 1e-8)
+  # ...and it is large enough here that the test would have caught a sign error.
+  testthat::expect_gt(abs(rep_t$jnll_comp[1, 1] - rep_n$jnll_comp[1, 1]), 1)
 })
 
 testthat::test_that("data_check rejects invalid MVN covariance input", {

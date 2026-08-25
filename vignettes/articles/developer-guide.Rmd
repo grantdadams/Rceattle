@@ -6,7 +6,7 @@ title: "Developer guide"
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = identical(Sys.getenv("RCEATTLE_EVAL_VIGNETTES"), "true")
 )
 ```
 
@@ -143,8 +143,9 @@ file):
 | `predation.hpp` | Prey suitability and predation mortality (MSVPA type-2, estimated iteratively). |
 | `diet_data.hpp` | Predator diet (stomach-content) likelihood. |
 | `linkage.hpp` | Applies the encoded linkage tables (covariates, time blocks, random effects) to each process's parameters, and accumulates the linkage priors / RE densities into the likelihood. |
+| `comp_sim.hpp` | Composition draws — multinomial (sequential conditional binomial), Dirichlet, and Dirichlet-multinomial — used by the `SIMULATE` blocks. |
 
-The template opens with the `DATA_*` block (switches such as `estimateMode`,
+The model opens with the `DATA_*` block (switches such as `estimateMode`,
 `msmMode`, `suitMode`, `initMode`, `srr_fun`, `HCR`, plus the data objects),
 then the `PARAMETER_*` block, then the population and observation dynamics, and
 finally the joint negative log-likelihood. The likelihood is accumulated in the
@@ -156,7 +157,7 @@ C++ rather than by a bare integer. The **display names** for those rows live
 separately in `R/6-rename_output.R`; if you add or reorder a row, update both the
 enum and that name vector by hand (they are kept in sync manually).
 
-**Building.** `src/TMB/compile.R` compiles the template (`framework = "TMBad"`);
+**Building.** `src/TMB/compile.R` compiles the model (`framework = "TMBad"`);
 `TMB` and `RcppEigen` are `LinkingTo` dependencies. The spurious Eigen
 `-Warray-bounds` warnings are silenced by a source `#pragma` in the `.cpp`
 rather than a compiler flag, since CRAN rejects warning-suppressing flags.
@@ -219,9 +220,15 @@ Note that inside `priors = `, the bare constructors `normal()`, `lognormal()`,
 3. Add mapping logic in `R/3-build_map.R` (and the matching `build_map_*()`
    helper) so it is turned on/off for the right configurations.
 4. Add it to the phasing order in `R/6-phaser.R`.
-5. (Optional) expose an on/off or random-effect switch as a `fit_mod()`
+5. Add it to the parameter dictionary in `R/0-parameter_dictionary.R`. It is a
+   registry keyed by parameter name, so a new (or retired) block that misses it
+   fails only later.
+6. If the parameter is a random effect, give it a `SIMULATE` draw beside its
+   density (see *Change the likelihood*), or `sim_mod(process = )` will hand back
+   its fitted values as though they were simulated.
+7. (Optional) expose an on/off or random-effect switch as a `fit_mod()`
    argument.
-6. Document it in `inst/extdata/meta_data_names.xlsx` and/or the `fit_mod()`
+8. Document it in `inst/extdata/meta_data_names.xlsx` and/or the `fit_mod()`
    roxygen.
 
 ### Add or change a data input
@@ -275,6 +282,46 @@ constant and the species/fleet column. Add or modify the relevant term there,
 then recompile and re-run the regression tests (below) to confirm the objective
 changes only as intended.
 
+**Add or update the matching `SIMULATE` block at the same time.** Every
+observation and every process error is drawn in a `SIMULATE` block next to the
+density that scores it, so the two are edited together. A simulator that has
+drifted from its likelihood does not error — it makes `self_test()` report
+recovery against a data-generating process the model never assumed. Three rules
+the existing blocks follow:
+
+* **Draw what the density assumes**, including the bias-correction convention and
+  the scale (log vs. natural). Where a family has no exact sampler — a
+  multivariate normal truncated to the positive orthant, say — note it in the
+  draw and warn from `sim_mod()` rather than substituting a different
+  distribution.
+* **Report under a `*_sim` name.** TMB never clears its report environment, so
+  anything reported inside a `SIMULATE` block stays visible in `obj$report()`
+  afterwards. A draw written into the observed-data object and reported under its
+  name is readable as the data it replaced, which is why `comp_sim`, `caal_sim`
+  and `diet_sim` are separate copies.
+* **Do not draw what the model does not define.** If two densities score one
+  latent — the AMAK/Ianelli stock-recruit penalty is the live example — there is
+  no single distribution to draw from. Leave it and warn.
+
+`simulate_state` selects which processes are redrawn (recruitment, M, growth,
+catchability, selectivity). Its slot order is the linkage process code, so a
+random linkage is gated by `simulate_state(linkage_process(i))` with no
+translation — change one and change the other (`R/0-linkage_encode.R`).
+
+`simulate_period` is a two-slot vector, and **only slot 0 is read**. It gates the
+*process* draws, whose densities cover the hindcast alone. Observations are drawn
+in every period deliberately, because `run_mse()` splices the negative-`Year` rows
+back in as the next assessment's data, so gating them would hand the estimation
+model observations that were never simulated. Slot 1 is reserved for a
+projection-period process draw — WHAM uses its equivalent that way — and is inert
+today; nothing in `sim_mod()`'s interface reaches either slot, and the tests and
+`tools/verify/` scripts that exercise slot 0 do so through the internal
+`.sim_draw(period = )`. Wiring slot 1 up means giving the projection-period
+deviations a density to draw from first.
+
+Both are `DATA_IVECTOR`s, defaulted in `build_osa_data()` — the single funnel
+every data list passes through on its way to `MakeADFun()`.
+
 ## Testing
 
 Tests use `testthat` in a flat layout: every file is a top-level
@@ -284,7 +331,7 @@ Tests use `testthat` in a flat layout: every file is a top-level
 
 * `tests/testthat/fixtures/fit_baseline.rds` and the golden-`jnll` regression
   test pin the objective-function value so unintended numerical changes surface.
-* `test-tmb-makeadfun_smoke.R` checks the template builds and evaluates.
+* `test-tmb-makeadfun_smoke.R` checks the model builds and evaluates.
 * `test-parameter-recovery.R` fits simulated data and checks estimates.
 * `helpers-make-msm-data.R` builds small multi-species fixtures.
 
@@ -331,6 +378,67 @@ push/PR to `main`/`master` and weekly; `pkgdown.yaml` rebuilds this site.
   set `estDynamics = 1`, and run `fit_mod(estimateMode = 1)` to evaluate without
   re-fitting. (See also the [Stock Synthesis conversion](../stock-synthesis-conversion.html)
   article.)
+
+## The argument names, and what is deliberately left alone
+
+The diagnostics take the fitted model as `object` (5.11.0). `Rceattle` and `fit`
+still work and are silent; they warn from 5.12.0 and go in 6.0.0. To find your
+own call sites now:
+
+```r
+options(Rceattle.warn_deprecated_args = TRUE)
+```
+
+Three keep their own names on purpose. `profile()` takes `fitted` because it is
+an S3 method for `stats::profile()`, and renaming a method's first formal away
+from its generic fails `R CMD check`. `mse_summary(mse = )` and
+`compare_sim(operating_mod = )` take an MSE result and a set of simulations, not
+a fitted model, so their names say more than `object` would.
+
+The rest of the surface below is **known-awkward and deliberately unchanged**.
+It is recorded here so it is not reopened each time someone reads the API cold.
+
+*Switch codes are frozen.* Renumbering any of them silently reinterprets every
+saved `run_config` YAML, every workbook, and every fitted `.rds` in
+`../Rceattle-models` and `../GOA-ATF-ESP` — the same integer would mean
+something new with nothing to signal it. This outweighs the readability of a
+tidier numbering, so these stay as they are:
+
+* `estimateMode` 0 = "Estimate" but 1 = "Hindcast", which reads backwards.
+* `srr_fun`'s valid set is non-contiguous: 0/2/4 are live, 1/3/5 soft-deprecated.
+* `sel_map` skips 10.
+* `initMode` 1 (`Equilibrium`) and 5 (`OffsetEquilibrium`) differ by one term.
+* `msmMode` accepts 3–9, then `data_check()` rejects them.
+
+*Overloaded columns.* `Time_varying_q` is a mode code for most fleets but a
+1-based `env_data` column index (possibly comma-separated, `"1,3"`) when
+`Catchability` is `Environmental` (5). Code 6 was the other such form and is
+removed, but the overload is not academic: it is why the `Time_varying_q` mode
+checks — `validate_switches()`, the soft-deprecation, and the 5.16.0 `"AR1"`
+refusal — all exempt those fleets. A check that forgets it rejects a working
+model for a value the assessor never set as a mode.
+
+`Sel_curve_pen1` is a penalty weight for
+selectivity 2/9/11 and `Sel_curve_pen2` a curvature penalty for 2/9, while for
+6/7 both are logit-scale AR1 correlations. Re-encoding either
+would break existing workbooks; they are documented in the column schema
+instead.
+
+*Argument counts and names.* `fit_mod()` and `run_mse()` both take upwards of
+twenty arguments, and the iteration counts are spelled `peels`, `njitter`,
+`nsim` and `n_iter` -- each idiomatic where it appears. `fit_mod()` also still
+accepts the optimizer arguments that moved onto `fit_control()`, with a warning;
+the live list is `.deprecated_ctl_args` in `R/6-fit_mod.R`.
+
+*One more collision.* `compare_sim()` has an argument named `object` that is a
+character selector for which part of the model to compare, not a fitted model.
+It predates this release and is left alone for the same reason `operating_mod`
+is, but it is the one place where `object` means something else.
+
+*`profile()` is the odd diagnostic out.* It refits like `retrospective()`,
+`jitter()` and `self_test()` but takes only a bare `getsd=` -- no `phase`, no
+`fit_control` -- so every profile point refits at `.refit_like()`'s unphased
+default. Worth knowing when reading a profile that looks flatter than expected.
 
 ## See also
 

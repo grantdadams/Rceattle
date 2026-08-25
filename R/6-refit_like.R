@@ -16,9 +16,13 @@
 #' `data_list` value, so each call site shows only the handful of things it
 #' actually changes.
 #'
-#' Console suppression is intentionally left to the caller: the call sites wrap
-#' this differently (`suppressMessages()`, `suppressWarnings()`, both, or
-#' neither), and suppression is console-only -- it does not affect the fit.
+#' Console suppression is otherwise left to the caller: the call sites wrap this
+#' differently (`suppressMessages()`, `suppressWarnings()`, both, or neither),
+#' and suppression is console-only -- it does not affect the fit. The one
+#' exception is `data_check()`'s warnings, dropped here via
+#' `fit_mod(quiet_data_check = TRUE)`, because every caller re-validates a
+#' `data_list` the user has already fitted. Convergence and TMB warnings still
+#' reach whatever the call site allows through.
 #'
 #' @param data_list Source `data_list`. Drives both the data to fit and the
 #'   reconstructed HCR / recFun / M1Fun / growthFun (unless a field is overridden
@@ -160,7 +164,12 @@
       # recovers its value -- which covers every call site without one of them
       # having to remember to pass it.
       bias_adjust_obs  = .refit_bias_adjust(dl$bias_adjust_obs),
-      bias_adjust_proc = .refit_bias_adjust(dl$bias_adjust_proc)))
+      bias_adjust_proc = .refit_bias_adjust(dl$bias_adjust_proc)),
+    # Every caller here re-validates a data_list the user has already fitted, so
+    # data_check()'s warnings have been seen; repeating them once per peel,
+    # jitter, or MSE iteration is noise. Errors still stop the refit, and
+    # convergence / TMB warnings are untouched.
+    quiet_data_check = TRUE)
 }
 
 
@@ -170,7 +179,7 @@
 #' `DATA_SCALAR` and uses them as a plain multiplier on the correction
 #' (`bias_adjust_obs * sigma^2 / 2`), so a fractional value is a partial
 #' bias-adjustment ramp, not a malformed flag -- `as.logical()` would quantize
-#' 0.5 up to 1 and reintroduce a smaller version of the bug this recovers from.
+#' 0.5 up to 1 and apply a full bias correction where a half one was configured.
 #' `DATA_SCALAR` also means a vector would fail in `MakeADFun`, so taking the
 #' first element cannot silently pick the wrong one.
 #'

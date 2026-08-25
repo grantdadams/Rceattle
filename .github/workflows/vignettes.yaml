@@ -1,0 +1,114 @@
+# Execute the vignettes for real.
+#
+# Every vignette sets `eval = FALSE` by default, because several chunks fit real
+# models and a few run an MSE -- far too slow for R CMD check or for a PR. That
+# default means R CMD check RENDERS them without running a line, so an API break
+# in a vignette is invisible until a user copies the code. The vignettes are the
+# only user-facing documentation of the switch codes and units, so "invisible"
+# is the wrong failure mode for this package.
+#
+# `RCEATTLE_EVAL_VIGNETTES` flips the chunk DEFAULT, so a chunk carrying its own
+# `eval = FALSE` stays unexecuted here too -- a chunk option beats the default.
+# Ten such chunks used to sit outside this job's reach, including the OSA and
+# process-residual workflows and three run_mse() variants, and one of them had
+# been calling plot_depletion() under an "SSB depletion" heading for releases.
+# They now use the default like everything else. Exactly one chunk keeps an
+# explicit `eval = FALSE`: introduction.Rmd's install block, which would
+# reinstall the package mid-render. If you add another, say in the chunk why it
+# cannot run -- silence there is how the last ten became invisible.
+#
+# `RCEATTLE_EVAL_VIGNETTES=true` flips each vignette's chunk default to eval, and
+# this job runs weekly with it set. It is the only thing that catches
+# return-shape drift -- mse_summary() changing from a data frame to a list broke
+# hcrs-and-mses.Rmd for several releases with nothing to notice.
+#
+# tests/testthat/test-vignette-api.R is the fast half of the same guard: it
+# parses every chunk and checks that each Rceattle call names an exported
+# function with arguments that function has. That runs on every PR; this does
+# not.
+#
+# Non-blocking by design: a slow or flaky render must never gate a merge. Read
+# the run, don't gate on it.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+name: vignettes
+
+permissions: read-all
+
+concurrency:
+  group: vignettes-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vignettes:
+    runs-on: ubuntu-latest
+    # Raised from 120 when the ten previously-hidden chunks were un-hidden.
+    # Measured on an M-series Mac, RCEATTLE_EVAL_VIGNETTES=true: hcrs-and-mses
+    # went from 2.7 to 19.2 minutes (three run_mse(nsim = 10) variants),
+    # introduction from 2.7 to 3.8, model-diagnostics from 1.9 to 2.3 -- about
+    # 30 minutes for the set, and a CI runner is slower than that. The budget is
+    # the thing to raise rather than the coverage to cut: a timeout fails the
+    # WHOLE job, so every vignette's result is lost, which is worse than any one
+    # of them being slow. Weekly and non-blocking, so a long budget costs little.
+    timeout-minutes: 180
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      NOT_CRAN: "true"
+      RCEATTLE_EVAL_VIGNETTES: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for TMB (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgsl-dev \
+            libblas-dev \
+            liblapack-dev \
+            gfortran \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            libxml2-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # rmarkdown::render() needs pandoc. pkgdown.yaml and R-CMD-check.yaml both
+      # pin it; the runner image happens to carry one, but do not rely on that.
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rmarkdown, any::knitr, any::devtools
+          needs: check
+
+      - name: Install the package
+        run: R CMD INSTALL --no-multiarch --with-keep.source .
+        shell: bash
+
+      # One vignette at a time, so a failure names the file rather than aborting
+      # the batch, and every file is attempted even after one fails.
+      - name: Render each vignette with its chunks executed
+        run: |
+          Rscript -e '
+            files <- c(list.files("vignettes", "\\.Rmd$", full.names = TRUE),
+                       list.files("vignettes/articles", "\\.Rmd$", full.names = TRUE))
+            failed <- character(0)
+            for (f in files) {
+              cat("\n==== ", f, " ====\n", sep = "")
+              ok <- tryCatch({
+                rmarkdown::render(f, output_dir = tempdir(), quiet = TRUE); TRUE
+              }, error = function(e) { cat("FAILED: ", conditionMessage(e), "\n"); FALSE })
+              if (!ok) failed <- c(failed, f)
+            }
+            if (length(failed)) {
+              cat("\nVignettes that failed to execute:\n"); cat(paste0("  ", failed), sep = "\n")
+              quit(status = 1)
+            }
+            cat("\nAll vignettes executed cleanly.\n")'
+        shell: bash

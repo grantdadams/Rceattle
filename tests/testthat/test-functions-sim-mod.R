@@ -135,7 +135,7 @@ testthat::test_that("sim_mod keeps natural-scale index draws positive", {
   # all and self_test() would count the run as not converged, reading as a
   # convergence problem rather than a simulation one. Non-positive draws are
   # redrawn instead (normal truncated at zero).
-  for (dist in c("Normal", "MVN")) {
+  for (dist in c("Normal", "TruncatedNormal", "MVN")) {
     fit <- .sim_index_fixture(dist, sd = 60)      # index_hat is 100
     srv <- fit$data_list$index_data$Fleet_name == "Survey"
     set.seed(1)
@@ -149,20 +149,42 @@ testthat::test_that("sim_mod keeps natural-scale index draws positive", {
 testthat::test_that("sim_mod warns when truncation is doing the work, on both branches", {
   testthat::skip_if_not_installed("TMB")
 
-  # Positive draws are not enough on their own: a row that keeps being redrawn
+  # Positive draws are not enough on their own: a row that has to be redrawn
   # follows a normal truncated at zero, not the normal the likelihood assumes,
-  # so a self_test() built on it tests a different data-generating process.
-  # The rate is per ROW and read off the worst one -- a fleet mean would hide a
-  # single marginal row, which is how truncation actually presents.
+  # so a self_test() built on it tests a different data-generating process. The
+  # gap is sized as Phi(-mu/sd) per ROW and read off the worst one -- a fleet
+  # mean would hide a single marginal row, which is how truncation presents.
+  # Both untruncated natural-scale families. "Normal" is fitted as a plain normal
+  # (it reproduces the AMAK avo_like / cpue_like term for term, which is what the
+  # ADMB bridges compare against), and MVN cannot be truncated at all -- a
+  # multivariate normal truncated to the positive orthant has no closed-form
+  # sampler. Either way the draw is redrawn until positive while the likelihood
+  # scores the untruncated normal, and that gap is what the warning is about.
   for (dist in c("Normal", "MVN")) {
-    fit <- .sim_index_fixture(dist, sd = 115)   # index_hat is 100
+    fit <- .sim_index_fixture(dist, sd = 115)    # index_hat is 100
     set.seed(1)
     testthat::expect_warning(Rceattle::sim_mod(fit, simulate = TRUE),
                              "truncated at zero", info = dist)
   }
 
-  # A fleet with a small sd must stay silent on both branches.
-  for (dist in c("Normal", "MVN")) {
+  # The warning on a univariate fleet names the family that removes the gap.
+  fit <- .sim_index_fixture("Normal", sd = 115)
+  set.seed(1)
+  w <- testthat::capture_warnings(Rceattle::sim_mod(fit, simulate = TRUE))
+  testthat::expect_true(any(grepl("TruncatedNormal", w)))
+
+  # TruncatedNormal has no gap: it is FITTED as a normal left-truncated at zero
+  # and drawn from that same distribution by inverse CDF, so however hard the
+  # truncation bites the draw still follows its own likelihood. Positive by
+  # construction, and nothing to warn about.
+  fit <- .sim_index_fixture("TruncatedNormal", sd = 115)
+  set.seed(1)
+  sim <- testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+  srv <- sim$index_data$Fleet_name == "Survey"
+  testthat::expect_true(all(sim$index_data$Observation[srv] > 0))
+
+  # A fleet with a small sd must stay silent on every branch.
+  for (dist in c("Normal", "TruncatedNormal", "MVN")) {
     fit <- .sim_index_fixture(dist, sd = 5)
     set.seed(1)
     testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
@@ -184,35 +206,63 @@ testthat::test_that("sim_mod keeps a wide correlated fleet positive", {
   }
 })
 
-testthat::test_that("sim_mod errors when an MVN fleet has no covariance to draw from", {
+testthat::test_that("an MVN fleet simulates from the covariance it was fitted with", {
   testthat::skip_if_not_installed("TMB")
 
+  # The correlated draw is taken by the model, from the Sigma the model holds, so
+  # editing index_cov after the fit does not change it -- simulating reflects the
+  # model as fitted, not the data_list as since edited. (A model fitted WITHOUT a
+  # covariance for an MVN fleet is rejected by data_check() before it can get
+  # here, which is where that error belongs.)
   fit <- .sim_index_fixture("MVN")
-  fit$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
-  testthat::expect_error(Rceattle::sim_mod(fit, simulate = TRUE),
-                         "no covariance matrix was supplied")
+  set.seed(5); want <- Rceattle::sim_mod(fit, simulate = TRUE)$index_data$Observation
+
+  edited <- fit
+  edited$data_list$index_cov <- list()   # Sigma lost (e.g. a lossy round-trip)
+  set.seed(5); got <- Rceattle::sim_mod(edited, simulate = TRUE)$index_data$Observation
+  testthat::expect_identical(got, want)
 })
 
 
-testthat::test_that("sim_mod does not simulate diet data, and says so", {
+testthat::test_that("sim_mod handles a model with no diet data", {
   testthat::skip_if_not_installed("TMB")
 
-  # Diet (stomach content) observations are carried through unchanged, so a
-  # multispecies self_test() refits against the same diet data every time and
-  # recovery of suitability is optimistic. That must not be silent.
+  # Stomach contents are drawn by the TMB model now, and only for a predator
+  # whose suitability is estimated. A single-species fixture with no diet table
+  # must simulate without complaint. What diet does when it IS fitted -- and when
+  # it is present but not fitted -- needs a multispecies model, and lives in
+  # test-functions-sim-mod-diet.R.
   fit <- .sim_index_fixture("Lognormal")
-  fit$data_list$diet_data <- data.frame(
-    Pred = 1L, Prey = 1L, Pred_sex = 0L, Prey_sex = 0L,
-    Pred_age = 1L, Prey_age = 1L, Year = fit$data_list$styr,
-    Sample_size = 10, Stomach_proportion_by_weight = 0.5)
-
-  testthat::expect_warning(
-    sim <- Rceattle::sim_mod(fit, simulate = TRUE),
-    "does not simulate diet")
-  # Carried through unchanged, not dropped or blanked.
-  testthat::expect_equal(sim$diet_data, fit$data_list$diet_data)
-
-  # No warning when there are no diet data to miss.
-  fit$data_list$diet_data <- fit$data_list$diet_data[0, ]
+  testthat::expect_equal(nrow(fit$data_list$diet_data), 0)
   testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+  testthat::expect_no_error(Rceattle::sim_mod(fit, simulate = FALSE))
+})
+
+
+testthat::test_that("a covariance survey fleet warns about rows it cannot simulate", {
+  testthat::skip_if_not_installed("TMB")
+
+  # The MVN/MVNORM covariance covers the fitted years only, so rows outside that
+  # window keep their original values. run_mse() reveals exactly those rows to
+  # the estimation model as each assessment's new survey data, so silence here
+  # would mean an MSE evaluating against a survey that never varied.
+  fit <- .sim_index_fixture("MVNORM")
+
+  # As fitted, every survey row is inside the window: nothing to warn about.
+  testthat::expect_no_warning(Rceattle::sim_mod(fit, simulate = TRUE))
+
+  # Hide one year from the estimation model, as run_mse() does.
+  hidden <- fit
+  srv <- which(hidden$data_list$index_data$Fleet_name == "Survey")
+  hidden$data_list$index_data$Year[utils::tail(srv, 1)] <-
+    -hidden$data_list$index_data$Year[utils::tail(srv, 1)]
+  testthat::expect_warning(Rceattle::sim_mod(hidden, simulate = TRUE),
+                           "were not simulated")
+
+  # An independent family has no such limit -- it redraws every row.
+  ln <- .sim_index_fixture("Lognormal")
+  srv2 <- which(ln$data_list$index_data$Fleet_name == "Survey")
+  ln$data_list$index_data$Year[utils::tail(srv2, 1)] <-
+    -ln$data_list$index_data$Year[utils::tail(srv2, 1)]
+  testthat::expect_no_warning(Rceattle::sim_mod(ln, simulate = TRUE))
 })

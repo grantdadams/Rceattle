@@ -79,14 +79,11 @@ build_params <- function(data_list) {
     # branches, and the init_dev penalty alike (ceattle.cpp sections 6.4/6.5 and
     # slot 9) -- so columns nages:max_age are unused for all six modes.
     #
-    # This padding used to be split in two, with the nages column gated on
-    # `data_list$initMode > 0`. That compared against the canonical initMode
-    # *string* that switch_check() has already resolved above, and
-    # "FreeParams" > "0" is TRUE, so the gate was always open. It is removed
-    # rather than repaired: the padding is correct for every mode, and the
-    # comparison was the one place in the package whose behaviour depended on
-    # the lexicographic value of an alias name (an alias beginning with a digit
-    # would have silently flipped it).
+    # The padding is therefore unconditional. Do not gate it on
+    # `data_list$initMode`: by this point switch_check() has resolved that to a
+    # canonical STRING, so `initMode > 0` is a lexicographic comparison
+    # ("FreeParams" > "0" is TRUE) rather than a numeric one, and its result
+    # would turn on the spelling of an alias rather than on the mode.
     param_list$init_dev[sp, data_list$nages[sp]:max_age] = -999
   }
 
@@ -194,8 +191,6 @@ build_params <- function(data_list) {
     }
   }
 
-  param_list$log_growth_par_devs <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj, 4),
-                                         dimnames = list(data_list$spnames, sex_labels, yrs_proj, c("log_K", "log_L1", "log_Linf", "log_m")))  # RE growth parameters
   param_list$growth_log_sd <- array(0, dim = c(data_list$nspp, max_sex, 2),
                                    dimnames = list(data_list$spnames, sex_labels, c("log_sd_minage", "log_sd_maxage")))
   param_list$weight_length_pars <- matrix(0, nrow = data_list$nspp, ncol = 2,
@@ -270,8 +265,6 @@ build_params <- function(data_list) {
     param_list$beta_linkage_obs  <- numeric(0)
     param_list$log_obs_sd_linkage <- numeric(0)
   }
-
-  #TODO variance and AR1 parameters
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----

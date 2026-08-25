@@ -92,6 +92,13 @@ sel_norm_scope_map <- c(
   "AcrossSexes" = 1   # one pooled reference; relative sex selectivity retained
 )
 
+# "AR1" (2) is REMOVED and refused by data_check(); it is kept in the map, as
+# q_map keeps its own removed forms, so that a workbook carrying the integer 2
+# still canonicalizes and the refusal can name the fleet and the replacement
+# instead of reporting a bare "invalid value". It was never an AR1: the model
+# scores value 2 with the same independent normal penalty as value 1, and there
+# is no correlation parameter for the selectivity deviations to read. An AR1 on a
+# selectivity parameter is a selectivity linkage -- ar1(1 | Year).
 tv_sel_map <-c(
   "Off" = 0,
   "IID" = 1,
@@ -112,6 +119,11 @@ q_map <- c(
   "AnalyticalArith" = 7
 )
 
+# "AR1" (2) is REMOVED and refused by data_check(), for the same reason and on
+# the same terms as tv_sel_map's -- the model gives value 2 the identical
+# independent normal penalty as value 1 (`index_varying_q == 1 || == 2`), and
+# index_q_rho is read only on the QAR1 catchability path that this release also
+# removes. An AR1 on catchability is a q linkage -- ar1(1 | Year).
 tv_q_map <- c(
   "Off" = 0,
   "IID" = 1,
@@ -119,6 +131,31 @@ tv_q_map <- c(
   "Block" = 3,
   "RandomWalk" = 4
 )
+
+# Whether a fleet's selectivity is indexed by age or by length bin. Read in
+# rearrange_data(), build_params() and data_check(); a value outside this set
+# silently became NA and entered the fit as a missing dimension.
+sel_dimension_map <- c(
+  "Age"    = 0,
+  "Length" = 1
+)
+
+# Direction of the (directional-mode) NonParametric shape penalty. The integer
+# side is the ADMB sign-of-the-weight convention that .is_incr reads below:
+# -1 means increasing, because the penalty weight is negated. Writing 1 here
+# would be read as "not increasing" and apply the penalty in the opposite
+# direction, so the map must carry the convention the code implements.
+sel_shape_dir_map <- c(
+  "Decreasing" =  0,
+  "Increasing" = -1
+)
+
+# Shape-penalty mode: one-sided directional (ADMB/AMAK) or two-sided smooth.
+sel_shape_mode_map <- c(
+  "Directional" = 0,
+  "Smooth"      = 1
+)
+
 
 comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
@@ -134,29 +171,109 @@ diet_loglike_map <- c(
   "DirichletMultinomial" = 1
 )
 
-# Survey/index biomass observation likelihood family (per fleet). MVN/MVNORM use
-# a user-supplied full variance-covariance matrix (e.g. a VAST-derived Sigma) on
-# the natural-scale residual vector (obs - q*pred); see `index_cov`, and pair with
-# Catchability = "AnalyticalArith" for the AMAK arithmetic-mean q.
-#   Lognormal = independent lognormal on log(obs) (the historical default).
-#   MVN       = the AMAK/ebswp `DoCovBTS = 1` *bare* quadratic form 0.5 * r' Sigma^-1 r
-#               (drops the normalizing constant, so the reported value matches ADMB).
-#   MVNORM    = the *full* multivariate-normal negative log-density
-#               0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)), i.e. TMB's
-#               density::MVNORM(Sigma)(r). Identical fit to "MVN" (the extra term is
-#               a fixed constant), but a proper normalized likelihood; the reported
-#               value is "MVN" + 0.5*(logdet(Sigma) + n*log(2*pi)).
-#   Normal    = natural-scale normal on the residual (obs - q*pred) with an
-#               ABSOLUTE observation sd (the Log_sd column is read as the natural-
-#               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
-#               cpue_like. No lognormal bias correction; pair with a solved q
-#               (Analytical / AnalyticalArith) or an estimated q as needed.
+# Survey/index biomass observation likelihood family (per fleet). Lognormal is
+# on log(obs); the other four are on the natural-scale residual (obs - q*pred),
+# where Log_sd is read as an ABSOLUTE sd rather than a log-scale CV. MVN and
+# MVNORM differ only by the normalizing constant, so they fit identically and
+# MVN is the one that matches ADMB. The allowed values, their formulas and
+# when to prefer each are in vignette("model-options-and-functionality").
 index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
   "MVNORM" = 2,
-  "Normal" = 3
+  "Normal" = 3,
+  "TruncatedNormal" = 4
 )
+
+#' Read a switch column by canonical name, whichever spelling it arrived in
+#'
+#' `switch_check()` -> `revert_switches()` upgrades integer codes to names, and
+#' every path through `fit_mod()` and `read_data()` runs it. `data_check()` is
+#' callable on a hand-built list that has not, so its checks canonicalize first
+#' rather than test one spelling and silently pass the other.
+#'
+#' @param x Column values, names or integer codes.
+#' @param map Named integer vector for this switch (e.g. `q_map`).
+#' @return Canonical names; `"<blank>"` where the value is missing.
+#' @noRd
+.canon_switch <- function(x, map) {
+  x <- trimws(as.character(x))
+  num <- suppressWarnings(as.integer(x))
+  out <- ifelse(!is.na(num), names(map)[match(num, map)], x)
+  out[is.na(out)] <- "<blank>"
+  out
+}
+
+
+#' Which index rows are fitted on the NATURAL scale?
+#'
+#' `Index_distribution` splits into two scales, and almost everything downstream
+#' of the likelihood assumed the lognormal one. `Lognormal` (0) is a log-scale
+#' family whose `Log_sd` is a CV / log-sd; `MVN` (1), `MVNORM` (2), `Normal` (3)
+#' and `TruncatedNormal` (4) are natural-scale families whose sd is ABSOLUTE, in
+#' the units of the index. Applying a log-scale formula to the second group does
+#' not error -- it silently returns nonsense, because `sigma^2 / 2` is then a
+#' number the size of the index squared.
+#'
+#' A new natural-scale family has to be added to the vector below as well as to
+#' `index_distribution_map`, or every fleet using it silently reverts to the
+#' log-scale treatment this function exists to prevent.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @return Logical, one per `index_data` row; `FALSE` where the fleet is
+#'   lognormal or cannot be resolved.
+#' @keywords internal
+#' @noRd
+.index_rows_natural_scale <- function(data_list) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  if (is.null(idx) || !nrow(idx) || is.null(fc)) return(logical(0))
+  fam <- fc$Index_distribution
+  if (is.null(fam)) return(rep(FALSE, nrow(idx)))
+  chr <- trimws(as.character(fam))
+  num <- suppressWarnings(as.integer(chr))
+  code <- ifelse(!is.na(num), num, as.integer(index_distribution_map[chr]))
+  code[is.na(code)] <- 0L
+  nat <- code %in% c(1L, 2L, 3L, 4L)   # MVN, MVNORM, Normal, TruncatedNormal
+  out <- nat[match(idx$Fleet_code, fc$Fleet_code)]
+  out[is.na(out)] <- FALSE
+  out
+}
+
+
+#' Fleet codes that carry survey-index observations the model fits
+#'
+#' An index is a property of the data, not of the fleet type: the model scores
+#' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
+#' series is fitted like a survey, on that fleet's own selectivity. Selecting on
+#' `Fleet_type == "Survey"` instead is what left such a fleet with its
+#' catchability frozen and its index absent from `plot_index()`.
+#'
+#' @param data_list A `data_list` carrying `fleet_control` and `index_data`.
+#' @param fitted_only Keep only rows the likelihood uses (positive `Year`, at or
+#'   before `endyr`). A prediction-only row is not an observation and must not,
+#'   for instance, make catchability estimable.
+#' @return Integer vector of `Fleet_code`s, possibly empty.
+#' @keywords internal
+#' @noRd
+.fleets_with_index <- function(data_list, fitted_only = TRUE) {
+  idx <- data_list$index_data
+  fc  <- data_list$fleet_control
+  # nrow() is NULL for anything without dimensions -- a data_list carrying a
+  # scalar NA where a table is expected reaches here, and `!NULL` errors.
+  if (is.null(idx) || is.null(nrow(idx)) || !nrow(idx) || is.null(fc)) {
+    return(integer(0))
+  }
+  keep <- rep(TRUE, nrow(idx))
+  if (fitted_only) {
+    keep <- idx$Year > 0
+    if (!is.null(data_list$endyr)) keep <- keep & idx$Year <= data_list$endyr
+    if (!is.null(idx$Observation)) keep <- keep & !is.na(idx$Observation)
+  }
+  live <- fc$Fleet_code[!(fc$Fleet_type %in% c("Off", 0))]
+  as.integer(sort(intersect(unique(idx$Fleet_code[keep]), live)))
+}
+
 
 fleet_map <- c(
   "Fishery" = 1,
@@ -170,14 +287,11 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
-# 5 = OffsetEquilibrium: F = 0 equilibrium seeded by first-year recruitment
-#     (R_init * exp(rec_dev[year 1])), init devs off, no init-dev penalty
-#     (Cole Monnahan / AFSC GOA pollock convention). Named for the recruitment
-#     offset that seeds it: modes 1 and 5 both start from the initial
-#     equilibrium recruitment R_init, but 5 displaces it by the year-1
-#     recruitment deviation (the ONLY term separating them in the cpp -- see
-#     init_log_scalar in ceattle.cpp). It is an *unfished* (Finit = 0)
-#     equilibrium, so "Fished*" would misdescribe it.
+# 5 = OffsetEquilibrium: unfished (Finit = 0) equilibrium seeded by first-year
+#     recruitment (R_init * exp(rec_dev[year 1])), init devs off, no init-dev
+#     penalty (Cole Monnahan / AFSC GOA pollock convention). Modes 1 and 5 both
+#     start from R_init; 5 displaces it by the year-1 recruitment deviation,
+#     which is the only term separating them (init_log_scalar in ceattle.cpp).
 initMode_map <- c(
   "FreeParams"                 = 0,
   "Equilibrium"                = 1,
@@ -375,6 +489,23 @@ switch_check <- function(data_list){
     data_list$fleet_control, "Accumulation_age_lower")
   data_list$fleet_control <- drop_deprecated_col(
     data_list$fleet_control, "Accumulation_age_upper")
+
+  # `growth_re` and `growth_indices` are removed. `growth_re` was documented as
+  # the way to put random effects on growth, but nothing consumed it: the
+  # deviation array was mapped off in every configuration and the model gave
+  # it no density, so setting it changed no fit. Drop them with a message rather
+  # than silently, so a data list still carrying `growth_re = 1` says where the
+  # feature went instead of appearing to work.
+  for (.old in c("growth_re", "growth_indices")) {
+    if (!is.null(data_list[[.old]])) {
+      data_list[[.old]] <- NULL
+      message(sprintf(
+        paste0("'%s' is deprecated and ignored; it never had an effect on any ",
+               "fit. Specify time-varying growth with build_growth(linkages = ) ",
+               "-- see vignette('environmental-linkages-and-priors')."),
+        .old))
+    }
+  }
 
   if(is.null(data_list$srr_fun)){
     data_list$srr_fun <- 0
@@ -591,9 +722,35 @@ switch_check <- function(data_list){
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
   data_list$fleet_control$CAAL_distribution <- .rce_apply_default(data_list$fleet_control$CAAL_distribution, "CAAL_distribution", .sch, conditions = .dflt_when)
   data_list$fleet_control$Index_distribution <- .rce_apply_default(data_list$fleet_control$Index_distribution, "Index_distribution", .sch)  # survey index likelihood family; default preserves the historical lognormal fit
-  # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only the
-  # covariance survey) leaves the other rows NA, which should default to Lognormal.
-  data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <- "Lognormal"
+  # Also fill per-element NAs: setting Index_distribution for one fleet (e.g. only
+  # the covariance survey) leaves the other rows NA, which should take the same
+  # default. Read it from the schema rather than repeating the literal -- the
+  # value belongs in one place, and this line sat three lines below the
+  # schema-driven call that already knows it.
+  data_list$fleet_control$Index_distribution[is.na(data_list$fleet_control$Index_distribution)] <-
+    .sch[["Index_distribution"]]$default
+  # Same for Selectivity_dimension: .rce_apply_default() fills a MISSING column,
+  # never a blank cell, and a partially-assigned column
+  # (fleet_control$Selectivity_dimension[i] <- "Length") is a live idiom in the
+  # assessment scripts. Without this the blank rows would now be a hard error.
+  #
+  # Announced under the same gate as the missing-column default (growth
+  # estimated, so a length-based selectivity is on the table), and naming the
+  # fleets, because only some rows are being filled: a blank left on a
+  # growth-estimated model is where the author meant "Length", and an age-based
+  # curve on a length-based fleet changes the fit without saying so.
+  .sel_dim_blank <- which(is.na(data_list$fleet_control$Selectivity_dimension))
+  if (length(.sel_dim_blank) > 0) {
+    if (isTRUE(.dflt_when$growth_estimated)) {
+      .lbl <- data_list$fleet_control$Fleet_name
+      .lbl <- if (is.null(.lbl)) .sel_dim_blank else .lbl[.sel_dim_blank]
+      message(sprintf(
+        "'Selectivity_dimension' is blank for fleet(s) %s in 'fleet_control', assuming '%s'",
+        paste(.lbl, collapse = ", "), .sch[["Selectivity_dimension"]]$default))
+    }
+    data_list$fleet_control$Selectivity_dimension[.sel_dim_blank] <-
+      .sch[["Selectivity_dimension"]]$default
+  }
   data_list$fleet_control$CAAL_weights <- .rce_apply_default(data_list$fleet_control$CAAL_weights, "CAAL_weights", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_accum_young <- .rce_apply_default(data_list$fleet_control$Comp_accum_young, "Comp_accum_young", .sch)  # young-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
@@ -676,6 +833,28 @@ switch_check <- function(data_list){
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
   }
 
+  # A fishery's index is predicted from the year-averaged numbers, which has no
+  # instant to be taken at, so Month is inert on its index rows (a survey's is
+  # read). Say so rather than let a workbook carry a month that does nothing.
+  .fsh_idx <- .fleets_with_index(data_list, fitted_only = TRUE)
+  if (length(.fsh_idx)) {
+    .fc <- data_list$fleet_control
+    .fsh_idx <- .fsh_idx[.fsh_idx %in% .fc$Fleet_code[.fc$Fleet_type %in% c(1, "1", "Fishery")]]
+    .im <- data_list$index_data
+    .dead_month <- .fsh_idx[vapply(.fsh_idx, function(fl) {
+      m <- suppressWarnings(as.numeric(.im$Month[.im$Fleet_code == fl & .im$Year > 0]))
+      any(!is.na(m) & m != 0)
+    }, logical(1))]
+    if (length(.dead_month)) {
+      message(paste0(
+        "'Month' is not read for the index of fishery fleet(s): ",
+        paste(.fc$Fleet_name[match(.dead_month, .fc$Fleet_code)], collapse = ", "),
+        ". A fishery index is predicted from the year-averaged numbers ",
+        "N*(1-exp(-Z))/Z. Put the index on its own Survey fleet, mirroring the ",
+        "fishery's Selectivity_index, if it should be timed to a month."))
+    }
+  }
+
   # Default Sel_start_year to the fleet's first year of data (not styr). Earlier
   # deviations have neither data nor a penalty (every cpp selectivity penalty is
   # anchored at start_yr), so they are unidentified. Only affects time-varying
@@ -724,6 +903,16 @@ switch_check <- function(data_list){
 #' @importFrom rlang .data
 #' @keywords internal
 #' @noRd
+# Legacy spellings of a canonical switch VALUE (as distinct from the schema's
+# column aliases, which rename a whole column). Upgraded on the way in, because
+# switch_check() accepted these while validate_switches() rejected them -- so a
+# model written with one loaded, ran switch_check() unchanged, and then failed
+# its own data check with "Invalid 'Selectivity'".
+.rce_switch_value_aliases <- c(
+  "Non-parametric" = "NonParametric"
+)
+
+
 revert_switches <- function(data_list) {
 
   # Helper: convert integer codes to map names. Numeric-looking strings ("0",
@@ -735,6 +924,13 @@ revert_switches <- function(data_list) {
     x_num <- suppressWarnings(as.numeric(x_char))
     is_num <- !is.na(x_num)
     x_char[is_num] <- as.character(x_num[is_num])
+    # Upgrade a legacy spelling before matching, so it lands on the canonical
+    # name rather than passing through to be rejected later.
+    alias_hit <- match(x_char, names(.rce_switch_value_aliases))
+    if (any(!is.na(alias_hit))) {
+      x_char[!is.na(alias_hit)] <-
+        unname(.rce_switch_value_aliases[alias_hit[!is.na(alias_hit)]])
+    }
     idx <- match(x_char, as.character(map))
     matched <- !is.na(idx)
     if (any(matched)) {
@@ -781,6 +977,41 @@ revert_switches <- function(data_list) {
 }
 
 
+#' The value map a column is validated against, from the schema
+#'
+#' @description
+#' `.rce_column_schema()` names the governing map on each `type = "switch"` row
+#' (`allowed = "sel_map"`). Resolving it here is what makes the schema
+#' authoritative for *which* values a column may take: adding a switch column
+#' means adding a row, not another hardcoded map reference in this file.
+#'
+#' The per-column subset predicate and the wording of the error stay at the call
+#' site. They are not uniform -- `Time_varying_q` is exempt while `Catchability`
+#' is `"Environmental"`, `Catchability` itself allows `NA`, and the newer
+#' columns may be absent entirely on a list `switch_check()` has not yet seen --
+#' and flattening that into one generic loop would lose real behaviour.
+#'
+#' @param col Canonical column name.
+#' @return The named map, or `NULL` if the schema declares none.
+#' @keywords internal
+#' @noRd
+.rce_allowed_map <- function(col) {
+  row <- .rce_column_schema()[[col]]
+  if (is.null(row)) {
+    stop("Internal: '", col, "' is not in the column schema.", call. = FALSE)
+  }
+  nm <- row$allowed
+  if (is.null(nm) || all(is.na(nm))) {
+    # Returning NULL here would make every value invalid and print
+    # "Please use one of:" with nothing after it -- loud, but pointing the user
+    # at their data instead of at the schema row that is actually missing.
+    stop("Internal: the schema declares no `allowed` map for '", col, "'.",
+         call. = FALSE)
+  }
+  get(nm, envir = asNamespace("Rceattle"))
+}
+
+
 #' Validates switches are correct
 #'
 #' @param data_list Rceattle data list
@@ -789,6 +1020,19 @@ revert_switches <- function(data_list) {
 #' @noRd
 validate_switches <- function(data_list = NULL){
   errors <- character(0)
+
+  # Governing maps, resolved from the schema's `allowed` field.
+  fleet_map              <- .rce_allowed_map("Fleet_type")
+  sel_map                <- .rce_allowed_map("Selectivity")
+  tv_sel_map             <- .rce_allowed_map("Time_varying_sel")
+  sel_norm_scope_map     <- .rce_allowed_map("Sel_norm_scope")
+  q_map                  <- .rce_allowed_map("Catchability")
+  tv_q_map               <- .rce_allowed_map("Time_varying_q")
+  comp_loglike_map       <- .rce_allowed_map("Comp_distribution")
+  index_distribution_map <- .rce_allowed_map("Index_distribution")
+  sel_dimension_map      <- .rce_allowed_map("Selectivity_dimension")
+  sel_shape_dir_map      <- .rce_allowed_map("Sel_shape_dir")
+  sel_shape_mode_map     <- .rce_allowed_map("Sel_shape_mode")
 
   # Validate fleet_control inputs ----
   # The newer switch columns can be absent here: data_check() is callable on a
@@ -799,36 +1043,75 @@ validate_switches <- function(data_list = NULL){
   .fc_none <- data_list$fleet_control[0, , drop = FALSE]
   .fc_has <- function(col) !is.null(data_list$fleet_control[[col]])
 
+  # Every predicate below exempts an Off fleet. data_check() is callable on a
+  # list read straight from a workbook, where Fleet_type may still be the
+  # integer 0 -- and `0 != "Off"` coerces to `"0" != "Off"`, which is TRUE, so a
+  # bare string comparison would validate the fleets it means to skip.
+  # Canonicalize once, and compare against that.
+  .fleet_type_canon <- .canon_switch(data_list$fleet_control$Fleet_type, fleet_map)
+  data_list$fleet_control$.rce_is_on <- .fleet_type_canon != "Off"
+
   invalid_flt_type <- data_list$fleet_control |>
     dplyr::filter(!.data$Fleet_type %in% c(fleet_map, names(fleet_map)))
 
   invalid_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Selectivity %in% c(sel_map, names(sel_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Selectivity %in% c(sel_map, names(sel_map)))
 
   invalid_tv_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
 
   invalid_q <- data_list$fleet_control |>
     dplyr::filter(!.data$Catchability %in% c(NA, q_map, names(q_map)))
 
   invalid_tv_q <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
+    dplyr::filter(.data$.rce_is_on & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
   invalid_sel_norm_scope <- if (.fc_has("Sel_norm_scope")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" &
+      dplyr::filter(.data$.rce_is_on &
                       !.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
   } else .fc_none
 
+  # Selectivity_dimension and the two Sel_shape_* columns are validated here
+  # because nothing downstream re-checks them: a typo resolves to NA rather
+  # than erroring, giving a missing selectivity dimension or penalty mode.
+  # Each is validated against exactly what its CONSUMER implements,
+  # not against the map alone. rearrange_data() matches Selectivity_dimension on
+  # the exact strings and yields NA for anything else -- including an integer --
+  # so the integer side of its map must not validate. The two Sel_shape_*
+  # columns are read case-insensitively in one spelling each, and Sel_shape_dir
+  # additionally accepts "-1" (the ADMB sign convention), so refusing those
+  # would reject input the model implements.
+  invalid_sel_dim <- if (.fc_has("Selectivity_dimension")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Selectivity_dimension) &
+                      !.data$Selectivity_dimension %in% names(sel_dimension_map))
+  } else .fc_none
+
+  .dir_ok <- c(names(sel_shape_dir_map), "increasing", "decreasing", "-1", "0")
+  invalid_sel_shape_dir <- if (.fc_has("Sel_shape_dir")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_shape_dir) &
+                      !.data$Sel_shape_dir %in% .dir_ok)
+  } else .fc_none
+
+  .mode_ok <- c(names(sel_shape_mode_map), "smooth", "directional",
+                unname(sel_shape_mode_map))
+  invalid_sel_shape_mode <- if (.fc_has("Sel_shape_mode")) {
+    data_list$fleet_control |>
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_shape_mode) &
+                      !.data$Sel_shape_mode %in% .mode_ok)
+  } else .fc_none
+
   invalid_comp_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$Comp_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_caal_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(.data$.rce_is_on & !.data$CAAL_distribution %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_index_ll <- if (.fc_has("Index_distribution")) {
     data_list$fleet_control |>
-      dplyr::filter(.data$Fleet_type != "Off" &
+      dplyr::filter(.data$.rce_is_on &
                       !.data$Index_distribution %in% c(index_distribution_map, names(index_distribution_map)))
   } else .fc_none
 
@@ -873,6 +1156,27 @@ validate_switches <- function(data_list = NULL){
                               paste(invalid_tv_q$Fleet_name, collapse = ", "),
                               ".\nPlease use an integer code ", paste(range(tv_q_map), collapse = ":")," or one of:",
                               paste(names(tv_q_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_dim) > 0) {
+    errors <- c(errors, paste("Invalid 'Selectivity_dimension' specified for fleets:",
+                              paste(invalid_sel_dim$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_dimension_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_shape_dir) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_shape_dir' specified for fleets:",
+                              paste(invalid_sel_shape_dir$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_shape_dir_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel_shape_mode) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_shape_mode' specified for fleets:",
+                              paste(invalid_sel_shape_mode$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_shape_mode_map), collapse = ", ")))
   }
 
   if(nrow(invalid_comp_ll) > 0) {
@@ -1006,4 +1310,145 @@ convert_switches <- function(data_list) {
   data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
 
   return(data_list)
+}
+
+
+#' Report composition weights that are on the log scale
+#'
+#' @description
+#' A composition weight is read on a scale set by its distribution. Under a
+#' multinomial it multiplies the input sample size directly; under a
+#' Dirichlet-multinomial the model uses `exp(weight)` (`ceattle.cpp`,
+#' `DM_pars_comp = exp(comp_weights)`), so the column holds the LOG of the
+#' starting weight. A value of 1 is therefore a starting weight of e, and a
+#' weight of 1 is written as 0.
+#'
+#' `write_template()` seeds these columns with 1, so a model built from the
+#' template and switched to a Dirichlet-multinomial starts at e without anything
+#' saying so. This reports it once per fit, naming the fleets, so the value is a
+#' choice rather than an inherited default.
+#'
+#' Called from `fit_mod()`, not from `switch_check()`: `switch_check()` is a
+#' re-entrant normalizer that `build_params()` and `build_map()` also call, so
+#' reporting there printed the same message three times per fit and roughly
+#' twenty times per `retrospective()`.
+#'
+#' Only an exact 1 is reported -- the model value. Any other number was typed
+#' deliberately and needs no comment. Off fleets and fleets carrying no data for
+#' the composition in question are skipped: their weight is never read.
+#'
+#' @param data_list a data list, after `switch_check()` has resolved the
+#'   distribution columns.
+#' @return `data_list`, unchanged. This reports; it never edits.
+#' @keywords internal
+#' @noRd
+.rce_flag_dm_weight_scale <- function(data_list) {
+  is_dm <- function(x) !is.na(x) & as.character(x) %in% c("1", "DirichletMultinomial")
+
+  # Fleet codes with at least one row actually fitted (Year > 0 marks a fitted
+  # row; a negative year is carried but not fitted).
+  fitted_codes <- function(df) {
+    if (is.null(df) || !nrow(df)) return(integer(0))
+    if (!all(c("Fleet_code", "Year") %in% names(df))) return(integer(0))
+    unique(as.integer(df$Fleet_code[!is.na(df$Year) & df$Year > 0]))
+  }
+
+  fc <- data_list$fleet_control
+  if (!is.null(fc)) {
+    on <- if (is.null(fc$Fleet_type)) rep(TRUE, nrow(fc)) else
+      as.character(fc$Fleet_type) != "Off"
+
+    for (spec in list(list("Comp_distribution", "Comp_weights", data_list$comp_data),
+                      list("CAAL_distribution", "CAAL_weights", data_list$caal_data))) {
+      dist_col <- spec[[1]]; wt_col <- spec[[2]]
+      if (is.null(fc[[dist_col]]) || is.null(fc[[wt_col]])) next
+      has_data <- fc$Fleet_code %in% fitted_codes(spec[[3]])
+      hit <- which(on & has_data & is_dm(fc[[dist_col]]) &
+                     !is.na(fc[[wt_col]]) & fc[[wt_col]] == 1)
+      if (length(hit)) {
+        who <- if (!is.null(fc$Fleet_name)) fc$Fleet_name[hit] else fc$Fleet_code[hit]
+        message("'", wt_col, "' is 1 on Dirichlet-multinomial fleet(s) ",
+                paste(who, collapse = ", "),
+                ". That likelihood reads the column as a log, so this is a starting ",
+                "weight of e (", signif(exp(1), 4), "). Use 0 for a starting weight of 1.")
+      }
+    }
+  }
+
+  dw <- data_list$Diet_comp_weights
+  dd <- data_list$Diet_distribution
+  # Length-guarded: this runs before data_check(), and recycling a ragged pair
+  # here would raise a warning ahead of the check that names the real problem.
+  if (!is.null(dw) && !is.null(dd) && length(dw) == length(dd)) {
+    hit <- which(is_dm(dd) & !is.na(dw) & dw == 1)
+    if (length(hit)) {
+      who <- if (!is.null(data_list$spnames)) data_list$spnames[hit] else hit
+      message("'Diet_comp_weights' is 1 for Dirichlet-multinomial predator(s) ",
+              paste(who, collapse = ", "),
+              ". That likelihood reads the value as a log, so this is a starting ",
+              "weight of e (", signif(exp(1), 4), "). Use 0 for a starting weight of 1.")
+    }
+  }
+
+  data_list
+}
+
+
+#' Coerce a string/integer switch argument to its canonical integer code.
+#'
+#' Shared validation for the integer-returning `build_*()` switch arguments
+#' (`srr_fun`, `M1_model`, `sd_plus_group`). Accepts a canonical string key from `map` or a
+#' legacy integer code (a value of `map`, or a `deprecated` code); errors on
+#' anything else and calls `warn_fn(int)` when a deprecated code is supplied.
+#'
+#' @param x user input (length-1+ character or numeric).
+#' @param map named integer vector mapping canonical string -> integer code.
+#' @param what argument name, used in messages.
+#' @param deprecated integer codes that are accepted but soft-deprecated.
+#' @param warn_fn `function(int)` emitting the deprecation warning, or `NULL`.
+#' @param length_exact_one require length 1 (`srr_fun`) vs length >= 1 (`M1_model`).
+#' @param legacy_note text appended inside the integer-range error message.
+#' @keywords internal
+#' @noRd
+.coerce_switch_arg <- function(x, map, what,
+                               deprecated = integer(0),
+                               warn_fn = NULL,
+                               length_exact_one = FALSE,
+                               legacy_note = "") {
+  if (length_exact_one) {
+    if (length(x) != 1L) {
+      stop(sprintf("`%s` must be length 1", what), call. = FALSE)
+    }
+  } else if (length(x) == 0L) {
+    stop(sprintf("`%s` must have length >= 1", what), call. = FALSE)
+  }
+  if (is.numeric(x)) {
+    int <- as.integer(x)
+    allowed <- c(unname(map), deprecated)
+    if (anyNA(int) || any(!int %in% allowed)) {
+      stop(sprintf(
+        "integer `%s` must be one of: %s (= %s%s)",
+        what,
+        paste(map, collapse = ", "),
+        paste(names(map), collapse = "/"),
+        legacy_note), call. = FALSE)
+    }
+    if (length(deprecated) > 0L && any(int %in% deprecated) && !is.null(warn_fn)) {
+      warn_fn(int)
+    }
+    return(int)
+  }
+  if (is.character(x)) {
+    bad <- setdiff(x, names(map))
+    if (length(bad) > 0L) {
+      stop(sprintf(
+        "unknown `%s` value(s): %s; allowed: %s",
+        what,
+        paste(unique(bad), collapse = ", "),
+        paste(names(map), collapse = ", ")), call. = FALSE)
+    }
+    return(unname(map[x]))
+  }
+  stop(sprintf("`%s` must be a string or integer; got %s",
+               what, class(x)[1]), call. = FALSE)
 }

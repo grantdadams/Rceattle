@@ -9,8 +9,8 @@
 #                         problem from discussion #75).
 #   2. TMB system deps -- the same apt packages the R-CMD-check workflow
 #                         installs, so the package compiles on the runner.
-# Coverage runs the full NOT_CRAN fit_mod suite under covr. With the model kept at
-# -O2 (see src/TMB/compile.R) it is a normal-length job. Triggers:
+# Coverage runs the full NOT_CRAN fit_mod suite under covr, SHARDED across runners
+# (see `strategy.matrix` below and tools/ci/coverage-shard.R). Triggers:
 #   - push to main / dev  -- gives Codecov a report attributed to those branches, which
 #     updates the badge/trend and is the BASE that PR coverage diffs compare against;
 #   - pull_request        -- the per-PR Codecov coverage diff;
@@ -28,9 +28,9 @@ name: test-coverage
 
 permissions: read-all
 
-# Coverage runs the full NOT_CRAN suite (47 fit_mod integration files) under covr
-# instrumentation and serially, so a single run is long. Cancel superseded runs on
-# the same ref so a re-trigger doesn't queue redundant jobs.
+# Coverage runs the full NOT_CRAN suite under covr instrumentation and serially, so
+# a single runner is long. Cancel superseded runs on the same ref so a re-trigger
+# doesn't queue redundant jobs.
 concurrency:
   group: test-coverage-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -38,11 +38,33 @@ concurrency:
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
-    # Serial (TESTTHAT_PARALLEL=false below) loses the 2-worker split. The TMB model
-    # is kept at -O2 under covr (src/TMB/compile.R drops covr's -O0 coverage flags for
-    # that one C++ unit, which covr never reports on anyway), so fits run at production
-    # speed. 120 leaves ample headroom over the observed serial-at-O2 runtime while
-    # staying well under GitHub's 360-minute hard cap.
+
+    # Each shard runs a weight-balanced slice of tests/testthat and uploads its own
+    # cobertura report; Codecov merges uploads carrying the same commit SHA, so the
+    # per-PR diff and the badge see one combined report. Wall-clock is the slowest
+    # shard, not the sum.
+    #
+    # Sharding replaced a single serial job that ran out of budget: on PR #109 it was
+    # cancelled at ~116 minutes of test_check() with nothing having failed. Serial
+    # (TESTTHAT_PARALLEL=false below) is required for correctness -- covr's counters
+    # are per-process -- so splitting across runners is the only lever left. The TMB
+    # model is kept at -O2 under covr (src/TMB/compile.R drops covr's -O0 coverage
+    # flags for that one C++ unit, which covr never reports on anyway), so fits
+    # already run at production speed.
+    #
+    # fail-fast: false so one shard's failure still lets the others upload their
+    # share of the coverage.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+
+    # Six shards, and add shards rather than minutes if this trips again. The
+    # static cost proxy in coverage-shard.R mis-ranks files badly: at four shards
+    # it split the suite into runs of 18, 26, 94 and 12 minutes, and the shard it
+    # called heaviest was the second-fastest of the four. Two extra runners buy
+    # headroom while the per-file timings written below collect the real numbers
+    # to replace the proxy with.
     timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -84,15 +106,23 @@ jobs:
           extra-packages: any::covr, any::xml2
           needs: coverage
 
-      - name: Test coverage
-        run: |
-          cov <- covr::package_coverage(
-            quiet = FALSE,
-            clean = FALSE,
-            install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
-          )
-          covr::to_cobertura(cov)
-        shell: Rscript {0}
+      # The script picks this shard's files, runs them under covr, and writes
+      # cobertura.xml. It prints the whole shard plan up front, and writes a
+      # per-file elapsed time to COV_TIMING_LOG as each file ends.
+      #
+      # The timings go to a file rather than the console because covr runs the
+      # suite in a subprocess and only surfaces its output when that returns, so
+      # a cancelled shard's log jumps straight from "* DONE (Rceattle)" to "The
+      # operation was canceled" with no indication of what it was doing. A file
+      # is on disk either way, and the upload below is `if: always()` so a
+      # cancelled shard still reports.
+      - name: Test coverage (shard ${{ matrix.shard }})
+        env:
+          COV_SHARD: ${{ matrix.shard }}
+          # Derived from the matrix, so adding a shard above is the only edit needed.
+          COV_SHARDS: ${{ strategy.job-total }}
+          COV_TIMING_LOG: ${{ runner.temp }}/coverage-timing-shard-${{ matrix.shard }}.tsv
+        run: Rscript tools/ci/coverage-shard.R
 
       - uses: codecov/codecov-action@v5
         with:
@@ -104,16 +134,26 @@ jobs:
           plugins: noop
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          # Distinguish the four uploads. Codecov combines reports that share a
+          # commit SHA, so the merged report is the whole suite; without a distinct
+          # name the shards are hard to tell apart when one fails to upload.
+          name: shard-${{ matrix.shard }}
 
-      - name: Show testthat output
+      # always(), not failure(): the run this exists for is the one the timeout
+      # cancels, and a cancelled job is not a failed one. This is the table that
+      # replaces the static COST_* proxy in tools/ci/coverage-shard.R.
+      - name: Upload per-file timings
         if: always()
-        run: |
-          find '${{ runner.temp }}/package' -name 'testthat.Rout*' -exec cat '{}' \; || true
-        shell: bash
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-timing-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/coverage-timing-shard-${{ matrix.shard }}.tsv
+          if-no-files-found: warn
 
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-test-failures
+          # actions/upload-artifact@v4 requires a unique name per matrix job.
+          name: coverage-test-failures-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/package

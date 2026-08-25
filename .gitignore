@@ -6,7 +6,15 @@ docs/
 .RData
 .Ruserdata
 .DS_Store
-.claude
+# Claude Code. settings.json, commands/ and agents/ are committed shared house
+# rules -- see .claude/README.md. Everything else under .claude/ is ignored by
+# default, so anything future tooling writes there is not committed by accident.
+# .Rbuildignore keeps the whole directory out of the package tarball.
+.claude/*
+!.claude/settings.json
+!.claude/commands/
+!.claude/agents/
+!.claude/README.md
 .mcp.json
 inst/doc
 /doc/
@@ -32,6 +40,11 @@ src/symbols.rds
 Rceattle_*.tar.gz
 
 # Test artifacts
+# testthat rewrites these on every failing run; they are a snapshot of the last
+# failure, not a fixture. (_snaps/ is deliberately NOT here -- those are the
+# tracked expected values for snapshot tests.)
+tests/testthat/testthat-problems.rds
+tests/testthat/_problems/
 tests/comparison/WHAM_growth_comparison/wham_model.RDS
 tests/comparison/WHAM_growth_comparison/wham_osa.RDS
 tests/comparison/WHAM_growth_comparison/rce_osa.RDS
@@ -52,3 +65,9 @@ scratchpad/
 
 # FIMS comparison-run artifact
 fims.log
+
+# devtools::build_vignettes() artifacts: knitr figures, and the workbooks the
+# data-input vignettes write to demonstrate write_data() / write_template().
+/figure/
+vignettes/BS2017SS.xlsx
+vignettes/my_data_template.xlsx

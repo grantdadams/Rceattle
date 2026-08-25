@@ -4,11 +4,17 @@
 \alias{reweight_comps}
 \title{Iteratively reweight composition data (McAllister-Ianelli)}
 \usage{
-reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
+reweight_comps(
+  object = NULL,
+  n_iter = 10,
+  tol = 0.01,
+  fleets = NULL,
+  verbose = TRUE,
+  fit = NULL
+)
 }
 \arguments{
-\item{fit}{An \code{Rceattle} model fitted at \code{estimateMode} \code{"Estimate"} (0) or
-\code{"Hindcast"} (1) -- the modes that optimize the hindcast.}
+\item{object}{An \code{Rceattle} model fitted at \code{estimateMode} \code{"Estimate"} (0) or \code{"Hindcast"} (1) -- the modes that optimize the hindcast.}
 
 \item{n_iter}{Maximum number of iterations (default 10).}
 
@@ -20,6 +26,9 @@ a mix -- R coerces \code{c(1, "Survey")} to \code{c("1", "Survey")}. Default \co
 tunes every eligible fleet.}
 
 \item{verbose}{Print the weights each iteration (default \code{TRUE}).}
+
+\item{fit}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 The model refitted with the final weights, carrying a \code{reweight}

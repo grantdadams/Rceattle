@@ -50,6 +50,15 @@ the four \verb{*_false_pos} / \verb{*_false_neg} metrics are the probability the
 disagree. The three \verb{*_sims_collapsed} metrics are \strong{counts of
 simulations}, not probabilities.
 
+\code{om_terminal_depletion} is \code{NA} for a multispecies run that derived no
+unfished reference, which is any run without a harvest control rule
+(\code{HCR = "NoFishing"}): under \code{msmMode > 0} the model reads spawning
+biomass against the \code{MSSB0} input, and \code{fit_mod()} only fills that in by
+projecting under no fishing when an HCR is present. Dividing by the
+placeholder instead reported SSB/999 as a depletion -- on the Pacific hake
+three-species model, 2.68e3. Use \code{om_terminal_depletion_dynamic}, which is
+computed against the model's own \code{DynamicSB0} and is unaffected.
+
 Each frame carries a \code{"labels"} attribute mapping those names to the long
 display strings (e.g. \code{om_terminal_depletion_dynamic} ->
 \code{"OM: Terminal SSB Depletion (Dynamic)"}) for plots and tables:
@@ -57,4 +66,14 @@ display strings (e.g. \code{om_terminal_depletion_dynamic} ->
 }
 \description{
 Management strategy evaluation performance metric summary
+}
+\examples{
+\dontrun{
+mse <- load_mse(dir = "mse_runs")
+s <- mse_summary(mse)
+s$species   # one row per species
+s$fleet     # one row per fleet
+s$total     # across the whole system
+s$meta      # nsim, nspp, nflts, HCR
+}
 }

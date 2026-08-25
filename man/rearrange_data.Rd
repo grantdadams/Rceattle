@@ -21,6 +21,7 @@ composition proportion offset is read from \code{data_list$comp_offset} (default
 \description{
 Function to rearrange a \code{data_list} object to be read into TMB
 
-\code{rearrange_dat()} is a deprecated alias for \code{rearrange_data()}
-kept for backwards compatibility; please use \code{rearrange_data()}.
+\code{rearrange_dat()} is a deprecated alias for \code{rearrange_data()},
+kept so older scripts keep running. It is scheduled for removal in 6.0.0;
+use \code{rearrange_data()}.
 }

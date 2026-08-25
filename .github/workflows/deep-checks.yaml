@@ -1,0 +1,136 @@
+# The two checks nothing else runs.
+#
+# 1. GOLDEN REFERENCE. tests/testthat/test-golden-regression.R is the committed
+#    backstop for "a numeric change needs golden equivalence" -- and it is
+#    guarded by BOTH skip_on_cran() and skip_on_covr(), so it fires in neither
+#    existing job: R-CMD-check sets NOT_CRAN=false deliberately (to keep the
+#    multi-OS matrix fast), and test-coverage runs under covr. The result is
+#    that the repo's own rule has no automated enforcement; it only runs when
+#    someone types /golden-check locally. This job is where it runs.
+#
+# 2. ARRAY BOUNDS. The model is built with safebounds = FALSE, so an
+#    out-of-range access is a silent write into adjacent memory. 5.15.0 fixed
+#    exactly such a write (age_hat sized from comp_obs), and R CMD check on
+#    windows-latest has died once with 0xC0000005 -- an access violation --
+#    inside test-selectivity-catchability.R. tools/verify/verify-safebounds.R
+#    rebuilds with bounds checking on so that class of fault is attributable
+#    rather than a mystery segfault.
+#
+# Both are slow: golden is four phased fits with newtonsteps, and a
+# bounds-checked build range-tests every array access. Hence nightly plus
+# manual, not per-PR.
+#
+# NON-BLOCKING for the bounds job, BLOCKING for golden. A golden failure means a
+# reference fit moved and is always worth stopping for. A bounds failure may be
+# a genuine find or may be the harness needing wider cases, and it must not gate
+# a merge on its own -- read it.
+on:
+  schedule:
+    - cron: "0 5 * * *"   # nightly, 05:00 UTC
+  workflow_dispatch:
+    inputs:
+      run_safebounds:
+        description: "Also run the bounds-checked build (slow)"
+        type: boolean
+        default: true
+
+name: deep-checks
+
+permissions: read-all
+
+concurrency:
+  group: deep-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # The whole point of this job. R-CMD-check sets this false; covr skips the
+      # file separately. Here the golden fits must actually run.
+      NOT_CRAN: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for TMB
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev libblas-dev liblapack-dev gfortran \
+            libssl-dev libcurl4-openssl-dev libxml2-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools, any::testthat, any::pkgload
+          needs: check
+
+      - name: Golden reference (four pinned fits)
+        run: |
+          Rscript -e '
+            pkgload::load_all(".", quiet = TRUE)
+            res <- testthat::test_file("tests/testthat/test-golden-regression.R",
+                                       reporter = "summary")
+            df <- as.data.frame(res)
+            # A file that SKIPPED is not a pass. The guards this job exists to
+            # defeat are inside the file, so assert something actually ran.
+            cat("\npassed:", sum(df$passed), " failed:", sum(df$failed),
+                " skipped:", sum(df$skipped), "\n")
+            if (sum(df$passed) == 0)
+              stop("golden regression ran no assertions -- it was skipped, ",
+                   "which is the failure mode this job exists to prevent")
+            if (sum(df$failed) > 0 || sum(df$error) > 0)
+              stop("golden regression failed: a reference fit moved")'
+        shell: bash
+
+  safebounds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true          # read it, do not gate on it
+    if: ${{ github.event_name == 'schedule' || inputs.run_safebounds }}
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      NOT_CRAN: "true"
+      RCEATTLE_SAFEBOUNDS: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for TMB
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev libblas-dev liblapack-dev gfortran \
+            libssl-dev libcurl4-openssl-dev libxml2-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools, any::testthat, any::pkgload
+          needs: check
+
+      - name: Bounds-checked build and drive
+        run: Rscript tools/verify/verify-safebounds.R
+        shell: bash
+
+      # The fault that motivated this is intermittent and was seen on Windows,
+      # so also run the file that crashed there, bounds-checked, on every run.
+      - name: The test that crashed CI, bounds-checked
+        run: |
+          Rscript -e '
+            pkgload::load_all(".", quiet = TRUE)
+            res <- testthat::test_file(
+              "tests/testthat/test-selectivity-catchability.R",
+              reporter = "summary")
+            df <- as.data.frame(res)
+            cat("\npassed:", sum(df$passed), " failed:", sum(df$failed), "\n")
+            if (sum(df$passed) == 0)
+              stop("ran no assertions -- skipped, so nothing was checked")'
+        shell: bash

@@ -11,28 +11,73 @@ plot_selectivity(
   line_col = NULL,
   width = 7,
   height = 6.5,
-  species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
-  lwd = 3
+  species = NULL,
+  lwd = 3,
+  spnames = NULL,
+  lty = 1,
+  minyr = NULL,
+  maxyr = NULL,
+  alpha = 0.25,
+  colour_by = c("auto", "year", "model")
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
+\item{Rceattle}{A single \code{\link[=fit_mod]{fit_mod()}} object or a list of them (overlaid).}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file stem; the figure is written to
+\verb{<file>_<suffix>.png} if given.}
 
-\item{model_names}{Names of models to be used in legend}
+\item{model_names}{Legend labels for the models.}
 
-\item{line_col}{Colors of models to be used for line color}
+\item{line_col}{Line colours; names, hex, or base-graphics integers. \code{NULL}
+uses the colorblind-safe Okabe-Ito palette. Applied to whichever variable
+the figure separates by colour, in legend order. Too few colours are
+recycled, with a warning.}
 
-\item{width}{Figure width in inches}
+\item{width, height}{Saved figure size in inches.}
 
-\item{height}{Figure height in inches}
+\item{species}{Species to include, as indices (\code{c(1, 3)}), names, a logical
+mask, or \code{"all"}. Default \code{NULL} plots every species. Species \strong{labels}
+belong in \code{spnames}; a character \code{species} that matches no species name is
+read as labels for back-compatibility.}
 
-\item{species}{Species names for legend}
+\item{lwd}{Line width on the base-graphics scale: the default \code{3} renders as
+a standard-weight ggplot line. A vector varies it across series.}
 
-\item{lwd}{Line width as specified by user}
+\item{spnames}{Species labels, length \code{nspp}. Default: the model's own.}
+
+\item{lty}{Line type. A vector varies it across the levels of whatever the
+figure separates by line type.}
+
+\item{minyr, maxyr}{First / last year to plot.}
+
+\item{alpha}{Transparency of the faintest year when the fan is drawn by
+transparency, i.e. under \code{colour_by = "model"}.}
+
+\item{colour_by}{What colour separates: \code{"year"} (a fan), \code{"model"}, or
+\code{"auto"} (the default) for year with a single model and model with several.}
+}
+\value{
+A \code{ggplot}, or for a model mixing age- and length-based fleets a
+named list of them, one per dimension.
 }
 \description{
-Function that plots the fishery and survey selectivity as estimated from Rceattle
+Selectivity over the hindcast, one panel per fleet. Each fleet
+is drawn on the dimension it was estimated on: age for an age-based fleet,
+length bin for a length-based one (\code{Selectivity_dimension}). A model mixing
+the two gets one figure per dimension.
 }
+\section{What the colours mean}{
+With one model, colour is the year, so time-varying selectivity reads as a
+fan and a time-invariant fleet collapses to a single line. With several
+models, colour separates the models and the year fan moves to transparency,
+faintest at the earliest year drawn. The transparency scale spans the years
+shown across all models, so the same year is the same shade everywhere and a
+short retrospective peel stops short of solid. \code{colour_by} overrides the
+choice either way, and \code{alpha} sets the faintest end.
+
+Line type separates the sexes, and \code{lty} supplies its values. Panels are
+fleets, so \code{spnames} does not label anything here -- it only lets \code{species}
+select by name.
+}
+

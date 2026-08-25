@@ -1,3 +1,12 @@
+# Placeholder multispecies unfished SSB / biomass, metric tons. `MSSB0` and
+# `MSB0` are required DATA_VECTORs that no workbook supplies, so clean_data()
+# seeds them with this and fit_mod() section 10.2 replaces it with a real
+# no-fishing projection -- but only for a run that has a harvest control rule.
+# A value still equal to this one means no unfished reference was ever derived,
+# so anything reading SSB against it reports a ratio, not a depletion.
+.RCE_MSSB0_PLACEHOLDER <- 999
+
+
 #' Align survey-index covariance matrices to the current fitted observations
 #'
 #' `index_cov` Sigma matrices are positional: rows/cols follow a fleet's fitted
@@ -67,7 +76,7 @@
 #' Fills optional blocks with correctly-shaped empties, filters observations to
 #' the model's year range, extends catch to the projection years, and re-keys
 #' any survey-index covariance matrices. Whether a missing block is actually a
-#' problem is left to [data_check()], which knows the model configuration.
+#' problem is left to the fit-time validation, which knows the model configuration.
 #'
 #' @param data_list Rceattle data list
 #'
@@ -170,11 +179,24 @@ clean_data <- function(data_list){
   #         survey observations (see .align_index_cov above).
   data_list <- .align_index_cov(data_list)
 
-  # --- 2. Add temp multi-species SB0 ----
-  #FIXME:may be redundant now?
+  # --- 2. Multi-species unfished SSB and biomass (metric tons) ----
+  # Required DATA_VECTORs, and no workbook can supply them: neither has
+  # read_data()/write_data() support, so this is the only thing that creates
+  # them. The model derives SB0/B0 itself and reads these only to overwrite
+  # it under msmMode > 0, where fit_mod() fills them from a no-fishing
+  # projection; .RCE_MSSB0_PLACEHOLDER stands in until it does.
   if(is.null(data_list$MSSB0)){
-    data_list$MSSB0 <- rep(999, data_list$nspp)
-    data_list$MSB0 <- rep(999, data_list$nspp)
+    data_list$MSSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
+    data_list$MSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
+  }
+  # Per species: has an unfished reference actually been derived? Seeded FALSE
+  # alongside the placeholder and set by fit_mod() section 10.2 when it projects
+  # under no fishing. Carried rather than inferred from the value, because
+  # recognising the placeholder by comparing a double to 999 would also null a
+  # genuinely-derived 999 mt, and is blind to a workbook that supplied its own
+  # MSSB0. Not a TMB input -- the model never sees it.
+  if(is.null(data_list$MSSB0_derived)){
+    data_list$MSSB0_derived <- rep(FALSE, data_list$nspp)
   }
 
 

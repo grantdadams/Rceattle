@@ -9,7 +9,8 @@ build_map(
   params,
   debug = FALSE,
   random_rec = FALSE,
-  random_sel = FALSE
+  random_sel = FALSE,
+  random_q = NULL
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ meaning the variance parameter (\code{R_log_sd}) is estimated.}
 
 \item{random_sel}{Logical. If TRUE, treats selectivity deviations as random effects,
 meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.}
+
+\item{random_q}{Logical. If TRUE, treats catchability deviations as random effects,
+meaning the variance parameter (\code{index_q_dev_log_sd}) is estimated. Defaults
+to \code{data_list$random_q}, which is what \code{fit_mod()} stores there.}
 }
 \value{
 A list containing the factorized TMB map (\code{mapFactor}) and the
@@ -35,4 +40,12 @@ Builds the TMB map, which tells TMB which parameters to estimate
 and which to hold fixed (a fixed parameter is mapped to \code{NA}), and which
 parameters share a single estimated value. One helper handles each process
 block (recruitment, M1, predation, selectivity, catchability, ...).
+}
+\details{
+Fleets sharing a \code{Selectivity_index} or a \code{Catchability_index} have the lead
+fleet's map slice copied over the rest of the group, so a per-fleet setting
+that differs within a group is resolved here rather than reported. Those
+disagreements are checked in \code{data_check()}, which \code{fit_mod()} runs first;
+\code{build_map()} does not call it, so a caller invoking \code{build_map()} directly
+should run \code{data_check()} too.
 }

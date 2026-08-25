@@ -75,3 +75,56 @@ test_that("read_data parses the control sheet by name, not position", {
     if (!is.null(d_ord[[k]]))
       expect_equal(as.numeric(d_rev[[k]]), as.numeric(d_ord[[k]]), info = k)
 })
+
+
+# A data_list need not carry every control object the schema knows: read_data()
+# returns only the rows the workbook had, and switch_check() is what fills the
+# schema defaults. write_data() assembled the control sheet from the FULL schema
+# name list and rbind()-ed the values, and rbind() drops a NULL -- so one absent
+# object left more labels than rows and aborted the write with "arguments imply
+# differing number of rows". The live Pacific hake workbook hits this: it
+# predates alpha_wt_len / beta_wt_len.
+test_that("write_data() handles a control block missing a schema object", {
+  d <- BS2017SS
+  missing_two <- c("alpha_wt_len", "beta_wt_len")
+  for (k in missing_two) d[[k]] <- NULL
+
+  f <- tempfile(fileext = ".xlsx"); on.exit(unlink(f))
+  expect_no_error(suppressWarnings(suppressMessages(write_data(d, f))))
+
+  ctrl <- as.data.frame(readxl::read_xlsx(f, sheet = "control"))
+  # The absent objects are dropped, not written at their schema default: the
+  # default belongs to the model, and baking one into the workbook would turn a
+  # value switch_check() announces at fit time into one the file asserts.
+  expect_false(any(missing_two %in% ctrl$Object))
+  expect_equal(nrow(ctrl), length(.rce_schema_names("control")) - length(missing_two))
+
+  # Everything the data_list did carry still round-trips, and nothing is lost.
+  back <- suppressWarnings(suppressMessages(read_data(f)))
+  for (k in setdiff(CONTROL_KEYS, missing_two))
+    expect_roundtrip_field(d, back, k)
+  for (k in BIO_KEYS) expect_roundtrip_field(d, back, k)
+  expect_false(any(missing_two %in% names(back)))
+})
+
+
+# Same defect, other sheet: the bioenergetics rows were assigned into a
+# fixed-height matrix by hard-coded index, so an absent object aborted the write
+# with "number of items to replace is not a multiple of replacement length".
+# Rows are now keyed by schema name, which also removes the second copy of the
+# row order that had to be kept in sync by hand.
+test_that("write_data() handles a bioenergetics block missing a schema object", {
+  d <- BS2017SS
+  d$Tcm <- NULL
+
+  f <- tempfile(fileext = ".xlsx"); on.exit(unlink(f))
+  expect_no_error(suppressWarnings(suppressMessages(write_data(d, f))))
+
+  bio <- as.data.frame(readxl::read_xlsx(f, sheet = "bioenergetics_control"))
+  expect_false("Tcm" %in% bio$Object)
+  # Order still follows the schema, and every other object survives.
+  expect_equal(bio$Object, setdiff(.rce_schema_names("bioenergetics_control"), "Tcm"))
+
+  back <- suppressWarnings(suppressMessages(read_data(f)))
+  for (k in setdiff(BIO_KEYS, "Tcm")) expect_roundtrip_field(d, back, k)
+})

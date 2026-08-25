@@ -35,29 +35,64 @@ print.Rceattle <- function(x, ...) {
                                               conditionMessage(e), ")"))
   cat(paste(tree, collapse = "\n"), "\n", sep = "")
 
-  cat("  fit\n")
-  # Alias the integer switch codes to their string forms so the fit block reads the
-  # same regardless of the underlying code (matching the spec tree above).
-  cat("  \u251c\u2500 msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
-  cat("  \u251c\u2500 HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
-  cat("  \u251c\u2500 initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
+  # Assembled as rows and emitted together, so the tree closes with the right
+  # glyph and every value sits in one column. Written line-by-line it drifted:
+  # initMode carried a mid-tree "|-" with nothing after it, the fit statistics
+  # then left the tree entirely with a different indent, and cat()'s separator
+  # left a trailing space on every line.
+  #
+  # Switch codes are aliased to their string forms so the block reads the same
+  # whatever the underlying code, matching the spec tree above.
+  rows <- list()
+  add_row <- function(k, v) rows[[length(rows) + 1L]] <<- c(k, v)
+
+  add_row("msmMode", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map))
+  # HCR = 0 is the code for "NoFishing", which as a bare label reads as a
+  # management choice. Under an estimateMode that runs no projection there is no
+  # harvest control rule in play at all, so say that instead.
+  # unname() throughout: .rce_alias_show() carries the map's name through, so a
+  # bare identical() against the string is FALSE and the guard below silently
+  # never fires. cat() hides that, which is how it went unnoticed.
+  hcr_txt <- if (is.null(dat$HCR)) "(none)" else
+    unname(.rce_alias_show(dat$HCR, hcr_map))
+  est_mode <- unname(tryCatch(.rce_alias_show(dat$estimateMode, estimateMode_map),
+                              error = function(e) NA_character_))
+  if (identical(est_mode, "Hindcast") && identical(hcr_txt, "NoFishing")) {
+    hcr_txt <- "(not applicable -- hindcast only)"
+  }
+  add_row("HCR", hcr_txt)
+  add_row("initMode", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map))
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
-    cat("  -log L    :", signif(x$opt$objective, 6), "\n")
+    add_row("-log L", signif(x$opt$objective, 6))
   }
   if (!is.null(x$opt$max_gradient)) {
-    cat("  max |grad|:", signif(x$opt$max_gradient, 4), "\n")
+    add_row("max |grad|", signif(x$opt$max_gradient, 4))
   } else if (!is.null(x$obj)) {
     g <- tryCatch(max(abs(as.numeric(x$obj$gr()))), error = function(e) NA_real_)
-    if (is.finite(g)) cat("  max |grad|:", signif(g, 4), "\n")
+    if (is.finite(g)) add_row("max |grad|", signif(g, 4))
   }
   if (!is.null(x$run_time)) {
-    cat("  Run time  :", format(x$run_time), "\n")
+    # signif to match the objective above, rather than format()'s seven digits
+    # on a wall-clock time nobody reads to the microsecond.
+    secs <- tryCatch(as.numeric(x$run_time, units = "secs"), error = function(e) NA_real_)
+    add_row("run time", if (is.finite(secs)) paste(signif(secs, 3), "secs")
+                        else format(x$run_time))
   }
   if (!is.null(x$convergence)) {
-    cat("  Converged :", x$convergence$status,
-        if (x$convergence$status != "OK")
-          "(see fit$convergence)" else "", "\n")
+    add_row("converged", paste0(x$convergence$status,
+                                if (x$convergence$status != "OK")
+                                  "  (see fit$convergence)" else ""))
+  }
+
+  if (length(rows)) {
+    cat("  fit\n")
+    kw <- max(vapply(rows, function(r) nchar(r[1]), 1L))
+    for (i in seq_along(rows)) {
+      glyph <- if (i == length(rows)) "\u2514\u2500" else "\u251c\u2500"
+      cat(paste0("  ", glyph, " ", formatC(rows[[i]][1], width = kw, flag = "-"),
+                 " : ", rows[[i]][2], "\n"))
+    }
   }
   invisible(x)
 }
@@ -70,8 +105,83 @@ print.Rceattle <- function(x, ...) {
 #'
 #' @export
 summary.Rceattle <- function(object, ...) {
-  print(object, ...)
-  invisible(object)
+  # For a fitted assessment the conventional answer to summary() is the
+  # estimates and their uncertainty plus the likelihood decomposition, joined
+  # from coef(), vcov() and quantities$jnll_comp. print() gives the spec tree;
+  # this gives the numbers.
+  est <- tryCatch(stats::coef(object), error = function(e) NULL)
+  se  <- tryCatch({
+    v <- stats::vcov(object)
+    if (is.null(v)) NULL else sqrt(abs(diag(v)))
+  }, error = function(e) NULL)
+
+  coefs <- NULL
+  if (!is.null(est) && length(est)) {
+    # vcov() covers the fixed effects only, and getsd = FALSE leaves sdrep NULL,
+    # so the standard error is NA rather than absent -- the column has to line up
+    # with the estimates either way.
+    s <- rep(NA_real_, length(est))
+    if (!is.null(se) && length(se) == length(est)) s <- unname(se)
+    coefs <- data.frame(parameter = names(est), estimate = unname(est),
+                        std_error = s, stringsAsFactors = FALSE)
+  }
+
+  jnll <- tryCatch(object$quantities$jnll_comp, error = function(e) NULL)
+
+  structure(
+    list(spec = object, coefficients = coefs, jnll_comp = jnll,
+         objective = tryCatch(object$opt$objective, error = function(e) NULL),
+         convergence = object$convergence),
+    class = "summary.Rceattle")
+}
+
+
+#' Print method for an Rceattle model summary
+#'
+#' @param x A `"summary.Rceattle"` object from [summary.Rceattle()].
+#' @param n Number of parameters to show, largest gradient-free standard error
+#'   first. Default 10; use `Inf` for all, or take `x$coefficients`.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.summary.Rceattle <- function(x, n = 10, ...) {
+  print(x$spec)
+
+  if (!is.null(x$coefficients) && nrow(x$coefficients)) {
+    cf <- x$coefficients
+    cat("\n  estimated parameters (", nrow(cf), ")\n", sep = "")
+    show <- utils::head(cf, n)
+    show$estimate  <- formatC(show$estimate, format = "g", digits = 4)
+    show$std_error <- ifelse(is.na(show$std_error), "-",
+                             formatC(show$std_error, format = "g", digits = 3))
+    .rce_diag_table(show, c("parameter" = "parameter", "estimate" = "estimate",
+                            "std error" = "std_error"))
+    if (nrow(cf) > n) {
+      cat("  ... ", nrow(cf) - n, " more; all of them are in $coefficients\n",
+          sep = "")
+    }
+    if (all(is.na(cf$std_error))) {
+      cat("  standard errors are unavailable -- this fit has no sdreport",
+          "(fit_control(getsd = FALSE))\n")
+    }
+  }
+
+  if (!is.null(x$jnll_comp)) {
+    tot <- sum(x$jnll_comp, na.rm = TRUE)
+    cat("\n  likelihood components summing to ",
+        formatC(tot, format = "f", digits = 4), "\n", sep = "")
+    rn <- rownames(x$jnll_comp)
+    by_row <- rowSums(x$jnll_comp, na.rm = TRUE)
+    keep <- which(abs(by_row) > 0)
+    if (length(keep)) {
+      d <- data.frame(component = if (is.null(rn)) keep else rn[keep],
+                      value = formatC(by_row[keep], format = "f", digits = 3),
+                      stringsAsFactors = FALSE)
+      .rce_diag_table(d, c("component" = "component", "-log L" = "value"))
+    }
+    cat("  the full fleet-by-component matrix is in $jnll_comp\n")
+  }
+  invisible(x)
 }
 
 
@@ -103,8 +213,10 @@ summary.Rceattle <- function(object, ...) {
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param what Character. One of `"biomass"` (default), `"ssb"`,
-#'   `"recruitment"`, `"depletion"`, `"index"`, `"catch"`,
-#'   `"selectivity"`, `"mortality"`, or `"data"`.
+#'   `"recruitment"`, `"depletion"` (total biomass / B0), `"ssb_depletion"`
+#'   (female spawning biomass / SB0 -- the quantity a Tier 3 HCR compares
+#'   against B40%), `"index"`, `"catch"`, `"selectivity"`, `"mortality"`, or
+#'   `"data"`.
 #' @param ... Passed to the underlying plotting function.
 #'
 #' @return Invisibly returns `NULL`. Called for the side effect of
@@ -113,7 +225,7 @@ summary.Rceattle <- function(object, ...) {
 plot.Rceattle <- function(x, what = "biomass", ...) {
   what <- match.arg(
     what,
-    c("biomass", "ssb", "recruitment", "depletion",
+    c("biomass", "ssb", "recruitment", "depletion", "ssb_depletion",
       "index", "catch", "selectivity", "mortality", "data")
   )
   switch(
@@ -122,6 +234,12 @@ plot.Rceattle <- function(x, what = "biomass", ...) {
     ssb          = plot_ssb(x, ...),
     recruitment  = plot_recruitment(x, ...),
     depletion    = plot_depletion(x, ...),
+    # SSB depletion against SB0 is the management quantity under the
+    # Amendment-56 proxies, and this dispatcher could not reach it: "depletion"
+    # is plot_depletion(), which draws TOTAL biomass depletion. Note the current
+    # plotter is plot_depletionSSB(); plot_ssb_depletion() is its deprecated
+    # alias.
+    ssb_depletion = plot_depletionSSB(x, ...),
     index        = plot_index(x, ...),
     catch        = plot_catch(x, ...),
     selectivity  = plot_selectivity(x, ...),
@@ -204,11 +322,18 @@ logLik.Rceattle <- function(object, ...) {
 #'     the log scale by default (matching the lognormal likelihood; set
 #'     `scale = "natural"` for the arithmetic difference); for `comp` / `caal`
 #'     it is the difference in proportions, observed minus fitted.}
-#'   \item{`"pearson"`}{Standardized residuals. For `index` / `catch`,
+#'   \item{`"pearson"`}{Standardized residuals. For `catch` and a log-scale
+#'     survey index,
 #'     \eqn{(\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma} using the model's
 #'     realized observation log-SD \eqn{\sigma} and the observation
-#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1); for
-#'     `comp` / `caal`,
+#'     bias-adjustment flag \eqn{b} (`bias_adjust_obs`, default 1). A
+#'     natural-scale index fleet (`Index_distribution` `"MVN"`, `"MVNORM"`,
+#'     `"Normal"` or `"TruncatedNormal"`) carries an ABSOLUTE \eqn{\sigma} and is
+#'     standardized as \eqn{(o - \hat{o})/\sigma} instead. Two caveats there: a
+#'     covariance fleet gets its marginal residual, not the whitened one (use
+#'     `type = "osa"` for that), and `"TruncatedNormal"` is standardized on the
+#'     untruncated moments, so it is approximate where \eqn{\hat{o}/\sigma} is
+#'     small enough for truncation to shift the mean. For `comp` / `caal`,
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
 #'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
@@ -382,8 +507,20 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     obs <- idx$Observation
     hat <- as.numeric(q$index_hat)
     if (type == "pearson") {
-      sigma <- if (!is.null(q$log_index_sd)) as.numeric(q$log_index_sd) else idx$Log_sd
-      res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
+      sigma <- .observation_sd(q, "index")
+      sigma <- if (!is.null(sigma)) as.numeric(sigma) else idx$Log_sd
+      # Standardize on the scale the fleet's own likelihood uses. The lognormal
+      # form below is wrong for a natural-scale family by orders of magnitude,
+      # not by a little: sigma there is ABSOLUTE, so -sigma^2/2 is a number the
+      # size of the index squared and every residual comes back at the same
+      # large constant (an absolute sd of 150 gives ~+75 for every row,
+      # regardless of fit).
+      nat <- .index_rows_natural_scale(d)
+      if (!length(nat)) nat <- rep(FALSE, length(obs))
+      res <- rep(NA_real_, length(obs))
+      res[!nat] <- (log(obs[!nat]) -
+                      (log(hat[!nat]) - ba_obs * sigma[!nat]^2 / 2)) / sigma[!nat]
+      res[nat]  <- (obs[nat] - hat[nat]) / sigma[nat]
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
     }
@@ -413,7 +550,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     obs <- ctc$Catch
     hat <- as.numeric(q$catch_hat)
     if (type == "pearson") {
-      sigma <- if (!is.null(q$log_catch_sd)) as.numeric(q$log_catch_sd) else ctc$Log_sd
+      sigma <- .observation_sd(q, "catch")
+      sigma <- if (!is.null(sigma)) as.numeric(sigma) else ctc$Log_sd
       res   <- (log(obs) - (log(hat) - ba_obs * sigma^2 / 2)) / sigma
     } else {
       res <- if (scale == "log") log(obs) - log(hat) else obs - hat
@@ -887,4 +1025,77 @@ as.data.frame.Rceattle <- function(x,
   out <- out[!vapply(out, is.null, logical(1))]
   if (!length(out)) return(empty)
   do.call(rbind, c(unname(out), list(make.row.names = FALSE)))
+}
+
+
+#' Simulate data from a fitted Rceattle model
+#'
+#' @description The [stats::simulate()] method for CEATTLE fits: draws `nsim`
+#' replicate data sets from the fitted observation model, and optionally from
+#' the process model as well.
+#'
+#' @details
+#' A wrapper on [sim_mod()], which documents the observation model in full. For
+#' expected values rather than draws, call `sim_mod(simulate = FALSE)`.
+#'
+#' Draws are taken by the TMB model, so `simulate()` needs a live `$obj`: a
+#' model loaded from disk has one, a [model_average()] result does not -- see
+#' [sim_mod()].
+#'
+#' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param nsim Number of replicate data sets to draw. Default 1.
+#' @param seed Optional seed. The caller's random state is restored afterwards,
+#'   per [stats::simulate()]. Recorded as `attr(, "seed")`.
+#' @param process Which process error to redraw alongside the observations.
+#'   `FALSE` (default) keeps the fitted deviations, so replicates differ only in
+#'   observation error. See [sim_mod()] for the alternatives.
+#' @param ... Currently unused.
+#'
+#' @return A list of `nsim` `data_list` objects -- always a list, including at
+#'   `nsim = 1`, so callers do not have to special-case the length. When
+#'   `process` redrew something, each element carries the deviations that
+#'   generated it as `attr(, "process_sim")`: a named list of whichever of
+#'   `rec_dev`, `init_dev`, `log_M1_dev` and `beta_linkage_re` were drawn, each
+#'   with a `_drawn` logical of the same shape marking the cells the draw
+#'   touched. Compare estimates against those rather than against `object` --
+#'   see [sim_mod()].
+#'
+#' @seealso [sim_mod()] for the observation model and the `process` options,
+#'   [self_test()] for simulating and refitting in one step.
+#'
+#' @examples
+#' \dontrun{
+#' fit  <- fit_mod(data_list = BS2017SS, estimateMode = 1)
+#' reps <- simulate(fit, nsim = 10, seed = 1)
+#' # ...and with recruitment redrawn as well:
+#' reps <- simulate(fit, nsim = 10, seed = 1, process = "recruitment")
+#' truth <- attr(reps[[1]], "process_sim")$rec_dev
+#' }
+#' @export
+simulate.Rceattle <- function(object, nsim = 1, seed = NULL,
+                              process = FALSE, ...) {
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be an Rceattle model fit.", call. = FALSE)
+  }
+  nsim <- as.integer(nsim)
+  if (length(nsim) != 1L || is.na(nsim) || nsim < 1L) {
+    stop("`nsim` must be a single positive integer.", call. = FALSE)
+  }
+
+  # The stats::simulate() convention: seeding is local, so a caller mid-stream
+  # is not silently displaced by having simulated.
+  if (!is.null(seed)) {
+    if (!exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      stats::runif(1)
+    }
+    old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    set.seed(seed)
+  }
+
+  out <- lapply(seq_len(nsim), function(i)
+    sim_mod(object, simulate = TRUE, process = process))
+  names(out) <- paste0("Sim_", seq_len(nsim))
+  if (!is.null(seed)) attr(out, "seed") <- seed
+  out
 }

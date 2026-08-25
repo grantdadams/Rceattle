@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kaskr.github.io)",
+      "WebFetch(domain:timjmiller.github.io)",
+      "WebFetch(domain:noaa-fims.github.io)",
+      "WebFetch(domain:sdmtmb.github.io)",
+      "WebFetch(domain:pbs-assess.github.io)",
+      "WebFetch(domain:glmmtmb.github.io)",
+      "WebFetch(domain:stat.ethz.ch)",
+      "WebFetch(domain:cran.r-project.org)"
+    ]
+  }
+}

@@ -28,11 +28,26 @@ if (nzchar(.mkv) && file.exists(.mkv) &&
   Sys.unsetenv("R_MAKEVARS_USER")
 }
 
+# Array bounds checking. OFF for the ordinary build: TMB's `safebounds` adds a
+# range test to every vector/matrix/array access, and the model does millions of
+# them per objective evaluation, so it is a large cost paid on every fit.
+#
+# Set RCEATTLE_SAFEBOUNDS=true to build with it ON. That turns an out-of-range
+# access from a silent write into adjacent memory -- which is what an
+# unattributable segfault looks like, and what the 5.15.0 `age_hat` overflow was
+# -- into an R error naming the object. tools/verify/verify-safebounds.R uses
+# this, and the `safebounds` CI job runs it. Do not flip the default: the point
+# is a slow build that CAN be checked, not a slow build everyone pays for.
+.safebounds <- identical(tolower(Sys.getenv("RCEATTLE_SAFEBOUNDS")), "true")
+if (.safebounds) {
+  message("compile.R: building with safebounds = TRUE (bounds-checked, slow)")
+}
+
 if(file.exists(paste0(tmb_name, ".cpp"))) {
   TMB::compile(file = paste0(tmb_name, ".cpp"),
                PKG_CXXFLAGS = tmb_flags,
                framework = "TMBad",
-               safebounds = FALSE, safeunload = FALSE)
+               safebounds = .safebounds, safeunload = FALSE)
   file.copy(from = paste0(tmb_name, .Platform$dynlib.ext),
             to = "..", overwrite = TRUE)
 }

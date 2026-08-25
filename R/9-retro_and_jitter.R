@@ -1,65 +1,3 @@
-#' Parallel `lapply` over a cluster, using FORK where the platform allows.
-#'
-#' @description
-#' On non-Windows platforms a FORK cluster inherits the parent process's memory
-#' (the already-loaded `Rceattle` namespace and every local, including the large
-#' fitted OM/EM objects) via copy-on-write, so it needs neither a per-worker
-#' `library(Rceattle)` nor a `clusterExport()` of those objects. The PSOCK path
-#' pays both on every worker: a package load and serialization/transfer of the
-#' exported bindings. FORK therefore removes the dominant cluster-startup cost
-#' for the retrospective / jitter / MSE dispatchers. PSOCK is the cross-platform
-#' fallback (Windows), reproducing the previous behavior exactly.
-#'
-#' Each worker fits whole models, so several large ones at once can exhaust
-#' memory and the operating system kills one. All the parent sees is
-#' `Error in unserialize(node$con) : error reading from connection`, and every
-#' item finished up to that point is lost with it. Fall back to running the items
-#' sequentially instead, as `osa_residuals()` does when its parallel
-#' one-step-ahead loop fails.
-#'
-#' Two things follow. The retry starts from the beginning -- results from a
-#' cluster that has lost a worker cannot be recovered -- so a caller with side
-#' effects repeats them; `run_mse()` re-writes the `.rds` of any simulation that
-#' had already finished, which is safe only because it seeds each simulation
-#' separately and so reproduces it exactly. And an error raised by `fun` itself
-#' propagates out of the retry unchanged, so a real bug still surfaces as itself
-#' rather than as a cluster failure.
-#'
-#' @param items Vector iterated over; each element is passed to `fun`.
-#' @param fun Worker closure.
-#' @param n_workers Number of cluster workers.
-#' @param export_env For the PSOCK fallback only, the environment whose bindings
-#'   are exported to the workers (the caller's `environment()`). Ignored for
-#'   FORK, where the workers inherit it directly.
-#' @return A list of `fun` applied to each element of `items`.
-#' @noRd
-.parallel_lapply <- function(items, fun, n_workers, export_env) {
-  fork <- .Platform$OS.type != "windows"
-
-  run_clustered <- function() {
-    cl <- if (fork) {
-      parallel::makeCluster(n_workers, type = "FORK")
-    } else {
-      parallel::makeCluster(n_workers)
-    }
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    if (!fork) {
-      parallel::clusterEvalQ(cl, suppressPackageStartupMessages(library(Rceattle)))
-      parallel::clusterExport(cl, varlist = ls(envir = export_env), envir = export_env)
-    }
-    parallel::parLapply(cl, items, fun)
-  }
-
-  tryCatch(run_clustered(), error = function(e) {
-    message("Parallel run failed (", conditionMessage(e), "); computing the ",
-            length(items), " tasks sequentially instead. A worker most often ",
-            "dies because it ran out of memory, since each one fits a full ",
-            "model -- try a lower cores, or cores = 1 to skip the parallel ",
-            "attempt.")
-    lapply(items, fun)
-  })
-}
-
 #' Retrospective peels
 #'
 #' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
@@ -67,20 +5,20 @@
 #' 2. Fits the peeled model.
 #' 3. Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
 #'
-#' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
+#' @inheritParams rceattle-refit-args
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
-#' @param cores Number of cores to use for parallel peels. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
 #'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
 #'   effect on rho. Default \code{NULL} inherits the input model's setting
 #'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
 #'   \code{sdrep}); the returned peel models then carry standard errors only
 #'   when \code{getsd} is \code{TRUE}.
+#' @param phase whether each peel is refitted in phases (default \code{TRUE}).
+#'   A peel restarts from the unpeeled fit's starting values with a year removed;
+#'   without phasing the parameters barely move, the peels sit on top of the full
+#'   model, and Mohn's rho is biased towards zero. Change it only deliberately.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
 #'   each species.
@@ -116,6 +54,15 @@
 #'   Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
 #'   this.
 #'
+#'   Catchability is estimated only for a fleet that carries fitted index rows
+#'   (see \code{\link{build_map}}), and a peel moves \code{endyr}. A survey whose
+#'   index observations all fall in the peeled-off years therefore has no q
+#'   estimated in that peel -- the parameter count is not constant across peels.
+#'   That is deliberate: a q with no index to inform it is a flat direction in
+#'   the likelihood. It does not affect Mohn's rho, which is computed from SSB,
+#'   but it does mean \code{npar} and the reported catchability differ between a
+#'   shallow and a deep peel for such a fleet.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
@@ -127,17 +74,30 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL) {
-  if (!inherits(Rceattle, "Rceattle")) {
+retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL, phase = TRUE, fit_control = NULL, Rceattle = NULL) {
+  # `phase` and `fit_control` are appended after the arguments that predate them,
+  # so a positional call keeps its meaning. The deprecated `Rceattle` formal sits
+  # last; see R/0-deprecate.R.
+  if (!missing(Rceattle))
+    object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "retrospective")
+  # Cleared once consumed: .parallel_lapply() exports every binding in this frame
+  # to the PSOCK workers, and two names for one fitted model send it twice.
+  Rceattle <- NULL
+
+  if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
   # Peels inherit the input model's sdreport setting unless overridden. Mohn's
   # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
-  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
+  if (is.null(getsd)) getsd <- !is.null(object$sdrep)
+
+  ctl <- .rce_refit_control(fit_control, "retrospective")
+  if (!is.null(ctl$phase)) phase <- ctl$phase
+  if (!is.null(ctl$getsd)) getsd <- ctl$getsd
 
   # Get objects
-  Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
+  object$data_list$endyr_peel <- object$data_list$endyr
   # Terminal year of the model being peeled. Each peel reports its OWN terminal
   # year as `endyr` (see run_one_peel), which makes the plots fan out but leaves
   # `endyr` and `endyr_peel` holding the same value -- so without this the
@@ -146,12 +106,12 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   # the true projection, (endyr_full + 1):projyr. Set once here: run_one_peel
   # copies this data_list, and extra fields survive the refits the same way
   # `endyr_peel` already does.
-  Rceattle$data_list$endyr_full <- Rceattle$data_list$endyr
-  data_list <- Rceattle$data_list # used by Mohn's rho block below
-  endyr <- Rceattle$data_list$endyr
-  styr <- Rceattle$data_list$styr
+  object$data_list$endyr_full <- object$data_list$endyr
+  data_list <- object$data_list # used by Mohn's rho block below
+  endyr <- object$data_list$endyr
+  styr <- object$data_list$styr
   nyrs <- length(styr:endyr)
-  projyr <- Rceattle$data_list$projyr
+  projyr <- object$data_list$projyr
   nyrs_proj <- projyr - styr + 1
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
@@ -170,12 +130,12 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Per-peel closure ----
-  # Each peel only reads the original Rceattle, so peels are independent.
+  # Each peel only reads the original model, so peels are independent.
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_peel <- function(i) {
 
     # * Get end year of peel ----
-    data_list <- Rceattle$data_list
+    data_list <- object$data_list
     endyr_peel <- endyr - i
     data_list$endyr_peel <- endyr_peel
     nyrs_peel <- endyr_peel - styr + 1
@@ -264,7 +224,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     # * Adjust parameters ----
     #FIXME: adjust for forecasting via MVN
-    inits <- Rceattle$estimated_params
+    inits <- object$estimated_params
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
     inits$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$log_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
@@ -274,7 +234,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     # * Adjust map size ----
     # Turn off forecasted parameters
-    map <- Rceattle$map
+    map <- object$map
     map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
     map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
 
@@ -315,7 +275,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           inits            = inits,
           map              = map,
           estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
-          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          phase            = phase,  # see `phase` above: peels need phasing to move
           getsd            = getsd,
           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
           srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
@@ -350,8 +310,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     map$mapFactor$dummy <- as.factor(NA); map$mapList$dummy <- NA
 
     # - Turn on F for peeled years to fit to catch (matches full model)
-    peeled_pars$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$estimated_params$log_F[,(nyrs_peel+1):nyrs]
-    map$mapList$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$map$mapList$log_F[,(nyrs_peel+1):nyrs]
+    peeled_pars$log_F[,(nyrs_peel+1):nyrs] <- object$estimated_params$log_F[,(nyrs_peel+1):nyrs]
+    map$mapList$log_F[,(nyrs_peel+1):nyrs] <- object$map$mapList$log_F[,(nyrs_peel+1):nyrs]
     map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
     # Adjust forecased rec_dev in new mod for bias and refit
@@ -384,7 +344,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
           inits            = peeled_pars,
           map              = map,
           estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
-          phase            = TRUE,   # phasing, or the parameters dont wanna move
+          phase            = phase,  # see `phase` above: peels need phasing to move
           getsd            = getsd,
           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
           srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
@@ -447,7 +407,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   # Drop non-converged peels and prepend the original model
   peel_results <- peel_results[!vapply(peel_results, is.null, logical(1))]
   .report_dropped(peels - length(peel_results), peels, "peel")
-  mod_list <- c(list(Rceattle), peel_results)
+  mod_list <- c(list(object), peel_results)
 
   # Mohn's rho averages the peels against the full model, so with none left the
   # sums below stay at their initialized zeros and every species column comes
@@ -508,7 +468,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
 
   # # * Beta coefficients ----
-  # objects <- colnames(Rceattle$estimated_params$beta_rec_pars)
+  # objects <- colnames(object$estimated_params$beta_rec_pars)
   # beta_mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 3 + data_list$nspp))
   # colnames(beta_mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
 
@@ -546,7 +506,64 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     "Year_",
     vapply(mod_list, function(x) as.numeric(x$data_list$endyr_peel), numeric(1)))
 
-  return(list(Rceattle_list = mod_list, mohns = rbind(mohns))) #, beta_mohns)))
+  # Still the same list -- $Rceattle_list and $mohns are unchanged. The class
+  # adds a print method that carries Mohn's reference band, which the bare
+  # number never did; see print.Rceattle_retro().
+  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns)),
+            class = "Rceattle_retro")
+}
+
+
+#' Print method for a retrospective analysis
+#'
+#' @description Reports Mohn's rho against a reference band rather than as a
+#' bare number. The default band is +/- 0.2 on SSB, the rule of thumb
+#' `vignette("model-diagnostics")` states; Hurtado-Ferro et al. (2015) give the
+#' asymmetric, life-history-dependent alternatives (-0.15 to 0.20 for
+#' long-lived, -0.22 to 0.30 for short-lived), which is why the band is an
+#' argument rather than a constant.
+#'
+#' Only the terminal-year peel (`Forecast year` 0) is judged. The forecast-skill
+#' rows are reported for information: a rho computed over a forecast horizon is
+#' not the quantity the +/- 0.2 rule was calibrated on.
+#'
+#' @param x A `"Rceattle_retro"` object from [retrospective()].
+#' @param band Symmetric reference band for Mohn's rho. Default `0.2`.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @references Hurtado-Ferro, F., et al. 2015. Looking in the rear-view mirror:
+#'   bias and retrospective patterns in integrated, age-structured stock
+#'   assessment models. ICES J. Mar. Sci. 72:99-110.
+#' @export
+print.Rceattle_retro <- function(x, band = 0.2, ...) {
+  m <- as.data.frame(x$mohns)
+  spp <- setdiff(names(m), c("Object", "Forecast year", "N"))
+  term <- m[!is.na(m[["Forecast year"]]) & m[["Forecast year"]] == 0, , drop = FALSE]
+
+  rho <- suppressWarnings(as.numeric(unlist(term[, spp, drop = FALSE])))
+  sev <- ifelse(is.na(rho), "OK", ifelse(abs(rho) > band, "WARN", "OK"))
+  n_bad <- sum(sev == "WARN")
+
+  .rce_diag_header(
+    "retrospective", .rce_worst(sev),
+    paste0(length(x$Rceattle_list), " peel(s); ",
+           .rce_n_of(n_bad, length(rho)),
+           " terminal Mohn's rho outside +/-", band))
+
+  if (nrow(term)) {
+    show <- term
+    show$.tag <- vapply(seq_len(nrow(show)), function(i) {
+      r <- suppressWarnings(as.numeric(show[i, spp]))
+      .rce_sev_tag(if (any(!is.na(r) & abs(r) > band)) "WARN" else "OK")
+    }, character(1))
+    .rce_diag_table(show, stats::setNames(
+      c(".tag", "Object", "N", spp), c(" ", "quantity", "N", spp)))
+  }
+  if (any(!is.na(m[["Forecast year"]]) & m[["Forecast year"]] > 0)) {
+    cat("  forecast-skill peels are in $mohns; the +/-", band,
+        "rule is for the terminal peel only\n")
+  }
+  invisible(x)
 }
 
 
@@ -556,7 +573,12 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #'
 #' @description Refits the Rceattle model from starting values perturbed by N(0, sd) around the model's initial (pre-fit) parameters, to check convergence robustness.
 #'
-#' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
+#' @note Attaching Rceattle masks \code{\link[base]{jitter}}, so \code{jitter(x)}
+#'   on a numeric vector reaches this function and reports a missing model rather
+#'   than adding noise to \code{x}. Call \code{base::jitter()} explicitly for the
+#'   base-graphics behaviour.
+#'
+#' @inheritParams rceattle-refit-args
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
 #' @param phase as in \code{\link{fit_mod}} default = FALSE. Jitters restart from
@@ -566,10 +588,6 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #'   reads as multimodality rather than as an unphased fit.
 #' @param seed random number seed. Each jitter \code{i} uses \code{seed + i}
 #'   so results are reproducible under both sequential and parallel execution.
-#' @param cores Number of cores to use for parallel jitters. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #' @param getsd whether each jitter runs \code{TMB::sdreport}. Jitter compares
 #'   objectives and point estimates across starts, so \code{FALSE} is faster
 #'   with no effect on that comparison. Default \code{NULL} inherits the input
@@ -600,14 +618,27 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf) {
-  if (!inherits(Rceattle, "Rceattle")) {
+jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL, getsd = NULL, timeout = Inf, fit_control = NULL, Rceattle = NULL) {
+  # `Rceattle` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(Rceattle))
+    object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "jitter")
+  # Cleared once consumed: .parallel_lapply() exports every binding in this frame
+  # to the PSOCK workers, and two names for one fitted model send it twice.
+  Rceattle <- NULL
+
+  if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
   # Jitters inherit the input model's sdreport setting unless overridden;
   # multimodality is judged from objectives and point estimates, not sdrep.
-  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
+  if (is.null(getsd)) getsd <- !is.null(object$sdrep)
+
+  # fit_control() overrides `phase` and `getsd`, but only where the caller
+  # changed them from fit_control()'s own defaults; see .rce_refit_control().
+  ctl <- .rce_refit_control(fit_control, "jitter")
+  if (!is.null(ctl$phase)) phase <- ctl$phase
+  if (!is.null(ctl$getsd)) getsd <- ctl$getsd
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
   # (same approach as run_mse). Respect the CRAN core limit
@@ -631,9 +662,9 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
     set.seed(seed + i) # unique seed per jitter for reproducibility under parallel
 
     # * Adjust initial values ----
-    inits <- Rceattle$initial_params
-    mapList <- Rceattle$map$mapList
-    data_list <- Rceattle$data_list
+    inits <- object$initial_params
+    mapList <- object$map$mapList
+    data_list <- object$data_list
 
     for(j in 1:length(inits)){
       par <- names(inits)[j]
@@ -700,592 +731,60 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
 
 
   # Return ----
-  return(list(Rceattle_list = mod_list, nll = unname(jnll)))
+  # Still the same list -- $Rceattle_list and $nll are unchanged. `njitter` is
+  # carried so the print method can report the fraction of STARTS that reached
+  # the optimum: the converged runs alone cannot say how many were attempted,
+  # and that fraction is the result jitter() exists to produce.
+  structure(list(Rceattle_list = mod_list, nll = unname(jnll),
+                 njitter = njitter),
+            class = "Rceattle_jitter")
 }
 
 
-
-#' Self-test simulation analysis
+#' Print method for a jitter analysis
 #'
-#' @description Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
+#' @description Reports what the run was for: how many random starts reached the
+#' best optimum found. The objective values alone cannot say that -- non-converged
+#' starts are dropped before the result is returned, so the count of returned
+#' fits is not the count attempted.
 #'
-#' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
-#' @param seed random number seed. Each simulation \code{i} uses \code{seed + i}
-#'   so results are reproducible under both sequential and parallel execution.
-#' @param nsim number of simulations
-#' @param simulate passed to \code{\link{sim_mod}}. If \code{TRUE} (default),
-#'   data are simulated with observation error; if \code{FALSE}, expected
-#'   values from the model are used.
-#' @param cores Number of cores to use for parallel simulations. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
-#' @param getsd whether each refit runs \code{TMB::sdreport}. Self-test compares
-#'   the refit point estimates to the operating model, so \code{FALSE} is faster
-#'   with no effect on that comparison. Default \code{NULL} inherits the input
-#'   model's setting (\code{TRUE} only if it carries an \code{sdrep}).
-#' @param phase as in \code{\link{fit_mod}}. Under the default
-#'   \code{start = "initial"} each refit covers the same ground the original fit
-#'   did, so a model that needed phasing to fit its real data needs it again for
-#'   every simulated one -- without it such a model's refits can end many orders
-#'   of magnitude from a zero gradient and be dropped as non-converged. Default
-#'   \code{NULL} reads the setting \code{fit_mod()} recorded on the source fit
-#'   (\code{fit$run_config$fit_control$phase}), so a model fitted under the
-#'   package default of \code{phase = FALSE} is refitted unphased; pass
-#'   \code{TRUE} for a model that needs phasing but was not fitted with it.
-#' @param start which of the input model's parameter sets each refit starts
-#'   from. \code{"initial"} (default) uses \code{initial_params}, the values the
-#'   original fit itself started from, so the estimator has to travel the same
-#'   distance to the optimum on simulated data that it did on the real data.
-#'   \code{"estimated"} starts from \code{estimated_params} instead: much faster
-#'   and far more likely to converge, but the fixed effects -- and, with
-#'   \code{random_rec = TRUE}, the inner Laplace problem too -- begin at the
-#'   generating values, so on a multimodal or weakly identified surface the
-#'   optimizer never leaves the basin containing them and recovery is close to
-#'   guaranteed by construction. Read it as optimistic about recovery, not
-#'   merely less powerful. (Nor is it a complete warm start: \code{fit_mod()}
-#'   resets \code{log_Ftarget}, \code{proj_F_prop}, and the stock-recruit
-#'   \eqn{\alpha}/\eqn{\beta} from the model's own specification under either
-#'   setting.) Non-identifiability shows up in the curvature and so is visible
-#'   either way -- via \code{$convergence}'s Hessian conditioning and
-#'   estimability checks -- it is \emph{reachability} that a warm start stops
-#'   testing.
-#' @param debug return every simulation rather than the converged ones. The
-#'   dropped runs are the interesting ones when a self-test comes back short, and
-#'   each carries its own \code{$convergence} diagnostics. See \strong{Value}.
-#' @param timeout elapsed-second limit per simulation, \code{Inf} (default) for
-#'   none. The optimizer runs with no iteration cap, so a replicate that wanders
-#'   somewhere pathological can stall the whole run -- a hang that no convergence
-#'   check can catch, because the fit never returns. One that exceeds the limit
-#'   is stopped, counted as non-converged and reported separately. Approximate:
-#'   the limit is checked when control returns to R, so it fires between the
-#'   optimizer's function evaluations rather than inside one.
-#'
-#' @return A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
-#'   By default only the converged simulations, renumbered contiguously; a
-#'   message reports how many were dropped.
-#'
-#'   With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
-#'   simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
-#'   logical vector of the convergence verdicts in \code{attr(, "converged")}.
-#'   Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
-#'   refit errored outright is returned as the condition object rather than a
-#'   model, so it cannot abort the run.
-#'
-#' @section Interpreting the spread:
-#' \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-#' compositions and CAAL. It does not redraw recruitment, so with
-#' \code{random_rec = TRUE} every replicate shares the operating model's single
-#' recruitment realization, and that realization is its shrunk empirical-Bayes
-#' modes rather than a draw from N(0, sigmaR). Two consequences: the spread
-#' across replicates carries observation error only and is a lower bound on
-#' estimation uncertainty in SSB and recruitment (do not read it against the
-#' model's own uncertainty bands, which include process error); and sigmaR is
-#' re-estimated from deviations that were shrunk toward zero the same way in
-#' every replicate, a downward bias that averaging over simulations does not
-#' remove.
-#'
-#' @examples
-#' \donttest{
-#' data(BS2017SS)
-#' ss_run <- fit_mod(data_list = BS2017SS,
-#'     inits = NULL, file = NULL,
-#'     estimateMode = 0, random_rec = FALSE,
-#'     msmMode = 0, avgnMode = 0,
-#'     phase = FALSE, verbose = 0)
-#' sims <- self_test(ss_run, nsim = 10)
-#' }
+#' @param x A `"Rceattle_jitter"` object from [jitter()].
+#' @param tol Objective units within which a start counts as reaching the same
+#'   optimum. Default `0.01`, which is far below any difference that would change
+#'   management advice and far above optimizer noise.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
 #' @export
-self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL, getsd = NULL, phase = NULL, start = c("initial", "estimated"), debug = FALSE, timeout = Inf) {
-  if (!inherits(Rceattle, "Rceattle")) {
-    stop("Object is not of class 'Rceattle'")
-  }
+print.Rceattle_jitter <- function(x, tol = 0.01, ...) {
+  nll <- x$nll[is.finite(x$nll)]
+  tried <- x$njitter %||% NA_integer_
+  best <- if (length(nll)) min(nll) else NA_real_
+  at_best <- if (length(nll)) sum(nll - best <= tol) else 0L
 
-  start <- match.arg(start)
-  if (is.null(Rceattle[[paste0(start, "_params")]])) {
-    stop("`start = \"", start, "\"` needs the model's ", start,
-         "_params, which this fit does not carry.", call. = FALSE)
-  }
+  # A start that did not converge is as informative as one that landed high:
+  # both say the optimum is hard to reach from an arbitrary point.
+  sev <- if (!length(nll)) "FAIL"
+         else if (!is.na(tried) && at_best < 0.9 * tried) "WARN"
+         else if (!is.na(tried) && length(nll) < tried) "NOTE"
+         else "OK"
 
-  # rho/self-test read point estimates, so getsd = FALSE is faster and neutral;
-  # default inherits the input model's setting (matches retrospective/jitter).
-  if (is.null(getsd)) getsd <- !is.null(Rceattle$sdrep)
+  .rce_diag_header(
+    "jitter", sev,
+    paste0(at_best, " of ", if (is.na(tried)) length(nll) else tried,
+           " start(s) reached the best optimum (within ", tol, ")",
+           if (!is.na(tried) && length(nll) < tried)
+             paste0("; ", tried - length(nll), " did not converge") else ""))
 
-  # Phasing likewise inherits the input model's setting. Under the default
-  # `start = "initial"` a refit covers the same ground the original fit did, so
-  # if that fit needed phasing, so does every refit.
-  #
-  # Read the value fit_mod() recorded, so a custom phase list carries over as
-  # the list rather than collapsing to TRUE and being rebuilt from set_phases()
-  # defaults -- that would phase the refit on a different schedule than the fit
-  # it is testing. Fall back to whether `phase_params` was attached (fit_mod()
-  # does that only when it phased) for models predating `run_config`.
-  if (is.null(phase)) {
-    phase <- Rceattle$run_config$fit_control$phase
-    if (is.null(phase)) phase <- !is.null(Rceattle$phase_params)
-  }
-
-  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
-  # (same approach as run_mse). Respect the CRAN core limit
-  # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
-  # parallel::makeCluster errors if we exceed 2 cores then).
-  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
-  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
-  if (is.null(cores)) {
-    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
-  } else {
-    cores <- max(1L, as.integer(cores))
-    if (cran_cap) cores <- min(cores, 2L)
-  }
-  use_parallel <- nsim > 1L && cores > 1L
-
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # Per-simulation closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  run_one_sim <- function(i) {
-
-    set.seed(seed + i) # unique seed per sim for reproducibility under parallel
-
-    # * Simulate new data
-    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate)
-    data_list <- sim_data
-
-    # * Adjust initial values ----
-    inits <- switch(start,
-                    initial   = Rceattle$initial_params,
-                    estimated = Rceattle$estimated_params)
-
-
-    # * Refit ----
-    # Bounded and error-trapped: a replicate that errors or hangs would otherwise
-    # abort self_test() -- and, under a cluster, every other replicate with it --
-    # which is the opposite of what `debug` is for.
-    newmod <- .refit_with_timeout(
-      suppressMessages(
-        suppressWarnings(
-          # Refit the simulated data set from `start`, under the source model's
-          # phasing (see `phase` above).
-          .refit_like(
-            data_list        = data_list,
-            inits            = inits,
-            estimateMode     = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode),
-            phase            = phase,
-            getsd            = getsd,
-            srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-            suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
-        )
-      ),
-      timeout = timeout)
-
-    # Report the verdict beside the model rather than dropping it here: the
-    # dispatcher filters below, so `debug = TRUE` can hand back the runs that
-    # failed with their $convergence diagnostics intact.
-    if (inherits(newmod, "condition")) {
-      return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod)))
+  if (length(nll)) {
+    cat("  best -log L : ", formatC(best, format = "f", digits = 4), "\n", sep = "")
+    if (at_best < length(nll)) {
+      worse <- sort(nll[nll - best > tol])
+      cat("  higher optima found at +",
+          paste(formatC(utils::head(worse, 5) - best, format = "g", digits = 3),
+                collapse = ", +"),
+          if (length(worse) > 5) ", ..." else "", "\n", sep = "")
+      cat("  a higher optimum means the reported fit is start-dependent\n")
     }
-    list(model = newmod, converged = .refit_converged(newmod))
-  } # End run_one_sim closure
-
-
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # Dispatch sims (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  if (use_parallel) {
-    mod_list <- .parallel_lapply(1:nsim, run_one_sim, min(cores, nsim), environment())
-  } else {
-    mod_list <- lapply(1:nsim, run_one_sim)
   }
-
-  # Split the verdict from the models ----
-  # Sim_i is simulation i here, before any filtering, so a debug caller can line
-  # a failed run up with the seed (`seed + i`) that produced it.
-  converged <- vapply(mod_list, function(x) isTRUE(x$converged), logical(1))
-  errs      <- vapply(mod_list, function(x) x$error %||% NA_character_, character(1))
-  mod_list  <- lapply(mod_list, function(x) x$model)
-  # Unconditional, so `names(which(!attr(sims, "converged")))` works at every
-  # length -- including the empty case, where a guarded assignment would have
-  # left the attribute unnamed.
-  names(mod_list) <- names(converged) <- paste0("Sim_", seq_along(mod_list))
-  .report_dropped(sum(!converged), length(converged), "simulation")
-  .report_errors(errs, "simulation")
-
-
-  # Return ----
-  # debug: every simulation, `converged` naming which are which, so a run that
-  # failed can be read through its own $convergence rather than inferred from a
-  # short list. Otherwise the converged runs only, renumbered Sim_1..Sim_k --
-  # a self-test is read as a distribution over runs, so the gaps carry no
-  # meaning, and plot_biomass(model_names = names(sims)) stays contiguous.
-  if (isTRUE(debug)) {
-    attr(mod_list, "converged") <- converged
-    return(mod_list)
-  }
-
-  mod_list <- mod_list[converged]
-  if (length(mod_list) > 0) {
-    names(mod_list) <- paste0("Sim_", seq_along(mod_list))
-  }
-  return(mod_list)
+  invisible(x)
 }
-
-
-
-#' Likelihood profile across one or more parameter cells
-#'
-#' @description Re-fits an Rceattle model while holding selected cells of a
-#'   parameter fixed at user-specified values. Supports profiling a single
-#'   cell (e.g. \code{R_log_sd[species = 1]}) and arbitrary N-dimensional
-#'   cross-profiles over multiple cells -- e.g. \code{log_M1[1, 1, 1]} and
-#'   \code{log_M1[1, 2, 1]} jointly, to profile residual M for males against
-#'   females. For each grid point the targeted cells are fixed in the TMB
-#'   map and the remaining parameters are re-estimated; the result is a
-#'   grid of Rceattle models for downstream NLL surfaces.
-#'
-#' @param fitted an Rceattle model fit using \code{\link{fit_mod}}
-#' @param param Name of the parameter to profile. Two ways to specify it:
-#'   \describe{
-#'     \item{Raw parameter slot}{any name in
-#'       \code{Rceattle$estimated_params}; tested for \code{"R_log_sd"},
-#'       \code{"rec_pars"}, and \code{"log_M1"}. \code{slots} must index
-#'       into the full array and \code{transform} controls the scale.}
-#'     \item{Natural-scale alias}{convenience shortcut for the three
-#'       documented parameters. Aliases imply \code{transform = "log"}
-#'       (values are taken in natural units and log'd before being
-#'       substituted) and, for \code{rec_pars}, fill in the column from
-#'       the alias name so \code{slots} only needs the species index:
-#'       \itemize{
-#'         \item \code{"sigmaR"}, \code{"R_sd"} -> \code{R_log_sd}
-#'         \item \code{"M1"} -> \code{log_M1}
-#'         \item \code{"R0"} -> \code{rec_pars[, 1]}
-#'         \item \code{"alpha"} -> \code{rec_pars[, 2]}
-#'         \item \code{"beta"} -> \code{rec_pars[, 3]}
-#'       }
-#'       If \code{transform} is supplied with an alias it is ignored
-#'       (with a warning).}
-#'   }
-#' @param slots A list whose entries are integer index vectors, one entry
-#'   per cell to fix. Each entry's length must equal the number of
-#'   dimensions of the resolved parameter -- 1 for vectors
-#'   (\code{R_log_sd}), 2 for matrices (\code{rec_pars}), 3 for 3-D arrays
-#'   (\code{log_M1}). When using the \code{"R0"}/\code{"alpha"}/\code{"beta"}
-#'   aliases, supply only the species index (length 1); the column is
-#'   filled in from the alias. E.g. \code{list(c(1, 2, 1))} fixes
-#'   \code{log_M1[1, 2, 1]}; \code{list(c(1, 1, 1), c(1, 2, 1))} fixes both
-#'   sex cells for a males-vs-females cross-profile of species 1;
-#'   \code{list(1, 2)} with \code{param = "sigmaR"} cross-profiles species
-#'   1 and 2. If omitted, defaults to a single species-1 slot shaped to
-#'   match the resolved parameter (e.g. \code{list(1)} for
-#'   \code{R_log_sd}, \code{list(c(1, 1, 1))} for \code{log_M1},
-#'   \code{list(1)} for the \code{rec_pars} aliases) and emits a warning;
-#'   pass \code{slots} explicitly to silence the warning. Defaulting
-#'   requires \code{length(values) == 1L} (otherwise the user must
-#'   explicitly say which cell each grid targets).
-#' @param values A list of numeric vectors, one per entry of \code{slots}.
-#'   The full grid of fits is \code{expand.grid(values)}, so a single slot
-#'   gives a 1-D profile and \emph{k} slots give a \emph{k}-D cross-profile.
-#' @param transform How to map user values onto the internal parameter scale
-#'   before substituting them into \code{inits}. Either \code{"log"}
-#'   (default), \code{"identity"}, or a unary function (e.g.
-#'   \code{qlogis}). Applied element-wise to every grid value. Aliases
-#'   override this with \code{"log"}.
-#' @param cores Number of cores to use for parallel fits. Default
-#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-#'   running under \code{R CMD check} (which sets
-#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
-#' @param getsd whether each grid fit runs \code{TMB::sdreport}. The profile
-#'   reads only the objective (\code{nll}), so \code{FALSE} is faster with no
-#'   effect on the profile. Default \code{NULL} inherits the input model's
-#'   setting (\code{TRUE} only if it carries an \code{sdrep}).
-#' @param ... Unused; present for consistency with the \code{stats::profile}
-#'   generic.
-#'
-#' @return A list with elements:
-#'   \describe{
-#'     \item{Rceattle_list}{list of fitted Rceattle models, one per grid
-#'       row; entries for non-converged fits are \code{NULL} so positions
-#'       stay aligned with \code{grid}.}
-#'     \item{grid}{data frame of grid values on the user scale (before
-#'       \code{transform}); one column per profiled cell, named
-#'       \code{slot_1}, \code{slot_2}, ...}
-#'     \item{nll}{numeric vector of joint negative log-likelihoods
-#'       (\code{opt$objective}); \code{NA} where the fit did not
-#'       converge.}
-#'     \item{param}{the profiled parameter name (echoed).}
-#'     \item{slots}{the slots list (echoed for downstream plotting).}
-#'   }
-#'
-#' @examples
-#' \donttest{
-#' data(BS2017SS)
-#' ss_run <- fit_mod(data_list = BS2017SS,
-#'     inits = NULL, file = NULL,
-#'     estimateMode = 0, random_rec = FALSE,
-#'     msmMode = 0, avgnMode = 0,
-#'     phase = FALSE, verbose = 0)
-#'
-#' # 1-D profile of sigmaR for species 1 (alias form -- natural scale)
-#' p1 <- profile(ss_run,
-#'     param  = "sigmaR",
-#'     slots  = list(1),
-#'     values = list(seq(0.1, 1.5, by = 0.1)))
-#'
-#' # Equivalent raw form (log scale -- user does the transform)
-#' p1_raw <- profile(ss_run,
-#'     param     = "R_log_sd",
-#'     slots     = list(1),
-#'     values    = list(log(seq(0.1, 1.5, by = 0.1))),
-#'     transform = "identity")
-#'
-#' # 2-D cross-profile of M1 across species 1 and 2 (sex 1, age 1).
-#' # BS2017SS is single-sex; with a multi-sex model the same form
-#' # (e.g. c(1, 1, 1), c(1, 2, 1)) would cross-profile males vs females.
-#' p2 <- profile(ss_run,
-#'     param  = "M1",
-#'     slots  = list(c(1, 1, 1), c(2, 1, 1)),
-#'     values = list(seq(0.1, 0.4, length.out = 3),
-#'                   seq(0.1, 0.4, length.out = 3)))
-#'
-#' # 1-D profile of SRR alpha for species 1 (alias drops the rec_pars column)
-#' p3 <- profile(ss_run,
-#'     param  = "alpha",
-#'     slots  = list(1),
-#'     values = list(seq(2, 80, length.out = 20)))
-#' }
-#' @importFrom stats profile
-#' @method profile Rceattle
-#' @export
-profile.Rceattle <- function(fitted = NULL,
-                          param = NULL,
-                          slots = NULL,
-                          values = NULL,
-                          transform = "log",
-                          cores = NULL,
-                          getsd = NULL,
-                          ...) {
-
-  # -- Input validation ----
-  if (!inherits(fitted, "Rceattle")) {
-    stop("Object is not of class 'Rceattle'")
-  }
-  # Grid fits inherit the input model's sdreport setting unless overridden;
-  # the profile reads only the objective, not sdrep.
-  if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
-  if (is.null(param) || !is.character(param) || length(param) != 1L) {
-    stop("`param` must be a single character string naming a parameter slot.")
-  }
-  if (!is.list(values) || length(values) == 0L) {
-    stop("`values` must be a non-empty list of numeric grids.")
-  }
-
-  # Natural-scale aliases: each maps to a real parameter, implies log()
-  # transform, and (for rec_pars aliases) fills in the column index so
-  # `slots` only needs the species index.
-  alias_table <- list(
-    sigmaR = list(param = "R_log_sd", rec_pars_col = NA_integer_),
-    R_sd   = list(param = "R_log_sd", rec_pars_col = NA_integer_),
-    M1     = list(param = "log_M1",   rec_pars_col = NA_integer_),
-    R0     = list(param = "rec_pars", rec_pars_col = 1L),
-    alpha  = list(param = "rec_pars", rec_pars_col = 2L),
-    beta   = list(param = "rec_pars", rec_pars_col = 3L)
-  )
-
-  alias_name   <- NA_character_
-  rec_pars_col <- NA_integer_
-  if (param %in% names(alias_table)) {
-    alias_name <- param
-    a <- alias_table[[alias_name]]
-
-    # Aliases force log transform; warn if user passed something else
-    if (!identical(transform, "log")) {
-      warning(sprintf(
-        "`param = \"%s\"` is a natural-scale alias for `%s`; ignoring the supplied `transform` (aliases imply transform = \"log\").",
-        alias_name, a$param
-      ))
-    }
-    transform    <- "log"
-    rec_pars_col <- a$rec_pars_col
-    param        <- a$param   # resolve to real parameter slot
-  }
-
-  if (!param %in% names(fitted$estimated_params)) {
-    stop("`param` '", param, "' not found in Rceattle$estimated_params.")
-  }
-
-  par_array <- fitted$estimated_params[[param]]
-  par_ndim  <- if (is.null(dim(par_array))) 1L else length(dim(par_array))
-
-  # Default `slots` to species 1 (a single profile point shaped to match
-  # the resolved parameter). For rec_pars aliases the user slot is just
-  # the species index; otherwise it's a 1 for every dimension.
-  if (is.null(slots)) {
-    user_slot_dim <- par_ndim - if (!is.na(rec_pars_col)) 1L else 0L
-    default_user_slot <- rep(1L, user_slot_dim)
-
-    if (length(values) != 1L) {
-      stop(sprintf(
-        "`slots` not supplied but `values` has %d grids -- the species-1 default only covers one cell. Pass `slots` explicitly to profile multiple cells.",
-        length(values)
-      ))
-    }
-
-    pretty_slot <- if (length(default_user_slot) == 1L) {
-      as.character(default_user_slot)
-    } else {
-      paste0("c(", paste(default_user_slot, collapse = ", "), ")")
-    }
-    warning(sprintf(
-      "`slots` not supplied; defaulting to species 1 (slots = list(%s)). Pass `slots` explicitly to silence this warning.",
-      pretty_slot
-    ))
-
-    slots <- list(default_user_slot)
-  }
-
-  if (!is.list(slots) || length(slots) == 0L) {
-    stop("`slots` must be a non-empty list of integer index vectors.")
-  }
-  if (length(values) != length(slots)) {
-    stop("`values` must be a list with the same length as `slots`.")
-  }
-
-  # Append rec_pars column for rec_pars aliases
-  if (!is.na(rec_pars_col)) {
-    for (k in seq_along(slots)) {
-      if (length(slots[[k]]) != 1L) {
-        stop(sprintf(
-          "Under alias `\"%s\"`, slots[[%d]] should be a single species index (got length %d). The rec_pars column is filled in from the alias name.",
-          alias_name, k, length(slots[[k]])
-        ))
-      }
-      slots[[k]] <- c(as.integer(slots[[k]]), rec_pars_col)
-    }
-  }
-
-  par_dim <- if (is.null(dim(par_array))) length(par_array) else dim(par_array)
-
-  for (k in seq_along(slots)) {
-    if (length(slots[[k]]) != par_ndim) {
-      stop(sprintf(
-        "slots[[%d]] has length %d but '%s' has %d dimension(s).",
-        k, length(slots[[k]]), param, par_ndim
-      ))
-    }
-    if (!all(is.finite(slots[[k]])) || any(slots[[k]] < 1)) {
-      stop(sprintf("slots[[%d]] must be a vector of positive integers.", k))
-    }
-    if (any(slots[[k]] > par_dim)) {
-      stop(sprintf(
-        "slots[[%d]] = c(%s) is out of bounds for '%s' (dim c(%s)).",
-        k,
-        paste(slots[[k]], collapse = ", "),
-        param,
-        paste(par_dim, collapse = ", ")
-      ))
-    }
-  }
-
-  # Build transform fn
-  trans_fun <- if (is.function(transform)) {
-    transform
-  } else if (identical(transform, "log")) {
-    log
-  } else if (identical(transform, "identity")) {
-    function(x) x
-  } else {
-    stop("`transform` must be \"log\", \"identity\", or a function.")
-  }
-
-  # Build grid (user-scale values; transform applied at fit time)
-  names(values) <- paste0("slot_", seq_along(values))
-  grid <- expand.grid(values, KEEP.OUT.ATTRS = FALSE,
-                      stringsAsFactors = FALSE)
-  ngrid <- nrow(grid)
-
-  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
-  # (mirrors jitter()/retrospective()). Respect the CRAN core limit.
-  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
-  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
-  if (is.null(cores)) {
-    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
-  } else {
-    cores <- max(1L, as.integer(cores))
-    if (cran_cap) cores <- min(cores, 2L)
-  }
-  use_parallel <- ngrid > 1L && cores > 1L
-
-  # Generic [<-]: assign `val` into `arr` at index vector `idx`
-  assign_at <- function(arr, idx, val) {
-    do.call("[<-", c(list(arr), as.list(idx), list(val)))
-  }
-
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # Per-grid-point closure ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  run_one_point <- function(i) {
-
-    inits     <- fitted$estimated_params
-    data_list <- fitted$data_list
-    map_obj <- fitted$map
-
-    # Substitute fixed values at each profiled cell
-    for (k in seq_along(slots)) {
-      inits[[param]] <- assign_at(inits[[param]],
-                                  slots[[k]],
-                                  trans_fun(grid[i, k]))
-    }
-
-    # Force profiled cells to NA
-    for (k in seq_along(slots)) {
-      map_obj$mapList[[param]] <- assign_at(map_obj$mapList[[param]],
-                                            slots[[k]],
-                                            NA)
-    }
-    map_obj$mapFactor <- lapply(map_obj$mapList, factor)
-
-    newmod <-
-      suppressMessages(suppressWarnings(
-        # Refit with the profiled parameter fixed at its grid value (mapped off
-        # in map_obj). estimateMode falls back to 1 -- profile the hindcast fit,
-        # not a projection.
-        .refit_like(
-          data_list        = data_list,
-          inits            = inits,
-          map              = map_obj,
-          estimateMode     = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
-          getsd            = getsd,
-          srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
-          suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
-      ))
-
-    if (.refit_converged(newmod)) {
-      return(newmod)
-    }
-    return(NULL)
-  } # End run_one_point closure
-
-
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # Dispatch (parallel via PSOCK or sequential) ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  if (use_parallel) {
-    mod_list <- .parallel_lapply(seq_len(ngrid), run_one_point, min(cores, ngrid), environment())
-  } else {
-    mod_list <- lapply(seq_len(ngrid), run_one_point)
-  }
-
-  # NLL aligned with grid; NA for non-converged
-  nll <- vapply(mod_list,
-                function(x) if (is.null(x)) NA_real_ else x$opt$objective,
-                numeric(1))
-
-  names(mod_list) <- paste0("Fit_", seq_len(ngrid))
-
-  return(list(
-    Rceattle_list = mod_list,
-    grid          = grid,
-    nll           = nll,
-    param         = param,
-    slots         = slots
-  ))
-}
-

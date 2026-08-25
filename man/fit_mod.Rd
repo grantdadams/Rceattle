@@ -30,6 +30,7 @@ fit_mod(
   suit_endyr = NULL,
   fit_control = NULL,
   config = NULL,
+  quiet_data_check = FALSE,
   ...
 )
 }
@@ -61,9 +62,9 @@ placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation. The default is FALSE.}
+\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_q_sd}. The default is FALSE.}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation. The default is FALSE.}
+\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at \code{Time_varying_sel_sd}. The default is FALSE.}
 
 \item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
@@ -86,19 +87,18 @@ carrying any environmental linkages on q.}
 \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 (1, the Type-II MSVPA predation of Holsman et al. 2015) or
 \code{"TypeIIIMSVPA"} (2). Higher integer
-codes (Kinzey-Punt, Holling forms) are not yet implemented.}
+codes (Kinzey-Punt, Holling forms) are declared but not implemented, and are
+rejected by the data check.}
 
-\item{avgnMode}{The average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z ( 1 - exp(-Z) )} (the MSVPA form), is currently active; the model always uses it. The alternatives \eqn{N exp(-Z/2)} (1) and \eqn{N} (2) are not currently implemented and setting them has no effect.}
+\item{avgnMode}{the average abundance-at-age approximation used in the predation-mortality equations. Only mode 0, \eqn{N/Z(1 - exp(-Z))} (the MSVPA form), is implemented; the alternatives are declared but have no effect.}
 
-\item{initMode}{how the population is initialized, as a string alias or integer code.
-\code{"FreeParams"} (0) = initial age-structure estimated as free parameters;
-\code{"Equilibrium"} (1) = unfished (Finit = 0) equilibrium age-structure estimated out from R0 + mortality (M1);
-\code{"NonEquilibrium"} (2, the default) = non-equilibrium age-structure estimated out from R0, mortality (M1), and initial population deviates;
-\code{"FishedNonEquilibrium"} (3) = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0, mortality (M1), and initial population deviates;
-\code{"FishedNonEquilibriumScaled"} (4) = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0;
-\code{"OffsetEquilibrium"} (5) = unfished (Finit = 0) equilibrium age-structure seeded by the first-year recruitment (\code{R_init * exp(rec_dev[year 1])}) decayed by residual natural mortality M1, closed with the usual geometric plus group at the maximum age, with initial deviates turned off and no init-dev penalty (the Cole Monnahan / AFSC GOA pollock convention). Mode 5 differs from \code{"Equilibrium"} by exactly one term: both start from the initial equilibrium recruitment \code{R_init}, but 5 displaces it by the year-1 recruitment deviation. Under a random-about-mean stock-recruit relationship \code{R_init} equals \code{R0}; under Beverton-Holt or Ricker it is the equilibrium recruitment implied by the curve. Note the decay uses M1 only, so in multispecies mode predation mortality (M2) does not enter the initial age structure.}
+\item{initMode}{how the population is initialized, as a string alias or integer
+code: \code{"FreeParams"} (0), \code{"Equilibrium"} (1),
+\code{"NonEquilibrium"} (2, the default), \code{"FishedNonEquilibrium"} (3),
+\code{"FishedNonEquilibriumScaled"} (4), \code{"OffsetEquilibrium"} (5). See
+the \strong{Initial age structure} section below for what each one estimates.}
 
-\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability. The length-based modes (1, 3, 5) are not yet implemented and are rejected by \code{data_check()}; use a weight-based mode (2, 4, 6) or empirical suitability (0).}
+\item{suitMode}{how predator-prey suitability is derived, per predator (a single value or a vector of length \code{nspp}): 0 = empirical from diet data (Holsman et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 = weight-based normal. The length-based forms (1, 3, 5) are declared but not implemented and are rejected by the data check.}
 
 \item{suit_styr}{The first year used to calculate mean suitability. A single integer is applied to every predator, or a vector of length \code{nspp} sets a distinct start year per predator. Defaults to \code{styr} in \code{data_list}. Used when diet data were sampled from a subset of years.}
 
@@ -117,6 +117,14 @@ defaults of each field.}
 \code{suit_endyr}, \code{fit_control}) overlay only the arguments the caller did \emph{not}
 pass -- an explicit argument always wins. \code{NULL} (default) applies no
 configuration. Example: \code{fit_mod(data_list, config = load_config("run.yaml"))}.}
+
+\item{quiet_data_check}{Drop the warnings the fit-time validation raises (errors still
+stop the fit). \code{FALSE} (default) for an ordinary fit. The diagnostic refits
+-- \code{\link[=retrospective]{retrospective()}}, \code{\link[=jitter]{jitter()}}, \code{\link[=self_test]{self_test()}}, \code{\link[=profile]{profile()}}, \code{\link[=run_mse]{run_mse()}},
+\code{\link[=remove_F]{remove_F()}}, \code{\link[=sample_rec]{sample_rec()}}, \code{\link[=reweight_comps]{reweight_comps()}} -- set it, since they
+re-validate a \code{data_list} the caller has already fitted once and would
+otherwise repeat the same warnings per peel, jitter, or MSE iteration.
+Convergence and TMB warnings are unaffected.}
 
 \item{...}{Deprecated optimizer / sdreport / phasing arguments
 (e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},
@@ -159,6 +167,39 @@ Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
 because the implementations have not been validated against the
 current parameter set. See \code{src/TMB/predation.hpp}.
 }
+\section{Initial age structure}{
+
+What \code{initMode} estimates, and from what:
+\describe{
+\item{\code{"FreeParams"} (0)}{The initial age-structure is estimated directly, one free
+parameter per age.}
+\item{\code{"Equilibrium"} (1)}{Unfished (\eqn{F_{init} = 0}) equilibrium age-structure,
+carried out from \eqn{R_0} and residual natural mortality \eqn{M1}.}
+\item{\code{"NonEquilibrium"} (2)}{As (1), plus estimated initial population deviates, so
+the first year need not sit at equilibrium. The default.}
+\item{\code{"FishedNonEquilibrium"} (3)}{As (2), with an estimated initial fishing
+mortality \eqn{F_{init}} added to the mortality that shapes the first year.}
+\item{\code{"FishedNonEquilibriumScaled"} (4)}{As (3), but \eqn{F_{init}} scales
+\eqn{R_0} rather than entering the mortality directly.}
+\item{\code{"OffsetEquilibrium"} (5)}{Unfished equilibrium seeded by the first year's
+recruitment, \code{R_init * exp(rec_dev[1])}, decayed by \eqn{M1} and closed with the
+usual geometric plus group. Initial deviates are turned off and no init-dev penalty is
+applied. This is the Cole Monnahan / AFSC GOA pollock convention.}
+}
+
+Modes 1 and 5 differ by exactly one term: both start from the initial equilibrium
+recruitment \eqn{R_{init}}, but (1) carries it forward unchanged while (5) seeds the first
+year with the realized recruitment \code{R_init * exp(rec_dev[1])}. On a stock whose first
+year was not average, that is not a small difference.
+
+\eqn{R_{init}} is not always \eqn{R_0}: under a random-about-mean stock-recruit relationship
+the two are equal, but under Beverton-Holt or Ricker \eqn{R_{init}} is the equilibrium
+recruitment implied by the curve.
+
+\strong{In multispecies mode the decay uses \eqn{M1} only}, so predation mortality (\eqn{M2}) does
+not enter the initial age structure under any of these modes.
+}
+
 \examples{
 \donttest{
 data(BS2017SS)

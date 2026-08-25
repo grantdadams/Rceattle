@@ -30,9 +30,9 @@
 #' prior the marginal-SD standardization ignores the prior correlation, so those
 #' residuals are approximate and a warning is emitted.
 #'
-#' @param fit A fitted `Rceattle` model. The targeted deviations must be
-#'   estimated -- as random effects (e.g. `random_rec = TRUE`) or as penalized
-#'   fixed effects -- with a usable covariance.
+#' @param object A fitted `Rceattle` model. The targeted deviations must be estimated -- as random effects (e.g. `random_rec = TRUE`) or as penalized fixed effects -- with a usable covariance.
+#' @param fit deprecated name for `object`, still accepted so existing
+#'   scripts keep working. Supplying both is an error.
 #' @param process One of `"recruitment"`, `"initial"`, `"catchability"`, or
 #'   `"all"`.
 #' @param seed Seed for the posterior draw. Default 123.
@@ -48,14 +48,18 @@
 #'
 #' @seealso [osa_residuals()], [osa_diagnostics()]
 #' @export
-process_residuals <- function(fit,
+process_residuals <- function(object = NULL,
                               process = c("recruitment", "initial",
                                           "catchability", "all"),
-                              seed = 123) {
-  if (!inherits(fit, "Rceattle")) {
-    stop("'fit' must be a fitted Rceattle model (from fit_mod()).")
+                              seed = 123, fit = NULL) {
+  # `fit` was the old name for `object`; see R/0-deprecate.R.
+  if (!missing(fit))
+    object <- .rce_deprecated_arg(fit, !missing(object), "fit", "object", "process_residuals")
+
+  if (!inherits(object, "Rceattle")) {
+    stop("`object` must be a fitted Rceattle model (from fit_mod()).")
   }
-  if (is.null(fit$obj)) stop("'fit' has no TMB object ($obj).")
+  if (is.null(object$obj)) stop("`object` has no TMB object ($obj).")
   process <- match.arg(process)
 
   specs <- list(recruitment  = "rec_dev",
@@ -75,7 +79,7 @@ process_residuals <- function(fit,
   set.seed(seed)
 
   out <- lapply(todo, function(p) {
-    res <- tryCatch(.process_residual_one(fit, p, specs[[p]]),
+    res <- tryCatch(.process_residual_one(object, p, specs[[p]]),
                     error = function(e) {
                       if (process == "all") NULL else stop(e)
                     })

@@ -96,8 +96,8 @@ testthat::test_that("LINKAGE_PROCESS_CODES has stable assignments", {
 
 
 testthat::test_that("*_LINKAGE_PARAMS stays in sync with LINKAGE_PARAM_CODES", {
-  # The user-facing per-process allowed-key vectors live in
-  # R/0-build_srr_and_M.R, while the cpp-side integer-code mapping
+  # The user-facing per-process allowed-key vectors live beside their own
+  # constructor, one R/0-build_*.R per process, while the cpp-side code map
   # lives in R/0-linkage_encode.R. They must agree on which params
   # exist for each process or the encoder errors at fit time. This
   # test catches drift in either direction.

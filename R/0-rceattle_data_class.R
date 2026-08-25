@@ -49,6 +49,35 @@
   if (length(unique(s)) == 1L) s[1] else paste(s, collapse = ", ")
 }
 
+# Every linkage_spec held under one process slot, flattened to a list.
+#
+# A slot holds either a single spec or a LIST of them: the grammar lets one
+# parameter carry several, which is how a shared prior and a fleet-specific
+# random walk sit on the same selectivity limb. Reading `$formula` off that
+# list gives NULL, so a stacked parameter has to be unpacked before display --
+# and stacking is what a real assessment does.
+#
+# `is.list()` first, and not merely for tidiness: `$` on an atomic vector is an
+# error, not NULL, so testing `x$formula` on a stray numeric would throw out of
+# the whole tree. Both print methods catch that and fall back to "(spec tree
+# unavailable)", which loses every row rather than the one that is malformed.
+.rce_linkage_specs <- function(x) {
+  if (is.null(x) || !is.list(x) || !length(x)) return(list())
+  if (inherits(x, "Rceattle_linkage_spec") || !is.null(x$formula)) return(list(x))
+  out <- unlist(lapply(x, .rce_linkage_specs), recursive = FALSE)
+  if (is.null(out)) list() else out
+}
+
+# One spec's formula as a single line. deparse() splits a long formula across
+# elements, so collapse rather than taking the first and silently truncating.
+.rce_linkage_formula_text <- function(spec) {
+  f <- tryCatch(spec$formula, error = function(e) NULL)
+  if (is.null(f)) return("(no formula)")
+  txt <- tryCatch(paste(trimws(deparse(f)), collapse = " "), error = function(e) "")
+  if (!nzchar(txt)) "(no formula)" else txt
+}
+
+
 #' Render an Rceattle data list as an indented spec tree
 #'
 #' @param dl A data list (from build_data()/read_data(), or a fitted model's
@@ -115,6 +144,13 @@
     # Accept the legacy `Q_index` spelling for display of an un-upgraded list.
     q_col <- if ("Catchability_index" %in% colnames(fc)) "Catchability_index" else "Q_index"
     sel_mir <- shared("Selectivity_index"); q_mir <- shared(q_col)
+    # Fleets whose catchability block is actually opened: those carrying fitted
+    # index observations. A fleet with none gets no q however its Catchability
+    # column reads -- a q with no index to inform it is a flat direction -- so
+    # say so here rather than leave the column looking authoritative. It can
+    # still be estimated by following the lead of a shared q group, which the
+    # [shared: q<->N] annotation on the same line shows.
+    q_data <- tryCatch(.fleets_with_index(dl2), error = function(e) integer(0))
     n <- nrow(fc)
     # Two fixed left-hand columns -- "[code] name" and fleet type -- are padded to a
     # common width so the " - "-separated form fields line up down the block; the
@@ -134,7 +170,14 @@
       cells <- c(formatC(id_col[i],   width = -idw),
                  formatC(type_col[i], width = -typew))
       if (!is.na(sel))   cells <- c(cells, paste0("sel: ", sel))
-      if (!is.na(qform)) cells <- c(cells, paste0("q: ",   qform))
+      if (!is.na(qform)) {
+        qcell <- paste0("q: ", qform)
+        q_would_est <- !(qform %in% c("Fixed", "Analytical", "AnalyticalArith"))
+        if (q_would_est && !((fc$Fleet_code[i] %||% i) %in% q_data)) {
+          qcell <- paste0(qcell, " (fixed: no index data)")
+        }
+        cells <- c(cells, qcell)
+      }
       # Mirror annotations: fleets that share a selectivity / catchability block.
       mir <- c()
       si <- if ("Selectivity_index" %in% colnames(fc)) fc$Selectivity_index[i] else NA
@@ -164,16 +207,24 @@
   # ---- active linkages ------------------------------------------------------
   link_slots <- c(q = "q_linkages", sel = "sel_linkages", growth = "growth_linkages",
                   M1 = "M1_linkages", srr = "srr_linkages", comp = "comp_linkages")
+  # One line per SPEC, not per parameter, so the count is the number of linkages
+  # the model actually carries. A parameter holding more than one is tagged
+  # [i/n], which says the specs are stacked on the same parameter without
+  # implying they are one formula -- they usually name different fleets.
   link_lines <- c()
   for (nm in names(link_slots)) {
     lk <- dl2[[link_slots[[nm]]]]
-    if (!is.null(lk) && length(lk) > 0) {
-      forms <- vapply(seq_along(lk), function(j) {
-        f <- lk[[j]]
-        ff <- tryCatch(deparse(f$formula %||% attr(f, "formula")), error = function(e) "")
-        paste0(names(lk)[j] %||% nm, " ", ff[1])
-      }, character(1))
-      link_lines <- c(link_lines, paste0(nm, ": ", forms))
+    if (is.null(lk) || length(lk) == 0) next
+    for (j in seq_along(lk)) {
+      par_nm <- names(lk)[j] %||% nm
+      if (is.na(par_nm) || !nzchar(par_nm)) par_nm <- nm
+      specs <- .rce_linkage_specs(lk[[j]])
+      if (!length(specs)) next
+      for (k in seq_along(specs)) {
+        stack <- if (length(specs) > 1L) paste0(" [", k, "/", length(specs), "]") else ""
+        link_lines <- c(link_lines, paste0(nm, ": ", par_nm, stack, " ",
+                                           .rce_linkage_formula_text(specs[[k]])))
+      }
     }
   }
   if (length(link_lines)) {

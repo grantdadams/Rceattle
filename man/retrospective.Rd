@@ -5,16 +5,19 @@
 \title{Retrospective peels}
 \usage{
 retrospective(
-  Rceattle = NULL,
+  object = NULL,
   peels = 5,
   rescale = FALSE,
   nyrs_forecast = 3,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  phase = TRUE,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 }
 \arguments{
-\item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
+\item{object}{an Rceattle model fit using \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
@@ -22,10 +25,9 @@ retrospective(
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
 
-\item{cores}{Number of cores to use for parallel peels. Default
-\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
-running under \code{R CMD check} (which sets
-\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+\item{cores}{Number of cores for the parallel refits. Default \code{NULL} picks
+\code{parallel::detectCores() - 6}, capped at 2 under \verb{R CMD check} (which sets
+\verb{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 
 \item{getsd}{whether each peel runs \code{TMB::sdreport} (standard errors).
 Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
@@ -33,6 +35,17 @@ effect on rho. Default \code{NULL} inherits the input model's setting
 (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
 \code{sdrep}); the returned peel models then carry standard errors only
 when \code{getsd} is \code{TRUE}.}
+
+\item{phase}{whether each peel is refitted in phases (default \code{TRUE}).
+A peel restarts from the unpeeled fit's starting values with a year removed;
+without phasing the parameters barely move, the peels sit on top of the full
+model, and Mohn's rho is biased towards zero. Change it only deliberately.}
+
+\item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
+\code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
@@ -68,6 +81,15 @@ unpeeled model, rather than \code{(endyr_peel + 1):endyr_full}, which counts
 
 Mohn's rho is computed from \code{endyr_peel} and is unaffected by any of
 this.
+
+Catchability is estimated only for a fleet that carries fitted index rows
+(see \code{\link{build_map}}), and a peel moves \code{endyr}. A survey whose
+index observations all fall in the peeled-off years therefore has no q
+estimated in that peel -- the parameter count is not constant across peels.
+That is deliberate: a q with no index to inform it is a flat direction in
+the likelihood. It does not affect Mohn's rho, which is computed from SSB,
+but it does mean \code{npar} and the reported catchability differ between a
+shallow and a deep peel for such a fleet.
 }
 \description{
 Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:

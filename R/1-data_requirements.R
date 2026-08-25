@@ -5,8 +5,8 @@
 #' **Optional** (used if supplied, otherwise default-filled by [clean_data()]), or
 #' **Ignored** (not consulted because the feature that would use them is switched
 #' off). It answers "what do I actually need to supply for *this* model?" without
-#' having to read [data_check()] or the switch tables -- the same conditions
-#' [data_check()] enforces at fit time (they share one declarative table).
+#' having to read the validation code or the switch tables -- the same conditions
+#' enforced at fit time (they share one declarative table).
 #'
 #' The configuration can be given either as an existing (possibly partial)
 #' `data_list` -- its switches are normalized through [clean_data()] /
@@ -53,7 +53,7 @@
 #'   }
 #'   Rows are ordered Required, then Optional, then Ignored.
 #'
-#' @seealso [data_check()], [clean_data()], [build_data()].
+#' @seealso [clean_data()], [build_data()].
 #' @examples
 #' # Single-species: predation/diet inputs are Ignored, comp_data Optional.
 #' data_requirements(msmMode = 0)
@@ -86,7 +86,7 @@ data_requirements <- function(data_list = NULL, msmMode = 0, growth_model = 0,
         Fleet_code    = seq_len(n),
         Selectivity   = if (is.null(Selectivity)) NA_character_
                         else rep_len(as.character(Selectivity), n),
-        Index_distribution = if (is.null(Index_distribution)) "Lognormal"
+        Index_distribution = if (is.null(Index_distribution)) .rce_column_schema()[["Index_distribution"]]$default
                         else rep_len(as.character(Index_distribution), n),
         stringsAsFactors = FALSE
       )

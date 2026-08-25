@@ -4,10 +4,13 @@
 \alias{remove_F}
 \title{Rerun with F = 0.}
 \usage{
-remove_F(Rceattle)
+remove_F(object = NULL, Rceattle = NULL)
 }
 \arguments{
-\item{Rceattle}{A fitted Rceattle model object}
+\item{object}{A fitted Rceattle model object}
+
+\item{Rceattle}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \description{
 Function to update hindcast and set F to 0.

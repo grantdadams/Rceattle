@@ -37,7 +37,7 @@ run_mse(
 
 \item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
 
-\item{assessment_period}{Period of years that each assessment is taken}
+\item{assessment_period}{Assessment schedule. A single number is the period in years between assessments, counted from the operating model's terminal year. A vector is the explicit set of years an assessment is completed. Default = 1.}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
@@ -53,7 +53,7 @@ run_mse(
 
 \item{cap}{A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL}
 
-\item{catch_mult}{A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
+\item{catch_mult}{A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists, where \code{Year} is a year the assessment schedule covers. Default = NULL}
 
 \item{seed}{seed for the simulation}
 
@@ -79,4 +79,93 @@ A list of operating models (differ by simulated recruitment determined by \code{
 }
 \description{
 Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
+}
+\section{Assessment schedule}{
+A single \code{assessment_period} is a fixed cycle. A vector is the schedule
+itself, for a design whose years are not evenly spaced -- one assessment
+missed inside an otherwise biennial cycle, for instance:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+run_mse(om, em, assessment_period = setdiff(biennial, 2031))
+}\if{html}{\out{</div>}}
+
+Every year must be after the operating model's terminal year and within the
+projection horizon; a year outside that window is an error rather than being
+dropped. One missed assessment and a permanently longer cycle are different
+questions, and the second does not answer the first.
+
+A schedule must name two or more years. One year on its own cannot be told
+from a period, and the two readings are a world apart, so it is refused
+rather than guessed at.
+
+Two schedules run on the same \code{seed} share their recruitment deviations,
+which are drawn once per replicate before the first assessment, and each
+assessment's observation draw is seeded on that assessment's own year rather
+than on wherever earlier assessments left the stream. So an assessment in
+year \code{Y} starts from the same place in every schedule that assesses \code{Y}, and
+a divergence at one assessment no longer displaces every assessment after it.
+
+Common random numbers are not complete, and the gap is worth knowing before
+designing a comparison. One \code{sim_mod()} call draws every year in the
+assessment interval, under that assessment's seed --- so a year sitting
+\emph{inside} a longer interval is drawn under a different seed than the same year
+in a schedule that assessed it directly. Two schedules that differ in which
+years they assess therefore realize different observation error in the years
+between, even where the stock is in the same state. Per-observation-year
+streams would close it; \code{inst/dev/TODO-mse-horizon.md} records what that
+would take.
+
+Past the point where two schedules genuinely diverge --- different catch
+taken, different years surveyed --- the draws necessarily diverge too. That
+is a real difference in the runs, not an artefact.
+
+Make the last assessment year reach the projection horizon. Catch is only
+ever filled up to the last assessment, so a schedule that stops short leaves
+the trailing years at \code{NA}, and \code{mse_summary()} summarises over the whole
+projection --- understating Average Catch, Catch IAV and P(Closed) with
+nothing in the table to say which years it covered. A biennial cycle over an
+odd number of projection years lands here every time, so this is warned
+about, for a period and a schedule alike.
+}
+
+\section{Catch multiplier}{
+\code{catch_mult} multiplies the catch the estimation model's control rule
+recommends, before \code{cap} and before the exploitable-biomass limit. Given as
+a \code{data.frame} it applies only in the years and species it lists, which is
+how a buffer held for the years advice is stale is expressed.
+
+Mind which years those are. The assessment in year \code{Y} sets catch for \code{Y+1}
+onward, so a missed assessment in 2031 leaves \strong{2032 and 2033} on 2029's
+advice --- 2031 itself is set by the 2029 assessment either way, and cutting
+it changes a year the missed assessment never touched:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
+buffer$mult <- 0.90
+run_mse(om, em, assessment_period = setdiff(biennial, 2031),
+        catch_mult = buffer)
+}\if{html}{\out{</div>}}
+
+\code{Species} is the species number, matching the catch data's own column, and
+any (year, species) pair the table omits is multiplied by 1. \code{Year} must be
+a year the assessment schedule actually covers --- from the operating
+model's terminal year to the last assessment, which is where catch is
+filled, not the whole projection.
+
+Note that this reduces catch, not ABC. Where realized catch sits well below
+ABC -- GOA arrowtooth flounder, for one -- reducing ABC changes removals only
+to the extent the fishery attains it, while reducing catch changes them in
+full. Either scale the multiplier by recent attainment,
+\code{1 - (1 - mult) * attainment}, or report the unscaled result as an upper
+bound on the effect of the reduction.
+}
+
+\examples{
+\dontrun{
+data(BS2017SS)
+om <- fit_mod(BS2017SS, estimateMode = "Estimate", HCR = build_hcr("NPFMC"))
+# Closed loop: assess every 2 years, survey every year, 10 simulations.
+mse <- run_mse(om = om, em = om, nsim = 10,
+               assessment_period = 2, sampling_period = 1)
+mse_summary(mse)$species
+}
 }

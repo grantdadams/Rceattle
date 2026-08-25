@@ -14,20 +14,27 @@
   kind <- match.arg(kind)
   cfg <- switch(kind,
     index = list(data = "index_data", obs = "Observation",
-                 hat = "index_hat", sd = "log_index_sd", type = "Survey"),
+                 hat = "index_hat", sd = "index", type = "Survey"),
     catch = list(data = "catch_data", obs = "Catch",
-                 hat = "catch_hat", sd = "log_catch_sd", type = "Fishery"))
+                 hat = "catch_hat", sd = "catch", type = "Fishery"))
 
   model_names_use <- .model_labels(Rceattle, model_names)
   fc <- Rceattle[[1]]$data_list$fleet_control
-  codes <- fc$Fleet_code[fc$Fleet_type == cfg$type]
+  # Catch belongs to fisheries by definition; an index belongs to whichever fleet
+  # carries index_data. Selecting surveys here dropped a fishery's CPUE rows from
+  # the figure without comment.
+  codes <- if (kind == "index") {
+    .fleets_with_index(Rceattle[[1]]$data_list, fitted_only = FALSE)
+  } else {
+    fc$Fleet_code[fc$Fleet_type == cfg$type]
+  }
   if (is.null(species)) species <- seq_len(Rceattle[[1]]$data_list$nspp)
 
   out <- list()
   for (i in seq_along(Rceattle)) {
     dat <- Rceattle[[i]]$data_list[[cfg$data]]
     dat$.obs <- dat[[cfg$obs]]
-    dat$.sd  <- Rceattle[[i]]$quantities[[cfg$sd]]
+    dat$.sd  <- .observation_sd(Rceattle[[i]]$quantities, cfg$sd)
     dat$.hat <- Rceattle[[i]]$quantities[[cfg$hat]]
     # Year < 0 flags a prediction-only row (excluded from the likelihood; see
     # ceattle.cpp "Likelihood (yr > 0) vs prediction (yr < 0)"). Drop
@@ -41,8 +48,28 @@
     # non-positives; those rows keep the NA_real_ interval and draw no error bar.
     pos <- !is.na(dat$.obs) & dat$.obs > 0
     upr <- lwr <- rep(NA_real_, nrow(dat))
-    upr[pos] <- stats::qlnorm(0.975, log(dat$.obs[pos]), dat$.sd[pos])
-    lwr[pos] <- stats::qlnorm(0.025, log(dat$.obs[pos]), dat$.sd[pos])
+    # Interval on the scale the fleet is actually fitted on. A natural-scale
+    # survey family (MVN / MVNORM / Normal) carries an ABSOLUTE sd, so the
+    # lognormal form treats it as a log-sd: an sd of 150 on an index of ~100
+    # draws a band of [0, 1e130] and the panel is unreadable. Catch is lognormal
+    # throughout, so it always takes the log branch.
+    #
+    # The natural-scale interval is the untruncated normal's, clamped at zero.
+    # For a "TruncatedNormal" fleet that is not the truncated quantile, so the
+    # band is approximate wherever truncation carries real mass -- which is also
+    # where sim_mod() warns.
+    nat <- rep(FALSE, nrow(dat))
+    if (kind == "index") {
+      nat_all <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
+      if (length(nat_all)) nat <- nat_all[keep]
+    }
+    lg <- pos & !nat
+    nt <- pos & nat
+    upr[lg] <- stats::qlnorm(0.975, log(dat$.obs[lg]), dat$.sd[lg])
+    lwr[lg] <- stats::qlnorm(0.025, log(dat$.obs[lg]), dat$.sd[lg])
+    upr[nt] <- dat$.obs[nt] + stats::qnorm(0.975) * dat$.sd[nt]
+    # An index cannot be negative; clamp rather than draw a bar through zero.
+    lwr[nt] <- pmax(0, dat$.obs[nt] + stats::qnorm(0.025) * dat$.sd[nt])
     out[[length(out) + 1L]] <- data.frame(
       Model       = model_names_use[i],
       Fleet       = as.character(fc$Fleet_name[match(dat$Fleet_code,
@@ -91,8 +118,14 @@
 
 #' Survey index fits
 #'
-#' Plots fitted survey CPUE indices: observed points with lognormal 95%
-#' intervals and the model-predicted index, faceted by survey fleet.
+#' Plots fitted index series: observed points with 95% observation intervals and
+#' the model-predicted index, faceted by fleet. Every fleet carrying
+#' `index_data` is drawn, a fishery with a CPUE series as much as a survey.
+#'
+#' The interval follows the fleet's `Index_distribution`: lognormal quantiles on
+#' a `"Lognormal"` fleet, and `observed +/- 1.96 sd` truncated at zero on a
+#' natural-scale one (`"MVN"`, `"MVNORM"`, `"Normal"`, `"TruncatedNormal"`),
+#' whose sd is absolute and in the units of the index.
 #'
 #' @param Rceattle A single [fit_mod()] object or a list of them (overlaid).
 #' @param file Optional file stem; if given the figure is written to
@@ -231,13 +264,27 @@ plot_catch <- function(Rceattle,
 
 #' Survey index residuals
 #'
-#' Plots log residuals `log(predicted) - log(observed)` of the survey index by
-#' year, faceted by survey fleet (`residual_type = "pearson"`, the default), or
-#' one-step-ahead (OSA) residual diagnostics for a single fit
-#' (`residual_type = "osa"`, via [osa_residuals()] / [plot.rceattle_osa()]).
+#' Plots survey index residuals by year, faceted by survey fleet
+#' (`residual_type = "pearson"`, the default), or one-step-ahead (OSA) residual
+#' diagnostics for a single fit (`residual_type = "osa"`, via [osa_residuals()] /
+#' [plot.rceattle_osa()]).
+#'
+#' The residual is **observed minus predicted**, taken on the scale the fleet is
+#' fitted on and read from its `Index_distribution`:
+#' `log(observed) - log(predicted)` for a log-scale (`"Lognormal"`) fleet, and
+#' `observed - predicted` for a natural-scale one (`"MVN"`, `"MVNORM"`,
+#' `"Normal"`, `"TruncatedNormal"`), whose sd is absolute. A positive residual
+#' means the survey saw more than the model predicted. Panels carry different
+#' units where a model mixes the two families, which is why the y scale is free
+#' per fleet.
+#'
+#' Before 5.9.0 this plotted `predicted - observed`, the negative of what
+#' [residuals.Rceattle()] returns for the same fleet. Plots made with an earlier
+#' version are mirrored about zero relative to these.
 #'
 #' @inheritParams plot_index
-#' @param residual_type `"pearson"` (log index residuals) or `"osa"`.
+#' @param residual_type `"pearson"` (index residuals on the fleet's own scale)
+#'   or `"osa"`.
 #' @return A `ggplot` object.
 #' @export
 plot_indexresidual <- function(Rceattle,
@@ -272,7 +319,12 @@ plot_indexresidual <- function(Rceattle,
     # have no residual to plot. Projection years are excluded unless asked for,
     # matching `.fleet_fit_df()` -- a projection row's "observation" is whatever
     # placeholder its workbook carries, which plots as a spurious residual.
-    keep <- dat$Species %in% species & dat$Year > 0
+    # Same fleet set as plot_index(). Without this an Off fleet's index rows were
+    # drawn as residuals indistinguishably from fitted ones -- GOA2018SS fleet 7
+    # is the case: 9 index rows on a fleet the likelihood never reads.
+    keep <- dat$Species %in% species & dat$Year > 0 &
+      dat$Fleet_code %in% .fleets_with_index(Rceattle[[i]]$data_list,
+                                             fitted_only = FALSE)
     if (!incl_proj) keep <- keep & dat$Year <= Rceattle[[i]]$data_list$endyr
     dat <- dat[keep, , drop = FALSE]
     if (nrow(dat) == 0) next
@@ -281,7 +333,22 @@ plot_indexresidual <- function(Rceattle,
       Fleet    = as.character(fc$Fleet_name[match(dat$Fleet_code,
                                                   fc$Fleet_code)]),
       Year     = abs(dat$Year),
-      Residual = log(dat$.hat) - log(dat$Observation),
+      # OBSERVED minus PREDICTED, matching residuals.Rceattle() and the usual
+      # assessment convention (WHAM, SS3): a positive residual means the survey
+      # saw more than the model predicted.
+      #
+      # Log ratio for a log-scale fleet, plain difference for a natural-scale one
+      # -- log() of a natural-scale residual is not a residual. Assigned by
+      # subset rather than with ifelse(), which evaluates both arms and so would
+      # take log() of a natural-scale observation it then discards.
+      Residual = {
+        nat <- .index_rows_natural_scale(Rceattle[[i]]$data_list)
+        nat <- if (length(nat)) nat[keep] else rep(FALSE, nrow(dat))
+        res <- rep(NA_real_, nrow(dat))
+        res[nat]  <- dat$Observation[nat] - dat$.hat[nat]
+        res[!nat] <- log(dat$Observation[!nat]) - log(dat$.hat[!nat])
+        res
+      },
       stringsAsFactors = FALSE)
   }
   if (length(out) == 0L) {
@@ -300,8 +367,11 @@ plot_indexresidual <- function(Rceattle,
     ggplot2::geom_point(position = ggplot2::position_dodge(width = 0.6))
   p <- .rceattle_scale(
     p +
+      # Panels are per fleet with a free y scale, which is what lets the two
+      # scales share a figure: a log-scale fleet's panel is dimensionless, a
+      # natural-scale fleet's is in the units of the index.
       ggplot2::facet_wrap(~ Fleet, scales = "free_y") +
-      ggplot2::labs(x = "Year", y = "log(index) residual") +
+      ggplot2::labs(x = "Year", y = "Index residual") +
       .rceattle_theme(),
     aesthetics = "colour")
   if (nlevels(df$Model) < 2L) p <- p + ggplot2::guides(colour = "none")

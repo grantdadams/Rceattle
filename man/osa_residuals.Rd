@@ -5,18 +5,19 @@
 \title{One-step-ahead (OSA) residuals for an Rceattle model}
 \usage{
 osa_residuals(
-  fit,
+  object = NULL,
   source = c("ecov", "index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   parallel = TRUE,
   seed = 123,
   trace = FALSE,
-  ...
+  ...,
+  fit = NULL
 )
 }
 \arguments{
-\item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
+\item{object}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
 \item{source}{Character vector of observation sources to residualize: any of
 \code{"ecov"}, \code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}, or \code{"all"}.
@@ -62,6 +63,9 @@ of randomized-quantile residuals. Default \code{123}.}
 \item{trace}{Logical; print \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} progress. Default \code{FALSE}.}
 
 \item{...}{Further arguments passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}.}
+
+\item{fit}{deprecated name for \code{object}, still accepted so existing
+scripts keep working. Supplying both is an error.}
 }
 \value{
 A data frame of class \code{rceattle_osa} with one row per residualized
@@ -73,9 +77,14 @@ range of ages rather than the one named), \code{length} (the conditioning length
 bin for caal; \code{NA} otherwise), \code{index_label} (\code{"age"}/\code{"length"}/\code{NA}), \code{observed},
 \code{predicted}, \code{sd}, and \code{residual}. For aggregate series \code{observed} and
 \code{predicted} are on the residualization scale -- log for lognormal catch/index,
-natural scale for a \code{"Normal"} index, and the whitened (\code{L^-1}) scale for an
+natural scale for a \code{"Normal"} or \code{"TruncatedNormal"} index, and the
+whitened (\code{L^-1}) scale for an
 \code{"MVN"}/\code{"MVNORM"} index; for compositions they are bin counts. Carries
-\code{method} and \code{seed} attributes, and (when composition types
+\code{method} and \code{seed} attributes -- \code{method} is the string that was passed,
+except on a model with a \code{"TruncatedNormal"} index fleet, where it is the
+named vector \verb{c(default = <method>, TruncatedNormal = "oneStepGeneric")}
+because that family is residualized with its own method (see above) -- and
+(when composition types
 are present) a \code{"pearson"} attribute holding the matching Pearson residuals
 so \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}} can show both. The attribute uses this data
 frame's column names rather than the data-sheet names
@@ -127,12 +136,63 @@ densities (the \code{osa_mode} switch); fleets fit with the AFSC \code{Multinomi
 pseudo-likelihood are residualized under the full multinomial.
 
 Survey-index OSA residuals are supported for every index likelihood family
-(\code{Index_distribution}): lognormal IID (\code{"Lognormal"}) and natural-scale
-\code{"Normal"} residualize as independent normals on the log or natural scale; the
-correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened by the lower
-Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) -- the
-closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a Gaussian block.
+(\code{Index_distribution}). Lognormal IID (\code{"Lognormal"}) residualizes on the log
+scale, and the natural-scale \code{"Normal"} and \code{"TruncatedNormal"} on the natural
+scale. The correlated covariance families (\code{"MVN"} / \code{"MVNORM"}) are whitened
+by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
+residuals are the multivariate-Gaussian one-step-ahead innovations
+L^-1 (obs - q*pred) -- the closed form \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} reproduces for a
+Gaussian block.
+
+\code{"TruncatedNormal"} rows are residualized in their own
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call, with \code{method = "oneStepGeneric"} and a range
+starting at zero, whatever \code{method} is passed. Its density differs from
+\code{"Normal"} only by \verb{log Phi(mu/sd)}, which is a function of the prediction and
+not of the observation, so a Gaussian method -- which reads the curvature of
+the density in the observation -- cannot see the truncation at all and returns
+the untruncated \code{(obs - mu)/sd}. Integrating over the family's own support
+instead gives the truncated CDF
+\verb{F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)},
+so \code{qnorm(F(x))} is standard normal by the probability integral transform
+however hard the truncation bites. The upper limit is finite rather than
+\code{Inf} -- ten standard deviations past the largest fitted index in the group,
+which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
+\code{splineApprox = FALSE}, because the spline shortcut integrates over whatever
+range its profile slice covered. The range is a
+property of the family, so it cannot be shared with the other fleets:
+\code{"Normal"} is genuinely untruncated, and a lognormal fleet's stored observation
+is \code{log(obs)}, which is negative for a small index.
+
+The size of the correction is the truncated mass: on a fleet predicting 100
+with an absolute sd of 150 (a quarter of the density below zero), an
+observation exactly at the prediction has an untruncated residual of 0 and a
+truncated one of -0.44.
+
+Three consequences of that group being residualized separately, worth knowing
+before reading the output:
+\itemize{
+\item \strong{On a model with random effects the exact integration can fail.} It
+evaluates the Laplace marginal at arbitrary values of the observation, and
+the inner problem does not always converge across the whole support. Rather
+than return \code{NA} for those rows -- which would shrink the sample
+\code{\link[=osa_diagnostics]{osa_diagnostics()}} passes verdict on, without saying so -- the fleet is
+recomputed under TMB's spline approximation and a warning says the residuals
+for it are approximate. Fixed-effect models are unaffected.
+\item \strong{\code{sd} is \code{NA} and \code{predicted} means something different for this group.}
+\code{oneStepGeneric} returns neither a standard deviation nor the fitted value;
+\code{predicted} is the truncated conditional mean \code{E[x | x > 0]}, which sits
+above the fitted index (163.8 against a fitted 100.0 on the fixture above),
+not the fitted index itself. The residual is unaffected.
+\item \strong{Adding a \code{"TruncatedNormal"} fleet moves the other fleets' residuals on a
+random-effects model.} Each \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call marks the rows it
+is not residualizing as unconditional, which zeroes their data terms and so
+changes the conditional distribution of the latent states. Both orderings
+are valid probability-integral-transform sequences, so no value is wrong,
+but catch and lognormal-index residuals will not match those from an
+otherwise identical model with no truncated fleet. Fixed-effect models are
+again unaffected, since their observations are independent.
+}
 }
 \section{Negative composition \code{predicted} values}{
 
@@ -157,6 +217,14 @@ uninformative; their \code{residual} standardises the observation against that
 same mean and is therefore biased positive.
 }
 
+\examples{
+\dontrun{
+data(BS2017SS)
+fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+osa <- osa_residuals(fit, source = c("index", "comp"))
+plot(osa)
+}
+}
 \references{
 Thygesen, U.H., et al. 2017. Validation of ecological state space models using
 the Laplace approximation. Environ. Ecol. Stat. 24:317-339.

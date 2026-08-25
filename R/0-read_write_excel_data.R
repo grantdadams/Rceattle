@@ -56,7 +56,23 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   # NA in the rest; every other object is a per-species vector (length nspp) or a
   # single value recycled across species (rbind's default) -- matching the prior
   # hand-written assembly exactly.
+  #
+  # A data_list need not carry every control object. read_data() returns only
+  # the rows the workbook had, and switch_check() is what fills schema defaults
+  # -- so a workbook predating a control switch reads back without it. Write
+  # the objects that are present, in schema order, the way the fleet_control
+  # block below keeps only the columns it has. rbind() drops a NULL silently,
+  # which otherwise left more labels than rows and aborted the whole write with
+  # "arguments imply differing number of rows".
+  #
+  # Absent objects are dropped rather than written at their schema default: the
+  # default belongs to the model, not to the user's data, and baking one into a
+  # workbook would turn a value switch_check() announces at fit time into a
+  # value the file appears to assert.
   row_labels <- .rce_schema_names("control")
+  row_labels <- row_labels[vapply(row_labels,
+                                  function(nm) length(data_list[[nm]]) > 0L,
+                                  logical(1))]
   .model_dims <- c("nspp", "styr", "endyr", "projyr")
   control <- do.call(rbind, lapply(row_labels, function(nm) {
     v <- data_list[[nm]]
@@ -72,7 +88,15 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Fleet control ----
-  xcel_list$fleet_control <- as.data.frame(data_list$fleet_control)
+  # Schema order, as the control and bioenergetics sheets already use. Two
+  # workbooks written by different versions then differ by their contents, not
+  # by the order someone happened to build the data frame in -- which makes a
+  # diff between them readable. Columns the schema does not know are kept, at
+  # the end, rather than silently dropped.
+  .fc_out <- as.data.frame(data_list$fleet_control)
+  .fc_order <- c(intersect(.rce_schema_names("fleet_control"), names(.fc_out)),
+                 setdiff(names(.fc_out), .rce_schema_names("fleet_control")))
+  xcel_list$fleet_control <- .fc_out[, .fc_order, drop = FALSE]
   names_used <- c(names_used, "fleet_control")
 
 
@@ -123,32 +147,21 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   if(is.null(data_list$Diet_distribution)){
     data_list$Diet_distribution <- rep(0, data_list$nspp)
   }
-  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 14)
-  bioenergetics_control[1, ] <- data_list$Ceq
-  bioenergetics_control[2, ] <- data_list$Cindex
-  bioenergetics_control[3, ] <- data_list$Pvalue
-  bioenergetics_control[4, ] <- data_list$fday
-  bioenergetics_control[5, ] <- data_list$CA
-  bioenergetics_control[6, ] <- data_list$CB
-  bioenergetics_control[7, ] <- data_list$Qc
-  bioenergetics_control[8, ] <- data_list$Tco
-  bioenergetics_control[9, ] <- data_list$Tcm
-  bioenergetics_control[10, ] <- data_list$Tcl
-  bioenergetics_control[11, ] <- data_list$CK1
-  bioenergetics_control[12, ] <- data_list$CK4
-  bioenergetics_control[13, ] <- data_list$Diet_distribution
-  bioenergetics_control[14, ] <- data_list$Diet_comp_weights
+  # Rows are keyed by the schema's object names, not by hard-coded index, so
+  # there is no second copy of the row order to keep in sync: a reordered schema
+  # reorders the sheet rather than silently mislabelling it. As on the control
+  # sheet, an object the data_list does not carry is dropped before the write,
+  # since assigning a NULL into a fixed-height matrix would abort it.
+  bio_labels <- .rce_schema_names("bioenergetics_control")
+  bio_labels <- bio_labels[vapply(bio_labels,
+                                  function(nm) length(data_list[[nm]]) > 0L,
+                                  logical(1))]
+  bioenergetics_control <- do.call(rbind, lapply(bio_labels, function(nm) {
+    rep(data_list[[nm]], length.out = data_list$nspp)   # per-species, or recycled
+  }))
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  # Object names + order for the bioenergetics sheet come from the schema; the
-  # matrix rows above are assembled by hard-coded index in this exact order, so
-  # assert the schema order matches (guards against a silent mislabel if the
-  # schema's bioenergetics rows are ever reordered).
-  bio_labels <- .rce_schema_names("bioenergetics_control")
-  stopifnot(identical(bio_labels,
-    c("Ceq", "Cindex", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm",
-      "Tcl", "CK1", "CK4", "Diet_distribution", "Diet_comp_weights")))
   bioenergetics_control <- cbind(bio_labels, bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
@@ -231,26 +244,77 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
     alpha_wt_len = 1e-4, beta_wt_len = 3, pop_age_transition_index = 1,
     sigma_rec = 1, other_food = 1e6, estDynamics = 0)
 
-  # fleet_control: one survey + one fishery on canonical column names. The full
-  # column set is written explicitly (some columns -- e.g. Time_varying_q -- are
-  # read by convert_switches()/rearrange_data() and are not schema-defaulted).
-  d$fleet_control <- data.frame(
-    Fleet_name = c("Survey", "Fishery"), Fleet_code = 1:2,
-    Fleet_type = c("Survey", "Fishery"), Species = 1L, Month = 0L,
-    Selectivity_index = 1:2, Selectivity = "Logistic",
-    Selectivity_dimension = "Age", N_sel_bins = NA,
-    Sel_curve_pen1 = NA, Sel_curve_pen2 = NA, Time_varying_sel = 0L,
-    Time_varying_sel_sd = 1, Bin_first_selected = 1L,
-    Sel_norm_bin = NA, Sel_norm_bin_upper = NA,
-    Comp_distribution = "Multinomial", Comp_weights = 1,
-    CAAL_distribution = 0L, CAAL_weights = 1, Observation_units = 1L,
-    Weight_index = 1L, Age_transition_index = 1L,
-    Catchability_index = c(1L, NA), Catchability = c("Fixed", NA),
-    Catchability_init = c(1, NA), Catchability_prior_sd = c(0.2, NA),
-    Time_varying_q = c(0L, NA), Time_varying_q_sd = c(1, NA),
-    Estimate_index_sd = c(0L, NA), Index_sd = c(1, NA),
-    Estimate_catch_sd = c(NA, 0L), Catch_sd = c(NA, 1),
-    Proj_F_proportion = c(NA, 1), stringsAsFactors = FALSE)
+  # fleet_control: one survey + one fishery, on EVERY column the schema defines.
+  #
+  # The column set is derived from the schema rather than written out here, so a
+  # column added to the schema appears in the next template. The hand-written
+  # list this replaces had fallen 14 columns behind -- and a column missing from
+  # the template is how a user never learns the option exists: they fill in what
+  # they were given, and the feature stays off.
+  #
+  # Seed values come from the schema default where there is one, and NA
+  # otherwise. NA is a real answer for most of these ("do not normalize", "no
+  # cap", "no accumulation"), and for the rest it is the honest one: the
+  # template cannot know the fleet's month or its catchability.
+  # A schema default is what the FIT applies when a column is absent. It is not
+  # always the right thing to write into a starter workbook: seeding a column
+  # here supplies a value on the user's behalf, and some columns treat "supplied"
+  # differently from "absent".
+  #
+  # Sel_curve_pen1/2/3 are the case that matters. Their schema default is 0, but
+  # switch_check() converts Sel_shape_sd / Sel_curvature_sd / Sel_devmag_sd into
+  # a penalty weight ONLY where the raw weight is still NA -- so a seeded 0 makes
+  # the documented SD interface silently do nothing, and a non-parametric fit
+  # runs with no shape penalty at all. It also disarms the guard that stops a
+  # model whose non-parametric selectivity has no penalty chosen. Both are
+  # silent, and both change the fitted selectivity, hence SSB, hence the ABC.
+  .no_seed <- c("Sel_curve_pen1", "Sel_curve_pen2", "Sel_curve_pen3")
+
+  .sch_fc <- .rce_schema_names("fleet_control")
+  d$fleet_control <- as.data.frame(
+    stats::setNames(lapply(.sch_fc, function(nm) {
+      row <- .rce_column_schema()[[nm]]
+      if (!nm %in% .no_seed &&
+          !is.null(row$has_default) && isTRUE(row$has_default) &&
+          !is.null(row$default) && length(row$default) == 1L) {
+        rep(row$default, 2L)
+      } else {
+        rep(NA, 2L)
+      }
+    }), .sch_fc),
+    stringsAsFactors = FALSE)
+
+  # The identity and the worked example: one survey, one fishery. Everything
+  # else is a default or a blank for the user to fill in.
+  d$fleet_control$Fleet_name            <- c("Survey", "Fishery")
+  d$fleet_control$Fleet_code            <- 1:2
+  d$fleet_control$Fleet_type            <- c("Survey", "Fishery")
+  d$fleet_control$Species               <- 1L
+  d$fleet_control$Selectivity_index     <- 1:2
+  d$fleet_control$Selectivity           <- "Logistic"
+  d$fleet_control$Selectivity_dimension <- "Age"
+  d$fleet_control$Bin_first_selected    <- 1L
+  d$fleet_control$Comp_distribution     <- "Multinomial"
+  d$fleet_control$Comp_weights          <- 1
+  d$fleet_control$CAAL_distribution     <- 0L
+  d$fleet_control$CAAL_weights          <- 1
+  d$fleet_control$Observation_units     <- 1L
+  d$fleet_control$Weight_index          <- 1L
+  d$fleet_control$Age_transition_index  <- 1L
+  # Catchability applies to the survey; catch error to the fishery.
+  d$fleet_control$Catchability_index    <- c(1L, NA)
+  d$fleet_control$Catchability          <- c("Fixed", NA)
+  d$fleet_control$Catchability_init     <- c(1, NA)
+  d$fleet_control$Catchability_prior_sd <- c(0.2, NA)
+  d$fleet_control$Time_varying_q        <- c(0L, NA)
+  d$fleet_control$Time_varying_q_sd     <- c(1, NA)
+  d$fleet_control$Estimate_index_sd     <- c(0L, NA)
+  d$fleet_control$Index_sd              <- c(1, NA)
+  d$fleet_control$Estimate_catch_sd     <- c(NA, 0L)
+  d$fleet_control$Catch_sd              <- c(NA, 1)
+  d$fleet_control$Proj_F_proportion     <- c(NA, 1)
+  d$fleet_control$Time_varying_sel      <- 0L
+  d$fleet_control$Time_varying_sel_sd   <- 1
 
   # Placeholder observations (flat) -- replace with real data before fitting.
   d$index_data <- data.frame(Fleet_name = "Survey", Fleet_code = 1L, Species = 1L,
@@ -385,8 +449,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   # Coerce a per-species control/bioenergetics row to numeric, but error on a
   # non-empty cell that is not a number (a typo like "O.5" or a stray label)
-  # rather than silently turning it into NA -- which used to propagate a wrong
-  # default deep into the fit. Genuinely empty / NA cells stay NA.
+  # rather than turning it into NA, which would carry a wrong default into the
+  # fit. Genuinely empty / NA cells stay NA.
   checked_numeric <- function(x, object, sheet) {
     chr <- trimws(as.character(x))
     num <- suppressWarnings(as.numeric(chr))

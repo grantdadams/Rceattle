@@ -73,6 +73,14 @@ testthat::test_that("a sel linkage on a logistic fleet is estimated and moves th
 
 testthat::test_that("a right_floor (log-link) linkage on a double-normal fits and stays bounded", {
   testthat::skip_on_cran()
+  # An unphased double-normal fit of the whole GOA fleet set, and by far the most
+  # expensive test in the suite under coverage: covr rebuilds the TMB model at
+  # -O0, so this one block is 27 s here and ~26 minutes there -- 79% of a file
+  # that was measured at 33 minutes and set the floor for the slowest shard. The
+  # R it covers is the same linkage machinery the two fits above already run at a
+  # tenth of the cost; what is unique to it is the numerical result, and that is
+  # R-CMD-check's job.
+  testthat::skip_on_covr()
   # right_floor is logit-parameterised (sel_inf(1) = logit(right_floor)), so a log-link
   # linkage offset must act on the logit, not multiply the probability (which could push
   # right_floor > 1 and corrupt the descending limb). Here the fit must stay finite and
