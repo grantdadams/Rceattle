@@ -128,6 +128,12 @@
 #'   the attempt. Only the continuous group is parallelized; the discrete
 #'   (randomized-quantile) path always runs serially so it stays reproducible
 #'   given `seed`.
+#'
+#'   **A DSEM fit always computes serially, whatever you pass.** Fitting one
+#'   loads the `dsem` DLL alongside `ceattle`, and TMB will not choose between
+#'   two loaded models ("Multiple TMB models loaded. Failed to guess DLL name."),
+#'   so the parallel attempt is skipped and a message says so. The residuals are
+#'   unaffected; only the run time is.
 #' @param seed Random seed passed to [TMB::oneStepPredict()] for reproducibility
 #'   of randomized-quantile residuals. Default `123`.
 #' @param trace Logical; print [TMB::oneStepPredict()] progress. Default `FALSE`.
@@ -292,10 +298,19 @@ osa_residuals <- function(object = NULL,
   # sel <- sel[order(sel$year, match(sel$source, source), sel$fleet_code,
   #                 sel$bin_index, na.last = TRUE), , drop = FALSE]
 
-  # Order by source, then year, fleet, bin. This reproduces WHAM's
-  # make_osa_residuals() conditioning: the covariate (ecov) is residualized first
-  # and standalone, then index/catch -> comp -> CAAL each conditional on the
+  # Order by source, then year, fleet, bin: the covariate (ecov) is residualized
+  # first and standalone, then index/catch -> comp -> CAAL each conditional on the
   # earlier types.
+  #
+  # This is the order that agrees with WHAM, MEASURED rather than assumed. WHAM's
+  # own obsvec is year-major (its `ind` cycles logindex, logcatch, indexpal,
+  # catchpal, indexcaal within each year), so the chronological alternative below
+  # looks like the closer match -- and is not. Against WHAM's cached residuals on
+  # the GOAcod growth comparison, source-major gives survey-lencomp r = 0.99995
+  # (median |difference| 3.6e-5, 2.4% of bins over 0.01) and CAAL r = 0.99998;
+  # switching to year-major degrades every one of them -- survey lencomp to
+  # r = 0.99764 with 34% of bins over 0.01, catch from r = 0.909 to 0.718. Do not
+  # "fix" this to match WHAM's obsvec layout; it is already the better match.
   sel <- sel[order(match(sel$source, source), sel$year, sel$fleet_code,
                     sel$bin_index, na.last = TRUE), , drop = FALSE]
 

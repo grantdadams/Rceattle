@@ -55,7 +55,13 @@ own "irrecoverable exception" message, which comes from C and cannot be
 suppressed. That message does not mean the call failed. Pass \code{FALSE} to skip
 the attempt. Only the continuous group is parallelized; the discrete
 (randomized-quantile) path always runs serially so it stays reproducible
-given \code{seed}.}
+given \code{seed}.
+
+\strong{A DSEM fit always computes serially, whatever you pass.} Fitting one
+loads the \code{dsem} DLL alongside \code{ceattle}, and TMB will not choose between
+two loaded models ("Multiple TMB models loaded. Failed to guess DLL name."),
+so the parallel attempt is skipped and a message says so. The residuals are
+unaffected; only the run time is.}
 
 \item{seed}{Random seed passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} for reproducibility
 of randomized-quantile residuals. Default \code{123}.}
