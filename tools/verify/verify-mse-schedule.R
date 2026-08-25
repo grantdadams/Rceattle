@@ -118,12 +118,33 @@ results["skip_differs"] <- report(
   "skipping an assessment changes the trajectory",
   !isTRUE(all.equal(om_catch(mse_skip)$Catch, c_period$Catch)))
 
-# It must also not be the triennial period it superficially resembles: a period
+# It must also not be the biennial period it superficially resembles: a period
 # of 2 from 2017 is c(2019), a different schedule over a different horizon.
 results["skip_not_period"] <- report(
   "a skipped schedule is not the equivalent period",
   !identical(.mse_assess_years(c(2018, 2020), ENDYR, 2020),
-             .mse_assess_years(2, ENDYR, 2020)))
+             suppressWarnings(.mse_assess_years(2, ENDYR, 2020))))
+
+# The trailing years of a schedule that stops short carry NA catch, which is
+# what the short-schedule warning exists to report. Asserted against the run
+# rather than the helper, because it is a property of the loop's fill window.
+mse_short <- run(assessment_period = c(2018, 2019))
+short_cd  <- mse_short$Sim_1$OM$data_list$catch_data
+results["short_schedule_na"] <- report(
+  "a schedule stopping short leaves the trailing years' catch NA",
+  all(is.na(short_cd$Catch[short_cd$Year == 2020])) &&
+    !any(is.na(short_cd$Catch[short_cd$Year %in% 2018:2019])))
+
+warned <- character(0)
+withCallingHandlers(
+  .mse_assess_years(c(2018, 2019), ENDYR, 2020),
+  warning = function(w) {
+    warned <<- c(warned, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  })
+results["short_schedule_warns"] <- report(
+  "and the short schedule is warned about",
+  any(grepl("catch in 2020 is never set", warned)))
 
 # --- 3. A year-indexed catch multiplier moves only the years it names ------
 buffer <- expand.grid(Year = 2020, Species = seq_len(NSPP))

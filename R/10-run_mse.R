@@ -192,8 +192,10 @@
            "period, or list two or more assessment years.", call. = FALSE)
     }
 
-    return(seq(from = om_endyr + assessment_period, to = max_yr,
-               by = assessment_period))
+    return(.mse_warn_short_schedule(
+      seq(from = om_endyr + assessment_period, to = max_yr,
+          by = assessment_period),
+      max_yr))
   }
 
   # * An explicit schedule ----
@@ -219,6 +221,37 @@
          call. = FALSE)
   }
 
+  .mse_warn_short_schedule(assess_yrs, max_yr)
+}
+
+# A schedule that stops short of the projection horizon leaves the trailing
+# years with no catch at all: run_mse() only ever fills catch up to the last
+# assessment, so those years keep the NA the projection rows were created with.
+#
+# mse_summary() then counts them anyway. `projyrs` there runs to the models'
+# own projyr, so the NA years sit in the denominator of P(Closed) but not its
+# numerator, in both halves of Catch IAV, and outside the na.rm mean that is
+# Average Catch. All three come out low, with nothing in the table saying which
+# years were summarised. A biennial cycle over an odd number of projection
+# years lands here every time -- 2027(2)2049 against a 2050 horizon.
+#
+# Warned rather than refused: a schedule that stops short is a legitimate
+# design, it just has to be summarised over the years it covers.
+.mse_warn_short_schedule <- function(assess_yrs, max_yr) {
+  last <- max(assess_yrs)
+  if (last < max_yr) {
+    unfished <- if (last + 1 == max_yr) {
+      as.character(max_yr)
+    } else {
+      paste0(last + 1, "-", max_yr)
+    }
+    warning("The last assessment is in ", last, " but the projection runs to ",
+            max_yr, ", so catch in ", unfished, " is never set. Those years ",
+            "carry NA, and mse_summary() understates Average Catch, Catch IAV ",
+            "and P(Closed) because it summarises over the whole projection. ",
+            "Either extend the schedule to ", max_yr, ", or set projyr to ",
+            last, " in both models.", call. = FALSE)
+  }
   assess_yrs
 }
 
@@ -265,9 +298,9 @@
     off <- catch_mult$Year[catch_mult$Year < proj_first |
                              catch_mult$Year > proj_last]
     if (length(off)) {
-      stop("`catch_mult$Year` must be a projection year (", proj_first, ":",
-           proj_last, "); got ", paste(sort(unique(off)), collapse = ", "), ".",
-           call. = FALSE)
+      stop("`catch_mult$Year` must be a year the assessment schedule covers (",
+           proj_first, ":", proj_last, "); got ",
+           paste(sort(unique(off)), collapse = ", "), ".", call. = FALSE)
     }
 
     key <- paste(catch_mult$Year, catch_mult$Species)
@@ -323,7 +356,7 @@
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL
-#' @param catch_mult A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists. Default = NULL
+#' @param catch_mult A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists, where \code{Year} is a year the assessment schedule covers. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
@@ -357,6 +390,14 @@
 #' from a period, and the two readings are a world apart, so it is refused
 #' rather than guessed at.
 #'
+#' Make the last assessment year reach the projection horizon. Catch is only
+#' ever filled up to the last assessment, so a schedule that stops short leaves
+#' the trailing years at `NA`, and `mse_summary()` summarises over the whole
+#' projection --- understating Average Catch, Catch IAV and P(Closed) with
+#' nothing in the table to say which years it covered. A biennial cycle over an
+#' odd number of projection years lands here every time, so this is warned
+#' about, for a period and a schedule alike.
+#'
 #' # Catch multiplier
 #'
 #' `catch_mult` multiplies the catch the estimation model's control rule
@@ -372,7 +413,10 @@
 #' ```
 #'
 #' `Species` is the species number, matching the catch data's own column, and
-#' any (year, species) pair the table omits is multiplied by 1.
+#' any (year, species) pair the table omits is multiplied by 1. `Year` must be
+#' a year the assessment schedule actually covers --- from the operating
+#' model's terminal year to the last assessment, which is where catch is
+#' filled, not the whole projection.
 #'
 #' Note that this reduces catch, not ABC. Where realized catch sits well below
 #' ABC -- GOA arrowtooth flounder, for one -- reducing ABC changes removals only
@@ -422,12 +466,6 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       stop("cap is not length 1 or length nspp")
     }
   }
-
-  # - Adjust catch multiplier
-  catch_mult <- .mse_check_catch_mult(catch_mult,
-                                      nspp       = om$data_list$nspp,
-                                      proj_first = om$data_list$endyr + 1,
-                                      proj_last  = om$data_list$projyr)
 
   # na.rm: Proj_F_proportion is NA for fleets that never take catch (surveys),
   # which is a legitimate workbook value. Without it the sum is NA and the `if`
@@ -484,6 +522,17 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     om_endyr = om$data_list$endyr,
     max_yr   = min(c(om$data_list$projyr, em$data_list$projyr, endyr),
                    na.rm = TRUE))
+
+  # - Adjust catch multiplier
+  # Checked against the years catch is actually FILLED for, which is the
+  # assessment schedule's own span -- not the projection horizon. The loop only
+  # writes catch up to the last assessment, so a multiplier named for a later
+  # year applies nowhere, which is the silent no-op this validation exists to
+  # catch.
+  catch_mult <- .mse_check_catch_mult(catch_mult,
+                                      nspp       = om$data_list$nspp,
+                                      proj_first = om$data_list$endyr + 1,
+                                      proj_last  = max(assess_yrs))
 
   # - Data sampling period
   if(length(sampling_period)==1){

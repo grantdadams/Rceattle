@@ -21,8 +21,30 @@ test_that("a scalar assessment_period is the regular grid it always was", {
                2021:2025)
 
   # The grid stops at max_yr rather than stepping past it.
-  expect_equal(.mse_assess_years(4, om_endyr = 2020, max_yr = 2030),
+  expect_equal(suppressWarnings(.mse_assess_years(4, om_endyr = 2020,
+                                                  max_yr = 2030)),
                c(2024, 2028))
+})
+
+
+test_that("a schedule that stops short of the horizon warns", {
+  # run_mse() fills catch only up to the last assessment, and mse_summary()
+  # summarises over the models' whole projection -- so the trailing NA years
+  # sit in the denominator of P(Closed) and Catch IAV but contribute nothing.
+  # A biennial cycle over an odd number of projection years lands here every
+  # time: 2022(2)2028 against a 2029 horizon, or 2027(2)2049 against 2050.
+  expect_warning(.mse_assess_years(2, om_endyr = 2020, max_yr = 2029),
+                 "catch in 2029 is never set")
+  expect_warning(.mse_assess_years(4, om_endyr = 2020, max_yr = 2030),
+                 "catch in 2029-2030 is never set")
+  expect_warning(.mse_assess_years(c(2022, 2024), om_endyr = 2020,
+                                   max_yr = 2030),
+                 "understates Average Catch")
+
+  # Reaching the horizon exactly is the quiet case, on both paths.
+  expect_silent(.mse_assess_years(2, om_endyr = 2020, max_yr = 2030))
+  expect_silent(.mse_assess_years(c(2022, 2030), om_endyr = 2020,
+                                  max_yr = 2030))
 })
 
 
@@ -35,13 +57,14 @@ test_that("a vector assessment_period is the schedule itself", {
 
   # Sorted and de-duplicated, so the order the caller happened to build them in
   # does not change which year the loop treats as terminal.
-  expect_equal(.mse_assess_years(c(2028, 2022, 2028, 2024),
-                                 om_endyr = 2020, max_yr = 2030),
+  expect_equal(suppressWarnings(.mse_assess_years(c(2028, 2022, 2028, 2024),
+                                                  om_endyr = 2020,
+                                                  max_yr = 2030)),
                c(2022, 2024, 2028))
 
   # The skipped schedule is NOT the triennial grid it superficially resembles.
   expect_false(identical(.mse_assess_years(skipped, 2020, 2030),
-                         .mse_assess_years(3, 2020, 2030)))
+                         suppressWarnings(.mse_assess_years(3, 2020, 2030))))
 })
 
 
@@ -151,11 +174,17 @@ test_that("catch_mult is validated at the call, in either form", {
                                      nspp = 3, 2021, 2030),
                "missing Species")
 
-  # A year outside the projection could never be applied, so a typo would
-  # otherwise read as "no reduction" in a run that looks like it worked.
+  # A year the schedule never reaches could never be applied, so a typo would
+  # otherwise read as "no reduction" in a run that looks like it worked. The
+  # upper bound is the LAST ASSESSMENT year, not projyr: run_mse() fills catch
+  # only up to the last assessment, so a multiplier named for a later year
+  # applies nowhere even though it is inside the projection.
   expect_error(.mse_check_catch_mult(data.frame(Year = 2019, Species = 1, mult = 0.9),
                                      nspp = 3, 2021, 2030),
-               "must be a projection year")
+               "a year the assessment schedule covers")
+  expect_error(.mse_check_catch_mult(data.frame(Year = 2029, Species = 1, mult = 0.9),
+                                     nspp = 3, 2021, 2028),
+               "2021:2028")
 
   expect_error(.mse_check_catch_mult(data.frame(Year = 2022, Species = 4, mult = 0.9),
                                      nspp = 3, 2021, 2030),

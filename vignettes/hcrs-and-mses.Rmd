@@ -290,6 +290,8 @@ mse7 <- run_mse(
 
 Run these against a baseline that differs *only* in the schedule — same `om`, same `em`, same `seed` — so each replicate sees the same recruitment deviations and the same observation error, and the scenarios can be compared as paired within-replicate differences.
 
+Make the last assessment year reach the projection horizon. Catch is filled only up to the last assessment, so a schedule that stops short leaves the trailing years at `NA` — and `mse_summary()` summarises over the whole projection, understating average catch, catch IAV and P(Closed) with nothing in the table to say so. A biennial cycle over an odd number of projection years lands here every time: `seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon. `run_mse()` warns when it happens.
+
 One caveat to carry into any write-up: `catch_mult` multiplies catch, not ABC. A real ABC reduction changes removals only to the extent the fishery attains ABC, and for a stock whose catch sits well below ABC it changes them hardly at all. Either scale the multiplier by recent attainment, `1 - (1 - mult) * attainment`, or report the unscaled result as an upper bound on the effect of the reduction.
 
 ------------------------------------------------------------------------

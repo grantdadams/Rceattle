@@ -53,7 +53,7 @@ run_mse(
 
 \item{cap}{A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL}
 
-\item{catch_mult}{A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists. Default = NULL}
+\item{catch_mult}{A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists, where \code{Year} is a year the assessment schedule covers. Default = NULL}
 
 \item{seed}{seed for the simulation}
 
@@ -97,6 +97,14 @@ questions, and the second does not answer the first.
 A schedule must name two or more years. One year on its own cannot be told
 from a period, and the two readings are a world apart, so it is refused
 rather than guessed at.
+
+Make the last assessment year reach the projection horizon. Catch is only
+ever filled up to the last assessment, so a schedule that stops short leaves
+the trailing years at \code{NA}, and \code{mse_summary()} summarises over the whole
+projection --- understating Average Catch, Catch IAV and P(Closed) with
+nothing in the table to say which years it covered. A biennial cycle over an
+odd number of projection years lands here every time, so this is warned
+about, for a period and a schedule alike.
 }
 
 \section{Catch multiplier}{
@@ -112,7 +120,10 @@ run_mse(om, em, assessment_period = setdiff(biennial, 2031),
 }\if{html}{\out{</div>}}
 
 \code{Species} is the species number, matching the catch data's own column, and
-any (year, species) pair the table omits is multiplied by 1.
+any (year, species) pair the table omits is multiplied by 1. \code{Year} must be
+a year the assessment schedule actually covers --- from the operating
+model's terminal year to the last assessment, which is where catch is
+filled, not the whole projection.
 
 Note that this reduces catch, not ABC. Where realized catch sits well below
 ABC -- GOA arrowtooth flounder, for one -- reducing ABC changes removals only

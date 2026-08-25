@@ -50,6 +50,23 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `seq()` reporting on the sign of its `by` argument. Nothing that produced a
   usable number is refused.
 
+* **A schedule that stops short of the projection horizon now warns.** Catch is
+  only ever filled up to the last assessment, so the trailing years keep the
+  `NA` their projection rows were created with — and `mse_summary()` summarises
+  over the models' whole projection regardless. Those `NA` years sit in the
+  denominator of `P(Closed)` but not its numerator, in both halves of
+  `Catch IAV`, and outside the `na.rm` mean that is `Average Catch`. All three
+  come out low, with nothing in the table saying which years were covered.
+
+  A biennial cycle over an odd number of projection years lands here every
+  time: `seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon. The
+  warning names the years and both fixes — extend the schedule, or set `projyr`
+  to the last assessment year.
+
+  Warned rather than refused, because a short schedule is a legitimate design;
+  it just has to be summarised over the years it covers. This fires for a
+  scalar period too, where the defect is older than the vector API.
+
 * **`run_mse(catch_mult =)` takes a `data.frame` of `Year`, `Species` and
   `mult`.** A single number or a vector of length `nspp` is unchanged and
   applies in every projection year. A `data.frame` applies only in the year and
@@ -67,9 +84,11 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
   `Species` is the species number, matching the catch data's own column.
   The table is validated at the call rather than inside the simulation loop: a
-  year outside the projection, a species number out of range, a non-finite or
-  negative multiplier, and two rows for the same year and species are all
-  errors. Each of those otherwise reads as *no reduction* — `match()` returns
+  year the assessment schedule does not cover, a species number out of range, a
+  non-finite or negative multiplier, and two rows for the same year and species
+  are all errors. The year bound is the **last assessment year**, not `projyr`
+  — catch is filled only up to the last assessment, so a multiplier named for a
+  later year is inside the projection and still applies nowhere. Each of those otherwise reads as *no reduction* — `match()` returns
   `NA` for an unmatched pair and takes the first of a duplicated one — in a run
   that finishes and looks ordinary. A vector `catch_mult` is now checked for
   finiteness and sign for the same reason.
