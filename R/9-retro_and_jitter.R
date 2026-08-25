@@ -422,64 +422,16 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
     # * Adjust map size ----
-    # Turn off forecasted parameters -- but NOT the ones that are random
-    # effects. A pinned deviation is still scored by its density, and "the
-    # deviation was exactly zero" is the strongest possible evidence for a small
-    # process SD; leaving a random effect free lets the Laplace approximation
-    # integrate it out instead, which is what no data should mean. The NEWS
-    # entry for 5.15.0 carries the measured bias (-6.6% at peels = 5).
-    #
-    # A block is freed only if it is BOTH a random effect and scored by a
-    # NORMALIZED density: the Laplace integral over a data-free tail is exactly
-    # 1 for a normalized Gaussian, so freeing it removes the fabricated term and
-    # nothing else. The two selectivity kernels below are written dd^2/(2 sd^2)
-    # with no dnorm constant, so freeing their tail would push sel_dev_log_sd UP.
-    map <- object$map
-    # random_vars is recorded by fit_mod() at the HINDCAST build, and is the one
-    # source of truth. object$obj$env$random is not: under estimateMode = 0 with
-    # a harvest control rule that object is the projection object, whose map
-    # turns every hindcast entry off, so its `random` declaration is empty and
-    # every block reads as a fixed effect. .states_supply below reads the same
-    # field, so the two cannot disagree.
-    .re_names <- object$random_vars
-    if (is.null(.re_names)) {
-      warning("This fit does not record which blocks were random effects ",
-              "(fit_mod() before 5.10.0). The peel will pin every deviation, ",
-              "which shrinks the estimated process SDs with peel depth. Refit ",
-              "to get an unbiased retrospective.", call. = FALSE)
-      .re_names <- character(0)
-    }
-    .UNNORMALIZED <- c("sel_coff_dev")
-    .pin <- function(nm) !(nm %in% setdiff(.re_names, .UNNORMALIZED))
-    if (.pin("rec_dev")) {
-      map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
-      map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
-    }
-
-    if (.pin("log_M1_dev")) {
-      map$mapList$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
-      map$mapFactor$log_M1_dev <- factor(map$mapList$log_M1_dev)
-    }
-
-    if (.pin("index_q_dev")) {
-      map$mapList$index_q_dev[,(nyrs_peel+1):nyrs] <- NA
-      map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
-    }
-
-    if (.pin("log_sel_slp_dev")) {
-      map$mapList$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
-      map$mapFactor$log_sel_slp_dev <- factor(map$mapList$log_sel_slp_dev)
-    }
-
-    if (.pin("sel_inf_dev")) {
-      map$mapList$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- NA
-      map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
-    }
-
-    if (.pin("sel_coff_dev")) {
-      map$mapList$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- NA
-      map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
-    }
+    # Which deviations the peel holds fixed. Extracted so the decision can be
+    # exercised directly: it depends on convergence of nothing, but reaching it
+    # through a fitted retrospective needs a model that converges, and the
+    # selectivity forms it distinguishes are exactly the ones hardest to fit.
+    map <- .rce_peel_map(object$map,
+                         random_vars    = object$random_vars,
+                         fleet_control  = object$data_list$fleet_control,
+                         nyrs_peel      = nyrs_peel,
+                         nyrs           = nyrs,
+                         nyrs_proj      = nyrs_proj)
 
     # -- Map out Fdev for years with 0 catch to very low number
     zero_catch <- data_list$catch_data |>
@@ -582,6 +534,19 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     # inherited from inits.
     .states_supply <- .use_model_rec && !.mean_rec &&
       (.has_dsem(newmod) || !.pin("rec_dev"))
+    # Say so when `forecast_rec = "model"` resolves to the mean anyway. A peel's
+    # forecast years are HINDCAST years, so proj_mean_rec -- a projection switch
+    # -- reaching them is a surprise, and build_srr() defaults it to TRUE: every
+    # model fitted without naming it gets Mohn's rho identical under both
+    # settings, and hindcast_skill(), which defaults to "model" precisely to tell
+    # projection methods apart, cannot. Once per call, not once per peel.
+    if (.use_model_rec && .mean_rec && i == 1L) {
+      warning("forecast_rec = \"model\" is inert on this fit: proj_mean_rec = ",
+              "TRUE, so the peeled years take mean recruitment and Mohn's rho ",
+              "will match forecast_rec = \"mean\". Refit with ",
+              "build_srr(proj_mean_rec = FALSE) for the model's own process to ",
+              "supply the forecast.", call. = FALSE)
+    }
     if (!.states_supply) for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
@@ -1817,3 +1782,192 @@ profile.Rceattle <- function(fitted = NULL,
   ))
 }
 
+
+
+#' Which fleets' selectivity deviations are scored by an UNNORMALIZED kernel.
+#'
+#' A random effect's peeled tail can be freed only where the density scoring it is
+#' normalized. The Laplace integral over a data-free tail is then exactly 1, so
+#' freeing it removes the fabricated "the deviation was exactly zero" evidence and
+#' changes nothing else. Several selectivity forms carry the ADMB/AMAK lineage's
+#' bare sums of squares instead, with no dnorm constant: marginalizing one of
+#' those contributes -k * log(sel_dev_sd) to the objective, which drives the
+#' estimated SD UP with peel depth -- the same bias as pinning, in the other
+#' direction. Those fleets stay pinned.
+#'
+#' From ceattle.cpp slots 4-5, by Selectivity form:
+#'
+#'   sel_coff_dev   normalized  Hake -- dnorm(dev, 0, sel_dev_sd);
+#'                              2DAR1 -- SCALE(SEPARABLE(AR1, AR1));
+#'                              3DAR1 -- GMRF(Q)
+#'                  bare SSQ    NonParametric and NonParametricPM (decreasing,
+#'                              curvature, random-walk and dev-magnitude
+#'                              penalties); LogisticPM (weighted first difference
+#'                              of realized log selectivity)
+#'
+#'   log_sel_slp_dev, sel_inf_dev
+#'                  normalized  every form that estimates them -- the IID and
+#'                              random-walk branches are all dnorm(..., true)
+#'                  bare SSQ    LogisticPM only, whose free age-1 deviate random
+#'                              walk is sel_curve_pen * (dev_t - dev_{t-1})^2
+#'
+#' Decided per Selectivity_index GROUP, not per fleet. Fleets sharing an index
+#' share ONE parameter block through shared map levels, so pinning one member
+#' while freeing another would leave the pinned fleet's cells at their starting
+#' value while the shared level moved -- two fleets that must have identical
+#' selectivity would silently stop sharing it in the peeled years.
+#'
+#' @param fleet_control the model's `fleet_control` table.
+#' @return A list of integer fleet-row vectors: `sel_coff_dev` and `limb`.
+#' @noRd
+.rce_sel_unnormalized_rows <- function(fleet_control) {
+  sel_map <- .rce_allowed_map("Selectivity")
+
+  # The forms whose sel_coff_dev density is normalized, and the one form whose
+  # limb deviates are not.
+  coff_normalized <- c("Hake", "2DAR1", "3DAR1")
+  limb_unnormalized <- "LogisticPM"
+
+  # Assert rather than intersect quietly. A renamed or retired form would leave
+  # an empty code set, and an empty set here reads as "nothing is unnormalized"
+  # -- it would free a tail that must stay pinned, silently, which is the defect
+  # this function exists to prevent.
+  need <- c(coff_normalized, limb_unnormalized)
+  if (!all(need %in% names(sel_map))) {
+    stop("Internal: the Selectivity map no longer names ",
+         paste(setdiff(need, names(sel_map)), collapse = ", "),
+         "; retrospective() cannot tell which selectivity deviations are ",
+         "scored by a normalized density.", call. = FALSE)
+  }
+
+  # fleet_control$Selectivity holds names on a workbook that has been through
+  # revert_switches() and integer codes on one that has not, so read both.
+  .is_form <- function(nms) {
+    codes <- unname(sel_map[nms])
+    s  <- fleet_control$Selectivity
+    si <- suppressWarnings(as.integer(as.character(s)))
+    (!is.na(si) & si %in% codes) | (as.character(s) %in% nms)
+  }
+
+  n   <- nrow(fleet_control)
+  grp <- fleet_control$Selectivity_index
+  # A fleet with no Selectivity_index shares with nobody, so it is its own
+  # group. Same idiom as .sel_start_year_by_group() in rearrange_data().
+  grp <- if (is.null(grp)) paste0("_row", seq_len(n)) else
+    ifelse(is.na(grp), paste0("_row", seq_len(n)), as.character(grp))
+
+  widen <- function(bad) which(grp %in% unique(grp[bad]))
+
+  list(
+    # Anything that is not one of the three normalized forms. A fleet whose form
+    # does not use sel_coff_dev at all is included and is a no-op: build_map()
+    # has already mapped those cells out.
+    sel_coff_dev = widen(!.is_form(coff_normalized)),
+    limb         = widen(.is_form(limb_unnormalized))
+  )
+}
+
+
+#' The map a retrospective peel runs under: which deviations it holds fixed over
+#' the years the peel did not see.
+#'
+#' Turn off forecasted parameters -- but NOT the ones that are random effects. A
+#' pinned deviation is still scored by its density, and "the deviation was exactly
+#' zero" is the strongest possible evidence for a small process SD; leaving a
+#' random effect free lets the Laplace approximation integrate it out instead,
+#' which is what no data should mean. The NEWS entry for 5.15.0 carries the
+#' measured bias (-6.6% on sigma at 5 peels, monotone in peel depth, so it becomes
+#' a trend in the quantity Mohn's rho measures).
+#'
+#' A block is freed only if it is BOTH a random effect and scored by a NORMALIZED
+#' density: the Laplace integral over a data-free tail is exactly 1 for a
+#' normalized Gaussian, so freeing it removes the fabricated term and nothing
+#' else. Several selectivity forms are bare sums of squares with no dnorm
+#' constant, and those stay pinned -- but PER FLEET, not per block, because the
+#' exempt forms are a property of the fleet; see .rce_sel_unnormalized_rows().
+#'
+#' @param map the parent fit's `map` (`mapList` + `mapFactor`).
+#' @param random_vars `fit$random_vars`, recorded by fit_mod() at the HINDCAST
+#'   build. This is the one source of truth -- `obj$env$random` is not: under
+#'   estimateMode = 0 with a harvest control rule that object is the PROJECTION
+#'   object, whose map turns every hindcast entry off, so its `random` declaration
+#'   is empty and every block reads as a fixed effect.
+#' @param fleet_control the model's fleet table, for the selectivity forms.
+#' @param nyrs_peel,nyrs,nyrs_proj retained hindcast years, total hindcast years,
+#'   and total years including the projection.
+#' @return `map`, with the peeled tail of each pinned block set to NA.
+#' @noRd
+.rce_peel_map <- function(map, random_vars, fleet_control,
+                          nyrs_peel, nyrs, nyrs_proj) {
+  if (is.null(random_vars)) {
+    warning("This fit does not record which blocks were random effects ",
+            "(fit_mod() before 5.10.0). The peel will pin every deviation, ",
+            "which shrinks the estimated process SDs with peel depth. Refit ",
+            "to get an unbiased retrospective.", call. = FALSE)
+    random_vars <- character(0)
+  }
+  pin <- function(nm) !(nm %in% random_vars)
+  has <- function(nm) !is.null(map$mapList[[nm]])
+  relevel <- function(nm) factor(map$mapList[[nm]])
+
+  peeled_hind <- (nyrs_peel + 1):nyrs
+  peeled_all  <- (nyrs_peel + 1):nyrs_proj
+
+  # rec_dev is [species, year]; log_M1_dev is [species, sex, age, year]; both run
+  # through the projection. index_q_dev is [fleet, year], hindcast only.
+  if (pin("rec_dev") && has("rec_dev")) {
+    map$mapList$rec_dev[, peeled_all] <- NA
+    map$mapFactor$rec_dev <- relevel("rec_dev")
+  }
+  if (pin("log_M1_dev") && has("log_M1_dev")) {
+    map$mapList$log_M1_dev[, , , peeled_all] <- NA
+    map$mapFactor$log_M1_dev <- relevel("log_M1_dev")
+  }
+  if (pin("index_q_dev") && has("index_q_dev")) {
+    map$mapList$index_q_dev[, peeled_hind] <- NA
+    map$mapFactor$index_q_dev <- relevel("index_q_dev")
+  }
+
+  # Selectivity is decided PER FLEET. One model can carry a 3DAR1 fleet, whose
+  # deviations are a proper GMRF and must be freed, beside a NonParametricPM
+  # fleet, whose penalty is a bare SSQ and must stay pinned; pinning the whole
+  # block for the second fleet's sake reintroduces the shrinkage on the first.
+  #
+  # The selectivity dimension is indexed by fleet ROW -- Fleet_code equals the
+  # row number, and build_params() dimensions these arrays by
+  # nrow(fleet_control).
+  sel_un <- .rce_sel_unnormalized_rows(fleet_control)
+  # dim() is NULL for a block this model does not carry, which is not an error --
+  # there is simply nothing to pin. Only a PRESENT block whose fleet dimension
+  # disagrees with fleet_control is one, because the row indices would then pin
+  # the wrong fleets.
+  n_sel <- dim(map$mapList$sel_coff_dev)[1]
+  n_flt <- nrow(fleet_control)
+  if (!is.null(n_sel) && !identical(as.integer(n_sel), as.integer(n_flt))) {
+    stop("sel_coff_dev has ", n_sel, " selectivity rows but fleet_control has ",
+         n_flt, "; the peel cannot tell which fleet's deviations are scored by ",
+         "which density.", call. = FALSE)
+  }
+  all_sel <- if (is.null(n_sel)) integer(0) else seq_len(n_sel)
+
+  # The limb deviates are [limb, selectivity, sex, year], so the fleet rows index
+  # the SECOND dimension.
+  slp_rows <- if (pin("log_sel_slp_dev")) all_sel else sel_un$limb
+  if (length(slp_rows) && has("log_sel_slp_dev")) {
+    map$mapList$log_sel_slp_dev[, slp_rows, , peeled_hind] <- NA
+    map$mapFactor$log_sel_slp_dev <- relevel("log_sel_slp_dev")
+  }
+  inf_rows <- if (pin("sel_inf_dev")) all_sel else sel_un$limb
+  if (length(inf_rows) && has("sel_inf_dev")) {
+    map$mapList$sel_inf_dev[, inf_rows, , peeled_hind] <- NA
+    map$mapFactor$sel_inf_dev <- relevel("sel_inf_dev")
+  }
+  # sel_coff_dev is [selectivity, sex, bin, year] -- rows index the FIRST.
+  coff_rows <- if (pin("sel_coff_dev")) all_sel else sel_un$sel_coff_dev
+  if (length(coff_rows) && has("sel_coff_dev")) {
+    map$mapList$sel_coff_dev[coff_rows, , , peeled_hind] <- NA
+    map$mapFactor$sel_coff_dev <- relevel("sel_coff_dev")
+  }
+
+  map
+}

@@ -355,6 +355,8 @@ Two things to know when reading it. `reference = "observed"` scores the peel's p
 
 `hindcast_skill()` defaults to `forecast_rec = "model"`, which hands the peeled years to the model's own projection rule; `retrospective()` defaults to `"mean"`, the convention Mohn's rho has always been computed under. Without that difference every model forecasts identically and the comparison says nothing.
 
+**`forecast_rec = "model"` needs `build_srr(proj_mean_rec = FALSE)`.** `proj_mean_rec` takes precedence, and it defaults to `TRUE`, so a model fitted without naming it projects the peeled years at mean recruitment whatever process it carries — and `hindcast_skill()` then cannot tell projection methods apart, which is the one thing it exists to do. Measured on the GOA arrowtooth DSEM: `forecast_rec = "mean"` and `"model"` returned identical Mohn's rho to every digit. `retrospective()` says so when it happens.
+
 ## Jitter testing
 
 Jitter testing re-fits the model from many randomly perturbed starting values and checks whether the optimizer keeps returning the same minimum negative log-likelihood (NLL). A spread of NLL values across jitters points to multiple local minima, so the results should be treated with caution.

@@ -13,6 +13,69 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 # Rceattle 5.19.0
 
+## Bug fixes
+
+* **A retrospective peel no longer shrinks a random-effect SELECTIVITY SD.**
+  5.15.0 stopped pinning the peeled tail of a random-effect block -- a pinned
+  deviation is still scored by its density, and "the deviation was exactly zero"
+  is the strongest possible evidence for a small process SD -- but exempted
+  selectivity wholesale, so `random_sel = TRUE` kept the full bias (-6.6% on
+  sigma at 5 peels, monotone in peel depth, and therefore a trend in what Mohn's
+  rho measures).
+
+  The exemption had a real reason and the wrong scope. Several selectivity forms
+  carry the ADMB/AMAK lineage's bare sums of squares rather than a normalized
+  density, and marginalizing one of those contributes `-k * log(sigma)` to the
+  objective, driving the SD UP instead -- the same bias in the other direction.
+  But which kernel applies is a property of the FLEET, not of the parameter
+  block, so one fleet's penalty was pinning every other fleet's deviations.
+
+  The peel now decides per fleet, from the fleet's own `Selectivity`:
+  `Hake` (`dnorm`), `2DAR1` (`SCALE(SEPARABLE(AR1, AR1))`) and `3DAR1` (`GMRF`)
+  are freed; `NonParametric`, `NonParametricPM` and `LogisticPM` stay pinned.
+  The limb deviates (`log_sel_slp_dev`, `sel_inf_dev`) are `dnorm` in every
+  branch that estimates them except `LogisticPM`, which is the only form that
+  pins them. A model can now carry a 3DAR1 fleet beside a NonParametricPM fleet
+  and get the right treatment for each.
+
+  Decided per `Selectivity_index` GROUP, because fleets sharing an index share
+  one parameter block through shared map levels: pinning one member while
+  freeing another would leave the pinned fleet's cells at their starting value
+  while the shared level moved, so two fleets that must have identical
+  selectivity would silently stop sharing it in the peeled years.
+
+  `random_sel = FALSE` is unaffected -- nothing is a random effect, so every tail
+  pins exactly as before. The map decision is now `.rce_peel_map()`, which
+  `test-retrospective-selectivity-pinning.R` drives directly.
+
+* **`process_residuals(process = "recruitment")` scored projection years on a
+  DSEM.** With `build_DSEM(estimate_projection = TRUE)` -- which `sample_rec()`
+  requires, so it is not an exotic setting -- the latent field runs to `projyr`,
+  and every estimated recruitment state was whitened and returned. Those states
+  are scored by no data, so their residuals are N(0, 1) *by construction*, and
+  `osa_diagnostics()` pooled them into the SDNR: on BS2017SS with a five-year
+  projection, 44 rows per species instead of 39, pulling the SDNR toward 1 for a
+  reason that has nothing to do with fit. Hindcast years only now; the
+  projection states stay in the conditioning set, which is the treatment an
+  unobserved covariate cell already got. The function's own documentation always
+  said one residual per hindcast year.
+
+* **`hindcast_skill(reference = )` defaulted to both settings, not to `"model"`
+  as documented.** `match.arg(several.ok = TRUE)` returns every choice when the
+  argument is left alone. `"observed"` rebuilds each peel at
+  `estimateMode = 3`, and it refuses outright on a model with analytical
+  catchability -- so the documented default call did roughly twice the work it
+  needed to, and failed outright on models the function can serve.
+
+* **`retrospective(forecast_rec = "model")` says when it is inert.**
+  `proj_mean_rec` takes precedence and `build_srr()` defaults it to `TRUE`, so a
+  model fitted without naming it takes mean recruitment in the peeled years
+  whatever process it carries -- measured on the GOA arrowtooth DSEM, Mohn's rho
+  was identical to every digit under both settings. That is the documented
+  precedence, but it silently defeats `hindcast_skill()`, whose whole purpose is
+  telling projection methods apart. It now emits a message naming the switch and
+  the way out.
+
 ## New features
 
 * **`summary()` reports a DSEM's path coefficients alongside the fixed effects.**

@@ -9,33 +9,50 @@
 \arguments{
 \item{object}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
 
-\item{...}{Passed to \code{\link[=print.Rceattle]{print.Rceattle()}}.}
+\item{...}{Currently unused.}
 }
 \value{
-Invisibly, either:
+An object of class \code{"summary.Rceattle"}: a list with elements
 \itemize{
-\item a list with elements \code{coefficients} and \code{recruitment_sd},
-when the fit contains a DSEM. \code{coefficients} is a data.frame of path
-coefficients with columns \code{path}, \code{lag}, \code{name},
-\code{start}, \code{parameter}, \code{first}, \code{second},
+\item \code{coefficients} — on a DSEM fit, the SEM path coefficients (see
+below); on every other fit, the fixed effects, a data.frame with columns
+\code{parameter}, \code{estimate} and \code{std_error}.
+\item \code{fixed_coefficients} — the fixed effects, always, whether or not
+a DSEM is attached. On a non-DSEM fit it is the same table as
+\code{coefficients}.
+\item \code{dsem_coefficients} — the SEM path coefficients on a DSEM fit,
+\code{NULL} otherwise: a data.frame with columns \code{path}, \code{lag},
+\code{name}, \code{start}, \code{parameter}, \code{first}, \code{second},
 \code{direction}, \code{Estimate}, \code{Std_Error}, \code{z_value} and
 \code{p_value}. The last three are \code{NA} when the fit carries no
 \code{sdreport}, but the columns are always present so that tables from
-several fits can be row-bound. \code{recruitment_sd} has one row per
-species with columns \code{Species}, \code{R_sd}, \code{Estimated}
-(whether it was estimated rather than fixed) and \code{Std_Error}
-(\code{NA} for a fixed SD); or
-\item the input \code{object}, when no DSEM is attached.
+several fits can be row-bound.
+\item \code{recruitment_sd} — one row per species on a DSEM fit,
+\code{NULL} otherwise, with columns \code{Species}, \code{R_sd},
+\code{Estimated} (whether it was estimated rather than fixed) and
+\code{Std_Error} (\code{NA} for a fixed SD).
+\item \code{jnll_comp}, \code{objective}, \code{convergence} and
+\code{spec}, the fit itself.
 }
 }
 \description{
-Prints the compact model overview (via \code{\link[=print.Rceattle]{print.Rceattle()}}). When the fit
-carries a dynamic structural equation model (DSEM) on recruitment deviations,
-also prints and returns the estimated SEM path coefficients — with standard
-errors, z-values and Wald p-values when an \code{sdreport} is available — plus the
-per-species recruitment SD. Adapted from \code{summary.dsem}; see
-\code{?dsem::summary.dsem} for the underlying parameterization.
+The estimates and their uncertainty plus the likelihood decomposition, which
+the fit already carries in \code{\link[=coef]{coef()}}, \code{\link[=vcov]{vcov()}} and \code{quantities$jnll_comp};
+\code{\link[=print.Rceattle]{print.Rceattle()}} still gives the specification tree. When the fit carries a
+dynamic structural equation model (DSEM) on the recruitment deviations, the
+estimated SEM path coefficients — with standard errors, z-values and Wald
+p-values when an \code{sdreport} is available — plus the per-species recruitment
+SD. Adapted from \code{summary.dsem}; see \code{?dsem::summary.dsem} for the underlying
+parameterization.
 }
+\section{Which table \code{$coefficients} is}{
+
+\code{$coefficients} is the SEM path table on a DSEM fit and the fixed effects
+on every other fit, because the DSEM analysis scripts read the path table from
+that name. \code{$fixed_coefficients} and \code{$dsem_coefficients} always mean
+exactly one thing each, and are what new code should read.
+}
+
 \section{Reading the variance rows}{
 
 Two-headed (\code{<->}) paths are variance parameters, and their reported

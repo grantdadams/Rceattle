@@ -100,7 +100,14 @@ hindcast_skill <- function(object = NULL, peels = 5,
          call. = FALSE)
   }
   quantity     <- match.arg(quantity, several.ok = TRUE)
-  reference    <- match.arg(reference, several.ok = TRUE)
+  # match.arg(several.ok = TRUE) returns EVERY choice when the argument is left
+  # at its default, so `reference` defaulted to both -- not to "model" as
+  # documented. That is not a harmless extra: "observed" rebuilds every peel at
+  # estimateMode = 3, and it refuses outright on a model with analytical
+  # catchability, so the documented default call failed on models the function
+  # can serve. Take the first when the caller did not ask.
+  reference    <- if (missing(reference)) "model" else
+    match.arg(reference, several.ok = TRUE)
   forecast_rec <- match.arg(forecast_rec)
 
   # Only where `quantity` is actually read. Under reference = "observed" the

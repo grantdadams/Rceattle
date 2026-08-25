@@ -1576,8 +1576,10 @@ Type objective_function<Type>::operator() () {
       // The scale would be wrong too: under a DSEM R_sd is the GMRF's
       // CONDITIONAL (innovation) SD, so an IID draw using it understates the
       // marginal variance by 1/(1-rho^2). The correct draw is x_tj ~ GMRF(Q)
-      // followed by recomputing rec_dev; until that exists sim_mod() refuses
-      // process = TRUE on a DSEM rather than drawing the wrong thing.
+      // followed by recomputing rec_dev, and that is what happens instead:
+      // sim_mod() draws the field from the reported precision and writes it into
+      // dsem_x_tj, so section 5.5b derives rec_dev from the drawn states and
+      // applies the bias correction once, where it always is.
       if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density &&
          dsem_on == 0){
         for(yr = 0; yr < nyrs_hind; yr++){

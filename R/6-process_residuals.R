@@ -312,10 +312,20 @@ process_residuals <- function(object = NULL,
          "deviations, so its process residuals cannot be computed. Refit ",
          "before residualizing.", call. = FALSE)
   }
+  # HINDCAST years only. build_DSEM(estimate_projection = TRUE) -- which
+  # sample_rec() requires, so it is not an exotic setting -- runs the latent
+  # field to projyr, and those states are scored by no data. Whitening them
+  # returns draws from the prior, which are N(0, 1) by construction, and
+  # osa_diagnostics() pools them into the SDNR: on BS2017SS with a 5-year
+  # projection that is 5 of every 44 rows per species, pulling the SDNR toward 1
+  # for a reason that has nothing to do with fit. They stay in the CONDITIONING
+  # set, the same treatment an unobserved covariate cell already gets here.
+  n_hind <- fit$data_list$endyr - fit$data_list$styr + 1L
   mp  <- fit$map$mapList$dsem_x_tj
   est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
   in_rec <- rep(FALSE, n_k)
-  in_rec[unlist(lapply(rc, function(j) (j - 1L) * n_t + seq_len(n_t)))] <- TRUE
+  in_rec[unlist(lapply(rc, function(j)
+    (j - 1L) * n_t + seq_len(min(n_t, n_hind))))] <- TRUE
   E   <- which(est & in_rec); F_ <- setdiff(seq_len(n_k), E)
   if (!length(E)) stop("Every recruitment-deviation state is fixed; nothing to ",
                        "residualize.", call. = FALSE)
