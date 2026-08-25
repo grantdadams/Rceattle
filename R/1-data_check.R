@@ -81,8 +81,13 @@ data_check <- function(data_list) {
   # (../Rceattle-models: GOA pollock/2025/04-fit-and-diagnostics.R), and the
   # remaining Catchability = 6 call sites are Rceattle 3.3.1-era scripts.
   #
-  # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is an
-  # AR1 structure on an ordinary "Estimated" q and works correctly.
+  # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is also
+  # removed (5.16.0) but by its own check above, with its own message. That one
+  # was not an AR1 either: the template gives value 2 the same independent
+  # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and index_q_rho
+  # is read only on the QAR1 path this block removes. Both redirect to the same
+  # place -- a q linkage, `linkage_spec(~ ar1(1 | Year))` -- but they name
+  # different columns, so only this block says "QAR1".
   if(!is.null(data_list$fleet_control$Catchability) &&
      any(data_list$fleet_control$Catchability %in% c("AR1", 6), na.rm = TRUE)){
     qar1 <- which(data_list$fleet_control$Catchability %in% c("AR1", 6))
@@ -130,7 +135,10 @@ data_check <- function(data_list) {
       "observed against. `obs_sd` is that series' measurement SD, which the ",
       "old switch never asked for and you must supply. GOA pollock 2025 is a ",
       "worked example.\n",
-      "This is not the same switch as Time_varying_q = 'AR1', which works."))
+      "This is not the same switch as Time_varying_q = 'AR1', which is removed ",
+      "separately and reported on its own. That one was not an AR1 either: the ",
+      "template scored it with the same independent normal penalty as 'IID'. ",
+      "Both are replaced by the same q linkage."))
   }
 
   # Catchability = "Environmental" (Estimate_q = 5) is superseded by a q
@@ -164,8 +172,86 @@ data_check <- function(data_list) {
   # have no additive slot, and the separable M1_re (age x year, code 6) has no
   # 1-D grammar structure -- those stay on the legacy path without a nudge.
   fc <- data_list$fleet_control
+
+  # Time_varying_sel / Time_varying_q = "AR1" (2) are REMOVED. Neither was ever
+  # an AR1. The template scores value 2 with the same independent normal penalty
+  # as value 1 -- `flt_varying_sel == 1 || == 2` and `index_varying_q == 1 || ==
+  # 2` -- and neither deviation block has a correlation parameter to read:
+  # index_q_rho is used only on the QAR1 catchability path this release also
+  # removes, and there is no selectivity equivalent at all. So the name promised
+  # an autocorrelation the model does not fit, on a value the schema's own column
+  # descriptions never listed.
+  #
+  # An error rather than a silent alias, and for the reason the QAR1 removal
+  # above gives: a warned fit returns a summary() that looks ordinary, and
+  # nothing downstream can tell that the deviations the assessor asked to be
+  # correlated are independent. Nothing that produced a usable number is refused
+  # -- every fit under value 2 was an IID fit, and setting the switch to "IID"
+  # reproduces it exactly.
+  #
+  # The replacement is the linkage grammar, which fits the stationary AR1 these
+  # names promised: SCALE(AR1(rho), sigma) with sigma the MARGINAL sd, reducing
+  # to the IID density at rho = 0. It is also strictly more expressive -- per
+  # selectivity parameter rather than per fleet, with the deviation sd estimated
+  # or fixed, an integrate = FALSE penalized form, priors, bounds and a phase.
+  # `exempt` marks fleets whose column does not hold a MODE at all. Only
+  # Time_varying_q needs it, and it is not optional: under
+  # Catchability = "Environmental" (and the removed "AR1") that column is a
+  # 1-based env_data COLUMN INDEX, so a fleet naming env column 2 carries a
+  # literal 2 -- which canonicalizes to "AR1" and would otherwise be refused as
+  # a mode the assessor never set. validate_switches() and the soft-deprecation
+  # below both carry the same exemption, for the same reason.
+  #
+  # The "set 'IID'" advice is deliberately unqualified. It is not legal on the
+  # non-parametric forms, which accept only "Off" or "RandomWalk" -- but those
+  # fleets already collect that exact complaint a few hundred lines below, in
+  # this same accumulated error, so qualifying it here only says it twice.
+  .tv_ar1 <- function(col, what, map, example, note = "", exempt = NULL) {
+    if (is.null(col)) return(character(0))
+    hit <- .canon_switch(col, map) == "AR1"
+    hit[is.na(hit)] <- FALSE
+    # Length-checked, not merely non-NULL. `.canon_switch()` returns length 0
+    # for an absent column, and `hit & !logical(0)` is logical(0) -- so a
+    # fleet_control with no `Catchability` column would silently drop the
+    # refusal rather than apply no exemption. Fail towards refusing: a removed
+    # value must not become acceptable because a different column is missing.
+    if (!is.null(exempt) && length(exempt) == length(hit)) {
+      exempt[is.na(exempt)] <- FALSE
+      hit <- hit & !exempt
+    }
+    if (!any(hit)) return(character(0))
+    paste0(
+      what, " = 'AR1' is removed for fleet(s) ",
+      paste(unique(fc$Fleet_name[hit]), collapse = ", "),
+      ". It was never an AR1: the template scored it with the same independent ",
+      "normal penalty as 'IID', and there is no correlation parameter for these ",
+      "deviations to read. Set ", what, " = 'IID' to keep the fit you had. ",
+      "To fit the autocorrelation the name promised, use a linkage -- a ",
+      "stationary AR1 whose sd is the marginal one, reducing to IID at ",
+      "rho = 0:\n  ", example, "\n", note,
+      "See vignette('environmental-linkages-and-priors').")
+  }
+  errors <- c(
+    errors,
+    .tv_ar1(fc$Time_varying_q, "Time_varying_q", tv_q_map,
+            "build_catchability(linkages = list(q = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))",
+            # Deliberately does NOT say "QAR1": that word identifies the
+            # Catchability = 'AR1' refusal above, and the two errors have to
+            # stay distinguishable by their text -- they name different columns
+            # and different fixes.
+            paste0("index_q_rho is not that correlation either: it belongs to ",
+                   "the removed Catchability = 'AR1' form, not to this ",
+                   "switch.\n"),
+            exempt = .canon_switch(fc$Catchability, q_map) %in%
+                     c("Environmental", "AR1")),
+    .tv_ar1(fc$Time_varying_sel, "Time_varying_sel", tv_sel_map,
+            "build_selectivity(linkages = list(inf_asc = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))",
+            paste0("Name whichever selectivity parameter should vary -- ",
+                   "slp_asc, inf_asc, slp_desc, inf_desc, or a DoubleNormal ",
+                   "alias -- rather than the fleet as a whole.\n")))
+
   if (!is.null(fc$Time_varying_q)) {
-    tvq_dep <- fc$Time_varying_q %in% c(1, 2, 4, "IID", "AR1", "RandomWalk")
+    tvq_dep <- fc$Time_varying_q %in% c(1, 4, "IID", "RandomWalk")
     q_est   <- fc$Catchability %in% c(1, 2, "Estimated", "Estimated-with-prior")
     tvq_flts <- fc$Fleet_name[tvq_dep & q_est]
     if (length(tvq_flts) > 0) {
@@ -180,8 +266,10 @@ data_check <- function(data_list) {
     }
   }
   if (!is.null(fc$Time_varying_sel)) {
+    # "AR1" (2) is absent: it is refused outright above, so a soft nudge here
+    # would be a second, weaker message about the same fleet.
     tvs_dep  <- fc$Time_varying_sel %in%
-      c(1, 2, 4, 5, "IID", "AR1", "RandomWalk", "RandomWalkAscending")
+      c(1, 4, 5, "IID", "RandomWalk", "RandomWalkAscending")
     sel_para <- fc$Selectivity %in%
       c(1, 3, 4, 8, 11, "Logistic", "DoubleLogistic", "DescendingLogistic",
         "DoubleNormal", "LogisticPM")
@@ -194,7 +282,7 @@ data_check <- function(data_list) {
         "as a random-effect linkage on the relevant parameter, e.g.\n",
         "  build_selectivity(linkages = list(inf_asc = ",
         "linkage_spec(~ (1 | Year), by = ~ fleet)))\n",
-        "(use rw(1 | Year) for a random walk); see ",
+        "(use rw(1 | Year) for a random walk, ar1(1 | Year) for AR1); see ",
         "vignette('environmental-linkages-and-priors')."), call. = FALSE)
     }
   }
@@ -1230,6 +1318,25 @@ data_check <- function(data_list) {
   # starting value is not asked for one. `Block` is deliberately absent from the
   # time-varying set (a time block carries no penalty), and the analytical
   # catchability forms are exempted below.
+  # Shared by the catchability and selectivity blocks below: each entry names a
+  # column, the fleets that read it, and why, and the column must be positive on
+  # exactly those fleets.
+  .require_positive <- function(.fc, .col, .req) {
+    for (.r in .req) {
+      .w <- .r$when
+      .w[is.na(.w)] <- FALSE
+      if (!any(.w)) next
+      .v   <- suppressWarnings(as.numeric(.col(.r$col)))
+      .bad <- .w & (is.na(.v) | !is.finite(.v) | .v <= 0)
+      if (any(.bad)) {
+        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
+             " need a positive `", .r$col, "`: ", .r$why, ". Without it the ",
+             "objective is not finite at the first evaluation, which surfaces ",
+             "as a TMB error naming none of this.", call. = FALSE)
+      }
+    }
+  }
+
   if (length(.idx_fleets)) {
     .fc   <- data_list$fleet_control
     .isq  <- .fc$Fleet_code %in% .idx_fleets
@@ -1251,7 +1358,7 @@ data_check <- function(data_list) {
            why  = "the catchability prior is scored at it, and AR1 starts its estimated sd from it"),
       list(col = "Time_varying_q_sd",
            when = .isq & (.qest | .qform == "AR1") &
-                  .qtv %in% c("IID", "AR1", "RandomWalk"),
+                  .qtv %in% c("IID", "RandomWalk"),
            why  = "the time-varying catchability deviations are penalized at this standard deviation"),
       # Analytical / AnalyticalArith solve q in closed form and overwrite
       # index_q (ceattle.cpp section 8.2), so they never read this column --
@@ -1261,19 +1368,61 @@ data_check <- function(data_list) {
            why  = "catchability is held at, or starts from, log(Catchability_init)")
     )
 
-    for (.r in .req) {
-      .w <- .r$when
-      .w[is.na(.w)] <- FALSE
-      if (!any(.w)) next
-      .v   <- suppressWarnings(as.numeric(.col(.r$col)))
-      .bad <- .w & (is.na(.v) | !is.finite(.v) | .v <= 0)
-      if (any(.bad)) {
-        stop("Fleet(s) ", paste(unique(.fc$Fleet_name[.bad]), collapse = ", "),
-             " need a positive `", .r$col, "`: ", .r$why, ". Without it the ",
-             "objective is not finite at the first evaluation, which surfaces ",
-             "as a TMB error naming none of this.", call. = FALSE)
-      }
-    }
+    .require_positive(.fc, .col, .req)
+  }
+
+  # The selectivity mirror of the block above. build_params() takes
+  # log(Time_varying_sel_sd) exactly as it takes log(Time_varying_q_sd), so a
+  # blank or non-positive value is the same -Inf/NaN start with the same
+  # unattributable TMB error -- and it additionally makes the geometric mean
+  # .warn_shared_dev_sd() reports for a shared Selectivity_index group NaN.
+  #
+  # Required only where the TEMPLATE actually reads sel_dev_sd, which is a
+  # property of the (Selectivity, Time_varying_sel) pair rather than of either
+  # alone. Transcribed from the four density sites in ceattle.cpp section 15.2,
+  # so a form/mode combination that penalizes nothing is not asked for a value
+  # it would never read:
+  #
+  #   Logistic / DoubleLogistic / DescendingLogistic / DoubleNormal
+  #                        IID scores dnorm(dev, 0, sd); RandomWalk and
+  #                        RandomWalkAscending score the first difference at it.
+  #   Hake                 IID only.
+  #   NonParametric(PM)    RandomWalk only -- the walk on realized log-selectivity
+  #                        divides by 2*sd^2. build_map() refuses the other modes.
+  #   LogisticPM           never: its two walks are weighted by Sel_curve_pen1
+  #                        and Sel_curve_pen3, and the template's own conditions
+  #                        exclude type 11 from every sel_dev_sd site.
+  #   Fixed / 2DAR1 / 3DAR1
+  #                        never: no deviation, or the field carries its own
+  #                        sd through sel_curve_pen.
+  #
+  # `Block` is absent throughout, for the same reason it is on the q side: a
+  # time block carries no penalty. A NonParametric fleet under `Block` also has
+  # its sd deliberately moved into Sel_curve_pen2 and zeroed by
+  # revert_switches(), and is excluded with it. `AR1` is absent because it is
+  # refused above -- leaving it here would pre-empt that refusal with a complaint
+  # about a column the removed mode never reads.
+  if (has_data(data_list$fleet_control)) {
+    .fc   <- data_list$fleet_control
+    .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
+    .on   <- .canon_switch(.col("Fleet_type"), fleet_map) != "Off"
+    .sel  <- .canon_switch(.col("Selectivity"), sel_map)
+    .stv  <- .canon_switch(.col("Time_varying_sel"), tv_sel_map)
+
+    .reads_sel_sd <- rep(FALSE, nrow(.fc))
+    .logistic <- .sel %in% c("Logistic", "DoubleLogistic", "DescendingLogistic",
+                             "DoubleNormal")
+    .reads_sel_sd[.logistic] <-
+      .stv[.logistic] %in% c("IID", "RandomWalk", "RandomWalkAscending")
+    .reads_sel_sd[.sel == "Hake"] <- .stv[.sel == "Hake"] == "IID"
+    .np <- .sel %in% c("NonParametric", "NonParametricPM")
+    .reads_sel_sd[.np] <- .stv[.np] == "RandomWalk"
+
+    .require_positive(.fc, .col, list(
+      list(col = "Time_varying_sel_sd",
+           when = .on & .reads_sel_sd,
+           why  = "the time-varying selectivity deviations are penalized at this standard deviation")
+    ))
   }
 
   # index_data gaps are normal (biennial / triennial surveys, missed years).

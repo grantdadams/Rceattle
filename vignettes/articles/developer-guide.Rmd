@@ -220,11 +220,9 @@ Note that inside `priors = `, the bare constructors `normal()`, `lognormal()`,
 3. Add mapping logic in `R/3-build_map.R` (and the matching `build_map_*()`
    helper) so it is turned on/off for the right configurations.
 4. Add it to the phasing order in `R/6-phaser.R`.
-5. Add it to the parameter dictionary in `R/0-parameter_dictionary.R`, and — if
-   it carries a year dimension that a projection has to extend — to
-   `.mse_proj_param_yrdim()` in `R/10-run_mse.R`. Both are registries keyed by
-   parameter name, so a new (or retired) block that misses them fails only later,
-   inside an MSE.
+5. Add it to the parameter dictionary in `R/0-parameter_dictionary.R`. It is a
+   registry keyed by parameter name, so a new (or retired) block that misses it
+   fails only later.
 6. If the parameter is a random effect, give it a `SIMULATE` draw beside its
    density (see *Change the likelihood*), or `sim_mod(process = )` will hand back
    its fitted values as though they were simulated.
@@ -414,7 +412,13 @@ tidier numbering, so these stay as they are:
 
 *Overloaded columns.* `Time_varying_q` is a mode code for most fleets but a
 1-based `env_data` column index (possibly comma-separated, `"1,3"`) when
-`Catchability` is 5 or 6. `Sel_curve_pen1` is a penalty weight for
+`Catchability` is `Environmental` (5). Code 6 was the other such form and is
+removed, but the overload is not academic: it is why the `Time_varying_q` mode
+checks — `validate_switches()`, the soft-deprecation, and the 5.16.0 `"AR1"`
+refusal — all exempt those fleets. A check that forgets it rejects a working
+model for a value the assessor never set as a mode.
+
+`Sel_curve_pen1` is a penalty weight for
 selectivity 2/9/11 and `Sel_curve_pen2` a curvature penalty for 2/9, while for
 6/7 both are logit-scale AR1 correlations. Re-encoding either
 would break existing workbooks; they are documented in the column schema

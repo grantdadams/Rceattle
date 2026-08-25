@@ -43,7 +43,9 @@ This vignette fits a sequence of five single- and multi-species models with `Rce
 
 `Rceattle` and associated dependencies and can be installed as follows:
 
-```{r, eval=FALSE}
+```{r, eval = FALSE}
+# Not run: this installs the package the vignette is already using, so
+# executing it in CI would reinstall mid-render.
 # Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)
 install.packages("remotes")
 remotes::install_github("grantdadams/Rceattle")
@@ -158,7 +160,7 @@ summary(model_5)
 
 Models can be compared by marginal or joint negative log-likelihood, AIC, and retrospective analysis. AIC cannot compare a penalized-likelihood fit against a marginal-likelihood fit. The likelihood components are stored in the model objects built above:
 
-```{r, eval = FALSE}
+```{r}
 # Evaluate 1 model
 model_1$opt$AIC # AIC
 model_1$opt$objective # Negative log-likelihood
@@ -190,18 +192,19 @@ plot_biomass(model_list, model_names = model_names, incl_proj = TRUE, add_ci = T
 
 ```
 
-```{r, eval = FALSE}
+```{r}
 # Recruitment
 plot_recruitment(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 
 # SSB
 plot_ssb(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 
-# Biomass depletion
+# Biomass depletion (total biomass / B0)
 plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
-# SSB depletion
-plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
+# SSB depletion (female spawning biomass / SB0) -- the quantity a Tier 3 HCR
+# compares against B40%
+plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
 ```
 
@@ -209,7 +212,7 @@ Diagnostic plots cover selectivity, composition fits, index fits, and catch fits
 
 Each fleet is drawn on the dimension its selectivity was estimated on -- age, or length bin for a fleet whose `Selectivity_dimension` is `"Length"`. With one model, colour is the year, so time-varying selectivity reads as a fan. With several, colour separates the models and the fan moves to transparency.
 
-```{r, eval = FALSE}
+```{r}
 # Selectivity
 plot_selectivity(model_2)
 

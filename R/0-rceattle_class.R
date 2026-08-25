@@ -35,29 +35,64 @@ print.Rceattle <- function(x, ...) {
                                               conditionMessage(e), ")"))
   cat(paste(tree, collapse = "\n"), "\n", sep = "")
 
-  cat("  fit\n")
-  # Alias the integer switch codes to their string forms so the fit block reads the
-  # same regardless of the underlying code (matching the spec tree above).
-  cat("  \u251c\u2500 msmMode  :", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map), "\n")
-  cat("  \u251c\u2500 HCR      :", if (is.null(dat$HCR)) "(none)" else .rce_alias_show(dat$HCR, hcr_map), "\n")
-  cat("  \u251c\u2500 initMode :", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map), "\n")
+  # Assembled as rows and emitted together, so the tree closes with the right
+  # glyph and every value sits in one column. Written line-by-line it drifted:
+  # initMode carried a mid-tree "|-" with nothing after it, the fit statistics
+  # then left the tree entirely with a different indent, and cat()'s separator
+  # left a trailing space on every line.
+  #
+  # Switch codes are aliased to their string forms so the block reads the same
+  # whatever the underlying code, matching the spec tree above.
+  rows <- list()
+  add_row <- function(k, v) rows[[length(rows) + 1L]] <<- c(k, v)
+
+  add_row("msmMode", if (is.null(dat$msmMode)) NA else .rce_alias_show(dat$msmMode, msmMode_map))
+  # HCR = 0 is the code for "NoFishing", which as a bare label reads as a
+  # management choice. Under an estimateMode that runs no projection there is no
+  # harvest control rule in play at all, so say that instead.
+  # unname() throughout: .rce_alias_show() carries the map's name through, so a
+  # bare identical() against the string is FALSE and the guard below silently
+  # never fires. cat() hides that, which is how it went unnoticed.
+  hcr_txt <- if (is.null(dat$HCR)) "(none)" else
+    unname(.rce_alias_show(dat$HCR, hcr_map))
+  est_mode <- unname(tryCatch(.rce_alias_show(dat$estimateMode, estimateMode_map),
+                              error = function(e) NA_character_))
+  if (identical(est_mode, "Hindcast") && identical(hcr_txt, "NoFishing")) {
+    hcr_txt <- "(not applicable -- hindcast only)"
+  }
+  add_row("HCR", hcr_txt)
+  add_row("initMode", if (is.null(dat$initMode)) NA else .rce_alias_show(dat$initMode, initMode_map))
 
   if (!is.null(x$opt) && !is.null(x$opt$objective)) {
-    cat("  -log L    :", signif(x$opt$objective, 6), "\n")
+    add_row("-log L", signif(x$opt$objective, 6))
   }
   if (!is.null(x$opt$max_gradient)) {
-    cat("  max |grad|:", signif(x$opt$max_gradient, 4), "\n")
+    add_row("max |grad|", signif(x$opt$max_gradient, 4))
   } else if (!is.null(x$obj)) {
     g <- tryCatch(max(abs(as.numeric(x$obj$gr()))), error = function(e) NA_real_)
-    if (is.finite(g)) cat("  max |grad|:", signif(g, 4), "\n")
+    if (is.finite(g)) add_row("max |grad|", signif(g, 4))
   }
   if (!is.null(x$run_time)) {
-    cat("  Run time  :", format(x$run_time), "\n")
+    # signif to match the objective above, rather than format()'s seven digits
+    # on a wall-clock time nobody reads to the microsecond.
+    secs <- tryCatch(as.numeric(x$run_time, units = "secs"), error = function(e) NA_real_)
+    add_row("run time", if (is.finite(secs)) paste(signif(secs, 3), "secs")
+                        else format(x$run_time))
   }
   if (!is.null(x$convergence)) {
-    cat("  Converged :", x$convergence$status,
-        if (x$convergence$status != "OK")
-          "(see fit$convergence)" else "", "\n")
+    add_row("converged", paste0(x$convergence$status,
+                                if (x$convergence$status != "OK")
+                                  "  (see fit$convergence)" else ""))
+  }
+
+  if (length(rows)) {
+    cat("  fit\n")
+    kw <- max(vapply(rows, function(r) nchar(r[1]), 1L))
+    for (i in seq_along(rows)) {
+      glyph <- if (i == length(rows)) "\u2514\u2500" else "\u251c\u2500"
+      cat(paste0("  ", glyph, " ", formatC(rows[[i]][1], width = kw, flag = "-"),
+                 " : ", rows[[i]][2], "\n"))
+    }
   }
   invisible(x)
 }
@@ -65,31 +100,46 @@ print.Rceattle <- function(x, ...) {
 
 #' Compact summary method for Rceattle fits
 #'
-#' Prints the compact model overview (via [print.Rceattle()]). When the fit
-#' carries a dynamic structural equation model (DSEM) on recruitment deviations,
-#' also prints and returns the estimated SEM path coefficients — with standard
-#' errors, z-values and Wald p-values when an `sdreport` is available — plus the
-#' per-species recruitment SD. Adapted from `summary.dsem`; see
-#' `?dsem::summary.dsem` for the underlying parameterization.
+#' The estimates and their uncertainty plus the likelihood decomposition, which
+#' the fit already carries in [coef()], [vcov()] and `quantities$jnll_comp`;
+#' [print.Rceattle()] still gives the specification tree. When the fit carries a
+#' dynamic structural equation model (DSEM) on the recruitment deviations, the
+#' estimated SEM path coefficients — with standard errors, z-values and Wald
+#' p-values when an `sdreport` is available — plus the per-species recruitment
+#' SD. Adapted from `summary.dsem`; see `?dsem::summary.dsem` for the underlying
+#' parameterization.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
-#' @param ... Passed to [print.Rceattle()].
+#' @param ... Currently unused.
 #'
-#' @return Invisibly, either:
+#' @return An object of class \code{"summary.Rceattle"}: a list with elements
 #' \itemize{
-#'   \item a list with elements \code{coefficients} and \code{recruitment_sd},
-#'     when the fit contains a DSEM. \code{coefficients} is a data.frame of path
-#'     coefficients with columns \code{path}, \code{lag}, \code{name},
-#'     \code{start}, \code{parameter}, \code{first}, \code{second},
+#'   \item \code{coefficients} — on a DSEM fit, the SEM path coefficients (see
+#'     below); on every other fit, the fixed effects, a data.frame with columns
+#'     \code{parameter}, \code{estimate} and \code{std_error}.
+#'   \item \code{fixed_coefficients} — the fixed effects, always, whether or not
+#'     a DSEM is attached. On a non-DSEM fit it is the same table as
+#'     \code{coefficients}.
+#'   \item \code{dsem_coefficients} — the SEM path coefficients on a DSEM fit,
+#'     \code{NULL} otherwise: a data.frame with columns \code{path}, \code{lag},
+#'     \code{name}, \code{start}, \code{parameter}, \code{first}, \code{second},
 #'     \code{direction}, \code{Estimate}, \code{Std_Error}, \code{z_value} and
 #'     \code{p_value}. The last three are \code{NA} when the fit carries no
 #'     \code{sdreport}, but the columns are always present so that tables from
-#'     several fits can be row-bound. \code{recruitment_sd} has one row per
-#'     species with columns \code{Species}, \code{R_sd}, \code{Estimated}
-#'     (whether it was estimated rather than fixed) and \code{Std_Error}
-#'     (\code{NA} for a fixed SD); or
-#'   \item the input \code{object}, when no DSEM is attached.
+#'     several fits can be row-bound.
+#'   \item \code{recruitment_sd} — one row per species on a DSEM fit,
+#'     \code{NULL} otherwise, with columns \code{Species}, \code{R_sd},
+#'     \code{Estimated} (whether it was estimated rather than fixed) and
+#'     \code{Std_Error} (\code{NA} for a fixed SD).
+#'   \item \code{jnll_comp}, \code{objective}, \code{convergence} and
+#'     \code{spec}, the fit itself.
 #' }
+#'
+#' @section Which table \code{$coefficients} is:
+#' \code{$coefficients} is the SEM path table on a DSEM fit and the fixed effects
+#' on every other fit, because the DSEM analysis scripts read the path table from
+#' that name. \code{$fixed_coefficients} and \code{$dsem_coefficients} always mean
+#' exactly one thing each, and are what new code should read.
 #'
 #' @section Reading the variance rows:
 #' Two-headed (\code{<->}) paths are variance parameters, and their reported
@@ -112,12 +162,51 @@ summary.Rceattle <- function(object, ...) {
     stop("Input is not an Rceattle model.")
   }
 
-  print(object, ...)
+  fixed <- .rceattle_fixed_coefs(object)
+  dsem_coefs <- .rceattle_dsem_coefs(object)
+  rec_sd <- if (is.null(dsem_coefs)) NULL else .rceattle_rec_sd(object)
 
-  # No DSEM attached: behave exactly as the non-DSEM summary always has.
-  if (is.null(object$dsem) || is.null(object$dsem$sem_full)) {
-    return(invisible(object))
-  }
+  structure(
+    list(spec = object,
+         # On a DSEM fit $coefficients is the path table; the analysis scripts
+         # read it from that name. $dsem_coefficients / $fixed_coefficients each
+         # mean one thing on every fit and are what new code should use.
+         coefficients = if (is.null(dsem_coefs)) fixed else dsem_coefs,
+         fixed_coefficients = fixed,
+         dsem_coefficients = dsem_coefs,
+         recruitment_sd = rec_sd,
+         jnll_comp = tryCatch(object$quantities$jnll_comp,
+                              error = function(e) NULL),
+         objective = tryCatch(object$opt$objective, error = function(e) NULL),
+         convergence = object$convergence),
+    class = "summary.Rceattle")
+}
+
+
+# The fixed effects and their standard errors, as one frame. NULL when the fit
+# carries no estimates.
+.rceattle_fixed_coefs <- function(object) {
+  est <- tryCatch(stats::coef(object), error = function(e) NULL)
+  if (is.null(est) || !length(est)) return(NULL)
+
+  se <- tryCatch({
+    v <- stats::vcov(object)
+    if (is.null(v)) NULL else sqrt(abs(diag(v)))
+  }, error = function(e) NULL)
+
+  # vcov() covers the fixed effects only, and getsd = FALSE leaves sdrep NULL,
+  # so the standard error is NA rather than absent -- the column has to line up
+  # with the estimates either way.
+  s <- rep(NA_real_, length(est))
+  if (!is.null(se) && length(se) == length(est)) s <- unname(se)
+  data.frame(parameter = names(est), estimate = unname(est), std_error = s,
+             stringsAsFactors = FALSE)
+}
+
+
+# The DSEM path coefficients, or NULL when no DSEM is attached.
+.rceattle_dsem_coefs <- function(object) {
+  if (is.null(object$dsem) || is.null(object$dsem$sem_full)) return(NULL)
 
   # sem_full is a data.frame from dsem::dsem(); as.data.frame() keeps it one if a
   # future dsem returns a matrix, whose columns would otherwise all coerce to
@@ -181,22 +270,7 @@ summary.Rceattle <- function(object, ...) {
               "; reporting all paths unfiltered.", call. = FALSE)
     }
   }
-
-  if (nrow(coefs) > 0) {
-    cat("\n<DSEM path coefficients>\n")
-    print(coefs, row.names = FALSE)
-  }
-
-  rec_sd <- .rceattle_rec_sd(object)
-  if (!is.null(rec_sd)) {
-    cat("\n<Recruitment SD (R_sd)>\n")
-    rec_sd_print <- rec_sd
-    num <- vapply(rec_sd_print, is.numeric, logical(1))
-    rec_sd_print[num] <- lapply(rec_sd_print[num], round, 4)
-    print(rec_sd_print, row.names = FALSE)
-  }
-
-  invisible(list(coefficients = coefs, recruitment_sd = rec_sd))
+  coefs
 }
 
 
@@ -252,6 +326,68 @@ summary.Rceattle <- function(object, ...) {
 }
 
 
+#' Print method for an Rceattle model summary
+#'
+#' @param x A `"summary.Rceattle"` object from [summary.Rceattle()].
+#' @param n Number of parameters to show, largest gradient-free standard error
+#'   first. Default 10; use `Inf` for all, or take `x$fixed_coefficients`.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.summary.Rceattle <- function(x, n = 10, ...) {
+  print(x$spec)
+
+  cf <- x$fixed_coefficients
+  if (!is.null(cf) && nrow(cf)) {
+    cat("\n  estimated parameters (", nrow(cf), ")\n", sep = "")
+    show <- utils::head(cf, n)
+    show$estimate  <- formatC(show$estimate, format = "g", digits = 4)
+    show$std_error <- ifelse(is.na(show$std_error), "-",
+                             formatC(show$std_error, format = "g", digits = 3))
+    .rce_diag_table(show, c("parameter" = "parameter", "estimate" = "estimate",
+                            "std error" = "std_error"))
+    if (nrow(cf) > n) {
+      cat("  ... ", nrow(cf) - n, " more; all of them are in $fixed_coefficients\n",
+          sep = "")
+    }
+    if (all(is.na(cf$std_error))) {
+      cat("  standard errors are unavailable -- this fit has no sdreport",
+          "(fit_control(getsd = FALSE))\n")
+    }
+  }
+
+  if (!is.null(x$dsem_coefficients) && nrow(x$dsem_coefficients)) {
+    cat("\n<DSEM path coefficients>\n")
+    print(x$dsem_coefficients, row.names = FALSE)
+  }
+
+  if (!is.null(x$recruitment_sd)) {
+    cat("\n<Recruitment SD (R_sd)>\n")
+    rec_sd_print <- x$recruitment_sd
+    num <- vapply(rec_sd_print, is.numeric, logical(1))
+    rec_sd_print[num] <- lapply(rec_sd_print[num], round, 4)
+    print(rec_sd_print, row.names = FALSE)
+  }
+
+  if (!is.null(x$jnll_comp)) {
+    tot <- sum(x$jnll_comp, na.rm = TRUE)
+    cat("\n  likelihood components summing to ",
+        formatC(tot, format = "f", digits = 4), "\n", sep = "")
+    rn <- rownames(x$jnll_comp)
+    by_row <- rowSums(x$jnll_comp, na.rm = TRUE)
+    keep <- which(abs(by_row) > 0)
+    if (length(keep)) {
+      d <- data.frame(component = if (is.null(rn)) keep else rn[keep],
+                      value = formatC(by_row[keep], format = "f", digits = 3),
+                      stringsAsFactors = FALSE)
+      .rce_diag_table(d, c("component" = "component", "-log L" = "value"))
+    }
+    cat("  the full fleet-by-component matrix is in $jnll_comp\n")
+  }
+  invisible(x)
+}
+
+
 # Save and restore graphics par() in the caller frame.
 #
 # Plotting functions in Rceattle modify graphics state with par(...) but
@@ -280,8 +416,10 @@ summary.Rceattle <- function(object, ...) {
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param what Character. One of `"biomass"` (default), `"ssb"`,
-#'   `"recruitment"`, `"depletion"`, `"index"`, `"catch"`,
-#'   `"selectivity"`, `"mortality"`, or `"data"`.
+#'   `"recruitment"`, `"depletion"` (total biomass / B0), `"ssb_depletion"`
+#'   (female spawning biomass / SB0 -- the quantity a Tier 3 HCR compares
+#'   against B40%), `"index"`, `"catch"`, `"selectivity"`, `"mortality"`, or
+#'   `"data"`.
 #' @param ... Passed to the underlying plotting function.
 #'
 #' @return Invisibly returns `NULL`. Called for the side effect of
@@ -290,7 +428,7 @@ summary.Rceattle <- function(object, ...) {
 plot.Rceattle <- function(x, what = "biomass", ...) {
   what <- match.arg(
     what,
-    c("biomass", "ssb", "recruitment", "depletion",
+    c("biomass", "ssb", "recruitment", "depletion", "ssb_depletion",
       "index", "catch", "selectivity", "mortality", "data")
   )
   switch(
@@ -299,6 +437,12 @@ plot.Rceattle <- function(x, what = "biomass", ...) {
     ssb          = plot_ssb(x, ...),
     recruitment  = plot_recruitment(x, ...),
     depletion    = plot_depletion(x, ...),
+    # SSB depletion against SB0 is the management quantity under the
+    # Amendment-56 proxies, and this dispatcher could not reach it: "depletion"
+    # is plot_depletion(), which draws TOTAL biomass depletion. Note the current
+    # plotter is plot_depletionSSB(); plot_ssb_depletion() is its deprecated
+    # alias.
+    ssb_depletion = plot_depletionSSB(x, ...),
     index        = plot_index(x, ...),
     catch        = plot_catch(x, ...),
     selectivity  = plot_selectivity(x, ...),

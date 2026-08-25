@@ -810,7 +810,64 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     "Year_",
     vapply(mod_list, function(x) as.numeric(x$data_list$endyr_peel), numeric(1)))
 
-  return(list(Rceattle_list = mod_list, mohns = rbind(mohns))) #, beta_mohns)))
+  # Still the same list -- $Rceattle_list and $mohns are unchanged. The class
+  # adds a print method that carries Mohn's reference band, which the bare
+  # number never did; see print.Rceattle_retro().
+  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns)),
+            class = "Rceattle_retro")
+}
+
+
+#' Print method for a retrospective analysis
+#'
+#' @description Reports Mohn's rho against a reference band rather than as a
+#' bare number. The default band is +/- 0.2 on SSB, the rule of thumb
+#' `vignette("model-diagnostics")` states; Hurtado-Ferro et al. (2015) give the
+#' asymmetric, life-history-dependent alternatives (-0.15 to 0.20 for
+#' long-lived, -0.22 to 0.30 for short-lived), which is why the band is an
+#' argument rather than a constant.
+#'
+#' Only the terminal-year peel (`Forecast year` 0) is judged. The forecast-skill
+#' rows are reported for information: a rho computed over a forecast horizon is
+#' not the quantity the +/- 0.2 rule was calibrated on.
+#'
+#' @param x A `"Rceattle_retro"` object from [retrospective()].
+#' @param band Symmetric reference band for Mohn's rho. Default `0.2`.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @references Hurtado-Ferro, F., et al. 2015. Looking in the rear-view mirror:
+#'   bias and retrospective patterns in integrated, age-structured stock
+#'   assessment models. ICES J. Mar. Sci. 72:99-110.
+#' @export
+print.Rceattle_retro <- function(x, band = 0.2, ...) {
+  m <- as.data.frame(x$mohns)
+  spp <- setdiff(names(m), c("Object", "Forecast year", "N"))
+  term <- m[!is.na(m[["Forecast year"]]) & m[["Forecast year"]] == 0, , drop = FALSE]
+
+  rho <- suppressWarnings(as.numeric(unlist(term[, spp, drop = FALSE])))
+  sev <- ifelse(is.na(rho), "OK", ifelse(abs(rho) > band, "WARN", "OK"))
+  n_bad <- sum(sev == "WARN")
+
+  .rce_diag_header(
+    "retrospective", .rce_worst(sev),
+    paste0(length(x$Rceattle_list), " peel(s); ",
+           .rce_n_of(n_bad, length(rho)),
+           " terminal Mohn's rho outside +/-", band))
+
+  if (nrow(term)) {
+    show <- term
+    show$.tag <- vapply(seq_len(nrow(show)), function(i) {
+      r <- suppressWarnings(as.numeric(show[i, spp]))
+      .rce_sev_tag(if (any(!is.na(r) & abs(r) > band)) "WARN" else "OK")
+    }, character(1))
+    .rce_diag_table(show, stats::setNames(
+      c(".tag", "Object", "N", spp), c(" ", "quantity", "N", spp)))
+  }
+  if (any(!is.na(m[["Forecast year"]]) & m[["Forecast year"]] > 0)) {
+    cat("  forecast-skill peels are in $mohns; the +/-", band,
+        "rule is for the terminal peel only\n")
+  }
+  invisible(x)
 }
 
 
@@ -987,7 +1044,62 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
 
 
   # Return ----
-  return(list(Rceattle_list = mod_list, nll = unname(jnll)))
+  # Still the same list -- $Rceattle_list and $nll are unchanged. `njitter` is
+  # carried so the print method can report the fraction of STARTS that reached
+  # the optimum: the converged runs alone cannot say how many were attempted,
+  # and that fraction is the result jitter() exists to produce.
+  structure(list(Rceattle_list = mod_list, nll = unname(jnll),
+                 njitter = njitter),
+            class = "Rceattle_jitter")
+}
+
+
+#' Print method for a jitter analysis
+#'
+#' @description Reports what the run was for: how many random starts reached the
+#' best optimum found. The objective values alone cannot say that -- non-converged
+#' starts are dropped before the result is returned, so the count of returned
+#' fits is not the count attempted.
+#'
+#' @param x A `"Rceattle_jitter"` object from [jitter()].
+#' @param tol Objective units within which a start counts as reaching the same
+#'   optimum. Default `0.01`, which is far below any difference that would change
+#'   management advice and far above optimizer noise.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.Rceattle_jitter <- function(x, tol = 0.01, ...) {
+  nll <- x$nll[is.finite(x$nll)]
+  tried <- x$njitter %||% NA_integer_
+  best <- if (length(nll)) min(nll) else NA_real_
+  at_best <- if (length(nll)) sum(nll - best <= tol) else 0L
+
+  # A start that did not converge is as informative as one that landed high:
+  # both say the optimum is hard to reach from an arbitrary point.
+  sev <- if (!length(nll)) "FAIL"
+         else if (!is.na(tried) && at_best < 0.9 * tried) "WARN"
+         else if (!is.na(tried) && length(nll) < tried) "NOTE"
+         else "OK"
+
+  .rce_diag_header(
+    "jitter", sev,
+    paste0(at_best, " of ", if (is.na(tried)) length(nll) else tried,
+           " start(s) reached the best optimum (within ", tol, ")",
+           if (!is.na(tried) && length(nll) < tried)
+             paste0("; ", tried - length(nll), " did not converge") else ""))
+
+  if (length(nll)) {
+    cat("  best -log L : ", formatC(best, format = "f", digits = 4), "\n", sep = "")
+    if (at_best < length(nll)) {
+      worse <- sort(nll[nll - best > tol])
+      cat("  higher optima found at +",
+          paste(formatC(utils::head(worse, 5) - best, format = "g", digits = 3),
+                collapse = ", +"),
+          if (length(worse) > 5) ", ..." else "", "\n", sep = "")
+      cat("  a higher optimum means the reported fit is start-dependent\n")
+    }
+  }
+  invisible(x)
 }
 
 

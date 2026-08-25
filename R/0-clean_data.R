@@ -1,3 +1,12 @@
+# Placeholder multispecies unfished SSB / biomass, metric tons. `MSSB0` and
+# `MSB0` are required DATA_VECTORs that no workbook supplies, so clean_data()
+# seeds them with this and fit_mod() section 10.2 replaces it with a real
+# no-fishing projection -- but only for a run that has a harvest control rule.
+# A value still equal to this one means no unfished reference was ever derived,
+# so anything reading SSB against it reports a ratio, not a depletion.
+.RCE_MSSB0_PLACEHOLDER <- 999
+
+
 #' Align survey-index covariance matrices to the current fitted observations
 #'
 #' `index_cov` Sigma matrices are positional: rows/cols follow a fleet's fitted
@@ -179,10 +188,19 @@ clean_data <- function(data_list){
   # read_data()/write_data() support, so this is the only thing that creates
   # them. The template derives SB0/B0 itself and reads these only to overwrite
   # it under msmMode > 0, where fit_mod() fills them from a no-fishing
-  # projection; 999 is the placeholder standing in until it does.
+  # projection; .RCE_MSSB0_PLACEHOLDER stands in until it does.
   if(is.null(data_list$MSSB0)){
-    data_list$MSSB0 <- rep(999, data_list$nspp)
-    data_list$MSB0 <- rep(999, data_list$nspp)
+    data_list$MSSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
+    data_list$MSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
+  }
+  # Per species: has an unfished reference actually been derived? Seeded FALSE
+  # alongside the placeholder and set by fit_mod() section 10.2 when it projects
+  # under no fishing. Carried rather than inferred from the value, because
+  # recognising the placeholder by comparing a double to 999 would also null a
+  # genuinely-derived 999 mt, and is blind to a workbook that supplied its own
+  # MSSB0. Not a TMB input -- the template never sees it.
+  if(is.null(data_list$MSSB0_derived)){
+    data_list$MSSB0_derived <- rep(FALSE, data_list$nspp)
   }
 
 

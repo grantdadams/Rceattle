@@ -11,9 +11,21 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
-# Rceattle 5.15.0
+# Rceattle 5.19.0
 
 ## New features
+
+* **`summary()` reports a DSEM's path coefficients alongside the fixed effects.**
+  5.17.0 made `summary()` return a `"summary.Rceattle"` object whose
+  `$coefficients` is the fixed-effects table; a DSEM fit needs the SEM path table
+  as well, and the two had the same name.
+
+  On a DSEM fit `$coefficients` is the **path table** — the meaning the DSEM
+  analysis scripts already read — and the fixed effects are `$fixed_coefficients`.
+  On every other fit `$coefficients` is the fixed effects, unchanged from 5.17.0.
+  `$dsem_coefficients`, `$fixed_coefficients` and `$recruitment_sd` each mean one
+  thing on every fit and are what new code should read. `print()` shows the fixed
+  effects, then the path table and the per-species recruitment SD.
 
 * **`build_DSEM(constant_variance = )` chooses what a `<->` term means** once the
   SEM carries lagged paths, passed through to `dsem::dsem_control()`. `dsem`
@@ -390,6 +402,532 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   and says so. Only DSEM models need it; every other fit is unaffected.
 
 * `utils` is now imported (`utils::head`, `utils::packageVersion`).
+
+# Rceattle 5.18.0
+
+## MSE
+
+* **Two `run_mse()` schedules run on the same `seed` are now on common random
+  numbers.** This is what makes a paired, within-replicate comparison of two
+  assessment schedules a comparison of the schedules.
+
+  Two things were in the way.
+
+  Each assessment's observation draws continued from wherever the previous
+  assessment left the random stream, so any divergence compounded down the run.
+  The draws are now seeded on the assessment's own **year**, from a table built
+  once per replicate over the projection years — a list that does not depend on
+  the schedule. Keyed by year rather than by position, because 2030 is the third
+  assessment of a biennial cycle and the second of one with a gap in it.
+  Recruitment deviations are untouched: the table is drawn after `sample_rec()`,
+  which consumes the per-replicate stream exactly as before.
+
+  And the operating model was refit only as far as **the next assessment year**.
+  `sim_mod()` draws once per observation row and `clean_data()` filters to
+  `styr:projyr`, so the shortened model carried fewer rows and consumed fewer
+  draws — a count that depended on when the following assessment fell. The
+  operating model is now refit over its whole projection every assessment.
+
+  Measured on BS2017SS (endyr 2017, projyr 2020, `nsim = 1`, `seed = 666`),
+  dropping the 2019 assessment and reading 2019 — a year whose advice is
+  identical by construction, set by the same 2018 assessment under both
+  schedules:
+
+  | | 2019 contamination |
+  |---|---|
+  | before | 2.1% |
+  | per-year seeding alone | 0.53% |
+  | both | **0.003%** |
+
+  The remaining 0.003% is optimizer noise, not the draws. Past the point where
+  two schedules genuinely diverge their draws diverge too, which is a real
+  difference between the runs rather than an artefact.
+
+  **Common random numbers are still not complete.** One `sim_mod()` call draws
+  every year in the assessment interval under that assessment's seed, so a year
+  sitting *inside* a longer interval is drawn under a different seed than the
+  same year in a schedule that assessed it directly — two schedules realize
+  different observation error in the years between, even where the stock is in
+  the same state. Closing that needs the draw keyed to the observation's year
+  rather than the assessment's; `?run_mse`, `vignette("hcrs-and-mses")` and
+  `inst/dev/TODO-mse-horizon.md` all say so rather than claiming otherwise.
+
+  **Every seeded `run_mse(simulate_data = TRUE)` result changes.** Runs stay
+  fully reproducible from a given `seed` within a version, and
+  `simulate_data = FALSE` is unchanged to the bit.
+
+## Performance
+
+* **`run_mse()` no longer refits the operating model on a shortened horizon.**
+  That saving was measured at 9% on a Bering Sea multispecies MSE projecting to
+  2040 when it was added in 5.14.0, growing with the length of the projection;
+  single-species models saw little change. It is the second half of the common
+  random numbers fix above, and it goes because the shortened horizon was the
+  thing making the draw count depend on the schedule.
+
+  The saving is recoverable — the horizon serves two purposes at different
+  lengths, and only one of them needs the look-ahead.
+  `inst/dev/TODO-mse-horizon.md` records the design, what is not yet known about
+  its cost, and where the deleted code lives.
+
+  `tools/verify/verify-mse-om-horizon.R` went with it; the gate is now the
+  `gap_crn_clean` check in `tools/verify/verify-mse-schedule.R`.
+
+# Rceattle 5.17.0
+
+## MSE
+
+* **`run_mse(assessment_period =)` takes an explicit vector of assessment
+  years.** A single number is the period it always was; a vector is the
+  schedule itself — the exact years an assessment is completed.
+
+  A skipped assessment is one gap in an otherwise regular cycle, and a period
+  cannot express it. Standing in a triennial period for a missed biennial
+  assessment answers a different question and the error does not have a
+  known sign: a permanent longer cycle overstates how the cost of stale advice
+  compounds, while being blind to the state the stock happened to be in when
+  the single gap opened.
+
+  ```r
+  biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+  run_mse(om, em, assessment_period = setdiff(biennial, 2031))
+  ```
+
+  Every year must be after the operating model's terminal year and within the
+  projection horizon (the earlier of the two models' `projyr` and `endyr`).
+  A year outside that window is an error rather than being dropped: dropping it
+  would run a schedule the caller did not ask for, with nothing in the returned
+  object to say so. The years are sorted and de-duplicated, and the assessment
+  nodes carry them in their names, as they already did.
+
+  A schedule must name **two or more** years: one year on its own cannot be
+  told from a period, and the two readings of, say, `2029` are a world apart.
+  It is refused with a message saying which reading was taken, rather than
+  guessed at.
+
+  A scalar is also now required to be a whole year of at least 1, and to leave
+  room for at least one assessment inside the projection. A fractional period
+  set the operating model's terminal year to a fraction, which nothing
+  downstream indexes on; a period longer than the projection used to surface as
+  `seq()` reporting on the sign of its `by` argument. Nothing that produced a
+  usable number is refused.
+
+* **A schedule that stops short of the projection horizon now warns.** Catch is
+  only ever filled up to the last assessment, so the trailing years keep the
+  `NA` their projection rows were created with — and `mse_summary()` summarises
+  over the models' whole projection regardless. Those `NA` years sit in the
+  denominator of `P(Closed)` but not its numerator, in both halves of
+  `Catch IAV`, and outside the `na.rm` mean that is `Average Catch`. All three
+  come out low, with nothing in the table saying which years were covered.
+
+  A biennial cycle over an odd number of projection years lands here every
+  time: `seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon. The
+  warning names the years and both fixes — extend the schedule, or set `projyr`
+  to the last assessment year.
+
+  Warned rather than refused, because a short schedule is a legitimate design;
+  it just has to be summarised over the years it covers. This fires for a
+  scalar period too, where the defect is older than the vector API.
+
+* **`run_mse(catch_mult =)` takes a `data.frame` of `Year`, `Species` and
+  `mult`.** A single number or a vector of length `nspp` is unchanged and
+  applies in every projection year. A `data.frame` applies only in the year and
+  species pairs it lists; every pair it omits is multiplied by 1.
+
+  The vector form is a permanent harvest cut, so it cannot express a buffer
+  held only while advice is stale — the case a missed assessment raises.
+
+  ```r
+  buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
+  buffer$mult <- 0.90
+  run_mse(om, em, assessment_period = setdiff(biennial, 2031),
+          catch_mult = buffer)
+  ```
+
+  Mind which years are the stale ones. The assessment in year `Y` sets catch
+  for `Y+1` onward, so a missed 2031 assessment leaves **2032 and 2033** on
+  2029's advice. 2031 is set by the 2029 assessment whether or not the 2031 one
+  happens, so cutting it changes a year the gap never touched while leaving a
+  genuinely stale year uncut. `?run_mse` and the vignette both show the
+  derivation.
+
+  `Species` is the species number, matching the catch data's own column.
+  The table is validated at the call rather than inside the simulation loop: a
+  year the assessment schedule does not cover, a species number out of range, a
+  non-finite or negative multiplier, and two rows for the same year and species
+  are all errors. The year bound is the **last assessment year**, not `projyr`
+  — catch is filled only up to the last assessment, so a multiplier named for a
+  later year is inside the projection and still applies nowhere. Each of those otherwise reads as *no reduction* — `match()` returns
+  `NA` for an unmatched pair and takes the first of a duplicated one — in a run
+  that finishes and looks ordinary. A vector `catch_mult` is now checked for
+  finiteness and sign for the same reason.
+
+  Note that this multiplies **catch**, not the ABC the control rule produces.
+  Where realized catch sits well below ABC — GOA arrowtooth flounder, for one —
+  reducing ABC changes removals only to the extent the fishery attains it,
+  while reducing catch changes them in full. Scale the multiplier by recent
+  attainment, `1 - (1 - mult) * attainment`, or report the unscaled result as an
+  upper bound on the effect of the reduction. `?run_mse` and
+  `vignette("hcrs-and-mses")` both carry the caveat.
+
+* No stored MSE result changes. `assessment_period = 1` and a scalar
+  `catch_mult` take the same paths they did, and `tools/verify/verify-mse-schedule.R`
+  checks that a schedule given as years reproduces the equivalent period exactly.
+
+* **Documented: two schedules on the same `seed` are not on common random
+  numbers.** Between assessments the operating model's projection horizon is
+  shortened to the next assessment year, so `sim_mod()` draws over a different
+  number of projection rows depending on the schedule, and the observation
+  draws diverge from the first assessment onward. Recruitment deviations are
+  shared — `sample_rec()` draws them before the loop — but observation error is
+  not.
+
+  Measured on a three-year BS2017SS fixture: dropping one assessment moved
+  catch by **2.1%** in a year whose advice was identical by construction, set
+  by the same earlier assessment under both schedules. A paired comparison of
+  two schedules therefore carries an observation-error difference alongside the
+  schedule effect.
+
+  Pre-existing, and not changed in this version — the fix moves every seeded
+  `run_mse()` result. **Fixed in 5.18.0**, which is where `?run_mse` and
+  `vignette("hcrs-and-mses")` describe the behaviour from; the check pinning it
+  in `verify-mse-schedule.R` became the gate on the fix.
+
+## Documentation
+
+* `vignette("hcrs-and-mses")` gains a worked missed-assessment scenario, and its
+  reproducibility section now names **5.13.0** alongside 5.9.0. Both moved the
+  random-number stream — 5.9.0 by moving the observation draws from R into the
+  template, 5.13.0 by drawing the index under the fleet's own
+  `Index_distribution` — so a seeded `run_mse()` reproduces across neither.
+
+
+# Rceattle 5.16.0
+
+## Breaking changes
+
+* **`summary()` on a fit returns a summary object, not the fit.** It used to be
+  `print(object)` -- the same spec tree, returned invisibly as the model itself.
+  For a fitted assessment the conventional answer is the estimates and their
+  uncertainty plus the likelihood decomposition, all of which the fit already
+  carried in `coef()`, `vcov()` and `quantities$jnll_comp` and which the caller
+  had to join by hand. `summary(fit)` now prints the spec tree, then a parameter
+  table with standard errors, then the likelihood components and their total,
+  and returns a `"summary.Rceattle"` with `$coefficients`, `$jnll_comp`,
+  `$objective` and `$convergence`.
+
+  `x <- summary(fit)` followed by `x$quantities` therefore no longer works; use
+  `fit` directly. Swept across `../Rceattle-models` and `../GOA-ATF-ESP`: every
+  call there is a bare `summary(mod)` at top level, printed and not assigned, so
+  nothing downstream is affected.
+
+
+* **`Time_varying_sel = "AR1"` and `Time_varying_q = "AR1"` (value `2`) are
+  removed.** `data_check()` errors on them, naming the fleet and the
+  replacement.
+
+  Neither was ever an AR1. The template scores value `2` with the same
+  independent normal penalty as value `1` — `flt_varying_sel == 1 || == 2` and
+  `index_varying_q == 1 || == 2` — and neither deviation block has a correlation
+  parameter to read: `index_q_rho` belongs to the `Catchability = "AR1"` (QAR1)
+  path removed in 5.12.0, and there is no selectivity equivalent at all. So the
+  name promised an autocorrelation the model does not fit, on a value the
+  schema's own column descriptions never listed.
+
+  **Nothing that produced a usable number is refused.** Every fit under value `2`
+  was an IID fit; setting the switch to `"IID"` reproduces it exactly, and the
+  error says so. Pre-flighted over every `fleet_control` sheet in the ecosystem:
+  173 workbooks carry the sheet, and **zero** set `"AR1"` on either switch.
+
+  `Time_varying_q` is exempt where it is not a mode. Under
+  `Catchability = "Environmental"` that column holds a 1-based `env_data`
+  *column index*, so a fleet naming env column 2 carries a literal `2` that
+  canonicalizes to `"AR1"`; refusing it would reject a working model for a
+  setting nobody made. `validate_switches()` and the soft-deprecation carry the
+  same exemption.
+
+  An error rather than a silent alias, for the reason the QAR1 removal gives: a
+  warned fit returns a `summary()` that looks ordinary, and nothing downstream
+  can tell that the deviations the assessor asked to be *correlated* are
+  independent.
+
+  The replacement is the linkage grammar, which already fits the stationary AR1
+  these names promised — `SCALE(AR1(rho), sigma)` with `sigma` the **marginal**
+  sd, reducing to the IID density at `rho = 0`:
+
+  ```r
+  build_catchability(linkages = list(
+    q = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+
+  build_selectivity(linkages = list(
+    inf_asc = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+  ```
+
+  It is also strictly more expressive: per selectivity *parameter* rather than
+  per fleet, with the deviation sd estimated or fixed, an `integrate = FALSE`
+  penalized form, priors, bounds and an estimation phase. Both switches were
+  already soft-deprecated in favour of it, and that message named
+  `ar1(1 | Year)` as the AR1 replacement while the switch value silently did
+  something else.
+
+## Bug fixes
+
+* **The unfished-reference placeholder is recognised by a flag, not by its
+  value.** `mse_summary()` decided whether a multispecies unfished reference had
+  been derived by comparing the reported `SB0` to the 999 mt placeholder
+  constant. That is a float equality test which would also null a
+  legitimately-derived 999 mt, and is blind to a workbook supplying its own
+  `MSSB0`. `clean_data()` now seeds a per-species `MSSB0_derived` alongside the
+  placeholder and `fit_mod()` sets it where it projects under no fishing. A fit
+  saved before the flag existed has no field, and falls back to the value test.
+
+* **`print()` on a fit closes its tree and lines up its values.** Written
+  line-by-line the fit block had drifted: `initMode` carried a mid-tree glyph
+  with nothing after it, the fit statistics then left the tree entirely on a
+  different indent, and `cat()`'s separator left a trailing space on every line.
+  It is assembled and emitted as rows now. `Run time` is `signif()` to match the
+  objective rather than seven digits of wall clock, and an `estimateMode` that
+  runs no projection reports `HCR : (not applicable -- hindcast only)` instead of
+  `NoFishing`, which read as a management choice nobody had made.
+
+
+* **`Time_varying_sel_sd` is validated, as `Time_varying_q_sd` already was.**
+  `build_params()` takes `log(Time_varying_sel_sd)` exactly as it takes
+  `log(Time_varying_q_sd)`, so a blank or non-positive value was the same
+  `-Inf`/`NaN` starting value and the same non-finite objective reported from
+  inside `MakeADFun`, naming neither the fleet nor the column. It additionally
+  made the geometric mean `build_map()` reports for a shared `Selectivity_index`
+  group `NaN`.
+
+  Required only where the template actually reads the sd, which is a property of
+  the (`Selectivity`, `Time_varying_sel`) pair rather than of either alone:
+  the logistic family under `IID` / `RandomWalk` / `RandomWalkAscending`, `Hake`
+  under `IID`, and `NonParametric`/`NonParametricPM` under `RandomWalk`.
+  `LogisticPM` weights its two walks by `Sel_curve_pen1` and `Sel_curve_pen3`
+  and is excluded, as are `Block`, `Fixed`, `2DAR1` and `3DAR1`.
+
+  Pre-flighted over every `fleet_control` sheet in the ecosystem, after the
+  legacy column spellings are resolved as `switch_check()` resolves them
+  (`Sel_sd_prior` is `Time_varying_sel_sd`): **173 workbooks carry the sheet and
+  one is refused** — `Pacific hake/Data/Old files/hake_from_ss.xlsx`, whose
+  `Hake_fishery` pairs `Selectivity = "Hake"` and `Time_varying_sel = "IID"`
+  with a sd of 0. That is `dnorm(dev, 0, 0)`; the workbook cannot produce a
+  finite objective, and its two sd values appear transposed against the survey
+  row. Nothing that fitted is refused.
+
+* **The model spec tree shows a parameter carrying more than one linkage.** The
+  grammar lets one parameter hold a *list* of specs — a shared prior plus a
+  fleet-specific random walk, which is how GOA pollock 2025 is configured — and
+  `print()` read `$formula` off that list and rendered `NULL`. Three of that
+  model's six linkage rows displayed as `NULL`, and they were the three carrying
+  the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
+  when stacked, so the count is the number of linkages the model actually holds.
+
+## New features
+
+* **`plot(fit, what = "ssb_depletion")`.** The S3 dispatcher offered
+  `"depletion"`, which is `plot_depletion()` -- *biomass* depletion -- and had no
+  route to SSB depletion at all. In a package whose vocabulary is the
+  Amendment-56 proxies, spawning-biomass depletion against B40% is the
+  management quantity, and it was the one the generic could not draw.
+
+* **The diagnostics share one display contract.**
+  `convergence_diagnostics()` was the only member of the family with a class, a
+  print method, a four-level severity and an overall status; the rest returned
+  bare frames and lists. `osa_diagnostics()`, `retrospective()`, `jitter()` and
+  `mse_summary()` now open with the same header — the object, a status, and a
+  one-line verdict — before the detail.
+
+  **No return value changed.** Each object is still exactly the data frame or
+  list it was, so `retro$mohns`, `jit$nll`, `diag$sdnr`, `summ$species` and every
+  column index as before; only `class()` gains an entry and `print()` gets an
+  opinion.
+
+  What each verdict adds:
+
+  - `osa_diagnostics()` printed sixteen columns at seven significant figures,
+    which wraps across three screen-widths in an 80-column terminal, so
+    answering "is fleet 2's index residual acceptable?" meant reassembling one
+    row from three blocks — and nothing said how many sources had failed. It now
+    leads with that count and the overall SDNR against its null interval, then a
+    severity-tagged line per source, worst first.
+  - `retrospective()` returned Mohn's rho as a bare number with no reference
+    band, while `osa_diagnostics()` shipped its null intervals — two diagnostics,
+    opposite conventions on the same question. It now judges the terminal peel
+    against `print(retro, band = )`, default `+/- 0.2`. Forecast-skill peels are
+    reported but not judged: a rho over a forecast horizon is not the quantity
+    that rule was calibrated on.
+  - `jitter()` returned the objective values but not the fraction of starts that
+    reached the best optimum, which is the result it exists to produce. The
+    returned list gains `njitter` so the denominator is knowable — non-converged
+    starts are dropped, so the count of returned fits is not the count attempted.
+  - `mse_summary()` reports its four blocks and their dimensions rather than
+    printing objects of differing shape end to end, and says out loud that
+    `as.data.frame()` on the whole object will not work.
+
+## Internals
+
+* **The golden regression now runs in CI, and the multi-OS `NOT_CRAN` guard is
+  deterministic.** `test-golden-regression.R` carries both `skip_on_cran()` and
+  `skip_on_covr()`, so it fired in neither existing job -- `R-CMD-check` sets
+  `NOT_CRAN=false` to keep the matrix fast, and `test-coverage` runs under covr.
+  The committed backstop for "a numeric change needs golden equivalence" was
+  therefore never automated. A new `deep-checks` workflow runs it nightly and
+  asserts the file produced assertions, since a skipped file otherwise reports
+  as a pass.
+
+  The `NOT_CRAN=false` override moved from an earlier step's `$GITHUB_ENV`
+  append to step-level `env:` on `check-r-package`, where GitHub's precedence
+  makes it unshadowable and the log shows which mode ran. Through `$GITHUB_ENV`
+  it did not hold reliably: on one commit the skip fired and on the next,
+  differing only in a Markdown file, the heavy tests ran and the Windows worker
+  died with `0xC0000005`.
+
+* **The model can be built with array bounds checking.** `RCEATTLE_SAFEBOUNDS=true`
+  builds with TMB's `safebounds`, turning an out-of-range access from a silent
+  write into adjacent memory into an R error naming the object -- the class of
+  fault the 5.15.0 `age_hat` overflow was, and the standing explanation for that
+  Windows access violation. `tools/verify/verify-safebounds.R` drives it, with a
+  positive control asserting `-DTMB_SAFEBOUNDS` reached the compile line. The
+  default is unchanged and no fit gets slower.
+
+## Documentation
+
+* **The ten vignette chunks the weekly job could not see now run.**
+  `RCEATTLE_EVAL_VIGNETTES` flips each vignette's chunk *default*, but a chunk
+  carrying its own `eval = FALSE` overrides that -- so ten chunks across four
+  vignettes stayed unexecuted in the one job built to execute them, including
+  the OSA and process-residual workflows and three `run_mse()` variants. That is
+  how `introduction.Rmd` came to call `plot_depletion()` under an "SSB depletion"
+  heading for several releases. They use the default now. Exactly one chunk keeps
+  an explicit `eval = FALSE` -- the install block, which would reinstall the
+  package mid-render -- and says so in the chunk.
+
+  Measured cost, on an M-series Mac: `hcrs-and-mses` 2.7 -> 19.2 minutes (three
+  `run_mse(nsim = 10)` variants), `introduction` 2.7 -> 3.8, `model-diagnostics`
+  1.9 -> 2.3. The weekly job's timeout went from 120 to 180 minutes to absorb it.
+  Raising the budget rather than cutting the coverage, because a timeout fails
+  the whole job and loses every vignette's result -- worse than any one of them
+  being slow.
+
+* **`?mse_summary` says when `om_terminal_depletion` is `NA`.** It is `NA` for a
+  multispecies run that derived no unfished reference, which is any run without a
+  harvest control rule. A column going `NA` is something a reader meets in a
+  table first, so the help now names the cause and points at
+  `om_terminal_depletion_dynamic`, which is unaffected.
+
+
+* **`vignette("model-parameterizations")` gives the fishery index predictor.**
+  The equations vignette still showed the survey snapshot
+  `N e^{-Month·Z}` for CPUE, which 5.9.0 replaced for a fishery with the
+  year-average `N̄ = N (1 − e^{−Z}) / Z`. The two vignettes disagreed about the
+  equation this release exists to correct. The predictor is now split by
+  `Fleet_type`, with the Baranov derivation and the SS3 correspondence.
+
+  The survey half was wrong too, independently of 5.9.0: it wrote
+  `e^{-Month·Z}` where the template computes `exp(-(Month/12)·Z)`, so the
+  documented exponent was out by a factor of twelve.
+
+* Same vignette: the `Selectivity` list gained `DoubleNormal` (8),
+  `NonParametricPM` (9) and `LogisticPM` (11) and the note that there is no 10;
+  `N_sel_bins` is described in bins rather than ages; and the four
+  "`Time_varying_sel = 2`, `sigma` is estimated" equation blocks now name what
+  actually does that, `fit_mod(random_sel = TRUE)`.
+
+* **Three switch-table rows in `vignette("model-options-and-functionality")` no
+  longer break their table.** A `|` inside a table cell is a column separator
+  even inside a code span, so `linkage_spec(~ ar1(1 | Year))` written into a
+  three-column row rendered a spurious fourth column. One of the three is the
+  `Catchability = "AR1"` row added in 5.12.0, which has been rendering that way
+  since. Escaping as `\|` fixes the table but leaves a visible backslash in a
+  snippet meant to be copied, so the replacement code moved out of the cells and
+  into fenced blocks below each table, where a pipe is just a pipe.
+
+  Nothing catches this today: `R CMD check` does not execute the vignettes,
+  `test-vignette-api.R` parses only the R chunks, and pandoc renders a ragged
+  row without complaint rather than erroring. Checking it means rendering to
+  HTML and counting cells.
+
+* **`vignette("introduction")` plots SSB depletion where it says it does.** The
+  "SSB depletion" example called `plot_depletion()` — the *biomass* depletion
+  plotter, and the same call as the line above it — so the two examples drew
+  identical figures under different labels. It calls `plot_depletionSSB()` now.
+
+* The `Time_varying_sel` soft-deprecation message now names `ar1(1 | Year)`
+  alongside `rw(1 | Year)`, as the `Time_varying_q` message already did.
+
+# Rceattle 5.15.0
+
+## Behavior changes
+
+* **`DynamicSB0` and `DynamicSBF` decay to spawning on their own mortality.**
+  Both are carried forward on predation mortality solved at their own fishing
+  rate (`M_at_age_dB0`, `M_at_age_dBF`) but then applied `M_at_age` — the
+  *fished* mortality — over the fraction of the year to spawning. They now use
+  the same M they were propagated on.
+
+  Only a model with a non-zero `spawn_month` is affected, and only under
+  predation: with `spawn_month = 0` the term is `exp(0)`, and with `msmMode = 0`
+  the two mortalities are identical. No bundled dataset carries both, so
+  `/golden-check` is bit-identical.
+
+  The equilibrium pair, `NByage0`/`SB0` and `NByageF`/`SBF`, is **not** fixed
+  here: it is still carried on `M_at_age`, so under predation an unfished
+  reference point is built on a fished predation rate. Marked with a
+  `TODO(review)` in the template.
+
+* **A multispecies model can report depletion against `DynamicSB0`.** With
+  `HCR = 0` the projection runs unfished, so SSB in the last projection year is
+  multispecies SB0 once `projyr` is far enough out to equilibrate, and that is
+  the reference `ssb_depletion` uses. That arm ran unconditionally, so it also
+  overwrote the `DynamicHCR = TRUE` result, leaving no way to get a dynamic-B0
+  depletion out of a multispecies model. It is now skipped under `DynamicHCR`.
+  Runs with `DynamicHCR = FALSE` are unchanged.
+
+## Bug fixes
+
+* **A multispecies fit now carries its unfished SSB (`MSSB0`) on the returned
+  object.** Under `msmMode > 0` the template discards its own equilibrium SB0
+  and reads the `MSSB0` `DATA_VECTOR` instead, so `ssb_depletion` is
+  `ssb / MSSB0`. No workbook can supply it — `clean_data()` seeds it at a 999 mt
+  placeholder and `fit_mod()` derives the real value by projecting under no
+  fishing. That derived value was written only into the reorganized copy the
+  projection refits from, so the **returned** `data_list` kept the 999, and
+  everything that refits from a fitted object — `.refit_like()`, `remove_F()`,
+  and every `run_mse()` projection — re-entered the template with the
+  placeholder.
+
+  **Any multispecies refit carrying a harvest control rule moves.** `SB0` is not
+  only the depletion denominator: it is also the HCR threshold and the
+  `posfun` floor on `ssb_depletion - Plimit`, so a refit was comparing spawning
+  biomass against 999 mt. A single `fit_mod()` call was already correct — the
+  fit itself used the derived value — so `/golden-check` is bit-identical and
+  no hindcast changes.
+
+* **`mse_summary()` no longer reports SSB/999 as a terminal depletion.** An
+  unfished reference is only derived for a run carrying a harvest control rule,
+  so under `HCR = "NoFishing"` `MSSB0` is still the placeholder. The
+  multispecies arm divided by it anyway: on the Pacific hake three-species
+  model `OM: Terminal SSB Depletion` read **2.68e3** while
+  `OM: Terminal SSB Depletion (Dynamic)`, which uses the model's own
+  `DynamicSB0`, read a sane 0.96. It is `NA` now, which is what an undefined
+  reference point should report. The dynamic column is unchanged.
+
+  That arm also indexed `SB0[sp]` on an `nspp × nyrs` matrix, reading year 1
+  rather than the terminal year. Masked today because the multispecies
+  overwrite makes every year identical; corrected so it stays right if that
+  changes.
+
+# Rceattle 5.14.1
+
+## Documentation
+
+* **Two misspellings corrected where they described a switch value.**
+  `vignette("model-parameterizations")` wrote "specificed" for the
+  `Time_varying_sel = 3` block form in three places, and both that vignette and
+  `build_map_selectivity()` wrote "selecitivty" for the
+  `Selectivity = "NonParametric"` form of Ianelli et al. (2018). Text only; no
+  switch, default or fit changes.
 
 # Rceattle 5.14.0
 
@@ -979,10 +1517,9 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 ## Deprecations
 
 * `Rceattle` and `fit` as the fitted-model argument of the ten diagnostics
-  above. Accepted silently now, warning in a later minor, removed in 6.0.0.
-  (Every release on this line is so far unreleased, so the silent grace period
-  has not yet reached a user and naming a version here only rots. Turning the
-  warning on is one edit to `.rce_deprecate_warn()`.)
+  above. Accepted silently now, warning from 5.13.0, removed in 6.0.0. (5.11.0 and
+  5.12.0 are both unreleased on this line, so the silent grace period has not
+  yet reached a user; the warning moves with it.)
 * `rearrange_dat()` now names its removal version (6.0.0) rather than
   deprecating open-endedly. Use `rearrange_data()`.
 

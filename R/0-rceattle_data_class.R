@@ -49,6 +49,36 @@
   if (length(unique(s)) == 1L) s[1] else paste(s, collapse = ", ")
 }
 
+# Every linkage_spec held under one process slot, flattened to a list.
+#
+# A slot holds either a single spec or a LIST of them: the grammar lets one
+# parameter carry several, which is how a shared prior and a fleet-specific
+# random walk sit on the same selectivity limb. Reading `$formula` off that list
+# gives NULL, so a stacked parameter used to display as "NULL" -- and stacking is
+# what a real assessment does, so the rows that displayed as NULL were the ones
+# carrying the structure worth showing.
+#
+# `is.list()` first, and not merely for tidiness: `$` on an atomic vector is an
+# error, not NULL, so testing `x$formula` on a stray numeric would throw out of
+# the whole tree. Both print methods catch that and fall back to "(spec tree
+# unavailable)", which loses every row rather than the one that is malformed.
+.rce_linkage_specs <- function(x) {
+  if (is.null(x) || !is.list(x) || !length(x)) return(list())
+  if (inherits(x, "Rceattle_linkage_spec") || !is.null(x$formula)) return(list(x))
+  out <- unlist(lapply(x, .rce_linkage_specs), recursive = FALSE)
+  if (is.null(out)) list() else out
+}
+
+# One spec's formula as a single line. deparse() splits a long formula across
+# elements, so collapse rather than taking the first and silently truncating.
+.rce_linkage_formula_text <- function(spec) {
+  f <- tryCatch(spec$formula, error = function(e) NULL)
+  if (is.null(f)) return("(no formula)")
+  txt <- tryCatch(paste(trimws(deparse(f)), collapse = " "), error = function(e) "")
+  if (!nzchar(txt)) "(no formula)" else txt
+}
+
+
 #' Render an Rceattle data list as an indented spec tree
 #'
 #' @param dl A data list (from build_data()/read_data(), or a fitted model's
@@ -190,16 +220,24 @@
   # ---- active linkages ------------------------------------------------------
   link_slots <- c(q = "q_linkages", sel = "sel_linkages", growth = "growth_linkages",
                   M1 = "M1_linkages", srr = "srr_linkages", comp = "comp_linkages")
+  # One line per SPEC, not per parameter, so the count is the number of linkages
+  # the model actually carries. A parameter holding more than one is tagged
+  # [i/n], which says the specs are stacked on the same parameter without
+  # implying they are one formula -- they usually name different fleets.
   link_lines <- c()
   for (nm in names(link_slots)) {
     lk <- dl2[[link_slots[[nm]]]]
-    if (!is.null(lk) && length(lk) > 0) {
-      forms <- vapply(seq_along(lk), function(j) {
-        f <- lk[[j]]
-        ff <- tryCatch(deparse(f$formula %||% attr(f, "formula")), error = function(e) "")
-        paste0(names(lk)[j] %||% nm, " ", ff[1])
-      }, character(1))
-      link_lines <- c(link_lines, paste0(nm, ": ", forms))
+    if (is.null(lk) || length(lk) == 0) next
+    for (j in seq_along(lk)) {
+      par_nm <- names(lk)[j] %||% nm
+      if (is.na(par_nm) || !nzchar(par_nm)) par_nm <- nm
+      specs <- .rce_linkage_specs(lk[[j]])
+      if (!length(specs)) next
+      for (k in seq_along(specs)) {
+        stack <- if (length(specs) > 1L) paste0(" [", k, "/", length(specs), "]") else ""
+        link_lines <- c(link_lines, paste0(nm, ": ", par_nm, stack, " ",
+                                           .rce_linkage_formula_text(specs[[k]])))
+      }
     }
   }
   if (length(link_lines)) {

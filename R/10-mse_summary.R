@@ -107,6 +107,15 @@
 #'   disagree. The three `*_sims_collapsed` metrics are **counts of
 #'   simulations**, not probabilities.
 #'
+#'   `om_terminal_depletion` is `NA` for a multispecies run that derived no
+#'   unfished reference, which is any run without a harvest control rule
+#'   (`HCR = "NoFishing"`): under `msmMode > 0` the template reads spawning
+#'   biomass against the `MSSB0` input, and `fit_mod()` only fills that in by
+#'   projecting under no fishing when an HCR is present. Dividing by the
+#'   placeholder instead reported SSB/999 as a depletion -- on the Pacific hake
+#'   three-species model, 2.68e3. Use `om_terminal_depletion_dynamic`, which is
+#'   computed against the model's own `DynamicSB0` and is unaffected.
+#'
 #'   Each frame carries a `"labels"` attribute mapping those names to the long
 #'   display strings (e.g. `om_terminal_depletion_dynamic` ->
 #'   `"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
@@ -658,7 +667,32 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
-      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp]) # FIXME: SBO is adjusted in wrapper function
+      # Terminal year, as in the single-species arm above. The multispecies
+      # SB0 is the same in every year -- the template overwrites its own
+      # derivation with the `MSSB0` input -- so this reads the same number a
+      # bare `SB0[sp]` did, and keeps reading the right one if that changes.
+      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
+
+      # An unfished reference is only derived for a run carrying a harvest
+      # control rule, so under `HCR = "NoFishing"` MSSB0 is still the
+      # placeholder. Dividing by it reports SSB/999 as a depletion -- on the
+      # Pacific hake three-species model that read 2.7e3. Not defined here.
+      #
+      # Read the per-species flag fit_mod() recorded, not the value. Comparing
+      # the reported SB0 to the placeholder constant would also null a
+      # legitimately-derived 999 mt, and could not see a workbook that supplied
+      # its own MSSB0. A fit from before the flag existed has no field, so fall
+      # back to the value test for those.
+      derived <- vapply(mse, function(x) {
+        d <- x$OM$data_list$MSSB0_derived
+        if (is.null(d)) NA else isTRUE(d[sp])
+      }, logical(1))
+      undefined <- if (all(is.na(derived))) {
+        terminal_sb0_om == .RCE_MSSB0_PLACEHOLDER
+      } else {
+        !derived | is.na(derived)
+      }
+      terminal_sb0_om[undefined] <- NA_real_
       terminal_dynamic_sb0_om <- if (length(mse_no_f)) {
         sapply(mse_no_f, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
       } else NA_real_
@@ -735,13 +769,65 @@ mse_summary <- function(mse, om_only = FALSE){
   total <- unlist(.rce_rename_mse_metrics(
     as.data.frame(as.list(total), check.names = FALSE)))
 
-  list(
-    species = species,
-    fleet   = fleet,
-    total   = total,
-    meta    = list(nsim = nsim, nspp = nspp, nflts = nflts, HCR = HCR,
-                   proj_years = c(first = min(projyrs), last = max(projyrs)))
-  )
+  # Still the same ragged list -- $species, $fleet, $total and $meta are
+  # unchanged. The class only adds a print method, so the object says what it
+  # holds instead of dumping four blocks of differing shape; as.data.frame() on
+  # it still errors, which is the caller's bug and is now said out loud.
+  structure(
+    list(
+      species = species,
+      fleet   = fleet,
+      total   = total,
+      meta    = list(nsim = nsim, nspp = nspp, nflts = nflts, HCR = HCR,
+                     proj_years = c(first = min(projyrs), last = max(projyrs)))
+    ),
+    class = "Rceattle_mse_summary")
+}
+
+
+#' Print method for an MSE summary
+#'
+#' @description Says what the summary holds. The object is deliberately ragged --
+#' per-species, per-fleet and whole-system metrics have different shapes and
+#' cannot share one frame -- so it reports the blocks and their dimensions rather
+#' than printing them end to end.
+#'
+#' @param x An `"Rceattle_mse_summary"` object from [mse_summary()].
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.Rceattle_mse_summary <- function(x, ...) {
+  mt <- x$meta
+
+  # An undefined depletion is the one thing here worth a severity: it means no
+  # unfished reference was derived (HCR = "NoFishing" leaves MSSB0 at its
+  # placeholder), so the column is NA rather than a ratio against 999 mt.
+  dep <- suppressWarnings(as.numeric(
+    x$species[["om_terminal_depletion"]] %||% NA_real_))
+  sev <- if (length(dep) && all(is.na(dep))) "NOTE" else "OK"
+
+  .rce_diag_header(
+    "MSE summary", sev,
+    paste0(mt$nsim, " simulation(s), ", mt$nspp, " species, ", mt$nflts,
+           " fleet(s); HCR ", mt$HCR, "; projection ",
+           mt$proj_years[["first"]], "-", mt$proj_years[["last"]]))
+
+  dims <- function(v) if (is.null(v)) "-" else
+    if (is.null(dim(v))) paste0(length(v), " value(s)") else
+      paste0(nrow(v), " x ", ncol(v))
+  cat("  $species  ", dims(x$species), "\n", sep = "")
+  cat("  $fleet    ", dims(x$fleet), "\n", sep = "")
+  cat("  $total    ", dims(x$total), "\n", sep = "")
+  cat("  $meta     nsim, nspp, nflts, HCR, proj_years\n")
+
+  if (identical(sev, "NOTE")) {
+    cat("  terminal SSB depletion is NA: no unfished reference was derived for\n",
+        "  this run, so there is nothing to divide by. The dynamic column is\n",
+        "  unaffected.\n", sep = "")
+  }
+  cat("  the blocks have different shapes on purpose; as.data.frame() on the\n",
+      "  whole object will not work -- take one block.\n", sep = "")
+  invisible(x)
 }
 
 

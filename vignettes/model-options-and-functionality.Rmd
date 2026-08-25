@@ -149,10 +149,25 @@ Time-varying behavior is set by `Time_varying_sel` (per fleet):
 |:---:|---|---|
 | `0` | `"Off"` | Time-invariant |
 | `1` | `"IID"` | Independent annual deviations |
-| `2` | `"AR1"` | Not yet implemented |
+| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the template scored it with the same independent normal penalty as `"IID"`, and the selectivity deviations carry no correlation parameter. Set `"IID"` for the fit it actually gave, or see the replacement below. |
 | `3` | `"Block"` | Time block |
 | `4` | `"RandomWalk"` | Random walk (not allowed with `NonParametric` or `Hake`) |
 | `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic (not allowed with `NonParametric` or `Hake`) |
+
+The switch is **soft-deprecated as a whole**, and `data_check()` says so on use.
+The linkage grammar expresses the same IID, random-walk and AR(1) deviations —
+`(1 | Year)`, `rw(1 | Year)`, `ar1(1 | Year)` — per selectivity *parameter*
+rather than per fleet, and additionally lets the deviation standard deviation be
+estimated, given a prior, or held fixed:
+
+```r
+build_selectivity(linkages = list(
+  inf_asc = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+```
+
+Name whichever parameter should vary: `slp_asc`, `inf_asc`, `slp_desc`,
+`inf_desc`, or a `DoubleNormal` alias. The GOA pollock 2025 assessment runs
+that way.
 
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over `N_sel_bins`.
@@ -275,7 +290,7 @@ Set the `Catchability` column of `fleet_control`:
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>). **Not implemented** -- `data_check()` rejects it. |
 | `5` | `"Environmental"` | q linked to an environmental index. **Deprecated in 4.9.0** (recorded in the 5.8.1 notes) -- express it as a covariate linkage instead: `build_catchability(linkages = list(q = linkage_spec(~ temp, by = ~ fleet)))`. The series is named by `Time_varying_q`, not `Catchability_index`. |
-| `6` | `"AR1"` | **Removed in 5.12.0** -- `data_check()` errors on it. It never worked: the log-q deviates were gated on `Time_varying_q`, which under this form holds an `env_data` column index rather than a mode, so q came back constant. Express the Rogers et al. (2024) form as a q linkage instead: `linkage_spec(~ ar1(1 | Year), by = ~ fleet, observe = "<column>", obs_sd = <SD>)`. |
+| `6` | `"AR1"` | **Removed in 5.12.0** -- `data_check()` errors on it. It never worked: the log-q deviates were gated on `Time_varying_q`, which under this form holds an `env_data` column index rather than a mode, so q came back constant. Express the Rogers et al. (2024) form as a q linkage instead -- see below. |
 | `7` | `"AnalyticalArith"` | q solved from the fleet's own index observations using the AMAK arithmetic-mean estimator; pair with `Index_distribution = "MVN"` for a supplied covariance |
 
 ### Index likelihood (`Index_distribution`)
@@ -310,9 +325,33 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 |:---:|---|---|
 | `0` | `"Off"` | Time-invariant |
 | `1` | `"IID"` | Independent annual deviations |
-| `2` | `"AR1"` | Not yet implemented |
+| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the template scored it with the same independent normal penalty as `"IID"`, and `index_q_rho` belongs to the removed `Catchability = "AR1"` form, not to this switch. Set `"IID"` for the fit it actually gave, or see the replacement below. |
 | `3` | `"Block"` | Time block |
 | `4` | `"RandomWalk"` | Random walk |
+
+`Time_varying_q` is **soft-deprecated as a whole**, as `Time_varying_sel` is,
+and `data_check()` says so on use. The linkage grammar expresses the same IID,
+random-walk and AR(1) deviations, and additionally lets the deviation standard
+deviation be estimated, given a prior, or held fixed:
+
+```r
+build_catchability(linkages = list(
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
+```
+
+The removed `Catchability = "AR1"` (QAR1, Rogers et al. 2024) is the same
+formula plus the series the deviations are *observed* against — that is what
+makes it the state-space form rather than a free AR(1) on q:
+
+```r
+build_catchability(linkages = list(
+  q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = <Fleet_code>,
+                   observe = "<that fleet's env_data column>",
+                   obs_sd  = <its measurement SD>)))
+```
+
+`obs_sd` is that series' measurement standard deviation, which the old switch
+never asked for. GOA pollock 2025 is a worked example.
 
 If `Catchability` is `AR1` or `Environmental`, `Time_varying_q` can be an integer or character of integers
 specifying the environmental series in `env_data` to use (e.g. `Time_varying_q = 1` or `Time_varying_q = "1,2,3"`).
@@ -360,7 +399,7 @@ log `Catchability_init` — TMB averages the initial values of parameters mapped
 together — rather than the lead's; only the prior centre uses the lead's.
 
 `Time_varying_q_sd` is shared the same way once it is estimated, which is
-`random_q = TRUE` with a `Time_varying_q` of `"IID"`, `"AR1"` or `"RandomWalk"`:
+`random_q = TRUE` with a `Time_varying_q` of `"IID"` or `"RandomWalk"`:
 the group gets one deviation sd starting at the geometric mean of its estimated
 members' values, and `build_map()` warns when they differ. While the sd is
 fixed, each fleet keeps its own. `Catchability_prior_sd` is a prior sd the
@@ -533,7 +572,7 @@ See `?build_hcr` for more details.
 | `fit_mod(estimateMode = 2, HCR = build_hcr(...))` | Forward projection under a fixed HCR |
 | `sample_rec()` | Bootstrap historical recruitment deviations (with optional `rec_trend`) into the projection; under a DSEM, draw them from the fitted GMRF instead |
 | `remove_F()` | Refit a model with F = 0 (used internally for dynamic reference points) |
-| `run_mse()` | Closed-loop MSE: refit EM at intervals of `assessment_period`, sample new data at `sampling_period` |
+| `run_mse()` | Closed-loop MSE: refit EM on the `assessment_period` schedule (a period, or the years themselves), sample new data at `sampling_period` |
 | `load_mse()` | Reload per-simulation `.rds` files written when `dir =` is supplied |
 | `check_mse()` | Validate which OM/EM simulations converged |
 | `mse_summary()` | Per-fleet performance metrics: mean catch, IAV, P(closed), P(F > Flimit), P(SSB < SSBlimit), terminal depletion |

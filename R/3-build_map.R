@@ -651,7 +651,7 @@ build_map_predation <- function(map_list, data_list) {
 #'   \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
 #' `0` = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
 #' `1` = "Logistic"
-#' `2` = "NonParametric" selecitivty sensu Ianelli et al 2018
+#' `2` = "NonParametric" selectivity sensu Ianelli et al 2018
 #' `3` = "DoubleLogistic"
 #' `4` = "DescendingLogistic"
 #' `5` = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)

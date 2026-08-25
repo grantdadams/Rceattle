@@ -11,10 +11,13 @@
 # that looks ordinary, which is the failure mode this package cannot ship.
 # That is the severity 'PowerEquation' already carries in the same function.
 #
-# The error must fire on that switch and ONLY that switch: `Time_varying_q =
-# "AR1"` is a different setting sharing the same string (an AR1 structure on an
-# ordinary "Estimated" q) and works correctly. An earlier draft of the
-# developer notes named the wrong one.
+# The error must fire on that switch and ONLY that switch. `Time_varying_q =
+# "AR1"` is a DIFFERENT setting sharing the same string, and it is also removed
+# (5.16.0) -- but for its own reason, with its own message naming its own column
+# and its own fix. It was never an AR1 either: the template scored it with the
+# same independent normal penalty as "IID". The two must stay distinguishable by
+# their text, so only the Catchability refusal says "QAR1"; an earlier draft of
+# this file asserted the Time_varying_q one "works correctly", which was wrong.
 #
 # The replacement it offers must also RUN, and must be the QAR1 model rather
 # than a free AR1 on q -- the last test lifts the snippet out of the message,
@@ -114,10 +117,17 @@ test_that("the integer spelling errors too", {
   testthat::expect_false(is.na(qar1_error(d)))
 })
 
-test_that("Time_varying_q = 'AR1' is untouched -- a different, working switch", {
+test_that("Time_varying_q = 'AR1' gets its own refusal, not the QAR1 one", {
   d <- base_data()
   d$fleet_control$Time_varying_q[1] <- "AR1"
   m <- check_messages(d)
+
+  # It IS refused (5.16.0) -- but by the Time_varying_q message...
+  testthat::expect_false(is.na(m$error))
+  testthat::expect_match(m$error, "Time_varying_q = 'AR1' is removed", fixed = TRUE)
+  # ...which must not be mistakable for the Catchability one. "QAR1" is the
+  # word that identifies that refusal, and it names a different column and a
+  # different fix, so it must not appear here.
   testthat::expect_true(is.na(qar1_error(d)))
   testthat::expect_false(any(grepl("QAR1", m$warnings, fixed = TRUE)))
 })

@@ -18,7 +18,7 @@ Each script prints a pass/fail digest and leaves its numbers on stdout.
 |---|---|
 | `verify-refit-like.R` | The `.refit_like()` refit path is unchanged across all nine entry points. Golden covers none of them. |
 | `verify-mse-hindcast-invariant.R` | An MSE does not perturb the hindcast, independent of the refit refactor. |
-| `verify-mse-om-horizon.R` | Refitting the operating model on a shortened projection horizon gives the same answer, and how much time it saves. |
+| `verify-mse-schedule.R` | An explicit vector of assessment years reproduces the equivalent period, a year-indexed `catch_mult` moves only the years it names, and two schedules stay on common random numbers. |
 | `verify-mse-repro.R` | Full-MSE reproduction digest, single- and multispecies. |
 
 **Simulation — is the draw the distribution the likelihood assumes?**

@@ -131,7 +131,10 @@ said, so each struck row records what it actually turned out to be.
   The template does derive `SB0`/`B0` itself, and reads `MSSB0`/`MSB0` only to overwrite that under
   `msmMode > 0`. But neither has `read_data()`/`write_data()` support, so no workbook can supply
   them and this default is the only thing that creates the required `DATA_VECTOR`s. Kept, with the
-  reason and with `999` named as the placeholder `fit_mod()` fills in.
+  reason and with `999` named as the placeholder `fit_mod()` fills in. **Correction, 5.15.0:**
+  section 10.2 filled it into `data_list_reorganized` only, so the *returned* `data_list` kept the
+  999 and every refit off a fitted object re-entered the template with it. Fixed by carrying
+  `MSSB0`/`MSB0` onto `mod_objects$data_list`.
 - ~~`R/3-build_map.R` (`add checks for surveys sel sigma`)~~ — **Done in 5.14.0.** Real: fleets
   sharing a `Selectivity_index` estimate one `sel_dev_log_sd` between them, and a differing
   `Time_varying_sel_sd` was reconciled silently. Not to the first member's value, which is the
@@ -192,7 +195,7 @@ Still open. No user-visible consequence; do them opportunistically.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
-Eight, each a judgement about what the right behaviour *is*:
+Each is a judgement about what the right behaviour *is*. Struck-through entries are settled.
 
 - **A DSEM's recruitment SD has no stationarity guard.** With `constant_variance = "conditional"`
   (the default, and dsem's) a lagged self-path makes the marginal variance `sigma^2/(1-rho^2)`,
@@ -203,14 +206,21 @@ Eight, each a judgement about what the right behaviour *is*:
   and on what quantity (`max(dsem_margvar_tj)`, or the spectral radius of the lag-1 path
   matrix), is open. `constant_variance = "marginal"` removes the hazard by construction.
 
-- `src/TMB/ceattle.cpp` (`this denominator is the TERMINAL PROJECTION YEAR's own biomass`) —
-  what multispecies depletion should mean with no harvest control rule. Under
-  `HCR == 0 & msmMode > 0` the block divides by `biomass(sp, nyrs-1)` rather than an unfished
-  reference, so `depletion` is 1 in the terminal year by construction, and it runs after and
-  overwrites both `DynamicHCR` arms. An unfished multispecies reference needs predation removed
-  as well as F — `remove_F()`'s job — so this may be deliberate, but the reported quantity is
-  not `B/B0`. Pre-existing and identical on `dev`; traces to `dc5530a7`, before the
-  `ceattle_v01_11.cpp` rename.
+- **`summary()$coefficients` means two different tables.** On a DSEM fit it is the SEM path
+  table; on every other fit it is the fixed effects (`parameter`/`estimate`/`std_error`), the
+  meaning 5.17.0 gave it. That is deliberate, and the reason is back-compatibility: the
+  GOA circulation study reads the path table from `$coefficients` at 49 sites. The intended
+  end state is `$dsem_coefficients` for the paths and `$coefficients` for the fixed effects on
+  every fit — both names already exist and mean one thing each, so the migration is a rename in
+  the consumer scripts plus a deprecation cycle here. Do it when those scripts are next touched,
+  not before. `test-summary-dsem.R` pins both halves so the ambiguity cannot spread silently.
+
+- ~~`src/TMB/ceattle.cpp` (`this denominator is the TERMINAL PROJECTION YEAR's own biomass`)~~ —
+  **Resolved on `dev` in 5.16.0** and merged in here: the block is now excluded under
+  `DynamicHCR == 1`, so it no longer overwrites the dynamic-reference arms. The remaining
+  question — that under `HCR == 0 & msmMode > 0` the denominator is the terminal projection
+  year's own biomass rather than an unfished reference — is answered by that projection running
+  unfished, so it *is* multispecies SB0 once `projyr` is far enough out to equilibrate.
 - `R/0-rceattle_class.R:268` — whether `residuals(source = "all")` should include diet, given
   `osa_residuals("all")` does.
 - `R/0-rceattle_class.R:420`, `:452` — how held-out rows (`Year <= 0`) carrying a positive

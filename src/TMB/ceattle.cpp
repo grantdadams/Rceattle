@@ -2288,10 +2288,13 @@ Type objective_function<Type>::operator() () {
         for(age = 0; age < nages(sp); age++) {
 
           wt_idx_ssb = 2 * sp + 1;
+          // TODO(review): under predation SB0/SBF are carried on M_at_age,
+          // whose M2 is the fished predator field. Needs an equilibrium M2
+          // solved from NByage0/NByageF; the dB0/dBF pair below is consistent.
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
-          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age_dBF(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
 
           for(sex = 0; sex < nsex(sp); sex ++){
 
@@ -2637,17 +2640,8 @@ Type objective_function<Type>::operator() () {
     for(age = 0; age < nages(sp); age++) {
       for(sex = 0; sex < nsex(sp); sex++){
 
-        // Numbers the index sees, by fleet role.
-        //
-        // A survey is a snapshot at the observation month:
-        //     N_a * exp(-(mo/12) * Z_a)
-        //
-        // A fishery index is CPUE, which integrates over the year alongside the
-        // catch. Baranov gives C_a = F_a * Nbar_a, and effort cancels the F
-        // (F_a = q_e * E * sel_a), so C/E = q * sum_a sel_a * Nbar_a * w_a with
-        //     Nbar_a = N_a * (1 - exp(-Z_a)) / Z_a
-        // the same mean-numbers term section 9.1 uses for the catch. The
-        // observation month is not read for a fishery: the year-average has no
+        // Index by fleet type.
+        // Month is not used for a fishery: the year-average has no
         // instant to be taken at. SS3 splits the same way on its per-fleet
         // survey timing (SS_expval.tpl: timing >= 0 -> exp(-Z * timing);
         // timing < 0, required of every fishing fleet -> (1 - exp(-Z))/Z).
@@ -2662,9 +2656,7 @@ Type objective_function<Type>::operator() () {
         // Trend error against the exact form is ~1.5% over F 0.05-0.8, against
         // -29% to +33% for the snapshot.
         //
-        // TODO: fit the window form directly when a fleet needs it. Requires t1
-        // and D per fleet, and seasonal dynamics to match -- the annual
-        // recursion spreads that fishery's F evenly across the year regardless.
+        // TODO: fit the window form directly when a fleet needs it. 
         Type n_index;
         if(flt_type(index) == 1){
           n_index = N_at_age(sp, sex, age, flt_yr) * (1.0 - exp( - Z_at_age(sp, sex, age, flt_yr))) / Z_at_age(sp, sex, age, flt_yr);
@@ -2782,9 +2774,8 @@ Type objective_function<Type>::operator() () {
 
   // --8.4. Calculate analytical sigma following Ludwig and Walters 1994
   //
-  // The positive-observation guard is parity with the catch estimator below,
-  // not a live fix: data_check() already refuses a non-positive index
-  // observation, so no such row reaches here today.
+  // The positive-observation guard matches the catch estimator below,
+  // data_check() already refuses a non-positive index, so somewhat duplicative.
   index_n_obs.setZero();
   index_analytical_sd.setZero();
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
@@ -3295,19 +3286,11 @@ Type objective_function<Type>::operator() () {
         ssb_depletion(sp, yr) = ssb(sp, yr)/DynamicSB0(sp, yr);
       }
 
-      // Multi-species and no HCR (MSSB0 is input otherwises)
-      // TODO(review): this denominator is the TERMINAL PROJECTION YEAR's own
-      // biomass, not an unfished reference, so `depletion` here is "relative to
-      // the last year of the projection" and is 1 in that year by construction.
-      // It also runs last, so it OVERWRITES the DynamicHCR arms above: a
-      // multispecies model with no harvest control rule gets this whatever
-      // DynamicHCR says. An unfished multispecies reference needs predation
-      // removed as well as F, which is what remove_F() exists for, so the
-      // choice may be deliberate -- but the quantity reported under the name
-      // `depletion` is then not B/B0 and should not be read as one. Decide
-      // whether to key this off remove_F(), take MSSB0 as an input here too, or
-      // report it under a different name.
-      if((HCR == 0) & (msmMode > 0)){
+      // Multi-species, no HCR: the projection runs unfished, so SSB in the last
+      // projection year is multispecies SB0 once `projyr` is far enough out to
+      // equilibrate. Excluded under DynamicHCR, where DynamicSB0 is the
+      // reference and this would overwrite it.
+      if((HCR == 0) & (msmMode > 0) & (DynamicHCR == 0)){
         biomass_depletion(sp, yr) = biomass(sp, yr)/biomass(sp, nyrs-1);
         ssb_depletion(sp, yr) = ssb(sp, yr)/ssb(sp, nyrs-1);
       }

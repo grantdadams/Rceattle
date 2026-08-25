@@ -132,6 +132,39 @@ a draw.** Three rules, with their reasons:
 3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
    stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
 
+## MSE draws and the assessment schedule
+
+`sim_mod()` draws **once per observation row**, so anything that changes how many rows the
+operating model carries changes how far the random stream advances — and therefore every draw
+after it. That makes the random stream sensitive to things that look like pure bookkeeping.
+
+**The trap it already caused.** 5.14.0 refit the operating model only as far as `assess_yrs[k+1]`,
+the *next* assessment year, because that is all the loop reads (`max_catch_hat`, for the
+exploitable-biomass cap). `clean_data()` filters every data frame to `styr:projyr`, so the
+shortened model carried fewer projection rows and consumed fewer draws — a count set by **when the
+next assessment fell**. Two runs differing only in their assessment schedule then drew different
+observation error from the *first* assessment onward, before diverging in any other way.
+
+Measured on BS2017SS (endyr 2017, projyr 2020, `nsim = 1`, `seed = 666`), dropping the 2019
+assessment moved 2019 catch by **2.1%** — a year whose advice is identical by construction, set by
+the same 2018 assessment under both schedules. Per-year seeding took it to 0.53%; refitting over
+the whole projection took it to 0.003%, which is optimizer noise rather than the draws. Both
+landed in 5.18.0, and the 9% the shortening was worth on a Bering Sea multispecies MSE went with
+it — see `inst/dev/TODO-mse-horizon.md` for how to get it back.
+
+**What is still open.** Seeding is keyed to the **assessment** year, but one `sim_mod()` call
+draws every year in the interval. A year sitting inside a longer interval is drawn under that
+interval's seed, while the same year in a schedule that assessed it directly gets its own. So two
+schedules realize different observation error in the years *between* assessments even where the
+stock is in the same state, and that enters the next assessment as noise rather than as the
+schedule. Closing it needs the draw keyed to the observation's year, not the assessment's.
+
+**The rule.** Before changing anything that alters the operating model's row count, its horizon,
+or the order of draws, ask what it does to a comparison of two schedules — not just to a single
+run's reproducibility. `tools/verify/verify-mse-schedule.R`'s `gap_crn_clean` check is the gate:
+it asserts a year both schedules take from the same assessment comes out the same. Note it
+measures **catch**, so it does not see the between-assessment observation gap above.
+
 ## The `nages` age-vs-index class, and what closes it
 
 `plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` once indexed the
@@ -143,6 +176,46 @@ fitted model to `minage = 2` and requires `age = 2` to draw what `age = 1` drew 
 `test-plot-smoke.R` runs the rest of the exported plotters against a `minage = 3` model. Without
 a `minage != 1` fixture the whole suite passes on a bin index read as an age, because every
 bundled dataset and all three live assessments have `minage = 1`.
+
+## The guards are not themselves guarded
+
+Two of this repo's most valuable checks were, until 5.16.0, guarded off in a way nothing
+verified. Both are the same shape: a speed optimization that silently removes coverage.
+
+**The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
+`skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
+the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second
+does. The committed backstop for "a numeric change needs golden equivalence" therefore only ever
+ran when someone typed `/golden-check` locally. Its measured cost of `0` in
+`tools/ci/coverage-costs.tsv` is the tell — four phased fits do not cost nothing. The
+`deep-checks` workflow now runs it nightly, and **asserts the run produced assertions**, because
+a skipped file otherwise reports as a pass.
+
+**`NOT_CRAN=false` was set through `$GITHUB_ENV` and did not hold reliably.** On `7e16fa73` the
+skip fired (testthat recorded `test-selectivity-catchability.R:3:1`); on `7611bd1c`, differing
+only in a Markdown file, the same file executed and the worker died with exit code
+`-1073741819` = `0xC0000005`, a Windows **access violation**. Set it as step-level `env:` on the
+`check-r-package` step instead — step env beats both the job env and anything a prior step
+exported, and it is printed in the step's own env block, so the log says which mode ran. 1 of 7
+recent Windows runs slipped; when it does not slip you learn nothing.
+
+**An access violation is memory corruption, not a bad optimum.** A fit in a different basin
+gives a huge gradient and a failed `sdreport` — not a fault. The model is built
+`safebounds = FALSE`, so an out-of-range access is a silent write into adjacent memory; that is
+precisely what the 5.15.0 `age_hat` overflow was. Build with `RCEATTLE_SAFEBOUNDS=true` to turn
+that into an R error naming the object, and run `tools/verify/verify-safebounds.R`. That harness
+carries a **positive control** — it deletes the artifacts, rebuilds, and asserts
+`-DTMB_SAFEBOUNDS` is in the compile line — because `pkgload` only recompiles when sources
+change, so setting the flag alone guarantees nothing and a clean result against a stale
+unchecked `.so` is meaningless. As of 5.16.0 it reports no violation over five configurations
+(ragged comps both directions, joint sex, predation arrays, the CI crash config, `sim_mod()`
+draws) on macOS. **That is not a clearance** — the fault is intermittent and was seen on Windows.
+
+Two further sharp edges found while building that harness, both worth knowing:
+`src/TMB/compile.R` resolves `ceattle.cpp` against the **working directory**, so running it from
+the repo root skips the compile, prints its messages, and exits 0; and `on.exit()` registered at
+a script's top level has no function frame and never fires, which is how the harness first left
+a slow bounds-checked `.so` in the tree for every later fit to use.
 
 ## Coverage gaps in the golden check
 

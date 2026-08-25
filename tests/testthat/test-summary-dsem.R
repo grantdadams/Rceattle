@@ -119,12 +119,28 @@ testthat::test_that("recruitment SD reports the right species and masks fixed SD
   testthat::expect_true(is.na(rs$Std_Error[1]))
 })
 
-testthat::test_that("a fit with no DSEM is untouched by the restored method", {
+testthat::test_that("a fit with no DSEM carries no DSEM tables", {
   plain <- structure(list(data_list = list(nspp = 1L, spnames = "spp1")),
                      class = "Rceattle")
   out <- suppressMessages(summary(plain))
-  testthat::expect_identical(out, plain)
+  testthat::expect_s3_class(out, "summary.Rceattle")
+  testthat::expect_identical(out$spec, plain)
+  testthat::expect_null(out$dsem_coefficients)
+  testthat::expect_null(out$recruitment_sd)
+  # On a non-DSEM fit $coefficients is the fixed effects, and this fixture has none.
   testthat::expect_null(out$coefficients)
+})
+
+# $coefficients means the SEM path table on a DSEM fit and the fixed effects on
+# every other fit. That is deliberate -- the DSEM analysis scripts read the path
+# table from that name -- and it is the one place in summary() where a slot's
+# meaning depends on the model, so pin both halves.
+testthat::test_that("$coefficients is the path table on a DSEM fit, fixed effects elsewhere", {
+  out <- suppressMessages(summary(fake_fit()))
+  testthat::expect_identical(out$coefficients, out$dsem_coefficients)
+  testthat::expect_true("path" %in% colnames(out$coefficients))
+  # The fixed effects are still reachable, under a name that means one thing.
+  testthat::expect_true("fixed_coefficients" %in% names(out))
 })
 
 testthat::test_that("summary() rejects a non-Rceattle object", {

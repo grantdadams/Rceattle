@@ -28,6 +28,41 @@ Rceattle provides a full set of model diagnostics:
 - **self-testing** (simulation–estimation) — check the model recovers its own estimates from simulated data
 - **likelihood profiling** — check how informative the data are about a given parameter
 
+**They all report the same way.** Printing any of them opens with one line — the
+object, an overall status, and a verdict — before the detail:
+
+```
+<Rceattle convergence>  status: OK
+  all checks OK
+
+<Rceattle OSA diagnostics>  status: WARN
+  7 of 7 source(s) outside a null interval; overall SDNR 1.82 (0.91-1.09)
+          source  fleet  n     sdnr   null
+  [WARN]  index      4     36  2.52   0.77-1.23
+  ...
+
+<Rceattle retrospective>  status: WARN
+  4 peel(s); 3 of 12 terminal Mohn's rho outside +/-0.2
+          quantity  N     Pollock  Cod      Arrowtooth flounder
+  [WARN]  R            3  0.511    0.283    -0.221
+
+<Rceattle jitter>  status: OK
+  4 of 4 start(s) reached the best optimum (within 0.01)
+```
+
+The severity words are the same four everywhere — `OK`, `NOTE`, `WARN`, `FAIL` —
+and the overall status is the worst present. The **return values are unchanged**:
+each object is still the data frame or list it always was, so `retro$mohns`,
+`jit$nll` and `diag$sdnr` index exactly as before. Only the printing has an
+opinion.
+
+Two of these carry a reference band you can set. `print(retro, band = )` is
+Mohn's rho threshold — the default `0.2` is the rule of thumb below, and
+Hurtado-Ferro et al. (2015) give asymmetric, life-history-dependent alternatives
+(−0.15 to 0.20 long-lived, −0.22 to 0.30 short-lived), which is why it is an
+argument. `print(jit, tol = )` is how close an objective must be to count as
+having reached the same optimum.
+
 ## Setup and plotting data
 
 ```{r}
@@ -161,7 +196,7 @@ model has no observations for (it errors only if *none* of them do). `"diet"` is
 the one source not in the default set -- it applies only to multispecies models
 and can be slow -- so pass `source = "all"` to include it.
 
-```{r osa, eval = FALSE}
+```{r osa}
 # Aggregate (catch + index) residuals
 osa <- osa_residuals(model_1, source = c("index", "catch"))
 head(osa)
@@ -256,7 +291,7 @@ abundance, catchability) against their process prior, drawing once from the
 joint posterior (SAM's `procres`; Nielsen and Berg 2014). Under a correct
 process model these too are approximately iid standard normal.
 
-```{r procres, eval = FALSE}
+```{r procres}
 pr <- process_residuals(model_1, process = "recruitment")
 osa_diagnostics(pr)
 plot(pr)

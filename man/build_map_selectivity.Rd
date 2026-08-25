@@ -26,7 +26,7 @@ and \code{Time_varying_sel} settings in \code{fleet_control}.
 \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
 \code{0} = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
 \code{1} = "Logistic"
-\code{2} = "NonParametric" selecitivty sensu Ianelli et al 2018
+\code{2} = "NonParametric" selectivity sensu Ianelli et al 2018
 \code{3} = "DoubleLogistic"
 \code{4} = "DescendingLogistic"
 \code{5} = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)

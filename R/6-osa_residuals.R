@@ -730,11 +730,14 @@ osa_residuals <- function(object = NULL,
 #' @param seed Seed for the tail-interval simulation (reproducibility).
 #'   Default 123.
 #'
-#' @return A data frame with one row per data source plus an `"all"` row, with
-#'   columns: `source`, `type`, `fleet`, `n`, `sdnr`, `sdnr_lo`, `sdnr_hi`,
-#'   `lower`, `lower_lo`, `lower_hi`, `upper`, `upper_lo`, `upper_hi`, and the
-#'   logical flags `sdnr_ok`, `lower_ok`, `upper_ok` (TRUE when the statistic is
-#'   inside its null interval).
+#' @return A data frame (class `"rceattle_osa_diagnostics"`, so it prints as a
+#'   compact severity-tagged summary; every column is still there and `$` works
+#'   as before) with one row per data source plus an `"all"` row, with columns:
+#'   `group` (the `"<source> fleet <n>"` label), `source`, `fleet`, `n`, `sdnr`,
+#'   `sdnr_lo`, `sdnr_hi`, `lower`, `lower_lo`, `lower_hi`, `upper`, `upper_lo`,
+#'   `upper_hi`, and the logical flags `sdnr_ok`, `lower_ok`, `upper_ok` (TRUE
+#'   when the statistic is inside its null interval). On the `"all"` row
+#'   `source` and `fleet` are `NA`.
 #'
 #' @references
 #' Francis, R.I.C.C. 2014. Replacing the multinomial in stock assessment models:
@@ -777,7 +780,52 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
                                fleet = NA_integer_, overall,
                                stringsAsFactors = FALSE))
   rownames(out) <- NULL
+  # Still a data frame -- every column and `$` access is unchanged. The class
+  # only adds a print method, so the sixteen columns stop wrapping across three
+  # screen-widths with no verdict; see print.rceattle_osa_diagnostics().
+  class(out) <- c("rceattle_osa_diagnostics", "data.frame")
   out
+}
+
+
+#' @export
+print.rceattle_osa_diagnostics <- function(x, ...) {
+  df <- as.data.frame(x)
+  per <- df[df$group != "all" | !is.na(df$source), , drop = FALSE]
+  all_row <- df[df$group == "all" & is.na(df$source), , drop = FALSE]
+
+  # SDNR is the headline statistic, so it carries WARN; a tail outside its null
+  # interval with an acceptable SDNR is a NOTE. Both intervals are simulated
+  # under the standard-normal null, so "outside" already means "further than
+  # chance", and neither is a FAIL: these are diagnostics on fit, not a broken
+  # model.
+  sev <- rep("OK", nrow(per))
+  sev[!is.na(per$lower_ok) & !per$lower_ok] <- "NOTE"
+  sev[!is.na(per$upper_ok) & !per$upper_ok] <- "NOTE"
+  sev[!is.na(per$sdnr_ok)  & !per$sdnr_ok]  <- "WARN"
+
+  n_bad <- sum(sev != "OK")
+  .rce_diag_header(
+    "OSA diagnostics", .rce_worst(sev),
+    paste0(.rce_n_of(n_bad, nrow(per)),
+           " source(s) outside a null interval",
+           if (nrow(all_row)) paste0("; overall SDNR ",
+                                     formatC(all_row$sdnr[1], format = "f", digits = 2),
+                                     " (", formatC(all_row$sdnr_lo[1], format = "f", digits = 2),
+                                     "-", formatC(all_row$sdnr_hi[1], format = "f", digits = 2),
+                                     ")") else ""))
+
+  # Worst first, so a long fleet list opens with what needs attention.
+  ord <- order(match(sev, .CONV_SEVERITY), decreasing = TRUE)
+  per <- per[ord, , drop = FALSE]; sev <- sev[ord]
+  per$.tag <- .rce_sev_tag(sev)
+  per$.sdnr_int <- sprintf("%.2f-%.2f", per$sdnr_lo, per$sdnr_hi)
+
+  .rce_diag_table(per, c(" " = ".tag", "source" = "source", "fleet" = "fleet",
+                         "n" = "n", "sdnr" = "sdnr", "null" = ".sdnr_int"))
+  cat("  tails and their intervals are in the data frame",
+      "(lower/upper, *_lo, *_hi)\n")
+  invisible(x)
 }
 
 

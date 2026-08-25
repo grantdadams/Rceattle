@@ -12,140 +12,206 @@
   "B_eaten", "B_eaten_as_prey", "Flimit"
 )
 
-# Shortening the operating model's projection horizon -------------------------
+# Assessment years ------------------------------------------------------------
 #
-# Between assessments the operating model only has to reach one assessment step
-# past its terminal year: run_mse() reads `max_catch_hat` in the upcoming
-# assessment year to cap the TAC at exploitable biomass, and nothing looks
-# further ahead than that. `projyr` is what sizes the AD tape, so refitting on
-# the shorter horizon keeps each refit proportional to the years realized so
-# far rather than to the whole projection.
+# `assessment_period` is read two ways. A single number is a fixed cycle: an
+# assessment every n years, counted from the operating model's terminal year to
+# the end of the MSE. A vector is the schedule itself -- the exact years an
+# assessment is completed. The two are different management questions: one
+# assessment missed inside an otherwise biennial cycle is a single episode of
+# stale advice, while a triennial period is a permanent policy, and the cost of
+# one is not the cost of the other.
 #
-# clean_data() filters every data frame to styr:projyr, so the shorter horizon
-# also drops the projection-year placeholder rows run_mse() appends once up
-# front. Those rows are only ever rewritten for years at or before the current
-# assessment year -- inside the shortened horizon -- so the dropped ones still
-# hold the values they were created with and are restored verbatim.
-
-# Parameter blocks build_params() dimensions by styr:projyr, with the position
-# of their year dimension. Every other block is hindcast-length.
-.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L)
-
-# Data frames carried out to projyr -- exactly the ones clean_data() filters to
-# styr:projyr, so exactly the ones a shortened horizon truncates.
-.mse_proj_tables <- c("index_data", "comp_data", "caal_data", "catch_data",
-                      "diet_data", "NByageFixed", "emp_sel", "weight",
-                      "ration_data")
-
-# Between assessments the loop reads two reported quantities off the operating
-# model, both indexed by catch_data's rows: max_catch_hat, to cap the next TAC
-# at exploitable biomass, and catch_hat, for the catch the operating model
-# actually took. Those are lifted back onto the full-length table; the rest of
-# the fit's quantities are left as the shortened refit produced them. Nothing
-# else reads them -- sim_mod() works off the un-restored fit, a completed
-# simulation returns the terminal full-horizon fit, and a failed one returns no
-# model at all.
-.mse_proj_catch_quantities <- c("catch_hat", "max_catch_hat")
-
-# Replace the year dimension of an array with `keep`, whatever its rank.
-.mse_slice_year_dim <- function(x, yr_dim, keep) {
-  idx <- lapply(dim(x), seq_len)
-  idx[[yr_dim]] <- keep
-  do.call(`[`, c(list(x), idx, list(drop = FALSE)))
-}
-
-.mse_trim_proj_params <- function(params, nyrs_keep) {
-  for (nm in names(.mse_proj_param_yrdim)) {
-    if (is.null(params[[nm]])) next
-    params[[nm]] <- .mse_slice_year_dim(params[[nm]],
-                                        .mse_proj_param_yrdim[[nm]],
-                                        seq_len(nyrs_keep))
-  }
-  params
-}
-
-# Write the shortened blocks back over the head of the full-horizon ones, so
-# the projection years the refit did not cover keep their existing values --
-# for rec_dev those are the recruitment deviations sample_rec() drew for this
-# simulation.
-.mse_restore_proj_params <- function(params, params_full) {
-  for (nm in names(.mse_proj_param_yrdim)) {
-    short <- params[[nm]]
-    full  <- params_full[[nm]]
-    if (is.null(short) || is.null(full)) next
-    yr_dim <- .mse_proj_param_yrdim[[nm]]
-    idx <- lapply(dim(full), seq_len)
-    idx[[yr_dim]] <- seq_len(dim(short)[yr_dim])
-    params[[nm]] <- do.call(`[<-`, c(list(full), idx, list(value = short)))
-  }
-  params
-}
-
-# Put a shortened-horizon fit back on the full projection horizon: data frames
-# regain their future rows, projection-length parameter blocks regain their
-# future slices, and the two catch quantities the loop reads are re-expanded to
-# match (NA in the years the refit did not cover).
-.mse_restore_om_horizon <- function(fit, data_list_full, params_full) {
-  short_projyr <- fit$data_list$projyr
-
-  for (nm in .mse_proj_tables) {
-    full  <- data_list_full[[nm]]
-    short <- fit$data_list[[nm]]
-    if (is.null(full) || is.null(short) || !nrow(full)) next
-
-    keep <- abs(full$Year) <= short_projyr
-    # The refit sees the full-horizon table and only filters it, so its rows are
-    # the kept rows in the same order and its columns are unchanged. Check
-    # rather than assume: either mismatch would silently misalign the rows or
-    # columns written back below, and with them every row-indexed quantity.
-    # Compare years by value -- clean_data() may return them as integer where
-    # the source table held doubles.
-    yrs_full  <- as.numeric(abs(full$Year))[keep]
-    yrs_short <- as.numeric(abs(short$Year))
-    if (length(yrs_full) != length(yrs_short) || any(yrs_full != yrs_short) ||
-        !identical(names(full), names(short))) {
-      stop("run_mse(): '", nm, "' did not survive the shortened operating-model ",
-           "horizon unchanged (", sum(keep), " rows expected, ", nrow(short),
-           " returned).", call. = FALSE)
-    }
-
-    # clean_data() renumbers diet_data's stomach_id from the rows it is given,
-    # so a table that actually lost rows would come back with the shortened
-    # numbering spliced into the full-horizon one. No bundled model stratifies
-    # diet by projection year, so this never fires -- but it must not pass
-    # silently if one ever does.
-    if (identical(nm, "diet_data") && !all(keep)) {
-      stop("run_mse(): diet_data is stratified past the shortened operating-model ",
-           "horizon; its stomach_id would be renumbered. Widen the horizon or ",
-           "drop diet_data from .mse_proj_tables.", call. = FALSE)
-    }
-
-    restored <- full
-    restored[keep, ] <- short
-    fit$data_list[[nm]] <- restored
-
-    if (identical(nm, "catch_data")) {
-      for (q in .mse_proj_catch_quantities) {
-        x <- fit$quantities[[q]]
-        if (is.null(x)) next
-        # NA outside the refit's horizon: those years have not been projected,
-        # and the loop only ever indexes rows at or before it.
-        out <- rep(NA_real_, nrow(full))
-        out[keep] <- x
-        if (!is.null(names(x))) {
-          nms <- rep(NA_character_, nrow(full))
-          nms[keep] <- names(x)
-          names(out) <- nms
-        }
-        fit$quantities[[q]] <- out
-      }
-    }
+# `max_yr` is the last year an assessment can be run in: the earlier of the two
+# models' projection horizons, and of `endyr` where the caller set one.
+# `proj_last` is the horizon mse_summary() reads, which is the two models' own
+# projyr and takes no notice of `endyr` -- so the two differ whenever the caller
+# shortens the MSE, and the short-schedule warning has to test against the
+# second.
+.mse_assess_years <- function(assessment_period, om_endyr, max_yr,
+                              proj_last = max_yr) {
+  if (!is.numeric(assessment_period) || length(assessment_period) == 0 ||
+      anyNA(assessment_period)) {
+    stop("`assessment_period` must be a number of years, or a vector of the ",
+         "years an assessment is completed.", call. = FALSE)
   }
 
-  fit$data_list$projyr <- data_list_full$projyr
-  fit$estimated_params <- .mse_restore_proj_params(fit$estimated_params,
-                                                   params_full)
-  fit
+  fractional <- assessment_period[assessment_period != round(assessment_period)]
+  if (length(fractional)) {
+    stop("`assessment_period` must be whole years; got ",
+         paste(fractional, collapse = ", "), ".", call. = FALSE)
+  }
+
+  # * A period ----
+  if (length(assessment_period) == 1) {
+    if (assessment_period < 1) {
+      stop("`assessment_period` must be at least 1 year; got ",
+           assessment_period, ".", call. = FALSE)
+    }
+
+    # A schedule of one year cannot be told from a period, and the two readings
+    # of, say, 2029 are a world apart. Refused rather than guessed at -- and
+    # this is also where a period simply longer than the projection lands,
+    # which used to surface as seq()'s "wrong sign in 'by' argument".
+    if (om_endyr + assessment_period > max_yr) {
+      stop("A single `assessment_period` is the number of years BETWEEN ",
+           "assessments, not the year of one: ", om_endyr, " + ",
+           assessment_period, " is past the last year an assessment can be ",
+           "run in (", max_yr, "), so no assessment would run. Give the ",
+           "period, or list two or more assessment years.", call. = FALSE)
+    }
+
+    return(.mse_warn_short_schedule(
+      seq(from = om_endyr + assessment_period, to = max_yr,
+          by = assessment_period),
+      proj_last))
+  }
+
+  # * An explicit schedule ----
+  # round() rather than as.integer(): the years are already whole, and keeping
+  # them the same storage mode `seq()` returns keeps the two paths
+  # indistinguishable to everything downstream.
+  assess_yrs <- sort(unique(round(assessment_period)))
+
+  # Named and refused rather than dropped. A year outside the window cannot host
+  # an assessment, and quietly removing it would run a schedule the caller did
+  # not ask for and could not see anywhere in the result.
+  early <- assess_yrs[assess_yrs <= om_endyr]
+  if (length(early)) {
+    stop("`assessment_period` years must be after the operating model's ",
+         "terminal year (", om_endyr, "); got ",
+         paste(early, collapse = ", "), ".", call. = FALSE)
+  }
+
+  late <- assess_yrs[assess_yrs > max_yr]
+  if (length(late)) {
+    stop("`assessment_period` years must be within the projection horizon ",
+         "(through ", max_yr, "); got ", paste(late, collapse = ", "), ".",
+         call. = FALSE)
+  }
+
+  .mse_warn_short_schedule(assess_yrs, proj_last)
+}
+
+# A schedule that stops short of the projection horizon leaves the trailing
+# years with no catch at all: run_mse() only ever fills catch up to the last
+# assessment, so those years keep the NA the projection rows were created with.
+#
+# mse_summary() then counts them anyway. `projyrs` there runs to the models'
+# own projyr, so the NA years sit in the denominator of P(Closed) but not its
+# numerator, in both halves of Catch IAV, and outside the na.rm mean that is
+# Average Catch. All three come out low, with nothing in the table saying which
+# years were summarised. A biennial cycle over an odd number of projection
+# years lands here every time -- 2027(2)2049 against a 2050 horizon.
+#
+# Warned rather than refused: a schedule that stops short is a legitimate
+# design, it just has to be summarised over the years it covers.
+#
+# Tested against `proj_last`, the models' own projyr, NOT the last year an
+# assessment may run in. `endyr` shortens the second and not the first, so a
+# caller who ends the MSE early leaves every remaining projection year unfished
+# -- the same understatement, over more years.
+.mse_warn_short_schedule <- function(assess_yrs, proj_last) {
+  last <- max(assess_yrs)
+  if (last < proj_last) {
+    unfished <- if (last + 1 == proj_last) {
+      as.character(proj_last)
+    } else {
+      paste0(last + 1, "-", proj_last)
+    }
+    warning("The last assessment is in ", last, " but the models project to ",
+            proj_last, ", so catch in ", unfished, " is never set. Those years ",
+            "carry NA, and mse_summary() understates Average Catch, Catch IAV ",
+            "and P(Closed) because it summarises over the whole projection. ",
+            "Either set projyr to ", last, " in both models, or run ",
+            "assessments through ", proj_last, ".", call. = FALSE)
+  }
+  assess_yrs
+}
+
+# Catch multiplier ------------------------------------------------------------
+#
+# `catch_mult` scales the catch the estimation model's control rule recommends,
+# before the cap and before the exploitable-biomass limit. A single number or a
+# vector of length nspp applies in every projection year, which is a permanent
+# change in harvest policy. A data.frame of Year / Species / mult applies only
+# in the pairs it lists -- a buffer held for the years advice is stale, say --
+# and every pair it does not list is multiplied by 1.
+#
+# `Species` is the species number, the same code the catch data carries.
+# Validated up front so a mistyped year or species number is reported once at
+# the call, not silently ignored inside every simulation as a multiplier of 1.
+.mse_check_catch_mult <- function(catch_mult, nspp, proj_first, proj_last) {
+  if (is.null(catch_mult)) return(NULL)
+
+  # * Year- and species-indexed ----
+  if (is.data.frame(catch_mult)) {
+    absent <- setdiff(c("Year", "Species", "mult"), names(catch_mult))
+    if (length(absent)) {
+      stop("A `catch_mult` data.frame needs columns Year, Species and mult; ",
+           "missing ", paste(absent, collapse = ", "), ".", call. = FALSE)
+    }
+    if (nrow(catch_mult) == 0) {
+      stop("`catch_mult` has no rows. Pass NULL for no multiplier.",
+           call. = FALSE)
+    }
+    if (!is.numeric(catch_mult$mult) || anyNA(catch_mult$mult) ||
+        any(!is.finite(catch_mult$mult)) || any(catch_mult$mult < 0)) {
+      stop("`catch_mult$mult` must be finite and non-negative.", call. = FALSE)
+    }
+    if (!is.numeric(catch_mult$Species) || anyNA(catch_mult$Species) ||
+        any(!catch_mult$Species %in% seq_len(nspp))) {
+      stop("`catch_mult$Species` must be a species number in 1:", nspp, ".",
+           call. = FALSE)
+    }
+    if (!is.numeric(catch_mult$Year) || anyNA(catch_mult$Year) ||
+        any(catch_mult$Year != round(catch_mult$Year))) {
+      stop("`catch_mult$Year` must be a whole year.", call. = FALSE)
+    }
+
+    off <- catch_mult$Year[catch_mult$Year < proj_first |
+                             catch_mult$Year > proj_last]
+    if (length(off)) {
+      stop("`catch_mult$Year` must be a year the assessment schedule covers (",
+           proj_first, ":", proj_last, "); got ",
+           paste(sort(unique(off)), collapse = ", "), ".", call. = FALSE)
+    }
+
+    key <- paste(catch_mult$Year, catch_mult$Species)
+    if (anyDuplicated(key)) {
+      stop("`catch_mult` gives more than one multiplier for the same year and ",
+           "species: ", paste(unique(key[duplicated(key)]), collapse = "; "),
+           ".", call. = FALSE)
+    }
+
+    return(catch_mult)
+  }
+
+  # * One multiplier per species, every year ----
+  if (!is.numeric(catch_mult) || anyNA(catch_mult) ||
+      any(!is.finite(catch_mult)) || any(catch_mult < 0)) {
+    stop("`catch_mult` must be finite and non-negative.", call. = FALSE)
+  }
+  if (length(catch_mult) == 1) {
+    catch_mult <- rep(catch_mult, nspp)
+  }
+  if (length(catch_mult) != nspp) {
+    stop("catch_mult is not length 1 or length nspp")
+  }
+  catch_mult
+}
+
+# Apply the multiplier to the catch rows filled for this assessment interval.
+# `year` and `species` are those rows' own Year and Species columns.
+.mse_apply_catch_mult <- function(catch, year, species, catch_mult) {
+  if (is.data.frame(catch_mult)) {
+    idx <- match(paste(year, species),
+                 paste(catch_mult$Year, catch_mult$Species))
+    mult <- catch_mult$mult[idx]
+    mult[is.na(idx)] <- 1   # a pair the caller did not list is left alone
+    return(catch * mult)
+  }
+  catch * catch_mult[species]
 }
 
 #' Run a management strategy evaluation
@@ -156,7 +222,7 @@
 #' @param em CEATTLE model object exported from \code{Rceattle}
 #' @param nsim Number of simulations to run (default 10)
 #' @param start_sim First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).
-#' @param assessment_period Period of years that each assessment is taken
+#' @param assessment_period Assessment schedule. A single number is the period in years between assessments, counted from the operating model's terminal year. A vector is the explicit set of years an assessment is completed. Default = 1.
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
 #' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
@@ -164,7 +230,7 @@
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL
-#' @param catch_mult A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
+#' @param catch_mult A multiplier applied to the catch the control rule recommends. A single number or a vector of length \code{nspp} applies in every projection year; a \code{data.frame} with columns \code{Year}, \code{Species} and \code{mult} applies only in the year and species pairs it lists, where \code{Year} is a year the assessment schedule covers. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
@@ -176,6 +242,88 @@
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#'
+#' @details
+#' # Assessment schedule
+#'
+#' A single `assessment_period` is a fixed cycle. A vector is the schedule
+#' itself, for a design whose years are not evenly spaced -- one assessment
+#' missed inside an otherwise biennial cycle, for instance:
+#'
+#' ```
+#' biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+#' run_mse(om, em, assessment_period = setdiff(biennial, 2031))
+#' ```
+#'
+#' Every year must be after the operating model's terminal year and within the
+#' projection horizon; a year outside that window is an error rather than being
+#' dropped. One missed assessment and a permanently longer cycle are different
+#' questions, and the second does not answer the first.
+#'
+#' A schedule must name two or more years. One year on its own cannot be told
+#' from a period, and the two readings are a world apart, so it is refused
+#' rather than guessed at.
+#'
+#' Two schedules run on the same `seed` share their recruitment deviations,
+#' which are drawn once per replicate before the first assessment, and each
+#' assessment's observation draw is seeded on that assessment's own year rather
+#' than on wherever earlier assessments left the stream. So an assessment in
+#' year `Y` starts from the same place in every schedule that assesses `Y`, and
+#' a divergence at one assessment no longer displaces every assessment after it.
+#'
+#' Common random numbers are not complete, and the gap is worth knowing before
+#' designing a comparison. One `sim_mod()` call draws every year in the
+#' assessment interval, under that assessment's seed --- so a year sitting
+#' *inside* a longer interval is drawn under a different seed than the same year
+#' in a schedule that assessed it directly. Two schedules that differ in which
+#' years they assess therefore realize different observation error in the years
+#' between, even where the stock is in the same state. Per-observation-year
+#' streams would close it; `inst/dev/TODO-mse-horizon.md` records what that
+#' would take.
+#'
+#' Past the point where two schedules genuinely diverge --- different catch
+#' taken, different years surveyed --- the draws necessarily diverge too. That
+#' is a real difference in the runs, not an artefact.
+#'
+#' Make the last assessment year reach the projection horizon. Catch is only
+#' ever filled up to the last assessment, so a schedule that stops short leaves
+#' the trailing years at `NA`, and `mse_summary()` summarises over the whole
+#' projection --- understating Average Catch, Catch IAV and P(Closed) with
+#' nothing in the table to say which years it covered. A biennial cycle over an
+#' odd number of projection years lands here every time, so this is warned
+#' about, for a period and a schedule alike.
+#'
+#' # Catch multiplier
+#'
+#' `catch_mult` multiplies the catch the estimation model's control rule
+#' recommends, before `cap` and before the exploitable-biomass limit. Given as
+#' a `data.frame` it applies only in the years and species it lists, which is
+#' how a buffer held for the years advice is stale is expressed.
+#'
+#' Mind which years those are. The assessment in year `Y` sets catch for `Y+1`
+#' onward, so a missed assessment in 2031 leaves **2032 and 2033** on 2029's
+#' advice --- 2031 itself is set by the 2029 assessment either way, and cutting
+#' it changes a year the missed assessment never touched:
+#'
+#' ```
+#' buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
+#' buffer$mult <- 0.90
+#' run_mse(om, em, assessment_period = setdiff(biennial, 2031),
+#'         catch_mult = buffer)
+#' ```
+#'
+#' `Species` is the species number, matching the catch data's own column, and
+#' any (year, species) pair the table omits is multiplied by 1. `Year` must be
+#' a year the assessment schedule actually covers --- from the operating
+#' model's terminal year to the last assessment, which is where catch is
+#' filled, not the whole projection.
+#'
+#' Note that this reduces catch, not ABC. Where realized catch sits well below
+#' ABC -- GOA arrowtooth flounder, for one -- reducing ABC changes removals only
+#' to the extent the fishery attains it, while reducing catch changes them in
+#' full. Either scale the multiplier by recent attainment,
+#' `1 - (1 - mult) * attainment`, or report the unscaled result as an upper
+#' bound on the effect of the reduction.
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @examples
@@ -240,16 +388,6 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     }
   }
 
-  if(!is.null(catch_mult)){
-    if(length(catch_mult) == 1){
-      catch_mult = rep(catch_mult, om$data_list$nspp)
-    }
-
-    if(length(catch_mult) != om$data_list$nspp){
-      stop("catch_mult is not length 1 or length nspp")
-    }
-  }
-
   # na.rm: Proj_F_proportion is NA for fleets that never take catch (surveys),
   # which is a legitimate workbook value. Without it the sum is NA and the `if`
   # errors with "missing value where TRUE/FALSE needed" instead of reporting
@@ -299,8 +437,24 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     n_sel_bins_em <- max(em$data_list$fleet_control$N_sel_bins, na.rm = TRUE)
   }
 
-  # - Assessment period
-  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr, endyr), na.rm = TRUE),  by = assessment_period)
+  # - Assessment period, or an explicit schedule of assessment years
+  assess_yrs <- .mse_assess_years(
+    assessment_period,
+    om_endyr  = om$data_list$endyr,
+    max_yr    = min(c(om$data_list$projyr, em$data_list$projyr, endyr),
+                    na.rm = TRUE),
+    proj_last = min(om$data_list$projyr, em$data_list$projyr))
+
+  # - Adjust catch multiplier
+  # Checked against the years catch is actually FILLED for, which is the
+  # assessment schedule's own span -- not the projection horizon. The loop only
+  # writes catch up to the last assessment, so a multiplier named for a later
+  # year applies nowhere, which is the silent no-op this validation exists to
+  # catch.
+  catch_mult <- .mse_check_catch_mult(catch_mult,
+                                      nspp       = om$data_list$nspp,
+                                      proj_first = om$data_list$endyr + 1,
+                                      proj_last  = max(assess_yrs))
 
   # - Data sampling period
   if(length(sampling_period)==1){
@@ -550,6 +704,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     # Sample recruitment
     om_use <- Rceattle::sample_rec(om_use, sample_rec = sample_rec, update_model = FALSE, rec_trend = rec_trend)
 
+    # A seed per projection year for the observation draws, keyed by the YEAR
+    # rather than by an assessment's position in the schedule, and drawn over a
+    # year list that does not depend on the schedule at all. Each assessment
+    # then starts its draw from the same place whatever schedule the run is on,
+    # so a divergence in one assessment cannot displace the stream every later
+    # assessment draws from. That compounding is what stopped two schedules
+    # being comparable replicate by replicate.
+    #
+    # Drawn AFTER sample_rec(), so recruitment deviations consume the
+    # per-simulation stream exactly as they did before and are unchanged.
+    draw_seeds <- stats::setNames(
+      sample.int(.Machine$integer.max, length(om_proj_yrs)),
+      as.character(om_proj_yrs))
+
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
 
@@ -565,7 +733,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
       # * Catch multiplier ----
       if(!is.null(catch_mult)){
-        new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * catch_mult[new_catch_data$Species[dat_fill_ind]]
+        new_catch_data$Catch[dat_fill_ind] <- .mse_apply_catch_mult(
+          catch      = new_catch_data$Catch[dat_fill_ind],
+          year       = new_catch_data$Year[dat_fill_ind],
+          species    = new_catch_data$Species[dat_fill_ind],
+          catch_mult = catch_mult)
       }
 
       # * Apply cap ----
@@ -614,23 +786,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
-      # * Shorten the projection horizon for this refit ----
-      # Reach one assessment step past the new terminal year -- far enough for
-      # the next iteration's exploitable-biomass cap -- so the AD tape covers
-      # the realized years plus that look-ahead instead of the whole projection.
-      # The last assessment keeps the full horizon, so the operating model that
-      # is returned (and handed to remove_F) is built over the whole projection,
-      # exactly as if the horizon had never been shortened.
-      om_dl_full     <- om_use$data_list
-      om_params_full <- om_use$estimated_params
-      om_projyr_use  <- if (k < length(assess_yrs)) assess_yrs[k + 1] else om_dl_full$projyr
-      om_shortened   <- om_projyr_use < om_dl_full$projyr
-      if (om_shortened) {
-        om_use$data_list$projyr <- om_projyr_use
-        om_use$estimated_params <- .mse_trim_proj_params(
-          om_use$estimated_params,
-          om_projyr_use - om_use$data_list$styr + 1)
-      }
+      # The operating model is refit over its WHOLE projection, every
+      # assessment. It used to be shortened to the next assessment year, which
+      # is all the loop reads -- but `sim_mod()` draws once per observation row,
+      # so the number of rows the shortened model carried set how far the random
+      # stream advanced, and that row count depended on when the NEXT assessment
+      # fell. Two runs differing only in their assessment schedule then drew
+      # different observation error from the first assessment onward, which is
+      # exactly the comparison an MSE of two schedules is trying to make.
+      # See the TODO in inst/dev/TODO-mse-horizon.md for how to get the saving
+      # back without reintroducing that.
 
       # * Update parameters ----
       # -- log_F
@@ -750,12 +915,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       om_use$data_list$estimateMode <- estimate_mode_base
 
       # sim_mod() reads the operating model's quantities positionally against
-      # its own data frames, so it works from the fitted object; the assessment
-      # loop below works from the full-horizon one.
+      # its own data frames, so it works from the fitted object.
       om_fit <- om_use
-      if (om_shortened) {
-        om_use <- .mse_restore_om_horizon(om_use, om_dl_full, om_params_full)
-      }
 
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -778,6 +939,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # 4. Simulate data from OM ----
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
+      # Seeded on this assessment's year, not on wherever the stream happened
+      # to be left by the assessments before it.
+      set.seed(draw_seeds[[as.character(assess_yrs[k])]])
       sim_dat <- Rceattle::sim_mod(om_fit, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]

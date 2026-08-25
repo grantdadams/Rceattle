@@ -19,11 +19,14 @@ Default 10000.}
 Default 123.}
 }
 \value{
-A data frame with one row per data source plus an \code{"all"} row, with
-columns: \code{source}, \code{type}, \code{fleet}, \code{n}, \code{sdnr}, \code{sdnr_lo}, \code{sdnr_hi},
-\code{lower}, \code{lower_lo}, \code{lower_hi}, \code{upper}, \code{upper_lo}, \code{upper_hi}, and the
-logical flags \code{sdnr_ok}, \code{lower_ok}, \code{upper_ok} (TRUE when the statistic is
-inside its null interval).
+A data frame (class \code{"rceattle_osa_diagnostics"}, so it prints as a
+compact severity-tagged summary; every column is still there and \code{$} works
+as before) with one row per data source plus an \code{"all"} row, with columns:
+\code{group} (the \code{"<source> fleet <n>"} label), \code{source}, \code{fleet}, \code{n}, \code{sdnr},
+\code{sdnr_lo}, \code{sdnr_hi}, \code{lower}, \code{lower_lo}, \code{lower_hi}, \code{upper}, \code{upper_lo},
+\code{upper_hi}, and the logical flags \code{sdnr_ok}, \code{lower_ok}, \code{upper_ok} (TRUE
+when the statistic is inside its null interval). On the \code{"all"} row
+\code{source} and \code{fleet} are \code{NA}.
 }
 \description{
 Computes the Stewart and Monnahan (2025) statistical diagnostics for a set of
