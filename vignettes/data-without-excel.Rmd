@@ -442,6 +442,10 @@ colnames(sex_matrix) <- paste0("Age", 1:nages)
 simData$sex_ratio <- cbind(data.frame(Species = 1:nspp), sex_matrix)
 ```
 
+Where species carry different numbers of age bins, `maturity` and `sex_ratio` are as wide as the longest-lived species, and **each row must be filled across its own species' `nages`**. Columns past that are padding and may be `NA`.
+
+Getting this wrong is quiet. Spawner-per-recruit sums over every age of a species and scales by the proportion female, so one gap inside a species' own range leaves `SPR0` — and every SPR-based reference point built on it — `NA`. Nothing else reads these tables that way, so the model fits normally until a harvest control rule asks for reference points. `data_check()` names the species and the missing ages.
+
 ### Fixed selectivity (optional)
 
 Pre-specified selectivity-at-age values for fleets whose selectivity is fixed (not estimated). **Required** when any fleet has `Selectivity = "Fixed"`. Skip if all fleets estimate their own selectivity (as in this example).

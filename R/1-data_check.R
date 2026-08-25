@@ -439,6 +439,40 @@ data_check <- function(data_list) {
   if(ncol(data_list$maturity)  <= max(data_list$nages)) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
   if(ncol(data_list$sex_ratio) <= max(data_list$nages)) errors <- c(errors, "Sex ratio does not span all ages")
 
+  # Per-species age coverage, which the column counts above cannot see. Those
+  # ask only whether the table is wide enough for the LONGEST-lived species, so
+  # a table can be wide enough and still leave a species' own bins empty -- and
+  # the value-range checks below pass over NA.
+  #
+  # Spawner-per-recruit sums across every age of a species and scales by the
+  # proportion female (`spr.hpp`), so one gap inside a species' own age range
+  # makes SPR0 NA, and with it every SPR-based reference point. The only symptom
+  # is a non-finite gradient out of the reference-point solve -- nlminb's
+  # "NA/NaN gradient evaluation", which names neither the table nor the species.
+  # Ages beyond a species' own `nages` are padding and are not checked.
+  for(nm in c("maturity", "sex_ratio")){
+    tbl <- data_list[[nm]]
+    if(is.null(tbl) || !nrow(tbl)) next
+    agec <- grep("^Age", colnames(tbl))
+    if(!length(agec)) next
+    spp_col <- if(!is.null(tbl$Species)) tbl$Species else tbl[[1]]
+    for(i in seq_len(nrow(tbl))){
+      sp <- suppressWarnings(as.integer(spp_col[i]))
+      if(is.na(sp) || sp < 1 || sp > data_list$nspp) next
+      n <- data_list$nages[sp]
+      if(length(agec) < n) next   # the column-count check above already reports it
+      vals <- suppressWarnings(as.numeric(tbl[i, agec[seq_len(n)]]))
+      gaps <- which(!is.finite(vals))
+      if(length(gaps)){
+        errors <- c(errors, paste0(
+          nm, " is missing values for species ", sp, ", age",
+          if(length(gaps) > 1) "s " else " ", paste(range(gaps), collapse = "-"),
+          "; that species has ", n, " age bins. Spawner-per-recruit sums over ",
+          "every age, so a gap leaves SPR0 and the reference points NA."))
+      }
+    }
+  }
+
   # Maturity / sex_ratio value ranges
   mat_vals <- data_list$maturity[, grep("^Age", colnames(data_list$maturity)), drop = FALSE]
   if(any(mat_vals < 0, na.rm = TRUE)){ # | mat_vals > 1

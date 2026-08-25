@@ -11,6 +11,38 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.19.0
+
+## Bug fixes
+
+* **`data_check()` checks `maturity` and `sex_ratio` age coverage per species,
+  not only against the widest one.** The existing checks compare the table's
+  column count with `max(nages)`, so a table wide enough for the longest-lived
+  species passes even when a shorter-column species is left short of its own
+  bins — and the `[0, 1]` range check then reads over the `NA`s with `na.rm`.
+
+  `spawning_biomass_per_recruit()` (`src/TMB/spr.hpp`) sums across every age of
+  a species and scales by the proportion female, so one gap inside a species'
+  own age range makes `SPR0` `NA`, and with it `SPRtarget`, `SPRlimit` and every
+  SPR-based reference point. Nothing else reads those tables the same way — the
+  hindcast uses the sex ratio it estimates — so a model fits cleanly until a
+  harvest control rule asks for reference points, and then `nlminb` reports
+  `NA/NaN gradient evaluation`, naming neither the table nor the species.
+
+  Found on the GOA multispecies workbook, where arrowtooth `sex_ratio` was
+  filled to Age10 against 21 age bins. That same data now reports:
+
+  ```
+  sex_ratio is missing values for species 2, ages 11-21; that species has 21
+  age bins. Spawner-per-recruit sums over every age, so a gap leaves SPR0 and
+  the reference points NA.
+  ```
+
+  Ages past a species' own `nages` are padding and are not checked, so a ragged
+  multispecies workbook still passes — asserted against the bundled datasets in
+  `test-data-check-age-coverage.R`.
+
+
 # Rceattle 5.18.1
 
 ## Documentation
