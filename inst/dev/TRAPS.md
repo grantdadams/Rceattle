@@ -117,6 +117,39 @@ a draw.** Three rules, with their reasons:
 3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
    stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
 
+## MSE draws and the assessment schedule
+
+`sim_mod()` draws **once per observation row**, so anything that changes how many rows the
+operating model carries changes how far the random stream advances — and therefore every draw
+after it. That makes the random stream sensitive to things that look like pure bookkeeping.
+
+**The trap it already caused.** 5.14.0 refit the operating model only as far as `assess_yrs[k+1]`,
+the *next* assessment year, because that is all the loop reads (`max_catch_hat`, for the
+exploitable-biomass cap). `clean_data()` filters every data frame to `styr:projyr`, so the
+shortened model carried fewer projection rows and consumed fewer draws — a count set by **when the
+next assessment fell**. Two runs differing only in their assessment schedule then drew different
+observation error from the *first* assessment onward, before diverging in any other way.
+
+Measured on BS2017SS (endyr 2017, projyr 2020, `nsim = 1`, `seed = 666`), dropping the 2019
+assessment moved 2019 catch by **2.1%** — a year whose advice is identical by construction, set by
+the same 2018 assessment under both schedules. Per-year seeding took it to 0.53%; refitting over
+the whole projection took it to 0.003%, which is optimizer noise rather than the draws. Both
+landed in 5.18.0, and the 9% the shortening was worth on a Bering Sea multispecies MSE went with
+it — see `inst/dev/TODO-mse-horizon.md` for how to get it back.
+
+**What is still open.** Seeding is keyed to the **assessment** year, but one `sim_mod()` call
+draws every year in the interval. A year sitting inside a longer interval is drawn under that
+interval's seed, while the same year in a schedule that assessed it directly gets its own. So two
+schedules realize different observation error in the years *between* assessments even where the
+stock is in the same state, and that enters the next assessment as noise rather than as the
+schedule. Closing it needs the draw keyed to the observation's year, not the assessment's.
+
+**The rule.** Before changing anything that alters the operating model's row count, its horizon,
+or the order of draws, ask what it does to a comparison of two schedules — not just to a single
+run's reproducibility. `tools/verify/verify-mse-schedule.R`'s `gap_crn_clean` check is the gate:
+it asserts a year both schedules take from the same assessment comes out the same. Note it
+measures **catch**, so it does not see the between-assessment observation gap above.
+
 ## The `nages` age-vs-index class, and what closes it
 
 `plot_ration(minage=)`, `plot_m_at_age(age=)` and `plot_m2_at_age_prop(age=)` once indexed the

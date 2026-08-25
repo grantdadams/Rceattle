@@ -21,7 +21,7 @@ These take an output path and an optional `compare` argument.
 | Harness | Covers |
 |---|---|
 | `verify-refit-like.R` | the `.refit_like()` refit path, via 6 of its callers |
-| `verify-mse-om-horizon.R` | equivalence + timing for a shortened OM projection horizon |
+| `verify-mse-schedule.R` | assessment schedules, year-indexed `catch_mult`, common random numbers |
 | `verify-mse-repro.R` | fixed-seed multi-year MSE trajectory fingerprint |
 
 ```
@@ -54,7 +54,7 @@ Passing it a filename silently yields `NA_integer_`.
 | If the diff touches | Run |
 |---|---|
 | `R/6-refit_like.R` or a caller | `verify-refit-like.R` (digest) |
-| `run_mse()`, the OM/EM loop, projection horizons | `verify-mse-hindcast-invariant.R` (once), `verify-mse-om-horizon.R` + `verify-mse-repro.R` (digests) |
+| `run_mse()`, the OM/EM loop, projection horizons | `verify-mse-hindcast-invariant.R` + `verify-mse-schedule.R` (once), `verify-mse-repro.R` (digest) |
 | a `SIMULATE{}` block, `sim_mod()`, `simulate.Rceattle()` | the `verify-sim-*.R` set (once each) |
 | a `plot_*()` function | **none of these** — see below |
 

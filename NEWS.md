@@ -11,6 +11,76 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.18.0
+
+## MSE
+
+* **Two `run_mse()` schedules run on the same `seed` are now on common random
+  numbers.** This is what makes a paired, within-replicate comparison of two
+  assessment schedules a comparison of the schedules.
+
+  Two things were in the way.
+
+  Each assessment's observation draws continued from wherever the previous
+  assessment left the random stream, so any divergence compounded down the run.
+  The draws are now seeded on the assessment's own **year**, from a table built
+  once per replicate over the projection years — a list that does not depend on
+  the schedule. Keyed by year rather than by position, because 2030 is the third
+  assessment of a biennial cycle and the second of one with a gap in it.
+  Recruitment deviations are untouched: the table is drawn after `sample_rec()`,
+  which consumes the per-replicate stream exactly as before.
+
+  And the operating model was refit only as far as **the next assessment year**.
+  `sim_mod()` draws once per observation row and `clean_data()` filters to
+  `styr:projyr`, so the shortened model carried fewer rows and consumed fewer
+  draws — a count that depended on when the following assessment fell. The
+  operating model is now refit over its whole projection every assessment.
+
+  Measured on BS2017SS (endyr 2017, projyr 2020, `nsim = 1`, `seed = 666`),
+  dropping the 2019 assessment and reading 2019 — a year whose advice is
+  identical by construction, set by the same 2018 assessment under both
+  schedules:
+
+  | | 2019 contamination |
+  |---|---|
+  | before | 2.1% |
+  | per-year seeding alone | 0.53% |
+  | both | **0.003%** |
+
+  The remaining 0.003% is optimizer noise, not the draws. Past the point where
+  two schedules genuinely diverge their draws diverge too, which is a real
+  difference between the runs rather than an artefact.
+
+  **Common random numbers are still not complete.** One `sim_mod()` call draws
+  every year in the assessment interval under that assessment's seed, so a year
+  sitting *inside* a longer interval is drawn under a different seed than the
+  same year in a schedule that assessed it directly — two schedules realize
+  different observation error in the years between, even where the stock is in
+  the same state. Closing that needs the draw keyed to the observation's year
+  rather than the assessment's; `?run_mse`, `vignette("hcrs-and-mses")` and
+  `inst/dev/TODO-mse-horizon.md` all say so rather than claiming otherwise.
+
+  **Every seeded `run_mse(simulate_data = TRUE)` result changes.** Runs stay
+  fully reproducible from a given `seed` within a version, and
+  `simulate_data = FALSE` is unchanged to the bit.
+
+## Performance
+
+* **`run_mse()` no longer refits the operating model on a shortened horizon.**
+  That saving was measured at 9% on a Bering Sea multispecies MSE projecting to
+  2040 when it was added in 5.14.0, growing with the length of the projection;
+  single-species models saw little change. It is the second half of the common
+  random numbers fix above, and it goes because the shortened horizon was the
+  thing making the draw count depend on the schedule.
+
+  The saving is recoverable — the horizon serves two purposes at different
+  lengths, and only one of them needs the look-ahead.
+  `inst/dev/TODO-mse-horizon.md` records the design, what is not yet known about
+  its cost, and where the deleted code lives.
+
+  `tools/verify/verify-mse-om-horizon.R` went with it; the gate is now the
+  `gap_crn_clean` check in `tools/verify/verify-mse-schedule.R`.
+
 # Rceattle 5.17.0
 
 ## MSE
@@ -126,11 +196,10 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   two schedules therefore carries an observation-error difference alongside the
   schedule effect.
 
-  Pre-existing, and not changed here — the fix would move every seeded
-  `run_mse()` result. But the vector schedule exists to compare schedules, so
-  the limitation now sits in `?run_mse`, in `vignette("hcrs-and-mses")`, and as
-  a pinned check in `verify-mse-schedule.R` that fails if the draw is ever made
-  schedule-independent.
+  Pre-existing, and not changed in this version — the fix moves every seeded
+  `run_mse()` result. **Fixed in 5.18.0**, which is where `?run_mse` and
+  `vignette("hcrs-and-mses")` describe the behaviour from; the check pinning it
+  in `verify-mse-schedule.R` became the gate on the fix.
 
 ## Documentation
 

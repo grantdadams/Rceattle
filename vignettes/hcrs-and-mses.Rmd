@@ -115,9 +115,12 @@ arguments fully control reproducibility. (You may still want
 Reproducibility holds *within* a package version, not across one. In 5.9.0 the
 observation draws moved from R into the TMB model, which displaces the
 random-number stream, so a seeded `run_mse()` or `self_test()` will not
-reproduce a run from 5.8.x. 5.13.0 is the same kind of boundary: the index is
-drawn under the fleet's own `Index_distribution` from that release, which moves
-the stream again.
+reproduce a run from 5.8.x. Two later releases are the same kind of boundary:
+5.13.0 draws the index under the fleet's own `Index_distribution`, and 5.18.0
+seeds each assessment's draw on its own year and stops shortening the operating
+model's projection horizon. Both move the stream, so a seeded
+`run_mse(simulate_data = TRUE)` reproduces across none of the three.
+`simulate_data = FALSE` is unaffected by all of them.
 
 Two further points when comparing runs. The stream *position* is
 data-dependent: a covariance survey fleet redraws until every row is positive,
@@ -297,7 +300,11 @@ mse7 <- run_mse(
 
 Run these against a baseline that differs *only* in the schedule — same `om`, same `em`, same `seed` — and compare them as paired within-replicate differences.
 
-Do not expect common random numbers to hold across schedules, though. Between assessments the OM's projection horizon is shortened to the next assessment year, so `sim_mod()` draws over a different number of projection rows depending on the schedule, and the observation draws diverge from the first assessment onward. Recruitment deviations *are* shared — `sample_rec()` draws them once, before the loop — but observation error is not. On a short BS2017SS fixture, dropping one assessment moved catch by 2.1% in a year whose advice was identical by construction. The paired difference therefore still carries Monte Carlo noise; size the replicate count to separate the schedule effect from it, rather than assuming the noise has cancelled.
+Two schedules on the same `seed` share their recruitment deviations, drawn once per replicate before the first assessment. Each assessment's observation draws are seeded on that assessment's own year rather than on wherever the previous assessments left the random stream, so an assessment in year `Y` starts from the same place in every schedule that assesses `Y`, and a divergence at one assessment does not displace every assessment after it.
+
+Common random numbers are not complete, though, and it is worth knowing where they stop. One `sim_mod()` call draws every year in the assessment interval under that assessment's seed, so a year sitting *inside* a longer interval is drawn under a different seed than the same year in a schedule that assessed it directly. Two schedules that differ in which years they assess realize different observation error in the years between, even where the stock is in the same state. The paired difference is therefore mostly, but not entirely, the schedule — size the replicate count with that in mind rather than assuming all the noise has cancelled.
+
+Once two schedules genuinely diverge — different catch taken, different years surveyed — their draws diverge too. That is a real difference between the runs rather than noise, and no seeding scheme removes it.
 
 Make the last assessment year reach the projection horizon. Catch is filled only up to the last assessment, so a schedule that stops short leaves the trailing years at `NA` — and `mse_summary()` summarises over the whole projection, understating average catch, catch IAV and P(Closed) with nothing in the table to say so. A biennial cycle over an odd number of projection years lands here every time: `seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon. `run_mse()` warns when it happens.
 

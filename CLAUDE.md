@@ -252,6 +252,13 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   and writes the result back, so a new likelihood family owes a draw. Draw what the density
   assumes (bias-correction convention and scale included), REPORT under a `*_sim` name, and
   don't draw what the model does not define. `tools/verify/verify-sim-*.R` is the net.
+- **An MSE draw is per observation row, so the row count is part of the RNG stream.** Anything
+  changing the operating model's horizon or row count changes every draw after it — that is how a
+  refit horizon set by the *next* assessment year made observation error depend on the assessment
+  schedule (2.1% on a year whose advice was identical by construction). Before touching the
+  horizon, the row count, or the draw order, ask what it does to a comparison of two schedules,
+  not just to one run's reproducibility. Common random numbers are still incomplete between
+  assessments; `inst/dev/TODO-mse-horizon.md` has the design and the measured numbers.
 - **The guards are not themselves guarded.** `test-golden-regression.R` is `skip_on_cran()` AND
   `skip_on_covr()`, so until 5.16.0 it ran in no CI job at all; the `deep-checks` workflow now
   runs it nightly and asserts it produced assertions. `NOT_CRAN=false` must be step-level `env:`
