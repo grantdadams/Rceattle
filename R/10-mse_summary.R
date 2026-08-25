@@ -107,6 +107,15 @@
 #'   disagree. The three `*_sims_collapsed` metrics are **counts of
 #'   simulations**, not probabilities.
 #'
+#'   `om_terminal_depletion` is `NA` for a multispecies run that derived no
+#'   unfished reference, which is any run without a harvest control rule
+#'   (`HCR = "NoFishing"`): under `msmMode > 0` the template reads spawning
+#'   biomass against the `MSSB0` input, and `fit_mod()` only fills that in by
+#'   projecting under no fishing when an HCR is present. Dividing by the
+#'   placeholder instead reported SSB/999 as a depletion -- on the Pacific hake
+#'   three-species model, 2.68e3. Use `om_terminal_depletion_dynamic`, which is
+#'   computed against the model's own `DynamicSB0` and is unaffected.
+#'
 #'   Each frame carries a `"labels"` attribute mapping those names to the long
 #'   display strings (e.g. `om_terminal_depletion_dynamic` ->
 #'   `"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
@@ -668,7 +677,22 @@ mse_summary <- function(mse, om_only = FALSE){
       # control rule, so under `HCR = "NoFishing"` MSSB0 is still the
       # placeholder. Dividing by it reports SSB/999 as a depletion -- on the
       # Pacific hake three-species model that read 2.7e3. Not defined here.
-      terminal_sb0_om[terminal_sb0_om == .RCE_MSSB0_PLACEHOLDER] <- NA_real_
+      #
+      # Read the per-species flag fit_mod() recorded, not the value. Comparing
+      # the reported SB0 to the placeholder constant would also null a
+      # legitimately-derived 999 mt, and could not see a workbook that supplied
+      # its own MSSB0. A fit from before the flag existed has no field, so fall
+      # back to the value test for those.
+      derived <- vapply(mse, function(x) {
+        d <- x$OM$data_list$MSSB0_derived
+        if (is.null(d)) NA else isTRUE(d[sp])
+      }, logical(1))
+      undefined <- if (all(is.na(derived))) {
+        terminal_sb0_om == .RCE_MSSB0_PLACEHOLDER
+      } else {
+        !derived | is.na(derived)
+      }
+      terminal_sb0_om[undefined] <- NA_real_
       terminal_dynamic_sb0_om <- if (length(mse_no_f)) {
         sapply(mse_no_f, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
       } else NA_real_

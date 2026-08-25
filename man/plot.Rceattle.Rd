@@ -10,8 +10,10 @@
 \item{x}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{what}{Character. One of \code{"biomass"} (default), \code{"ssb"},
-\code{"recruitment"}, \code{"depletion"}, \code{"index"}, \code{"catch"},
-\code{"selectivity"}, \code{"mortality"}, or \code{"data"}.}
+\code{"recruitment"}, \code{"depletion"} (total biomass / B0), \code{"ssb_depletion"}
+(female spawning biomass / SB0 -- the quantity a Tier 3 HCR compares
+against B40\%), \code{"index"}, \code{"catch"}, \code{"selectivity"}, \code{"mortality"}, or
+\code{"data"}.}
 
 \item{...}{Passed to the underlying plotting function.}
 }

@@ -1143,7 +1143,7 @@ reproduce a penalized reference fit.
 
 `integrate = FALSE` asks for the penalized treatment:
 
-```{r eval = FALSE}
+```{r}
 build_selectivity(linkages = list(
   slp_asc = linkage_spec(~ rw(1 | Year), fleet = "GOA_pollock_fishery",
                          init = list(sigma = 0.05), integrate = FALSE)))

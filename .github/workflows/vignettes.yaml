@@ -7,6 +7,16 @@
 # only user-facing documentation of the switch codes and units, so "invisible"
 # is the wrong failure mode for this package.
 #
+# `RCEATTLE_EVAL_VIGNETTES` flips the chunk DEFAULT, so a chunk carrying its own
+# `eval = FALSE` stays unexecuted here too -- a chunk option beats the default.
+# Ten such chunks used to sit outside this job's reach, including the OSA and
+# process-residual workflows and three run_mse() variants, and one of them had
+# been calling plot_depletion() under an "SSB depletion" heading for releases.
+# They now use the default like everything else. Exactly one chunk keeps an
+# explicit `eval = FALSE`: introduction.Rmd's install block, which would
+# reinstall the package mid-render. If you add another, say in the chunk why it
+# cannot run -- silence there is how the last ten became invisible.
+#
 # `RCEATTLE_EVAL_VIGNETTES=true` flips each vignette's chunk default to eval, and
 # this job runs weekly with it set. It is the only thing that catches
 # return-shape drift -- mse_summary() changing from a data frame to a list broke
@@ -35,7 +45,15 @@ concurrency:
 jobs:
   vignettes:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Raised from 120 when the ten previously-hidden chunks were un-hidden.
+    # Measured on an M-series Mac, RCEATTLE_EVAL_VIGNETTES=true: hcrs-and-mses
+    # went from 2.7 to 19.2 minutes (three run_mse(nsim = 10) variants),
+    # introduction from 2.7 to 3.8, model-diagnostics from 1.9 to 2.3 -- about
+    # 30 minutes for the set, and a CI runner is slower than that. The budget is
+    # the thing to raise rather than the coverage to cut: a timeout fails the
+    # WHOLE job, so every vignette's result is lost, which is worse than any one
+    # of them being slow. Weekly and non-blocking, so a long budget costs little.
+    timeout-minutes: 180
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"

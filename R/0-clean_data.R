@@ -189,6 +189,15 @@ clean_data <- function(data_list){
     data_list$MSSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
     data_list$MSB0 <- rep(.RCE_MSSB0_PLACEHOLDER, data_list$nspp)
   }
+  # Per species: has an unfished reference actually been derived? Seeded FALSE
+  # alongside the placeholder and set by fit_mod() section 10.2 when it projects
+  # under no fishing. Carried rather than inferred from the value, because
+  # recognising the placeholder by comparing a double to 999 would also null a
+  # genuinely-derived 999 mt, and is blind to a workbook that supplied its own
+  # MSSB0. Not a TMB input -- the template never sees it.
+  if(is.null(data_list$MSSB0_derived)){
+    data_list$MSSB0_derived <- rep(FALSE, data_list$nspp)
+  }
 
 
   # --- 3. Extend catch data to proj year for projections ----

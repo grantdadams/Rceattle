@@ -1280,6 +1280,13 @@ fit_mod <-
             quantities <- obj$report(obj$env$last.par.best)
             SB0        <- quantities$ssb[, ncol(quantities$ssb)]
             B0         <- quantities$biomass[, ncol(quantities$biomass)]
+            # Mark the species whose unfished reference is now a real
+            # no-fishing projection rather than the placeholder. Recorded
+            # explicitly because the alternative -- recognising the placeholder
+            # by its value -- is a float comparison against 999 that would also
+            # null a legitimately-derived 999 mt, and cannot see a workbook that
+            # supplied its own MSSB0.
+            data_list_reorganized$MSSB0_derived[params_on] <- TRUE
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on]  <- B0[params_on]
 
@@ -1386,6 +1393,7 @@ fit_mod <-
     # forward: anything that refits from `data_list` alone -- `.refit_like()`,
     # `remove_F()`, every `run_mse()` projection -- would otherwise re-enter the
     # template at the 999 mt placeholder and read SSB/999 as depletion.
+    mod_objects$data_list$MSSB0_derived <- data_list_reorganized$MSSB0_derived
     mod_objects$data_list$MSSB0 <- data_list_reorganized$MSSB0
     mod_objects$data_list$MSB0  <- data_list_reorganized$MSB0
 

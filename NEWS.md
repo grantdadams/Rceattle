@@ -15,6 +15,22 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Breaking changes
 
+* **`summary()` on a fit returns a summary object, not the fit.** It used to be
+  `print(object)` -- the same spec tree, returned invisibly as the model itself.
+  For a fitted assessment the conventional answer is the estimates and their
+  uncertainty plus the likelihood decomposition, all of which the fit already
+  carried in `coef()`, `vcov()` and `quantities$jnll_comp` and which the caller
+  had to join by hand. `summary(fit)` now prints the spec tree, then a parameter
+  table with standard errors, then the likelihood components and their total,
+  and returns a `"summary.Rceattle"` with `$coefficients`, `$jnll_comp`,
+  `$objective` and `$convergence`.
+
+  `x <- summary(fit)` followed by `x$quantities` therefore no longer works; use
+  `fit` directly. Swept across `../Rceattle-models` and `../GOA-ATF-ESP`: every
+  call there is a bare `summary(mod)` at top level, printed and not assigned, so
+  nothing downstream is affected.
+
+
 * **`Time_varying_sel = "AR1"` and `Time_varying_q = "AR1"` (value `2`) are
   removed.** `data_check()` errors on them, naming the fleet and the
   replacement.
@@ -65,6 +81,25 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 ## Bug fixes
 
+* **The unfished-reference placeholder is recognised by a flag, not by its
+  value.** `mse_summary()` decided whether a multispecies unfished reference had
+  been derived by comparing the reported `SB0` to the 999 mt placeholder
+  constant. That is a float equality test which would also null a
+  legitimately-derived 999 mt, and is blind to a workbook supplying its own
+  `MSSB0`. `clean_data()` now seeds a per-species `MSSB0_derived` alongside the
+  placeholder and `fit_mod()` sets it where it projects under no fishing. A fit
+  saved before the flag existed has no field, and falls back to the value test.
+
+* **`print()` on a fit closes its tree and lines up its values.** Written
+  line-by-line the fit block had drifted: `initMode` carried a mid-tree glyph
+  with nothing after it, the fit statistics then left the tree entirely on a
+  different indent, and `cat()`'s separator left a trailing space on every line.
+  It is assembled and emitted as rows now. `Run time` is `signif()` to match the
+  objective rather than seven digits of wall clock, and an `estimateMode` that
+  runs no projection reports `HCR : (not applicable -- hindcast only)` instead of
+  `NoFishing`, which read as a management choice nobody had made.
+
+
 * **`Time_varying_sel_sd` is validated, as `Time_varying_q_sd` already was.**
   `build_params()` takes `log(Time_varying_sel_sd)` exactly as it takes
   `log(Time_varying_q_sd)`, so a blank or non-positive value was the same
@@ -98,6 +133,12 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   when stacked, so the count is the number of linkages the model actually holds.
 
 ## New features
+
+* **`plot(fit, what = "ssb_depletion")`.** The S3 dispatcher offered
+  `"depletion"`, which is `plot_depletion()` -- *biomass* depletion -- and had no
+  route to SSB depletion at all. In a package whose vocabulary is the
+  Amendment-56 proxies, spawning-biomass depletion against B40% is the
+  management quantity, and it was the one the generic could not draw.
 
 * **The diagnostics share one display contract.**
   `convergence_diagnostics()` was the only member of the family with a class, a
@@ -160,6 +201,30 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   default is unchanged and no fit gets slower.
 
 ## Documentation
+
+* **The ten vignette chunks the weekly job could not see now run.**
+  `RCEATTLE_EVAL_VIGNETTES` flips each vignette's chunk *default*, but a chunk
+  carrying its own `eval = FALSE` overrides that -- so ten chunks across four
+  vignettes stayed unexecuted in the one job built to execute them, including
+  the OSA and process-residual workflows and three `run_mse()` variants. That is
+  how `introduction.Rmd` came to call `plot_depletion()` under an "SSB depletion"
+  heading for several releases. They use the default now. Exactly one chunk keeps
+  an explicit `eval = FALSE` -- the install block, which would reinstall the
+  package mid-render -- and says so in the chunk.
+
+  Measured cost, on an M-series Mac: `hcrs-and-mses` 2.7 -> 19.2 minutes (three
+  `run_mse(nsim = 10)` variants), `introduction` 2.7 -> 3.8, `model-diagnostics`
+  1.9 -> 2.3. The weekly job's timeout went from 120 to 180 minutes to absorb it.
+  Raising the budget rather than cutting the coverage, because a timeout fails
+  the whole job and loses every vignette's result -- worse than any one of them
+  being slow.
+
+* **`?mse_summary` says when `om_terminal_depletion` is `NA`.** It is `NA` for a
+  multispecies run that derived no unfished reference, which is any run without a
+  harvest control rule. A column going `NA` is something a reader meets in a
+  table first, so the help now names the cause and points at
+  `om_terminal_depletion_dynamic`, which is unaffected.
+
 
 * **`vignette("model-parameterizations")` gives the fishery index predictor.**
   The equations vignette still showed the survey snapshot

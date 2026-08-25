@@ -196,7 +196,7 @@ model has no observations for (it errors only if *none* of them do). `"diet"` is
 the one source not in the default set -- it applies only to multispecies models
 and can be slow -- so pass `source = "all"` to include it.
 
-```{r osa, eval = FALSE}
+```{r osa}
 # Aggregate (catch + index) residuals
 osa <- osa_residuals(model_1, source = c("index", "catch"))
 head(osa)
@@ -291,7 +291,7 @@ abundance, catchability) against their process prior, drawing once from the
 joint posterior (SAM's `procres`; Nielsen and Berg 2014). Under a correct
 process model these too are approximately iid standard normal.
 
-```{r procres, eval = FALSE}
+```{r procres}
 pr <- process_residuals(model_1, process = "recruitment")
 osa_diagnostics(pr)
 plot(pr)

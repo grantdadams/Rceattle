@@ -224,7 +224,7 @@ mse2 <- run_mse(
 
 `sampling_period = c(1, 3)` samples the fishery every year but the bottom-trawl survey (BTS) only every third year, testing the cost of a sparser survey.
 
-```{r, message = FALSE, echo = TRUE, eval = FALSE}
+```{r, message = FALSE, echo = TRUE}
 mse3 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
@@ -239,7 +239,7 @@ mse3 <- run_mse(
 
 Here the EM is re-fitted only every fourth year (`assessment_period = 4`) and `fut_sample = 0.5` halves future sampling effort on both data streams: composition sample sizes are halved and the index log-SD is doubled (`Log_sd * 1 / fut_sample`). A lower-cost monitoring scenario.
 
-```{r, message = FALSE, echo = TRUE, eval = FALSE}
+```{r, message = FALSE, echo = TRUE}
 mse4 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
@@ -296,7 +296,7 @@ plot_biomass(om2, incl_proj = TRUE)
 
 ### Run MSE
 
-```{r, message = FALSE, echo = TRUE, eval = FALSE}
+```{r, message = FALSE, echo = TRUE}
 mse5 <- run_mse(
   om = om2, em = em, 
   nsim = 10, 
