@@ -208,6 +208,16 @@ bundled dataset and all three live assessments have `minage = 1`.
 Two of this repo's most valuable checks were, until 5.16.0, guarded off in a way nothing
 verified. Both are the same shape: a speed optimization that silently removes coverage.
 
+**A `tools/verify/` harness runs in no CI job at all, so a stale one looks exactly like a
+passing one.** `verify-dsem-equivalence.R` — the only numerical check on the vendored
+`dsem.hpp` — could not run for the whole time it sat on `dsem-v5-integration`: `cond_k` was
+added to `calculate_dsem()` and to `dsem_standalone.cpp`, but the harness's `dsem_data()` was
+never taught to supply it, so every invocation died in `getParameterOrder()` before the first
+comparison. Nothing noticed, because nothing runs these. **Adding an argument to
+`calculate_dsem()` means updating three places, not two**: the header, `ceattle.cpp`, and
+`tools/verify/dsem_standalone.cpp` plus the R harness that feeds it. Run the harness after
+touching the header — it is the only thing that will tell you.
+
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
 the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second

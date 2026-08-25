@@ -62,7 +62,16 @@ dsem_data <- function(d) {
        eps_tj       = array(as.numeric(d$eps_tj), dim = dim(d$eps_tj)),
        y_tj         = array(as.numeric(d$y_tj),   dim = dim(d$y_tj)),
        obs_idx      = if (is.null(d$obs_idx))   integer(0) else as.integer(d$obs_idx),
-       unobs_idx    = if (is.null(d$unobs_idx)) integer(0) else as.integer(d$unobs_idx))
+       unobs_idx    = if (is.null(d$unobs_idx)) integer(0) else as.integer(d$unobs_idx),
+       # cond_k marks the CELLS the model is given. dsem has no equivalent, so
+       # it is ours to supply: all zero, nothing given. That is the neutral
+       # setting for the jnll comparison below -- calculate_dsem() reads cond_k
+       # only when filling the marginal variance, never in the likelihood -- and
+       # it is also the case the marginal variance is checked against
+       # sigma^2 / (1 - rho^2) in verify-dsem-recovery.R. Marking a cell that
+       # carries no exogenous variance makes the conditioning solve singular,
+       # so zero is the only safe default here.
+       cond_k       = integer(prod(dim(d$y_tj))))
 }
 
 ok <- TRUE
