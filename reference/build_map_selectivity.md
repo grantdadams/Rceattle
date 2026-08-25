@@ -6,7 +6,7 @@ and time-varying deviations, based on `Selectivity` and
 
 `Selectivity` in `fleet_control` of the data determines shape of
 selectivity curve: `0` = "Fixed" empirical selectivity provided in
-`emp_sel` in the data `1` = "Logistic" `2` = "NonParametric" selecitivty
+`emp_sel` in the data `1` = "Logistic" `2` = "NonParametric" selectivity
 sensu Ianelli et al 2018 `3` = "DoubleLogistic" `4` =
 "DescendingLogistic" `5` = "Hake" non-parametric selectivity sensu
 Taylor et al 2014 (Hake) `6` = "2DAR1" across age x year `7` = "3DAR1"

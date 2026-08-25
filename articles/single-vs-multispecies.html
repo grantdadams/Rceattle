@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,7 +78,7 @@
 
       <h1>5. Single- vs. multi-species models</h1>
             
-            <h4 data-toc-skip class="date">2026-08-19</h4>
+            <h4 data-toc-skip class="date">2026-08-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/single-vs-multispecies.Rmd" class="external-link"><code>vignettes/single-vs-multispecies.Rmd</code></a></small>
       <div class="d-none name"><code>single-vs-multispecies.Rmd</code></div>
@@ -319,12 +319,14 @@ diet composition data are available, or
 <span><span class="fu"><a href="../reference/plot_m_at_age.html">plot_m_at_age</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span>, age <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_m2_at_age_prop.html">plot_m2_at_age_prop</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># plot_mortality() accepts only a single model; call separately per model</span></span>
-<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span><span class="op">)</span>   <span class="co"># tile plot of total mortality-at-age across years</span></span>
-<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span>, type <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>  <span class="co"># facet line version</span></span>
-<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span>, M2 <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="co"># total M (M1 + M2); M2 = TRUE plots M2 only</span></span>
+<span><span class="co"># plot_mortality() accepts only a single model; call separately per model.</span></span>
+<span><span class="co"># It draws one component at a time, never the sum: use plot_m_at_age() above for</span></span>
+<span><span class="co"># total M (M1 + M2).</span></span>
+<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span><span class="op">)</span>                    <span class="co"># M2-at-age, one line per year</span></span>
+<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span>, M2 <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>        <span class="co"># M1-at-age instead</span></span>
+<span><span class="fu"><a href="../reference/plot_mortality.html">plot_mortality</a></span><span class="op">(</span><span class="va">ms_run</span>, type <span class="op">=</span> <span class="st">"heatmap"</span><span class="op">)</span>  <span class="co"># the same series as an age x year tile</span></span>
 <span></span>
-<span><span class="co"># Predation (multi-species only) — these also accept single models only</span></span>
+<span><span class="co"># Predation (multi-species only) — these accept model lists</span></span>
 <span><span class="fu"><a href="../reference/plot_b_eaten.html">plot_b_eaten</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_b_eaten_prop.html">plot_b_eaten_prop</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">mod_list</span>, model_names <span class="op">=</span> <span class="va">mod_names</span><span class="op">)</span></span></code></pre></div>
 <p>For model averaging across single- and multi-species variants, see

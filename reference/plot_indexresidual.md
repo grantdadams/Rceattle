@@ -1,9 +1,8 @@
 # Survey index residuals
 
-Plots log residuals `log(predicted) - log(observed)` of the survey index
-by year, faceted by survey fleet (`residual_type = "pearson"`, the
-default), or one-step-ahead (OSA) residual diagnostics for a single fit
-(`residual_type = "osa"`, via
+Plots survey index residuals by year, faceted by survey fleet
+(`residual_type = "pearson"`, the default), or one-step-ahead (OSA)
+residual diagnostics for a single fit (`residual_type = "osa"`, via
 [`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
 /
 [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)).
@@ -54,7 +53,7 @@ plot_indexresidual(
 
 - residual_type:
 
-  `"pearson"` (log index residuals) or `"osa"`.
+  `"pearson"` (index residuals on the fleet's own scale) or `"osa"`.
 
 - line_col, right_adj, top_adj, single.plots:
 
@@ -68,3 +67,19 @@ plot_indexresidual(
 ## Value
 
 A `ggplot` object.
+
+## Details
+
+The residual is **observed minus predicted**, taken on the scale the
+fleet is fitted on and read from its `Index_distribution`:
+`log(observed) - log(predicted)` for a log-scale (`"Lognormal"`) fleet,
+and `observed - predicted` for a natural-scale one (`"MVN"`, `"MVNORM"`,
+`"Normal"`, `"TruncatedNormal"`), whose sd is absolute. A positive
+residual means the survey saw more than the model predicted. Panels
+carry different units where a model mixes the two families, which is why
+the y scale is free per fleet.
+
+Before 5.9.0 this plotted `predicted - observed`, the negative of what
+[`residuals.Rceattle()`](https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.md)
+returns for the same fleet. Plots made with an earlier version are
+mirrored about zero relative to these.

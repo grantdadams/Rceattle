@@ -66,7 +66,31 @@ truth and `em_` the estimation model's perception; the four
 disagree. The three `*_sims_collapsed` metrics are **counts of
 simulations**, not probabilities.
 
+`om_terminal_depletion` is `NA` for a multispecies run that derived no
+unfished reference, which is any run without a harvest control rule
+(`HCR = "NoFishing"`): under `msmMode > 0` the model reads spawning
+biomass against the `MSSB0` input, and
+[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+only fills that in by projecting under no fishing when an HCR is
+present. Dividing by the placeholder instead reported SSB/999 as a
+depletion – on the Pacific hake three-species model, 2.68e3. Use
+`om_terminal_depletion_dynamic`, which is computed against the model's
+own `DynamicSB0` and is unaffected.
+
 Each frame carries a `"labels"` attribute mapping those names to the
 long display strings (e.g. `om_terminal_depletion_dynamic` -\>
 `"OM: Terminal SSB Depletion (Dynamic)"`) for plots and tables:
 `attr(summ$species, "labels")`.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+mse <- load_mse(dir = "mse_runs")
+s <- mse_summary(mse)
+s$species   # one row per species
+s$fleet     # one row per fleet
+s$total     # across the whole system
+s$meta      # nsim, nspp, nflts, HCR
+} # }
+```

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1356,6 +1356,28 @@ multiplies it. No grammar equivalent exists yet for the environmental /
 Rogers-AR1 catchability modes, the non-parametric selectivity forms, or
 the separable <code>M1_re = 6</code> (age × year), which keep using the
 switch-based path without a nudge.</li>
+<li>
+<strong>Only the grammar’s random effects are simulated.</strong>
+<code>sim_mod(process = )</code> and <code>self_test(process = )</code>
+redraw catchability and selectivity where they are written as a random
+linkage; the legacy <code>Time_varying_q</code> /
+<code>Time_varying_sel</code> deviations carry densities in the model
+but no draw, so they keep their fitted values and <code><a href="../reference/sim_mod.html">sim_mod()</a></code>
+warns that they did. Recruitment and M are drawn from their own switches
+(<code>M1_re</code>) as well as from linkages. Observed AR1 (Rogers
+QAR1) linkages are the one grammar form that is deliberately not
+redrawn: the latent state is measured by an observed covariate series,
+and redrawing the state alone would leave the two describing different
+histories. A switch-based time-varying process therefore cannot have
+that process redrawn in a self-test.</li>
+<li>
+<strong><code>sigma</code> means different things in the two
+systems.</strong> In a linkage, <code>init = list(sigma = )</code> under
+<code>ar1()</code> is the <strong>marginal</strong> standard deviation.
+The <code>M1_re</code> and 2DAR1/3DAR1 selectivity switches instead take
+the AR(1) <strong>innovation</strong> SD, and scale it to a marginal of
+<code>sigma / sqrt(1 - rho^2)</code> — the WHAM convention. The two
+coincide only at <code>rho = 0</code>.</li>
 <li>
 <strong>Age-dependent linkages on processes other than M</strong> –
 the <code>age_bin</code> stratum is consumed by the M accumulator today

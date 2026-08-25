@@ -83,11 +83,19 @@ Residual kinds (`type`):
 
 - `"pearson"`:
 
-  Standardized residuals. For `index` / `catch`, \\(\log o -
-  (\log\hat{o} - b\\\sigma^2/2))/\sigma\\ using the model's realized
-  observation log-SD \\\sigma\\ and the observation bias-adjustment flag
-  \\b\\ (`bias_adjust_obs`, default 1); for `comp` / `caal`, \\(p -
-  \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}\\ with input sample size N.
+  Standardized residuals. For `catch` and a log-scale survey index,
+  \\(\log o - (\log\hat{o} - b\\\sigma^2/2))/\sigma\\ using the model's
+  realized observation log-SD \\\sigma\\ and the observation
+  bias-adjustment flag \\b\\ (`bias_adjust_obs`, default 1). A
+  natural-scale index fleet (`Index_distribution` `"MVN"`, `"MVNORM"`,
+  `"Normal"` or `"TruncatedNormal"`) carries an ABSOLUTE \\\sigma\\ and
+  is standardized as \\(o - \hat{o})/\sigma\\ instead. Two caveats
+  there: a covariance fleet gets its marginal residual, not the whitened
+  one (use `type = "osa"` for that), and `"TruncatedNormal"` is
+  standardized on the untruncated moments, so it is approximate where
+  \\\hat{o}/\sigma\\ is small enough for truncation to shift the mean.
+  For `comp` / `caal`, \\(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}\\
+  with input sample size N.
 
 - `"osa"`:
 

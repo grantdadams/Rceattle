@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,7 +107,7 @@
 
 
 <dt id="arg-assessment-period">assessment_period<a class="anchor" aria-label="anchor" href="#arg-assessment-period"></a></dt>
-<dd><p>Period of years that each assessment is taken</p></dd>
+<dd><p>Assessment schedule. A single number is the period in years between assessments, counted from the operating model's terminal year. A vector is the explicit set of years an assessment is completed. Default = 1.</p></dd>
 
 
 <dt id="arg-sampling-period">sampling_period<a class="anchor" aria-label="anchor" href="#arg-sampling-period"></a></dt>
@@ -139,7 +139,7 @@
 
 
 <dt id="arg-catch-mult">catch_mult<a class="anchor" aria-label="anchor" href="#arg-catch-mult"></a></dt>
-<dd><p>A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL</p></dd>
+<dd><p>A multiplier applied to the catch the control rule recommends. A single number or a vector of length <code>nspp</code> applies in every projection year; a <code>data.frame</code> with columns <code>Year</code>, <code>Species</code> and <code>mult</code> applies only in the year and species pairs it lists, where <code>Year</code> is a year the assessment schedule covers. Default = NULL</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -181,7 +181,85 @@ running under <code>R CMD check</code> (which sets
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of operating models (differ by simulated recruitment determined by <code>nsim</code>) and estimation models fit to each operating model (differ by terminal year).</p>
     </div>
+    <div class="section level2">
+    <h2 id="assessment-schedule">Assessment schedule<a class="anchor" aria-label="anchor" href="#assessment-schedule"></a></h2>
+    <p>A single <code>assessment_period</code> is a fixed cycle. A vector is the schedule
+itself, for a design whose years are not evenly spaced – one assessment
+missed inside an otherwise biennial cycle, for instance:</p>
+<p></p><div class="sourceCode"><pre><code><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>biennial <span class="ot">&lt;-</span> <span class="fu">seq</span>(om<span class="sc">$</span>data_list<span class="sc">$</span>endyr <span class="sc">+</span> <span class="dv">2</span>, om<span class="sc">$</span>data_list<span class="sc">$</span>projyr, <span class="at">by =</span> <span class="dv">2</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">run_mse</span>(om, em, <span class="at">assessment_period =</span> <span class="fu">setdiff</span>(biennial, <span class="dv">2031</span>))</span></code></pre><p></p></div>
+<p>Every year must be after the operating model's terminal year and within the
+projection horizon; a year outside that window is an error rather than being
+dropped. One missed assessment and a permanently longer cycle are different
+questions, and the second does not answer the first.</p>
+<p>A schedule must name two or more years. One year on its own cannot be told
+from a period, and the two readings are a world apart, so it is refused
+rather than guessed at.</p>
+<p>Two schedules run on the same <code>seed</code> share their recruitment deviations,
+which are drawn once per replicate before the first assessment, and each
+assessment's observation draw is seeded on that assessment's own year rather
+than on wherever earlier assessments left the stream. So an assessment in
+year <code>Y</code> starts from the same place in every schedule that assesses <code>Y</code>, and
+a divergence at one assessment no longer displaces every assessment after it.</p>
+<p>Common random numbers are not complete, and the gap is worth knowing before
+designing a comparison. One <code><a href="sim_mod.html">sim_mod()</a></code> call draws every year in the
+assessment interval, under that assessment's seed — so a year sitting
+<em>inside</em> a longer interval is drawn under a different seed than the same year
+in a schedule that assessed it directly. Two schedules that differ in which
+years they assess therefore realize different observation error in the years
+between, even where the stock is in the same state. Per-observation-year
+streams would close it; <code>inst/dev/TODO-mse-horizon.md</code> records what that
+would take.</p>
+<p>Past the point where two schedules genuinely diverge — different catch
+taken, different years surveyed — the draws necessarily diverge too. That
+is a real difference in the runs, not an artefact.</p>
+<p>Make the last assessment year reach the projection horizon. Catch is only
+ever filled up to the last assessment, so a schedule that stops short leaves
+the trailing years at <code>NA</code>, and <code><a href="mse_summary.html">mse_summary()</a></code> summarises over the whole
+projection — understating Average Catch, Catch IAV and P(Closed) with
+nothing in the table to say which years it covered. A biennial cycle over an
+odd number of projection years lands here every time, so this is warned
+about, for a period and a schedule alike.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="catch-multiplier">Catch multiplier<a class="anchor" aria-label="anchor" href="#catch-multiplier"></a></h2>
+    <p><code>catch_mult</code> multiplies the catch the estimation model's control rule
+recommends, before <code>cap</code> and before the exploitable-biomass limit. Given as
+a <code>data.frame</code> it applies only in the years and species it lists, which is
+how a buffer held for the years advice is stale is expressed.</p>
+<p>Mind which years those are. The assessment in year <code>Y</code> sets catch for <code>Y+1</code>
+onward, so a missed assessment in 2031 leaves <strong>2032 and 2033</strong> on 2029's
+advice — 2031 itself is set by the 2029 assessment either way, and cutting
+it changes a year the missed assessment never touched:</p>
+<p></p><div class="sourceCode"><pre><code><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>buffer <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">Year =</span> <span class="dv">2032</span><span class="sc">:</span><span class="dv">2033</span>, <span class="at">Species =</span> <span class="fu">seq_len</span>(om<span class="sc">$</span>data_list<span class="sc">$</span>nspp))</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>buffer<span class="sc">$</span>mult <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">run_mse</span>(om, em, <span class="at">assessment_period =</span> <span class="fu">setdiff</span>(biennial, <span class="dv">2031</span>),</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>        <span class="at">catch_mult =</span> buffer)</span></code></pre><p></p></div>
+<p><code>Species</code> is the species number, matching the catch data's own column, and
+any (year, species) pair the table omits is multiplied by 1. <code>Year</code> must be
+a year the assessment schedule actually covers — from the operating
+model's terminal year to the last assessment, which is where catch is
+filled, not the whole projection.</p>
+<p>Note that this reduces catch, not ABC. Where realized catch sits well below
+ABC – GOA arrowtooth flounder, for one – reducing ABC changes removals only
+to the extent the fishery attains it, while reducing catch changes them in
+full. Either scale the multiplier by recent attainment,
+<code>1 - (1 - mult) * attainment</code>, or report the unscaled result as an upper
+bound on the effect of the reduction.</p>
+    </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">BS2017SS</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">om</span> <span class="op">&lt;-</span> <span class="fu"><a href="fit_mod.html">fit_mod</a></span><span class="op">(</span><span class="va">BS2017SS</span>, estimateMode <span class="op">=</span> <span class="st">"Estimate"</span>, HCR <span class="op">=</span> <span class="fu"><a href="build_hcr.html">build_hcr</a></span><span class="op">(</span><span class="st">"NPFMC"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Closed loop: assess every 2 years, survey every year, 10 simulations.</span></span></span>
+<span class="r-in"><span><span class="va">mse</span> <span class="op">&lt;-</span> <span class="fu">run_mse</span><span class="op">(</span>om <span class="op">=</span> <span class="va">om</span>, em <span class="op">=</span> <span class="va">om</span>, nsim <span class="op">=</span> <span class="fl">10</span>,</span></span>
+<span class="r-in"><span>               assessment_period <span class="op">=</span> <span class="fl">2</span>, sampling_period <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="mse_summary.html">mse_summary</a></span><span class="op">(</span><span class="va">mse</span><span class="op">)</span><span class="op">$</span><span class="va">species</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

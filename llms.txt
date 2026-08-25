@@ -380,8 +380,38 @@ simulation.
   : Self-test simulation analysis
 - [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
   : Simulate Rceattle data
+- [`simulate(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/simulate.Rceattle.md)
+  : Simulate data from a fitted Rceattle model
 - [`compare_sim()`](https://grantdadams.github.io/Rceattle/reference/compare_sim.md)
   : Evaluate simulation performance
+- [`print(`*`<Rceattle_retro>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_retro.md)
+  : Print method for a retrospective analysis
+- [`print(`*`<Rceattle_jitter>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_jitter.md)
+  : Print method for a jitter analysis
+- [`print(`*`<Rceattle_selftest>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_selftest.md)
+  : Print method for a self-test
+- [`print(`*`<Rceattle_profile>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_profile.md)
+  : Print method for a likelihood profile
+- [`print(`*`<Rceattle_mse_summary>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_mse_summary.md)
+  : Print method for an MSE summary
+
+## Diagnostics — shared arguments
+
+The common vocabulary retrospective(), jitter() and self_test() share:
+object, cores and fit_control, and what fit_control() reaches through a
+refit.
+
+- [`rceattle-refit-args`](https://grantdadams.github.io/Rceattle/reference/rceattle-refit-args.md)
+  : Shared refit-diagnostic arguments
+
+## Plotting — shared arguments
+
+The common vocabulary the timeseries, predation and selectivity plotters
+share: line_col, lwd, lty, alpha, species, spnames, minyr/maxyr,
+incl_proj, incl_mean, add_ci and model_names.
+
+- [`rceattle-plot-args`](https://grantdadams.github.io/Rceattle/reference/rceattle-plot-args.md)
+  : Shared plotting arguments
 
 ## Plotting — population dynamics
 
@@ -411,7 +441,7 @@ Visualize fishing mortality, catch, and total mortality.
 - [`plot_f()`](https://grantdadams.github.io/Rceattle/reference/plot_f.md)
   : plot F
 - [`plot_mortality()`](https://grantdadams.github.io/Rceattle/reference/plot_mortality.md)
-  : Plot M1 + M2
+  : Plot M1 or M2 at age
 - [`plot_m_at_age()`](https://grantdadams.github.io/Rceattle/reference/plot_m_at_age.md)
   : Plot natural mortality by age
 - [`plot_m2_at_age_prop()`](https://grantdadams.github.io/Rceattle/reference/plot_m2_at_age_prop.md)
@@ -439,7 +469,7 @@ Visualize survey indices, fits, and residuals.
 Visualize predation mortality, rations, and diet composition.
 
 - [`plot_b_eaten()`](https://grantdadams.github.io/Rceattle/reference/plot_b_eaten.md)
-  : Plot biomass eaten
+  : Plot biomass eaten by predation
 - [`plot_b_eaten_prop()`](https://grantdadams.github.io/Rceattle/reference/plot_b_eaten_prop.md)
   : Plot biomass consumed of each prey species by predator
 - [`plot_diet_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_diet_comp.md)
@@ -512,6 +542,8 @@ S3 methods, utility functions, and internal helpers.
   : Print method for fitted Rceattle models
 - [`summary(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/summary.Rceattle.md)
   : Compact summary method for Rceattle fits
+- [`print(`*`<summary.Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.summary.Rceattle.md)
+  : Print method for an Rceattle model summary
 - [`print(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
   [`summary(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
   : Print method for an Rceattle data list

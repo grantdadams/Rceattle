@@ -9,7 +9,7 @@ recruitment deviations) to the simulation.
 
 ``` r
 self_test(
-  Rceattle = NULL,
+  object = NULL,
   nsim = 50,
   simulate = TRUE,
   seed = 123,
@@ -18,16 +18,19 @@ self_test(
   phase = NULL,
   start = c("initial", "estimated"),
   debug = FALSE,
-  timeout = Inf
+  timeout = Inf,
+  process = FALSE,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   an Rceattle model fit using
-  [`fit_mod`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
 
 - nsim:
 
@@ -47,10 +50,9 @@ self_test(
 
 - cores:
 
-  Number of cores to use for parallel simulations. Default `NULL` picks
-  `parallel::detectCores() - 6`, capped at 2 when running under
-  `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
-  sequential execution.
+  Number of cores for the parallel refits. Default `NULL` picks
+  `parallel::detectCores() - 6`, capped at 2 under `R CMD check` (which
+  sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force sequential execution.
 
 - getsd:
 
@@ -114,11 +116,46 @@ self_test(
   R, so it fires between the optimizer's function evaluations rather
   than inside one.
 
+- process:
+
+  passed to
+  [`sim_mod`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md).
+  `FALSE` (default) keeps the fitted process deviations, so the test
+  measures whether the estimator recovers its own parameters from new
+  observations. Naming a process – `"recruitment"`, `"M"`, `"growth"`,
+  `"dynamics"`, `TRUE`, ... – redraws it too, so the test instead
+  measures whether the estimator recovers a process it has not been
+  shown. The deviations behind each replicate come back in
+  `attr(result, "process_sim")`; see `Value`.
+
+- fit_control:
+
+  optional
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  bundle for the refits. Only `phase` and `getsd` are read; see **What
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  reaches**.
+
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
+
 ## Value
 
 A list of Rceattle models named `Sim_1`, `Sim_2`, .... By default only
 the converged simulations, renumbered contiguously; a message reports
 how many were dropped.
+
+The list carries class `"Rceattle_selftest"` and the number of
+simulations attempted in `attr(, "nsim")`, so printing it reports the
+convergence rate; see
+[`print.Rceattle_selftest`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_selftest.md).
+It is otherwise the list it always was – `sims[["Sim_1"]]`,
+`length(sims)`, [`lapply()`](https://rdrr.io/r/base/lapply.html) and
+`plot_biomass(c(sims, list(fit)))` are all unchanged, and
+[`c()`](https://rdrr.io/r/base/c.html) and `[` return a plain list of
+fits.
 
 With `debug = TRUE`, every simulation, with `Sim_i` being simulation `i`
 (so it pairs with the seed `seed + i`), and a logical vector of the
@@ -127,20 +164,42 @@ convergence verdicts in `attr(, "converged")`. Inspect a failure with
 returned as the condition object rather than a model, so it cannot abort
 the run.
 
+When `process` redrew something, `attr(, "process_sim")` holds the
+deviations that generated each replicate's data – a list keyed by the
+same `Sim_i` names, so `attr(x, "process_sim")[["Sim_1"]]` belongs to
+`x[["Sim_1"]]`, subset and renumbered alongside the models. Each entry
+is a named list of whichever of `rec_dev`, `init_dev`, `log_M1_dev` and
+`beta_linkage_re` were drawn, each with a same-shaped `_drawn` logical
+marking the cells the draw touched – restrict any recovery statistic to
+those, since the rest are fitted values (see
+[`sim_mod`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)).
+Compare estimates against these, not against the operating model: its
+fitted deviations are no longer what generated the data.
+
 ## Interpreting the spread
 
 [`sim_mod`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
-redraws the observations only – indices, catch, compositions and CAAL.
-It does not redraw recruitment, so with `random_rec = TRUE` every
-replicate shares the operating model's single recruitment realization,
-and that realization is its shrunk empirical-Bayes modes rather than a
-draw from N(0, sigmaR). Two consequences: the spread across replicates
-carries observation error only and is a lower bound on estimation
-uncertainty in SSB and recruitment (do not read it against the model's
-own uncertainty bands, which include process error); and sigmaR is
-re-estimated from deviations that were shrunk toward zero the same way
-in every replicate, a downward bias that averaging over simulations does
-not remove.
+redraws the observations only – indices, catch, compositions, CAAL and
+stomach contents. Some rows are deliberately left alone, and
+[`sim_mod`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+warns about each: a predator whose suitability is empirical rather than
+estimated has no predicted diet to draw from, and a covariance
+(MVN/MVNORM) survey fleet has no covariance outside the years it is
+fitted to. Those data are held fixed across every replicate, so recovery
+of whatever they inform is optimistic.
+
+By default it does not redraw recruitment, so with `random_rec = TRUE`
+every replicate shares the operating model's single recruitment
+realization, and that realization is its shrunk empirical-Bayes modes
+rather than a draw from N(0, sigmaR). Two consequences: the spread
+across replicates carries observation error only and is a lower bound on
+estimation uncertainty in SSB and recruitment (do not read it against
+the model's own uncertainty bands, which include process error); and
+sigmaR is re-estimated from deviations that were shrunk toward zero the
+same way in every replicate, a downward bias that averaging over
+simulations does not remove. Pass `process = "recruitment"` (or
+`"dynamics"`, or `TRUE`) to redraw it and remove both, at the cost of
+asking a different question – see `process` above.
 
 ## Examples
 
@@ -155,15 +214,5 @@ ss_run <- fit_mod(data_list = BS2017SS,
 #> Warning: Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 sims <- self_test(ss_run, nsim = 10)
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
-#> Warning: sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.
 # }
 ```

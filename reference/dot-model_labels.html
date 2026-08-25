@@ -9,7 +9,7 @@ the colour/legend mapping always has labels.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,8 +67,29 @@ the colour/legend mapping always has labels.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">.model_labels</span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
+    <div class="section level2">
+    <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
-  </main></div>
+
+<dl><dt id="arg-model-list">model_list<a class="anchor" aria-label="anchor" href="#arg-model-list"></a></dt>
+<dd><p>List of fits.</p></dd>
+
+
+<dt id="arg-model-names">model_names<a class="anchor" aria-label="anchor" href="#arg-model-names"></a></dt>
+<dd><p>Labels, or <code>NULL</code> for positional ones.</p></dd>
+
+</dl></div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>model_names</code> is often built as a <code><a href="https://rdrr.io/r/base/list.html" class="external-link">list()</a></code> – the package's own vignettes do
+– so it is flattened to character here. Left as a list it becomes a
+one-element list per model and the plot frame fails to bind.</p>
+<p>Too few names would be recycled, drawing two models as one series under one
+legend key, so that is a warning rather than a silent merge.</p>
+    </div>
+
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

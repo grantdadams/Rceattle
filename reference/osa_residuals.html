@@ -27,12 +27,60 @@ Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the osa_mode switch); fleets fit with the AFSC MultinomialAFSC
 pseudo-likelihood are residualized under the full multinomial.
 Survey-index OSA residuals are supported for every index likelihood family
-(Index_distribution): lognormal IID (&quot;Lognormal&quot;) and natural-scale
-&quot;Normal&quot; residualize as independent normals on the log or natural scale; the
-correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened by the lower
-Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
-closed form TMB::oneStepPredict() reproduces for a Gaussian block."><meta property="og:description" content="Computes one-step-ahead (OSA) residuals – also called forecast or quantile
+(Index_distribution). Lognormal IID (&quot;Lognormal&quot;) residualizes on the log
+scale, and the natural-scale &quot;Normal&quot; and &quot;TruncatedNormal&quot; on the natural
+scale. The correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened
+by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
+residuals are the multivariate-Gaussian one-step-ahead innovations
+L^-1 (obs - q*pred) – the closed form TMB::oneStepPredict() reproduces for a
+Gaussian block.
+&quot;TruncatedNormal&quot; rows are residualized in their own
+TMB::oneStepPredict() call, with method = &quot;oneStepGeneric&quot; and a range
+starting at zero, whatever method is passed. Its density differs from
+&quot;Normal&quot; only by log Phi(mu/sd), which is a function of the prediction and
+not of the observation, so a Gaussian method – which reads the curvature of
+the density in the observation – cannot see the truncation at all and returns
+the untruncated (obs - mu)/sd. Integrating over the family's own support
+instead gives the truncated CDF
+F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd),
+so qnorm(F(x)) is standard normal by the probability integral transform
+however hard the truncation bites. The upper limit is finite rather than
+Inf – ten standard deviations past the largest fitted index in the group,
+which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
+splineApprox = FALSE, because the spline shortcut integrates over whatever
+range its profile slice covered. The range is a
+property of the family, so it cannot be shared with the other fleets:
+&quot;Normal&quot; is genuinely untruncated, and a lognormal fleet's stored observation
+is log(obs), which is negative for a small index.
+The size of the correction is the truncated mass: on a fleet predicting 100
+with an absolute sd of 150 (a quarter of the density below zero), an
+observation exactly at the prediction has an untruncated residual of 0 and a
+truncated one of -0.44.
+Three consequences of that group being residualized separately, worth knowing
+before reading the output:
+On a model with random effects the exact integration can fail. It
+evaluates the Laplace marginal at arbitrary values of the observation, and
+the inner problem does not always converge across the whole support. Rather
+than return NA for those rows – which would shrink the sample
+osa_diagnostics() passes verdict on, without saying so – the fleet is
+recomputed under TMB's spline approximation and a warning says the residuals
+for it are approximate. Fixed-effect models are unaffected.
+sd is NA and predicted means something different for this group.
+oneStepGeneric returns neither a standard deviation nor the fitted value;
+predicted is the truncated conditional mean E[x | x &amp;gt; 0], which sits
+above the fitted index (163.8 against a fitted 100.0 on the fixture above),
+not the fitted index itself. The residual is unaffected.
+Adding a &quot;TruncatedNormal&quot; fleet moves the other fleets' residuals on a
+random-effects model. Each TMB::oneStepPredict() call marks the rows it
+is not residualizing as unconditional, which zeroes their data terms and so
+changes the conditional distribution of the latent states. Both orderings
+are valid probability-integral-transform sequences, so no value is wrong,
+but catch and lognormal-index residuals will not match those from an
+otherwise identical model with no truncated fleet. Fixed-effect models are
+again unaffected, since their observations are independent.
+
+"><meta property="og:description" content="Computes one-step-ahead (OSA) residuals – also called forecast or quantile
 residuals (Thygesen et al. 2017) – for a fitted Rceattle model via
 TMB::oneStepPredict(). Unlike Pearson residuals, OSA residuals are
 distributed iid standard normal under a correctly specified model even when
@@ -60,12 +108,60 @@ Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the osa_mode switch); fleets fit with the AFSC MultinomialAFSC
 pseudo-likelihood are residualized under the full multinomial.
 Survey-index OSA residuals are supported for every index likelihood family
-(Index_distribution): lognormal IID (&quot;Lognormal&quot;) and natural-scale
-&quot;Normal&quot; residualize as independent normals on the log or natural scale; the
-correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened by the lower
-Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
-closed form TMB::oneStepPredict() reproduces for a Gaussian block."></head><body>
+(Index_distribution). Lognormal IID (&quot;Lognormal&quot;) residualizes on the log
+scale, and the natural-scale &quot;Normal&quot; and &quot;TruncatedNormal&quot; on the natural
+scale. The correlated covariance families (&quot;MVN&quot; / &quot;MVNORM&quot;) are whitened
+by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
+residuals are the multivariate-Gaussian one-step-ahead innovations
+L^-1 (obs - q*pred) – the closed form TMB::oneStepPredict() reproduces for a
+Gaussian block.
+&quot;TruncatedNormal&quot; rows are residualized in their own
+TMB::oneStepPredict() call, with method = &quot;oneStepGeneric&quot; and a range
+starting at zero, whatever method is passed. Its density differs from
+&quot;Normal&quot; only by log Phi(mu/sd), which is a function of the prediction and
+not of the observation, so a Gaussian method – which reads the curvature of
+the density in the observation – cannot see the truncation at all and returns
+the untruncated (obs - mu)/sd. Integrating over the family's own support
+instead gives the truncated CDF
+F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd),
+so qnorm(F(x)) is standard normal by the probability integral transform
+however hard the truncation bites. The upper limit is finite rather than
+Inf – ten standard deviations past the largest fitted index in the group,
+which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
+splineApprox = FALSE, because the spline shortcut integrates over whatever
+range its profile slice covered. The range is a
+property of the family, so it cannot be shared with the other fleets:
+&quot;Normal&quot; is genuinely untruncated, and a lognormal fleet's stored observation
+is log(obs), which is negative for a small index.
+The size of the correction is the truncated mass: on a fleet predicting 100
+with an absolute sd of 150 (a quarter of the density below zero), an
+observation exactly at the prediction has an untruncated residual of 0 and a
+truncated one of -0.44.
+Three consequences of that group being residualized separately, worth knowing
+before reading the output:
+On a model with random effects the exact integration can fail. It
+evaluates the Laplace marginal at arbitrary values of the observation, and
+the inner problem does not always converge across the whole support. Rather
+than return NA for those rows – which would shrink the sample
+osa_diagnostics() passes verdict on, without saying so – the fleet is
+recomputed under TMB's spline approximation and a warning says the residuals
+for it are approximate. Fixed-effect models are unaffected.
+sd is NA and predicted means something different for this group.
+oneStepGeneric returns neither a standard deviation nor the fitted value;
+predicted is the truncated conditional mean E[x | x &amp;gt; 0], which sits
+above the fitted index (163.8 against a fitted 100.0 on the fixture above),
+not the fitted index itself. The residual is unaffected.
+Adding a &quot;TruncatedNormal&quot; fleet moves the other fleets' residuals on a
+random-effects model. Each TMB::oneStepPredict() call marks the rows it
+is not residualizing as unconditional, which zeroes their data terms and so
+changes the conditional distribution of the latent states. Both orderings
+are valid probability-integral-transform sequences, so no value is wrong,
+but catch and lognormal-index residuals will not match those from an
+otherwise identical model with no truncated fleet. Fixed-effect models are
+again unaffected, since their observations are independent.
+
+"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -73,7 +169,7 @@ closed form TMB::oneStepPredict() reproduces for a Gaussian block."></head><body
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -150,25 +246,71 @@ Composition OSA uses an internal model rebuild with unweighted, proper
 densities (the <code>osa_mode</code> switch); fleets fit with the AFSC <code>MultinomialAFSC</code>
 pseudo-likelihood are residualized under the full multinomial.</p>
 <p>Survey-index OSA residuals are supported for every index likelihood family
-(<code>Index_distribution</code>): lognormal IID (<code>"Lognormal"</code>) and natural-scale
-<code>"Normal"</code> residualize as independent normals on the log or natural scale; the
-correlated covariance families (<code>"MVN"</code> / <code>"MVNORM"</code>) are whitened by the lower
-Cholesky of the fleet's survey covariance Sigma = L L' so the residuals are the
-multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q*pred) – the
-closed form <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code> reproduces for a Gaussian block.</p>
-    </div>
+(<code>Index_distribution</code>). Lognormal IID (<code>"Lognormal"</code>) residualizes on the log
+scale, and the natural-scale <code>"Normal"</code> and <code>"TruncatedNormal"</code> on the natural
+scale. The correlated covariance families (<code>"MVN"</code> / <code>"MVNORM"</code>) are whitened
+by the lower Cholesky of the fleet's survey covariance Sigma = L L', so the
+residuals are the multivariate-Gaussian one-step-ahead innovations
+L^-1 (obs - q*pred) – the closed form <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code> reproduces for a
+Gaussian block.</p>
+<p><code>"TruncatedNormal"</code> rows are residualized in their own
+<code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code> call, with <code>method = "oneStepGeneric"</code> and a range
+starting at zero, whatever <code>method</code> is passed. Its density differs from
+<code>"Normal"</code> only by <code>log Phi(mu/sd)</code>, which is a function of the prediction and
+not of the observation, so a Gaussian method – which reads the curvature of
+the density in the observation – cannot see the truncation at all and returns
+the untruncated <code>(obs - mu)/sd</code>. Integrating over the family's own support
+instead gives the truncated CDF
+<code>F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)</code>,
+so <code>qnorm(F(x))</code> is standard normal by the probability integral transform
+however hard the truncation bites. The upper limit is finite rather than
+<code>Inf</code> – ten standard deviations past the largest fitted index in the group,
+which leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
+<code>splineApprox = FALSE</code>, because the spline shortcut integrates over whatever
+range its profile slice covered. The range is a
+property of the family, so it cannot be shared with the other fleets:
+<code>"Normal"</code> is genuinely untruncated, and a lognormal fleet's stored observation
+is <code>log(obs)</code>, which is negative for a small index.</p>
+<p>The size of the correction is the truncated mass: on a fleet predicting 100
+with an absolute sd of 150 (a quarter of the density below zero), an
+observation exactly at the prediction has an untruncated residual of 0 and a
+truncated one of -0.44.</p>
+<p>Three consequences of that group being residualized separately, worth knowing
+before reading the output:</p><ul><li><p><strong>On a model with random effects the exact integration can fail.</strong> It
+evaluates the Laplace marginal at arbitrary values of the observation, and
+the inner problem does not always converge across the whole support. Rather
+than return <code>NA</code> for those rows – which would shrink the sample
+<code><a href="osa_diagnostics.html">osa_diagnostics()</a></code> passes verdict on, without saying so – the fleet is
+recomputed under TMB's spline approximation and a warning says the residuals
+for it are approximate. Fixed-effect models are unaffected.</p></li>
+<li><p><strong><code>sd</code> is <code>NA</code> and <code>predicted</code> means something different for this group.</strong>
+<code>oneStepGeneric</code> returns neither a standard deviation nor the fitted value;
+<code>predicted</code> is the truncated conditional mean <code>E[x | x &gt; 0]</code>, which sits
+above the fitted index (163.8 against a fitted 100.0 on the fixture above),
+not the fitted index itself. The residual is unaffected.</p></li>
+<li><p><strong>Adding a <code>"TruncatedNormal"</code> fleet moves the other fleets' residuals on a
+random-effects model.</strong> Each <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code> call marks the rows it
+is not residualizing as unconditional, which zeroes their data terms and so
+changes the conditional distribution of the latent states. Both orderings
+are valid probability-integral-transform sequences, so no value is wrong,
+but catch and lognormal-index residuals will not match those from an
+otherwise identical model with no truncated fleet. Fixed-effect models are
+again unaffected, since their observations are independent.</p></li>
+</ul></div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">osa_residuals</span><span class="op">(</span></span>
-<span>  <span class="va">fit</span>,</span>
+<span>  object <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ecov"</span>, <span class="st">"index"</span>, <span class="st">"catch"</span>, <span class="st">"comp"</span>, <span class="st">"caal"</span><span class="op">)</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"oneStepGaussianOffMode"</span>,</span>
 <span>  discrete <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">123</span>,</span>
 <span>  trace <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  <span class="va">...</span>,</span>
+<span>  fit <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -176,7 +318,7 @@ closed form <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" clas
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-fit">fit<a class="anchor" aria-label="anchor" href="#arg-fit"></a></dt>
+<dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
 <dd><p>A fitted object of class <code>Rceattle</code> (from <code><a href="fit_mod.html">fit_mod()</a></code>).</p></dd>
 
 
@@ -238,6 +380,11 @@ of randomized-quantile residuals. Default <code>123</code>.</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Further arguments passed to <code><a href="https://rdrr.io/pkg/TMB/man/oneStepPredict.html" class="external-link">TMB::oneStepPredict()</a></code>.</p></dd>
 
+
+<dt id="arg-fit">fit<a class="anchor" aria-label="anchor" href="#arg-fit"></a></dt>
+<dd><p>deprecated name for <code>object</code>, still accepted so existing
+scripts keep working. Supplying both is an error.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -250,9 +397,14 @@ range of ages rather than the one named), <code>length</code> (the conditioning 
 bin for caal; <code>NA</code> otherwise), <code>index_label</code> (<code>"age"</code>/<code>"length"</code>/<code>NA</code>), <code>observed</code>,
 <code>predicted</code>, <code>sd</code>, and <code>residual</code>. For aggregate series <code>observed</code> and
 <code>predicted</code> are on the residualization scale – log for lognormal catch/index,
-natural scale for a <code>"Normal"</code> index, and the whitened (<code>L^-1</code>) scale for an
+natural scale for a <code>"Normal"</code> or <code>"TruncatedNormal"</code> index, and the
+whitened (<code>L^-1</code>) scale for an
 <code>"MVN"</code>/<code>"MVNORM"</code> index; for compositions they are bin counts. Carries
-<code>method</code> and <code>seed</code> attributes, and (when composition types
+<code>method</code> and <code>seed</code> attributes – <code>method</code> is the string that was passed,
+except on a model with a <code>"TruncatedNormal"</code> index fleet, where it is the
+named vector <code>c(default = &lt;method&gt;, TruncatedNormal = "oneStepGeneric")</code>
+because that family is residualized with its own method (see above) – and
+(when composition types
 are present) a <code>"pearson"</code> attribute holding the matching Pearson residuals
 so <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code> can show both. The attribute uses this data
 frame's column names rather than the data-sheet names
@@ -307,6 +459,16 @@ Sci. 82:1-13.</p>
     <div class="dont-index"><p><code><a href="osa_diagnostics.html">osa_diagnostics()</a></code>, <code><a href="plot.rceattle_osa.html">plot.rceattle_osa()</a></code>, <code><a href="process_residuals.html">process_residuals()</a></code></p></div>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">BS2017SS</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="fit_mod.html">fit_mod</a></span><span class="op">(</span><span class="va">BS2017SS</span>, estimateMode <span class="op">=</span> <span class="st">"Hindcast"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">osa</span> <span class="op">&lt;-</span> <span class="fu">osa_residuals</span><span class="op">(</span><span class="va">fit</span>, source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"index"</span>, <span class="st">"comp"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">osa</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

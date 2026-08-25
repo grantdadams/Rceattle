@@ -103,11 +103,5 @@ build_growth(
 #> $growth_age_L1
 #> [1] NA
 #> 
-#> $growth_re
-#> [1] 0
-#> 
-#> $growth_indices
-#> [1] NA
-#> 
 # }
 ```

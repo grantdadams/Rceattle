@@ -73,8 +73,8 @@ with a suggestion, so a typo is caught here rather than surfacing much
 later in a fit. Legacy top-level names (`fsh_biom`, `srv_biom`, `wt`,
 `pmature`, `Pyrs`) are mapped to their canonical equivalents.
 
-Full validation runs at fit time in
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md).
+Full validation runs at fit time, inside
+[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
 `build_data()` runs only a light presence pre-check (`.check = TRUE`) so
 a missing *required* block is reported at construction with a clear
 message. The pre-check reads an attached
@@ -83,9 +83,7 @@ so a configuration carried on the object is accounted for. Requirements
 that depend on fit-time settings passed directly to
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
 and stored nowhere on the data list are not knowable here and are left
-to
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md);
-see
+to that fit-time validation; see
 [`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)
 to preview them.
 
@@ -94,7 +92,6 @@ to preview them.
 [`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md),
 [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md),
 [`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md),
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md),
 [`combine_data()`](https://grantdadams.github.io/Rceattle/reference/combine_data.md),
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
 

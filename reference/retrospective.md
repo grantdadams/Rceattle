@@ -21,21 +21,24 @@ functionality of TMB to peel the model:
 
 ``` r
 retrospective(
-  Rceattle = NULL,
+  object = NULL,
   peels = 5,
   rescale = FALSE,
   nyrs_forecast = 3,
   cores = NULL,
-  getsd = NULL
+  getsd = NULL,
+  phase = TRUE,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   an Rceattle model fit using
-  [`fit_mod`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
 
 - peels:
 
@@ -54,10 +57,9 @@ retrospective(
 
 - cores:
 
-  Number of cores to use for parallel peels. Default `NULL` picks
-  `parallel::detectCores() - 6`, capped at 2 when running under
-  `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
-  sequential execution.
+  Number of cores for the parallel refits. Default `NULL` picks
+  `parallel::detectCores() - 6`, capped at 2 under `R CMD check` (which
+  sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force sequential execution.
 
 - getsd:
 
@@ -68,6 +70,27 @@ retrospective(
   setting (`TRUE` if it was fit with `getsd = TRUE`, i.e. carries an
   `sdrep`); the returned peel models then carry standard errors only
   when `getsd` is `TRUE`.
+
+- phase:
+
+  whether each peel is refitted in phases (default `TRUE`). A peel
+  restarts from the unpeeled fit's starting values with a year removed;
+  without phasing the parameters barely move, the peels sit on top of
+  the full model, and Mohn's rho is biased towards zero. Change it only
+  deliberately.
+
+- fit_control:
+
+  optional
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  bundle for the refits. Only `phase` and `getsd` are read; see **What
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  reaches**.
+
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
 
 ## Value
 
@@ -112,6 +135,17 @@ unpeeled model, rather than `(endyr_peel + 1):endyr_full`, which counts
 
 Mohn's rho is computed from `endyr_peel` and is unaffected by any of
 this.
+
+Catchability is estimated only for a fleet that carries fitted index
+rows (see
+[`build_map`](https://grantdadams.github.io/Rceattle/reference/build_map.md)),
+and a peel moves `endyr`. A survey whose index observations all fall in
+the peeled-off years therefore has no q estimated in that peel – the
+parameter count is not constant across peels. That is deliberate: a q
+with no index to inform it is a flat direction in the likelihood. It
+does not affect Mohn's rho, which is computed from SSB, but it does mean
+`npar` and the reported catchability differ between a shallow and a deep
+peel for such a fleet.
 
 ## Examples
 

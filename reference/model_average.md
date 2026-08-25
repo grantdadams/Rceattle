@@ -5,12 +5,18 @@ Model average of derived quantities
 ## Usage
 
 ``` r
-model_average(Rceattle, weights = NULL, uncertainty = FALSE, nboot = 10000)
+model_average(
+  object = NULL,
+  weights = NULL,
+  uncertainty = FALSE,
+  nboot = 10000,
+  Rceattle = NULL
+)
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   list of Rceattle model objects
 
@@ -28,8 +34,24 @@ model_average(Rceattle, weights = NULL, uncertainty = FALSE, nboot = 10000)
   Number of bootstraps taken from asymptotic distribution of MLEs.
   Default = 10000
 
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
+
 ## Value
 
 an Rceattle object with derived quantities weighted by the specified
 weights. The length of the derived quantities spans the years which
 overlap across all models.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Equal weights across two candidate models.
+model_average(list(fit1, fit2), weights = c(1, 1))
+# Weighted by AIC, with bootstrapped uncertainty.
+model_average(list(fit1, fit2), weights = c(0.7, 0.3), uncertainty = TRUE)
+} # }
+```

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -518,10 +518,84 @@
 
         <dt>
 
+          <code><a href="simulate.Rceattle.html">simulate(<i>&lt;Rceattle&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Simulate data from a fitted Rceattle model</dd>
+
+        <dt>
+
           <code><a href="compare_sim.html">compare_sim()</a></code>
 
         </dt>
         <dd>Evaluate simulation performance</dd>
+
+        <dt>
+
+          <code><a href="print.Rceattle_retro.html">print(<i>&lt;Rceattle_retro&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for a retrospective analysis</dd>
+
+        <dt>
+
+          <code><a href="print.Rceattle_jitter.html">print(<i>&lt;Rceattle_jitter&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for a jitter analysis</dd>
+
+        <dt>
+
+          <code><a href="print.Rceattle_selftest.html">print(<i>&lt;Rceattle_selftest&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for a self-test</dd>
+
+        <dt>
+
+          <code><a href="print.Rceattle_profile.html">print(<i>&lt;Rceattle_profile&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for a likelihood profile</dd>
+
+        <dt>
+
+          <code><a href="print.Rceattle_mse_summary.html">print(<i>&lt;Rceattle_mse_summary&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for an MSE summary</dd>
+      </dl></div><div class="section level2">
+      <h2 id="diagnostics-shared-arguments">Diagnostics — shared arguments<a class="anchor" aria-label="anchor" href="#diagnostics-shared-arguments"></a></h2>
+
+      <div class="section-desc"><p>The common vocabulary retrospective(), jitter() and self_test() share: object, cores and fit_control, and what fit_control() reaches through a refit.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="rceattle-refit-args.html">rceattle-refit-args</a></code>
+
+        </dt>
+        <dd>Shared refit-diagnostic arguments</dd>
+      </dl></div><div class="section level2">
+      <h2 id="plotting-shared-arguments">Plotting — shared arguments<a class="anchor" aria-label="anchor" href="#plotting-shared-arguments"></a></h2>
+
+      <div class="section-desc"><p>The common vocabulary the timeseries, predation and selectivity plotters share: line_col, lwd, lty, alpha, species, spnames, minyr/maxyr, incl_proj, incl_mean, add_ci and model_names.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="rceattle-plot-args.html">rceattle-plot-args</a></code>
+
+        </dt>
+        <dd>Shared plotting arguments</dd>
       </dl></div><div class="section level2">
       <h2 id="plotting-population-dynamics">Plotting — population dynamics<a class="anchor" aria-label="anchor" href="#plotting-population-dynamics"></a></h2>
 
@@ -609,7 +683,7 @@
           <code><a href="plot_mortality.html">plot_mortality()</a></code>
 
         </dt>
-        <dd>Plot M1 + M2</dd>
+        <dd>Plot M1 or M2 at age</dd>
 
         <dt>
 
@@ -690,7 +764,7 @@
           <code><a href="plot_b_eaten.html">plot_b_eaten()</a></code>
 
         </dt>
-        <dd>Plot biomass eaten</dd>
+        <dd>Plot biomass eaten by predation</dd>
 
         <dt>
 
@@ -900,6 +974,13 @@
 
         </dt>
         <dd>Compact summary method for Rceattle fits</dd>
+
+        <dt>
+
+          <code><a href="print.summary.Rceattle.html">print(<i>&lt;summary.Rceattle&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for an Rceattle model summary</dd>
 
         <dt>
 

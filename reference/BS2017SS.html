@@ -9,7 +9,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -221,7 +221,7 @@
 <dd><p>Species number</p></dd>
 
 <dt>Selectivity_index</dt>
-<dd><p>index to use if selectivities of different surveys are to be the same</p></dd>
+<dd><p>Index used to give fleets the same selectivity (otherwise, same as Fleet_code). Fleets sharing a value share one selectivity parameter block, with its penalties and priors accumulated once on the group's first non-Off fleet. Sharing the parameters is not enough on its own: the columns that shape the curve are read per fleet and must agree across the group, or the fleets end up with different selectivities. <code><a href="data_check.html">data_check()</a></code> reports any that differ. To mirror a fleet, copy its fleet_control row and change only the identity and catchability columns. See <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code>.</p></dd>
 
 <dt>Selectivity</dt>
 <dd><p>Selectivity form: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" (Ianelli et al. 2018); 3 = "DoubleLogistic"; 4 = "DescendingLogistic"; 5 = "Hake" non-parametric (Taylor et al. 2014); 6 = "2DAR1"; 7 = "3DAR1" (Cheng et al. 2024); 8 = "DoubleNormal"; 9 = "NonParametricPM" (non-parametric random walk, AMAK "pm"); 11 = "LogisticPM" (logistic with a free age-1 selectivity, AMAK "pm"). Whether a form is age- or length-based is set by Selectivity_dimension.</p></dd>
@@ -233,7 +233,7 @@
 <dd><p>Number of bins (ages or length bins) to estimate for non-parametric selectivity.</p></dd>
 
 <dt>Time_varying_sel</dt>
-<dd><p>Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (not yet implemented), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.</p></dd>
+<dd><p>Whether a time-varying selectivity should be estimated. 0 = "Off"; 1 = "IID" penalized deviates given <code>Time_varying_sel_sd</code>, or random effects with that sd estimated under <code>random_sel</code>; 2 = "AR1" REMOVED in 5.16.0 – it was scored as "IID", so <code><a href="data_check.html">data_check()</a></code> errors on it; use "IID" for the same fit, or <code>linkage_spec(~ ar1(1 | Year))</code> for a real one; 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" following Dorn; 5 = "RandomWalkAscending" on the ascending limb of double logistic only.</p></dd>
 
 <dt>Time_varying_sel_sd</dt>
 <dd><p>The fixed or initial sd to use for time varying selectivity.</p></dd>
@@ -307,10 +307,10 @@ NA.</p></dd>
 <dd><p>Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length</p></dd>
 
 <dt>Catchability_index</dt>
-<dd><p>index to use if catchability coefficients are to be set the same.</p></dd>
+<dd><p>Index used to give fleets the same catchability (otherwise, same as Fleet_code). Fleets sharing a value share one q parameter, so the group carries only one answer to whether q is estimated: the group's first non-Off fleet decides for all of them, regardless of fleet type. Give a fleet its own value when it should be estimated independently. "Analytical" and "AnalyticalArith" are the exception – they solve q from each fleet's own index observations, so a group containing one does <em>not</em> share a catchability. <code><a href="data_check.html">data_check()</a></code> reports that case, a Fixed lead that leaves fleets on different inits, and a <code>Catchability</code> or <code>Time_varying_q</code> that differs within a group. See <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code>.</p></dd>
 
 <dt>Catchability</dt>
-<dd><p>Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Ludwig and Walters 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates fit to an environmental index (Rogers et al. 2024); 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.</p></dd>
+<dd><p>Estimate catchability? 0 or "Fixed" = fixed at prior; 1 or "Estimated" = estimate a single parameter; 2 or "Estimated-with-prior" = estimate a single parameter with a prior; 3 or "Analytical" = geometric-mean analytical q (Ludwig and Walters 1994); 4 = power equation (not yet implemented); 5 or "Environmental" = linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = removed, and <code><a href="data_check.html">data_check()</a></code> errors on it – the deviates were never estimated, so q came back constant; express the Rogers et al. (2024) form as a q linkage with ar1(1 | Year) and <code>observe</code>, passed to <code>fit_mod(qFun = )</code>; 7 or "AnalyticalArith" = arithmetic-mean analytical q = mean(obs)/mean(pred), the AMAK/ebswp form used with the MVN survey likelihood.</p></dd>
 
 <dt>Catchability_init</dt>
 <dd><p>Starting value (or fixed value) for catchability. When Catchability = "Estimated-with-prior" this also centers the q prior.</p></dd>
@@ -319,7 +319,7 @@ NA.</p></dd>
 <dd><p>Standard deviation of the q prior: dnorm(log_q, log_q_prior, Catchability_prior_sd). Used only when Catchability = "Estimated-with-prior".</p></dd>
 
 <dt>Time_varying_q</dt>
-<dd><p>Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (not yet implemented), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y</p></dd>
+<dd><p>Whether a time-varying q should be estimated. 0 = "Off"; 1 = "IID" penalized deviate or random effect; 2 = "AR1" REMOVED in 5.16.0 – it was scored as "IID", so <code><a href="data_check.html">data_check()</a></code> errors on it; use "IID" for the same fit, or <code>linkage_spec(~ ar1(1 | Year))</code> for a real one; 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" from the mean following Dorn 2018. Under <code>Catchability = "Environmental"</code> this column instead holds the <code>env_data</code> column index, not a mode.</p></dd>
 
 <dt>Time_varying_q_sd</dt>
 <dd><p>The sd to use for the random walk of time varying q if set to 1</p></dd>
@@ -337,16 +337,16 @@ NA.</p></dd>
 <dd><p>Starting/fixed value for the catch observation SD, used when Estimate_catch_sd = "Estimated".</p></dd>
 
 <dt>Index_distribution</dt>
-<dd><p>Survey/index biomass observation likelihood family. 0 or "Lognormal" = independent lognormal on the log observation (the default). "MVN" and "MVNORM" both use a multivariate normal on the natural-scale residual vector (obs - q<em>pred) with a user-supplied full variance-covariance matrix in <code>index_cov</code> (e.g. a VAST-derived Sigma): 1 or "MVN" reports the bare quadratic form 0.5 * r' Sigma^-1 r (matching the survey likelihood reported by AMAK/ebswp and ADMB); 2 or "MVNORM" reports the full multivariate-normal negative log-density 0.5 * (r' Sigma^-1 r + logdet(Sigma) + n</em>log(2*pi)). The two give an identical fit (they differ by a fixed constant). Pair either with Catchability = "AnalyticalArith".</p></dd>
+<dd><p>Survey/index biomass observation likelihood family. 0 or "Lognormal" (default) = independent lognormal on the log observation. 1 or "MVN" and 2 or "MVNORM" = multivariate normal on the natural-scale residual (obs - q*pred), with a user-supplied covariance in <code>index_cov</code> (e.g. a VAST-derived Sigma); "MVN" reports the bare quadratic form matching AMAK/ebswp and ADMB, "MVNORM" the properly normalized density, and the two give an identical fit. Pair either with Catchability = "AnalyticalArith". 3 or "Normal" = independent normal on the same residual, with an ABSOLUTE sd from Log_sd, not a log-scale CV; reproduces AMAK avo_like/cpue_like term for term. 4 or "TruncatedNormal" = that normal left-truncated at zero. Prefer it to "Normal" unless an exact ADMB comparison is needed: an index cannot be negative, so it is the only natural-scale family whose likelihood and simulator are the same distribution. See <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code>.</p></dd>
 
 <dt>Comp_distribution</dt>
 <dd><p>Age/length composition data distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" (default) = AFSC multinomial; 0 or "Multinomial" = full multinomial; 1 or "DirichletMultinomial".</p></dd>
 
 <dt>Comp_weights</dt>
-<dd><p>Composition weight. Its scale follows <code>Comp_distribution</code>: under a multinomial it is the natural-scale multiplier on the input sample size, while under a Dirichlet-multinomial the model uses <code>exp(Comp_weights)</code>, so the column holds the <em>log</em> of the starting weight – the template default of 1 is a starting weight of \(e\), not 1; use 0 for a weight of 1. It is read when a model is built from scratch, so a refit keeps whatever weight it is given. A fit reports the weight its residuals imply – a harmonic mean of the ratio of effective to input sample size (McAllister &amp; Ianelli 1997) – in <code>Comp_weights_mcallister</code>; <code><a href="reweight_comps.html">reweight_comps</a></code> tunes towards it.</p></dd>
+<dd><p>Composition weight. Its scale follows <code>Comp_distribution</code>: under a multinomial it is the natural-scale multiplier on the input sample size, while under a Dirichlet-multinomial the model uses <code>exp(Comp_weights)</code>, so the column holds the <em>log</em> of the starting weight – a value of 1 is a starting weight of \(e\); use 0 for a weight of 1. It is read when a model is built from scratch, so a refit keeps whatever weight it is given. A fit reports the weight its residuals imply – a harmonic mean of the ratio of effective to input sample size (McAllister &amp; Ianelli 1997) – in <code>Comp_weights_mcallister</code>; <code><a href="reweight_comps.html">reweight_comps</a></code> tunes towards it.</p></dd>
 
 <dt>CAAL_distribution</dt>
-<dd><p>Conditional age-at-length composition distribution. Accepts integer codes or readable strings: 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial".</p></dd>
+<dd><p>Conditional age-at-length composition distribution. Accepts integer codes or readable strings: -1 or "MultinomialAFSC" = AFSC multinomial; 0 or "Multinomial" (default) = full multinomial; 1 or "DirichletMultinomial".</p></dd>
 
 <dt>CAAL_weights</dt>
 <dd><p>Conditional age-at-length (CAAL) composition weight. Its scale follows <code>CAAL_distribution</code> exactly as <code>Comp_weights</code> follows <code>Comp_distribution</code>: a natural-scale sample-size multiplier under a multinomial, the <em>log</em> of the starting weight under a Dirichlet-multinomial.</p></dd>

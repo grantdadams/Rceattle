@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Self-test simulation analysis</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/9-retro_and_jitter.R" class="external-link"><code>R/9-retro_and_jitter.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/9-self_test.R" class="external-link"><code>R/9-self_test.R</code></a></small>
       <div class="d-none name"><code>self_test.Rd</code></div>
     </div>
 
@@ -62,7 +62,7 @@
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">self_test</span><span class="op">(</span></span>
-<span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  object <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nsim <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  simulate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">123</span>,</span>
@@ -71,7 +71,10 @@
 <span>  phase <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"initial"</span>, <span class="st">"estimated"</span><span class="op">)</span>,</span>
 <span>  debug <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  timeout <span class="op">=</span> <span class="cn">Inf</span></span>
+<span>  timeout <span class="op">=</span> <span class="cn">Inf</span>,</span>
+<span>  process <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  fit_control <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -79,8 +82,8 @@
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
-<dd><p>an Rceattle model fit using <code><a href="fit_mod.html">fit_mod</a></code></p></dd>
+<dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
+<dd><p>an Rceattle model fit using <code><a href="fit_mod.html">fit_mod()</a></code>.</p></dd>
 
 
 <dt id="arg-nsim">nsim<a class="anchor" aria-label="anchor" href="#arg-nsim"></a></dt>
@@ -99,9 +102,8 @@ so results are reproducible under both sequential and parallel execution.</p></d
 
 
 <dt id="arg-cores">cores<a class="anchor" aria-label="anchor" href="#arg-cores"></a></dt>
-<dd><p>Number of cores to use for parallel simulations. Default
-<code>NULL</code> picks <code>parallel::detectCores() - 6</code>, capped at 2 when
-running under <code>R CMD check</code> (which sets
+<dd><p>Number of cores for the parallel refits. Default <code>NULL</code> picks
+<code>parallel::detectCores() - 6</code>, capped at 2 under <code>R CMD check</code> (which sets
 <code>_R_CHECK_LIMIT_CORES_</code>). Set to 1 to force sequential execution.</p></dd>
 
 
@@ -159,25 +161,70 @@ is stopped, counted as non-converged and reported separately. Approximate:
 the limit is checked when control returns to R, so it fires between the
 optimizer's function evaluations rather than inside one.</p></dd>
 
+
+<dt id="arg-process">process<a class="anchor" aria-label="anchor" href="#arg-process"></a></dt>
+<dd><p>passed to <code><a href="sim_mod.html">sim_mod</a></code>. <code>FALSE</code> (default) keeps
+the fitted process deviations, so the test measures whether the estimator
+recovers its own parameters from new observations. Naming a process –
+<code>"recruitment"</code>, <code>"M"</code>, <code>"growth"</code>, <code>"dynamics"</code>,
+<code>TRUE</code>, ... – redraws it too, so the test instead measures whether the
+estimator recovers a process it has not been shown. The deviations behind
+each replicate come back in <code>attr(result, "process_sim")</code>; see
+<code>Value</code>.</p></dd>
+
+
+<dt id="arg-fit-control">fit_control<a class="anchor" aria-label="anchor" href="#arg-fit-control"></a></dt>
+<dd><p>optional <code><a href="fit_control.html">fit_control()</a></code> bundle for the refits. Only
+<code>phase</code> and <code>getsd</code> are read; see <strong>What <code><a href="fit_control.html">fit_control()</a></code> reaches</strong>.</p></dd>
+
+
+<dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
+<dd><p>deprecated name for <code>object</code>, still accepted so existing
+scripts keep working. Supplying both is an error.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of Rceattle models named <code>Sim_1</code>, <code>Sim_2</code>, ....
 By default only the converged simulations, renumbered contiguously; a
 message reports how many were dropped.</p>
+<p>The list carries class <code>"Rceattle_selftest"</code> and the number of
+simulations attempted in <code>attr(, "nsim")</code>, so printing it reports the
+convergence rate; see <code><a href="print.Rceattle_selftest.html">print.Rceattle_selftest</a></code>. It is
+otherwise the list it always was – <code>sims[["Sim_1"]]</code>,
+<code>length(sims)</code>, <code><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply()</a></code> and
+<code>plot_biomass(c(sims, list(fit)))</code> are all unchanged, and <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>
+and <code>[</code> return a plain list of fits.</p>
 <p>With <code>debug = TRUE</code>, every simulation, with <code>Sim_i</code> being
 simulation <code>i</code> (so it pairs with the seed <code>seed + i</code>), and a
 logical vector of the convergence verdicts in <code>attr(, "converged")</code>.
 Inspect a failure with <code>sims[[j]]$convergence</code>. A simulation whose
 refit errored outright is returned as the condition object rather than a
 model, so it cannot abort the run.</p>
+<p>When <code>process</code> redrew something, <code>attr(, "process_sim")</code> holds the
+deviations that generated each replicate's data – a list keyed by the same
+<code>Sim_i</code> names, so <code>attr(x, "process_sim")[["Sim_1"]]</code> belongs to
+<code>x[["Sim_1"]]</code>, subset and renumbered alongside the models. Each entry
+is a named list of whichever of <code>rec_dev</code>, <code>init_dev</code>,
+<code>log_M1_dev</code> and <code>beta_linkage_re</code> were drawn, each with a
+same-shaped <code>_drawn</code> logical marking the cells the draw touched –
+restrict any recovery statistic to those, since the rest are fitted values
+(see <code><a href="sim_mod.html">sim_mod</a></code>). Compare estimates against these, not against
+the operating model: its fitted deviations are no longer what generated the
+data.</p>
     </div>
     <div class="section level2">
     <h2 id="interpreting-the-spread">Interpreting the spread<a class="anchor" aria-label="anchor" href="#interpreting-the-spread"></a></h2>
 
 
 <p><code><a href="sim_mod.html">sim_mod</a></code> redraws the observations only – indices, catch,
-compositions and CAAL. It does not redraw recruitment, so with
+compositions, CAAL and stomach contents. Some rows are deliberately left
+alone, and <code><a href="sim_mod.html">sim_mod</a></code> warns about each: a predator whose
+suitability is empirical rather than estimated has no predicted diet to draw
+from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
+the years it is fitted to. Those data are held fixed across every replicate,
+so recovery of whatever they inform is optimistic.</p>
+<p>By default it does not redraw recruitment, so with
 <code>random_rec = TRUE</code> every replicate shares the operating model's single
 recruitment realization, and that realization is its shrunk empirical-Bayes
 modes rather than a draw from N(0, sigmaR). Two consequences: the spread
@@ -186,7 +233,9 @@ estimation uncertainty in SSB and recruitment (do not read it against the
 model's own uncertainty bands, which include process error); and sigmaR is
 re-estimated from deviations that were shrunk toward zero the same way in
 every replicate, a downward bias that averaging over simulations does not
-remove.</p>
+remove. Pass <code>process = "recruitment"</code> (or <code>"dynamics"</code>, or
+<code>TRUE</code>) to redraw it and remove both, at the cost of asking a different
+question – see <code>process</code> above.</p>
     </div>
 
     <div class="section level2">
@@ -201,16 +250,6 @@ remove.</p>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Passing ‘phase’, ‘verbose’ directly to fit_mod() is deprecated and will be removed in a future release. Bundle these into fit_control() instead, e.g. fit_control(phase = ..., verbose = ...). Forwarding for now.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s</span>
 <span class="r-in"><span><span class="va">sims</span> <span class="op">&lt;-</span> <span class="fu">self_test</span><span class="op">(</span><span class="va">ss_run</span>, nsim <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>sim_mod() does not simulate diet (stomach content) data: 2025 rows are carried through unchanged. A self_test() of a model fitted to diet data therefore does not propagate diet observation error, and recovery of suitability is optimistic.</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

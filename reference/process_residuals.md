@@ -46,15 +46,16 @@ emitted.
 
 ``` r
 process_residuals(
-  fit,
+  object = NULL,
   process = c("recruitment", "initial", "catchability", "all"),
-  seed = 123
+  seed = 123,
+  fit = NULL
 )
 ```
 
 ## Arguments
 
-- fit:
+- object:
 
   A fitted `Rceattle` model. The targeted deviations must be estimated –
   as random effects (e.g. `random_rec = TRUE`) or as penalized fixed
@@ -67,6 +68,11 @@ process_residuals(
 - seed:
 
   Seed for the posterior draw. Default 123.
+
+- fit:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
 
 ## Value
 

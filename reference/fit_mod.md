@@ -32,6 +32,7 @@ fit_mod(
   suit_endyr = NULL,
   fit_control = NULL,
   config = NULL,
+  quiet_data_check = FALSE,
   ...
 )
 ```
@@ -90,12 +91,16 @@ fit_mod(
 - random_q:
 
   logical. If TRUE, treats annual catchability deviations as random
-  effects using the Laplace approximation. The default is FALSE.
+  effects using the Laplace approximation, and estimates their standard
+  deviation rather than fixing it at `Time_varying_q_sd`. The default is
+  FALSE.
 
 - random_sel:
 
   logical. If TRUE, treats annual selectivity deviations as random
-  effects using the Laplace approximation. The default is FALSE.
+  effects using the Laplace approximation, and estimates their standard
+  deviation rather than fixing it at `Time_varying_sel_sd`. The default
+  is FALSE.
 
 - HCR:
 
@@ -143,55 +148,31 @@ fit_mod(
   The predation-mortality mode, as a string alias or integer code:
   `"SingleSpecies"` (0, the default, no predation), `"MSVPA"` (1, the
   Type-II MSVPA predation of Holsman et al. 2015) or `"TypeIIIMSVPA"`
-  (2). Higher integer codes (Kinzey-Punt, Holling forms) are not yet
-  implemented.
+  (2). Higher integer codes (Kinzey-Punt, Holling forms) are declared
+  but not implemented, and are rejected by the data check.
 
 - avgnMode:
 
-  The average abundance-at-age approximation used in the
-  predation-mortality equations. Only mode 0, \\N/Z ( 1 - exp(-Z) )\\
-  (the MSVPA form), is currently active; the model always uses it. The
-  alternatives \\N exp(-Z/2)\\ (1) and \\N\\ (2) are not currently
-  implemented and setting them has no effect.
+  the average abundance-at-age approximation used in the
+  predation-mortality equations. Only mode 0, \\N/Z(1 - exp(-Z))\\ (the
+  MSVPA form), is implemented; the alternatives are declared but have no
+  effect.
 
 - initMode:
 
-  how the population is initialized, as a string alias or integer code.
-  `"FreeParams"` (0) = initial age-structure estimated as free
-  parameters; `"Equilibrium"` (1) = unfished (Finit = 0) equilibrium
-  age-structure estimated out from R0 + mortality (M1);
-  `"NonEquilibrium"` (2, the default) = non-equilibrium age-structure
-  estimated out from R0, mortality (M1), and initial population
-  deviates; `"FishedNonEquilibrium"` (3) = non-equilibrium age-structure
-  estimated out from initial fishing mortality (Finit), R0, mortality
-  (M1), and initial population deviates;
-  `"FishedNonEquilibriumScaled"` (4) = non-equilibrium age-structure
-  version 2 where initial fishing mortality (Finit) scales R0;
-  `"OffsetEquilibrium"` (5) = unfished (Finit = 0) equilibrium
-  age-structure seeded by the first-year recruitment
-  (`R_init * exp(rec_dev[year 1])`) decayed by residual natural
-  mortality M1, closed with the usual geometric plus group at the
-  maximum age, with initial deviates turned off and no init-dev penalty
-  (the Cole Monnahan / AFSC GOA pollock convention). Mode 5 differs from
-  `"Equilibrium"` by exactly one term: both start from the initial
-  equilibrium recruitment `R_init`, but 5 displaces it by the year-1
-  recruitment deviation. Under a random-about-mean stock-recruit
-  relationship `R_init` equals `R0`; under Beverton-Holt or Ricker it is
-  the equilibrium recruitment implied by the curve. Note the decay uses
-  M1 only, so in multispecies mode predation mortality (M2) does not
-  enter the initial age structure.
+  how the population is initialized, as a string alias or integer code:
+  `"FreeParams"` (0), `"Equilibrium"` (1), `"NonEquilibrium"` (2, the
+  default), `"FishedNonEquilibrium"` (3), `"FishedNonEquilibriumScaled"`
+  (4), `"OffsetEquilibrium"` (5). See the **Initial age structure**
+  section below for what each one estimates.
 
 - suitMode:
 
-  Switch for suitability derivation for each predator (single value or
-  vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 =
-  length-based gamma suitability, 2 = weight-based gamma suitability, 3
-  = length-based lognormal suitability, 4 = weight-based lognormal
-  suitability, 5 = length-based normal suitability, 6 = weight-based
-  normal suitability. The length-based modes (1, 3, 5) are not yet
-  implemented and are rejected by
-  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md);
-  use a weight-based mode (2, 4, 6) or empirical suitability (0).
+  how predator-prey suitability is derived, per predator (a single value
+  or a vector of length `nspp`): 0 = empirical from diet data (Holsman
+  et al. 2015), 2 = weight-based gamma, 4 = weight-based lognormal, 6 =
+  weight-based normal. The length-based forms (1, 3, 5) are declared but
+  not implemented and are rejected by the data check.
 
 - suit_styr:
 
@@ -232,6 +213,23 @@ fit_mod(
   *not* pass – an explicit argument always wins. `NULL` (default)
   applies no configuration. Example:
   `fit_mod(data_list, config = load_config("run.yaml"))`.
+
+- quiet_data_check:
+
+  Drop the warnings the fit-time validation raises (errors still stop
+  the fit). `FALSE` (default) for an ordinary fit. The diagnostic refits
+  –
+  [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md),
+  [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md),
+  [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md),
+  [`profile()`](https://rdrr.io/r/stats/profile.html),
+  [`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md),
+  [`remove_F()`](https://grantdadams.github.io/Rceattle/reference/remove_F.md),
+  [`sample_rec()`](https://grantdadams.github.io/Rceattle/reference/sample_rec.md),
+  [`reweight_comps()`](https://grantdadams.github.io/Rceattle/reference/reweight_comps.md)
+  – set it, since they re-validate a `data_list` the caller has already
+  fitted once and would otherwise repeat the same warnings per peel,
+  jitter, or MSE iteration. Convergence and TMB warnings are unaffected.
 
 - ...:
 
@@ -288,6 +286,58 @@ Hassell-Varley, Ecosim) are blocked at runtime by
 [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
 because the implementations have not been validated against the current
 parameter set. See `src/TMB/predation.hpp`.
+
+## Initial age structure
+
+What `initMode` estimates, and from what:
+
+- `"FreeParams"` (0):
+
+  The initial age-structure is estimated directly, one free parameter
+  per age.
+
+- `"Equilibrium"` (1):
+
+  Unfished (\\F\_{init} = 0\\) equilibrium age-structure, carried out
+  from \\R_0\\ and residual natural mortality \\M1\\.
+
+- `"NonEquilibrium"` (2):
+
+  As (1), plus estimated initial population deviates, so the first year
+  need not sit at equilibrium. The default.
+
+- `"FishedNonEquilibrium"` (3):
+
+  As (2), with an estimated initial fishing mortality \\F\_{init}\\
+  added to the mortality that shapes the first year.
+
+- `"FishedNonEquilibriumScaled"` (4):
+
+  As (3), but \\F\_{init}\\ scales \\R_0\\ rather than entering the
+  mortality directly.
+
+- `"OffsetEquilibrium"` (5):
+
+  Unfished equilibrium seeded by the first year's recruitment,
+  `R_init * exp(rec_dev[1])`, decayed by \\M1\\ and closed with the
+  usual geometric plus group. Initial deviates are turned off and no
+  init-dev penalty is applied. This is the Cole Monnahan / AFSC GOA
+  pollock convention.
+
+Modes 1 and 5 differ by exactly one term: both start from the initial
+equilibrium recruitment \\R\_{init}\\, but (1) carries it forward
+unchanged while (5) seeds the first year with the realized recruitment
+`R_init * exp(rec_dev[1])`. On a stock whose first year was not average,
+that is not a small difference.
+
+\\R\_{init}\\ is not always \\R_0\\: under a random-about-mean
+stock-recruit relationship the two are equal, but under Beverton-Holt or
+Ricker \\R\_{init}\\ is the equilibrium recruitment implied by the
+curve.
+
+**In multispecies mode the decay uses \\M1\\ only**, so predation
+mortality (\\M2\\) does not enter the initial age structure under any of
+these modes.
 
 ## Examples
 

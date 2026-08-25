@@ -122,6 +122,30 @@ You do not need to call
 want [`set.seed()`](https://rdrr.io/r/base/Random.html) for plotting
 code that draws random colours or jitter.)
 
+Reproducibility holds *within* a package version, not across one. In
+5.9.0 the observation draws moved from R into the TMB model, which
+displaces the random-number stream, so a seeded
+[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+or
+[`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+will not reproduce a run from 5.8.x. 5.18.0 is the same kind of
+boundary: it seeds each assessment’s draw on its own year and stops
+shortening the operating model’s projection horizon. Both move the
+stream for every seeded `run_mse(simulate_data = TRUE)`.
+
+5.13.0 is a boundary for two kinds of run rather than all of them: one
+using a scalar `cap`, which that release rewrote, and one whose control
+rule reads reference points from an estimated stock-recruit curve, which
+it corrected. A run with neither reproduces across 5.13.0.
+`simulate_data = FALSE` is unaffected by all three.
+
+Two further points when comparing runs. The stream *position* is
+data-dependent: a covariance survey fleet redraws until every row is
+positive, and a multinomial composition draw stops early once the sample
+is exhausted, so changing an unrelated covariance or sample size moves
+everything drawn after it. And any model with an estimated suitability
+now varies its stomach contents, which it previously did not.
+
 For management-facing runs, record `packageVersion("Rceattle")` and the
 `seed` alongside the saved `.rds` so a later reviewer can rerun the
 exact same trajectories from the same package tag.
@@ -158,13 +182,26 @@ plot_depletionSSB(
 
 [`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
 reduces the trajectories to performance statistics for comparing
-strategies.
+strategies. It returns a **list**, because the metrics are computed on
+three different entities: `$species` (one row per species), `$fleet`
+(one row per fleet), and `$total` (a named vector across the whole
+system). `$meta` records what the summary was built from – the number of
+simulations, species and fleets, and the harvest control rule.
 
 ``` r
 
 mse_summ <- mse_summary(mse1)
-knitr::kable(mse_summ, digits = 2)
+names(mse_summ)
+
+knitr::kable(mse_summ$species, digits = 2)
+knitr::kable(mse_summ$fleet, digits = 2)
 ```
+
+Metric columns are named syntactically – `avg_catch`, `catch_iav`,
+`ssb_rmse_terminal`, `om_p_overfishing`, `em_p_overfished` – with the
+`om_` and `em_` prefixes separating what the operating model did from
+what the estimation model believed. `p_overfishing_false_pos` and its
+siblings are where the two disagree.
 
 ------------------------------------------------------------------------
 
@@ -256,6 +293,112 @@ mse4 <- run_mse(
 
 ------------------------------------------------------------------------
 
+### A missed assessment, and a buffer while advice is stale
+
+The scenarios above all set a *period*: an assessment every second or
+fourth year, for as long as the projection runs. A skipped assessment is
+a different thing — one gap in an otherwise regular cycle — and
+`assessment_period` also takes the schedule itself, as a vector of the
+years an assessment is completed.
+
+``` r
+
+biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
+miss_yr  <- biennial[ceiling(length(biennial) / 3)]
+
+mse6 <- run_mse(
+  om = om, em = em,
+  nsim = 10,
+  assessment_period = setdiff(biennial, miss_yr), # every year but miss_yr
+  sampling_period = c(1, 2)
+)
+```
+
+The distinction matters for the answer, not just the bookkeeping. A
+triennial period is a permanent policy and its cost compounds; one
+missed assessment is a single episode of stale advice, and how much it
+costs depends on the state the stock was in when the gap opened.
+
+To pair the gap with a precautionary reduction, give `catch_mult` a
+`data.frame` of `Year`, `Species` and `mult`. It applies only in the
+pairs listed, so the reduction can be held for the years advice is stale
+and lifted once the next assessment lands. `Species` is the species
+number, and any pair the table omits is multiplied by 1.
+
+Be careful which years those are. The assessment in year `Y` sets catch
+for `Y+1` onward, so a missed assessment leaves the **two years after
+it** on the previous assessment’s advice — not the missed year itself,
+which the previous assessment sets in the baseline too.
+
+``` r
+
+schedule <- setdiff(biennial, miss_yr)
+
+# The years the missed assessment would have set: from the year after it,
+# through the next assessment that was completed.
+gap_yrs <- (miss_yr + 1):min(schedule[schedule > miss_yr])
+
+# 10% reduction, held for exactly those years.
+buffer <- expand.grid(Year = gap_yrs, Species = seq_len(om$data_list$nspp))
+buffer$mult <- 0.90
+
+mse7 <- run_mse(
+  om = om, em = em,
+  nsim = 10,
+  assessment_period = schedule,
+  sampling_period = c(1, 2),
+  catch_mult = buffer
+)
+```
+
+Run these against a baseline that differs *only* in the schedule — same
+`om`, same `em`, same `seed` — and compare them as paired
+within-replicate differences.
+
+Two schedules on the same `seed` share their recruitment deviations,
+drawn once per replicate before the first assessment. Each assessment’s
+observation draws are seeded on that assessment’s own year rather than
+on wherever the previous assessments left the random stream, so an
+assessment in year `Y` starts from the same place in every schedule that
+assesses `Y`, and a divergence at one assessment does not displace every
+assessment after it.
+
+Common random numbers are not complete, though, and it is worth knowing
+where they stop. One
+[`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
+call draws every year in the assessment interval under that assessment’s
+seed, so a year sitting *inside* a longer interval is drawn under a
+different seed than the same year in a schedule that assessed it
+directly. Two schedules that differ in which years they assess realize
+different observation error in the years between, even where the stock
+is in the same state. The paired difference is therefore mostly, but not
+entirely, the schedule — size the replicate count with that in mind
+rather than assuming all the noise has cancelled.
+
+Once two schedules genuinely diverge — different catch taken, different
+years surveyed — their draws diverge too. That is a real difference
+between the runs rather than noise, and no seeding scheme removes it.
+
+Make the last assessment year reach the projection horizon. Catch is
+filled only up to the last assessment, so a schedule that stops short
+leaves the trailing years at `NA` — and
+[`mse_summary()`](https://grantdadams.github.io/Rceattle/reference/mse_summary.md)
+summarises over the whole projection, understating average catch, catch
+IAV and P(Closed) with nothing in the table to say so. A biennial cycle
+over an odd number of projection years lands here every time:
+`seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon.
+[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
+warns when it happens.
+
+One caveat to carry into any write-up: `catch_mult` multiplies catch,
+not ABC. A real ABC reduction changes removals only to the extent the
+fishery attains ABC, and for a stock whose catch sits well below ABC it
+changes them hardly at all. Either scale the multiplier by recent
+attainment, `1 - (1 - mult) * attainment`, or report the unscaled result
+as an upper bound on the effect of the reduction.
+
+------------------------------------------------------------------------
+
 ### Climate-linked MSE
 
 To test a strategy under environmental change, link a process in the OM
@@ -321,13 +464,20 @@ mse5 <- run_mse(
 ## Overall summary
 
 Tagging each summary with an `MSE` label and stacking them puts the
-strategies side by side in one table.
+strategies side by side in one table. Stack the entity you want to
+compare on – here the per-species metrics – rather than the whole list.
 
 ``` r
 
-mse_summ$MSE = 1
-mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
+stack_species <- function(x, label) {
+  out <- x$species
+  out$MSE <- label
+  out
+}
 
-knitr::kable(do.call("rbind", list(mse_summ, mse_summ2)) |>
-               dplyr::relocate(MSE), digits = 2)
+knitr::kable(
+  rbind(stack_species(mse_summary(mse1), 1),
+        stack_species(mse_summary(mse2), 2)) |>
+    dplyr::relocate(MSE),
+  digits = 2)
 ```

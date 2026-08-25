@@ -10,12 +10,19 @@ than in one step.
 ## Usage
 
 ``` r
-reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
+reweight_comps(
+  object = NULL,
+  n_iter = 10,
+  tol = 0.01,
+  fleets = NULL,
+  verbose = TRUE,
+  fit = NULL
+)
 ```
 
 ## Arguments
 
-- fit:
+- object:
 
   An `Rceattle` model fitted at `estimateMode` `"Estimate"` (0) or
   `"Hindcast"` (1) – the modes that optimize the hindcast.
@@ -39,6 +46,11 @@ reweight_comps(fit, n_iter = 10, tol = 0.01, fleets = NULL, verbose = TRUE)
 - verbose:
 
   Print the weights each iteration (default `TRUE`).
+
+- fit:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
 
 ## Value
 

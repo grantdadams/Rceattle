@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -367,17 +367,56 @@ catchability functions can be estimated or input for each survey or
 fishery.</p>
 <p>Catch is estimated in the model following the Baranov catch equation:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><mfrac><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mfrac><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat{C}_{isa,y} = \frac{F_{isa,y}} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y}</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mrow><mi>i</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munderover><mo>∑</mo><mi>a</mi><msub><mi>A</mi><mi>i</mi></msub></munderover><mfrac><mrow><msub><mi>F</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mfrac><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>W</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat{C}_{i,y} = \sum_s\sum_a^{A_i} \frac{F_isa,y} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y} W_{isa,y}</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mover><mi>F</mi><mo accent="true">‾</mo></mover><msub><mi>f</mi><mi>i</mi></msub></msub><msup><mi>e</mi><mrow><msub><mi>ϵ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>s</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub></mrow></msup></mrow><annotation encoding="application/x-tex">F_{isa,y} = \bar{F}_{f_i}e^{\epsilon_{{f_i},y} s_{{f_i}sa}}</annotation></semantics></math>
-CPUE data is estimated given catchability
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">q_{f_iy}</annotation></semantics></math>,
-selectivity
+An index is estimated given catchability
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">q_{f_iy}</annotation></semantics></math>
+and selectivity
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>S</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">S_{f_isa,y}</annotation></semantics></math>,
-and fleet month
+and can be in biomass
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mrow><mi>I</mi><mo>:</mo><mi>B</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">\hat{I:B}_{{f_i},y}</annotation></semantics></math>
+or in numbers
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mrow><mi>I</mi><mo>:</mo><mi>N</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">\hat{I:N}_{{f_i},y}</annotation></semantics></math>.
+What differs between the two forms below is only the numbers the index
+sees,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>N</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">\tilde{N}_{isa,y}</annotation></semantics></math>:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mi>I</mi><mo>:</mo><mi>B</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munder><mo>∑</mo><mi>a</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>N</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>W</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>S</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{I:B}_{{f_i},y} = \sum_s\sum_a \left( \tilde{N}_{isa,y}\, W_{{f_i}sa,y}\, S_{{f_i}sa,y}\, q_{{f_i}y} \right)</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mi>I</mi><mo>:</mo><mi>N</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munder><mo>∑</mo><mi>a</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>N</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>S</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{I:N}_{{f_i},y} = \sum_s\sum_a \left( \tilde{N}_{isa,y}\, S_{{f_i}sa,y}\, q_{{f_i}y} \right)</annotation></semantics></math></p>
+<p>A <strong>survey</strong> index is a snapshot: the survey is on the
+grounds at one point in the year, given by that fleet’s
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mi>o</mi><mi>n</mi><mi>t</mi><msub><mi>h</mi><msub><mi>f</mi><mi>i</mi></msub></msub></mrow><annotation encoding="application/x-tex">Month_{f_i}</annotation></semantics></math>,
+and sees the numbers that have survived to it.</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>N</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>M</mi><mi>o</mi><mi>n</mi><mi>t</mi><msub><mi>h</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mi>/</mi><mn>12</mn><mo stretchy="false" form="postfix">)</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><mspace width="2.0em"></mspace><mtext mathvariant="normal">(Fleet_type = Survey)</mtext></mrow><annotation encoding="application/x-tex">\tilde{N}_{isa,y} = N_{isa,y}\, e^{-(Month_{f_i}/12) Z_{isa,y}} \qquad \text{(Fleet\_type = Survey)}</annotation></semantics></math></p>
+<p>A <strong>fishery</strong> index is CPUE, which accumulates over the
+whole year alongside the catch rather than at an instant. Baranov gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mover><mi>N</mi><mo accent="true">‾</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat{C}_{isa,y} = F_{isa,y} \bar{N}_{isa,y}</annotation></semantics></math>,
+and effort cancels the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>F</mi><annotation encoding="application/x-tex">F</annotation></semantics></math>
+(since
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>F</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msubsup><mi>q</mi><msub><mi>f</mi><mi>i</mi></msub><mi>E</mi></msubsup><msub><mi>E</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>s</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub></mrow><annotation encoding="application/x-tex">F_{isa,y} = q^{E}_{f_i} E_{f_i,y} s_{{f_i}sa}</annotation></semantics></math>),
+leaving the same year-average numbers the catch equation uses:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>N</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mover><mi>N</mi><mo accent="true">‾</mo></mover><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mspace width="0.167em"></mspace><mfrac><mrow><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup></mrow><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mfrac><mspace width="2.0em"></mspace><mtext mathvariant="normal">(Fleet_type = Fishery)</mtext></mrow><annotation encoding="application/x-tex">\tilde{N}_{isa,y} = \bar{N}_{isa,y} = N_{isa,y}\, \frac{1 - e^{-Z_{isa,y}}}{Z_{isa,y}} \qquad \text{(Fleet\_type = Fishery)}</annotation></semantics></math></p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>N</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar{N}</annotation></semantics></math>
+is also what a fishery’s age composition is built on, so a fleet’s
+index, catch and comps are consistent by construction, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mi>o</mi><mi>n</mi><mi>t</mi><msub><mi>h</mi><msub><mi>f</mi><mi>i</mi></msub></msub></mrow><annotation encoding="application/x-tex">Month_{f_i}</annotation></semantics></math>
-and can either be in biomass
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mrow><mi>C</mi><mi>P</mi><mi>U</mi><mi>E</mi><mo>:</mo><mi>B</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">\hat{CPUE:B}_{{f_i},y}</annotation></semantics></math>
-or numbers
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mrow><mi>C</mi><mi>P</mi><mi>U</mi><mi>E</mi><mo>:</mo><mi>I</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><annotation encoding="application/x-tex">\hat{CPUE:I}_{{f_i},y}</annotation></semantics></math>:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mi>C</mi><mi>P</mi><mi>U</mi><mi>E</mi><mo>:</mo><mi>B</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munder><mo>∑</mo><mi>a</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msup><mi>e</mi><mrow><mi>−</mi><mi>M</mi><mi>o</mi><mi>n</mi><mi>t</mi><msub><mi>h</mi><msub><mi>f</mi><mi>i</mi></msub></msub><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><msub><mi>W</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msub><mi>S</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>*</mo><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{CPUE:B}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} * q_{{f_i}y} \right)</annotation></semantics></math><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mi>C</mi><mi>P</mi><mi>U</mi><mi>E</mi><mo>:</mo><mi>I</mi></mrow><mo accent="true">̂</mo></mover><mrow><msub><mi>f</mi><mi>i</mi></msub><mo>,</mo><mi>y</mi></mrow></msub><mo>=</mo><munder><mo>∑</mo><mi>s</mi></munder><munder><mo>∑</mo><mi>a</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>N</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><msup><mi>e</mi><mrow><mi>−</mi><mi>M</mi><mi>o</mi><mi>n</mi><mi>t</mi><msub><mi>h</mi><msub><mi>f</mi><mi>i</mi></msub></msub><msub><mi>Z</mi><mrow><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub></mrow></msup><msub><mi>S</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>i</mi><mi>s</mi><mi>a</mi><mo>,</mo><mi>y</mi></mrow></msub><mo>*</mo><msub><mi>q</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>y</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} S_{{f_i}isa,y} * q_{{f_i}y} \right)</annotation></semantics></math></p>
+is not read for a fishery’s index rows. The model keys this on
+<code>Fleet_type</code>; there is no column to set. The distinction
+moves trend as well as scale, so a constant
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>q</mi><annotation encoding="application/x-tex">q</annotation></semantics></math>
+cannot absorb it — at <code>Month = 6</code>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>e</mi><mrow><mi>−</mi><mi>Z</mi><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">e^{-Z/2}</annotation></semantics></math>
+approximates
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>N</mi><mo accent="true">‾</mo></mover><mi>/</mi><mi>N</mi></mrow><annotation encoding="application/x-tex">\bar{N}/N</annotation></semantics></math>
+to within 1% at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mn>0.5</mn></mrow><annotation encoding="application/x-tex">Z = 0.5</annotation></semantics></math>
+but is 9.6% low at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mn>1.5</mn></mrow><annotation encoding="application/x-tex">Z = 1.5</annotation></semantics></math>.
+Stock Synthesis splits the same way on its per-fleet survey timing
+(<code>SS_expval.tpl</code>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mi>i</mi><mi>m</mi><mi>i</mi><mi>n</mi><mi>g</mi><mo>≥</mo><mn>0</mn><mo>→</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>Z</mi><mo>⋅</mo><mi>t</mi><mi>i</mi><mi>m</mi><mi>i</mi><mi>n</mi><mi>g</mi></mrow></msup></mrow><annotation encoding="application/x-tex">timing \ge 0 \rightarrow e^{-Z \cdot timing}</annotation></semantics></math>;
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mi>i</mi><mi>m</mi><mi>i</mi><mi>n</mi><mi>g</mi><mo>&lt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">timing &lt; 0</annotation></semantics></math>,
+required of every fishing fleet
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>→</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>Z</mi></mrow></msup><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mi>Z</mi></mrow><annotation encoding="application/x-tex">\rightarrow (1 - e^{-Z})/Z</annotation></semantics></math>).
+See <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code> for the
+seasonal-fishery case and the measured trend errors.</p>
 <div class="section level3">
 <h3 id="selectivity-parameterizations">Selectivity parameterizations<a class="anchor" aria-label="anchor" href="#selectivity-parameterizations"></a>
 </h3>
@@ -393,15 +432,25 @@ data file. They are defined as follows:</p>
 different surveys are to be the same</li>
 <li>
 <code>Selectivity</code>: Selectivity parameterization to use for
-the species: 0 = empirical selectivity provided in
-<code>srv_emp_sel</code>; 1 = logistic selectivity; 2 = non-parametric
-selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 =
-descending logistic; 5 = non-parametric selectivity sensu Taylor et al
-2014 (Hake), 6 or “2DAR1” for age by year, 7 or “3DAR1” sensu Cheng et
-al (2025).</li>
+the fleet: 0 or <code>"Fixed"</code> = empirical selectivity provided in
+<code>emp_sel</code>; 1 or <code>"Logistic"</code>; 2 or
+<code>"NonParametric"</code> sensu Ianelli et al 2018; 3 or
+<code>"DoubleLogistic"</code>; 4 or <code>"DescendingLogistic"</code>; 5
+or <code>"Hake"</code>, non-parametric sensu Taylor et al 2014; 6 or
+<code>"2DAR1"</code> for bin by year; 7 or <code>"3DAR1"</code> sensu
+Cheng et al (2025); 8 or <code>"DoubleNormal"</code>, the six-parameter
+Stock Synthesis pattern 24; 9 or <code>"NonParametricPM"</code>, Ianelli
+non-parametric with the ADMB AMAK (<code>"pm"</code>) penalty; 11 or
+<code>"LogisticPM"</code>, the AMAK logistic with a free age-1
+selectivity. There is no 10 — the integer codes are frozen, because
+renumbering one would silently reinterpret every saved config and every
+fitted <code>.rds</code> that carries it. Whether a form is age- or
+length-based is set by <code>Selectivity_dimension</code>, not by the
+code.</li>
 <li>
-<code>N_sel_bins</code>: Number of ages to estimate non-parametric
-selectivity. For example, if <code>minage = 1</code> and selectivity
+<code>N_sel_bins</code>: Number of age or length bins (per
+<code>Selectivity_dimension</code>) to estimate for non-parametric and
+AR1 selectivity. For example, if <code>minage = 1</code> and selectivity
 parameters are estimated up till age-6, <code>N_sel_bins = 6</code> and
 if <code>minage = 0</code> and selectivity parameters are estimated up
 till age-6, <code>N_sel_bins = 7</code>. Not used otherwise</li>
@@ -409,13 +458,28 @@ till age-6, <code>N_sel_bins = 7</code>. Not used otherwise</li>
 <code>Time_varying_sel</code>: Whether a time-varying selectivity
 should be estimated for logistic, double logistic selectivity,
 descending logistic, or non-parametric selectivity
-(<code>Selectivity = 5 or "Hake"</code>). 0 = no, 1 = penalized deviates
-given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3
-= time blocks with no penalty, 4 = random walk following Dorn, 5 =
-random walk on ascending portion of double logistic only.</li>
+(<code>Selectivity = 5 or "Hake"</code>). 0 or <code>"Off"</code> = no;
+1 or <code>"IID"</code> = penalized deviates given
+<code>Time_varying_sel_sd</code>, or random effects with that sd
+estimated under <code>fit_mod(random_sel = TRUE)</code>; 3 or
+<code>"Block"</code> = time blocks with no penalty; 4 or
+<code>"RandomWalk"</code> = random walk following Dorn; 5 or
+<code>"RandomWalkAscending"</code> = random walk on ascending portion of
+double logistic only. Value 2 (<code>"AR1"</code>) was <strong>removed
+in 5.16.0</strong> — it was never an AR1, and an autocorrelated
+deviation is now a selectivity linkage,
+<code>linkage_spec(~ ar1(1 | Year))</code>. The switch as a whole is
+soft-deprecated in favour of that grammar.</li>
 <li>
-<code>Time_varying_sel_sd</code>: The sd to use for the random walk
-of time varying selectivity if set to 1.</li>
+<code>Time_varying_sel_sd</code>: The sd of the time-varying
+selectivity deviates. With <code>random_sel = FALSE</code> in
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code> it is fixed at this value, per fleet. With
+<code>random_sel = TRUE</code> the deviates are integrated out and this
+sd is <em>estimated</em>, so the value here is only a starting value —
+and fleets sharing a <code>Selectivity_index</code> share one estimated
+sd, started at the geometric mean of theirs.
+<code>Time_varying_q_sd</code> is the catchability equivalent, under
+<code>random_q</code>.</li>
 <li>
 <code>Bin_first_selected</code>: Age/length bin at which selectivity
 is non-zero. Selectivity before this age will be set to 0.</li>
@@ -475,12 +539,14 @@ or other desired value.</p>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><msub><mi>p</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><msub><mi>f</mi><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-(Slp_{f_i}+e^{\phi_{f_i sy}^{slp} } ) (a-(Inf_{f_i}+\phi_{f_i sy}^{Inf} ) ) } )</annotation></semantics></math>
 Penalized likelihood: <code>Time_varying_sel = 1</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math>
-Random effect: <code>Time_varying_sel = 2</code>
+Random effect: <code>Time_varying_sel = 1</code> with
+<code>fit_mod(random_sel = TRUE)</code> – the deviations are integrated
+out by the Laplace approximation and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><annotation encoding="application/x-tex">\hat\sigma^{\phi}_{f_i}</annotation></semantics></math>
-is estimated
+is estimated rather than fixed at <code>Time_varying_sel_sd</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) </annotation></semantics></math>
 Block: <code>Time_varying_sel = 3</code> main parameters are set to 0
-and the following is specificed:
+and the following is specified:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><msub><mi>y</mi><mrow><mi>b</mi><mi>l</mi><mi>o</mi><mi>c</mi><mi>k</mi></mrow></msub></mrow></msub></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} = \phi_{f_i sy_{block}}</annotation></semantics></math>
 Penalized likelihood random walk <code>Time_varying_sel = 4</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>−</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math></p>
@@ -501,12 +567,14 @@ time-varying parameters)<a class="anchor" aria-label="anchor" href="#time-varyin
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi><mn>1</mn></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>1</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi><mn>1</mn></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi><mn>2</mn></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi><mn>2</mn></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1/(1+e^{-(Slp1_{f_i}+e^{\phi_{f_i sy}^{slp1} } ) (a-(Inf1_{f_i}+\phi_{f_i sy}^{Inf1} ) ) } )(1-1/(1+e^{-(Slp2_{f_i}+e^{\phi_{f_i sy}^{slp2} } ) (a-(Inf2_{f_i}+\phi_{f_i sy}^{Inf2} ) ) } ))</annotation></semantics></math></p>
 <p>Penalized likelihood: <code>Time_varying_sel = 1</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math>
-Random effect: <code>Time_varying_sel = 2</code>
+Random effect: <code>Time_varying_sel = 1</code> with
+<code>fit_mod(random_sel = TRUE)</code> – the deviations are integrated
+out by the Laplace approximation and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><annotation encoding="application/x-tex">\hat\sigma^{\phi}_{f_i}</annotation></semantics></math>
-is estimated
+is estimated rather than fixed at <code>Time_varying_sel_sd</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) </annotation></semantics></math>
 Block: <code>Time_varying_sel = 3</code> main parameters are set to 0
-and the following is specificed:
+and the following is specified:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><msub><mi>y</mi><mrow><mi>b</mi><mi>l</mi><mi>o</mi><mi>c</mi><mi>k</mi></mrow></msub></mrow></msub></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} = \phi_{f_i sy_{block}}</annotation></semantics></math>
 Penalized likelihood random walk <code>Time_varying_sel = 4</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>−</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math></p>
@@ -541,12 +609,14 @@ parameters)<a class="anchor" aria-label="anchor" href="#time-varying-double-logi
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mi>e</mi><msub><mi>l</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>a</mi></mrow></msub><mo>=</mo><mn>1</mn><mo>−</mo><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>l</mi><mi>p</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msup><mi>e</mi><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>s</mi><mi>l</mi><mi>p</mi><mn>2</mn></mrow></msubsup></msup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>−</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mi>n</mi><mi>f</mi><msub><mn>2</mn><msub><mi>f</mi><mi>i</mi></msub></msub><mo>+</mo><msubsup><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow><mrow><mi>I</mi><mi>n</mi><mi>f</mi><mn>2</mn></mrow></msubsup><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">sel_{f_i sa}=1-1/(1+e^{-(Slp2_{f_i}+e^{\phi_{f_i sy}^{slp2} } ) (a-(Inf2_{f_i}+\phi_{f_i sy}^{Inf2} ) ) } )</annotation></semantics></math></p>
 <p>Penalized likelihood: <code>Time_varying_sel = 1</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math>
-Random effect: <code>Time_varying_sel = 2</code>
+Random effect: <code>Time_varying_sel = 1</code> with
+<code>fit_mod(random_sel = TRUE)</code> – the deviations are integrated
+out by the Laplace approximation and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><annotation encoding="application/x-tex">\hat\sigma^{\phi}_{f_i}</annotation></semantics></math>
-is estimated
+is estimated rather than fixed at <code>Time_varying_sel_sd</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) </annotation></semantics></math>
 Block: <code>Time_varying_sel = 3</code> main parameters are set to 0
-and the following is specificed:
+and the following is specified:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>=</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><msub><mi>y</mi><mrow><mi>b</mi><mi>l</mi><mi>o</mi><mi>c</mi><mi>k</mi></mrow></msub></mrow></msub></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} = \phi_{f_i sy_{block}}</annotation></semantics></math>
 Penalized likelihood random walk <code>Time_varying_sel = 4</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>−</mo><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math></p>
@@ -594,9 +664,11 @@ estimated standard deviation
 <code>Bin_first_selected =</code><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>A</mi><mrow><mi>m</mi><mi>i</mi><mi>n</mi></mrow></msub><annotation encoding="application/x-tex">A_{min}</annotation></semantics></math></p>
 <p>Penalized likelihood: <code>Time_varying_sel = 1</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) </annotation></semantics></math>
-Random effect: <code>Time_varying_sel = 2</code>
+Random effect: <code>Time_varying_sel = 1</code> with
+<code>fit_mod(random_sel = TRUE)</code> – the deviations are integrated
+out by the Laplace approximation and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><annotation encoding="application/x-tex">\hat\sigma^{\phi}_{f_i}</annotation></semantics></math>
-is estimated
+is estimated rather than fixed at <code>Time_varying_sel_sd</code>
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mrow><msub><mi>f</mi><mi>i</mi></msub><mi>s</mi><mi>y</mi></mrow></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mover><mi>σ</mi><mo accent="true">̂</mo></mover><msub><mi>f</mi><mi>i</mi></msub><mi>ϕ</mi></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) </annotation></semantics></math></p>
 </div>
 </div>
@@ -619,8 +691,9 @@ single parameter; 2 or “Estimated-with-prior” = Estimate single
 parameter with prior; 3 or “Analytical” = Estimate analytical q from
 Ludwig and Walters 1994; 4 or “PowerEquation” = Estimate power equation;
 - 5 or “Environmental” = Linear equation log(q_y) = q_mu + beta *
-index_y); 6 or “AR1” = annual AR1 catchability deviates are fit to
-environmental index sensu Rogers et al 2025.</li>
+index_y); 6 or “AR1” = REMOVED in 5.12.0 (it never estimated the
+deviates, so q was constant); express the Rogers et al. form as a q
+linkage with <code>ar1(1 | Year)</code> and <code>observe =</code>.</li>
 <li>
 <code>Catchability_init</code> Starting value or fixed value for
 catchability</li>

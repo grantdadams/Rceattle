@@ -32,6 +32,8 @@ plot_timeseries(
   OM = TRUE,
   reference = NULL,
   zero_y = FALSE,
+  ref_lines = NULL,
+  suffix = NULL,
   mod_avg = rep(FALSE, length(Rceattle))
 )
 ```
@@ -40,7 +42,9 @@ plot_timeseries(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object or a list of them (overlaid).
 
 - output:
 
@@ -54,79 +58,81 @@ plot_timeseries(
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Optional file stem; the figure is written to `<file>_<suffix>.png` if
+  given.
 
 - model_names:
 
-  Names of models to be used in legend
+  Legend labels for the models.
 
 - line_col:
 
-  Colors of models to be used for line color
+  Line colours; names, hex, or base-graphics integers. `NULL` uses the
+  colorblind-safe Okabe-Ito palette. Applied to whichever variable the
+  figure separates by colour, in legend order. Too few colours are
+  recycled, with a warning.
 
 - species:
 
-  What species to include 1:nspp
+  Species to include, as indices (`c(1, 3)`), names, a logical mask, or
+  `"all"`. Default `NULL` plots every species. Species **labels** belong
+  in `spnames`; a character `species` that matches no species name is
+  read as labels for back-compatibility.
 
 - spnames:
 
-  Species names for legend
+  Species labels, length `nspp`. Default: the model's own.
 
 - add_ci:
 
-  If the confidence interval is to be added (see Details for how it is
-  constructed)
+  Add a 95% confidence interval. Only available where the plotted
+  quantity carries standard errors; warns and draws none otherwise.
 
 - lwd:
 
-  Line width as specified by user
+  Line width on the base-graphics scale: the default `3` renders as a
+  standard-weight ggplot line. A vector varies it across series.
 
 - save:
 
-  Save derived quantity?
+  Write the plotted series to CSV alongside the figure.
 
 - legend.pos:
 
-  Position of the legend as used by
-  [`legend`](https://rdrr.io/r/graphics/legend.html) (default =
-  "topright").
+  Ignored. Base-graphics leftover: legend placement. Use
+  `p + ggplot2::theme(legend.position = "right")`.
 
 - right_adj:
 
-  Multiplier for to add to the right side of the figure for fitting the
-  legend.
+  Ignored. Base-graphics leftover: the figure widened its right margin
+  to fit the legend. Set margins on the returned ggplot instead.
 
-- width:
+- width, height:
 
-  Figure width in inches
+  Saved figure size in inches.
 
-- height:
+- minyr, maxyr:
 
-  Figure height in inches
-
-- minyr:
-
-  First year to plot
-
-- maxyr:
-
-  max year to plot
+  First / last year to plot.
 
 - incl_proj:
 
-  TRUE/FALSE, include projection years
+  Include the projection years, with a dashed divider at the last
+  hindcast year.
 
 - mod_cex:
 
-  Cex of text for model name legend
+  Ignored. Base-graphics leftover: legend text size. Use
+  `p + ggplot2::theme(legend.text = ggplot2::element_text(size = ...))`.
 
 - lty:
 
-  line type
+  Line type. A vector varies it across the levels of whatever the figure
+  separates by line type.
 
 - alpha:
 
-  shading for confidence intervals
+  Transparency of confidence ribbons and shaded areas, between 0 and 1.
 
 - mse:
 
@@ -141,13 +147,30 @@ plot_timeseries(
 
 - reference:
 
-  Reference model
+  A model to overlay for comparison, drawn at 1.5x `lwd` and labelled
+  "Reference". It takes the next colour from the palette, or black if
+  `line_col` is supplied.
 
 - zero_y:
 
   Anchor the y-axis at zero. TRUE for the absolute series (biomass, SSB,
   recruitment), where a truncated axis exaggerates change; FALSE for the
   depletions, which are already on a relative scale.
+
+- ref_lines:
+
+  Internal. `function(models, sp_sel)` returning per-species
+  reference-point layers, added before the figure is saved. Supplied by
+  [`plot_f()`](https://grantdadams.github.io/Rceattle/reference/plot_f.md)
+  and
+  [`plot_depletionSSB()`](https://grantdadams.github.io/Rceattle/reference/plot_depletionSSB.md)
+  through `.ts_wrapper()`; `sp_sel` is the species resolution the panels
+  were built from.
+
+- suffix:
+
+  Internal. Overrides the `<file>_<suffix>.png` stem, which otherwise
+  names the series.
 
 - mod_avg:
 

@@ -8,23 +8,25 @@ robustness.
 
 ``` r
 jitter(
-  Rceattle = NULL,
+  object = NULL,
   njitter = 50,
   sd = 0.2,
   phase = FALSE,
   seed = 123,
   cores = NULL,
   getsd = NULL,
-  timeout = Inf
+  timeout = Inf,
+  fit_control = NULL,
+  Rceattle = NULL
 )
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   an Rceattle model fit using
-  [`fit_mod`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md).
 
 - njitter:
 
@@ -51,10 +53,9 @@ jitter(
 
 - cores:
 
-  Number of cores to use for parallel jitters. Default `NULL` picks
-  `parallel::detectCores() - 6`, capped at 2 when running under
-  `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
-  sequential execution.
+  Number of cores for the parallel refits. Default `NULL` picks
+  `parallel::detectCores() - 6`, capped at 2 under `R CMD check` (which
+  sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force sequential execution.
 
 - getsd:
 
@@ -76,6 +77,19 @@ jitter(
   fires between the optimizer's function evaluations rather than inside
   one.
 
+- fit_control:
+
+  optional
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  bundle for the refits. Only `phase` and `getsd` are read; see **What
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  reaches**.
+
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
+
 ## Value
 
 a list of 1. `Rceattle_list`, the converged jitters, and 2. `nll`, their
@@ -83,6 +97,14 @@ objective values. Non-converged (or timed-out) starts are dropped and
 reported in a message, so both can be shorter than `njitter` – and that
 count is itself the result, since the whole point is what fraction of
 random starts reach the same optimum.
+
+## Note
+
+Attaching Rceattle masks [`jitter`](https://rdrr.io/r/base/jitter.html),
+so `jitter(x)` on a numeric vector reaches this function and reports a
+missing model rather than adding noise to `x`. Call
+[`base::jitter()`](https://rdrr.io/r/base/jitter.html) explicitly for
+the base-graphics behaviour.
 
 ## Examples
 

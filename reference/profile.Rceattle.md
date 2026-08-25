@@ -142,6 +142,11 @@ A list with elements:
 
   the slots list (echoed for downstream plotting).
 
+Carries class `"Rceattle_profile"`, so printing it reports whether the
+grid brackets the minimum; see
+[`print.Rceattle_profile`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_profile.md).
+Every element indexes exactly as before.
+
 ## Examples
 
 ``` r

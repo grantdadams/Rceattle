@@ -261,16 +261,48 @@ Catch is estimated in the model following the Baranov catch equation:
 ``` math
 F_{isa,y} = \bar{F}_{f_i}e^{\epsilon_{{f_i},y} s_{{f_i}sa}}
 ```
-CPUE data is estimated given catchability $`q_{f_iy}`$, selectivity
-$`S_{f_isa,y}`$, and fleet month $`Month_{f_i}`$ and can either be in
-biomass $`\hat{CPUE:B}_{{f_i},y}`$ or numbers
-$`\hat{CPUE:I}_{{f_i},y}`$:
+An index is estimated given catchability $`q_{f_iy}`$ and selectivity
+$`S_{f_isa,y}`$, and can be in biomass $`\hat{I:B}_{{f_i},y}`$ or in
+numbers $`\hat{I:N}_{{f_i},y}`$. What differs between the two forms
+below is only the numbers the index sees, $`\tilde{N}_{isa,y}`$:
+
 ``` math
-\hat{CPUE:B}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} * q_{{f_i}y} \right)
+\hat{I:B}_{{f_i},y} = \sum_s\sum_a \left( \tilde{N}_{isa,y}\, W_{{f_i}sa,y}\, S_{{f_i}sa,y}\, q_{{f_i}y} \right)
 ```
 ``` math
-\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} S_{{f_i}isa,y} * q_{{f_i}y} \right)
+\hat{I:N}_{{f_i},y} = \sum_s\sum_a \left( \tilde{N}_{isa,y}\, S_{{f_i}sa,y}\, q_{{f_i}y} \right)
 ```
+
+A **survey** index is a snapshot: the survey is on the grounds at one
+point in the year, given by that fleet’s $`Month_{f_i}`$, and sees the
+numbers that have survived to it.
+
+``` math
+\tilde{N}_{isa,y} = N_{isa,y}\, e^{-(Month_{f_i}/12) Z_{isa,y}} \qquad \text{(Fleet\_type = Survey)}
+```
+
+A **fishery** index is CPUE, which accumulates over the whole year
+alongside the catch rather than at an instant. Baranov gives
+$`\hat{C}_{isa,y} = F_{isa,y} \bar{N}_{isa,y}`$, and effort cancels the
+$`F`$ (since $`F_{isa,y} = q^{E}_{f_i} E_{f_i,y} s_{{f_i}sa}`$), leaving
+the same year-average numbers the catch equation uses:
+
+``` math
+\tilde{N}_{isa,y} = \bar{N}_{isa,y} = N_{isa,y}\, \frac{1 - e^{-Z_{isa,y}}}{Z_{isa,y}} \qquad \text{(Fleet\_type = Fishery)}
+```
+
+$`\bar{N}`$ is also what a fishery’s age composition is built on, so a
+fleet’s index, catch and comps are consistent by construction, and
+$`Month_{f_i}`$ is not read for a fishery’s index rows. The model keys
+this on `Fleet_type`; there is no column to set. The distinction moves
+trend as well as scale, so a constant $`q`$ cannot absorb it — at
+`Month = 6`, $`e^{-Z/2}`$ approximates $`\bar{N}/N`$ to within 1% at
+$`Z = 0.5`$ but is 9.6% low at $`Z = 1.5`$. Stock Synthesis splits the
+same way on its per-fleet survey timing (`SS_expval.tpl`:
+$`timing \ge 0 \rightarrow e^{-Z \cdot timing}`$; $`timing < 0`$,
+required of every fishing fleet $`\rightarrow (1 - e^{-Z})/Z`$). See
+[`vignette("model-options-and-functionality")`](https://grantdadams.github.io/Rceattle/articles/model-options-and-functionality.md)
+for the seasonal-fishery case and the measured trend errors.
 
 ### Selectivity parameterizations
 
@@ -282,26 +314,46 @@ follows:
 
 - `Selectivity_index`: index to use if selectivities of different
   surveys are to be the same
-- `Selectivity`: Selectivity parameterization to use for the species: 0
-  = empirical selectivity provided in `srv_emp_sel`; 1 = logistic
-  selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018;
-  3 = double logistic; 4 = descending logistic; 5 = non-parametric
-  selectivity sensu Taylor et al 2014 (Hake), 6 or “2DAR1” for age by
-  year, 7 or “3DAR1” sensu Cheng et al (2025).
-- `N_sel_bins`: Number of ages to estimate non-parametric selectivity.
-  For example, if `minage = 1` and selectivity parameters are estimated
-  up till age-6, `N_sel_bins = 6` and if `minage = 0` and selectivity
-  parameters are estimated up till age-6, `N_sel_bins = 7`. Not used
-  otherwise
+- `Selectivity`: Selectivity parameterization to use for the fleet: 0 or
+  `"Fixed"` = empirical selectivity provided in `emp_sel`; 1 or
+  `"Logistic"`; 2 or `"NonParametric"` sensu Ianelli et al 2018; 3 or
+  `"DoubleLogistic"`; 4 or `"DescendingLogistic"`; 5 or `"Hake"`,
+  non-parametric sensu Taylor et al 2014; 6 or `"2DAR1"` for bin by
+  year; 7 or `"3DAR1"` sensu Cheng et al (2025); 8 or `"DoubleNormal"`,
+  the six-parameter Stock Synthesis pattern 24; 9 or
+  `"NonParametricPM"`, Ianelli non-parametric with the ADMB AMAK
+  (`"pm"`) penalty; 11 or `"LogisticPM"`, the AMAK logistic with a free
+  age-1 selectivity. There is no 10 — the integer codes are frozen,
+  because renumbering one would silently reinterpret every saved config
+  and every fitted `.rds` that carries it. Whether a form is age- or
+  length-based is set by `Selectivity_dimension`, not by the code.
+- `N_sel_bins`: Number of age or length bins (per
+  `Selectivity_dimension`) to estimate for non-parametric and AR1
+  selectivity. For example, if `minage = 1` and selectivity parameters
+  are estimated up till age-6, `N_sel_bins = 6` and if `minage = 0` and
+  selectivity parameters are estimated up till age-6, `N_sel_bins = 7`.
+  Not used otherwise
 - `Time_varying_sel`: Whether a time-varying selectivity should be
   estimated for logistic, double logistic selectivity, descending
   logistic, or non-parametric selectivity (`Selectivity = 5 or "Hake"`).
-  0 = no, 1 = penalized deviates given sel_sd_prior, 2 = penalized
-  deviates and estimate sel_sd_prior, 3 = time blocks with no penalty, 4
-  = random walk following Dorn, 5 = random walk on ascending portion of
-  double logistic only.
-- `Time_varying_sel_sd`: The sd to use for the random walk of time
-  varying selectivity if set to 1.
+  0 or `"Off"` = no; 1 or `"IID"` = penalized deviates given
+  `Time_varying_sel_sd`, or random effects with that sd estimated under
+  `fit_mod(random_sel = TRUE)`; 3 or `"Block"` = time blocks with no
+  penalty; 4 or `"RandomWalk"` = random walk following Dorn; 5 or
+  `"RandomWalkAscending"` = random walk on ascending portion of double
+  logistic only. Value 2 (`"AR1"`) was **removed in 5.16.0** — it was
+  never an AR1, and an autocorrelated deviation is now a selectivity
+  linkage, `linkage_spec(~ ar1(1 | Year))`. The switch as a whole is
+  soft-deprecated in favour of that grammar.
+- `Time_varying_sel_sd`: The sd of the time-varying selectivity
+  deviates. With `random_sel = FALSE` in
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  it is fixed at this value, per fleet. With `random_sel = TRUE` the
+  deviates are integrated out and this sd is *estimated*, so the value
+  here is only a starting value — and fleets sharing a
+  `Selectivity_index` share one estimated sd, started at the geometric
+  mean of theirs. `Time_varying_q_sd` is the catchability equivalent,
+  under `random_q`.
 - `Bin_first_selected`: Age/length bin at which selectivity is non-zero.
   Selectivity before this age will be set to 0.
 
@@ -360,13 +412,15 @@ Penalized likelihood: `Time_varying_sel = 1`
 ``` math
 \phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) 
 ```
-Random effect: `Time_varying_sel = 2` $`\hat\sigma^{\phi}_{f_i}`$ is
-estimated
+Random effect: `Time_varying_sel = 1` with `fit_mod(random_sel = TRUE)`
+– the deviations are integrated out by the Laplace approximation and
+$`\hat\sigma^{\phi}_{f_i}`$ is estimated rather than fixed at
+`Time_varying_sel_sd`
 ``` math
 \phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) 
 ```
 Block: `Time_varying_sel = 3` main parameters are set to 0 and the
-following is specificed:
+following is specified:
 ``` math
 \phi_{f_i sy} = \phi_{f_i sy_{block}}
 ```
@@ -395,13 +449,15 @@ Penalized likelihood: `Time_varying_sel = 1`
 ``` math
 \phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) 
 ```
-Random effect: `Time_varying_sel = 2` $`\hat\sigma^{\phi}_{f_i}`$ is
-estimated
+Random effect: `Time_varying_sel = 1` with `fit_mod(random_sel = TRUE)`
+– the deviations are integrated out by the Laplace approximation and
+$`\hat\sigma^{\phi}_{f_i}`$ is estimated rather than fixed at
+`Time_varying_sel_sd`
 ``` math
 \phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) 
 ```
 Block: `Time_varying_sel = 3` main parameters are set to 0 and the
-following is specificed:
+following is specified:
 ``` math
 \phi_{f_i sy} = \phi_{f_i sy_{block}}
 ```
@@ -448,13 +504,15 @@ Penalized likelihood: `Time_varying_sel = 1`
 ``` math
 \phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) 
 ```
-Random effect: `Time_varying_sel = 2` $`\hat\sigma^{\phi}_{f_i}`$ is
-estimated
+Random effect: `Time_varying_sel = 1` with `fit_mod(random_sel = TRUE)`
+– the deviations are integrated out by the Laplace approximation and
+$`\hat\sigma^{\phi}_{f_i}`$ is estimated rather than fixed at
+`Time_varying_sel_sd`
 ``` math
 \phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) 
 ```
 Block: `Time_varying_sel = 3` main parameters are set to 0 and the
-following is specificed:
+following is specified:
 ``` math
 \phi_{f_i sy} = \phi_{f_i sy_{block}}
 ```
@@ -497,8 +555,10 @@ Penalized likelihood: `Time_varying_sel = 1`
 ``` math
 \phi_{f_i sy} \sim N(0,\sigma^{\phi}_{f_i}) 
 ```
-Random effect: `Time_varying_sel = 2` $`\hat\sigma^{\phi}_{f_i}`$ is
-estimated
+Random effect: `Time_varying_sel = 1` with `fit_mod(random_sel = TRUE)`
+– the deviations are integrated out by the Laplace approximation and
+$`\hat\sigma^{\phi}_{f_i}`$ is estimated rather than fixed at
+`Time_varying_sel_sd`
 ``` math
 \phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) 
 ```
@@ -519,8 +579,9 @@ Catchability is controlled by the following parameters in the
   with prior; 3 or “Analytical” = Estimate analytical q from Ludwig and
   Walters 1994; 4 or “PowerEquation” = Estimate power equation; - 5 or
   “Environmental” = Linear equation log(q_y) = q_mu + beta \* index_y);
-  6 or “AR1” = annual AR1 catchability deviates are fit to environmental
-  index sensu Rogers et al 2025.
+  6 or “AR1” = REMOVED in 5.12.0 (it never estimated the deviates, so q
+  was constant); express the Rogers et al. form as a q linkage with
+  `ar1(1 | Year)` and `observe =`.
 - `Catchability_init` Starting value or fixed value for catchability
 - `Catchability_prior_sd` Variance of q prior: dnorm (log_q,
   log_q_prior, q_sd_prior)

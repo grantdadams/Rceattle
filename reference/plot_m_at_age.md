@@ -22,7 +22,9 @@ plot_m_at_age(
   height = 6.5,
   incl_proj = FALSE,
   incl_mean = FALSE,
-  add_ci = FALSE
+  add_ci = FALSE,
+  maxyr = NULL,
+  top_adj = 0.15
 )
 ```
 
@@ -30,65 +32,87 @@ plot_m_at_age(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object or a list of them (overlaid).
 
 - file:
 
-  name of a file to identified the files exported by the function.
+  Optional file stem; the figure is written to `<file>_<suffix>.png` if
+  given.
 
 - age:
 
-  Age to plot M at age
+  Age to plot M at, on the species' own age scale (so `age = 1` is age
+  1, not the first age bin, and means nothing to a species whose
+  `minage` is 2). A species that has no such age is dropped, with a
+  warning.
 
 - model_names:
 
-  Names of models to be used in legend
+  Legend labels for the models.
 
 - line_col:
 
-  Colors of models to be used for line color
+  Line colours; names, hex, or base-graphics integers. `NULL` uses the
+  colorblind-safe Okabe-Ito palette. Applied to whichever variable the
+  figure separates by colour, in legend order. Too few colours are
+  recycled, with a warning.
 
 - spnames:
 
-  Species names for legend
+  Species labels, length `nspp`. Default: the model's own.
 
 - species:
 
-  Which species to plot e.g. c(1,4). Default = NULL plots them all
+  Species to include, as indices (`c(1, 3)`), names, a logical mask, or
+  `"all"`. Default `NULL` plots every species. Species **labels** belong
+  in `spnames`; a character `species` that matches no species name is
+  read as labels for back-compatibility.
 
 - lwd:
 
-  Line width as specified by user
+  Line width on the base-graphics scale: the default `3` renders as a
+  standard-weight ggplot line. A vector varies it across series.
 
 - lty:
 
-  Line type
+  Line type. A vector varies it across the levels of whatever the figure
+  separates by line type.
 
 - right_adj:
 
-  Multiplier for to add to the right side of the figure for fitting the
-  legend.
+  Ignored. Base-graphics leftover: the figure widened its right margin
+  to fit the legend. Set margins on the returned ggplot instead.
 
-- minyr:
+- minyr, maxyr:
 
-  first year to plot
+  First / last year to plot.
 
-- width:
+- width, height:
 
-  Figure width in inches
-
-- height:
-
-  Figure height in inches
+  Saved figure size in inches.
 
 - incl_proj:
 
-  TRUE/FALSE include projections years
+  Include the projection years, with a dashed divider at the last
+  hindcast year.
 
 - incl_mean:
 
-  TRUE/FALSE include time series mean as horizontal line
+  Add a horizontal line at the hindcast mean of each series.
 
 - add_ci:
 
-  TRUE/FALSE, includes 95 percent confidence interval
+  Add a 95% confidence interval. Only available where the plotted
+  quantity carries standard errors; warns and draws none otherwise.
+
+- top_adj:
+
+  Ignored. Base-graphics leftover; see `right_adj`.
+
+## Details
+
+Colour separates the models; line type separates the sexes. A
+sex-combined model has one sex, so a varying `lty` has nothing to key on
+and warns.

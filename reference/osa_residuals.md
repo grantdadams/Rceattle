@@ -39,33 +39,92 @@ switch); fleets fit with the AFSC `MultinomialAFSC` pseudo-likelihood
 are residualized under the full multinomial.
 
 Survey-index OSA residuals are supported for every index likelihood
-family (`Index_distribution`): lognormal IID (`"Lognormal"`) and
-natural-scale `"Normal"` residualize as independent normals on the log
-or natural scale; the correlated covariance families (`"MVN"` /
-`"MVNORM"`) are whitened by the lower Cholesky of the fleet's survey
-covariance Sigma = L L' so the residuals are the multivariate-Gaussian
-one-step-ahead innovations L^-1 (obs - q\*pred) – the closed form
+family (`Index_distribution`). Lognormal IID (`"Lognormal"`)
+residualizes on the log scale, and the natural-scale `"Normal"` and
+`"TruncatedNormal"` on the natural scale. The correlated covariance
+families (`"MVN"` / `"MVNORM"`) are whitened by the lower Cholesky of
+the fleet's survey covariance Sigma = L L', so the residuals are the
+multivariate-Gaussian one-step-ahead innovations L^-1 (obs - q\*pred) –
+the closed form
 [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html)
 reproduces for a Gaussian block.
+
+`"TruncatedNormal"` rows are residualized in their own
+[`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html)
+call, with `method = "oneStepGeneric"` and a range starting at zero,
+whatever `method` is passed. Its density differs from `"Normal"` only by
+`log Phi(mu/sd)`, which is a function of the prediction and not of the
+observation, so a Gaussian method – which reads the curvature of the
+density in the observation – cannot see the truncation at all and
+returns the untruncated `(obs - mu)/sd`. Integrating over the family's
+own support instead gives the truncated CDF
+`F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`, so `qnorm(F(x))`
+is standard normal by the probability integral transform however hard
+the truncation bites. The upper limit is finite rather than `Inf` – ten
+standard deviations past the largest fitted index in the group, which
+leaves under 1e-23 of the mass outside while keeping the Laplace inner
+problem in a region it can solve. That group also runs with
+`splineApprox = FALSE`, because the spline shortcut integrates over
+whatever range its profile slice covered. The range is a property of the
+family, so it cannot be shared with the other fleets: `"Normal"` is
+genuinely untruncated, and a lognormal fleet's stored observation is
+`log(obs)`, which is negative for a small index.
+
+The size of the correction is the truncated mass: on a fleet predicting
+100 with an absolute sd of 150 (a quarter of the density below zero), an
+observation exactly at the prediction has an untruncated residual of 0
+and a truncated one of -0.44.
+
+Three consequences of that group being residualized separately, worth
+knowing before reading the output:
+
+- **On a model with random effects the exact integration can fail.** It
+  evaluates the Laplace marginal at arbitrary values of the observation,
+  and the inner problem does not always converge across the whole
+  support. Rather than return `NA` for those rows – which would shrink
+  the sample
+  [`osa_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/osa_diagnostics.md)
+  passes verdict on, without saying so – the fleet is recomputed under
+  TMB's spline approximation and a warning says the residuals for it are
+  approximate. Fixed-effect models are unaffected.
+
+- **`sd` is `NA` and `predicted` means something different for this
+  group.** `oneStepGeneric` returns neither a standard deviation nor the
+  fitted value; `predicted` is the truncated conditional mean
+  `E[x | x > 0]`, which sits above the fitted index (163.8 against a
+  fitted 100.0 on the fixture above), not the fitted index itself. The
+  residual is unaffected.
+
+- **Adding a `"TruncatedNormal"` fleet moves the other fleets' residuals
+  on a random-effects model.** Each
+  [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html)
+  call marks the rows it is not residualizing as unconditional, which
+  zeroes their data terms and so changes the conditional distribution of
+  the latent states. Both orderings are valid
+  probability-integral-transform sequences, so no value is wrong, but
+  catch and lognormal-index residuals will not match those from an
+  otherwise identical model with no truncated fleet. Fixed-effect models
+  are again unaffected, since their observations are independent.
 
 ## Usage
 
 ``` r
 osa_residuals(
-  fit,
+  object = NULL,
   source = c("ecov", "index", "catch", "comp", "caal"),
   method = "oneStepGaussianOffMode",
   discrete = FALSE,
   parallel = TRUE,
   seed = 123,
   trace = FALSE,
-  ...
+  ...,
+  fit = NULL
 )
 ```
 
 ## Arguments
 
-- fit:
+- object:
 
   A fitted object of class `Rceattle` (from
   [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)).
@@ -139,6 +198,11 @@ osa_residuals(
   Further arguments passed to
   [`TMB::oneStepPredict()`](https://rdrr.io/pkg/TMB/man/oneStepPredict.html).
 
+- fit:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
+
 ## Value
 
 A data frame of class `rceattle_osa` with one row per residualized
@@ -151,10 +215,15 @@ into this one, so it covers a range of ages rather than the one named),
 `index_label` (`"age"`/`"length"`/`NA`), `observed`, `predicted`, `sd`,
 and `residual`. For aggregate series `observed` and `predicted` are on
 the residualization scale – log for lognormal catch/index, natural scale
-for a `"Normal"` index, and the whitened (`L^-1`) scale for an
-`"MVN"`/`"MVNORM"` index; for compositions they are bin counts. Carries
-`method` and `seed` attributes, and (when composition types are present)
-a `"pearson"` attribute holding the matching Pearson residuals so
+for a `"Normal"` or `"TruncatedNormal"` index, and the whitened (`L^-1`)
+scale for an `"MVN"`/`"MVNORM"` index; for compositions they are bin
+counts. Carries `method` and `seed` attributes – `method` is the string
+that was passed, except on a model with a `"TruncatedNormal"` index
+fleet, where it is the named vector
+`c(default = <method>, TruncatedNormal = "oneStepGeneric")` because that
+family is residualized with its own method (see above) – and (when
+composition types are present) a `"pearson"` attribute holding the
+matching Pearson residuals so
 [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)
 can show both. The attribute uses this data frame's column names rather
 than the data-sheet names
@@ -216,3 +285,14 @@ Fish. Aquat. Sci. 82:1-13.
 [`osa_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/osa_diagnostics.md),
 [`plot.rceattle_osa()`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md),
 [`process_residuals()`](https://grantdadams.github.io/Rceattle/reference/process_residuals.md)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+data(BS2017SS)
+fit <- fit_mod(BS2017SS, estimateMode = "Hindcast")
+osa <- osa_residuals(fit, source = c("index", "comp"))
+plot(osa)
+} # }
+```

@@ -6,11 +6,16 @@ dynamic reference points for multi-species models under climate-change.
 ## Usage
 
 ``` r
-remove_F(Rceattle)
+remove_F(object = NULL, Rceattle = NULL)
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   A fitted Rceattle model object
+
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.

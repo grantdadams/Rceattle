@@ -67,8 +67,11 @@ build_srr(
 
 - proj_mean_rec:
 
-  Project the model using: 0 = mean recruitment (average R of hindcast)
-  or 1 = SRR(omega, srr_devs)
+  Recruitment used in the projection: `TRUE`/1 (default) = mean
+  recruitment, the average R over the hindcast; `FALSE`/0 = the
+  stock-recruit relationship given by `srr_pred_fun`. Equilibrium and
+  dynamic reference points follow the curve whenever `srr_pred_fun` is a
+  stock-recruit form, regardless of this switch.
 
 - srr_mse_switchyr:
 
@@ -159,3 +162,99 @@ build_srr(
 ## Value
 
 A `list` containing the stock recruitment relationship settings
+
+## Examples
+
+``` r
+# Beverton-Holt fitted to the hindcast, with a prior on steepness.
+build_srr(srr_fun = "BevertonHolt", srr_pred_fun = "BevertonHolt",
+          srr_est_mode = "Estimated",
+          srr_prior = 0.8, srr_prior_sd = 0.15)
+#> $srr_fun
+#> [1] 2
+#> 
+#> $srr_pred_fun
+#> [1] 2
+#> 
+#> $proj_mean_rec
+#> [1] TRUE
+#> 
+#> $srr_mse_switchyr
+#> NULL
+#> 
+#> $srr_hat_styr
+#> NULL
+#> 
+#> $srr_hat_endyr
+#> NULL
+#> 
+#> $srr_est_mode
+#> [1] 1
+#> 
+#> $srr_prior
+#> [1] 0.8
+#> 
+#> $srr_prior_sd
+#> [1] 0.15
+#> 
+#> $srr_alpha_init
+#> NULL
+#> 
+#> $srr_beta_init
+#> NULL
+#> 
+#> $srr_indices
+#> [1] NA
+#> 
+#> $Bmsy_lim
+#> [1] -999
+#> 
+#> $linkages
+#> NULL
+#> 
+
+# Mean recruitment: no stock-recruit relationship fitted.
+build_srr(srr_fun = "mean")
+#> $srr_fun
+#> [1] 0
+#> 
+#> $srr_pred_fun
+#> [1] 0
+#> 
+#> $proj_mean_rec
+#> [1] TRUE
+#> 
+#> $srr_mse_switchyr
+#> NULL
+#> 
+#> $srr_hat_styr
+#> NULL
+#> 
+#> $srr_hat_endyr
+#> NULL
+#> 
+#> $srr_est_mode
+#> [1] 1
+#> 
+#> $srr_prior
+#> [1] 4
+#> 
+#> $srr_prior_sd
+#> [1] 1
+#> 
+#> $srr_alpha_init
+#> NULL
+#> 
+#> $srr_beta_init
+#> NULL
+#> 
+#> $srr_indices
+#> [1] NA
+#> 
+#> $Bmsy_lim
+#> [1] -999
+#> 
+#> $linkages
+#> NULL
+#> 
+```

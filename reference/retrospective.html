@@ -17,7 +17,7 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,12 +74,15 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">retrospective</span><span class="op">(</span></span>
-<span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  object <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  peels <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  rescale <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  nyrs_forecast <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>  cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  getsd <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  getsd <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  phase <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  fit_control <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -87,8 +90,8 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
-<dd><p>an Rceattle model fit using <code><a href="fit_mod.html">fit_mod</a></code></p></dd>
+<dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
+<dd><p>an Rceattle model fit using <code><a href="fit_mod.html">fit_mod()</a></code>.</p></dd>
 
 
 <dt id="arg-peels">peels<a class="anchor" aria-label="anchor" href="#arg-peels"></a></dt>
@@ -104,9 +107,8 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 
 
 <dt id="arg-cores">cores<a class="anchor" aria-label="anchor" href="#arg-cores"></a></dt>
-<dd><p>Number of cores to use for parallel peels. Default
-<code>NULL</code> picks <code>parallel::detectCores() - 6</code>, capped at 2 when
-running under <code>R CMD check</code> (which sets
+<dd><p>Number of cores for the parallel refits. Default <code>NULL</code> picks
+<code>parallel::detectCores() - 6</code>, capped at 2 under <code>R CMD check</code> (which sets
 <code>_R_CHECK_LIMIT_CORES_</code>). Set to 1 to force sequential execution.</p></dd>
 
 
@@ -117,6 +119,23 @@ effect on rho. Default <code>NULL</code> inherits the input model's setting
 (<code>TRUE</code> if it was fit with <code>getsd = TRUE</code>, i.e. carries an
 <code>sdrep</code>); the returned peel models then carry standard errors only
 when <code>getsd</code> is <code>TRUE</code>.</p></dd>
+
+
+<dt id="arg-phase">phase<a class="anchor" aria-label="anchor" href="#arg-phase"></a></dt>
+<dd><p>whether each peel is refitted in phases (default <code>TRUE</code>).
+A peel restarts from the unpeeled fit's starting values with a year removed;
+without phasing the parameters barely move, the peels sit on top of the full
+model, and Mohn's rho is biased towards zero. Change it only deliberately.</p></dd>
+
+
+<dt id="arg-fit-control">fit_control<a class="anchor" aria-label="anchor" href="#arg-fit-control"></a></dt>
+<dd><p>optional <code><a href="fit_control.html">fit_control()</a></code> bundle for the refits. Only
+<code>phase</code> and <code>getsd</code> are read; see <strong>What <code><a href="fit_control.html">fit_control()</a></code> reaches</strong>.</p></dd>
+
+
+<dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
+<dd><p>deprecated name for <code>object</code>, still accepted so existing
+scripts keep working. Supplying both is an error.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -154,6 +173,14 @@ unpeeled model, rather than <code>(endyr_peel + 1):endyr_full</code>, which coun
 <em>down</em> there.</p>
 <p>Mohn's rho is computed from <code>endyr_peel</code> and is unaffected by any of
 this.</p>
+<p>Catchability is estimated only for a fleet that carries fitted index rows
+(see <code><a href="build_map.html">build_map</a></code>), and a peel moves <code>endyr</code>. A survey whose
+index observations all fall in the peeled-off years therefore has no q
+estimated in that peel – the parameter count is not constant across peels.
+That is deliberate: a q with no index to inform it is a flat direction in
+the likelihood. It does not affect Mohn's rho, which is computed from SSB,
+but it does mean <code>npar</code> and the reported catchability differ between a
+shallow and a deep peel for such a fleet.</p>
     </div>
 
     <div class="section level2">

@@ -43,11 +43,14 @@ osa_diagnostics(osa, nsim = 10000, probs = c(0.025, 0.975), seed = 123)
 
 ## Value
 
-A data frame with one row per data source plus an `"all"` row, with
-columns: `source`, `type`, `fleet`, `n`, `sdnr`, `sdnr_lo`, `sdnr_hi`,
-`lower`, `lower_lo`, `lower_hi`, `upper`, `upper_lo`, `upper_hi`, and
-the logical flags `sdnr_ok`, `lower_ok`, `upper_ok` (TRUE when the
-statistic is inside its null interval).
+A data frame (class `"rceattle_osa_diagnostics"`, so it prints as a
+compact severity-tagged summary; every column is still there and `$`
+works as before) with one row per data source plus an `"all"` row, with
+columns: `group` (the `"<source> fleet <n>"` label), `source`, `fleet`,
+`n`, `sdnr`, `sdnr_lo`, `sdnr_hi`, `lower`, `lower_lo`, `lower_hi`,
+`upper`, `upper_lo`, `upper_hi`, and the logical flags `sdnr_ok`,
+`lower_ok`, `upper_ok` (TRUE when the statistic is inside its null
+interval). On the `"all"` row `source` and `fleet` are `NA`.
 
 ## References
 

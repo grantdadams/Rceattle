@@ -25,7 +25,7 @@ obtained by simulation."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,11 +116,14 @@ Default 123.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with one row per data source plus an <code>"all"</code> row, with
-columns: <code>source</code>, <code>type</code>, <code>fleet</code>, <code>n</code>, <code>sdnr</code>, <code>sdnr_lo</code>, <code>sdnr_hi</code>,
-<code>lower</code>, <code>lower_lo</code>, <code>lower_hi</code>, <code>upper</code>, <code>upper_lo</code>, <code>upper_hi</code>, and the
-logical flags <code>sdnr_ok</code>, <code>lower_ok</code>, <code>upper_ok</code> (TRUE when the statistic is
-inside its null interval).</p>
+    <p>A data frame (class <code>"rceattle_osa_diagnostics"</code>, so it prints as a
+compact severity-tagged summary; every column is still there and <code>$</code> works
+as before) with one row per data source plus an <code>"all"</code> row, with columns:
+<code>group</code> (the <code>"&lt;source&gt; fleet &lt;n&gt;"</code> label), <code>source</code>, <code>fleet</code>, <code>n</code>, <code>sdnr</code>,
+<code>sdnr_lo</code>, <code>sdnr_hi</code>, <code>lower</code>, <code>lower_lo</code>, <code>lower_hi</code>, <code>upper</code>, <code>upper_lo</code>,
+<code>upper_hi</code>, and the logical flags <code>sdnr_ok</code>, <code>lower_ok</code>, <code>upper_ok</code> (TRUE
+when the statistic is inside its null interval). On the <code>"all"</code> row
+<code>source</code> and <code>fleet</code> are <code>NA</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

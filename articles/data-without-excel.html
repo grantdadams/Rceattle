@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,7 +78,7 @@
 
       <h1>6. Building a data object in R</h1>
             
-            <h4 data-toc-skip class="date">2026-08-19</h4>
+            <h4 data-toc-skip class="date">2026-08-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/data-without-excel.Rmd" class="external-link"><code>vignettes/data-without-excel.Rmd</code></a></small>
       <div class="d-none name"><code>data-without-excel.Rmd</code></div>
@@ -98,8 +98,8 @@ sensitivity analyses)</li>
 <p>Everything passed to <code><a href="../reference/fit_mod.html">fit_mod()</a></code> lives in this list, so
 understanding its structure also helps you modify existing data objects
 read from Excel. This vignette walks through each component. The result
-can be validated with <code><a href="../reference/data_check.html">data_check()</a></code> and fitted with
-<code><a href="../reference/fit_mod.html">fit_mod()</a></code>, or exported back to Excel with
+is validated by <code>build_data(.check = TRUE)</code> (the default) and
+fitted with <code><a href="../reference/fit_mod.html">fit_mod()</a></code>, or exported back to Excel with
 <code><a href="../reference/write_data.html">write_data()</a></code>.</p>
 <p>If you would rather start from a workbook than a list,
 <code><a href="../reference/write_template.html">write_template()</a></code> writes a minimal, structurally complete
@@ -150,7 +150,7 @@ list:</p>
 which blocks are <strong>Required</strong>, <strong>Optional</strong>
 (used if supplied, otherwise default-filled), or
 <strong>Ignored</strong> (not consulted because the feature is off) —
-the exact conditions <code><a href="../reference/data_check.html">data_check()</a></code> enforces at fit time.</p>
+the exact conditions the fit-time validation enforces.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/data_requirements.html">data_requirements</a></span><span class="op">(</span>msmMode <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>            <span class="co"># single-species: predation Ignored</span></span>
 <span><span class="fu"><a href="../reference/data_requirements.html">data_requirements</a></span><span class="op">(</span>msmMode <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>            <span class="co"># multispecies: diet + bioenergetics Required</span></span>
@@ -304,8 +304,8 @@ modeled. Multiple fleets can target the same species.</p>
 <span><span class="co">#   "DoubleLogistic"     (3) -- ascending + descending dome-shaped logistic</span></span>
 <span><span class="co">#   "DescendingLogistic" (4) -- descending logistic only (dome-shaped for oldest ages)</span></span>
 <span><span class="co">#   "Hake"               (5) -- non-parametric selectivity à la Taylor et al. (Pacific hake)</span></span>
-<span><span class="co">#   "2DAR1"              (6) -- 2D autoregressive random effects (age × year)</span></span>
-<span><span class="co">#   "3DAR1"              (7) -- 3D autoregressive random effects (age × year × cohort)</span></span>
+<span><span class="co">#   "2DAR1"              (6) -- 2D autoregressive random effects (bin × year)</span></span>
+<span><span class="co">#   "3DAR1"              (7) -- 3D autoregressive random effects (bin × year × cohort)</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Selectivity_dimension: "Age" or "Length"</span></span>
 <span><span class="co">#   Length-based selectivity requires an age-to-length transition matrix (see below).</span></span>
@@ -317,7 +317,8 @@ modeled. Multiple fleets can target the same species.</p>
 <span><span class="co">#   "Analytical"           (3) -- Ludwig &amp; Walters / Martell (1994) analytical Q</span></span>
 <span><span class="co">#   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)</span></span>
 <span><span class="co">#   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data</span></span>
-<span><span class="co">#   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)</span></span>
+<span><span class="co">#   "AR1"                  (6) -- REMOVED in 5.12.0; data_check() errors. Use a q</span></span>
+<span><span class="co">#                                  linkage with ar1(1 | Year) and observe = &lt;column&gt;</span></span>
 <span><span class="co">#   NA                         -- not applicable (use for fisheries without CPUE)</span></span>
 <span></span>
 <span><span class="co"># Comp_distribution / CAAL_distribution options:</span></span>
@@ -395,6 +396,8 @@ modeled. Multiple fleets can target the same species.</p>
 <span>  <span class="co"># Estimate_catch_sd:</span></span>
 <span>  <span class="co">#   0 = fix at Log_sd from catch_data (treats catch as known)</span></span>
 <span>  <span class="co">#   1 = estimate</span></span>
+<span>  <span class="co">#   2 = analytical sigma (Ludwig &amp; Walters 1994); concentrates the sd out of</span></span>
+<span>  <span class="co">#       the catch likelihood, so catch stops pinning F as tightly</span></span>
 <span>  Estimate_catch_sd  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">0</span><span class="op">)</span>,  <span class="va">nspp</span><span class="op">)</span>,</span>
 <span>  Catch_sd     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,  <span class="va">nspp</span><span class="op">)</span>,</span>
 <span></span>
@@ -591,6 +594,25 @@ recruitment.</p>
 <code class="sourceCode R"><span><span class="va">sex_matrix</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0.5</span>, nrow <span class="op">=</span> <span class="va">nspp</span>, ncol <span class="op">=</span> <span class="va">nages</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">sex_matrix</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Age"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">nages</span><span class="op">)</span></span>
 <span><span class="va">simData</span><span class="op">$</span><span class="va">sex_ratio</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Species <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="va">nspp</span><span class="op">)</span>, <span class="va">sex_matrix</span><span class="op">)</span></span></code></pre></div>
+<p>Where species carry different numbers of age bins,
+<code>maturity</code> and <code>sex_ratio</code> are as wide as the
+longest-lived species, and <strong>each row must be filled across its
+own species’ <code>nages</code></strong>. Columns past that are padding
+and may be <code>NA</code>.</p>
+<p>Getting this wrong is quiet. Both tables are summed over age:
+spawning biomass uses <code>maturity</code> (times
+<code>sex_ratio</code> where a species is modelled one-sex), and
+spawner-per-recruit sums the same schedule. So a <code>maturity</code>
+gap leaves SSB <code>NA</code> for any species, and a
+<code>sex_ratio</code> gap does the same for a one-sex species. On a
+<strong>two-sex</strong> species <code>sex_ratio</code> reaches only
+spawner-per-recruit — so the model fits normally and the failure waits
+until a harvest control rule asks for reference points.
+<code><a href="../reference/data_check.html">data_check()</a></code> names the table, the species and the missing
+ages.</p>
+<p>Rows are read by position: the <code>Species</code> column is dropped
+before the model sees these tables, so row <em>i</em> must be species
+<em>i</em>.</p>
 </div>
 <div class="section level3">
 <h3 id="fixed-selectivity-optional">Fixed selectivity (optional)<a class="anchor" aria-label="anchor" href="#fixed-selectivity-optional"></a>
@@ -659,9 +681,9 @@ the column mean. Column names after <code>Year</code> can be anything
 and are referenced by column order.</p>
 <p>Skip this if no environmental covariates are used.
 <code><a href="../reference/clean_data.html">clean_data()</a></code> will fall back to a Year-only data.frame with
-no indices, and <code><a href="../reference/data_check.html">data_check()</a></code> will only complain when a
-feature actually needs an index (env-q catchability,
-<code>Ceq[sp] &gt; 1</code>, or any env linkage).</p>
+no indices, and validation only complains when a feature actually needs
+an index (env-q catchability, <code>Ceq[sp] &gt; 1</code>, or any env
+linkage).</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">simData</span><span class="op">$</span><span class="va">env_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Year    <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="va">nyrs</span>,</span>

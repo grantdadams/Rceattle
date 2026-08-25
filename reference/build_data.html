@@ -21,7 +21,7 @@ read_data() returns and round-trips through write_data() unchanged."></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -128,17 +128,17 @@ name is a near-miss of a known element (e.g. <code>maturty</code>) errors with a
 suggestion, so a typo is caught here rather than surfacing much later in a
 fit. Legacy top-level names (<code>fsh_biom</code>, <code>srv_biom</code>, <code>wt</code>, <code>pmature</code>, <code>Pyrs</code>)
 are mapped to their canonical equivalents.</p>
-<p>Full validation runs at fit time in <code><a href="data_check.html">data_check()</a></code>. <code>build_data()</code> runs only
+<p>Full validation runs at fit time, inside <code><a href="fit_mod.html">fit_mod()</a></code>. <code>build_data()</code> runs only
 a light presence pre-check (<code>.check = TRUE</code>) so a missing <em>required</em> block is
 reported at construction with a clear message. The pre-check reads an attached
 <code><a href="model_config.html">model_config()</a></code>, so a configuration carried on the object is accounted for.
 Requirements that depend on fit-time settings passed directly to <code><a href="fit_mod.html">fit_mod()</a></code>
 and stored nowhere on the data list are not knowable here and are left to
-<code><a href="data_check.html">data_check()</a></code>; see <code><a href="data_requirements.html">data_requirements()</a></code> to preview them.</p>
+that fit-time validation; see <code><a href="data_requirements.html">data_requirements()</a></code> to preview them.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="read_data.html">read_data()</a></code>, <code><a href="clean_data.html">clean_data()</a></code>, <code><a href="data_requirements.html">data_requirements()</a></code>, <code><a href="data_check.html">data_check()</a></code>,
+    <div class="dont-index"><p><code><a href="read_data.html">read_data()</a></code>, <code><a href="clean_data.html">clean_data()</a></code>, <code><a href="data_requirements.html">data_requirements()</a></code>,
 <code><a href="combine_data.html">combine_data()</a></code>, <code><a href="fit_mod.html">fit_mod()</a></code>.</p></div>
     </div>
 

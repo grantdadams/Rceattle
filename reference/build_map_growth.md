@@ -1,8 +1,12 @@
 # Helper to set map for growth parameters
 
-Maps the fixed parameters (`log_growth_pars`) and the random effects
-parameters (`log_growth_par_devs`, `growth_dev_log_sd`, `growth_rho`)
-based on `growth_model` and `growth_re` settings.
+Maps the growth parameters (`log_growth_pars`, `growth_log_sd`,
+`weight_length_pars`) according to `growth_model`. Everything starts
+mapped off and each growth function turns on the parameters it uses.
+
+Time-varying growth comes from the linkage grammar
+(`build_growth(linkages = )`), whose random effects carry their own
+density and map.
 
 ## Usage
 

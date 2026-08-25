@@ -15,7 +15,7 @@ age-at-length (caal); use source to restrict to particular ones."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -138,11 +138,18 @@ the log scale by default (matching the lognormal likelihood; set
 it is the difference in proportions, observed minus fitted.</p></dd>
 
 <dt><code>"pearson"</code></dt>
-<dd><p>Standardized residuals. For <code>index</code> / <code>catch</code>,
+<dd><p>Standardized residuals. For <code>catch</code> and a log-scale
+survey index,
 \((\log o - (\log\hat{o} - b\,\sigma^2/2))/\sigma\) using the model's
 realized observation log-SD \(\sigma\) and the observation
-bias-adjustment flag \(b\) (<code>bias_adjust_obs</code>, default 1); for
-<code>comp</code> / <code>caal</code>,
+bias-adjustment flag \(b\) (<code>bias_adjust_obs</code>, default 1). A
+natural-scale index fleet (<code>Index_distribution</code> <code>"MVN"</code>, <code>"MVNORM"</code>,
+<code>"Normal"</code> or <code>"TruncatedNormal"</code>) carries an ABSOLUTE \(\sigma\) and is
+standardized as \((o - \hat{o})/\sigma\) instead. Two caveats there: a
+covariance fleet gets its marginal residual, not the whitened one (use
+<code>type = "osa"</code> for that), and <code>"TruncatedNormal"</code> is standardized on the
+untruncated moments, so it is approximate where \(\hat{o}/\sigma\) is
+small enough for truncation to shift the mean. For <code>comp</code> / <code>caal</code>,
 \((p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}\) with input sample size
 N.</p></dd>
 

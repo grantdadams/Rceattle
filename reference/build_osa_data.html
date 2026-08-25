@@ -23,7 +23,7 @@ marks rows excluded from the likelihood.
 
 
 The inclusion rules and per-row bin counts below must match the guards in the
-TMB template exactly, so that every observation the template evaluates has a
+TMB model exactly, so that every observation the model evaluates has a
 valid obsvec position. All fitted observation types are handled: aggregate
 catch and index, comp and caal composition, and predator diet composition."><meta property="og:description" content="Internal helper used by rearrange_data() to assemble the inputs the TMB
 template needs to compute one-step-ahead (OSA) residuals via
@@ -49,7 +49,7 @@ marks rows excluded from the likelihood.
 
 
 The inclusion rules and per-row bin counts below must match the guards in the
-TMB template exactly, so that every observation the template evaluates has a
+TMB model exactly, so that every observation the model evaluates has a
 valid obsvec position. All fitted observation types are handled: aggregate
 catch and index, comp and caal composition, and predator diet composition."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -59,7 +59,7 @@ catch and index, comp and caal composition, and predator diet composition."></he
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,7 +129,7 @@ and caal it is the 0-based <code>obsvec</code> position of the row's FIRST bin (
 template reads the row's bins as <code>obsvec.segment(start, n_bins)</code>). <code>-1</code>
 marks rows excluded from the likelihood.</p></li>
 </ul><p>The inclusion rules and per-row bin counts below must match the guards in the
-TMB template exactly, so that every observation the template evaluates has a
+TMB model exactly, so that every observation the model evaluates has a
 valid <code>obsvec</code> position. All fitted observation types are handled: aggregate
 catch and index, comp and caal composition, and predator diet composition.</p>
     </div>

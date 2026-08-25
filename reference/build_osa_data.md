@@ -31,10 +31,10 @@ matrices and produces:
   likelihood.
 
 The inclusion rules and per-row bin counts below must match the guards
-in the TMB template exactly, so that every observation the template
-evaluates has a valid `obsvec` position. All fitted observation types
-are handled: aggregate catch and index, comp and caal composition, and
-predator diet composition.
+in the TMB model exactly, so that every observation the model evaluates
+has a valid `obsvec` position. All fitted observation types are handled:
+aggregate catch and index, comp and caal composition, and predator diet
+composition.
 
 ## Usage
 

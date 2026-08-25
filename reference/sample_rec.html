@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,14 +61,20 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">sample_rec</span><span class="op">(</span><span class="va">Rceattle</span>, sample_rec <span class="op">=</span> <span class="cn">TRUE</span>, update_model <span class="op">=</span> <span class="cn">TRUE</span>, rec_trend <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">sample_rec</span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sample_rec <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  update_model <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  rec_trend <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  Rceattle <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
+<dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
 <dd><p>CEATTLE model object exported from <code>Rceattle</code></p></dd>
 
 
@@ -82,6 +88,11 @@
 
 <dt id="arg-rec-trend">rec_trend<a class="anchor" aria-label="anchor" href="#arg-rec-trend"></a></dt>
 <dd><p>Linear increase or decrease in mean recruitment from <code>endyr</code> to <code>projyr</code>. This is the terminal multiplier <code>mean rec * (1 + (rec_trend/projection years) * 1:projection years)</code>. Can be of length 1 or of length nspp. If length 1, all species get the same trend.</p></dd>
+
+
+<dt id="arg-rceattle">Rceattle<a class="anchor" aria-label="anchor" href="#arg-rceattle"></a></dt>
+<dd><p>deprecated name for <code>object</code>, still accepted so existing
+scripts keep working. Supplying both is an error.</p></dd>
 
 </dl></div>
     <div class="section level2">

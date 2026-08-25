@@ -38,6 +38,8 @@ has help available via `?`. The workflow is:
 
 ``` r
 
+# Not run: this installs the package the vignette is already using, so
+# executing it in CI would reinstall mid-render.
 # Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)
 install.packages("remotes")
 remotes::install_github("grantdadams/Rceattle")
@@ -226,21 +228,31 @@ plot_recruitment(model_list, model_names = model_names, incl_proj = TRUE, add_ci
 # SSB
 plot_ssb(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 
-# Biomass depletion
+# Biomass depletion (total biomass / B0)
 plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 
-# SSB depletion
-plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
+# SSB depletion (female spawning biomass / SB0) -- the quantity a Tier 3 HCR
+# compares against B40%
+plot_depletionSSB(model_list, model_names = model_names, incl_proj = FALSE, add_ci = FALSE)
 ```
 
 Diagnostic plots cover selectivity, composition fits, index fits, and
-catch fits. Selectivity and composition plots take a single model; index
+catch fits. Composition plots take a single model; selectivity, index
 and catch plots take one or more.
+
+Each fleet is drawn on the dimension its selectivity was estimated on –
+age, or length bin for a fleet whose `Selectivity_dimension` is
+`"Length"`. With one model, colour is the year, so time-varying
+selectivity reads as a fan. With several, colour separates the models
+and the fan moves to transparency.
 
 ``` r
 
 # Selectivity
 plot_selectivity(model_2)
+
+# Overlay models; `line_col` and `lwd` apply as in the other plotters
+plot_selectivity(model_list, model_names = model_names, lwd = 2)
 
 # Plot composition fit
 plot_comp(model_2)

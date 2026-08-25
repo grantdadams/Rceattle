@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -123,7 +123,9 @@ analysis)</p></li>
 <p><code>Rceattle</code> and associated dependencies and can be
 installed as follows:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)</span></span>
+<code class="sourceCode R"><span><span class="co"># Not run: this installs the package the vignette is already using, so</span></span>
+<span><span class="co"># executing it in CI would reinstall mid-render.</span></span>
+<span><span class="co"># Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"remotes"</span><span class="op">)</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"grantdadams/Rceattle"</span><span class="op">)</span></span>
 <span></span>
@@ -274,17 +276,27 @@ accept a list of models (see above).</p>
 <span><span class="co"># SSB</span></span>
 <span><span class="fu"><a href="../reference/plot_ssb.html">plot_ssb</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">TRUE</span>, add_ci <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Biomass depletion</span></span>
+<span><span class="co"># Biomass depletion (total biomass / B0)</span></span>
 <span><span class="fu"><a href="../reference/plot_depletion.html">plot_depletion</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># SSB depletion</span></span>
-<span><span class="fu"><a href="../reference/plot_depletion.html">plot_depletion</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># SSB depletion (female spawning biomass / SB0) -- the quantity a Tier 3 HCR</span></span>
+<span><span class="co"># compares against B40%</span></span>
+<span><span class="fu"><a href="../reference/plot_depletionSSB.html">plot_depletionSSB</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">FALSE</span>, add_ci <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p>Diagnostic plots cover selectivity, composition fits, index fits, and
-catch fits. Selectivity and composition plots take a single model; index
+catch fits. Composition plots take a single model; selectivity, index
 and catch plots take one or more.</p>
+<p>Each fleet is drawn on the dimension its selectivity was estimated on
+– age, or length bin for a fleet whose
+<code>Selectivity_dimension</code> is <code>"Length"</code>. With one
+model, colour is the year, so time-varying selectivity reads as a fan.
+With several, colour separates the models and the fan moves to
+transparency.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Selectivity</span></span>
 <span><span class="fu"><a href="../reference/plot_selectivity.html">plot_selectivity</a></span><span class="op">(</span><span class="va">model_2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Overlay models; `line_col` and `lwd` apply as in the other plotters</span></span>
+<span><span class="fu"><a href="../reference/plot_selectivity.html">plot_selectivity</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Plot composition fit</span></span>
 <span><span class="fu"><a href="../reference/plot_comp.html">plot_comp</a></span><span class="op">(</span><span class="va">model_2</span><span class="op">)</span></span>

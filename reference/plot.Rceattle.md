@@ -21,8 +21,9 @@ plot(x, what = "biomass", ...)
 - what:
 
   Character. One of `"biomass"` (default), `"ssb"`, `"recruitment"`,
-  `"depletion"`, `"index"`, `"catch"`, `"selectivity"`, `"mortality"`,
-  or `"data"`.
+  `"depletion"` (total biomass / B0), `"ssb_depletion"` (female spawning
+  biomass / SB0 – the quantity a Tier 3 HCR compares against B40%),
+  `"index"`, `"catch"`, `"selectivity"`, `"mortality"`, or `"data"`.
 
 - ...:
 

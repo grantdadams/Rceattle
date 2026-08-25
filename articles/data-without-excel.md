@@ -14,9 +14,8 @@ Everything passed to
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
 lives in this list, so understanding its structure also helps you modify
 existing data objects read from Excel. This vignette walks through each
-component. The result can be validated with
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-and fitted with
+component. The result is validated by `build_data(.check = TRUE)` (the
+default) and fitted with
 [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md),
 or exported back to Excel with
 [`write_data()`](https://grantdadams.github.io/Rceattle/reference/write_data.md).
@@ -82,9 +81,7 @@ Rather than reading the table below by hand, ask
 it reports, for a given configuration, which blocks are **Required**,
 **Optional** (used if supplied, otherwise default-filled), or
 **Ignored** (not consulted because the feature is off) — the exact
-conditions
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-enforces at fit time.
+conditions the fit-time validation enforces.
 
 ``` r
 
@@ -209,8 +206,8 @@ modeled. Multiple fleets can target the same species.
 #   "DoubleLogistic"     (3) -- ascending + descending dome-shaped logistic
 #   "DescendingLogistic" (4) -- descending logistic only (dome-shaped for oldest ages)
 #   "Hake"               (5) -- non-parametric selectivity à la Taylor et al. (Pacific hake)
-#   "2DAR1"              (6) -- 2D autoregressive random effects (age × year)
-#   "3DAR1"              (7) -- 3D autoregressive random effects (age × year × cohort)
+#   "2DAR1"              (6) -- 2D autoregressive random effects (bin × year)
+#   "3DAR1"              (7) -- 3D autoregressive random effects (bin × year × cohort)
 #
 # Selectivity_dimension: "Age" or "Length"
 #   Length-based selectivity requires an age-to-length transition matrix (see below).
@@ -222,7 +219,8 @@ modeled. Multiple fleets can target the same species.
 #   "Analytical"           (3) -- Ludwig & Walters / Martell (1994) analytical Q
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
-#   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
+#   "AR1"                  (6) -- REMOVED in 5.12.0; data_check() errors. Use a q
+#                                  linkage with ar1(1 | Year) and observe = <column>
 #   NA                         -- not applicable (use for fisheries without CPUE)
 
 # Comp_distribution / CAAL_distribution options:
@@ -300,6 +298,8 @@ simData$fleet_control <- data.frame(
   # Estimate_catch_sd:
   #   0 = fix at Log_sd from catch_data (treats catch as known)
   #   1 = estimate
+  #   2 = analytical sigma (Ludwig & Walters 1994); concentrates the sd out of
+  #       the catch likelihood, so catch stops pinning F as tightly
   Estimate_catch_sd  = rep(c(NA, 0),  nspp),
   Catch_sd     = rep(c(NA, 1),  nspp),
 
@@ -514,6 +514,25 @@ colnames(sex_matrix) <- paste0("Age", 1:nages)
 simData$sex_ratio <- cbind(data.frame(Species = 1:nspp), sex_matrix)
 ```
 
+Where species carry different numbers of age bins, `maturity` and
+`sex_ratio` are as wide as the longest-lived species, and **each row
+must be filled across its own species’ `nages`**. Columns past that are
+padding and may be `NA`.
+
+Getting this wrong is quiet. Both tables are summed over age: spawning
+biomass uses `maturity` (times `sex_ratio` where a species is modelled
+one-sex), and spawner-per-recruit sums the same schedule. So a
+`maturity` gap leaves SSB `NA` for any species, and a `sex_ratio` gap
+does the same for a one-sex species. On a **two-sex** species
+`sex_ratio` reaches only spawner-per-recruit — so the model fits
+normally and the failure waits until a harvest control rule asks for
+reference points.
+[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+names the table, the species and the missing ages.
+
+Rows are read by position: the `Species` column is dropped before the
+model sees these tables, so row *i* must be species *i*.
+
 ### Fixed selectivity (optional)
 
 Pre-specified selectivity-at-age values for fleets whose selectivity is
@@ -583,9 +602,8 @@ referenced by column order.
 
 Skip this if no environmental covariates are used.
 [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
-will fall back to a Year-only data.frame with no indices, and
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-will only complain when a feature actually needs an index (env-q
+will fall back to a Year-only data.frame with no indices, and validation
+only complains when a feature actually needs an index (env-q
 catchability, `Ceq[sp] > 1`, or any env linkage).
 
 ``` r

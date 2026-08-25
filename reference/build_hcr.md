@@ -141,3 +141,79 @@ Ptarget\\ \$\$Fofl = Flimit\$\$ \$\$Fuse = Ftarget\$\$ Stock status:
 0\$\$
 
 NOTE: only HCRs 0, 1, 2, 3, and 6 will work in multi-species mode.
+
+## Examples
+
+``` r
+# Tier 3 NPFMC control rule: F40% as FABC, F35% as FOFL.
+build_hcr(HCR = "NPFMC", DynamicHCR = FALSE, Ftarget = 0.4, Flimit = 0.35)
+#> $HCR
+#> [1] "NPFMC"
+#> 
+#> $DynamicHCR
+#> [1] FALSE
+#> 
+#> $Ftarget
+#> [1] 0.4
+#> 
+#> $Flimit
+#> [1] 0.35
+#> 
+#> $Ptarget
+#> [1] 0.4
+#> 
+#> $Plimit
+#> [1] 0
+#> 
+#> $Alpha
+#> [1] 0.05
+#> 
+#> $Pstar
+#> [1] 0.45
+#> 
+#> $Sigma
+#> [1] 0.5
+#> 
+#> $Fmult
+#> [1] 1
+#> 
+#> $HCRorder
+#> [1] 1
+#> 
+
+# No fishing: the projection a B0 reference point is read from.
+build_hcr(HCR = "NoFishing")
+#> $HCR
+#> [1] "NoFishing"
+#> 
+#> $DynamicHCR
+#> [1] FALSE
+#> 
+#> $Ftarget
+#> [1] 0.4
+#> 
+#> $Flimit
+#> [1] 0.35
+#> 
+#> $Ptarget
+#> [1] 0.4
+#> 
+#> $Plimit
+#> [1] 0
+#> 
+#> $Alpha
+#> [1] 0.05
+#> 
+#> $Pstar
+#> [1] 0.45
+#> 
+#> $Sigma
+#> [1] 0.5
+#> 
+#> $Fmult
+#> [1] 1
+#> 
+#> $HCRorder
+#> [1] 1
+#> 
+```

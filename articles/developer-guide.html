@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -389,27 +389,32 @@ iteratively).</td>
 effects) to each process’s parameters, and accumulates the linkage
 priors / RE densities into the likelihood.</td>
 </tr>
+<tr class="even">
+<td><code>comp_sim.hpp</code></td>
+<td>Composition draws — multinomial (sequential conditional binomial),
+Dirichlet, and Dirichlet-multinomial — used by the <code>SIMULATE</code>
+blocks.</td>
+</tr>
 </tbody>
 </table>
-<p>The template opens with the <code>DATA_*</code> block (switches such
-as <code>estimateMode</code>, <code>msmMode</code>,
-<code>suitMode</code>, <code>initMode</code>, <code>srr_fun</code>,
-<code>HCR</code>, plus the data objects), then the
-<code>PARAMETER_*</code> block, then the population and observation
-dynamics, and finally the joint negative log-likelihood. The likelihood
-is accumulated in the <code>jnll_comp</code> matrix — rows are
-likelihood components, columns are species/fleet. Each row is addressed
-by a named constant from the <code>JnllRow</code> enum
-(<code>JNLL_INDEX</code>, <code>JNLL_CATCH</code>,
-<code>JNLL_COMP</code>, … <code>JNLL_LINKAGE_RE</code>, with
-<code>JNLL_N_ROWS</code> dimensioning the matrix), so a row is referred
-to by name in the C++ rather than by a bare integer. The <strong>display
-names</strong> for those rows live separately in
-<code>R/6-rename_output.R</code>; if you add or reorder a row, update
-both the enum and that name vector by hand (they are kept in sync
-manually).</p>
+<p>The model opens with the <code>DATA_*</code> block (switches such as
+<code>estimateMode</code>, <code>msmMode</code>, <code>suitMode</code>,
+<code>initMode</code>, <code>srr_fun</code>, <code>HCR</code>, plus the
+data objects), then the <code>PARAMETER_*</code> block, then the
+population and observation dynamics, and finally the joint negative
+log-likelihood. The likelihood is accumulated in the
+<code>jnll_comp</code> matrix — rows are likelihood components, columns
+are species/fleet. Each row is addressed by a named constant from the
+<code>JnllRow</code> enum (<code>JNLL_INDEX</code>,
+<code>JNLL_CATCH</code>, <code>JNLL_COMP</code>, …
+<code>JNLL_LINKAGE_RE</code>, with <code>JNLL_N_ROWS</code> dimensioning
+the matrix), so a row is referred to by name in the C++ rather than by a
+bare integer. The <strong>display names</strong> for those rows live
+separately in <code>R/6-rename_output.R</code>; if you add or reorder a
+row, update both the enum and that name vector by hand (they are kept in
+sync manually).</p>
 <p><strong>Building.</strong> <code>src/TMB/compile.R</code> compiles
-the template (<code>framework = "TMBad"</code>); <code>TMB</code> and
+the model (<code>framework = "TMBad"</code>); <code>TMB</code> and
 <code>RcppEigen</code> are <code>LinkingTo</code> dependencies. The
 spurious Eigen <code>-Warray-bounds</code> warnings are silenced by a
 source <code>#pragma</code> in the <code>.cpp</code> rather than a
@@ -493,6 +498,14 @@ use it in the relevant <code>.hpp</code> module.</li>
 <code>build_map_*()</code> helper) so it is turned on/off for the right
 configurations.</li>
 <li>Add it to the phasing order in <code>R/6-phaser.R</code>.</li>
+<li>Add it to the parameter dictionary in
+<code>R/0-parameter_dictionary.R</code>. It is a registry keyed by
+parameter name, so a new (or retired) block that misses it fails only
+later.</li>
+<li>If the parameter is a random effect, give it a <code>SIMULATE</code>
+draw beside its density (see <em>Change the likelihood</em>), or
+<code>sim_mod(process = )</code> will hand back its fitted values as
+though they were simulated.</li>
 <li>(Optional) expose an on/off or random-effect switch as a
 <code><a href="../reference/fit_mod.html">fit_mod()</a></code> argument.</li>
 <li>Document it in <code>inst/extdata/meta_data_names.xlsx</code> and/or
@@ -575,6 +588,56 @@ addressed by the <code>JnllRow</code> row constant and the species/fleet
 column. Add or modify the relevant term there, then recompile and re-run
 the regression tests (below) to confirm the objective changes only as
 intended.</p>
+<p><strong>Add or update the matching <code>SIMULATE</code> block at the
+same time.</strong> Every observation and every process error is drawn
+in a <code>SIMULATE</code> block next to the density that scores it, so
+the two are edited together. A simulator that has drifted from its
+likelihood does not error — it makes <code><a href="../reference/self_test.html">self_test()</a></code> report
+recovery against a data-generating process the model never assumed.
+Three rules the existing blocks follow:</p>
+<ul>
+<li>
+<strong>Draw what the density assumes</strong>, including the
+bias-correction convention and the scale (log vs. natural). Where a
+family has no exact sampler — a multivariate normal truncated to the
+positive orthant, say — note it in the draw and warn from
+<code><a href="../reference/sim_mod.html">sim_mod()</a></code> rather than substituting a different
+distribution.</li>
+<li>
+<strong>Report under a <code>*_sim</code> name.</strong> TMB never
+clears its report environment, so anything reported inside a
+<code>SIMULATE</code> block stays visible in <code>obj$report()</code>
+afterwards. A draw written into the observed-data object and reported
+under its name is readable as the data it replaced, which is why
+<code>comp_sim</code>, <code>caal_sim</code> and <code>diet_sim</code>
+are separate copies.</li>
+<li>
+<strong>Do not draw what the model does not define.</strong> If two
+densities score one latent — the AMAK/Ianelli stock-recruit penalty is
+the live example — there is no single distribution to draw from. Leave
+it and warn.</li>
+</ul>
+<p><code>simulate_state</code> selects which processes are redrawn
+(recruitment, M, growth, catchability, selectivity). Its slot order is
+the linkage process code, so a random linkage is gated by
+<code>simulate_state(linkage_process(i))</code> with no translation —
+change one and change the other (<code>R/0-linkage_encode.R</code>).</p>
+<p><code>simulate_period</code> is a two-slot vector, and <strong>only
+slot 0 is read</strong>. It gates the <em>process</em> draws, whose
+densities cover the hindcast alone. Observations are drawn in every
+period deliberately, because <code><a href="../reference/run_mse.html">run_mse()</a></code> splices the
+negative-<code>Year</code> rows back in as the next assessment’s data,
+so gating them would hand the estimation model observations that were
+never simulated. Slot 1 is reserved for a projection-period process draw
+— WHAM uses its equivalent that way — and is inert today; nothing in
+<code><a href="../reference/sim_mod.html">sim_mod()</a></code>’s interface reaches either slot, and the tests
+and <code>tools/verify/</code> scripts that exercise slot 0 do so
+through the internal <code>.sim_draw(period = )</code>. Wiring slot 1 up
+means giving the projection-period deviations a density to draw from
+first.</p>
+<p>Both are <code>DATA_IVECTOR</code>s, defaulted in
+<code><a href="../reference/build_osa_data.html">build_osa_data()</a></code> — the single funnel every data list passes
+through on its way to <code>MakeADFun()</code>.</p>
 </div>
 </div>
 <div class="section level2">
@@ -593,8 +656,8 @@ Notable fixtures and guards:</p>
 golden-<code>jnll</code> regression test pin the objective-function
 value so unintended numerical changes surface.</li>
 <li>
-<code>test-tmb-makeadfun_smoke.R</code> checks the template builds
-and evaluates.</li>
+<code>test-tmb-makeadfun_smoke.R</code> checks the model builds and
+evaluates.</li>
 <li>
 <code>test-parameter-recovery.R</code> fits simulated data and
 checks estimates.</li>
@@ -695,6 +758,84 @@ via <code>emp_sel</code> with <code>Selectivity = "Fixed"</code>, set
 (See also the <a href="../stock-synthesis-conversion.html">Stock
 Synthesis conversion</a> article.)</li>
 </ul>
+</div>
+<div class="section level2">
+<h2 id="the-argument-names-and-what-is-deliberately-left-alone">The argument names, and what is deliberately left alone<a class="anchor" aria-label="anchor" href="#the-argument-names-and-what-is-deliberately-left-alone"></a>
+</h2>
+<p>The diagnostics take the fitted model as <code>object</code>
+(5.11.0). <code>Rceattle</code> and <code>fit</code> still work and are
+silent; they warn from 5.12.0 and go in 6.0.0. To find your own call
+sites now:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>Rceattle.warn_deprecated_args <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>Three keep their own names on purpose. <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> takes
+<code>fitted</code> because it is an S3 method for
+<code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">stats::profile()</a></code>, and renaming a method’s first formal away
+from its generic fails <code>R CMD check</code>.
+<code>mse_summary(mse = )</code> and
+<code>compare_sim(operating_mod = )</code> take an MSE result and a set
+of simulations, not a fitted model, so their names say more than
+<code>object</code> would.</p>
+<p>The rest of the surface below is <strong>known-awkward and
+deliberately unchanged</strong>. It is recorded here so it is not
+reopened each time someone reads the API cold.</p>
+<p><em>Switch codes are frozen.</em> Renumbering any of them silently
+reinterprets every saved <code>run_config</code> YAML, every workbook,
+and every fitted <code>.rds</code> in <code>../Rceattle-models</code>
+and <code>../GOA-ATF-ESP</code> — the same integer would mean something
+new with nothing to signal it. This outweighs the readability of a
+tidier numbering, so these stay as they are:</p>
+<ul>
+<li>
+<code>estimateMode</code> 0 = “Estimate” but 1 = “Hindcast”, which
+reads backwards.</li>
+<li>
+<code>srr_fun</code>’s valid set is non-contiguous: 0/2/4 are live,
+1/3/5 soft-deprecated.</li>
+<li>
+<code>sel_map</code> skips 10.</li>
+<li>
+<code>initMode</code> 1 (<code>Equilibrium</code>) and 5
+(<code>OffsetEquilibrium</code>) differ by one term.</li>
+<li>
+<code>msmMode</code> accepts 3–9, then <code><a href="../reference/data_check.html">data_check()</a></code>
+rejects them.</li>
+</ul>
+<p><em>Overloaded columns.</em> <code>Time_varying_q</code> is a mode
+code for most fleets but a 1-based <code>env_data</code> column index
+(possibly comma-separated, <code>"1,3"</code>) when
+<code>Catchability</code> is <code>Environmental</code> (5). Code 6 was
+the other such form and is removed, but the overload is not academic: it
+is why the <code>Time_varying_q</code> mode checks —
+<code>validate_switches()</code>, the soft-deprecation, and the 5.16.0
+<code>"AR1"</code> refusal — all exempt those fleets. A check that
+forgets it rejects a working model for a value the assessor never set as
+a mode.</p>
+<p><code>Sel_curve_pen1</code> is a penalty weight for selectivity
+2/9/11 and <code>Sel_curve_pen2</code> a curvature penalty for 2/9,
+while for 6/7 both are logit-scale AR1 correlations. Re-encoding either
+would break existing workbooks; they are documented in the column schema
+instead.</p>
+<p><em>Argument counts and names.</em> <code><a href="../reference/fit_mod.html">fit_mod()</a></code> and
+<code><a href="../reference/run_mse.html">run_mse()</a></code> both take upwards of twenty arguments, and the
+iteration counts are spelled <code>peels</code>, <code>njitter</code>,
+<code>nsim</code> and <code>n_iter</code> – each idiomatic where it
+appears. <code><a href="../reference/fit_mod.html">fit_mod()</a></code> also still accepts the optimizer
+arguments that moved onto <code><a href="../reference/fit_control.html">fit_control()</a></code>, with a warning;
+the live list is <code>.deprecated_ctl_args</code> in
+<code>R/6-fit_mod.R</code>.</p>
+<p><em>One more collision.</em> <code><a href="../reference/compare_sim.html">compare_sim()</a></code> has an
+argument named <code>object</code> that is a character selector for
+which part of the model to compare, not a fitted model. It predates this
+release and is left alone for the same reason <code>operating_mod</code>
+is, but it is the one place where <code>object</code> means something
+else.</p>
+<p><em><code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> is the odd diagnostic out.</em> It refits
+like <code><a href="../reference/retrospective.html">retrospective()</a></code>, <code><a href="../reference/jitter.html">jitter()</a></code> and
+<code><a href="../reference/self_test.html">self_test()</a></code> but takes only a bare <code>getsd=</code> – no
+<code>phase</code>, no <code>fit_control</code> – so every profile point
+refits at <code>.refit_like()</code>’s unphased default. Worth knowing
+when reading a profile that looks flatter than expected.</p>
 </div>
 <div class="section level2">
 <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a>

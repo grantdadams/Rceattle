@@ -1,6 +1,10 @@
-# Plot M1 + M2
+# Plot M1 or M2 at age
 
-Function that plots the M1 and M2 as estimated from Rceattle
+Mortality-at-age over the hindcast for one model: predation mortality
+(`M2`, the default) or residual natural mortality (`M1`). One component
+at a time, never their sum –
+[`plot_m_at_age()`](https://grantdadams.github.io/Rceattle/reference/plot_m_at_age.md)
+draws total M (M1 + M2) as a time series.
 
 ## Usage
 
@@ -28,7 +32,9 @@ plot_mortality(
 
 - Rceattle:
 
-  Single or list of Rceattle model objects exported from `Rceattle`
+  A single
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  object. A list of more than one is an error; call it per model.
 
 - file:
 
@@ -40,12 +46,14 @@ plot_mortality(
 
 - zlim:
 
-  zlim for M1 + M2 plots. Character - use max range across species in
-  model. NULL - use species specific ranges. Vector of two.
+  Ignored. Base-graphics leftover: the fill range of the tile plot. Use
+  `p + ggplot2::scale_fill_viridis_c(limits = ...)`.
 
 - type:
 
-  0 = Tiles, 1 = contour, 2 = facet lines, 3 = persp
+  `"lines"` (default) draws M-at-age with one line per year; `"heatmap"`
+  (or `0`) draws the same series as an age-by-year tile plot. Any other
+  value gives the lines.
 
 - width:
 
@@ -61,7 +69,7 @@ plot_mortality(
 
 - log:
 
-  TRUE/FALSE use log M1 + M2
+  TRUE/FALSE plot the series on a log scale
 
 - minyr:
 
@@ -69,7 +77,8 @@ plot_mortality(
 
 - theta:
 
-  theta for persp plot
+  Ignored. Base-graphics leftover: viewing angle of a `persp` surface,
+  which is no longer drawn.
 
 - species:
 
@@ -77,12 +86,19 @@ plot_mortality(
 
 - maxage:
 
-  Plot up to this age. Plots all ages if NULL
+  Oldest age to draw, on the species' own age scale rather than as a
+  count of age bins. `NULL` draws every age.
 
 - title_cex:
 
-  Font size for title
+  Ignored. Base-graphics leftover: title font size. Use
+  `p + ggplot2::theme(plot.title = ggplot2::element_text(size = ...))`.
 
 - M2:
 
-  TRUE/FALSE Use M2 only (True) or total M (False)
+  Draw predation mortality M2 (TRUE, the default) or residual natural
+  mortality M1 (FALSE). Neither is the sum of the two.
+
+## Value
+
+A `ggplot`.

@@ -2,8 +2,9 @@
 
 Function to rearrange a `data_list` object to be read into TMB
 
-`rearrange_dat()` is a deprecated alias for `rearrange_data()` kept for
-backwards compatibility; please use `rearrange_data()`.
+`rearrange_dat()` is a deprecated alias for `rearrange_data()`, kept so
+older scripts keep running. It is scheduled for removal in 6.0.0; use
+`rearrange_data()`.
 
 ## Usage
 

@@ -7,11 +7,9 @@ by
 [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)),
 or **Ignored** (not consulted because the feature that would use them is
 switched off). It answers "what do I actually need to supply for *this*
-model?" without having to read
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-or the switch tables – the same conditions
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-enforces at fit time (they share one declarative table).
+model?" without having to read the validation code or the switch tables
+– the same conditions enforced at fit time (they share one declarative
+table).
 
 ## Usage
 
@@ -123,7 +121,6 @@ unless `growth_model > 0`; `NByageFixed` is Ignored unless
 
 ## See also
 
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md),
 [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md),
 [`build_data()`](https://grantdadams.github.io/Rceattle/reference/build_data.md).
 

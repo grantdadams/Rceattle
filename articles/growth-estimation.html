@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -168,11 +168,33 @@ and the temperature slope.</li>
 back-transformed inside the prior block). An intercept-bearing linkage
 replaces the base parameter and carries its level.</p>
 </div>
+<div class="section level3">
+<h3 id="time-varying-growth">Time-varying growth<a class="anchor" aria-label="anchor" href="#time-varying-growth"></a>
+</h3>
+<p>The same grammar carries time variation, with a random-effect term on
+the right-hand side instead of (or alongside) a covariate:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># A random walk on the von Bertalanffy k. Use ar1(1 | Year) for a stationary</span></span>
+<span><span class="co"># autoregression, or (1 | Year) for independent annual deviations; under ar1()</span></span>
+<span><span class="co"># the `sigma` init is the MARGINAL standard deviation.</span></span>
+<span><span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
+<span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
+<span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>K <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span><span class="op">~</span> <span class="fu">rw</span><span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Year</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>This is the only route to time-varying growth. The
+<code>growth_re</code> switch that earlier versions carried in the
+<code>data_list</code> was never implemented — nothing consumed it, the
+deviation array was mapped off in every configuration, and the model
+gave it no density — so it is removed as of 5.9.0 and setting it now
+raises a deprecation message. Unlike the switch, a random linkage
+carries a real density, so it is estimated, reported in the linkage
+table, and redrawn by <code>sim_mod(process = "growth")</code>.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="fit-the-model">Fit the model<a class="anchor" aria-label="anchor" href="#fit-the-model"></a>
 </h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">vbgf_prior_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list   <span class="op">=</span> <span class="va">whamGrowthData</span>,</span>
 <span>  growthFun   <span class="op">=</span> <span class="va">growth_spec</span>,</span>
@@ -185,7 +207,7 @@ replaces the base parameter and carries its level.</p>
 <div class="section level2">
 <h2 id="inspect-the-linkage-table-and-prior-contributions">Inspect the linkage table and prior contributions<a class="anchor" aria-label="anchor" href="#inspect-the-linkage-table-and-prior-contributions"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The linkage table is stored on the fitted model.</span></span>
 <span><span class="va">vbgf_prior_fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span></span>
 <span></span>
@@ -198,7 +220,7 @@ replaces the base parameter and carries its level.</p>
 <div class="section level2">
 <h2 id="compare-with-an-unlinked-baseline-model-and-richards-model">Compare with an unlinked baseline model and Richards model<a class="anchor" aria-label="anchor" href="#compare-with-an-unlinked-baseline-model-and-richards-model"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">baseline_fit</span> <span class="op">&lt;-</span> <span class="fu">Rceattle</span><span class="fu">::</span><span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list <span class="op">=</span> <span class="va">whamGrowthData</span>,</span>
 <span>  inits <span class="op">=</span> <span class="cn">NULL</span>,       <span class="co"># Initial parameters at default</span></span>

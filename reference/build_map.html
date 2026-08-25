@@ -13,7 +13,7 @@ block (recruitment, M1, predation, selectivity, catchability, ...)."></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.8.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,7 +75,8 @@ block (recruitment, M1, predation, selectivity, catchability, ...).</p>
 <span>  <span class="va">params</span>,</span>
 <span>  debug <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  random_rec <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  random_sel <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  random_sel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  random_q <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -105,11 +106,26 @@ meaning the variance parameter (<code>R_log_sd</code>) is estimated.</p></dd>
 <dd><p>Logical. If TRUE, treats selectivity deviations as random effects,
 meaning the variance parameter (<code>sel_dev_log_sd</code>) is estimated.</p></dd>
 
+
+<dt id="arg-random-q">random_q<a class="anchor" aria-label="anchor" href="#arg-random-q"></a></dt>
+<dd><p>Logical. If TRUE, treats catchability deviations as random effects,
+meaning the variance parameter (<code>index_q_dev_log_sd</code>) is estimated. Defaults
+to <code>data_list$random_q</code>, which is what <code><a href="fit_mod.html">fit_mod()</a></code> stores there.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list containing the factorized TMB map (<code>mapFactor</code>) and the
 original map matrix/array list (<code>mapList</code>).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Fleets sharing a <code>Selectivity_index</code> or a <code>Catchability_index</code> have the lead
+fleet's map slice copied over the rest of the group, so a per-fleet setting
+that differs within a group is resolved here rather than reported. Those
+disagreements are checked in <code><a href="data_check.html">data_check()</a></code>, which <code><a href="fit_mod.html">fit_mod()</a></code> runs first;
+<code>build_map()</code> does not call it, so a caller invoking <code>build_map()</code> directly
+should run <code><a href="data_check.html">data_check()</a></code> too.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

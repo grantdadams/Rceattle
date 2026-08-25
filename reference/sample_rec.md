@@ -5,12 +5,18 @@ Sample historical recruitment deviations into the projection
 ## Usage
 
 ``` r
-sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
+sample_rec(
+  object = NULL,
+  sample_rec = TRUE,
+  update_model = TRUE,
+  rec_trend = 0,
+  Rceattle = NULL
+)
 ```
 
 ## Arguments
 
-- Rceattle:
+- object:
 
   CEATTLE model object exported from `Rceattle`
 
@@ -32,6 +38,11 @@ sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
   `mean rec * (1 + (rec_trend/projection years) * 1:projection years)`.
   Can be of length 1 or of length nspp. If length 1, all species get the
   same trend.
+
+- Rceattle:
+
+  deprecated name for `object`, still accepted so existing scripts keep
+  working. Supplying both is an error.
 
 ## Value
 
