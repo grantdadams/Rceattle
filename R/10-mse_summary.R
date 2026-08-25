@@ -745,13 +745,65 @@ mse_summary <- function(mse, om_only = FALSE){
   total <- unlist(.rce_rename_mse_metrics(
     as.data.frame(as.list(total), check.names = FALSE)))
 
-  list(
-    species = species,
-    fleet   = fleet,
-    total   = total,
-    meta    = list(nsim = nsim, nspp = nspp, nflts = nflts, HCR = HCR,
-                   proj_years = c(first = min(projyrs), last = max(projyrs)))
-  )
+  # Still the same ragged list -- $species, $fleet, $total and $meta are
+  # unchanged. The class only adds a print method, so the object says what it
+  # holds instead of dumping four blocks of differing shape; as.data.frame() on
+  # it still errors, which is the caller's bug and is now said out loud.
+  structure(
+    list(
+      species = species,
+      fleet   = fleet,
+      total   = total,
+      meta    = list(nsim = nsim, nspp = nspp, nflts = nflts, HCR = HCR,
+                     proj_years = c(first = min(projyrs), last = max(projyrs)))
+    ),
+    class = "Rceattle_mse_summary")
+}
+
+
+#' Print method for an MSE summary
+#'
+#' @description Says what the summary holds. The object is deliberately ragged --
+#' per-species, per-fleet and whole-system metrics have different shapes and
+#' cannot share one frame -- so it reports the blocks and their dimensions rather
+#' than printing them end to end.
+#'
+#' @param x An `"Rceattle_mse_summary"` object from [mse_summary()].
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.Rceattle_mse_summary <- function(x, ...) {
+  mt <- x$meta
+
+  # An undefined depletion is the one thing here worth a severity: it means no
+  # unfished reference was derived (HCR = "NoFishing" leaves MSSB0 at its
+  # placeholder), so the column is NA rather than a ratio against 999 mt.
+  dep <- suppressWarnings(as.numeric(
+    x$species[["om_terminal_depletion"]] %||% NA_real_))
+  sev <- if (length(dep) && all(is.na(dep))) "NOTE" else "OK"
+
+  .rce_diag_header(
+    "MSE summary", sev,
+    paste0(mt$nsim, " simulation(s), ", mt$nspp, " species, ", mt$nflts,
+           " fleet(s); HCR ", mt$HCR, "; projection ",
+           mt$proj_years[["first"]], "-", mt$proj_years[["last"]]))
+
+  dims <- function(v) if (is.null(v)) "-" else
+    if (is.null(dim(v))) paste0(length(v), " value(s)") else
+      paste0(nrow(v), " x ", ncol(v))
+  cat("  $species  ", dims(x$species), "\n", sep = "")
+  cat("  $fleet    ", dims(x$fleet), "\n", sep = "")
+  cat("  $total    ", dims(x$total), "\n", sep = "")
+  cat("  $meta     nsim, nspp, nflts, HCR, proj_years\n")
+
+  if (identical(sev, "NOTE")) {
+    cat("  terminal SSB depletion is NA: no unfished reference was derived for\n",
+        "  this run, so there is nothing to divide by. The dynamic column is\n",
+        "  unaffected.\n", sep = "")
+  }
+  cat("  the blocks have different shapes on purpose; as.data.frame() on the\n",
+      "  whole object will not work -- take one block.\n", sep = "")
+  invisible(x)
 }
 
 

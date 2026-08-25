@@ -97,6 +97,42 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
   when stacked, so the count is the number of linkages the model actually holds.
 
+## New features
+
+* **The diagnostics share one display contract.**
+  `convergence_diagnostics()` was the only member of the family with a class, a
+  print method, a four-level severity and an overall status; the rest returned
+  bare frames and lists. `osa_diagnostics()`, `retrospective()`, `jitter()` and
+  `mse_summary()` now open with the same header — the object, a status, and a
+  one-line verdict — before the detail.
+
+  **No return value changed.** Each object is still exactly the data frame or
+  list it was, so `retro$mohns`, `jit$nll`, `diag$sdnr`, `summ$species` and every
+  column index as before; only `class()` gains an entry and `print()` gets an
+  opinion.
+
+  What each verdict adds:
+
+  - `osa_diagnostics()` printed sixteen columns at seven significant figures,
+    which wraps across three screen-widths in an 80-column terminal, so
+    answering "is fleet 2's index residual acceptable?" meant reassembling one
+    row from three blocks — and nothing said how many sources had failed. It now
+    leads with that count and the overall SDNR against its null interval, then a
+    severity-tagged line per source, worst first.
+  - `retrospective()` returned Mohn's rho as a bare number with no reference
+    band, while `osa_diagnostics()` shipped its null intervals — two diagnostics,
+    opposite conventions on the same question. It now judges the terminal peel
+    against `print(retro, band = )`, default `+/- 0.2`. Forecast-skill peels are
+    reported but not judged: a rho over a forecast horizon is not the quantity
+    that rule was calibrated on.
+  - `jitter()` returned the objective values but not the fraction of starts that
+    reached the best optimum, which is the result it exists to produce. The
+    returned list gains `njitter` so the denominator is knowable — non-converged
+    starts are dropped, so the count of returned fits is not the count attempted.
+  - `mse_summary()` reports its four blocks and their dimensions rather than
+    printing objects of differing shape end to end, and says out loud that
+    `as.data.frame()` on the whole object will not work.
+
 ## Internals
 
 * **The golden regression now runs in CI, and the multi-OS `NOT_CRAN` guard is

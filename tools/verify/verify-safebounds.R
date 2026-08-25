@@ -63,18 +63,35 @@ if (!any(grepl("-DTMB_SAFEBOUNDS", build_log, fixed = TRUE))) {
 }
 cat("  confirmed: -DTMB_SAFEBOUNDS in the compile line\n")
 
-# The build above leaves a bounds-checked object in the working tree, and the
-# next ordinary load_all() will NOT rebuild it -- pkgload only recompiles when
-# sources changed, and running this script changes none. Every later fit would
-# then silently use the slow checked build. So remove the artifacts on every
-# exit path.
+# Put the tree back to a NORMAL build on the way out, rather than just deleting
+# the checked artifacts. Two reasons, both learned the hard way:
+#
+#   * Left alone, the next ordinary load_all() would NOT rebuild -- pkgload only
+#     recompiles when sources changed, and this script changes none -- so every
+#     later fit would silently use the slow bounds-checked model.
+#   * Deleting only the TMB artifacts is worse still. src/Makevars builds the
+#     TMB library as a prerequisite of $(SHLIB), so with src/Rceattle.so still
+#     present make considers the target current, never re-runs `tmblib`, and
+#     load_all() then fails outright on useDynLib(ceattle) -- a broken tree that
+#     a plain rebuild does not repair.
+#
+# So drop the package SHLIB too and rebuild unchecked, leaving things as found.
 #
 # Not on.exit(): registered at a script's top level it has no function frame to
 # attach to and never fires, which is how this script first left a checked .so
-# behind. reg.finalizer() on the global environment runs at the end of the
-# session, normal exit or error alike.
-cleanup <- function(...) unlink(c(obj, so))
-reg.finalizer(globalenv(), cleanup, onexit = TRUE)
+# behind. reg.finalizer() on the global environment runs at session end, on a
+# normal exit and on an error alike.
+restore_normal_build <- function(...) {
+  unlink(c(obj, so, file.path("src", paste0("Rceattle", .Platform$dynlib.ext))))
+  message("verify-safebounds: restoring the unchecked build...")
+  local({
+    old <- setwd(file.path("src", "TMB"))
+    on.exit(setwd(old), add = TRUE)
+    system2("Rscript", "compile.R", stdout = FALSE, stderr = FALSE,
+            env = "RCEATTLE_SAFEBOUNDS=false")
+  })
+}
+reg.finalizer(globalenv(), restore_normal_build, onexit = TRUE)
 
 suppressMessages(pkgload::load_all(".", quiet = TRUE, compile = FALSE))
 
