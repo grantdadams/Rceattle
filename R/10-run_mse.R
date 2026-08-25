@@ -12,142 +12,6 @@
   "B_eaten", "B_eaten_as_prey", "Flimit"
 )
 
-# Shortening the operating model's projection horizon -------------------------
-#
-# Between assessments the operating model only has to reach one assessment step
-# past its terminal year: run_mse() reads `max_catch_hat` in the upcoming
-# assessment year to cap the TAC at exploitable biomass, and nothing looks
-# further ahead than that. `projyr` is what sizes the AD tape, so refitting on
-# the shorter horizon keeps each refit proportional to the years realized so
-# far rather than to the whole projection.
-#
-# clean_data() filters every data frame to styr:projyr, so the shorter horizon
-# also drops the projection-year placeholder rows run_mse() appends once up
-# front. Those rows are only ever rewritten for years at or before the current
-# assessment year -- inside the shortened horizon -- so the dropped ones still
-# hold the values they were created with and are restored verbatim.
-
-# Parameter blocks build_params() dimensions by styr:projyr, with the position
-# of their year dimension. Every other block is hindcast-length.
-.mse_proj_param_yrdim <- c(rec_dev = 2L, log_M1_dev = 4L)
-
-# Data frames carried out to projyr -- exactly the ones clean_data() filters to
-# styr:projyr, so exactly the ones a shortened horizon truncates.
-.mse_proj_tables <- c("index_data", "comp_data", "caal_data", "catch_data",
-                      "diet_data", "NByageFixed", "emp_sel", "weight",
-                      "ration_data")
-
-# Between assessments the loop reads two reported quantities off the operating
-# model, both indexed by catch_data's rows: max_catch_hat, to cap the next TAC
-# at exploitable biomass, and catch_hat, for the catch the operating model
-# actually took. Those are lifted back onto the full-length table; the rest of
-# the fit's quantities are left as the shortened refit produced them. Nothing
-# else reads them -- sim_mod() works off the un-restored fit, a completed
-# simulation returns the terminal full-horizon fit, and a failed one returns no
-# model at all.
-.mse_proj_catch_quantities <- c("catch_hat", "max_catch_hat")
-
-# Replace the year dimension of an array with `keep`, whatever its rank.
-.mse_slice_year_dim <- function(x, yr_dim, keep) {
-  idx <- lapply(dim(x), seq_len)
-  idx[[yr_dim]] <- keep
-  do.call(`[`, c(list(x), idx, list(drop = FALSE)))
-}
-
-.mse_trim_proj_params <- function(params, nyrs_keep) {
-  for (nm in names(.mse_proj_param_yrdim)) {
-    if (is.null(params[[nm]])) next
-    params[[nm]] <- .mse_slice_year_dim(params[[nm]],
-                                        .mse_proj_param_yrdim[[nm]],
-                                        seq_len(nyrs_keep))
-  }
-  params
-}
-
-# Write the shortened blocks back over the head of the full-horizon ones, so
-# the projection years the refit did not cover keep their existing values --
-# for rec_dev those are the recruitment deviations sample_rec() drew for this
-# simulation.
-.mse_restore_proj_params <- function(params, params_full) {
-  for (nm in names(.mse_proj_param_yrdim)) {
-    short <- params[[nm]]
-    full  <- params_full[[nm]]
-    if (is.null(short) || is.null(full)) next
-    yr_dim <- .mse_proj_param_yrdim[[nm]]
-    idx <- lapply(dim(full), seq_len)
-    idx[[yr_dim]] <- seq_len(dim(short)[yr_dim])
-    params[[nm]] <- do.call(`[<-`, c(list(full), idx, list(value = short)))
-  }
-  params
-}
-
-# Put a shortened-horizon fit back on the full projection horizon: data frames
-# regain their future rows, projection-length parameter blocks regain their
-# future slices, and the two catch quantities the loop reads are re-expanded to
-# match (NA in the years the refit did not cover).
-.mse_restore_om_horizon <- function(fit, data_list_full, params_full) {
-  short_projyr <- fit$data_list$projyr
-
-  for (nm in .mse_proj_tables) {
-    full  <- data_list_full[[nm]]
-    short <- fit$data_list[[nm]]
-    if (is.null(full) || is.null(short) || !nrow(full)) next
-
-    keep <- abs(full$Year) <= short_projyr
-    # The refit sees the full-horizon table and only filters it, so its rows are
-    # the kept rows in the same order and its columns are unchanged. Check
-    # rather than assume: either mismatch would silently misalign the rows or
-    # columns written back below, and with them every row-indexed quantity.
-    # Compare years by value -- clean_data() may return them as integer where
-    # the source table held doubles.
-    yrs_full  <- as.numeric(abs(full$Year))[keep]
-    yrs_short <- as.numeric(abs(short$Year))
-    if (length(yrs_full) != length(yrs_short) || any(yrs_full != yrs_short) ||
-        !identical(names(full), names(short))) {
-      stop("run_mse(): '", nm, "' did not survive the shortened operating-model ",
-           "horizon unchanged (", sum(keep), " rows expected, ", nrow(short),
-           " returned).", call. = FALSE)
-    }
-
-    # clean_data() renumbers diet_data's stomach_id from the rows it is given,
-    # so a table that actually lost rows would come back with the shortened
-    # numbering spliced into the full-horizon one. No bundled model stratifies
-    # diet by projection year, so this never fires -- but it must not pass
-    # silently if one ever does.
-    if (identical(nm, "diet_data") && !all(keep)) {
-      stop("run_mse(): diet_data is stratified past the shortened operating-model ",
-           "horizon; its stomach_id would be renumbered. Widen the horizon or ",
-           "drop diet_data from .mse_proj_tables.", call. = FALSE)
-    }
-
-    restored <- full
-    restored[keep, ] <- short
-    fit$data_list[[nm]] <- restored
-
-    if (identical(nm, "catch_data")) {
-      for (q in .mse_proj_catch_quantities) {
-        x <- fit$quantities[[q]]
-        if (is.null(x)) next
-        # NA outside the refit's horizon: those years have not been projected,
-        # and the loop only ever indexes rows at or before it.
-        out <- rep(NA_real_, nrow(full))
-        out[keep] <- x
-        if (!is.null(names(x))) {
-          nms <- rep(NA_character_, nrow(full))
-          nms[keep] <- names(x)
-          names(out) <- nms
-        }
-        fit$quantities[[q]] <- out
-      }
-    }
-  }
-
-  fit$data_list$projyr <- data_list_full$projyr
-  fit$estimated_params <- .mse_restore_proj_params(fit$estimated_params,
-                                                   params_full)
-  fit
-}
-
 # Assessment years ------------------------------------------------------------
 #
 # `assessment_period` is read two ways. A single number is a fixed cycle: an
@@ -400,17 +264,26 @@
 #' from a period, and the two readings are a world apart, so it is refused
 #' rather than guessed at.
 #'
-#' Two schedules run on the same `seed` are **not** on common random numbers.
-#' Between assessments the operating model's projection horizon is shortened to
-#' the next assessment year, so `sim_mod()` draws over a different number of
-#' projection rows depending on the schedule, and the observation draws diverge
-#' from the first assessment onward. On a three-year BS2017SS fixture, dropping
-#' one assessment moved catch in a year whose advice was identical by
-#' construction by 2.1%. A paired comparison of two schedules therefore carries
-#' an observation-error difference alongside the schedule effect; treat the
-#' difference as containing Monte Carlo noise, and use enough replicates to
-#' separate the two rather than relying on variance reduction that is not
-#' there.
+#' Two schedules run on the same `seed` share their recruitment deviations,
+#' which are drawn once per replicate before the first assessment, and each
+#' assessment's observation draw is seeded on that assessment's own year rather
+#' than on wherever earlier assessments left the stream. So an assessment in
+#' year `Y` starts from the same place in every schedule that assesses `Y`, and
+#' a divergence at one assessment no longer displaces every assessment after it.
+#'
+#' Common random numbers are not complete, and the gap is worth knowing before
+#' designing a comparison. One `sim_mod()` call draws every year in the
+#' assessment interval, under that assessment's seed --- so a year sitting
+#' *inside* a longer interval is drawn under a different seed than the same year
+#' in a schedule that assessed it directly. Two schedules that differ in which
+#' years they assess therefore realize different observation error in the years
+#' between, even where the stock is in the same state. Per-observation-year
+#' streams would close it; `inst/dev/TODO-mse-horizon.md` records what that
+#' would take.
+#'
+#' Past the point where two schedules genuinely diverge --- different catch
+#' taken, different years surveyed --- the draws necessarily diverge too. That
+#' is a real difference in the runs, not an artefact.
 #'
 #' Make the last assessment year reach the projection horizon. Catch is only
 #' ever filled up to the last assessment, so a schedule that stops short leaves
@@ -810,6 +683,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     # Sample recruitment
     om_use <- Rceattle::sample_rec(om_use, sample_rec = sample_rec, update_model = FALSE, rec_trend = rec_trend)
 
+    # A seed per projection year for the observation draws, keyed by the YEAR
+    # rather than by an assessment's position in the schedule, and drawn over a
+    # year list that does not depend on the schedule at all. Each assessment
+    # then starts its draw from the same place whatever schedule the run is on,
+    # so a divergence in one assessment cannot displace the stream every later
+    # assessment draws from. That compounding is what stopped two schedules
+    # being comparable replicate by replicate.
+    #
+    # Drawn AFTER sample_rec(), so recruitment deviations consume the
+    # per-simulation stream exactly as they did before and are unchanged.
+    draw_seeds <- stats::setNames(
+      sample.int(.Machine$integer.max, length(om_proj_yrs)),
+      as.character(om_proj_yrs))
+
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
 
@@ -878,23 +765,16 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
-      # * Shorten the projection horizon for this refit ----
-      # Reach one assessment step past the new terminal year -- far enough for
-      # the next iteration's exploitable-biomass cap -- so the AD tape covers
-      # the realized years plus that look-ahead instead of the whole projection.
-      # The last assessment keeps the full horizon, so the operating model that
-      # is returned (and handed to remove_F) is built over the whole projection,
-      # exactly as if the horizon had never been shortened.
-      om_dl_full     <- om_use$data_list
-      om_params_full <- om_use$estimated_params
-      om_projyr_use  <- if (k < length(assess_yrs)) assess_yrs[k + 1] else om_dl_full$projyr
-      om_shortened   <- om_projyr_use < om_dl_full$projyr
-      if (om_shortened) {
-        om_use$data_list$projyr <- om_projyr_use
-        om_use$estimated_params <- .mse_trim_proj_params(
-          om_use$estimated_params,
-          om_projyr_use - om_use$data_list$styr + 1)
-      }
+      # The operating model is refit over its WHOLE projection, every
+      # assessment. It used to be shortened to the next assessment year, which
+      # is all the loop reads -- but `sim_mod()` draws once per observation row,
+      # so the number of rows the shortened model carried set how far the random
+      # stream advanced, and that row count depended on when the NEXT assessment
+      # fell. Two runs differing only in their assessment schedule then drew
+      # different observation error from the first assessment onward, which is
+      # exactly the comparison an MSE of two schedules is trying to make.
+      # See the TODO in inst/dev/TODO-mse-horizon.md for how to get the saving
+      # back without reintroducing that.
 
       # * Update parameters ----
       # -- log_F
@@ -1014,12 +894,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       om_use$data_list$estimateMode <- estimate_mode_base
 
       # sim_mod() reads the operating model's quantities positionally against
-      # its own data frames, so it works from the fitted object; the assessment
-      # loop below works from the full-horizon one.
+      # its own data frames, so it works from the fitted object.
       om_fit <- om_use
-      if (om_shortened) {
-        om_use <- .mse_restore_om_horizon(om_use, om_dl_full, om_params_full)
-      }
 
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -1042,6 +918,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # 4. Simulate data from OM ----
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
+      # Seeded on this assessment's year, not on wherever the stream happened
+      # to be left by the assessments before it.
+      set.seed(draw_seeds[[as.character(assess_yrs[k])]])
       sim_dat <- Rceattle::sim_mod(om_fit, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]

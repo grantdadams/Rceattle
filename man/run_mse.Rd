@@ -98,17 +98,26 @@ A schedule must name two or more years. One year on its own cannot be told
 from a period, and the two readings are a world apart, so it is refused
 rather than guessed at.
 
-Two schedules run on the same \code{seed} are \strong{not} on common random numbers.
-Between assessments the operating model's projection horizon is shortened to
-the next assessment year, so \code{sim_mod()} draws over a different number of
-projection rows depending on the schedule, and the observation draws diverge
-from the first assessment onward. On a three-year BS2017SS fixture, dropping
-one assessment moved catch in a year whose advice was identical by
-construction by 2.1\%. A paired comparison of two schedules therefore carries
-an observation-error difference alongside the schedule effect; treat the
-difference as containing Monte Carlo noise, and use enough replicates to
-separate the two rather than relying on variance reduction that is not
-there.
+Two schedules run on the same \code{seed} share their recruitment deviations,
+which are drawn once per replicate before the first assessment, and each
+assessment's observation draw is seeded on that assessment's own year rather
+than on wherever earlier assessments left the stream. So an assessment in
+year \code{Y} starts from the same place in every schedule that assesses \code{Y}, and
+a divergence at one assessment no longer displaces every assessment after it.
+
+Common random numbers are not complete, and the gap is worth knowing before
+designing a comparison. One \code{sim_mod()} call draws every year in the
+assessment interval, under that assessment's seed --- so a year sitting
+\emph{inside} a longer interval is drawn under a different seed than the same year
+in a schedule that assessed it directly. Two schedules that differ in which
+years they assess therefore realize different observation error in the years
+between, even where the stock is in the same state. Per-observation-year
+streams would close it; \code{inst/dev/TODO-mse-horizon.md} records what that
+would take.
+
+Past the point where two schedules genuinely diverge --- different catch
+taken, different years surveyed --- the draws necessarily diverge too. That
+is a real difference in the runs, not an artefact.
 
 Make the last assessment year reach the projection horizon. Catch is only
 ever filled up to the last assessment, so a schedule that stops short leaves
