@@ -431,13 +431,86 @@ data_check <- function(data_list) {
   }
 
   # Weight / maturity / sex_ratio age coverage
+  # na.rm: an NA in `nages` is reported by the check that owns it, and without
+  # this `any()` returns NA and the `if` aborts data_check() -- discarding every
+  # error accumulated so far, that one included.
   if(any(data_list$weight |>
          dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) |>
-         ncol() < data_list$nages)){
+         ncol() < data_list$nages, na.rm = TRUE)){
     errors <- c(errors, "Weight data does not span range of ages")
   }
-  if(ncol(data_list$maturity)  <= max(data_list$nages)) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
-  if(ncol(data_list$sex_ratio) <= max(data_list$nages)) errors <- c(errors, "Sex ratio does not span all ages")
+  # na.rm on the max for the same reason as the weight check above: one NA in
+  # `nages` would otherwise abort data_check() here instead of being reported.
+  max_ages <- suppressWarnings(max(data_list$nages, na.rm = TRUE))
+  if(is.finite(max_ages)){
+    if(ncol(data_list$maturity)  <= max_ages) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
+    if(ncol(data_list$sex_ratio) <= max_ages) errors <- c(errors, "Sex ratio does not span all ages")
+  }
+
+  # Per-species age coverage, which the column counts above cannot see. Those
+  # ask only whether the table is wide enough for the LONGEST-lived species, so
+  # a table can be wide enough and still leave a species' own bins empty -- and
+  # the value-range checks below pass over NA.
+  #
+  # Both tables are summed over age. `mature_females` is `maturity`, times
+  # `sex_ratio` where a species is modelled one-sex (`ceattle.cpp` 5.4), and
+  # feeds hindcast `ssb`; `spawning_biomass_per_recruit()` (`spr.hpp`) sums the
+  # same schedule for SPR. So a `maturity` gap makes SSB NaN for any species,
+  # and a `sex_ratio` gap does the same for a ONE-SEX species. On a two-sex
+  # species `sex_ratio` reaches only SPR, which is why such a gap can sit
+  # unnoticed until a harvest control rule asks for reference points and nlminb
+  # reports "NA/NaN gradient evaluation", naming neither table nor species.
+  #
+  # Rows are read by POSITION: rearrange_data() drops the Species column and
+  # hands the model a matrix whose row i IS species i. A Species column that
+  # disagrees with the row order is reported rather than followed.
+  #
+  # Ages beyond a species' own `nages` are padding and are not checked.
+  fmt_ages <- function(x){
+    if(length(x) > 1L && identical(x, seq(x[1L], x[length(x)]))){
+      paste0(x[1L], "-", x[length(x)])
+    } else paste(x, collapse = ", ")
+  }
+  for(nm in c("maturity", "sex_ratio")){
+    tbl <- data_list[[nm]]
+    if(is.null(tbl) || !nrow(tbl)) next
+    agec <- grep("^Age", colnames(tbl))
+    if(!length(agec)) next
+
+    if(nrow(tbl) < data_list$nspp){
+      errors <- c(errors, paste0(
+        nm, " has ", nrow(tbl), " row(s) for ", data_list$nspp, " species. Rows ",
+        "are read by position, so species ", nrow(tbl) + 1L,
+        if(data_list$nspp > nrow(tbl) + 1L) paste0("-", data_list$nspp) else "",
+        " would be read past the end of the table."))
+    }
+    if(!is.null(tbl$Species)){
+      out_of_order <- which(suppressWarnings(as.integer(tbl$Species)) !=
+                              seq_len(nrow(tbl)))
+      if(length(out_of_order)){
+        errors <- c(errors, paste0(
+          nm, "$Species must match the row order -- rearrange_data() drops the ",
+          "column and the model reads row i as species i. Row(s) ",
+          paste(out_of_order, collapse = ", "), " disagree."))
+      }
+    }
+
+    for(sp in seq_len(min(nrow(tbl), data_list$nspp))){
+      n <- data_list$nages[sp]
+      # NA `nages`, or a table too narrow: both are reported by the checks that
+      # own them, and `if(NA)` here would abort before any of them are raised.
+      if(is.na(n) || length(agec) < n) next
+      vals <- suppressWarnings(as.numeric(tbl[sp, agec[seq_len(n)]]))
+      gaps <- which(!is.finite(vals))
+      if(length(gaps)){
+        errors <- c(errors, paste0(
+          nm, " is missing values for species ", sp, ", age",
+          if(length(gaps) > 1L) "s " else " ", fmt_ages(gaps),
+          " of ", n, ". Spawning biomass and spawner-per-recruit both sum over ",
+          "every age, so a gap leaves SSB or SPR0 NA."))
+      }
+    }
+  }
 
   # Maturity / sex_ratio value ranges
   mat_vals <- data_list$maturity[, grep("^Age", colnames(data_list$maturity)), drop = FALSE]
@@ -481,9 +554,11 @@ data_check <- function(data_list) {
 
   # ration_data
   if(has_data(data_list$ration_data)){
+    # na.rm as for weight above: an NA in `nages` is reported by its own check
+    # and must not abort this one.
     if(any(data_list$ration_data |>
            dplyr::select(-c(Species, Sex, Year)) |>
-           ncol() < data_list$nages)){
+           ncol() < data_list$nages, na.rm = TRUE)){
       errors <- c(errors, "'ration_data' data does not span range of ages")
     }
     ration_sex <- data_list$ration_data |> dplyr::group_by(Species) |>
@@ -510,7 +585,7 @@ data_check <- function(data_list) {
   if(any(data_list$age_error |>
          as.data.frame() |>
          dplyr::select(-c(Species, True_age)) |>
-         ncol() < data_list$nages)){
+         ncol() < data_list$nages, na.rm = TRUE)){
     errors <- c(errors, "`age_error` observed ages do not span range of ages")
   }
   # ALK & age_error: per-species age coverage (fillable with 0s downstream -- message-level)
@@ -556,11 +631,11 @@ data_check <- function(data_list) {
   # table); the column-count adequacy check stays imperative below.
   errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
   if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed)){
-    expected_cols <- 4 + max(data_list$nages)
+    expected_cols <- 4 + suppressWarnings(max(data_list$nages, na.rm = TRUE))
     if(ncol(data_list$NByageFixed) != expected_cols){
       errors <- c(errors, paste0("NByageFixed should have ", expected_cols,
                                  " columns (Species_name, Species, Sex, Year, Age1...Age",
-                                 max(data_list$nages), "), but has ", ncol(data_list$NByageFixed)))
+                                 suppressWarnings(max(data_list$nages, na.rm = TRUE)), "), but has ", ncol(data_list$NByageFixed)))
     }
   }
 
@@ -1525,7 +1600,7 @@ data_check <- function(data_list) {
     if(length(caal_cols) == 0){
       errors <- c(errors, "caal_data is missing CAAL_ columns (CAAL_1, CAAL_2, etc.)")
     } else {
-      missing_caal <- setdiff(paste0("CAAL_", 1:max(data_list$nages)), caal_cols)
+      missing_caal <- setdiff(paste0("CAAL_", 1:suppressWarnings(max(data_list$nages, na.rm = TRUE))), caal_cols)
       if(length(missing_caal) > 0){
         errors <- c(errors, paste("caal_data is missing CAAL columns:",
                                   paste(missing_caal, collapse = ", ")))

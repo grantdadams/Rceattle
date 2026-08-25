@@ -11,6 +11,54 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.19.0
+
+## Bug fixes
+
+* **`data_check()` checks `maturity` and `sex_ratio` age coverage per species,
+  not only against the widest one.** The existing checks compare the table's
+  column count with `max(nages)`, so a table wide enough for the longest-lived
+  species passes even when a shorter-column species is left short of its own
+  bins — and the `[0, 1]` range check then reads over the `NA`s with `na.rm`.
+
+  Both tables are summed over age. `mature_females` is `maturity`, times
+  `sex_ratio` where a species is modelled one-sex (`ceattle.cpp` 5.4), and feeds
+  hindcast `ssb`; `spawning_biomass_per_recruit()` (`src/TMB/spr.hpp`) sums the
+  same schedule for SPR. So a `maturity` gap makes SSB `NA` for any species, and
+  a `sex_ratio` gap does the same for a **one-sex** species.
+
+  On a **two-sex** species `sex_ratio` reaches only SPR — which is how this one
+  hid: the model fits cleanly, and the failure waits until a harvest control
+  rule asks for reference points, when `nlminb` reports `NA/NaN gradient
+  evaluation`, naming neither the table nor the species.
+
+  Found on the GOA multispecies workbook, where arrowtooth `sex_ratio` was
+  filled to Age10 against 21 age bins. That same data now reports:
+
+  ```
+  sex_ratio is missing values for species 2, ages 11-21 of 21. Spawning
+  biomass and spawner-per-recruit both sum over every age, so a gap leaves
+  SSB or SPR0 NA.
+  ```
+
+  Ages past a species' own `nages` are padding and are not checked, so a ragged
+  multispecies workbook still passes — asserted against the bundled datasets in
+  `test-data-check-age-coverage.R`.
+
+  Rows are read by **position**, since `rearrange_data()` drops the `Species`
+  column and hands the model a matrix whose row *i* is species *i*. A
+  `Species` column that disagrees with the row order, and a table with fewer
+  rows than species, are both reported.
+
+* **An `NA` in `nages` no longer aborts `data_check()`.** Five age-coverage
+  comparisons (`weight`, `ration_data`, `age_error`, `maturity`/`sex_ratio`
+  widths, `NByageFixed`, CAAL columns) evaluated `any(... < nages)` or
+  `max(nages)` without `na.rm`, so a single `NA` made the `if()` condition `NA`
+  and raised "missing value where TRUE/FALSE needed" — discarding every error
+  accumulated up to that point, including `nages`' own "not included for all
+  species".
+
+
 # Rceattle 5.18.1
 
 ## Documentation
