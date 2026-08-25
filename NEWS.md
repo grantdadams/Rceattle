@@ -75,6 +75,25 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   over 200 draws the residual `y_sim - mu` had sd 0.9995 against a fitted
   measurement sd of 1.
 
+* **`build_bounds(dsem = )` bounds a DSEM's standard deviations at 0, so the
+  model can be sampled.** A lag-0 two-headed self path (`x <-> x`) is a diagonal
+  of the Cholesky factor of the exogenous covariance. The likelihood sees only
+  \eqn{\Gamma'\Gamma} and the template reads it as `sqrt(square(beta_z))`, so
+  its sign is not identified and the surface is exactly symmetric about 0.
+  Harmless for an MLE -- a mirrored pair of optima -- and fatal for MCMC, where
+  the posterior is bimodal by construction, chains do not mix, and R-hat and any
+  interval on sigma are meaningless. Bounding the diagonal below at 0 is the
+  standard identifying restriction for a Cholesky factor and rules out nothing
+  the likelihood could distinguish; pass `$lower` / `$upper` on to
+  `tmbstan::tmbstan()` for the same constraint there. A variable that also
+  carries a cross-covariance (`A <-> B`) or a lagged two-headed path keeps
+  unbounded support, because identifying its sign means flipping a whole row of
+  \eqn{\Gamma} rather than one element; `fit_mod()` names those variables. A fit
+  carried forward from the negative root is flipped to the positive one rather
+  than rejected as out of bounds -- exact where the bound applies, and it
+  reproduces the same optimum. `dsem` is optional, so an existing
+  `build_bounds()` call is unchanged.
+
 * **`dsem_z_tj` is REPORTed**, so the latent field the model actually used is
   readable from R. `rec_dev` is derived from it, so it is what says whether a
   substituted draw reached the dynamics.

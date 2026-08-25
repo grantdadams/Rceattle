@@ -853,8 +853,35 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 4: Get bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # A DSEM standard deviation is a Cholesky diagonal, so its sign is not
+    # identified and build_bounds() now bounds it at 0. A model carried forward
+    # from before that bound can sit at the negative root, which would put a
+    # warm start outside its own bound. Flipping it is exact where the bound
+    # applies -- the variable has no other two-headed path, so the likelihood
+    # sees only the square.
+    if (!is.null(mod_objects$dsem) && !is.null(start_par$dsem_beta_z)) {
+      .sdz <- .dsem_sd_indices(mod_objects$dsem)
+      .k <- .sdz$sd[.sdz$sd <= length(start_par$dsem_beta_z)]
+      # which(), not a bare logical: an NA start value would index with NA and
+      # write an NA back into the parameter list.
+      .k <- .k[which(start_par$dsem_beta_z[.k] < 0)]
+      if (length(.k)) {
+        start_par$dsem_beta_z[.k] <- abs(start_par$dsem_beta_z[.k])
+        if (verbose > 0) {
+          message("Flipped ", length(.k), " DSEM standard deviation(s) to the ",
+                  "positive root; the sign is not identified and is bounded at 0.")
+        }
+      }
+      if (length(.sdz$entangled) && verbose > 0) {
+        message("DSEM variable(s) ", paste(.sdz$entangled, collapse = ", "),
+                " carry a cross-covariance or lagged variance path, so their ",
+                "standard deviations keep an unidentified sign and no bound. ",
+                "See ?build_bounds.")
+      }
+    }
     if (is.null(bounds)) {
-      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
+      bounds <- Rceattle::build_bounds(param_list = start_par, data_list,
+                                       dsem = mod_objects$dsem)
     }
     if (verbose > 0) { message("Step 3: Parameter bounds complete") }
 

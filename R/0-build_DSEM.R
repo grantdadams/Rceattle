@@ -1044,6 +1044,62 @@ check_dsem_spec <- function(data_list, dsem) {
 }
 
 
+#' Which `dsem_beta_z` entries are standard deviations, not path coefficients
+#'
+#' `dsem_beta_z` holds every free SEM path in one vector: one-headed paths
+#' (`->`) are regression coefficients whose sign is meaningful, two-headed paths
+#' (`<->`) are entries of the Cholesky factor of the exogenous covariance.
+#'
+#' A lag-0 two-headed SELF path is a diagonal of that factor -- a standard
+#' deviation. Its sign is not identified: the likelihood sees only
+#' \eqn{\Gamma'\Gamma}, and the template reads it as
+#' `R_sd = sqrt(square(beta_z))`. So the surface is exactly symmetric about 0.
+#' For an MLE that is a harmless pair of mirrored optima; for MCMC it is fatal --
+#' the posterior is bimodal by construction, chains sit in whichever mode they
+#' started in or wander between them, and R-hat and any interval on sigma are
+#' meaningless. Constraining the diagonal to be non-negative is the standard
+#' identifying restriction for a Cholesky factor and discards nothing.
+#'
+#' Only diagonals that stand ALONE in their row qualify. If the variable also
+#' carries a cross-covariance (`A <-> B`) or a lagged two-headed path, its row
+#' of \eqn{\Gamma} has off-diagonal entries, the sign flip is no longer
+#' invariant term by term, and identifying it means flipping the whole row --
+#' which this does not attempt. Those entries keep their unbounded support, and
+#' `build_bounds()` says so.
+#'
+#' An index is returned only when EVERY sem row sharing it qualifies: two paths
+#' constrained to one parameter by name share a `beta_z` entry.
+#'
+#' @param dsem A built DSEM (`mod_objects$dsem`), carrying `sem_full`.
+#' @return A list of `sd` (1-based indices into `dsem_beta_z` that are
+#'   standalone SDs) and `entangled` (names of variables whose SD could not be
+#'   constrained), or NULL if the fit carries no usable `sem_full`.
+#' @noRd
+.dsem_sd_indices <- function(dsem) {
+  sf <- dsem$sem_full
+  if (is.null(sf) || !nrow(sf)) return(NULL)
+  need <- c("direction", "first", "second", "lag", "parameter")
+  if (!all(need %in% names(sf))) return(NULL)
+
+  two <- sf$direction == 2
+  # A row of Gamma is clean only if this variable carries no other two-headed
+  # path -- no cross-covariance, no lagged variance.
+  messy <- two & (sf$first != sf$second | sf$lag != 0)
+  entangled <- unique(c(sf$first[messy], sf$second[messy]))
+
+  qualifies <- two & sf$first == sf$second & sf$lag == 0 &
+    !(sf$first %in% entangled)
+  idx <- unique(sf$parameter[qualifies & sf$parameter > 0])
+  # Shared by a path that does not qualify -> not an SD on its own terms.
+  shared <- unique(sf$parameter[!qualifies & sf$parameter > 0])
+  idx <- setdiff(idx, shared)
+
+  blocked <- unique(sf$first[two & sf$first == sf$second & sf$lag == 0 &
+                               sf$first %in% entangled])
+  list(sd = sort(as.integer(idx)), entangled = blocked)
+}
+
+
 #' Draw a DSEM's whole latent field from the density that scored it
 #'
 #' @description

@@ -219,6 +219,23 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 Every diagnostic in `vignette("model-diagnostics")` runs on a DSEM fit, and that vignette has a section saying which of them mean something slightly different. The short version: OSA residuals cover the assessment data exactly as without a DSEM (the covariate series is not among them, and under `family = "fixed"` it carries no measurement density to residualize); recruitment process residuals are whitened by the process precision rather than divided by a per-year SD; `profile(param = "sigmaR")` resolves to the SEM's variance path; and `self_test(process = TRUE)` re-realizes the SEM rather than drawing IID deviations, handing back the drawn field in `attr(sims, "process_sim")$dsem_x_tj`. A covariate declared with a measurement family is simulated too — its state with the field, its observation from the family that scores it, written back into `env_data`. `run_mse()` is the one thing that still refuses.
 
+## Sampling a DSEM
+
+The two-headed `<->` self paths are diagonals of a Cholesky factor, so the likelihood sees only their squares and their sign is not identified. That costs nothing at the MLE — there are simply two mirrored optima — but it makes the posterior bimodal by construction, so an unconstrained sampler either sits in whichever mode it started in or wanders between them, and R-hat and any credible interval on σ are meaningless.
+
+`build_bounds()` bounds those diagonals at 0, which is the standard identifying restriction for a Cholesky factor and rules out nothing the likelihood could distinguish. Pass the same bounds to the sampler:
+
+```{r, eval = FALSE}
+b <- build_bounds(param_list = fit$estimated_params,
+                  data_list  = fit$data_list,
+                  dsem       = fit$dsem)
+post <- tmbstan::tmbstan(fit$obj,
+                         lower = unlist(b$lower[names(fit$obj$par)]),
+                         upper = unlist(b$upper[names(fit$obj$par)]))
+```
+
+A variable that also carries a cross-covariance (`A <-> B`) or a lagged two-headed path keeps unbounded support: its row of the factor has off-diagonal entries, so identifying the sign means flipping the whole row rather than the one element. `fit_mod()` names those variables when it builds the bounds, and their marginals will show the same mirroring until you identify them another way — a prior, or a reparameterization outside the SEM.
+
 ## Which variance a `<->` term means
 
 This only matters once your SEM has a **lagged** path. With simultaneous effects only, the three `constant_variance` settings are mathematically identical, and on the bundled GOA pollock model they return the same objective to every printed digit.
