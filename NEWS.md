@@ -97,6 +97,32 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
   when stacked, so the count is the number of linkages the model actually holds.
 
+## Internals
+
+* **The golden regression now runs in CI, and the multi-OS `NOT_CRAN` guard is
+  deterministic.** `test-golden-regression.R` carries both `skip_on_cran()` and
+  `skip_on_covr()`, so it fired in neither existing job -- `R-CMD-check` sets
+  `NOT_CRAN=false` to keep the matrix fast, and `test-coverage` runs under covr.
+  The committed backstop for "a numeric change needs golden equivalence" was
+  therefore never automated. A new `deep-checks` workflow runs it nightly and
+  asserts the file produced assertions, since a skipped file otherwise reports
+  as a pass.
+
+  The `NOT_CRAN=false` override moved from an earlier step's `$GITHUB_ENV`
+  append to step-level `env:` on `check-r-package`, where GitHub's precedence
+  makes it unshadowable and the log shows which mode ran. Through `$GITHUB_ENV`
+  it did not hold reliably: on one commit the skip fired and on the next,
+  differing only in a Markdown file, the heavy tests ran and the Windows worker
+  died with `0xC0000005`.
+
+* **The model can be built with array bounds checking.** `RCEATTLE_SAFEBOUNDS=true`
+  builds with TMB's `safebounds`, turning an out-of-range access from a silent
+  write into adjacent memory into an R error naming the object -- the class of
+  fault the 5.15.0 `age_hat` overflow was, and the standing explanation for that
+  Windows access violation. `tools/verify/verify-safebounds.R` drives it, with a
+  positive control asserting `-DTMB_SAFEBOUNDS` reached the compile line. The
+  default is unchanged and no fit gets slower.
+
 ## Documentation
 
 * **`vignette("model-parameterizations")` gives the fishery index predictor.**

@@ -252,6 +252,16 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   and writes the result back, so a new likelihood family owes a draw. Draw what the density
   assumes (bias-correction convention and scale included), REPORT under a `*_sim` name, and
   don't draw what the model does not define. `tools/verify/verify-sim-*.R` is the net.
+- **The guards are not themselves guarded.** `test-golden-regression.R` is `skip_on_cran()` AND
+  `skip_on_covr()`, so until 5.16.0 it ran in no CI job at all; the `deep-checks` workflow now
+  runs it nightly and asserts it produced assertions. `NOT_CRAN=false` must be step-level `env:`
+  on `check-r-package`, never `$GITHUB_ENV` — through `$GITHUB_ENV` it did not hold reliably, and
+  when it slipped Windows died with `0xC0000005`.
+- **An access violation is memory corruption, not a bad optimum.** The model builds
+  `safebounds = FALSE`, so an out-of-range access writes silently into adjacent memory. Build
+  `RCEATTLE_SAFEBOUNDS=true` and run `tools/verify/verify-safebounds.R`, which asserts
+  `-DTMB_SAFEBOUNDS` actually reached the compile line — `pkgload` only recompiles when sources
+  change, so a clean result against a stale `.so` means nothing.
 - **A slow fit is the model, not a regression** — `BS2017SS` has needed ~500–700 `nlminb`
   iterations since at least 2023.
 - Scratch outputs (`Rplots.pdf`, `*_osa.png`, `*.RDS` under `tests/comparison/`) are gitignored.
