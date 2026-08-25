@@ -65,6 +65,42 @@ than fixing.
   (`src/TMB/ceattle.cpp:1542`), and the M used is the terminal-year value
   (`src/TMB/ceattle.cpp:1514`, `:1522`).
 
+### DSEM (added 5.15.0)
+
+- **`run_mse()` refuses a DSEM.** Two things are unresolved, both named at the guard
+  (`R/10-run_mse.R`): `sample_rec()`'s draws must be written into `dsem_x_tj[, rec_dev_col]`
+  rather than `rec_dev`, which the template overwrites; and `.mse_proj_param_yrdim` is a static
+  table that cannot express "x_tj spans projyr only when `estimate_projection = TRUE`", so it
+  would either trim a hindcast-only field or fail to trim a projecting one.
+- **OSA residuals do not cover a DSEM's covariate observations.** `obsvec` carries catch, index,
+  comp, caal, diet and one slot per linkage random effect; `dsem_y_tj` has none, and its
+  measurement density in `calculate_dsem()` is not `keep`-gated. Under `family = "fixed"` — every
+  production script — this is correct rather than missing, because a pinned covariate carries no
+  measurement density. It is a real gap only under `normal`/`gamma`/`lognormal`/etc.
+- **`dsem.hpp`'s `SIMULATE` draws for `y_tj` are commented out** (`// y_tj(t,j) = rnorm(...)`).
+  By the SIMULATE contract a scored density owes a draw, so under a non-`fixed` family
+  `sim_mod()` / `self_test()` hold the environmental observations fixed across replicates and
+  understate uncertainty. Nothing warns. Same `family = "fixed"` caveat as above.
+- **`osa_residuals()` on `estimateMode = 0` with a harvest control rule** computes with the
+  recruitment and initial deviations pinned. `fit$obj` is then the PROJECTION object, whose map
+  sets every hindcast entry to NA — measured on `GOApollock`: `rec_dev` 51/51 and `init_dev`
+  10/10 mapped out, `obj$env$random` empty. Re-declaring them random does NOT change this
+  (TMB no-ops a fully-mapped random name); measured max |difference| 0. Getting marginal
+  residuals would mean rebuilding the OSA object from the HINDCAST map. Whether the shipped
+  residuals are materially different from that is **unmeasured**. `estimateMode = 1` and
+  `estimateMode = 0` without an HCR are unaffected (58/58 random effects intact).
+
+Coverage that does not exist rather than does not work, all DSEM-specific:
+
+- **CAAL with a DSEM is untested and untestable here** — no bundled dataset and none of the
+  three assessment workbooks (GOA arrowtooth 2025, GOA pollock 2025, EBS pollock 2024) carries
+  a `caal_data` row.
+- **`minage != 1` with a DSEM** builds with a finite objective and the right marginal variance,
+  but nothing pins the indexing. The DSEM paths are year-indexed rather than age-indexed, so the
+  exposure is low.
+- **Multispecies / diet with a DSEM** was never run; `run_mse()` refuses one, so the MSE path is
+  uncovered rather than under-covered.
+
 ## Tier 2 — design notes and refactor wishes
 
 Cleared in 5.14.0 except where noted. As in Tier 0, three of these were not what their marker
@@ -156,7 +192,24 @@ Still open. No user-visible consequence; do them opportunistically.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
-Seven, each a judgement about what the right behaviour *is*:
+Nine, each a judgement about what the right behaviour *is*:
+
+- `R/10-project-no-F.R` — whether `remove_F()` should start the unfished trajectory at
+  `suit_endyr + 1` rather than `endyr + 1`. 5.15.0 changed **no code**, only the comment, which
+  now declares as intentional the behaviour previously recorded as a defect: when
+  `suit_endyr < endyr` the late hindcast years are unfished too. The comment quotes the same
+  measurement the earlier note did (terminal SSB +43% / +187% / +17% on BS2017SS with
+  `suit_endyr = 2010`). `run_mse()` calls `remove_F(om_use)` to build `OM_no_F`, which
+  depletion-based HCRs 5 and 6 are scored against, so this is catch advice rather than
+  documentation. Decide which reading is right.
+- **A DSEM's recruitment SD has no stationarity guard.** With `constant_variance = "conditional"`
+  (the default, and dsem's) a lagged self-path makes the marginal variance `sigma^2/(1-rho^2)`,
+  which diverges as `rho -> 1`. Nothing bounds `rho` or the implied correction. Constructed
+  example: `rho ~ 0.94`, `sigma = 1.44` gives `margvar ~ 18.8`, so the bias correction is ~9.4
+  on the log scale and a deterministic projection sits ~10^4 from the median. Documented in
+  `vignette("dsem")` with the closed form and a table; whether it should also WARN at runtime,
+  and on what quantity (`max(dsem_margvar_tj)`, or the spectral radius of the lag-1 path
+  matrix), is open. `constant_variance = "marginal"` removes the hazard by construction.
 
 - `src/TMB/ceattle.cpp` (`this denominator is the TERMINAL PROJECTION YEAR's own biomass`) —
   what multispecies depletion should mean with no harvest control rule. Under
