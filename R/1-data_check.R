@@ -462,7 +462,7 @@ data_check <- function(data_list) {
   # reports "NA/NaN gradient evaluation", naming neither table nor species.
   #
   # Rows are read by POSITION: rearrange_data() drops the Species column and
-  # hands the template a matrix whose row i IS species i. A Species column that
+  # hands the model a matrix whose row i IS species i. A Species column that
   # disagrees with the row order is reported rather than followed.
   #
   # Ages beyond a species' own `nages` are padding and are not checked.
@@ -490,7 +490,7 @@ data_check <- function(data_list) {
       if(length(out_of_order)){
         errors <- c(errors, paste0(
           nm, "$Species must match the row order -- rearrange_data() drops the ",
-          "column and the template reads row i as species i. Row(s) ",
+          "column and the model reads row i as species i. Row(s) ",
           paste(out_of_order, collapse = ", "), " disagree."))
       }
     }

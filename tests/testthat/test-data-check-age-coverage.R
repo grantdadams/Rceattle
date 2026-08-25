@@ -83,7 +83,7 @@ test_that("scattered gaps are listed, not reported as a span", {
 
 
 test_that("rows are read by position, and a disagreeing Species column is reported", {
-  # rearrange_data() drops Species and hands the template a row-indexed matrix,
+  # rearrange_data() drops Species and hands the model a row-indexed matrix,
   # so row i IS species i. Following the column instead would check the wrong
   # species' nages.
   dl <- goa()
