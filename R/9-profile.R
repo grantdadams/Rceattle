@@ -1,0 +1,359 @@
+#' Likelihood profile across one or more parameter cells
+#'
+#' @description Re-fits an Rceattle model while holding selected cells of a
+#'   parameter fixed at user-specified values. Supports profiling a single
+#'   cell (e.g. \code{R_log_sd[species = 1]}) and arbitrary N-dimensional
+#'   cross-profiles over multiple cells -- e.g. \code{log_M1[1, 1, 1]} and
+#'   \code{log_M1[1, 2, 1]} jointly, to profile residual M for males against
+#'   females. For each grid point the targeted cells are fixed in the TMB
+#'   map and the remaining parameters are re-estimated; the result is a
+#'   grid of Rceattle models for downstream NLL surfaces.
+#'
+#' @param fitted an Rceattle model fit using \code{\link{fit_mod}}
+#' @param param Name of the parameter to profile. Two ways to specify it:
+#'   \describe{
+#'     \item{Raw parameter slot}{any name in
+#'       \code{Rceattle$estimated_params}; tested for \code{"R_log_sd"},
+#'       \code{"rec_pars"}, and \code{"log_M1"}. \code{slots} must index
+#'       into the full array and \code{transform} controls the scale.}
+#'     \item{Natural-scale alias}{convenience shortcut for the three
+#'       documented parameters. Aliases imply \code{transform = "log"}
+#'       (values are taken in natural units and log'd before being
+#'       substituted) and, for \code{rec_pars}, fill in the column from
+#'       the alias name so \code{slots} only needs the species index:
+#'       \itemize{
+#'         \item \code{"sigmaR"}, \code{"R_sd"} -> \code{R_log_sd}
+#'         \item \code{"M1"} -> \code{log_M1}
+#'         \item \code{"R0"} -> \code{rec_pars[, 1]}
+#'         \item \code{"alpha"} -> \code{rec_pars[, 2]}
+#'         \item \code{"beta"} -> \code{rec_pars[, 3]}
+#'       }
+#'       If \code{transform} is supplied with an alias it is ignored
+#'       (with a warning).}
+#'   }
+#' @param slots A list whose entries are integer index vectors, one entry
+#'   per cell to fix. Each entry's length must equal the number of
+#'   dimensions of the resolved parameter -- 1 for vectors
+#'   (\code{R_log_sd}), 2 for matrices (\code{rec_pars}), 3 for 3-D arrays
+#'   (\code{log_M1}). When using the \code{"R0"}/\code{"alpha"}/\code{"beta"}
+#'   aliases, supply only the species index (length 1); the column is
+#'   filled in from the alias. E.g. \code{list(c(1, 2, 1))} fixes
+#'   \code{log_M1[1, 2, 1]}; \code{list(c(1, 1, 1), c(1, 2, 1))} fixes both
+#'   sex cells for a males-vs-females cross-profile of species 1;
+#'   \code{list(1, 2)} with \code{param = "sigmaR"} cross-profiles species
+#'   1 and 2. If omitted, defaults to a single species-1 slot shaped to
+#'   match the resolved parameter (e.g. \code{list(1)} for
+#'   \code{R_log_sd}, \code{list(c(1, 1, 1))} for \code{log_M1},
+#'   \code{list(1)} for the \code{rec_pars} aliases) and emits a warning;
+#'   pass \code{slots} explicitly to silence the warning. Defaulting
+#'   requires \code{length(values) == 1L} (otherwise the user must
+#'   explicitly say which cell each grid targets).
+#' @param values A list of numeric vectors, one per entry of \code{slots}.
+#'   The full grid of fits is \code{expand.grid(values)}, so a single slot
+#'   gives a 1-D profile and \emph{k} slots give a \emph{k}-D cross-profile.
+#' @param transform How to map user values onto the internal parameter scale
+#'   before substituting them into \code{inits}. Either \code{"log"}
+#'   (default), \code{"identity"}, or a unary function (e.g.
+#'   \code{qlogis}). Applied element-wise to every grid value. Aliases
+#'   override this with \code{"log"}.
+#' @param cores Number of cores to use for parallel fits. Default
+#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+#'   running under \code{R CMD check} (which sets
+#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param getsd whether each grid fit runs \code{TMB::sdreport}. The profile
+#'   reads only the objective (\code{nll}), so \code{FALSE} is faster with no
+#'   effect on the profile. Default \code{NULL} inherits the input model's
+#'   setting (\code{TRUE} only if it carries an \code{sdrep}).
+#' @param ... Unused; present for consistency with the \code{stats::profile}
+#'   generic.
+#'
+#' @return A list with elements:
+#'   \describe{
+#'     \item{Rceattle_list}{list of fitted Rceattle models, one per grid
+#'       row; entries for non-converged fits are \code{NULL} so positions
+#'       stay aligned with \code{grid}.}
+#'     \item{grid}{data frame of grid values on the user scale (before
+#'       \code{transform}); one column per profiled cell, named
+#'       \code{slot_1}, \code{slot_2}, ...}
+#'     \item{nll}{numeric vector of joint negative log-likelihoods
+#'       (\code{opt$objective}); \code{NA} where the fit did not
+#'       converge.}
+#'     \item{param}{the profiled parameter name (echoed).}
+#'     \item{slots}{the slots list (echoed for downstream plotting).}
+#'   }
+#'
+#' @examples
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS,
+#'     inits = NULL, file = NULL,
+#'     estimateMode = 0, random_rec = FALSE,
+#'     msmMode = 0, avgnMode = 0,
+#'     phase = FALSE, verbose = 0)
+#'
+#' # 1-D profile of sigmaR for species 1 (alias form -- natural scale)
+#' p1 <- profile(ss_run,
+#'     param  = "sigmaR",
+#'     slots  = list(1),
+#'     values = list(seq(0.1, 1.5, by = 0.1)))
+#'
+#' # Equivalent raw form (log scale -- user does the transform)
+#' p1_raw <- profile(ss_run,
+#'     param     = "R_log_sd",
+#'     slots     = list(1),
+#'     values    = list(log(seq(0.1, 1.5, by = 0.1))),
+#'     transform = "identity")
+#'
+#' # 2-D cross-profile of M1 across species 1 and 2 (sex 1, age 1).
+#' # BS2017SS is single-sex; with a multi-sex model the same form
+#' # (e.g. c(1, 1, 1), c(1, 2, 1)) would cross-profile males vs females.
+#' p2 <- profile(ss_run,
+#'     param  = "M1",
+#'     slots  = list(c(1, 1, 1), c(2, 1, 1)),
+#'     values = list(seq(0.1, 0.4, length.out = 3),
+#'                   seq(0.1, 0.4, length.out = 3)))
+#'
+#' # 1-D profile of SRR alpha for species 1 (alias drops the rec_pars column)
+#' p3 <- profile(ss_run,
+#'     param  = "alpha",
+#'     slots  = list(1),
+#'     values = list(seq(2, 80, length.out = 20)))
+#' }
+#' @importFrom stats profile
+#' @method profile Rceattle
+#' @export
+profile.Rceattle <- function(fitted = NULL,
+                          param = NULL,
+                          slots = NULL,
+                          values = NULL,
+                          transform = "log",
+                          cores = NULL,
+                          getsd = NULL,
+                          ...) {
+
+  # -- Input validation ----
+  if (!inherits(fitted, "Rceattle")) {
+    stop("Object is not of class 'Rceattle'")
+  }
+  # Grid fits inherit the input model's sdreport setting unless overridden;
+  # the profile reads only the objective, not sdrep.
+  if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
+  if (is.null(param) || !is.character(param) || length(param) != 1L) {
+    stop("`param` must be a single character string naming a parameter slot.")
+  }
+  if (!is.list(values) || length(values) == 0L) {
+    stop("`values` must be a non-empty list of numeric grids.")
+  }
+
+  # Natural-scale aliases: each maps to a real parameter, implies log()
+  # transform, and (for rec_pars aliases) fills in the column index so
+  # `slots` only needs the species index.
+  alias_table <- list(
+    sigmaR = list(param = "R_log_sd", rec_pars_col = NA_integer_),
+    R_sd   = list(param = "R_log_sd", rec_pars_col = NA_integer_),
+    M1     = list(param = "log_M1",   rec_pars_col = NA_integer_),
+    R0     = list(param = "rec_pars", rec_pars_col = 1L),
+    alpha  = list(param = "rec_pars", rec_pars_col = 2L),
+    beta   = list(param = "rec_pars", rec_pars_col = 3L)
+  )
+
+  alias_name   <- NA_character_
+  rec_pars_col <- NA_integer_
+  if (param %in% names(alias_table)) {
+    alias_name <- param
+    a <- alias_table[[alias_name]]
+
+    # Aliases force log transform; warn if user passed something else
+    if (!identical(transform, "log")) {
+      warning(sprintf(
+        "`param = \"%s\"` is a natural-scale alias for `%s`; ignoring the supplied `transform` (aliases imply transform = \"log\").",
+        alias_name, a$param
+      ))
+    }
+    transform    <- "log"
+    rec_pars_col <- a$rec_pars_col
+    param        <- a$param   # resolve to real parameter slot
+  }
+
+  if (!param %in% names(fitted$estimated_params)) {
+    stop("`param` '", param, "' not found in Rceattle$estimated_params.")
+  }
+
+  par_array <- fitted$estimated_params[[param]]
+  par_ndim  <- if (is.null(dim(par_array))) 1L else length(dim(par_array))
+
+  # Default `slots` to species 1 (a single profile point shaped to match
+  # the resolved parameter). For rec_pars aliases the user slot is just
+  # the species index; otherwise it's a 1 for every dimension.
+  if (is.null(slots)) {
+    user_slot_dim <- par_ndim - if (!is.na(rec_pars_col)) 1L else 0L
+    default_user_slot <- rep(1L, user_slot_dim)
+
+    if (length(values) != 1L) {
+      stop(sprintf(
+        "`slots` not supplied but `values` has %d grids -- the species-1 default only covers one cell. Pass `slots` explicitly to profile multiple cells.",
+        length(values)
+      ))
+    }
+
+    pretty_slot <- if (length(default_user_slot) == 1L) {
+      as.character(default_user_slot)
+    } else {
+      paste0("c(", paste(default_user_slot, collapse = ", "), ")")
+    }
+    warning(sprintf(
+      "`slots` not supplied; defaulting to species 1 (slots = list(%s)). Pass `slots` explicitly to silence this warning.",
+      pretty_slot
+    ))
+
+    slots <- list(default_user_slot)
+  }
+
+  if (!is.list(slots) || length(slots) == 0L) {
+    stop("`slots` must be a non-empty list of integer index vectors.")
+  }
+  if (length(values) != length(slots)) {
+    stop("`values` must be a list with the same length as `slots`.")
+  }
+
+  # Append rec_pars column for rec_pars aliases
+  if (!is.na(rec_pars_col)) {
+    for (k in seq_along(slots)) {
+      if (length(slots[[k]]) != 1L) {
+        stop(sprintf(
+          "Under alias `\"%s\"`, slots[[%d]] should be a single species index (got length %d). The rec_pars column is filled in from the alias name.",
+          alias_name, k, length(slots[[k]])
+        ))
+      }
+      slots[[k]] <- c(as.integer(slots[[k]]), rec_pars_col)
+    }
+  }
+
+  par_dim <- if (is.null(dim(par_array))) length(par_array) else dim(par_array)
+
+  for (k in seq_along(slots)) {
+    if (length(slots[[k]]) != par_ndim) {
+      stop(sprintf(
+        "slots[[%d]] has length %d but '%s' has %d dimension(s).",
+        k, length(slots[[k]]), param, par_ndim
+      ))
+    }
+    if (!all(is.finite(slots[[k]])) || any(slots[[k]] < 1)) {
+      stop(sprintf("slots[[%d]] must be a vector of positive integers.", k))
+    }
+    if (any(slots[[k]] > par_dim)) {
+      stop(sprintf(
+        "slots[[%d]] = c(%s) is out of bounds for '%s' (dim c(%s)).",
+        k,
+        paste(slots[[k]], collapse = ", "),
+        param,
+        paste(par_dim, collapse = ", ")
+      ))
+    }
+  }
+
+  # Build transform fn
+  trans_fun <- if (is.function(transform)) {
+    transform
+  } else if (identical(transform, "log")) {
+    log
+  } else if (identical(transform, "identity")) {
+    function(x) x
+  } else {
+    stop("`transform` must be \"log\", \"identity\", or a function.")
+  }
+
+  # Build grid (user-scale values; transform applied at fit time)
+  names(values) <- paste0("slot_", seq_along(values))
+  grid <- expand.grid(values, KEEP.OUT.ATTRS = FALSE,
+                      stringsAsFactors = FALSE)
+  ngrid <- nrow(grid)
+
+  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # (mirrors jitter()/retrospective()). Respect the CRAN core limit.
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  if (is.null(cores)) {
+    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  } else {
+    cores <- max(1L, as.integer(cores))
+    if (cran_cap) cores <- min(cores, 2L)
+  }
+  use_parallel <- ngrid > 1L && cores > 1L
+
+  # Generic [<-]: assign `val` into `arr` at index vector `idx`
+  assign_at <- function(arr, idx, val) {
+    do.call("[<-", c(list(arr), as.list(idx), list(val)))
+  }
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Per-grid-point closure ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  run_one_point <- function(i) {
+
+    inits     <- fitted$estimated_params
+    data_list <- fitted$data_list
+    map_obj <- fitted$map
+
+    # Substitute fixed values at each profiled cell
+    for (k in seq_along(slots)) {
+      inits[[param]] <- assign_at(inits[[param]],
+                                  slots[[k]],
+                                  trans_fun(grid[i, k]))
+    }
+
+    # Force profiled cells to NA
+    for (k in seq_along(slots)) {
+      map_obj$mapList[[param]] <- assign_at(map_obj$mapList[[param]],
+                                            slots[[k]],
+                                            NA)
+    }
+    map_obj$mapFactor <- lapply(map_obj$mapList, factor)
+
+    newmod <-
+      suppressMessages(suppressWarnings(
+        # Refit with the profiled parameter fixed at its grid value (mapped off
+        # in map_obj). estimateMode falls back to 1 -- profile the hindcast fit,
+        # not a projection.
+        .refit_like(
+          data_list        = data_list,
+          inits            = inits,
+          map              = map_obj,
+          estimateMode     = ifelse(data_list$estimateMode < 3, 1, data_list$estimateMode),
+          getsd            = getsd,
+          srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+          suit_endyr       = pmin(data_list$suit_endyr, data_list$endyr))
+      ))
+
+    if (.refit_converged(newmod)) {
+      return(newmod)
+    }
+    return(NULL)
+  } # End run_one_point closure
+
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Dispatch (parallel via PSOCK or sequential) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  if (use_parallel) {
+    mod_list <- .parallel_lapply(seq_len(ngrid), run_one_point, min(cores, ngrid), environment())
+  } else {
+    mod_list <- lapply(seq_len(ngrid), run_one_point)
+  }
+
+  # NLL aligned with grid; NA for non-converged
+  nll <- vapply(mod_list,
+                function(x) if (is.null(x)) NA_real_ else x$opt$objective,
+                numeric(1))
+
+  names(mod_list) <- paste0("Fit_", seq_len(ngrid))
+
+  return(list(
+    Rceattle_list = mod_list,
+    grid          = grid,
+    nll           = nll,
+    param         = param,
+    slots         = slots
+  ))
+}
+
