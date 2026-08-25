@@ -1054,21 +1054,31 @@ check_dsem_spec <- function(data_list, dsem) {
 #' cross-species path couples the stocks -- so the whole field is drawn at once
 #' from the same precision the density uses, exactly as `dsem::simulate()` does.
 #'
-#' Only the RECRUITMENT-deviation columns are redrawn, conditional on every
-#' other column held at its fitted value. The covariate columns are data --
-#' under `family = "fixed"` they *are* the `env_data` series -- so redrawing
-#' them would simulate a different environment rather than a different
-#' recruitment process, and nothing writes the new series back into `env_data`
-#' anyway. Selecting the recdev columns by name rather than by the map matters:
-#' dsem does not map an observed covariate cell off, so a map-based rule redraws
-#' the environmental data.
+#' Every ESTIMATED cell is redrawn, conditional on the cells the map pins. The
+#' map is where the model says which is which. Under `family = "fixed"` a
+#' covariate column *is* the `env_data` series and is pinned, so it is held --
+#' redrawing it would simulate a different environment rather than a different
+#' recruitment process. Under any other family the covariate is a latent state
+#' observed with error: the state belongs to the process and is drawn here,
+#' while its OBSERVATION is redrawn by the template and written back into
+#' `env_data` by `sim_mod()`.
 #'
 #' The caller writes the result back into `dsem_x_tj`; the template then derives
 #' `rec_dev` from it, so the lognormal bias correction is applied once, where it
 #' always is, rather than reproduced here.
 #'
+#' Under `build_DSEM(estimate_projection = TRUE)` the field spans the projection
+#' and those years are drawn too. That is wider than the standard path, which
+#' stops at `endyr` -- but it is the same rule, draw what the density scores,
+#' because with a projected field the GMRF *is* the density over those years.
+#' With the default `estimate_projection = FALSE` the field stops at `endyr` and
+#' the two agree.
+#'
 #' @param fit a fitted `Rceattle` model carrying a DSEM.
-#' @return A matrix the shape of `dsem_x_tj`.
+#' @return A matrix the shape of `dsem_x_tj`, carrying a logical matrix of the
+#'   same shape in `attr(, "drawn")` marking the cells this call redrew. The
+#'   mask is written by the draw itself so a caller cannot re-derive it wrongly;
+#'   `sim_mod()` maps it onto `rec_dev` for `attr(x, "process_sim")`.
 #' @noRd
 .dsem_draw_process <- function(fit) {
   q  <- fit$quantities
@@ -1097,25 +1107,87 @@ check_dsem_spec <- function(data_list, dsem) {
          "deviations, so the process cannot be redrawn. Refit before ",
          "simulating.", call. = FALSE)
   }
+  # Every ESTIMATED cell is redrawn, conditional on the ones the map pins. The
+  # map is the model's own statement of what is data and what is latent: under
+  # family = "fixed" a covariate column IS the env_data series and is pinned
+  # there, so it is held; under any other family it is a latent state observed
+  # with error, so it is part of the process and is drawn. Selecting the
+  # recruitment columns instead would hold a latent covariate at a FITTED value
+  # -- not data, and not a draw either.
   mp  <- fit$map$mapList$dsem_x_tj
   est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
+  E <- which(est); F_ <- setdiff(seq_len(n_k), E)
   in_rec <- rep(FALSE, n_k)
   in_rec[unlist(lapply(rc, function(j) (j - 1L) * nrow(X) + seq_len(nrow(X))))] <- TRUE
-  E <- which(est & in_rec); F_ <- setdiff(seq_len(n_k), E)
-  if (!length(E)) {
+  if (!any(est & in_rec)) {
     stop("Every recruitment-deviation state is fixed in this model, so there ",
-         "is no process to redraw.", call. = FALSE)
+         "is no recruitment process to redraw.", call. = FALSE)
+  }
+
+  # A latent node with no exogenous variance is deterministic given the others,
+  # so its row of the precision is degenerate and both the conditional mean and
+  # the Cholesky fail on it. Say which node rather than pass LAPACK's "leading
+  # minor is not positive definite" up to an assessment author.
+  Qee <- Q[E, E, drop = FALSE]
+  degenerate <- function(e) {
+    stop("The DSEM precision is not positive definite over the states this ",
+         "draw covers, so the process cannot be redrawn (", conditionMessage(e),
+         "). This happens when a latent variable carries no exogenous variance ",
+         "-- its two-headed path is fixed at zero -- so the model computes it ",
+         "rather than estimating it. check_dsem_spec() names the variable.",
+         call. = FALSE)
   }
 
   m <- as.numeric(mu)[E]
   if (length(F_)) {
-    m <- m - solve(Q[E, E, drop = FALSE],
-                   Q[E, F_, drop = FALSE] %*%
-                     (as.numeric(X)[F_] - as.numeric(mu)[F_]))
+    m <- m - tryCatch(solve(Qee, Q[E, F_, drop = FALSE] %*%
+                              (as.numeric(X)[F_] - as.numeric(mu)[F_])),
+                      error = degenerate)
   }
   # Qee = U'U from chol(), so backsolve(U, z) ~ N(0, Qee^-1).
-  U <- chol(Q[E, E, drop = FALSE])
+  U <- tryCatch(chol(Qee), error = degenerate)
   out <- X
   out[E] <- as.numeric(m) + backsolve(U, stats::rnorm(length(E)))
+  drawn <- array(FALSE, dim = dim(X))
+  drawn[E] <- TRUE
+  attr(out, "drawn") <- drawn
   out
+}
+
+
+#' Carry a DSEM process draw across to the shapes `sim_mod()` reports
+#'
+#' The template REPORTs `rec_dev_drawn_sim` from inside its own IID draw, which
+#' is gated off under a DSEM, so it stays zero however much of the field was
+#' redrawn. This maps what `.dsem_draw_process()` actually drew onto the two
+#' shapes a caller needs: the latent field itself, which is the process a DSEM
+#' self test should be scored against, and a `rec_dev`-shaped mask, since
+#' `rec_dev` is what every recovery statistic already reads.
+#'
+#' Row `t` of the latent field is model year `t` counting from `styr`, so it is
+#' column `t` of `rec_dev`; the species' column comes from the `rec_dev_col`
+#' registry the fit carries. `rec_dev` runs through the projection while the
+#' field may stop at `endyr`, so the mask is padded with `FALSE`.
+#'
+#' @param fit a fitted `Rceattle` model carrying a DSEM.
+#' @param drawn the return of `.dsem_draw_process()`, carrying its `"drawn"`
+#'   attribute.
+#' @param rec_dim `dim()` of the template's `rec_dev`, to pad the mask to.
+#' @return A list of `x` (the drawn field), `x_drawn` (its mask) and `rec` (the
+#'   `rec_dev`-shaped mask), or NULL if the draw carried no mask.
+#' @noRd
+.dsem_rec_truth <- function(fit, drawn, rec_dim = NULL) {
+  mask <- attr(drawn, "drawn")
+  if (is.null(mask)) return(NULL)
+  rc <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L      # 0-based in the C++
+  if (is.null(rc) || !length(rc)) return(NULL)
+  rec <- t(mask[, rc, drop = FALSE])                   # species x field year
+  if (!is.null(rec_dim)) {
+    full <- array(FALSE, dim = rec_dim)
+    nyr <- min(ncol(rec), rec_dim[2])
+    full[seq_len(nrow(rec)), seq_len(nyr)] <- rec[, seq_len(nyr), drop = FALSE]
+    rec <- full
+  }
+  list(x = matrix(as.numeric(drawn), nrow(mask), ncol(mask)),
+       x_drawn = mask, rec = rec)
 }

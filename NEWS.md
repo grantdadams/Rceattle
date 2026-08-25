@@ -11,6 +11,80 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.21.0
+
+## Bug fixes
+
+* **A DSEM's process draw was discarded, and took the covariate series with
+  it.** `calculate_dsem()` carried its own `do_simulate` branch, and it assigned
+  the whole latent field (`x_tj = draw_tj` in `dsem.hpp`), so it overwrote the
+  conditional draw `sim_mod()` had just substituted -- adding 100 to every
+  latent state changed nothing. It consulted neither the map nor `dsem_cond_k`,
+  so it also redrew the covariate columns. Under `family = "fixed"` those
+  columns **are** the `env_data` series, so every replicate was generated under
+  an environment the refit was never shown: on a scaled covariate with sd 1 the
+  drawn column moved by up to 2.96. The draw is now taken only in R, where it is
+  conditional on the cells the map pins, and `family = "fixed"` covariates come
+  back untouched.
+
+* **`sim_mod(process = )` and `self_test(process = )` returned no truth under a
+  DSEM.** The `rec_dev_drawn_sim` mask is written inside the template's own IID
+  draw, which is gated off under a DSEM, so it stayed zero however much of the
+  field was redrawn; `attr(x, "process_sim")` therefore came back `NULL` on
+  exactly the models whose process **had** been redrawn. That is
+  indistinguishable from nothing happening -- it is how the behaviour was
+  reported -- and it stopped `compare_sim()` warning that it was measuring bias
+  against an operating model that is no longer the truth. The draw now carries
+  its own mask, and `process_sim` gains `dsem_x_tj` / `dsem_x_tj_drawn`: the
+  latent states, not the deviations, are what says whether the SEM structure is
+  identified.
+
+* **`init_dev` is redrawn under a DSEM.** It was gated on `dsem_on == 0`, so a
+  replicate's initial age structure kept its fitted values while the hindcast
+  deviations were re-realized -- two different histories in one data set. The
+  latent field starts at `styr` and section 13 scores `init_dev` with its own
+  `N(-bias*R_sd^2/2, R_sd)` whatever `dsem_on` is, so this is the same rule the
+  rest of the draw follows: draw what the density scores.
+
+* **A DSEM under the AMAK/Ianelli recruitment penalty now refuses the draw, as
+  the standard path already did.** `srr_fun = 0` with `srr_pred_fun > 0` scores
+  the deviations a second time through the stock-recruit penalty, so there is no
+  single distribution to draw from. The template's own draw has always been
+  gated on that; the SEM draw was not, so it redrew a process the model scores
+  twice. `sim_mod()` says why, as before.
+
+* **`self_test()` no longer swallows the draw's warnings.** Replicates run
+  through `parLapply`, and a worker's warnings never reach the caller, so at the
+  default `cores` a `process` request that redrew nothing was completely silent
+  -- no warning and no `process_sim`, with nothing to say why. The unique set is
+  now collected from the replicates and re-emitted once (not `nsim` times), and
+  asking for process error and getting none back warns in its own right.
+
+## New features
+
+* **A DSEM covariate observed with error is now simulated, state and
+  observation.** `family = "fixed"` makes a covariate data: no measurement
+  density, pinned in the map, held fixed -- unchanged. Any other family makes it
+  a latent state observed with error, and neither half was drawn. Now the state
+  is drawn with the rest of the field (it is process), and the observation is
+  drawn from the family that scores it -- normal, Bernoulli, Poisson, Gamma,
+  normal with known SD, lognormal or Tweedie -- and written back into
+  `env_data`, so the refit is fitted to it. Previously a replicate carried the
+  original environmental series beside freshly drawn recruitment, which
+  overstates how much the SEM's paths can be recovered. Verified as a moment:
+  over 200 draws the residual `y_sim - mu` had sd 0.9995 against a fitted
+  measurement sd of 1.
+
+* **`dsem_z_tj` is REPORTed**, so the latent field the model actually used is
+  readable from R. `rec_dev` is derived from it, so it is what says whether a
+  substituted draw reached the dynamics.
+
+**This changes results** for a DSEM simulation: `sim_mod()`, `self_test()` and
+anything built on them draw differently from 5.19.0, and a covariate with a
+measurement density now varies across replicates. Non-DSEM models are
+unaffected -- every new draw is gated on `dsem_on == 1`, and the four golden
+reference fits are unchanged.
+
 # Rceattle 5.19.0
 
 ## Bug fixes
@@ -308,11 +382,12 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `family = "fixed"` those are the environmental data, so jittering them would
   perturb the data rather than the starting values.
 
-  A `self_test()` of a DSEM does not re-realize the recruitment process.
-  `sim_mod()` draws new observations from the fitted quantities and leaves the
-  process random effects at their estimates, as it does without a DSEM, so a
-  clean self test says the model recovers itself under fresh observation error
-  -- not that the SEM structure is identified across recruitment realizations.
+  A `self_test()` of a DSEM re-realizes the recruitment process when asked to:
+  `process = TRUE` draws the latent field from the precision that scored the fit
+  (see the `sim_mod()` entry above), while the default `process = FALSE` leaves
+  the states at their estimates, as it does without a DSEM, so a clean self test
+  says the model recovers itself under fresh observation error -- not that the
+  SEM structure is identified across recruitment realizations.
 
 * **`summary()` reports the SEM path coefficients and the recruitment SD** for a
   DSEM fit: `coefficients` (one row per path, with `Estimate`, `Std_Error`,

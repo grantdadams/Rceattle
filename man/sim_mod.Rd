@@ -29,10 +29,11 @@ A \code{data_list} object containing the simulated or expected data
 values, formatted for use in \code{Rceattle}. When \code{process} redrew
 something, the deviations that generated the data are attached as
 \code{attr(x, "process_sim")} -- a named list holding whichever of
-\code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and
-\code{beta_linkage_re} were drawn. Those are the truth a refit has to
-recover; without them the only comparison available is against the original
-fitted deviations, which are no longer the values that generated the data.
+\code{rec_dev}, \code{init_dev}, \code{log_M1_dev}, \code{beta_linkage_re}
+and, under a DSEM, \code{dsem_x_tj} were drawn. Those are the truth a refit
+has to recover; without them the only comparison available is against the
+original fitted deviations, which are no longer the values that generated
+the data.
 
 Each is accompanied by a logical of the same shape named with a
 \code{_drawn} suffix (\code{rec_dev_drawn}, ...), \code{TRUE} where the draw
@@ -90,6 +91,49 @@ names ending \code{_sim}. The estimates, the data and the objective function
 are untouched, so a later \code{osa_residuals()} or \code{vcov()} on the same
 model is unaffected.
 }
+\section{Redrawing recruitment under a DSEM}{
+
+The deviations are the latent states of a GMRF rather than independent
+draws, so the whole field is drawn at once from the same precision the
+density scored the fit with, and substituted into \code{dsem_x_tj}; the
+template then derives \code{rec_dev} from it and applies the lognormal bias
+correction where it always does. Every ESTIMATED cell is redrawn, conditional
+on the cells the map pins -- the map being where the model says which is
+which. Under \code{family = "fixed"} a covariate column \emph{is} the
+\code{env_data} series and is pinned, so it is held: redrawing it would
+simulate a different environment rather than a different process. Under any
+other family the covariate is a latent state observed with error, so its
+state is part of the process and is drawn, and its OBSERVATION is redrawn
+too and written back into \code{env_data} -- that half is not gated on
+\code{process}, since an observation is redrawn whenever the observations
+are. The field itself comes back as
+\code{attr(x, "process_sim")$dsem_x_tj}, since the states rather than the
+deviations are what says whether the SEM structure is identified.
+
+Two differences from the standard path, both following "draw what the
+density scores". With \code{build_DSEM(estimate_projection = TRUE)} the field
+spans the projection and those years are redrawn too, where the standard
+draw stops at \code{endyr} because nothing scores recruitment past it. And
+\code{init_dev} is drawn from its own \code{N(-bias*R_sd^2/2, R_sd)} under
+both parameterizations, because the latent field starts at \code{styr} and
+the initial age structure keeps that density whatever the SEM does.
+
+\code{simulate = FALSE} returns \code{env_data} as supplied rather than as
+fitted values. The covariate is an input the assessment was given, and
+replacing it with the model's estimate of it would change what the caller
+handed in; every other data type returns its hat there.
+
+One consequence worth knowing if the same \code{env_data} column also drives
+a \code{\link{linkage_spec}} elsewhere in the model. The SEM treats the
+column as an observation of a latent state, but a linkage reads it as a
+fixed regressor, so a replicate's indices and compositions are generated
+from the series as supplied while the refit is handed the redrawn one. That
+is the errors-in-variables problem the real assessment has -- it fits the
+measured covariate, not the true one -- so the replicate is faithful to it,
+but coefficient recovery on that linkage is attenuated by design and should
+not be read as a bias in the estimator.
+}
+
 \examples{
 \dontrun{
 data(BS2017SS)

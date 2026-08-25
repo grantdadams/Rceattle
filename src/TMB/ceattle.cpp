@@ -1143,13 +1143,6 @@ Type objective_function<Type>::operator() () {
   // solve with n_k right-hand sides per objective evaluation.
   array<Type> dsem_margvar_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_margvar_tj.setZero();
   int dsem_want_margvar = (bias_adjust_proc > 0) ? 1 : 0;
-  // Draw the DSEM's latent states from the SAME precision the density uses,
-  // rather than reproducing the recursion in R. A DSEM's recruitment deviations
-  // are not iid -- a self-path makes them autocorrelated and covariate paths
-  // make them respond to the environment -- so an iid draw would simulate a
-  // different process from the one estimated. The flag is set only inside a
-  // SIMULATE block, which TMB activates only for Type = double, so the draw
-  // never runs while taping.
   // Precision and mean of the latent field, handed back so R can draw from the
   // SAME density that scores it -- the mechanism dsem's own simulate() uses
   // (rmvnorm_prec(xhat + delta, Q)). Without these a caller has to reproduce
@@ -1158,12 +1151,30 @@ Type objective_function<Type>::operator() () {
   matrix<Type> dsem_Q(0, 0);
   array<Type> dsem_xhat_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_xhat_tj.setZero();
   array<Type> dsem_delta_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_delta_tj.setZero();
+  // Mean and SD of the covariate MEASUREMENT density, for the observation draw
+  // below. A covariate is data only under family = "fixed"; every other family
+  // makes it a latent state observed with error, and that observation is drawn
+  // like any other.
+  array<Type> dsem_mu_tj(dsem_y_tj.rows(), dsem_y_tj.cols()); dsem_mu_tj.setZero();
+  vector<Type> dsem_sigma_z(dsem_lnsigma_z.size()); dsem_sigma_z.setZero();
+  // The covariate observations as simulated, and a mask of the cells the draw
+  // touched. Declared out here so both are REPORTed whether or not this model
+  // carries a DSEM; with dsem_on = 0 they are the (empty) inputs, unchanged.
+  array<Type> dsem_y_tj_sim = dsem_y_tj;
+  array<Type> dsem_y_tj_drawn_sim(dsem_y_tj.rows(), dsem_y_tj.cols());
+  dsem_y_tj_drawn_sim.setZero();
+  // The DSEM process draw is taken in R (sim_mod()), not here, and this flag
+  // stays 0. calculate_dsem()'s own do_simulate branch assigns the WHOLE latent
+  // field -- `x_tj = draw_tj` in dsem.hpp -- so it redraws the covariate columns
+  // as well as the recruitment ones and consults neither the map nor dsem_cond_k.
+  // Under family = "fixed" those covariate columns ARE the env_data series, so
+  // it generated each replicate under an environment the refit is never shown
+  // (measured on a scaled series with sd 1: the drawn column moved by up to
+  // 2.96). Drawing in R instead draws the recruitment columns CONDITIONAL on
+  // everything the model was given, from this same reported precision, which is
+  // the density that scored the fit -- so there is still exactly one
+  // implementation of the process.
   int dsem_do_sim = 0;
-  SIMULATE {
-    if(dsem_on == 1 && simulate_state(0) == 1 && simulate_period(0) == 1){
-      dsem_do_sim = 1;
-    }
-  }
   // Which latent cells the model is GIVEN, so the bias correction below uses
   // the variance of recruitment conditional on them. A cell is given when
   // env_data supplied a finite value for that variable in that year.
@@ -1218,7 +1229,7 @@ Type objective_function<Type>::operator() () {
                    dsem_beta_z, dsem_lnsigma_z, dsem_mu_j, dsem_delta0_j,
                    dsem_x_tj, dsem_z_tj, dsem_Q, dsem_xhat_tj, dsem_delta_tj,
                    dsem_do_sim, dsem_want_margvar, dsem_cond_k,
-                   dsem_margvar_tj);
+                   dsem_margvar_tj, dsem_mu_tj, dsem_sigma_z);
 
     // Dimension contract for THIS call site. calculate_dsem() checks its own
     // inputs against each other; nyrs_dsem and rec_dev_col are ours.
@@ -1267,6 +1278,66 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs_dsem; yr++){
         rec_dev(sp, yr) = dsem_z_tj(yr, rec_dev_col(sp))
                           - bias_adjust_proc * dsem_margvar_tj(yr, rec_dev_col(sp)) / 2.0;
+      }
+    }
+
+    // 5.5c. SIMULATE THE COVARIATE OBSERVATIONS
+    // Under family = "fixed" a covariate column IS the environmental series:
+    // familycode 0, no measurement density, pinned in the map, nothing to draw.
+    // Every other family makes the column a latent state OBSERVED WITH ERROR,
+    // and that observation is data like a survey index -- so it is redrawn from
+    // the density in dsem.hpp that scores it, using the mean and SD that density
+    // used. Without this a replicate carried the ORIGINAL covariate series
+    // beside freshly drawn recruitment, so the covariate looked more informative
+    // than the model says it is and a self test overstated how well the SEM's
+    // paths are recovered.
+    //
+    // NOT gated on simulate_state: this is an observation, and sim_mod() draws
+    // every observation whenever simulate = TRUE. Process error decides whether
+    // the LATENT state moves, not whether its observation is redrawn.
+    //
+    // A cell with no observation stays unobserved -- drawing there would hand
+    // the refit data the assessment never had.
+    SIMULATE {
+      for(int t2 = 0; t2 < dsem_y_tj.rows(); t2++){
+        for(int j2 = 0; j2 < dsem_y_tj.cols(); j2++){
+          int fam = dsem_familycode_j(j2);
+          if(fam == 0) continue;
+          if(!R_FINITE(asDouble(dsem_y_tj(t2, j2)))) continue;
+          // dsem.hpp fills mu_tj through a four-way link switch with no else,
+          // so a link code outside 0-3 leaves the cell UNINITIALIZED. Scoring
+          // reads it too, but a draw would turn that into data. Refuse rather
+          // than draw from whatever was on the stack.
+          if(dsem_linkcode_j(j2) < 0 || dsem_linkcode_j(j2) > 3) continue;
+          // Tweedie reads a second sigma slot for its power parameter, so both
+          // have to exist before either is read. A family whose SDs are not
+          // where it expects them is a build error, not something to draw
+          // through: leave the observation alone and let the mask say so.
+          int s0 = dsem_sigmastart_j(j2);
+          int need = (fam == 7) ? s0 + 1 : s0;
+          if(s0 < 0 || need >= dsem_sigma_z.size()) continue;
+          Type mu = dsem_mu_tj(t2, j2);
+          Type sd = dsem_sigma_z(s0);
+          if(fam == 1){        // normal
+            dsem_y_tj_sim(t2, j2) = rnorm(mu, sd);
+          } else if(fam == 2){ // Bernoulli
+            dsem_y_tj_sim(t2, j2) = rbinom(Type(1.0), mu);
+          } else if(fam == 3){ // Poisson
+            dsem_y_tj_sim(t2, j2) = rpois(mu);
+          } else if(fam == 4){ // Gamma; shape = 1/CV^2, scale = mean*CV^2
+            dsem_y_tj_sim(t2, j2) = rgamma(pow(sd, Type(-2.0)), mu * pow(sd, Type(2.0)));
+          } else if(fam == 5){ // normal with known SD
+            dsem_y_tj_sim(t2, j2) = rnorm(mu, dsem_eps_tj(t2, j2));
+          } else if(fam == 6){ // lognormal
+            dsem_y_tj_sim(t2, j2) = exp(rnorm(log(mu), sd));
+          } else if(fam == 7){ // Tweedie; phi and p exactly as the density reads them
+            dsem_y_tj_sim(t2, j2) = rtweedie(mu, exp(dsem_sigma_z(s0)),
+                                             Type(1.0) + invlogit(dsem_sigma_z(s0 + 1)));
+          } else {
+            continue;
+          }
+          dsem_y_tj_drawn_sim(t2, j2) = 1;
+        }
       }
     }
   }
@@ -1595,11 +1666,17 @@ Type objective_function<Type>::operator() () {
       // fresh initial age structure sitting on top of the FITTED hindcast
       // deviations is not a history the model generated, so recruitment is
       // redrawn whole or not at all.
-      // Also excluded under a DSEM, for the reason above and because a fresh
-      // initial age structure on top of DSEM-derived hindcast deviations is not
-      // a history the model generated.
+      //
+      // Drawn under a DSEM too. init_dev is NOT a latent state of the GMRF --
+      // the field spans styr..endyr, and section 13 scores init_dev with its own
+      // N(-bias*R_sd^2/2, R_sd) whatever dsem_on is, with R_sd taken from the
+      // SEM's variance path -- so this is still the density that scores it. The
+      // DSEM redraws the hindcast deviations from R, so leaving init_dev alone
+      // is what would break "redrawn whole or not at all": the replicate's
+      // initial age structure would come from one realization and its hindcast
+      // from another.
       if(simulate_state(0) == 1 && simulate_period(0) == 1 && rec_srr_single_density &&
-         dsem_on == 0 && (initMode > 1) && (initMode != 5)){
+         (initMode > 1) && (initMode != 5)){
         for(age = 1; age < nages(sp); age++){
           init_dev(sp, age - 1) = rnorm(-bias_adjust_proc*square(R_sd(sp))/2.0, R_sd(sp));
           init_dev_drawn_sim(sp, age - 1) = 1;
@@ -5402,6 +5479,16 @@ Type objective_function<Type>::operator() () {
   REPORT(dsem_Q);
   REPORT(dsem_xhat_tj);
   REPORT(dsem_delta_tj);
+  // The latent field the model actually used, after any rank-reduced or
+  // conditional-kriging option has mapped the parameter block onto it. rec_dev
+  // is derived from this, so it is what says whether a substituted draw reached
+  // the dynamics; without it a caller can only infer that from rec_dev.
+  REPORT(dsem_z_tj);
+  // The covariate observations as simulated, and the cells the draw touched.
+  // Empty for a model with no DSEM, and all-zero mask for one whose covariates
+  // are family = "fixed" -- those carry no measurement density to draw from.
+  REPORT(dsem_y_tj_sim);
+  REPORT(dsem_y_tj_drawn_sim);
 
   if (log_sigma_linkage.size() > 0) {
     int n_re = beta_linkage_re_all.size();

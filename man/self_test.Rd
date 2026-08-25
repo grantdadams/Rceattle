@@ -88,7 +88,10 @@ recovers its own parameters from new observations. Naming a process --
 \code{TRUE}, ... -- redraws it too, so the test instead measures whether the
 estimator recovers a process it has not been shown. The deviations behind
 each replicate come back in \code{attr(result, "process_sim")}; see
-\code{Value}.}
+\code{Value}. A process the model cannot redraw is reported: the
+\code{\link{sim_mod}} warnings are collected from the replicates and
+re-raised once, and asking for process error and getting none back warns in
+its own right.}
 
 \item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
 \code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
@@ -113,12 +116,12 @@ deviations that generated each replicate's data -- a list keyed by the same
 \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
 \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
 is a named list of whichever of \code{rec_dev}, \code{init_dev},
-\code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
-same-shaped \code{_drawn} logical marking the cells the draw touched --
-restrict any recovery statistic to those, since the rest are fitted values
-(see \code{\link{sim_mod}}). Compare estimates against these, not against
-the operating model: its fitted deviations are no longer what generated the
-data.
+\code{log_M1_dev}, \code{beta_linkage_re} and -- under a DSEM --
+\code{dsem_x_tj} were drawn, each with a same-shaped \code{_drawn} logical
+marking the cells the draw touched -- restrict any recovery statistic to
+those, since the rest are fitted values (see \code{\link{sim_mod}}).
+Compare estimates against these, not against the operating model: its
+fitted deviations are no longer what generated the data.
 }
 \description{
 Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
@@ -126,12 +129,15 @@ Simulates data from an Rceattle model and refits the model to the simulated data
 \section{Interpreting the spread}{
 
 \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-compositions, CAAL and stomach contents. Some rows are deliberately left
-alone, and \code{\link{sim_mod}} warns about each: a predator whose
-suitability is empirical rather than estimated has no predicted diet to draw
-from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
-the years it is fitted to. Those data are held fixed across every replicate,
-so recovery of whatever they inform is optimistic.
+compositions, CAAL, stomach contents, and, under a DSEM whose covariate was
+given a measurement family, that covariate's \code{env_data} series. Some
+rows are deliberately left alone, and \code{\link{sim_mod}} warns about each:
+a predator whose suitability is empirical rather than estimated has no
+predicted diet to draw from, and a covariance (MVN/MVNORM) survey fleet has
+no covariance outside the years it is fitted to. Those data are held fixed
+across every replicate, so recovery of whatever they inform is optimistic --
+as is a covariate declared \code{family = "fixed"}, which is measured
+exactly by assumption and so is identical in every replicate.
 
 By default it does not redraw recruitment, so with
 \code{random_rec = TRUE} every replicate shares the operating model's single

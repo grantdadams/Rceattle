@@ -149,6 +149,28 @@
 }
 
 
+# Is recruitment scored by exactly one density? FALSE for the AMAK/Ianelli
+# configuration (srr_fun = 0 with srr_pred_fun > 0), where the stock-recruit
+# curve is fitted as a second penalty on the same deviations. The template
+# computes and REPORTs this as `rec_srr_single_density`; read that where it is
+# available so R and the draw cannot disagree, and fall back to the switches for
+# a fit whose quantities predate the report.
+#
+# Needed on the R side because the DSEM draw is taken BEFORE obj$simulate() runs,
+# so the reported gate for THIS call does not exist yet.
+.rec_srr_single_density <- function(object) {
+  gate <- object$quantities$rec_srr_single_density
+  if (!is.null(gate) && !is.na(gate)) return(isTRUE(as.logical(gate)))
+  d <- object$data_list
+  # A switch stored as a string coerces to NA rather than to its code, and NA
+  # here reads as "one density", which is the conservative answer: the draw goes
+  # ahead and the template's own gate still governs what is written.
+  fun  <- suppressWarnings(as.integer(d$srr_fun))
+  pred <- suppressWarnings(as.integer(d$srr_pred_fun))
+  !(isTRUE(fun == 0L) && isTRUE(pred > 0L))
+}
+
+
 # Recruitment scored by two densities has no single distribution to draw from,
 # so the template draws nothing (ceattle.cpp section 5.13) and this says so. The
 # gate is read from the template's own reported `rec_srr_single_density` rather
@@ -400,6 +422,64 @@
 #' @noRd
 .sim_zero_unsampled_n <- function(n, x) {
   n * as.numeric(rowSums(x, na.rm = TRUE) > 0)
+}
+
+
+#' Write a DSEM's simulated covariate observations back into `env_data`
+#'
+#' A covariate under `family = "fixed"` is data: it carries no measurement
+#' density, is pinned in the map, and comes back unchanged. Under every other
+#' family it is a latent state OBSERVED WITH ERROR, so the template redraws the
+#' observation (`ceattle.cpp` 5.5c) and this puts it where the next fit reads
+#' it. Without the write-back a replicate carried the original environmental
+#' series beside freshly drawn recruitment, so the covariate looked more
+#' informative than the model says it is and a self test overstated how well the
+#' SEM's paths are recovered.
+#'
+#' Row `t` of the latent field is model year `styr + t - 1`; `env_data` is
+#' matched on `Year` rather than by position, since it may run to `projyr` while
+#' the field stops at `endyr`.
+#'
+#' @param dat_sim The `data_list` being built.
+#' @param sim_rep Report from one `obj$simulate()` call.
+#' @param object The fitted model, for the DSEM's variable names.
+#' @return `dat_sim`, with any simulated covariate columns replaced.
+#' @noRd
+.sim_write_env_data <- function(dat_sim, sim_rep, object) {
+  y    <- sim_rep$dsem_y_tj_sim
+  mask <- sim_rep$dsem_y_tj_drawn_sim
+  if (is.null(y) || is.null(mask) || !length(y) || !any(mask != 0)) return(dat_sim)
+  y <- as.matrix(y); mask <- as.matrix(mask) != 0
+
+  nm <- colnames(object$dsem$internal$tsdata)
+  if (is.null(nm) || length(nm) != ncol(y)) {
+    warning("sim_mod() drew new covariate observations for this DSEM but the ",
+            "fit does not name its latent columns, so they could not be written ",
+            "back into env_data. The replicate carries the ORIGINAL covariate ",
+            "series. Refit with this version before simulating.", call. = FALSE)
+    return(dat_sim)
+  }
+
+  yr  <- object$data_list$styr + seq_len(nrow(y)) - 1L
+  row <- match(yr, dat_sim$env_data$Year)
+  missed <- character(0)
+  for (j in seq_len(ncol(y))) {
+    if (!any(mask[, j])) next
+    if (!nm[j] %in% names(dat_sim$env_data)) { missed <- c(missed, nm[j]); next }
+    hit <- which(mask[, j] & !is.na(row))
+    # No year lined up at all -- env_data does not cover the field's span, so
+    # the replicate would silently keep the original series. Say so.
+    if (!length(hit)) { missed <- c(missed, nm[j]); next }
+    dat_sim$env_data[row[hit], nm[j]] <- y[hit, j]
+  }
+  if (length(missed)) {
+    warning("sim_mod() drew new observations for DSEM covariate(s) ",
+            paste(unique(missed), collapse = ", "), ", but env_data has no ",
+            "column of that name covering the model's years, so the replicate ",
+            "carries the original series for ",
+            if (length(unique(missed)) > 1) "them." else "it.", call. = FALSE)
+  }
+  dat_sim
 }
 
 
@@ -772,10 +852,11 @@
 #'   values, formatted for use in \code{Rceattle}. When \code{process} redrew
 #'   something, the deviations that generated the data are attached as
 #'   \code{attr(x, "process_sim")} -- a named list holding whichever of
-#'   \code{rec_dev}, \code{init_dev}, \code{log_M1_dev} and
-#'   \code{beta_linkage_re} were drawn. Those are the truth a refit has to
-#'   recover; without them the only comparison available is against the original
-#'   fitted deviations, which are no longer the values that generated the data.
+#'   \code{rec_dev}, \code{init_dev}, \code{log_M1_dev}, \code{beta_linkage_re}
+#'   and, under a DSEM, \code{dsem_x_tj} were drawn. Those are the truth a refit
+#'   has to recover; without them the only comparison available is against the
+#'   original fitted deviations, which are no longer the values that generated
+#'   the data.
 #'
 #'   Each is accompanied by a logical of the same shape named with a
 #'   \code{_drawn} suffix (\code{rec_dev_drawn}, ...), \code{TRUE} where the draw
@@ -785,6 +866,47 @@
 #'   alongside simulated ones. Restrict any recovery statistic to the
 #'   \code{_drawn} cells -- over the full array it reports perfect recovery on
 #'   the cells that were never redrawn.
+#'
+#' @section Redrawing recruitment under a DSEM:
+#' The deviations are the latent states of a GMRF rather than independent
+#' draws, so the whole field is drawn at once from the same precision the
+#' density scored the fit with, and substituted into \code{dsem_x_tj}; the
+#' template then derives \code{rec_dev} from it and applies the lognormal bias
+#' correction where it always does. Every ESTIMATED cell is redrawn, conditional
+#' on the cells the map pins -- the map being where the model says which is
+#' which. Under \code{family = "fixed"} a covariate column \emph{is} the
+#' \code{env_data} series and is pinned, so it is held: redrawing it would
+#' simulate a different environment rather than a different process. Under any
+#' other family the covariate is a latent state observed with error, so its
+#' state is part of the process and is drawn, and its OBSERVATION is redrawn
+#' too and written back into \code{env_data} -- that half is not gated on
+#' \code{process}, since an observation is redrawn whenever the observations
+#' are. The field itself comes back as
+#' \code{attr(x, "process_sim")$dsem_x_tj}, since the states rather than the
+#' deviations are what says whether the SEM structure is identified.
+#'
+#' Two differences from the standard path, both following "draw what the
+#' density scores". With \code{build_DSEM(estimate_projection = TRUE)} the field
+#' spans the projection and those years are redrawn too, where the standard
+#' draw stops at \code{endyr} because nothing scores recruitment past it. And
+#' \code{init_dev} is drawn from its own \code{N(-bias*R_sd^2/2, R_sd)} under
+#' both parameterizations, because the latent field starts at \code{styr} and
+#' the initial age structure keeps that density whatever the SEM does.
+#'
+#' \code{simulate = FALSE} returns \code{env_data} as supplied rather than as
+#' fitted values. The covariate is an input the assessment was given, and
+#' replacing it with the model's estimate of it would change what the caller
+#' handed in; every other data type returns its hat there.
+#'
+#' One consequence worth knowing if the same \code{env_data} column also drives
+#' a \code{\link{linkage_spec}} elsewhere in the model. The SEM treats the
+#' column as an observation of a latent state, but a linkage reads it as a
+#' fixed regressor, so a replicate's indices and compositions are generated
+#' from the series as supplied while the refit is handed the redrawn one. That
+#' is the errors-in-variables problem the real assessment has -- it fits the
+#' measured covariate, not the true one -- so the replicate is faithful to it,
+#' but coefficient recovery on that linkage is attenuated by design and should
+#' not be read as a bias in the estimator.
 #' @examples
 #' \dontrun{
 #' data(BS2017SS)
@@ -816,7 +938,16 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   #
   # Gate on the RESOLVED state vector rather than on `process`, which also
   # accepts "all", "dynamics" and "recruitment" -- isTRUE() is FALSE for each.
-  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L && .has_dsem(object)
+  #
+  # The AMAK/Ianelli gate applies here too. srr_fun = 0 with srr_pred_fun > 0
+  # adds a stock-recruit penalty on the SAME deviations the GMRF scores, so
+  # under a DSEM recruitment is again scored by two densities and there is no
+  # single distribution to draw from -- the template refuses the standard draw
+  # for that reason and this must refuse the SEM draw for it as well.
+  # .sim_warn_rec_srr_penalty() below says so; it reads the template's own
+  # reported gate, so the two cannot disagree about what happened.
+  .draw_dsem_process <- .sim_state_codes(process)[1L] == 1L && .has_dsem(object) &&
+    .rec_srr_single_density(object)
 
   dat_sim <- object$data_list
   quantities <- object$quantities
@@ -843,6 +974,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     # on the same object -- a rebuild would trip .sim_check_rebuild(), which
     # (correctly) reports a model whose predictions have moved.
     sim_par <- NULL
+    dsem_truth <- NULL
     if (.draw_dsem_process) {
       sim_par <- sim_obj$env$last.par.best
       .xi <- which(names(sim_par) == "dsem_x_tj")
@@ -855,6 +987,13 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
              "the map; the redrawn process cannot be substituted.", call. = FALSE)
       }
       sim_par[.xi] <- as.numeric(.drawn)[.est]
+      # The template's rec_dev mask stays zero under a DSEM -- its own draw is
+      # gated off there -- so the draw that DID happen carries its own mask
+      # forward, below, once the report gives rec_dev's shape. Without it
+      # attr(x, "process_sim") comes back NULL on exactly the models whose
+      # process WAS redrawn, and compare_sim() then measures bias against an
+      # operating model that is no longer the truth, without warning.
+      dsem_truth <- .drawn
     }
 
     sim_rep <- .sim_draw(sim_obj, state = sim_state, par = sim_par)
@@ -1019,12 +1158,22 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     }
   }
 
+  # Covariate observations, for a DSEM whose covariate carries a measurement
+  # density. Not gated on `process`: an observation is redrawn whenever the
+  # observations are, the same as an index or a composition.
+  if (simulate && .has_dsem(object)) {
+    dat_sim <- .sim_write_env_data(dat_sim, sim_rep, object)
+  }
+
   # When process error was redrawn, the deviations that generated these data are
   # the truth a self-test has to recover. They are attached rather than added as
   # a list element so the return value is still a plain data_list -- every
   # existing caller keeps working, and fit_mod() ignores the attribute.
   if (simulate && any(sim_state == 1L)) {
-    attr(dat_sim, "process_sim") <- .sim_process_truth(sim_rep, sim_state, sim_obj)
+    dsem <- if (is.null(dsem_truth)) NULL else
+      .dsem_rec_truth(object, dsem_truth, dim(sim_rep$rec_dev_sim))
+    attr(dat_sim, "process_sim") <-
+      .sim_process_truth(sim_rep, sim_state, sim_obj, dsem = dsem)
   }
   return(dat_sim)
 }
@@ -1047,21 +1196,25 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 #' process was asked for -- so the arrays carry fitted values alongside simulated
 #' ones. The mask is written by the draw itself (`ceattle.cpp` sections 5.12b and
 #' 5.13) rather than re-derived here, so it cannot disagree with what happened.
+#' A DSEM's recruitment is the one draw taken in R rather than in the template,
+#' so it supplies its own mask through `dsem`, on the same terms.
 #'
 #' @param sim_rep The report from one `obj$simulate()` call.
 #' @param state Integer switch vector from `.sim_state_codes()`.
 #' @param obj The simulated object, for the model's own switches.
+#' @param dsem `.dsem_rec_truth()` output when a DSEM's latent field was redrawn,
+#'   else NULL.
 #' @return Named list of the drawn deviations and their `_drawn` masks, or NULL
 #'   if none were drawn.
 #' @noRd
-.sim_process_truth <- function(sim_rep, state, obj) {
+.sim_process_truth <- function(sim_rep, state, obj, dsem = NULL) {
   out <- list()
   # Carry the mask as a logical of the deviation's own shape, so
   # `truth$rec_dev[truth$rec_dev_drawn]` is the set a recovery statistic should
   # be taken over.
-  add <- function(name) {
+  add <- function(name, mask = NULL) {
     val  <- sim_rep[[paste0(name, "_sim")]]
-    mask <- sim_rep[[paste0(name, "_drawn_sim")]]
+    if (is.null(mask)) mask <- sim_rep[[paste0(name, "_drawn_sim")]]
     if (is.null(val) || is.null(mask)) return(invisible(NULL))
     # Nothing drawn, nothing returned. The R gates here are coarser than the
     # template's -- init_dev is additionally gated on initMode (equilibrium modes
@@ -1081,7 +1234,16 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # the stock-recruit penalty scores rec_dev a second time and there is no single
   # distribution to draw from. Nothing was drawn there, so nothing is returned.
   if (state[1] == 1L && isTRUE(as.logical(sim_rep$rec_srr_single_density))) {
-    add("rec_dev")
+    # Under a DSEM rec_dev is derived from the latent field on every evaluation,
+    # so rec_dev_sim is still the deviation that generated these data -- it is
+    # only the template's mask that cannot see the draw. Hand back the field too:
+    # it is the process the SEM actually specifies, and the states, not the
+    # deviations, are what says whether the SEM structure is identified.
+    add("rec_dev", mask = if (!is.null(dsem)) dsem$rec)
+    if (!is.null(dsem) && !is.null(out$rec_dev)) {
+      out$dsem_x_tj       <- dsem$x
+      out$dsem_x_tj_drawn <- dsem$x_drawn
+    }
     add("init_dev")
   }
   m1_re <- suppressWarnings(as.integer(obj$env$data$M1_re))

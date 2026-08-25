@@ -7,8 +7,10 @@
 # reproduces the non-DSEM model. Those checks are blind to a lagged sem by
 # construction: a lag is exactly where the two models stop being the same. So
 # nothing has ever verified that the GMRF estimates rho, a covariate effect, or
-# sigma correctly, and `sim_mod(process = TRUE)` refuses on a DSEM, so the usual
-# recovery harness is unavailable.
+# sigma correctly. `sim_mod(process = TRUE)` does redraw a DSEM's field, but it
+# draws from the fit's OWN reported precision, so a recovery harness built on it
+# could only ever confirm the model agrees with itself. This drives the density
+# from a process specified independently, which is what makes it a check.
 #
 # This drives calculate_dsem() directly through tools/verify/dsem_standalone.cpp:
 #

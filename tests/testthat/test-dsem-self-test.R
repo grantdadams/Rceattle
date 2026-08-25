@@ -1,20 +1,20 @@
 # self_test() on a DSEM.
 #
-# WHAT A SELF TEST MEANS HERE, because it is easy to over-read: sim_mod() draws
-# new OBSERVATIONS in R from the fitted quantities. It does not redraw the
-# process random effects -- dsem.hpp's SIMULATE blocks were commented out when
-# the header was vendored (they need `this`, and calculate_dsem() is a free
-# function), and ceattle.cpp has none. So the fitted recruitment deviations are
-# held fixed and the test asks whether the model recovers itself under fresh
-# observation error. Under a DSEM those deviations come from the latent states,
-# which are likewise held fixed, so the SEM's own process is never re-realized.
-# That is the same limitation the standard recruitment path already has. A clean
-# self test therefore says nothing about how well the SEM structure is
-# identified across recruitment realizations.
+# WHAT A SELF TEST MEANS HERE, because it is easy to over-read. With the default
+# process = FALSE, sim_mod() draws new OBSERVATIONS and holds the latent states
+# at their fitted values, so the test asks whether the model recovers itself
+# under fresh observation error -- it says nothing about how well the SEM
+# structure is identified across recruitment realizations. process = TRUE
+# re-realizes the field from the precision that scored the fit, which is the
+# form that does ask that question.
 #
-# What it does establish, and what these tests pin: the simulated data really is
-# different, the refit re-estimates the DSEM rather than echoing the parent back,
-# and the replicates converge.
+# A covariate is the exception to "the process is held": under any family but
+# "fixed" it is a latent state observed with error, so its OBSERVATION is
+# redrawn whenever the observations are, process error or not.
+#
+# What these tests pin: the simulated data really is different, the refit
+# re-estimates the DSEM rather than echoing the parent back, and the replicates
+# converge.
 
 testthat::test_that("self_test() refits a DSEM on simulated data", {
   testthat::skip_on_cran()
@@ -101,14 +101,45 @@ testthat::test_that("redrawing recruitment on a DSEM works by every spelling", {
     drawn[[lab]] <- sim$index_data$Observation
   }
 
-  # ...and the draw is a DRAW: two calls differ, and they differ from the
-  # observation-only draw. A silent no-op would return identical data and look
-  # like a working process simulation.
-  set.seed(4); a <- suppressWarnings(suppressMessages(
-    Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE)))$index_data$Observation
-  set.seed(9); b <- suppressWarnings(suppressMessages(
-    Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE)))$index_data$Observation
-  testthat::expect_false(isTRUE(all.equal(a, b)))
+  # ...and the draw is a DRAW that REACHES THE DYNAMICS. Comparing two seeds
+  # proves nothing here: the observation draw alone makes them differ, so that
+  # assertion passed while the substituted field was being discarded wholesale
+  # by a second draw inside the template. Substitute a field that cannot be
+  # confused with a draw and check rec_dev moves with it, at one fixed seed.
+  obj <- Rceattle:::.sim_obj(fit)
+  par <- obj$env$last.par.best
+  shifted <- par; shifted[names(par) == "dsem_x_tj"] <-
+    par[names(par) == "dsem_x_tj"] + 100
+  st <- Rceattle:::.sim_state_codes(TRUE)
+  set.seed(4); base <- Rceattle:::.sim_draw(obj, state = st, par = par)
+  set.seed(4); moved <- Rceattle:::.sim_draw(obj, state = st, par = shifted)
+  testthat::expect_false(isTRUE(all.equal(base$rec_dev_sim, moved$rec_dev_sim)))
+  testthat::expect_gt(max(abs(base$rec_dev_sim - moved$rec_dev_sim)), 50)
+
+  # ...and the deviations that generated the data come back, so a recovery
+  # statistic has something to score against. Absent, a caller reads it as "no
+  # process error was simulated" -- which is what the template's zeroed mask
+  # made it look like.
+  set.seed(4)
+  sim2 <- suppressWarnings(suppressMessages(
+    Rceattle::sim_mod(fit, simulate = TRUE, process = TRUE)))
+  truth <- attr(sim2, "process_sim")
+  testthat::expect_false(is.null(truth))
+  testthat::expect_true(all(c("rec_dev", "rec_dev_drawn",
+                              "dsem_x_tj", "dsem_x_tj_drawn") %in% names(truth)))
+  testthat::expect_gt(sum(truth$rec_dev_drawn), 0L)
+  # The mask marks the cells the draw touched; everything else is a fitted
+  # value, and scoring recovery over it would report recovery of something that
+  # was never simulated.
+  testthat::expect_equal(dim(truth$rec_dev_drawn), dim(truth$rec_dev))
+  # Against the deviations the FIT used, not estimated_params$rec_dev -- under a
+  # DSEM that block is mapped out and sits at zero, so it would only assert the
+  # draw is non-zero.
+  fitted_dev <- Rceattle:::.sim_draw(
+    obj, state = Rceattle:::.sim_state_codes(FALSE))$rec_dev_sim
+  testthat::expect_gt(
+    max(abs(truth$rec_dev[truth$rec_dev_drawn] -
+              fitted_dev[truth$rec_dev_drawn])), 1e-6)
 
   # ...and the spellings that do NOT ask for recruitment must still work.
   for (p in list(FALSE, "none", "observation", "M")) {

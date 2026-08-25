@@ -154,9 +154,17 @@ void calculate_dsem(
                                    //      variance -- a deterministic one makes
                                    //      the conditioning solve singular and
                                    //      returns NaN.
-    array<Type> &margvar_tj_out    // Variance of each latent state given the
+    array<Type> &margvar_tj_out,   // Variance of each latent state given the
                                    //   cells cond_k marks known; 0 for those
                                    //   cells, which carry no variance at all
+    array<Type> &mu_tj_out,        // Mean of the MEASUREMENT density per cell,
+                                   //   after the link. Handed back so a caller
+                                   //   can redraw the observations from the same
+                                   //   mean this scores them against, rather
+                                   //   than reproducing the link switch.
+    vector<Type> &sigma_z_out      // exp(lnsigma_z), the measurement SDs, indexed
+                                   //   by sigmastart_j the way the densities
+                                   //   below index them
 ) {
   using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
@@ -219,6 +227,7 @@ void calculate_dsem(
   matrix<Type> loglik_tj( n_t, n_j );
   loglik_tj.setZero();
   vector<Type> sigma_z = exp( lnsigma_z );
+  sigma_z_out = sigma_z;
 
   // Assemble precision
   // SEM
@@ -832,6 +841,7 @@ void calculate_dsem(
         devresid_tj(t,j) = dsem_devresid_tweedie( y_tj(t,j), mu_tj(t,j), 1.0 + invlogit(sigma_z(sigmastart_j(j)+1)) );
       }
     }}
+  mu_tj_out = mu_tj;
   jnll -= loglik_tj.sum();
   jnll += jnll_gmrf;
 }

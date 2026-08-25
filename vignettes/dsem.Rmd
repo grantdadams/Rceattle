@@ -217,7 +217,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 ## Diagnostics on a DSEM fit
 
-Every diagnostic in `vignette("model-diagnostics")` runs on a DSEM fit, and that vignette has a section saying which of them mean something slightly different. The short version: OSA residuals cover the assessment data exactly as without a DSEM (the covariate series is not among them, and under `family = "fixed"` it carries no measurement density to residualize); recruitment process residuals are whitened by the process precision rather than divided by a per-year SD; `profile(param = "sigmaR")` resolves to the SEM's variance path; and `self_test(process = TRUE)` re-realizes the SEM rather than drawing IID deviations. `run_mse()` is the one thing that still refuses.
+Every diagnostic in `vignette("model-diagnostics")` runs on a DSEM fit, and that vignette has a section saying which of them mean something slightly different. The short version: OSA residuals cover the assessment data exactly as without a DSEM (the covariate series is not among them, and under `family = "fixed"` it carries no measurement density to residualize); recruitment process residuals are whitened by the process precision rather than divided by a per-year SD; `profile(param = "sigmaR")` resolves to the SEM's variance path; and `self_test(process = TRUE)` re-realizes the SEM rather than drawing IID deviations, handing back the drawn field in `attr(sims, "process_sim")$dsem_x_tj`. A covariate declared with a measurement family is simulated too — its state with the field, its observation from the family that scores it, written back into `env_data`. `run_mse()` is the one thing that still refuses.
 
 ## Which variance a `<->` term means
 

@@ -130,7 +130,33 @@ a draw.** Three rules, with their reasons:
    under the observed object's own name reads back as the data. A process draw also reports a
    `*_drawn_sim` mask, since the deviation arrays are REPORTed whole.
 3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
-   stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
+   stock-recruit penalty — have no distribution to draw from. Leave it, and warn. This gate is
+   the model's, not the parameterization's: a DSEM under the same stock-recruit penalty has the
+   same two densities on one latent and has to refuse the same way.
+
+**One process, one draw — and the mask has to come from whichever one ran.** A DSEM's field is
+drawn in R (`.dsem_draw_process()`), because the draw must be conditional on the cells the map
+pins. `calculate_dsem()` also carried a `do_simulate` branch that assigned the whole field
+(`x_tj = draw_tj`), and it ran *after* the substitution, so the R draw was inert — adding 100 to
+every latent state changed nothing — while the template's own draw redrew the covariate columns
+too. Under `family = "fixed"` those columns are the `env_data` series, so every replicate was
+generated under an environment the refit never saw (a scaled covariate with sd 1 moved by up to
+2.96). Two consequences worth carrying forward:
+
+- **A second draw is invisible to a two-seed test.** "Two calls with different seeds differ" is
+  satisfied by the observation draw alone, so it passes with the process draw a complete no-op.
+  Test a draw by *substituting a value that cannot be confused with one* and checking it reaches
+  the dynamics, at one fixed seed.
+- **A draw taken in R still owes a mask.** `rec_dev_drawn_sim` is written inside the template's
+  IID block, which is gated off under a DSEM, so it stayed zero and `attr(x, "process_sim")` came
+  back `NULL` on exactly the models whose process *had* been redrawn. That is indistinguishable
+  from nothing happening, and it silenced `compare_sim()`'s guard against measuring bias from an
+  operating model that is no longer the truth.
+
+**A covariate is data only under `family = "fixed"`.** Any other family makes it a latent state
+observed with error: the state belongs to the process draw, and the observation belongs to the
+observation draw (`ceattle.cpp` 5.5c) and must be written back into `env_data`, or the replicate
+carries the original series and the SEM's paths look more recoverable than they are.
 
 ## MSE draws and the assessment schedule
 

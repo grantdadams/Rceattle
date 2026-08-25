@@ -40,12 +40,21 @@ Type objective_function<Type>::operator() () {
   matrix<Type> Q(0, 0);
   array<Type> xhat_tj( y_tj.rows(), y_tj.cols() ); xhat_tj.setZero();
   array<Type> delta_tj( y_tj.rows(), y_tj.cols() ); delta_tj.setZero();
+  // Mean and SD of the measurement density, handed back so ceattle.cpp can draw
+  // a covariate observation from the density that scores it. Unused here beyond
+  // keeping the signature honest, but REPORTed so the equivalence harness can
+  // check the link is applied where it should be.
+  array<Type> mu_tj( y_tj.rows(), y_tj.cols() ); mu_tj.setZero();
+  vector<Type> sigma_z( lnsigma_z.size() ); sigma_z.setZero();
   calculate_dsem( jnll, options, RAM, RAMstart, familycode_j, linkcode_j,
                   sigmastart_j, eps_tj, y_tj, obs_idx, unobs_idx,
                   beta_z, lnsigma_z, mu_j, delta0_j, x_tj, z_tj,
-                  Q, xhat_tj, delta_tj, 0, 1, cond_k, margvar_tj );
+                  Q, xhat_tj, delta_tj, 0, 1, cond_k, margvar_tj,
+                  mu_tj, sigma_z );
   REPORT( Q );
   REPORT( z_tj );
   REPORT( margvar_tj );
+  REPORT( mu_tj );
+  REPORT( sigma_z );
   return jnll;
 }
