@@ -438,7 +438,7 @@
 #' The model-level switches
 #'
 #' @description
-#' Companion to [.rce_column_schema()], for the switches that are not workbook
+#' Companion to `.rce_column_schema()`, for the switches that are not workbook
 #' columns. `.rce_config_schema()` projects from this, so the comments
 #' `save_config()` writes list every valid value rather than a hand-kept subset;
 #' `test-schema-cpp-dispatch.R` checks the ones that reach the model against

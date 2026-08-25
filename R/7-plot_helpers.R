@@ -446,7 +446,7 @@
 #'
 #' A species that has no such age is dropped rather than plotted wrong, since
 #' the ages differ between species in one figure. That matches how
-#' [.resolve_species()] handles a partly-matching selection.
+#' `.resolve_species()` handles a partly-matching selection.
 #'
 #' @param age The age to plot, on the species' own age scale.
 #' @param species Species indices being drawn.
