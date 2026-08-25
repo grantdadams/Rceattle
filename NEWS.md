@@ -12,6 +12,50 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.20.0
+
+## Diagnostics
+
+* **`self_test()` and `profile()` join the display contract.** 5.16.0 gave
+  `convergence_diagnostics()`, `osa_diagnostics()`, `retrospective()` and
+  `jitter()` one way of reporting — an overall status in the same four words,
+  a one-line verdict, then a compact table. These two were left out, so
+  `vignette("model-diagnostics")` claimed a contract the family did not all
+  keep.
+
+  `self_test()` now reports the fraction of simulations that reached an
+  optimum, which the returned list could not say on its own: non-converged
+  runs are dropped before it is returned, so the number of fits returned is
+  not the number attempted. The number attempted is carried in
+  `attr(, "nsim")`. Beneath it, a tally of each returned fit's own
+  `$convergence$status` — a separate question, since a replicate can reach a
+  zero gradient and still carry a `NOTE` — and a line naming what generated
+  the replicates, because with processes held fixed the spread across them
+  carries observation error only and is a lower bound on estimation
+  uncertainty.
+
+  `profile()` now reports whether the grid **brackets** the minimum. A profile
+  whose lowest point is its first or last grid value has run out of grid rather
+  than found the optimum, and it plots as a perfectly ordinary curve, so
+  nothing in the numbers says so. For a one-dimensional profile it also gives
+  the values within 1.92 of the minimum — the 95% profile-likelihood cutoff,
+  \eqn{\chi^2_1(0.95)/2} — marked open on either side the grid does not close.
+  A cross-profile gets the edge test but no interval.
+
+  **Return values are unchanged.** Both objects are the list they always were:
+  `sims[["Sim_1"]]`, `length(sims)`, `prof$grid$slot_1` and
+  `prof$nll - min(prof$nll)` all index as before, `c(sims, list(fit))` and
+  `sims[i]` return a plain list of fits, and `plot_biomass()` and
+  `compare_sim()` are unaffected. Only `class()` gains an entry and `print()`
+  gets an opinion.
+
+## Other changes
+
+* `R/9-retro_and_jitter.R` was split into `9-diagnostic_helpers.R`
+  (`rceattle-refit-args`, `.parallel_lapply()`), `9-retro_and_jitter.R`,
+  `9-self_test.R` and `9-profile.R`. No code moved between functions and no
+  behaviour changed.
+
 # Rceattle 5.19.1
 
 ## Bug fixes

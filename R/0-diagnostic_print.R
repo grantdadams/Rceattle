@@ -1,7 +1,8 @@
 # One display contract for the diagnostics: every diagnostic prints the header
 # convergence_diagnostics() uses -- an overall status, then a one-line verdict,
-# then a compact table -- so Mohn's rho, OSA residuals and a jitter all answer
-# "is this acceptable?" in the same four-level vocabulary.
+# then a compact table -- so Mohn's rho, OSA residuals, a jitter, a self-test
+# and a likelihood profile all answer "is this acceptable?" in the same
+# four-level vocabulary.
 #
 # Return values are unchanged: each object is still the data frame or list it
 # was. Only class() gains an entry and print() gets an opinion.

@@ -101,6 +101,14 @@ A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 By default only the converged simulations, renumbered contiguously; a
 message reports how many were dropped.
 
+The list carries class \code{"Rceattle_selftest"} and the number of
+simulations attempted in \code{attr(, "nsim")}, so printing it reports the
+convergence rate; see \code{\link{print.Rceattle_selftest}}. It is
+otherwise the list it always was -- \code{sims[["Sim_1"]]},
+\code{length(sims)}, \code{lapply()} and
+\code{plot_biomass(c(sims, list(fit)))} are all unchanged, and \code{c()}
+and \code{[} return a plain list of fits.
+
 With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
 simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
 logical vector of the convergence verdicts in \code{attr(, "converged")}.

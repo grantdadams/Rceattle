@@ -82,6 +82,10 @@
 #'     \item{slots}{the slots list (echoed for downstream plotting).}
 #'   }
 #'
+#'   Carries class \code{"Rceattle_profile"}, so printing it reports whether the
+#'   grid brackets the minimum; see \code{\link{print.Rceattle_profile}}. Every
+#'   element indexes exactly as before.
+#'
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
@@ -348,12 +352,102 @@ profile.Rceattle <- function(fitted = NULL,
 
   names(mod_list) <- paste0("Fit_", seq_len(ngrid))
 
-  return(list(
+  # Still the same list -- $Rceattle_list, $grid, $nll, $param and $slots are
+  # unchanged, so `prof$grid$slot_1` and `prof$nll - min(prof$nll)` index as
+  # before. The class adds a print method that says whether the grid brackets
+  # the minimum, which the bare vectors never did; see print.Rceattle_profile().
+  structure(list(
     Rceattle_list = mod_list,
     grid          = grid,
     nll           = nll,
     param         = param,
     slots         = slots
-  ))
+  ), class = "Rceattle_profile")
+}
+
+
+#' Print method for a likelihood profile
+#'
+#' @description Reports whether the grid actually brackets the minimum. A
+#' profile whose lowest point is its first or last grid value has not found the
+#' optimum -- it has run out of grid -- and the curve drawn from it understates
+#' how far the parameter can move. That is the failure the numbers alone hide,
+#' since a partial profile plots as a perfectly ordinary line.
+#'
+#' @details
+#' For a one-dimensional profile the interval reported is the usual
+#' profile-likelihood one: the grid values within `cutoff` of the minimum, where
+#' the default 1.92 is \eqn{\chi^2_1(0.95)/2}. It is read off the grid, so it is
+#' no finer than the spacing of `values`, and it is reported as open on either
+#' side the grid does not close. No interval is given for a cross-profile over
+#' two or more cells -- the cutoff would be \eqn{\chi^2_k(0.95)/2} and the region
+#' is not an interval.
+#'
+#' Under `random_rec = TRUE` the objective is the Laplace-approximated marginal
+#' likelihood, so this is a profile of that, with the usual caveat that the
+#' approximation is what is being profiled.
+#'
+#' @param x A `"Rceattle_profile"` object from [profile.Rceattle()].
+#' @param cutoff Objective units above the minimum that bound the reported
+#'   interval. Default `1.92`, the 95% profile-likelihood cutoff for one
+#'   parameter.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
+  nll  <- x$nll
+  grid <- x$grid
+  ok   <- is.finite(nll)
+  ngrid <- length(nll)
+
+  if (!any(ok)) {
+    .rce_diag_header("profile", "FAIL",
+                     paste0("no grid point converged for '", x$param, "'"))
+    return(invisible(x))
+  }
+
+  best <- which.min(replace(nll, !ok, Inf))
+  # An edge minimum on ANY profiled cell: the grid stopped before the surface
+  # turned, so the minimum reported is the end of the grid, not the optimum.
+  at_edge <- vapply(seq_along(grid), function(j) {
+    v <- grid[[j]]
+    v[best] == min(v) || v[best] == max(v)
+  }, logical(1))
+
+  sev <- if (any(at_edge)) "WARN"
+         else if (any(!ok)) "NOTE"
+         else "OK"
+
+  # `format(trim = TRUE)`, not formatC("g"): that pads to the width implied by
+  # `digits` and would print a grid value as "  0.7".
+  num <- function(v) format(v, digits = 4, trim = TRUE)
+
+  .rce_diag_header(
+    "profile", sev,
+    paste0(x$param, " over ", ngrid, " grid point(s); ",
+           if (all(ok)) "all converged"
+           else paste0(sum(!ok), " did not converge")))
+
+  at <- vapply(grid, function(v) v[best], numeric(1))
+  cat("  minimum -log L : ", formatC(nll[best], format = "f", digits = 4),
+      "  at ", paste(names(grid), num(at), sep = " = ", collapse = ", "),
+      "\n", sep = "")
+
+  if (length(grid) == 1L) {
+    v <- grid[[1]]
+    within <- ok & (nll - nll[best] <= cutoff)
+    lo <- min(v[within]); hi <- max(v[within])
+    cat("  within ", cutoff, " of the minimum : ",
+        if (lo == min(v)) "<=" else "", num(lo),
+        " to ", if (hi == max(v)) ">=" else "", num(hi),
+        "\n", sep = "")
+  }
+
+  if (any(at_edge)) {
+    cat("  the minimum is at a grid edge (",
+        paste(names(grid)[at_edge], collapse = ", "),
+        "), so the grid does not bracket it -- widen `values`\n", sep = "")
+  }
+  invisible(x)
 }
 

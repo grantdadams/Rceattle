@@ -107,6 +107,106 @@ testthat::test_that("jitter reports the fraction that reached the optimum", {
 })
 
 
+testthat::test_that("self_test reports the fraction that converged", {
+  testthat::skip_if_not_installed("TMB")
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = Rceattle::fit_control(verbose = 0))))
+  sims <- suppressWarnings(suppressMessages(
+    Rceattle::self_test(fit, nsim = 2, start = "estimated", cores = 1)))
+
+  testthat::expect_s3_class(sims, "Rceattle_selftest")
+  # Return value unchanged: still the list of fits every downstream call reads.
+  # `nsim` is carried because dropped runs make the returned length the wrong
+  # denominator -- the same reason jitter() carries njitter.
+  testthat::expect_true(is.list(sims))
+  testthat::expect_equal(attr(sims, "nsim"), 2)
+  if (length(sims)) testthat::expect_s3_class(sims[[1]], "Rceattle")
+
+  # The two operations the live assessment scripts perform on this object.
+  testthat::expect_type(c(sims, list(fit)), "list")
+  testthat::expect_length(c(sims, list(fit)), length(sims) + 1L)
+  testthat::expect_false(inherits(sims[seq_along(sims)], "Rceattle_selftest"))
+
+  txt <- shown(sims)
+  expect_header(txt, "self-test")
+  testthat::expect_true(any(grepl("simulation\\(s\\) converged", txt)))
+  # What generated the replicates, since it decides what the spread means.
+  testthat::expect_true(any(grepl("processes held at their fitted values", txt)))
+})
+
+
+testthat::test_that("a self-test names the processes redrawn, not their masks", {
+  # sim_mod() returns each deviation beside a same-shaped `_drawn` mask. That is
+  # bookkeeping, not a second process, so listing it would report "rec_dev,
+  # rec_dev_drawn" as two things redrawn -- and the line exists to say what the
+  # replicates were generated under.
+  mk <- function(s) structure(list(convergence = list(status = s)),
+                              class = "Rceattle")
+  sims <- structure(
+    list(Sim_1 = mk("OK")), nsim = 1L,
+    process_sim = list(Sim_1 = list(rec_dev = 1, rec_dev_drawn = TRUE,
+                                    log_M1_dev = 2, log_M1_dev_drawn = TRUE)),
+    class = "Rceattle_selftest")
+
+  txt <- shown(sims)
+  testthat::expect_true(any(grepl("processes redrawn: log_M1_dev, rec_dev", txt)))
+  testthat::expect_false(any(grepl("_drawn", txt)))
+  # And it points at the truth to compare against, which is not the OM.
+  testthat::expect_true(any(grepl("not the operating model", txt)))
+})
+
+
+testthat::test_that("a profile says whether the grid brackets the minimum", {
+  # Constructed rather than fitted: the states worth pinning are an edge
+  # minimum and a grid where nothing converged, and reaching either through a
+  # real profile means choosing `values` that make the optimizer fail on
+  # purpose. The shipped function's own class and shape are asserted by the
+  # live profile in test-functions-profile-param.R.
+  mk <- function(nll, v = seq(0.1, 1.5, by = 0.2)) structure(
+    list(Rceattle_list = list(), grid = data.frame(slot_1 = v), nll = nll,
+         param = "sigmaR", slots = list(1)), class = "Rceattle_profile")
+
+  interior <- mk(c(20, 12, 6, 4, 4.5, 7, 15, 30))
+  txt <- shown(interior)
+  expect_header(txt, "profile")
+  testthat::expect_true(any(grepl("status: OK", txt)))
+  testthat::expect_true(any(grepl("minimum -log L", txt)))
+  # The profile-likelihood interval, read off the grid: 0.7 is the minimum and
+  # 0.9 is within 1.92 of it, 1.1 is not.
+  testthat::expect_true(any(grepl("within 1.92 of the minimum : 0.7 to 0.9", txt)))
+
+  # A minimum at the last grid point has not been bracketed -- the grid ran
+  # out. It plots as an ordinary curve, which is why it is said out loud.
+  edge <- shown(mk(c(30, 22, 16, 12, 9, 7, 5, 4)))
+  testthat::expect_true(any(grepl("status: WARN", edge)))
+  testthat::expect_true(any(grepl("does not bracket it", edge)))
+  testthat::expect_true(any(grepl("to >=1.5", edge)))
+
+  # A failed point is a NOTE, not a WARN: the minimum is still bracketed.
+  gappy <- shown(mk(c(20, NA, 6, 4, 4.5, NA, 15, 30)))
+  testthat::expect_true(any(grepl("status: NOTE", gappy)))
+  testthat::expect_true(any(grepl("2 did not converge", gappy)))
+
+  # Nothing converged: report it and stop, rather than min() over an empty set.
+  none <- shown(mk(rep(NA_real_, 8)))
+  testthat::expect_true(any(grepl("status: FAIL", none)))
+  testthat::expect_true(any(grepl("no grid point converged", none)))
+
+  # A cross-profile gets no interval -- the cutoff would be chisq_k/2 and the
+  # region is not an interval -- but every cell is still edge-tested.
+  g <- expand.grid(slot_1 = c(0.1, 0.2, 0.3), slot_2 = c(0.1, 0.2, 0.3))
+  cross <- structure(list(Rceattle_list = list(), grid = g,
+                          nll = c(9, 8, 9, 8, 4, 8, 9, 8, 9), param = "M1",
+                          slots = list(c(1, 1, 1), c(1, 2, 1))),
+                     class = "Rceattle_profile")
+  txt2 <- shown(cross)
+  testthat::expect_true(any(grepl("slot_1 = 0.2, slot_2 = 0.2", txt2)))
+  testthat::expect_false(any(grepl("within 1.92", txt2)))
+})
+
+
 testthat::test_that("the severity vocabulary is the convergence one", {
   # One vocabulary across the family, so a reader meets the same four words.
   testthat::expect_equal(Rceattle:::.CONV_SEVERITY,

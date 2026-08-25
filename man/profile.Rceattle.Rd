@@ -96,6 +96,10 @@ converge.}
 \item{param}{the profiled parameter name (echoed).}
 \item{slots}{the slots list (echoed for downstream plotting).}
 }
+
+Carries class \code{"Rceattle_profile"}, so printing it reports whether the
+grid brackets the minimum; see \code{\link{print.Rceattle_profile}}. Every
+element indexes exactly as before.
 }
 \description{
 Re-fits an Rceattle model while holding selected cells of a

@@ -196,6 +196,14 @@ unchecked `.so` is meaningless. As of 5.16.0 it reports no violation over five c
 (ragged comps both directions, joint sex, predation arrays, the CI crash config, `sim_mod()`
 draws) on macOS. **That is not a clearance** — the fault is intermittent and was seen on Windows.
 
+**A workflow that lives only on a feature branch does not run.** `deep-checks.yaml` triggers on
+`schedule` and `workflow_dispatch`, and GitHub reads both from the **default branch** only:
+`gh run list --workflow=deep-checks.yaml` answers `not found on the default branch`, the cron
+never fires, and a manual dispatch has nothing to dispatch. It was added on `dev` as the guard
+for the Windows access violation, so between adding it and merging to `main` the guard measured
+nothing at all. Do not read a quiet nightly as a clean nightly until the workflow is on `main`;
+check `gh run list --workflow=<file>` says something other than "not found".
+
 Two further sharp edges found while building that harness, both worth knowing:
 `src/TMB/compile.R` resolves `ceattle.cpp` against the **working directory**, so running it from
 the repo root skips the compile, prints its messages, and exits 0; and `on.exit()` registered at

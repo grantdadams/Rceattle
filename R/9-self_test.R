@@ -62,6 +62,14 @@
 #'   By default only the converged simulations, renumbered contiguously; a
 #'   message reports how many were dropped.
 #'
+#'   The list carries class \code{"Rceattle_selftest"} and the number of
+#'   simulations attempted in \code{attr(, "nsim")}, so printing it reports the
+#'   convergence rate; see \code{\link{print.Rceattle_selftest}}. It is
+#'   otherwise the list it always was -- \code{sims[["Sim_1"]]},
+#'   \code{length(sims)}, \code{lapply()} and
+#'   \code{plot_biomass(c(sims, list(fit)))} are all unchanged, and \code{c()}
+#'   and \code{[} return a plain list of fits.
+#'
 #'   With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
 #'   simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
 #'   logical vector of the convergence verdicts in \code{attr(, "converged")}.
@@ -264,7 +272,7 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
     if (any(!vapply(truths, is.null, logical(1)))) {
       attr(mod_list, "process_sim") <- truths
     }
-    return(mod_list)
+    return(.as_selftest(mod_list, nsim))
   }
 
   keep_truth <- truths[converged]
@@ -275,5 +283,109 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   if (any(!vapply(keep_truth, is.null, logical(1)))) {
     attr(mod_list, "process_sim") <- keep_truth
   }
-  return(mod_list)
+  return(.as_selftest(mod_list, nsim))
+}
+
+
+# Still the same list of models: `sims[["Sim_1"]]`, `length(sims)`,
+# `plot_biomass(c(sims, list(fit)))` and compare_sim() all read it exactly as
+# before -- c() and [ drop the class, which is right, because what they return
+# is a plain list of fits. Only class() gains an entry and print() gets an
+# opinion.
+#
+# `nsim` is carried because the returned runs cannot say how many were
+# attempted: the non-converged ones are dropped, and the fraction that reached
+# an optimum is the first thing a self-test has to report. Same reason
+# jitter() carries `njitter`.
+.as_selftest <- function(mod_list, nsim) {
+  attr(mod_list, "nsim") <- nsim
+  class(mod_list) <- "Rceattle_selftest"
+  mod_list
+}
+
+
+#' Print method for a self-test
+#'
+#' @description Reports what a self-test is run to find out: how many
+#' simulations the estimator brought back to an optimum, and under what the
+#' replicates were generated. The returned list cannot say the first on its own
+#' -- non-converged runs are dropped before it is returned, so the number of
+#' fits returned is not the number attempted.
+#'
+#' @details
+#' The status is the convergence RATE, since that is the quantity the run
+#' produces: `FAIL` if nothing converged, `WARN` below `rate`, `NOTE` if any
+#' replicate was dropped, `OK` otherwise. The table beneath tallies each
+#' returned fit's own `$convergence$status`, which is a separate question --
+#' a replicate can reach a zero gradient and still carry a `NOTE` or `WARN` --
+#' and those are not folded into the header for that reason.
+#'
+#' The last line says what generated the replicates, because it decides what the
+#' spread means. With processes held fixed (the default) `sim_mod()` redraws the
+#' observations alone, so the spread carries observation error only and is a
+#' lower bound on estimation uncertainty -- do not read it against the model's
+#' own uncertainty bands, which include process error. See
+#' **Interpreting the spread** in [self_test()].
+#'
+#' @param x A `"Rceattle_selftest"` object from [self_test()].
+#' @param rate Fraction of simulations that must converge before the run counts
+#'   as clean. Default `0.9`, matching [jitter()]'s.
+#' @param ... Currently unused.
+#' @return `x`, invisibly.
+#' @export
+print.Rceattle_selftest <- function(x, rate = 0.9, ...) {
+  tried <- attr(x, "nsim") %||% NA_integer_
+  # debug = TRUE returns every simulation, so the count of entries is not the
+  # count that converged; the attribute it carries is.
+  conv <- attr(x, "converged")
+  kept <- if (is.null(conv)) length(x) else sum(conv)
+
+  sev <- if (kept == 0L) "FAIL"
+         else if (!is.na(tried) && kept < rate * tried) "WARN"
+         else if (!is.na(tried) && kept < tried) "NOTE"
+         else "OK"
+
+  .rce_diag_header(
+    "self-test", sev,
+    paste0(kept, " of ", if (is.na(tried)) length(x) else tried,
+           " simulation(s) converged",
+           if (!is.null(conv)) " (debug: every simulation returned)" else ""))
+
+  # Each returned fit's own four-level verdict. Reported rather than folded into
+  # the status above: a gradient at zero and a clean convergence report are
+  # different claims, and a self-test that converges everywhere while every
+  # replicate carries a WARN is worth seeing.
+  st <- vapply(x, function(m) {
+    s <- m$convergence$status
+    if (is.null(s) || !length(s)) NA_character_ else as.character(s)[1]
+  }, character(1))
+  st <- st[!is.na(st)]
+  if (length(st)) {
+    tally <- as.data.frame(table(status = factor(st, levels = .CONV_SEVERITY)),
+                           stringsAsFactors = FALSE)
+    tally <- tally[tally$Freq > 0, , drop = FALSE]
+    # table() returns the grouping as a factor whatever stringsAsFactors says,
+    # and sprintf() on one prints its level code.
+    tally$status <- as.character(tally$status)
+    tally$.tag <- .rce_sev_tag(tally$status)
+    .rce_diag_table(tally, stats::setNames(
+      c(".tag", "status", "Freq"), c(" ", "convergence", "n")))
+  }
+
+  proc <- attr(x, "process_sim")
+  # Each deviation comes back beside a same-shaped `_drawn` mask (see sim_mod()),
+  # which is bookkeeping rather than a process; naming it here would report
+  # "rec_dev, rec_dev_drawn" as two things redrawn.
+  drawn <- if (is.null(proc)) character(0) else
+    grep("_drawn$", unique(unlist(lapply(proc, names))), value = TRUE,
+         invert = TRUE)
+  if (length(drawn)) {
+    cat("  processes redrawn: ", paste(sort(drawn), collapse = ", "),
+        " -- compare against attr(x, \"process_sim\"), not the operating model\n",
+        sep = "")
+  } else {
+    cat("  observations redrawn, processes held at their fitted values:",
+        "the spread is a lower bound\n")
+  }
+  invisible(x)
 }
