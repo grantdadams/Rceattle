@@ -276,7 +276,7 @@ The alternatives are Francis (2011) reweighting, applied by hand, and estimating
 the weights directly with a Dirichlet-multinomial likelihood
 (`Comp_distribution = "DirichletMultinomial"`), which avoids the iteration
 entirely — note that under that likelihood `Comp_weights` is read as the **log**
-of the starting weight, so the template default of `1` is a starting weight of
+of the starting weight, so the model default of `1` is a starting weight of
 *e*, and a weight of 1 is written as `0`.
 
 Because OSA residuals for discrete composition data are randomized quantile

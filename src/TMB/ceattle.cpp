@@ -2088,9 +2088,17 @@ Type objective_function<Type>::operator() () {
         for(age = 0; age < nages(sp); age++) {
 
           wt_idx_ssb = 2 * sp + 1;
-          // TODO(review): under predation SB0/SBF are carried on M_at_age,
-          // whose M2 is the fished predator field. Needs an equilibrium M2
-          // solved from NByage0/NByageF; the dB0/dBF pair below is consistent.
+          // KNOWN LIMITATION (multispecies only): NByage0 and NByageF are
+          // equilibrium numbers at F = 0 and F = Ftarget, but the survival to
+          // spawning below applies M_at_age, whose M2 is the REALIZED predation
+          // field under the projection's own F -- not the M2 that would obtain
+          // at either equilibrium. SB0 escapes this, being overwritten with the
+          // MSSB0 input a few lines down, but SBF does not, and HCR 5 (NPFMC
+          // Tier 3) reads SBF and SB0 together, so the two legs of that rule sit
+          // on different mortality bases. A correct version solves an
+          // equilibrium M2 from NByage0 / NByageF. Under msmMode = 0 there is no
+          // M2 and M_at_age is M1, so nothing here is affected. DynamicSB0 /
+          // DynamicSBF are internally consistent; DynamicHCR = TRUE uses them.
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
           DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
@@ -2456,7 +2464,7 @@ Type objective_function<Type>::operator() () {
         // Trend error against the exact form is ~1.5% over F 0.05-0.8, against
         // -29% to +33% for the snapshot.
         //
-        // TODO: fit the window form directly when a fleet needs it. 
+        // TODO: fit the window form directly when a fleet needs it.
         Type n_index;
         if(flt_type(index) == 1){
           n_index = N_at_age(sp, sex, age, flt_yr) * (1.0 - exp( - Z_at_age(sp, sex, age, flt_yr))) / Z_at_age(sp, sex, age, flt_yr);

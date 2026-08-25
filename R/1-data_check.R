@@ -45,7 +45,7 @@ data_check <- function(data_list) {
   }
 
   # Catchability = "PowerEquation" is not yet implemented: the power coefficient
-  # (index_q_pow) is not built as a parameter and the template does not apply it,
+  # (index_q_pow) is not built as a parameter and the model does not apply it,
   # so the fleet would silently get a plain estimated q instead.
   if(!is.null(data_list$fleet_control$Catchability) &&
      any(data_list$fleet_control$Catchability %in% c("PowerEquation", 4), na.rm = TRUE)){
@@ -83,7 +83,7 @@ data_check <- function(data_list) {
   #
   # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is also
   # removed (5.16.0) but by its own check above, with its own message. That one
-  # was not an AR1 either: the template gives value 2 the same independent
+  # was not an AR1 either: the model gives value 2 the same independent
   # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and index_q_rho
   # is read only on the QAR1 path this block removes. Both redirect to the same
   # place -- a q linkage, `linkage_spec(~ ar1(1 | Year))` -- but they name
@@ -137,7 +137,7 @@ data_check <- function(data_list) {
       "worked example.\n",
       "This is not the same switch as Time_varying_q = 'AR1', which is removed ",
       "separately and reported on its own. That one was not an AR1 either: the ",
-      "template scored it with the same independent normal penalty as 'IID'. ",
+      "model scored it with the same independent normal penalty as 'IID'. ",
       "Both are replaced by the same q linkage."))
   }
 
@@ -174,7 +174,7 @@ data_check <- function(data_list) {
   fc <- data_list$fleet_control
 
   # Time_varying_sel / Time_varying_q = "AR1" (2) are REMOVED. Neither was ever
-  # an AR1. The template scores value 2 with the same independent normal penalty
+  # an AR1. The model scores value 2 with the same independent normal penalty
   # as value 1 -- `flt_varying_sel == 1 || == 2` and `index_varying_q == 1 || ==
   # 2` -- and neither deviation block has a correlation parameter to read:
   # index_q_rho is used only on the QAR1 catchability path this release also
@@ -223,7 +223,7 @@ data_check <- function(data_list) {
     paste0(
       what, " = 'AR1' is removed for fleet(s) ",
       paste(unique(fc$Fleet_name[hit]), collapse = ", "),
-      ". It was never an AR1: the template scored it with the same independent ",
+      ". It was never an AR1: the model scored it with the same independent ",
       "normal penalty as 'IID', and there is no correlation parameter for these ",
       "deviations to read. Set ", what, " = 'IID' to keep the fit you had. ",
       "To fit the autocorrelation the name promised, use a linkage -- a ",
@@ -304,11 +304,10 @@ data_check <- function(data_list) {
     }
 
     # The age-by-year modes carry one deviation per age-year cell -- nages *
-    # nyrs_hind per species, which is 882 on GOA2018SS where a mapping defect
-    # gave 42 before 5.9.0. That field is flexible enough to absorb a trend that
-    # belongs to selectivity or to recruitment, and nothing else in a
-    # single-species model pins the level of M. Say so where the user can act
-    # on it; this is not an error, and a well-informed model is free to run it.
+    # nyrs_hind per species, 882 on GOA2018SS. That field is flexible enough to
+    # absorb a trend belonging to selectivity or to recruitment, and nothing
+    # else in a single-species model pins the level of M. Say so where the user
+    # can act on it; this is a warning, not an error.
     m1_2d <- data_list$M1_re %in% c(3, 6, "iid_age_year", "ar1_age_year")
     m1_pr <- data_list$M1_use_prior
     if (is.null(m1_pr)) m1_pr <- rep(0, length(m1_2d))
@@ -465,7 +464,7 @@ data_check <- function(data_list) {
   # comp_data Sex is an encoding (0 = combined, 1 = female, 2 = male, 3 = joint
   # female and male), not a count, so it is checked by meaning rather than
   # against max(Sex): a male-only or a joint row needs a second sex to exist.
-  # A joint row on a one-sex species is the damaging one -- the template writes
+  # A joint row on a one-sex species is the damaging one -- the model writes
   # that row out to 2 * nages while check_composition_data() requires only nages
   # columns, so the surplus lands in the next observation's predicted
   # composition and quietly changes its likelihood.
@@ -668,7 +667,7 @@ data_check <- function(data_list) {
       # Non-parametric shape-penalty range and cap, given on the fleet's own
       # selectivity dimension: an age (from minage) for age-based fleets, a
       # 1-based length-bin ordinal for length-based. Out-of-range values would
-      # index past the selectivity array in the template.
+      # index past the selectivity array in the model.
       bin_lo <- if(dim_is_age) data_list$minage[sp_idx] else 1L
       bin_hi <- bin_lo + max_bin - 1L
       for(col in c("Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_cap_bin")){
@@ -690,7 +689,7 @@ data_check <- function(data_list) {
       # from comp_data$Age0_Length1 -- and are PER SEX BLOCK for joint-sex (Sex 3)
       # comps (so the bound is nages/nlengths, not the doubled joint row). An
       # out-of-range value or young >= old would fold into a nonexistent bin,
-      # build a negative-length vector in the template, or collapse the whole
+      # build a negative-length vector in the model, or collapse the whole
       # composition into a single (zero-information) bin, so reject them here.
       # A single per-fleet column drives every composition row on the fleet, so
       # the bound is the MOST restrictive dimension present (min): a value that
@@ -705,7 +704,7 @@ data_check <- function(data_list) {
           ay <- fc_num(fc, "Comp_accum_young", flt)
           ao <- fc_num(fc, "Comp_accum_old",   flt)
           # Effective old bin: the NA / 0 sentinels both mean "no old accumulation",
-          # which the template reads as the last bin.
+          # which the model reads as the last bin.
           ao_eff <- if(is.na(ao) || ao == 0) comp_max_bin else ao
           if(!is.na(ay) && (ay < 1 || ay > comp_max_bin)){
             errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
@@ -1277,7 +1276,7 @@ data_check <- function(data_list) {
 
   # catch_data must span hindcast years (use 0 where no catch occurred);
   # A fleet carrying fitted index observations needs its catchability columns,
-  # whatever its Fleet_type. The template scores an index row for any non-Off
+  # whatever its Fleet_type. The model scores an index row for any non-Off
   # fleet, so a fishery with a CPUE series is fitted like a survey -- but these
   # columns have no schema default, so on a fishery they arrive NA and the index
   # would be fitted at an undefined q with an undefined sd. Required rather than
@@ -1390,7 +1389,7 @@ data_check <- function(data_list) {
   #   NonParametric(PM)    RandomWalk only -- the walk on realized log-selectivity
   #                        divides by 2*sd^2. build_map() refuses the other modes.
   #   LogisticPM           never: its two walks are weighted by Sel_curve_pen1
-  #                        and Sel_curve_pen3, and the template's own conditions
+  #                        and Sel_curve_pen3, and the model's own conditions
   #                        exclude type 11 from every sel_dev_sd site.
   #   Fixed / 2DAR1 / 3DAR1
   #                        never: no deviation, or the field carries its own
@@ -1581,17 +1580,11 @@ data_check <- function(data_list) {
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }
-    # Stomach grouping. The TMB diet likelihood walks diet_ctl with one forward
-    # cursor, taking stomach i's prey as the run of rows where stomach_id == i
-    # (ceattle.cpp, section 13.2). That needs the ids sorted: 0, 1, 2, ... with
-    # no gaps. Sorted order is what makes each stomach's rows consecutive AND
-    # puts them where the cursor looks for them, so testing only that the rows
-    # are grouped is not enough -- a table whose blocks are each intact but out
-    # of order (say re-sorted by predator age) passes that test while the cursor
-    # runs past nearly all of them. Every stomach it misses drops out of the
-    # likelihood silently, with a lower jnll. clean_data() sorts by stomach_id,
-    # so anything that came through it is fine; this catches a hand-built or
-    # re-sorted diet table.
+    # Stomach grouping. The diet likelihood takes stomach i's prey as the run
+    # of rows where stomach_id == i (ceattle.cpp, section 13.2), so the ids must
+    # be sorted 0, 1, 2, ... with no gaps -- grouped-but-unsorted is not enough,
+    # and any stomach out of order drops out of the likelihood. clean_data()
+    # sorts by stomach_id; this catches a hand-built or re-sorted diet table.
     if("stomach_id" %in% colnames(dd)){
       sid <- as.integer(dd$stomach_id)
       if(any(is.na(sid))){
@@ -1632,18 +1625,13 @@ data_check <- function(data_list) {
   }
 
   # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
-  # steepness, R0 and R_init are all derived from SPR0 or SPRFinit. Under
-  # predation those are not defined -- total mortality carries M2, which scales
-  # with predator abundance, so per-recruit spawning output is not a property of
-  # the prey stock alone -- and section 6.2 of the template does not compute
-  # them. The consumers in section 6.3 were never gated to match, so SPR0 = 0
-  # reached them: with srr_fun >= 2 that is 1/0, giving R0 = -Inf and a NaN
-  # objective; with the Ianelli configuration (srr_fun < 2, srr_pred_fun >= 2)
-  # it is worse, because the fit RUNS -- steepness comes out 0, R_hat -Inf, and
-  # the objective is finite. Refuse the combination rather than report either.
-  # Resolve through .SRR_FUNS rather than comparing the raw value: build_srr()
-  # coerces to an integer code, but a hand-built data_list can still carry the
-  # string, and in R `"mean" >= 2` is TRUE -- a character comparison that would
+  # steepness, R0 and R_init all derive from SPR0 or SPRFinit. Under predation
+  # there is no such anchor -- total mortality carries M2, which scales with
+  # predator abundance, so per-recruit spawning output is not a property of the
+  # prey stock alone. The combination is refused rather than fitted.
+  #
+  # Resolve through .SRR_FUNS rather than comparing the raw value: a hand-built
+  # data_list can carry the string, and in R `"mean" >= 2` is TRUE, which would
   # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
   # value is validate_switches()' business to report, not this check's.
   .srr_needs_spr <- function(x) {

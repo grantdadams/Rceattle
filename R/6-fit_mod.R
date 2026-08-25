@@ -487,7 +487,7 @@ fit_mod <-
     }
 
     # A Dirichlet-multinomial reads its composition weight as a log, so the
-    # template's seed value of 1 is a starting weight of e. Reported here rather
+    # workbook default of 1 is a starting weight of e. Reported here rather
     # than inside switch_check(), which build_params() and build_map() also call
     # -- that would print it three times per fit. Reports only; changes nothing.
     if (isTRUE(quiet_data_check)) suppressMessages(.rce_flag_dm_weight_scale(data_list))
@@ -622,7 +622,7 @@ fit_mod <-
              "build_catchability() / build_selectivity() / build_composition(), ",
              "pass the matching qFun / selFun / compFun.", call. = FALSE)
       }
-      # Drop anything the template no longer has a parameter for, in skeleton
+      # Drop anything the model no longer has a parameter for, in skeleton
       # order. `inits` from an older fit can carry a retired block (e.g.
       # log_growth_par_devs, removed in 5.9.0). MakeADFun drops names the
       # template does not declare, but build_map() runs on start_par first and
@@ -741,7 +741,7 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
-      # Selectivity deviates are integrated out only where the template scores
+      # Selectivity deviates are integrated out only where the model scores
       # them. The densities on log_sel_slp_dev / sel_inf_dev are gated on
       # Time_varying_sel being IID, AR1, RandomWalk or RandomWalkAscending
       # (ceattle.cpp, JNLL_SEL_DEV). "Block" is deliberately unscored -- one

@@ -314,9 +314,8 @@
 #' Resolve the `species` / `spnames` pair to indices and labels
 #'
 #' `species` selects species by **index**; `spnames` supplies their **labels**.
-#' The two were historically confused -- some plotters read `species` as names
-#' and had no `spnames` at all -- so this accepts every spelling that used to
-#' work and normalizes it:
+#' Every plotter resolves the pair here, so `species` accepts each of the
+#' spellings the assessment scripts use and normalizes it:
 #'
 #' * `NULL` or `"all"` -- every species, in model order.
 #' * numeric -- indices, validated against `1:nspp`.

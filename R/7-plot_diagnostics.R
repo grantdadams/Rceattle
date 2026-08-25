@@ -335,8 +335,7 @@ plot_indexresidual <- function(Rceattle,
       Year     = abs(dat$Year),
       # OBSERVED minus PREDICTED, matching residuals.Rceattle() and the usual
       # assessment convention (WHAM, SS3): a positive residual means the survey
-      # saw more than the model predicted. Before 5.9.0 this plotted the negative
-      # of that, so it disagreed in sign with the package's own residuals().
+      # saw more than the model predicted.
       #
       # Log ratio for a log-scale fleet, plain difference for a natural-scale one
       # -- log() of a natural-scale residual is not a residual. Assigned by

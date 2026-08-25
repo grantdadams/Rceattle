@@ -608,7 +608,7 @@ build_map_predation <- function(map_list, data_list) {
 
 #' Fleets whose selectivity deviates are estimated but carry no density
 #'
-#' `Time_varying_sel = "Block"` estimates one deviate per block and the template
+#' `Time_varying_sel = "Block"` estimates one deviate per block and the model
 #' scores none of them -- a block is a fixed effect, and "time blocks with no
 #' penalty" is what the switch means. Every other time-varying mode that
 #' estimates a deviate also defines a term for it, so this is the one
@@ -1074,8 +1074,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         # Rho. Slot 1 is the correlation across selectivity BINS, slot 2
         # across YEARS -- the array passed to SEPARABLE() is (bin, year) and
-        # SEPARABLE(f, g) puts g on the fastest-running dimension. These two
-        # comments said the opposite until 5.9.0, as did the density itself.
+        # SEPARABLE(f, g) puts g on the fastest-running dimension.
         map_list$sel_curve_pen[flt,1] <- flt # bin
         map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
       }
@@ -1112,8 +1111,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         # Rho, as for 2DAR1 above: slot 1 across BINS, slot 2 across YEARS,
         # slot 3 across COHORTS. construct_Q()'s own argument names are
         # inverted relative to what they multiply, and Rceattle's ay_index fill
-        # is the mirror of WHAM's, so the two cancel -- the mapping here has
-        # always been bin/year/cohort, whatever these comments used to say.
+        # is the mirror of WHAM's, so the two cancel.
         map_list$sel_curve_pen[flt,1] <- flt # bin
         map_list$sel_curve_pen[flt,2] <- flt + n_flt # year
         map_list$sel_curve_pen[flt,3] <- flt + n_flt * 2 # cohort
@@ -1154,7 +1152,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Fleets whose catchability block is estimable: those carrying fitted index
-  # observations, whatever their Fleet_type. The template fits an index row for
+  # observations, whatever their Fleet_type. The model fits an index row for
   # any non-Off fleet, so a fishery CPUE series is scored like a survey's index
   # and needs its q the same way; keying on Fleet_type == "Survey" instead left a
   # fishery's q, time-varying q and index sd mapped out, so Catchability =

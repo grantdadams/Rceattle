@@ -36,7 +36,7 @@
 
 #' Warn where a random linkage the caller asked for was left at its fitted values
 #'
-#' Observed AR1 (Rogers QAR1) is the one random linkage the template leaves
+#' Observed AR1 (Rogers QAR1) is the one random linkage the model leaves
 #' alone: a new latent state paired with the original covariate observations
 #' would describe two different histories.
 #'
@@ -56,7 +56,7 @@
     grp <- d$linkage_re_sigma[slot + 1L]
     if (obs[grp + 1L] < 0) next
     # Composition is a linkage process (code 5) with no simulate_state slot, so
-    # guard the index the way the template does rather than compare against NA.
+    # guard the index the way the model does rather than compare against NA.
     p <- d$linkage_process[i]
     if (is.na(p) || p < 0 || p >= length(state)) next
     if (state[p + 1L] == 1L) hit <- c(hit, procs[p + 1L])
@@ -75,7 +75,7 @@
 
 # The legacy time-varying catchability and selectivity deviations
 # (index_q_dev, log_sel_slp_dev, sel_inf_dev, sel_coff_dev) carry densities in
-# the template but have no SIMULATE block yet -- only the linkage-grammar
+# the model but have no SIMULATE block yet -- only the linkage-grammar
 # versions are drawn, so those deviations come back at their fitted values and
 # this says so.
 .sim_warn_process_unsimulated <- function(data_list, state) {
@@ -150,8 +150,8 @@
 
 
 # Recruitment scored by two densities has no single distribution to draw from,
-# so the template draws nothing (ceattle.cpp section 5.13) and this says so. The
-# gate is read from the template's own reported `rec_srr_single_density` rather
+# so the model draws nothing (ceattle.cpp section 5.13) and this says so. The
+# gate is read from the model's own reported `rec_srr_single_density` rather
 # than re-derived here, so R and the draw cannot disagree about what happened.
 # The argument for leaving it alone is in vignette("model-diagnostics").
 .sim_warn_rec_srr_penalty <- function(sim_rep, state) {
@@ -173,7 +173,7 @@
 
 # Truncation diagnostics for the natural-scale survey draws. An index cannot be
 # negative and data_check() rejects one, so a draw from an untruncated normal has
-# to be redrawn when it comes back non-positive; the template counts the attempts
+# to be redrawn when it comes back non-positive; the model counts the attempts
 # and rejections per row (see ceattle.cpp) and this reads them.
 #
 # Two families land here, for the same reason: `Normal` (drawn row by row) and
@@ -218,7 +218,7 @@
   ok <- drawn & is.finite(mu) & is.finite(sd) & sd > 0
   trunc_mass[ok] <- stats::pnorm(-mu[ok] / sd[ok])
 
-  # The budget the draw ACTUALLY applied to each row, reported by the template
+  # The budget the draw ACTUALLY applied to each row, reported by the model
   # rather than duplicated here: the base constant on the univariate branch, and
   # that scaled by the fleet's row count on the correlated one. Quoting the bare
   # constant would misstate it eightfold on an 8-row covariance fleet.
@@ -346,7 +346,7 @@
 #' the copy is still the right shape. Tested with `!=` rather than `<` because
 #' that mismatch shows up as an EXTRA simulated column, not a missing one.
 #'
-#' @param n_sim Columns the template returned.
+#' @param n_sim Columns the model returned.
 #' @param n_dat Bin columns in the data frame.
 #' @param what Data type name.
 #' @noRd
@@ -403,7 +403,7 @@
 }
 
 
-#' Resolve `process` to the template's `simulate_state` vector
+#' Resolve `process` to the model's `simulate_state` vector
 #'
 #' Process error is off unless asked for, because redrawing a process changes
 #' what a self-test measures -- from "can the estimator recover these
@@ -424,7 +424,7 @@
 #' @noRd
 .sim_state_codes <- function(process) {
   # Slot order is the linkage process code (see .RCE_LINKAGE_PROCESS in
-  # 0-linkage_encode.R), so the template can index simulate_state by a
+  # 0-linkage_encode.R), so the model can index simulate_state by a
   # linkage row's process directly. Keep the two in step.
   slots <- c("recruitment", "M", "growth", "catchability", "selectivity")
   out <- rep(0L, length(slots))
@@ -448,7 +448,7 @@
 }
 
 
-#' Get a TMB object that can run the template's `SIMULATE` blocks
+#' Get a TMB object that can run the model's `SIMULATE` blocks
 #'
 #' The draws live beside their densities in `ceattle.cpp`, so simulating means
 #' evaluating the compiled model. Usually the fit's own `TMB::MakeADFun` object
@@ -570,7 +570,7 @@
 }
 
 
-#' Run the template's `SIMULATE` blocks once
+#' Run the model's `SIMULATE` blocks once
 #'
 #' Called once per `sim_mod()` call. Each `obj$simulate()` re-runs the whole
 #' model and draws every simulated quantity, so calling it per data type would
@@ -607,15 +607,15 @@
   tryCatch(
     obj$simulate(par = obj$env$last.par.best),
     error = function(e) {
-      # TMB re-tapes a stored model against the template loaded now. If that
-      # template wants an input the stored data list lacks, the failure is a bare
+      # TMB re-tapes a stored fit against the compiled model loaded now. If that
+      # model wants an input the stored data list lacks, the failure is a bare
       # "Error when reading the variable" with nothing to act on. Only name that
       # cause when it is the one that happened -- any other error is passed
       # through as itself rather than given a diagnosis it may not have.
       msg <- conditionMessage(e)
       if (grepl("reading the variable", msg, fixed = TRUE)) {
-        stop("sim_mod(): the model's stored data does not match the TMB ",
-             "template now loaded (", msg, "). This happens when the model was ",
+        stop("sim_mod(): the fit's stored data does not match the TMB ",
+             "model now loaded (", msg, "). This happens when the fit was ",
              "fitted with a different version of Rceattle. Refit it with this ",
              "version and simulate from that fit.", call. = FALSE)
       }
@@ -632,7 +632,7 @@
 #' the mismatched vectors to `rnorm()`, which recycles the shorter one silently
 #' and returns a full-length wrong answer; fail instead.
 #'
-#' @param n_sim Rows the template returned.
+#' @param n_sim Rows the model returned.
 #' @param n_dat Rows of the data frame being written.
 #' @param what Name of the data type, for the message.
 #' @noRd
@@ -650,9 +650,9 @@
 
 #' Pull a simulated observation matrix out of the report list
 #'
-#' A template with no `SIMULATE` block for this data type returns a report
+#' A model with no `SIMULATE` block for this data type returns a report
 #' lacking the entry, and the write-back would put `NULL` into the data frame.
-#' Since TMB always uses the template currently loaded, this really only fires on
+#' Since TMB always uses the model currently loaded, this really only fires on
 #' a stale shared object in a development session.
 #'
 #' @param rep Report list from `.sim_draw()`.
@@ -662,7 +662,7 @@
 .sim_report_obs <- function(rep, name) {
   out <- rep[[name]]
   if (is.null(out)) {
-    stop("sim_mod(): the loaded TMB template returned no simulated '", name,
+    stop("sim_mod(): the loaded TMB model returned no simulated '", name,
          "', so it has no simulator for this data type. Recompile the package ",
          "(pkgload::load_all() or R CMD INSTALL) so the loaded model matches ",
          "the installed source.", call. = FALSE)
@@ -815,8 +815,8 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 
   if (simulate) {
     # Every simulated observation in one call. obj$simulate() re-runs the whole
-    # model and draws every type the template covers, so this is the only place
-    # it is called; the catch and diet blocks below read the same report.
+    # model and draws every observation type it covers, so this is the only
+    # place it is called; the catch and diet blocks below read the same report.
     #
     # The survey draw follows each fleet's own Index_distribution (ceattle.cpp,
     # slot 0): lognormal, natural-scale normal, natural-scale normal truncated at
@@ -846,7 +846,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 
 
   # Age/Length composition ----
-  # Drawn by the template, in RAW bin space (ceattle.cpp, slot 2). Tail
+  # Drawn by the model, in RAW bin space (ceattle.cpp, slot 2). Tail
   # accumulation folds bins before the density and the fold has no inverse, so a
   # draw taken there could not be written back; drawing raw and letting the refit
   # fold again is exact, because both families are closed under merging
@@ -897,7 +897,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   catch_hat <- quantities$catch_hat
 
   if (simulate) {
-    # Drawn by the template's SIMULATE block, beside the catch density that
+    # Drawn by the model's SIMULATE block, beside the catch density that
     # defines it (ceattle.cpp, slot 1), rather than re-derived here. See
     # ?sim_mod.
     #
@@ -906,7 +906,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     # different replicate than the index, and consume twice the random numbers.
     catch_sim <- .sim_report_obs(sim_rep, "catch_obs_sim")
     .sim_check_rows(nrow(catch_sim), nrow(dat_sim$catch_data), "catch")
-    # Column 1 is the observation; the template writes the natural scale there
+    # Column 1 is the observation; the model writes the natural scale there
     # (obsvec holds its log). Column 2 is the supplied sd, untouched.
     dat_sim$catch_data$Catch <-
       .sim_warn_unusable(as.numeric(catch_sim[, 1]),
@@ -918,7 +918,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 
 
   # Diet (stomach content) ----
-  # Drawn by the template alongside the catch, under each predator's own
+  # Drawn by the model alongside the catch, under each predator's own
   # Diet_distribution (ceattle.cpp, section 13.2). Until this was added, a
   # multispecies self_test() resampled every other data type and refit against
   # the same stomachs every replicate, so suitability was recovered from data
@@ -1042,7 +1042,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
     invisible(NULL)
   }
 
-  # rec_srr_single_density is the template's own gate on the recruitment draw
+  # rec_srr_single_density is the model's own gate on the recruitment draw
   # (ceattle.cpp section 5.13): FALSE under the AMAK/Ianelli configuration, where
   # the stock-recruit penalty scores rec_dev a second time and there is no single
   # distribution to draw from. Nothing was drawn there, so nothing is returned.
@@ -1061,8 +1061,8 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
   # model that has none.
   #
   # Whether anything was drawn is read from the mask the draw itself wrote, not
-  # from .sim_linkage_drawn()'s R-side mirror of the template's gate: the two
-  # would have to be kept in step by hand, and the template already knows. The
+  # from .sim_linkage_drawn()'s R-side mirror of the model's gate: the two
+  # would have to be kept in step by hand, and the model already knows. The
   # mirror is still needed by .sim_warn_process_absent(), which asks the
   # hypothetical "would this process have been drawn had it been requested".
   re   <- sim_rep$beta_linkage_re_sim
@@ -1080,7 +1080,7 @@ sim_mod <- function(object = NULL, simulate = FALSE, process = FALSE, Rceattle =
 #'
 #' Mirrors the gate in ceattle.cpp section 5.12b, including its skip of observed
 #' AR1 (QAR1) groups. Used only for the HYPOTHETICAL question -- would this
-#' process be drawn if it were asked for -- which the template cannot answer,
+#' process be drawn if it were asked for -- which the model cannot answer,
 #' since it only reports what it did draw. What actually happened is read from
 #' `beta_linkage_re_drawn_sim` instead.
 #'
@@ -1155,9 +1155,9 @@ sample_rec <- function(object = NULL, sample_rec = TRUE, update_model = TRUE, re
                           size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
         # `log(R) - log(R_hat)` is already a log-scale deviation centred near
-        # zero, so its mean is routinely negative and the outer log() this
-        # used to take returned NaN. Take the mean deviation directly and add
-        # the log trend, mirroring the sampling branch above.
+        # zero, so its mean is routinely negative and must not be logged again.
+        # Take the mean deviation directly and add the log trend, mirroring the
+        # sampling branch above.
         rec_dev <- mean((log(object$quantities$R) - log(object$quantities$R_hat))[sp, 1:hind_nyrs]) +
           log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       }

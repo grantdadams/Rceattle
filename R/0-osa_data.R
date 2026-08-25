@@ -51,7 +51,7 @@
 #' }
 #'
 #' The inclusion rules and per-row bin counts below must match the guards in the
-#' TMB template exactly, so that every observation the template evaluates has a
+#' TMB model exactly, so that every observation the model evaluates has a
 #' valid `obsvec` position. All fitted observation types are handled: aggregate
 #' catch and index, comp and caal composition, and predator diet composition.
 #'
@@ -419,7 +419,7 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
 
   # TMB needs a non-empty DATA_VECTOR; use a length-1 sentinel when no
   # observations are included (the *_obsvec_idx vectors are then all -1 and the
-  # sentinel value is never read by the template).
+  # sentinel value is never read by the model).
   if (length(obsvec) == 0) obsvec <- 0
 
   data_list$obsvec           <- as.numeric(obsvec)
@@ -442,9 +442,9 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   # is asked for rather than assumed. sim_mod() overrides them per call.
   #   simulate_state : 0 recruitment (annual and initial), 1 M, 2 growth,
   #                    3 catchability, 4 selectivity -- the linkage process
-  #                    codes, so the template can index by them directly
+  #                    codes, so the model can index by them directly
   #   simulate_period: 0 the fitted window, 1 outside it. Only slot 0 is read
-  #                    by the template, and only by the PROCESS draws; the
+  #                    by the model, and only by the PROCESS draws; the
   #                    observation draws are ungated by period on purpose (see
   #                    ceattle.cpp 2.4.2c). Slot 1 is reserved and inert.
   if (is.null(data_list$simulate_state))  data_list$simulate_state  <- rep(0L, 5)

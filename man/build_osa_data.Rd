@@ -49,7 +49,7 @@ marks rows excluded from the likelihood.
 }
 
 The inclusion rules and per-row bin counts below must match the guards in the
-TMB template exactly, so that every observation the template evaluates has a
+TMB model exactly, so that every observation the model evaluates has a
 valid \code{obsvec} position. All fitted observation types are handled: aggregate
 catch and index, comp and caal composition, and predator diet composition.
 }

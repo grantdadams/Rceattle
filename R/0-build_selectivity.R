@@ -104,7 +104,7 @@ build_selectivity <- function(linkages = NULL) {
                                "sigma_asc", "sigma_desc", "peak", "right_floor")
 
 
-#' Reject selectivity linkages the template does not yet consume
+#' Reject selectivity linkages the model does not yet consume
 #'
 #' @param linkage_table pooled linkage table (may be NULL / empty).
 #' @param fleet_control the fleet control table.

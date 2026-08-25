@@ -75,7 +75,7 @@ plotted quantity carries standard errors; warns and draws none otherwise.}
 \description{
 Population-level consumption for ages \code{minage}+: the individual
 annual ration (kg/yr) multiplied by average numbers-at-age and summed over
-age, in million mt. This is how the template forms total consumption
+age, in million mt. This is how the model forms total consumption
 (\code{avgN_at_age * ration}, \code{predation.hpp}), so it is the consumption that
 generates the predation mortality in \code{\link[=plot_m2_at_age_prop]{plot_m2_at_age_prop()}} and the
 biomass in \code{\link[=plot_b_eaten]{plot_b_eaten()}}, plus the other-food term.

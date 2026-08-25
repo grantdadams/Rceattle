@@ -95,7 +95,7 @@ sel_norm_scope_map <- c(
 # "AR1" (2) is REMOVED and refused by data_check(); it is kept in the map, as
 # q_map keeps its own removed forms, so that a workbook carrying the integer 2
 # still canonicalizes and the refusal can name the fleet and the replacement
-# instead of reporting a bare "invalid value". It was never an AR1: the template
+# instead of reporting a bare "invalid value". It was never an AR1: the model
 # scores value 2 with the same independent normal penalty as value 1, and there
 # is no correlation parameter for the selectivity deviations to read. An AR1 on a
 # selectivity parameter is a selectivity linkage -- ar1(1 | Year).
@@ -120,7 +120,7 @@ q_map <- c(
 )
 
 # "AR1" (2) is REMOVED and refused by data_check(), for the same reason and on
-# the same terms as tv_sel_map's -- the template gives value 2 the identical
+# the same terms as tv_sel_map's -- the model gives value 2 the identical
 # independent normal penalty as value 1 (`index_varying_q == 1 || == 2`), and
 # index_q_rho is read only on the QAR1 catchability path that this release also
 # removes. An AR1 on catchability is a q linkage -- ar1(1 | Year).
@@ -171,29 +171,12 @@ diet_loglike_map <- c(
   "DirichletMultinomial" = 1
 )
 
-# Survey/index biomass observation likelihood family (per fleet). MVN/MVNORM use
-# a user-supplied full variance-covariance matrix (e.g. a VAST-derived Sigma) on
-# the natural-scale residual vector (obs - q*pred); see `index_cov`, and pair with
-# Catchability = "AnalyticalArith" for the AMAK arithmetic-mean q.
-#   Lognormal = independent lognormal on log(obs) (the historical default).
-#   MVN       = the AMAK/ebswp `DoCovBTS = 1` *bare* quadratic form 0.5 * r' Sigma^-1 r
-#               (drops the normalizing constant, so the reported value matches ADMB).
-#   MVNORM    = the *full* multivariate-normal negative log-density
-#               0.5 * (r' Sigma^-1 r + logdet(Sigma) + n*log(2*pi)), i.e. TMB's
-#               density::MVNORM(Sigma)(r). Identical fit to "MVN" (the extra term is
-#               a fixed constant), but a proper normalized likelihood; the reported
-#               value is "MVN" + 0.5*(logdet(Sigma) + n*log(2*pi)).
-#   Normal    = natural-scale normal on the residual (obs - q*pred) with an
-#               ABSOLUTE observation sd (the Log_sd column is read as the natural-
-#               scale sd, not a log-scale CV), matching the AMAK/ebswp avo_like /
-#               cpue_like. No lognormal bias correction; pair with a solved q
-#               (Analytical / AnalyticalArith) or an estimated q as needed.
-#   TruncatedNormal = the same natural-scale normal, left-truncated at zero:
-#               log f(x) = log phi(x; mu, sd) - log Phi(mu/sd). An index cannot
-#               be negative and data_check() will not accept one, so this is the
-#               only natural-scale family whose simulator and likelihood are the
-#               same distribution. Prefer it over "Normal" unless an exact ADMB
-#               comparison is needed.
+# Survey/index biomass observation likelihood family (per fleet). Lognormal is
+# on log(obs); the other four are on the natural-scale residual (obs - q*pred),
+# where Log_sd is read as an ABSOLUTE sd rather than a log-scale CV. MVN and
+# MVNORM differ only by the normalizing constant, so they fit identically and
+# MVN is the one that matches ADMB. The allowed values, their formulas and
+# when to prefer each are in vignette("model-options-and-functionality").
 index_distribution_map <- c(
   "Lognormal" = 0,
   "MVN" = 1,
@@ -260,7 +243,7 @@ index_distribution_map <- c(
 
 #' Fleet codes that carry survey-index observations the model fits
 #'
-#' An index is a property of the data, not of the fleet type: the template scores
+#' An index is a property of the data, not of the fleet type: the model scores
 #' an `index_data` row for any fleet that is not `Off`, so a fishery with a CPUE
 #' series is fitted like a survey, on that fleet's own selectivity. Selecting on
 #' `Fleet_type == "Survey"` instead is what left such a fleet with its
@@ -304,14 +287,11 @@ fleet_map <- c(
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
 # 4 = Non-equilibrium: Finit scales R0
-# 5 = OffsetEquilibrium: F = 0 equilibrium seeded by first-year recruitment
-#     (R_init * exp(rec_dev[year 1])), init devs off, no init-dev penalty
-#     (Cole Monnahan / AFSC GOA pollock convention). Named for the recruitment
-#     offset that seeds it: modes 1 and 5 both start from the initial
-#     equilibrium recruitment R_init, but 5 displaces it by the year-1
-#     recruitment deviation (the ONLY term separating them in the cpp -- see
-#     init_log_scalar in ceattle.cpp). It is an *unfished* (Finit = 0)
-#     equilibrium, so "Fished*" would misdescribe it.
+# 5 = OffsetEquilibrium: unfished (Finit = 0) equilibrium seeded by first-year
+#     recruitment (R_init * exp(rec_dev[year 1])), init devs off, no init-dev
+#     penalty (Cole Monnahan / AFSC GOA pollock convention). Modes 1 and 5 both
+#     start from R_init; 5 displaces it by the year-1 recruitment deviation,
+#     which is the only term separating them (init_log_scalar in ceattle.cpp).
 initMode_map <- c(
   "FreeParams"                 = 0,
   "Equilibrium"                = 1,
@@ -512,7 +492,7 @@ switch_check <- function(data_list){
 
   # `growth_re` and `growth_indices` are removed. `growth_re` was documented as
   # the way to put random effects on growth, but nothing consumed it: the
-  # deviation array was mapped off in every configuration and the template gave
+  # deviation array was mapped off in every configuration and the model gave
   # it no density, so setting it changed no fit. Drop them with a message rather
   # than silently, so a data list still carrying `growth_re = 1` says where the
   # feature went instead of appearing to work.
@@ -997,12 +977,6 @@ revert_switches <- function(data_list) {
 }
 
 
-#' Validates switches are correct
-#'
-#' @param data_list Rceattle data list
-#'
-#' @keywords internal
-#' @noRd
 #' The value map a column is validated against, from the schema
 #'
 #' @description
@@ -1038,6 +1012,12 @@ revert_switches <- function(data_list) {
 }
 
 
+#' Validates switches are correct
+#'
+#' @param data_list Rceattle data list
+#'
+#' @keywords internal
+#' @noRd
 validate_switches <- function(data_list = NULL){
   errors <- character(0)
 
@@ -1092,11 +1072,10 @@ validate_switches <- function(data_list = NULL){
                       !.data$Sel_norm_scope %in% c(sel_norm_scope_map, names(sel_norm_scope_map)))
   } else .fc_none
 
-  # Three columns that reached the fit unvalidated until 5.12.0. A typo in any
-  # of them resolved to NA rather than erroring: `Selectivity_dimension` became
-  # a missing selectivity dimension, and the two Sel_shape_* columns a missing
-  # penalty mode. Nothing downstream re-checked them.
-  # Each of these is validated against exactly what its CONSUMER implements,
+  # Selectivity_dimension and the two Sel_shape_* columns are validated here
+  # because nothing downstream re-checks them: a typo resolves to NA rather
+  # than erroring, giving a missing selectivity dimension or penalty mode.
+  # Each is validated against exactly what its CONSUMER implements,
   # not against the map alone. rearrange_data() matches Selectivity_dimension on
   # the exact strings and yields NA for anything else -- including an integer --
   # so the integer side of its map must not validate. The two Sel_shape_*
@@ -1354,7 +1333,7 @@ convert_switches <- function(data_list) {
 #' reporting there printed the same message three times per fit and roughly
 #' twenty times per `retrospective()`.
 #'
-#' Only an exact 1 is reported -- the template value. Any other number was typed
+#' Only an exact 1 is reported -- the model value. Any other number was typed
 #' deliberately and needs no comment. Off fleets and fleets carrying no data for
 #' the composition in question are skipped: their weight is never read.
 #'

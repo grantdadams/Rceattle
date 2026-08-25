@@ -105,11 +105,10 @@ print.Rceattle <- function(x, ...) {
 #'
 #' @export
 summary.Rceattle <- function(object, ...) {
-  # Was `print(object)`. For a fitted assessment the conventional answer to
-  # summary() is the estimates and their uncertainty plus the likelihood
-  # decomposition -- both of which the fit already carries, in coef(), vcov()
-  # and quantities$jnll_comp, and which the caller previously had to join by
-  # hand. print() still gives the spec tree; this gives the numbers.
+  # For a fitted assessment the conventional answer to summary() is the
+  # estimates and their uncertainty plus the likelihood decomposition, joined
+  # from coef(), vcov() and quantities$jnll_comp. print() gives the spec tree;
+  # this gives the numbers.
   est <- tryCatch(stats::coef(object), error = function(e) NULL)
   se  <- tryCatch({
     v <- stats::vcov(object)

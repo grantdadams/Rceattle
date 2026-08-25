@@ -149,7 +149,7 @@ Time-varying behavior is set by `Time_varying_sel` (per fleet):
 |:---:|---|---|
 | `0` | `"Off"` | Time-invariant |
 | `1` | `"IID"` | Independent annual deviations |
-| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the template scored it with the same independent normal penalty as `"IID"`, and the selectivity deviations carry no correlation parameter. Set `"IID"` for the fit it actually gave, or see the replacement below. |
+| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the model scored it with the same independent normal penalty as `"IID"`, and the selectivity deviations carry no correlation parameter. Set `"IID"` for the fit it actually gave, or see the replacement below. |
 | `3` | `"Block"` | Time block |
 | `4` | `"RandomWalk"` | Random walk (not allowed with `NonParametric` or `Hake`) |
 | `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic (not allowed with `NonParametric` or `Hake`) |
@@ -325,7 +325,7 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 |:---:|---|---|
 | `0` | `"Off"` | Time-invariant |
 | `1` | `"IID"` | Independent annual deviations |
-| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the template scored it with the same independent normal penalty as `"IID"`, and `index_q_rho` belongs to the removed `Catchability = "AR1"` form, not to this switch. Set `"IID"` for the fit it actually gave, or see the replacement below. |
+| `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the model scored it with the same independent normal penalty as `"IID"`, and `index_q_rho` belongs to the removed `Catchability = "AR1"` form, not to this switch. Set `"IID"` for the fit it actually gave, or see the replacement below. |
 | `3` | `"Block"` | Time block |
 | `4` | `"RandomWalk"` | Random walk |
 

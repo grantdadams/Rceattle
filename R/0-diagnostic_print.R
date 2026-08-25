@@ -1,21 +1,10 @@
-# One display contract for the diagnostics.
+# One display contract for the diagnostics: every diagnostic prints the header
+# convergence_diagnostics() uses -- an overall status, then a one-line verdict,
+# then a compact table -- so Mohn's rho, OSA residuals and a jitter all answer
+# "is this acceptable?" in the same four-level vocabulary.
 #
-# convergence_diagnostics() already reads well: a classed object, a print method,
-# a four-level severity, and an overall status on the first line. Nothing else in
-# the family followed it. osa_diagnostics() returned sixteen unclassed columns at
-# seven significant figures, which wraps across three screen-widths in an
-# 80-column terminal -- so answering "is fleet 2's index residual acceptable?"
-# meant reassembling one row from three blocks -- and said nothing about how many
-# sources had failed. retrospective() returned Mohn's rho as a bare number with
-# no reference band, while osa_diagnostics() shipped its null intervals: two
-# diagnostics, opposite conventions on the same question. jitter() returned the
-# objective values without the fraction-at-the-optimum that is the whole point of
-# running it.
-#
-# These helpers give all of them the header convergence_diagnostics() uses. The
-# RETURN VALUES are unchanged -- each object still is the data frame or list it
-# was, and $mohns, $nll, $Rceattle_list, $species and every column still work.
-# Only class() gains an entry and print() gets an opinion.
+# Return values are unchanged: each object is still the data frame or list it
+# was. Only class() gains an entry and print() gets an opinion.
 
 # Worst of a set of severities, using the convergence vocabulary so a reader
 # meets the same four words everywhere. .CONV_SEVERITY / .conv_overall live in

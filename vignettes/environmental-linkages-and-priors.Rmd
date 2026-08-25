@@ -1219,7 +1219,7 @@ rather than applying a covariate/deviate to the wrong year.
 * **Only the grammar's random effects are simulated.** `sim_mod(process = )` and
   `self_test(process = )` redraw catchability and selectivity where they are
   written as a random linkage; the legacy `Time_varying_q` / `Time_varying_sel`
-  deviations carry densities in the template but no draw, so they keep their
+  deviations carry densities in the model but no draw, so they keep their
   fitted values and `sim_mod()` warns that they did. Recruitment and M are drawn
   from their own switches (`M1_re`) as well as from linkages. Observed AR1
   (Rogers QAR1) linkages are the one grammar form that is deliberately not

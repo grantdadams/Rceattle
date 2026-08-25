@@ -150,9 +150,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   # Rows are keyed by the schema's object names, not by hard-coded index, so
   # there is no second copy of the row order to keep in sync: a reordered schema
   # reorders the sheet rather than silently mislabelling it. As on the control
-  # sheet, an object the data_list does not carry is dropped -- assigning a NULL
-  # into a fixed-height matrix used to abort the write with "number of items to
-  # replace is not a multiple of replacement length".
+  # sheet, an object the data_list does not carry is dropped before the write,
+  # since assigning a NULL into a fixed-height matrix would abort it.
   bio_labels <- .rce_schema_names("bioenergetics_control")
   bio_labels <- bio_labels[vapply(bio_labels,
                                   function(nm) length(data_list[[nm]]) > 0L,
@@ -450,8 +449,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   # Coerce a per-species control/bioenergetics row to numeric, but error on a
   # non-empty cell that is not a number (a typo like "O.5" or a stray label)
-  # rather than silently turning it into NA -- which used to propagate a wrong
-  # default deep into the fit. Genuinely empty / NA cells stay NA.
+  # rather than turning it into NA, which would carry a wrong default into the
+  # fit. Genuinely empty / NA cells stay NA.
   checked_numeric <- function(x, object, sheet) {
     chr <- trimws(as.character(x))
     num <- suppressWarnings(as.numeric(chr))

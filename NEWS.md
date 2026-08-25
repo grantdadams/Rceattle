@@ -11,139 +11,107 @@ intermediate. Note the folding rather than renumbering: a section for a version 
 never carries breaks any (x.y.z) cross-reference pointing at it.
 -->
 
+# Rceattle 5.18.1
+
+## Documentation
+
+* **The workbook column descriptions are reference entries, not essays.** The
+  `meta_data` sheet's `Description` column is what an assessment author reads
+  while filling in a workbook, and several cells had grown past 1,500 characters
+  — `Catchability` and `Catchability_index` the longest. Each now gives what the
+  column means, its allowed values and its default, then points at
+  `vignette("model-options-and-functionality")`, which already carried the
+  sharing rules and the lead-fleet resolution in full. No allowed value, default
+  or switch code was dropped, and `inst/extdata/meta_data_names.xlsx` is
+  regenerated from the schema. The same trim is applied to the matching
+  `?BS2017SS` field dictionary in `R/data.R`.
+
+* **"The template" is called "the model" in user-facing text.** It is TMB build
+  jargon for `ceattle.cpp`, and it collided with the *Excel* template
+  `write_template()` writes — two different objects under one word, in help
+  pages and error messages. `data_check()` and `sim_mod()`'s messages, the
+  vignettes and the roxygen now say "the model"; `write_template()`'s own
+  documentation still says "template", meaning the workbook.
+
+* Code comments state current behaviour rather than what an earlier release did,
+  per the repository's comment standard. No behaviour, return value or number
+  changes anywhere in this release.
+
+* The `NEWS.md` entries for the unreleased 5.9.0–5.18.0 line are condensed:
+  every breaking change, deprecation, moved number and reproducibility boundary
+  is kept, while derivations and design rationale defer to the vignettes that
+  carry them.
+
+* The `SB0`/`SBF`-under-predation limitation in `ceattle.cpp` is marked
+  `KNOWN LIMITATION` and names `DynamicSB0` / `DynamicSBF` as the consistent
+  alternative, rather than carrying a review-process `TODO` tag.
+
 # Rceattle 5.18.0
 
 ## MSE
 
 * **Two `run_mse()` schedules run on the same `seed` are now on common random
-  numbers.** This is what makes a paired, within-replicate comparison of two
-  assessment schedules a comparison of the schedules.
+  numbers**, so a paired comparison of two assessment schedules measures the
+  schedules. Each assessment's observation draws are seeded on its own **year**,
+  from a table built once per replicate, and the operating model is refit over
+  its whole projection rather than only as far as the next assessment. On
+  BS2017SS, contamination in a year whose advice is identical by construction
+  falls from **2.1% to 0.003%**; the remainder is optimizer noise.
 
-  Two things were in the way.
-
-  Each assessment's observation draws continued from wherever the previous
-  assessment left the random stream, so any divergence compounded down the run.
-  The draws are now seeded on the assessment's own **year**, from a table built
-  once per replicate over the projection years — a list that does not depend on
-  the schedule. Keyed by year rather than by position, because 2030 is the third
-  assessment of a biennial cycle and the second of one with a gap in it.
-  Recruitment deviations are untouched: the table is drawn after `sample_rec()`,
-  which consumes the per-replicate stream exactly as before.
-
-  And the operating model was refit only as far as **the next assessment year**.
-  `sim_mod()` draws once per observation row and `clean_data()` filters to
-  `styr:projyr`, so the shortened model carried fewer rows and consumed fewer
-  draws — a count that depended on when the following assessment fell. The
-  operating model is now refit over its whole projection every assessment.
-
-  Measured on BS2017SS (endyr 2017, projyr 2020, `nsim = 1`, `seed = 666`),
-  dropping the 2019 assessment and reading 2019 — a year whose advice is
-  identical by construction, set by the same 2018 assessment under both
-  schedules:
-
-  | | 2019 contamination |
-  |---|---|
-  | before | 2.1% |
-  | per-year seeding alone | 0.53% |
-  | both | **0.003%** |
-
-  The remaining 0.003% is optimizer noise, not the draws. Past the point where
-  two schedules genuinely diverge their draws diverge too, which is a real
-  difference between the runs rather than an artefact.
-
-  **Common random numbers are still not complete.** One `sim_mod()` call draws
-  every year in the assessment interval under that assessment's seed, so a year
-  sitting *inside* a longer interval is drawn under a different seed than the
-  same year in a schedule that assessed it directly — two schedules realize
-  different observation error in the years between, even where the stock is in
-  the same state. Closing that needs the draw keyed to the observation's year
-  rather than the assessment's; `?run_mse`, `vignette("hcrs-and-mses")` and
-  `inst/dev/TODO-mse-horizon.md` all say so rather than claiming otherwise.
+  **Common random numbers are still incomplete.** One `sim_mod()` call draws
+  every year in an assessment interval under that assessment's seed, so a year
+  sitting inside a longer interval is drawn under a different seed than the same
+  year in a schedule that assessed it directly. `?run_mse`,
+  `vignette("hcrs-and-mses")` and `inst/dev/TODO-mse-horizon.md` say so.
 
   **Every seeded `run_mse(simulate_data = TRUE)` result changes.** Runs stay
-  fully reproducible from a given `seed` within a version, and
-  `simulate_data = FALSE` is unchanged to the bit.
+  reproducible from a given `seed` within a version, and `simulate_data = FALSE`
+  is unchanged to the bit.
 
 ## Performance
 
 * **`run_mse()` no longer refits the operating model on a shortened horizon.**
-  That saving was measured at 9% on a Bering Sea multispecies MSE projecting to
-  2040 when it was added in 5.14.0, growing with the length of the projection;
-  single-species models saw little change. It is the second half of the common
-  random numbers fix above, and it goes because the shortened horizon was the
-  thing making the draw count depend on the schedule.
-
-  The saving is recoverable — the horizon serves two purposes at different
-  lengths, and only one of them needs the look-ahead.
-  `inst/dev/TODO-mse-horizon.md` records the design, what is not yet known about
-  its cost, and where the deleted code lives.
-
-  `tools/verify/verify-mse-om-horizon.R` went with it; the gate is now the
-  `gap_crn_clean` check in `tools/verify/verify-mse-schedule.R`.
+  That saving was 9% on a Bering Sea multispecies MSE projecting to 2040; it
+  goes because the shortened horizon was what made the draw count depend on the
+  schedule. `inst/dev/TODO-mse-horizon.md` records how to recover it.
+  `tools/verify/verify-mse-om-horizon.R` is replaced by the `gap_crn_clean`
+  check in `tools/verify/verify-mse-schedule.R`.
 
 # Rceattle 5.17.0
 
 ## MSE
 
 * **`run_mse(assessment_period =)` takes an explicit vector of assessment
-  years.** A single number is the period it always was; a vector is the
-  schedule itself — the exact years an assessment is completed.
-
-  A skipped assessment is one gap in an otherwise regular cycle, and a period
-  cannot express it. Standing in a triennial period for a missed biennial
-  assessment answers a different question and the error does not have a
-  known sign: a permanent longer cycle overstates how the cost of stale advice
-  compounds, while being blind to the state the stock happened to be in when
-  the single gap opened.
+  years.** A single number is the period it always was; a vector is the exact
+  years an assessment is completed, which is how a *skipped* assessment is
+  expressed — a period cannot represent one gap in a regular cycle.
 
   ```r
   biennial <- seq(om$data_list$endyr + 2, om$data_list$projyr, by = 2)
   run_mse(om, em, assessment_period = setdiff(biennial, 2031))
   ```
 
-  Every year must be after the operating model's terminal year and within the
-  projection horizon (the earlier of the two models' `projyr` and `endyr`).
-  A year outside that window is an error rather than being dropped: dropping it
-  would run a schedule the caller did not ask for, with nothing in the returned
-  object to say so. The years are sorted and de-duplicated, and the assessment
-  nodes carry them in their names, as they already did.
-
-  A schedule must name **two or more** years: one year on its own cannot be
-  told from a period, and the two readings of, say, `2029` are a world apart.
-  It is refused with a message saying which reading was taken, rather than
-  guessed at.
-
-  A scalar is also now required to be a whole year of at least 1, and to leave
-  room for at least one assessment inside the projection. A fractional period
-  set the operating model's terminal year to a fraction, which nothing
-  downstream indexes on; a period longer than the projection used to surface as
-  `seq()` reporting on the sign of its `by` argument. Nothing that produced a
-  usable number is refused.
+  Every year must fall after the operating model's terminal year and within the
+  projection horizon; a year outside it is an error rather than being dropped.
+  A schedule must name two or more years, since one year cannot be told from a
+  period. A scalar must be a whole year of at least 1 that leaves room for one
+  assessment inside the projection. Nothing that produced a usable number is
+  refused.
 
 * **A schedule that stops short of the projection horizon now warns.** Catch is
-  only ever filled up to the last assessment, so the trailing years keep the
-  `NA` their projection rows were created with — and `mse_summary()` summarises
-  over the models' whole projection regardless. Those `NA` years sit in the
-  denominator of `P(Closed)` but not its numerator, in both halves of
-  `Catch IAV`, and outside the `na.rm` mean that is `Average Catch`. All three
-  come out low, with nothing in the table saying which years were covered.
-
-  A biennial cycle over an odd number of projection years lands here every
-  time: `seq(2027, 2050, by = 2)` ends at 2049 against a 2050 horizon. The
-  warning names the years and both fixes — extend the schedule, or set `projyr`
-  to the last assessment year.
-
-  Warned rather than refused, because a short schedule is a legitimate design;
-  it just has to be summarised over the years it covers. This fires for a
-  scalar period too, where the defect is older than the vector API.
+  filled only up to the last assessment, so trailing years keep the `NA` their
+  projection rows were created with, while `mse_summary()` summarises over the
+  whole projection — understating `Average Catch`, `Catch IAV` and `P(Closed)`
+  with nothing in the table to say so. A biennial cycle over an odd number of
+  projection years lands here every time. The warning names the years and both
+  fixes: extend the schedule, or set `projyr` to the last assessment year.
 
 * **`run_mse(catch_mult =)` takes a `data.frame` of `Year`, `Species` and
   `mult`.** A single number or a vector of length `nspp` is unchanged and
-  applies in every projection year. A `data.frame` applies only in the year and
-  species pairs it lists; every pair it omits is multiplied by 1.
-
-  The vector form is a permanent harvest cut, so it cannot express a buffer
-  held only while advice is stale — the case a missed assessment raises.
+  applies in every projection year; a `data.frame` applies only to the year and
+  species pairs it lists, and every omitted pair is multiplied by 1. This
+  expresses a buffer held only while advice is stale, which the vector form
+  cannot.
 
   ```r
   buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
@@ -152,116 +120,67 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
           catch_mult = buffer)
   ```
 
-  Mind which years are the stale ones. The assessment in year `Y` sets catch
-  for `Y+1` onward, so a missed 2031 assessment leaves **2032 and 2033** on
-  2029's advice. 2031 is set by the 2029 assessment whether or not the 2031 one
-  happens, so cutting it changes a year the gap never touched while leaving a
-  genuinely stale year uncut. `?run_mse` and the vignette both show the
-  derivation.
-
-  `Species` is the species number, matching the catch data's own column.
-  The table is validated at the call rather than inside the simulation loop: a
-  year the assessment schedule does not cover, a species number out of range, a
+  Mind which years are stale: the assessment in year `Y` sets catch for `Y+1`
+  onward, so a missed 2031 assessment leaves **2032 and 2033** on 2029's advice.
+  `Species` is the species number. An uncovered year, an out-of-range species, a
   non-finite or negative multiplier, and two rows for the same year and species
-  are all errors. The year bound is the **last assessment year**, not `projyr`
-  — catch is filled only up to the last assessment, so a multiplier named for a
-  later year is inside the projection and still applies nowhere. Each of those otherwise reads as *no reduction* — `match()` returns
-  `NA` for an unmatched pair and takes the first of a duplicated one — in a run
-  that finishes and looks ordinary. A vector `catch_mult` is now checked for
-  finiteness and sign for the same reason.
+  are all errors — each would otherwise read as *no reduction* in a run that
+  finishes and looks ordinary. The year bound is the last assessment year, not
+  `projyr`. A vector `catch_mult` is now checked for finiteness and sign.
 
-  Note that this multiplies **catch**, not the ABC the control rule produces.
-  Where realized catch sits well below ABC — GOA arrowtooth flounder, for one —
-  reducing ABC changes removals only to the extent the fishery attains it,
-  while reducing catch changes them in full. Scale the multiplier by recent
-  attainment, `1 - (1 - mult) * attainment`, or report the unscaled result as an
-  upper bound on the effect of the reduction. `?run_mse` and
-  `vignette("hcrs-and-mses")` both carry the caveat.
+  Note this multiplies **catch**, not the ABC the control rule produces. Where
+  realized catch sits well below ABC — GOA arrowtooth flounder, for one —
+  reducing ABC changes removals only to the extent the fishery attains it.
+  Scale by recent attainment, `1 - (1 - mult) * attainment`, or report the
+  result as an upper bound. `?run_mse` and `vignette("hcrs-and-mses")` carry the
+  caveat.
 
 * No stored MSE result changes. `assessment_period = 1` and a scalar
-  `catch_mult` take the same paths they did, and `tools/verify/verify-mse-schedule.R`
-  checks that a schedule given as years reproduces the equivalent period exactly.
+  `catch_mult` take the same paths they did, and
+  `tools/verify/verify-mse-schedule.R` checks that a schedule given as years
+  reproduces the equivalent period exactly.
 
 * **Documented: two schedules on the same `seed` are not on common random
-  numbers.** Between assessments the operating model's projection horizon is
-  shortened to the next assessment year, so `sim_mod()` draws over a different
-  number of projection rows depending on the schedule, and the observation
-  draws diverge from the first assessment onward. Recruitment deviations are
-  shared — `sample_rec()` draws them before the loop — but observation error is
-  not.
-
-  Measured on a three-year BS2017SS fixture: dropping one assessment moved
-  catch by **2.1%** in a year whose advice was identical by construction, set
-  by the same earlier assessment under both schedules. A paired comparison of
-  two schedules therefore carries an observation-error difference alongside the
-  schedule effect.
-
-  Pre-existing, and not changed in this version — the fix moves every seeded
-  `run_mse()` result. **Fixed in 5.18.0**, which is where `?run_mse` and
-  `vignette("hcrs-and-mses")` describe the behaviour from; the check pinning it
-  in `verify-mse-schedule.R` became the gate on the fix.
+  numbers.** Measured at **2.1%** on a year whose advice was identical by
+  construction. Pre-existing, and **fixed in 5.18.0**.
 
 ## Documentation
 
 * `vignette("hcrs-and-mses")` gains a worked missed-assessment scenario, and its
   reproducibility section now names **5.13.0** alongside 5.9.0. Both moved the
-  random-number stream — 5.9.0 by moving the observation draws from R into the
-  template, 5.13.0 by drawing the index under the fleet's own
-  `Index_distribution` — so a seeded `run_mse()` reproduces across neither.
-
+  random-number stream, so a seeded `run_mse()` reproduces across neither.
 
 # Rceattle 5.16.0
 
 ## Breaking changes
 
-* **`summary()` on a fit returns a summary object, not the fit.** It used to be
-  `print(object)` -- the same spec tree, returned invisibly as the model itself.
-  For a fitted assessment the conventional answer is the estimates and their
-  uncertainty plus the likelihood decomposition, all of which the fit already
-  carried in `coef()`, `vcov()` and `quantities$jnll_comp` and which the caller
-  had to join by hand. `summary(fit)` now prints the spec tree, then a parameter
-  table with standard errors, then the likelihood components and their total,
-  and returns a `"summary.Rceattle"` with `$coefficients`, `$jnll_comp`,
-  `$objective` and `$convergence`.
+* **`summary()` on a fit returns a summary object, not the fit.** It was
+  `print(object)`. It now prints the spec tree, a parameter table with standard
+  errors, and the likelihood components and their total, returning a
+  `"summary.Rceattle"` with `$coefficients`, `$jnll_comp`, `$objective` and
+  `$convergence`.
 
-  `x <- summary(fit)` followed by `x$quantities` therefore no longer works; use
-  `fit` directly. Swept across `../Rceattle-models` and `../GOA-ATF-ESP`: every
-  call there is a bare `summary(mod)` at top level, printed and not assigned, so
-  nothing downstream is affected.
-
+  `x <- summary(fit)` followed by `x$quantities` no longer works; use `fit`
+  directly. Swept across `../Rceattle-models` and `../GOA-ATF-ESP`: every call
+  is a bare `summary(mod)` at top level, so nothing downstream is affected.
 
 * **`Time_varying_sel = "AR1"` and `Time_varying_q = "AR1"` (value `2`) are
   removed.** `data_check()` errors on them, naming the fleet and the
   replacement.
 
-  Neither was ever an AR1. The template scores value `2` with the same
-  independent normal penalty as value `1` — `flt_varying_sel == 1 || == 2` and
-  `index_varying_q == 1 || == 2` — and neither deviation block has a correlation
-  parameter to read: `index_q_rho` belongs to the `Catchability = "AR1"` (QAR1)
-  path removed in 5.12.0, and there is no selectivity equivalent at all. So the
-  name promised an autocorrelation the model does not fit, on a value the
-  schema's own column descriptions never listed.
+  Neither was ever an AR1: the model scored value `2` with the same independent
+  normal penalty as value `1`, and neither deviation block has a correlation
+  parameter. **Nothing that produced a usable number is refused** — every fit
+  under value `2` was an IID fit, and `"IID"` reproduces it exactly. Of 173
+  `fleet_control` sheets across the ecosystem, **zero** set `"AR1"` on either
+  switch.
 
-  **Nothing that produced a usable number is refused.** Every fit under value `2`
-  was an IID fit; setting the switch to `"IID"` reproduces it exactly, and the
-  error says so. Pre-flighted over every `fleet_control` sheet in the ecosystem:
-  173 workbooks carry the sheet, and **zero** set `"AR1"` on either switch.
+  `Time_varying_q` is exempt where it is not a mode: under
+  `Catchability = "Environmental"` the column holds an `env_data` column index,
+  so a literal `2` there is a series number, not a switch value.
 
-  `Time_varying_q` is exempt where it is not a mode. Under
-  `Catchability = "Environmental"` that column holds a 1-based `env_data`
-  *column index*, so a fleet naming env column 2 carries a literal `2` that
-  canonicalizes to `"AR1"`; refusing it would reject a working model for a
-  setting nobody made. `validate_switches()` and the soft-deprecation carry the
-  same exemption.
-
-  An error rather than a silent alias, for the reason the QAR1 removal gives: a
-  warned fit returns a `summary()` that looks ordinary, and nothing downstream
-  can tell that the deviations the assessor asked to be *correlated* are
-  independent.
-
-  The replacement is the linkage grammar, which already fits the stationary AR1
-  these names promised — `SCALE(AR1(rho), sigma)` with `sigma` the **marginal**
-  sd, reducing to the IID density at `rho = 0`:
+  The replacement is the linkage grammar, which fits the stationary AR1 these
+  names promised — `sigma` is the marginal sd, reducing to IID at `rho = 0`:
 
   ```r
   build_catchability(linkages = list(
@@ -271,131 +190,94 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
     inf_asc = linkage_spec(~ ar1(1 | Year), by = ~ fleet)))
   ```
 
-  It is also strictly more expressive: per selectivity *parameter* rather than
-  per fleet, with the deviation sd estimated or fixed, an `integrate = FALSE`
-  penalized form, priors, bounds and an estimation phase. Both switches were
-  already soft-deprecated in favour of it, and that message named
-  `ar1(1 | Year)` as the AR1 replacement while the switch value silently did
-  something else.
+  It is also more expressive: per selectivity *parameter* rather than per fleet,
+  with the deviation sd estimated or fixed, priors, bounds and a phase.
 
 ## Bug fixes
 
 * **The unfished-reference placeholder is recognised by a flag, not by its
-  value.** `mse_summary()` decided whether a multispecies unfished reference had
-  been derived by comparing the reported `SB0` to the 999 mt placeholder
-  constant. That is a float equality test which would also null a
-  legitimately-derived 999 mt, and is blind to a workbook supplying its own
-  `MSSB0`. `clean_data()` now seeds a per-species `MSSB0_derived` alongside the
-  placeholder and `fit_mod()` sets it where it projects under no fishing. A fit
-  saved before the flag existed has no field, and falls back to the value test.
+  value.** `mse_summary()` compared the reported `SB0` to the 999 mt
+  placeholder — a float equality test that would also null a legitimately
+  derived 999 mt, and that was blind to a workbook supplying its own `MSSB0`.
+  `clean_data()` now seeds a per-species `MSSB0_derived`, which `fit_mod()` sets
+  where it projects under no fishing. A fit saved before the flag existed falls
+  back to the value test.
 
-* **`print()` on a fit closes its tree and lines up its values.** Written
-  line-by-line the fit block had drifted: `initMode` carried a mid-tree glyph
-  with nothing after it, the fit statistics then left the tree entirely on a
-  different indent, and `cat()`'s separator left a trailing space on every line.
-  It is assembled and emitted as rows now. `Run time` is `signif()` to match the
-  objective rather than seven digits of wall clock, and an `estimateMode` that
-  runs no projection reports `HCR : (not applicable -- hindcast only)` instead of
-  `NoFishing`, which read as a management choice nobody had made.
-
+* **`print()` on a fit closes its tree and lines up its values.** `Run time` is
+  `signif()` to match the objective rather than seven digits of wall clock, and
+  an `estimateMode` that runs no projection reports
+  `HCR : (not applicable -- hindcast only)` rather than `NoFishing`, which read
+  as a management choice nobody had made.
 
 * **`Time_varying_sel_sd` is validated, as `Time_varying_q_sd` already was.**
-  `build_params()` takes `log(Time_varying_sel_sd)` exactly as it takes
-  `log(Time_varying_q_sd)`, so a blank or non-positive value was the same
-  `-Inf`/`NaN` starting value and the same non-finite objective reported from
-  inside `MakeADFun`, naming neither the fleet nor the column. It additionally
-  made the geometric mean `build_map()` reports for a shared `Selectivity_index`
-  group `NaN`.
+  `build_params()` takes its log, so a blank or non-positive value gave a
+  non-finite objective from inside `MakeADFun`, naming neither the fleet nor the
+  column.
 
-  Required only where the template actually reads the sd, which is a property of
-  the (`Selectivity`, `Time_varying_sel`) pair rather than of either alone:
-  the logistic family under `IID` / `RandomWalk` / `RandomWalkAscending`, `Hake`
-  under `IID`, and `NonParametric`/`NonParametricPM` under `RandomWalk`.
-  `LogisticPM` weights its two walks by `Sel_curve_pen1` and `Sel_curve_pen3`
-  and is excluded, as are `Block`, `Fixed`, `2DAR1` and `3DAR1`.
+  Required only where the model reads the sd, which is a property of the
+  (`Selectivity`, `Time_varying_sel`) pair: the logistic family under `IID` /
+  `RandomWalk` / `RandomWalkAscending`, `Hake` under `IID`, and
+  `NonParametric`/`NonParametricPM` under `RandomWalk`. `LogisticPM`, `Block`,
+  `Fixed`, `2DAR1` and `3DAR1` are excluded.
 
-  Pre-flighted over every `fleet_control` sheet in the ecosystem, after the
-  legacy column spellings are resolved as `switch_check()` resolves them
-  (`Sel_sd_prior` is `Time_varying_sel_sd`): **173 workbooks carry the sheet and
-  one is refused** — `Pacific hake/Data/Old files/hake_from_ss.xlsx`, whose
-  `Hake_fishery` pairs `Selectivity = "Hake"` and `Time_varying_sel = "IID"`
-  with a sd of 0. That is `dnorm(dev, 0, 0)`; the workbook cannot produce a
-  finite objective, and its two sd values appear transposed against the survey
-  row. Nothing that fitted is refused.
+  Of 173 `fleet_control` sheets across the ecosystem, **one is refused** —
+  `Pacific hake/Data/Old files/hake_from_ss.xlsx`, whose `Hake_fishery` pairs
+  `Selectivity = "Hake"` and `Time_varying_sel = "IID"` with a sd of 0. That is
+  `dnorm(dev, 0, 0)` and cannot produce a finite objective. Nothing that fitted
+  is refused.
 
 * **The model spec tree shows a parameter carrying more than one linkage.** The
-  grammar lets one parameter hold a *list* of specs — a shared prior plus a
+  grammar lets one parameter hold a list of specs — a shared prior plus a
   fleet-specific random walk, which is how GOA pollock 2025 is configured — and
-  `print()` read `$formula` off that list and rendered `NULL`. Three of that
-  model's six linkage rows displayed as `NULL`, and they were the three carrying
-  the structure worth showing. Each spec now gets its own line, tagged `[i/n]`
-  when stacked, so the count is the number of linkages the model actually holds.
+  `print()` rendered those rows as `NULL`. Each spec now gets its own line,
+  tagged `[i/n]` when stacked.
 
 ## New features
 
-* **`plot(fit, what = "ssb_depletion")`.** The S3 dispatcher offered
-  `"depletion"`, which is `plot_depletion()` -- *biomass* depletion -- and had no
-  route to SSB depletion at all. In a package whose vocabulary is the
-  Amendment-56 proxies, spawning-biomass depletion against B40% is the
-  management quantity, and it was the one the generic could not draw.
+* **`plot(fit, what = "ssb_depletion")`.** The S3 dispatcher offered only
+  `"depletion"`, which is *biomass* depletion. In a package whose vocabulary is
+  the Amendment-56 proxies, spawning-biomass depletion against B40% is the
+  management quantity, and the generic could not draw it.
 
-* **The diagnostics share one display contract.**
-  `convergence_diagnostics()` was the only member of the family with a class, a
-  print method, a four-level severity and an overall status; the rest returned
-  bare frames and lists. `osa_diagnostics()`, `retrospective()`, `jitter()` and
-  `mse_summary()` now open with the same header — the object, a status, and a
-  one-line verdict — before the detail.
+* **The diagnostics share one display contract.** `osa_diagnostics()`,
+  `retrospective()`, `jitter()` and `mse_summary()` now open with the header
+  `convergence_diagnostics()` uses — the object, a status, and a one-line
+  verdict — before the detail.
 
-  **No return value changed.** Each object is still exactly the data frame or
-  list it was, so `retro$mohns`, `jit$nll`, `diag$sdnr`, `summ$species` and every
-  column index as before; only `class()` gains an entry and `print()` gets an
-  opinion.
+  **No return value changed.** `retro$mohns`, `jit$nll`, `diag$sdnr`,
+  `summ$species` and every column index as before; only `class()` gains an entry
+  and `print()` gets an opinion.
 
-  What each verdict adds:
-
-  - `osa_diagnostics()` printed sixteen columns at seven significant figures,
-    which wraps across three screen-widths in an 80-column terminal, so
-    answering "is fleet 2's index residual acceptable?" meant reassembling one
-    row from three blocks — and nothing said how many sources had failed. It now
-    leads with that count and the overall SDNR against its null interval, then a
-    severity-tagged line per source, worst first.
-  - `retrospective()` returned Mohn's rho as a bare number with no reference
-    band, while `osa_diagnostics()` shipped its null intervals — two diagnostics,
-    opposite conventions on the same question. It now judges the terminal peel
-    against `print(retro, band = )`, default `+/- 0.2`. Forecast-skill peels are
-    reported but not judged: a rho over a forecast horizon is not the quantity
-    that rule was calibrated on.
-  - `jitter()` returned the objective values but not the fraction of starts that
-    reached the best optimum, which is the result it exists to produce. The
-    returned list gains `njitter` so the denominator is knowable — non-converged
-    starts are dropped, so the count of returned fits is not the count attempted.
-  - `mse_summary()` reports its four blocks and their dimensions rather than
-    printing objects of differing shape end to end, and says out loud that
+  - `osa_diagnostics()` leads with how many sources failed and the overall SDNR
+    against its null interval, then a severity-tagged line per source, worst
+    first.
+  - `retrospective()` judges the terminal peel against `print(retro, band = )`,
+    default `+/- 0.2`. Forecast-skill peels are reported but not judged: a rho
+    over a forecast horizon is not the quantity that rule was calibrated on.
+  - `jitter()` gains `njitter`, so the fraction of starts reaching the best
+    optimum has a knowable denominator — non-converged starts are dropped, so
+    the count of returned fits is not the count attempted.
+  - `mse_summary()` reports its four blocks and their dimensions, and says that
     `as.data.frame()` on the whole object will not work.
 
 ## Internals
 
 * **The golden regression now runs in CI, and the multi-OS `NOT_CRAN` guard is
   deterministic.** `test-golden-regression.R` carries both `skip_on_cran()` and
-  `skip_on_covr()`, so it fired in neither existing job -- `R-CMD-check` sets
-  `NOT_CRAN=false` to keep the matrix fast, and `test-coverage` runs under covr.
-  The committed backstop for "a numeric change needs golden equivalence" was
-  therefore never automated. A new `deep-checks` workflow runs it nightly and
-  asserts the file produced assertions, since a skipped file otherwise reports
-  as a pass.
+  `skip_on_covr()`, so it fired in neither existing job and the committed
+  backstop for golden equivalence was never automated. A new `deep-checks`
+  workflow runs it nightly and asserts the file produced assertions, since a
+  skipped file otherwise reports as a pass.
 
-  The `NOT_CRAN=false` override moved from an earlier step's `$GITHUB_ENV`
-  append to step-level `env:` on `check-r-package`, where GitHub's precedence
-  makes it unshadowable and the log shows which mode ran. Through `$GITHUB_ENV`
-  it did not hold reliably: on one commit the skip fired and on the next,
-  differing only in a Markdown file, the heavy tests ran and the Windows worker
+  The `NOT_CRAN=false` override moved to step-level `env:` on
+  `check-r-package`, where GitHub's precedence makes it unshadowable. Through
+  `$GITHUB_ENV` it did not hold reliably, and when it slipped the Windows worker
   died with `0xC0000005`.
 
-* **The model can be built with array bounds checking.** `RCEATTLE_SAFEBOUNDS=true`
-  builds with TMB's `safebounds`, turning an out-of-range access from a silent
-  write into adjacent memory into an R error naming the object -- the class of
-  fault the 5.15.0 `age_hat` overflow was, and the standing explanation for that
-  Windows access violation. `tools/verify/verify-safebounds.R` drives it, with a
+* **The model can be built with array bounds checking.**
+  `RCEATTLE_SAFEBOUNDS=true` builds with TMB's `safebounds`, turning an
+  out-of-range access from a silent write into adjacent memory into an R error
+  naming the object. `tools/verify/verify-safebounds.R` drives it, with a
   positive control asserting `-DTMB_SAFEBOUNDS` reached the compile line. The
   default is unchanged and no fit gets slower.
 
@@ -403,38 +285,27 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 * **The ten vignette chunks the weekly job could not see now run.**
   `RCEATTLE_EVAL_VIGNETTES` flips each vignette's chunk *default*, but a chunk
-  carrying its own `eval = FALSE` overrides that -- so ten chunks across four
+  carrying its own `eval = FALSE` overrides it — so ten chunks across four
   vignettes stayed unexecuted in the one job built to execute them, including
-  the OSA and process-residual workflows and three `run_mse()` variants. That is
-  how `introduction.Rmd` came to call `plot_depletion()` under an "SSB depletion"
-  heading for several releases. They use the default now. Exactly one chunk keeps
-  an explicit `eval = FALSE` -- the install block, which would reinstall the
-  package mid-render -- and says so in the chunk.
+  the OSA and process-residual workflows and three `run_mse()` variants. Exactly
+  one chunk keeps an explicit `eval = FALSE`, the install block, and says so.
 
-  Measured cost, on an M-series Mac: `hcrs-and-mses` 2.7 -> 19.2 minutes (three
-  `run_mse(nsim = 10)` variants), `introduction` 2.7 -> 3.8, `model-diagnostics`
-  1.9 -> 2.3. The weekly job's timeout went from 120 to 180 minutes to absorb it.
-  Raising the budget rather than cutting the coverage, because a timeout fails
-  the whole job and loses every vignette's result -- worse than any one of them
-  being slow.
+  Cost on an M-series Mac: `hcrs-and-mses` 2.7 -> 19.2 minutes,
+  `introduction` 2.7 -> 3.8, `model-diagnostics` 1.9 -> 2.3. The weekly job's
+  timeout went from 120 to 180 minutes, since a timeout loses every vignette's
+  result rather than one.
 
-* **`?mse_summary` says when `om_terminal_depletion` is `NA`.** It is `NA` for a
-  multispecies run that derived no unfished reference, which is any run without a
-  harvest control rule. A column going `NA` is something a reader meets in a
-  table first, so the help now names the cause and points at
-  `om_terminal_depletion_dynamic`, which is unaffected.
-
+* **`?mse_summary` says when `om_terminal_depletion` is `NA`** — any
+  multispecies run without a harvest control rule, which derives no unfished
+  reference. Points at `om_terminal_depletion_dynamic`, which is unaffected.
 
 * **`vignette("model-parameterizations")` gives the fishery index predictor.**
-  The equations vignette still showed the survey snapshot
-  `N e^{-Month·Z}` for CPUE, which 5.9.0 replaced for a fishery with the
-  year-average `N̄ = N (1 − e^{−Z}) / Z`. The two vignettes disagreed about the
-  equation this release exists to correct. The predictor is now split by
-  `Fleet_type`, with the Baranov derivation and the SS3 correspondence.
-
-  The survey half was wrong too, independently of 5.9.0: it wrote
-  `e^{-Month·Z}` where the template computes `exp(-(Month/12)·Z)`, so the
-  documented exponent was out by a factor of twelve.
+  It still showed the survey snapshot for CPUE, which 5.9.0 replaced for a
+  fishery with the year-average `N̄ = N (1 − e^{−Z}) / Z`. The predictor is now
+  split by `Fleet_type`, with the Baranov derivation and the SS3
+  correspondence. The survey half was wrong independently: it wrote
+  `e^{-Month·Z}` where the model computes `exp(-(Month/12)·Z)`, an exponent out
+  by a factor of twelve.
 
 * Same vignette: the `Selectivity` list gained `DoubleNormal` (8),
   `NonParametricPM` (9) and `LogisticPM` (11) and the note that there is no 10;
@@ -444,22 +315,16 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 * **Three switch-table rows in `vignette("model-options-and-functionality")` no
   longer break their table.** A `|` inside a table cell is a column separator
-  even inside a code span, so `linkage_spec(~ ar1(1 | Year))` written into a
-  three-column row rendered a spurious fourth column. One of the three is the
-  `Catchability = "AR1"` row added in 5.12.0, which has been rendering that way
-  since. Escaping as `\|` fixes the table but leaves a visible backslash in a
-  snippet meant to be copied, so the replacement code moved out of the cells and
-  into fenced blocks below each table, where a pipe is just a pipe.
-
-  Nothing catches this today: `R CMD check` does not execute the vignettes,
-  `test-vignette-api.R` parses only the R chunks, and pandoc renders a ragged
-  row without complaint rather than erroring. Checking it means rendering to
-  HTML and counting cells.
+  even inside a code span, so `linkage_spec(~ ar1(1 | Year))` rendered a
+  spurious fourth column. The replacement code moved out of the cells into
+  fenced blocks below each table. Nothing catches this today: `R CMD check` does
+  not execute the vignettes, `test-vignette-api.R` parses only the R chunks, and
+  pandoc renders a ragged row without complaint.
 
 * **`vignette("introduction")` plots SSB depletion where it says it does.** The
-  "SSB depletion" example called `plot_depletion()` — the *biomass* depletion
-  plotter, and the same call as the line above it — so the two examples drew
-  identical figures under different labels. It calls `plot_depletionSSB()` now.
+  "SSB depletion" example called `plot_depletion()` — biomass depletion, the
+  same call as the line above it — so the two examples drew identical figures
+  under different labels. It calls `plot_depletionSSB()` now.
 
 * The `Time_varying_sel` soft-deprecation message now names `ar1(1 | Year)`
   alongside `rw(1 | Year)`, as the `Time_varying_q` message already did.
@@ -480,9 +345,13 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `/golden-check` is bit-identical.
 
   The equilibrium pair, `NByage0`/`SB0` and `NByageF`/`SBF`, is **not** fixed
-  here: it is still carried on `M_at_age`, so under predation an unfished
-  reference point is built on a fished predation rate. Marked with a
-  `TODO(review)` in the template.
+  here. `SB0` escapes it under `msmMode > 0`, being overwritten with the
+  `MSSB0` input, but `SBF` does not: it applies the realized fished-predator
+  `M2` to an F-target *equilibrium* numbers-at-age array. HCR 5 (NPFMC Tier 3)
+  reads `SBF` and `SB0` together, so under predation the two legs of that rule
+  sit on different mortality bases. `msmMode = 0` is unaffected — there is no
+  `M2`. `DynamicHCR = TRUE` uses `DynamicSB0` / `DynamicSBF`, which are
+  internally consistent. Marked `KNOWN LIMITATION` in `ceattle.cpp`.
 
 * **A multispecies model can report depletion against `DynamicSB0`.** With
   `HCR = 0` the projection runs unfished, so SSB in the last projection year is
@@ -495,14 +364,14 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 ## Bug fixes
 
 * **A multispecies fit now carries its unfished SSB (`MSSB0`) on the returned
-  object.** Under `msmMode > 0` the template discards its own equilibrium SB0
+  object.** Under `msmMode > 0` the model discards its own equilibrium SB0
   and reads the `MSSB0` `DATA_VECTOR` instead, so `ssb_depletion` is
   `ssb / MSSB0`. No workbook can supply it — `clean_data()` seeds it at a 999 mt
   placeholder and `fit_mod()` derives the real value by projecting under no
   fishing. That derived value was written only into the reorganized copy the
   projection refits from, so the **returned** `data_list` kept the 999, and
   everything that refits from a fitted object — `.refit_like()`, `remove_F()`,
-  and every `run_mse()` projection — re-entered the template with the
+  and every `run_mse()` projection — re-entered the model with the
   placeholder.
 
   **Any multispecies refit carrying a harvest control rule moves.** `SB0` is not
@@ -599,7 +468,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   unchanged. The zero-row guard stays.
 
 * **Four stale or incorrect source comments corrected**, in `build_params()`,
-  `clean_data()`, the template's fishing-mortality section, and the two
+  `clean_data()`, the model's fishing-mortality section, and the two
   shared-parameter blocks in `build_map()` that still claimed `fit_mod()`
   suppresses their warnings. Documented in `inst/dev/CLEANUP_BACKLOG.md`.
 
@@ -623,30 +492,27 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   reaches the gap, because the default `srr_pred_fun` is mean recruitment.
 
 * **Ten writes to the male slot ran past the end of the sex dimension.** Arrays
-  carrying a sex are dimensioned by `max_sex`, the largest `nsex` over species,
-  so where *every* species is one-sex that dimension has length 1 and sex index
-  1 does not exist. The "males take `1 - sex_ratio`" half of each recruitment
-  and sex-ratio assignment wrote it unconditionally. The value is 0 — a one-sex
-  species has `sex_ratio` set to 1 first — but the index is out of range, and
-  the template is compiled without bounds checking, so it was a silent write
-  into the next age of the same species and year, surviving only because the
-  age loop overwrote it immediately. Reproduced on BS2017SS by compiling with
-  `safebounds = TRUE`, which raises Eigen's range assertion; guarded, the same
-  fit is clean at an unchanged objective. Affects BS2017SS and BS2017MS, and any
-  model whose species are all one-sex.
+  carrying a sex are dimensioned by `max_sex`, so where *every* species is
+  one-sex that dimension has length 1 and sex index 1 does not exist. The "males
+  take `1 - sex_ratio`" half of each recruitment and sex-ratio assignment wrote
+  it unconditionally. The value is 0, but the index is out of range and the
+  model is compiled without bounds checking, so it was a silent write into the
+  next age of the same species and year. Reproduced on BS2017SS with
+  `safebounds = TRUE`; guarded, the same fit is clean at an unchanged objective.
+  Affects BS2017SS, BS2017MS, and any model whose species are all one-sex.
 
 * **`comp_data$Sex` was never checked against `nsex`.** `M1_base`, `weight` and
   `ration_data` are all validated; composition was not. A joint row (`Sex = 3`)
   on a one-sex species is the damaging case, because the two registries
-  disagree: `check_composition_data()` sizes it at `nages` while the template
+  disagree: `check_composition_data()` sizes it at `nages` while the model
   writes it out to `nages * 2`, so the surplus landed in the next observation's
   predicted composition and silently changed that observation's likelihood.
-  `Sex = 2` on a one-sex species is the same class — the template reads a sex
+  `Sex = 2` on a one-sex species is the same class — the model reads a sex
   index that does not exist. Both are now refused with a message naming the
   species. `Sex = 0` and `Sex = 1` are unaffected.
 
 * **`build_srr(proj_mean_rec =)` was documented backwards.** The roxygen said
-  0 = mean recruitment and 1 = the stock-recruit relationship; the template
+  0 = mean recruitment and 1 = the stock-recruit relationship; the model
   reads 1 as mean recruitment and 0 as the relationship, and the argument
   defaults to `TRUE`. Anyone who set it from the documentation got the opposite
   of what they asked for. Corrected, with the reference-point behaviour stated.
@@ -663,26 +529,20 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `srr_fun = 0` never calls the relationship with a spawning biomass.
 
   Those years now take `R_init`, equilibrium recruitment at `F = Finit`, with
-  the recruitment deviation already estimated for them -- the same expression
-  the first year is built from, `R_init * exp(rec_dev)`, so the whole
+  the recruitment deviation already estimated for them — the same
+  `R_init * exp(rec_dev)` the first year is built from, so the whole
   pre-start-spawned block rests on one equilibrium. This follows Stock
   Synthesis, which covers the pre-start period with an equilibrium age
   composition plus early recruitment deviations rather than extending the
-  relationship backwards. (WHAM avoids the boundary by fixing the recruitment
-  lag at one year regardless of the recruit age.) Not `R0`: under a
-  Beverton-Holt or Ricker hindcast the mean-recruit parameter is mapped out and
-  only the first column of `R0` is overwritten with the derived
-  `(alpha - 1/SPR0)/Beta`, so `R0` in a later year is still the starting value.
-  On the same fixture the objective now moves 14407.38 / 13959.97 / 13587.67
-  across `minage` 1/2/3, and recruitment in the guarded years sits at the
-  equilibrium instead of `8.6e-314`.
+  relationship backwards; WHAM avoids the boundary by fixing the recruitment lag
+  at one year regardless of recruit age. Not `R0`, which in a later year is
+  still the starting value. On the same fixture the objective now moves
+  14407.38 / 13959.97 / 13587.67 across `minage` 1/2/3.
 
-  All four sites are guarded. Expected recruitment (`R_hat`) takes the same
-  `R_init` anchor, so in these years it differs from realised recruitment only
-  by `rec_dev` and the stock-recruit penalty scores the deviation alone -- there
-  is no spawning biomass to carry information about the curve's level. The
-  reference points keep the relationship entirely and only clamp the lag into
-  range, since reference-point spawning biomass exists for every year.
+  All four sites are guarded. Expected recruitment takes the same `R_init`
+  anchor, so the stock-recruit penalty scores the deviation alone — there is no
+  spawning biomass to carry information about the curve's level. The reference
+  points keep the relationship and only clamp the lag into range.
 
   **No fit anyone runs today changes**: every bundled dataset and all three live
   assessments are `minage = 1`, where the guard cannot fire. The four
@@ -690,7 +550,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 * **`CAAL_distribution = "MultinomialAFSC"` now works.** `CAAL_distribution`
   shares `comp_loglike_map` with `Comp_distribution`, so the value passed
-  `validate_switches()` and then died inside the template with
+  `validate_switches()` and then died inside the model with
   `Invalid 'caal_ll_type'` -- the CAAL dispatch had only cases 0 and 1. The AFSC
   multinomial pseudo-likelihood is now implemented for conditional age-at-length
   in the same form already used for age composition, reading the CAAL row's
@@ -765,23 +625,18 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   prints each distinct warning once rather than hundreds of times.
 
 * **`random_sel = TRUE` is now refused on a fleet with `Time_varying_sel =
-  "Block"`,** instead of producing a NaN objective. Selectivity blocks are
-  fixed effects -- one slope and inflection per block, with no penalty, which
-  is what the switch means -- so `build_map()` maps the block parameters into
-  `log_sel_slp_dev` / `sel_inf_dev` and turns the main parameters off.
-  `fit_mod()` then added those arrays to TMB's `random` unconditionally, but
-  the template scores selectivity deviates only under `"IID"`, `"AR1"`,
-  `"RandomWalk"` and `"RandomWalkAscending"`. The block parameters were
-  therefore integrated against no density at all, with `sel_dev_log_sd` mapped
-  out so there was no variance to estimate either. The marginal objective came
-  back `NaN` and the fit died with TMB's `NA/NaN gradient evaluation`, which
-  names neither selectivity nor `random_sel`. The error now says which fleets
-  and what to change.
+  "Block"`,** instead of producing a NaN objective. Selectivity blocks are fixed
+  effects — one slope and inflection per block, with no penalty — but
+  `fit_mod()` added the block parameters to TMB's `random` regardless, and the
+  model scores selectivity deviates only under `"IID"`, `"RandomWalk"` and
+  `"RandomWalkAscending"`. They were integrated against no density, with
+  `sel_dev_log_sd` mapped out so there was no variance to estimate either, and
+  the fit died with TMB's `NA/NaN gradient evaluation` — which names neither
+  selectivity nor `random_sel`. The error now says which fleets and what to
+  change.
 
-  No bundled dataset or reference model reaches this -- `BS2017SS` and
-  `BS2017MS` set `Time_varying_sel` to `"Off"` throughout, `GOA2018SS` to
-  `"Off"` and `"RandomWalkAscending"` -- and no fit that works today changes.
-  `"Block"` remains fully supported with `random_sel = FALSE`.
+  No bundled dataset or reference model reaches this, and no fit that works
+  today changes. `"Block"` remains fully supported with `random_sel = FALSE`.
 
 # Rceattle 5.12.0
 
@@ -792,7 +647,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   steepness, `R0` and `R_init` on spawning biomass per recruit, and SPR is not
   defined under predation: total mortality carries `M2`, which scales with
   predator abundance, so per-recruit spawning output is not a property of the
-  prey stock alone. The template has always declined to compute it under
+  prey stock alone. The model has always declined to compute it under
   multispecies mode -- but the code that consumes it was never gated to match,
   so `SPR0 = 0` reached it. With `srr_fun >= 2` that is a division by zero:
   `R0` and `R_init` came back `-Inf` and the objective `NaN`. With the Ianelli
@@ -816,22 +671,18 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   working spelling is refused: `Sel_shape_mode` accepts `"Smooth"`, `"smooth"`
   and `1`; `Sel_shape_dir` accepts `"Increasing"`, `"increasing"` and `"-1"`
   (the ADMB sign convention). `Selectivity_dimension` accepts only `"Age"` and
-  `"Length"`, because those are the only values `rearrange_data()` matches -- an
-  integer there produced `NA` and reached the template as a missing dimension.
+  `"Length"`, the only values `rearrange_data()` matches.
 
   A blank `Selectivity_dimension` cell takes the schema default (`"Age"`) rather
-  than erroring, so the partial-assignment idiom
-  (`fleet_control$Selectivity_dimension[i] <- "Length"`) keeps working. On a
-  model that estimates growth -- where `"Length"` was plausibly meant -- the fill
-  now names the fleets it applied to instead of happening silently. **This can
-  move a fit** on a model that carried blanks: those fleets previously reached
-  the template as a missing dimension, which sizes selectivity by `nlengths`
-  rather than `nages`, and so changes a max-normalized curve. No bundled dataset
-  or golden model is affected -- none carries the column at all.
+  than erroring, so the partial-assignment idiom keeps working, and on a model
+  that estimates growth the fill names the fleets it applied to. **This can move
+  a fit** on a model that carried blanks: those fleets previously reached the
+  model as a missing dimension, which sizes selectivity by `nlengths` rather
+  than `nages` and so changes a max-normalized curve. No bundled dataset or
+  golden model carries the column at all.
 
-  This was pre-flighted rather than assumed: a report-only pass over every
-  workbook in the ecosystem found 196 carrying a `fleet_control` sheet and not
-  one value the new check rejects.
+  Pre-flighted over every workbook in the ecosystem: **196** carry a
+  `fleet_control` sheet and not one value the new check rejects.
 
 * **`write_data()` writes `fleet_control` in schema column order**, as the
   control and bioenergetics sheets already did. Values are unchanged and
@@ -850,24 +701,17 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   for, silently.
 
   It errors rather than warns because a warned fit still returns a `summary()`
-  that looks ordinary, and nothing downstream can tell that its q is constant
-  or its objective inflated. That is the severity `Catchability =
-  "PowerEquation"` already carried, and that switch is merely unimplemented
-  rather than actively divergent. The code is kept in `q_map` so the message
-  below is what a user gets, rather than a generic invalid-switch error.
-
-  Measured on BS2017SS fleet 7, the `Catchability deviates`
-  likelihood row accumulates 54.8 from deviates that are identically zero --
-  the AR1 normalizing constant, plus the environmental index fitted as noise
-  about zero -- so the reported objective is not comparable with any other
-  model's; and `index_q_dev_log_sd` is left free with a gradient of
-  `nyrs_hind` and nothing opposing it, driving its sigma to zero.
+  that looks ordinary, and nothing downstream can tell that its q is constant or
+  its objective inflated. On BS2017SS fleet 7 the `Catchability deviates`
+  likelihood row accumulates **54.8** from deviates that are identically zero,
+  so the reported objective is not comparable with any other model's, and
+  `index_q_dev_log_sd` is left free with nothing opposing it, driving its sigma
+  to zero.
 
   The Rogers form is available as a linkage. `observe` is what makes it QAR1
-  rather than a free AR1 on q -- it names the environmental series the
-  deviates are observed against, the one the legacy switch identified by
-  column index in `Time_varying_q` -- and `obs_sd` is that series' measurement
-  SD, which the legacy switch never asked for and must now be supplied:
+  rather than a free AR1 on q — it names the environmental series the deviates
+  are observed against — and `obs_sd` is that series' measurement SD, which the
+  legacy switch never asked for and must now be supplied:
 
   ```r
   build_catchability(linkages = list(q = linkage_spec(
@@ -889,7 +733,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 * **`Estimate_catch_sd = "Analytical"` now works.** The option was documented in
   the schema, accepted by `validate_switches()`, and treated as a real mode by
-  `build_map()` (which maps `catch_log_sd` out) -- but the template's dispatch
+  `build_map()` (which maps `catch_log_sd` out) -- but the model's dispatch
   had only cases 0 and 1, so a model using it passed every R-side check and then
   died inside the fit with `Invalid 'Estimate_sigma_catch'`. It is now
   implemented, mirroring `Estimate_index_sd = "Analytical"`, and the fitted
@@ -1024,7 +868,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 
 * **The C++ dispatch branches are pinned to the R maps that select them**
   (`test-schema-cpp-dispatch.R`). The pinned exemptions are a machine-checked
-  inventory of what is implemented in the template but unreachable from R
+  inventory of what is implemented in the model but unreachable from R
   (non-parametric growth; `msmMode` 3-9) and what R can encode but the dispatch
   never sees. The schema's `tmb_target` field, previously set on no rows, now
   carries the rename for 27 columns and is checked against both ends of it.
@@ -1072,7 +916,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   fleet.** That likelihood reads `Comp_weights`,
   `CAAL_weights` and `Diet_comp_weights` as the LOG of the starting weight, so
   the value `write_template()` seeds (1) is a starting weight of e, and a weight
-  of 1 is written as 0. A model built from the template and switched to a
+  of 1 is written as 0. A model built from the model and switched to a
   Dirichlet-multinomial previously started at e with nothing saying so. Only an
   exact 1 is reported, so a deliberate value is left alone, and Off fleets and
   fleets carrying no composition data are skipped. It fires once per fit, and
@@ -1206,16 +1050,12 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   the wrong age silently drops part of the predation. The warning names the
   species, sex and age range for each role.
 
-  Only prey-at-age-in-predator-at-age rows count toward coverage. The
-  aggregated diet formats, which `diet_data` selects with an age below the
-  species' `minage`, feed the diet likelihood but are skipped when the
+  Only prey-at-age-in-predator-at-age rows count toward coverage: the
+  aggregated diet formats feed the diet likelihood but are skipped when the
   suitability array is filled, so they cannot close a gap. Parametric
-  suitability (`suitMode > 0`) and single-species models are unaffected.
-
-  A species with no prey rows at any age is not reported: nothing eating it is
-  a modelling choice, not a truncated table, and an apex predator in a
-  two-species run would otherwise warn on every fit. Only a partial gap in a
-  species that is eaten somewhere is evidence of truncation.
+  suitability (`suitMode > 0`) and single-species models are unaffected. A
+  species with no prey rows at any age is not reported — nothing eating it is a
+  modelling choice, not a truncated table.
 
 ## Bug fixes -- figures whose numbers change
 
@@ -1233,7 +1073,7 @@ runs of the same model.
 
 * **`plot_ration()` multiplies the ration by average numbers-at-age, not
   biomass-at-age.** `consumption_at_age` is one fish's annual ration in kg and
-  numbers-at-age are in thousands, so the product is mt -- the way the template
+  numbers-at-age are in thousands, so the product is mt -- the way the model
   forms total consumption (`avgN_at_age * ration`, `predation.hpp`). Multiplying
   by biomass instead weighted the age-sum by weight-at-age, so "million mt"
   described nothing it computed. Average numbers rather than start-of-year
@@ -1386,413 +1226,292 @@ runs of the same model.
 ## New features
 
 * **Every observation type is now simulated by the TMB model, in a `SIMULATE`
-  block beside the density that scores it.** Survey index (under each fleet's own
-  `Index_distribution`, including the correlated `MVN`/`MVNORM` draw), total
-  catch, age/length compositions, conditional age-at-length, and -- for the first
-  time -- stomach contents. `sim_mod()` no longer re-implements any observation
-  model in R, so the draw and the density can no longer be changed on one side
-  only. The two copies had already diverged: every survey was drawn as
-  independent lognormal whatever its `Index_distribution`, and diet was not drawn
-  at all, so a multispecies `self_test()` recovered suitability from stomachs
-  that never varied.
+  block beside the density that scores it** — survey index (under each fleet's
+  own `Index_distribution`, including the correlated `MVN`/`MVNORM` draw), total
+  catch, age/length compositions, conditional age-at-length, and, for the first
+  time, stomach contents. `sim_mod()` no longer re-implements any observation
+  model in R, so the draw and the density cannot be changed on one side only.
+  The two copies had diverged: every survey was drawn as independent lognormal
+  whatever its `Index_distribution`, and diet was not drawn at all, so a
+  multispecies `self_test()` recovered suitability from stomachs that never
+  varied.
 
   Compositions and CAAL are drawn in raw bin space, before tail accumulation and
-  before `comp_offset`. Tail accumulation folds bins many-to-one, so a draw taken
-  after it could not be written back; both families are closed under merging
-  categories, so drawing raw and letting the refit fold again is exact.
+  before `comp_offset`. Both families are closed under merging categories, so
+  drawing raw and letting the refit fold again is exact.
 
   `Comp_weights` / `CAAL_weights` / `Diet_comp_weights` now enter the draw as
   they enter the density: as an effective sample size for the multinomial
   families (`N * weight`), and through the concentration for the
-  Dirichlet-multinomial, where they already sat. **The old R draw used the
-  nominal `Sample_size` for the multinomial regardless of the weight**, so a
-  `self_test()` on a re-weighted model was handed data more informative than the
-  estimator treats them as being. Any model with a composition weight other
-  than 1 gives a different self-test than it did.
+  Dirichlet-multinomial. **The old R draw used the nominal `Sample_size`
+  regardless of the weight**, so a `self_test()` on a re-weighted model was
+  handed data more informative than the estimator treats them as being. **Any
+  model with a composition weight other than 1 gives a different self-test.**
 
-  A composition, CAAL or diet row whose sample size times its weight rounds
-  below one observation comes back empty, and its `Sample_size` is dropped to
-  zero so the refit does not score a row with no data behind it. Rows the model
-  cannot draw at all keep their observed values: a predator under empirical
-  suitability, and a covariance fleet outside its fitted window. `sim_mod()`
-  warns for each case.
+  A row whose sample size times its weight rounds below one observation comes
+  back empty, with `Sample_size` dropped to zero. Rows the model cannot draw —
+  a predator under empirical suitability, a covariance fleet outside its fitted
+  window — keep their observed values. `sim_mod()` warns for each case.
 
   Simulated quantities are reported under names ending `_sim` (`catch_obs_sim`,
-  `index_obs_sim`, `comp_obs_sim`, `caal_obs_sim`, `diet_obs_sim`), because TMB
-  never clears its report environment and a draw would otherwise stay readable
-  under the observed data's own name.
+  `index_obs_sim`, `comp_obs_sim`, `caal_obs_sim`, `diet_obs_sim`), since TMB
+  never clears its report environment.
 
-  **This changes results.** A seeded `self_test()` or `run_mse(simulate_data =
-  TRUE)` will differ from earlier releases: the draws moved into `obj$simulate()`
-  and the random-number stream moved with them. Simulating is also slower, since
-  it evaluates the compiled model rather than reading `$quantities`.
+  **This changes results.** A seeded `self_test()` or
+  `run_mse(simulate_data = TRUE)` will differ from earlier releases: the draws
+  moved into `obj$simulate()` and the random-number stream moved with them.
+  Simulating is also slower, since it evaluates the compiled model rather than
+  reading `$quantities`.
 
 * **`sim_mod()` can redraw process error as well as observations, via the new
-  `process` argument.** Observations are always drawn; process error is a choice,
-  because redrawing it changes what `self_test()` measures -- from recovering
-  parameters to recovering a process. Pass `"recruitment"`, `"M"`, `"growth"`,
-  `"catchability"` or `"selectivity"`, the groupings `"dynamics"` or
-  `"observation"`, or `TRUE` for all of them. The default `FALSE` keeps the
-  previous behaviour.
+  `process` argument.** Observations are always drawn; process error is a
+  choice, because redrawing it changes what `self_test()` measures — from
+  recovering parameters to recovering a process. Pass `"recruitment"`, `"M"`,
+  `"growth"`, `"catchability"` or `"selectivity"`, the groupings `"dynamics"` or
+  `"observation"`, or `TRUE` for all. The default `FALSE` keeps the previous
+  behaviour.
 
-  Recruitment covers the initial age structure as well as the hindcast
-  deviations, since the initial numbers-at-age are recruitment from before
-  `styr`. Natural mortality covers all six `M1_re` modes. Growth, catchability
-  and selectivity are drawn wherever they are written as a random linkage, from
-  the covariance structure they were given.
+  Recruitment covers the initial age structure, since the initial
+  numbers-at-age are recruitment from before `styr`. Natural mortality covers
+  all six `M1_re` modes. Growth, catchability and selectivity are drawn wherever
+  they are written as a random linkage.
 
-  Three cases are deliberately not drawn, each with a warning rather than a
-  silent pass-through: the equilibrium initial-condition modes, which fix
-  `init_dev`; observed AR1 (Rogers QAR1) linkages, whose latent state is measured
-  by a covariate series that redrawing the state alone would contradict; and the
-  legacy `Time_varying_q` / `Time_varying_sel` deviations and the AR1 selectivity
+  Three cases are not drawn, each with a warning: the equilibrium
+  initial-condition modes, which fix `init_dev`; observed AR1 (Rogers QAR1)
+  linkages, whose latent state is measured by a covariate series; and the legacy
+  `Time_varying_q` / `Time_varying_sel` deviations and the AR1 selectivity
   forms, which carry densities but no draw yet.
 
   When a process is redrawn, the deviations that generated the data come back as
-  `attr(x, "process_sim")`. Compare estimates against those: the source model's
-  fitted deviations are no longer what generated the data, so comparing against
-  them reports bias by construction. Each deviation arrives with a same-shaped
-  `_drawn` logical, written by the draw itself, marking the cells it touched --
-  the process draws cover the hindcast only, and `beta_linkage_re` spans every
-  random-linkage slot whether or not its process was asked for, so a recovery
-  statistic taken over the whole array would score fitted values as if they were
-  simulated. `compare_sim()` compares against the operating model and so is not
-  valid for `process`-drawn replicates; its help now says so.
+  `attr(x, "process_sim")`. **Compare estimates against those**, not against the
+  source model's fitted deviations, which would report bias by construction.
+  Each deviation arrives with a same-shaped `_drawn` logical marking the cells
+  the draw touched. `compare_sim()` compares against the operating model and is
+  therefore not valid for `process`-drawn replicates.
 
-* **`Index_distribution = "TruncatedNormal"`** fits and simulates a natural-scale
-  normal left-truncated at zero. An index cannot be negative and `data_check()`
-  will not accept one, so over the values the data can take the density is
-  renormalized -- `log f(x) = log phi(x; mu, sd) - log Phi(mu/sd)` -- and the draw
-  is taken by inverse CDF on `(0, Inf)`. It is the only natural-scale family
-  whose simulator and likelihood are the same distribution: `"Normal"` and the
-  covariance families have to redraw the non-positive draws `data_check()` would
-  refuse, which samples them from a truncated normal while the likelihood scores
-  an untruncated one. Prefer `"TruncatedNormal"` unless an exact ADMB comparison
-  is needed -- `"Normal"` is unchanged, and still reproduces the AMAK `avo_like` /
-  `cpue_like` term for term.
+* **`Index_distribution = "TruncatedNormal"`** fits and simulates a
+  natural-scale normal left-truncated at zero, so the density is renormalized as
+  `log f(x) = log phi(x; mu, sd) - log Phi(mu/sd)` and the draw is taken by
+  inverse CDF on `(0, Inf)`. It is the only natural-scale family whose simulator
+  and likelihood are the same distribution: `"Normal"` and the covariance
+  families have to redraw the non-positive draws `data_check()` would refuse,
+  which samples from a truncated normal while the likelihood scores an
+  untruncated one. Prefer it unless an exact ADMB comparison is needed —
+  `"Normal"` is unchanged and still reproduces AMAK `avo_like` / `cpue_like`
+  term for term.
 
 * **`TruncatedNormal` is registered as a natural-scale family in the
-  diagnostics.** `residuals(type = "pearson", source = "index")`,
-  `plot_index()`'s observation interval and `plot_indexresidual()` all read the
-  scale from one predicate, so the new family gets the natural-scale treatment
-  rather than reverting to the log-scale one. A test enumerates
-  `index_distribution_map` rather than a hand-written list, so a future family
-  that misses the predicate fails in the suite instead of in a residual plot.
+  diagnostics**, so `residuals(type = "pearson")`, `plot_index()`'s observation
+  interval and `plot_indexresidual()` give it the natural-scale treatment. A
+  test enumerates `index_distribution_map`, so a future family that misses the
+  predicate fails in the suite rather than in a residual plot.
 
-* **`simulate()` works on a fitted model**, as the `stats` generic, alongside the
-  `coef()`, `vcov()`, `logLik()` and `residuals()` methods the class already had.
-  `simulate(fit, nsim = 10)` returns a list of `nsim` data sets -- a list at
+* **`simulate()` works on a fitted model**, as the `stats` generic.
+  `simulate(fit, nsim = 10)` returns a list of `nsim` data sets — a list at
   `nsim = 1` too, so callers never special-case the length. `seed` follows the
-  `stats::simulate()` convention, restoring the caller's random state afterwards.
-  It wraps `sim_mod()`, which keeps its own interface; use `sim_mod(simulate =
-  FALSE)` for expected values rather than draws.
+  `stats::simulate()` convention. Use `sim_mod(simulate = FALSE)` for expected
+  values rather than draws.
 
-* **`self_test(process = )`** passes straight through to `sim_mod()`, so a
-  self-test can ask whether the estimator recovers a process it was not shown
-  rather than only its own parameters. Each replicate's true deviations are
-  returned as `attr(result, "process_sim")[[k]]`, aligned to the returned models.
+* **`self_test(process = )`** passes through to `sim_mod()`, so a self-test can
+  ask whether the estimator recovers a process it was not shown. Each
+  replicate's true deviations are returned as `attr(result, "process_sim")[[k]]`.
 
 * **`sim_mod()` warns when a simulated observation is one the model cannot be
-  refit on.** A non-finite or negative draw is not quietly dropped: `data_check()`
-  rejects it, the refit errors, and `self_test()` counts the replicate as not
-  converged, which reads as a convergence problem rather than a data one. The
-  usual cause is a fleet whose observation standard deviation never got a value.
+  refit on.** A non-finite or negative draw would otherwise be rejected by
+  `data_check()` and counted by `self_test()` as a convergence problem rather
+  than a data one. The usual cause is a fleet whose observation standard
+  deviation never got a value.
 
 ## Deprecations
 
 * **`quantities$log_index_sd` and `log_catch_sd` are renamed `index_sd` and
   `catch_sd`.** Neither was ever a log: both hold the observation standard
-  deviation the likelihood used for that row, whichever of the three
-  `Estimate_index_sd` / `Estimate_catch_sd` routes supplied it. Its scale
-  depends on the family, so it is documented rather than encoded in the name:
-  log-scale for `Lognormal`, and an absolute sd in the units of the index for a
-  natural-scale `Index_distribution` (`MVN`, `MVNORM`, `Normal`,
-  `TruncatedNormal`).
+  deviation the likelihood used for that row. Its scale depends on the family —
+  log-scale for `Lognormal`, an absolute sd in the units of the index for a
+  natural-scale `Index_distribution`.
 
-  The old spellings are still returned on `$quantities` this release and will be
-  removed in the next. Reading a fit saved before the rename keeps working:
-  `residuals()`, `plot_index()`, `plot_catch()` and `sim_mod()`'s rebuild check
-  all accept either spelling.
-
-  The TMB parameter `index_log_sd` is a different object -- the estimated
-  log-scale parameter -- and is unchanged, since renaming it would break `inits`
-  from existing fits.
+  The old spellings are still returned this release and will be removed in the
+  next. Fits saved before the rename keep working. The TMB parameter
+  `index_log_sd` is a different object and is unchanged.
 
 ## Breaking changes
 
-* **A fishery carrying `index_data` now gets an estimable catchability.** The TMB
-  model has always fitted such a row: the index likelihood gates on
-  `flt_type(index) > 0`, which is fishery and survey alike, and predicts it from
-  that fleet's own selectivity and catchability -- what a fishery CPUE series
-  should use. But `build_map_catchability()` entered its block only for
-  `Fleet_type == "Survey"`, so a fishery's `index_log_q`, its time-varying
-  `index_q_dev` family and its `index_log_sd` all stayed mapped out.
-  `Catchability = "Estimated"` did nothing and the index was fitted at
-  `Catchability_init`.
+* **A fishery carrying `index_data` now gets an estimable catchability.** The
+  model has always fitted such a row, but `build_map_catchability()` entered its
+  block only for `Fleet_type == "Survey"`, so a fishery's `index_log_q`,
+  `index_q_dev` and `index_log_sd` stayed mapped out and
+  `Catchability = "Estimated"` did nothing.
 
-  The same rule applies in reverse: a **survey** with no index rows no longer
-  gets an estimated catchability. A q with no index to inform it is a flat
-  direction in the likelihood, so this removes unidentified parameters.
+  In reverse, a **survey** with no index rows no longer gets an estimated
+  catchability — a q with no index to inform it is a flat direction in the
+  likelihood. Sharing takes precedence and is unchanged.
 
-  Sharing takes precedence and is unchanged: a fleet with no index of its own is
-  still estimated if its `Catchability_index` group's lead fleet is estimated,
-  whatever its `Fleet_type`.
-
-  No bundled dataset is affected, so `/golden-check` is silent on this. A model
-  that relied on the old behaviour should set `Catchability = "Fixed"` to keep q
-  frozen, or give the fleet its own `Catchability_index` to estimate it
-  separately. `print()` on a data list or a fit now marks the case:
+  No bundled dataset is affected, so `/golden-check` is silent. To keep the old
+  behaviour set `Catchability = "Fixed"`, or give the fleet its own
+  `Catchability_index` to estimate it separately. `print()` marks the case:
   `q: Estimated (fixed: no index data)`.
-
 
 * **A fishery's index is predicted from the year-averaged numbers.** A survey
   index remains a snapshot at its observation month, `N exp(-(Month/12) Z)`. A
   fishery index is CPUE, which integrates over the year alongside the catch:
-  `C_a = F_a Nbar_a` and effort cancels the `F` (`F_a = q_e E sel_a`), giving
 
   ```
   C/E = q * sum_a sel_a * Nbar_a * w_a,   Nbar_a = N_a (1 - exp(-Z_a)) / Z_a
   ```
 
-  the same mean-numbers term the catch equation uses. A fishery's age composition
-  already uses this form, so the index now matches both the catch and the comps
-  for that fleet. `Month` is not read for a fishery's index rows.
+  the same mean-numbers term the catch equation and the fishery's age
+  composition already use, so a fleet's index, catch and comps are now
+  consistent. `Month` is not read for a fishery's index rows.
 
-  The choice affects trend as well as scale, so catchability cannot absorb it;
-  the size of the difference over a range of Z is tabulated in
+  This affects trend as well as scale, so catchability cannot absorb it; the
+  size over a range of Z is tabulated in
   `vignette("model-options-and-functionality")`. Stock Synthesis splits the same
   way on its per-fleet survey timing.
 
-  Only a fishery carrying `index_data` is affected, so no bundled dataset moves
-  and `/golden-check` is bit-identical. For a snapshot-timed index on a
-  fishery's selectivity -- the AMAK/ebswp form the EBS pollock ADMB bridge needs
-  -- put the index on its own `Survey` fleet and point that fleet's
-  `Selectivity_index` at the fishery, copying the fishery's whole
-  `fleet_control` row so the selectivity columns agree (see the vignette).
+  Only a fishery carrying `index_data` is affected, so `/golden-check` is
+  bit-identical. For a snapshot-timed index on a fishery's selectivity — the
+  AMAK/ebswp form the EBS pollock ADMB bridge needs — put the index on its own
+  `Survey` fleet and point that fleet's `Selectivity_index` at the fishery.
 
-
-* **`sim_mod(simulate = TRUE)` no longer works on an averaged model.** Simulating
-  now evaluates the compiled model, so it needs one. A fit saved with
-  `saveRDS()` still has it, and a fit whose `$obj` was dropped to save space is
-  rebuilt from its `data_list` and estimates -- checked against the fit's own
-  predicted catch and observation sd rather than assumed. `model_average()`
-  output cannot be rebuilt: its `quantities` are an average over models rather
-  than any one model's fit, so there is no parameter vector to draw around.
-  Simulate from one of the underlying fits. `sim_mod(simulate = FALSE)` is
-  unaffected.
+* **`sim_mod(simulate = TRUE)` no longer works on an averaged model.**
+  Simulating evaluates the compiled model, so it needs one. A fit whose `$obj`
+  was dropped is rebuilt from its `data_list` and estimates. `model_average()`
+  output cannot be rebuilt — its `quantities` are an average over models, so
+  there is no parameter vector to draw around. Simulate from one of the
+  underlying fits. `sim_mod(simulate = FALSE)` is unaffected.
 
 * **`sim_mod()` errors instead of recycling when `catch_data` no longer lines up
   with the fitted model.** The write-back is a row-position copy, and the old
-  draw passed mismatched vectors to `rnorm()`, which silently recycled the
-  shorter one and returned a full-length, wrong answer. Editing `catch_data`
-  after a fit and then simulating now fails with a message naming both row
-  counts.
+  draw passed mismatched vectors to `rnorm()`, which recycled the shorter one
+  and returned a full-length, wrong answer. The error names both row counts.
 
 * **The `growth_re` switch, `growth_indices`, and the `log_growth_par_devs`
-  parameter array are removed.** `growth_re` was documented as the way to put
-  random effects on growth, but nothing consumed it: `build_map_growth()` read it
-  into a local and ignored it, the deviation array was mapped off in every
-  configuration and given no density, and the `growth_dev_log_sd` / `growth_rho`
+  parameter array are removed.** Nothing consumed `growth_re`: the deviation
+  array was mapped off in every configuration and given no density, and the
   parameters its documentation claimed to map were never declared. Setting it
   changed no fit, and removing it leaves every fit bit-identical. A `data_list`
-  still carrying either name now gets a deprecation message. Time-varying growth
-  goes through `build_growth(linkages = )`, which carries a real density and is
-  redrawn by `sim_mod(process = "growth")`. `fit_mod()` drops parameter blocks
-  the template no longer has, so warm starts from older fits keep working.
+  still carrying either name gets a deprecation message. Time-varying growth
+  goes through `build_growth(linkages = )`. `fit_mod()` drops retired parameter
+  blocks from `inits`, so warm starts from older fits keep working.
 
 ## Bug fixes
 
 * **`data_check()` requires the catchability columns each switch actually
-  reads.** `Index_sd` when `Estimate_index_sd = "Estimated"`,
+  reads** — `Index_sd` under `Estimate_index_sd = "Estimated"`,
   `Catchability_prior_sd` under `Estimated-with-prior` and `AR1`,
   `Time_varying_q_sd` under a penalized `Time_varying_q`, and
-  `Catchability_init` for every form that reads it. All three are taken as
-  `log()` when the parameter list is built, so a blank or non-positive entry
-  became a `NaN` or `-Inf` starting value and the objective was not finite at
-  the first evaluation -- reported by TMB, naming neither the fleet nor the
-  column. Each condition matches `build_map()`'s own gate, so settings that read
-  no starting value are not asked for one: a `Block` time-varying q carries no
-  penalty, `Estimate_index_sd = "Analytical"` derives the sd rather than
-  estimating it, and `Analytical` / `AnalyticalArith` catchability solves `q` in
-  closed form and never reads `Catchability_init`.
-
-* **A missing `Ceq` is reported instead of crashing `data_check()`.** A workbook
-  with the bioenergetics columns left blank reached `if (Ceq[sp] > 1)` with `NA`
-  and stopped on R's bare "missing value where TRUE/FALSE needed", which names
-  neither the column nor the species.
-
-* **`data_check()` reports fleets that share a `Selectivity_index` but disagree
-  on the columns that shape the curve.** `Selectivity`, `Selectivity_dimension`,
-  `Bin_first_selected`, `N_sel_bins`, `Sel_norm_bin` and `Sel_norm_bin_upper` are
-  read per fleet when selectivity is built, so a group differing on any of them
-  does not share one curve despite sharing the parameter block. A blank counts as
-  a value: an empty `Sel_norm_bin` means "do not normalize", a different curve
-  from normalizing at a bin. `Time_varying_sel` is reported separately, as
-  `build_map()` resolves it to the lead fleet's setting and the curves still
-  match. To mirror a fleet, copy its `fleet_control` row and change only the
-  identity and catchability columns.
-
-* **`data_check()` reports a shared `Catchability_index` that does not share a
-  catchability.** Most forms use the group's one q parameter, with the lead
-  fleet settling a disagreement. `Analytical` and `AnalyticalArith` do not: they
-  solve q from each fleet's own index observations, bypassing that parameter, so
-  a group containing one shares no catchability even when every fleet in it
-  carries the same setting -- it is reported on the form rather than only on a
-  disagreement. `Environmental` and `AR1` do share, rebuilding q from the group's
-  shared parameters, including when the fleets name different environmental
-  series. `Time_varying_q` is compared too, in either reading.
-
-* **A catchability linkage that names only part of a shared `Catchability_index`
-  group is reported.** The linkage offset is added per fleet and is not
-  reconciled across the group, so the fleets end up with different
-  catchabilities while `fleet_control` still says they share one. Naming every
-  fleet in the group keeps them together.
-
-* **A catchability linkage on a fleet whose `Catchability` is `"Environmental"`
-  or `"AR1"` is now refused.** Those two forms build q from their own formula and
-  overwrite `index_q`, so the linkage offset was reported in
-  `q_linkage_offset` but never reached the likelihood: the linkage parameters
-  were free with an identically-zero gradient. Express the whole relationship as
-  the linkage and set `Catchability = "Estimated"`. This is a hard error, so a
-  configuration combining the two stops instead of fitting a linkage that does
-  nothing.
-
-* **The diagnostic refits no longer repeat `data_check()`'s warnings.** These
-  describe the `data_list`, so a caller running `retrospective()`, `jitter()`,
-  `self_test()`, `profile()`, `run_mse()`, `remove_F()`, `sample_rec()` or
-  `reweight_comps()` has already seen them from the fit that produced the model,
-  and would otherwise get them again per peel, jitter, or MSE iteration.
-  `fit_mod()` gains `quiet_data_check` (default `FALSE`), which `.refit_like()`
-  sets for every refit. Errors still stop the fit, and convergence and TMB
-  warnings are unaffected.
-
-* **A fishery's index now appears in the index diagnostics.** `plot_index()`
-  selected `Fleet_type == "Survey"`, so a fishery's index rows were dropped from
-  the figure without comment. Both `plot_index()` and `plot_indexresidual()` now
-  select the fleets that carry `index_data`. `plot_indexresidual()` previously
-  applied no fleet filter at all, so it also drew residuals for `Off` fleets --
-  `GOA2018SS` fleet 7 has nine such rows -- indistinguishably from fitted ones.
+  `Catchability_init` for every form that reads it. All are taken as `log()`
+  when the parameter list is built, so a blank or non-positive entry gave a
+  non-finite objective reported by TMB, naming neither the fleet nor the column.
+  Each condition matches `build_map()`'s own gate, so settings that read no
+  starting value are not asked for one.
 
 * **`data_check()` requires the catchability settings wherever an index is
   fitted.** `Catchability`, `Catchability_init` and `Estimate_index_sd` have no
-  schema default, so on a fishery they arrive `NA`; the fit then died with
-  `missing value where TRUE/FALSE needed` from inside `build_map()`, which
-  points nowhere useful. The error now names the fleet and the column. It is a
-  message improvement rather than a new restriction: those configurations did
-  not run before either.
-
-  It is not a completeness guarantee. A fishery that satisfies it can still
-  reach a non-finite objective through a column the chosen switch needs and this
-  check does not cover -- `Index_sd` under `Estimate_index_sd = 1`,
-  `Catchability_prior_sd` under `"Estimated-with-prior"`, `Time_varying_q_sd`
-  under a time-varying `Time_varying_q`. Those fail loudly at the first
-  evaluation, and they fail the same way for a survey.
+  schema default, so on a fishery they arrived `NA` and the fit died inside
+  `build_map()`. The error now names the fleet and the column. Those
+  configurations did not run before either.
 
   Two limits worth knowing. An index needing a selectivity **different** from
-  the fishery's still has to be its own fleet: `sel_at_age` is indexed by fleet,
-  so one fleet has one selectivity and its index and its catch cannot differ.
+  the fishery's still has to be its own fleet: `sel_at_age` is indexed by fleet.
   The same is true of `flt_units`, so a CPUE series in numbers cannot sit on a
-  fleet whose catch is in weight. And where a fishery shares a
-  `Catchability_index` group with a survey, `adjust_map_shared_params()` copies
-  the donor fleet's map across the group, so the group's first fleet still
-  decides whether the block is estimated.
+  fleet whose catch is in weight.
 
+* **A missing `Ceq` is reported instead of crashing `data_check()`.**
+
+* **`data_check()` reports fleets that share a `Selectivity_index` but disagree
+  on the columns that shape the curve**, which are read per fleet and so do not
+  give one shared curve despite the shared parameter block. A blank counts as a
+  value: an empty `Sel_norm_bin` means "do not normalize".
+
+* **`data_check()` reports a shared `Catchability_index` that does not share a
+  catchability.** `Analytical` and `AnalyticalArith` solve q from each fleet's
+  own index observations, bypassing the group parameter, so it is reported on
+  the form rather than only on a disagreement.
+
+* **A catchability linkage that names only part of a shared `Catchability_index`
+  group is reported.** The offset is added per fleet and not reconciled across
+  the group, so the fleets end up with different catchabilities while
+  `fleet_control` still says they share one.
+
+* **A catchability linkage on a fleet whose `Catchability` is `"Environmental"`
+  or `"AR1"` is now refused.** Those forms overwrite `index_q`, so the linkage
+  offset never reached the likelihood and its parameters were free with an
+  identically-zero gradient. Express the whole relationship as the linkage and
+  set `Catchability = "Estimated"`.
+
+* **The diagnostic refits no longer repeat `data_check()`'s warnings**, which
+  describe the `data_list` and would otherwise appear per peel, jitter or MSE
+  iteration. `fit_mod()` gains `quiet_data_check` (default `FALSE`), set by
+  every refit. Errors still stop the fit.
+
+* **A fishery's index now appears in the index diagnostics.** `plot_index()`
+  selected `Fleet_type == "Survey"`; both it and `plot_indexresidual()` now
+  select the fleets carrying `index_data`. `plot_indexresidual()` previously
+  applied no fleet filter at all, so it also drew residuals for `Off` fleets —
+  `GOA2018SS` fleet 7 has nine such rows.
 
 * **Diagnostics for a natural-scale survey index no longer use log-scale
-  formulas.** `Index_distribution` splits into two scales: `Lognormal` carries a
-  CV / log-sd, while `MVN`, `MVNORM`, `Normal` and `TruncatedNormal` carry an
-  ABSOLUTE sd in the units of the index. Three places downstream of the
-  likelihood applied the lognormal form to every fleet, which does not error --
-  it returns nonsense, because `sigma^2 / 2` is then a number the size of the
-  index squared.
+  formulas.** `Lognormal` carries a log-sd; `MVN`, `MVNORM`, `Normal` and
+  `TruncatedNormal` carry an ABSOLUTE sd. Applying the lognormal form to those
+  does not error, it returns nonsense, because `sigma^2 / 2` is a number the
+  size of the index squared.
 
   - `residuals(type = "pearson", source = "index")` returned the same large
     constant for every row of a natural-scale fleet (about `+75` for an absolute
-    sd of 150, whatever the fit). It now standardizes as `(obs - hat) / sigma`
-    for those fleets. This also fed the Pearson attribute on `plot()` of an OSA
-    object.
+    sd of 150, whatever the fit). It now standardizes as `(obs - hat) / sigma`.
   - `plot_index()` drew its observation interval with `qlnorm()`, giving bands
-    like `[0, 1e130]` on the same fleet. Natural-scale fleets now get
-    `obs +/- 1.96 * sigma`, clamped at zero since an index cannot be negative.
-  - `plot_indexresidual()` plotted `log(hat) - log(obs)` for every family; it now
-    uses the plain difference where the fleet is fitted on the natural scale, and
-    its y axis is labelled `"Index residual"` rather than
-    `"log(index) residual"`. Panels keep a free y scale because a model mixing
-    the two families now mixes units across panels.
+    like `[0, 1e130]`. Natural-scale fleets now get `obs +/- 1.96 * sigma`,
+    clamped at zero.
+  - `plot_indexresidual()` now uses the plain difference where the fleet is
+    fitted on the natural scale, labelled `"Index residual"`.
 
 * **`plot_indexresidual()` plotted the negative of a residual.** It drew
-  `predicted - observed`, while `residuals(fit, source = "index")` returns
-  `observed - predicted` -- the same quantity through two functions, mirrored.
+  `predicted - observed` while `residuals()` returns `observed - predicted`.
   Both are now `observed - predicted`, the usual assessment convention (WHAM,
-  SS3), so a positive residual means the survey saw more than the model
-  predicted. **Index residual plots made before 5.9.0 are mirrored about zero
-  relative to these**; a figure carried forward from an earlier version needs
-  redrawing, and any written interpretation of its sign needs rereading.
-
-  `Lognormal` fleets are unchanged, so any model that does not set
-  `Index_distribution` is unaffected.
+  SS3). **Index residual plots made before 5.9.0 are mirrored about zero**; a
+  figure carried forward needs redrawing and any written interpretation of its
+  sign needs rereading. `Lognormal` fleets are unchanged.
 
 * **`Estimate_index_sd = "Analytical"` no longer passes silently on a
   natural-scale index family.** The analytical sd (Ludwig and Walters 1994) is
-  accumulated from squared *log* residuals, so it is a log-scale sd. What that
-  costs depends on whether the family reads it. `Normal` and `TruncatedNormal`
-  do, as an absolute value in the units of the index, so the likelihood itself
-  was evaluated on the wrong scale -- `data_check()` now refuses the
-  combination. `MVN` and `MVNORM` score through `index_cov` and never read the
-  scalar sd, so their fits are unaffected; but `index_sd` is still reported from
-  it, and `residuals(type = "pearson")` and `plot_index()`'s interval divide by
-  it, so those two warn rather than refuse a model that fits correctly.
-  `Lognormal`, the family the analytical route was derived for, is untouched.
-  Found while renaming `log_index_sd` -- the same confusion in a different
-  place.
+  accumulated from squared *log* residuals. `Normal` and `TruncatedNormal` read
+  it as an absolute value, so the likelihood was evaluated on the wrong scale —
+  `data_check()` now refuses that combination. `MVN` and `MVNORM` score through
+  `index_cov` and never read the scalar sd, so their fits are unaffected, but
+  the diagnostics divide by it, so those warn rather than refuse. `Lognormal` is
+  untouched.
 
 * **`TruncatedNormal` OSA residuals were the untruncated family's.** The
-  truncation constant `log Phi(mu/sd)` is a function of the prediction, not of
-  the observation, so it drops out of any method that reads the curvature of the
-  density in the observation -- including `oneStepPredict()`'s default
-  `oneStepGaussianOffMode`. Those residuals were `(obs - mu)/sd`, which is not
-  standard normal under the density that was fitted. `osa_residuals()` now
-  residualizes this family in its own call, with `method = "oneStepGeneric"`,
-  `splineApprox = FALSE` and a range starting at zero, which integrates the
-  density over its own support and returns `qnorm(F(x))` for the truncated
-  `F(x) = [Phi((x - mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)`. The correction is the
-  size of the truncated mass: on a fleet predicting 100 with an absolute sd of
-  150, an observation exactly at the prediction moves from 0 to -0.44. `"Normal"`
-  is untouched, and both are pinned against their closed forms in
+  truncation constant is a function of the prediction, not the observation, so
+  it drops out of any method reading the curvature of the density in the
+  observation — including `oneStepPredict()`'s default. `osa_residuals()` now
+  residualizes this family in its own call with `method = "oneStepGeneric"` and
+  a range starting at zero. The correction is the size of the truncated mass: on
+  a fleet predicting 100 with an absolute sd of 150, an observation exactly at
+  the prediction moves from 0 to **-0.44**. `"Normal"` is untouched; both are
+  pinned against their closed forms in
   `tests/testthat/test-likelihood-index-truncated-normal.R`.
 
-  Three consequences of residualizing that group separately, all documented in
-  `?osa_residuals`: the exact integration does not always converge on a
-  random-effects model, in which case the fleet falls back to TMB's spline
-  approximation with a warning rather than dropping rows to `NA`; `sd` is `NA`
-  for the group and `predicted` is the truncated conditional mean; and because
-  each `oneStepPredict()` call treats the rows it is not residualizing as
-  unconditional, adding a truncated fleet shifts the other fleets' residuals on
-  a random-effects model -- a different conditioning sequence, not a wrong value.
+  Three consequences, all in `?osa_residuals`: exact integration does not always
+  converge on a random-effects model, in which case the fleet falls back to
+  TMB's spline approximation with a warning; `sd` is `NA` for the group and
+  `predicted` is the truncated conditional mean; and adding a truncated fleet
+  shifts the other fleets' residuals on a random-effects model — a different
+  conditioning sequence, not a wrong value. `attr(x, "method")` records what ran.
 
-  `osa_residuals()` names the fleets it overrode and the method it used, and
-  records it: `attr(x, "method")` is
-  `c(default = <method>, TruncatedNormal = "oneStepGeneric")` on such a model.
-
-* **`compare_sim()` warns when it is handed `process`-drawn replicates.** Every
-  statistic it reports is a deviation from `operating_mod`, which is the truth
-  only when the replicates redrew the observations alone; with process error
-  redrawn the operating model's deviations are not what generated the data, so
-  the reported bias is an artefact. `self_test()` carries the real deviations on
-  its own output, so the mistake is detectable at runtime rather than only
-  documented.
+* **`compare_sim()` warns when it is handed `process`-drawn replicates**, since
+  every statistic it reports is a deviation from `operating_mod`, which is the
+  truth only when the replicates redrew the observations alone.
 
 * **`osa_residuals()` reported `observed = NA` for any group residualized with
-  `oneStepGeneric`.** That method returns no `observation` column; the value is
-  simply the `obsvec` entry that was residualized, and is now filled in from
-  there. Affected the discrete composition path as well as the new truncated one.
+  `oneStepGeneric`.** Affected the discrete composition path as well as the new
+  truncated one.
 
 * **`M1_re = 3` and `6` estimated far fewer deviations than intended.** The
   age-by-year map index was built from a vector of length `nyrs_hind` and
-  assigned into an `nages x nyrs_hind` block. R recycled it silently -- the
-  lengths are an exact multiple -- so the field carried only `nyrs_hind` distinct
-  parameters on a stride pattern while the density treated it as a full grid. On
-  `GOA2018SS` that is 42 free deviations where 882 were meant. Fits in these two
+  assigned into an `nages x nyrs_hind` block, which R recycled silently — on
+  `GOA2018SS`, **42 free deviations where 882 were meant**. Fits in these two
   modes change; the other `M1_re` modes recycle deliberately and are unaffected.
 
   These deviations are integrated out rather than estimated as fixed effects, so
@@ -1800,126 +1519,96 @@ runs of the same model.
   standard deviation and no prior on M is strongly confounded with selectivity
   and recruitment in a single-species assessment, and the latent dimension is now
   over twenty times larger. Read `fit$convergence` and the estimability table
-  before trusting a `M1_re = 3` or `6` fit, and consider a prior on M.
+  before trusting such a fit, and consider a prior on M.
 
 * **The 2D-AR1 correlations acted on the wrong dimensions.** `SEPARABLE(f, g)`
   applies `f` to the outermost array dimension and `g` to the fastest-running
-  one. Both 2D-AR1 densities pass their fields as `(bin, year)` for selectivity
-  and `(age, year)` for natural mortality, so passing the bin (or age)
-  correlation first made it correlate over years, and the year correlation over
-  bins (or ages). This affected the 2D-AR1 natural mortality random effect
-  (`M1_re = 6`) and the 2D-AR1 selectivity form (`Selectivity = "2DAR1"`). The
-  3D-AR1 form was already bin/year/cohort and is unchanged; the fix makes 2DAR1
-  agree with it.
+  one, and both 2D-AR1 densities pass their fields as `(bin, year)` or
+  `(age, year)`, so the two correlations were exchanged. Affected `M1_re = 6`
+  and `Selectivity = "2DAR1"`. The 3D-AR1 form was already bin/year/cohort.
 
   **Most fits do not move.** Both correlations start at 0 and `TMBphase()` holds
-  them there through every phase, so a likelihood symmetric in its two
-  correlations from a symmetric start converges to the same place: SSB, F and
-  reference points are unchanged, and only the two reported estimates exchange
-  names. A fit moves only where the two differ as *starting* values -- for
-  selectivity, unequal `Sel_curve_pen1` / `Sel_curve_pen2`.
+  them there, so SSB, F and reference points are unchanged and only the two
+  reported estimates exchange names. A fit moves only where the two differ as
+  *starting* values — for selectivity, unequal `Sel_curve_pen1` /
+  `Sel_curve_pen2`.
 
   **Warm starts across this release are the case to watch.** `inits` from an
-  older fit carry `M1_rho` and `sel_curve_pen` under the previous convention, and
-  the new code reads slot 1 as the bin correlation and slot 2 as the year one, so
+  older fit carry `M1_rho` and `sel_curve_pen` under the previous convention, so
   a refit starts from a mirrored point. That covers `retrospective()`,
-  `jitter()`, `run_mse()` and any two-stage penalized-to-Laplace bootstrap. Refit
-  from `inits = NULL`, or transpose the two slots, if the starting values differ.
+  `jitter()`, `run_mse()` and any two-stage bootstrap. Refit from
+  `inits = NULL`, or transpose the two slots, if the starting values differ.
 
-* **A composition or CAAL row with no sample size came back holding the predicted
-  proportions.** `comp_hat` rows are normalized to sum to one, so a row with
-  `Sample_size = 0` was returned as noise-free proportions summing to one --
-  indistinguishable from a real full-weight composition, and not caught by the
-  empty-row warning. `run_mse()` reaches this state directly: it zeroes
-  `Sample_size` for empty rows and feeds them back in, so the next assessment
-  would have been handed a perfectly-observed composition for a year that was
-  never sampled. Such a row now comes back empty, like a row with nothing
-  predicted.
+* **A composition or CAAL row with no sample size came back holding the
+  predicted proportions.** `comp_hat` rows are normalized to sum to one, so a
+  row with `Sample_size = 0` was returned as noise-free proportions —
+  indistinguishable from a real full-weight composition. `run_mse()` reaches
+  this state directly, so the next assessment would have been handed a
+  perfectly-observed composition for a year that was never sampled. Such a row
+  now comes back empty.
 
 * **`obj$simulate()` returned the drawn compositions under the observed data's
-  own name.** `comp_obs` and `caal_obs` are `REPORT`ed, and the draw was written
-  into them in place, so a replicate was readable as `comp_obs` for the rest of
-  the object's life. They are now drawn into copies, as the catch, index and diet
-  draws already were. `fit$quantities` was never affected.
+  own name.** `comp_obs` and `caal_obs` are now drawn into copies, as the catch,
+  index and diet draws already were. `fit$quantities` was never affected.
 
-* **The natural-scale survey draw did not update `obsvec`.** The OSA path scores
-  the observation read from `obsvec`, and the lognormal and MVN draws both keep
-  it in step; the `"Normal"` draw did not, leaving the two describing different
-  data.
+* **The natural-scale survey draw did not update `obsvec`**, leaving the OSA
+  path scoring different data from the draw.
 
 * **Recruitment is no longer redrawn when two densities score it.** Under
-  `srr_fun = 0` with `srr_pred_fun > 0` -- the AMAK/Ianelli configuration, where
-  recruitment is estimated annually and the stock-recruit curve is fitted as a
-  penalty on the same deviations -- `rec_dev` is scored by both `JNLL_REC_DEV`
-  and `JNLL_SRR_PENALTY`. Two terms on one latent do not compose into a
-  distribution to draw from: drawing at `R_sd` from the first alone ignores the
-  second, and the second is not a density on `rec_dev` alone either -- it couples
-  the deviations to the stock-recruit parameters, which are estimated too. Either
-  way `self_test(process = "recruitment")` would have measured recovery against a
+  `srr_fun = 0` with `srr_pred_fun > 0` — the AMAK/Ianelli configuration —
+  `rec_dev` is scored by both `JNLL_REC_DEV` and `JNLL_SRR_PENALTY`. Two terms
+  on one latent do not compose into a distribution to draw from, so
+  `self_test(process = "recruitment")` would have measured recovery against a
   process the model does not assume. The deviations are left at their fitted
-  values and `sim_mod()` says why; a random linkage on a recruitment parameter is
-  a separate latent and is still drawn.
+  values and `sim_mod()` says why; a random linkage on a recruitment parameter
+  is a separate latent and is still drawn.
 
-* **The correlated survey draw could write an unchecked non-positive index.** The
-  rejection loop tested its budget before testing the draw, so exhausting the
-  budget wrote out whatever had last been drawn. The acceptance test now runs
-  first, and an exhausted budget is reported as a non-positive draw like any
-  other.
+* **The correlated survey draw could write an unchecked non-positive index.**
+  The rejection loop tested its budget before testing the draw, so exhausting
+  the budget wrote out whatever had last been drawn.
 
 * **`data_check()` rejects a `diet_data` that is not sorted by `stomach_id`.**
-  The TMB diet likelihood walks `diet_ctl` with a single forward cursor, taking
-  stomach *i*'s prey as the rows where `stomach_id == i`, so the ids have to run
-  0, 1, 2, ... in order and with no gaps. Out of that order the cursor runs past
-  whole stomachs, which then drop out of the likelihood with no warning and a
-  lower objective: re-sorting a cleaned `BS2017MS` diet table by predator age
-  leaves 3 of its 45 stomachs in the fit, and reversing the rows leaves 1.
-  `clean_data()` sorts by `stomach_id`, so anything that came through it already
-  satisfies this; the check catches a hand-built or re-sorted table.
+  The diet likelihood walks `diet_ctl` with a single forward cursor, so the ids
+  have to run 0, 1, 2, ... in order and with no gaps. Out of that order whole
+  stomachs drop out of the likelihood with no warning and a lower objective:
+  re-sorting a cleaned `BS2017MS` diet table by predator age leaves **3 of its
+  45 stomachs** in the fit, and reversing the rows leaves 1. `clean_data()`
+  sorts by `stomach_id`; this catches a hand-built or re-sorted table.
 
 * **`data_check()` allows a stomach summing to 1 within floating-point
-  tolerance.** The test was `sum(Stomach_proportion_by_weight) > 1`; it is now
-  `> 1 + 1e-12`. A stomach whose prey account for the whole diet sums to exactly
-  1, and a simulated one reaches that through a division that can land a few
-  ulps above. Real excesses are still rejected.
+  tolerance** (`> 1 + 1e-12` rather than `> 1`). Real excesses are still
+  rejected.
 
-* **`sim_mod()` sizes the truncation warning correctly, per family.** A
-  natural-scale index that has to be redrawn follows a normal truncated at zero
-  while the likelihood scores the untruncated one. For the independent `"Normal"`
-  family the warning now reports that gap as `P(draw <= 0) = Phi(-mu/sd)` on the
-  worst row, using the sd the draw itself used. The previous test counted
+* **`sim_mod()` sizes the truncation warning correctly, per family.** For the
+  independent `"Normal"` family the warning reports the gap as
+  `P(draw <= 0) = Phi(-mu/sd)` on the worst row. The previous test counted
   rejections, but each row is drawn once per call, so the ratio could only be
-  0, 1/2, 2/3, ... -- a "was this row ever redrawn" indicator rather than a rate,
-  and the 2% threshold it was compared against was unreachable.
-
-  A covariance fleet is judged on the JOINT rate instead, measured from the
-  draw: it rejects the entire vector whenever any row is non-positive, so the
-  per-row margin understates it badly -- an 8-row fleet whose worst margin is 31%
-  is rejected about 92% of the time. The retry budget quoted in the warning is
-  likewise the one the draw applied (`100 * n_rows` on that branch, not the bare
-  `100`), reported by the template rather than kept as a second copy in R.
+  0, 1/2, 2/3, ... — an indicator rather than a rate, against an unreachable 2%
+  threshold. A covariance fleet is judged on the JOINT rate, since it rejects
+  the whole vector whenever any row is non-positive: an 8-row fleet whose worst
+  margin is 31% is rejected about **92%** of the time.
 
 ## Documentation
 
 * The developer guide covers the `SIMULATE` layer: what a new likelihood term
-  owes its simulator, the `*_sim` reporting convention, and the two registries
-  (`R/0-parameter_dictionary.R`, `.mse_proj_param_yrdim()`) a new or retired
-  parameter block has to be added to.
+  owes its simulator, the `*_sim` reporting convention, and the two registries a
+  new or retired parameter block has to be added to.
 
-
-* `vignette("model-diagnostics")` documents `process = `, the natural-scale index
-  families, and what a redrawn M can and cannot be read as. On `BS2017SS` with a
-  year-varying M random effect, refits recover the simulated deviations
+* `vignette("model-diagnostics")` documents `process = `, the natural-scale
+  index families, and what a redrawn M can and cannot be read as. On `BS2017SS`
+  with a year-varying M random effect, refits recover the simulated deviations
   (correlation around 0.5, positive in every replicate) but recover their
-  standard deviation poorly -- roughly 70% low, collapsing to zero in a third of
+  standard deviation poorly — roughly 70% low, collapsing to zero in a third of
   replicates. That is an ordinary variance component estimated from little
-  information, not a fault in the simulation; `tools/verify/verify-sim-recovery-M.R`
-  reproduces the numbers.
+  information, not a fault in the simulation;
+  `tools/verify/verify-sim-recovery-M.R` reproduces the numbers.
 
 * `vignette("model-options-and-functionality")` records which `Sel_curve_pen`
-  slot is which correlation under the AR1 selectivity forms, and the estimability
-  caveat on `M1_re = 3` / `6`. `vignette("growth-estimation")` gains a
-  time-varying growth section. `vignette("hcrs-and-mses")` notes that seeded MSE
-  results are not comparable across 5.8.x to 5.9.0.
+  slot is which correlation under the AR1 selectivity forms, and the
+  estimability caveat on `M1_re = 3` / `6`. `vignette("growth-estimation")`
+  gains a time-varying growth section. `vignette("hcrs-and-mses")` notes that
+  seeded MSE results are not comparable across 5.8.x to 5.9.0.
+
 # Rceattle 5.8.1
 
 Documentation-only release. Four changes that landed earlier in the 5.x line
@@ -3159,7 +2848,7 @@ were folded into this section.*
 * **The diet Dirichlet-multinomial weight is no longer estimated where there is
   no diet likelihood.** `build_map()` freed `diet_comp_weights` for any predator
   with `Diet_distribution = "DirichletMultinomial"` whenever `msmMode > 0`, but
-  the template only fits the diet composition for predators with
+  the model only fits the diet composition for predators with
   `suitMode > 0` -- under empirical suitability (`suitMode = 0`) the diet
   proportions are taken as given. A multispecies run with empirical suitability
   therefore carried one free, wholly uninformed overdispersion parameter per
@@ -3215,7 +2904,7 @@ were folded into this section.*
 
 * **`fit_mod()` raises a clear error instead of crashing on mismatched
   `inits`.** When the supplied `inits` omit a parameter the model declares, or
-  any parameter's length disagrees with the template implied by `data_list`
+  any parameter's length disagrees with the model implied by `data_list`
   (a dropped linkage, or a warm start not extended to a later `endyr`),
   `fit_mod()` now stops with a message naming the parameter and its lengths,
   rather than letting `TMB::MakeADFun()` segfault in `getParameterOrder()`.
@@ -4229,7 +3918,7 @@ folded into this section.*
   out, and such models converge with an invertible Hessian.
 * **The catchability prior and deviate penalties were counted once per fleet
   sharing a `Q_index`, not once per estimated parameter.** Fleets sharing a
-  `Q_index` estimate one catchability and one deviate vector, but the template
+  `Q_index` estimate one catchability and one deviate vector, but the model
   looped over every fleet, so a mirrored pair applied the `Q_prior` twice to the
   same parameter — tightening an intended prior SD of 0.2 to 0.2/sqrt(2) — and
   penalized the shared `index_q_dev` vector once per fleet for the IID, random
@@ -4238,12 +3927,12 @@ folded into this section.*
   all have distinct `Q_index` are unchanged.
 * **`Catchability = "PowerEquation"` is now rejected as not yet implemented.** It
   was accepted as a valid switch, but the power coefficient (`index_q_pow`) is
-  not built as a parameter and the template does not apply it, so the fleet
+  not built as a parameter and the model does not apply it, so the fleet
   silently got a plain estimated q. `data_check()` now errors, matching how
   length-based `suitMode` values are handled.
 * **`flt_sel_lead` could put the selectivity penalty on an `Off` fleet.** The
   lead was the first fleet in a `Selectivity_index` group by row order. When that
-  fleet was `Fleet_type = "Off"` the template's `flt_type > 0` gate then skipped
+  fleet was `Fleet_type = "Off"` the model's `flt_type > 0` gate then skipped
   the penalty for the whole group, leaving the shared selectivity unpenalized.
   The lead is now the first *estimated* fleet in the group, matching the map
   donor.
@@ -4263,7 +3952,7 @@ folded into this section.*
   lead fleet's, so whichever fleet appeared first governed the group: when that
   fleet started later, a sharing fleet with earlier data silently lost those
   deviations (12 years in a 1982/1994 pair). `Sel_start_year` now resolves to the
-  group minimum for both the map mask and the template's penalty anchor, however
+  group minimum for both the map mask and the model's penalty anchor, however
   it was set. `data_check()` warns when a mirrored group has differing
   `Sel_start_year`, and `build_map()` warns when `Bin_first_selected` or
   `N_sel_bins` differ within a group (those are likewise taken from the lead

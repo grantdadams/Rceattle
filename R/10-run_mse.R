@@ -50,9 +50,9 @@
     }
 
     # A schedule of one year cannot be told from a period, and the two readings
-    # of, say, 2029 are a world apart. Refused rather than guessed at -- and
-    # this is also where a period simply longer than the projection lands,
-    # which used to surface as seq()'s "wrong sign in 'by' argument".
+    # of, say, 2029 are a world apart. Refused rather than guessed at. A period
+    # simply longer than the projection lands here too, and is named as such
+    # rather than surfacing downstream as a `seq()` error.
     if (om_endyr + assessment_period > max_yr) {
       stop("A single `assessment_period` is the number of years BETWEEN ",
            "assessments, not the year of one: ", om_endyr, " + ",
@@ -765,16 +765,14 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
-      # The operating model is refit over its WHOLE projection, every
-      # assessment. It used to be shortened to the next assessment year, which
-      # is all the loop reads -- but `sim_mod()` draws once per observation row,
-      # so the number of rows the shortened model carried set how far the random
-      # stream advanced, and that row count depended on when the NEXT assessment
-      # fell. Two runs differing only in their assessment schedule then drew
-      # different observation error from the first assessment onward, which is
-      # exactly the comparison an MSE of two schedules is trying to make.
-      # See the TODO in inst/dev/TODO-mse-horizon.md for how to get the saving
-      # back without reintroducing that.
+      # The operating model is refit over its WHOLE projection every
+      # assessment, not just as far as the next one. `sim_mod()` draws once per
+      # observation row, so a shorter horizon would carry fewer rows, advance
+      # the random stream less far, and make the draws depend on when the next
+      # assessment falls -- which is the very thing a comparison of two
+      # assessment schedules is trying to hold fixed.
+      # inst/dev/TODO-mse-horizon.md has the design for recovering the runtime
+      # saving without that dependence.
 
       # * Update parameters ----
       # -- log_F
