@@ -76,11 +76,18 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   held only while advice is stale — the case a missed assessment raises.
 
   ```r
-  buffer <- expand.grid(Year = 2031:2032, Species = seq_len(om$data_list$nspp))
+  buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
   buffer$mult <- 0.90
   run_mse(om, em, assessment_period = setdiff(biennial, 2031),
           catch_mult = buffer)
   ```
+
+  Mind which years are the stale ones. The assessment in year `Y` sets catch
+  for `Y+1` onward, so a missed 2031 assessment leaves **2032 and 2033** on
+  2029's advice. 2031 is set by the 2029 assessment whether or not the 2031 one
+  happens, so cutting it changes a year the gap never touched while leaving a
+  genuinely stale year uncut. `?run_mse` and the vignette both show the
+  derivation.
 
   `Species` is the species number, matching the catch data's own column.
   The table is validated at the call rather than inside the simulation loop: a
@@ -104,6 +111,26 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
 * No stored MSE result changes. `assessment_period = 1` and a scalar
   `catch_mult` take the same paths they did, and `tools/verify/verify-mse-schedule.R`
   checks that a schedule given as years reproduces the equivalent period exactly.
+
+* **Documented: two schedules on the same `seed` are not on common random
+  numbers.** Between assessments the operating model's projection horizon is
+  shortened to the next assessment year, so `sim_mod()` draws over a different
+  number of projection rows depending on the schedule, and the observation
+  draws diverge from the first assessment onward. Recruitment deviations are
+  shared — `sample_rec()` draws them before the loop — but observation error is
+  not.
+
+  Measured on a three-year BS2017SS fixture: dropping one assessment moved
+  catch by **2.1%** in a year whose advice was identical by construction, set
+  by the same earlier assessment under both schedules. A paired comparison of
+  two schedules therefore carries an observation-error difference alongside the
+  schedule effect.
+
+  Pre-existing, and not changed here — the fix would move every seeded
+  `run_mse()` result. But the vector schedule exists to compare schedules, so
+  the limitation now sits in `?run_mse`, in `vignette("hcrs-and-mses")`, and as
+  a pinned check in `verify-mse-schedule.R` that fails if the draw is ever made
+  schedule-independent.
 
 ## Documentation
 

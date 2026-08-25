@@ -114,9 +114,45 @@ results["skip"] <- report(
     mse_skip$Sim_1$OM$data_list$endyr == 2020)
 
 # It must not be the same trajectory as assessing in every year.
+c_skip <- om_catch(mse_skip)
 results["skip_differs"] <- report(
   "skipping an assessment changes the trajectory",
-  !isTRUE(all.equal(om_catch(mse_skip)$Catch, c_period$Catch)))
+  !isTRUE(all.equal(c_skip$Catch, c_period$Catch)))
+
+# WHICH years the gap moves. By the advice mapping alone it should be 2020 and
+# 2020 only: the assessment in year Y sets catch for Y+1 onward, so dropping
+# the 2019 assessment leaves 2020 on 2018's advice, while 2019 is set by the
+# 2018 assessment in both schedules.
+#
+# It is not what happens. 2018 is identical, but 2019 moves as well -- 2880119
+# against 2941211 on this fixture, 2.1% -- on advice that is identical by
+# construction. The cause is the operating model's horizon shortening: at each
+# assessment the OM is trimmed to the NEXT assessment year, so sim_mod() draws
+# over a different number of projection rows depending on the schedule, and the
+# observation draws diverge from the first assessment onward. Two scenarios
+# differing only in their schedule are therefore NOT on common random numbers,
+# and a paired comparison between them carries an observation-error difference
+# it did not ask for.
+#
+# Pinned as it behaves today. If the draw is ever made independent of the
+# schedule, this check fails and points at the reason.
+i18 <- c_period$Year == 2018
+i19 <- c_period$Year == 2019
+i20 <- c_period$Year == 2020
+results["gap_year_2018_clean"] <- report(
+  "the year before the gap is bit-identical",
+  isTRUE(all.equal(c_skip$Catch[i18], c_period$Catch[i18], tolerance = 0)))
+
+results["gap_year_advice"] <- report(
+  "the year the missed assessment would have set moves",
+  !isTRUE(all.equal(c_skip$Catch[i20], c_period$Catch[i20])))
+
+results["gap_crn_broken"] <- report(
+  "KNOWN: a same-advice year moves too (draws are schedule-dependent)",
+  !isTRUE(all.equal(c_skip$Catch[i19], c_period$Catch[i19])),
+  paste0("2019 ratio = ",
+         format(sum(c_skip$Catch[i19]) / sum(c_period$Catch[i19]),
+                digits = 4)))
 
 # It must also not be the biennial period it superficially resembles: a period
 # of 2 from 2017 is c(2019), a different schedule over a different horizon.

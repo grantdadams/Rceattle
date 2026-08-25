@@ -160,7 +160,12 @@
 #
 # `max_yr` is the last year an assessment can be run in: the earlier of the two
 # models' projection horizons, and of `endyr` where the caller set one.
-.mse_assess_years <- function(assessment_period, om_endyr, max_yr) {
+# `proj_last` is the horizon mse_summary() reads, which is the two models' own
+# projyr and takes no notice of `endyr` -- so the two differ whenever the caller
+# shortens the MSE, and the short-schedule warning has to test against the
+# second.
+.mse_assess_years <- function(assessment_period, om_endyr, max_yr,
+                              proj_last = max_yr) {
   if (!is.numeric(assessment_period) || length(assessment_period) == 0 ||
       anyNA(assessment_period)) {
     stop("`assessment_period` must be a number of years, or a vector of the ",
@@ -195,7 +200,7 @@
     return(.mse_warn_short_schedule(
       seq(from = om_endyr + assessment_period, to = max_yr,
           by = assessment_period),
-      max_yr))
+      proj_last))
   }
 
   # * An explicit schedule ----
@@ -221,7 +226,7 @@
          call. = FALSE)
   }
 
-  .mse_warn_short_schedule(assess_yrs, max_yr)
+  .mse_warn_short_schedule(assess_yrs, proj_last)
 }
 
 # A schedule that stops short of the projection horizon leaves the trailing
@@ -237,20 +242,25 @@
 #
 # Warned rather than refused: a schedule that stops short is a legitimate
 # design, it just has to be summarised over the years it covers.
-.mse_warn_short_schedule <- function(assess_yrs, max_yr) {
+#
+# Tested against `proj_last`, the models' own projyr, NOT the last year an
+# assessment may run in. `endyr` shortens the second and not the first, so a
+# caller who ends the MSE early leaves every remaining projection year unfished
+# -- the same understatement, over more years.
+.mse_warn_short_schedule <- function(assess_yrs, proj_last) {
   last <- max(assess_yrs)
-  if (last < max_yr) {
-    unfished <- if (last + 1 == max_yr) {
-      as.character(max_yr)
+  if (last < proj_last) {
+    unfished <- if (last + 1 == proj_last) {
+      as.character(proj_last)
     } else {
-      paste0(last + 1, "-", max_yr)
+      paste0(last + 1, "-", proj_last)
     }
-    warning("The last assessment is in ", last, " but the projection runs to ",
-            max_yr, ", so catch in ", unfished, " is never set. Those years ",
+    warning("The last assessment is in ", last, " but the models project to ",
+            proj_last, ", so catch in ", unfished, " is never set. Those years ",
             "carry NA, and mse_summary() understates Average Catch, Catch IAV ",
             "and P(Closed) because it summarises over the whole projection. ",
-            "Either extend the schedule to ", max_yr, ", or set projyr to ",
-            last, " in both models.", call. = FALSE)
+            "Either set projyr to ", last, " in both models, or run ",
+            "assessments through ", proj_last, ".", call. = FALSE)
   }
   assess_yrs
 }
@@ -390,6 +400,18 @@
 #' from a period, and the two readings are a world apart, so it is refused
 #' rather than guessed at.
 #'
+#' Two schedules run on the same `seed` are **not** on common random numbers.
+#' Between assessments the operating model's projection horizon is shortened to
+#' the next assessment year, so `sim_mod()` draws over a different number of
+#' projection rows depending on the schedule, and the observation draws diverge
+#' from the first assessment onward. On a three-year BS2017SS fixture, dropping
+#' one assessment moved catch in a year whose advice was identical by
+#' construction by 2.1%. A paired comparison of two schedules therefore carries
+#' an observation-error difference alongside the schedule effect; treat the
+#' difference as containing Monte Carlo noise, and use enough replicates to
+#' separate the two rather than relying on variance reduction that is not
+#' there.
+#'
 #' Make the last assessment year reach the projection horizon. Catch is only
 #' ever filled up to the last assessment, so a schedule that stops short leaves
 #' the trailing years at `NA`, and `mse_summary()` summarises over the whole
@@ -403,10 +425,15 @@
 #' `catch_mult` multiplies the catch the estimation model's control rule
 #' recommends, before `cap` and before the exploitable-biomass limit. Given as
 #' a `data.frame` it applies only in the years and species it lists, which is
-#' how a buffer held for the years advice is stale is expressed:
+#' how a buffer held for the years advice is stale is expressed.
+#'
+#' Mind which years those are. The assessment in year `Y` sets catch for `Y+1`
+#' onward, so a missed assessment in 2031 leaves **2032 and 2033** on 2029's
+#' advice --- 2031 itself is set by the 2029 assessment either way, and cutting
+#' it changes a year the missed assessment never touched:
 #'
 #' ```
-#' buffer <- expand.grid(Year = 2031:2032, Species = seq_len(om$data_list$nspp))
+#' buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
 #' buffer$mult <- 0.90
 #' run_mse(om, em, assessment_period = setdiff(biennial, 2031),
 #'         catch_mult = buffer)
@@ -519,9 +546,10 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # - Assessment period, or an explicit schedule of assessment years
   assess_yrs <- .mse_assess_years(
     assessment_period,
-    om_endyr = om$data_list$endyr,
-    max_yr   = min(c(om$data_list$projyr, em$data_list$projyr, endyr),
-                   na.rm = TRUE))
+    om_endyr  = om$data_list$endyr,
+    max_yr    = min(c(om$data_list$projyr, em$data_list$projyr, endyr),
+                    na.rm = TRUE),
+    proj_last = min(om$data_list$projyr, em$data_list$projyr))
 
   # - Adjust catch multiplier
   # Checked against the years catch is actually FILLED for, which is the

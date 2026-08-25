@@ -98,6 +98,18 @@ A schedule must name two or more years. One year on its own cannot be told
 from a period, and the two readings are a world apart, so it is refused
 rather than guessed at.
 
+Two schedules run on the same \code{seed} are \strong{not} on common random numbers.
+Between assessments the operating model's projection horizon is shortened to
+the next assessment year, so \code{sim_mod()} draws over a different number of
+projection rows depending on the schedule, and the observation draws diverge
+from the first assessment onward. On a three-year BS2017SS fixture, dropping
+one assessment moved catch in a year whose advice was identical by
+construction by 2.1\%. A paired comparison of two schedules therefore carries
+an observation-error difference alongside the schedule effect; treat the
+difference as containing Monte Carlo noise, and use enough replicates to
+separate the two rather than relying on variance reduction that is not
+there.
+
 Make the last assessment year reach the projection horizon. Catch is only
 ever filled up to the last assessment, so a schedule that stops short leaves
 the trailing years at \code{NA}, and \code{mse_summary()} summarises over the whole
@@ -111,9 +123,14 @@ about, for a period and a schedule alike.
 \code{catch_mult} multiplies the catch the estimation model's control rule
 recommends, before \code{cap} and before the exploitable-biomass limit. Given as
 a \code{data.frame} it applies only in the years and species it lists, which is
-how a buffer held for the years advice is stale is expressed:
+how a buffer held for the years advice is stale is expressed.
 
-\if{html}{\out{<div class="sourceCode">}}\preformatted{buffer <- expand.grid(Year = 2031:2032, Species = seq_len(om$data_list$nspp))
+Mind which years those are. The assessment in year \code{Y} sets catch for \code{Y+1}
+onward, so a missed assessment in 2031 leaves \strong{2032 and 2033} on 2029's
+advice --- 2031 itself is set by the 2029 assessment either way, and cutting
+it changes a year the missed assessment never touched:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{buffer <- expand.grid(Year = 2032:2033, Species = seq_len(om$data_list$nspp))
 buffer$mult <- 0.90
 run_mse(om, em, assessment_period = setdiff(biennial, 2031),
         catch_mult = buffer)

@@ -48,6 +48,31 @@ test_that("a schedule that stops short of the horizon warns", {
 })
 
 
+test_that("the short-schedule test is against projyr, not run_mse(endyr)", {
+  # `endyr` caps the last year an assessment may run in, but mse_summary()
+  # reads the MODELS' projyr and takes no notice of it. So ending the MSE early
+  # leaves every remaining projection year unfished -- the same understatement,
+  # over more years -- and testing the schedule against `endyr` would call that
+  # case complete.
+  expect_warning(.mse_assess_years(2, om_endyr = 2020, max_yr = 2030,
+                                   proj_last = 2050),
+                 "catch in 2031-2050 is never set")
+  expect_warning(.mse_assess_years(c(2022, 2030), om_endyr = 2020,
+                                   max_yr = 2030, proj_last = 2050),
+                 "models project to 2050")
+
+  # The remedy named has to be one the caller can act on, so it points at
+  # projyr rather than at extending a schedule `endyr` has already capped.
+  expect_warning(.mse_assess_years(2, om_endyr = 2020, max_yr = 2030,
+                                   proj_last = 2050),
+                 "set projyr to 2030 in both models")
+
+  # proj_last defaults to max_yr, so a caller that passes neither is unchanged.
+  expect_silent(.mse_assess_years(2, om_endyr = 2020, max_yr = 2030,
+                                  proj_last = 2030))
+})
+
+
 test_that("a vector assessment_period is the schedule itself", {
   biennial <- seq(2022, 2030, by = 2)
   skipped  <- setdiff(biennial, 2026)
