@@ -891,8 +891,10 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       # -- Set estimate mode back to original
       om_use$data_list$estimateMode <- estimate_mode_base
 
-      # sim_mod() reads the operating model's quantities positionally against
-      # its own data frames, so it works from the fitted object.
+      # The operating model AS FITTED, kept because section 3 below overwrites
+      # om_use's catch_data with the realized catch. sim_mod() reads the
+      # quantities positionally against the data frames beside them, so it must
+      # see the tables the fit was taped on, not those tables edited afterwards.
       om_fit <- om_use
 
 

@@ -441,6 +441,9 @@ data_check <- function(data_list) {
   }
   # na.rm on the max for the same reason as the weight check above: one NA in
   # `nages` would otherwise abort data_check() here instead of being reported.
+  # -Inf when every `nages` is NA or absent, so every use is gated on
+  # is.finite() -- here, and again at the NByageFixed and CAAL column checks
+  # further down, which read this same value.
   max_ages <- suppressWarnings(max(data_list$nages, na.rm = TRUE))
   if(is.finite(max_ages)){
     if(ncol(data_list$maturity)  <= max_ages) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
@@ -484,14 +487,33 @@ data_check <- function(data_list) {
         if(data_list$nspp > nrow(tbl) + 1L) paste0("-", data_list$nspp) else "",
         " would be read past the end of the table."))
     }
-    if(!is.null(tbl$Species)){
-      out_of_order <- which(suppressWarnings(as.integer(tbl$Species)) !=
-                              seq_len(nrow(tbl)))
-      if(length(out_of_order)){
+    # Read by column NAME, not with `$`: these tables are a data.frame from
+    # read_data() but a hand-built data_list may hold either as a matrix, where
+    # `$` is an error rather than NULL and would abort data_check() before a
+    # single accumulated error could be reported.
+    #
+    # Via as.character(), so a factor column gives the species number written in
+    # the workbook rather than its level code. The two agree only while the
+    # numbers are 1..nspp: a table carrying species 1, 3, 4 reads as level codes
+    # 1, 2, 3 and passes the row-order test it should fail.
+    if("Species" %in% colnames(tbl)){
+      sp_col <- suppressWarnings(as.numeric(as.character(tbl[, "Species"])))
+      not_a_number <- which(is.na(sp_col) | sp_col != round(sp_col))
+      if(length(not_a_number)){
+        # Reported rather than passed over: `NA != i` is NA, so an unusable
+        # column would otherwise leave the row order silently unchecked.
         errors <- c(errors, paste0(
-          nm, "$Species must match the row order -- rearrange_data() drops the ",
-          "column and the model reads row i as species i. Row(s) ",
-          paste(out_of_order, collapse = ", "), " disagree."))
+          nm, "$Species must be the species number. Row(s) ",
+          paste(not_a_number, collapse = ", "), " are not a whole number, so ",
+          "the row order cannot be checked against it."))
+      } else {
+        out_of_order <- which(sp_col != seq_len(nrow(tbl)))
+        if(length(out_of_order)){
+          errors <- c(errors, paste0(
+            nm, "$Species must match the row order -- rearrange_data() drops the ",
+            "column and the model reads row i as species i. Row(s) ",
+            paste(out_of_order, collapse = ", "), " disagree."))
+        }
       }
     }
 
@@ -630,12 +652,16 @@ data_check <- function(data_list) {
   # NByageFixed: presence required when estDynamics > 0 (declarative requirement
   # table); the column-count adequacy check stays imperative below.
   errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
-  if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed)){
-    expected_cols <- 4 + suppressWarnings(max(data_list$nages, na.rm = TRUE))
+  # is.finite(max_ages): with every `nages` NA the expected width is -Inf, which
+  # no table can have, and the message would ask for "-Inf columns". `nages` is
+  # reported by its own check; this one has nothing to say until it is fixed.
+  if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed) &&
+     is.finite(max_ages)){
+    expected_cols <- 4 + max_ages
     if(ncol(data_list$NByageFixed) != expected_cols){
       errors <- c(errors, paste0("NByageFixed should have ", expected_cols,
                                  " columns (Species_name, Species, Sex, Year, Age1...Age",
-                                 suppressWarnings(max(data_list$nages, na.rm = TRUE)), "), but has ", ncol(data_list$NByageFixed)))
+                                 max_ages, "), but has ", ncol(data_list$NByageFixed)))
     }
   }
 
@@ -1599,8 +1625,12 @@ data_check <- function(data_list) {
     caal_cols <- grep("^CAAL_", colnames(data_list$caal_data), value = TRUE)
     if(length(caal_cols) == 0){
       errors <- c(errors, "caal_data is missing CAAL_ columns (CAAL_1, CAAL_2, etc.)")
-    } else {
-      missing_caal <- setdiff(paste0("CAAL_", 1:suppressWarnings(max(data_list$nages, na.rm = TRUE))), caal_cols)
+    } else if(is.finite(max_ages)){
+      # is.finite(max_ages) as at NByageFixed above, and here it is the
+      # difference between a report and an abort: with every `nages` NA the
+      # sequence is `1:-Inf`, which errors with "result would be too long a
+      # vector" and discards every error accumulated up to this point.
+      missing_caal <- setdiff(paste0("CAAL_", seq_len(max_ages)), caal_cols)
       if(length(missing_caal) > 0){
         errors <- c(errors, paste("caal_data is missing CAAL columns:",
                                   paste(missing_caal, collapse = ", ")))

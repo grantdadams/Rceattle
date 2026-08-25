@@ -116,11 +116,11 @@ Reproducibility holds *within* a package version, not across one. In 5.9.0 the
 observation draws moved from R into the TMB model, which displaces the
 random-number stream, so a seeded `run_mse()` or `self_test()` will not
 reproduce a run from 5.8.x. Two later releases are the same kind of boundary:
-5.13.0 draws the index under the fleet's own `Index_distribution`, and 5.18.0
-seeds each assessment's draw on its own year and stops shortening the operating
-model's projection horizon. Both move the stream, so a seeded
-`run_mse(simulate_data = TRUE)` reproduces across none of the three.
-`simulate_data = FALSE` is unaffected by all of them.
+5.13.0 rewrote the scalar `cap` and added the `CAAL_distribution =
+"MultinomialAFSC"` draw, and 5.18.0 seeds each assessment's draw on its own year
+and stops shortening the operating model's projection horizon. All three move
+the stream, so a seeded `run_mse(simulate_data = TRUE)` reproduces across none
+of them. `simulate_data = FALSE` is unaffected by all of them.
 
 Two further points when comparing runs. The stream *position* is
 data-dependent: a covariance survey fleet redraws until every row is positive,

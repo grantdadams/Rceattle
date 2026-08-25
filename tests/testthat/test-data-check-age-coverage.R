@@ -115,6 +115,67 @@ test_that("an NA in nages does not abort the whole check", {
 })
 
 
+test_that("every nages NA reports rather than aborting", {
+  # The tail of the same problem. `max(nages, na.rm = TRUE)` is -Inf when there
+  # is nothing to take a maximum of, and two checks downstream consumed it: the
+  # CAAL column list as `1:-Inf` ("result would be too long a vector", an abort)
+  # and NByageFixed as a demand for "-Inf columns".
+  dl <- goa()
+  dl$nages[] <- NA
+
+  err <- check_err(dl)
+  expect_gt(length(err), 0)
+  joined <- paste(err, collapse = " ")
+  expect_false(grepl("too long a vector", joined))
+  expect_false(grepl("missing value where TRUE/FALSE needed", joined))
+  expect_false(grepl("-Inf", joined, fixed = TRUE))
+})
+
+
+test_that("a table held as a matrix is checked, not thrown on", {
+  # read_data() returns these as data.frames, but a hand-built data_list may
+  # carry either as a matrix -- which every check here but one tolerated.
+  # `tbl$Species` on a matrix is an error, not NULL, so it aborted data_check()
+  # with "$ operator is invalid for atomic vectors" and took every error
+  # accumulated before it along.
+  dl <- goa()
+  dl$maturity <- as.matrix(dl$maturity)
+
+  expect_false(any(grepl("invalid for atomic vectors", check_err(dl))))
+
+  # And the per-species check still reads it.
+  ac <- age_cols(dl$maturity)
+  dl$maturity[1, ac[3]] <- NA
+  expect_match(check_err(dl), "maturity is missing values for species 1, age 3 of")
+})
+
+
+test_that("a Species column that is not a species number is reported", {
+  # `NA != i` is NA and which() drops it, so an unusable column left the row
+  # order silently unchecked -- the one thing this block exists to check.
+  dl <- goa()
+  dl$sex_ratio$Species <- as.character(dl$sex_ratio$Species)
+  dl$sex_ratio$Species[2] <- "Pacific cod"
+
+  err <- check_err(dl)
+  expect_match(err, "sex_ratio\\$Species must be the species number")
+  expect_match(err, "Row\\(s\\) 2")
+})
+
+
+test_that("a factor Species column is read by its label, not its level code", {
+  # as.integer() on a factor returns the level code, which equals the species
+  # number only while the numbers run 1..nspp. A table whose species numbers
+  # skip -- 1, 3, 4, as a workbook missing a species' row gives -- has level
+  # codes 1, 2, 3, so reading them would call the rows correctly ordered.
+  dl <- goa()
+  skipped <- c(1, seq_len(nrow(dl$maturity) - 1L) + 2L)   # 1, 3, 4, ...
+  dl$maturity$Species <- factor(skipped)
+
+  expect_match(check_err(dl), "maturity\\$Species must match the row order")
+})
+
+
 test_that("the check lives in data_check(), not only in this file", {
   # test-mse-cap-and-hcr2-threshold.R keeps a transcription of the rule it
   # tests; that is workable for arithmetic, but a validation rule tested only

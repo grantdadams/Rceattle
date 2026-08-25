@@ -7,9 +7,55 @@ Version-numbering note. Three gaps in this file are deliberate, not lost entries
     5.5.0 / 5.5.1, applied to the two lines separately.
 
 No tag existed above 4.8.0 while these were in flight, so nobody could have installed an
-intermediate. Note the folding rather than renumbering: a section for a version DESCRIPTION
-never carries breaks any (x.y.z) cross-reference pointing at it.
+intermediate. They were folded rather than renumbered because renumbering a section breaks
+every (x.y.z) cross-reference pointing at it, and the entries below cite each other by
+version throughout.
 -->
+
+# Rceattle 5.19.1
+
+## Bug fixes
+
+* **A `maturity` or `sex_ratio` held as a matrix no longer aborts
+  `data_check()`.** The per-species age-coverage check added in 5.19.0 read the
+  `Species` column with `$`, which on a matrix is an error rather than `NULL`:
+  the check died with `$ operator is invalid for atomic vectors` and took every
+  error accumulated before it with it. `read_data()` returns both tables as
+  data frames, but a hand-built `data_list` may hold either as a matrix, and
+  every other check tolerated one. Read by column name now.
+
+* **A `Species` column that is not a species number is reported.** It was
+  compared with `as.integer()`, so a column of species *names* gave `NA`, `NA
+  != i` gave `NA`, and `which()` dropped it — leaving the row order unchecked,
+  which is the one thing that block exists to check. A factor column is now read
+  by its label rather than its level code: the two agree only while the numbers
+  run `1..nspp`, so a table carrying species 1, 3, 4 read as level codes 1, 2, 3
+  and passed.
+
+* **Every `nages` `NA` reports rather than aborting.** 5.19.0 added `na.rm` to
+  the age-coverage comparisons, which covers one `NA` among several; with
+  *every* value `NA` the maximum is `-Inf`, and two checks downstream still
+  consumed it — the CAAL column list as `1:-Inf`, which errors with "result
+  would be too long a vector", and `NByageFixed` as a demand for `-Inf`
+  columns. Both are gated on a finite maximum now, so `nages` is reported by
+  the check that owns it.
+
+## Documentation
+
+* `vignette("hcrs-and-mses")` attributed the per-fleet `Index_distribution`
+  index draw to 5.13.0; it landed in **5.9.0**. 5.13.0 is a reproducibility
+  boundary for `run_mse(simulate_data = TRUE)` on its own terms — the scalar
+  `cap` rewrite and the new `CAAL_distribution = "MultinomialAFSC"` draw — and
+  its `NEWS.md` entry now says so.
+
+* The 5.18.0 entry gives the runtime the common-random-numbers fix cost:
+  refitting the operating model over its whole projection was worth **9% on a
+  Bering Sea multispecies MSE projecting to 2040**, growing with the length of
+  the projection. `inst/dev/TODO-mse-horizon.md` carries the design for getting
+  it back.
+
+* The version-numbering note at the top of this file had a sentence with words
+  missing.
 
 # Rceattle 5.19.0
 
@@ -50,7 +96,7 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `Species` column that disagrees with the row order, and a table with fewer
   rows than species, are both reported.
 
-* **An `NA` in `nages` no longer aborts `data_check()`.** Five age-coverage
+* **An `NA` in `nages` no longer aborts `data_check()`.** Six age-coverage
   comparisons (`weight`, `ration_data`, `age_error`, `maturity`/`sex_ratio`
   widths, `NByageFixed`, CAAL columns) evaluated `any(... < nages)` or
   `max(nages)` without `na.rm`, so a single `NA` made the `if()` condition `NA`
@@ -115,6 +161,15 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   **Every seeded `run_mse(simulate_data = TRUE)` result changes.** Runs stay
   reproducible from a given `seed` within a version, and `simulate_data = FALSE`
   is unchanged to the bit.
+
+  **It costs runtime.** Refitting the operating model over its whole projection
+  rather than only as far as the next assessment was worth **9% on a Bering Sea
+  multispecies MSE projecting to 2040**, growing with the length of the
+  projection; single-species models saw little change. `projyr` sizes the AD
+  tape, so the saving was real -- it just made the draws depend on when the next
+  assessment fell, which is the one thing a comparison of two schedules has to
+  hold fixed. `inst/dev/TODO-mse-horizon.md` carries the design for recovering
+  it without that dependence.
 
 ## Performance
 
@@ -661,6 +716,13 @@ never carries breaks any (x.y.z) cross-reference pointing at it.
   `P(SSB < SSBlimit)` as 0. That is the operating model's own long-standing
   multispecies rule and the two sides agree, so it is left alone here -- but set
   `Plimit` explicitly on a multispecies ConstantF run.
+
+* **A reproducibility boundary.** The `cap` rewrite above changes the catch
+  taken, and the new `CAAL_distribution = "MultinomialAFSC"` draw adds a draw
+  to the stream for any model carrying one, so a seeded
+  `run_mse(simulate_data = TRUE)` from 5.12.0 does not reproduce here. 5.9.0
+  and 5.18.0 are the other two boundaries; `vignette("hcrs-and-mses")` lists
+  all three. `simulate_data = FALSE` is unchanged to the bit.
 
 ## Other changes
 
