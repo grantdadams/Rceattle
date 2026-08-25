@@ -192,16 +192,8 @@ Still open. No user-visible consequence; do them opportunistically.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
-Nine, each a judgement about what the right behaviour *is*:
+Eight, each a judgement about what the right behaviour *is*:
 
-- `R/10-project-no-F.R` — whether `remove_F()` should start the unfished trajectory at
-  `suit_endyr + 1` rather than `endyr + 1`. 5.15.0 changed **no code**, only the comment, which
-  now declares as intentional the behaviour previously recorded as a defect: when
-  `suit_endyr < endyr` the late hindcast years are unfished too. The comment quotes the same
-  measurement the earlier note did (terminal SSB +43% / +187% / +17% on BS2017SS with
-  `suit_endyr = 2010`). `run_mse()` calls `remove_F(om_use)` to build `OM_no_F`, which
-  depletion-based HCRs 5 and 6 are scored against, so this is catch advice rather than
-  documentation. Decide which reading is right.
 - **A DSEM's recruitment SD has no stationarity guard.** With `constant_variance = "conditional"`
   (the default, and dsem's) a lagged self-path makes the marginal variance `sigma^2/(1-rho^2)`,
   which diverges as `rho -> 1`. Nothing bounds `rho` or the implied correction. Constructed
@@ -228,6 +220,16 @@ Nine, each a judgement about what the right behaviour *is*:
 - `src/TMB/growth.hpp` — carries one; see the file.
 
 ## Deliberately not changed
+
+- **`remove_F()` starts the unfished trajectory at `suit_endyr + 1`, not `endyr + 1`** —
+  decided 2026-08-24, and the behaviour is correct rather than tolerated. MSVPA suitability is
+  computed from the fitted dynamics up to `suit_endyr`, so an unfished trajectory beginning
+  earlier would alter the suitability the multispecies model was conditioned on. The
+  consequence, which is the intended one, is that when `suit_endyr < endyr` the late hindcast
+  years are unfished too: measured on BS2017SS with `suit_endyr = 2010`, F is zeroed for
+  2011-2017 and terminal SSB sits +43% / +187% / +17% above the fitted model. That is the
+  unfished counterfactual those years are meant to represent, not a bug. `run_mse()` uses this
+  for `OM_no_F`, which depletion-based HCRs 5 and 6 are scored against.
 
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
 - **The `dsem_*` parameter blocks are not in `.PAR_INFO`.** The dictionary's contract is
