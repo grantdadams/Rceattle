@@ -203,6 +203,7 @@ reference:
   - retrospective
   - jitter
   - profile.Rceattle
+  - profile_components
   - self_test
   - sim_mod
   - simulate.Rceattle
@@ -258,6 +259,8 @@ reference:
   - plot_index
   - plot_indexresidual
   - plot_comp
+  - plot_profile
+  - plot.Rceattle_profile
   - plot.rceattle_osa
   - plot_data
   - plot_form

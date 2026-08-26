@@ -12,6 +12,63 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.21.0
+
+## Diagnostics
+
+* **`profile_components()` and `plot_profile()`: read a profile for conflict,
+  not just for precision.** `profile()` returned the total negative
+  log-likelihood, which answers how well the data determine a parameter but
+  not whether the data sources agree about it. A smooth, well-behaved total
+  can be two surveys pulling in opposite directions, and nothing in the total
+  says so.
+
+  `profile_components()` pulls `quantities$jnll_comp` out of every grid fit and
+  returns it as one long data frame — one row per grid point per component,
+  each cell labelled with the fleet or species it belongs to. That labelling is
+  the work: the columns of `jnll_comp` count fleets on the data, selectivity
+  and catchability rows and species on the priors, penalties and predation
+  rows, so a cell read off the wrong axis would attribute a survey's likelihood
+  to a species.
+
+  `plot_profile()` draws it, following `r4ss::SSplotProfile()`: change in
+  negative log-likelihood on the y axis, every series re-zeroed at its own
+  minimum with a point marking it, the total overlaid in black, and components
+  moving less than `minfraction` of the total dropped. The spread of the points
+  along the x axis is the disagreement. `plot()` on a profile is the same
+  thing. `relative = "minimum"` re-zeroes at the fitted optimum instead, and
+  passing a list of profiles facets them side by side.
+
+  Under `random_rec = TRUE` the total is the Laplace-approximated marginal
+  likelihood while the components are the inner joint negative
+  log-likelihood; they will not sum, and `profile_components()` says so rather
+  than reconciling them.
+
+* **The QAR1 process error is reported as a deviate, not as a prior.** The AR1
+  density on `index_q_dev` (Rogers et al. 2024) was scored into the
+  "Catchability prior" row of `jnll_comp`, where it read as a prior on log q.
+  It now scores into "Catchability deviates", and accumulates rather than
+  assigns, so it cannot erase anything already in the cell. **No fit moves**:
+  the objective is `jnll_comp.sum()`, so relocating a term between rows leaves
+  it bit-identical, and the branch is in any case unreachable —
+  `data_check()` refuses `Catchability = 6` and the live QAR1 form is a q
+  linkage, `ar1(1 | Year)` with `observe`, which scores under "Linkage random
+  effects". Fixed rather than left in place because a component profile reads
+  these row labels to say which term is in conflict.
+
+  `tests/testthat/test-schema-jnll-rows.R` is new and pins the three-way
+  registry the `jnll_comp` rows depend on — the `JnllRow` enum, the row labels
+  in `R/6-rename_output.R`, and the column axis each row is indexed by. Nothing
+  linked them at build time before, so a row added to one and not the others
+  was silent.
+
+* **`profile()` reports the parameter in the units you profiled it in.**
+  `profile(fit, param = "M1", ...)` resolves `param` to `"log_M1"`, so
+  `print()` reported a minimum of, say, 0.28 next to the name `log_M1` when
+  0.28 was an M and not a log M. The alias is now kept in the returned object
+  as `$alias`, and both `print()` and the figure's axis use it. `$param` is
+  unchanged — it is still the internal slot the fit mapped off.
+
 # Rceattle 5.20.0
 
 ## Diagnostics

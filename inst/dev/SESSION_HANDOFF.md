@@ -5,14 +5,39 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #119 releases `dev` onto `main`: 5.8.1 → 5.15.0, 133 commits.** It is the first release on
-this line since 5.8.1, and it carries nine merged PRs (#109, #110, #112–#118) plus three commits
-added on the PR itself. `main` is 0 commits ahead, so the merge is a fast-forward.
+**PR #119 is merged** (`bd9d0fcf` on `main`, 2026-08-26). `main` and `dev` are both 5.20.0.
 
-Open as a **draft** until CI reports. Once merged, tag `v5.15.0` and draft a GitHub Release from
-it — `inst/RELEASE-CHECKLIST.md` §3. The `pkgdown` workflow rebuilds on the `release` event.
+**In flight: `dev` → `main` for 5.21.0, component likelihood profiles.** `dev` is one prior
+commit ahead of `main` (`ccf7e6d2`, the release-checklist edit) plus this work. Small PR, not a
+release of accumulated branches.
 
-## Done & verified on #119
+Prompted by Cole asking for a built-in way to extract the NLL components of a profile and plot
+them — the total answers how well the data determine a parameter, not whether the data sources
+agree about it.
+
+- `profile_components()` (`R/9-profile.R`) — `quantities$jnll_comp` from every grid fit as one
+  long data frame, each cell labelled with the fleet or species it belongs to.
+- `plot_profile()` + `plot.Rceattle_profile()` (`R/7-plot_profile.R`) — `r4ss::SSplotProfile()`
+  layout: each series re-zeroed at its own minimum with a point marking it, total black and out
+  of the colour legend, `minfraction = 0.01`.
+- `profile()` gains `$alias`, so `print()` and the axis say `M1` where the grid holds M rather
+  than `log_M1`, which is what `param` resolves to.
+
+## Done & verified on 5.21.0
+
+- **Suite green on the recompiled DLL**: `FAIL 0 | WARN 229 | SKIP 3 | PASS 7893`
+  (`NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`, 2026-08-26). `test-golden-regression.R` ran
+  (real `fit_mod()` at `:47` and `:50`) and passed, so the four reference objectives are
+  unmoved.
+- **No `/golden-check` run separately, and it is not needed.** The only template change moves a
+  term between `jnll_comp` rows; the objective is `jnll_comp.sum()` (`ceattle.cpp:5308`), so it
+  is bit-identical by construction. The golden regression in the suite is the check.
+- **`/pkgdown-check` clean** (exit 0), `_pkgdown.yml` carries the three new topics.
+- **New guard**: `test-schema-jnll-rows.R` parses every `jnll_comp(JNLL_*, col)` write in the
+  template — 124 writes, all 21 rows covered — and asserts each row's declared axis matches the
+  column it is actually indexed by. Confirmed non-vacuous by printing the parsed table.
+
+## Done & verified on #119 (merged)
 
 - **Suite green**: 0 failures, 3 skips (`NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`).
 - **Golden bit-identical** on all four reference models — but see the caveat below; it does not
@@ -76,6 +101,20 @@ probe against the pre-change build on BS2017MS, and the hake MSE.
 
 ## Known flags
 
+- **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()` pools
+  two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is now a third hand-synced partner to the
+  `JnllRow` enum and `R/6-rename_output.R`; all three must move together.
+- **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
+  two linkage rows, the ones carrying a `Comp_weights` multiplier. Everything else is
+  structurally zero there, not small, so `profile_components(weighted = FALSE)` returns a much
+  smaller set of series.
+- **The QAR1 block in `ceattle.cpp:4269` is dead code.** `data_check()` refuses
+  `Catchability = 6` (`R/1-data_check.R:92`) and `est_index_q` is only ever set from that column;
+  the live QAR1 form is a q linkage. Its AR1 density was scoring into the "Catchability prior"
+  row and now scores into "Catchability deviates" — a reporting fix that no fit can reach.
+  `R/6-process_residuals.R:204` still branches on `est_index_q == 6`, which is why the block was
+  fixed rather than removed. **Removing the dead QAR1 path — the C++ block and that R branch
+  together — is Grant's call and wants its own change.**
 - **A model carrying GOA numbers forward needs a refit.** Result-changing changes on this line not
   labelled breaking: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%),
   parameter bounds previously applied to the wrong parameters, `remove_F()` zeroing fitted hindcast
@@ -98,7 +137,22 @@ Nothing.
 
 ## Resume here
 
-Merge #119 once CI is green, then tag and release. After that, `inst/dev/CLEANUP_BACKLOG.md` has
+Merge the 5.21.0 PR once CI is green, then tag `v5.21.0` and draft a GitHub Release —
+`inst/RELEASE-CHECKLIST.md` §3. The `pkgdown` workflow rebuilds on the `release` event.
+
+Two loose ends from this session, neither blocking:
+
+1. **`inst/dev/SIBLING-REPOS.md` has an uncommitted edit that predates this session** — the
+   `../GOA-multispecies-assessment` entry. It is coherent and complete; it was left out of the
+   5.21.0 commit because it is unrelated to that work, not because it is wrong. Commit it
+   whenever suits.
+2. **`../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` gained an M-at-age-6
+   component profile** (uncommitted, separate repo). `minage = 1` and `nages = 10`, so age 6 is
+   bin 6; `M1_base` runs 1.39 at age 1 down to 0.30 from age 6 on. It fixes the age-6 cell
+   **alone**, leaving ages 7–10 at their base values — narrower than goa_pk's own M profile,
+   which scales the whole M-at-age vector together. Not yet run.
+
+After that, `inst/dev/CLEANUP_BACKLOG.md` has
 64 items left (Tier 0 and Tier 2 are cleared); `inst/dev/BACKLOG-PLAN.md` sequences them by who is
 exposed. The equilibrium-`M2` item above is the largest and wants its own PR with the hake MSE as
 its check, since golden cannot see it.

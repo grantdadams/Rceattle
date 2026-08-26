@@ -80,6 +80,13 @@
 #'       converge.}
 #'     \item{param}{the profiled parameter name (echoed).}
 #'     \item{slots}{the slots list (echoed for downstream plotting).}
+#'     \item{alias}{the name you asked for, when it was one of the
+#'       natural-scale aliases. Profiling \code{"M1"} returns \code{param =
+#'       "log_M1"}, because the model estimates M on the log scale, while
+#'       \code{grid} holds the M values you supplied. \code{alias} keeps
+#'       \code{"M1"}, so a figure can label the axis in the units profiled
+#'       rather than in log units. \code{NA} if you named the parameter slot
+#'       directly.}
 #'   }
 #'
 #'   Carries class \code{"Rceattle_profile"}, so printing it reports whether the
@@ -361,7 +368,8 @@ profile.Rceattle <- function(fitted = NULL,
     grid          = grid,
     nll           = nll,
     param         = param,
-    slots         = slots
+    slots         = slots,
+    alias         = alias_name
   ), class = "Rceattle_profile")
 }
 
@@ -427,9 +435,14 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
   # `digits` and would print a grid value as "  0.7".
   num <- function(v) format(v, digits = 4, trim = TRUE)
 
+  # Name the parameter in the units `grid` is in. Under an alias `param` has
+  # been resolved to the internal slot, so reporting it would put a minimum of
+  # 0.4 next to "log_M1" when 0.4 is an M, not a log M.
+  shown <- if (!is.null(x$alias) && !is.na(x$alias)) x$alias else x$param
+
   .rce_diag_header(
     "profile", sev,
-    paste0(x$param, " over ", ngrid, " grid point(s); ",
+    paste0(shown, " over ", ngrid, " grid point(s); ",
            if (all(ok)) "all converged"
            else paste0(sum(!ok), " did not converge")))
 
@@ -464,5 +477,347 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
         "), so the grid does not bracket it -- widen `values`\n", sep = "")
   }
   invisible(x)
+}
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Likelihood components across a profile ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+# Which axis each row of `jnll_comp` is accumulated over, i.e. what its columns
+# count. The data, selectivity and catchability rows are filled per fleet; the
+# priors, penalties and predation rows per species; the linkage random-effect
+# row is model-wide and always lands in column 1. Reference-point penalties are
+# species rows that also use column 1 for a model-wide term, so a non-zero
+# "Reference point penalties" on species 1 may be either.
+#
+# This is a hand-synced registry: it must stay in lockstep with the `JnllRow`
+# enum in src/TMB/ceattle.cpp and the row labels in R/6-rename_output.R. A row
+# added there and not here is labelled by component alone, with a warning.
+.JNLL_ROW_AXIS <- c(
+  "Index data"                 = "fleet",
+  "Catch data"                 = "fleet",
+  "Composition data"           = "fleet",
+  "CAAL data"                  = "fleet",
+  "Non-parametric selectivity" = "fleet",
+  "Selectivity deviates"       = "fleet",
+  "Catchability prior"         = "fleet",
+  "Catchability deviates"      = "fleet",
+  "Stock-recruit prior"        = "species",
+  "Initial abundance deviates" = "species",
+  "Recruitment deviates"       = "species",
+  "Stock-recruit penalty"      = "species",
+  "Reference point penalties"  = "species",
+  "Zero n-at-age penalty"      = "species",
+  "M prior"                    = "species",
+  "M random effects"           = "species",
+  "Ration"                     = "species",
+  "Ration penalties"           = "species",
+  "Stomach content data"       = "species",
+  "Linkage-table priors"       = "species",
+  "Linkage random effects"     = "model"
+)
+
+
+#' Likelihood components along a profile
+#'
+#' @description Pulls the per-fleet and per-species negative log-likelihood
+#'   components out of every fit in a [profile()] and returns them as one long
+#'   data frame, one row per grid point per component.
+#'
+#'   The total is the least informative curve on a profile: a well-behaved
+#'   quadratic total can hide two data sources pulling the parameter in
+#'   opposite directions, and their conflict is visible only once the
+#'   components are drawn separately. This is the extractor behind
+#'   [plot_profile()]; use it directly to tabulate, or to draw the figure
+#'   yourself.
+#'
+#' @details
+#' **Which cells are reported.** `jnll_comp` is a component-by-column matrix
+#' whose columns mean different things on different rows -- fleets on the data,
+#' selectivity and catchability rows, species on the priors, penalties and
+#' predation rows. Each cell is labelled from the axis its row uses, so a cell
+#' becomes e.g. `"Shelikof acoustic: Index data"`. The unit is dropped from the
+#' label when the model has only one fleet (or one species) to distinguish.
+#' Cells that are zero at every grid point are dropped: they are components the
+#' model does not fit.
+#'
+#' **What `Total` is.** The `"Total"` series is `object$nll`, the objective each
+#' grid fit actually minimized. Under `random_rec = TRUE` that is the
+#' Laplace-approximated marginal likelihood while the components are the inner
+#' joint negative log-likelihood, so the components will not sum to it; the
+#' function says so when they differ. Compare the shapes, not the sums.
+#'
+#' **Non-converged grid points** keep their row with a value of `NA`, so a
+#' failed fit leaves a gap in the curve rather than a straight segment drawn
+#' across it.
+#'
+#' @param object An `"Rceattle_profile"` object from [profile.Rceattle()].
+#' @param weighted Report the weighted components the optimizer minimized
+#'   (`TRUE`, the default, `quantities$jnll_comp`) or the unweighted ones
+#'   (`FALSE`, `quantities$unweighted_jnll_comp`). Conflict is normally read off
+#'   the weighted components, since those are what moved the fit.
+#'   `unweighted_jnll_comp` exists so Francis and McAllister-Ianelli can read a
+#'   composition likelihood without its `Comp_weights` multiplier, so only the
+#'   rows that carry such a multiplier are filled: composition, CAAL, stomach
+#'   content and the two linkage rows. Every other row is zero there and is
+#'   dropped as unfitted, so `weighted = FALSE` returns a much smaller set of
+#'   series — the index, catch, selectivity, catchability and penalty
+#'   components are absent, not flat.
+#' @param relative How to re-zero each series. `"own"` (default) subtracts each
+#'   series' own minimum over the grid, so every curve starts at zero and its
+#'   minimum marks the value that component prefers -- the comparison that shows
+#'   conflict. `"minimum"` subtracts each series' value at the grid point where
+#'   the total is lowest, so the curves show each component's change away from
+#'   the fitted optimum. `"none"` returns the raw negative log-likelihoods.
+#' @param minfraction Drop components whose change over the grid is less than
+#'   this fraction of the total's change, as in `r4ss::SSplotProfile()`. Default
+#'   `0` keeps everything; `plot_profile()` uses `0.01`. `"Total"` is never
+#'   dropped.
+#' @param include_total Include the `"Total"` series. Default `TRUE`; `FALSE`
+#'   also disables `minfraction`, which is defined against the total.
+#'
+#' @return A data frame with one row per grid point per retained component:
+#'   the profile's `grid` columns (`slot_1`, ...) carrying the value profiled
+#'   over, then `fit` (grid row index), `component` (the `jnll_comp` row),
+#'   `unit` (fleet or species name, `NA` for model-wide rows), `axis`
+#'   (`"fleet"`, `"species"` or `"model"`), `series` (the plotting label), and
+#'   `value` (the re-zeroed negative log-likelihood). Series are ordered by
+#'   decreasing change over the grid, with `"Total"` first. The profile's
+#'   `param`, `alias` and the `relative` used are carried as attributes.
+#'
+#' @seealso [plot_profile()] to draw it, [profile.Rceattle()] to produce the
+#'   profile.
+#'
+#' @examples
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS, inits = NULL, file = NULL,
+#'     estimateMode = 0, random_rec = FALSE, msmMode = 0, avgnMode = 0,
+#'     phase = FALSE, verbose = 0)
+#'
+#' prof <- profile(ss_run, param = "M1", slots = list(c(1, 1, 1)),
+#'                 values = list(seq(0.2, 0.5, by = 0.05)))
+#'
+#' comps <- profile_components(prof)
+#' head(comps)
+#' }
+#' @export
+profile_components <- function(object,
+                               weighted = TRUE,
+                               relative = c("own", "minimum", "none"),
+                               minfraction = 0,
+                               include_total = TRUE) {
+
+  # -- Input validation ----
+  if (!inherits(object, "Rceattle_profile")) {
+    stop("`object` must be an \"Rceattle_profile\" from profile().",
+         call. = FALSE)
+  }
+  relative <- match.arg(relative)
+  if (!is.logical(weighted) || length(weighted) != 1L || is.na(weighted)) {
+    stop("`weighted` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (!is.logical(include_total) || length(include_total) != 1L ||
+      is.na(include_total)) {
+    stop("`include_total` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (!is.numeric(minfraction) || length(minfraction) != 1L ||
+      is.na(minfraction) || minfraction < 0) {
+    stop("`minfraction` must be a single non-negative number.", call. = FALSE)
+  }
+
+  fits  <- object$Rceattle_list
+  grid  <- object$grid
+  ngrid <- nrow(grid)
+  ok    <- !vapply(fits, is.null, logical(1))
+  if (!any(ok)) {
+    stop("No grid point in this profile converged, so it carries no ",
+         "likelihood components.", call. = FALSE)
+  }
+
+  slot <- if (weighted) "jnll_comp" else "unweighted_jnll_comp"
+  ref  <- fits[[which(ok)[1]]]
+  ref_mat <- ref$quantities[[slot]]
+  if (is.null(ref_mat) || !length(ref_mat)) {
+    stop("The fits in this profile report no `quantities$", slot, "`.",
+         call. = FALSE)
+  }
+  ref_mat <- as.matrix(ref_mat)
+
+  # -- Label every cell from the axis its row is accumulated over ----
+  components <- rownames(ref_mat)
+  if (is.null(components)) {
+    stop("`quantities$", slot, "` has no row labels; this profile was not ",
+         "produced by a current version of fit_mod().", call. = FALSE)
+  }
+  axis <- unname(.JNLL_ROW_AXIS[components])
+  if (anyNA(axis)) {
+    warning("Likelihood component(s) ",
+            paste0("\"", components[is.na(axis)], "\"", collapse = ", "),
+            " are not in the row registry, so their fleet or species is not ",
+            "named. Add them to `.JNLL_ROW_AXIS` in R/9-profile.R.",
+            call. = FALSE)
+    axis[is.na(axis)] <- "model"
+  }
+
+  dl <- ref$data_list
+  fleet_names <- as.character(dl$fleet_control$Fleet_name)
+  sp_names    <- as.character(dl$spnames)
+  # A model may carry fewer names than jnll_comp has columns -- the matrix is
+  # dimensioned max(n_fleets, nspp) -- so a column past the end is named
+  # positionally rather than left blank.
+  name_at <- function(nms, j, what) {
+    if (j <= length(nms) && !is.na(nms[j]) && nzchar(nms[j])) nms[j]
+    else paste(what, j)
+  }
+
+  # -- Gather the matrices, aligned with the grid ----
+  vals <- array(NA_real_, dim = c(nrow(ref_mat), ncol(ref_mat), ngrid))
+  for (i in seq_len(ngrid)) {
+    if (!ok[i]) next
+    m <- fits[[i]]$quantities[[slot]]
+    if (is.null(m) || !identical(dim(as.matrix(m)), dim(ref_mat))) {
+      stop("Grid point ", i, " reports a `", slot, "` of a different shape ",
+           "than the others; the profile mixes models and cannot be pooled.",
+           call. = FALSE)
+    }
+    vals[, , i] <- as.matrix(m)
+  }
+
+  # A cell that is zero at every grid point is a component this model does not
+  # fit, not a component that happens to be flat.
+  keep <- which(apply(vals, c(1, 2), function(v) any(is.finite(v) & v != 0)),
+                arr.ind = TRUE)
+  if (!nrow(keep) && !include_total) {
+    stop("No likelihood component in this profile is non-zero.", call. = FALSE)
+  }
+
+  # The fleet or species name is dropped from the label when there is only one
+  # of them: "Recruitment deviates" reads better than "Pollock: Recruitment
+  # deviates" on a single-species model, and no ambiguity is created.
+  prefix <- c(fleet = length(fleet_names) > 1L,
+              species = length(sp_names) > 1L, model = FALSE)
+
+  units  <- character(nrow(keep))
+  axes   <- character(nrow(keep))
+  labels <- character(nrow(keep))
+  for (k in seq_len(nrow(keep))) {
+    r <- keep[k, "row"]; cc <- keep[k, "col"]
+    axes[k]  <- axis[r]
+    units[k] <- switch(axes[k],
+                       fleet   = name_at(fleet_names, cc, "Fleet"),
+                       species = name_at(sp_names, cc, "Species"),
+                       NA_character_)
+    labels[k] <- if (!is.na(units[k]) && prefix[[axes[k]]]) {
+      paste0(units[k], ": ", components[r])
+    } else {
+      components[r]
+    }
+  }
+
+  # Only `Fleet_code` is required to be unique -- it must equal the row number
+  # -- so two fleets may share a `Fleet_name`. Left alone, their two series
+  # would merge into one line drawn from interleaved values. A repeated label
+  # is disambiguated by the fleet or species number, which is unique by
+  # construction.
+  dup <- labels %in% labels[duplicated(labels)]
+  for (k in which(dup)) {
+    labels[k] <- if (is.na(units[k])) {
+      # A model-wide row with more than one column filled: there is no fleet or
+      # species to name it by, so the column is all there is to say.
+      paste0(components[keep[k, "row"]], " (column ", keep[k, "col"], ")")
+    } else {
+      paste0(units[k], " (", axes[k], " ", keep[k, "col"], "): ",
+             components[keep[k, "row"]])
+    }
+  }
+
+  pieces <- lapply(seq_len(nrow(keep)), function(k) {
+    data.frame(
+      fit       = seq_len(ngrid),
+      component = components[keep[k, "row"]],
+      unit      = units[k],
+      axis      = axes[k],
+      series    = labels[k],
+      value     = vals[keep[k, "row"], keep[k, "col"], ],
+      stringsAsFactors = FALSE)
+  })
+
+  # -- The total is the objective, which is not always the components' sum ----
+  if (include_total) {
+    comp_sum <- apply(vals, 3, sum)
+    drift <- suppressWarnings(max(abs(comp_sum[ok] - object$nll[ok])))
+    if (is.finite(drift) && drift > 1e-4) {
+      warning("The likelihood components sum to the joint negative ",
+              "log-likelihood but `Total` is the objective each fit ",
+              "minimized, which for a model with random effects is the ",
+              "Laplace-approximated marginal; they differ by up to ",
+              formatC(drift, format = "g", digits = 3),
+              ". Compare the shapes of the curves, not their sums.",
+              call. = FALSE)
+    }
+    pieces <- c(list(data.frame(
+      fit = seq_len(ngrid), component = "Total", unit = NA_character_,
+      axis = "model", series = "Total", value = object$nll,
+      stringsAsFactors = FALSE)), pieces)
+  }
+
+  out <- do.call(rbind, pieces)
+  out$value[!ok[out$fit]] <- NA_real_
+
+  # -- Re-zero ----
+  shift <- switch(
+    relative,
+    none = stats::setNames(rep(0, length(unique(out$series))),
+                           unique(out$series)),
+    own  = vapply(split(out$value, out$series),
+                  function(v) suppressWarnings(min(v, na.rm = TRUE)),
+                  numeric(1)),
+    minimum = {
+      # No usable objective anywhere: which.min() over the all-Inf replacement
+      # would silently pick grid point 1 and re-zero everything there, which
+      # reads as a fitted optimum that was never found.
+      if (!any(is.finite(object$nll))) {
+        warning("No grid point reports an objective, so `relative = ",
+                "\"minimum\"` has no minimum to re-zero at; values are raw.",
+                call. = FALSE)
+        stats::setNames(rep(0, length(unique(out$series))), unique(out$series))
+      } else {
+        best <- which.min(replace(object$nll, !is.finite(object$nll), Inf))
+        vapply(split(out, out$series),
+               function(d) d$value[match(best, d$fit)], numeric(1))
+      }
+    })
+  shift[!is.finite(shift)] <- 0
+  out$value <- out$value - shift[out$series]
+
+  # -- Drop components that barely move, and order by how much they do ----
+  span <- vapply(split(out$value, out$series),
+                 function(v) suppressWarnings(diff(range(v, na.rm = TRUE))),
+                 numeric(1))
+  span[!is.finite(span)] <- 0
+  if (minfraction > 0 && include_total) {
+    if (span[["Total"]] <= 0) {
+      warning("`minfraction` filters against the total's change over the ",
+              "grid, which is ", formatC(span[["Total"]], format = "g",
+                                         digits = 3),
+              " here; keeping every component.", call. = FALSE)
+    } else {
+      drop <- setdiff(names(span)[span < minfraction * span[["Total"]]], "Total")
+      out <- out[!out$series %in% drop, , drop = FALSE]
+    }
+  }
+
+  ord <- names(sort(span[unique(out$series)], decreasing = TRUE))
+  if (include_total) ord <- c("Total", setdiff(ord, "Total"))
+  out$series <- factor(out$series, levels = ord)
+
+  out <- cbind(grid[out$fit, , drop = FALSE], out)
+  rownames(out) <- NULL
+  attr(out, "param")    <- object$param
+  attr(out, "alias")    <- object$alias
+  attr(out, "relative") <- relative
+  out
 }
 

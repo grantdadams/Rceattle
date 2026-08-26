@@ -30,8 +30,12 @@ testthat::test_that("profile: 1-D sigmaR profile fixes R_log_sd at the grid valu
   )
 
   # Structural expectations
-  testthat::expect_named(prof, c("Rceattle_list", "grid", "nll", "param", "slots"))
+  testthat::expect_named(prof, c("Rceattle_list", "grid", "nll", "param",
+                                 "slots", "alias"))
   testthat::expect_equal(prof$param, "R_log_sd")
+  # No alias here: `param` named the internal slot, so the grid is already on
+  # the scale the model estimates.
+  testthat::expect_true(is.na(prof$alias))
   testthat::expect_equal(nrow(prof$grid), length(grid_vals))
   testthat::expect_equal(length(prof$Rceattle_list), length(grid_vals))
   testthat::expect_equal(length(prof$nll), length(grid_vals))
@@ -97,6 +101,15 @@ testthat::test_that("profile: sigmaR alias matches raw R_log_sd call", {
 
   # Same NLL up to optimiser noise
   testthat::expect_equal(p_alias$nll, p_raw$nll, tolerance = 1e-3)
+
+  # The two calls differ in one visible way: the alias run remembers that its
+  # grid is on the natural scale, which is what print() and the figure's axis
+  # label are read off. `param` is the internal slot either way.
+  testthat::expect_equal(p_alias$alias, "sigmaR")
+  testthat::expect_equal(p_alias$param, "R_log_sd")
+  testthat::expect_true(is.na(p_raw$alias))
+  testthat::expect_true(any(grepl("sigmaR",
+                                  utils::capture.output(print(p_alias)))))
 })
 
 

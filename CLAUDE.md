@@ -116,8 +116,10 @@ rcmdcheck::rcmdcheck()                 # what CI runs (slow; usually backgrounde
   `spr.hpp`, `comp_osa.hpp`, `comp_sim.hpp`, `helper_functions.hpp`, `bioenergetics.hpp`,
   `diet_data.hpp`).
   `jnll_comp` rows are addressed by the **`JnllRow` enum** — refer to a row by its constant,
-  never a bare integer. Display names live separately in `R/6-rename_output.R` and are kept in
-  sync by hand; adding or reordering a component means updating both.
+  never a bare integer. The enum has **two hand-synced partners**: display names in
+  `R/6-rename_output.R`, and `.JNLL_ROW_AXIS` in `R/9-profile.R`, which records whether a row's
+  columns count fleets or species. Adding or reordering a component means updating all three.
+  `test-schema-jnll-rows.R` reads the template and asserts they agree.
 - **`tests/testthat/`** — **flat**: every test is a top-level `test-<area>-<topic>.R`. Shared
   `helpers-*.R` / `fixtures/` sit alongside. Fast fixtures: `make_test_data()` (single-species)
   or `make_msm_test_data()` (multispecies, incl. diet) with `estimateMode = 3` build a
@@ -226,6 +228,10 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
 - **`Index_distribution` has a second hand-synced registry** — a family added to
   `index_distribution_map` must also be classified in `.index_rows_natural_scale()`
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
+- **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()`
+  pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry.
+- **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
+  two linkage rows. Everything else is structurally zero there, not small.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
   this is how `index_cov` was lost.
 - **A `Comp_weights` of 1 under a Dirichlet-multinomial is a starting weight of e** — that

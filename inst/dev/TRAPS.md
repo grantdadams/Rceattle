@@ -68,6 +68,26 @@ dataset and all three live assessments — so a bin/age confusion passes every t
 model, and only shows up on the next `minage != 1` species. Write
 `seq_len(nages[sp]) - 1 + minage[sp]` and mean it.
 
+**`jnll_comp` columns mean different things on different rows.** The matrix is dimensioned
+`max(n_flt, nspp)`, and the column index is whatever loop variable wrote the cell: rows 1-8
+(index, catch, composition, CAAL, non-parametric selectivity, selectivity deviates, catchability
+prior, catchability deviates) are written inside `for(flt = 0; flt < n_flt; flt++)`, rows 9-20 by
+`sp`/`rsp`/`slot_col`, and "Linkage random effects" always into column 1. So `jnll_comp[3, 2]` is
+fleet 2's composition likelihood while `jnll_comp[11, 2]` is species 2's recruitment deviates,
+and `rowSums()` pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the
+registry; `test-schema-jnll-rows.R` parses every `jnll_comp(JNLL_*, col)` write in the template
+and asserts each row's declared axis matches the column it is actually indexed by. Verified
+2026-08-26: 124 writes, all 21 rows covered.
+
+**`unweighted_jnll_comp` is populated for 5 of its 21 rows.** It exists so Francis and
+McAllister-Ianelli can read a composition likelihood without its `Comp_weights` multiplier, so
+only the rows carrying such a multiplier are written: composition, CAAL, stomach content, and the
+two linkage rows. Index, catch, selectivity, catchability and every penalty are **structurally
+zero** there, not small. Anything that treats the two matrices as the same quantity at different
+weights — a reweighting diagnostic, a component profile, a "which term dominates" table — reports
+those components as absent rather than unweighted. `profile_components(weighted = FALSE)` says so
+in its `@param`.
+
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
 lost.

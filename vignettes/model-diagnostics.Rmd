@@ -478,9 +478,7 @@ prof_sigmaR <- profile(
   values   = list(seq(0.1, 1.5, by = 0.1))
 )
 
-plot(prof_sigmaR$grid$slot_1,
-     prof_sigmaR$nll - min(prof_sigmaR$nll, na.rm = TRUE),
-     type = "l", xlab = "sigmaR", ylab = "dNLL")
+plot(prof_sigmaR)   # components, with the total overlaid; see below
 
 # 1-D profile: SRR alpha for species 1
 # (alias fills in the rec_pars column; slot is just the species index)
@@ -501,7 +499,64 @@ prof_M_sex <- profile(
 )
 ```
 
-`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
+`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), `alias` (the natural-scale name you profiled under, if you used one), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
+
+### Where the data disagree
+
+The total is the least informative curve on a profile. It answers how well the
+data determine the parameter; it does not say whether the data sources agree
+about it, and a smooth quadratic total can be two surveys pulling in opposite
+directions. `plot_profile()` draws the likelihood components separately, in the
+layout `r4ss::SSplotProfile()` uses:
+
+```{r}
+prof_M <- profile(
+  fitted = model_1,
+  param  = "M1",
+  slots  = list(c(1, 1, 1)),
+  values = list(seq(0.20, 0.45, by = 0.025))
+)
+
+plot_profile(prof_M, xlab = "M at age 1")
+```
+
+Every series is re-zeroed at its own minimum and a point marks it, so read the
+figure by **where each curve bottoms out**, not by how deep it is. Curves whose
+points sit together support the same value of M; a curve whose point sits far
+from the total's is pulling against the rest. The total is the heavy black line
+and is kept out of the colour legend, so the palette separates only the
+components being compared. Components that move less than `minfraction` (1% by
+default) of the total's change over the grid are dropped — they are flat at this
+scale and would only crowd the legend.
+
+`relative = "minimum"` re-zeroes every series at the total's minimum instead,
+which shows what each component gives up by moving away from the fitted value.
+Passing a list of profiles facets them, which is how two model configurations
+are compared on the same parameter.
+
+The numbers behind the figure come from `profile_components()`, which is worth
+calling directly to tabulate the conflict:
+
+```{r}
+comps <- profile_components(prof_M)
+head(comps)
+```
+
+Each row is one grid point for one component, carrying the profiled value, the
+component name, and the `unit` it belongs to — a fleet on the data, selectivity
+and catchability rows, a species on the priors, penalties and predation rows.
+`weighted = FALSE` reads the unweighted components instead; conflict is normally
+read off the weighted ones, since those are what moved the fit. Note that
+`unweighted_jnll_comp` is filled only for the rows that carry a `Comp_weights`
+multiplier — composition, CAAL, stomach content, and the two linkage rows —
+because it exists so Francis and McAllister–Ianelli can read a composition
+likelihood without its weight. Under `weighted = FALSE` the index, catch,
+selectivity, catchability and penalty components are therefore absent, not flat.
+
+Under `random_rec = TRUE` the total is the Laplace-approximated marginal
+likelihood while the components are the inner joint negative log-likelihood, so
+the components will not sum to the total. `profile_components()` says so when
+they differ. Compare the shapes, not the sums.
 
 ## Comparing runs
 
