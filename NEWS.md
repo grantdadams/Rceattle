@@ -14,6 +14,10 @@ version throughout.
 
 # Rceattle 5.21.0
 
+This release carries the DSEM integration that was filed as 5.19.0 while this
+branch was separate from `dev` -- which released its own, different 5.19.0 --
+together with the simulation and sampling fixes below.
+
 ## Bug fixes
 
 * **A DSEM's process draw was discarded, and took the covariate series with
@@ -60,55 +64,6 @@ version throughout.
   -- no warning and no `process_sim`, with nothing to say why. The unique set is
   now collected from the replicates and re-emitted once (not `nsim` times), and
   asking for process error and getting none back warns in its own right.
-
-## New features
-
-* **A DSEM covariate observed with error is now simulated, state and
-  observation.** `family = "fixed"` makes a covariate data: no measurement
-  density, pinned in the map, held fixed -- unchanged. Any other family makes it
-  a latent state observed with error, and neither half was drawn. Now the state
-  is drawn with the rest of the field (it is process), and the observation is
-  drawn from the family that scores it -- normal, Bernoulli, Poisson, Gamma,
-  normal with known SD, lognormal or Tweedie -- and written back into
-  `env_data`, so the refit is fitted to it. Previously a replicate carried the
-  original environmental series beside freshly drawn recruitment, which
-  overstates how much the SEM's paths can be recovered. Verified as a moment:
-  over 200 draws the residual `y_sim - mu` had sd 0.9995 against a fitted
-  measurement sd of 1.
-
-* **`build_bounds(dsem = )` bounds a DSEM's standard deviations at 0, so the
-  model can be sampled.** A lag-0 two-headed self path (`x <-> x`) is a diagonal
-  of the Cholesky factor of the exogenous covariance. The likelihood sees only
-  \eqn{\Gamma'\Gamma} and the template reads it as `sqrt(square(beta_z))`, so
-  its sign is not identified and the surface is exactly symmetric about 0.
-  Harmless for an MLE -- a mirrored pair of optima -- and fatal for MCMC, where
-  the posterior is bimodal by construction, chains do not mix, and R-hat and any
-  interval on sigma are meaningless. Bounding the diagonal below at 0 is the
-  standard identifying restriction for a Cholesky factor and rules out nothing
-  the likelihood could distinguish; pass `$lower` / `$upper` on to
-  `tmbstan::tmbstan()` for the same constraint there. A variable that also
-  carries a cross-covariance (`A <-> B`) or a lagged two-headed path keeps
-  unbounded support, because identifying its sign means flipping a whole row of
-  \eqn{\Gamma} rather than one element; `fit_mod()` names those variables. A fit
-  carried forward from the negative root is flipped to the positive one rather
-  than rejected as out of bounds -- exact where the bound applies, and it
-  reproduces the same optimum. `dsem` is optional, so an existing
-  `build_bounds()` call is unchanged.
-
-* **`dsem_z_tj` is REPORTed**, so the latent field the model actually used is
-  readable from R. `rec_dev` is derived from it, so it is what says whether a
-  substituted draw reached the dynamics.
-
-**This changes results** for a DSEM simulation: `sim_mod()`, `self_test()` and
-anything built on them draw differently from 5.19.0, and a covariate with a
-measurement density now varies across replicates. Non-DSEM models are
-unaffected -- every new draw is gated on `dsem_on == 1`, and the four golden
-reference fits are unchanged.
-
-## DSEM integration and diagnostics
-
-These were filed as 5.19.0 while this branch was separate from `dev`,
-which released its own 5.19.0. They ship with 5.21.0.
 
 * **A retrospective peel no longer shrinks a random-effect SELECTIVITY SD.**
   5.15.0 stopped pinning the peeled tail of a random-effect block -- a pinned
@@ -171,7 +126,157 @@ which released its own 5.19.0. They ship with 5.21.0.
   telling projection methods apart. It now emits a message naming the switch and
   the way out.
 
+* **A retrospective peel no longer refuses a model with a linkage on
+  `env_data`.** Withholding post-peel covariate values was done by dropping the
+  rows, and linkage design matrices are built POSITIONALLY from `env_data`
+  (`materialize_linkage()` -> `model.matrix()`), so dropping rows dropped design
+  columns and random-effect levels -- and `inits`, carried from the parent fit,
+  no longer matched the model the peel built. On the GOA pollock 2025
+  configuration, which carries `ar1(1 | Year)` and `rw(1 | Year)` linkages, every
+  peel stopped outright: `beta_linkage` 241 against 237, `beta_linkage_re` 110
+  against 108. The values are now blanked in place and the row count is
+  preserved. A fixed-effect linkage covariate is exempt -- `materialize_linkage()`
+  rejects an NA in one by design, because `model.matrix()` would silently drop
+  the row and misalign the whole design -- and the peel says once which
+  covariates it therefore still sees.
+
+* **`check_dsem_spec()` no longer reports OK on a specification nothing has
+  looked at.** It reads `sem_full`, which only a built object carries, so a
+  `build_DSEM()` specification -- the natural thing to pass, given the argument
+  is named `dsem` and that is what `fit_mod(dsem = )` takes -- returned an empty
+  pass. It now names the call to make instead.
+
+
+* **A retrospective peel no longer shrinks the estimated process SDs.** A peel
+  does not shorten the model -- it turns data off after `endyr_peel` -- and it
+  pinned the random-effect deviations in the peeled years: `rec_dev` at zero,
+  and `log_M1_dev`, `index_q_dev` and the three selectivity blocks carried
+  forward from the last fitted year. Those pinned values were still scored by
+  their densities, which is fabricated rather than missing data, and maximally
+  informative fabricated data: "the deviation was exactly zero", or for the
+  carried-forward random-walk blocks "the increment was exactly zero", is the
+  strongest evidence available for a small process SD. The estimate shrank as
+  `sqrt((N - k)/N)` in the number of peeled years `k` -- on a 39-year model,
+  -1.3% at one peel, **-6.6% at the default `peels = 5` and -13.8% at 10** --
+  and because it grew with peel depth it was a trend across peels, in the same
+  quantity Mohn's rho is computed from, leaving every peeled forecast
+  overconfident.
+
+  Deviations that are random effects are now left free in the peeled years, so
+  the Laplace approximation integrates them out, which is what no data should
+  mean. Deviations that are not random effects in a given model are still
+  pinned; free would leave them unidentified. This was already how
+  `beta_linkage_re` behaved -- it was never pinned -- and how a DSEM's latent
+  states behave, and neither carried the bias, which is what identified it.
+
+  Measured on BS2017SS: the deepest peel's recruitment SD now matches a DSEM
+  peel of the same model to 1e-6 at both one and five peels, against ratios of
+  0.985 and a predicted 0.934 before. Retrospectives and Mohn's rho on any model
+  with estimated random effects will change; that difference is the bias being
+  removed. Models with no random effects are unaffected.
+
+* **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
+  does not declare the `dsem_*` blocks -- they come from the DSEM builder -- so
+  `fit_mod()` dropped them out of any supplied `inits` and then refilled them
+  from a freshly built template, i.e. their START values. This was invisible
+  wherever the DSEM was re-estimated (any start reaches the same optimum) and
+  wrong wherever it was held fixed. `retrospective()` holds the whole DSEM fixed
+  in its forecast refit, so every peel ran with the recruitment SD at its start
+  value: 0.707107 for every species regardless of the fit. On BS2017SS with a
+  naive sem that put an 80% error in the peeled hindcast and flipped the sign of
+  Mohn's rho (-0.49 against +0.13). Only models ESTIMATING the recruitment SD
+  were affected; a sem that fixes it reads the fixed value and never saw this.
+  `profile()` on a DSEM fit was affected the same way -- every grid point reset
+  the model -- as was `estimateMode = 2`, which reprojected from the reset
+  values.
+
+* **`retrospective()`'s forecast bias adjustment did nothing on a DSEM.** It
+  wrote `rec_dev`, which the template overwrites from the latent states on the
+  next evaluation, so the retrospective forecast silently kept the GMRF's own
+  projection instead of the bias-adjusted mean -- a 44% difference in forecast
+  recruitment against the non-DSEM path. It now writes the latent state that
+  `rec_dev` is derived from.
+
+  Together these two restore the contract a naive (IID) DSEM is judged by: it
+  now reproduces a non-DSEM retrospective (hindcast and forecast recruitment
+  within 1e-3, Mohn's rho within 0.004, against 0.80 and 3.40 before).
+
+* **`sim_mod(process = )` ignored its DSEM guard for every spelling but `TRUE`.**
+  The guard tested `isTRUE(process)`, which is `FALSE` for `"all"`,
+  `"dynamics"` and `"recruitment"`, so those returned a data set whose
+  recruitment process had not been redrawn, with no error -- and under `"all"`
+  the accompanying warning listed the other un-drawn processes, which read as
+  confirmation that recruitment had been drawn. It now tests the resolved
+  process vector. `self_test(process = )` had the same hole.
+
+* **`retrospective(rescale = TRUE)` had no effect on a DSEM.** With
+  `family = "fixed"` the covariate columns of the DSEM's latent state matrix ARE
+  the environmental data, held fixed by the map, and their values reach the
+  model as parameter starting values -- which a refit inherits from the parent
+  fit rather than rebuilding. So the peel carried the parent's unrescaled
+  covariate and the rescaling was silently discarded: every path coefficient and
+  the whole latent state matrix came back bit-identical with and without it. The
+  stale block is now dropped so the rebuild supplies covariates standardized on
+  the retained years.
+
+* **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
+  of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
+  They were previously built to `projyr` and held fixed, which still leaves them
+  in the GMRF, where lagged paths tie them to the last hindcast years and pull on
+  the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
+  with `projyr > endyr` will change; that difference is the bias being removed.
+
+* **An `env_data` column with no values at all now warns.** There is no mean to
+  fill the missing years with, so the column reaches TMB as `NaN` for every
+  year, and any index pointed at it (`Cindex`, `M1_indices`, an
+  environmental `Time_varying_q`, a linkage covariate) makes the objective
+  `NaN` with nothing to say why.
+
+* **A compiled model that does not match the R code now says so.** `MakeADFun()`
+  reports a template variable the data and parameter lists do not supply as
+  "Error when reading the variable: '<name>'. Please check data and
+  parameters.", which reads like a problem with the data. The usual cause is a
+  build mismatch -- the C++ was not rebuilt after an update, or an older DLL is
+  still loaded in the session from before a reinstall -- and `fit_mod()` now
+  says that alongside the original message.
+
 ## New features
+
+* **A DSEM covariate observed with error is now simulated, state and
+  observation.** `family = "fixed"` makes a covariate data: no measurement
+  density, pinned in the map, held fixed -- unchanged. Any other family makes it
+  a latent state observed with error, and neither half was drawn. Now the state
+  is drawn with the rest of the field (it is process), and the observation is
+  drawn from the family that scores it -- normal, Bernoulli, Poisson, Gamma,
+  normal with known SD, lognormal or Tweedie -- and written back into
+  `env_data`, so the refit is fitted to it. Previously a replicate carried the
+  original environmental series beside freshly drawn recruitment, which
+  overstates how much the SEM's paths can be recovered. Verified as a moment:
+  over 200 draws the residual `y_sim - mu` had sd 0.9995 against a fitted
+  measurement sd of 1.
+
+* **`build_bounds(dsem = )` bounds a DSEM's standard deviations at 0, so the
+  model can be sampled.** A lag-0 two-headed self path (`x <-> x`) is a diagonal
+  of the Cholesky factor of the exogenous covariance. The likelihood sees only
+  \eqn{\Gamma'\Gamma} and the template reads it as `sqrt(square(beta_z))`, so
+  its sign is not identified and the surface is exactly symmetric about 0.
+  Harmless for an MLE -- a mirrored pair of optima -- and fatal for MCMC, where
+  the posterior is bimodal by construction, chains do not mix, and R-hat and any
+  interval on sigma are meaningless. Bounding the diagonal below at 0 is the
+  standard identifying restriction for a Cholesky factor and rules out nothing
+  the likelihood could distinguish; pass `$lower` / `$upper` on to
+  `tmbstan::tmbstan()` for the same constraint there. A variable that also
+  carries a cross-covariance (`A <-> B`) or a lagged two-headed path keeps
+  unbounded support, because identifying its sign means flipping a whole row of
+  \eqn{\Gamma} rather than one element; `fit_mod()` names those variables. A fit
+  carried forward from the negative root is flipped to the positive one rather
+  than rejected as out of bounds -- exact where the bound applies, and it
+  reproduces the same optimum. `dsem` is optional, so an existing
+  `build_bounds()` call is unchanged.
+
+* **`dsem_z_tj` is REPORTed**, so the latent field the model actually used is
+  readable from R. `rec_dev` is derived from it, so it is what says whether a
+  substituted draw reached the dynamics.
 
 * **`summary()` reports a DSEM's path coefficients alongside the fixed effects.**
   5.17.0 made `summary()` return a `"summary.Rceattle"` object whose
@@ -419,122 +524,6 @@ which released its own 5.19.0. They ship with 5.21.0.
   p-value is a boundary test, so neither is interpretable in the usual way. Fits
   without a DSEM are unaffected.
 
-## Bug fixes
-
-* **A retrospective peel no longer refuses a model with a linkage on
-  `env_data`.** Withholding post-peel covariate values was done by dropping the
-  rows, and linkage design matrices are built POSITIONALLY from `env_data`
-  (`materialize_linkage()` -> `model.matrix()`), so dropping rows dropped design
-  columns and random-effect levels -- and `inits`, carried from the parent fit,
-  no longer matched the model the peel built. On the GOA pollock 2025
-  configuration, which carries `ar1(1 | Year)` and `rw(1 | Year)` linkages, every
-  peel stopped outright: `beta_linkage` 241 against 237, `beta_linkage_re` 110
-  against 108. The values are now blanked in place and the row count is
-  preserved. A fixed-effect linkage covariate is exempt -- `materialize_linkage()`
-  rejects an NA in one by design, because `model.matrix()` would silently drop
-  the row and misalign the whole design -- and the peel says once which
-  covariates it therefore still sees.
-
-* **`check_dsem_spec()` no longer reports OK on a specification nothing has
-  looked at.** It reads `sem_full`, which only a built object carries, so a
-  `build_DSEM()` specification -- the natural thing to pass, given the argument
-  is named `dsem` and that is what `fit_mod(dsem = )` takes -- returned an empty
-  pass. It now names the call to make instead.
-
-
-* **A retrospective peel no longer shrinks the estimated process SDs.** A peel
-  does not shorten the model -- it turns data off after `endyr_peel` -- and it
-  pinned the random-effect deviations in the peeled years: `rec_dev` at zero,
-  and `log_M1_dev`, `index_q_dev` and the three selectivity blocks carried
-  forward from the last fitted year. Those pinned values were still scored by
-  their densities, which is fabricated rather than missing data, and maximally
-  informative fabricated data: "the deviation was exactly zero", or for the
-  carried-forward random-walk blocks "the increment was exactly zero", is the
-  strongest evidence available for a small process SD. The estimate shrank as
-  `sqrt((N - k)/N)` in the number of peeled years `k` -- on a 39-year model,
-  -1.3% at one peel, **-6.6% at the default `peels = 5` and -13.8% at 10** --
-  and because it grew with peel depth it was a trend across peels, in the same
-  quantity Mohn's rho is computed from, leaving every peeled forecast
-  overconfident.
-
-  Deviations that are random effects are now left free in the peeled years, so
-  the Laplace approximation integrates them out, which is what no data should
-  mean. Deviations that are not random effects in a given model are still
-  pinned; free would leave them unidentified. This was already how
-  `beta_linkage_re` behaved -- it was never pinned -- and how a DSEM's latent
-  states behave, and neither carried the bias, which is what identified it.
-
-  Measured on BS2017SS: the deepest peel's recruitment SD now matches a DSEM
-  peel of the same model to 1e-6 at both one and five peels, against ratios of
-  0.985 and a predicted 0.934 before. Retrospectives and Mohn's rho on any model
-  with estimated random effects will change; that difference is the bias being
-  removed. Models with no random effects are unaffected.
-
-* **A refit silently discarded a DSEM's fitted parameters.** `build_params()`
-  does not declare the `dsem_*` blocks -- they come from the DSEM builder -- so
-  `fit_mod()` dropped them out of any supplied `inits` and then refilled them
-  from a freshly built template, i.e. their START values. This was invisible
-  wherever the DSEM was re-estimated (any start reaches the same optimum) and
-  wrong wherever it was held fixed. `retrospective()` holds the whole DSEM fixed
-  in its forecast refit, so every peel ran with the recruitment SD at its start
-  value: 0.707107 for every species regardless of the fit. On BS2017SS with a
-  naive sem that put an 80% error in the peeled hindcast and flipped the sign of
-  Mohn's rho (-0.49 against +0.13). Only models ESTIMATING the recruitment SD
-  were affected; a sem that fixes it reads the fixed value and never saw this.
-  `profile()` on a DSEM fit was affected the same way -- every grid point reset
-  the model -- as was `estimateMode = 2`, which reprojected from the reset
-  values.
-
-* **`retrospective()`'s forecast bias adjustment did nothing on a DSEM.** It
-  wrote `rec_dev`, which the template overwrites from the latent states on the
-  next evaluation, so the retrospective forecast silently kept the GMRF's own
-  projection instead of the bias-adjusted mean -- a 44% difference in forecast
-  recruitment against the non-DSEM path. It now writes the latent state that
-  `rec_dev` is derived from.
-
-  Together these two restore the contract a naive (IID) DSEM is judged by: it
-  now reproduces a non-DSEM retrospective (hindcast and forecast recruitment
-  within 1e-3, Mohn's rho within 0.004, against 0.80 and 3.40 before).
-
-* **`sim_mod(process = )` ignored its DSEM guard for every spelling but `TRUE`.**
-  The guard tested `isTRUE(process)`, which is `FALSE` for `"all"`,
-  `"dynamics"` and `"recruitment"`, so those returned a data set whose
-  recruitment process had not been redrawn, with no error -- and under `"all"`
-  the accompanying warning listed the other un-drawn processes, which read as
-  confirmation that recruitment had been drawn. It now tests the resolved
-  process vector. `self_test(process = )` had the same hole.
-
-* **`retrospective(rescale = TRUE)` had no effect on a DSEM.** With
-  `family = "fixed"` the covariate columns of the DSEM's latent state matrix ARE
-  the environmental data, held fixed by the map, and their values reach the
-  model as parameter starting values -- which a refit inherits from the parent
-  fit rather than rebuilding. So the peel carried the parent's unrescaled
-  covariate and the rescaling was silently discarded: every path coefficient and
-  the whole latent state matrix came back bit-identical with and without it. The
-  stale block is now dropped so the rebuild supplies covariates standardized on
-  the retained years.
-
-* **`build_DSEM(estimate_projection = FALSE)` now leaves the projection years out
-  of the DSEM likelihood.** The latent states are built over `styr:endyr` only.
-  They were previously built to `projyr` and held fixed, which still leaves them
-  in the GMRF, where lagged paths tie them to the last hindcast years and pull on
-  the terminal recruitment deviations -- and so on terminal SSB and the ABC. Fits
-  with `projyr > endyr` will change; that difference is the bias being removed.
-
-* **An `env_data` column with no values at all now warns.** There is no mean to
-  fill the missing years with, so the column reaches TMB as `NaN` for every
-  year, and any index pointed at it (`Cindex`, `M1_indices`, an
-  environmental `Time_varying_q`, a linkage covariate) makes the objective
-  `NaN` with nothing to say why.
-
-* **A compiled model that does not match the R code now says so.** `MakeADFun()`
-  reports a template variable the data and parameter lists do not supply as
-  "Error when reading the variable: '<name>'. Please check data and
-  parameters.", which reads like a problem with the data. The usual cause is a
-  build mismatch -- the C++ was not rebuilt after an update, or an older DLL is
-  still loaded in the session from before a reinstall -- and `fit_mod()` now
-  says that alongside the original message.
-
 ## Breaking changes
 
 * **`env_data` is now read as numbers.** It is coerced to a data.frame of
@@ -561,6 +550,12 @@ which released its own 5.19.0. They ship with 5.21.0.
   and says so. Only DSEM models need it; every other fit is unaffected.
 
 * `utils` is now imported (`utils::head`, `utils::packageVersion`).
+
+**This changes results** for a DSEM simulation: `sim_mod()`, `self_test()` and
+anything built on them draw differently from 5.19.0, and a covariate with a
+measurement density now varies across replicates. Non-DSEM models are
+unaffected -- every new draw is gated on `dsem_on == 1`, and the four golden
+reference fits are unchanged.
 
 # Rceattle 5.20.0
 

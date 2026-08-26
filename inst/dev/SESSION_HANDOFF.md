@@ -5,92 +5,103 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #119 releases `dev` onto `main`: 5.8.1 → 5.15.0, 133 commits.** It is the first release on
-this line since 5.8.1, and it carries nine merged PRs (#109, #110, #112–#118) plus three commits
-added on the PR itself. `main` is 0 commits ahead, so the merge is a fast-forward.
+**PR #111 (`dsem-v5-integration` -> `dev`) is at 5.21.0 and synced with `dev`.** The branch was
+behind `dev` (which had moved to 5.20.0); `origin/dev` is merged in as `8747acb1`, and the branch
+tip `6ff40df5` is pushed.
 
-Open as a **draft** until CI reports. Once merged, tag `v5.15.0` and draft a GitHub Release from
-it — `inst/RELEASE-CHECKLIST.md` §3. The `pkgdown` workflow rebuilds on the `release` event.
+The last block of work answered a report that **`self_test(process = TRUE)` did not simulate
+process error** — on a DSEM or without one. It did not, for five separate reasons; all five are
+fixed, plus two features that came out of the same conversation.
 
-## Done & verified on #119
+## Done & verified on #111
 
-- **Suite green**: 0 failures, 3 skips (`NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`).
-- **Golden bit-identical** on all four reference models — but see the caveat below; it does not
-  cover the 5.15.0 changes.
-- **Pacific hake MSE run end to end on this branch AND on `main`**, and the hindcast is identical
-  across the whole release: 2133.821 / 2134.471 / 2137.443 / 2260.706, vulnerability ATF→hake
-  0.8172141 and SBF→hake 0.7685885. `run_mse()` completed both sims; `mse_summary()` returned all
-  four blocks. **The `-1.612` on the estimated-suitability stage is not a regression** — it is
-  against a 5.6.1 inline comment in `../Rceattle-models/Pacific hake/04-mse.R`, and `main` returns
-  the same 2260.706. That comment is stale; the folder `README.md` only pins the first three.
-- **Ecosystem sweep clean.** No exported symbol removed or added between `main` and `dev`;
-  `NAMESPACE` gains only three `Rceattle_fit_control` replacement methods and `simulate.Rceattle`.
-  Every deprecated spelling still live downstream resolves through a shim: `right_adj` ×154,
-  `est_M1` ×40, `srr_pred_fun` ×24, `qFun` ×7, `single.plots` ×7, `rearrange_dat` ×6.
-- `urlchecker::url_check()` clean (20 URLs); `_pkgdown.yml` covers every export.
+Full suite **196 files, 0 failures, 4 skips** (all pre-existing: three `Skipping` guards and
+`test-dsem-recruitment.R:23`, whose reference objectives predate v5.0). Verified after the `dev`
+merge, on the pushed tree.
 
-## The 5.15.0 work, and what actually covers it
+- **Golden reference green** — the four fits reproduce their pinned objectives. Every new draw is
+  gated on `dsem_on == 1`, so non-DSEM numerics are untouched by design and by measurement.
+- **`tools/verify/verify-dsem-equivalence.R` PASSES — for the first time ever on this branch.**
+  See "Known flags"; it was dead.
+- **End to end on a `family = "normal"` DSEM**: fit, redraw, write back, rebuild, refit, both
+  replicates converged.
+- Golden, full suite and the equivalence harness were all re-run **after** the merge, not only
+  before it.
 
-`MSSB0` is the multispecies unfished SSB. The template discards its own equilibrium `SB0` under
-`msmMode > 0` and reads this `DATA_VECTOR` instead, so `ssb_depletion` is `ssb / MSSB0`. No
-workbook can supply it: `clean_data()` seeds `.RCE_MSSB0_PLACEHOLDER` (999 mt) and `fit_mod()`
-section 10.2 derives the real value by projecting under no fishing.
+## What the five defects were
 
-- **It was written only into `data_list_reorganized`**, so the returned `data_list` kept the 999
-  and every refit off a fitted object re-entered the template with it — `.refit_like()`,
-  `remove_F()`, every `run_mse()` projection. `SB0` is also the HCR threshold and the `posfun`
-  floor on `ssb_depletion - Plimit`, so a multispecies refit compared SSB against 999 mt. Fixed.
-- **`mse_summary()` divided by the placeholder regardless.** With `HCR = "NoFishing"` no unfished
-  reference is ever derived (section 10 is gated on `HCR != "NoFishing"`), and the hake model
-  reported a terminal depletion of 2.68e3 where the dynamic reference gave 0.96. `NA` now.
-- **`DynamicHCR` was unusable under multispecies**: the no-HCR arm of the depletion block ran
-  unconditionally and overwrote `ssb/DynamicSB0`, pinning terminal depletion at exactly 1.
-  Gated on `DynamicHCR == 0` now. **That arm is correct as written** — with `HCR = 0` the
-  projection is unfished, so terminal-year SSB *is* multispecies SB0, given enough projection
-  years to equilibrate.
+Worth reading before touching `sim_mod()` or `dsem.hpp`; the detail and the measured numbers are
+in `inst/dev/TRAPS.md` under "The SIMULATE contract".
 
-**`/golden-check` is silent on all of it.** The golden recipe passes no HCR, so `HCR = 0`: the
-reference-point penalties never enter the objective and `SB0` is overwritten by `MSSB0` anyway.
-The net is `test-dynamics-unfished-reference.R` (9 assertions, mutation-tested — removing the
-persistence line leaves `MSSB0` at 999 where the fit derived 27796.7 and 189.7 mt), a before/after
-probe against the pre-change build on BS2017MS, and the hake MSE.
+1. **`calculate_dsem()` had its own `do_simulate` branch that discarded the R draw.** It assigns
+   the whole latent field (`x_tj = draw_tj`), and it ran *after* `sim_mod()` substituted its
+   conditional draw — adding 100 to every latent state changed nothing. It consulted neither the
+   map nor `dsem_cond_k`, so it also redrew the covariate columns; under `family = "fixed"` those
+   columns **are** the `env_data` series, so each replicate was generated under an environment the
+   refit never saw (a scaled covariate with sd 1 moved by up to 2.96). The draw is now taken only
+   in R and `dsem_do_sim` is pinned to 0.
+2. **The mask stayed zero, so no truth came back.** `rec_dev_drawn_sim` is written inside the
+   template's IID block, which is gated off under a DSEM, so `attr(x, "process_sim")` was `NULL`
+   on exactly the models whose process *had* been redrawn — indistinguishable from nothing
+   happening, and enough to stop `compare_sim()` warning it was measuring bias against the wrong
+   baseline. The R draw now carries its own mask and hands back `dsem_x_tj` as well as `rec_dev`.
+3. **`init_dev` was gated on `dsem_on == 0`**, so a replicate's initial age structure kept its
+   fitted values while the hindcast was re-realized — two histories in one data set.
+4. **The AMAK/Ianelli gate did not reach the SEM draw.** `srr_fun = 0` with `srr_pred_fun > 0`
+   scores the deviations twice; the template has always refused the standard draw for that, the
+   SEM draw did not.
+5. **`self_test()` swallowed every `sim_mod()` warning.** Replicates run through `parLapply` and a
+   worker's warnings never reach the caller, so at the default `cores` a `process` request that
+   redrew nothing was completely silent. The unique set is now re-emitted once, and asking for
+   process error and getting none back warns in its own right.
+
+## The two features from the same conversation
+
+- **A DSEM covariate with a measurement family is simulated, state and observation.**
+  `family = "fixed"` is data and is untouched; any other family makes the covariate a latent state
+  observed with error, so the state is drawn with the field and the observation is drawn from its
+  own density (all seven families) and written back into `env_data`. Checked as a moment: over 200
+  draws, `sd(y_sim - mu)` was 0.9995 against a fitted measurement sd of 1.
+- **`build_bounds(dsem = )` bounds the SEM's standard deviations at 0.** A lag-0 two-headed self
+  path is a Cholesky diagonal whose sign is unidentified, so the surface is exactly symmetric
+  about 0 — harmless at the MLE, fatal for MCMC. Only diagonals that stand alone in their row
+  qualify; a cross-covariance or a lagged `<->` keeps unbounded support and `fit_mod()` names those
+  variables. A fit at the negative root is flipped rather than rejected (10401.62 either way).
+  `vignette("dsem")` shows the `tmbstan` call.
 
 ## For Grant's review
 
-1. **`SB0`/`SBF` are still carried on `M_at_age`** under predation, whose `M2` comes from the
-   *fished* predator field — an unfished reference built on a fished mortality. Correcting it needs
-   an equilibrium `M2` that `calculate_msvpa_predation()` does not compute: it carries three
-   variants (fished, dB0, dBF), and an equilibrium pair means 6 new arrays and 6 new solver
-   parameters inside the `iter` fixed-point loop. Measured on BS2017MS at `estimateMode = 4`:
-   switching `NByageF` to `M_at_age_dBF` alone moved `SBF` by 5.27; `NByage0` to `M_at_age_dB0`
-   moved summed `NByage0` by 16808.7. Marked `TODO(review)` at the site, deferred as too invasive
-   for a release PR. **Settle the definition first**: `NByage0` is not a strict equilibrium — mean
-   recruitment and terminal-year weights, but year-specific M1 and R0 — so "equilibrium M2" here
-   means dB0 without recruitment deviations.
-2. `DynamicSB0`/`DynamicSBF` now decay to spawning on the M they were propagated on. Only bites
-   when `spawn_month != 0` **and** `msmMode > 0`; no bundled dataset carries both, so nothing
-   measurable moved. Worth confirming against a real assessment that has a spawning month.
-3. **PR #119 grew past its original scope.** It began as a release of already-reviewed commits and
-   now also carries a template change and a behaviour change to multispecies refits. Those are
-   verified, but they were not part of what #109–#118 were reviewed as.
+- **`NEWS.md` 5.21.0 folds two release blocks into one.** The branch had filed its DSEM work as
+  5.19.0 while separate from `dev`, and `dev` released a different 5.19.0. Both existed after the
+  merge. `dev`'s keeps its number; the branch's is merged into 5.21.0 under the four normal
+  headings (39 bullets in, 39 out). Read it once as a single release — the wording of the two
+  halves has not been harmonized.
+- **The PR body is out of date in the worst direction.** It still says `sim_mod(process = TRUE)`
+  refuses on a DSEM and that a `self_test()` does not re-realize the process. Both are now the
+  opposite, and that is the headline of the change.
 
 ## Known flags
 
-- **A model carrying GOA numbers forward needs a refit.** Result-changing changes on this line not
-  labelled breaking: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%),
-  parameter bounds previously applied to the wrong parameters, `remove_F()` zeroing fitted hindcast
-  F when `suit_endyr < endyr`, composition weights warm-starting from `inits`, failed `run_mse()`
-  simulations returning only a marker, the `mse_summary()` reshape, the recruitment fixes, and
-  `sim_mod()` drawing the index under the fleet's own `Index_distribution`.
-- **5.10.0 moved three predation figures' numbers** — `plot_m2_at_age_prop()` (a share, not a
-  contribution), `plot_ration()` (× average numbers-at-age) and `plot_b_eaten()` (million mt).
-  `plot_selectivity()` also renames `p$data$Age` to `Bin`.
-- **MSE projection statistics are not comparable across 5.13.0.** `sim_mod()` draws the index
-  under the fleet's own `Index_distribution` now, which shifts the RNG stream. At `nsim = 2` the
-  hake summary swung `catch_iav` 0.25 vs 0.74 between branches on identical OM and EM fits.
-- The golden reference on `dev` is `ss = 10241.0304272585` (`ms = 10267.2478324443`,
-  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), pinned in
-  `test-golden-regression.R`.
+- **A `tools/verify/` harness runs in NO CI job, so a broken one is invisible.**
+  `verify-dsem-equivalence.R` — the only numerical check on the vendored `dsem.hpp` — could not
+  run for the whole time it sat on this branch: `cond_k` was added to `calculate_dsem()` and to
+  `dsem_standalone.cpp`, but the harness's `dsem_data()` was never taught to supply it, so every
+  invocation died in `getParameterOrder()` before the first comparison. **Adding an argument to
+  `calculate_dsem()` means updating three places, not two** — the header, `ceattle.cpp`, and
+  `tools/verify/dsem_standalone.cpp` *plus* the R harness feeding it. Now in `TRAPS.md`.
+- **A file split defeats git's rename detection and merges cleanly wrong.** `dev` moved
+  `self_test()` and `profile.Rceattle()` out of `R/9-retro_and_jitter.R` into new files. Those
+  arrived *already staged as adds*, never appeared as conflicts, and a `git commit` of the merge
+  took `dev`'s copies — dropping every change this branch had made to both functions, silently,
+  leaving a package that loads and functions that exist. Fixed in `6ff40df5` by taking the
+  branch's version of each and re-applying `dev`'s two small deltas on top. **After any merge that
+  moves a function between files, assert each one is defined exactly once and grep for your own
+  change inside the new file.**
+- `sim_mod(simulate = FALSE)` returns `env_data` as supplied, not as fitted values — the one data
+  type that does not return its hat. Deliberate and documented in `?sim_mod`.
+- An `env_data` column that is also a `linkage_spec` covariate is an errors-in-variables case
+  under a measurement family: the replicate is generated from the series as supplied while the
+  refit sees the redrawn one. Faithful to the real assessment, documented, not a defect.
 
 ## Blocked
 
@@ -98,15 +109,14 @@ Nothing.
 
 ## Resume here
 
-Merge #119 once CI is green, then tag and release. After that, `inst/dev/CLEANUP_BACKLOG.md` has
-64 items left (Tier 0 and Tier 2 are cleared); `inst/dev/BACKLOG-PLAN.md` sequences them by who is
-exposed. The equilibrium-`M2` item above is the largest and wants its own PR with the hake MSE as
-its check, since golden cannot see it.
+Update the PR body (see "For Grant's review"), read `NEWS.md` 5.21.0 once as a whole, then merge
+#111. `run_mse()` and two `process_residuals()` processes still refuse on a DSEM and are the
+remaining gap in that suite.
 
-Queued and not started: `inst/dev/CONTRIBUTOR-EXPERIENCE.md`. **Item 0 comes first and is a
-conversation, not code**: ask the sibling-repo authors where they actually stopped. A–E and H are
-doc and tooling; G is additive; F is the only item that can break a caller and needs
-`/golden-check` + `/ecosystem-sweep`.
+After #111: `inst/dev/CLEANUP_BACKLOG.md` has 64 items left (Tier 0 and Tier 2 cleared);
+`inst/dev/BACKLOG-PLAN.md` sequences them by who is exposed. Queued and not started:
+`inst/dev/CONTRIBUTOR-EXPERIENCE.md` — **item 0 comes first and is a conversation, not code**: ask
+the sibling-repo authors where they actually stopped.
 
 ## Older paused work
 
