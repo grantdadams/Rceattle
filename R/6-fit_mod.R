@@ -627,7 +627,7 @@ fit_mod <-
 
       # estimate_projection = TRUE says the SEM supplies projected recruitment,
       # so it overrides proj_mean_rec. The two are otherwise contradictory:
-      # under mean-recruitment projection the template sets R = avg_R past
+      # under mean-recruitment projection the model sets R = avg_R past
       # endyr and the estimated projection states reach only the dynamic B0/BF
       # reference series, so the SEM would be fitted over the projection and
       # then ignored there. Overriding before the DSEM is built keeps one
@@ -829,7 +829,7 @@ fit_mod <-
       for (nm in names(.dsem_map$mapList))   map$mapList[[nm]]   <- .dsem_map$mapList[[nm]]
       for (nm in names(.dsem_map$mapFactor)) map$mapFactor[[nm]] <- .dsem_map$mapFactor[[nm]]
 
-      # Under a DSEM the template OVERWRITES rec_dev from the latent states and
+      # Under a DSEM the model OVERWRITES rec_dev from the latent states and
       # R_sd from beta_z, so both blocks have exactly zero gradient. Left
       # estimated they would be free parameters that cannot move the objective:
       # flat directions, a singular Hessian, and no standard errors. Map them
@@ -911,7 +911,7 @@ fit_mod <-
 
     # Under a DSEM the recruitment deviations are DERIVED from the latent states,
     # so it is dsem_x_tj that gets integrated out, not rec_dev -- rec_dev is
-    # overwritten in the template and carries no density of its own. Appended,
+    # overwritten in the model and carries no density of its own. Appended,
     # never assigned over the top: doing the latter would silently drop
     # init_dev, index_q_dev, log_M1_dev and beta_linkage_re from the Laplace
     # approximation.

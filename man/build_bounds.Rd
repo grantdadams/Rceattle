@@ -24,7 +24,7 @@ Function to build parameter bounds based on Holsman et al 2015 and Kinzey and Pu
 \code{dsem_beta_z} holds every free SEM path in one vector. A lag-0 two-headed
 self path (\verb{x <-> x}) is a diagonal of the Cholesky factor of the exogenous
 covariance -- a standard deviation -- and its sign is not identified, since
-the likelihood sees only \eqn{\Gamma'\Gamma} and the template reads it as
+the likelihood sees only \eqn{\Gamma'\Gamma} and the model reads it as
 \code{sqrt(square(beta_z))}. Left unbounded the surface is exactly symmetric
 about 0: harmless for an MLE, fatal for MCMC, where the posterior is bimodal
 by construction and no chain diagnostic means anything. Bounding the

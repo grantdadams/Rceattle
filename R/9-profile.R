@@ -13,7 +13,7 @@
 #' @param param Name of the parameter to profile. Two ways to specify it:
 #'   \describe{
 #'     \item{Raw parameter slot}{any name in
-#'       \code{Rceattle$estimated_params}; tested for \code{"R_log_sd"},
+#'       \code{fitted$estimated_params}; tested for \code{"R_log_sd"},
 #'       \code{"rec_pars"}, and \code{"log_M1"}. \code{slots} must index
 #'       into the full array and \code{transform} controls the scale.}
 #'     \item{Natural-scale alias}{convenience shortcut for the three
@@ -139,6 +139,11 @@ profile.Rceattle <- function(fitted = NULL,
   if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  # No blanket DSEM refusal: a DSEM only blocks the recruitment-SD and
+  # recruitment-deviation slots, which are mapped out under one. That check sits
+  # below, after the natural-scale aliases have resolved, so it catches both
+  # `param = "sigmaR"` and a direct `param = "R_log_sd"`.
+
   # Grid fits inherit the input model's sdreport setting unless overridden;
   # the profile reads only the objective, not sdrep.
   if (is.null(getsd)) getsd <- !is.null(fitted$sdrep)
@@ -179,8 +184,63 @@ profile.Rceattle <- function(fitted = NULL,
     param        <- a$param   # resolve to real parameter slot
   }
 
+  # Under a DSEM the recruitment SD is the SEM's two-headed self-loop, not
+  # R_log_sd -- which the model overwrites and fit_mod() maps out. Profiling
+  # R_log_sd would vary a parameter with exactly zero gradient and return a flat
+  # curve that reads as "the data are uninformative". Send `sigmaR` / `R_sd` to
+  # the parameter that actually carries it, so the alias means the same thing on
+  # both parameterizations and a user does not have to know which they are on.
+  #
+  # beta_z is on the NATURAL scale (R_sd is its absolute value, the sign of a
+  # Cholesky factor not being identified), so the alias's implied log transform
+  # does not apply here. `slots` still indexes by species; the species -> beta_z
+  # translation happens here.
+  if (.has_dsem(fitted) && identical(param, "R_log_sd")) {
+    idx <- fitted$dsem$tmb_inputs$data$rec_sd_idx
+    if (is.null(idx)) {
+      stop("This fit carries a DSEM specification but not the built objects, ",
+           "so its recruitment SD cannot be located. Refit before profiling.",
+           call. = FALSE)
+    }
+    # `slots` is defaulted to species 1 further down, AFTER this block, so apply
+    # the same default here or a call that omits it resolves to no species at
+    # all and redirects to dsem_beta_z[].
+    if (is.null(slots) || !length(slots)) slots <- list(1L)
+    sp <- vapply(slots, function(s) as.integer(s)[1], integer(1))
+    if (any(is.na(sp) | sp < 1L | sp > length(idx))) {
+      stop("`slots` for the recruitment SD must be species indices in 1:",
+           length(idx), ".", call. = FALSE)
+    }
+    fixed_sp <- sp[idx[sp] < 1L]
+    if (length(fixed_sp)) {
+      stop("Species ", paste(fixed_sp, collapse = ", "), " fix the recruitment ",
+           "SD in the sem (no estimated `<->` self-loop), so there is nothing ",
+           "to profile. Give that species a start value, e.g. ",
+           "`recdevs", fixed_sp[1], " <-> recdevs", fixed_sp[1],
+           ", 0, sigmaR", fixed_sp[1], ", 1`.", call. = FALSE)
+    }
+    slots     <- lapply(idx[sp], function(k) as.integer(k))
+    param     <- "dsem_beta_z"
+    transform <- "identity"
+    message("Profiling the recruitment SD as dsem_beta_z[",
+            paste(idx[sp], collapse = ", "), "] -- the sem's variance path, on ",
+            "the natural scale. R_sd is its absolute value.")
+  }
+
   if (!param %in% names(fitted$estimated_params)) {
-    stop("`param` '", param, "' not found in Rceattle$estimated_params.")
+    stop("`param` '", param, "' not found in fitted$estimated_params.")
+  }
+
+  # rec_dev has no such home: under a DSEM it is DERIVED from the latent states
+  # on every evaluation, so it carries no gradient at all and there is no single
+  # parameter that stands for it.
+  if (.has_dsem(fitted) && identical(param, "rec_dev")) {
+    stop("profile() cannot profile 'rec_dev' on a DSEM fit: the deviations are ",
+         "derived from the latent states on every evaluation, so the block is ",
+         "mapped out and the profile would be flat rather than informative. ",
+         "Profile the SEM path that drives them, or use ",
+         "process_residuals(process = \"recruitment\") to check the process ",
+         "itself.", call. = FALSE)
   }
 
   par_array <- fitted$estimated_params[[param]]
@@ -364,6 +424,8 @@ profile.Rceattle <- function(fitted = NULL,
     slots         = slots
   ), class = "Rceattle_profile")
 }
+
+
 
 
 #' Print method for a likelihood profile

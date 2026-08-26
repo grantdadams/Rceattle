@@ -104,6 +104,13 @@ A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 By default only the converged simulations, renumbered contiguously; a
 message reports how many were dropped.
 
+With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
+simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
+logical vector of the convergence verdicts in \code{attr(, "converged")}.
+Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
+refit errored outright is returned as the condition object rather than a
+model, so it cannot abort the run.
+
 The list carries class \code{"Rceattle_selftest"} and the number of
 simulations attempted in \code{attr(, "nsim")}, so printing it reports the
 convergence rate; see \code{\link{print.Rceattle_selftest}}. It is
@@ -111,13 +118,6 @@ otherwise the list it always was -- \code{sims[["Sim_1"]]},
 \code{length(sims)}, \code{lapply()} and
 \code{plot_biomass(c(sims, list(fit)))} are all unchanged, and \code{c()}
 and \code{[} return a plain list of fits.
-
-With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
-simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
-logical vector of the convergence verdicts in \code{attr(, "converged")}.
-Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
-refit errored outright is returned as the condition object rather than a
-model, so it cannot abort the run.
 
 When \code{process} redrew something, \code{attr(, "process_sim")} holds the
 deviations that generated each replicate's data -- a list keyed by the same
@@ -132,7 +132,7 @@ Compare estimates against these, not against the operating model: its
 fitted deviations are no longer what generated the data.
 }
 \description{
-Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
+Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters.
 }
 \section{Interpreting the spread}{
 
