@@ -274,6 +274,16 @@ together with the simulation and sampling fixes below.
   reproduces the same optimum. `dsem` is optional, so an existing
   `build_bounds()` call is unchanged.
 
+  **`build_DSEM(bound_sd = )` turns it off.** `TRUE` by default, and a DSEM
+  built before the argument existed reads as `TRUE`, so no fit changes
+  parameterization silently. `FALSE` is for the two cases that want the
+  unbounded surface: reproducing a fit made before the bound existed, parameter
+  for parameter, and demonstrating that the two optima really are mirrored.
+  It also switches off the sign flip, since rewriting a starting value the
+  caller chose would defeat exactly those cases. The setting travels on
+  `data_list$dsem_settings`, so `.refit_like()` and every diagnostic that
+  refits inherit it.
+
 * **`dsem_z_tj` is REPORTed**, so the latent field the model actually used is
   readable from R. `rec_dev` is derived from it, so it is what says whether a
   substituted draw reached the dynamics.

@@ -152,3 +152,100 @@ testthat::test_that("a build_DSEM() spec passed to build_bounds() says it is the
     "BUILT DSEM")
   testthat::expect_true(all(is.infinite(b$lower$dsem_beta_z)))
 })
+
+# ---- the toggle -------------------------------------------------------------
+#
+# bound_sd exists for the two cases that want the unbounded parameterization:
+# reproducing a fit made before the bound existed, parameter for parameter, and
+# showing the two optima really are mirrored. Both need the sign flip off as
+# well, or the start value is rewritten out from under them.
+
+testthat::test_that("bound_sd defaults on, and is read off spec or built object", {
+  testthat::expect_true(Rceattle::build_DSEM()$bound_sd)
+  testthat::expect_false(Rceattle::build_DSEM(bound_sd = FALSE)$bound_sd)
+  testthat::expect_error(Rceattle::build_DSEM(bound_sd = NA), "TRUE or FALSE")
+  testthat::expect_error(Rceattle::build_DSEM(bound_sd = "yes"), "TRUE or FALSE")
+
+  # A specification IS the settings list; a built DSEM carries it under
+  # $dsem_settings. Both have to resolve.
+  testthat::expect_true(Rceattle:::.dsem_bound_sd(Rceattle::build_DSEM()))
+  testthat::expect_false(
+    Rceattle:::.dsem_bound_sd(Rceattle::build_DSEM(bound_sd = FALSE)))
+  testthat::expect_false(Rceattle:::.dsem_bound_sd(
+    list(dsem_settings = Rceattle::build_DSEM(bound_sd = FALSE))))
+
+  # A fit made before the argument existed carries no field at all. It has to
+  # read as TRUE, or an old model would silently change parameterization.
+  testthat::expect_true(Rceattle:::.dsem_bound_sd(list(dsem_settings = list())))
+  testthat::expect_true(Rceattle:::.dsem_bound_sd(list()))
+})
+
+testthat::test_that("bound_sd = FALSE leaves the SDs unbounded", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+  mk <- function(spec) suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0, dsem = spec, fit_control = fc)))
+
+  on  <- mk(Rceattle::build_DSEM())
+  off <- mk(Rceattle::build_DSEM(bound_sd = FALSE))
+  idx <- Rceattle:::.dsem_sd_indices(on$dsem)$sd
+  testthat::expect_gt(length(idx), 0L)
+
+  b_on <- Rceattle::build_bounds(param_list = on$estimated_params,
+                                 data_list = on$data_list, dsem = on$dsem)
+  b_off <- Rceattle::build_bounds(param_list = off$estimated_params,
+                                  data_list = off$data_list, dsem = off$dsem)
+  testthat::expect_true(all(b_on$lower$dsem_beta_z[idx] == 0))
+  testthat::expect_true(all(is.infinite(b_off$lower$dsem_beta_z)))
+
+  # The setting has to survive into the fit, since .refit_like() forwards
+  # data_list$dsem_settings and every diagnostic refits through it.
+  testthat::expect_false(off$data_list$dsem_settings$bound_sd)
+  testthat::expect_true(on$data_list$dsem_settings$bound_sd)
+})
+
+testthat::test_that("the sign flip follows the bound, not the DSEM", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  # The flip exists to keep a warm start inside its own bound. With no bound
+  # there is nothing to violate, so a start the caller chose must be left alone
+  # -- otherwise bound_sd = FALSE cannot do the one job it has.
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fc <- Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)
+
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = fc)))
+  neg <- fit$estimated_params
+  neg$dsem_beta_z <- -abs(neg$dsem_beta_z)
+
+  # bound on -> flipped to the positive root
+  on <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = neg, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = fc)))
+  idx <- Rceattle:::.dsem_sd_indices(on$dsem)$sd
+  testthat::expect_true(all(as.numeric(on$estimated_params$dsem_beta_z)[idx] >= 0))
+
+  # bound off -> the negative start is kept
+  off <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = neg, file = NULL, estimateMode = 3,
+    random_rec = TRUE, msmMode = 0,
+    dsem = Rceattle::build_DSEM(bound_sd = FALSE), fit_control = fc)))
+  testthat::expect_true(all(as.numeric(off$estimated_params$dsem_beta_z)[idx] < 0))
+
+  # ...and the two parameterizations are the same model: mirrored roots, one
+  # objective. That is the whole reason the bound discards nothing.
+  testthat::expect_equal(on$obj$fn(on$obj$par), off$obj$fn(off$obj$par),
+                         tolerance = 1e-8)
+})

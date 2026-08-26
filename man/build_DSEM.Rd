@@ -9,7 +9,8 @@ build_DSEM(
   family = "fixed",
   sigmaR_prior_sd = NA,
   estimate_projection = FALSE,
-  constant_variance = c("conditional", "marginal", "diagonal")
+  constant_variance = c("conditional", "marginal", "diagonal"),
+  bound_sd = TRUE
 )
 }
 \arguments{
@@ -79,6 +80,22 @@ for what \code{sigmaR_prior_sd} centres on: under \code{"conditional"} the
 prior lands on the innovation SD, while \code{data_list$sigma_rec} is an
 assessment's marginal recruitment SD. Those coincide for an IID sem, and
 differ by \eqn{1/(1 - \rho^2)} once a self-path is added.}
+
+\item{bound_sd}{Whether to give the sem's standard-deviation paths a lower
+bound of 0. Default \code{TRUE}. A lag-0 two-headed self path
+(\code{x <-> x}) is a diagonal of the Cholesky factor of the exogenous
+covariance; the likelihood sees only \eqn{\Gamma'\Gamma}, so its sign is
+not identified and the surface is exactly symmetric about 0. That is a
+harmless pair of mirrored optima for an MLE and fatal for MCMC, where the
+posterior is bimodal by construction. Bounding the diagonal below at 0 is
+the standard identifying restriction for a Cholesky factor and rules out
+nothing the likelihood could distinguish, so leave it on unless you
+specifically want the unbounded parameterization -- reproducing a fit made
+before the bound existed, parameter for parameter, or demonstrating the
+symmetry. Only paths that qualify are bounded; \code{\link{build_bounds}}
+says which and why, and \code{fit_mod()} names any variable it had to
+skip. With \code{FALSE}, a starting value at the negative root is also left
+where it is rather than flipped.}
 }
 \description{
 The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.

@@ -12,7 +12,8 @@ build_bounds(param_list = NULL, data_list, dsem = NULL)
 \item{data_list}{a Rceattle data object}
 
 \item{dsem}{Optional built DSEM (as carried on a fit in \verb{$dsem}). Supplied,
-the SEM's standard-deviation paths get a lower bound of 0; see details.}
+the SEM's standard-deviation paths get a lower bound of 0 unless the DSEM
+was built with \code{build_DSEM(bound_sd = FALSE)}; see details.}
 }
 \value{
 List of upper and lower bounds
@@ -47,4 +48,10 @@ that is true from either side -- the mirrored optimum was never an escape
 from it. Regularize it where the model already provides for that:
 \code{build_DSEM(sigmaR_prior_sd = )} puts a lognormal prior on a recruitment SD,
 which is what keeps it off 0 when covariates over-explain the deviations.
+
+\code{build_DSEM(bound_sd = FALSE)} turns the whole thing off, for the two cases
+that want the unbounded parameterization: reproducing a fit made before the
+bound existed, parameter for parameter, and demonstrating that the two optima
+really are mirrored. \code{fit_mod()} then also leaves a starting value at the
+negative root where it is, rather than flipping it.
 }

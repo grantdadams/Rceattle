@@ -5,7 +5,8 @@
 #' @param param_list Parameter list object built from \code{\link{build_params}}
 #' @param data_list a Rceattle data object
 #' @param dsem Optional built DSEM (as carried on a fit in `$dsem`). Supplied,
-#'   the SEM's standard-deviation paths get a lower bound of 0; see details.
+#'   the SEM's standard-deviation paths get a lower bound of 0 unless the DSEM
+#'   was built with `build_DSEM(bound_sd = FALSE)`; see details.
 #'
 #' @details
 #' `dsem_beta_z` holds every free SEM path in one vector. A lag-0 two-headed
@@ -35,6 +36,12 @@
 #' `build_DSEM(sigmaR_prior_sd = )` puts a lognormal prior on a recruitment SD,
 #' which is what keeps it off 0 when covariates over-explain the deviations.
 #'
+#' `build_DSEM(bound_sd = FALSE)` turns the whole thing off, for the two cases
+#' that want the unbounded parameterization: reproducing a fit made before the
+#' bound existed, parameter for parameter, and demonstrating that the two optima
+#' really are mirrored. `fit_mod()` then also leaves a starting value at the
+#' negative root where it is, rather than flipping it.
+#'
 #' @return List of upper and lower bounds
 #' @export
 #'
@@ -52,7 +59,7 @@ build_bounds <- function(param_list = NULL, data_list, dsem = NULL) {
   # DSEM standard deviations: sign not identified, so bound them at 0. See
   # @details and .dsem_sd_indices().
   if (!is.null(dsem) && !is.null(param_list$dsem_beta_z) &&
-      length(param_list$dsem_beta_z)) {
+      length(param_list$dsem_beta_z) && .dsem_bound_sd(dsem)) {
     sd_idx <- .dsem_sd_indices(dsem)
     if (is.null(sd_idx)) {
       # A build_DSEM() SPECIFICATION has no sem_full -- only the built object a

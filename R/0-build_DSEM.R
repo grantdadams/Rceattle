@@ -63,6 +63,21 @@
 #'   prior lands on the innovation SD, while \code{data_list$sigma_rec} is an
 #'   assessment's marginal recruitment SD. Those coincide for an IID sem, and
 #'   differ by \eqn{1/(1 - \rho^2)} once a self-path is added.
+#' @param bound_sd Whether to give the sem's standard-deviation paths a lower
+#'   bound of 0. Default \code{TRUE}. A lag-0 two-headed self path
+#'   (\code{x <-> x}) is a diagonal of the Cholesky factor of the exogenous
+#'   covariance; the likelihood sees only \eqn{\Gamma'\Gamma}, so its sign is
+#'   not identified and the surface is exactly symmetric about 0. That is a
+#'   harmless pair of mirrored optima for an MLE and fatal for MCMC, where the
+#'   posterior is bimodal by construction. Bounding the diagonal below at 0 is
+#'   the standard identifying restriction for a Cholesky factor and rules out
+#'   nothing the likelihood could distinguish, so leave it on unless you
+#'   specifically want the unbounded parameterization -- reproducing a fit made
+#'   before the bound existed, parameter for parameter, or demonstrating the
+#'   symmetry. Only paths that qualify are bounded; \code{\link{build_bounds}}
+#'   says which and why, and \code{fit_mod()} names any variable it had to
+#'   skip. With \code{FALSE}, a starting value at the negative root is also left
+#'   where it is rather than flipped.
 #'
 #' @description
 #' The code links dynamic structural equation models to recruitment within Rceattle. The internals of \code{dsem} were copy and pasted into Rceattle. See \code{??dsem} for more description.
@@ -73,12 +88,17 @@ build_DSEM <- function(sem = NULL,
                        family = "fixed",
                        sigmaR_prior_sd = NA,
                        estimate_projection = FALSE,
-                       constant_variance = c("conditional", "marginal", "diagonal")
+                       constant_variance = c("conditional", "marginal", "diagonal"),
+                       bound_sd = TRUE
 ){
   constant_variance <- match.arg(constant_variance)
+  if (!is.logical(bound_sd) || length(bound_sd) != 1L || is.na(bound_sd)) {
+    stop("`bound_sd` must be TRUE or FALSE.", call. = FALSE)
+  }
   return(list(sem = sem, family = family, sigmaR_prior_sd = sigmaR_prior_sd,
               estimate_projection = estimate_projection,
-              constant_variance = constant_variance))
+              constant_variance = constant_variance,
+              bound_sd = bound_sd))
 }
 
 
@@ -1041,6 +1061,27 @@ check_dsem_spec <- function(data_list, dsem) {
     out[P] <- as.numeric(cond_mu)
   }
   out
+}
+
+
+#' Does this DSEM want its standard-deviation paths bounded at 0?
+#'
+#' Reads `build_DSEM(bound_sd = )` off whichever object the caller has -- a
+#' built DSEM carries the settings it was built from in `$dsem_settings`, and a
+#' bare specification is the settings list itself.
+#'
+#' Defaults to TRUE when the field is absent, which is what a model fitted
+#' before the argument existed carries. That matches the argument's own default,
+#' so an old fit and a new one are bounded the same way.
+#'
+#' @param dsem A built DSEM or a `build_DSEM()` specification.
+#' @return `TRUE` or `FALSE`.
+#' @noRd
+.dsem_bound_sd <- function(dsem) {
+  v <- dsem$dsem_settings$bound_sd
+  if (is.null(v)) v <- dsem$bound_sd
+  if (is.null(v)) return(TRUE)
+  isTRUE(v)
 }
 
 

@@ -854,12 +854,19 @@ fit_mod <-
     # 4: Get bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # A DSEM standard deviation is a Cholesky diagonal, so its sign is not
-    # identified and build_bounds() now bounds it at 0. A model carried forward
-    # from before that bound can sit at the negative root, which would put a
-    # warm start outside its own bound. Flipping it is exact where the bound
-    # applies -- the variable has no other two-headed path, so the likelihood
-    # sees only the square.
-    if (!is.null(mod_objects$dsem) && !is.null(start_par$dsem_beta_z)) {
+    # identified and build_bounds() bounds it at 0 unless the DSEM was built
+    # with bound_sd = FALSE. A model carried forward from before that bound can
+    # sit at the negative root, which would put a warm start outside its own
+    # bound -- and build_bounds() rejects that outright, so the flip has to
+    # happen BEFORE it rather than against the bounds it returns. Flipping is
+    # exact where the bound applies: the variable has no other two-headed path,
+    # so the likelihood sees only the square.
+    #
+    # Gated on bound_sd, so `FALSE` leaves a start the caller chose where it is.
+    # Rewriting it would defeat the one job that argument has -- reproducing an
+    # old fit parameter for parameter, or showing the two optima are mirrored.
+    if (!is.null(mod_objects$dsem) && !is.null(start_par$dsem_beta_z) &&
+        .dsem_bound_sd(mod_objects$dsem)) {
       .sdz <- .dsem_sd_indices(mod_objects$dsem)
       .k <- .sdz$sd[.sdz$sd <= length(start_par$dsem_beta_z)]
       # which(), not a bare logical: an NA start value would index with NA and
