@@ -5,13 +5,24 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #111 (`dsem-v5-integration` -> `dev`) is at 5.21.0 and synced with `dev`.** The branch was
-behind `dev` (which had moved to 5.20.0); `origin/dev` is merged in as `8747acb1`, and the branch
-tip `6ff40df5` is pushed.
+**PR #111 (`dsem-v5-integration` -> `dev`) is at 5.22.0 and synced with `dev`.** `dev` released
+5.20.0 and then 5.21.0 (component likelihood profiles) while this branch was open; both are
+merged in. `dev`'s 5.21.0 keeps that number and this branch moved to **5.22.0** -- the third
+version collision on this PR, after both lines independently used 5.19.0 and then 5.21.0. Check
+`dev`'s DESCRIPTION before bumping again.
 
 The last block of work answered a report that **`self_test(process = TRUE)` did not simulate
 process error** — on a DSEM or without one. It did not, for five separate reasons; all five are
 fixed, plus two features that came out of the same conversation.
+
+## What came in from `dev`
+
+5.21.0 on `dev` added `profile_components()` and `plot_profile()` (component likelihood
+profiles in the `r4ss::SSplotProfile()` layout), `profile()$alias`, and
+`test-schema-jnll-rows.R`, which parses every `jnll_comp(JNLL_*, col)` write in the template and
+asserts each row's declared axis matches the column it is indexed by. `R/9-profile.R` carries
+both that work and this branch's DSEM profiling; git merged it cleanly because the file existed
+on both sides. Verified after the merge, not assumed.
 
 ## Done & verified on #111
 
@@ -71,7 +82,7 @@ in `inst/dev/TRAPS.md` under "The SIMULATE contract".
 
 ## For Grant's review
 
-- **`NEWS.md` 5.21.0 folds two release blocks into one.** The branch had filed its DSEM work as
+- **`NEWS.md` 5.22.0 folds two release blocks into one.** The branch had filed its DSEM work as
   5.19.0 while separate from `dev`, and `dev` released a different 5.19.0. Both existed after the
   merge. `dev`'s keeps its number; the branch's is merged into 5.21.0 under the four normal
   headings (39 bullets in, 39 out). Read it once as a single release — the wording of the two
@@ -102,6 +113,35 @@ in `inst/dev/TRAPS.md` under "The SIMULATE contract".
 - An `env_data` column that is also a `linkage_spec` covariate is an errors-in-variables case
   under a measurement family: the replicate is generated from the series as supplied while the
   refit sees the redrawn one. Faithful to the real assessment, documented, not a defect.
+- **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()` pools
+  two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is now a third hand-synced partner to the
+  `JnllRow` enum and `R/6-rename_output.R`; all three must move together.
+- **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
+  two linkage rows, the ones carrying a `Comp_weights` multiplier. Everything else is
+  structurally zero there, not small, so `profile_components(weighted = FALSE)` returns a much
+  smaller set of series.
+- **The QAR1 block in `ceattle.cpp:4269` is dead code.** `data_check()` refuses
+  `Catchability = 6` (`R/1-data_check.R:92`) and `est_index_q` is only ever set from that column;
+  the live QAR1 form is a q linkage. Its AR1 density was scoring into the "Catchability prior"
+  row and now scores into "Catchability deviates" — a reporting fix that no fit can reach.
+  `R/6-process_residuals.R:204` still branches on `est_index_q == 6`, which is why the block was
+  fixed rather than removed. **Removing the dead QAR1 path — the C++ block and that R branch
+  together — is Grant's call and wants its own change.**
+- **A model carrying GOA numbers forward needs a refit.** Result-changing changes on this line not
+  labelled breaking: the mode-5 selectivity penalty fix (GOA Pacific cod SSB 2050 −14.1%),
+  parameter bounds previously applied to the wrong parameters, `remove_F()` zeroing fitted hindcast
+  F when `suit_endyr < endyr`, composition weights warm-starting from `inits`, failed `run_mse()`
+  simulations returning only a marker, the `mse_summary()` reshape, the recruitment fixes, and
+  `sim_mod()` drawing the index under the fleet's own `Index_distribution`.
+- **5.10.0 moved three predation figures' numbers** — `plot_m2_at_age_prop()` (a share, not a
+  contribution), `plot_ration()` (× average numbers-at-age) and `plot_b_eaten()` (million mt).
+  `plot_selectivity()` also renames `p$data$Age` to `Bin`.
+- **MSE projection statistics are not comparable across 5.13.0.** `sim_mod()` draws the index
+  under the fleet's own `Index_distribution` now, which shifts the RNG stream. At `nsim = 2` the
+  hake summary swung `catch_iav` 0.25 vs 0.74 between branches on identical OM and EM fits.
+- The golden reference on `dev` is `ss = 10241.0304272585` (`ms = 10267.2478324443`,
+  `goa_ss = 12868.0052289274`, `goa_ms = 12932.7931701136`), pinned in
+  `test-golden-regression.R`.
 
 ## Blocked
 
@@ -109,9 +149,18 @@ Nothing.
 
 ## Resume here
 
-Update the PR body (see "For Grant's review"), read `NEWS.md` 5.21.0 once as a whole, then merge
-#111. `run_mse()` and two `process_residuals()` processes still refuse on a DSEM and are the
-remaining gap in that suite.
+Update the PR body, read `NEWS.md` 5.22.0 once as a whole, then merge #111. `run_mse()` and two
+`process_residuals()` processes still refuse on a DSEM and are the remaining gap in that suite.
+
+Two loose ends inherited from `dev`'s 5.21.0 session, neither blocking:
+
+1. **`inst/dev/SIBLING-REPOS.md` has an uncommitted edit that predates that session** — the
+   `../GOA-multispecies-assessment` entry. Coherent and complete; left out of the 5.21.0 commit
+   as unrelated, not as wrong. Commit it whenever suits.
+2. **`../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` gained an M-at-age-6
+   component profile** (uncommitted, separate repo). `minage = 1`, `nages = 10`, so age 6 is bin
+   6; it fixes that cell alone, leaving ages 7–10 at base — narrower than goa_pk's own M profile,
+   which scales the whole vector. Not yet run.
 
 After #111: `inst/dev/CLEANUP_BACKLOG.md` has 64 items left (Tier 0 and Tier 2 cleared);
 `inst/dev/BACKLOG-PLAN.md` sequences them by who is exposed. Queued and not started:
