@@ -4267,12 +4267,20 @@ Type objective_function<Type>::operator() () {
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
+    // Unreachable from the supported API: data_check() refuses Catchability = 6
+    // ("AR1"), and est_index_q is read only from that column. The live QAR1 form
+    // is a q linkage, ar1(1 | Year) with `observe`, which scores under
+    // JNLL_LINKAGE_RE. Kept so an object built before the removal still runs.
     if(est_index_q(flt) == 6){
 
-      // AR1 process error
+      // AR1 process error on the catchability deviates. A deviate density, so
+      // it belongs in the deviate row -- reporting it under "Catchability
+      // prior" would name it as a prior on log q, which it is not. Accumulates
+      // rather than assigns: every other likelihood write here does, and an
+      // assignment would erase anything already scored into the cell.
       Type rho=rho_trans(index_q_rho(flt));
       vector<Type> index_q_dev_tmp = index_q_dev.row(flt);
-      jnll_comp(JNLL_Q_PRIOR, flt) = SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
+      jnll_comp(JNLL_Q_DEV, flt) += SCALE(AR1(rho), index_q_dev_sd(flt))(index_q_dev_tmp);
 
       // Observation error
       // - Fit to environmental index

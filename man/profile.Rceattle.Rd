@@ -95,6 +95,13 @@ stay aligned with \code{grid}.}
 converge.}
 \item{param}{the profiled parameter name (echoed).}
 \item{slots}{the slots list (echoed for downstream plotting).}
+\item{alias}{the name you asked for, when it was one of the
+natural-scale aliases. Profiling \code{"M1"} returns \code{param =
+      "log_M1"}, because the model estimates M on the log scale, while
+\code{grid} holds the M values you supplied. \code{alias} keeps
+\code{"M1"}, so a figure can label the axis in the units profiled
+rather than in log units. \code{NA} if you named the parameter slot
+directly.}
 }
 
 Carries class \code{"Rceattle_profile"}, so printing it reports whether the
