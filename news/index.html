@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,9 +51,26 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.20.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="5.21.0" id="rceattle-5210">Rceattle 5.21.0<a class="anchor" aria-label="anchor" href="#rceattle-5210"></a></h2>
+<div class="section level3">
+<h3 id="diagnostics-5-21-0">Diagnostics<a class="anchor" aria-label="anchor" href="#diagnostics-5-21-0"></a></h3>
+<ul><li>
+<p><strong><code><a href="../reference/profile_components.html">profile_components()</a></code> and <code><a href="../reference/plot_profile.html">plot_profile()</a></code>: read a profile for conflict, not just for precision.</strong> <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> returned the total negative log-likelihood, which answers how well the data determine a parameter but not whether the data sources agree about it. A smooth, well-behaved total can be two surveys pulling in opposite directions, and nothing in the total says so.</p>
+<p><code><a href="../reference/profile_components.html">profile_components()</a></code> pulls <code>quantities$jnll_comp</code> out of every grid fit and returns it as one long data frame — one row per grid point per component, each cell labelled with the fleet or species it belongs to. That labelling is the work: the columns of <code>jnll_comp</code> count fleets on the data, selectivity and catchability rows and species on the priors, penalties and predation rows, so a cell read off the wrong axis would attribute a survey’s likelihood to a species.</p>
+<p><code><a href="../reference/plot_profile.html">plot_profile()</a></code> draws it, following <code>r4ss::SSplotProfile()</code>: change in negative log-likelihood on the y axis, every series re-zeroed at its own minimum with a point marking it, the total overlaid in black, and components moving less than <code>minfraction</code> of the total dropped. The spread of the points along the x axis is the disagreement. <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a profile is the same thing. <code>relative = "minimum"</code> re-zeroes at the fitted optimum instead, and passing a list of profiles facets them side by side.</p>
+<p>Under <code>random_rec = TRUE</code> the total is the Laplace-approximated marginal likelihood while the components are the inner joint negative log-likelihood; they will not sum, and <code><a href="../reference/profile_components.html">profile_components()</a></code> says so rather than reconciling them.</p>
+</li>
+<li>
+<p><strong>The QAR1 process error is reported as a deviate, not as a prior.</strong> The AR1 density on <code>index_q_dev</code> (Rogers et al. 2024) was scored into the “Catchability prior” row of <code>jnll_comp</code>, where it read as a prior on log q. It now scores into “Catchability deviates”, and accumulates rather than assigns, so it cannot erase anything already in the cell. <strong>No fit moves</strong>: the objective is <code>jnll_comp.sum()</code>, so relocating a term between rows leaves it bit-identical, and the branch is in any case unreachable — <code><a href="../reference/data_check.html">data_check()</a></code> refuses <code>Catchability = 6</code> and the live QAR1 form is a q linkage, <code>ar1(1 | Year)</code> with <code>observe</code>, which scores under “Linkage random effects”. Fixed rather than left in place because a component profile reads these row labels to say which term is in conflict.</p>
+<p><code>tests/testthat/test-schema-jnll-rows.R</code> is new and pins the three-way registry the <code>jnll_comp</code> rows depend on — the <code>JnllRow</code> enum, the row labels in <code>R/6-rename_output.R</code>, and the column axis each row is indexed by. Nothing linked them at build time before, so a row added to one and not the others was silent.</p>
+</li>
+<li><p><strong><code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> reports the parameter in the units you profiled it in.</strong> <code>profile(fit, param = "M1", ...)</code> resolves <code>param</code> to <code>"log_M1"</code>, so <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> reported a minimum of, say, 0.28 next to the name <code>log_M1</code> when 0.28 was an M and not a log M. The alias is now kept in the returned object as <code>$alias</code>, and both <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and the figure’s axis use it. <code>$param</code> is unchanged — it is still the internal slot the fit mapped off.</p></li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="5.20.0" id="rceattle-5200">Rceattle 5.20.0<a class="anchor" aria-label="anchor" href="#rceattle-5200"></a></h2>
 <div class="section level3">

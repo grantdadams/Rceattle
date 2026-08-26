@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>CLAUDE.md — Rceattle</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.20.0/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
     </div>
 
 <div id="claudemd--rceattle" class="section level1">
@@ -134,7 +134,7 @@
 <strong><code>R/</code></strong> — numbered by pipeline order: <code>0-*</code> build/prep helpers, <code>1-*</code> data checks, <code>2..5-*</code> params/map/bounds/rearrange, <code>6-*</code> fit + rename output, <code>7-*</code> plotting, <code>8-*</code> sim, <code>9-*</code> retro/jitter, <code>10-*</code> MSE, <code>11-*</code> model averaging. <strong>The numeric prefixes are meaningful — don’t renumber or rename wholesale.</strong>
 </li>
 <li>
-<strong><code>src/TMB/</code></strong> — <code>ceattle.cpp</code> is the main model (numbered section index); process logic lives in headers (<code>recruitment.hpp</code>, <code>selectivity.hpp</code>, <code>predation.hpp</code>, <code>growth.hpp</code>, <code>linkage.hpp</code>, <code>spr.hpp</code>, <code>comp_osa.hpp</code>, <code>comp_sim.hpp</code>, <code>helper_functions.hpp</code>, <code>bioenergetics.hpp</code>, <code>diet_data.hpp</code>). <code>jnll_comp</code> rows are addressed by the <strong><code>JnllRow</code> enum</strong> — refer to a row by its constant, never a bare integer. Display names live separately in <code>R/6-rename_output.R</code> and are kept in sync by hand; adding or reordering a component means updating both.</li>
+<strong><code>src/TMB/</code></strong> — <code>ceattle.cpp</code> is the main model (numbered section index); process logic lives in headers (<code>recruitment.hpp</code>, <code>selectivity.hpp</code>, <code>predation.hpp</code>, <code>growth.hpp</code>, <code>linkage.hpp</code>, <code>spr.hpp</code>, <code>comp_osa.hpp</code>, <code>comp_sim.hpp</code>, <code>helper_functions.hpp</code>, <code>bioenergetics.hpp</code>, <code>diet_data.hpp</code>). <code>jnll_comp</code> rows are addressed by the <strong><code>JnllRow</code> enum</strong> — refer to a row by its constant, never a bare integer. The enum has <strong>two hand-synced partners</strong>: display names in <code>R/6-rename_output.R</code>, and <code>.JNLL_ROW_AXIS</code> in <code>R/9-profile.R</code>, which records whether a row’s columns count fleets or species. Adding or reordering a component means updating all three. <code>test-schema-jnll-rows.R</code> reads the template and asserts they agree.</li>
 <li>
 <strong><code>tests/testthat/</code></strong> — <strong>flat</strong>: every test is a top-level <code>test-&lt;area&gt;-&lt;topic&gt;.R</code>. Shared <code>helpers-*.R</code> / <code>fixtures/</code> sit alongside. Fast fixtures: <code>make_test_data()</code> (single-species) or <code>make_msm_test_data()</code> (multispecies, incl. diet) with <code>estimateMode = 3</code> build a non-optimized object. <code>tests/comparison/</code> holds WHAM cross-checks (not part of <code>test_check</code>).</li>
 <li>
@@ -209,6 +209,10 @@
 <p>One line each; the evidence and the measured numbers are in <code>inst/dev/TRAPS.md</code>.</p>
 <ul><li>
 <strong><code>Index_distribution</code> has a second hand-synced registry</strong> — a family added to <code>index_distribution_map</code> must also be classified in <code>.index_rows_natural_scale()</code> (<code>R/0-switches.R</code>), or it silently gets the log-scale residual formula.</li>
+<li>
+<strong><code>jnll_comp</code> columns count fleets on rows 1–8 and species on rows 9–20</strong>, so <code><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums()</a></code> pools across two different axes. <code>.JNLL_ROW_AXIS</code> (<code>R/9-profile.R</code>) is the registry.</li>
+<li>
+<strong><code>unweighted_jnll_comp</code> is written for 5 of its 21 rows</strong> — composition, CAAL, stomach and the two linkage rows. Everything else is structurally zero there, not small.</li>
 <li>
 <strong>A <code>data_list</code> element with no <code><a href="reference/write_data.html">write_data()</a></code>/<code><a href="reference/read_data.html">read_data()</a></code> support round-trips to nothing</strong> — this is how <code>index_cov</code> was lost.</li>
 <li>

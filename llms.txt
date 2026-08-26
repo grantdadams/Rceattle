@@ -376,6 +376,8 @@ simulation.
   : Jitter analysis
 - [`profile(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/profile.Rceattle.md)
   : Likelihood profile across one or more parameter cells
+- [`profile_components()`](https://grantdadams.github.io/Rceattle/reference/profile_components.md)
+  : Likelihood components along a profile
 - [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
   : Self-test simulation analysis
 - [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md)
@@ -457,6 +459,10 @@ Visualize survey indices, fits, and residuals.
   : Survey index residuals
 - [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
   : Plot composition fits and residuals
+- [`plot_profile()`](https://grantdadams.github.io/Rceattle/reference/plot_profile.md)
+  : Plot the likelihood components across a profile
+- [`plot(`*`<Rceattle_profile>`*`)`](https://grantdadams.github.io/Rceattle/reference/plot.Rceattle_profile.md)
+  : Plot method for a likelihood profile
 - [`plot(`*`<rceattle_osa>`*`)`](https://grantdadams.github.io/Rceattle/reference/plot.rceattle_osa.md)
   : Plot one-step-ahead (OSA) residual diagnostics
 - [`plot_data()`](https://grantdadams.github.io/Rceattle/reference/plot_data.md)

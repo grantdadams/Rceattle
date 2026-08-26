@@ -142,6 +142,15 @@ A list with elements:
 
   the slots list (echoed for downstream plotting).
 
+- alias:
+
+  the name you asked for, when it was one of the natural-scale aliases.
+  Profiling `"M1"` returns `param = "log_M1"`, because the model
+  estimates M on the log scale, while `grid` holds the M values you
+  supplied. `alias` keeps `"M1"`, so a figure can label the axis in the
+  units profiled rather than in log units. `NA` if you named the
+  parameter slot directly.
+
 Carries class `"Rceattle_profile"`, so printing it reports whether the
 grid brackets the minimum; see
 [`print.Rceattle_profile`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_profile.md).

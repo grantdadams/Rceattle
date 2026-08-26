@@ -675,9 +675,7 @@ prof_sigmaR <- profile(
   values   = list(seq(0.1, 1.5, by = 0.1))
 )
 
-plot(prof_sigmaR$grid$slot_1,
-     prof_sigmaR$nll - min(prof_sigmaR$nll, na.rm = TRUE),
-     type = "l", xlab = "sigmaR", ylab = "dNLL")
+plot(prof_sigmaR)   # components, with the total overlaid; see below
 
 # 1-D profile: SRR alpha for species 1
 # (alias fills in the rec_pars column; slot is just the species index)
@@ -701,11 +699,56 @@ prof_M_sex <- profile(
 [`profile()`](https://rdrr.io/r/stats/profile.html) returns
 `Rceattle_list` (one fit per grid row, `NULL` where the fit failed),
 `grid` (the user-scale value grid), `nll` (joint NLL aligned with
-`grid`, `NA` for non-converged fits), and echoes of `param` and `slots`.
+`grid`, `NA` for non-converged fits), `alias` (the natural-scale name
+you profiled under, if you used one), and echoes of `param` and `slots`.
 To cross-profile across multiple species, supply one slot per species
 (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile
 M1 across sex, supply one slot per sex as in the third example above.
 `cores` behaves the same way as in the other diagnostic functions.
+
+### Where the data disagree
+
+The total says how well the data determine the parameter, not whether
+the data sources agree about it — a smooth quadratic total can be two
+surveys pulling in opposite directions.
+[`plot_profile()`](https://grantdadams.github.io/Rceattle/reference/plot_profile.md)
+draws the components separately, in the layout `r4ss::SSplotProfile()`
+uses.
+
+``` r
+
+prof_M <- profile(
+  fitted = model_1,
+  param  = "M1",
+  slots  = list(c(1, 1, 1)),
+  values = list(seq(0.20, 0.45, by = 0.025))
+)
+
+plot_profile(prof_M, xlab = "M at age 1")
+```
+
+Read it by **where each curve bottoms out**, not by how deep it is:
+every series is re-zeroed at its own minimum and a point marks it, so
+the spread of those points along the x axis is the disagreement. The
+heavy black line is the total.
+
+[`profile_components()`](https://grantdadams.github.io/Rceattle/reference/profile_components.md)
+returns the same numbers, one row per grid point per component, each
+labelled with the fleet or species it belongs to.
+
+``` r
+
+comps <- profile_components(prof_M)
+head(comps)
+```
+
+Under `random_rec = TRUE` the total is the Laplace-approximated marginal
+likelihood while the components are the inner joint negative
+log-likelihood, so they will not sum; compare the shapes, not the sums.
+See
+[`?plot_profile`](https://grantdadams.github.io/Rceattle/reference/plot_profile.md)
+for `relative`, `minfraction`, model overlays, and what
+`weighted = FALSE` does and does not include.
 
 ## Comparing runs
 

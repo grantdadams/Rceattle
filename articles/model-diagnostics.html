@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.20.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,9 +78,9 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-08-25</h4>
+            <h4 data-toc-skip class="date">2026-08-26</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.20.0/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
     </div>
 
@@ -759,9 +759,7 @@ than one slot profiles over the full grid of combinations.</p>
 <span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">slot_1</span>,</span>
-<span>     <span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">nll</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">nll</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>     type <span class="op">=</span> <span class="st">"l"</span>, xlab <span class="op">=</span> <span class="st">"sigmaR"</span>, ylab <span class="op">=</span> <span class="st">"dNLL"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">prof_sigmaR</span><span class="op">)</span>   <span class="co"># components, with the total overlaid; see below</span></span>
 <span></span>
 <span><span class="co"># 1-D profile: SRR alpha for species 1</span></span>
 <span><span class="co"># (alias fills in the rec_pars column; slot is just the species index)</span></span>
@@ -783,20 +781,55 @@ than one slot profiles over the full grid of combinations.</p>
 <p><code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> returns <code>Rceattle_list</code> (one fit
 per grid row, <code>NULL</code> where the fit failed), <code>grid</code>
 (the user-scale value grid), <code>nll</code> (joint NLL aligned with
-<code>grid</code>, <code>NA</code> for non-converged fits), and echoes
-of <code>param</code> and <code>slots</code>. To cross-profile across
-multiple species, supply one slot per species
+<code>grid</code>, <code>NA</code> for non-converged fits),
+<code>alias</code> (the natural-scale name you profiled under, if you
+used one), and echoes of <code>param</code> and <code>slots</code>. To
+cross-profile across multiple species, supply one slot per species
 (e.g. <code>slots = list(1, 2, 3)</code> with
 <code>param = "sigmaR"</code>); to cross-profile M1 across sex, supply
 one slot per sex as in the third example above. <code>cores</code>
 behaves the same way as in the other diagnostic functions.</p>
+<div class="section level3">
+<h3 id="where-the-data-disagree">Where the data disagree<a class="anchor" aria-label="anchor" href="#where-the-data-disagree"></a>
+</h3>
+<p>The total says how well the data determine the parameter, not whether
+the data sources agree about it — a smooth quadratic total can be two
+surveys pulling in opposite directions. <code><a href="../reference/plot_profile.html">plot_profile()</a></code>
+draws the components separately, in the layout
+<code>r4ss::SSplotProfile()</code> uses.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prof_M</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile</a></span><span class="op">(</span></span>
+<span>  fitted <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span>  param  <span class="op">=</span> <span class="st">"M1"</span>,</span>
+<span>  slots  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.20</span>, <span class="fl">0.45</span>, by <span class="op">=</span> <span class="fl">0.025</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/plot_profile.html">plot_profile</a></span><span class="op">(</span><span class="va">prof_M</span>, xlab <span class="op">=</span> <span class="st">"M at age 1"</span><span class="op">)</span></span></code></pre></div>
+<p>Read it by <strong>where each curve bottoms out</strong>, not by how
+deep it is: every series is re-zeroed at its own minimum and a point
+marks it, so the spread of those points along the x axis is the
+disagreement. The heavy black line is the total.</p>
+<p><code><a href="../reference/profile_components.html">profile_components()</a></code> returns the same numbers, one row
+per grid point per component, each labelled with the fleet or species it
+belongs to.</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">comps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_components.html">profile_components</a></span><span class="op">(</span><span class="va">prof_M</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">comps</span><span class="op">)</span></span></code></pre></div>
+<p>Under <code>random_rec = TRUE</code> the total is the
+Laplace-approximated marginal likelihood while the components are the
+inner joint negative log-likelihood, so they will not sum; compare the
+shapes, not the sums. See <code><a href="../reference/plot_profile.html">?plot_profile</a></code> for
+<code>relative</code>, <code>minfraction</code>, model overlays, and
+what <code>weighted = FALSE</code> does and does not include.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="comparing-runs">Comparing runs<a class="anchor" aria-label="anchor" href="#comparing-runs"></a>
 </h2>
 <p>Overlaying sensitivity runs is itself a useful diagnostic — large
 divergences in biomass or mortality deserve scrutiny.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_list</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span><span class="op">$</span><span class="va">Year_2019</span><span class="op">)</span></span>
 <span><span class="va">mod_names</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">mod_list</span><span class="op">)</span></span>
 <span></span>
@@ -809,7 +842,7 @@ divergences in biomass or mortality deserve scrutiny.</p>
 </h2>
 <p>To average estimates across model variants, see
 <code><a href="../reference/model_average.html">?model_average</a></code>.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_avg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/model_average.html">model_average</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">mod_avg</span><span class="op">)</span></span></code></pre></div>
 </div>
