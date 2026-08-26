@@ -30,9 +30,15 @@ the likelihood sees only \eqn{\Gamma'\Gamma} and the model reads it as
 about 0: harmless for an MLE, fatal for MCMC, where the posterior is bimodal
 by construction and no chain diagnostic means anything. Bounding the
 diagonal below at 0 is the standard identifying restriction for a Cholesky
-factor and rules out nothing the likelihood could distinguish. Pass
-\verb{$lower} / \verb{$upper} on to \code{tmbstan::tmbstan()} to get the same constraint
-there.
+factor and rules out nothing the likelihood could distinguish.
+
+To carry the same constraint into a sampler, use the fit's
+\verb{$bounds$par_lower} / \verb{$bounds$par_upper}, which \code{fit_mod()} aligns to
+\code{obj$par} -- \code{tmbstan::tmbstan(lower =, upper =)} takes a vector of that
+length and expands it across the random effects itself. The \verb{$lower} /
+\verb{$upper} returned here are lists keyed by parameter block, one entry per
+block rather than one per estimated parameter, so they are not what a
+sampler wants.
 
 A variable that also carries a cross-covariance (\verb{A <-> B}) or a lagged
 two-headed path keeps unbounded support: its row of \eqn{\Gamma} has
