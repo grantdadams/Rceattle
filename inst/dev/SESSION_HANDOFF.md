@@ -137,8 +137,10 @@ Nothing.
 
 ## Resume here
 
-Merge the 5.21.0 PR once CI is green, then tag `v5.21.0` and draft a GitHub Release —
-`inst/RELEASE-CHECKLIST.md` §3. The `pkgdown` workflow rebuilds on the `release` event.
+Merge the 5.21.0 PR once CI is green, then tag `5.21.0` — bare, no `v` prefix — and **publish**
+a GitHub Release from it; `inst/RELEASE-CHECKLIST.md` §3. Drafting is not enough, the `pkgdown`
+workflow fires on `release: published`. Then dispatch `deep-checks` (§3b), which is the only job
+that runs the golden regression and the bounds-checked build.
 
 Two loose ends from this session, neither blocking:
 

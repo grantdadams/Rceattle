@@ -503,11 +503,10 @@ prof_M_sex <- profile(
 
 ### Where the data disagree
 
-The total is the least informative curve on a profile. It answers how well the
-data determine the parameter; it does not say whether the data sources agree
-about it, and a smooth quadratic total can be two surveys pulling in opposite
-directions. `plot_profile()` draws the likelihood components separately, in the
-layout `r4ss::SSplotProfile()` uses:
+The total says how well the data determine the parameter, not whether the data
+sources agree about it — a smooth quadratic total can be two surveys pulling in
+opposite directions. `plot_profile()` draws the components separately, in the
+layout `r4ss::SSplotProfile()` uses.
 
 ```{r}
 prof_M <- profile(
@@ -520,43 +519,23 @@ prof_M <- profile(
 plot_profile(prof_M, xlab = "M at age 1")
 ```
 
-Every series is re-zeroed at its own minimum and a point marks it, so read the
-figure by **where each curve bottoms out**, not by how deep it is. Curves whose
-points sit together support the same value of M; a curve whose point sits far
-from the total's is pulling against the rest. The total is the heavy black line
-and is kept out of the colour legend, so the palette separates only the
-components being compared. Components that move less than `minfraction` (1% by
-default) of the total's change over the grid are dropped — they are flat at this
-scale and would only crowd the legend.
+Read it by **where each curve bottoms out**, not by how deep it is: every series
+is re-zeroed at its own minimum and a point marks it, so the spread of those
+points along the x axis is the disagreement. The heavy black line is the total.
 
-`relative = "minimum"` re-zeroes every series at the total's minimum instead,
-which shows what each component gives up by moving away from the fitted value.
-Passing a list of profiles facets them, which is how two model configurations
-are compared on the same parameter.
-
-The numbers behind the figure come from `profile_components()`, which is worth
-calling directly to tabulate the conflict:
+`profile_components()` returns the same numbers, one row per grid point per
+component, each labelled with the fleet or species it belongs to.
 
 ```{r}
 comps <- profile_components(prof_M)
 head(comps)
 ```
 
-Each row is one grid point for one component, carrying the profiled value, the
-component name, and the `unit` it belongs to — a fleet on the data, selectivity
-and catchability rows, a species on the priors, penalties and predation rows.
-`weighted = FALSE` reads the unweighted components instead; conflict is normally
-read off the weighted ones, since those are what moved the fit. Note that
-`unweighted_jnll_comp` is filled only for the rows that carry a `Comp_weights`
-multiplier — composition, CAAL, stomach content, and the two linkage rows —
-because it exists so Francis and McAllister–Ianelli can read a composition
-likelihood without its weight. Under `weighted = FALSE` the index, catch,
-selectivity, catchability and penalty components are therefore absent, not flat.
-
 Under `random_rec = TRUE` the total is the Laplace-approximated marginal
 likelihood while the components are the inner joint negative log-likelihood, so
-the components will not sum to the total. `profile_components()` says so when
-they differ. Compare the shapes, not the sums.
+they will not sum; compare the shapes, not the sums. See `?plot_profile` for
+`relative`, `minfraction`, model overlays, and what `weighted = FALSE` does and
+does not include.
 
 ## Comparing runs
 
