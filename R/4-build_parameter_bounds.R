@@ -17,9 +17,15 @@
 #' about 0: harmless for an MLE, fatal for MCMC, where the posterior is bimodal
 #' by construction and no chain diagnostic means anything. Bounding the
 #' diagonal below at 0 is the standard identifying restriction for a Cholesky
-#' factor and rules out nothing the likelihood could distinguish. Pass
-#' `$lower` / `$upper` on to `tmbstan::tmbstan()` to get the same constraint
-#' there.
+#' factor and rules out nothing the likelihood could distinguish.
+#'
+#' To carry the same constraint into a sampler, use the fit's
+#' `$bounds$par_lower` / `$bounds$par_upper`, which `fit_mod()` aligns to
+#' `obj$par` -- `tmbstan::tmbstan(lower =, upper =)` takes a vector of that
+#' length and expands it across the random effects itself. The `$lower` /
+#' `$upper` returned here are lists keyed by parameter block, one entry per
+#' block rather than one per estimated parameter, so they are not what a
+#' sampler wants.
 #'
 #' A variable that also carries a cross-covariance (`A <-> B`) or a lagged
 #' two-headed path keeps unbounded support: its row of \eqn{\Gamma} has

@@ -249,3 +249,45 @@ testthat::test_that("the sign flip follows the bound, not the DSEM", {
   testthat::expect_equal(on$obj$fn(on$obj$par), off$obj$fn(off$obj$par),
                          tolerance = 1e-8)
 })
+
+testthat::test_that("the fit carries bounds aligned to obj$par, for a sampler", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("dsem")
+
+  # tmbstan::tmbstan(lower =, upper =) takes a vector of length(obj$par) and
+  # expands it across the random effects itself. `bounds$lower` is a list keyed
+  # by parameter BLOCK, so the obvious construction --
+  # unlist(bounds$lower[names(obj$par)]) -- repeats whole blocks and returns a
+  # vector orders of magnitude too long (33412 against 154, measured). fit_mod()
+  # already aligns the vectors for nlminb, against obj$par's own block order and
+  # with assertions; par_lower/par_upper are those.
+  d <- Rceattle::BS2017SS
+  d$env_data <- data.frame(Year = d$styr:d$endyr, BT = 0)
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0, dsem = Rceattle::build_DSEM(),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+
+  testthat::expect_length(fit$bounds$par_lower, length(fit$obj$par))
+  testthat::expect_length(fit$bounds$par_upper, length(fit$obj$par))
+  testthat::expect_false(anyNA(fit$bounds$par_lower))
+  testthat::expect_false(anyNA(fit$bounds$par_upper))
+
+  # ...and the 0s land on the SD paths, not on some other block. Getting this
+  # wrong is silent: the constraint simply applies to the wrong parameter.
+  i <- which(names(fit$obj$par) == "dsem_beta_z")
+  testthat::expect_gt(length(i), 0L)
+  idx <- Rceattle:::.dsem_sd_indices(fit$dsem)$sd
+  testthat::expect_true(all(fit$bounds$par_lower[i][idx] == 0))
+  testthat::expect_true(all(is.infinite(fit$bounds$par_upper[i])))
+
+  # A non-DSEM fit still gets aligned vectors, just with no SD bound in them.
+  plain <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    data_list = Rceattle::BS2017SS, inits = NULL, file = NULL, estimateMode = 1,
+    random_rec = TRUE, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE,
+                                        verbose = 0))))
+  testthat::expect_length(plain$bounds$par_lower, length(plain$obj$par))
+})

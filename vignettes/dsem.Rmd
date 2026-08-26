@@ -227,12 +227,14 @@ The two-headed `<->` self paths are diagonals of a Cholesky factor, so the likel
 `build_bounds()` bounds those diagonals at 0, which is the standard identifying restriction for a Cholesky factor and rules out nothing the likelihood could distinguish. Pass the same bounds to the sampler:
 
 ```{r, eval = FALSE}
-b <- build_bounds(param_list = fit$estimated_params,
-                  data_list  = fit$data_list,
-                  dsem       = fit$dsem)
+# fit$bounds$par_lower / $par_upper are aligned to fit$obj$par -- that alignment
+# is done inside fit_mod(), against obj$par's own block order. Do not build the
+# vector by indexing fit$bounds$lower (a list keyed by parameter block) with
+# names(fit$obj$par): that repeats whole blocks and returns a vector far too
+# long. tmbstan expands a vector of this length across the random effects itself.
 post <- tmbstan::tmbstan(fit$obj,
-                         lower = unlist(b$lower[names(fit$obj$par)]),
-                         upper = unlist(b$upper[names(fit$obj$par)]))
+                         lower = fit$bounds$par_lower,
+                         upper = fit$bounds$par_upper)
 ```
 
 `build_DSEM(bound_sd = FALSE)` turns the bound off, and with it the sign flip `fit_mod()` otherwise applies to a negative starting value. That is what to use if you want to reproduce a fit made before the bound existed parameter for parameter, or to show for yourself that the two optima are mirrored — the objective is identical at `+sigma` and `-sigma`.

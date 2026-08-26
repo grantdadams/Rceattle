@@ -1350,6 +1350,16 @@ fit_mod <-
         stop("Parameter bounds contain NA after alignment; a bounds entry is ",
              "shorter than its parameter.")
       }
+      # Keep the aligned vectors, not just the per-block lists. This is the only
+      # place the alignment is known to be right -- it happens after obj exists,
+      # against obj$par's own block order, with the assertions above -- and it is
+      # what a sampler needs. tmbstan::tmbstan(lower =, upper =) takes a vector
+      # of exactly this length and expands it across the random effects itself,
+      # so `bounds$lower` (a list keyed by parameter block) is the wrong object
+      # to hand it: indexing that list by names(obj$par) repeats whole blocks and
+      # silently returns a vector orders of magnitude too long.
+      bounds$par_lower <- L
+      bounds$par_upper <- U
     }
 
     mod_objects <- c(

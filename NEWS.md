@@ -260,6 +260,20 @@ meantime; neither is this work.
 
 ## New features
 
+* **A fit carries parameter bounds aligned to `obj$par`, in
+  `$bounds$par_lower` / `$bounds$par_upper`.** This is what a sampler needs:
+  `tmbstan::tmbstan(lower =, upper =)` takes a vector of exactly that length and
+  expands it across the random effects itself, so the DSEM standard-deviation
+  bound reaches an MCMC run without any change to the template.
+
+  `$bounds$lower` / `$upper` are lists keyed by parameter BLOCK, one entry per
+  block rather than one per estimated parameter, so the obvious construction --
+  `unlist(bounds$lower[names(obj$par)])` -- repeats whole blocks and returns a
+  vector orders of magnitude too long (33412 against an `obj$par` of 154, on
+  `BS2017SS`). `fit_mod()` already had to solve this for `nlminb`, because
+  `build_params()` order and the template's `PARAMETER_*` declaration order
+  disagree; the aligned vectors are now kept rather than discarded.
+
 * **A DSEM covariate observed with error is now simulated, state and
   observation.** `family = "fixed"` makes a covariate data: no measurement
   density, pinned in the map, held fixed -- unchanged. Any other family makes it
