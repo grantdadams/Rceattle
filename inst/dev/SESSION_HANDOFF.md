@@ -5,23 +5,53 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #119 is merged** (`bd9d0fcf` on `main`, 2026-08-26). `main` and `dev` are both 5.20.0.
+**5.21.0 is released** — tag `5.21.0` on `f9595235`, published 2026-08-26. It carried
+`profile_components()`, `plot_profile()`, `plot.Rceattle_profile()` and `profile()`'s `$alias`.
 
-**In flight: `dev` → `main` for 5.21.0, component likelihood profiles.** `dev` is one prior
-commit ahead of `main` (`ccf7e6d2`, the release-checklist edit) plus this work. Small PR, not a
-release of accumulated branches.
+**In flight: `dev` → `main` for 5.22.0, the profile follow-ups Grant asked for.**
 
-Prompted by Cole asking for a built-in way to extract the NLL components of a profile and plot
-them — the total answers how well the data determine a parameter, not whether the data sources
-agree about it.
+- **`relative = "scaled"`** on `profile_components()` / `plot_profile()`. One component routinely
+  dwarfs the rest — on a BS2017SS M profile the bottom-trawl composition moves 60.5 objective
+  units against the bottom-trawl index's 0.697, a factor of 87 — so the others flatten onto the
+  axis and where they prefer the parameter cannot be read. Each series is divided by its own
+  change, putting every curve on 0 to 1. It **discards magnitude**, so `minfraction` matters more
+  with it; `minfraction` and the legend order are computed on the RAW change, before rescaling.
+- **`profile(joint =)`** — `"multiply"`, `"add"`, `"value"` move every cell in `slots` on ONE
+  grid. Slots otherwise cross, so a ten-age M schedule over 13 values was `13^10` fits. This is
+  what makes an empirical age-based M profilable the way it is normally reported.
+- **`profile(param = "q")`** — base catchability, `slots` takes a fleet name. A shared
+  `Catchability_index` group is moved together.
 
-- `profile_components()` (`R/9-profile.R`) — `quantities$jnll_comp` from every grid fit as one
-  long data frame, each cell labelled with the fleet or species it belongs to.
-- `plot_profile()` + `plot.Rceattle_profile()` (`R/7-plot_profile.R`) — `r4ss::SSplotProfile()`
-  layout: each series re-zeroed at its own minimum with a point marking it, total black and out
-  of the colour legend, `minfraction = 0.01`.
-- `profile()` gains `$alias`, so `print()` and the axis say `M1` where the grid holds M rather
-  than `log_M1`, which is what `param` resolves to.
+## Release 5.21.0 — two things that did not work
+
+- **The `release: published` event fired no pkgdown run.** `main`'s workflow has
+  `release: types: [published]` and 5.20.0 has such a run; 5.21.0 got none. Dispatched manually
+  (`gh workflow run pkgdown.yaml --ref main`), which started immediately while push/PR runs sat
+  queued 45-57 minutes. Actions was degraded that afternoon: a 0-second `startup_failure`, and a
+  run marked `failure` whose job never left `queued`. **Check that a release actually rebuilt
+  the site rather than assuming the event fired.**
+- **`deep-checks` reports success while its `safebounds` job fails** — it is
+  `continue-on-error: true` ("read it, do not gate on it"). See Blocked.
+
+## Done & verified on 5.22.0
+
+- **Suite green**: `FAIL 0 | WARN 229 | SKIP 3 | PASS 7934` (`NOT_CRAN=true`,
+  `TESTTHAT_PARALLEL=false`, 2026-08-26), `test-golden-regression.R` running.
+- **Before/after `ggplot_build()` diff against the released 5.21.0 source** (rule 3's net for a
+  plotting change): layers, labels and series order identical on `relative = "own"`,
+  `"minimum"` and `"none"`. Existing figures do not move.
+- **Ecosystem sweep for `profile(`**: every caller in `Rceattle-models`, `GOA-ATF-ESP`, the
+  vignettes, `examples/` and `tools/verify/verify-refit-like.R` uses NAMED arguments, so
+  appending `joint` breaks nothing. It is appended after `getsd` regardless.
+- **Four defects caught in review, all in this session's own work.** The one that mattered:
+  `profile(param = "q")` on a fleet with `Catchability = "Analytical"` (3) or `"AnalyticalArith"`
+  (7) would have come back FLAT. Those forms solve q from the fleet's own index and overwrite
+  `index_q` (`ceattle.cpp:2526`), so `index_log_q` never reaches the likelihood — every grid
+  point returns the same fit, reading as "the data do not inform q". Now an error naming the
+  fleet, and such fleets are excluded from group expansion (the schema says a group containing
+  one does not share a catchability). `est_index_q` is **not carried on a fitted object**, so the
+  raw column is resolved with `.map_switch(fc$Catchability, q_map, ...)` rather than a second
+  reading of `q_map`.
 
 ## Done & verified on 5.21.0
 
@@ -133,26 +163,54 @@ probe against the pre-change build on BS2017MS, and the hake MSE.
 
 ## Blocked
 
-Nothing.
+**The bounds check has measured nothing since at least 2026-08-25, and reports green.**
+`deep-checks`' `safebounds` job is `continue-on-error: true`, so the workflow's overall
+conclusion is `success` while the job fails. It fails at the DLL, not on a violation:
+
+```
+confirmed: -DTMB_SAFEBOUNDS in the compile line
+Failed to load at least one DLL.
+  ERROR: 'ceattle' was not found in the list of loaded DLLs.   x 5 cases
+BOUNDS VIOLATIONS or errors in 5 case(s):
+```
+
+All five configurations error before running, so **zero cases are bounds-checked**. The runs on
+2026-08-25 (5.20.0 dispatch) and the 2026-08-26 nightly failed identically, so it is not new.
+
+Cause: `NAMESPACE` loads two DLLs (`useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle)`).
+`verify-safebounds.R` rebuilds only the TMB lib, then calls `pkgload::load_all(compile = FALSE)`
+— deliberately, since a recompile would overwrite its bounds-checked model — so nothing ever
+builds `src/Rceattle.so`, and `src/Makevars` has `$(SHLIB): tmblib`. On a fresh CI checkout that
+file has never existed. **It passes locally only because a developer's tree already has one**,
+which is why "five configurations clean on macOS" in the 5.20.0 notes was not the clearance it
+looked like.
+
+Two separable fixes: the DLL bootstrap, and a report that says "could not run" rather than
+"BOUNDS VIOLATIONS" when no case executed. This matters because it is the only net for the
+Windows `0xC0000005`, which is still uncured — see the 5.21.0 release notes' known limitation.
 
 ## Resume here
 
-Merge the 5.21.0 PR once CI is green, then tag `5.21.0` — bare, no `v` prefix — and **publish**
-a GitHub Release from it; `inst/RELEASE-CHECKLIST.md` §3. Drafting is not enough, the `pkgdown`
-workflow fires on `release: published`. Then dispatch `deep-checks` (§3b), which is the only job
-that runs the golden regression and the bounds-checked build.
+Merge the 5.22.0 PR once CI is green, then tag `5.22.0` — bare, no `v` prefix — and **publish**
+a GitHub Release; `inst/RELEASE-CHECKLIST.md` §3. Confirm the site actually rebuilt (see the
+5.21.0 note above), then dispatch `deep-checks` (§3b) and read its `safebounds` JOB, not the
+run's conclusion.
 
-Two loose ends from this session, neither blocking:
+Three loose ends, none blocking:
 
 1. **`inst/dev/SIBLING-REPOS.md` has an uncommitted edit that predates this session** — the
-   `../GOA-multispecies-assessment` entry. It is coherent and complete; it was left out of the
-   5.21.0 commit because it is unrelated to that work, not because it is wrong. Commit it
-   whenever suits.
+   `../GOA-multispecies-assessment` entry. Coherent and complete; left out of the 5.21.0 and
+   5.22.0 commits because it is unrelated to that work, not because it is wrong.
 2. **`../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` gained an M-at-age-6
-   component profile** (uncommitted, separate repo). `minage = 1` and `nages = 10`, so age 6 is
-   bin 6; `M1_base` runs 1.39 at age 1 down to 0.30 from age 6 on. It fixes the age-6 cell
-   **alone**, leaving ages 7–10 at their base values — narrower than goa_pk's own M profile,
-   which scales the whole M-at-age vector together. Not yet run.
+   component profile** (uncommitted, separate repo, not yet run). `minage = 1`, `nages = 10`, and
+   `M1_base` runs 1.39 at age 1 to 0.30 from age 6 on, so age 6 is bin 6 and 0.30 is the value a
+   0.18-0.42 grid brackets. It fixes the age-6 cell **alone**, leaving ages 7-10 at base —
+   narrower than goa_pk's own M profile, which scales the whole vector. **5.22.0's
+   `joint = "multiply"` now expresses the goa_pk version**; switching it is a two-line change and
+   probably what the chapter wants.
+3. **The dead QAR1 path.** `ceattle.cpp:4269` was fixed in place rather than removed because
+   `R/6-process_residuals.R:204` still branches on `est_index_q == 6`. Removing both together is
+   Grant's call.
 
 After that, `inst/dev/CLEANUP_BACKLOG.md` has
 64 items left (Tier 0 and Tier 2 are cleared); `inst/dev/BACKLOG-PLAN.md` sequences them by who is

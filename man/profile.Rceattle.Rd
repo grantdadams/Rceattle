@@ -12,6 +12,7 @@
   transform = "log",
   cores = NULL,
   getsd = NULL,
+  joint = c("none", "multiply", "add", "value"),
   ...
 )
 }
@@ -35,6 +36,11 @@ the alias name so \code{slots} only needs the species index:
 \item \code{"R0"} -> \code{rec_pars[, 1]}
 \item \code{"alpha"} -> \code{rec_pars[, 2]}
 \item \code{"beta"} -> \code{rec_pars[, 3]}
+\item \code{"q"} -> \code{index_log_q}, base catchability, one entry
+per fleet. \code{slots} takes a fleet index or a \strong{fleet
+name}. Fleets sharing a \code{Catchability_index} share one q, so
+naming any of them profiles the whole group: the rest are added
+with a message and \code{joint} becomes \code{"value"}.
 }
 If \code{transform} is supplied with an alias it is ignored
 (with a warning).}
@@ -78,6 +84,26 @@ reads only the objective (\code{nll}), so \code{FALSE} is faster with no
 effect on the profile. Default \code{NULL} inherits the input model's
 setting (\code{TRUE} only if it carries an \code{sdrep}).}
 
+\item{joint}{How the grid moves the cells in \code{slots}. Use a joint mode
+to profile a parameter supplied as a vector, such as an empirical
+age-based M: under \code{"none"} ten ages over 13 values is \code{13^10}
+fits, not 13.
+\describe{
+\item{\code{"none"}}{(default) each slot gets its own grid and they
+cross, giving a \emph{k}-dimensional profile for \emph{k} slots.}
+\item{\code{"multiply"}}{one grid, multiplying every cell's current
+value. The schedule keeps its shape and moves up or down as a whole.
+\code{1} is the fitted model.}
+\item{\code{"add"}}{one grid, added to every cell. The schedule keeps
+the differences between cells instead. \code{0} is the fitted model.}
+\item{\code{"value"}}{one grid; every cell takes that value.}
+}
+A joint mode needs \code{values} to be one vector.
+\code{"multiply"} and \code{"add"} work in natural units, so
+\code{transform} must be \code{"log"} or \code{"identity"}. A grid value
+that would take a log-scale parameter to zero or below is an error naming
+the cell, not a failed fit.}
+
 \item{...}{Unused; present for consistency with the \code{stats::profile}
 generic.}
 }
@@ -102,6 +128,9 @@ natural-scale aliases. Profiling \code{"M1"} returns \code{param =
 \code{"M1"}, so a figure can label the axis in the units profiled
 rather than in log units. \code{NA} if you named the parameter slot
 directly.}
+\item{joint}{the \code{joint} mode used, so a figure and \code{print()}
+can say that \code{grid} holds a multiplier or an offset rather than a
+parameter value.}
 }
 
 Carries class \code{"Rceattle_profile"}, so printing it reports whether the
@@ -154,5 +183,31 @@ p3 <- profile(ss_run,
     param  = "alpha",
     slots  = list(1),
     values = list(seq(2, 80, length.out = 20)))
+
+# An empirical age-based M, moved as a whole. One slot per age bin of
+# species 1, all on ONE grid of multipliers, so the shape of the schedule is
+# preserved and 1 is the fitted model. Ages run minage .. minage + nages - 1.
+sp <- 1
+p4 <- profile(ss_run,
+    param  = "M1",
+    slots  = lapply(seq_len(ss_run$data_list$nages[sp]),
+                    function(a) c(sp, 1, a)),
+    values = list(seq(0.6, 1.4, by = 0.05)),
+    joint  = "multiply")
+
+# The same schedule shifted by a constant instead of scaled; 0 is the fit.
+p5 <- profile(ss_run,
+    param  = "M1",
+    slots  = lapply(seq_len(ss_run$data_list$nages[sp]),
+                    function(a) c(sp, 1, a)),
+    values = list(seq(-0.1, 0.1, by = 0.02)),
+    joint  = "add")
+
+# Base catchability for a fleet, named rather than counted. If it shares a
+# Catchability_index the whole group moves with it.
+p6 <- profile(ss_run,
+    param  = "q",
+    slots  = list("BT_Pollock"),
+    values = list(seq(0.5, 2.0, by = 0.1)))
 }
 }

@@ -59,9 +59,23 @@
          ". Run them the same way before overlaying them.", call. = FALSE)
   }
 
-  # Different cells of the same parameter -- species 1 against species 2 -- is a
-  # legitimate comparison, but only the first one's cell reaches the axis label.
-  cells <- vapply(profiles, function(p) paste(p$slots[[1]], collapse = ", "),
+  # A grid of multipliers and a grid of M values are both "M1" but are not the
+  # same x axis.
+  jt <- vapply(profiles, function(p) {
+    j <- p$joint
+    if (is.null(j)) "none" else as.character(j)
+  }, character(1))
+  if (length(unique(jt)) > 1L) {
+    stop("These profiles move their cells differently (",
+         paste(unique(jt), collapse = ", "),
+         "), so a multiplier and a parameter value would share one axis.",
+         call. = FALSE)
+  }
+
+  # Every cell, not just the first: a joint profile moves many, and two runs
+  # over different ages are a different comparison.
+  cells <- vapply(profiles,
+                  function(p) paste(unlist(p$slots), collapse = ", "),
                   character(1))
   if (length(unique(cells)) > 1L) {
     warning("These profiles are over different cells of ", params[1], " (",
@@ -82,12 +96,11 @@
 
   out <- do.call(rbind, frames)
   # rbind() of factors with different levels drops to the union in the wrong
-  # order, so the series ordering is rebuilt across all models at once.
-  span <- vapply(split(out$value, as.character(out$series)),
-                 function(v) suppressWarnings(diff(range(v, na.rm = TRUE))),
-                 numeric(1))
-  span[!is.finite(span)] <- 0
-  ord <- names(sort(span, decreasing = TRUE))
+  # order, so the order is rebuilt from the frames' own levels. NOT re-derived
+  # from `value`: under relative = "scaled" every series spans 0 to 1, so the
+  # spans would all tie and the legend order would be arbitrary.
+  # profile_components() already sorted each frame on the RAW change.
+  ord <- unique(unlist(lapply(frames, function(d) levels(d$series))))
   if ("Total" %in% ord) ord <- c("Total", setdiff(ord, "Total"))
   out$series <- factor(as.character(out$series), levels = ord)
   out$Model  <- factor(out$Model, levels = unique(labels))
@@ -108,6 +121,40 @@
 .profile_xlab <- function(prof) {
   nm <- prof$alias
   if (is.null(nm) || is.na(nm) || !nzchar(nm)) nm <- prof$param
+
+  jt <- prof$joint
+  if (is.null(jt)) jt <- "none"
+
+  # A catchability slot is a fleet, and the fleet has a name -- "q[Shelikof
+  # acoustic]" says which survey, where "q[2]" makes the reader go and count.
+  # Checked before the joint modes because a shared Catchability_index group is
+  # moved with joint = "value", and the group's fleet names are still the
+  # clearest thing to put on the axis.
+  if (identical(nm, "q")) {
+    fit <- Filter(Negate(is.null), prof$Rceattle_list)
+    nms <- if (length(fit)) as.character(fit[[1]]$data_list$fleet_control$Fleet_name)
+           else character(0)
+    idx <- unlist(prof$slots)
+    lab <- if (length(nms) >= max(idx)) nms[idx] else idx
+    base <- paste0("q[", paste(lab, collapse = ", "), "]")
+    return(switch(jt,
+                  multiply = paste(base, "multiplier"),
+                  add      = paste(base, "offset"),
+                  base))
+  }
+
+  # Under a joint mode the grid is a multiplier or an offset on the whole set of
+  # cells, not a parameter value, so naming one cell would mislabel the axis:
+  # "M1[1, 1, 1]" against a grid running 0.6 to 1.4 reads as an M of 0.6.
+  if (!identical(jt, "none")) {
+    n <- length(prof$slots)
+    what <- switch(jt,
+                   multiply = paste0(nm, " multiplier"),
+                   add      = paste0(nm, " offset"),
+                   value    = nm)
+    return(if (n > 1L) paste0(what, " (", n, " cells moved together)") else what)
+  }
+
   slot <- prof$slots[[1]]
   # Under an alias profile() has already appended the rec_pars column, which is
   # part of the alias name rather than something to show.
@@ -133,9 +180,21 @@
 #' that minimum, so the spread of the points along the x axis *is* the
 #' disagreement: components whose points sit together support the same value,
 #' and a component whose point sits far from the total's is pulling against the
-#' rest. `relative = "minimum"` instead re-zeroes every series at the total's
-#' minimum, which shows what each component gives up by moving away from the
-#' fitted value.
+#' rest.
+#'
+#' When one component dwarfs the others it sets the y axis and the rest flatten
+#' onto the bottom, so where *they* prefer the parameter cannot be read.
+#' `relative = "scaled"` puts every curve on 0 to 1 so the minima can be
+#' compared. It discards magnitude — a component moving 0.02 draws like one
+#' moving 40 — so raise `minfraction` with it. That filter runs on the raw
+#' change, and is what keeps a barely-constrained component from drawing a
+#' confident-looking curve.
+#'
+#' `relative = "minimum"` re-zeroes every series at the total's minimum, showing
+#' what each component gives up by moving away from the fitted value.
+#'
+#' Under `joint = "multiply"` or `"add"` a dotted vertical line marks the fitted
+#' model (a multiplier of 1, an offset of 0).
 #'
 #' The total is drawn in black, heavier than the components, and is kept out of
 #' the colour legend so the palette separates only the components being
@@ -200,7 +259,7 @@
 plot_profile <- function(Rceattle_profile,
                          model_names = NULL,
                          weighted = TRUE,
-                         relative = c("own", "minimum", "none"),
+                         relative = c("own", "scaled", "minimum", "none"),
                          minfraction = 0.01,
                          add_cutoff = FALSE,
                          cutoff = 1.92,
@@ -259,11 +318,10 @@ plot_profile <- function(Rceattle_profile,
 
   if (is.null(xlab)) xlab <- .profile_xlab(profiles[[1]])
   if (is.null(ylab)) {
-    ylab <- if (relative == "none") {
-      "Negative log-likelihood"
-    } else {
-      "Change in negative log-likelihood"
-    }
+    ylab <- switch(relative,
+                   none   = "Negative log-likelihood",
+                   scaled = "Scaled change in negative log-likelihood",
+                   "Change in negative log-likelihood")
   }
 
   lp <- .rce_line_params(lwd = lwd, lty = lty, lty_by = "series",
@@ -276,8 +334,24 @@ plot_profile <- function(Rceattle_profile,
                                  linewidth = 0.4)
   }
   if (add_cutoff) {
-    p <- p + ggplot2::geom_hline(yintercept = cutoff, colour = "grey70",
-                                 linetype = 2, linewidth = 0.4)
+    # The cutoff is 1.92 objective units. Under "scaled" the y axis is a
+    # fraction of each series' own range, so the line would mean nothing.
+    if (identical(relative, "scaled")) {
+      warning("`add_cutoff` is in objective units and `relative = \"scaled\"` ",
+              "is not, so no cutoff is drawn.", call. = FALSE)
+    } else {
+      p <- p + ggplot2::geom_hline(yintercept = cutoff, colour = "grey70",
+                                   linetype = 2, linewidth = 0.4)
+    }
+  }
+
+  # Where the fitted model sits: a multiplier of 1, or an offset of 0. Says at a
+  # glance whether the data pull the parameter away from the fit.
+  base_x <- switch(if (is.null(profiles[[1]]$joint)) "none" else profiles[[1]]$joint,
+                   multiply = 1, add = 0, NULL)
+  if (!is.null(base_x)) {
+    p <- p + ggplot2::geom_vline(xintercept = base_x, colour = "grey70",
+                                 linetype = 3, linewidth = 0.4)
   }
   p <- .rce_add_line(p, lp, na.rm = TRUE)
   p <- p + ggplot2::geom_point(data = at_min(comps), size = 2, na.rm = TRUE)

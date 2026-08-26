@@ -155,6 +155,46 @@ testthat::test_that("relative = 'minimum' zeroes every series at the total's min
 })
 
 
+testthat::test_that("relative = 'scaled' puts every series on 0 to 1", {
+  d <- profile_components(mk_profile(), relative = "scaled")
+  rng <- vapply(split(d$value, d$series, drop = TRUE),
+                function(v) range(v, na.rm = TRUE), numeric(2))
+  # The fishery composition is constant over the grid, so it has no range to
+  # divide by and stays at zero rather than becoming NaN.
+  flat <- "Fishery: Composition data"
+  moving <- setdiff(colnames(rng), flat)
+  testthat::expect_true(all(abs(rng[1, moving]) < 1e-12))
+  testthat::expect_true(all(abs(rng[2, moving] - 1) < 1e-12))
+  testthat::expect_equal(unname(rng[, flat]), c(0, 0))
+  testthat::expect_false(anyNA(d$value[d$fit != 3]))
+
+  # Scaling changes the y values only -- each series still bottoms out at the
+  # same x, which is what the figure is read by.
+  own <- profile_components(mk_profile())
+  best_x <- function(f, s) f$slot_1[f$series == s][which.min(f$value[f$series == s])]
+  for (s in c("Shelikof acoustic: Index data", "NMFS bottom trawl: Index data")) {
+    testthat::expect_equal(best_x(d, s), best_x(own, s))
+  }
+})
+
+
+testthat::test_that("scaling does not disable the minfraction filter", {
+  # The guard that matters: minfraction and the ordering are computed on the RAW
+  # change over the grid. Measured after scaling, every span would be 1, nothing
+  # would ever be filtered, and a component moving 0.04 objective units would
+  # draw a confident curve indistinguishable from one moving 16.
+  prof <- mk_profile()
+  scaled <- profile_components(prof, relative = "scaled", minfraction = 0.01)
+  own    <- profile_components(prof, relative = "own",    minfraction = 0.01)
+  testthat::expect_setequal(levels(droplevels(scaled$series)),
+                            levels(droplevels(own$series)))
+  testthat::expect_false("Pollock: Recruitment deviates" %in%
+                           levels(droplevels(scaled$series)))
+  # Ordering is likewise the raw one, not "everything ties at 1".
+  testthat::expect_equal(levels(scaled$series), levels(own$series))
+})
+
+
 testthat::test_that("relative = 'none' returns the raw likelihoods", {
   prof <- mk_profile()
   d <- profile_components(prof, relative = "none")
@@ -362,6 +402,104 @@ testthat::test_that("relative = 'minimum' needs a minimum to re-zero at", {
   # Raw values, not a crash: the components are still readable against
   # each other.
   testthat::expect_false(all(is.na(d$value[d$series != "Total"])))
+})
+
+
+# --- joint modes and the q alias: axis labelling ------------------------------
+testthat::test_that("a joint profile's axis says multiplier or offset, not a value", {
+  # The grid under a joint mode is a multiplier on the whole set of cells. An
+  # axis reading "M1[1, 1, 1]" against a grid running 0.7 to 1.3 would be read
+  # as an M of 0.7, which is the one thing it is not.
+  mult <- mk_profile()
+  mult$joint <- "multiply"
+  mult$slots <- lapply(1:12, function(a) c(1, 1, a))
+  testthat::expect_equal(plot_profile(mult)$labels$x,
+                         "M1 multiplier (12 cells moved together)")
+
+  add <- mult
+  add$joint <- "add"
+  testthat::expect_equal(plot_profile(add)$labels$x,
+                         "M1 offset (12 cells moved together)")
+
+  # A single cell needs no "moved together" clause.
+  one <- mult
+  one$slots <- list(c(1, 1, 1))
+  testthat::expect_equal(plot_profile(one)$labels$x, "M1 multiplier")
+
+  # An older profile object carries no $joint at all; it must still label.
+  old <- mk_profile()
+  old$joint <- NULL
+  testthat::expect_equal(plot_profile(old)$labels$x, "M1[1, 1, 1]")
+})
+
+
+testthat::test_that("a catchability axis names the fleet, not its number", {
+  # "q[2]" makes the reader go and count fleets; the name is right there.
+  prof <- mk_profile()
+  prof$alias <- "q"
+  prof$param <- "index_log_q"
+  prof$slots <- list(2L)
+  prof$joint <- "none"
+  testthat::expect_equal(plot_profile(prof)$labels$x, "q[Shelikof acoustic]")
+
+  # A shared Catchability_index group is moved with joint = "value", and the
+  # group's fleet names still belong on the axis -- the joint branch must not
+  # swallow them.
+  grp <- prof
+  grp$slots <- list(2L, 3L)
+  grp$joint <- "value"
+  testthat::expect_equal(plot_profile(grp)$labels$x,
+                         "q[Shelikof acoustic, NMFS bottom trawl]")
+})
+
+
+testthat::test_that("a scaled figure keeps the raw-change legend order", {
+  # The plot frame must not re-derive the order from the plotted values: under
+  # "scaled" every series runs 0 to 1, so the spans tie and the order would be
+  # arbitrary -- the same trap profile_components() guards against internally.
+  own    <- plot_profile(mk_profile(), minfraction = 0)
+  scaled <- plot_profile(mk_profile(), minfraction = 0, relative = "scaled")
+  testthat::expect_equal(levels(scaled$data$series), levels(own$data$series))
+  # Raw-change order, not alphabetical: the flat fishery composition sorts last
+  # on how much it moves, but would sort first on its name.
+  lv <- levels(scaled$data$series)
+  testthat::expect_equal(lv[length(lv)], "Fishery: Composition data")
+})
+
+
+testthat::test_that("a scaled y axis draws no objective-unit cutoff", {
+  # 1.92 is 1.92 objective units. On a 0-to-1 axis it is off the panel and
+  # means nothing, so it is refused rather than drawn.
+  testthat::expect_warning(
+    p <- plot_profile(mk_profile(), relative = "scaled", add_cutoff = TRUE),
+    "objective units")
+  ys <- unlist(lapply(ggplot2::ggplot_build(p)$data, function(d) d$yintercept))
+  testthat::expect_false(1.92 %in% ys)
+})
+
+
+testthat::test_that("a joint profile marks where the fitted model sits", {
+  mult <- mk_profile(); mult$joint <- "multiply"
+  ys <- unlist(lapply(ggplot2::ggplot_build(plot_profile(mult))$data,
+                      function(d) d$xintercept))
+  testthat::expect_true(1 %in% ys)
+
+  add <- mk_profile(); add$joint <- "add"
+  ys <- unlist(lapply(ggplot2::ggplot_build(plot_profile(add))$data,
+                      function(d) d$xintercept))
+  testthat::expect_true(0 %in% ys)
+
+  # A plain profile has no known base, so no line is drawn.
+  ys <- unlist(lapply(ggplot2::ggplot_build(plot_profile(mk_profile()))$data,
+                      function(d) d$xintercept))
+  testthat::expect_null(ys)
+})
+
+
+testthat::test_that("plot_profile refuses to overlay a multiplier on a value", {
+  mult <- mk_profile(); mult$joint <- "multiply"
+  testthat::expect_error(plot_profile(list(mk_profile(), mult)),
+                         "move their cells differently")
 })
 
 
