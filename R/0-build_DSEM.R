@@ -466,6 +466,47 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     c(pp$first, pp$second)
   })))
 
+  # An ESTIMATED lag-0 two-headed self path starting at exactly 0 puts the AD
+  # tape's start on a singular exogenous covariance, and MakeADFun() inside
+  # dsem::dsem() below does not error -- it SEGFAULTS, and R aborts with no
+  # condition for anything to catch. check_dsem_spec() cannot help either: it
+  # screens this function's OUTPUT, so the crash happens before it is reachable.
+  # Refuse here, while there is still a session to report into.
+  #
+  # The parameter NAME is what separates this from the legitimate case, not the
+  # start value. `x <-> x, 0, NA, 0` pins the variance at zero deliberately: the
+  # variable becomes deterministic, dsem handles it, and check_dsem_spec()'s
+  # covariate_variance record is what reports it (see test-dsem-spec-variance.R).
+  # `x <-> x, 0, sigma, 0` instead asks to ESTIMATE a variance from a start of
+  # zero, which is the shape that crashes. Measured against dsem 3.0.0: named +
+  # 0 aborts R; NA + 0 returns a usable model on both a covariate and a recdev
+  # column. A missing start is fine (dsem supplies its own), a zero CROSS
+  # covariance is a legitimate "these two do not covary", and a lag-1 two-headed
+  # path dsem already refuses with a clear message.
+  .fixed_par <- function(p) {
+    is.na(p) || !nzchar(trimws(p)) || toupper(trimws(p)) %in% c("NA", "NAN")
+  }
+  .zero_var <- vapply(seq_along(sem_model$path), function(i) {
+    pp <- parse_path(sem_model$path[i])
+    isTRUE(pp$direction == 2) && isTRUE(pp$first == pp$second) &&
+      isTRUE(sem_model$lag[i] == 0) &&
+      !.fixed_par(sem_model$par[i]) &&
+      isTRUE(is.finite(sem_model$start[i])) && isTRUE(sem_model$start[i] == 0)
+  }, logical(1))
+  if (any(.zero_var)) {
+    bad <- unique(vapply(which(.zero_var),
+                         function(i) parse_path(sem_model$path[i])$first,
+                         character(1)))
+    stop("sem asks to estimate a two-headed self path (`<->`) for ",
+         paste(sprintf("'%s'", bad), collapse = ", "),
+         " from a start value of 0. A variance cannot be estimated from zero: ",
+         "the covariance is singular there, and dsem crashes rather than ",
+         "returning an error. Give it a positive start value. To pin the ",
+         "variance at zero deliberately -- making the variable deterministic -- ",
+         "write the parameter name as NA instead, which check_dsem_spec() then ",
+         "reports.", call. = FALSE)
+  }
+
   # Preserve dsem_data's column order (recdevs<sp> first, then env vars)
   dsem_data <- dsem_data %>%
     dplyr::select(dplyr::any_of(intersect(colnames(dsem_data), sem_vars)))

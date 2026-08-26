@@ -21,6 +21,23 @@ meantime; neither is this work.
 
 ## Bug fixes
 
+* **An estimated SEM variance starting at 0 crashed R instead of erroring.**
+  `x <-> x, 0, sigma, 0` asks dsem to estimate a variance from a start of zero.
+  The exogenous covariance is singular there, and `MakeADFun()` inside
+  `dsem::dsem()` does not error -- it segfaults, and R aborts with no condition
+  for anything to catch. `check_dsem_spec()` could not report it either: it
+  screens `build_dsem_objects()`'s output, so the crash happened before it was
+  reachable. `build_dsem_objects()` now refuses that shape up front and says
+  what to write instead.
+
+  The parameter NAME is the discriminator, not the start value. `x <-> x, 0,
+  NA, 0` pins the variance at zero deliberately -- the variable becomes
+  deterministic, dsem handles it, and `check_dsem_spec()`'s
+  `covariate_variance` record is what reports it. Measured against dsem 3.0.0:
+  a named parameter starting at 0 aborts R; `NA` at 0 returns a usable model on
+  a covariate column and on a recruitment-deviation column alike. A missing
+  start, a zero cross-covariance and a lag-1 two-headed path are all untouched.
+
 * **A DSEM's process draw was discarded, and took the covariate series with
   it.** `calculate_dsem()` carried its own `do_simulate` branch, and it assigned
   the whole latent field (`x_tj = draw_tj` in `dsem.hpp`), so it overwrote the

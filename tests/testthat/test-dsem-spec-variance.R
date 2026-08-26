@@ -106,3 +106,55 @@ BT -> recdevs1, 0, bBT, 0.45"
   }
   testthat::expect_identical(obj_at(1), obj_at(100))
 })
+
+# ---- an ESTIMATED variance starting at zero -------------------------------
+#
+# PROVENANCE. `x <-> x, 0, sigma, 0` asks dsem to estimate a variance from a
+# start of zero. The exogenous covariance is singular there, and MakeADFun()
+# inside dsem::dsem() does not error -- it SEGFAULTS, and R aborts with no
+# condition for anything to catch. check_dsem_spec() cannot report it either:
+# it screens build_dsem_objects()' OUTPUT, so the crash happens before it is
+# reachable. build_dsem_objects() refuses it up front instead.
+#
+# The parameter NAME is the discriminator, not the start value -- getting that
+# wrong would refuse the deliberate `NA, 0` pinning the tests above rely on.
+# Measured against dsem 3.0.0: named + 0 aborts R; NA + 0 returns a usable model
+# on a covariate column AND on a recdev column.
+
+testthat::test_that("an estimated variance starting at 0 is refused, not crashed into", {
+  testthat::skip_if_not_installed("dsem")
+  testthat::expect_error(
+    .spec_of("recdevs1 <-> recdevs1, 0, sigmaR1, 0
+BT <-> BT, 0, sdBT, 1"),
+    "start value of 0|estimate a two-headed self path")
+})
+
+testthat::test_that("a variance PINNED at zero with NA is still allowed", {
+  testthat::skip_if_not_installed("dsem")
+  # The legitimate idiom: the variable is deterministic and check_dsem_spec()
+  # reports it. Refusing this would break the covariate_variance record above.
+  testthat::expect_error(
+    .spec_of("recdevs1 <-> recdevs1, 0, sigmaR1, 0.6
+BT <-> BT, 0, NA, 0"),
+    NA)
+  # ...including on a recruitment-deviation column.
+  testthat::expect_error(
+    .spec_of("recdevs1 <-> recdevs1, 0, NA, 0
+BT <-> BT, 0, sdBT, 1"),
+    NA)
+})
+
+testthat::test_that("a zero CROSS-covariance and a missing start are untouched", {
+  testthat::skip_if_not_installed("dsem")
+  # Neither is a zero variance: the first says two variables do not covary, the
+  # second lets dsem supply its own start.
+  testthat::expect_error(
+    .spec_of("recdevs1 <-> recdevs1, 0, sigmaR1, 0.6
+BT <-> BT, 0, sdBT, 1
+recdevs1 <-> BT, 0, cov_rb, 0"),
+    NA)
+  testthat::expect_error(
+    .spec_of("recdevs1 <-> recdevs1, 0, sigmaR1
+BT <-> BT, 0, sdBT, 1"),
+    NA)
+})
