@@ -452,8 +452,8 @@ plot_timeseries <- function(Rceattle,
 # data, so it is interpolated at plot time; where species disagree on minage the
 # age prefix is dropped, since one shared y axis cannot name two ages.
 .rce_ts_ylab <- function(output, minage) {
-  # Only recruitment names an age -- it is an age class. SSB is mature females,
-  # not the minage+ stock, so its old "Age-1+" prefix was wrong as well as noisy.
+  # Only recruitment names an age -- it is an age class. SSB is female spawning
+  # biomass, not the minage+ stock, so it carries no age prefix.
   ages <- unique(as.integer(minage[!is.na(minage)]))
   age  <- if (length(ages) == 1L) paste0("Age-", ages, " ") else ""
   switch(output,
@@ -743,7 +743,7 @@ plot_selectivity <-
       # on an older workbook.
       dimn <- as.character(fc$Selectivity_dimension)
       dimn[is.na(dimn) | !nzchar(dimn)] <- "Age"
-      # Empirical selectivity is read straight into sel_at_age -- the template
+      # Empirical selectivity is read straight into sel_at_age -- the model
       # skips sel_type 0 when it fills sel_at_length (selectivity.hpp, "ESTIMATED
       # SELECTIVITY") -- so a Fixed fleet is age-based whatever the column says,
       # and reading the length array would draw it as identically zero. Scripts
@@ -1483,7 +1483,7 @@ plot_m_at_age <-
     age_sel <- .rce_age_index(age, species, Rceattle[[1]]$data_list$minage,
                               Rceattle[[1]]$data_list$nages, spnames)
     species <- age_sel$species
-    # M_at_age is REPORTed but its ADREPORT is commented out in the template,
+    # M_at_age is REPORTed but its ADREPORT is commented out in the model,
     # so the fit carries no standard errors for it.
     add_ci <- .rce_no_ci(add_ci, "M at age",
                          "the model reports it without standard errors")
@@ -1702,7 +1702,7 @@ plot_f <- .ts_wrapper("F_spp", ref_lines = .f_reference_lines,
 #'
 #' @description Population-level consumption for ages `minage`+: the individual
 #'   annual ration (kg/yr) multiplied by average numbers-at-age and summed over
-#'   age, in million mt. This is how the template forms total consumption
+#'   age, in million mt. This is how the model forms total consumption
 #'   (`avgN_at_age * ration`, `predation.hpp`), so it is the consumption that
 #'   generates the predation mortality in [plot_m2_at_age_prop()] and the
 #'   biomass in [plot_b_eaten()], plus the other-food term.
@@ -1759,7 +1759,7 @@ plot_ration <-
     # summed over age minage+. consumption_at_age is the annual ration of ONE
     # fish (kg/yr) and numbers-at-age are in thousands, so the product is mt.
     #
-    # avgN_at_age, not N_at_age: the template multiplies the ration by the
+    # avgN_at_age, not N_at_age: the model multiplies the ration by the
     # year's average numbers (predation.hpp, `avgN_at_age(rsp, ...) * pred_rat`),
     # and ration_hat is B_eaten_as_pred / avgN_at_age. Start-of-year numbers
     # would overstate consumption by 1 / ((1 - exp(-Z)) / Z) and would not

@@ -48,20 +48,46 @@ object, an overall status, and a verdict — before the detail:
 
 <Rceattle jitter>  status: OK
   4 of 4 start(s) reached the best optimum (within 0.01)
+
+<Rceattle self-test>  status: NOTE
+  47 of 50 simulation(s) converged
+          convergence  n
+  [OK  ]  OK           41
+  [NOTE]  NOTE          6
+  observations redrawn, processes held at their fitted values: the spread is a lower bound
+
+<Rceattle profile>  status: WARN
+  sigmaR over 29 grid point(s); all converged
+  minimum -log L : 1274.8831  at slot_1 = 1.5
+  within 1.92 of the minimum : 1.3 to >=1.5
+  the minimum is at a grid edge (slot_1), so the grid does not bracket it -- widen `values`
 ```
 
 The severity words are the same four everywhere — `OK`, `NOTE`, `WARN`, `FAIL` —
 and the overall status is the worst present. The **return values are unchanged**:
 each object is still the data frame or list it always was, so `retro$mohns`,
-`jit$nll` and `diag$sdnr` index exactly as before. Only the printing has an
-opinion.
+`jit$nll`, `diag$sdnr`, `prof$grid$slot_1` and `sims[["Sim_1"]]` index exactly as
+before, and `c(sims, list(fit))` still gives a plain list of fits to plot. Only
+the printing has an opinion.
 
-Two of these carry a reference band you can set. `print(retro, band = )` is
-Mohn's rho threshold — the default `0.2` is the rule of thumb below, and
-Hurtado-Ferro et al. (2015) give asymmetric, life-history-dependent alternatives
-(−0.15 to 0.20 long-lived, −0.22 to 0.30 short-lived), which is why it is an
-argument. `print(jit, tol = )` is how close an objective must be to count as
-having reached the same optimum.
+Four of these carry a threshold you can set. `print(retro, band = )` is Mohn's
+rho threshold — the default `0.2` is the rule of thumb below, and Hurtado-Ferro
+et al. (2015) give asymmetric, life-history-dependent alternatives (−0.15 to
+0.20 long-lived, −0.22 to 0.30 short-lived), which is why it is an argument.
+`print(jit, tol = )` is how close an objective must be to count as having
+reached the same optimum. `print(sims, rate = )` is the fraction of simulations
+that must converge before a self-test counts as clean. `print(prof, cutoff = )`
+bounds the reported interval; the default 1.92 is the 95% profile-likelihood
+cutoff for one parameter — half the 0.95 quantile of a chi-square on one degree
+of freedom.
+
+Two of them report something the numbers alone cannot. A self-test drops its
+non-converged runs before returning, so the length of what comes back is not the
+number attempted — the header gives the rate against `nsim`, and the last line
+says what generated the replicates, since with processes held fixed the spread
+carries observation error only. A profile whose minimum sits at the first or
+last grid value has run out of grid rather than found the optimum; it plots as
+an ordinary curve, so the print says so and asks for a wider `values`.
 
 ## Setup and plotting data
 
@@ -276,7 +302,7 @@ The alternatives are Francis (2011) reweighting, applied by hand, and estimating
 the weights directly with a Dirichlet-multinomial likelihood
 (`Comp_distribution = "DirichletMultinomial"`), which avoids the iteration
 entirely — note that under that likelihood `Comp_weights` is read as the **log**
-of the starting weight, so the template default of `1` is a starting weight of
+of the starting weight, so the model default of `1` is a starting weight of
 *e*, and a weight of 1 is written as `0`.
 
 Because OSA residuals for discrete composition data are randomized quantile

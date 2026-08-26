@@ -16,7 +16,7 @@
 #'     "recruitment", "mortality", "growth", "fishing", "catchability",
 #'     "selectivity", "observation", "predation", "linkage", "internal".}
 #'   \item{meaning}{One sentence a fisheries scientist can act on.}
-#'   \item{dims}{Dimensions, in the template's own notation.}
+#'   \item{dims}{Dimensions, in the model's own notation.}
 #' }
 #'
 #' @keywords internal

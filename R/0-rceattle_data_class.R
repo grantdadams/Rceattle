@@ -53,10 +53,9 @@
 #
 # A slot holds either a single spec or a LIST of them: the grammar lets one
 # parameter carry several, which is how a shared prior and a fleet-specific
-# random walk sit on the same selectivity limb. Reading `$formula` off that list
-# gives NULL, so a stacked parameter used to display as "NULL" -- and stacking is
-# what a real assessment does, so the rows that displayed as NULL were the ones
-# carrying the structure worth showing.
+# random walk sit on the same selectivity limb. Reading `$formula` off that
+# list gives NULL, so a stacked parameter has to be unpacked before display --
+# and stacking is what a real assessment does.
 #
 # `is.list()` first, and not merely for tidiness: `$` on an atomic vector is an
 # error, not NULL, so testing `x$formula` on a stray numeric would throw out of

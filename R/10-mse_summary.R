@@ -109,7 +109,7 @@
 #'
 #'   `om_terminal_depletion` is `NA` for a multispecies run that derived no
 #'   unfished reference, which is any run without a harvest control rule
-#'   (`HCR = "NoFishing"`): under `msmMode > 0` the template reads spawning
+#'   (`HCR = "NoFishing"`): under `msmMode > 0` the model reads spawning
 #'   biomass against the `MSSB0` input, and `fit_mod()` only fills that in by
 #'   projecting under no fishing when an HCR is present. Dividing by the
 #'   placeholder instead reported SSB/999 as a depletion -- on the Pacific hake
@@ -668,7 +668,7 @@ mse_summary <- function(mse, om_only = FALSE){
 
     if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
       # Terminal year, as in the single-species arm above. The multispecies
-      # SB0 is the same in every year -- the template overwrites its own
+      # SB0 is the same in every year -- the model overwrites its own
       # derivation with the `MSSB0` input -- so this reads the same number a
       # bare `SB0[sp]` did, and keeps reading the right one if that changes.
       terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])

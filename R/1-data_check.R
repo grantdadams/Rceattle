@@ -45,7 +45,7 @@ data_check <- function(data_list) {
   }
 
   # Catchability = "PowerEquation" is not yet implemented: the power coefficient
-  # (index_q_pow) is not built as a parameter and the template does not apply it,
+  # (index_q_pow) is not built as a parameter and the model does not apply it,
   # so the fleet would silently get a plain estimated q instead.
   if(!is.null(data_list$fleet_control$Catchability) &&
      any(data_list$fleet_control$Catchability %in% c("PowerEquation", 4), na.rm = TRUE)){
@@ -83,7 +83,7 @@ data_check <- function(data_list) {
   #
   # Note this is a DIFFERENT switch from `Time_varying_q = "AR1"`, which is also
   # removed (5.16.0) but by its own check above, with its own message. That one
-  # was not an AR1 either: the template gives value 2 the same independent
+  # was not an AR1 either: the model gives value 2 the same independent
   # normal penalty as value 1 (`index_varying_q == 1 || == 2`), and index_q_rho
   # is read only on the QAR1 path this block removes. Both redirect to the same
   # place -- a q linkage, `linkage_spec(~ ar1(1 | Year))` -- but they name
@@ -137,7 +137,7 @@ data_check <- function(data_list) {
       "worked example.\n",
       "This is not the same switch as Time_varying_q = 'AR1', which is removed ",
       "separately and reported on its own. That one was not an AR1 either: the ",
-      "template scored it with the same independent normal penalty as 'IID'. ",
+      "model scored it with the same independent normal penalty as 'IID'. ",
       "Both are replaced by the same q linkage."))
   }
 
@@ -174,7 +174,7 @@ data_check <- function(data_list) {
   fc <- data_list$fleet_control
 
   # Time_varying_sel / Time_varying_q = "AR1" (2) are REMOVED. Neither was ever
-  # an AR1. The template scores value 2 with the same independent normal penalty
+  # an AR1. The model scores value 2 with the same independent normal penalty
   # as value 1 -- `flt_varying_sel == 1 || == 2` and `index_varying_q == 1 || ==
   # 2` -- and neither deviation block has a correlation parameter to read:
   # index_q_rho is used only on the QAR1 catchability path this release also
@@ -223,7 +223,7 @@ data_check <- function(data_list) {
     paste0(
       what, " = 'AR1' is removed for fleet(s) ",
       paste(unique(fc$Fleet_name[hit]), collapse = ", "),
-      ". It was never an AR1: the template scored it with the same independent ",
+      ". It was never an AR1: the model scored it with the same independent ",
       "normal penalty as 'IID', and there is no correlation parameter for these ",
       "deviations to read. Set ", what, " = 'IID' to keep the fit you had. ",
       "To fit the autocorrelation the name promised, use a linkage -- a ",
@@ -304,11 +304,10 @@ data_check <- function(data_list) {
     }
 
     # The age-by-year modes carry one deviation per age-year cell -- nages *
-    # nyrs_hind per species, which is 882 on GOA2018SS where a mapping defect
-    # gave 42 before 5.9.0. That field is flexible enough to absorb a trend that
-    # belongs to selectivity or to recruitment, and nothing else in a
-    # single-species model pins the level of M. Say so where the user can act
-    # on it; this is not an error, and a well-informed model is free to run it.
+    # nyrs_hind per species, 882 on GOA2018SS. That field is flexible enough to
+    # absorb a trend belonging to selectivity or to recruitment, and nothing
+    # else in a single-species model pins the level of M. Say so where the user
+    # can act on it; this is a warning, not an error.
     m1_2d <- data_list$M1_re %in% c(3, 6, "iid_age_year", "ar1_age_year")
     m1_pr <- data_list$M1_use_prior
     if (is.null(m1_pr)) m1_pr <- rep(0, length(m1_2d))
@@ -432,13 +431,112 @@ data_check <- function(data_list) {
   }
 
   # Weight / maturity / sex_ratio age coverage
+  # na.rm: an NA in `nages` is reported by the check that owns it, and without
+  # this `any()` returns NA and the `if` aborts data_check() -- discarding every
+  # error accumulated so far, that one included.
   if(any(data_list$weight |>
          dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) |>
-         ncol() < data_list$nages)){
+         ncol() < data_list$nages, na.rm = TRUE)){
     errors <- c(errors, "Weight data does not span range of ages")
   }
-  if(ncol(data_list$maturity)  <= max(data_list$nages)) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
-  if(ncol(data_list$sex_ratio) <= max(data_list$nages)) errors <- c(errors, "Sex ratio does not span all ages")
+  # na.rm on the max for the same reason as the weight check above: one NA in
+  # `nages` would otherwise abort data_check() here instead of being reported.
+  # -Inf when every `nages` is NA or absent, so every use is gated on
+  # is.finite() -- here, and again at the NByageFixed and CAAL column checks
+  # further down, which read this same value.
+  max_ages <- suppressWarnings(max(data_list$nages, na.rm = TRUE))
+  if(is.finite(max_ages)){
+    if(ncol(data_list$maturity)  <= max_ages) errors <- c(errors, "Maturity-at-age (maturity) does not span all ages")
+    if(ncol(data_list$sex_ratio) <= max_ages) errors <- c(errors, "Sex ratio does not span all ages")
+  }
+
+  # Per-species age coverage, which the column counts above cannot see. Those
+  # ask only whether the table is wide enough for the LONGEST-lived species, so
+  # a table can be wide enough and still leave a species' own bins empty -- and
+  # the value-range checks below pass over NA.
+  #
+  # Both tables are summed over age. `mature_females` is `maturity`, times
+  # `sex_ratio` where a species is modelled one-sex (`ceattle.cpp` 5.4), and
+  # feeds hindcast `ssb`; `spawning_biomass_per_recruit()` (`spr.hpp`) sums the
+  # same schedule for SPR. So a `maturity` gap makes SSB NaN for any species,
+  # and a `sex_ratio` gap does the same for a ONE-SEX species. On a two-sex
+  # species `sex_ratio` reaches only SPR, which is why such a gap can sit
+  # unnoticed until a harvest control rule asks for reference points and nlminb
+  # reports "NA/NaN gradient evaluation", naming neither table nor species.
+  #
+  # Rows are read by POSITION: rearrange_data() drops the Species column and
+  # hands the model a matrix whose row i IS species i. A Species column that
+  # disagrees with the row order is reported rather than followed.
+  #
+  # Ages beyond a species' own `nages` are padding and are not checked.
+  fmt_ages <- function(x){
+    if(length(x) > 1L && identical(x, seq(x[1L], x[length(x)]))){
+      paste0(x[1L], "-", x[length(x)])
+    } else paste(x, collapse = ", ")
+  }
+  for(nm in c("maturity", "sex_ratio")){
+    tbl <- data_list[[nm]]
+    if(is.null(tbl) || !nrow(tbl)) next
+    agec <- grep("^Age", colnames(tbl))
+    if(!length(agec)) next
+
+    if(nrow(tbl) < data_list$nspp){
+      errors <- c(errors, paste0(
+        nm, " has ", nrow(tbl), " row(s) for ", data_list$nspp, " species. Rows ",
+        "are read by position, so species ", nrow(tbl) + 1L,
+        if(data_list$nspp > nrow(tbl) + 1L) paste0("-", data_list$nspp) else "",
+        " would be read past the end of the table."))
+    }
+    # Read by column NAME, not with `$`: these tables are a data.frame from
+    # read_data() but a hand-built data_list may hold either as a matrix, where
+    # `$` is an error rather than NULL and would abort data_check() before a
+    # single accumulated error could be reported.
+    #
+    # Via as.character(), so a factor column gives the species number written in
+    # the workbook rather than its level code. The two agree only while the
+    # numbers are 1..nspp: a table carrying species 1, 3, 4 reads as level codes
+    # 1, 2, 3 and passes the row-order test it should fail.
+    if("Species" %in% colnames(tbl)){
+      # `[[` for a data.frame or tibble, `[,` for a matrix: neither form works
+      # on both. `tbl[, "Species"]` on a TIBBLE is a one-column tibble, not a
+      # vector, so it would coerce to NA and report every row.
+      sp_raw <- if(is.matrix(tbl)) tbl[, "Species"] else tbl[["Species"]]
+      sp_col <- suppressWarnings(as.numeric(as.character(sp_raw)))
+      not_a_number <- which(is.na(sp_col) | sp_col != round(sp_col))
+      if(length(not_a_number)){
+        # Reported rather than passed over: `NA != i` is NA, so an unusable
+        # column would otherwise leave the row order silently unchecked.
+        errors <- c(errors, paste0(
+          nm, "$Species must be the species number. Row(s) ",
+          paste(not_a_number, collapse = ", "), " are not a whole number, so ",
+          "the row order cannot be checked against it."))
+      } else {
+        out_of_order <- which(sp_col != seq_len(nrow(tbl)))
+        if(length(out_of_order)){
+          errors <- c(errors, paste0(
+            nm, "$Species must match the row order -- rearrange_data() drops the ",
+            "column and the model reads row i as species i. Row(s) ",
+            paste(out_of_order, collapse = ", "), " disagree."))
+        }
+      }
+    }
+
+    for(sp in seq_len(min(nrow(tbl), data_list$nspp))){
+      n <- data_list$nages[sp]
+      # NA `nages`, or a table too narrow: both are reported by the checks that
+      # own them, and `if(NA)` here would abort before any of them are raised.
+      if(is.na(n) || length(agec) < n) next
+      vals <- suppressWarnings(as.numeric(tbl[sp, agec[seq_len(n)]]))
+      gaps <- which(!is.finite(vals))
+      if(length(gaps)){
+        errors <- c(errors, paste0(
+          nm, " is missing values for species ", sp, ", age",
+          if(length(gaps) > 1L) "s " else " ", fmt_ages(gaps),
+          " of ", n, ". Spawning biomass and spawner-per-recruit both sum over ",
+          "every age, so a gap leaves SSB or SPR0 NA."))
+      }
+    }
+  }
 
   # Maturity / sex_ratio value ranges
   mat_vals <- data_list$maturity[, grep("^Age", colnames(data_list$maturity)), drop = FALSE]
@@ -465,7 +563,7 @@ data_check <- function(data_list) {
   # comp_data Sex is an encoding (0 = combined, 1 = female, 2 = male, 3 = joint
   # female and male), not a count, so it is checked by meaning rather than
   # against max(Sex): a male-only or a joint row needs a second sex to exist.
-  # A joint row on a one-sex species is the damaging one -- the template writes
+  # A joint row on a one-sex species is the damaging one -- the model writes
   # that row out to 2 * nages while check_composition_data() requires only nages
   # columns, so the surplus lands in the next observation's predicted
   # composition and quietly changes its likelihood.
@@ -482,9 +580,11 @@ data_check <- function(data_list) {
 
   # ration_data
   if(has_data(data_list$ration_data)){
+    # na.rm as for weight above: an NA in `nages` is reported by its own check
+    # and must not abort this one.
     if(any(data_list$ration_data |>
            dplyr::select(-c(Species, Sex, Year)) |>
-           ncol() < data_list$nages)){
+           ncol() < data_list$nages, na.rm = TRUE)){
       errors <- c(errors, "'ration_data' data does not span range of ages")
     }
     ration_sex <- data_list$ration_data |> dplyr::group_by(Species) |>
@@ -511,7 +611,7 @@ data_check <- function(data_list) {
   if(any(data_list$age_error |>
          as.data.frame() |>
          dplyr::select(-c(Species, True_age)) |>
-         ncol() < data_list$nages)){
+         ncol() < data_list$nages, na.rm = TRUE)){
     errors <- c(errors, "`age_error` observed ages do not span range of ages")
   }
   # ALK & age_error: per-species age coverage (fillable with 0s downstream -- message-level)
@@ -556,12 +656,16 @@ data_check <- function(data_list) {
   # NByageFixed: presence required when estDynamics > 0 (declarative requirement
   # table); the column-count adequacy check stays imperative below.
   errors <- c(errors, .rce_check_presence(data_list, "NByageFixed"))
-  if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed)){
-    expected_cols <- 4 + max(data_list$nages)
+  # is.finite(max_ages): with every `nages` NA the expected width is -Inf, which
+  # no table can have, and the message would ask for "-Inf columns". `nages` is
+  # reported by its own check; this one has nothing to say until it is fixed.
+  if(any(data_list$estDynamics > 0) && has_data(data_list$NByageFixed) &&
+     is.finite(max_ages)){
+    expected_cols <- 4 + max_ages
     if(ncol(data_list$NByageFixed) != expected_cols){
       errors <- c(errors, paste0("NByageFixed should have ", expected_cols,
                                  " columns (Species_name, Species, Sex, Year, Age1...Age",
-                                 max(data_list$nages), "), but has ", ncol(data_list$NByageFixed)))
+                                 max_ages, "), but has ", ncol(data_list$NByageFixed)))
     }
   }
 
@@ -668,7 +772,7 @@ data_check <- function(data_list) {
       # Non-parametric shape-penalty range and cap, given on the fleet's own
       # selectivity dimension: an age (from minage) for age-based fleets, a
       # 1-based length-bin ordinal for length-based. Out-of-range values would
-      # index past the selectivity array in the template.
+      # index past the selectivity array in the model.
       bin_lo <- if(dim_is_age) data_list$minage[sp_idx] else 1L
       bin_hi <- bin_lo + max_bin - 1L
       for(col in c("Sel_pen_first_bin", "Sel_pen_last_bin", "Sel_cap_bin")){
@@ -690,7 +794,7 @@ data_check <- function(data_list) {
       # from comp_data$Age0_Length1 -- and are PER SEX BLOCK for joint-sex (Sex 3)
       # comps (so the bound is nages/nlengths, not the doubled joint row). An
       # out-of-range value or young >= old would fold into a nonexistent bin,
-      # build a negative-length vector in the template, or collapse the whole
+      # build a negative-length vector in the model, or collapse the whole
       # composition into a single (zero-information) bin, so reject them here.
       # A single per-fleet column drives every composition row on the fleet, so
       # the bound is the MOST restrictive dimension present (min): a value that
@@ -705,7 +809,7 @@ data_check <- function(data_list) {
           ay <- fc_num(fc, "Comp_accum_young", flt)
           ao <- fc_num(fc, "Comp_accum_old",   flt)
           # Effective old bin: the NA / 0 sentinels both mean "no old accumulation",
-          # which the template reads as the last bin.
+          # which the model reads as the last bin.
           ao_eff <- if(is.na(ao) || ao == 0) comp_max_bin else ao
           if(!is.na(ay) && (ay < 1 || ay > comp_max_bin)){
             errors <- c(errors, paste0("Fleet '", flt_name, "': Comp_accum_young (", ay,
@@ -1277,7 +1381,7 @@ data_check <- function(data_list) {
 
   # catch_data must span hindcast years (use 0 where no catch occurred);
   # A fleet carrying fitted index observations needs its catchability columns,
-  # whatever its Fleet_type. The template scores an index row for any non-Off
+  # whatever its Fleet_type. The model scores an index row for any non-Off
   # fleet, so a fishery with a CPUE series is fitted like a survey -- but these
   # columns have no schema default, so on a fishery they arrive NA and the index
   # would be fitted at an undefined q with an undefined sd. Required rather than
@@ -1390,7 +1494,7 @@ data_check <- function(data_list) {
   #   NonParametric(PM)    RandomWalk only -- the walk on realized log-selectivity
   #                        divides by 2*sd^2. build_map() refuses the other modes.
   #   LogisticPM           never: its two walks are weighted by Sel_curve_pen1
-  #                        and Sel_curve_pen3, and the template's own conditions
+  #                        and Sel_curve_pen3, and the model's own conditions
   #                        exclude type 11 from every sel_dev_sd site.
   #   Fixed / 2DAR1 / 3DAR1
   #                        never: no deviation, or the field carries its own
@@ -1525,8 +1629,12 @@ data_check <- function(data_list) {
     caal_cols <- grep("^CAAL_", colnames(data_list$caal_data), value = TRUE)
     if(length(caal_cols) == 0){
       errors <- c(errors, "caal_data is missing CAAL_ columns (CAAL_1, CAAL_2, etc.)")
-    } else {
-      missing_caal <- setdiff(paste0("CAAL_", 1:max(data_list$nages)), caal_cols)
+    } else if(is.finite(max_ages)){
+      # is.finite(max_ages) as at NByageFixed above, and here it is the
+      # difference between a report and an abort: with every `nages` NA the
+      # sequence is `1:-Inf`, which errors with "result would be too long a
+      # vector" and discards every error accumulated up to this point.
+      missing_caal <- setdiff(paste0("CAAL_", seq_len(max_ages)), caal_cols)
       if(length(missing_caal) > 0){
         errors <- c(errors, paste("caal_data is missing CAAL columns:",
                                   paste(missing_caal, collapse = ", ")))
@@ -1581,17 +1689,11 @@ data_check <- function(data_list) {
         errors <- c(errors, "Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
       }
     }
-    # Stomach grouping. The TMB diet likelihood walks diet_ctl with one forward
-    # cursor, taking stomach i's prey as the run of rows where stomach_id == i
-    # (ceattle.cpp, section 13.2). That needs the ids sorted: 0, 1, 2, ... with
-    # no gaps. Sorted order is what makes each stomach's rows consecutive AND
-    # puts them where the cursor looks for them, so testing only that the rows
-    # are grouped is not enough -- a table whose blocks are each intact but out
-    # of order (say re-sorted by predator age) passes that test while the cursor
-    # runs past nearly all of them. Every stomach it misses drops out of the
-    # likelihood silently, with a lower jnll. clean_data() sorts by stomach_id,
-    # so anything that came through it is fine; this catches a hand-built or
-    # re-sorted diet table.
+    # Stomach grouping. The diet likelihood takes stomach i's prey as the run
+    # of rows where stomach_id == i (ceattle.cpp, section 13.2), so the ids must
+    # be sorted 0, 1, 2, ... with no gaps -- grouped-but-unsorted is not enough,
+    # and any stomach out of order drops out of the likelihood. clean_data()
+    # sorts by stomach_id; this catches a hand-built or re-sorted diet table.
     if("stomach_id" %in% colnames(dd)){
       sid <- as.integer(dd$stomach_id)
       if(any(is.na(sid))){
@@ -1632,18 +1734,13 @@ data_check <- function(data_list) {
   }
 
   # A Beverton-Holt or Ricker curve is anchored on spawning biomass per recruit:
-  # steepness, R0 and R_init are all derived from SPR0 or SPRFinit. Under
-  # predation those are not defined -- total mortality carries M2, which scales
-  # with predator abundance, so per-recruit spawning output is not a property of
-  # the prey stock alone -- and section 6.2 of the template does not compute
-  # them. The consumers in section 6.3 were never gated to match, so SPR0 = 0
-  # reached them: with srr_fun >= 2 that is 1/0, giving R0 = -Inf and a NaN
-  # objective; with the Ianelli configuration (srr_fun < 2, srr_pred_fun >= 2)
-  # it is worse, because the fit RUNS -- steepness comes out 0, R_hat -Inf, and
-  # the objective is finite. Refuse the combination rather than report either.
-  # Resolve through .SRR_FUNS rather than comparing the raw value: build_srr()
-  # coerces to an integer code, but a hand-built data_list can still carry the
-  # string, and in R `"mean" >= 2` is TRUE -- a character comparison that would
+  # steepness, R0 and R_init all derive from SPR0 or SPRFinit. Under predation
+  # there is no such anchor -- total mortality carries M2, which scales with
+  # predator abundance, so per-recruit spawning output is not a property of the
+  # prey stock alone. The combination is refused rather than fitted.
+  #
+  # Resolve through .SRR_FUNS rather than comparing the raw value: a hand-built
+  # data_list can carry the string, and in R `"mean" >= 2` is TRUE, which would
   # refuse a perfectly good mean-recruitment multispecies model. An unrecognised
   # value is validate_switches()' business to report, not this check's.
   .srr_needs_spr <- function(x) {

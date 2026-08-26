@@ -158,6 +158,10 @@ print.Rceattle <- function(x, ...) {
 #'
 #' @export
 summary.Rceattle <- function(object, ...) {
+  # For a fitted assessment the conventional answer to summary() is the
+  # estimates and their uncertainty plus the likelihood decomposition, joined
+  # from coef(), vcov() and quantities$jnll_comp. print() gives the spec tree;
+  # this gives the numbers.
   if (!inherits(object, "Rceattle")) {
     stop("Input is not an Rceattle model.")
   }

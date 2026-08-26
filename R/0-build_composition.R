@@ -147,7 +147,7 @@ build_composition <- function(linkages = NULL) {
 #' A `comp` linkage row is prior-only, so when the map fixes the DM weight it
 #' targets the prior is a constant: it shifts the reported `jnll` without moving
 #' an estimate, and makes likelihoods non-comparable across configurations.
-#' Such rows are set to `prior_family = "none"`, which the template skips.
+#' Such rows are set to `prior_family = "none"`, which the model skips.
 #'
 #' `.check_comp_linkage_support()` rejects a prior that can never apply to the
 #' data at hand (a non-DM `Comp_distribution` / `Diet_distribution`). Whether a

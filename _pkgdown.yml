@@ -219,6 +219,8 @@ reference:
   # they are reference topics, not just dispatch.
   - print.Rceattle_retro
   - print.Rceattle_jitter
+  - print.Rceattle_selftest
+  - print.Rceattle_profile
   - print.Rceattle_mse_summary
 
 - title: "Diagnostics — shared arguments"

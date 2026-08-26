@@ -186,7 +186,7 @@ clean_data <- function(data_list){
   # --- 2. Multi-species unfished SSB and biomass (metric tons) ----
   # Required DATA_VECTORs, and no workbook can supply them: neither has
   # read_data()/write_data() support, so this is the only thing that creates
-  # them. The template derives SB0/B0 itself and reads these only to overwrite
+  # them. The model derives SB0/B0 itself and reads these only to overwrite
   # it under msmMode > 0, where fit_mod() fills them from a no-fishing
   # projection; .RCE_MSSB0_PLACEHOLDER stands in until it does.
   if(is.null(data_list$MSSB0)){
@@ -198,7 +198,7 @@ clean_data <- function(data_list){
   # under no fishing. Carried rather than inferred from the value, because
   # recognising the placeholder by comparing a double to 999 would also null a
   # genuinely-derived 999 mt, and is blind to a workbook that supplied its own
-  # MSSB0. Not a TMB input -- the template never sees it.
+  # MSSB0. Not a TMB input -- the model never sees it.
   if(is.null(data_list$MSSB0_derived)){
     data_list$MSSB0_derived <- rep(FALSE, data_list$nspp)
   }

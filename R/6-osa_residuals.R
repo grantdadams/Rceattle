@@ -262,7 +262,7 @@ osa_residuals <- function(object = NULL,
   # Build the full OSA observation data (comp / caal / diet segments) on demand.
   # This works from any fit and no longer requires fitting with
   # fit_control(osa = TRUE): build_osa_data() reads only the *_ctl / *_obs
-  # arrays the template already carries, and `obs_ctl` maps each obsvec position
+  # arrays the model already carries, and `obs_ctl` maps each obsvec position
   # back to its source. The same regenerated data is reused by .osa_build_obj().
   osa_dat <- build_osa_data(object$obj$env$data, build_osa = TRUE)
   obs_ctl <- osa_dat$obs_ctl
@@ -336,28 +336,20 @@ osa_residuals <- function(object = NULL,
   is_comp      <- sel$source %in% c("comp", "caal", "diet")
   sel_discrete <- ifelse(is_comp, isTRUE(discrete), FALSE)
 
-  # `Index_distribution = "TruncatedNormal"` needs its own call. Its density
-  # differs from `"Normal"` only by the constant log Phi(mu/sd), which is a
-  # function of the prediction and not of the observation -- so a method that
-  # reads the curvature of the density IN THE OBSERVATION (the Gaussian ones,
-  # including the default) cannot see the truncation at all and returns the
-  # untruncated residual (x - mu)/sd. That is not standard normal under the
-  # fitted model wherever truncation carries real mass.
-  #
-  # oneStepGeneric integrates the density over `range` and normalizes by that
-  # integral, so a range starting at zero gives
+  # `Index_distribution = "TruncatedNormal"` is residualized on its own, with
+  # oneStepGeneric over a (0, Inf) range. That integrates the density over the
+  # range and normalizes by the integral, giving the truncated CDF
   #   F(x) = [Phi((x-mu)/sd) - Phi(-mu/sd)] / Phi(mu/sd)
-  # -- the truncated CDF, and qnorm(F(x)) is then standard normal by the
-  # probability integral transform. The range is a property of the FAMILY, not of
-  # the call, so these rows are residualized separately: `"Normal"` is genuinely
-  # untruncated and a lognormal fleet's obsvec entry is log(obs), which is
-  # negative for a small index, so neither may be given this range.
-  # Keyed off index_ll_type -- the SAME vector build_osa_data() used to decide
-  # whether this fleet's obsvec entry holds obs or log(obs). Reading
-  # fleet_control$Index_distribution instead would be a second source of truth
-  # for one decision, and the failure mode is silent and total: a (0, Inf) range
-  # applied to a fleet whose obsvec holds log(obs) integrates from 0 down past a
-  # negative observation and qnorm() gets nonsense.
+  # so qnorm(F(x)) is standard normal. The Gaussian methods, including the
+  # default, cannot see the truncation -- it enters the density only through
+  # log Phi(mu/sd), a function of the prediction and not the observation -- and
+  # would return the untruncated residual wherever truncation carries real mass.
+  #
+  # The range belongs to the FAMILY, so only these rows may have it: "Normal"
+  # is genuinely untruncated, and a lognormal fleet's obsvec entry is log(obs),
+  # which is negative for a small index. Keyed off index_ll_type, the same
+  # vector build_osa_data() used to decide whether the entry holds obs or
+  # log(obs), so the two cannot disagree.
   fc_osa   <- object$data_list$fleet_control
   ill_osa  <- object$obj$env$data$index_ll_type
   sel_trunc <- rep(FALSE, nrow(sel))
@@ -676,7 +668,7 @@ osa_residuals <- function(object = NULL,
   }
   # Regenerate the full OSA observation vector (comp / CAAL / diet segments) on
   # demand, so residuals no longer require fitting with fit_control(osa = TRUE).
-  # build_osa_data() reads only the *_ctl / *_obs arrays the template already
+  # build_osa_data() reads only the *_ctl / *_obs arrays the model already
   # carries in obj$env$data, so the result is identical to an osa = TRUE fit.
   # `osa_dat` lets the caller pass a pre-built copy to avoid recomputing it.
   data2 <- if (is.null(osa_dat)) build_osa_data(obj$env$data, build_osa = TRUE) else osa_dat

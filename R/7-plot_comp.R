@@ -385,7 +385,7 @@ plot_diet_comp1 <- plot_diet_comp
 #' columns). Estimated 95% intervals (`Est_Lower` / `Est_Upper`) are added only
 #' when the `sdrep` exposes a `diet_hat` standard error; the C++ template
 #' `REPORT()`s but does not `ADREPORT()` `diet_hat`, so these are unavailable
-#' unless the template is changed to `ADREPORT(diet_hat)`.
+#' unless the model is changed to `ADREPORT(diet_hat)`.
 #'
 #' @param Rceattle A single Rceattle model object.
 #' @return A data frame with `Pred`, `Prey`, `Pred_sex`, `Prey_sex`, `Pred_age`,
@@ -426,7 +426,7 @@ plot_diet_comp1 <- plot_diet_comp
   plot_data$lower_95 <- pmax(0, plot_data$Observed - 1.96 * se_obs)
   plot_data$upper_95 <- pmin(1, plot_data$Observed + 1.96 * se_obs)
 
-  # Estimated 95% CI from the sdreport, if diet_hat was ADREPORT'd. The template
+  # Estimated 95% CI from the sdreport, if diet_hat was ADREPORT'd. The model
   # only REPORT()s diet_hat, so this branch is normally skipped. Both shapes are
   # handled: a vector gives n SDs, an n x 2 matrix gives 2n, of which the second
   # column (the fitted proportion) is used.

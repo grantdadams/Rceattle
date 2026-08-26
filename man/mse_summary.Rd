@@ -52,7 +52,7 @@ simulations}, not probabilities.
 
 \code{om_terminal_depletion} is \code{NA} for a multispecies run that derived no
 unfished reference, which is any run without a harvest control rule
-(\code{HCR = "NoFishing"}): under \code{msmMode > 0} the template reads spawning
+(\code{HCR = "NoFishing"}): under \code{msmMode > 0} the model reads spawning
 biomass against the \code{MSSB0} input, and \code{fit_mod()} only fills that in by
 projecting under no fishing when an HCR is present. Dividing by the
 placeholder instead reported SSB/999 as a depletion -- on the Pacific hake

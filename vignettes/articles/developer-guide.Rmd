@@ -145,7 +145,7 @@ file):
 | `linkage.hpp` | Applies the encoded linkage tables (covariates, time blocks, random effects) to each process's parameters, and accumulates the linkage priors / RE densities into the likelihood. |
 | `comp_sim.hpp` | Composition draws — multinomial (sequential conditional binomial), Dirichlet, and Dirichlet-multinomial — used by the `SIMULATE` blocks. |
 
-The template opens with the `DATA_*` block (switches such as `estimateMode`,
+The model opens with the `DATA_*` block (switches such as `estimateMode`,
 `msmMode`, `suitMode`, `initMode`, `srr_fun`, `HCR`, plus the data objects),
 then the `PARAMETER_*` block, then the population and observation dynamics, and
 finally the joint negative log-likelihood. The likelihood is accumulated in the
@@ -157,7 +157,7 @@ C++ rather than by a bare integer. The **display names** for those rows live
 separately in `R/6-rename_output.R`; if you add or reorder a row, update both the
 enum and that name vector by hand (they are kept in sync manually).
 
-**Building.** `src/TMB/compile.R` compiles the template (`framework = "TMBad"`);
+**Building.** `src/TMB/compile.R` compiles the model (`framework = "TMBad"`);
 `TMB` and `RcppEigen` are `LinkingTo` dependencies. The spurious Eigen
 `-Warray-bounds` warnings are silenced by a source `#pragma` in the `.cpp`
 rather than a compiler flag, since CRAN rejects warning-suppressing flags.
@@ -331,7 +331,7 @@ Tests use `testthat` in a flat layout: every file is a top-level
 
 * `tests/testthat/fixtures/fit_baseline.rds` and the golden-`jnll` regression
   test pin the objective-function value so unintended numerical changes surface.
-* `test-tmb-makeadfun_smoke.R` checks the template builds and evaluates.
+* `test-tmb-makeadfun_smoke.R` checks the model builds and evaluates.
 * `test-parameter-recovery.R` fits simulated data and checks estimates.
 * `helpers-make-msm-data.R` builds small multi-species fixtures.
 
