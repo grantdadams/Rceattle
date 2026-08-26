@@ -577,7 +577,14 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
   "Ration penalties"           = "species",
   "Stomach content data"       = "species",
   "Linkage-table priors"       = "species",
-  "Linkage random effects"     = "model"
+  "Linkage random effects"     = "model",
+  # Both halves of the DSEM row are species-axis in the sense this registry
+  # means: the lognormal prior on each species' recruitment SD writes to column
+  # `sp`, and the GMRF's own joint likelihood writes to column 1 via the `0`
+  # fallback, because one field covers every species at once. That is the same
+  # shape "Reference point penalties" already has -- scored per species and once
+  # for the model -- which is why `0` is legal on a species row.
+  "DSEM"                       = "species"
 )
 
 
