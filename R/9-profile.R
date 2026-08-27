@@ -27,6 +27,11 @@
 #'         \item \code{"R0"} -> \code{rec_pars[, 1]}
 #'         \item \code{"alpha"} -> \code{rec_pars[, 2]}
 #'         \item \code{"beta"} -> \code{rec_pars[, 3]}
+#'         \item \code{"q"} -> \code{index_log_q}, base catchability, one entry
+#'           per fleet. \code{slots} takes a fleet index or a \strong{fleet
+#'           name}. Fleets sharing a \code{Catchability_index} share one q, so
+#'           naming any of them profiles the whole group: the rest are added
+#'           with a message and \code{joint} becomes \code{"value"}.
 #'       }
 #'       If \code{transform} is supplied with an alias it is ignored
 #'       (with a warning).}
@@ -56,6 +61,25 @@
 #'   (default), \code{"identity"}, or a unary function (e.g.
 #'   \code{qlogis}). Applied element-wise to every grid value. Aliases
 #'   override this with \code{"log"}.
+#' @param joint How the grid moves the cells in \code{slots}. Use a joint mode
+#'   to profile a parameter supplied as a vector, such as an empirical
+#'   age-based M: under \code{"none"} ten ages over 13 values is \code{13^10}
+#'   fits, not 13.
+#'   \describe{
+#'     \item{\code{"none"}}{(default) each slot gets its own grid and they
+#'       cross, giving a \emph{k}-dimensional profile for \emph{k} slots.}
+#'     \item{\code{"multiply"}}{one grid, multiplying every cell's current
+#'       value. The schedule keeps its shape and moves up or down as a whole.
+#'       \code{1} is the fitted model.}
+#'     \item{\code{"add"}}{one grid, added to every cell. The schedule keeps
+#'       the differences between cells instead. \code{0} is the fitted model.}
+#'     \item{\code{"value"}}{one grid; every cell takes that value.}
+#'   }
+#'   A joint mode needs \code{values} to be one vector.
+#'   \code{"multiply"} and \code{"add"} work in natural units, so
+#'   \code{transform} must be \code{"log"} or \code{"identity"}. A grid value
+#'   that would take a log-scale parameter to zero or below is an error naming
+#'   the cell, not a failed fit.
 #' @param cores Number of cores to use for parallel fits. Default
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
@@ -87,6 +111,9 @@
 #'       \code{"M1"}, so a figure can label the axis in the units profiled
 #'       rather than in log units. \code{NA} if you named the parameter slot
 #'       directly.}
+#'     \item{joint}{the \code{joint} mode used, so a figure and \code{print()}
+#'       can say that \code{grid} holds a multiplier or an offset rather than a
+#'       parameter value.}
 #'   }
 #'
 #'   Carries class \code{"Rceattle_profile"}, so printing it reports whether the
@@ -129,6 +156,32 @@
 #'     param  = "alpha",
 #'     slots  = list(1),
 #'     values = list(seq(2, 80, length.out = 20)))
+#'
+#' # An empirical age-based M, moved as a whole. One slot per age bin of
+#' # species 1, all on ONE grid of multipliers, so the shape of the schedule is
+#' # preserved and 1 is the fitted model. Ages run minage .. minage + nages - 1.
+#' sp <- 1
+#' p4 <- profile(ss_run,
+#'     param  = "M1",
+#'     slots  = lapply(seq_len(ss_run$data_list$nages[sp]),
+#'                     function(a) c(sp, 1, a)),
+#'     values = list(seq(0.6, 1.4, by = 0.05)),
+#'     joint  = "multiply")
+#'
+#' # The same schedule shifted by a constant instead of scaled; 0 is the fit.
+#' p5 <- profile(ss_run,
+#'     param  = "M1",
+#'     slots  = lapply(seq_len(ss_run$data_list$nages[sp]),
+#'                     function(a) c(sp, 1, a)),
+#'     values = list(seq(-0.1, 0.1, by = 0.02)),
+#'     joint  = "add")
+#'
+#' # Base catchability for a fleet, named rather than counted. If it shares a
+#' # Catchability_index the whole group moves with it.
+#' p6 <- profile(ss_run,
+#'     param  = "q",
+#'     slots  = list("BT_Pollock"),
+#'     values = list(seq(0.5, 2.0, by = 0.1)))
 #' }
 #' @importFrom stats profile
 #' @method profile Rceattle
@@ -140,7 +193,12 @@ profile.Rceattle <- function(fitted = NULL,
                           transform = "log",
                           cores = NULL,
                           getsd = NULL,
+                          # Appended rather than placed beside `transform`, so a
+                          # positional call keeps meaning what it did.
+                          joint = c("none", "multiply", "add", "value"),
                           ...) {
+
+  joint <- match.arg(joint)
 
   # -- Input validation ----
   if (!inherits(fitted, "Rceattle")) {
@@ -170,7 +228,8 @@ profile.Rceattle <- function(fitted = NULL,
     M1     = list(param = "log_M1",   rec_pars_col = NA_integer_),
     R0     = list(param = "rec_pars", rec_pars_col = 1L),
     alpha  = list(param = "rec_pars", rec_pars_col = 2L),
-    beta   = list(param = "rec_pars", rec_pars_col = 3L)
+    beta   = list(param = "rec_pars", rec_pars_col = 3L),
+    q      = list(param = "index_log_q", rec_pars_col = NA_integer_)
   )
 
   alias_name   <- NA_character_
@@ -283,7 +342,9 @@ profile.Rceattle <- function(fitted = NULL,
   if (!is.list(slots) || length(slots) == 0L) {
     stop("`slots` must be a non-empty list of integer index vectors.")
   }
-  if (length(values) != length(slots)) {
+  # Under a joint mode every slot reads the single grid, so one vector covers
+  # any number of cells; only the crossing mode needs one grid per slot.
+  if (identical(joint, "none") && length(values) != length(slots)) {
     stop("`values` must be a list with the same length as `slots`.")
   }
 
@@ -297,6 +358,72 @@ profile.Rceattle <- function(fitted = NULL,
         ))
       }
       slots[[k]] <- c(as.integer(slots[[k]]), rec_pars_col)
+    }
+  }
+
+  # -- Catchability: name a fleet, and move its whole sharing group ----
+  # index_log_q is one entry per fleet, named by Fleet_name. Fleets sharing a
+  # Catchability_index share ONE q, so fixing one member alone would leave the
+  # rest estimating a common q -- not that fleet's q profiled.
+  if (identical(alias_name, "q")) {
+    fc <- fitted$data_list$fleet_control
+    resolve_fleet <- function(s) {
+      if (is.character(s)) {
+        hit <- match(s, as.character(fc$Fleet_name))
+        if (anyNA(hit)) {
+          stop("No fleet named ", paste0("\"", s[is.na(hit)], "\"", collapse = ", "),
+               ". Fleets are: ",
+               paste(fc$Fleet_name, collapse = ", "), ".", call. = FALSE)
+        }
+        return(as.integer(hit))
+      }
+      as.integer(s)
+    }
+    slots <- lapply(slots, resolve_fleet)
+
+    # Analytical forms solve q from each fleet's own index observations and
+    # overwrite index_q, so index_log_q never reaches the likelihood: the grid
+    # would move nothing and the profile would come back flat, reading as "the
+    # data do not inform q". `.map_switch()` is the one reading of q_map;
+    # est_index_q is not carried on a fitted object.
+    qform <- suppressWarnings(suppressMessages(
+      .map_switch(fc$Catchability, q_map, "Catchability")))
+    analytical <- which(qform %in% c(3L, 7L))
+    bad <- intersect(unlist(slots), analytical)
+    if (length(bad)) {
+      stop("Fleet(s) ", paste(fc$Fleet_name[bad], collapse = ", "),
+           " use an analytical catchability, which is solved from their own ",
+           "index and ignores `index_log_q`. Profiling it would return the ",
+           "same fit at every grid point.", call. = FALSE)
+    }
+
+    qi <- fc$Catchability_index
+    if (!is.null(qi)) {
+      asked <- unlist(slots)
+      group_of <- function(s) {
+        # An NA Catchability_index means no sharing group; `qi == NA` is NA
+        # throughout and would select nothing. An analytical fleet solves its
+        # own q, so it is not part of the group's shared parameter.
+        if (is.na(qi[s])) return(s)
+        setdiff(which(!is.na(qi) & qi == qi[s]), analytical)
+      }
+      groups   <- lapply(asked, group_of)
+      expanded <- unique(unlist(groups))
+      shared   <- any(vapply(groups, length, integer(1)) > 1L)
+
+      added <- setdiff(expanded, asked)
+      if (length(added)) {
+        message("Fleet(s) ", paste(fc$Fleet_name[added], collapse = ", "),
+                " share a Catchability_index with the fleet(s) profiled, so ",
+                "they carry the same q and are moved with it.")
+      }
+      # Keyed on whether a group is shared, not on the slot count growing: two
+      # members of the SAME group named together add nothing, and crossing them
+      # would put two values on one q parameter.
+      if (shared) {
+        slots <- lapply(expanded, function(x) x)
+        if (identical(joint, "none")) joint <- "value"
+      }
     }
   }
 
@@ -334,10 +461,37 @@ profile.Rceattle <- function(fitted = NULL,
     stop("`transform` must be \"log\", \"identity\", or a function.")
   }
 
+  # -- Joint modes: one grid moving every named cell together ----
+  # Slots otherwise cross, so a 10-age M schedule over 13 values would be 13^10
+  # fits rather than 13.
+  if (!identical(joint, "none")) {
+    if (length(values) != 1L) {
+      stop("`joint = \"", joint, "\"` moves every cell in `slots` on ONE grid, ",
+           "so `values` must be a single vector; got ", length(values), ".",
+           call. = FALSE)
+    }
+    if (is.function(transform) && joint %in% c("multiply", "add")) {
+      # Scaling a stored log is a different model, not a different
+      # parameterisation, so the transform has to be invertible.
+      stop("`joint = \"", joint, "\"` needs `transform` to be \"log\" or ",
+           "\"identity\" -- it acts on the natural scale, and an arbitrary ",
+           "transform cannot be inverted.", call. = FALSE)
+    }
+    names(values) <- "slot_1"
+  } else {
+    names(values) <- paste0("slot_", seq_along(values))
+  }
+
+  # Natural scale <-> stored scale, for the joint modes.
+  from_natural <- trans_fun
+  to_natural <- if (identical(transform, "log")) exp else function(x) x
+
   # Build grid (user-scale values; transform applied at fit time)
-  names(values) <- paste0("slot_", seq_along(values))
-  grid <- expand.grid(values, KEEP.OUT.ATTRS = FALSE,
-                      stringsAsFactors = FALSE)
+  grid <- if (identical(joint, "none")) {
+    expand.grid(values, KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+  } else {
+    data.frame(slot_1 = values[[1]])
+  }
   ngrid <- nrow(grid)
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
@@ -366,11 +520,29 @@ profile.Rceattle <- function(fitted = NULL,
     data_list <- fitted$data_list
     map_obj <- fitted$map
 
-    # Substitute fixed values at each profiled cell
+    # Substitute the fixed value at each profiled cell. Under "none" slot k
+    # reads grid column k; a joint mode gives every slot the one column, and
+    # multiply/add act on the cell's current natural-scale value.
     for (k in seq_along(slots)) {
-      inits[[param]] <- assign_at(inits[[param]],
-                                  slots[[k]],
-                                  trans_fun(grid[i, k]))
+      new_stored <- if (identical(joint, "none")) {
+        trans_fun(grid[i, k])
+      } else {
+        gv  <- grid[i, 1]
+        cur <- to_natural(do.call("[", c(list(inits[[param]]),
+                                         as.list(slots[[k]]))))
+        nat <- switch(joint,
+                      multiply = cur * gv,
+                      add      = cur + gv,
+                      value    = gv)
+        if (identical(transform, "log") && (!is.finite(nat) || nat <= 0)) {
+          stop(sprintf(
+            "`joint = \"%s\"` with grid value %s puts cell c(%s) of '%s' at %s, which is not positive; '%s' is stored on the log scale. Narrow `values`.",
+            joint, format(gv), paste(slots[[k]], collapse = ", "), param,
+            format(nat), param), call. = FALSE)
+        }
+        from_natural(nat)
+      }
+      inits[[param]] <- assign_at(inits[[param]], slots[[k]], new_stored)
     }
 
     # Force profiled cells to NA
@@ -429,7 +601,8 @@ profile.Rceattle <- function(fitted = NULL,
     nll           = nll,
     param         = param,
     slots         = slots,
-    alias         = alias_name
+    alias         = alias_name,
+    joint         = joint
   ), class = "Rceattle_profile")
 }
 
@@ -501,6 +674,16 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
   # been resolved to the internal slot, so reporting it would put a minimum of
   # 0.4 next to "log_M1" when 0.4 is an M, not a log M.
   shown <- if (!is.null(x$alias) && !is.na(x$alias)) x$alias else x$param
+
+  # Under a joint mode the grid is a multiplier or an offset applied to every
+  # cell, so reporting a minimum "at 1.15" against the bare parameter name would
+  # read as the parameter itself being 1.15.
+  if (!is.null(x$joint) && !identical(x$joint, "none")) {
+    shown <- paste0(shown,
+                    switch(x$joint, multiply = " multiplier",
+                           add = " offset", value = ""),
+                    " on ", length(x$slots), " cell(s)")
+  }
 
   .rce_diag_header(
     "profile", sev,
@@ -633,12 +816,25 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
 #'   dropped as unfitted, so `weighted = FALSE` returns a much smaller set of
 #'   series — the index, catch, selectivity, catchability and penalty
 #'   components are absent, not flat.
-#' @param relative How to re-zero each series. `"own"` (default) subtracts each
-#'   series' own minimum over the grid, so every curve starts at zero and its
-#'   minimum marks the value that component prefers -- the comparison that shows
-#'   conflict. `"minimum"` subtracts each series' value at the grid point where
-#'   the total is lowest, so the curves show each component's change away from
-#'   the fitted optimum. `"none"` returns the raw negative log-likelihoods.
+#' @param relative How to place each series on the y axis.
+#'   \describe{
+#'     \item{`"own"`}{(default) subtract each series' own minimum, so every
+#'       curve starts at zero and its minimum marks the value that component
+#'       prefers. Objective units, so depth still says how strongly.}
+#'     \item{`"scaled"`}{as `"own"`, then divide each series by its own change
+#'       over the grid, so every curve runs 0 to 1. Use it when one component
+#'       dwarfs the rest and flattens the others onto the axis. It **discards
+#'       magnitude**: a component moving 0.02 draws like one moving 40, so
+#'       raise `minfraction` with it. A series that does not move stays at
+#'       zero.}
+#'     \item{`"minimum"`}{subtract each series' value at the grid point where
+#'       the total is lowest, so the curves show each component's change away
+#'       from the fitted optimum.}
+#'     \item{`"none"`}{the raw negative log-likelihoods.}
+#'   }
+#'   `minfraction` and the series ordering are always computed on the raw
+#'   change over the grid, before any of this is applied, so `"scaled"` does
+#'   not quietly disable the filter by making every span 1.
 #' @param minfraction Drop components whose change over the grid is less than
 #'   this fraction of the total's change, as in `r4ss::SSplotProfile()`. Default
 #'   `0` keeps everything; `plot_profile()` uses `0.01`. `"Total"` is never
@@ -674,7 +870,7 @@ print.Rceattle_profile <- function(x, cutoff = 1.92, ...) {
 #' @export
 profile_components <- function(object,
                                weighted = TRUE,
-                               relative = c("own", "minimum", "none"),
+                               relative = c("own", "scaled", "minimum", "none"),
                                minfraction = 0,
                                include_total = TRUE) {
 
@@ -835,14 +1031,24 @@ profile_components <- function(object,
   out <- do.call(rbind, pieces)
   out$value[!ok[out$fit]] <- NA_real_
 
+  # How far each series moves, in objective units. Measured HERE because
+  # `relative = "scaled"` divides it out: computed after, every span would be 1
+  # and `minfraction` would filter nothing -- losing the guard exactly when
+  # scaling makes a component moving 0.02 look like one moving 40.
+  span <- vapply(split(out$value, out$series),
+                 function(v) suppressWarnings(diff(range(v, na.rm = TRUE))),
+                 numeric(1))
+  span[!is.finite(span)] <- 0
+
   # -- Re-zero ----
   shift <- switch(
     relative,
     none = stats::setNames(rep(0, length(unique(out$series))),
                            unique(out$series)),
-    own  = vapply(split(out$value, out$series),
-                  function(v) suppressWarnings(min(v, na.rm = TRUE)),
-                  numeric(1)),
+    own  = ,
+    scaled = vapply(split(out$value, out$series),
+                    function(v) suppressWarnings(min(v, na.rm = TRUE)),
+                    numeric(1)),
     minimum = {
       # No usable objective anywhere: which.min() over the all-Inf replacement
       # would silently pick grid point 1 and re-zero everything there, which
@@ -861,11 +1067,15 @@ profile_components <- function(object,
   shift[!is.finite(shift)] <- 0
   out$value <- out$value - shift[out$series]
 
+  # -- Put every series on its own scale, if asked ----
+  # Buys the shape and the position of each minimum; costs magnitude. A series
+  # that does not move keeps its zero rather than dividing by it.
+  if (identical(relative, "scaled")) {
+    denom <- span[out$series]
+    out$value <- ifelse(denom > 0, out$value / denom, 0)
+  }
+
   # -- Drop components that barely move, and order by how much they do ----
-  span <- vapply(split(out$value, out$series),
-                 function(v) suppressWarnings(diff(range(v, na.rm = TRUE))),
-                 numeric(1))
-  span[!is.finite(span)] <- 0
   if (minfraction > 0 && include_total) {
     if (span[["Total"]] <= 0) {
       warning("`minfraction` filters against the total's change over the ",

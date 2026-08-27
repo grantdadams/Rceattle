@@ -12,12 +12,12 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.22.0
+# Rceattle 5.23.0
 
 This release carries the DSEM integration that was filed as 5.19.0 while this
 branch was separate from `dev`, together with the simulation and sampling
-fixes below. `dev` released its own, different 5.19.0 and 5.21.0 in the
-meantime; neither is this work.
+fixes below. `dev` released its own, different 5.19.0, 5.21.0 and
+5.22.0 in the meantime; none of them is this work.
 
 ## Bug fixes
 
@@ -598,6 +598,68 @@ anything built on them draw differently from 5.19.0, and a covariate with a
 measurement density now varies across replicates. Non-DSEM models are
 unaffected -- every new draw is gated on `dsem_on == 1`, and the four golden
 reference fits are unchanged.
+
+# Rceattle 5.22.0
+
+## Diagnostics
+
+* **`profile(joint =)` moves a whole set of cells on one grid.** `slots` cross
+  through `expand.grid()`, so moving a ten-age M schedule together over 13
+  values was a ten-dimensional factorial — `13^10` fits, not 13. That made an
+  empirical age-based M, the usual case when M is supplied as a vector rather
+  than estimated, impossible to profile the way it is normally reported.
+
+  `joint = "multiply"` applies one grid to every named cell as a multiplier on
+  its current natural-scale value, preserving the **shape** of the schedule
+  (ratios between ages) and moving it up or down as a whole; `1` is the fitted
+  model. `joint = "add"` adds the grid value instead, preserving the
+  **increments** between cells; `0` is the fitted model. `joint = "value"` sets
+  every cell to the same value. `"none"` is the default and unchanged.
+
+  Both act on the natural scale, so they need `transform = "log"` or
+  `"identity"` — applying a multiplier to a stored log is a different model,
+  not a different parameterisation, and an arbitrary `transform` cannot be
+  inverted. On a log-scale parameter a grid value that would drive a cell to
+  zero or below is an error naming the cell and the value, not an `NaN` fit.
+
+* **`profile(param = "q")` profiles a fleet's base catchability.**
+  `index_log_q` is one entry per fleet, named by `Fleet_name`, so `slots` takes
+  a **fleet name** as well as an index.
+
+  Fleets sharing a `Catchability_index` share one q parameter — the map copies
+  the lead fleet's slice across the group — so fixing one member's cell alone
+  would leave the rest estimating a common q, which is not that fleet's q
+  profiled. Naming any member now profiles the whole group: the others are
+  added to `slots` with a message, and `joint` becomes `"value"` so the group
+  takes one q rather than a factorial over its members.
+
+* `profile()` returns `$joint` alongside `$alias`, so `print()` and the figure
+  axis can say the grid holds a multiplier or an offset rather than a parameter
+  value. A grid running 0.7 to 1.3 under an axis reading `M1[1, 1, 1]` would be
+  read as an M of 0.7. A catchability axis names the fleet, not its number.
+
+* **`plot_profile(relative = "scaled")` puts every component on its own scale.**
+  On a real profile one component routinely dwarfs the rest — on a Bering Sea
+  pollock M profile the bottom-trawl composition moves 60.5 objective units
+  while the bottom-trawl index moves 0.697, a factor of 87 — so the large one
+  sets the y axis and every other curve is drawn as a flat line along the
+  bottom. Where those components prefer the parameter cannot be read at all,
+  which is the one thing the figure exists to show.
+
+  `"scaled"` re-zeroes each series at its own minimum and then divides by its
+  own change over the grid, so every curve runs 0 to 1 and the minima can be
+  compared directly.
+
+  **It discards magnitude**: a component moving 0.02 and one moving 40 draw
+  identically, so the figure stops saying whether a component matters and says
+  only where it points. Raise `minfraction` alongside it. `minfraction` and the
+  legend ordering are computed on the **raw** change over the grid, before any
+  re-zeroing or rescaling — computed afterwards every span would be 1, the
+  filter would drop nothing, and scaling would have quietly removed the guard
+  at exactly the moment it is needed.
+
+  `relative` keeps `"own"` (the default, unchanged), `"minimum"` and `"none"`.
+
 
 # Rceattle 5.21.0
 

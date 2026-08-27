@@ -516,15 +516,52 @@ prof_M_sex <- profile(
 )
 ```
 
-`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), `alias` (the natural-scale name you profiled under, if you used one), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
+### Moving a set of cells together
+
+`slots` cross, so *k* slots give a *k*-dimensional profile. That is wrong for a
+parameter supplied as a vector — an empirical age-based M profiled over 13
+values across ten ages would be `13^10` fits. `joint` puts every named cell on
+**one** grid instead: `"multiply"` scales each cell's current value, preserving
+the shape of the schedule (`1` is the fitted model), and `"add"` shifts it,
+preserving the increments (`0` is the fitted model).
+
+```{r}
+sp <- 1
+prof_M_all <- profile(
+  fitted = model_1,
+  param  = "M1",
+  slots  = lapply(seq_len(model_1$data_list$nages[sp]),
+                  function(a) c(sp, 1, a)),   # every age bin of species 1
+  values = list(seq(0.7, 1.3, by = 0.05)),
+  joint  = "multiply"
+)
+
+plot_profile(prof_M_all)
+```
+
+### Catchability
+
+`param = "q"` profiles a fleet's base catchability, and `slots` takes a fleet
+name. Fleets sharing a `Catchability_index` share one q, so naming any member
+profiles the whole group — the others are added with a message.
+
+```{r}
+prof_q <- profile(
+  fitted = model_1,
+  param  = "q",
+  slots  = list("BT_Pollock"),
+  values = list(seq(0.5, 2.0, by = 0.1))
+)
+```
+
+`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid — a multiplier or offset under `joint`), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), `alias` (the natural-scale name you profiled under, if you used one), `joint`, and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
 
 ### Where the data disagree
 
-The total is the least informative curve on a profile. It answers how well the
-data determine the parameter; it does not say whether the data sources agree
-about it, and a smooth quadratic total can be two surveys pulling in opposite
-directions. `plot_profile()` draws the likelihood components separately, in the
-layout `r4ss::SSplotProfile()` uses:
+The total says how well the data determine the parameter, not whether the data
+sources agree about it — a smooth quadratic total can be two surveys pulling in
+opposite directions. `plot_profile()` draws the components separately, in the
+layout `r4ss::SSplotProfile()` uses.
 
 ```{r}
 prof_M <- profile(
@@ -537,43 +574,28 @@ prof_M <- profile(
 plot_profile(prof_M, xlab = "M at age 1")
 ```
 
-Every series is re-zeroed at its own minimum and a point marks it, so read the
-figure by **where each curve bottoms out**, not by how deep it is. Curves whose
-points sit together support the same value of M; a curve whose point sits far
-from the total's is pulling against the rest. The total is the heavy black line
-and is kept out of the colour legend, so the palette separates only the
-components being compared. Components that move less than `minfraction` (1% by
-default) of the total's change over the grid are dropped — they are flat at this
-scale and would only crowd the legend.
+Read it by **where each curve bottoms out**, not by how deep it is: every series
+is re-zeroed at its own minimum and a point marks it, so the spread of those
+points along the x axis is the disagreement. The heavy black line is the total.
 
-`relative = "minimum"` re-zeroes every series at the total's minimum instead,
-which shows what each component gives up by moving away from the fitted value.
-Passing a list of profiles facets them, which is how two model configurations
-are compared on the same parameter.
+When one component dwarfs the rest the others flatten onto the axis and where
+they prefer the parameter cannot be read. `relative = "scaled"` puts every curve
+on 0 to 1 so the minima can be compared directly; it discards magnitude, so
+raise `minfraction` alongside it.
 
-The numbers behind the figure come from `profile_components()`, which is worth
-calling directly to tabulate the conflict:
+`profile_components()` returns the same numbers, one row per grid point per
+component, each labelled with the fleet or species it belongs to.
 
 ```{r}
 comps <- profile_components(prof_M)
 head(comps)
 ```
 
-Each row is one grid point for one component, carrying the profiled value, the
-component name, and the `unit` it belongs to — a fleet on the data, selectivity
-and catchability rows, a species on the priors, penalties and predation rows.
-`weighted = FALSE` reads the unweighted components instead; conflict is normally
-read off the weighted ones, since those are what moved the fit. Note that
-`unweighted_jnll_comp` is filled only for the rows that carry a `Comp_weights`
-multiplier — composition, CAAL, stomach content, and the two linkage rows —
-because it exists so Francis and McAllister–Ianelli can read a composition
-likelihood without its weight. Under `weighted = FALSE` the index, catch,
-selectivity, catchability and penalty components are therefore absent, not flat.
-
 Under `random_rec = TRUE` the total is the Laplace-approximated marginal
 likelihood while the components are the inner joint negative log-likelihood, so
-the components will not sum to the total. `profile_components()` says so when
-they differ. Compare the shapes, not the sums.
+they will not sum; compare the shapes, not the sums. See `?plot_profile` for
+`relative`, `minfraction`, model overlays, and what `weighted = FALSE` does and
+does not include.
 
 ## Diagnostics on a DSEM fit
 

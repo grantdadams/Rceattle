@@ -5,24 +5,23 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #111 (`dsem-v5-integration` -> `dev`) is at 5.22.0 and synced with `dev`.** `dev` released
-5.20.0 and then 5.21.0 (component likelihood profiles) while this branch was open; both are
-merged in. `dev`'s 5.21.0 keeps that number and this branch moved to **5.22.0** -- the third
-version collision on this PR, after both lines independently used 5.19.0 and then 5.21.0. Check
-`dev`'s DESCRIPTION before bumping again.
+**PR #111 (`dsem-v5-integration` -> `dev`) is at 5.23.0 and synced with `dev`.** `dev` released
+5.20.0, 5.21.0 and 5.22.0 while this branch was open; all are merged in.
+
+**The version keeps colliding.** Both lines have now independently used 5.19.0, 5.21.0 and
+5.22.0, and each time the branch had to move up after the fact and renumber a NEWS section that
+was already written. `dev`'s number always wins, because `dev` is what releases. Before bumping
+this branch again, read `dev`'s DESCRIPTION -- or better, leave the bump until the PR is about
+to merge, since anything chosen earlier is a guess about what `dev` will not use.
 
 The last block of work answered a report that **`self_test(process = TRUE)` did not simulate
 process error** — on a DSEM or without one. It did not, for five separate reasons; all five are
-fixed, plus two features that came out of the same conversation.
+fixed, plus two features and two crash/consistency fixes that came out of the same conversation.
 
-## What came in from `dev`
+## Done & verified on #111
 
-5.21.0 on `dev` added `profile_components()` and `plot_profile()` (component likelihood
-profiles in the `r4ss::SSplotProfile()` layout), `profile()$alias`, and
-`test-schema-jnll-rows.R`, which parses every `jnll_comp(JNLL_*, col)` write in the template and
-asserts each row's declared axis matches the column it is indexed by. `R/9-profile.R` carries
-both that work and this branch's DSEM profiling; git merged it cleanly because the file existed
-on both sides. Verified after the merge, not assumed.
+Full suite **198 files, 0 failures, 4 skips** (all pre-existing), run after the `dev` merge that
+brought component profiles, on the pushed tree.
 
 ## Done & verified on #111
 
@@ -145,22 +144,53 @@ in `inst/dev/TRAPS.md` under "The SIMULATE contract".
 
 ## Blocked
 
-Nothing.
+**The bounds check has measured nothing since at least 2026-08-25, and reports green.**
+`deep-checks`' `safebounds` job is `continue-on-error: true`, so the workflow's overall
+conclusion is `success` while the job fails. It fails at the DLL, not on a violation:
+
+```
+confirmed: -DTMB_SAFEBOUNDS in the compile line
+Failed to load at least one DLL.
+  ERROR: 'ceattle' was not found in the list of loaded DLLs.   x 5 cases
+BOUNDS VIOLATIONS or errors in 5 case(s):
+```
+
+All five configurations error before running, so **zero cases are bounds-checked**. The runs on
+2026-08-25 (5.20.0 dispatch) and the 2026-08-26 nightly failed identically, so it is not new.
+
+Cause: `NAMESPACE` loads two DLLs (`useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle)`).
+`verify-safebounds.R` rebuilds only the TMB lib, then calls `pkgload::load_all(compile = FALSE)`
+— deliberately, since a recompile would overwrite its bounds-checked model — so nothing ever
+builds `src/Rceattle.so`, and `src/Makevars` has `$(SHLIB): tmblib`. On a fresh CI checkout that
+file has never existed. **It passes locally only because a developer's tree already has one**,
+which is why "five configurations clean on macOS" in the 5.20.0 notes was not the clearance it
+looked like.
+
+Two separable fixes: the DLL bootstrap, and a report that says "could not run" rather than
+"BOUNDS VIOLATIONS" when no case executed. This matters because it is the only net for the
+Windows `0xC0000005`, which is still uncured — see the 5.21.0 release notes' known limitation.
 
 ## Resume here
 
-Update the PR body, read `NEWS.md` 5.22.0 once as a whole, then merge #111. `run_mse()` and two
-`process_residuals()` processes still refuse on a DSEM and are the remaining gap in that suite.
+Update the PR body -- it still describes only the original DSEM work, not `bound_sd`, the
+zero-variance guard, or `$bounds$par_lower` -- read `NEWS.md` 5.23.0 once as a whole, then merge
+#111. `run_mse()` and two `process_residuals()` processes still refuse on a DSEM and are the
+remaining gap in that suite.
 
-Two loose ends inherited from `dev`'s 5.21.0 session, neither blocking:
+Loose ends inherited from `dev`, none blocking:
 
-1. **`inst/dev/SIBLING-REPOS.md` has an uncommitted edit that predates that session** — the
-   `../GOA-multispecies-assessment` entry. Coherent and complete; left out of the 5.21.0 commit
-   as unrelated, not as wrong. Commit it whenever suits.
+1. **`inst/dev/SIBLING-REPOS.md` has an uncommitted edit that predates these sessions** — the
+   `../GOA-multispecies-assessment` entry. Coherent and complete; left out of the 5.21.0 and
+   5.22.0 commits as unrelated, not as wrong.
 2. **`../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` gained an M-at-age-6
-   component profile** (uncommitted, separate repo). `minage = 1`, `nages = 10`, so age 6 is bin
-   6; it fixes that cell alone, leaving ages 7–10 at base — narrower than goa_pk's own M profile,
-   which scales the whole vector. Not yet run.
+   component profile** (uncommitted, separate repo, not yet run). `minage = 1`, `nages = 10`, and
+   `M1_base` runs 1.39 at age 1 to 0.30 from age 6 on, so age 6 is bin 6 and 0.30 is the value a
+   0.18-0.42 grid brackets. It fixes the age-6 cell **alone**, leaving ages 7-10 at base --
+   narrower than goa_pk's own M profile, which scales the whole vector. **5.22.0's
+   `joint = "multiply"` now expresses the goa_pk version**; switching it is a two-line change.
+3. **The dead QAR1 path.** `ceattle.cpp:4269` was fixed in place rather than removed because
+   `R/6-process_residuals.R:204` still branches on `est_index_q == 6`. Removing both together is
+   Grant's call.
 
 After #111: `inst/dev/CLEANUP_BACKLOG.md` has 64 items left (Tier 0 and Tier 2 cleared);
 `inst/dev/BACKLOG-PLAN.md` sequences them by who is exposed. Queued and not started:
