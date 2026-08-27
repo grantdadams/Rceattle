@@ -193,8 +193,22 @@ bundled dataset and all three live assessments have `minage = 1`.
 
 ## The guards are not themselves guarded
 
-Two of this repo's most valuable checks were, until 5.16.0, guarded off in a way nothing
-verified. Both are the same shape: a speed optimization that silently removes coverage.
+Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
+the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
+
+**The bounds check measured nothing from before 5.20.0 until 2026-08-27, and reported success.**
+`deep-checks`' `safebounds` job is `continue-on-error: true`, so the run's conclusion was
+`success` while the job failed. It failed at the DLL, not on a violation: `NAMESPACE` loads
+`Rceattle` (the package SHLIB) as well as `ceattle` (the TMB model), `verify-safebounds.R` built
+only the second and then called `load_all(compile = FALSE)`, and on a fresh checkout
+`src/Rceattle.so` had never existed. All five cases errored with "not found in the list of loaded
+DLLs" and were printed as `BOUNDS VIOLATIONS or errors in 5 case(s)` -- reading as five
+violations when the truth was zero measurements. **It passed locally only because a developer's
+tree already had a `src/Rceattle.so` lying around**, which is why "five configurations clean on
+macOS" in the 5.20.0 notes was not the clearance it looked like. Fixed by building through make
+(`tmblib` is a `.PHONY` prerequisite of `$(SHLIB)`, so `compile.R` re-runs with the flag still
+set), asserting both DLLs loaded before any case runs, and reporting "could not run" separately
+from "violation". The restore path had the same hole and left the tree unloadable.
 
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep

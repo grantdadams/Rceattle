@@ -163,7 +163,21 @@ probe against the pre-change build on BS2017MS, and the hake MSE.
 
 ## Blocked
 
-**The bounds check has measured nothing since at least 2026-08-25, and reports green.**
+Nothing.
+
+**Cleared 2026-08-27: the bounds check runs.** `verify-safebounds.R` now builds the package
+SHLIB as well as the TMB model, asserts both DLLs loaded before any case runs, and reports
+"could not run" apart from "violation". All five configurations pass locally from a clean tree
+(all three `.so` deleted first), which is the CI condition. **`safebounds` is still
+`continue-on-error: true`** — now that it measures something, whether it should gate a release is
+Grant's call; it is slow and the Windows fault it targets is intermittent.
+
+The history below is kept because it is the reason not to trust a green `deep-checks` run
+without reading the job.
+
+<details><summary>What was wrong</summary>
+
+**The bounds check had measured nothing since at least 2026-08-25, and reported green.**
 `deep-checks`' `safebounds` job is `continue-on-error: true`, so the workflow's overall
 conclusion is `success` while the job fails. It fails at the DLL, not on a violation:
 
@@ -185,9 +199,10 @@ file has never existed. **It passes locally only because a developer's tree alre
 which is why "five configurations clean on macOS" in the 5.20.0 notes was not the clearance it
 looked like.
 
-Two separable fixes: the DLL bootstrap, and a report that says "could not run" rather than
-"BOUNDS VIOLATIONS" when no case executed. This matters because it is the only net for the
-Windows `0xC0000005`, which is still uncured — see the 5.21.0 release notes' known limitation.
+Both are fixed. It is the only net for the Windows `0xC0000005`, which is still uncured — see the
+5.21.0 release notes' known limitation.
+
+</details>
 
 ## Resume here
 
