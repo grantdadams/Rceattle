@@ -11,7 +11,7 @@ Three tiers: a **known defect** is a wrong answer waiting for the right input an
 GitHub issue; a **design note** is a wish, not a bug; `TODO(review)` is a deliberate convention
 marking a judgement call for Grant, and is never resolved by an agent.
 
-64 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 25 ·
+65 remain after Tier 0 and Tier 2. Counts by area: `src/TMB/ceattle.cpp` 26 ·
 `src/TMB/predation.hpp` 5 · `src/TMB/Dev/caal.hpp` 5 · `R/9-retro_and_jitter.R` 4 ·
 `R/10-run_mse.R` 4 · `src/TMB/growth.hpp` 3 · `R/3-build_map.R` 3 · `R/0-rceattle_class.R` 3 ·
 rest 1–2. Re-derive with `grep -rn 'TODO|FIXME' R/ src/TMB/`, excluding the `todo <-`
@@ -64,6 +64,42 @@ than fixing.
 - **SPR reference points**: `sex_ratio` is fixed rather than estimated for two-sex models
   (`src/TMB/ceattle.cpp:1542`), and the M used is the terminal-year value
   (`src/TMB/ceattle.cpp:1514`, `:1522`).
+
+### DSEM (added 5.15.0)
+
+- **`run_mse()` refuses a DSEM.** Two things are unresolved, both named at the guard
+  (`R/10-run_mse.R`): `sample_rec()`'s draws must be written into `dsem_x_tj[, rec_dev_col]`
+  rather than `rec_dev`, which the template overwrites; and `.mse_proj_param_yrdim` is a static
+  table that cannot express "x_tj spans projyr only when `estimate_projection = TRUE`", so it
+  would either trim a hindcast-only field or fail to trim a projecting one.
+- **OSA residuals do not cover a DSEM's covariate observations.** `obsvec` carries catch, index,
+  comp, caal, diet and one slot per linkage random effect; `dsem_y_tj` has none, and its
+  measurement density in `calculate_dsem()` is not `keep`-gated. Under `family = "fixed"` — every
+  production script — this is correct rather than missing, because a pinned covariate carries no
+  measurement density. It is a real gap only under `normal`/`gamma`/`lognormal`/etc.
+- **`dsem.hpp`'s `SIMULATE` draws for `y_tj` are commented out** (`// y_tj(t,j) = rnorm(...)`).
+  By the SIMULATE contract a scored density owes a draw, so under a non-`fixed` family
+  `sim_mod()` / `self_test()` hold the environmental observations fixed across replicates and
+  understate uncertainty. Nothing warns. Same `family = "fixed"` caveat as above.
+- **`osa_residuals()` on `estimateMode = 0` with a harvest control rule** computes with the
+  recruitment and initial deviations pinned. `fit$obj` is then the PROJECTION object, whose map
+  sets every hindcast entry to NA — measured on `GOApollock`: `rec_dev` 51/51 and `init_dev`
+  10/10 mapped out, `obj$env$random` empty. Re-declaring them random does NOT change this
+  (TMB no-ops a fully-mapped random name); measured max |difference| 0. Getting marginal
+  residuals would mean rebuilding the OSA object from the HINDCAST map. Whether the shipped
+  residuals are materially different from that is **unmeasured**. `estimateMode = 1` and
+  `estimateMode = 0` without an HCR are unaffected (58/58 random effects intact).
+
+Coverage that does not exist rather than does not work, all DSEM-specific:
+
+- **CAAL with a DSEM is untested and untestable here** — no bundled dataset and none of the
+  three assessment workbooks (GOA arrowtooth 2025, GOA pollock 2025, EBS pollock 2024) carries
+  a `caal_data` row.
+- **`minage != 1` with a DSEM** builds with a finite objective and the right marginal variance,
+  but nothing pins the indexing. The DSEM paths are year-indexed rather than age-indexed, so the
+  exposure is low.
+- **Multispecies / diet with a DSEM** was never run; `run_mse()` refuses one, so the MSE path is
+  uncovered rather than under-covered.
 
 ## Tier 2 — design notes and refactor wishes
 
@@ -159,8 +195,32 @@ Still open. No user-visible consequence; do them opportunistically.
 
 ## `TODO(review)` — Grant's calls, not an agent's
 
-Six, each a judgement about what the right behaviour *is*:
+Each is a judgement about what the right behaviour *is*. Struck-through entries are settled.
 
+- **A DSEM's recruitment SD has no stationarity guard.** With `constant_variance = "conditional"`
+  (the default, and dsem's) a lagged self-path makes the marginal variance `sigma^2/(1-rho^2)`,
+  which diverges as `rho -> 1`. Nothing bounds `rho` or the implied correction. Constructed
+  example: `rho ~ 0.94`, `sigma = 1.44` gives `margvar ~ 18.8`, so the bias correction is ~9.4
+  on the log scale and a deterministic projection sits ~10^4 from the median. Documented in
+  `vignette("dsem")` with the closed form and a table; whether it should also WARN at runtime,
+  and on what quantity (`max(dsem_margvar_tj)`, or the spectral radius of the lag-1 path
+  matrix), is open. `constant_variance = "marginal"` removes the hazard by construction.
+
+- **`summary()$coefficients` means two different tables.** On a DSEM fit it is the SEM path
+  table; on every other fit it is the fixed effects (`parameter`/`estimate`/`std_error`), the
+  meaning 5.17.0 gave it. That is deliberate, and the reason is back-compatibility: the
+  GOA circulation study reads the path table from `$coefficients` at 49 sites. The intended
+  end state is `$dsem_coefficients` for the paths and `$coefficients` for the fixed effects on
+  every fit — both names already exist and mean one thing each, so the migration is a rename in
+  the consumer scripts plus a deprecation cycle here. Do it when those scripts are next touched,
+  not before. `test-summary-dsem.R` pins both halves so the ambiguity cannot spread silently.
+
+- ~~`src/TMB/ceattle.cpp` (`this denominator is the TERMINAL PROJECTION YEAR's own biomass`)~~ —
+  **Resolved on `dev` in 5.16.0** and merged in here: the block is now excluded under
+  `DynamicHCR == 1`, so it no longer overwrites the dynamic-reference arms. The remaining
+  question — that under `HCR == 0 & msmMode > 0` the denominator is the terminal projection
+  year's own biomass rather than an unfished reference — is answered by that projection running
+  unfished, so it *is* multispecies SB0 once `projyr` is far enough out to equilibrate.
 - `R/0-rceattle_class.R:268` — whether `residuals(source = "all")` should include diet, given
   `osa_residuals("all")` does.
 - `R/0-rceattle_class.R:420`, `:452` — how held-out rows (`Year <= 0`) carrying a positive
@@ -171,7 +231,24 @@ Six, each a judgement about what the right behaviour *is*:
 
 ## Deliberately not changed
 
+- **`remove_F()` starts the unfished trajectory at `suit_endyr + 1`, not `endyr + 1`** —
+  decided 2026-08-24, and the behaviour is correct rather than tolerated. MSVPA suitability is
+  computed from the fitted dynamics up to `suit_endyr`, so an unfished trajectory beginning
+  earlier would alter the suitability the multispecies model was conditioned on. The
+  consequence, which is the intended one, is that when `suit_endyr < endyr` the late hindcast
+  years are unfished too: measured on BS2017SS with `suit_endyr = 2010`, F is zeroed for
+  2011-2017 and terminal SSB sits +43% / +187% / +17% above the fitted model. That is the
+  unfished counterfactual those years are meant to represent, not a bug. `run_mse()` uses this
+  for `OM_no_F`, which depletion-based HCRs 5 and 6 are scored against.
+
 - **Non-parametric growth** is declared and calls `error("not yet implemented")`.
+- **The `dsem_*` parameter blocks are not in `.PAR_INFO`.** The dictionary's contract is
+  "every parameter `build_params()` produces", checked in both directions by
+  `test-parameter-dictionary.R`; the DSEM blocks come from `build_dsem_objects()` instead, so
+  adding them would fail the stale-entry half. The cost is that `.par_label()` falls back to
+  the bare name for them in `jitter()` messages, which is legible enough (`dsem_beta_z`,
+  `dsem_x_tj`). Widening it means teaching the test which parameters are conditional on a
+  specification.
 - **The `msmMode` 3–9 Kinzey-Punt branches are not declared at all** -- the whole block in
   `predation.hpp` is inside a `/* ... */`, so there is no dispatch, live or erroring. The live
   modes are handled by `if (msmMode == ...)` in `ceattle.cpp`.

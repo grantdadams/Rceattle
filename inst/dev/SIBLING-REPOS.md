@@ -48,20 +48,27 @@ Alaska hindcasts, with no MSE and no estimated suitability. Run it after touchin
 suitability, the DM likelihood, `sim_mod()`, or `run_mse()`.
 
 Its four fits take ~3.5 min together on an M-series Mac, plus ~2 min for `nsim = 2, cores = 2`.
-Reference objectives (verified equal on `dev` and `pr3-schema-order-and-qar1`, 2026-08-22):
+Reference objectives, re-measured 2026-08-24 on `dev` at `319ead30` and on
+`dsem-v5-integration`, which agree to the last digit:
 
 | Stage | -log L |
 |---|---|
 | single-species | 2133.8207228717 |
-| single-species + category-1 HCR | 2134.4713926593 |
+| single-species + category-1 HCR | 2134.4713944220 |
 | MSVPA, estimated M | 2137.4433306648 |
 | estimated suitability | 2260.7063099135 |
 
-All four were bit-identical across the two branches (delta 0.000e+00), as was the vulnerability
-matrix: 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). The script's own
-inline comments give the first three ~5 higher and the fourth as 2262.318: those are Rceattle
-5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that folder
-records the "clean" values, which are what the current package reproduces.
+**The category-1 HCR value moved `+1.763e-06` when PR #116 / #117 landed** (2026-08-23), from
+the 2134.4713926593 pinned here on 2026-08-22. It is the one stage that reads `SB0` as its
+depletion reference, which is what #117's reference-point recruitment arms rewrote. The shift is
+deterministic on both branches, so it is that change and not optimizer noise; the other three
+stages are unmoved. Re-measure this table after a dev merge rather than treating a difference at
+this size as a failure.
+
+The vulnerability matrix is 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). The
+script's own inline comments give the first three ~5 higher and the fourth as 2262.318: those are
+Rceattle 5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that
+folder records the "clean" values, which are what the current package reproduces.
 
 Traps:
 

@@ -126,6 +126,8 @@ ms_run_proj2 <- fit_mod(
 
 `sample_rec()` bootstraps historical recruitment deviations into the projection period. The optional `rec_trend` argument adds a linear trend: `rec_trend = -0.5` imposes a 50% decline in mean recruitment by the end of the projection.
 
+Under a DSEM the deviations are not independent, so they are not bootstrapped: the projection is drawn from the fitted GMRF conditional on everything the model already knows, including any environmental covariate supplied over the projection. That needs `build_DSEM(estimate_projection = TRUE)`, so the latent states span the projection; `sample_rec()` stops and names the setting if it is missing. Estimating the projection also overrides `build_srr(proj_mean_rec = )`, since recruitment projected at its historical mean would ignore the SEM's projection states.
+
 ```{r}
 ms_run_proj3 <- sample_rec(
   Rceattle     = ms_run,

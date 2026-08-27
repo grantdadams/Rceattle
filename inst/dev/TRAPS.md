@@ -22,6 +22,21 @@ phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for phasing, +~14 s 
 (bisected back through `main`), so don't hunt a recent cause. For dev loops
 `phase = FALSE, getsd = FALSE` gives ~14 s.
 
+**Editing a `.hpp` alone does not rebuild the model.** `TMB::compile()` compares the `.o`
+against the `.cpp` and nothing else, so a change confined to a header leaves `load_all()`
+reporting success while the loaded DLL is still the old one. Every process in this model
+lives in a header — `recruitment.hpp`, `predation.hpp`, `selectivity.hpp`, `dsem.hpp` — so
+that is most C++ edits here. It reads as a change that "does not take effect", or as an
+error message you already deleted still appearing. Force it:
+
+```sh
+rm -f src/TMB/ceattle.o src/TMB/ceattle.so src/ceattle.so
+cd src/TMB && Rscript compile.R      # load_all() will not rebuild once the .o is gone
+```
+
+Touching `ceattle.cpp` works too. Editing a `.cpp` and a `.hpp` in the same round hides
+this, which is why it takes a while to notice.
+
 **The parallel-test DLL failure is a toolchain failure, not a test failure.**
 `DESCRIPTION` sets `Config/testthat/parallel: true`, and the workers cannot load a freshly
 rebuilt DLL, so `devtools::test()` aborts before running anything with
@@ -135,7 +150,33 @@ a draw.** Three rules, with their reasons:
    under the observed object's own name reads back as the data. A process draw also reports a
    `*_drawn_sim` mask, since the deviation arrays are REPORTed whole.
 3. **Don't draw what the model does not define.** Two densities on one latent — the AMAK/Ianelli
-   stock-recruit penalty — have no distribution to draw from. Leave it, and warn.
+   stock-recruit penalty — have no distribution to draw from. Leave it, and warn. This gate is
+   the model's, not the parameterization's: a DSEM under the same stock-recruit penalty has the
+   same two densities on one latent and has to refuse the same way.
+
+**One process, one draw — and the mask has to come from whichever one ran.** A DSEM's field is
+drawn in R (`.dsem_draw_process()`), because the draw must be conditional on the cells the map
+pins. `calculate_dsem()` also carried a `do_simulate` branch that assigned the whole field
+(`x_tj = draw_tj`), and it ran *after* the substitution, so the R draw was inert — adding 100 to
+every latent state changed nothing — while the template's own draw redrew the covariate columns
+too. Under `family = "fixed"` those columns are the `env_data` series, so every replicate was
+generated under an environment the refit never saw (a scaled covariate with sd 1 moved by up to
+2.96). Two consequences worth carrying forward:
+
+- **A second draw is invisible to a two-seed test.** "Two calls with different seeds differ" is
+  satisfied by the observation draw alone, so it passes with the process draw a complete no-op.
+  Test a draw by *substituting a value that cannot be confused with one* and checking it reaches
+  the dynamics, at one fixed seed.
+- **A draw taken in R still owes a mask.** `rec_dev_drawn_sim` is written inside the template's
+  IID block, which is gated off under a DSEM, so it stayed zero and `attr(x, "process_sim")` came
+  back `NULL` on exactly the models whose process *had* been redrawn. That is indistinguishable
+  from nothing happening, and it silenced `compare_sim()`'s guard against measuring bias from an
+  operating model that is no longer the truth.
+
+**A covariate is data only under `family = "fixed"`.** Any other family makes it a latent state
+observed with error: the state belongs to the process draw, and the observation belongs to the
+observation draw (`ceattle.cpp` 5.5c) and must be written back into `env_data`, or the replicate
+carries the original series and the SEM's paths look more recoverable than they are.
 
 ## MSE draws and the assessment schedule
 
@@ -186,6 +227,16 @@ bundled dataset and all three live assessments have `minage = 1`.
 
 Two of this repo's most valuable checks were, until 5.16.0, guarded off in a way nothing
 verified. Both are the same shape: a speed optimization that silently removes coverage.
+
+**A `tools/verify/` harness runs in no CI job at all, so a stale one looks exactly like a
+passing one.** `verify-dsem-equivalence.R` — the only numerical check on the vendored
+`dsem.hpp` — could not run for the whole time it sat on `dsem-v5-integration`: `cond_k` was
+added to `calculate_dsem()` and to `dsem_standalone.cpp`, but the harness's `dsem_data()` was
+never taught to supply it, so every invocation died in `getParameterOrder()` before the first
+comparison. Nothing noticed, because nothing runs these. **Adding an argument to
+`calculate_dsem()` means updating three places, not two**: the header, `ceattle.cpp`, and
+`tools/verify/dsem_standalone.cpp` plus the R harness that feeds it. Run the harness after
+touching the header — it is the only thing that will tell you.
 
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep

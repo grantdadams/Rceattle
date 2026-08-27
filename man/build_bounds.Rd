@@ -4,16 +4,60 @@
 \alias{build_bounds}
 \title{Build parameter bounds}
 \usage{
-build_bounds(param_list = NULL, data_list)
+build_bounds(param_list = NULL, data_list, dsem = NULL)
 }
 \arguments{
 \item{param_list}{Parameter list object built from \code{\link{build_params}}}
 
 \item{data_list}{a Rceattle data object}
+
+\item{dsem}{Optional built DSEM (as carried on a fit in \verb{$dsem}). Supplied,
+the SEM's standard-deviation paths get a lower bound of 0 unless the DSEM
+was built with \code{build_DSEM(bound_sd = FALSE)}; see details.}
 }
 \value{
 List of upper and lower bounds
 }
 \description{
 Function to build parameter bounds based on Holsman et al 2015 and Kinzey and Punt 2010
+}
+\details{
+\code{dsem_beta_z} holds every free SEM path in one vector. A lag-0 two-headed
+self path (\verb{x <-> x}) is a diagonal of the Cholesky factor of the exogenous
+covariance -- a standard deviation -- and its sign is not identified, since
+the likelihood sees only \eqn{\Gamma'\Gamma} and the model reads it as
+\code{sqrt(square(beta_z))}. Left unbounded the surface is exactly symmetric
+about 0: harmless for an MLE, fatal for MCMC, where the posterior is bimodal
+by construction and no chain diagnostic means anything. Bounding the
+diagonal below at 0 is the standard identifying restriction for a Cholesky
+factor and rules out nothing the likelihood could distinguish.
+
+To carry the same constraint into a sampler, use the fit's
+\verb{$bounds$par_lower} / \verb{$bounds$par_upper}, which \code{fit_mod()} aligns to
+\code{obj$par} -- \code{tmbstan::tmbstan(lower =, upper =)} takes a vector of that
+length and expands it across the random effects itself. The \verb{$lower} /
+\verb{$upper} returned here are lists keyed by parameter block, one entry per
+block rather than one per estimated parameter, so they are not what a
+sampler wants.
+
+A variable that also carries a cross-covariance (\verb{A <-> B}) or a lagged
+two-headed path keeps unbounded support: its row of \eqn{\Gamma} has
+off-diagonal entries, so identifying the sign means flipping the whole row
+rather than the one element, and a bound on the diagonal alone would cut off
+half a surface that is not symmetric. \code{fit_mod()} reports which variables
+those are.
+
+The bound is 0 rather than a small positive number, because any floor above
+0 is arbitrary and biases the SD it is meant to identify. A variance
+genuinely collapsing toward 0 makes the exogenous covariance singular, and
+that is true from either side -- the mirrored optimum was never an escape
+from it. Regularize it where the model already provides for that:
+\code{build_DSEM(sigmaR_prior_sd = )} puts a lognormal prior on a recruitment SD,
+which is what keeps it off 0 when covariates over-explain the deviations.
+
+\code{build_DSEM(bound_sd = FALSE)} turns the whole thing off, for the two cases
+that want the unbounded parameterization: reproducing a fit made before the
+bound existed, parameter for parameter, and demonstrating that the two optima
+really are mirrored. \code{fit_mod()} then also leaves a starting value at the
+negative root where it is, rather than flipping it.
 }

@@ -33,6 +33,13 @@
 #'   carrying any environmental linkages on q.
 #' @param selFun Selectivity specification from \code{\link{build_selectivity}}, carrying any environmental linkages on selectivity parameters.
 #' @param compFun Composition-weighting specification from \code{\link{build_composition}}, carrying any priors on the Dirichlet-multinomial weights.
+#' @param dsem Optional dynamic structural equation model on the recruitment
+#'   deviations, from \code{\link{build_DSEM}}. The recruitment deviations
+#'   become latent states of a GMRF, so environmental covariates and
+#'   lagged/simultaneous paths drive recruitment. \code{NULL} (the default)
+#'   fits the standard recruitment-deviation parameterization and is a complete
+#'   no-op. A DSEM and a recruitment linkage (\code{recFun = build_srr(linkages
+#'   = ...)}) both structure the recruitment deviations and cannot be combined.
 #' @param msmMode The predation-mortality mode, as a string alias or integer code:
 #'   \code{"SingleSpecies"} (0, the default, no predation), \code{"MSVPA"}
 #'   (1, the Type-II MSVPA predation of Holsman et al. 2015) or
@@ -169,6 +176,7 @@ fit_mod <-
     qFun = build_catchability(),
     selFun = build_selectivity(),
     compFun = build_composition(),
+    dsem = NULL,
     msmMode = 0,
     avgnMode = 0,
     initMode = "NonEquilibrium",
@@ -346,6 +354,7 @@ fit_mod <-
       if (missing(qFun)      && !is.null(cfg$qFun))      qFun      <- cfg$qFun
       if (missing(selFun)    && !is.null(cfg$selFun))    selFun    <- cfg$selFun
       if (missing(compFun)   && !is.null(cfg$compFun))   compFun   <- cfg$compFun
+      if (missing(dsem)      && !is.null(cfg$dsem))      dsem      <- cfg$dsem
     }
 
     # Validate the mode switches HERE, before any work happens. model_config()
@@ -580,6 +589,93 @@ fit_mod <-
     # the N(0, sigma) density. Correlated structures (rw()/ar1()) are still
     # rejected upstream in .materialize_re_design() until their densities land.
 
+    # * DSEM ----
+    # A dynamic structural equation model on the recruitment deviations: the
+    # recdevs become latent states of a GMRF, so environmental covariates and
+    # lagged/simultaneous paths drive recruitment. Built after the recruitment
+    # switches (build_dsem_objects() reads random_rec and proj_mean_rec) and
+    # after the linkage pool, keeping the structure specs contiguous.
+    #
+    # dsem = NULL is the default and must stay completely inert: with no DSEM
+    # attached, every path below is skipped and the model is textually the
+    # non-DSEM model. That is what lets /golden-check gate this change.
+    if (is.null(dsem)) {
+      # A DSEM fit's own data_list carries its specification, and re-fitting
+      # from that data_list with dsem = NULL is the ordinary way to compare a
+      # model with and without one. Clear the specification, or the fit reports
+      # a DSEM it does not have: every diagnostic guard reads dsem_settings, and
+      # save_config() would write out a `dsem:` block that load_config() then
+      # replays as a different model (measured at 86.2 nll on BS2017SS). This is
+      # the data_list counterpart of the `inits` scrub further down.
+      data_list$dsem_settings <- NULL
+      data_list$model_config$dsem <- NULL
+    } else {
+      # The build_*() specs are plain unclassed lists in this package, so tell a
+      # specification from already-built objects structurally: built objects
+      # carry $tmb_inputs, a spec carries the build_DSEM() fields. Anything else
+      # is a mistake worth naming -- without this, a bare list with a $sem
+      # element would be silently accepted and its family / estimate_projection
+      # quietly defaulted. Checked first so a bad `dsem` is named here rather
+      # than by a base R error a few lines further down.
+      .dsem_built <- is.list(dsem) && !is.null(dsem$tmb_inputs)
+      .dsem_spec  <- is.list(dsem) && "sem" %in% names(dsem)
+      if (!.dsem_built && !.dsem_spec) {
+        stop("`dsem` must be a specification from build_DSEM() (or built ",
+             "objects from build_dsem_objects()); got ",
+             paste(class(dsem), collapse = "/"), ".", call. = FALSE)
+      }
+
+      # estimate_projection = TRUE says the SEM supplies projected recruitment,
+      # so it overrides proj_mean_rec. The two are otherwise contradictory:
+      # under mean-recruitment projection the model sets R = avg_R past
+      # endyr and the estimated projection states reach only the dynamic B0/BF
+      # reference series, so the SEM would be fitted over the projection and
+      # then ignored there. Overriding before the DSEM is built keeps one
+      # answer -- build_dsem_objects() reads proj_mean_rec too.
+      .ep <- if (.dsem_built) {
+        isTRUE(dsem$dsem_settings$estimate_projection)
+      } else isTRUE(dsem$estimate_projection)
+      if (.ep && isTRUE(as.logical(data_list$proj_mean_rec))) {
+        if (verbose > 0) {
+          message("DSEM `estimate_projection = TRUE`: projecting recruitment ",
+                  "through the SEM rather than at mean recruitment ",
+                  "(`proj_mean_rec` set to FALSE). Use ",
+                  "`estimate_projection = FALSE` to keep mean-recruitment ",
+                  "projection.")
+        }
+        data_list$proj_mean_rec <- 0L
+      }
+
+      if (.dsem_built) {
+        mod_objects$dsem <- dsem
+        # Record the specification alongside the built objects. .refit_like()
+        # and the diagnostic guards read data_list$dsem_settings, so a fit built
+        # from pre-built objects would otherwise look DSEM-free to them.
+        data_list$dsem_settings <- dsem$dsem_settings
+      } else {
+        data_list$dsem_settings <- dsem
+        mod_objects$dsem <- build_dsem_objects(
+          dsem_settings = dsem,
+          debug         = estimateMode %in% c(2, 4),   # match build_map()
+          data_list     = data_list)
+        data_list$dsem_settings$sem <- mod_objects$dsem$sem
+      }
+
+      # DSEM and a recruitment linkage both claim the recruitment deviations.
+      # Reject the combination up front rather than silently applying both.
+      # linkage_table$process holds the process NAME (see LINKAGE_COLS), not the
+      # integer code -- comparing against LINKAGE_PROCESS_CODES coerces to "0"
+      # and never matches, which would let the two structures stack silently
+      # once the C++ lands.
+      if (!is.null(data_list$linkage_table) &&
+          any(data_list$linkage_table$process == "recruitment")) {
+        stop("A DSEM and a recruitment linkage both structure the recruitment ",
+             "deviations; they cannot be combined. Supply either `dsem` or ",
+             "`recFun = build_srr(linkages = ...)`, not both.", call. = FALSE)
+      }
+
+    }
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -631,7 +727,18 @@ fit_mod <-
       # parameter names" -- a refit that failed on a parameter the model no
       # longer has. Extra names are dropped silently because they are inert by
       # definition; a MISSING one is the error above.
-      start_par <- start_par[names(.skel)]
+      # ...EXCEPT the DSEM blocks, which build_params() does not declare (they
+      # come from build_dsem_objects() and are merged in below), so a bare
+      # start_par[names(.skel)] would drop them. They are not inert: dropped,
+      # merge_dsem_params() refills them from the freshly built template, i.e.
+      # the START values, discarding the warm start -- which matters wherever
+      # the DSEM is PINNED rather than estimated (retrospective()'s forecast
+      # refit, estimateMode = 2).
+      # .DSEM_PARAM_NAMES, not grep("^dsem_"), so this stays the exact
+      # complement of the scrub below that removes these blocks when the fit has
+      # no DSEM.
+      start_par <- start_par[c(names(.skel),
+                               intersect(names(start_par), .DSEM_PARAM_NAMES))]
       rm(.skel, .missing, .shared, .badlen)
 
       # Set F for years with 0 catch to very low number
@@ -647,6 +754,43 @@ fit_mod <-
       # Update proj F prop
       start_par$proj_F_prop <- data_list$fleet_control$Proj_F_proportion
     }
+
+    # Drop DSEM parameters from a warm start when this fit has no DSEM. They are
+    # not in build_params(), so the shape guard above passes them through as
+    # unflagged extras; build_map() then propagates the extra names into
+    # mapFactor and TMB rejects the map ("Names in map must correspond to
+    # parameter names"). Reached whenever `inits` come from a DSEM fit
+    # (including one produced on the dev-DSEM branch) and `dsem` is left NULL.
+    if (is.null(mod_objects$dsem) && !is.null(start_par)) {
+      .stale_dsem <- intersect(names(start_par), .DSEM_PARAM_NAMES)
+      if (length(.stale_dsem) > 0) {
+        if (verbose > 0) {
+          message("Dropping DSEM parameters from `inits` (no `dsem` supplied): ",
+                  paste(.stale_dsem, collapse = ", "))
+        }
+        start_par[.stale_dsem] <- NULL
+      }
+      rm(.stale_dsem)
+    }
+
+    # DSEM parameters. Added after build_params() rather than inside it, so they
+    # cannot collide with the "(Intercept)" init push that runs at the end of
+    # that function. Zero-length when there is no DSEM, which is what makes the
+    # non-DSEM objective identical.
+    # Add the DSEM blocks that `inits` does not already carry, and leave the ones
+    # it does alone. Appending with c() duplicated them for a warm start from a
+    # DSEM fit ("Map and parameter objects are not the same size"); overwriting
+    # them unconditionally was worse -- it silently reset x_tj to 0 and beta_z to
+    # its start value, so estimateMode = 2 reprojected from a different model
+    # than the one it was handed (measured: 47% SSB error, no warning).
+    # merge_dsem_params() has exactly the right semantics.
+    start_par <- merge_dsem_params(start_par, .dsem_par_shape(mod_objects$dsem))
+
+    # A warm start whose DSEM blocks do not match this model's shape is a
+    # different model, not a starting value -- e.g. a retrospective peel that
+    # shortens nyrs_dsem while inits carries the full-length x_tj. Fail rather
+    # than let TMB reinterpret it.
+    start_par <- .dsem_check_shape(start_par, mod_objects$dsem)
 
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
@@ -676,6 +820,27 @@ fit_mod <-
           seen <<- c(seen, msg)
         }
       )
+
+      # DSEM map entries, if any. Assigned by name rather than concatenated:
+      # this block can run more than once in a fit, and c() would append a second
+      # copy of every DSEM block. The bounds loop iterates mapFactor, so a
+      # duplicate silently produces more bounds than obj$par has parameters.
+      .dsem_map <- .dsem_map_entries(mod_objects$dsem)
+      for (nm in names(.dsem_map$mapList))   map$mapList[[nm]]   <- .dsem_map$mapList[[nm]]
+      for (nm in names(.dsem_map$mapFactor)) map$mapFactor[[nm]] <- .dsem_map$mapFactor[[nm]]
+
+      # Under a DSEM the model OVERWRITES rec_dev from the latent states and
+      # R_sd from beta_z, so both blocks have exactly zero gradient. Left
+      # estimated they would be free parameters that cannot move the objective:
+      # flat directions, a singular Hessian, and no standard errors. Map them
+      # out. (They stay declared as parameters either way -- that is what keeps
+      # the non-DSEM path textually unchanged.)
+      if (!is.null(mod_objects$dsem)) {
+        for (nm in c("rec_dev", "R_log_sd")) {
+          map$mapList[[nm]][]   <- NA
+          map$mapFactor[[nm]]   <- factor(rep(NA, length(map$mapList[[nm]])))
+        }
+      }
     }
     if (verbose > 0) { message("Step 2: Map build complete") }
 
@@ -688,8 +853,42 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 4: Get bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # A DSEM standard deviation is a Cholesky diagonal, so its sign is not
+    # identified and build_bounds() bounds it at 0 unless the DSEM was built
+    # with bound_sd = FALSE. A model carried forward from before that bound can
+    # sit at the negative root, which would put a warm start outside its own
+    # bound -- and build_bounds() rejects that outright, so the flip has to
+    # happen BEFORE it rather than against the bounds it returns. Flipping is
+    # exact where the bound applies: the variable has no other two-headed path,
+    # so the likelihood sees only the square.
+    #
+    # Gated on bound_sd, so `FALSE` leaves a start the caller chose where it is.
+    # Rewriting it would defeat the one job that argument has -- reproducing an
+    # old fit parameter for parameter, or showing the two optima are mirrored.
+    if (!is.null(mod_objects$dsem) && !is.null(start_par$dsem_beta_z) &&
+        .dsem_bound_sd(mod_objects$dsem)) {
+      .sdz <- .dsem_sd_indices(mod_objects$dsem)
+      .k <- .sdz$sd[.sdz$sd <= length(start_par$dsem_beta_z)]
+      # which(), not a bare logical: an NA start value would index with NA and
+      # write an NA back into the parameter list.
+      .k <- .k[which(start_par$dsem_beta_z[.k] < 0)]
+      if (length(.k)) {
+        start_par$dsem_beta_z[.k] <- abs(start_par$dsem_beta_z[.k])
+        if (verbose > 0) {
+          message("Flipped ", length(.k), " DSEM standard deviation(s) to the ",
+                  "positive root; the sign is not identified and is bounded at 0.")
+        }
+      }
+      if (length(.sdz$entangled) && verbose > 0) {
+        message("DSEM variable(s) ", paste(.sdz$entangled, collapse = ", "),
+                " carry a cross-covariance or lagged variance path, so their ",
+                "standard deviations keep an unidentified sign and no bound. ",
+                "See ?build_bounds.")
+      }
+    }
     if (is.null(bounds)) {
-      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
+      bounds <- Rceattle::build_bounds(param_list = start_par, data_list,
+                                       dsem = mod_objects$dsem)
     }
     if (verbose > 0) { message("Step 3: Parameter bounds complete") }
 
@@ -716,8 +915,27 @@ fit_mod <-
     # build_map() returns a list with $mapList (the raw per-parameter maps,
     # NA = fixed); that is what the guards read.
     random_vars <- c()
+
+    # Under a DSEM the recruitment deviations are DERIVED from the latent states,
+    # so it is dsem_x_tj that gets integrated out, not rec_dev -- rec_dev is
+    # overwritten in the model and carries no density of its own. Appended,
+    # never assigned over the top: doing the latter would silently drop
+    # init_dev, index_q_dev, log_M1_dev and beta_linkage_re from the Laplace
+    # approximation.
+    if (!is.null(mod_objects$dsem)) {
+      # Take the random declaration from the DSEM itself rather than naming
+      # x_tj here: dsem::dsem() decides which blocks are integrated out (it
+      # declares mu_j random alongside x_tj), and hardcoding one of them
+      # estimates the other as a fixed effect -- a different model, which shows
+      # up as a non-positive-definite Hessian rather than an error.
+      .dsem_re <- paste0("dsem_", mod_objects$dsem$tmb_inputs$random)
+      for (nm in .dsem_re) {
+        if (any(!is.na(map$mapList[[nm]]))) random_vars <- c(random_vars, nm)
+      }
+    }
+
     if (random_rec) {
-      random_vars <- c(random_vars, "rec_dev")
+      if (is.null(mod_objects$dsem)) random_vars <- c(random_vars, "rec_dev")
       # init_dev is integrated out only where it carries a density. The initial
       # deviate penalty dnorm(init_dev, -sigma^2/2, R_sd) applies when
       # initMode > 1 and != 5 (ceattle.cpp, JNLL_INIT_DEV); keep this in lockstep
@@ -824,6 +1042,12 @@ fit_mod <-
     # here (build_osa = FALSE, the rearrange_data() default).
     data_list_reorganized <- Rceattle::rearrange_data(data_list)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
+
+    # DSEM inputs. The template declares these unconditionally, so every fit has
+    # to supply them; with no DSEM they are zero-length and dsem_on = 0.
+    .dsem_in <- if (is.null(mod_objects$dsem)) .dsem_null_inputs() else
+      .dsem_tmb_inputs(mod_objects$dsem)
+    data_list_reorganized <- c(data_list_reorganized, .dsem_in$data)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
     # Scrub fields that TMB's dataSanitize cannot recurse into (data
@@ -1092,7 +1316,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if (sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0) { stop("Map of length 0: all NAs") }
-    obj <- TMB::MakeADFun(
+    obj <- .rce_make_adfun(
       data_list_reorganized,
       parameters = start_par,
       DLL        = TMBfilename,
@@ -1126,6 +1350,16 @@ fit_mod <-
         stop("Parameter bounds contain NA after alignment; a bounds entry is ",
              "shorter than its parameter.")
       }
+      # Keep the aligned vectors, not just the per-block lists. This is the only
+      # place the alignment is known to be right -- it happens after obj exists,
+      # against obj$par's own block order, with the assertions above -- and it is
+      # what a sampler needs. tmbstan::tmbstan(lower =, upper =) takes a vector
+      # of exactly this length and expands it across the random effects itself,
+      # so `bounds$lower` (a list keyed by parameter block) is the wrong object
+      # to hand it: indexing that list by names(obj$par) repeats whole blocks and
+      # silently returns a vector orders of magnitude too long.
+      bounds$par_lower <- L
+      bounds$par_upper <- U
     }
 
     mod_objects <- c(
@@ -1203,6 +1437,18 @@ fit_mod <-
           }
           mod_objects$identified <- identified
         }
+      }
+
+      # Record which parameter blocks the HINDCAST declared random. Reading this
+      # back off `$obj` later does not work: under estimateMode = 0 with a
+      # harvest control rule, `$obj` is the PROJECTION object, whose map comes
+      # from build_hcr_map(all_params_on = FALSE) and sets every hindcast entry
+      # to NA -- so TMB drops the whole `random` declaration and
+      # obj$env$random is empty. Anything asking "was this block a random
+      # effect?" would then get FALSE for every block, on exactly the fits that
+      # carry an HCR. retrospective() asks precisely that.
+      if (estimateMode %in% c(0, 1)) {
+        mod_objects$random_vars <- random_vars
       }
 
       # Capture the hindcast optimizer convergence snapshot now, before any
@@ -1416,7 +1662,15 @@ fit_mod <-
         mc = model_config(msmMode = msmMode, initMode = initMode, avgnMode = avgnMode,
                           suitMode = suitMode, niter = niter, HCR = HCR, recFun = recFun,
                           M1Fun = M1Fun, growthFun = growthFun, qFun = qFun,
-                          selFun = selFun, compFun = compFun),
+                          # The SPECIFICATION, never the built objects. A run
+                          # config is written back out as a build_DSEM() call
+                          # (.RCE_CONFIG_BUILDERS), and built objects share only
+                          # `sem` with that function's arguments -- so storing
+                          # them would drop `family`, `estimate_projection` and
+                          # `sigmaR_prior_sd`, and load_config() would rebuild a
+                          # different model without saying so.
+                          selFun = selFun, compFun = compFun,
+                          dsem = data_list$dsem_settings),
         estimateMode = estimateMode, random_rec = random_rec, random_q = random_q,
         random_sel = random_sel, suit_styr = suit_styr, suit_endyr = suit_endyr,
         fc = fit_control),

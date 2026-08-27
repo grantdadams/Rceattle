@@ -53,6 +53,8 @@ navbar:
         href: articles/growth-estimation.html
       - text: "Environmental linkages and priors"
         href: articles/environmental-linkages-and-priors.html
+      - text: "Dynamic structural equation models"
+        href: articles/dsem.html
       - text: "--- Diagnostics & Inference ---"
       - text: "Model diagnostics"
         href: articles/model-diagnostics.html
@@ -110,6 +112,7 @@ articles:
   contents:
   - model-parameterizations
   - environmental-linkages-and-priors
+  - dsem
 
 - title: Contributing
   desc: Extending and maintaining the package internals.
@@ -146,6 +149,9 @@ reference:
   - build_hcr_map
   - fit_control
   - linkage_spec
+  - build_DSEM
+  - build_dsem_objects
+  - check_dsem_spec
 
 - title: "Run configuration"
   desc: >
@@ -201,6 +207,7 @@ reference:
   - osa_diagnostics
   - process_residuals
   - retrospective
+  - hindcast_skill
   - jitter
   - profile.Rceattle
   - profile_components

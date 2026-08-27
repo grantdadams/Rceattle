@@ -19,9 +19,30 @@ remove_F <- function(object = NULL, Rceattle = NULL){
     stop("`object` must be a fitted Rceattle model (from fit_mod()).", call. = FALSE)
   }
 
+  # A DSEM needs nothing special here: nothing is re-estimated below, so the
+  # DSEM's fitted parameters simply travel through `inits`. That only became
+  # true once fit_mod() stopped dropping the dsem_* blocks out of a warm start.
+
   # * Years for F = 0 ----
-  # - don't want hindcast or it will bias suitability in Multi-species models
-  # suit_endyr is per-predator; project F = 0 only after the latest suitability window.
+  # INTENTIONAL that this starts at suit_endyr, not endyr: MSVPA-derived
+  # suitability is computed from the fitted dynamics up to suit_endyr, so the
+  # unfished trajectory has to begin after that window or removing F would alter
+  # the suitability the multispecies model was fitted with. The consequence is
+  # that when suit_endyr < endyr the LATE HINDCAST YEARS are unfished too --
+  # that is the intended unfished reference, not a hindcast reconstruction.
+  # Measured on BS2017SS with suit_endyr = 2010: F zeroed for 2011-2017 and
+  # terminal SSB 43%/187%/17% above the fitted model, which is the unfished
+  # counterfactual those years are supposed to represent.
+  #
+  # suit_endyr is per-predator and max() takes the latest window, so no
+  # predator's suitability is disturbed.
+  #
+  # Note this write only reaches the hindcast: log_F has nyrs_hind columns, and
+  # the template reads log_F only for hindcast years. The unfished PROJECTION
+  # comes from estimateMode = 3 below leaving the harvest control rule
+  # unevaluated, so `forecast` stays 0 and the template forces proj_F = 0. When
+  # suit_endyr == endyr the indices fall past the end of log_F and nothing is
+  # written, which is correct -- there are no hindcast years to unfish.
   proj_years <- (max(object$data_list$suit_endyr)+1):object$data_list$projyr - object$data_list$styr + 1
   fdevs_cols <- 1:ncol(object$estimated_params$log_F)
   fdevs_change <- which(fdevs_cols %in% proj_years)

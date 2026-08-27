@@ -570,7 +570,7 @@ See `?build_hcr` for more details.
 | Function | Purpose |
 |---|---|
 | `fit_mod(estimateMode = 2, HCR = build_hcr(...))` | Forward projection under a fixed HCR |
-| `sample_rec()` | Bootstrap historical recruitment deviations (with optional `rec_trend`) into the projection |
+| `sample_rec()` | Bootstrap historical recruitment deviations (with optional `rec_trend`) into the projection; under a DSEM, draw them from the fitted GMRF instead |
 | `remove_F()` | Refit a model with F = 0 (used internally for dynamic reference points) |
 | `run_mse()` | Closed-loop MSE: refit EM on the `assessment_period` schedule (a period, or the years themselves), sample new data at `sampling_period` |
 | `load_mse()` | Reload per-simulation `.rds` files written when `dir =` is supplied |

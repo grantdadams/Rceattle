@@ -1,6 +1,6 @@
 #' Self-test simulation analysis
 #'
-#' @description Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters. TODO add process variation (i.e. random recruitment deviations) to the simulation.
+#' @description Simulates data from an Rceattle model and refits the model to the simulated data, to check that the fitting procedure recovers the operating-model parameters.
 #'
 #' @inheritParams rceattle-refit-args
 #' @param seed random number seed. Each simulation \code{i} uses \code{seed + i}
@@ -19,7 +19,7 @@
 #'   every simulated one -- without it such a model's refits can end many orders
 #'   of magnitude from a zero gradient and be dropped as non-converged. Default
 #'   \code{NULL} reads the setting \code{fit_mod()} recorded on the source fit
-#'   (\code{fit$run_config$fit_control$phase}), so a model fitted under the
+#'   (\code{object$run_config$fit_control$phase}), so a model fitted under the
 #'   package default of \code{phase = FALSE} is refitted unphased; pass
 #'   \code{TRUE} for a model that needs phasing but was not fitted with it.
 #' @param start which of the input model's parameter sets each refit starts
@@ -56,11 +56,21 @@
 #'   \code{TRUE}, ... -- redraws it too, so the test instead measures whether the
 #'   estimator recovers a process it has not been shown. The deviations behind
 #'   each replicate come back in \code{attr(result, "process_sim")}; see
-#'   \code{Value}.
+#'   \code{Value}. A process the model cannot redraw is reported: the
+#'   \code{\link{sim_mod}} warnings are collected from the replicates and
+#'   re-raised once, and asking for process error and getting none back warns in
+#'   its own right.
 #'
 #' @return A list of Rceattle models named \code{Sim_1}, \code{Sim_2}, ....
 #'   By default only the converged simulations, renumbered contiguously; a
 #'   message reports how many were dropped.
+#'
+#'   With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
+#'   simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
+#'   logical vector of the convergence verdicts in \code{attr(, "converged")}.
+#'   Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
+#'   refit errored outright is returned as the condition object rather than a
+#'   model, so it cannot abort the run.
 #'
 #'   The list carries class \code{"Rceattle_selftest"} and the number of
 #'   simulations attempted in \code{attr(, "nsim")}, so printing it reports the
@@ -70,33 +80,30 @@
 #'   \code{plot_biomass(c(sims, list(fit)))} are all unchanged, and \code{c()}
 #'   and \code{[} return a plain list of fits.
 #'
-#'   With \code{debug = TRUE}, every simulation, with \code{Sim_i} being
-#'   simulation \code{i} (so it pairs with the seed \code{seed + i}), and a
-#'   logical vector of the convergence verdicts in \code{attr(, "converged")}.
-#'   Inspect a failure with \code{sims[[j]]$convergence}. A simulation whose
-#'   refit errored outright is returned as the condition object rather than a
-#'   model, so it cannot abort the run.
 #'
 #'   When \code{process} redrew something, \code{attr(, "process_sim")} holds the
 #'   deviations that generated each replicate's data -- a list keyed by the same
 #'   \code{Sim_i} names, so \code{attr(x, "process_sim")[["Sim_1"]]} belongs to
 #'   \code{x[["Sim_1"]]}, subset and renumbered alongside the models. Each entry
 #'   is a named list of whichever of \code{rec_dev}, \code{init_dev},
-#'   \code{log_M1_dev} and \code{beta_linkage_re} were drawn, each with a
-#'   same-shaped \code{_drawn} logical marking the cells the draw touched --
-#'   restrict any recovery statistic to those, since the rest are fitted values
-#'   (see \code{\link{sim_mod}}). Compare estimates against these, not against
-#'   the operating model: its fitted deviations are no longer what generated the
-#'   data.
+#'   \code{log_M1_dev}, \code{beta_linkage_re} and -- under a DSEM --
+#'   \code{dsem_x_tj} were drawn, each with a same-shaped \code{_drawn} logical
+#'   marking the cells the draw touched -- restrict any recovery statistic to
+#'   those, since the rest are fitted values (see \code{\link{sim_mod}}).
+#'   Compare estimates against these, not against the operating model: its
+#'   fitted deviations are no longer what generated the data.
 #'
 #' @section Interpreting the spread:
 #' \code{\link{sim_mod}} redraws the observations only -- indices, catch,
-#' compositions, CAAL and stomach contents. Some rows are deliberately left
-#' alone, and \code{\link{sim_mod}} warns about each: a predator whose
-#' suitability is empirical rather than estimated has no predicted diet to draw
-#' from, and a covariance (MVN/MVNORM) survey fleet has no covariance outside
-#' the years it is fitted to. Those data are held fixed across every replicate,
-#' so recovery of whatever they inform is optimistic.
+#' compositions, CAAL, stomach contents, and, under a DSEM whose covariate was
+#' given a measurement family, that covariate's \code{env_data} series. Some
+#' rows are deliberately left alone, and \code{\link{sim_mod}} warns about each:
+#' a predator whose suitability is empirical rather than estimated has no
+#' predicted diet to draw from, and a covariance (MVN/MVNORM) survey fleet has
+#' no covariance outside the years it is fitted to. Those data are held fixed
+#' across every replicate, so recovery of whatever they inform is optimistic --
+#' as is a covariate declared \code{family = "fixed"}, which is measured
+#' exactly by assumption and so is identical in every replicate.
 #'
 #' By default it does not redraw recruitment, so with
 #' \code{random_rec = TRUE} every replicate shares the operating model's single
@@ -135,6 +142,23 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+
+  # A DSEM means the same thing here it does without one. With process = FALSE
+  # (the default) the recruitment deviations are held at their fitted values --
+  # under a DSEM, the latent states are -- and the test asks whether the model
+  # recovers itself from fresh observation error alone. process = TRUE
+  # re-realizes the process too: sim_mod() draws the whole latent field from the
+  # fitted precision, so the SEM's lagged paths, covariate effects and
+  # cross-species structure are preserved across replicates, which is what makes
+  # a self test able to say whether the SEM structure is identified.
+  #
+  # No map is passed to .refit_like() below, so fit_mod() rebuilds one and fills
+  # in the DSEM blocks itself.
+
+  # Resolve `process` here so a misspelled one is named now. Left to the
+  # replicates it would surface as a worker dying inside parLapply, which
+  # .parallel_lapply() reports as a memory failure and then retries serially.
+  process_state <- .sim_state_codes(process)
 
   start <- match.arg(start)
   if (is.null(object[[paste0(start, "_params")]])) {
@@ -188,7 +212,19 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
     set.seed(seed + i) # unique seed per sim for reproducibility under parallel
 
     # * Simulate new data
-    sim_data <- Rceattle::sim_mod(object, simulate = simulate, process = process)
+    # sim_mod() warns about every process it was asked for and could not draw --
+    # an AMAK/Ianelli recruitment penalty, an M with no random effect, a frozen
+    # QAR1 linkage. A worker's warnings never reach the caller, so under the
+    # default (parallel) dispatch those warnings were lost and `process = TRUE`
+    # could be a complete no-op in silence. Collect them and let the dispatcher
+    # re-emit the unique set once, rather than nsim times.
+    sim_warn <- character(0)
+    sim_data <- withCallingHandlers(
+      Rceattle::sim_mod(object, simulate = simulate, process = process),
+      warning = function(w) {
+        sim_warn <<- c(sim_warn, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      })
     data_list <- sim_data
     # The deviations that generated this replicate, when process error was
     # redrawn. Carried through so the caller compares estimates against what
@@ -228,9 +264,10 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
     # failed with their $convergence diagnostics intact.
     if (inherits(newmod, "condition")) {
       return(list(model = newmod, converged = FALSE, error = conditionMessage(newmod),
-                  truth = truth))
+                  truth = truth, sim_warn = sim_warn))
     }
-    list(model = newmod, converged = .refit_converged(newmod), truth = truth)
+    list(model = newmod, converged = .refit_converged(newmod), truth = truth,
+         sim_warn = sim_warn)
   } # End run_one_sim closure
 
 
@@ -249,6 +286,7 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   converged <- vapply(mod_list, function(x) isTRUE(x$converged), logical(1))
   errs      <- vapply(mod_list, function(x) x$error %||% NA_character_, character(1))
   truths    <- lapply(mod_list, function(x) x$truth)
+  sim_warns <- unique(unlist(lapply(mod_list, function(x) x$sim_warn)))
   mod_list  <- lapply(mod_list, function(x) x$model)
   # Unconditional, so `names(which(!attr(sims, "converged")))` works at every
   # length -- including the empty case, where a guarded assignment would have
@@ -257,6 +295,27 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   names(truths) <- names(mod_list)
   .report_dropped(sum(!converged), length(converged), "simulation")
   .report_errors(errs, "simulation")
+
+  # Every replicate simulates the same model, so the same warning fires nsim
+  # times; emit the unique set once. Re-raised here rather than inside the
+  # closure because a worker's warnings are discarded, which is what made a
+  # no-op `process` silent at the default `cores`.
+  for (w in sim_warns) warning(w, call. = FALSE)
+
+  # Asking for process error and getting none back is the failure this reports.
+  # It happens for good reasons -- an AMAK/Ianelli recruitment penalty, a model
+  # with no random effect on the process named -- and sim_mod() says which above,
+  # but with nothing here the caller reads an absent attribute as an oversight
+  # and compares against the operating model instead. Silence is the one answer
+  # that cannot be acted on.
+  if (any(process_state == 1L) && length(truths) > 0L &&
+      all(vapply(truths, is.null, logical(1)))) {
+    warning("self_test(process = ) was asked to redraw process error, but no ",
+            "replicate came back with any: attr(, \"process_sim\") is absent ",
+            "and these replicates differ from the operating model by ",
+            "observation error alone. The warning(s) above say which process ",
+            "was left alone and why. See ?sim_mod.", call. = FALSE)
+  }
 
 
   # Return ----
@@ -285,6 +344,8 @@ self_test <- function(object = NULL, nsim = 50, simulate = TRUE, seed = 123, cor
   }
   return(.as_selftest(mod_list, nsim))
 }
+
+
 
 
 # Still the same list of models: `sims[["Sim_1"]]`, `length(sims)`,

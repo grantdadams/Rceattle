@@ -73,6 +73,12 @@ reweight_comps <- function(object = NULL, n_iter = 10, tol = 0.01, fleets = NULL
   if (!inherits(object, "Rceattle")) {
     stop("`object` must be a fitted Rceattle model.", call. = FALSE)
   }
+  # A DSEM needs nothing special here: the loop reweights COMPOSITION data and
+  # refits, and the recruitment structure travels through `inits` and the
+  # supplied map like any other parameter block. One consequence worth knowing:
+  # the McAllister-Ianelli weight reads expected compositions, which depend on
+  # recruitment and so on the GMRF, so weights tuned under a DSEM are
+  # conditional on it and are not comparable to weights tuned without one.
   fc <- object$data_list$fleet_control
 
   # Fleets the loop can tune: they carry composition data that is actually

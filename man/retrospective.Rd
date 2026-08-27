@@ -13,6 +13,7 @@ retrospective(
   getsd = NULL,
   phase = TRUE,
   fit_control = NULL,
+  forecast_rec = c("mean", "model"),
   Rceattle = NULL
 )
 }
@@ -43,6 +44,16 @@ model, and Mohn's rho is biased towards zero. Change it only deliberately.}
 
 \item{fit_control}{optional \code{\link[=fit_control]{fit_control()}} bundle for the refits. Only
 \code{phase} and \code{getsd} are read; see \strong{What \code{fit_control()} reaches}.}
+
+\item{forecast_rec}{How the peeled years get their recruitment. \code{"mean"}
+(default) projects them at the bias-adjusted historical mean, which is the
+convention Mohn's rho has always been computed under. \code{"model"} uses the
+model's own projection rule instead, in precedence order: \code{proj_mean_rec = TRUE} projects at mean recruitment whatever process the model carries;
+otherwise the latent states supply it where the deviations are random
+effects (\code{random_rec}, or a DSEM), so an AR1's autocorrelation or a DSEM's
+lagged and covariate paths propagate into the forecast; otherwise
+recruitment comes off the stock-recruit curve. Use \code{"model"} to compare
+projection methods -- see \code{\link[=hindcast_skill]{hindcast_skill()}}, which defaults to it.}
 
 \item{Rceattle}{deprecated name for \code{object}, still accepted so existing
 scripts keep working. Supplying both is an error.}

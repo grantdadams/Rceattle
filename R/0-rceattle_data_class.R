@@ -195,6 +195,18 @@
   # that is constant collapses to a single token, else lists one entry per species.
   procs <- c()
   if (!is.null(dl2$srr_fun))      procs <- c(procs, paste0("recruitment  srr_fun      = ", .rce_alias_show(dl2$srr_fun, .SRR_FUNS)))
+  # A DSEM replaces the recruitment-deviation prior entirely, so it belongs on
+  # the card: without this line a DSEM fit prints as an ordinary
+  # mean-recruitment model. The path count is what the reader wants at a glance;
+  # summary() prints the coefficient table itself.
+  if (!is.null(dl2$dsem_settings)) {
+    .np <- tryCatch({
+      rows <- trimws(strsplit(dl2$dsem_settings$sem, "\n")[[1]])
+      sum(nzchar(rows) & !startsWith(rows, "#"))
+    }, error = function(e) NA_integer_)
+    procs <- c(procs, paste0("recruitment  dsem         = ",
+                             if (is.na(.np)) "yes" else paste(.np, "path(s)")))
+  }
   if (!is.null(dl2$M1_model))     procs <- c(procs, paste0("M1           M1_model     = ", .rce_alias_show(dl2$M1_model, .M1_MODELS)))
   if (!is.null(dl2$growth_model)) procs <- c(procs, paste0("growth       growth_model = ", .rce_alias_show(dl2$growth_model, .GROWTH_FUN_TO_INT)))
   if (length(procs)) {

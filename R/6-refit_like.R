@@ -58,6 +58,8 @@
 #' @param suit_styr,suit_endyr Suitability window; default to the source's,
 #'   clamped to a peel year or pinned to the pristine OM by some callers.
 #'
+#' @param dsem DSEM specification to carry into the refit. Defaults to the
+#'   source `data_list`'s stored `dsem_settings`, so a refit inherits it.
 #' @return The fitted `Rceattle` object returned by [fit_mod()].
 #' @noRd
 .refit_like <- function(data_list,
@@ -73,8 +75,21 @@
                         srr_hat_styr     = data_list$srr_hat_styr,
                         srr_hat_endyr    = data_list$srr_hat_endyr,
                         suit_styr        = data_list$suit_styr,
-                        suit_endyr       = data_list$suit_endyr) {
+                        suit_endyr       = data_list$suit_endyr,
+                        dsem             = data_list$dsem_settings) {
   dl <- data_list
+
+  # The DSEM travels as the SPECIFICATION, never as built objects. Its latent
+  # states x_tj (and eps_tj / y_tj / the map) are dimensioned over the model's
+  # year span, and every caller here changes that span: retrospective() peels
+  # endyr, run_mse() shortens projyr. Rebuilding from the spec against each
+  # refit's own data_list re-derives the right dimensions; forwarding a built
+  # object would hand MakeADFun a latent-state matrix of the wrong length.
+  #
+  # This is also why the DSEM is not in the `if (is.null(HCR))` style block
+  # below: build_dsem_objects() is called by fit_mod(), after it has resolved
+  # the refit's own styr/endyr/projyr.
+
 
   # Reconstruct the harvest control rule from the source unless the caller
   # supplied one (the input-F EM refit builds its own from a computed average F).
@@ -101,6 +116,7 @@
     file         = NULL,
     estimateMode = estimateMode,
     HCR          = HCR,
+    dsem = dsem,
     # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
     recFun = suppressWarnings(build_srr(
       srr_fun          = dl$srr_fun,
@@ -195,3 +211,25 @@
   if (is.null(x) || !length(x) || anyNA(x)) return(TRUE)
   x[[1]]
 }
+
+
+# True when a model carries a DSEM. A DSEM can live in three places, and a check
+# that looks in only one is silent on exactly the objects it exists for:
+#   fit$data_list$dsem_settings  -- the specification, set by fit_mod()
+#   fit$dsem                     -- the built objects, the canonical slot on a
+#                                   fitted object (what summary.Rceattle reads),
+#                                   and all that is set when fit_mod() is handed
+#                                   pre-built objects
+#   fit$data_list$model_config$dsem -- carried by a stored run configuration
+.has_dsem <- function(x) {
+  !is.null(x$dsem) ||
+    !is.null(x$data_list$dsem_settings) ||
+    !is.null(x$data_list$model_config$dsem)
+}
+
+# There is deliberately no shared "does not support a DSEM" refusal. Only three
+# places refuse at all -- run_mse(), sample_rec() on a hindcast-only field, and
+# profile() on `rec_dev` -- and each says something specific about why, which one
+# generic message could not. Everything else runs on a DSEM; see
+# vignette("model-diagnostics") for what differs.
+

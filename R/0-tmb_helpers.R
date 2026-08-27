@@ -176,3 +176,43 @@
     WhichBad = bad
   )
 }
+
+
+#' Build a TMB objective, saying so when the compiled model and the R code disagree
+#'
+#' @description
+#' `TMB::MakeADFun()` reads the data and parameter lists in the order the
+#' `DATA_*` / `PARAMETER_*` macros appear in the template. A name the template
+#' asks for and the lists do not supply stops it with "Error when reading the
+#' variable: '<name>'. Please check data and parameters." -- which reads like a
+#' problem with the data, when the usual cause is that the compiled model is
+#' not the one the R code was written against: the C++ was not rebuilt after an
+#' update, or an older `Rceattle` DLL is still loaded in the session from
+#' before a reinstall. (`log_growth_par_devs`, a parameter retired in 5.9.0, is
+#' the current example: no R or C++ source names it any more, so a template
+#' still asking for it is a build from before that release.)
+#'
+#' Adds that explanation to the error and otherwise passes the call straight
+#' through.
+#'
+#' @param ... Passed to [TMB::MakeADFun()].
+#' @return The TMB objective.
+#' @keywords internal
+#' @noRd
+.rce_make_adfun <- function(...) {
+  tryCatch(
+    TMB::MakeADFun(...),
+    error = function(e) {
+      msg <- conditionMessage(e)
+      if (grepl("Error when reading the variable", msg, fixed = TRUE)) {
+        stop(msg,
+             "\nThe compiled TMB model does not match the R code: the template ",
+             "asks for a variable the data and parameter lists do not supply. ",
+             "Rebuild the model against the current source -- restart R (an ",
+             "already-loaded DLL survives a reinstall), then reinstall the ",
+             "package or run pkgload::load_all(), which recompiles the C++.",
+             call. = FALSE)
+      }
+      stop(e)
+    })
+}

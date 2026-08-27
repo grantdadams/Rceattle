@@ -366,6 +366,23 @@ The `nyrs_forecast` argument (default 3) also evaluates rho for years projected 
 
 A peel that did not converge is dropped and a message reports how many, so `Rceattle_list` can be shorter than `peels + 1`. Index it by name rather than position — with a peel missing, `Rceattle_list[[3]]` is not the 3-year peel. If no peel converges, Mohn's rho is `NaN` and the call warns.
 
+## Forecast skill across peels
+
+`hindcast_skill()` scores how well each peel's projection recovers the full model's estimate over the years the peel did not see, given the catch actually taken. Where Mohn's rho measures estimation consistency, this measures forecast skill, so it is the natural way to compare recruitment-projection assumptions: mean recruitment against the stock-recruit curve against a DSEM.
+
+```{r}
+skill <- hindcast_skill(model_1, peels = 5)
+skill$mase
+```
+
+Skill is a mean absolute scaled error (MASE), following Kell et al. (2016). The baseline is the peel's own terminal estimate carried forward — "assume nothing changes" — so `MASE < 1` beats persistence and `MASE > 1` is worse than it, which usually means the recruitment assumption is pulling the projection the wrong way.
+
+Two things to know when reading it. `reference = "observed"` scores the peel's predicted survey index against the index actually observed, which is classic hindcast cross-validation and the version comparable to values published for other platforms; `reference = "model"` (the default) scores SSB, biomass or recruitment against the full model. And read short horizons with care: at `years_ahead = 1` the denominator is a single absolute error, so a peel whose persistence forecast happens to land close produces a very large MASE that says more about the denominator than the projection. Compare the deeper peels, or the median across peels.
+
+`hindcast_skill()` defaults to `forecast_rec = "model"`, which hands the peeled years to the model's own projection rule; `retrospective()` defaults to `"mean"`, the convention Mohn's rho has always been computed under. Without that difference every model forecasts identically and the comparison says nothing.
+
+**`forecast_rec = "model"` needs `build_srr(proj_mean_rec = FALSE)`.** `proj_mean_rec` takes precedence, and it defaults to `TRUE`, so a model fitted without naming it projects the peeled years at mean recruitment whatever process it carries — and `hindcast_skill()` then cannot tell projection methods apart, which is the one thing it exists to do. Measured on the GOA arrowtooth DSEM: `forecast_rec = "mean"` and `"model"` returned identical Mohn's rho to every digit. `retrospective()` says so when it happens.
+
 ## Jitter testing
 
 Jitter testing re-fits the model from many randomly perturbed starting values and checks whether the optimizer keeps returning the same minimum negative log-likelihood (NLL). A spread of NLL values across jitters points to multiple local minima, so the results should be treated with caution.
@@ -579,6 +596,40 @@ likelihood while the components are the inner joint negative log-likelihood, so
 they will not sum; compare the shapes, not the sums. See `?plot_profile` for
 `relative`, `minfraction`, model overlays, and what `weighted = FALSE` does and
 does not include.
+
+## Diagnostics on a DSEM fit
+
+A model fitted with `fit_mod(dsem = build_DSEM(...))` makes the recruitment deviations the latent states of a Gaussian Markov random field rather than independent deviations (see `vignette("dsem")`). Every diagnostic on this page runs on one, but three of them mean something slightly different, and one is not available.
+
+| | On a DSEM fit |
+|---|---|
+| `osa_residuals()`, `osa_diagnostics()` | unchanged — same observations, same residuals |
+| `retrospective()`, `hindcast_skill()` | work; peeled-year latent states are integrated out rather than pinned |
+| `jitter()` | works; perturbs the SEM path coefficients and the latent recruitment deviations, not the covariate columns |
+| `self_test()` | works, with or without `process = TRUE` |
+| `process_residuals()` | works; recruitment residuals are whitened by the process precision |
+| `profile()` | works; `param = "sigmaR"` resolves to the SEM's variance path |
+| `summary()`, `AIC()`, `convergence_diagnostics()` | work; `summary()` also prints the SEM path coefficients |
+| `sample_rec()` | needs `build_DSEM(estimate_projection = TRUE)` |
+| `run_mse()` | not yet supported |
+
+**OSA residuals cover the assessment data, not the environmental data.** The one-step-ahead residuals are computed for catch, survey indices, compositions, conditional age-at-length and diet — exactly as without a DSEM, and the count is the same. The SEM's covariate series is not among them. Under `family = "fixed"`, which is the usual setting, that is not a gap: the covariates carry no measurement density at all, so there is no residual to compute. Under any other family there is one, and it is not yet exposed.
+
+**Recruitment process residuals are whitened, not divided.** A DSEM's deviations are correlated, so there is no per-year SD to standardize by. `process_residuals(process = "recruitment")` instead conditions on the states the model was given, takes one draw from the joint posterior, and multiplies by the Cholesky factor of the process precision. Under a correctly specified SEM the result is approximately iid N(0, 1), which is the same claim the non-DSEM path makes.
+
+```{r}
+pr <- process_residuals(dsem_model, process = "recruitment")
+osa_diagnostics(pr)
+plot(pr)
+```
+
+**`profile()` finds the recruitment SD where it actually lives.** Under a DSEM, `R_log_sd` is mapped out and the SD comes from the SEM's two-headed self-loop, so `param = "sigmaR"` resolves to `dsem_beta_z[rec_sd_idx[sp]]`. `slots` still indexes by species. The values are on the natural scale — `R_sd` is the absolute value of a Cholesky factor, whose sign is not identified.
+
+**`self_test(process = TRUE)` re-realizes the SEM.** The latent field is drawn from the same precision that scored the fit, so an AR1's autocorrelation, a covariate's effect and any cross-species path are all preserved across replicates — which is what makes the test able to say whether the SEM structure is identified. Every estimated cell is drawn, conditional on the ones the map pins; the deviations behind each replicate come back in `attr(sims, "process_sim")`, which under a DSEM carries the latent field itself (`dsem_x_tj`) alongside `rec_dev`. Score recovery against those, not against the operating model — its deviations are no longer what generated the data, and `compare_sim()` warns if you try.
+
+**A covariate is drawn according to how it was declared.** Under `family = "fixed"` it is data: no measurement density, pinned in the map, identical in every replicate. Under any other family it is a latent state observed with error, so both halves are simulated — the state with the rest of the field, and the observation from the family that scores it, written back into `env_data` so the refit is fitted to it. That is not gated on `process`: an observation is redrawn whenever the observations are. A self test of a SEM whose covariate carries measurement error will therefore look less optimistic than one whose covariate is `fixed`, and it should.
+
+**Recruitment scored twice is not redrawn, DSEM or not.** `srr_fun = 0` with `srr_pred_fun > 0` — the AMAK/Ianelli configuration — adds a stock-recruit penalty on the same deviations, so there is no single distribution to draw from and `sim_mod()` says so rather than picking one. Under `cores > 1` those warnings come back from `self_test()` once, collected from the replicates; if nothing at all was redrawn, `self_test()` says that too rather than leaving an absent `process_sim` to be interpreted.
 
 ## Comparing runs
 

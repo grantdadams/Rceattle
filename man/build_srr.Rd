@@ -26,7 +26,7 @@ build_srr(
 
 \item{srr_pred_fun}{Stock-recruit function used for projection, reference points, and penalties (see below). When \code{srr_fun == 0}, the stock-recruit curve is added as a penalty on the annually estimated hindcast recruitment (following AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0}, then \code{srr_pred_fun = srr_fun} and no extra penalty is added.}
 
-\item{proj_mean_rec}{Recruitment used in the projection: \code{TRUE}/1 (default) = mean recruitment, the average R over the hindcast; \code{FALSE}/0 = the stock-recruit relationship given by \code{srr_pred_fun}. Equilibrium and dynamic reference points follow the curve whenever \code{srr_pred_fun} is a stock-recruit form, regardless of this switch.}
+\item{proj_mean_rec}{Recruitment used in the projection: \code{TRUE}/1 (default) = mean recruitment, the average R over the hindcast; \code{FALSE}/0 = the stock-recruit relationship given by \code{srr_pred_fun}. Equilibrium and dynamic reference points follow the curve whenever \code{srr_pred_fun} is a stock-recruit form, regardless of this switch. A DSEM built with \code{estimate_projection = TRUE} projects recruitment through the SEM and overrides this; \code{fit_mod()} says so.}
 
 \item{srr_mse_switchyr}{Year at which an MSE switches from the annual recruitment-penalty estimate to the stock-recruit function (the \code{srr_fun = 0}, \code{srr_pred_fun > 0} case).}
 

@@ -1198,6 +1198,15 @@ stop short of the projection horizon). When `env_data` carries a `Year` column
 it must start at `styr` and be contiguous; a misaligned or gappy `Year` errors
 rather than applying a covariate/deviate to the wrong year.
 
+`env_data` is read as **numbers**: it is coerced to a data.frame of numeric
+columns with an integer `Year` on the way in, since it also becomes the
+`env_index` matrix passed to TMB. A table supplied as a matrix, or a column
+that arrived as text (a workbook column formatted as text, a factor), is
+converted; a cell that is genuinely not a number errors and names its column
+and value rather than becoming a missing year that the mean-fill would then
+replace with the column mean. Encode a categorical covariate -- a regime
+label, say -- as numeric indicator columns.
+
 ## Current limitations
 
 * **Time-variation switches are not auto-translated.** The soft-deprecated

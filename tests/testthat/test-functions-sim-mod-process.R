@@ -205,3 +205,78 @@ testthat::test_that("growth process error comes from the linkage, not the legacy
   d <- .re_draws(fit, Rceattle:::.sim_state_codes("growth"), sigma = 0.35, n = 10L)
   testthat::expect_gt(stats::sd(as.numeric(d)), 0)
 })
+
+# ---- self_test() has to SAY when it drew nothing ---------------------------
+#
+# PROVENANCE. self_test() dispatches its replicates through parLapply, and a
+# worker's warnings never reach the caller. sim_mod() warns about every process
+# it was asked for and could not draw, so at the default `cores` (which is > 1
+# on any real machine) `process = TRUE` could be a complete no-op in silence:
+# no warning, and attr(, "process_sim") absent with nothing to say why. That
+# reads as a broken argument, and it is how "self_test(process = TRUE) does not
+# simulate process error" was reported.
+
+testthat::test_that("self_test() re-emits the draw's warnings under parallel", {
+  testthat::skip_on_cran()
+  # srr_fun = 0 with srr_pred_fun > 0 is the AMAK/Ianelli configuration: the
+  # stock-recruit curve is a second penalty on the same deviations, so there is
+  # no single distribution to draw from and nothing is redrawn. Deliberate, and
+  # sim_mod() explains it -- the failure was that self_test() swallowed it.
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    data_list = make_test_data(), estimateMode = 1, msmMode = 0,
+    recFun = Rceattle::build_srr(srr_fun = 0, srr_pred_fun = "BevertonHolt",
+                                 srr_est_mode = 1),
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)))
+
+  grab <- function(cores) {
+    w <- character(0)
+    withCallingHandlers(
+      out <- Rceattle::self_test(fit, nsim = 2L, seed = 3L, cores = cores,
+                                 process = TRUE, debug = TRUE),
+      warning = function(cnd) {
+        w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning")
+      },
+      message = function(cnd) invokeRestart("muffleMessage"))
+    list(w = w, out = out)
+  }
+
+  seq_run <- grab(1L)
+  par_run <- grab(2L)
+
+  testthat::expect_true(any(grepl("AMAK/Ianelli", seq_run$w)))
+  testthat::expect_true(any(grepl("AMAK/Ianelli", par_run$w)))
+  # Once, not once per replicate: every replicate simulates the same model.
+  testthat::expect_equal(sum(grepl("AMAK/Ianelli", par_run$w)), 1L)
+  # And the absent attribute is named rather than left to be inferred.
+  testthat::expect_true(any(grepl("no replicate came back", par_run$w)))
+  testthat::expect_null(attr(par_run$out, "process_sim"))
+})
+
+testthat::test_that("self_test() stays quiet when the draw worked", {
+  testthat::skip_on_cran()
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    data_list = make_test_data(), estimateMode = 1, msmMode = 0,
+    fit_control = Rceattle::fit_control(phase = FALSE, getsd = FALSE, verbose = 0)))
+
+  w <- character(0)
+  out <- withCallingHandlers(
+    Rceattle::self_test(fit, nsim = 2L, seed = 3L, cores = 2L,
+                        process = "recruitment", debug = TRUE),
+    warning = function(cnd) {
+      w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning")
+    },
+    message = function(cnd) invokeRestart("muffleMessage"))
+
+  testthat::expect_false(any(grepl("no replicate came back", w)))
+  testthat::expect_false(is.null(attr(out, "process_sim")))
+
+  # process = FALSE asks for nothing, so it cannot be missing anything.
+  w2 <- character(0)
+  withCallingHandlers(
+    Rceattle::self_test(fit, nsim = 2L, seed = 3L, cores = 2L, debug = TRUE),
+    warning = function(cnd) {
+      w2 <<- c(w2, conditionMessage(cnd)); invokeRestart("muffleWarning")
+    },
+    message = function(cnd) invokeRestart("muffleMessage"))
+  testthat::expect_false(any(grepl("no replicate came back", w2)))
+})

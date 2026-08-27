@@ -100,8 +100,61 @@ print.Rceattle <- function(x, ...) {
 
 #' Compact summary method for Rceattle fits
 #'
+#' The estimates and their uncertainty plus the likelihood decomposition, which
+#' the fit already carries in [coef()], [vcov()] and `quantities$jnll_comp`;
+#' [print.Rceattle()] still gives the specification tree. When the fit carries a
+#' dynamic structural equation model (DSEM) on the recruitment deviations, the
+#' estimated SEM path coefficients — with standard errors, z-values and Wald
+#' p-values when an `sdreport` is available — plus the per-species recruitment
+#' SD. Adapted from `summary.dsem`; see `?dsem::summary.dsem` for the underlying
+#' parameterization.
+#'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.
+#'
+#' @return An object of class \code{"summary.Rceattle"}: a list with elements
+#' \itemize{
+#'   \item \code{coefficients} — on a DSEM fit, the SEM path coefficients (see
+#'     below); on every other fit, the fixed effects, a data.frame with columns
+#'     \code{parameter}, \code{estimate} and \code{std_error}.
+#'   \item \code{fixed_coefficients} — the fixed effects, always, whether or not
+#'     a DSEM is attached. On a non-DSEM fit it is the same table as
+#'     \code{coefficients}.
+#'   \item \code{dsem_coefficients} — the SEM path coefficients on a DSEM fit,
+#'     \code{NULL} otherwise: a data.frame with columns \code{path}, \code{lag},
+#'     \code{name}, \code{start}, \code{parameter}, \code{first}, \code{second},
+#'     \code{direction}, \code{Estimate}, \code{Std_Error}, \code{z_value} and
+#'     \code{p_value}. The last three are \code{NA} when the fit carries no
+#'     \code{sdreport}, but the columns are always present so that tables from
+#'     several fits can be row-bound.
+#'   \item \code{recruitment_sd} — one row per species on a DSEM fit,
+#'     \code{NULL} otherwise, with columns \code{Species}, \code{R_sd},
+#'     \code{Estimated} (whether it was estimated rather than fixed) and
+#'     \code{Std_Error} (\code{NA} for a fixed SD).
+#'   \item \code{jnll_comp}, \code{objective}, \code{convergence} and
+#'     \code{spec}, the fit itself.
+#' }
+#'
+#' @section Which table \code{$coefficients} is:
+#' \code{$coefficients} is the SEM path table on a DSEM fit and the fixed effects
+#' on every other fit, because the DSEM analysis scripts read the path table from
+#' that name. \code{$fixed_coefficients} and \code{$dsem_coefficients} always mean
+#' exactly one thing each, and are what new code should read.
+#'
+#' @section Reading the variance rows:
+#' Two-headed (\code{<->}) paths are variance parameters, and their reported
+#' statistics follow `summary.dsem` rather than being rewritten here. Two
+#' consequences are worth knowing when quoting these tables:
+#' \itemize{
+#'   \item Their sign is not identified — the model uses \eqn{|beta_z|} (the C++
+#'     takes \code{sqrt(square(.))}), so a variance row's \code{Estimate} may
+#'     appear negative while \code{recruitment_sd$R_sd} reports the same
+#'     quantity as positive. Compare magnitudes, not signs.
+#'   \item \code{z_value} / \code{p_value} on a variance are a test against a
+#'     boundary of the parameter space, so the usual Wald interpretation does not
+#'     apply; they are typically extreme regardless of evidence. Do not read a
+#'     small p-value on a \code{<->} row as support for that variance term.
+#' }
 #'
 #' @export
 summary.Rceattle <- function(object, ...) {
@@ -109,30 +162,171 @@ summary.Rceattle <- function(object, ...) {
   # estimates and their uncertainty plus the likelihood decomposition, joined
   # from coef(), vcov() and quantities$jnll_comp. print() gives the spec tree;
   # this gives the numbers.
+  if (!inherits(object, "Rceattle")) {
+    stop("Input is not an Rceattle model.")
+  }
+
+  fixed <- .rceattle_fixed_coefs(object)
+  dsem_coefs <- .rceattle_dsem_coefs(object)
+  rec_sd <- if (is.null(dsem_coefs)) NULL else .rceattle_rec_sd(object)
+
+  structure(
+    list(spec = object,
+         # On a DSEM fit $coefficients is the path table; the analysis scripts
+         # read it from that name. $dsem_coefficients / $fixed_coefficients each
+         # mean one thing on every fit and are what new code should use.
+         coefficients = if (is.null(dsem_coefs)) fixed else dsem_coefs,
+         fixed_coefficients = fixed,
+         dsem_coefficients = dsem_coefs,
+         recruitment_sd = rec_sd,
+         jnll_comp = tryCatch(object$quantities$jnll_comp,
+                              error = function(e) NULL),
+         objective = tryCatch(object$opt$objective, error = function(e) NULL),
+         convergence = object$convergence),
+    class = "summary.Rceattle")
+}
+
+
+# The fixed effects and their standard errors, as one frame. NULL when the fit
+# carries no estimates.
+.rceattle_fixed_coefs <- function(object) {
   est <- tryCatch(stats::coef(object), error = function(e) NULL)
-  se  <- tryCatch({
+  if (is.null(est) || !length(est)) return(NULL)
+
+  se <- tryCatch({
     v <- stats::vcov(object)
     if (is.null(v)) NULL else sqrt(abs(diag(v)))
   }, error = function(e) NULL)
 
-  coefs <- NULL
-  if (!is.null(est) && length(est)) {
-    # vcov() covers the fixed effects only, and getsd = FALSE leaves sdrep NULL,
-    # so the standard error is NA rather than absent -- the column has to line up
-    # with the estimates either way.
-    s <- rep(NA_real_, length(est))
-    if (!is.null(se) && length(se) == length(est)) s <- unname(se)
-    coefs <- data.frame(parameter = names(est), estimate = unname(est),
-                        std_error = s, stringsAsFactors = FALSE)
+  # vcov() covers the fixed effects only, and getsd = FALSE leaves sdrep NULL,
+  # so the standard error is NA rather than absent -- the column has to line up
+  # with the estimates either way.
+  s <- rep(NA_real_, length(est))
+  if (!is.null(se) && length(se) == length(est)) s <- unname(se)
+  data.frame(parameter = names(est), estimate = unname(est), std_error = s,
+             stringsAsFactors = FALSE)
+}
+
+
+# The DSEM path coefficients, or NULL when no DSEM is attached.
+.rceattle_dsem_coefs <- function(object) {
+  if (is.null(object$dsem) || is.null(object$dsem$sem_full)) return(NULL)
+
+  # sem_full is a data.frame from dsem::dsem(); as.data.frame() keeps it one if a
+  # future dsem returns a matrix, whose columns would otherwise all coerce to
+  # character and silently change every downstream column's type.
+  model  <- as.data.frame(object$dsem$sem_full, stringsAsFactors = FALSE)
+  # The path coefficients are `dsem_beta_z` on a fit: every DSEM parameter is
+  # prefixed (.DSEM_PARAM_NAMES) so it cannot collide with a CEATTLE parameter.
+  beta_z <- object$estimated_params$dsem_beta_z
+  par_idx <- as.numeric(model[, "parameter"])
+
+  # sem_full$parameter is a 1-based index into dsem_beta_z, or 0 for a path fixed
+  # at its start value. Refuse to guess if it is missing or too short: without it
+  # every estimate silently falls back to its start value, which looks like a
+  # converged table of zeros rather than an error.
+  if (is.null(beta_z)) {
+    stop("The fit has no estimated_params$dsem_beta_z, so DSEM path ",
+         "coefficients cannot be reported. Was this fit produced with a `dsem` ",
+         "argument?")
+  }
+  if (length(beta_z) < max(par_idx, 0, na.rm = TRUE)) {
+    stop("estimated_params$dsem_beta_z has ", length(beta_z), " entries but the ",
+         "SEM references parameter index ", max(par_idx, na.rm = TRUE), ".")
   }
 
-  jnll <- tryCatch(object$quantities$jnll_comp, error = function(e) NULL)
+  # Prepending NA lets index 0 select it; the start value then replaces it.
+  # Keyed on `parameter == 0` rather than is.na(Estimate): is.na(NaN) is TRUE, so
+  # testing the estimate would rewrite a path whose MLE came back NaN (diverged
+  # fit, non-PD Hessian) into its start value and report it as if it were fixed.
+  coefs <- data.frame(model, Estimate = c(NA, beta_z)[par_idx + 1])
+  fixed_path <- !is.na(par_idx) & par_idx == 0
+  coefs$Estimate[fixed_path] <- as.numeric(model[, "start"])[fixed_path]
 
-  structure(
-    list(spec = object, coefficients = coefs, jnll_comp = jnll,
-         objective = tryCatch(object$opt$objective, error = function(e) NULL),
-         convergence = object$convergence),
-    class = "summary.Rceattle")
+  # Std_Error / z_value / p_value are always present, NA when no sdreport was
+  # run. Making them conditional changes the column count between fits, and the
+  # consumer scripts rbind() several models' tables together.
+  coefs$Std_Error <- NA_real_
+  if (!is.null(object$sdrep)) {
+    SE <- as.list(object$sdrep, report = FALSE, what = "Std. Error")
+    if (!is.null(SE$dsem_beta_z))
+      coefs$Std_Error <- c(NA, SE$dsem_beta_z)[par_idx + 1]
+  }
+  coefs$z_value <- coefs$Estimate / coefs$Std_Error
+  coefs$p_value <- stats::pnorm(-abs(coefs$z_value)) * 2
+
+  # Drop paths whose beta_z entry is mapped off. The map is indexed by beta_z
+  # entry and coefs by sem row, so the two are bridged by par_idx rather than by
+  # position: sem rows outnumber beta_z entries whenever a path is fixed at its
+  # start value (parameter == 0) or several paths share one parameter, both of
+  # which are ordinary. A fixed path owns no beta_z entry and is always kept --
+  # it cannot be mapped off.
+  bmap <- object$map$mapList$dsem_beta_z
+  if (!is.null(bmap)) {
+    if (length(bmap) >= max(par_idx, 0, na.rm = TRUE)) {
+      estimated_path <- !is.na(par_idx) & par_idx >= 1
+      keep <- rep(TRUE, nrow(coefs))
+      keep[estimated_path] <- !is.na(bmap[par_idx[estimated_path]])
+      coefs <- coefs[keep, , drop = FALSE]
+    } else {
+      warning("The DSEM map has ", length(bmap), " dsem_beta_z entries but the ",
+              "SEM references parameter index ", max(par_idx, na.rm = TRUE),
+              "; reporting all paths unfiltered.", call. = FALSE)
+    }
+  }
+  coefs
+}
+
+
+# Per-species recruitment SD (R_sd) for summary.Rceattle(): the value the model
+# used, whether it was estimated or fixed, and its Std_Error when an sdreport is
+# available. Returns NULL if R_sd cannot be located.
+#
+# R_sd(sp) = |beta_z(rec_sd_idx(sp))| when estimated, else the fixed sem value;
+# see build_dsem_objects() and the DSEM block in ceattle.cpp.
+.rceattle_rec_sd <- function(object) {
+  d <- object$data_list
+  nspp <- d$nspp
+  if (is.null(nspp) || nspp < 1) return(NULL)
+  spnames <- if (!is.null(d$spnames)) d$spnames else as.character(seq_len(nspp))
+
+  # Prefer the ADREPORTed R_sd (carries an SE), then quantities, then a report().
+  rsd <- rep(NA_real_, nspp)
+  se  <- rep(NA_real_, nspp)
+  sdr <- object$sdrep
+  if (!is.null(sdr) && !is.null(sdr$value)) {
+    i <- which(names(sdr$value) == "R_sd")
+    if (length(i) == nspp) {
+      rsd <- as.numeric(sdr$value[i])
+      se  <- as.numeric(sdr$sd[i])
+    }
+  }
+  if (all(is.na(rsd)) && !is.null(object$quantities$R_sd)) {
+    rsd <- as.numeric(object$quantities$R_sd)[seq_len(nspp)]
+  }
+  if (all(is.na(rsd)) && !is.null(object$obj)) {
+    rsd <- tryCatch(as.numeric(object$obj$report()$R_sd)[seq_len(nspp)],
+                    error = function(e) rep(NA_real_, nspp))
+  }
+  if (all(is.na(rsd))) return(NULL)
+
+  # Estimated per species when that species' recruitment-SD beta_z entry is
+  # mapped on; fall back to the model-level random_rec flag.
+  estimated <- rep(isTRUE(as.logical(d$random_rec)), nspp)
+  idx  <- object$dsem$tmb_inputs$data$rec_sd_idx
+  bmap <- object$map$mapList$dsem_beta_z
+  if (!is.null(idx) && !is.null(bmap) && length(idx) == nspp) {
+    estimated <- vapply(seq_len(nspp), function(sp) {
+      isTRUE(idx[sp] >= 1) && !is.na(bmap[idx[sp]])
+    }, logical(1))
+  }
+
+  # Fixed SDs carry no estimation uncertainty. Mask first, then attach the column
+  # unconditionally: testing any(!is.na(se)) beforehand made the column's very
+  # presence depend on the fit, which destabilizes downstream rbind()s.
+  se[!estimated] <- NA_real_
+  data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
+             Std_Error = se, stringsAsFactors = FALSE)
 }
 
 
@@ -140,15 +334,15 @@ summary.Rceattle <- function(object, ...) {
 #'
 #' @param x A `"summary.Rceattle"` object from [summary.Rceattle()].
 #' @param n Number of parameters to show, largest gradient-free standard error
-#'   first. Default 10; use `Inf` for all, or take `x$coefficients`.
+#'   first. Default 10; use `Inf` for all, or take `x$fixed_coefficients`.
 #' @param ... Currently unused.
 #' @return `x`, invisibly.
 #' @export
 print.summary.Rceattle <- function(x, n = 10, ...) {
   print(x$spec)
 
-  if (!is.null(x$coefficients) && nrow(x$coefficients)) {
-    cf <- x$coefficients
+  cf <- x$fixed_coefficients
+  if (!is.null(cf) && nrow(cf)) {
     cat("\n  estimated parameters (", nrow(cf), ")\n", sep = "")
     show <- utils::head(cf, n)
     show$estimate  <- formatC(show$estimate, format = "g", digits = 4)
@@ -157,13 +351,26 @@ print.summary.Rceattle <- function(x, n = 10, ...) {
     .rce_diag_table(show, c("parameter" = "parameter", "estimate" = "estimate",
                             "std error" = "std_error"))
     if (nrow(cf) > n) {
-      cat("  ... ", nrow(cf) - n, " more; all of them are in $coefficients\n",
+      cat("  ... ", nrow(cf) - n, " more; all of them are in $fixed_coefficients\n",
           sep = "")
     }
     if (all(is.na(cf$std_error))) {
       cat("  standard errors are unavailable -- this fit has no sdreport",
           "(fit_control(getsd = FALSE))\n")
     }
+  }
+
+  if (!is.null(x$dsem_coefficients) && nrow(x$dsem_coefficients)) {
+    cat("\n<DSEM path coefficients>\n")
+    print(x$dsem_coefficients, row.names = FALSE)
+  }
+
+  if (!is.null(x$recruitment_sd)) {
+    cat("\n<Recruitment SD (R_sd)>\n")
+    rec_sd_print <- x$recruitment_sd
+    num <- vapply(rec_sd_print, is.numeric, logical(1))
+    rec_sd_print[num] <- lapply(rec_sd_print[num], round, 4)
+    print(rec_sd_print, row.names = FALSE)
   }
 
   if (!is.null(x$jnll_comp)) {

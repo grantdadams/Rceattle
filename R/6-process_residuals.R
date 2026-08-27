@@ -30,6 +30,22 @@
 #' prior the marginal-SD standardization ignores the prior correlation, so those
 #' residuals are approximate and a warning is emitted.
 #'
+#' @section On a DSEM fit:
+#' A DSEM makes the recruitment deviations the latent states of a Gaussian
+#' Markov random field, so there is no per-year normal prior to divide by.
+#' `"recruitment"` instead whitens the states with the process precision:
+#' conditioning on the states the model was given -- the observed covariates --
+#' the estimated states have precision \eqn{Q_{EE}}, and
+#' \eqn{r = U (x_E - m)} with \eqn{Q_{EE} = U^{\top} U} has covariance
+#' \eqn{I}. So the claim is the same as on the standard path, and exact in the
+#' same sense. One residual is returned per hindcast year per species; a
+#' covariate's own latent states are not residualized here.
+#'
+#' `"initial"` standardizes by the recruitment SD the density actually used,
+#' which under a DSEM comes from the SEM's variance path rather than from
+#' `R_log_sd` (mapped out, and a placeholder). `"catchability"` is untouched by
+#' a DSEM.
+#'
 #' @param object A fitted `Rceattle` model. The targeted deviations must be estimated -- as random effects (e.g. `random_rec = TRUE`) or as penalized fixed effects -- with a usable covariance.
 #' @param fit deprecated name for `object`, still accepted so existing
 #'   scripts keep working. Supplying both is an error.
@@ -59,8 +75,17 @@ process_residuals <- function(object = NULL,
   if (!inherits(object, "Rceattle")) {
     stop("`object` must be a fitted Rceattle model (from fit_mod()).")
   }
-  if (is.null(object$obj)) stop("`object` has no TMB object ($obj).")
   process <- match.arg(process)
+
+  if (is.null(object$obj)) stop("`object` has no TMB object ($obj).")
+
+  # Under a DSEM the recruitment deviations are the latent states of a GMRF, so
+  # `rec_dev` is mapped out and there is no per-year normal prior to standardize
+  # by. The residual is defined all the same: whiten the states with the
+  # process precision instead of dividing by a scalar SD (.process_residual_dsem).
+  # "initial" and "catchability" take the ordinary path -- init_dev is still
+  # estimated, and a DSEM does not touch the catchability deviates.
+  dsem_rec <- .has_dsem(object)
 
   specs <- list(recruitment  = "rec_dev",
                 initial      = "init_dev",
@@ -79,11 +104,12 @@ process_residuals <- function(object = NULL,
   set.seed(seed)
 
   out <- lapply(todo, function(p) {
-    res <- tryCatch(.process_residual_one(object, p, specs[[p]]),
-                    error = function(e) {
-                      if (process == "all") NULL else stop(e)
-                    })
-    res
+    one <- if (dsem_rec && p == "recruitment") {
+      function() .process_residual_dsem(object)
+    } else {
+      function() .process_residual_one(object, p, specs[[p]])
+    }
+    tryCatch(one(), error = function(e) if (process == "all") NULL else stop(e))
   })
   out <- do.call(rbind, out[!vapply(out, is.null, logical(1))])
   if (is.null(out) || nrow(out) == 0) {
@@ -185,7 +211,14 @@ process_residuals <- function(object = NULL,
   styr <- d$styr
 
   if (process %in% c("recruitment", "initial")) {
-    R_sd <- exp(as.numeric(obj$env$parList()$R_log_sd))   # per species
+    # The recruitment SD the DENSITY used. Under a DSEM the template sets it
+    # from the SEM's variance path and maps R_log_sd out, so exp(R_log_sd) is a
+    # placeholder: on BS2017SS it reads 0.7071 against the 0.9888 / 1.3321 /
+    # 0.7976 actually in force. Take the reported R_sd wherever it is available
+    # and fall back to the parameter only if it is not.
+    R_sd <- suppressWarnings(as.numeric(fit$quantities$R_sd))
+    if (length(R_sd) != d$nspp || anyNA(R_sd))
+      R_sd <- exp(as.numeric(obj$env$parList()$R_log_sd))   # per species
     # rec_dev / init_dev prior mean is the lognormal bias correction
     # -bias_adjust_proc * sigma^2/2 (matches ceattle.cpp slots 9 & 10).
     ba   <- obj$env$data$bias_adjust_proc
@@ -223,4 +256,138 @@ process_residuals <- function(object = NULL,
   } else {
     stop("Process '", process, "' is not supported.")
   }
+}
+
+
+#' Process residuals for the recruitment deviations of a DSEM
+#'
+#' @description
+#' The DSEM makes the recruitment deviations the latent states of a GMRF, so
+#' they are not independent and cannot be standardized by a per-year SD. The
+#' generalization is the same one SAM's `procres()` makes for a scalar prior,
+#' written for a correlated process: take one draw from the joint posterior of
+#' the latent states and whiten it with the process precision.
+#'
+#' Conditioning on the states the model was GIVEN -- the observed covariates,
+#' which are fixed in the map -- the estimated states have precision
+#' \eqn{Q_{EE}} and mean \eqn{\mu_E - Q_{EE}^{-1} Q_{EF} (x_F - \mu_F)}. With
+#' \eqn{Q_{EE} = U^{\top} U} from a Cholesky factor, \eqn{r = U (x_E - m)} has
+#' covariance \eqn{U Q_{EE}^{-1} U^{\top} = I}, so under a correctly specified
+#' SEM the residuals are approximately iid N(0, 1) -- the same claim the scalar
+#' path makes, and exact in the same sense.
+#'
+#' @param fit a fitted `Rceattle` model carrying a DSEM.
+#' @return A data.frame in the `rceattle_osa` schema, one row per estimated
+#'   latent state.
+#' @keywords internal
+#' @noRd
+.process_residual_dsem <- function(fit) {
+  q  <- fit$quantities
+  Q  <- q$dsem_Q
+  if (is.null(Q) || !length(Q)) {
+    stop("This fit reports no DSEM precision (`dsem_Q`), so its recruitment ",
+         "deviations cannot be whitened. Refit with the current version.",
+         call. = FALSE)
+  }
+  Q  <- as.matrix(Q)
+  X  <- as.matrix(fit$estimated_params$dsem_x_tj)
+  mu <- as.matrix(q$dsem_xhat_tj) + as.matrix(q$dsem_delta_tj)
+  n_t <- nrow(X); n_j <- ncol(X); n_k <- n_t * n_j
+  if (nrow(Q) != n_k) {
+    stop("The reported DSEM precision is ", nrow(Q), "x", ncol(Q),
+         " but the latent field is ", n_t, "x", n_j, "; they cannot be ",
+         "aligned. Usually this means a variable in the sem has no exogenous ",
+         "variance -- check_dsem_spec() names it.", call. = FALSE)
+  }
+
+  # The RECRUITMENT-deviation columns only, conditional on every other column at
+  # its fitted value. Selecting by the map instead would also return one residual
+  # per unobserved covariate year -- dsem does not map an observed covariate cell
+  # off, so the map is not the latent/observed boundary here -- and those rows
+  # would be labelled "recruitment" and pooled by osa_diagnostics(). A covariate
+  # state is a different diagnostic.
+  rc <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L   # 0-based in the C++
+  if (is.null(rc) || !length(rc)) {
+    stop("This fit does not record which latent columns carry the recruitment ",
+         "deviations, so its process residuals cannot be computed. Refit ",
+         "before residualizing.", call. = FALSE)
+  }
+  # HINDCAST years only. build_DSEM(estimate_projection = TRUE) -- which
+  # sample_rec() requires, so it is not an exotic setting -- runs the latent
+  # field to projyr, and those states are scored by no data. Whitening them
+  # returns draws from the prior, which are N(0, 1) by construction, and
+  # osa_diagnostics() pools them into the SDNR: on BS2017SS with a 5-year
+  # projection that is 5 of every 44 rows per species, pulling the SDNR toward 1
+  # for a reason that has nothing to do with fit. They stay in the CONDITIONING
+  # set, the same treatment an unobserved covariate cell already gets here.
+  n_hind <- fit$data_list$endyr - fit$data_list$styr + 1L
+  mp  <- fit$map$mapList$dsem_x_tj
+  est <- if (is.null(mp)) rep(TRUE, n_k) else !is.na(as.numeric(mp))
+  in_rec <- rep(FALSE, n_k)
+  in_rec[unlist(lapply(rc, function(j)
+    (j - 1L) * n_t + seq_len(min(n_t, n_hind))))] <- TRUE
+  E   <- which(est & in_rec); F_ <- setdiff(seq_len(n_k), E)
+  if (!length(E)) stop("Every recruitment-deviation state is fixed; nothing to ",
+                       "residualize.", call. = FALSE)
+
+  # Conditional mean of the estimated states given the ones the model was given.
+  m <- as.numeric(mu)[E]
+  if (length(F_)) {
+    m <- m - solve(Q[E, E, drop = FALSE],
+                   Q[E, F_, drop = FALSE] %*%
+                     (as.numeric(X)[F_] - as.numeric(mu)[F_]))
+  }
+
+  # One draw from the joint posterior of the states, as the scalar path does.
+  # The `dsem_x_tj` rows of the joint precision are the MAP-ESTIMATED cells in
+  # column-major order, which is a superset of the recruitment cells, so the
+  # draw is taken over that block and then subset to E.
+  jp   <- fit$sdrep$jointPrecision
+  keep <- match(E, which(est))
+  if (!is.null(jp) && "dsem_x_tj" %in% rownames(jp)) {
+    idx   <- which(rownames(jp) == "dsem_x_tj")
+    lp    <- fit$obj$env$last.par.best
+    mode  <- lp[names(lp) == "dsem_x_tj"]
+    if (length(mode) != sum(est)) {
+      stop("The DSEM latent block has ", length(mode), " entries in the ",
+           "parameter vector but the map says ", sum(est), "; they cannot be ",
+           "aligned.", call. = FALSE)
+    }
+    Sigma <- as.matrix(Matrix::solve(jp))[idx, idx, drop = FALSE]
+    draw  <- as.numeric(mode + t(chol(Sigma)) %*% stats::rnorm(length(mode)))[keep]
+  } else {
+    # No joint precision (getsd = FALSE): the posterior mode is the best
+    # available point, so the residuals are the mode's rather than a draw's.
+    # Say so -- shrunk residuals look better than they are.
+    warning("This fit carries no joint precision, so the DSEM process ",
+            "residuals use the posterior MODE rather than a draw. Mode ",
+            "residuals are shrunk toward the process and look better behaved ",
+            "than they are. Refit with fit_control(getsd = TRUE) for the ",
+            "one-sample residuals this function is meant to return.",
+            call. = FALSE)
+    draw <- as.numeric(X)[E]
+  }
+
+  resid <- as.numeric(chol(Q[E, E, drop = FALSE]) %*% (draw - m))
+
+  # Label each cell. k = (j - 1) * n_t + t, column-major over x_tj.
+  t_of <- ((E - 1L) %% n_t) + 1L
+  j_of <- ((E - 1L) %/% n_t) + 1L
+  rc   <- fit$dsem$tmb_inputs$data$rec_dev_col + 1L   # 0-based in the C++
+  sp   <- match(j_of, rc)                             # NA for a covariate column
+  vnm  <- colnames(X)
+  data.frame(
+    source         = "recruitment",
+    fleet          = sp,
+    species        = sp,
+    sex            = NA_integer_,
+    year           = fit$data_list$styr + t_of - 1L,
+    age_length_bin = NA_integer_,
+    length         = NA_integer_,
+    index_label    = if (is.null(vnm)) NA_character_ else vnm[j_of],
+    observed       = NA_real_,
+    predicted      = NA_real_,
+    sd             = NA_real_,
+    residual       = resid,
+    stringsAsFactors = FALSE)
 }

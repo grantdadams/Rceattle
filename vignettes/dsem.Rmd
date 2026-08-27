@@ -1,0 +1,293 @@
+---
+title: "9. Dynamic structural equation models"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{9. Dynamic structural equation models}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+`Rceattle` is integrated with the [`dsem`](https://CRAN.R-project.org/package=dsem) package via the `dsem` argument to `fit_mod()`. A dynamic structural equation model (DSEM) lets you place explicit structural relationships on recruitment deviations — including links to environmental covariates and cross-species linkages — instead of treating them as independent random effects.
+
+> **Requires `dsem` 3.0.0.** DSEM models call `dsem::dsem()` internally, and the bundled C++ (`src/TMB/dsem.hpp`) is matched to `dsem` version 3.0.0. Other versions emit an incompatible data layout, so `fit_mod()` stops with an error if a different `dsem` is installed. Install the matching version with `remotes::install_version("dsem", "3.0.0")`.
+
+This vignette covers:
+
+- Specifying a SEM with `build_DSEM()`
+- Linking environmental covariates to recruitment in a single-species model
+- Linking recruitment across species in a multi-species model
+- Inspecting the fitted DSEM object
+
+## `build_DSEM()` arguments
+
+`build_DSEM()` produces the list of DSEM settings consumed by `fit_mod()`. Its main arguments:
+
+- `sem` — text specification of the SEM. One row per link with the form `from -> to, lag, param_name, start_value` (or `<->` for a variance/covariance term). All variables must appear as columns in `data_list$env_data`, and recruitment deviations must be named `recdevs1`, `recdevs2`, … one per species. If no start value is given, that term is **not** estimated. The default (when `sem = NULL`) is IID recruitment deviates.
+- `family` — measurement-error family for each **env-data variable** in the SEM: `"fixed"` (default; measured exactly), `"normal"`, `"gamma"`, `"bernoulli"`, `"poisson"`, `"lognormal"`, or `"tweedie"`. A single string is recycled across the env variables. The latent `recdevs<sp>` columns are never observed, so they are always `fixed` regardless of this setting. Note that under `dsem` 3.0.0 a non-`"fixed"` family **estimates** that variable's observation-error SD; use `"fixed"` to treat a covariate as measured exactly.
+- `sigmaR_prior_sd` — log-scale SD of an optional lognormal prior on each species' estimated recruitment SD, centred on the assessment's own `data_list$sigma_rec`. Default `NA` is no prior. In practice this is the argument that decides whether a real model converges: when environmental covariates over-explain the deviations, the recruitment SD collapses toward zero, and a value of 0.5–1 regularizes it while still estimating it. All four of the production DSEM scripts set it.
+- `estimate_projection` — if `FALSE` (default), latent states for the projection period are turned off, simplifying estimation.
+- `bound_sd` — whether the sem's standard-deviation paths (`x <-> x`) get a lower bound of 0. `TRUE` by default. Their sign is not identified, so the surface is symmetric about 0: harmless for an MLE, fatal for MCMC. See "Sampling a DSEM" below. Set `FALSE` only to reproduce a fit made before the bound existed, or to demonstrate the symmetry.
+- `constant_variance` — what a `<->` term means once the SEM has lagged paths. `"conditional"` (the default, and `dsem`'s) reads it as a disturbance variance; `"marginal"` and `"diagonal"` hold the marginal variance constant instead. All three are identical for a SEM with no lags. See "Which variance a `<->` term means" below.
+
+See `?build_DSEM` and `dsem::make_dsem_ram` for full details on the SEM grammar.
+
+## Setup
+
+```{r}
+library(Rceattle)
+library(dplyr)
+```
+
+## Single-species: GOA pollock
+
+We start with single-species GOA pollock and add a bottom-temperature covariate to `env_data`. Scaling the covariate makes the SEM coefficients comparable across links.
+
+```{r}
+data("GOApollock")
+GOApollock$projyr <- 2020   # Shorten projection horizon for quicker estimation
+GOApollock$env_data <- GOApollock$env_data %>%
+  dplyr::mutate(ScaledBT = scale(BTempC))
+```
+
+### Model 1: IID recruitment (no DSEM)
+
+With `dsem = NULL`, recruitment deviations are treated as IID random effects — the standard `Rceattle` behaviour.
+
+```{r}
+model1 <- Rceattle::fit_mod(
+  data_list    = GOApollock,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  msmMode      = 0,
+  initMode     = 2,
+  fit_control  = fit_control(phase = FALSE, verbose = 1))
+
+summary(model1)
+```
+
+### Model 2: bottom temperature → recruitment
+
+The SEM below specifies (i) a one-year AR(1) process for scaled bottom temperature, (ii) a one-year-lagged effect of temperature on recruitment, and (iii) the recruitment-deviation variance. Phasing (`fit_control(phase = TRUE)`) helps the model reach a sensible starting point before the SEM parameters are turned on.
+
+```{r}
+sem_iid <- "
+  # link, lag, param_name, start_value
+
+  # internal data relation
+  ScaledBT -> ScaledBT,  1, AR_BT,    0
+  ScaledBT -> recdevs1,  1, BT_to_R,  0
+  recdevs1 <-> recdevs1, 0, sigmaR1,  1
+"
+
+model2 <- Rceattle::fit_mod(
+  data_list    = GOApollock,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  dsem         = build_DSEM(sem    = sem_iid,
+                            family = "fixed"),
+  random_rec   = TRUE,
+  msmMode      = 0,
+  initMode     = 2,
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
+
+summary(model2)
+```
+
+### Screen the specification before fitting
+
+`fit_mod()` does not check a SEM for you. `check_dsem_spec()` runs the cheap
+Tier-1 checks against the built objects and the model's `env_data`, and is worth
+a call before committing to a long fit:
+
+```{r}
+gp   <- clean_data(GOApollock)
+spec <- build_DSEM(sem = sem_iid, family = "fixed")
+check_dsem_spec(gp, build_dsem_objects(spec, data_list = gp))
+```
+
+It reports predictors observed in only a few hindcast years (a sparse latent can
+absorb recruitment variance and drive `sigmaR` to zero), a collinear lag-aligned
+design, covariates spanning orders of magnitude in SD, and a variable with no
+exogenous variance of its own. That last one is the quiet failure: a variable
+whose two-headed path is pinned at zero is computed rather than estimated, so the
+`env_data` series supplied for it is never read.
+
+### Compare the two fits
+
+**Do not compare these two by AIC or by `-log L`.** A DSEM's likelihood also scores the covariate's own process — the `ScaledBT -> ScaledBT` AR(1) row — which `model1` does not carry at all, so the two objectives are computed over different data. Measured on this model, `model1` reports `-logL` 742.8 and `model2` 797.9, which makes the environment-linked fit look 55 units worse when it is simply scoring more. To compare, fit an *environment-free SEM* as the baseline — the same AR(1) rows, no path into `recdevs1` — so both likelihoods cover the same quantities. That is what the "IID sem" in the production scripts is for.
+
+```{r}
+mod_list  <- list(model1, model2)
+mod_names <- c("Single-species IID", "Single-species + BT")
+
+plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names)
+```
+
+### Inspect the DSEM object
+
+The fitted model carries the underlying `dsem` object, which can be queried for SEM structure and parameter estimates.
+
+`summary()` on the fitted model prints the SEM path coefficients with standard errors, z-values and Wald p-values, and the per-species recruitment SD. Paths that are mapped off are dropped, so what you see is what was estimated.
+
+```{r}
+s <- summary(model2)
+knitr::kable(s$coefficients)
+knitr::kable(s$recruitment_sd)
+```
+
+Two cautions when quoting the table. A two-headed (`<->`) row is a variance parameter whose sign is not identified — the model uses its absolute value — so a negative `Estimate` there is not meaningful; compare magnitudes. And its `z_value` / `p_value` test against a boundary of the parameter space, so the usual Wald reading does not apply and they are typically extreme regardless of evidence.
+
+The underlying `dsem` object is on the model as `model2$dsem`, and the specification as `model2$data_list$dsem_settings$sem`.
+
+## Multi-species: EBS three-species model
+
+`recdevsN` indexes the recruitment deviations of species `N`. In a multi-species model, this lets you link recruitment processes across species — e.g. the recruitment of one species predicting the recruitment of another in the same year.
+
+```{r}
+data("BS2017SS")
+BS2017SS$projyr <- 2020
+```
+
+### Model 3: three-species IID recruitment
+
+```{r}
+model3 <- Rceattle::fit_mod(
+  data_list    = BS2017SS,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  msmMode      = 0,
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
+
+summary(model3)
+```
+
+### Model 4: cod and ATF recruitment → pollock recruitment
+
+Species in `BS2017SS` are ordered pollock (1), Pacific cod (2), arrowtooth flounder (3). The SEM below keeps each species' own variance and adds two same-year cross-species links into pollock recruitment.
+
+```{r}
+sem_3spp <- "
+  # link, lag, param_name, start_value
+  recdevs1 <-> recdevs1, 0, sigmaR1,  1
+  recdevs2 <-> recdevs2, 0, sigmaR2,  1
+  recdevs3 <-> recdevs3, 0, sigmaR3,  1
+  recdevs2 -> recdevs1, 0, R2_to_R1, 0
+  recdevs3 -> recdevs1, 0, R3_to_R1, 0
+"
+
+model4 <- Rceattle::fit_mod(
+  data_list    = BS2017SS,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  dsem         = build_DSEM(sem    = sem_3spp,
+                            family = "fixed"),
+  msmMode      = 0,
+  fit_control  = fit_control(phase = TRUE, verbose = 1))
+
+summary(model4)
+```
+
+### Compare the two fits
+
+```{r}
+mod_list  <- list(model3, model4)
+mod_names <- c("Three-species IID", "Three-species linked")
+
+plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names)
+```
+
+## Diagnostics on a DSEM fit
+
+Every diagnostic in `vignette("model-diagnostics")` runs on a DSEM fit, and that vignette has a section saying which of them mean something slightly different. The short version: OSA residuals cover the assessment data exactly as without a DSEM (the covariate series is not among them, and under `family = "fixed"` it carries no measurement density to residualize); recruitment process residuals are whitened by the process precision rather than divided by a per-year SD; `profile(param = "sigmaR")` resolves to the SEM's variance path; and `self_test(process = TRUE)` re-realizes the SEM rather than drawing IID deviations, handing back the drawn field in `attr(sims, "process_sim")$dsem_x_tj`. A covariate declared with a measurement family is simulated too — its state with the field, its observation from the family that scores it, written back into `env_data`. `run_mse()` is the one thing that still refuses.
+
+## Sampling a DSEM
+
+The two-headed `<->` self paths are diagonals of a Cholesky factor, so the likelihood sees only their squares and their sign is not identified. That costs nothing at the MLE — there are simply two mirrored optima — but it makes the posterior bimodal by construction, so an unconstrained sampler either sits in whichever mode it started in or wanders between them, and R-hat and any credible interval on σ are meaningless.
+
+`build_bounds()` bounds those diagonals at 0, which is the standard identifying restriction for a Cholesky factor and rules out nothing the likelihood could distinguish. Pass the same bounds to the sampler:
+
+```{r, eval = FALSE}
+# fit$bounds$par_lower / $par_upper are aligned to fit$obj$par -- that alignment
+# is done inside fit_mod(), against obj$par's own block order. Do not build the
+# vector by indexing fit$bounds$lower (a list keyed by parameter block) with
+# names(fit$obj$par): that repeats whole blocks and returns a vector far too
+# long. tmbstan expands a vector of this length across the random effects itself.
+post <- tmbstan::tmbstan(fit$obj,
+                         lower = fit$bounds$par_lower,
+                         upper = fit$bounds$par_upper)
+```
+
+`build_DSEM(bound_sd = FALSE)` turns the bound off, and with it the sign flip `fit_mod()` otherwise applies to a negative starting value. That is what to use if you want to reproduce a fit made before the bound existed parameter for parameter, or to show for yourself that the two optima are mirrored — the objective is identical at `+sigma` and `-sigma`.
+
+A variable that also carries a cross-covariance (`A <-> B`) or a lagged two-headed path keeps unbounded support: its row of the factor has off-diagonal entries, so identifying the sign means flipping the whole row rather than the one element. `fit_mod()` names those variables when it builds the bounds, and their marginals will show the same mirroring until you identify them another way — a prior, or a reparameterization outside the SEM.
+
+## Which variance a `<->` term means
+
+This only matters once your SEM has a **lagged** path. With simultaneous effects only, the three `constant_variance` settings are mathematically identical, and on the bundled GOA pollock model they return the same objective to every printed digit.
+
+`dsem` inherits RAM notation from the `sem` package, and in the structural-equation tradition a `<->` self-loop is the **disturbance** (innovation) variance — the residual, conditional on the incoming paths. That is `dsem`'s default and Rceattle keeps it. The consequence is that the *marginal* variance of the process grows along the causal graph. For a first-order self-path with correlation ρ it is σ²/(1−ρ²), so it climbs steeply as ρ approaches 1:
+
+| ρ | marginal variance | implied 95% recruitment range |
+|---|---|---|
+| 0 | σ² | 50× |
+| 0.5 | 1.33 σ² | 130× |
+| 0.7 | 1.96 σ² | 640× |
+| 0.9 | 5.26 σ² | 8,700× |
+
+Two things follow, and neither is a bug — they are what the convention means:
+
+- **The lognormal bias correction uses the marginal variance**, which is correct: `rec_dev = z − bias_adjust_proc · margvar/2` is what makes `E[exp(rec_dev)] = 1`. `margvar` is reported as `quantities$dsem_margvar_tj`, so you can read it. It is *not* `R_sd²` once the SEM is lagged.
+- **`sigmaR_prior_sd` centres on `data_list$sigma_rec`**, which is the assessment's marginal recruitment SD. Under `"conditional"` the prior therefore lands on the innovation SD. The two coincide for an IID SEM and diverge by 1/(1−ρ²) once you add a self-path, so check that the prior is still saying what you meant.
+
+`constant_variance = "marginal"` rescales `Gamma` and `(I − Rho)` so the marginal variance stays constant, which makes the `<->` term the marginal SD. That is the time-series convention, and it is what `ar1(1 | Year)` already uses elsewhere in Rceattle, and what WHAM's `Ecov` AR(1) and `glmmTMB`'s `ar1()` use. Measured on a SEM with ρ = 0.6, the ratio of marginal variance to `R_sd²` is 1.5625 under `"conditional"` — exactly 1/(1−0.6²) — and 1.0000 under `"marginal"`.
+
+Rceattle keeps `dsem`'s default rather than picking a side, because a `<->` term is a disturbance variance in the notation the SEM is written in. If you want the time-series reading, ask for it:
+
+```{r}
+build_DSEM(sem = sem, family = "fixed", constant_variance = "marginal")
+```
+
+Bear in mind that changes what the estimated recruitment SD means, so a value fitted under one setting is not comparable to one fitted under the other.
+
+## Writing the SEM
+
+One row per link, `from -> to, lag, param_name, start_value`, with `<->` for a variance or covariance term. Comments start with `#` and blank lines are ignored, so a specification can be laid out to read:
+
+```{r}
+sem <- "
+  # source        link   target       lag   parameter    start
+  ScaledBT   ->   ScaledBT,      1,   AR_BT,       0
+  ScaledBT   ->   recdevs1,      1,   BT_to_R,     0
+  recdevs1  <->   recdevs1,      0,   sigmaR1,     1
+"
+```
+
+Aligning the columns like this is fine — `build_dsem_objects()` normalizes the spacing around every arrow before the SEM reaches `dsem`. (It did not always: `dsem` 3.0.0 compares path strings literally when deciding whether a variable already has a variance, so a padded `<->` used to make it add a second one and take the R session down with it.)
+
+Each variable takes exactly **one** variance term. Leave the line out entirely and `dsem` adds a freely estimated one; write it with a start value to estimate it from there; write it twice and `build_dsem_objects()` says so.
+
+## Tips
+
+- **Phasing.** DSEM-linked models can be sensitive to starting values. Setting `fit_control(phase = TRUE)` fits the assessment in stages and typically reaches a better starting point before the SEM parameters are turned on.
+- **Estimating vs. fixing parameters.** Any SEM term written *without* a `start_value` is treated as fixed and is not estimated. Provide a start value to estimate the term.
+- **Projections.** Latent DSEM states are not estimated for projection years by default. Set `estimate_projection = TRUE` if you need them — this adds parameters and can complicate estimation.

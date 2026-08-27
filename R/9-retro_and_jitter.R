@@ -9,6 +9,16 @@
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
+#' @param forecast_rec How the peeled years get their recruitment. `"mean"`
+#'   (default) projects them at the bias-adjusted historical mean, which is the
+#'   convention Mohn's rho has always been computed under. `"model"` uses the
+#'   model's own projection rule instead, in precedence order: `proj_mean_rec =
+#'   TRUE` projects at mean recruitment whatever process the model carries;
+#'   otherwise the latent states supply it where the deviations are random
+#'   effects (`random_rec`, or a DSEM), so an AR1's autocorrelation or a DSEM's
+#'   lagged and covariate paths propagate into the forecast; otherwise
+#'   recruitment comes off the stock-recruit curve. Use `"model"` to compare
+#'   projection methods -- see [hindcast_skill()], which defaults to it.
 #' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
 #'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
 #'   effect on rho. Default \code{NULL} inherits the input model's setting
@@ -74,10 +84,10 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL, phase = TRUE, fit_control = NULL, Rceattle = NULL) {
-  # `phase` and `fit_control` are appended after the arguments that predate them,
-  # so a positional call keeps its meaning. The deprecated `Rceattle` formal sits
-  # last; see R/0-deprecate.R.
+retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL, getsd = NULL, phase = TRUE, fit_control = NULL, forecast_rec = c("mean", "model"), Rceattle = NULL) {
+  # `phase`, `fit_control` and `forecast_rec` are appended after the arguments
+  # that predate them, so a positional call keeps its meaning. The deprecated
+  # `Rceattle` formal sits last; see R/0-deprecate.R.
   if (!missing(Rceattle))
     object <- .rce_deprecated_arg(Rceattle, !missing(object), "Rceattle", "object", "retrospective")
   # Cleared once consumed: .parallel_lapply() exports every binding in this frame
@@ -87,6 +97,25 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   if (!inherits(object, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
+  forecast_rec <- match.arg(forecast_rec)
+
+  # A peel does not shorten the model: it sets endyr_peel and turns off DATA
+  # after it, so a DSEM still spans every year. Its latent states stay free and
+  # in `random`, and the Laplace approximation integrates the peeled-year states
+  # out against the GMRF prior with no data informing them -- which is the
+  # peeled marginal likelihood. Do NOT mirror what rec_dev does below (zero the
+  # tail, map it out): pinning is inert for an independent deviate but not for
+  # states coupled through the RAM, where the pinned zeros stay in the quadratic
+  # form and shrink the terminal retained state.
+  #
+  # rescale = TRUE works under a DSEM and is the more defensible setting for
+  # one. It standardizes env_data on styr:endyr_peel only, so the peel does not
+  # centre its covariates using years it is supposed to have not seen -- with
+  # the full-series mean and sd, post-peel information leaks in and the
+  # retrospective understates error. It does not change the latent dimensions:
+  # build_dsem_objects() full-joins env_data back onto styr:dsem_endyr, so the
+  # trimmed years return as NA and the DSEM predicts those covariate values from
+  # its own process instead of reading data the peel should not have.
 
   # Peels inherit the input model's sdreport setting unless overridden. Mohn's
   # rho reads only point estimates, so getsd = FALSE is faster and rho-neutral.
@@ -215,16 +244,77 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
         dplyr::arrange(Species, Year)
     }
 
-    # * Rescale environmental predictors ----
-    if(rescale){
-      data_list$env_data <- data_list$env_data |>
-        dplyr::filter(Year <= endyr_peel)
-      data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
+    # * Environmental predictors ----
+    # Withhold post-peel covariate VALUES, always, not only when rescaling.
+    # env_data is data the peel is supposed not to have: a QAR1 catchability
+    # (est_index_q = 6) fits index_q_dev to env_index over every hindcast year,
+    # and now that the peeled index_q_dev are free rather than pinned, leaving
+    # env_data full-length lets a peel estimate its post-peel catchability from
+    # post-peel environmental observations -- look-ahead in a diagnostic whose
+    # whole purpose is to withhold the future.
+    #
+    # Blank the values; do NOT drop the rows. Linkage design matrices are built
+    # POSITIONALLY from env_data (materialize_linkage() -> model.matrix()), so
+    # dropping rows drops design columns and random-effect levels, and `inits`
+    # -- carried from the parent fit -- no longer matches the model the peel
+    # builds. On GOA pollock 2025, which carries ar1(1|Year) and rw(1|Year)
+    # linkages, that refused every peel outright: beta_linkage 241 vs 237,
+    # beta_linkage_re 110 vs 108.
+    #
+    # A FIXED-EFFECT linkage covariate is exempt: materialize_linkage() rejects
+    # an NA in one by design, because model.matrix() would silently drop the row
+    # and misalign the whole design. Those columns keep their values and the
+    # peel is told which they are, once. Everything else -- a state-space
+    # `observe` covariate, a DSEM covariate, an env_index column read by
+    # Time_varying_q / Cindex / M1_indices -- is blanked, and the mean-fill in
+    # rearrange_data() replaces it with the retained years' mean.
+    .post_peel <- data_list$env_data$Year > endyr_peel
+    .env_cols  <- setdiff(names(data_list$env_data), "Year")
+    .keep      <- intersect(.env_cols, .rce_linkage_fixed_covariates(data_list))
+    .blank     <- setdiff(.env_cols, .keep)
+    if (any(.post_peel) && length(.blank) > 0) {
+      data_list$env_data[.post_peel, .blank] <- NA_real_
+    }
+    if (any(.post_peel) && length(.keep) > 0 && i == 1L) {
+      warning("Covariate(s) ", paste(.keep, collapse = ", "), " enter the model ",
+              "as fixed-effect linkage terms, which may not be NA, so each peel ",
+              "still sees their post-peel values. Mohn's rho for a model with a ",
+              "fixed-effect environmental covariate is conditional on that ",
+              "covariate being known.", call. = FALSE)
+    }
+    if(rescale && length(.env_cols) > 0){
+      # Standardize on the RETAINED years only, so the peel does not centre its
+      # covariates using years it is supposed not to have seen. The centre and
+      # scale come from those years and are then applied to the whole column,
+      # which keeps a kept fixed-effect covariate on the same scale as the years
+      # the peel was fit to. A column with no retained variation is left alone
+      # rather than turned into NaN.
+      .kept <- as.matrix(data_list$env_data[!.post_peel, .env_cols, drop = FALSE])
+      .ctr  <- colMeans(.kept, na.rm = TRUE)
+      .scl  <- apply(.kept, 2, stats::sd, na.rm = TRUE)
+      for (j in seq_along(.env_cols)) {
+        if (!is.finite(.ctr[j]) || !is.finite(.scl[j]) || .scl[j] == 0) next
+        data_list$env_data[[.env_cols[j]]] <-
+          (data_list$env_data[[.env_cols[j]]] - .ctr[j]) / .scl[j]
+      }
     }
 
     # * Adjust parameters ----
     #FIXME: adjust for forecasting via MVN
     inits <- object$estimated_params
+
+    # Under a DSEM with family = "fixed" the covariate columns of dsem_x_tj ARE
+    # the environmental data: the map holds them fixed, and their VALUES come
+    # from inits. merge_dsem_params() keeps a caller-supplied dsem_x_tj rather
+    # than the one just built, so warm-starting the peel from the parent carries
+    # the parent's UNRESCALED covariate through and rescale = TRUE is silently
+    # ignored -- measured: every path coefficient and the whole of x_tj came back
+    # bit-identical with and without it. Drop the block so the rebuild supplies
+    # covariates standardized on styr:endyr_peel. The recdev columns lose their
+    # warm start, which the phased refit recovers and which is if anything the
+    # more appropriate starting point for a peel.
+    if (rescale && !is.null(inits$dsem_x_tj)) inits$dsem_x_tj <- NULL
+
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
     inits$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$log_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
@@ -233,25 +323,16 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
     # * Adjust map size ----
-    # Turn off forecasted parameters
-    map <- object$map
-    map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
-    map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
-
-    map$mapList$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
-    map$mapFactor$log_M1_dev <- factor(map$mapList$log_M1_dev)
-
-    map$mapList$index_q_dev[,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
-
-    map$mapList$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$log_sel_slp_dev <- factor(map$mapList$log_sel_slp_dev)
-
-    map$mapList$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
-
-    map$mapList$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
+    # Which deviations the peel holds fixed. Extracted so the decision can be
+    # exercised directly: it depends on convergence of nothing, but reaching it
+    # through a fitted retrospective needs a model that converges, and the
+    # selectivity forms it distinguishes are exactly the ones hardest to fit.
+    map <- .rce_peel_map(object$map,
+                         random_vars    = object$random_vars,
+                         fleet_control  = object$data_list$fleet_control,
+                         nyrs_peel      = nyrs_peel,
+                         nyrs           = nyrs,
+                         nyrs_proj      = nyrs_proj)
 
     # -- Map out Fdev for years with 0 catch to very low number
     zero_catch <- data_list$catch_data |>
@@ -309,13 +390,65 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       random_rec = newmod$data_list$random_rec)
     map$mapFactor$dummy <- as.factor(NA); map$mapList$dummy <- NA
 
+    # build_map() knows nothing about the DSEM, and fit_mod() only fills the
+    # DSEM entries in when it builds the map itself -- so without this the
+    # dsem_* blocks would be ABSENT from a supplied map, which means unmapped,
+    # which means estimated. Worse, `random` is derived from the map, so the
+    # latent states would come back as fixed effects rather than being
+    # integrated out. This refit only solves log_F against the peeled catch, so
+    # hold every DSEM parameter at what the peeled hindcast estimated: that is
+    # what debug = TRUE does to the rest of the hindcast, and Mohn's rho reads
+    # those hindcast quantities. (Pinning is safe HERE, unlike in the peel
+    # itself, because no peeled likelihood is being computed.)
+    for (.nm in grep("^dsem_", names(newmod$estimated_params), value = TRUE)) {
+      map$mapList[[.nm]]   <- rep(NA, length(newmod$estimated_params[[.nm]]))
+      map$mapFactor[[.nm]] <- factor(map$mapList[[.nm]])
+    }
+
     # - Turn on F for peeled years to fit to catch (matches full model)
     peeled_pars$log_F[,(nyrs_peel+1):nyrs] <- object$estimated_params$log_F[,(nyrs_peel+1):nyrs]
     map$mapList$log_F[,(nyrs_peel+1):nyrs] <- object$map$mapList$log_F[,(nyrs_peel+1):nyrs]
     map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
-    # Adjust forecased rec_dev in new mod for bias and refit
-    for(sp in 1:newmod$data_list$nspp){
+    # The peeled years' recruitment, for the forecast-catch refit. Under a DSEM
+    # the value goes into the LATENT STATE, not into rec_dev -- the model
+    # derives rec_dev from the states, so writing rec_dev alone is a silent
+    # no-op. Pinning is correct here, unlike in the peel itself: debug = TRUE
+    # already holds the whole hindcast fixed and only log_F is solved, so no
+    # peeled likelihood is computed and nothing is shrunk by fixing a state.
+    #
+    # forecast_rec chooses the rule, in precedence order:
+    #   proj_mean_rec = TRUE                    mean recruitment, whatever
+    #                                           process the model carries
+    #   FALSE, deviations are random effects    the latent states supply it, so
+    #                                           write nothing -- an AR1's
+    #                                           autocorrelation or a DSEM's
+    #                                           covariate paths propagate
+    #   FALSE, deviations are fixed effects     off the stock-recruit curve,
+    #                                           i.e. a zero deviation
+    # "mean" is the default so Mohn's rho keeps the convention it has always had.
+    .use_model_rec <- identical(forecast_rec, "model")
+    .mean_rec      <- isTRUE(as.logical(newmod$data_list$proj_mean_rec))
+    # Same source as .pin() above, or the two disagree: with random_rec = TRUE
+    # under an HCR, .pin() would pin rec_dev at 0 while this said the states
+    # supply it, and the "forecast" would be a deterministic zero deviation
+    # inherited from inits.
+    .states_supply <- .use_model_rec && !.mean_rec &&
+      (.has_dsem(newmod) || !.pin("rec_dev"))
+    # Say so when `forecast_rec = "model"` resolves to the mean anyway. A peel's
+    # forecast years are HINDCAST years, so proj_mean_rec -- a projection switch
+    # -- reaching them is a surprise, and build_srr() defaults it to TRUE: every
+    # model fitted without naming it gets Mohn's rho identical under both
+    # settings, and hindcast_skill(), which defaults to "model" precisely to tell
+    # projection methods apart, cannot. Once per call, not once per peel.
+    if (.use_model_rec && .mean_rec && i == 1L) {
+      warning("forecast_rec = \"model\" is inert on this fit: proj_mean_rec = ",
+              "TRUE, so the peeled years take mean recruitment and Mohn's rho ",
+              "will match forecast_rec = \"mean\". Refit with ",
+              "build_srr(proj_mean_rec = FALSE) for the model's own process to ",
+              "supply the forecast.", call. = FALSE)
+    }
+    if (!.states_supply) for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
@@ -329,10 +462,47 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 
       }
 
+      # Reached only with proj_mean_rec = FALSE and no recruitment process (the
+      # random-effect cases returned above): the projection comes off the
+      # stock-recruit curve, which is a zero deviation.
+      if (.use_model_rec && !.mean_rec) {
+        rec_dev <- 0
+      }
+
       # - Update OM with devs
       peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
         peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)],
         values =  rec_dev)
+
+      # ... and, under a DSEM, into the state rec_dev is derived FROM, or the
+      # line above is overwritten before it is ever read. rec_dev_col is 0-based
+      # (it indexes the C++ column), hence the + 1.
+      # Condition on the DSEM, not on dsem_x_tj: a non-DSEM fit carries a 0x0
+      # dsem_x_tj (not NULL), so keying off the matrix enters this block on
+      # every ordinary retrospective and is saved only by the row count being
+      # zero. Assert the rows fit rather than filtering them: they always do
+      # today (nyrs_dsem spans styr:endyr and the forecast years are inside it),
+      # and the one future state where the filter WOULD bite -- a DSEM rebuilt
+      # per peel over styr:endyr_peel -- is exactly where silently writing
+      # nothing would be the bug this block exists to fix.
+      if (!is.null(newmod$dsem) && !is.null(peeled_pars$dsem_x_tj)) {
+        .col <- newmod$dsem$tmb_inputs$data$rec_dev_col[sp] + 1L
+        .rows <- peel_prj_yrs - styr + 1L
+        stopifnot(length(.col) == 1L, !is.na(.col),
+                  max(.rows) <= nrow(peeled_pars$dsem_x_tj))
+        # ADD BACK the lognormal bias correction. The template derives
+        #   rec_dev = x_tj - bias_adjust_proc * margvar / 2
+        # so writing the intended deviation straight into x_tj lands margvar/2
+        # low -- measured at -22.1% in realised recruitment on BS2017SS with a
+        # naive sem at the default bias_adjust_proc, and worse for a lagged sem,
+        # where margvar is sigma^2/(1-rho^2) rather than sigma^2.
+        .mv <- newmod$quantities$dsem_margvar_tj
+        .adj <- if (!is.null(.mv) && nrow(.mv) >= max(.rows) && ncol(.mv) >= .col) {
+          as.numeric(.mv[.rows, .col])
+        } else rep(0, length(.rows))
+        .bias <- as.numeric(newmod$data_list$bias_adjust_proc %||% 1)
+        peeled_pars$dsem_x_tj[.rows, .col] <- rec_dev + .bias * .adj / 2
+      }
     }
 
     newmod <- suppressMessages(
@@ -630,6 +800,15 @@ jitter <- function(object = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 
     stop("Object is not of class 'Rceattle'")
   }
 
+  # A DSEM needs nothing special here, unlike the peel in retrospective(). The
+  # perturbation below only touches entries whose map is not NA, so under a DSEM
+  # it jitters the path coefficients and the latent recruitment-deviation
+  # columns while leaving the covariate columns of dsem_x_tj alone -- those are
+  # mapped out because, with family = "fixed", they ARE the environmental data
+  # and jittering them would perturb the data rather than the starting values.
+  # And no map is passed to .refit_like() below, so fit_mod() rebuilds one and
+  # fills in the DSEM blocks itself.
+
   # Jitters inherit the input model's sdreport setting unless overridden;
   # multimodality is judged from objectives and point estimates, not sdrep.
   if (is.null(getsd)) getsd <- !is.null(object$sdrep)
@@ -787,4 +966,193 @@ print.Rceattle_jitter <- function(x, tol = 0.01, ...) {
     }
   }
   invisible(x)
+}
+
+
+#' Which fleets' selectivity deviations are scored by an UNNORMALIZED kernel.
+#'
+#' A random effect's peeled tail can be freed only where the density scoring it is
+#' normalized. The Laplace integral over a data-free tail is then exactly 1, so
+#' freeing it removes the fabricated "the deviation was exactly zero" evidence and
+#' changes nothing else. Several selectivity forms carry the ADMB/AMAK lineage's
+#' bare sums of squares instead, with no dnorm constant: marginalizing one of
+#' those contributes -k * log(sel_dev_sd) to the objective, which drives the
+#' estimated SD UP with peel depth -- the same bias as pinning, in the other
+#' direction. Those fleets stay pinned.
+#'
+#' From ceattle.cpp slots 4-5, by Selectivity form:
+#'
+#'   sel_coff_dev   normalized  Hake -- dnorm(dev, 0, sel_dev_sd);
+#'                              2DAR1 -- SCALE(SEPARABLE(AR1, AR1));
+#'                              3DAR1 -- GMRF(Q)
+#'                  bare SSQ    NonParametric and NonParametricPM (decreasing,
+#'                              curvature, random-walk and dev-magnitude
+#'                              penalties); LogisticPM (weighted first difference
+#'                              of realized log selectivity)
+#'
+#'   log_sel_slp_dev, sel_inf_dev
+#'                  normalized  every form that estimates them -- the IID and
+#'                              random-walk branches are all dnorm(..., true)
+#'                  bare SSQ    LogisticPM only, whose free age-1 deviate random
+#'                              walk is sel_curve_pen * (dev_t - dev_{t-1})^2
+#'
+#' Decided per Selectivity_index GROUP, not per fleet. Fleets sharing an index
+#' share ONE parameter block through shared map levels, so pinning one member
+#' while freeing another would leave the pinned fleet's cells at their starting
+#' value while the shared level moved -- two fleets that must have identical
+#' selectivity would silently stop sharing it in the peeled years.
+#'
+#' @param fleet_control the model's `fleet_control` table.
+#' @return A list of integer fleet-row vectors: `sel_coff_dev` and `limb`.
+#' @noRd
+.rce_sel_unnormalized_rows <- function(fleet_control) {
+  sel_map <- .rce_allowed_map("Selectivity")
+
+  # The forms whose sel_coff_dev density is normalized, and the one form whose
+  # limb deviates are not.
+  coff_normalized <- c("Hake", "2DAR1", "3DAR1")
+  limb_unnormalized <- "LogisticPM"
+
+  # Assert rather than intersect quietly. A renamed or retired form would leave
+  # an empty code set, and an empty set here reads as "nothing is unnormalized"
+  # -- it would free a tail that must stay pinned, silently, which is the defect
+  # this function exists to prevent.
+  need <- c(coff_normalized, limb_unnormalized)
+  if (!all(need %in% names(sel_map))) {
+    stop("Internal: the Selectivity map no longer names ",
+         paste(setdiff(need, names(sel_map)), collapse = ", "),
+         "; retrospective() cannot tell which selectivity deviations are ",
+         "scored by a normalized density.", call. = FALSE)
+  }
+
+  # fleet_control$Selectivity holds names on a workbook that has been through
+  # revert_switches() and integer codes on one that has not, so read both.
+  .is_form <- function(nms) {
+    codes <- unname(sel_map[nms])
+    s  <- fleet_control$Selectivity
+    si <- suppressWarnings(as.integer(as.character(s)))
+    (!is.na(si) & si %in% codes) | (as.character(s) %in% nms)
+  }
+
+  n   <- nrow(fleet_control)
+  grp <- fleet_control$Selectivity_index
+  # A fleet with no Selectivity_index shares with nobody, so it is its own
+  # group. Same idiom as .sel_start_year_by_group() in rearrange_data().
+  grp <- if (is.null(grp)) paste0("_row", seq_len(n)) else
+    ifelse(is.na(grp), paste0("_row", seq_len(n)), as.character(grp))
+
+  widen <- function(bad) which(grp %in% unique(grp[bad]))
+
+  list(
+    # Anything that is not one of the three normalized forms. A fleet whose form
+    # does not use sel_coff_dev at all is included and is a no-op: build_map()
+    # has already mapped those cells out.
+    sel_coff_dev = widen(!.is_form(coff_normalized)),
+    limb         = widen(.is_form(limb_unnormalized))
+  )
+}
+
+
+#' The map a retrospective peel runs under: which deviations it holds fixed over
+#' the years the peel did not see.
+#'
+#' Turn off forecasted parameters -- but NOT the ones that are random effects. A
+#' pinned deviation is still scored by its density, and "the deviation was exactly
+#' zero" is the strongest possible evidence for a small process SD; leaving a
+#' random effect free lets the Laplace approximation integrate it out instead,
+#' which is what no data should mean. The NEWS entry for 5.15.0 carries the
+#' measured bias (-6.6% on sigma at 5 peels, monotone in peel depth, so it becomes
+#' a trend in the quantity Mohn's rho measures).
+#'
+#' A block is freed only if it is BOTH a random effect and scored by a NORMALIZED
+#' density: the Laplace integral over a data-free tail is exactly 1 for a
+#' normalized Gaussian, so freeing it removes the fabricated term and nothing
+#' else. Several selectivity forms are bare sums of squares with no dnorm
+#' constant, and those stay pinned -- but PER FLEET, not per block, because the
+#' exempt forms are a property of the fleet; see .rce_sel_unnormalized_rows().
+#'
+#' @param map the parent fit's `map` (`mapList` + `mapFactor`).
+#' @param random_vars `fit$random_vars`, recorded by fit_mod() at the HINDCAST
+#'   build. This is the one source of truth -- `obj$env$random` is not: under
+#'   estimateMode = 0 with a harvest control rule that object is the PROJECTION
+#'   object, whose map turns every hindcast entry off, so its `random` declaration
+#'   is empty and every block reads as a fixed effect.
+#' @param fleet_control the model's fleet table, for the selectivity forms.
+#' @param nyrs_peel,nyrs,nyrs_proj retained hindcast years, total hindcast years,
+#'   and total years including the projection.
+#' @return `map`, with the peeled tail of each pinned block set to NA.
+#' @noRd
+.rce_peel_map <- function(map, random_vars, fleet_control,
+                          nyrs_peel, nyrs, nyrs_proj) {
+  if (is.null(random_vars)) {
+    warning("This fit does not record which blocks were random effects ",
+            "(fit_mod() before 5.10.0). The peel will pin every deviation, ",
+            "which shrinks the estimated process SDs with peel depth. Refit ",
+            "to get an unbiased retrospective.", call. = FALSE)
+    random_vars <- character(0)
+  }
+  pin <- function(nm) !(nm %in% random_vars)
+  has <- function(nm) !is.null(map$mapList[[nm]])
+  relevel <- function(nm) factor(map$mapList[[nm]])
+
+  peeled_hind <- (nyrs_peel + 1):nyrs
+  peeled_all  <- (nyrs_peel + 1):nyrs_proj
+
+  # rec_dev is [species, year]; log_M1_dev is [species, sex, age, year]; both run
+  # through the projection. index_q_dev is [fleet, year], hindcast only.
+  if (pin("rec_dev") && has("rec_dev")) {
+    map$mapList$rec_dev[, peeled_all] <- NA
+    map$mapFactor$rec_dev <- relevel("rec_dev")
+  }
+  if (pin("log_M1_dev") && has("log_M1_dev")) {
+    map$mapList$log_M1_dev[, , , peeled_all] <- NA
+    map$mapFactor$log_M1_dev <- relevel("log_M1_dev")
+  }
+  if (pin("index_q_dev") && has("index_q_dev")) {
+    map$mapList$index_q_dev[, peeled_hind] <- NA
+    map$mapFactor$index_q_dev <- relevel("index_q_dev")
+  }
+
+  # Selectivity is decided PER FLEET. One model can carry a 3DAR1 fleet, whose
+  # deviations are a proper GMRF and must be freed, beside a NonParametricPM
+  # fleet, whose penalty is a bare SSQ and must stay pinned; pinning the whole
+  # block for the second fleet's sake reintroduces the shrinkage on the first.
+  #
+  # The selectivity dimension is indexed by fleet ROW -- Fleet_code equals the
+  # row number, and build_params() dimensions these arrays by
+  # nrow(fleet_control).
+  sel_un <- .rce_sel_unnormalized_rows(fleet_control)
+  # dim() is NULL for a block this model does not carry, which is not an error --
+  # there is simply nothing to pin. Only a PRESENT block whose fleet dimension
+  # disagrees with fleet_control is one, because the row indices would then pin
+  # the wrong fleets.
+  n_sel <- dim(map$mapList$sel_coff_dev)[1]
+  n_flt <- nrow(fleet_control)
+  if (!is.null(n_sel) && !identical(as.integer(n_sel), as.integer(n_flt))) {
+    stop("sel_coff_dev has ", n_sel, " selectivity rows but fleet_control has ",
+         n_flt, "; the peel cannot tell which fleet's deviations are scored by ",
+         "which density.", call. = FALSE)
+  }
+  all_sel <- if (is.null(n_sel)) integer(0) else seq_len(n_sel)
+
+  # The limb deviates are [limb, selectivity, sex, year], so the fleet rows index
+  # the SECOND dimension.
+  slp_rows <- if (pin("log_sel_slp_dev")) all_sel else sel_un$limb
+  if (length(slp_rows) && has("log_sel_slp_dev")) {
+    map$mapList$log_sel_slp_dev[, slp_rows, , peeled_hind] <- NA
+    map$mapFactor$log_sel_slp_dev <- relevel("log_sel_slp_dev")
+  }
+  inf_rows <- if (pin("sel_inf_dev")) all_sel else sel_un$limb
+  if (length(inf_rows) && has("sel_inf_dev")) {
+    map$mapList$sel_inf_dev[, inf_rows, , peeled_hind] <- NA
+    map$mapFactor$sel_inf_dev <- relevel("sel_inf_dev")
+  }
+  # sel_coff_dev is [selectivity, sex, bin, year] -- rows index the FIRST.
+  coff_rows <- if (pin("sel_coff_dev")) all_sel else sel_un$sel_coff_dev
+  if (length(coff_rows) && has("sel_coff_dev")) {
+    map$mapList$sel_coff_dev[coff_rows, , , peeled_hind] <- NA
+    map$mapFactor$sel_coff_dev <- relevel("sel_coff_dev")
+  }
+
+  map
 }
