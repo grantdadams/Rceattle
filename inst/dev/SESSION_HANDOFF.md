@@ -167,10 +167,14 @@ Nothing.
 
 **Cleared 2026-08-27: the bounds check runs.** `verify-safebounds.R` now builds the package
 SHLIB as well as the TMB model, asserts both DLLs loaded before any case runs, and reports
-"could not run" apart from "violation". All five configurations pass locally from a clean tree
-(all three `.so` deleted first), which is the CI condition. **`safebounds` is still
-`continue-on-error: true`** — now that it measures something, whether it should gate a release is
-Grant's call; it is slow and the Windows fault it targets is intermittent.
+"could not run" apart from "violation". All **six** configurations pass locally from a clean tree
+(all three `.so` deleted first), which is the CI condition — the sixth is
+`test-selectivity-catchability.R`, the file that crashed on Windows, which used to be a second CI
+step and was never bounds-checked at all. 206 s end to end.
+
+**`continue-on-error` is off now**, so a bounds failure fails the run. It gates nothing —
+`deep-checks` is nightly and dispatch-only, never a PR check, and `main` is not protected — but
+the failure is visible, which it was not before.
 
 The history below is kept because it is the reason not to trust a green `deep-checks` run
 without reading the job.
