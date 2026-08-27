@@ -88,6 +88,15 @@ weights — a reweighting diagnostic, a component profile, a "which term dominat
 those components as absent rather than unweighted. `profile_components(weighted = FALSE)` says so
 in its `@param`.
 
+**`retrospective(getsd = TRUE)` can return fewer peels than `getsd = FALSE`, so Mohn's rho
+differs.** `.refit_converged()` drops a peel on a non-positive-definite Hessian, and that check
+can only run when an `sdreport` was asked for (`R/0-convergence.R:213`, deliberate). A peel that
+converges on gradient but has a singular Hessian is therefore kept without standard errors and
+dropped with them. On `make_test_data()` every peel is lost this way. Rho is computed over the
+peels that survive, so **two runs of the same model can report different rho** depending only on
+`getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
+names for exactly this reason.
+
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
 lost.

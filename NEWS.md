@@ -16,6 +16,18 @@ version throughout.
 
 ## Diagnostics
 
+* **`retrospective()` warns when a peel is dropped, and the object remembers how
+  many were asked for.** Mohn's rho is averaged over the peels that survive, so a
+  drop changes a number that gets reported — but it was announced by a
+  `message()`, which `suppressMessages()` hides, and nothing on the returned
+  object showed it afterwards. It now warns, carries `$peels_requested`, and
+  `print()` reads "3 of 5 peel(s)" with a `NOTE` and says what rho was averaged
+  over. `jitter()` and `self_test()` still message.
+
+  Worth knowing: `getsd = TRUE` also turns on the non-positive-definite Hessian
+  check in `.refit_converged()`, so it can drop peels that `getsd = FALSE`
+  keeps, and rho can differ between the two runs of the same model.
+
 * **A retrospective peel now carries uncertainty on its hindcast.** Each peel is
   fitted twice — a peeled hindcast, then a forecast refit that estimates only the
   peeled years' F — and the second holds the hindcast fixed, so it reported a

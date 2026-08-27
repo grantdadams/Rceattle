@@ -232,3 +232,42 @@ testthat::test_that("the table helper is total on an empty frame", {
     Rceattle:::.rce_diag_table(data.frame(a = character(0)), c("A" = "a")))
   testthat::expect_length(out, 0L)
 })
+
+
+testthat::test_that("a retrospective says when peels were dropped", {
+  # Mohn's rho is averaged over the peels that survive, so a drop changes a
+  # reported number. The warning at fit time is gone once the object is read
+  # back off disk, and the list length alone cannot show a drop -- so the count
+  # asked for is carried on the object and print() compares the two.
+  mk <- function(n_kept, asked) {
+    peel <- function(y) list(data_list = list(endyr_peel = y, styr = 1))
+    l <- c(list(peel(10)), lapply(seq_len(n_kept), function(k) peel(10 - k)))
+    names(l) <- paste0("Year_", vapply(l, function(x) x$data_list$endyr_peel,
+                                       numeric(1)))
+    structure(list(
+      Rceattle_list = l,
+      mohns = data.frame(Object = "ssb", `Forecast year` = 0, N = n_kept,
+                         Pollock = 0.05, check.names = FALSE),
+      peels_requested = asked), class = "Rceattle_retro")
+  }
+
+  # Two of five lost: say so, and say what rho was averaged over.
+  txt <- shown(mk(n_kept = 3, asked = 5))
+  expect_header(txt, "retrospective")
+  testthat::expect_true(any(grepl("3 of 5 peel", txt)))
+  testthat::expect_true(any(grepl("2 peel\\(s\\) dropped", txt)))
+  testthat::expect_true(any(grepl("averaged over 3", txt)))
+  testthat::expect_true(any(grepl("status: NOTE", txt)))
+
+  # Nothing dropped: no count, no note. A clean run must not gain noise.
+  ok <- shown(mk(n_kept = 5, asked = 5))
+  testthat::expect_false(any(grepl("dropped", ok)))
+  testthat::expect_true(any(grepl("status: OK", ok)))
+
+  # An object saved before `peels_requested` existed still prints.
+  old <- mk(n_kept = 3, asked = 5)
+  old$peels_requested <- NULL
+  older <- shown(old)
+  expect_header(older, "retrospective")
+  testthat::expect_false(any(grepl("dropped", older)))
+})

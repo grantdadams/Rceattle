@@ -453,7 +453,9 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 
   # Drop non-converged peels and prepend the original model
   peel_results <- peel_results[!vapply(peel_results, is.null, logical(1))]
-  .report_dropped(peels - length(peel_results), peels, "peel")
+  # A warning, not a message: rho below is averaged over the peels that
+  # survive, so a drop changes the number that gets reported.
+  .report_dropped(peels - length(peel_results), peels, "peel", warn = TRUE)
   mod_list <- c(list(object), peel_results)
 
   # Mohn's rho averages the peels against the full model, so with none left the
@@ -556,7 +558,12 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # Still the same list -- $Rceattle_list and $mohns are unchanged. The class
   # adds a print method that carries Mohn's reference band, which the bare
   # number never did; see print.Rceattle_retro().
-  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns)),
+  #
+  # `peels_requested` is carried so print() can say how many were asked for. The
+  # warning above is gone by the time anyone reads the object back off disk, and
+  # the list length alone cannot show a drop.
+  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns),
+                 peels_requested = peels),
             class = "Rceattle_retro")
 }
 
@@ -591,11 +598,26 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
   sev <- ifelse(is.na(rho), "OK", ifelse(abs(rho) > band, "WARN", "OK"))
   n_bad <- sum(sev == "WARN")
 
+  # Rho is averaged over the peels that survived, so a drop changes it. The
+  # list length alone cannot show one; `peels_requested` is absent on an object
+  # saved before it was carried.
+  n_kept <- length(x$Rceattle_list) - 1L          # the unpeeled model
+  n_asked <- x$peels_requested
+  n_dropped <- if (is.null(n_asked)) 0L else max(0L, n_asked - n_kept)
+  if (n_dropped > 0L) sev <- c(sev, "NOTE")
+
   .rce_diag_header(
     "retrospective", .rce_worst(sev),
-    paste0(length(x$Rceattle_list), " peel(s); ",
+    paste0(if (n_dropped > 0L) paste0(n_kept, " of ", n_asked, " peel(s); ")
+           else paste0(length(x$Rceattle_list), " peel(s); "),
            .rce_n_of(n_bad, length(rho)),
            " terminal Mohn's rho outside +/-", band))
+
+  if (n_dropped > 0L) {
+    cat("  ", n_dropped, " peel(s) dropped as non-converged, so rho is ",
+        if (n_kept > 0L) paste("averaged over", n_kept) else "undefined",
+        "\n", sep = "")
+  }
 
   if (nrow(term)) {
     show <- term

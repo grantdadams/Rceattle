@@ -230,6 +230,8 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
 - **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()`
   pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry.
+- **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
+  check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
   two linkage rows. Everything else is structurally zero there, not small.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
