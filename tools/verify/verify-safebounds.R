@@ -201,6 +201,26 @@ run_case("sim_mod() draws on ragged comps", {
   invisible(suppressWarnings(suppressMessages(sim_mod(f, simulate = TRUE))))
 })
 
+# The file the Windows worker died in, driven here rather than as a second CI
+# step. A separate step has to re-establish the bounds-checked build, and it
+# cannot: this script restores the unchecked one on exit, and TMB::compile() is
+# incremental, so `load_all(compile = TRUE)` afterwards no-ops and the test runs
+# unchecked. Measured 2026-08-27 -- ceattle.so's mtime did not move. Run it
+# inside the one build instead, where it is checked by construction.
+run_case("test-selectivity-catchability.R (the file that crashed CI)", {
+  res <- testthat::test_file(
+    "tests/testthat/test-selectivity-catchability.R", reporter = "silent")
+  df <- as.data.frame(res)
+  # A skipped file reports as a pass, which is the failure this whole job
+  # exists to defeat.
+  if (sum(df$passed) == 0) {
+    stop("ran no assertions -- skipped, so nothing was bounds-checked")
+  }
+  if (sum(df$failed) + sum(df$error) > 0) {
+    stop(sum(df$failed) + sum(df$error), " assertion(s) failed under bounds checking")
+  }
+})
+
 cat("\n")
 
 # "Could not run" is not "found a violation". Reporting them alike is how five

@@ -210,6 +210,15 @@ macOS" in the 5.20.0 notes was not the clearance it looked like. Fixed by buildi
 set), asserting both DLLs loaded before any case runs, and reporting "could not run" separately
 from "violation". The restore path had the same hole and left the tree unloadable.
 
+**And the step named for the crash was not bounds-checked either.** `deep-checks` ran
+`test-selectivity-catchability.R` -- the file the Windows worker died in -- as a *second* step,
+after `verify-safebounds.R` had restored the unchecked build on exit. `TMB::compile()` is
+incremental, so that step's `load_all(compile = TRUE)` no-op'd: measured 2026-08-27,
+`src/ceattle.so`'s mtime did not move, so it ran against the ordinary model. **A build flag is
+not in force just because the job env sets it** -- check that the artifact was actually rebuilt.
+It is a case inside the harness now, sharing the one checked build, which also made it cheaper
+than the second compile a separate step needs (7.8s against ~90s).
+
 **The golden regression ran in NO automated job.** `test-golden-regression.R` carries both
 `skip_on_cran()` and `skip_on_covr()`. `R-CMD-check` sets `NOT_CRAN=false` deliberately (to keep
 the multi-OS matrix fast), so the first fires; `test-coverage` runs under covr, so the second
