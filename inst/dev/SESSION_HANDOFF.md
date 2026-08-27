@@ -210,10 +210,18 @@ Both are fixed. It is the only net for the Windows `0xC0000005`, which is still 
 
 ## Resume here
 
-Merge the 5.22.0 PR once CI is green, then tag `5.22.0` — bare, no `v` prefix — and **publish**
-a GitHub Release; `inst/RELEASE-CHECKLIST.md` §3. Confirm the site actually rebuilt (see the
-5.21.0 note above), then dispatch `deep-checks` (§3b) and read its `safebounds` JOB, not the
-run's conclusion.
+**TODO, in order.**
+
+1. **Read tonight's `deep-checks`** (nightly, 05:00 UTC). It is the first run in which the bounds
+   check measures anything, and the first in which a failure shows red — `continue-on-error` is
+   off. Green means the Windows `0xC0000005` finally has a net; red is a real finding. This is
+   the only thing in PR #128 not verified on a real runner.
+2. **Merge PR #128** (`dev` → `main`, 5.22.0) once its CI and the above are green. Then tag
+   `5.22.0` — bare, no `v` prefix — and **publish** a GitHub Release;
+   `inst/RELEASE-CHECKLIST.md` §3.
+3. **Confirm the site actually rebuilt.** The `release: published` event fired no pkgdown run for
+   5.21.0; dispatch `pkgdown.yaml` by hand if it happens again. See the 5.21.0 note above.
+4. **Dispatch `deep-checks`** (§3b) after the release.
 
 Three loose ends, none blocking:
 
