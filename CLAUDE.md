@@ -248,7 +248,9 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
 - **`fit_control()` bundles the optimizer and uncertainty knobs** — `getsd`, `bias.correct`,
   `loopnum`, `newtonsteps`, `getJointPrecision`, `nlminb_control`, and the bias-adjustment
   flags. `getsd = FALSE` leaves `sdrep` NULL, so `vcov()` returns NULL and uncertainty bands
-  are NA. The refit diagnostics forward only `phase` and `getsd`.
+  are NA. The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
+  `projection_uncertainty` — the last two are read back off `data_list`, because a freshly
+  built `fit_control()` would silently reset them to its own defaults.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not
   the advancing `om_use$`, so the hindcast does not drift through the projection — essential for
   multispecies, whose predation suitability must stay fixed.

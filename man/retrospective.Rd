@@ -30,6 +30,7 @@ retrospective(
 \verb{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 
 \item{getsd}{whether each peel runs \code{TMB::sdreport} (standard errors).
+Costs an extra model build per peel; see Details.
 Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
 effect on rho. Default \code{NULL} inherits the input model's setting
 (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
@@ -98,6 +99,14 @@ Calculate Mohn's rho and run retrospective peels for an Rceattle model. The func
 \item Fits the peeled model.
 \item Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
 }
+}
+\details{
+Each peel is fitted twice: a peeled hindcast, then a forecast refit that
+estimates only the peeled years' F. The second holds every hindcast parameter
+fixed, so on its own it reports a standard error of zero for the whole
+hindcast. Under \code{getsd = TRUE} the peel is therefore rebuilt at those same
+parameters with the hindcast free in the map and reported from there. Nothing
+is re-estimated, so no point estimate moves.
 }
 \examples{
 \donttest{

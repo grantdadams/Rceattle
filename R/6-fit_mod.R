@@ -819,6 +819,10 @@ fit_mod <-
     if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
     if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
 
+    # Carried like the bias-adjustment flags above, so a refit can recover how
+    # the model was fitted rather than take fit_control()'s default.
+    data_list$projection_uncertainty <- isTRUE(projection_uncertainty)
+
     # Reorganize data for .cpp file. The OSA observation vector is built on
     # demand by osa_residuals(), so only the fast aggregate metadata is assembled
     # here (build_osa = FALSE, the rearrange_data() default).
