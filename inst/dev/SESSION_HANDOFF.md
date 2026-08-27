@@ -144,7 +144,25 @@ in `inst/dev/TRAPS.md` under "The SIMULATE contract".
 
 ## Blocked
 
-**The bounds check has measured nothing since at least 2026-08-25, and reports green.**
+Nothing.
+
+**Cleared 2026-08-27: the bounds check runs.** `verify-safebounds.R` now builds the package
+SHLIB as well as the TMB model, asserts both DLLs loaded before any case runs, and reports
+"could not run" apart from "violation". All **six** configurations pass locally from a clean tree
+(all three `.so` deleted first), which is the CI condition — the sixth is
+`test-selectivity-catchability.R`, the file that crashed on Windows, which used to be a second CI
+step and was never bounds-checked at all. 206 s end to end.
+
+**`continue-on-error` is off now**, so a bounds failure fails the run. It gates nothing —
+`deep-checks` is nightly and dispatch-only, never a PR check, and `main` is not protected — but
+the failure is visible, which it was not before.
+
+The history below is kept because it is the reason not to trust a green `deep-checks` run
+without reading the job.
+
+<details><summary>What was wrong</summary>
+
+**The bounds check had measured nothing since at least 2026-08-25, and reported green.**
 `deep-checks`' `safebounds` job is `continue-on-error: true`, so the workflow's overall
 conclusion is `success` while the job fails. It fails at the DLL, not on a violation:
 
@@ -166,9 +184,10 @@ file has never existed. **It passes locally only because a developer's tree alre
 which is why "five configurations clean on macOS" in the 5.20.0 notes was not the clearance it
 looked like.
 
-Two separable fixes: the DLL bootstrap, and a report that says "could not run" rather than
-"BOUNDS VIOLATIONS" when no case executed. This matters because it is the only net for the
-Windows `0xC0000005`, which is still uncured — see the 5.21.0 release notes' known limitation.
+Both are fixed. It is the only net for the Windows `0xC0000005`, which is still uncured — see the
+5.21.0 release notes' known limitation.
+
+</details>
 
 ## Resume here
 

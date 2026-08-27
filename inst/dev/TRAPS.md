@@ -103,6 +103,15 @@ weights — a reweighting diagnostic, a component profile, a "which term dominat
 those components as absent rather than unweighted. `profile_components(weighted = FALSE)` says so
 in its `@param`.
 
+**`retrospective(getsd = TRUE)` can return fewer peels than `getsd = FALSE`, so Mohn's rho
+differs.** `.refit_converged()` drops a peel on a non-positive-definite Hessian, and that check
+can only run when an `sdreport` was asked for (`R/0-convergence.R:213`, deliberate). A peel that
+converges on gradient but has a singular Hessian is therefore kept without standard errors and
+dropped with them. On `make_test_data()` every peel is lost this way. Rho is computed over the
+peels that survive, so **two runs of the same model can report different rho** depending only on
+`getsd`. `test-functions-retrospective.R` compares the two runs peel by peel over the shared
+names for exactly this reason.
+
 **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing.**
 The feature is then silently lossy through the standard xlsx format. This is how `index_cov` was
 lost.
@@ -225,8 +234,31 @@ bundled dataset and all three live assessments have `minage = 1`.
 
 ## The guards are not themselves guarded
 
-Two of this repo's most valuable checks were, until 5.16.0, guarded off in a way nothing
-verified. Both are the same shape: a speed optimization that silently removes coverage.
+Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
+the same shape: a speed optimization, or a green-looking job, that silently removes coverage.
+
+**The bounds check measured nothing from before 5.20.0 until 2026-08-27, and reported success.**
+`deep-checks`' `safebounds` job is `continue-on-error: true`, so the run's conclusion was
+`success` while the job failed. It failed at the DLL, not on a violation: `NAMESPACE` loads
+`Rceattle` (the package SHLIB) as well as `ceattle` (the TMB model), `verify-safebounds.R` built
+only the second and then called `load_all(compile = FALSE)`, and on a fresh checkout
+`src/Rceattle.so` had never existed. All five cases errored with "not found in the list of loaded
+DLLs" and were printed as `BOUNDS VIOLATIONS or errors in 5 case(s)` -- reading as five
+violations when the truth was zero measurements. **It passed locally only because a developer's
+tree already had a `src/Rceattle.so` lying around**, which is why "five configurations clean on
+macOS" in the 5.20.0 notes was not the clearance it looked like. Fixed by building through make
+(`tmblib` is a `.PHONY` prerequisite of `$(SHLIB)`, so `compile.R` re-runs with the flag still
+set), asserting both DLLs loaded before any case runs, and reporting "could not run" separately
+from "violation". The restore path had the same hole and left the tree unloadable.
+
+**And the step named for the crash was not bounds-checked either.** `deep-checks` ran
+`test-selectivity-catchability.R` -- the file the Windows worker died in -- as a *second* step,
+after `verify-safebounds.R` had restored the unchecked build on exit. `TMB::compile()` is
+incremental, so that step's `load_all(compile = TRUE)` no-op'd: measured 2026-08-27,
+`src/ceattle.so`'s mtime did not move, so it ran against the ordinary model. **A build flag is
+not in force just because the job env sets it** -- check that the artifact was actually rebuilt.
+It is a case inside the harness now, sharing the one checked build, which also made it cheaper
+than the second compile a separate step needs (7.8s against ~90s).
 
 **A `tools/verify/` harness runs in no CI job at all, so a stale one looks exactly like a
 passing one.** `verify-dsem-equivalence.R` — the only numerical check on the vendored

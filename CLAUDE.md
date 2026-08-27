@@ -230,6 +230,8 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
 - **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()`
   pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry.
+- **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
+  check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the
   two linkage rows. Everything else is structurally zero there, not small.
 - **A `data_list` element with no `write_data()`/`read_data()` support round-trips to nothing** —
@@ -248,7 +250,9 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
 - **`fit_control()` bundles the optimizer and uncertainty knobs** — `getsd`, `bias.correct`,
   `loopnum`, `newtonsteps`, `getJointPrecision`, `nlminb_control`, and the bias-adjustment
   flags. `getsd = FALSE` leaves `sdrep` NULL, so `vcov()` returns NULL and uncertainty bands
-  are NA. The refit diagnostics forward only `phase` and `getsd`.
+  are NA. The refit diagnostics forward `phase`, `getsd`, the bias-adjust flags and
+  `projection_uncertainty` — the last two are read back off `data_list`, because a freshly
+  built `fit_control()` would silently reset them to its own defaults.
 - **`run_mse()` pins the OM's stock-recruit and suitability windows to the pristine `om$`**, not
   the advancing `om_use$`, so the hindcast does not drift through the projection — essential for
   multispecies, whose predation suitability must stay fixed.

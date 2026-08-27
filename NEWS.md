@@ -603,6 +603,38 @@ reference fits are unchanged.
 
 ## Diagnostics
 
+* **`retrospective()` warns when a peel is dropped, and the object remembers how
+  many were asked for.** Mohn's rho is averaged over the peels that survive, so a
+  drop changes a number that gets reported — but it was announced by a
+  `message()`, which `suppressMessages()` hides, and nothing on the returned
+  object showed it afterwards. It now warns, carries `$peels_requested`, and
+  `print()` reads "3 of 5 peel(s)" with a `NOTE` and says what rho was averaged
+  over. `jitter()` and `self_test()` still message.
+
+  Worth knowing: `getsd = TRUE` also turns on the non-positive-definite Hessian
+  check in `.refit_converged()`, so it can drop peels that `getsd = FALSE`
+  keeps, and rho can differ between the two runs of the same model.
+
+* **A retrospective peel now carries uncertainty on its hindcast.** Each peel is
+  fitted twice — a peeled hindcast, then a forecast refit that estimates only the
+  peeled years' F — and the second holds the hindcast fixed, so it reported a
+  standard error of **zero** for every hindcast year. Peels plotted with no
+  confidence band while the unpeeled model had one.
+
+  Under `getsd = TRUE` the peel is now reported from the same parameters with the
+  hindcast free. Nothing is re-estimated: on BS2017SS under an NPFMC HCR, Mohn's
+  rho, every peel's SSB and every peel's objective are unchanged. SSB standard
+  errors in a common year now fall as data are retained — 248,693 with two years
+  peeled, 220,476 with one, 179,416 with none — instead of reading zero. Costs
+  one extra model build per peel.
+
+* **`fit_control(projection_uncertainty)` survives a refit.** It is carried on
+  `data_list` and read back by `.refit_like()`, so a peel, jitter or MSE refit
+  inherits how the model was fitted rather than taking `fit_control()`'s `FALSE`
+  default — the failure the bias-adjustment flags already guard against. Under an
+  HCR it decides whether a fit reports 6 free parameters and no hindcast
+  uncertainty, or 316 and real errors. Forwarded only when `getsd = TRUE`.
+
 * **`profile(joint =)` moves a whole set of cells on one grid.** `slots` cross
   through `expand.grid()`, so moving a ten-age M schedule together over 13
   values was a ten-dimensional factorial — `13^10` fits, not 13. That made an

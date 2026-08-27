@@ -57,6 +57,10 @@
 #'   `srr_hat_endyr` to a peel or assessment year, or pin them to the pristine OM.
 #' @param suit_styr,suit_endyr Suitability window; default to the source's,
 #'   clamped to a peel year or pinned to the pristine OM by some callers.
+#' @param projection_uncertainty Whether the refit reports standard errors with
+#'   the hindcast parameters on. Defaults to the source's, carried on
+#'   `data_list`; under an HCR a refit without it reports zero for the whole
+#'   hindcast.
 #'
 #' @param dsem DSEM specification to carry into the refit. Defaults to the
 #'   source `data_list`'s stored `dsem_settings`, so a refit inherits it.
@@ -76,7 +80,9 @@
                         srr_hat_endyr    = data_list$srr_hat_endyr,
                         suit_styr        = data_list$suit_styr,
                         suit_endyr       = data_list$suit_endyr,
-                        dsem             = data_list$dsem_settings) {
+                        dsem             = data_list$dsem_settings,
+                        projection_uncertainty =
+                          isTRUE(data_list$projection_uncertainty)) {
   dl <- data_list
 
   # The DSEM travels as the SPECIFICATION, never as built objects. Its latent
@@ -180,7 +186,12 @@
       # recovers its value -- which covers every call site without one of them
       # having to remember to pass it.
       bias_adjust_obs  = .refit_bias_adjust(dl$bias_adjust_obs),
-      bias_adjust_proc = .refit_bias_adjust(dl$bias_adjust_proc)),
+      bias_adjust_proc = .refit_bias_adjust(dl$bias_adjust_proc),
+      # Same reason as the bias-adjustment flags: a freshly built control would
+      # reset this to FALSE, and under an HCR that costs the hindcast its
+      # standard errors. Gated on `getsd` because fit_mod() runs the extra
+      # sdreport() either way, and run_mse() refits here with getsd = FALSE.
+      projection_uncertainty = isTRUE(projection_uncertainty) && isTRUE(getsd)),
     # Every caller here re-validates a data_list the user has already fitted, so
     # data_check()'s warnings have been seen; repeating them once per peel,
     # jitter, or MSE iteration is noise. Errors still stop the refit, and
