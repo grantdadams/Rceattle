@@ -297,10 +297,15 @@
     if (!length(add)) next
 
     # Year 0 alongside dated rows is a mixed series data_check() rejects; take
-    # the terminal hindcast row, falling back to the group's last row so a
+    # the LATEST hindcast row, falling back to the group's latest row so a
     # series ending before styr still carries something forward.
+    #
+    # By year, not by table position: nothing sorts `weight` on read, so the
+    # last row of a group need not be its last year. Taking it by position
+    # carries the wrong weight-at-age through the whole projection.
     hind <- rows[dat$Year[rows] > 0 & dat$Year[rows] <= endyr]
-    src  <- if (length(hind)) hind[length(hind)] else rows[length(rows)]
+    src  <- if (length(hind)) hind[which.max(dat$Year[hind])]
+            else rows[which.max(dat$Year[rows])]
 
     proj <- dat[rep(src, length(add)), , drop = FALSE]
     proj$Year <- add

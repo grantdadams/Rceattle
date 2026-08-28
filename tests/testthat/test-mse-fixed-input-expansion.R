@@ -92,6 +92,24 @@ test_that("the carried-forward value comes from endyr, not the last row", {
 })
 
 
+test_that("the terminal year is found by year, not by table position", {
+  # Nothing sorts `weight` on read, so a group's last ROW need not be its last
+  # YEAR. Taking it by position carried 2018's weight-at-age through the whole
+  # projection while 2019 sat above it in the table.
+  wt <- data.frame(Wt_index = 1L, Sex = 1L, Year = c(2019L, 2017L, 2018L),
+                   Age1 = c(0.9, 0.1, 0.2))
+  out <- .mse_expand_fixed_input(wt, "Wt_index", 2019, 2020:2021)
+
+  expect_equal(unique(out$Age1[out$Year %in% 2020:2021]), 0.9)
+
+  # And the fallback, for a series that ends before the terminal year.
+  old <- data.frame(Wt_index = 1L, Sex = 1L, Year = c(2016L, 2014L, 2015L),
+                    Age1 = c(0.8, 0.1, 0.2))
+  out2 <- .mse_expand_fixed_input(old, "Wt_index", 2019, 2020:2021)
+  expect_equal(unique(out2$Age1[out2$Year %in% 2020:2021]), 0.8)
+})
+
+
 test_that("each sex is extended on its own", {
   # A two-sex series is two independent groups; expanding on the id alone would
   # carry one sex's terminal weight into the other.
