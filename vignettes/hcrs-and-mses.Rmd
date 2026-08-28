@@ -82,6 +82,14 @@ em <- Rceattle::fit_mod(
 
 `run_mse()` runs the closed loop: it projects the OM, samples data on the schedule you specify, re-fits the EM every `assessment_period` years, and applies the EM's HCR back to the OM. `nsim` sets the number of stochastic trajectories.
 
+### Check `endyr` before you start
+
+The OM and the EM must share a terminal year and a projection horizon; the MSE fills catch by row position across both models, so mismatched years are refused rather than run.
+
+Then check `endyr` against the catch series. The MSE takes over at `endyr + 1`, and every year after that is a projection year whose catch the control rule sets, so catch recorded past `endyr` is blanked to `NA` at setup and `run_mse()` warns and names the years.
+
+That warning almost always means `endyr` has fallen behind. A workbook can carry catch, index and composition data for years the model does not fit — the likelihood scores only `Year <= endyr` — so the data are added and `endyr` is left where it was. Conditioning the assessment on those years and projecting over them are different questions, and the warning is where you choose. Move `endyr` up and refit both models to condition on them; leave it and the MSE simulates those years instead.
+
 ```{r, message = FALSE, echo = TRUE}
 mse1 <- run_mse(
   om = om, em = em,

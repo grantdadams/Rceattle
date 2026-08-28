@@ -105,6 +105,76 @@ version throughout.
 
   `relative` keeps `"own"` (the default, unchanged), `"minimum"` and `"none"`.
 
+## Bug fixes
+
+* **`run_mse()` no longer expands a time-invariant `weight` or `ration_data`
+  series into the projection.** A series supplied at `Year 0` is time-invariant
+  — `rearrange_data()` fills every hindcast year from the single row — so it
+  needs no projection rows. Expanding it replaced one legal row with a series
+  naming the projection years and no year before them, and `data_check()` reads
+  any index carrying more than one year as time-varying and requires it to span
+  `styr..endyr`. The first assessment advances `endyr`, the check runs, and the
+  operating-model refit dies with
+
+  ```
+  Weight data for index = 4 & sex = 1 does not span all hindcast years
+  ```
+
+  recorded as a bare `"OM"` failure with the message discarded, so every
+  simulation returned `use_sim = FALSE` and `mse_summary()` had nothing to
+  summarise. Hit on a Pacific hake MSE whose workbook supplies weight indices
+  4–6 at `Year 0`; a workbook that dates every weight row never reached it. Both
+  expansions now skip a group whose rows are all `Year 0` and are shared by the
+  operating and estimation models through one helper.
+
+  Two further defects in the same expansion, found reviewing the fix. It read
+  the group's **last table row** rather than its last row at or before `endyr`,
+  so a series running past its own terminal year projected a value the hindcast
+  never fitted — not the terminal hindcast year `?run_mse` documents holding.
+  And it added a row for every projection year without checking whether one was
+  already there: `rearrange_data()` assigns row by row into the weight array, so
+  the appended duplicate sorted last and its value silently replaced the
+  observation. A workbook with catch and weight through 2023 against `endyr`
+  2019 hit both, losing four years of weight-at-age. `clean_data()` already
+  skips an already-present projection year for catch, and the `NByageFixed`
+  expansion beside this one does the same.
+
+* **`run_mse()` refuses an operating and estimation model whose terminal or
+  projection years disagree.** The assessment loop takes the row positions of
+  the catch rows to fill from the estimation model's table and indexes the
+  operating model's `max_catch_hat` with them, so the two tables have to
+  describe the same rows in the same order. Mismatched years read the
+  exploitable-biomass limit off the wrong years, or off `NA`, and the run
+  completed either way — catch advice that is wrong without looking wrong. The
+  requirement was always there; now it is checked.
+
+* **`run_mse()` no longer skips every assessment whose year already carries
+  catch.** The fill that hands the control rule's advice to the operating model
+  selects projection rows on `is.na(Catch)`. A projection year arriving with a
+  number in it was passed over: no catch was written, the interval's total came
+  out `0`, and the operating model took the no-catch path — rebuilt at
+  `estimateMode = 3` with its map dropped, rather than advanced. The next
+  section then overwrote that year with the rebuilt model's realized catch, so
+  the recorded value did not survive either; the assessment simply did not
+  happen.
+
+  This is what a workbook looks like when `endyr` has fallen behind the catch
+  series. On a Pacific hake MSE workbook carrying catch through 2023 with
+  `endyr` still 2019, four of six assessments (2020–2023) ran that way, because
+  `clean_data()` creates an `NA` projection row only for a year with no row
+  already — leaving 2024 and 2025 as the only fillable years. Nothing in the run
+  reported it.
+
+  Catch past either model's terminal year is now blanked to `NA` at setup, with
+  a warning naming the model, the years, and the terminal year it read against
+  — the three things needed to tell a stale `endyr` from data that belongs in
+  the projection. Nothing the model uses is
+  lost: the likelihood scores only `Year <= endyr`, and no control rule reads
+  observed catch (HCR 1, constant catch, sums `catch_hat`). The blanking runs
+  ahead of the `Proj_F_proportion` check, which compares recorded catch against
+  projected exploitable biomass and was tripped by the same rows into forcing a
+  rebuild the model did not need.
+
 # Rceattle 5.21.0
 
 ## Diagnostics
