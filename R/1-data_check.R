@@ -1894,10 +1894,10 @@ data_check <- function(data_list) {
         gaps <- c(gaps, paste0(
           "  ", spnames[sp], sex_lab, " as PREDATOR: ",
           if(length(miss_pred) == length(ages)){
-            "no diet data at any age -- it exerts no predation."
+            "no diet data at any age (exerts no predation)."
           } else {
             paste0("no diet data at age ", runs(sort(miss_pred)),
-                   " -- those ages exert no predation.")
+                   " (no predation at those ages).")
           }))
       }
 
@@ -1917,22 +1917,21 @@ data_check <- function(data_list) {
       if(length(miss_prey)){
         gaps <- c(gaps, paste0(
           "  ", spnames[sp], sex_lab, " as PREY: no diet data at age ",
-          runs(sort(miss_prey)), " -- those ages are never eaten."))
+          runs(sort(miss_prey)), " (never eaten)."))
       }
     }
   }
 
   if(length(gaps)){
     warning(paste0(
-      "'diet_data' does not cover every age of a species using empirical ",
-      "suitability (suitMode = 0), and empirical suitability is read straight ",
-      "from the diet data, so an uncovered age is switched out of the ",
-      "predation calculation rather than estimated:\n",
+      "Under empirical suitability (suitMode = 0) suitability is read straight ",
+      "from 'diet_data', so an age with no diet rows drops out of predation ",
+      "rather than being estimated:\n",
       paste(gaps, collapse = "\n"),
-      "\nSupply diet rows for those ages, or pool them into the plus group. ",
-      "Rows with an age below the species' 'minage' are the aggregated diet ",
-      "formats and do not count here -- only prey-at-age-in-predator-at-age ",
-      "rows build MSVPA suitability."), call. = FALSE)
+      "\nAdd diet rows for those ages, or pool them into the plus group. Only ",
+      "prey-at-age-in-predator-at-age rows build MSVPA suitability; rows below ",
+      "'minage' are the aggregated diet formats and do not count."),
+      call. = FALSE)
   }
 
   invisible(NULL)

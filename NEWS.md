@@ -175,6 +175,15 @@ version throughout.
   projected exploitable biomass and was tripped by the same rows into forcing a
   rebuild the model did not need.
 
+## Documentation
+
+* The diet age-coverage warning is about half its former length. It led with
+  two clauses saying the same thing and closed with three sentences of
+  qualification, which buried the list of species and ages — the only part that
+  differs between one fit and the next. The gap lines keep their consequence in
+  a parenthesis (`never eaten`, `exerts no predation`) rather than a trailing
+  clause. Same rule, same species reported.
+
 # Rceattle 5.21.0
 
 ## Diagnostics
