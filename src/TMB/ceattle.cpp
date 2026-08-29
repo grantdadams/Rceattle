@@ -319,6 +319,14 @@ Type objective_function<Type>::operator() () {
   // caal / diet branches to a proper, unweighted, keep-gated density suitable
   // for OSA residuals; it does not alter the aggregate (catch/index) likelihood,
   // which reads from `obsvec` identically in both modes.
+  // `osa_mode == 2` is mode 1 plus the conditional CDF terms
+  // oneStepPredict(method = "cdf") reads -- log F(x) gated by keep.cdf_lower and
+  // log(1 - F(x)) gated by keep.cdf_upper, alongside each keep-gated density.
+  // Both gates are zero except inside such a call, so the objective is
+  // unchanged; they are computed only in mode 2 so no other path pays for the
+  // `pbeta` / `pnorm` they cost. The Dirichlet-multinomial composition families
+  // have no CDF term (see comp_osa.hpp) and osa_residuals() keeps those fleets
+  // off this method.
   DATA_VECTOR( obsvec );                    // Flat observations for OSA residuals
   DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
   DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)
@@ -326,7 +334,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( comp_obsvec_idx );          // obsvec start position for each comp_obs row's bins (-1 = excluded)
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
-  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities); 2 = OSA build + conditional CDF terms for method = "cdf"
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
@@ -3210,7 +3218,13 @@ Type objective_function<Type>::operator() () {
         // defensive against a future divergence making obsvec(pos) out of bounds.
         int pos = index_obsvec_idx(index_ind);
         if(pos >= 0){
-          jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0, index_std_dev, true);
+          Type index_mu = log(index_hat(index_ind)) - bias_adjust_obs*square(index_std_dev)/2.0;
+          jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_mu, index_std_dev, true);
+          // method = "cdf": the same lognormal read as a CDF on the log scale.
+          if(osa_mode == 2){
+            jnll_comp(JNLL_INDEX, index) -= osa_norm_cdf_terms(
+              obsvec(pos), index_mu, index_std_dev, keep.cdf_lower(pos), keep.cdf_upper(pos));
+          }
         }
       }
     }
@@ -3258,6 +3272,21 @@ Type objective_function<Type>::operator() () {
           if(pos >= 0){
             jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), index_hat(index_ind), index_std_dev, true);
             jnll_comp(JNLL_INDEX, index) += keep(pos) * log_Z;
+            // method = "cdf". "TruncatedNormal" gets its own CDF, renormalized
+            // over (0, inf), which is exactly the correction the Gaussian methods
+            // cannot see -- so under this method the family needs no separate
+            // oneStepGeneric call and none of that call's integration failures.
+            if(osa_mode == 2){
+              if(index_ll_type(index) == 4){
+                jnll_comp(JNLL_INDEX, index) -= osa_trunc_norm_cdf_terms(
+                  obsvec(pos), index_hat(index_ind), index_std_dev,
+                  keep.cdf_lower(pos), keep.cdf_upper(pos));
+              } else {
+                jnll_comp(JNLL_INDEX, index) -= osa_norm_cdf_terms(
+                  obsvec(pos), index_hat(index_ind), index_std_dev,
+                  keep.cdf_lower(pos), keep.cdf_upper(pos));
+              }
+            }
           }
         }
       }
@@ -3397,6 +3426,13 @@ Type objective_function<Type>::operator() () {
             int pos = posv(k);
             if(pos >= 0){
               jnll_comp(JNLL_INDEX, index) -= keep(pos) * dnorm(obsvec(pos), mwhite(k, 0), Type(1.0), true);
+              // method = "cdf": the whitened block is independent standard
+              // normals, so each row's CDF is pnorm of its own innovation.
+              if(osa_mode == 2){
+                jnll_comp(JNLL_INDEX, index) -= osa_norm_cdf_terms(
+                  obsvec(pos), mwhite(k, 0), Type(1.0),
+                  keep.cdf_lower(pos), keep.cdf_upper(pos));
+              }
             }
           }
         }
@@ -3502,7 +3538,13 @@ Type objective_function<Type>::operator() () {
         // parity; the R inclusion set makes pos valid for every fitted row today).
         int pos = catch_obsvec_idx(fsh_ind);
         if(pos >= 0){
-          jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+          Type catch_mu = log(catch_hat(fsh_ind)) - bias_adjust_obs*square(fsh_std_dev)/2.0;
+          jnll_comp(JNLL_CATCH, flt) -= keep(pos) * dnorm(obsvec(pos), catch_mu, fsh_std_dev, true) ;
+          // method = "cdf": the same lognormal read as a CDF on the log scale.
+          if(osa_mode == 2){
+            jnll_comp(JNLL_CATCH, flt) -= osa_norm_cdf_terms(
+              obsvec(pos), catch_mu, fsh_std_dev, keep.cdf_lower(pos), keep.cdf_upper(pos));
+          }
         }
         // Martin's
         // jnll_comp(JNLL_CATCH, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
@@ -3699,9 +3741,10 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_comp);
           if(comp_ll_type(flt) == 1){     // Dirichlet-multinomial (uses fitted DM par)
+            // No CDF term: the beta-binomial has no elementary one (comp_osa.hpp).
             jnll_comp(JNLL_COMP, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_comp), 1, 1);
           } else {                        // multinomial (cases 0 and -1)
-            jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1);
+            jnll_comp(JNLL_COMP, flt) -= dmultinom_osa(osa_x, comp_hat_tmp, keep.segment(start, n_comp), 1, 1, osa_mode == 2);
           }
         }
       }
@@ -3861,9 +3904,10 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_caal);
           if(caal_ll_type(flt) == 1){     // Dirichlet-multinomial
+            // No CDF term: the beta-binomial has no elementary one (comp_osa.hpp).
             jnll_comp(JNLL_CAAL, flt) -= ddirmultinom_osa(osa_x, alphas, keep.segment(start, n_caal), 1, 1);
           } else {                        // multinomial
-            jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1);
+            jnll_comp(JNLL_CAAL, flt) -= dmultinom_osa(osa_x, caal_hat_tmp, keep.segment(start, n_caal), 1, 1, osa_mode == 2);
           }
         }
       }
@@ -4822,9 +4866,10 @@ Type objective_function<Type>::operator() () {
         if(start >= 0){
           vector<Type> osa_x = obsvec.segment(start, n_prey + 1);
           if(diet_ll_type(rsp) == 1){   // Dirichlet-multinomial (fitted DM par)
+            // No CDF term: the beta-binomial has no elementary one (comp_osa.hpp).
             jnll_comp(JNLL_STOMACH, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
           } else {                      // multinomial
-            jnll_comp(JNLL_STOMACH, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
+            jnll_comp(JNLL_STOMACH, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1, osa_mode == 2);
           }
         }
       }
@@ -5238,6 +5283,15 @@ Type objective_function<Type>::operator() () {
             if (pos >= 0) {
               jnll_comp(JNLL_LINKAGE_RE, 0)            -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
               unweighted_jnll_comp(JNLL_LINKAGE_RE, 0) -= keep(pos) * dnorm(obsvec(pos), re(t), osd, true);
+              // method = "cdf": the covariate measurement is normal about the
+              // latent state, so its CDF is pnorm of the standardized residual.
+              // Only jnll_comp, as at every other CDF site: unweighted_jnll_comp
+              // is reported as an unweighted LIKELIHOOD (Francis and
+              // McAllister-Ianelli read it), and a CDF term is not one.
+              if (osa_mode == 2) {
+                jnll_comp(JNLL_LINKAGE_RE, 0) -= osa_norm_cdf_terms(
+                  obsvec(pos), re(t), osd, keep.cdf_lower(pos), keep.cdf_upper(pos));
+              }
             }
           }
         }

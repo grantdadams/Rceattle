@@ -5,6 +5,48 @@ session. Maintained by `/handoff`.
 
 ## Now
 
+**In flight: branch `osa-cdf-method` off `dev` (5.24.0) — `osa_residuals(method = "cdf")`.**
+Not pushed, no PR yet. It closes `dev/HANDOFF-osa-cdf-method.md`, whose framing it also
+corrects; that file now opens with what measurement actually found.
+
+- **The headline is not the negative `predicted`.** Residualizing simulated observations at the
+  parameters that generated them makes the answer exactly iid N(0,1), so the methods can be
+  scored (`tools/verify/verify-osa-cdf.R`, BS2017SS, 20 replicates x 4538 composition bins):
+
+  | method | mean | sd | lag-1 acf within a composition | KS |
+  |---|---|---|---|---|
+  | `oneStepGaussianOffMode` (the default) | +0.103 | 0.918 | +0.060 | rejects 20/20 |
+  | `cdf`, `discrete = FALSE` | +0.610 | 1.262 | +0.434 | rejects 20/20 |
+  | `cdf`, `discrete = TRUE` | −0.007 | 0.995 | +0.001 | rejects 0/20 |
+
+  Null se on the acf is 0.015. **`cdf` with `discrete = FALSE` — the obvious reading of the old
+  handoff — is worse than the default**, because a composition bin holds a count and
+  `qnorm(F(x))` inherits the step. Only the randomized quantile passes, so `discrete` now
+  defaults to `TRUE` under `"cdf"` (its default changed `FALSE` → `NULL`, resolving per method;
+  every pre-existing method behaves exactly as before).
+- **Cross-checked against the Trijoulet et al. reference implementation TMB ships**
+  (`include/contrib/OSA_multivariate_dists-main/distr.hpp`), compiled standalone: our `Fx`
+  matches to **1e-14** on 5 compositions from 4 fleets at 12 and 25 bins.
+- **Coverage**: index (all five `Index_distribution` families), catch, comp, CAAL, diet and the
+  ecov observation all have a conditional CDF. The Dirichlet-multinomial is the one exception —
+  no elementary beta-binomial CDF — and those fleets are routed to `oneStepGaussianOffMode`,
+  announced and recorded in the `method` attribute. `JNLL_RATION` is inside a comment block
+  (Kinzey & Punt, `msmMode > 2`), so it is not a live observation likelihood.
+- **Verified**: golden regression PASS (all four references reproduce their pinned objectives);
+  `verify-refit-like.R` bit-identical against a baseline captured in a worktree at the merge
+  base; `osa_mode` 1 vs 2 identical slot by slot.
+
+**Four things measurement refuted, having been asserted first.** Worth reading before the next
+OSA session: (1) `keep.segment()` DOES carry `cdf_lower`/`cdf_upper` — `tmb_core.hpp:481` says
+so explicitly, and the old handoff's warning cites the struct-level note instead. (2) `pkgload`
+does not rebuild on a header-only edit, so half an hour was spent debugging a fix that was
+already correct and had never been compiled. (3) Squeezing an OSA CDF at one machine epsilon
+lands on a round-half-to-even tie and returns `+Inf`; four epsilons is the fix, at a residual
+ceiling of 8.04. (4) `osa_order()`'s branch is **taped**, so it sorts on the keep values present
+at tape construction — 1 on every bin ever kept or conditioned on — which is why the reorder is
+the identity on every sequence `osa_residuals()` generates and cannot be exercised through
+`oneStepPredict` at all. All four are in `inst/dev/TRAPS.md` or the code.
+
 **5.21.0 is released** — tag `5.21.0` on `f9595235`, published 2026-08-26. It carried
 `profile_components()`, `plot_profile()`, `plot.Rceattle_profile()` and `profile()`'s `$alias`.
 

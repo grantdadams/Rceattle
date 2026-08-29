@@ -337,7 +337,9 @@ logLik.Rceattle <- function(object, ...) {
 #'     \eqn{(p - \hat{p})/\sqrt{\hat{p}(1 - \hat{p})/N}} with input sample size
 #'     N.}
 #'   \item{`"osa"`}{One-step-ahead residuals via [osa_residuals()], which builds
-#'     the composition observation data on demand from any fit.}
+#'     the composition observation data on demand from any fit. Pass its
+#'     arguments through `...`; note that `method = "cdf"` forms no conditional
+#'     mean, so `Fitted` is `NA` for every row under it.}
 #'   \item{`"process"`}{Process residuals via [process_residuals()] for the
 #'     model's random-effect deviations; `source` does not apply.}
 #' }

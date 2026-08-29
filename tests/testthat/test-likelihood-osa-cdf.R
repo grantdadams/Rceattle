@@ -1,0 +1,440 @@
+# One-step-ahead residuals via the conditional CDF (method = "cdf").
+#
+# Under this method TMB does not treat the observation as a free variable: it
+# asks the template for log F(x) and log(1 - F(x)) of each conditional, gated by
+# keep.cdf_lower / keep.cdf_upper, and returns qnorm(F(x)). No conditional mean
+# is formed, so nothing can leave the support of a bounded observation.
+#
+# The conditional for a composition bin is a binomial, written through the
+# regularized incomplete beta so it is defined at the fractional counts
+# composition data carry:  P(X <= x) = 1 - I_p(x + 1, n - x).  The aggregate
+# series are normal (lognormal catch and index on the log scale, "Normal" and
+# "MVN" on their own), so theirs is pnorm.
+#
+# The distributional acceptance test -- residualizing simulated data at the
+# parameters that generated it, where the answer is exactly N(0, 1) -- lives in
+# tools/verify/verify-osa-cdf.R, which is far too slow for the suite. What is
+# here is everything that pins the implementation: the identity the CDF is built
+# on, the bin alignment through the keep reorder, the invariance of the
+# objective, and the two families that cannot use this method.
+
+# The continuous binomial CDF the template uses, written in R. Used below to
+# check the template's own conditional decomposition bin by bin.
+.cdf_binom <- function(x, n, p) 1 - stats::pbeta(p, x + 1, n - x)
+
+# Conditional-binomial CDF of every bin of one composition, in the same
+# sequential order dmultinom_osa() walks: bin i against everything still
+# unplaced, at probability p_i / (1 - p_used).
+.cdf_comp_ref <- function(x, p) {
+  p <- p / sum(p)
+  n <- sum(x)
+  used <- 0
+  out <- numeric(length(x))
+  for (i in seq_along(x)) {
+    if (i == length(x)) { out[i] <- 1; break }        # fixed by sum-to-N
+    out[i] <- .cdf_binom(x[i], n, p[i] / (1 - used))
+    n    <- n - x[i]
+    used <- used + p[i]
+  }
+  out
+}
+
+
+testthat::test_that("the continuous binomial CDF agrees with pbinom at whole counts", {
+  # The identity the composition CDF rests on, checked against R's own binomial
+  # CDF where both are defined. Nothing model-specific: if this fails the
+  # formula is wrong, not the plumbing.
+  # Absolute, not relative. `1 - pbeta(p, x + 1, n - x)` cancels to exactly 0
+  # once the lower tail falls below about 1e-16, where pbinom() still computes
+  # it; that is the mechanism behind the lower-tail censoring the method carries
+  # (the template floors the CDF at 4e-16 anyway, so a bin down there is
+  # reported at the ceiling either way). Everything above the floor must agree.
+  for (n in c(5, 40, 500)) {
+    for (p in c(0.001, 0.05, 0.4, 0.9, 0.999)) {
+      x <- unique(round(seq(0, n - 1, length.out = 12)))
+      testthat::expect_lt(max(abs(.cdf_binom(x, n, p) - stats::pbinom(x, n, p))),
+                          1e-12, label = paste("n =", n, "p =", p))
+    }
+  }
+  # And that it interpolates monotonically between them, which is what makes it
+  # usable at a fractional count.
+  f <- .cdf_binom(seq(0, 9, by = 0.05), 10, 0.3)
+  testthat::expect_true(all(diff(f) >= 0))
+})
+
+
+testthat::test_that("osa_mode 2 leaves the objective and every likelihood slot alone", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # cdf_lower and cdf_upper are zero except inside a oneStepPredict(method =
+  # "cdf") call, so adding the CDF terms must not move anything. Checked slot by
+  # slot rather than on the total, so two slots cannot cancel.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 11)
+  fit <- Rceattle::fit_mod(dat, file = NULL, estimateMode = 3, msmMode = 0,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+
+  o1 <- Rceattle:::.osa_build_obj(fit, osa_dat, osa_mode = 1)
+  o2 <- Rceattle:::.osa_build_obj(fit, osa_dat, osa_mode = 2)
+  testthat::expect_equal(o2$env$data$osa_mode, 2)
+
+  testthat::expect_identical(o2$fn(o2$par), o1$fn(o1$par))
+  testthat::expect_identical(o2$report(o2$par)$jnll_comp,
+                             o1$report(o1$par)$jnll_comp)
+})
+
+
+testthat::test_that("the cdf gates survive the keep reorder", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # `dmultinom_osa()` reorders its bins so kept ones come first (osa_order), and
+  # keep.cdf_lower / keep.cdf_upper are separate members of the data_indicator
+  # that have to be reordered with them. Getting that wrong reads the CDF off
+  # the wrong bin and still returns a plausible number.
+  #
+  # It cannot be reached through osa_residuals(). osa_order() branches on keep,
+  # keep is a PARAMETER under oneStepPredict, so the branch is taped once at the
+  # initial values -- 1 on every bin that will ever be kept, 0 on the rest -- and
+  # within a composition that is 1 everywhere but the last bin. The order is
+  # always the identity and `conditional =` does not change it, because a
+  # conditioned bin is also kept at tape time.
+  #
+  # So supply the keep matrix directly, as constant data, with a pattern the
+  # package never produces: keep only bin 3. osa_order() then puts bin 3 first
+  # and the CDF gate on bin 1 has to travel to the second slot.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 18)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  ctl <- osa_dat$obs_ctl
+  testthat::skip_if(!any(ctl$source == "comp"), "no composition observations")
+
+  grp <- ctl[ctl$source == "comp", ]
+  grp <- grp[grp$group_id == grp$group_id[1], ]
+  grp <- grp[order(grp$bin_index), ]
+  n <- nrow(grp)
+  testthat::skip_if(n < 4, "composition too short to permute")
+
+  x <- as.numeric(osa_dat$obsvec[grp$obs_pos + 1L])
+  p <- as.numeric(fit$quantities$comp_hat[grp$data_row[1], seq_len(n)]) +
+    osa_dat$comp_offset
+
+  # Rebuild in OSA-CDF mode with `keep` as a fully-mapped (constant) parameter,
+  # so the taped branch sees exactly the pattern given here.
+  obj0 <- Rceattle:::.osa_build_obj(fit, osa_dat, osa_mode = 2)
+  nobs <- length(osa_dat$obsvec)
+  at   <- grp$obs_pos + 1L                    # this composition's obsvec slots
+  objective <- function(k, cl, cu) {
+    kp <- cbind(k, cl, cu)
+    o <- TMB::MakeADFun(
+      data       = obj0$env$data,
+      parameters = c(obj0$env$parList(par = obj0$env$last.par.best),
+                     list(keep = kp)),
+      map        = c(obj0$env$map, list(keep = factor(rep(NA, length(kp))))),
+      random     = if (length(obj0$env$random))
+        unique(names(obj0$env$par)[obj0$env$random]) else NULL,
+      DLL = fit$TMBfilename, silent = TRUE)
+    o$fn(o$par)
+  }
+  z <- rep(0, nobs)
+  keep3 <- z; keep3[at[3]] <- 1                # keep ONLY bin 3
+  lo <- z; lo[at[1]] <- 1                      # lower-CDF gate on bin 1
+  hi <- z; hi[at[1]] <- 1
+  base <- objective(keep3, z, z)
+  Fx <- 1 / (1 + exp((objective(keep3, lo, z) - base) -
+                       (objective(keep3, z, hi) - base)))
+
+  # Bin 3 is sorted to the front, so bin 1 is read second: against the count and
+  # the probability still unspent after bin 3.
+  o   <- c(3L, setdiff(seq_len(n), 3L))
+  ref <- .cdf_comp_ref(x[o], p[o])[which(o == 1L)]
+  testthat::expect_equal(Fx, ref, tolerance = 1e-7)
+
+  # ... and that is a different number from the unpermuted answer, so a gate
+  # left behind by the reorder would fail here.
+  testthat::expect_false(isTRUE(all.equal(ref, .cdf_comp_ref(x, p)[1],
+                                          tolerance = 1e-4)))
+})
+
+
+testthat::test_that("splitting a call into groups conditions on what came before it", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Compositions need `discrete = TRUE` and the aggregate series do not, and
+  # oneStepPredict takes one setting per call, so they go in separate calls.
+  # Every call is handed the rows earlier in the sequence as `conditional`;
+  # without that, oneStepPredict marks them unconditional and zeroes their data
+  # terms, which on a random-effects model changes the conditional distribution
+  # of the latent states and moves the residuals.
+  dat <- make_test_data(nyrs = 14, nages = 8, seed = 31)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0, random_rec = TRUE,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+  testthat::skip_if(length(fit$obj$env$random) == 0, "no random effects")
+
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  sel <- osa_dat$obs_ctl[osa_dat$obs_ctl$source %in% c("index", "catch", "comp") &
+                           !osa_dat$obs_ctl$is_last_bin, ]
+  sel <- sel[order(match(sel$source, c("index", "catch", "comp")), sel$year,
+                   sel$fleet_code, sel$bin_index), ]
+  pos <- sel$obs_pos + 1L
+  agg <- which(sel$source != "comp")
+  cmp <- which(sel$source == "comp")
+  testthat::skip_if(length(cmp) < 3 || length(agg) < 3, "not enough of each type")
+
+  obj <- Rceattle:::.osa_build_obj(fit, osa_dat, osa_mode = 2)
+  osp <- function(...) TMB::oneStepPredict(obj, "obsvec", "keep", method = "cdf",
+                                           discrete = FALSE, parallel = FALSE,
+                                           trace = FALSE, ...)$residual
+  one   <- osp(subset = pos)[cmp]
+  split <- osp(subset = pos[cmp], conditional = pos[agg])
+  naive <- osp(subset = pos[cmp])
+
+  # The split is invisible ...
+  testthat::expect_equal(split, one, tolerance = 1e-9)
+  # ... and would not have been without `conditional`, so this is not vacuous.
+  testthat::expect_gt(max(abs(naive - one)), 1e-4)
+})
+
+
+testthat::test_that("the template's conditional CDF is the right one, bin by bin", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The trap this guards. keep.cdf_lower / keep.cdf_upper are separate members
+  # of the data_indicator, and dmultinom_osa() reorders its bins (osa_order) --
+  # so they have to be reordered with it. A gate left on the wrong bin still
+  # returns plausible residuals; it just returns the wrong bin's. Comparing
+  # TMB's Fx against the conditional decomposition computed independently in R
+  # catches that, and catches a wrong binomial size or conditional probability
+  # with it.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 12)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  osa_dat <- Rceattle:::build_osa_data(fit$obj$env$data, build_osa = TRUE)
+  ctl <- osa_dat$obs_ctl
+  testthat::skip_if(!any(ctl$source == "comp"), "no composition observations")
+
+  # One composition (all its bins, including the last), in bin order.
+  grp <- ctl[ctl$source == "comp", ]
+  grp <- grp[grp$group_id == grp$group_id[1], ]
+  grp <- grp[order(grp$bin_index), ]
+  n   <- nrow(grp)
+
+  x <- as.numeric(osa_dat$obsvec[grp$obs_pos + 1L])
+  p <- as.numeric(fit$quantities$comp_hat[grp$data_row[1], seq_len(n)]) +
+    osa_dat$comp_offset
+  ref <- .cdf_comp_ref(x, p)
+
+  obj <- Rceattle:::.osa_build_obj(fit, osa_dat, osa_mode = 2)
+  res <- TMB::oneStepPredict(obj, "obsvec", "keep", method = "cdf",
+                             subset = grp$obs_pos[-n] + 1L, discrete = FALSE,
+                             parallel = FALSE, trace = FALSE)
+
+  testthat::expect_equal(res$Fx, ref[-n], tolerance = 1e-7)
+  # px is the conditional point mass, so it must reproduce the density too.
+  testthat::expect_true(all(res$px > 0 & res$px <= 1))
+  # ... and the residual is the plain probability integral transform of Fx.
+  testthat::expect_equal(res$residual, stats::qnorm(res$Fx), tolerance = 1e-10)
+})
+
+
+testthat::test_that("cdf reproduces the Gaussian residual on the aggregate series", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Catch and index are genuinely normal on the scale obsvec stores them in, so
+  # the Gaussian method's conditional mode IS the mean and both methods must
+  # return the same number. Disagreement here is an implementation bug, not a
+  # better method. The tolerance is set by oneStepGaussianOffMode's own
+  # numerics, not by ours.
+  dat <- make_test_data(nyrs = 12, nages = 6, seed = 13)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = c("index", "catch"), parallel = FALSE)))
+  c_ <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = c("index", "catch"), method = "cdf", parallel = FALSE)))
+
+  testthat::expect_equal(nrow(g), nrow(c_))
+  testthat::expect_equal(g$residual, c_$residual, tolerance = 1e-4)
+  testthat::expect_true(all(is.finite(c_$residual)))
+})
+
+
+testthat::test_that("cdf reports no conditional mean, and says so on the object", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 14)
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  o <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = c("index", "comp"), method = "cdf", parallel = FALSE)))
+
+  # No Gaussian mean is formed, so predicted and sd are NA rather than a value
+  # borrowed from somewhere it does not mean the same thing.
+  testthat::expect_true(all(is.na(o$predicted)))
+  testthat::expect_true(all(is.na(o$sd)))
+  # ... which is exactly why an expected count can no longer go negative.
+  testthat::expect_true(all(!is.na(o$observed)))
+  testthat::expect_true(all(is.finite(o$residual)))
+  # A CDF read in double precision cannot resolve past the last value below 1.
+  testthat::expect_lte(max(abs(o$residual)), 8.042)
+
+  # `discrete` resolves per method: the randomized quantile residual under cdf,
+  # and the previous behaviour under everything else.
+  testthat::expect_true(attr(o, "discrete"))
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "comp", parallel = FALSE)))
+  testthat::expect_false(attr(g, "discrete"))
+  testthat::expect_identical(attr(o, "method"), "cdf")
+
+  # Randomized, so the seed moves the composition residuals and nothing else.
+  o2 <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = c("index", "comp"), method = "cdf", parallel = FALSE,
+    seed = 4321)))
+  testthat::expect_false(isTRUE(all.equal(o$residual[o$source == "comp"],
+                                          o2$residual[o2$source == "comp"])))
+  testthat::expect_equal(o$residual[o$source == "index"],
+                         o2$residual[o2$source == "index"])
+})
+
+
+testthat::test_that("a Dirichlet-multinomial fleet is moved off cdf, loudly", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The beta-binomial has no closed-form CDF, so the template supplies no CDF
+  # term for a D-M composition. That does not fail loudly on its own -- both
+  # tails come back equal, giving Fx = 0.5 and a residual of exactly 0 for every
+  # bin -- so osa_residuals() has to route those fleets elsewhere. This is the
+  # test that the routing happens and that the silent-zero case cannot ship.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 15)
+  dat$fleet_control$Comp_distribution <- "DirichletMultinomial"
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  testthat::expect_message(
+    o <- suppressWarnings(Rceattle::osa_residuals(
+      fit, source = "comp", method = "cdf", parallel = FALSE)),
+    "Dirichlet-multinomial")
+
+  m <- attr(o, "method")
+  testthat::expect_equal(unname(m[["default"]]), "cdf")
+  testthat::expect_equal(unname(m[["DirichletMultinomial"]]),
+                         "oneStepGaussianOffMode")
+  # The fallback ran a real method: these are exactly the residuals the package
+  # default gives, not the identical-zero a missing CDF term would produce. (An
+  # sd threshold would not do -- this fixture's D-M weight runs away, so the fit
+  # is near-exact and the residuals are legitimately tiny.)
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "comp", parallel = FALSE)))
+  testthat::expect_equal(o$residual, g$residual)
+  testthat::expect_false(all(abs(o$residual) < 1e-8))
+
+  # The fallback runs a Gaussian method, which DOES return a conditional mode --
+  # and it is one that can go negative. It is blanked, so `predicted` means the
+  # same thing (nothing) on every row of a "cdf" object.
+  testthat::expect_true(all(is.na(o$predicted)))
+  testthat::expect_true(all(is.na(o$sd)))
+  # And the flag says which fleets were randomized, rather than one value that
+  # is wrong for these rows.
+  d <- attr(o, "discrete")
+  testthat::expect_true(unname(d[["default"]]))
+  testthat::expect_false(unname(d[["DirichletMultinomial"]]))
+})
+
+
+testthat::test_that("cdf residualizes a predator diet composition", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Diet goes through the same conditional-binomial decomposition as an age
+  # composition, from its own call site in the C++ (the stomach likelihood), and
+  # is the one source `source = "all"` reaches that nothing else here covers.
+  # Its "counts" are prey-weight proportion * number of stomachs, so this is also
+  # where discrete = TRUE has the least to do with counting anything -- the model
+  # simulates them as multinomial draws, which is what the transform reads.
+  nyrs <- 10L; nspp <- 2L
+  Fmort  <- c(seq(0.02, 0.3, length.out = nyrs / 2),
+              seq(0.3, 0.05, length.out = nyrs / 2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  sim <- make_msm_test_data(
+    years   = seq_len(nyrs),
+    Fmort   = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+    gam_a   = c(1, 0.1), gam_b = rep(0.15, nspp),
+    log_phi = matrix(c(-5, 0.5, -10, -2), nspp, nspp, byrow = TRUE))
+
+  msm <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    sim$data_list, file = NULL, estimateMode = 1, msmMode = 1, suitMode = 4,
+    niter = 3, initMode = "NonEquilibrium",
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+  ctl <- Rceattle:::build_osa_data(msm$obj$env$data, build_osa = TRUE)$obs_ctl
+  testthat::skip_if(!any(ctl$source == "diet"), "no diet observations")
+
+  d <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    msm, source = "diet", method = "cdf", parallel = FALSE)))
+  testthat::expect_gt(nrow(d), 0)
+  testthat::expect_true(all(is.finite(d$residual)))
+  testthat::expect_true(all(is.na(d$predicted)))
+  # Not the degenerate 0 a missing CDF term would give for every bin.
+  testthat::expect_gt(stats::sd(d$residual), 0.05)
+  testthat::expect_lte(max(abs(d$residual)), 8.042)
+})
+
+
+testthat::test_that("cdf residualizes a multinomial composition where the Gaussian mean goes negative", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # Issue #108: at a small composition sample size the Gaussian conditional mean
+  # lands below zero on the sparse bins, which is impossible for an expected
+  # count and biases those rows' residuals positive. Under cdf no mean is formed
+  # at all, so the whole failure mode is out of reach -- and the residuals are
+  # still finite and non-degenerate, which "no negative values" alone would not
+  # tell you.
+  # A composition sample size of 1 puts every bin count near zero on this
+  # fixture, which is what drives the conditional mode below the support: all 10
+  # of its expected counts come back negative under the Gaussian method.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 16)
+  dat$comp_data$Sample_size <- 1
+  fit <- suppressWarnings(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE)))
+
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "comp", parallel = FALSE)))
+  testthat::expect_true(any(g$predicted < 0, na.rm = TRUE))
+
+  c_ <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "comp", method = "cdf", parallel = FALSE)))
+  testthat::expect_true(all(is.na(c_$predicted)))
+  testthat::expect_true(all(is.finite(c_$residual)))
+  testthat::expect_gt(stats::sd(c_$residual), 0.1)
+})
+
+
+testthat::test_that("an unknown method is rejected before any model is built", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  dat <- make_test_data(nyrs = 8, nages = 5, seed = 17)
+  fit <- Rceattle::fit_mod(dat, file = NULL, estimateMode = 3, msmMode = 0,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+  fit$data_list$estimateMode <- 1
+  testthat::expect_error(
+    Rceattle::osa_residuals(fit, source = "index", method = "cfd"),
+    "should be one of")
+})

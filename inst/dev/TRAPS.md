@@ -29,6 +29,14 @@ rebuilt DLL, so `devtools::test()` aborts before running anything with
 edit run `pkgload::load_all(".")` first, then test with `TESTTHAT_PARALLEL=false`.
 (`test-coverage.yaml` forces serial for a related reason.)
 
+**`load_all()` does not notice a header-only edit.** TMB's `compile()` compares `ceattle.cpp`'s
+mtime against `ceattle.so`'s and nothing else, so editing only a `.hpp` — where most of the
+process logic lives — recompiles nothing and every measurement afterwards is against the old
+model. It is silent: `load_all()` reports success. Cost the OSA CDF work half an hour of
+debugging a fix that was already correct and simply had never been built. **After a `.hpp`-only
+edit, `touch src/TMB/ceattle.cpp` before `load_all()`**, and confirm the `.so` mtime moved. Same
+failure mode as the `safebounds` trap below, from the same cause.
+
 **Roxygen is pinned at 8.1.0** (`DESCRIPTION: Config/roxygen2/version`). A *different* local
 roxygen2 rewrites *every* `man/*.Rd`; an older one also swaps the key back to the legacy
 `RoxygenNote:`, leaving both present and contradicting each other. After `document()`, check
@@ -52,6 +60,25 @@ they are counted once per sharing fleet.
 selectivity *and* q.
 
 ## Silent-wrong-number traps
+
+**A missing OSA CDF term returns 0, not an error.** `oneStepPredict(method = "cdf")` reads
+`Fx = 1 / (1 + exp(nlcdf.lower - nlcdf.upper))`. A likelihood that supplies no
+`keep.cdf_lower` / `keep.cdf_upper` term makes those two evaluations identical, so `Fx = 0.5`
+and every residual on that data source is exactly 0 — a clean-looking Q-Q plot from a
+likelihood that was never asked anything. The Dirichlet-multinomial composition families are in
+exactly that position (no elementary beta-binomial CDF), so `osa_residuals()` routes those
+fleets to a Gaussian method and says so; `test-likelihood-osa-cdf.R` asserts the routing and
+that the residuals are not degenerate. **Any new observation likelihood owes a CDF term the way
+it owes a `SIMULATE` draw.**
+
+**Squeezing an OSA CDF at exactly one machine epsilon lands on a rounding tie.** `Fx` above is
+recovered in double precision, and at a tail of `DBL_EPSILON/2 = 1.11e-16` the denominator is
+`1 + 1.11e-16` — the round-half-to-even tie above 1 — so whether it rounds to 1 depends on the
+last bits of an objective summed over thousands of observations. When it does, `Fx = 1` and the
+residual is `+Inf`. Measured on BS2017SS: 6 of 4538 composition residuals infinite at one
+epsilon, 0 at four (`osa_squeeze_cdf()` in `comp_osa.hpp`). The reference implementation TMB
+ships uses `squeeze()`, i.e. one epsilon, and has the same latent failure. The cost of four is
+where `|residual|` saturates: 8.04 rather than 8.13.
 
 **`Index_distribution` has a second hand-synced registry.** A family added to
 `index_distribution_map` (`R/0-switches.R`) must also be classified in
