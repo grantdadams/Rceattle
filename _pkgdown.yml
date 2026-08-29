@@ -180,6 +180,7 @@ reference:
   - TMBAIC
   - model_average
   - rename_output
+  - parameter_dictionary
 
 - title: "Projections and MSE"
   desc: >

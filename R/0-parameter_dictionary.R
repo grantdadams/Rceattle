@@ -179,3 +179,76 @@
   if (nrow(info) != 1L || is.na(info$meaning)) return(internal)
   sprintf("%s (%s): %s", info$internal, info$natural, info$meaning)
 }
+
+
+#' Look up what a CEATTLE parameter is
+#'
+#' The TMB parameter vector uses transformed, abbreviated names --
+#' `log_M1`, `R_log_sd`, `index_log_q`. This returns the table mapping each one
+#' to the quantity it represents on its natural scale, which process it belongs
+#' to, what it means, and its dimensions.
+#'
+#' @param internal Character vector of internal parameter names, as they appear
+#'   in `names(fitted$estimated_params)` or in an `sdreport()`. Default `NULL`
+#'   returns every parameter.
+#' @param process Character vector restricting the table to one or more parts of
+#'   the model: `"recruitment"`, `"mortality"`, `"growth"`, `"fishing"`,
+#'   `"catchability"`, `"selectivity"`, `"observation"`, `"predation"`,
+#'   `"linkage"` or `"internal"`.
+#'
+#' @return A data frame with one row per parameter and columns `internal`,
+#'   `natural`, `process`, `meaning` and `dims`.
+#'
+#' @details
+#' A name beginning `log_`, or ending `_log_sd`, is estimated on the log scale,
+#' so `exp()` turns it into the quantity named in the `natural` column. Most
+#' fitted values are already back-transformed in `fitted$quantities`, so this is
+#' mainly needed when reading `estimated_params` or an `sdreport()` directly.
+#'
+#' Dimensions use the model's own notation: `nspp` species, `nsex` sexes,
+#' `nages` age bins, `nyrs` years including the projection, `nyrs_hind` hindcast
+#' years only, `n_flt` fleets, `n_fsh` fishery fleets and `n_sel` selectivity
+#' blocks.
+#'
+#' @examples
+#' # The whole table
+#' head(parameter_dictionary())
+#'
+#' # What is R_log_sd?
+#' parameter_dictionary("R_log_sd")
+#'
+#' # Everything governing selectivity
+#' parameter_dictionary(process = "selectivity")
+#'
+#' # Search the meanings by keyword
+#' dict <- parameter_dictionary()
+#' dict[grep("catchability", dict$meaning, ignore.case = TRUE), ]
+#' @seealso [fit_mod()] for the fitted object these names come from.
+#' @export
+parameter_dictionary <- function(internal = NULL, process = NULL) {
+  out <- .PAR_INFO
+
+  if (!is.null(process)) {
+    known <- unique(.PAR_INFO$process)
+    unknown <- setdiff(process, known)
+    if (length(unknown)) {
+      stop("Unknown process: ", paste(unknown, collapse = ", "),
+           ". Use one of: ", paste(known, collapse = ", "))
+    }
+    out <- out[out$process %in% process, , drop = FALSE]
+  }
+
+  if (!is.null(internal)) {
+    # Warn rather than stop, so passing every name from a fit still works when
+    # that fit carries parameters from a branch this dictionary predates.
+    unknown <- setdiff(internal, .PAR_INFO$internal)
+    if (length(unknown)) {
+      warning("Not in the parameter dictionary: ",
+              paste(unknown, collapse = ", "), call. = FALSE)
+    }
+    out <- out[out$internal %in% internal, , drop = FALSE]
+  }
+
+  rownames(out) <- NULL
+  out
+}

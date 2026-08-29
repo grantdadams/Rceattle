@@ -12,6 +12,45 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.23.0
+
+## Reading a fitted model
+
+* **`parameter_dictionary()` is now exported.** CEATTLE's parameter vector uses
+  transformed, abbreviated names (`log_M1`, `R_log_sd`, `index_log_q`), and the
+  table explaining them existed only as an internal object with `@noRd`, so it
+  generated no help page and nobody outside the package could find it. It now
+  has a user-facing accessor that returns the internal name, the quantity on its
+  natural scale, the process it belongs to, a one-sentence meaning and the
+  dimensions, filterable by name or by process:
+
+  ```r
+  parameter_dictionary("R_log_sd")            # -> sigma_R
+  parameter_dictionary(process = "selectivity")
+  ```
+
+  An unknown `process` is an error; an unknown parameter name only warns, so
+  passing every name from a fit still works when that fit carries parameters
+  from a branch the dictionary predates. `test-schema-parameter-dictionary.R`
+  asserts that every parameter `build_params()` creates is documented, so the
+  table cannot silently fall behind the model.
+
+* **`AIC()` replaces `fit$opt$AIC` in the introduction vignette.** That slot is
+  not always there. `.fit_tmb()` normalizes what `TMBhelper::fit_tmb()` returns,
+  and when TMBhelper hands back a nested list the normalizer keeps the inner
+  `opt` — where `AIC` never lived — so the slot silently disappears. Without
+  TMBhelper the plain `nlminb` fallback has no `AIC` either. `AIC(fit)` works in
+  every case, because `logLik.Rceattle()` builds it from `opt$objective` and
+  `length(opt$par)`, both of which survive all three paths. The vignette does not
+  execute by default and `test-vignette-api.R` checks call signatures rather than
+  return shapes, so the stale line was invisible to CI.
+
+* **The introduction vignette now covers the fitted object itself** — the S3
+  methods an `Rceattle` fit responds to (`summary()`, `plot()`, `coef()`,
+  `vcov()`, `logLik()`, `residuals()`, `simulate()`, `profile()`,
+  `as.data.frame()`), the classes the diagnostics return, and where the numbers
+  live in `$quantities` versus `$estimated_params`.
+
 # Rceattle 5.22.0
 
 ## Diagnostics
