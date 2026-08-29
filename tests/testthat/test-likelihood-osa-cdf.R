@@ -426,6 +426,70 @@ testthat::test_that("cdf residualizes a multinomial composition where the Gaussi
 })
 
 
+testthat::test_that("cdf residualizes conditional age-at-length", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # CAAL is a second composition source with its own call site and its own
+  # likelihood-family vector (`caal_ll_type`), and nothing else here reaches it.
+  dat <- make_test_data(nyrs = 10, nages = 6, seed = 51, growth = "vonBertalanffy")
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    dat, file = NULL, estimateMode = 1, msmMode = 0,
+    growthFun = build_growth(fun = "vonBertalanffy"),
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+
+  o <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "caal", method = "cdf", parallel = FALSE)))
+  testthat::expect_gt(nrow(o), 0)
+  testthat::expect_setequal(unique(o$source), "caal")
+  testthat::expect_true(all(is.finite(o$residual)))
+  testthat::expect_true(all(is.na(o$predicted)))
+  testthat::expect_gt(stats::sd(o$residual), 0.05)   # not the degenerate 0
+  testthat::expect_lte(max(abs(o$residual)), 8.042)
+})
+
+
+testthat::test_that("cdf residualizes a state-space covariate observation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # The `ecov` source: a QAR1 catchability linkage whose AR1 latent is measured
+  # by an observed covariate. Its CDF sits in the linkage block, not with the
+  # aggregate series, and it is the only data term inside a jnll_comp row whose
+  # name says "random effects".
+  dat <- make_test_data(nyrs = 12, nages = 6, seed = 52)
+  dat$fleet_control$Catchability[1] <- "Estimated"
+  dat$env_data <- data.frame(Year = dat$styr:dat$endyr,
+                             qcov = as.numeric(scale(seq_len(12))))
+  qf <- build_catchability(linkages = list(
+    q = linkage_spec(~ ar1(1 | Year), by = ~ fleet, fleet = 1,
+                     observe = "qcov", obs_sd = 0.3)))
+  fit <- suppressWarnings(suppressMessages(Rceattle::fit_mod(
+    dat, file = NULL, qFun = qf, estimateMode = 1, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, verbose = 0, getsd = FALSE))))
+
+  o <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "ecov", method = "cdf", parallel = FALSE)))
+  testthat::expect_equal(nrow(o), 12L)
+  testthat::expect_setequal(unique(o$source), "ecov")
+  testthat::expect_true(all(is.finite(o$residual)))
+  testthat::expect_true(all(is.na(o$predicted)))
+  testthat::expect_gt(stats::sd(o$residual), 0.05)
+
+  # It does NOT match a Gaussian method here, and that is expected rather than a
+  # defect: the latent state is a random effect, so oneStepPredict integrates the
+  # CDF over it by Laplace, and that integrand is a Gaussian times a sigmoid
+  # rather than a density. For a Gaussian observation the Gaussian methods
+  # integrate a density and are exact -- see ?osa_residuals. Pinned loosely, as
+  # a record that the two differ by an amount of this order.
+  g <- suppressWarnings(suppressMessages(Rceattle::osa_residuals(
+    fit, source = "ecov", method = "oneStepGaussian", parallel = FALSE)))
+  d <- max(abs(o$residual - g$residual))
+  testthat::expect_gt(d, 1e-3)
+  testthat::expect_lt(d, 1)
+})
+
+
 testthat::test_that("an unknown method is rejected before any model is built", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")

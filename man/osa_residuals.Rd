@@ -219,8 +219,8 @@ observation against it. That is fast, and it is what WHAM and SAM use.
 
 \code{"cdf"} instead asks the model for the conditional CDF and returns
 \code{qnorm(F(x))} -- the probability integral transform, which is standard normal
-whatever shape the conditional has. Nothing is approximated and no conditional
-mean is formed, so the method has three properties the Gaussian ones do not:
+whatever shape the conditional has. No conditional mean is formed, so the
+method has three properties the Gaussian ones do not:
 \itemize{
 \item \strong{\code{predicted} is \code{NA} on every row} (and so is \code{sd}, which
 \code{"oneStepGaussianOffMode"} does not return either). \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}
@@ -248,13 +248,23 @@ is a beta-binomial, which has no closed-form CDF and cannot be summed at a
 fractional count. Those fleets are residualized with
 \code{"oneStepGaussianOffMode"}, announced in a message and recorded in the
 \code{method} attribute.
-\item \strong{\verb{|residual|} is censored at 8.04}, where the conditional CDF reaches the
-last double below 0 or 1 (the absolute ceiling, reading a CDF straight off,
-is 8.21). This is not a large number standing in for a larger one -- it is a
-ceiling, and \code{\link[=osa_diagnostics]{osa_diagnostics()}} summarises the censored values. On a
-fixture with one survey year about 18 standard deviations out, the overall
-SDNR falls from 5.67 to 2.91. The function warns when any residual sits
-there; a Gaussian \code{method} gives the uncensored number for those rows.
+\item \strong{\verb{|residual|} is censored at 8.04, in both directions, deliberately.} The
+upper end is forced: \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} recovers \code{F} as
+\code{1 / (1 + exp(.))}, which saturates at the last double below one, so no
+method reading a CDF can report past 8.21 on that side. The lower end is
+not -- that same expression carries a small \code{F} down to about 1e-308, i.e.
+a residual of -37 -- and it is censored to match anyway, because an
+asymmetric ceiling would show as a long left tail against a wall on the
+right, which is what skewness in the residuals looks like. Losing magnitude
+symmetrically is preferable to manufacturing an apparent shape.
+
+The cost is real: this is a ceiling, not a large number standing in for a
+larger one, and \code{\link[=osa_diagnostics]{osa_diagnostics()}} computes SDNR and the tail statistics on
+the censored values. On a 12-year index series with one year 15 standard
+deviations out, the SDNR reads 2.32 against an uncensored 4.33. It bites
+hardest on short series, where one observation carries the statistic. The
+function warns when any residual sits at the ceiling; a Gaussian \code{method}
+reports the uncensored number for those rows.
 \item \strong{Compositions are residualized in their own \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call},
 because \code{discrete} differs between them and the aggregate series and TMB
 takes one setting per call. Everything earlier in the sequence is passed as
@@ -284,6 +294,48 @@ this method, and why \code{cdf} with \code{discrete = FALSE} is the worst of the
 On the aggregate index and catch series, which are genuinely Gaussian, all
 three agree (to 5e-5 wherever \verb{|residual| < 8}, i.e. everywhere the \code{"cdf"}
 ceiling above does not bind) and all three pass.
+}
+
+\section{Random effects, where the choice reverses for the aggregate series}{
+
+\code{"cdf"} is exact only on a fixed-effect model. With random effects
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} integrates the CDF over the latent states by Laplace,
+and the integrand there is a Gaussian times a sigmoid rather than a density,
+so the approximation is not exact -- where for a Gaussian observation the
+Gaussian methods integrate a density and are. Measured against the exact
+Kalman innovations of a linear-Gaussian state space model, as the latent state
+becomes more informative relative to the observation:\tabular{llll}{
+   latent/observation sd \tab \code{fullGaussian} \tab \code{oneStepGaussian} \tab \code{cdf} \cr
+   0.56 \tab 4e-16 \tab 3e-14 \tab 7e-04 \cr
+   1.12 \tab 1e-15 \tab 4e-14 \tab 6e-03 \cr
+   2.24 \tab 1e-15 \tab 3e-14 \tab 4e-02 \cr
+}
+
+
+\strong{So on a random-effects model prefer a Gaussian method for \code{"index"} and
+\code{"catch"}} -- their conditional really is Gaussian, and those methods are
+exact for it.
+
+\strong{It does not reverse for compositions.} A composition conditional is a
+discrete, skewed binomial, which is what the Gaussian methods get wrong, and
+that error is far larger than the Laplace one. Simulating from a
+22-random-effect model with the recruitment deviations redrawn and
+residualizing at the generating parameters (1680 residuals):\tabular{llll}{
+   method \tab mean (se 0.024) \tab sd (se 0.017) \tab KS rejects \cr
+   \code{oneStepGaussianOffMode} \tab +0.513 \tab 0.404 \tab 120 of 120 \cr
+   \code{cdf}, \code{discrete = TRUE} \tab +0.006 \tab 1.002 \tab 6 of 120 \cr
+}
+
+
+Six of 120 is the nominal 5\% rejection rate. The Gaussian default is not
+merely biased there, it is under-dispersed by a factor of two and a half.
+
+One caveat that applies to every method, not just this one:
+\code{Estimate_index_sd = "Analytical"} / \code{Estimate_catch_sd = "Analytical"} and
+the analytical \code{Catchability} forms concentrate their parameter out of the
+likelihood using \strong{all} the observations, including the one being
+residualized. The conditioning is then not strictly one-step-ahead and the
+residuals are approximate, by an amount that shrinks as the series lengthens.
 }
 
 \section{Negative composition \code{predicted} values}{

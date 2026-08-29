@@ -251,10 +251,10 @@ observation is treated as a free variable, the mode of the conditional density
 is found in that coordinate, and the observation is standardized against it.
 
 `method = "cdf"` instead asks the model for the conditional CDF and returns
-`qnorm(F(x))`. Nothing is approximated. For a composition bin the conditional is
-a binomial, written through the regularized incomplete beta so it is defined at
-the fractional counts composition data carry; for the aggregate series it is
-`pnorm`.
+`qnorm(F(x))`. For a composition bin the conditional is a binomial, written
+through the regularized incomplete beta so it is defined at the fractional
+counts composition data carry; for the aggregate series it is `pnorm`. On a
+fixed-effect model nothing is approximated; with random effects see below.
 
 The two do not agree on composition data, and the disagreement is measurable.
 Simulating observations from a fitted model and residualizing them at the
@@ -304,12 +304,46 @@ Three things to know before switching:
   `"oneStepGaussianOffMode"`, announced in a message, and recorded in the
   object's `method` attribute. Their `predicted` is blanked too, so the column
   keeps one meaning across the object.
-* **`|residual|` is censored at 8.04**, where the conditional CDF reaches the
-  last double below 0 or 1. This is a ceiling, not a large number standing in
-  for a larger one, and `osa_diagnostics()` summarises the censored values: on a
-  fixture with one survey year about 18 standard deviations out, the overall
-  SDNR falls from 5.67 to 2.91. `osa_residuals()` warns when any residual sits
-  there, and a Gaussian `method` reports the uncensored value.
+* **`|residual|` is censored at 8.04, in both directions.** The upper end is
+  forced by double precision — `F` is recovered as `1/(1 + exp(.))`, which
+  saturates at the last double below one. The lower end is not: that same
+  expression carries a small `F` down to about 1e-308. It is censored to match
+  anyway, because an asymmetric ceiling would show as a long left tail against a
+  wall on the right, which is what skewness in the residuals looks like. The
+  cost is real — `osa_diagnostics()` computes SDNR and the tail statistics on
+  the censored values, and on a 12-year index series with one year 15 standard
+  deviations out the SDNR reads 2.32 against an uncensored 4.33, so it bites
+  hardest on short series. `osa_residuals()` warns when any residual sits there,
+  and a Gaussian `method` reports the uncensored value.
+
+### With random effects, the choice reverses for the aggregate series
+
+`"cdf"` is exact only on a fixed-effect model. With random effects
+`oneStepPredict()` integrates the CDF over the latent states by Laplace, and
+that integrand is a Gaussian times a sigmoid rather than a density — where, for
+a Gaussian observation, the Gaussian methods integrate a density and are exact.
+Measured against the exact Kalman innovations of a linear-Gaussian state space
+model, as the latent state becomes more informative relative to the observation:
+
+| latent/observation sd | `fullGaussian` | `oneStepGaussian` | `cdf` |
+|---|---|---|---|
+| 0.56 | 4e-16 | 3e-14 | 7e-04 |
+| 1.12 | 1e-15 | 4e-14 | 6e-03 |
+| 2.24 | 1e-15 | 3e-14 | 4e-02 |
+
+**So on a model with random effects, prefer a Gaussian method for `"index"` and
+`"catch"`.** It does not reverse for compositions: their conditional is discrete
+and skewed, which is what the Gaussian methods get wrong, and by much more.
+Simulating from a 22-random-effect model with the recruitment deviations redrawn
+and residualizing at the generating parameters (1680 residuals),
+`oneStepGaussianOffMode` gives mean +0.513, sd 0.404 and KS rejection in every
+one of 120 replicates, against +0.006, sd 1.002 and 6 of 120 — the nominal 5% —
+for `"cdf"` with `discrete = TRUE`.
+
+One caveat that applies to every method: `Estimate_index_sd = "Analytical"` and
+the analytical `Catchability` forms concentrate their parameter out using **all**
+the observations, including the one being residualized, so the conditioning is
+not strictly one-step-ahead and the residuals are approximate.
 
 ### Fleets with tail accumulation
 

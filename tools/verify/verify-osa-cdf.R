@@ -184,5 +184,56 @@ cat(sprintf("  n = %d   gaussian sd %.4f (%.0fs)   cdf sd %.4f (%.0fs)   cor %.4
             nrow(gr), stats::sd(gr$residual), tg, stats::sd(cr$residual), tc,
             stats::cor(gr$residual, cr$residual),
             sum(!is.finite(gr$residual)), sum(!is.finite(cr$residual))))
+cat("\n")
+
+# ---- The same distributional test, WITH random effects -----------------------
+# The self-test above is on a fixed-effect model, where "cdf" is exact. It is not
+# exact once there are random effects: TMB integrates exp(-h(u))*F(x|u) by
+# Laplace, and that integrand is a Gaussian times a sigmoid rather than a
+# density. Against an exact Kalman oracle on a linear-Gaussian state space model
+# the error runs 7e-4 to 3.6e-2 as the latent state gets more informative, while
+# fullGaussian and oneStepGaussian are exact to machine precision. So the
+# question is whether it is large enough to overturn the recommendation for
+# COMPOSITIONS, where the Gaussian methods are wrong for a bigger reason.
+#
+# The recruitment deviations are REDRAWN. A one-step-ahead residual marginalizes
+# over the random effects, so its null distribution assumes they came from their
+# prior; holding them at their fitted values would score the methods against data
+# the model did not generate.
+cat("-- composition self-test WITH random effects --\n")
+source("tests/testthat/helpers.R", local = TRUE)
+dat_re <- make_test_data(nyrs = 15, nages = 8, seed = 77)
+fit_c <- suppressWarnings(suppressMessages(fit_mod(
+  dat_re, file = NULL, estimateMode = 1, msmMode = 0, random_rec = TRUE,
+  fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
+cat("  random effects:", length(fit_c$obj$env$random), "\n")
+acc_re <- lapply(configs, function(x) list(res = numeric(0), ks = numeric(0)))
+for (rep in seq_len(nrep * 5L)) {   # this fixture yields ~14 residuals a replicate
+  set.seed(5000 + rep)
+  ds <- try(suppressWarnings(suppressMessages(
+    sim_mod(fit_c, simulate = TRUE, process = "recruitment"))), silent = TRUE)
+  if (inherits(ds, "try-error")) next
+  sf <- try(suppressWarnings(suppressMessages(fit_mod(
+    ds, file = NULL, estimateMode = 3, msmMode = 0, random_rec = TRUE,
+    inits = fit_c$estimated_params,
+    fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE)))), silent = TRUE)
+  if (inherits(sf, "try-error")) next
+  sf$data_list$estimateMode <- 1
+  for (i in seq_along(configs)) {
+    o <- try(suppressWarnings(suppressMessages(osa_residuals(
+      sf, source = "comp", method = configs[[i]]$method,
+      discrete = configs[[i]]$discrete, parallel = FALSE, seed = 9000 + rep))),
+      silent = TRUE)
+    if (inherits(o, "try-error")) next
+    r <- o$residual[is.finite(o$residual)]
+    if (length(r) < 3) next
+    acc_re[[i]]$res <- c(acc_re[[i]]$res, r)
+    acc_re[[i]]$ks  <- c(acc_re[[i]]$ks, stats::ks.test(r, "pnorm")$p.value)
+  }
+}
+for (i in seq_along(configs)) {
+  a <- acc_re[[i]]
+  summarize(configs[[i]]$label, a$res, a$ks, c(acf1 = NA_real_, se = NA_real_))
+}
 
 cat("\ndone.\n")

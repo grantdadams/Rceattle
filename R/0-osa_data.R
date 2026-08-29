@@ -219,10 +219,20 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
           # Malformed / non-PD / mis-dimensioned covariance, or non-chronological
           # rows: fall back to excluding this fleet from the OSA residuals rather
           # than emit a wrong or ambiguously-ordered residual.
+          # Excluding the fleet drops it from the residualization model
+          # ENTIRELY, not just from the output: the cpp adds nothing for a fleet
+          # whose obsvec position is -1, so the object oneStepPredict works on
+          # carries a smaller likelihood than the fit did. On a random-effects
+          # model that shifts every other fleet's residual too, so say so.
           warning(sprintf(paste0(
             "OSA residuals: index fleet %d has a missing / non-positive-definite / ",
-            "non-%dx%d covariance matrix or non-chronological survey rows; ",
-            "excluding it from the OSA residuals."), f, length(rows), length(rows)))
+            "non-%dx%d covariance matrix or non-chronological survey rows. Its ",
+            "survey likelihood is dropped from the model the residuals are ",
+            "computed on -- so the fleet gets no residuals, and on a model with ",
+            "random effects the other fleets' residuals are not the ones an ",
+            "otherwise identical model would give. data_check() rejects the ",
+            "malformed-covariance cases, so in practice this is survey rows that ",
+            "are not in ascending year order."), f, length(rows), length(rows)))
         } else {
           z <- as.numeric(forwardsolve(L, index_obs[rows, 1]))   # L^-1 obs (whitened)
           index_obsvec_idx[rows] <- append_obs(

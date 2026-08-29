@@ -36,6 +36,41 @@ corrects; that file now opens with what measurement actually found.
   `verify-refit-like.R` bit-identical against a baseline captured in a worktree at the merge
   base; `osa_mode` 1 vs 2 identical slot by slot.
 
+**Second review round: completeness and mathematics.** Two more adversarial passes, one
+enumerating every objective term, one deriving each CDF from its density. What they changed:
+
+- **`"cdf"` is NOT exact under random effects, and the recommendation splits by data type.**
+  oneStepPredict integrates the CDF over the latent states by Laplace, and that integrand is a
+  Gaussian times a sigmoid, not a density. Against the exact Kalman innovations of a
+  linear-Gaussian state space model (`scratchpad/ssm.cpp`, reproduced independently of the
+  reviewer): `fullGaussian` and `oneStepGaussian` are exact to 1e-14, `"cdf"` errs 7e-4 → 4e-2 as
+  the latent state gets more informative. **So prefer a Gaussian method for `index`/`catch` on a
+  random-effects model.** It does NOT reverse for compositions: 22-RE fixture, recruitment
+  deviations redrawn, 1680 residuals — Gaussian mean +0.513 / sd 0.404 / KS 120 of 120, `"cdf"` +
+  `discrete` mean +0.006 / sd 1.002 / KS 6 of 120 (the nominal 5%). That case is now in
+  `tools/verify/verify-osa-cdf.R`; the harness previously tested the null distribution on
+  fixed-effect models only.
+- **The lower-tail censoring at 8.04 is a CHOICE, not an arithmetic limit** — the docstring said
+  otherwise and was wrong. `Fx = 1/(1 + exp(.))` saturates just below 1 on the upper side, but
+  carries a small `F` down to ~1e-308 (a residual of −37) on the lower. Kept symmetric anyway,
+  and the reason is now stated: an asymmetric ceiling reads as skewness, which is a real
+  diagnostic signal and should not be manufactured. Cost measured: SDNR 2.32 against an
+  uncensored 4.33 on a 12-year index with one 15-sd year. Warned about.
+- **`test-schema-jnll-rows.R` was counting writes inside block comments**, so it reported
+  `JNLL_RATION` / `JNLL_RATION_PENALTY` as live and never reached its own "a row nothing writes
+  yet" branch. Now strips comments first: 130 raw writes → 125 live, and those two rows correctly
+  drop out. The ration likelihood really is dead code (Kinzey & Punt, `msmMode > 2`, which
+  `data_check()` refuses).
+- **Still open, deliberately: `ceattle.cpp:4333`** (`JNLL_Q_DEV`) reads `env_index` as an
+  observation with no obsvec slot, keep gate or CDF. It is the dead QAR1 path already in the
+  loose-ends list — `est_index_q == 6` is refused by `data_check()`, so it cannot fire, and if it
+  ever did it would add the SAME constant to `nll`, `nlcdf.lower` and `nlcdf.upper`, which cancels
+  in `Fx`. So it would cost that observation its own residual, not corrupt anyone else's.
+  Removing it together with `R/6-process_residuals.R:204` is still Grant's call.
+- Coverage is otherwise complete and was verified mechanically rather than by reading: every
+  `obsvec` slot was probed by setting its cdf gate and measuring the objective change. A slot with
+  no CDF term returns exactly 0 — the silent failure the design warns about — and none did.
+
 **Four things measurement refuted, having been asserted first.** Worth reading before the next
 OSA session: (1) `keep.segment()` DOES carry `cdf_lower`/`cdf_upper` — `tmb_core.hpp:481` says
 so explicitly, and the old handoff's warning cites the struct-level note instead. (2) `pkgload`

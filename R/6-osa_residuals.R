@@ -212,8 +212,8 @@
 #'
 #' `"cdf"` instead asks the model for the conditional CDF and returns
 #' `qnorm(F(x))` -- the probability integral transform, which is standard normal
-#' whatever shape the conditional has. Nothing is approximated and no conditional
-#' mean is formed, so the method has three properties the Gaussian ones do not:
+#' whatever shape the conditional has. No conditional mean is formed, so the
+#' method has three properties the Gaussian ones do not:
 #'
 #' * **`predicted` is `NA` on every row** (and so is `sd`, which
 #'   `"oneStepGaussianOffMode"` does not return either). [TMB::oneStepPredict()]
@@ -240,13 +240,23 @@
 #'   fractional count. Those fleets are residualized with
 #'   `"oneStepGaussianOffMode"`, announced in a message and recorded in the
 #'   `method` attribute.
-#' * **`|residual|` is censored at 8.04**, where the conditional CDF reaches the
-#'   last double below 0 or 1 (the absolute ceiling, reading a CDF straight off,
-#'   is 8.21). This is not a large number standing in for a larger one -- it is a
-#'   ceiling, and [osa_diagnostics()] summarises the censored values. On a
-#'   fixture with one survey year about 18 standard deviations out, the overall
-#'   SDNR falls from 5.67 to 2.91. The function warns when any residual sits
-#'   there; a Gaussian `method` gives the uncensored number for those rows.
+#' * **`|residual|` is censored at 8.04, in both directions, deliberately.** The
+#'   upper end is forced: [TMB::oneStepPredict()] recovers `F` as
+#'   `1 / (1 + exp(.))`, which saturates at the last double below one, so no
+#'   method reading a CDF can report past 8.21 on that side. The lower end is
+#'   not -- that same expression carries a small `F` down to about 1e-308, i.e.
+#'   a residual of -37 -- and it is censored to match anyway, because an
+#'   asymmetric ceiling would show as a long left tail against a wall on the
+#'   right, which is what skewness in the residuals looks like. Losing magnitude
+#'   symmetrically is preferable to manufacturing an apparent shape.
+#'
+#'   The cost is real: this is a ceiling, not a large number standing in for a
+#'   larger one, and [osa_diagnostics()] computes SDNR and the tail statistics on
+#'   the censored values. On a 12-year index series with one year 15 standard
+#'   deviations out, the SDNR reads 2.32 against an uncensored 4.33. It bites
+#'   hardest on short series, where one observation carries the statistic. The
+#'   function warns when any residual sits at the ceiling; a Gaussian `method`
+#'   reports the uncensored number for those rows.
 #' * **Compositions are residualized in their own [TMB::oneStepPredict()] call**,
 #'   because `discrete` differs between them and the aggregate series and TMB
 #'   takes one setting per call. Everything earlier in the sequence is passed as
@@ -275,6 +285,46 @@
 #' On the aggregate index and catch series, which are genuinely Gaussian, all
 #' three agree (to 5e-5 wherever `|residual| < 8`, i.e. everywhere the `"cdf"`
 #' ceiling above does not bind) and all three pass.
+#'
+#' @section Random effects, where the choice reverses for the aggregate series:
+#' `"cdf"` is exact only on a fixed-effect model. With random effects
+#' [TMB::oneStepPredict()] integrates the CDF over the latent states by Laplace,
+#' and the integrand there is a Gaussian times a sigmoid rather than a density,
+#' so the approximation is not exact -- where for a Gaussian observation the
+#' Gaussian methods integrate a density and are. Measured against the exact
+#' Kalman innovations of a linear-Gaussian state space model, as the latent state
+#' becomes more informative relative to the observation:
+#'
+#' | latent/observation sd | `fullGaussian` | `oneStepGaussian` | `cdf` |
+#' |---|---|---|---|
+#' | 0.56 | 4e-16 | 3e-14 | 7e-04 |
+#' | 1.12 | 1e-15 | 4e-14 | 6e-03 |
+#' | 2.24 | 1e-15 | 3e-14 | 4e-02 |
+#'
+#' **So on a random-effects model prefer a Gaussian method for `"index"` and
+#' `"catch"`** -- their conditional really is Gaussian, and those methods are
+#' exact for it.
+#'
+#' **It does not reverse for compositions.** A composition conditional is a
+#' discrete, skewed binomial, which is what the Gaussian methods get wrong, and
+#' that error is far larger than the Laplace one. Simulating from a
+#' 22-random-effect model with the recruitment deviations redrawn and
+#' residualizing at the generating parameters (1680 residuals):
+#'
+#' | method | mean (se 0.024) | sd (se 0.017) | KS rejects |
+#' |---|---|---|---|
+#' | `oneStepGaussianOffMode` | +0.513 | 0.404 | 120 of 120 |
+#' | `cdf`, `discrete = TRUE` | +0.006 | 1.002 | 6 of 120 |
+#'
+#' Six of 120 is the nominal 5% rejection rate. The Gaussian default is not
+#' merely biased there, it is under-dispersed by a factor of two and a half.
+#'
+#' One caveat that applies to every method, not just this one:
+#' `Estimate_index_sd = "Analytical"` / `Estimate_catch_sd = "Analytical"` and
+#' the analytical `Catchability` forms concentrate their parameter out of the
+#' likelihood using **all** the observations, including the one being
+#' residualized. The conditioning is then not strictly one-step-ahead and the
+#' residuals are approximate, by an amount that shrinks as the series lengthens.
 #'
 #' @section Negative composition `predicted` values:
 #' This section describes the Gaussian methods. Under `method = "cdf"` no

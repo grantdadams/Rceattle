@@ -96,16 +96,36 @@ version throughout.
   because a missing CDF term does not fail loudly -- it makes both tails equal,
   giving `Fx = 0.5` and a residual of exactly 0 for every bin.
 
-* **`|residual|` is censored at 8.04 under `"cdf"`, and `osa_residuals()` now
-  warns when any residual sits there.** `Fx` is recovered in double precision
-  from `1 / (1 + exp(nlcdf.lower - nlcdf.upper))`, which cannot resolve past the
-  last double below one; the CDFs are squeezed to four machine epsilons so the
-  ceiling is symmetric and finite rather than landing on that arithmetic's
-  rounding tie, which produced 6 infinite residuals on BS2017SS. It is a
-  ceiling, not a large number: `osa_diagnostics()` summarises the censored
-  values, and on a fixture with one survey year about 18 standard deviations out
-  the overall SDNR falls from 5.67 to 2.91. A Gaussian `method` reports the
-  uncensored number for those rows.
+* **`|residual|` is censored at 8.04 under `"cdf"`, in both directions, and
+  `osa_residuals()` warns when any residual sits there.** The upper end is
+  forced: `Fx` is recovered from `1 / (1 + exp(nlcdf.lower - nlcdf.upper))` in
+  double precision, which saturates at the last double below one, so nothing
+  reading a CDF can report past 8.21 on that side. The lower end is *not* --
+  that expression carries a small `F` down to about 1e-308, a residual of -37 --
+  and is censored to match anyway, because an asymmetric ceiling would show as a
+  long left tail against a wall on the right, which is what skewness in the
+  residuals looks like. The cost is real: `osa_diagnostics()` computes SDNR and
+  the tail statistics on the censored values, and on a 12-year index series with
+  one year 15 standard deviations out the SDNR reads 2.32 against an uncensored
+  4.33. It bites hardest on short series. A Gaussian `method` reports the
+  uncensored number. (Four machine epsilons rather than one, so the ceiling does
+  not land on that arithmetic's rounding tie, which produced 6 infinite
+  residuals on BS2017SS.)
+
+* **`"cdf"` is exact only without random effects, and the recommendation splits
+  by data type there.** With random effects [TMB::oneStepPredict()] integrates
+  the CDF over the latent states by Laplace, and that integrand is a Gaussian
+  times a sigmoid rather than a density. Against the exact Kalman innovations of
+  a linear-Gaussian state space model, `fullGaussian` and `oneStepGaussian` are
+  exact to machine precision while `"cdf"` errs by 7e-4 to 4e-2 as the latent
+  state becomes more informative. **So prefer a Gaussian method for `"index"`
+  and `"catch"` on a random-effects model.** It does not reverse for
+  compositions, whose conditional is discrete and skewed -- exactly what the
+  Gaussian methods get wrong, and by much more. Simulating from a
+  22-random-effect model with the recruitment deviations redrawn (1680
+  residuals): `oneStepGaussianOffMode` gives mean +0.513, sd 0.404 and KS
+  rejection in 120 of 120 replicates; `"cdf"` with `discrete = TRUE` gives mean
+  +0.006, sd 1.002 and 6 of 120, the nominal 5%.
 
 * **Every [TMB::oneStepPredict()] call now conditions on the observations that
   precede its group** (`conditional =`), instead of discarding them. The
