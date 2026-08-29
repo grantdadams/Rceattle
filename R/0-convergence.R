@@ -241,14 +241,19 @@
 #'
 #' @param n_dropped,n_total Counts for the message.
 #' @param what Singular noun for the unit, e.g. `"peel"`.
+#' @param warn Raise a warning rather than a message. `retrospective()` sets it
+#'   because Mohn's rho is averaged over the peels that survive, so a drop
+#'   changes a reported number; `suppressMessages()` is common enough in the
+#'   assessment scripts that a message would not reach the reader.
 #' @return `invisible(NULL)`, called for the message.
 #' @noRd
-.report_dropped <- function(n_dropped, n_total, what) {
+.report_dropped <- function(n_dropped, n_total, what, warn = FALSE) {
   if (!isTRUE(n_dropped > 0)) return(invisible(NULL))
-  message(sprintf(
+  txt <- sprintf(
     "%d of %d %s%s dropped as non-converged (max|gradient| > 1, or sdreport failed); %d returned.",
     n_dropped, n_total, what, if (n_dropped == 1L) "" else "s",
-    n_total - n_dropped))
+    n_total - n_dropped)
+  if (isTRUE(warn)) warning(txt, call. = FALSE) else message(txt)
   invisible(NULL)
 }
 

@@ -214,6 +214,109 @@
   catch * catch_mult[species]
 }
 
+# Projection catch -------------------------------------------------------------
+#
+# Catch recorded past a model's terminal year is arbitrary "future" data, the
+# same as the index and composition rows the MSE setup filters out. It cannot be
+# dropped the same way: those rows ARE the projection, and each assessment fills
+# them with the catch its control rule recommends. They are blanked to NA
+# instead, which is the state `clean_data()` creates a projection row in.
+#
+# Nothing the model uses is lost. The likelihood scores only `Year <= endyr`, so
+# these rows never entered the fit, and no harvest control rule reads observed
+# catch -- HCR 1 (constant catch) sums `catch_hat`, not the data. Section 3 of
+# the assessment loop already overwrites every year in the interval with the
+# operating model's realized catch, so a value left here survives one assessment
+# at most.
+#
+# What it costs to leave them is the fill in section 1, which selects rows on
+# `is.na(Catch)`. A projection year arriving with a number is skipped: no catch
+# is written for it, the interval total comes out 0, and the operating model is
+# REBUILT rather than advanced -- the no-catch path, `estimateMode = 3` with the
+# map dropped. A workbook whose terminal year lags its catch series (catch
+# through 2023, `endyr` still 2019) lands there for every assessment before the
+# series ends.
+#
+# Warned rather than blanked in silence. Catch recorded for a year the model
+# does not fit usually means `endyr` is out of date, and conditioning on those
+# years is a different MSE than projecting over them.
+.mse_blank_proj_catch <- function(catch_data, endyr, model) {
+  if (is.null(catch_data) || !nrow(catch_data)) return(catch_data)
+
+  filled <- which(catch_data$Year > endyr & !is.na(catch_data$Catch))
+  if (!length(filled)) return(catch_data)
+
+  yrs <- sort(unique(catch_data$Year[filled]))
+  warning("The ", model, " model records catch in ",
+          paste(yrs, collapse = ", "), ", past its terminal year (", endyr,
+          "). Those are projection years, whose catch the MSE sets from the ",
+          "control rule, so the recorded values are dropped.", call. = FALSE)
+
+  catch_data$Catch[filled] <- NA
+  catch_data
+}
+
+# Projection rows for the fixed biological inputs ------------------------------
+#
+# `weight` (weight-at-age, kg) and `ration_data` (annual foraging days) are
+# carried into the projection by repeating each series' terminal year, one row
+# per projection year -- the MSE holds both at the operating model's last
+# hindcast year.
+#
+# A series supplied for Year 0 is exempt. That is the time-invariant convention,
+# and `rearrange_data()` already fills every hindcast year from the single row,
+# so there is nothing for the projection to extend. Expanding one replaces a
+# legal one-row series with one naming the projection years and no year before
+# them; `data_check()` reads any index carrying more than one year as
+# time-varying and requires it to span `styr..endyr`, so the first assessment --
+# which advances `endyr` -- fails with "Weight data for index = 4 & sex = 1 does
+# not span all hindcast years". The check is right; the expansion was giving it
+# something to reject.
+#
+# Grouped on the series id and `Sex`, and carried forward from the group's last
+# row at or before `endyr` -- the terminal HINDCAST year, which is the value
+# `run_mse()` documents holding through the projection. A workbook whose series
+# runs past its own `endyr` therefore does not project its post-terminal rows
+# forward; those rows are kept where they are, and a projection year that
+# already has a row of its own keeps it rather than gaining a second. Two rows
+# for one year is not inert: `rearrange_data()` assigns row by row into the
+# weight array, so the later row wins, and the carried-forward value would
+# silently replace an observation. `clean_data()` skips an already-present
+# projection year for catch, and the `NByageFixed` expansion below does the
+# same.
+.mse_expand_fixed_input <- function(dat, id_col, endyr, proj_yrs) {
+  if (is.null(dat) || !nrow(dat)) return(dat)
+
+  key <- paste(dat[[id_col]], dat$Sex)
+  out <- dat
+  for (k in unique(key)) {
+    rows <- which(key == k)
+    if (all(dat$Year[rows] == 0)) next   # time-invariant; already spans the projection
+
+    add <- setdiff(proj_yrs, dat$Year[rows])
+    if (!length(add)) next
+
+    # Year 0 alongside dated rows is a mixed series data_check() rejects; take
+    # the LATEST hindcast row, falling back to the group's latest row so a
+    # series ending before styr still carries something forward.
+    #
+    # By year, not by table position: nothing sorts `weight` on read, so the
+    # last row of a group need not be its last year. Taking it by position
+    # carries the wrong weight-at-age through the whole projection.
+    hind <- rows[dat$Year[rows] > 0 & dat$Year[rows] <= endyr]
+    src  <- if (length(hind)) hind[which.max(dat$Year[hind])]
+            else rows[which.max(dat$Year[rows])]
+
+    proj <- dat[rep(src, length(add)), , drop = FALSE]
+    proj$Year <- add
+    out <- rbind(out, proj)
+  }
+
+  out <- out[order(out[[id_col]], out$Year), , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}
+
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward-projecting management strategy evaluation (MSE). Projected selectivity, catchability, foraging days, and weight-at-age are held at the operating model's terminal hindcast year. Survey SD is set to the average over the historical time series, and composition sample size is held at the last year. There is no implementation error and no observation error on catch.
@@ -325,6 +428,17 @@
 #' `1 - (1 - mult) * attainment`, or report the unscaled result as an upper
 #' bound on the effect of the reduction.
 #'
+#' # Projection catch
+#'
+#' Catch recorded past a model's terminal year is blanked to `NA` at setup, with
+#' a warning naming the years. Those years are the projection, and the MSE sets
+#' their catch from the control rule; the likelihood never scored them either,
+#' since it fits only `Year <= endyr`. This is what a workbook looks like when
+#' `endyr` has fallen behind the catch series -- catch through 2023 with `endyr`
+#' still 2019 -- and it is worth resolving before running the MSE, because
+#' conditioning the assessment on those years is a different question from
+#' projecting over them.
+#'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @examples
 #' \dontrun{
@@ -366,6 +480,34 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       stop("cap is not length 1 or length nspp")
     }
   }
+
+  # - The two models must share a hindcast and a projection horizon
+  # The assessment loop reads the row positions of catch rows to fill off the
+  # ESTIMATION model's catch table and indexes the OPERATING model's
+  # `max_catch_hat` with them, so the two tables have to describe the same rows
+  # in the same order. Terminal and projection years that disagree break that
+  # silently -- the exploitable-biomass limit is then read off the wrong years,
+  # or off NA -- so it is refused here rather than left to surface as catch
+  # advice that is wrong without being obviously wrong.
+  if(om$data_list$endyr != em$data_list$endyr ||
+     om$data_list$projyr != em$data_list$projyr){
+    stop("The operating and estimation models must share a terminal year and a ",
+         "projection horizon; got endyr ", om$data_list$endyr, " / ",
+         em$data_list$endyr, " and projyr ", om$data_list$projyr, " / ",
+         em$data_list$projyr, ". The MSE fills catch by row position across ",
+         "both models, which requires the same years in the same order.",
+         call. = FALSE)
+  }
+
+  # - Blank catch recorded past either model's terminal year
+  # Ahead of the Proj_F_proportion check below, which compares recorded catch
+  # against projected exploitable biomass: catch in a projection year the
+  # operating model fishes at F = 0 fails that comparison and forces a rebuild
+  # the model does not need.
+  om$data_list$catch_data <- .mse_blank_proj_catch(
+    om$data_list$catch_data, om$data_list$endyr, "operating")
+  em$data_list$catch_data <- .mse_blank_proj_catch(
+    em$data_list$catch_data, em$data_list$endyr, "estimation")
 
   # na.rm: Proj_F_proportion is NA for fleets that never take catch (surveys),
   # which is a legitimate workbook value. Without it the sum is NA and the `if`
@@ -588,24 +730,12 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
   # -- weight
   #FIXME ignores forecasted growth
-  if(nrow(om$data_list$weight) > 0){
-    proj_wt <- om$data_list$weight |>
-      dplyr::group_by(Wt_index , Sex) |>
-      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
-      dplyr::mutate(Year = om_proj_yrs)
-    om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
-    om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
-  }
+  om$data_list$weight <- .mse_expand_fixed_input(
+    om$data_list$weight, "Wt_index", om$data_list$endyr, om_proj_yrs)
 
   # -- ration_data
-  if(nrow(om$data_list$ration_data) > 0){
-    proj_ration_data <- om$data_list$ration_data |>
-      dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
-      dplyr::mutate(Year = om_proj_yrs)
-    om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
-    om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
-  }
+  om$data_list$ration_data <- .mse_expand_fixed_input(
+    om$data_list$ration_data, "Species", om$data_list$endyr, om_proj_yrs)
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand EM data-dim ----
@@ -623,24 +753,12 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   }
 
   # -- EM weight
-  if(nrow(em$data_list$weight) > 0){
-    proj_wt <- em$data_list$weight |>
-      dplyr::group_by(Wt_index , Sex) |>
-      dplyr::slice(rep(n(),  em_proj_nyrs)) |>
-      dplyr::mutate(Year = em_proj_yrs)
-    em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
-    em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
-  }
+  em$data_list$weight <- .mse_expand_fixed_input(
+    em$data_list$weight, "Wt_index", em$data_list$endyr, em_proj_yrs)
 
   # -- EM ration_data
-  if(nrow(em$data_list$ration_data) > 0){
-    proj_ration_data <- em$data_list$ration_data |>
-      dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(dplyr::n(),  em_proj_nyrs)) |>
-      dplyr::mutate(Year = em_proj_yrs)
-    em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
-    em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
-  }
+  em$data_list$ration_data <- .mse_expand_fixed_input(
+    em$data_list$ration_data, "Species", em$data_list$endyr, em_proj_yrs)
 
 
   # Cross-platform parallel via parallel::parLapply on a PSOCK cluster.

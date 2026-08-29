@@ -159,6 +159,17 @@ full. Either scale the multiplier by recent attainment,
 bound on the effect of the reduction.
 }
 
+\section{Projection catch}{
+Catch recorded past a model's terminal year is blanked to \code{NA} at setup, with
+a warning naming the years. Those years are the projection, and the MSE sets
+their catch from the control rule; the likelihood never scored them either,
+since it fits only \code{Year <= endyr}. This is what a workbook looks like when
+\code{endyr} has fallen behind the catch series -- catch through 2023 with \code{endyr}
+still 2019 -- and it is worth resolving before running the MSE, because
+conditioning the assessment on those years is a different question from
+projecting over them.
+}
+
 \examples{
 \dontrun{
 data(BS2017SS)

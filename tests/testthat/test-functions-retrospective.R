@@ -221,20 +221,30 @@ testthat::test_that("retrospective survives dropped peels (regression)", {
   local({
     testthat::local_mocked_bindings(.refit_converged = keep_only(numeric(0)),
                                     .package = "Rceattle")
+    # Two warnings now: the drop itself, then rho having nothing to average.
     testthat::expect_warning(
-      r <- suppressMessages(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
+      testthat::expect_warning(
+        r <- suppressMessages(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
+        "2 of 2 peels dropped"),
       "Mohn's rho is undefined")
     testthat::expect_length(r$Rceattle_list, 1L)
     testthat::expect_equal(names(r$Rceattle_list), paste0("Year_", endyr))
   })
 
-  # And the drop is reported rather than silent.
+  # And the drop WARNS rather than messages: rho is averaged over the peels
+  # that survive, so a drop changes a reported number, and `suppressMessages()`
+  # is common enough in the assessment scripts to hide a message.
   local({
     testthat::local_mocked_bindings(.refit_converged = keep_only(endyr - 1),
                                     .package = "Rceattle")
-    testthat::expect_message(
-      suppressWarnings(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
+    testthat::expect_warning(
+      r <- suppressMessages(retrospective(fit, peels = 2, cores = 1, getsd = FALSE)),
       "1 of 2 peel dropped")
+    # The count asked for rides on the object, so print() can still say a peel
+    # was lost once the warning has scrolled away.
+    testthat::expect_equal(r$peels_requested, 2)
+    testthat::expect_true(any(grepl(
+      "1 peel\\(s\\) dropped", utils::capture.output(print(r)))))
   })
 })
 
@@ -572,4 +582,83 @@ testthat::test_that(".normalize_fit_tmb unwraps fit_tmb's non-PD early return", 
   testthat::expect_identical(Rceattle:::.normalize_fit_tmb(est), est)
   testthat::expect_identical(Rceattle:::.normalize_fit_tmb(c(est, list(SD = "sd"))),
                              c(est, list(SD = "sd")))
+})
+
+
+testthat::test_that("a peel reports standard errors for its own hindcast", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  # A peel is fitted twice, and the second refit estimates only the peeled
+  # years' F. Reported from that, every hindcast quantity gets a standard error
+  # of exactly zero, so a peel drew with no confidence band while the unpeeled
+  # model drew one. The peel is now reported from the same parameters with the
+  # hindcast free in the map, built without optimizing.
+  # BS2017SS rather than make_test_data(): `getsd = TRUE` also turns on the
+  # positive-definite Hessian check in .refit_converged(), and the small fixture
+  # loses every peel to it, leaving nothing to assert on.
+  data(BS2017SS, envir = environment())
+  d <- BS2017SS
+  d$projyr <- 2020
+  d$fleet_control$Proj_F_proportion <- rep(1, 7)
+
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, inits = NULL, file = NULL, estimateMode = 0,
+    random_rec = FALSE, msmMode = 0,
+    fit_control = fit_control(phase = FALSE, getsd = TRUE, verbose = 0))))
+
+  r <- suppressMessages(suppressWarnings(
+    retrospective(fit, peels = 1, cores = 1, getsd = TRUE)))
+
+  # The last entry is the input model passed through; the refits are the rest.
+  full_endyr <- fit$data_list$endyr
+  is_refit <- vapply(r$Rceattle_list,
+                     function(x) x$data_list$endyr_peel < full_endyr, logical(1))
+  testthat::expect_true(any(is_refit))
+
+  ssb_se <- function(m) {
+    s <- m$sdrep$sd[which(names(m$sdrep$value) == "ssb")]
+    nh <- m$data_list$endyr_peel - m$data_list$styr + 1
+    matrix(s, nrow = m$data_list$nspp)[1, seq_len(nh)]
+  }
+
+  for (m in r$Rceattle_list[is_refit]) {
+    se <- ssb_se(m)
+    testthat::expect_true(all(is.finite(se)))
+    testthat::expect_true(all(se > 0))   # the defect: every one was exactly 0
+  }
+
+  # The report model is built at estimateMode 3, which skips the projection
+  # stage. If that changed the ADREPORT span, every plotter indexing by year
+  # would silently misalign.
+  n_ssb <- function(m) sum(names(m$sdrep$value) == "ssb")
+  for (m in r$Rceattle_list[is_refit]) {
+    testthat::expect_equal(n_ssb(m), n_ssb(fit))
+  }
+
+  # Nothing may be re-estimated: a peel must have the same SSB and the same
+  # objective whether or not standard errors were asked for. This is what stops
+  # the report pass being "improved" into a refit.
+  #
+  # Compared peel by peel and not run against run: `getsd = TRUE` also turns on
+  # the positive-definite Hessian check in .refit_converged(), which can drop a
+  # peel that `getsd = FALSE` keeps, so the two lists need not hold the same
+  # peels.
+  r_no <- suppressMessages(suppressWarnings(
+    retrospective(fit, peels = 1, cores = 1, getsd = FALSE)))
+
+  shared <- intersect(names(r$Rceattle_list), names(r_no$Rceattle_list))
+  testthat::expect_gt(length(shared), 0)
+  for (nm in shared) {
+    testthat::expect_equal(r$Rceattle_list[[nm]]$quantities$ssb,
+                           r_no$Rceattle_list[[nm]]$quantities$ssb)
+    testthat::expect_equal(r$Rceattle_list[[nm]]$opt$objective,
+                           r_no$Rceattle_list[[nm]]$opt$objective)
+  }
+
+  # And it is not paid for when it was not asked for.
+  no_refit <- vapply(r_no$Rceattle_list,
+                     function(x) x$data_list$endyr_peel < full_endyr, logical(1))
+  testthat::expect_true(all(vapply(r_no$Rceattle_list[no_refit],
+                                   function(m) is.null(m$sdrep), logical(1))))
 })

@@ -10,6 +10,7 @@
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
 #' @param getsd whether each peel runs \code{TMB::sdreport} (standard errors).
+#'   Costs an extra model build per peel; see Details.
 #'   Mohn's rho uses only point estimates, so \code{FALSE} is faster with no
 #'   effect on rho. Default \code{NULL} inherits the input model's setting
 #'   (\code{TRUE} if it was fit with \code{getsd = TRUE}, i.e. carries an
@@ -19,6 +20,14 @@
 #'   A peel restarts from the unpeeled fit's starting values with a year removed;
 #'   without phasing the parameters barely move, the peels sit on top of the full
 #'   model, and Mohn's rho is biased towards zero. Change it only deliberately.
+#'
+#' @details
+#' Each peel is fitted twice: a peeled hindcast, then a forecast refit that
+#' estimates only the peeled years' F. The second holds every hindcast parameter
+#' fixed, so on its own it reports a standard error of zero for the whole
+#' hindcast. Under `getsd = TRUE` the peel is therefore rebuilt at those same
+#' parameters with the hindcast free in the map and reported from there. Nothing
+#' is re-estimated, so no point estimate moves.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
 #'   each species.
@@ -300,6 +309,10 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
       rbind(peeled_catch_data) |>
       dplyr::arrange(Fleet_code, Year)
 
+    # Keep the peeled hindcast's map before it is replaced: it is what frees the
+    # hindcast again for the report-only pass after the forecast refit.
+    map_hindcast <- map
+
     # - Update map
     # Only new parameter we are estimating in is the log_F of the peeled years
     map <- build_map(
@@ -351,6 +364,40 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
           suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))
       )
     )
+
+    # * Standard errors for the peeled hindcast ----
+    # The refit above holds the hindcast fixed, so its sdreport gives every
+    # hindcast quantity a standard error of zero. Report instead from the same
+    # parameters with the hindcast free: estimateMode 3 builds without
+    # optimizing, so no point estimate moves.
+    if (isTRUE(getsd) && !is.null(newmod)) {
+      sd_map <- map_hindcast
+      # The peeled years' F was estimated too, so it belongs in the report.
+      sd_map$mapList$log_F[, (nyrs_peel + 1):nyrs] <-
+        object$map$mapList$log_F[, (nyrs_peel + 1):nyrs]
+      sd_map$mapFactor$log_F <- factor(sd_map$mapList$log_F)
+
+      newmod$sdrep <- tryCatch({
+        report_mod <- suppressWarnings(suppressMessages(
+          .refit_like(
+            data_list        = data_list,
+            inits            = newmod$estimated_params,
+            map              = sd_map,
+            estimateMode     = 3,   # build only; do not re-estimate
+            getsd            = FALSE,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+            srr_hat_endyr    = min(data_list$srr_hat_endyr, endyr_peel),
+            suit_endyr       = pmin(data_list$suit_endyr, endyr_peel))))
+        TMB::sdreport(report_mod$obj)
+      }, error = function(e) {
+        # A peel that cannot be reported is not a peel that failed: keep the
+        # fit and its point estimates, and say why the band is missing.
+        warning("Peel ", i, ": could not report hindcast standard errors (",
+                conditionMessage(e), "). Point estimates are unaffected.",
+                call. = FALSE)
+        newmod$sdrep
+      })
+    }
 
     # gc()
     #
@@ -406,7 +453,9 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
 
   # Drop non-converged peels and prepend the original model
   peel_results <- peel_results[!vapply(peel_results, is.null, logical(1))]
-  .report_dropped(peels - length(peel_results), peels, "peel")
+  # A warning, not a message: rho below is averaged over the peels that
+  # survive, so a drop changes the number that gets reported.
+  .report_dropped(peels - length(peel_results), peels, "peel", warn = TRUE)
   mod_list <- c(list(object), peel_results)
 
   # Mohn's rho averages the peels against the full model, so with none left the
@@ -509,7 +558,12 @@ retrospective <- function(object = NULL, peels = 5, rescale = FALSE, nyrs_foreca
   # Still the same list -- $Rceattle_list and $mohns are unchanged. The class
   # adds a print method that carries Mohn's reference band, which the bare
   # number never did; see print.Rceattle_retro().
-  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns)),
+  #
+  # `peels_requested` is carried so print() can say how many were asked for. The
+  # warning above is gone by the time anyone reads the object back off disk, and
+  # the list length alone cannot show a drop.
+  structure(list(Rceattle_list = mod_list, mohns = rbind(mohns),
+                 peels_requested = peels),
             class = "Rceattle_retro")
 }
 
@@ -544,11 +598,26 @@ print.Rceattle_retro <- function(x, band = 0.2, ...) {
   sev <- ifelse(is.na(rho), "OK", ifelse(abs(rho) > band, "WARN", "OK"))
   n_bad <- sum(sev == "WARN")
 
+  # Rho is averaged over the peels that survived, so a drop changes it. The
+  # list length alone cannot show one; `peels_requested` is absent on an object
+  # saved before it was carried.
+  n_kept <- length(x$Rceattle_list) - 1L          # the unpeeled model
+  n_asked <- x$peels_requested
+  n_dropped <- if (is.null(n_asked)) 0L else max(0L, n_asked - n_kept)
+  if (n_dropped > 0L) sev <- c(sev, "NOTE")
+
   .rce_diag_header(
     "retrospective", .rce_worst(sev),
-    paste0(length(x$Rceattle_list), " peel(s); ",
+    paste0(if (n_dropped > 0L) paste0(n_kept, " of ", n_asked, " peel(s); ")
+           else paste0(length(x$Rceattle_list), " peel(s); "),
            .rce_n_of(n_bad, length(rho)),
            " terminal Mohn's rho outside +/-", band))
+
+  if (n_dropped > 0L) {
+    cat("  ", n_dropped, " peel(s) dropped as non-converged, so rho is ",
+        if (n_kept > 0L) paste("averaged over", n_kept) else "undefined",
+        "\n", sep = "")
+  }
 
   if (nrow(term)) {
     show <- term

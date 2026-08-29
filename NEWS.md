@@ -12,6 +12,217 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.23.0
+
+## Reading a fitted model
+
+* **`parameter_dictionary()` is now exported.** CEATTLE's parameter vector uses
+  transformed, abbreviated names (`log_M1`, `R_log_sd`, `index_log_q`), and the
+  table explaining them existed only as an internal object with `@noRd`, so it
+  generated no help page and nobody outside the package could find it. It now
+  has a user-facing accessor that returns the internal name, the quantity on its
+  natural scale, the process it belongs to, a one-sentence meaning and the
+  dimensions, filterable by name or by process:
+
+  ```r
+  parameter_dictionary("R_log_sd")            # -> sigma_R
+  parameter_dictionary(process = "selectivity")
+  ```
+
+  An unknown `process` is an error; an unknown parameter name only warns, so
+  passing every name from a fit still works when that fit carries parameters
+  from a branch the dictionary predates. `test-schema-parameter-dictionary.R`
+  asserts that every parameter `build_params()` creates is documented, so the
+  table cannot silently fall behind the model.
+
+* **`AIC()` replaces `fit$opt$AIC` in the introduction vignette.** That slot is
+  not always there. `.fit_tmb()` normalizes what `TMBhelper::fit_tmb()` returns,
+  and when TMBhelper hands back a nested list the normalizer keeps the inner
+  `opt` — where `AIC` never lived — so the slot silently disappears. Without
+  TMBhelper the plain `nlminb` fallback has no `AIC` either. `AIC(fit)` works in
+  every case, because `logLik.Rceattle()` builds it from `opt$objective` and
+  `length(opt$par)`, both of which survive all three paths. The vignette does not
+  execute by default and `test-vignette-api.R` checks call signatures rather than
+  return shapes, so the stale line was invisible to CI.
+
+* **The introduction vignette now covers the fitted object itself** — the S3
+  methods an `Rceattle` fit responds to (`summary()`, `plot()`, `coef()`,
+  `vcov()`, `logLik()`, `residuals()`, `simulate()`, `profile()`,
+  `as.data.frame()`), the classes the diagnostics return, and where the numbers
+  live in `$quantities` versus `$estimated_params`.
+
+# Rceattle 5.22.0
+
+## Diagnostics
+
+* **`retrospective()` warns when a peel is dropped, and the object remembers how
+  many were asked for.** Mohn's rho is averaged over the peels that survive, so a
+  drop changes a number that gets reported — but it was announced by a
+  `message()`, which `suppressMessages()` hides, and nothing on the returned
+  object showed it afterwards. It now warns, carries `$peels_requested`, and
+  `print()` reads "3 of 5 peel(s)" with a `NOTE` and says what rho was averaged
+  over. `jitter()` and `self_test()` still message.
+
+  Worth knowing: `getsd = TRUE` also turns on the non-positive-definite Hessian
+  check in `.refit_converged()`, so it can drop peels that `getsd = FALSE`
+  keeps, and rho can differ between the two runs of the same model.
+
+* **A retrospective peel now carries uncertainty on its hindcast.** Each peel is
+  fitted twice — a peeled hindcast, then a forecast refit that estimates only the
+  peeled years' F — and the second holds the hindcast fixed, so it reported a
+  standard error of **zero** for every hindcast year. Peels plotted with no
+  confidence band while the unpeeled model had one.
+
+  Under `getsd = TRUE` the peel is now reported from the same parameters with the
+  hindcast free. Nothing is re-estimated: on BS2017SS under an NPFMC HCR, Mohn's
+  rho, every peel's SSB and every peel's objective are unchanged. SSB standard
+  errors in a common year now fall as data are retained — 248,693 with two years
+  peeled, 220,476 with one, 179,416 with none — instead of reading zero. Costs
+  one extra model build per peel.
+
+* **`fit_control(projection_uncertainty)` survives a refit.** It is carried on
+  `data_list` and read back by `.refit_like()`, so a peel, jitter or MSE refit
+  inherits how the model was fitted rather than taking `fit_control()`'s `FALSE`
+  default — the failure the bias-adjustment flags already guard against. Under an
+  HCR it decides whether a fit reports 6 free parameters and no hindcast
+  uncertainty, or 316 and real errors. Forwarded only when `getsd = TRUE`.
+
+* **`profile(joint =)` moves a whole set of cells on one grid.** `slots` cross
+  through `expand.grid()`, so moving a ten-age M schedule together over 13
+  values was a ten-dimensional factorial — `13^10` fits, not 13. That made an
+  empirical age-based M, the usual case when M is supplied as a vector rather
+  than estimated, impossible to profile the way it is normally reported.
+
+  `joint = "multiply"` applies one grid to every named cell as a multiplier on
+  its current natural-scale value, preserving the **shape** of the schedule
+  (ratios between ages) and moving it up or down as a whole; `1` is the fitted
+  model. `joint = "add"` adds the grid value instead, preserving the
+  **increments** between cells; `0` is the fitted model. `joint = "value"` sets
+  every cell to the same value. `"none"` is the default and unchanged.
+
+  Both act on the natural scale, so they need `transform = "log"` or
+  `"identity"` — applying a multiplier to a stored log is a different model,
+  not a different parameterisation, and an arbitrary `transform` cannot be
+  inverted. On a log-scale parameter a grid value that would drive a cell to
+  zero or below is an error naming the cell and the value, not an `NaN` fit.
+
+* **`profile(param = "q")` profiles a fleet's base catchability.**
+  `index_log_q` is one entry per fleet, named by `Fleet_name`, so `slots` takes
+  a **fleet name** as well as an index.
+
+  Fleets sharing a `Catchability_index` share one q parameter — the map copies
+  the lead fleet's slice across the group — so fixing one member's cell alone
+  would leave the rest estimating a common q, which is not that fleet's q
+  profiled. Naming any member now profiles the whole group: the others are
+  added to `slots` with a message, and `joint` becomes `"value"` so the group
+  takes one q rather than a factorial over its members.
+
+* `profile()` returns `$joint` alongside `$alias`, so `print()` and the figure
+  axis can say the grid holds a multiplier or an offset rather than a parameter
+  value. A grid running 0.7 to 1.3 under an axis reading `M1[1, 1, 1]` would be
+  read as an M of 0.7. A catchability axis names the fleet, not its number.
+
+* **`plot_profile(relative = "scaled")` puts every component on its own scale.**
+  On a real profile one component routinely dwarfs the rest — on a Bering Sea
+  pollock M profile the bottom-trawl composition moves 60.5 objective units
+  while the bottom-trawl index moves 0.697, a factor of 87 — so the large one
+  sets the y axis and every other curve is drawn as a flat line along the
+  bottom. Where those components prefer the parameter cannot be read at all,
+  which is the one thing the figure exists to show.
+
+  `"scaled"` re-zeroes each series at its own minimum and then divides by its
+  own change over the grid, so every curve runs 0 to 1 and the minima can be
+  compared directly.
+
+  **It discards magnitude**: a component moving 0.02 and one moving 40 draw
+  identically, so the figure stops saying whether a component matters and says
+  only where it points. Raise `minfraction` alongside it. `minfraction` and the
+  legend ordering are computed on the **raw** change over the grid, before any
+  re-zeroing or rescaling — computed afterwards every span would be 1, the
+  filter would drop nothing, and scaling would have quietly removed the guard
+  at exactly the moment it is needed.
+
+  `relative` keeps `"own"` (the default, unchanged), `"minimum"` and `"none"`.
+
+## Bug fixes
+
+* **`run_mse()` no longer expands a time-invariant `weight` or `ration_data`
+  series into the projection.** A series supplied at `Year 0` is time-invariant
+  — `rearrange_data()` fills every hindcast year from the single row — so it
+  needs no projection rows. Expanding it replaced one legal row with a series
+  naming the projection years and no year before them, and `data_check()` reads
+  any index carrying more than one year as time-varying and requires it to span
+  `styr..endyr`. The first assessment advances `endyr`, the check runs, and the
+  operating-model refit dies with
+
+  ```
+  Weight data for index = 4 & sex = 1 does not span all hindcast years
+  ```
+
+  recorded as a bare `"OM"` failure with the message discarded, so every
+  simulation returned `use_sim = FALSE` and `mse_summary()` had nothing to
+  summarise. Hit on a Pacific hake MSE whose workbook supplies weight indices
+  4–6 at `Year 0`; a workbook that dates every weight row never reached it. Both
+  expansions now skip a group whose rows are all `Year 0` and are shared by the
+  operating and estimation models through one helper.
+
+  Two further defects in the same expansion, found reviewing the fix. It read
+  the group's **last table row** rather than its last row at or before `endyr`,
+  so a series running past its own terminal year projected a value the hindcast
+  never fitted — not the terminal hindcast year `?run_mse` documents holding.
+  And it added a row for every projection year without checking whether one was
+  already there: `rearrange_data()` assigns row by row into the weight array, so
+  the appended duplicate sorted last and its value silently replaced the
+  observation. A workbook with catch and weight through 2023 against `endyr`
+  2019 hit both, losing four years of weight-at-age. `clean_data()` already
+  skips an already-present projection year for catch, and the `NByageFixed`
+  expansion beside this one does the same.
+
+* **`run_mse()` refuses an operating and estimation model whose terminal or
+  projection years disagree.** The assessment loop takes the row positions of
+  the catch rows to fill from the estimation model's table and indexes the
+  operating model's `max_catch_hat` with them, so the two tables have to
+  describe the same rows in the same order. Mismatched years read the
+  exploitable-biomass limit off the wrong years, or off `NA`, and the run
+  completed either way — catch advice that is wrong without looking wrong. The
+  requirement was always there; now it is checked.
+
+* **`run_mse()` no longer skips every assessment whose year already carries
+  catch.** The fill that hands the control rule's advice to the operating model
+  selects projection rows on `is.na(Catch)`. A projection year arriving with a
+  number in it was passed over: no catch was written, the interval's total came
+  out `0`, and the operating model took the no-catch path — rebuilt at
+  `estimateMode = 3` with its map dropped, rather than advanced. The next
+  section then overwrote that year with the rebuilt model's realized catch, so
+  the recorded value did not survive either; the assessment simply did not
+  happen.
+
+  This is what a workbook looks like when `endyr` has fallen behind the catch
+  series. On a Pacific hake MSE workbook carrying catch through 2023 with
+  `endyr` still 2019, four of six assessments (2020–2023) ran that way, because
+  `clean_data()` creates an `NA` projection row only for a year with no row
+  already — leaving 2024 and 2025 as the only fillable years. Nothing in the run
+  reported it.
+
+  Catch past either model's terminal year is now blanked to `NA` at setup, with
+  a warning naming the model, the years, and the terminal year it read against
+  — the three things needed to tell a stale `endyr` from data that belongs in
+  the projection. Nothing the model uses is
+  lost: the likelihood scores only `Year <= endyr`, and no control rule reads
+  observed catch (HCR 1, constant catch, sums `catch_hat`). The blanking runs
+  ahead of the `Proj_F_proportion` check, which compares recorded catch against
+  projected exploitable biomass and was tripped by the same rows into forcing a
+  rebuild the model did not need.
+
+## Documentation
+
+* The diet age-coverage warning is about half its former length. It led with
+  two clauses saying the same thing and closed with three sentences of
+  qualification, which buried the list of species and ages — the only part that
+  differs between one fit and the next. The gap lines keep their consequence in
+  a parenthesis (`never eaten`, `exerts no predation`) rather than a trailing
+  clause. Same rule, same species reported.
+
 # Rceattle 5.21.0
 
 ## Diagnostics

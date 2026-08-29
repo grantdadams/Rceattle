@@ -20,10 +20,13 @@
 # bounds-checked build range-tests every array access. Hence nightly plus
 # manual, not per-PR.
 #
-# NON-BLOCKING for the bounds job, BLOCKING for golden. A golden failure means a
-# reference fit moved and is always worth stopping for. A bounds failure may be
-# a genuine find or may be the harness needing wider cases, and it must not gate
-# a merge on its own -- read it.
+# BOTH jobs fail the run. Neither gates anything: this workflow runs nightly and
+# on dispatch, never on a PR, so a red run blocks no merge -- it is a signal to
+# read, and it has to be visible to be read. The bounds job was
+# `continue-on-error` while it could not run, which is exactly why its failure
+# went unnoticed from before 5.20.0 to 2026-08-27: the run reported success
+# throughout. A case that cannot run is now reported apart from a violation, so
+# a red run here means something.
 on:
   schedule:
     - cron: "0 5 * * *"   # nightly, 05:00 UTC
@@ -91,7 +94,6 @@ jobs:
   safebounds:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    continue-on-error: true          # read it, do not gate on it
     if: ${{ github.event_name == 'schedule' || inputs.run_safebounds }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -120,17 +122,9 @@ jobs:
         run: Rscript tools/verify/verify-safebounds.R
         shell: bash
 
-      # The fault that motivated this is intermittent and was seen on Windows,
-      # so also run the file that crashed there, bounds-checked, on every run.
-      - name: The test that crashed CI, bounds-checked
-        run: |
-          Rscript -e '
-            pkgload::load_all(".", quiet = TRUE)
-            res <- testthat::test_file(
-              "tests/testthat/test-selectivity-catchability.R",
-              reporter = "summary")
-            df <- as.data.frame(res)
-            cat("\npassed:", sum(df$passed), " failed:", sum(df$failed), "\n")
-            if (sum(df$passed) == 0)
-              stop("ran no assertions -- skipped, so nothing was checked")'
-        shell: bash
+      # The file that crashed on Windows used to be run here, as a second step.
+      # It was not bounds-checked: verify-safebounds.R restores the unchecked
+      # build on exit, and TMB::compile() is incremental, so the load_all() here
+      # no-op'd and the test ran against the ordinary model (ceattle.so's mtime
+      # did not move, measured 2026-08-27). It is a case inside the harness now,
+      # where it shares the one bounds-checked build.

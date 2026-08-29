@@ -31,7 +31,8 @@ testthat::test_that("profile: 1-D sigmaR profile fixes R_log_sd at the grid valu
 
   # Structural expectations
   testthat::expect_named(prof, c("Rceattle_list", "grid", "nll", "param",
-                                 "slots", "alias"))
+                                 "slots", "alias", "joint"))
+  testthat::expect_equal(prof$joint, "none")
   testthat::expect_equal(prof$param, "R_log_sd")
   # No alias here: `param` named the internal slot, so the grid is already on
   # the scale the model estimates.

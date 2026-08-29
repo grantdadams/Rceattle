@@ -38,9 +38,14 @@ if (!identical(tolower(Sys.getenv("RCEATTLE_SAFEBOUNDS")), "true")) {
 # pkgload only recompiles when sources changed, and this script changes none, so
 # setting the flag alone guarantees nothing. Force the rebuild by removing the
 # artifacts, then assert -DTMB_SAFEBOUNDS in the compile line.
-obj <- file.path("src", "TMB", "ceattle.o")
-so  <- file.path("src", paste0("ceattle", .Platform$dynlib.ext))
-unlink(c(obj, so))
+obj   <- file.path("src", "TMB", "ceattle.o")
+so    <- file.path("src", paste0("ceattle", .Platform$dynlib.ext))
+shlib <- file.path("src", paste0("Rceattle", .Platform$dynlib.ext))
+unlink(c(obj, so, shlib))
+
+# Set it here as well as reading it: the package SHLIB is built by a child
+# process further down, and it reads this from the environment.
+Sys.setenv(RCEATTLE_SAFEBOUNDS = "true")
 
 # compile.R resolves "ceattle.cpp" against the WORKING DIRECTORY, so it must be
 # run from src/TMB. Run from anywhere else and its file.exists() guard is false:
@@ -82,18 +87,49 @@ cat("  confirmed: -DTMB_SAFEBOUNDS in the compile line\n")
 # behind. reg.finalizer() on the global environment runs at session end, on a
 # normal exit and on an error alike.
 restore_normal_build <- function(...) {
-  unlink(c(obj, so, file.path("src", paste0("Rceattle", .Platform$dynlib.ext))))
+  unlink(c(obj, so, shlib))
   message("verify-safebounds: restoring the unchecked build...")
-  local({
-    old <- setwd(file.path("src", "TMB"))
-    on.exit(setwd(old), add = TRUE)
-    system2("Rscript", "compile.R", stdout = FALSE, stderr = FALSE,
-            env = "RCEATTLE_SAFEBOUNDS=false")
-  })
+  Sys.setenv(RCEATTLE_SAFEBOUNDS = "false")
+  # Build through make, not compile.R alone: that rebuilds the TMB library AND
+  # relinks the package SHLIB. Rebuilding only the former leaves src/Rceattle.so
+  # missing, and the next plain load_all() fails on useDynLib(ceattle) -- the
+  # tree is left unusable by the very step meant to put it back.
+  if (requireNamespace("pkgbuild", quietly = TRUE)) {
+    try(pkgbuild::compile_dll(".", quiet = TRUE), silent = TRUE)
+  } else {
+    local({
+      old <- setwd(file.path("src", "TMB"))
+      on.exit(setwd(old), add = TRUE)
+      system2("Rscript", "compile.R", stdout = FALSE, stderr = FALSE)
+    })
+  }
 }
-reg.finalizer(globalenv(), restore_normal_build, onexit = TRUE)
+invisible(reg.finalizer(globalenv(), restore_normal_build, onexit = TRUE))
 
-suppressMessages(pkgload::load_all(".", quiet = TRUE, compile = FALSE))
+# NAMESPACE loads TWO libraries: `ceattle`, the TMB model built above, and
+# `Rceattle`, the package SHLIB. Only the first was built here, and on a fresh
+# checkout the second has never existed -- so `compile = FALSE` loaded neither
+# and every case below died with "'ceattle' was not found in the list of loaded
+# DLLs". It passed on a developer's machine only because a src/Rceattle.so was
+# already lying around.
+#
+# `compile = TRUE` builds it. The TMB library is not rebuilt unchecked by that:
+# src/Makevars makes `tmblib` a prerequisite of $(SHLIB), so compile.R runs
+# again with RCEATTLE_SAFEBOUNDS still true, and TMB::compile() no-ops because
+# the artifacts above are current.
+cat("Building the package library...\n")
+suppressMessages(pkgload::load_all(".", quiet = TRUE, compile = TRUE))
+
+# The whole run is worthless if the model did not load, and five identical
+# "not found in the list of loaded DLLs" errors below would be reported as five
+# bounds violations. Fail here instead, where the cause is legible.
+loaded <- vapply(getLoadedDLLs(), function(d) d[["name"]], character(1))
+missing_dll <- setdiff(c("ceattle", "Rceattle"), loaded)
+if (length(missing_dll)) {
+  stop("did not load: ", paste(missing_dll, collapse = ", "),
+       ". Nothing was bounds-checked; this is a build failure, not a result.",
+       call. = FALSE)
+}
 
 cat("Rceattle", as.character(utils::packageVersion("Rceattle")),
     "built with safebounds = TRUE\n\n")
@@ -165,13 +201,49 @@ run_case("sim_mod() draws on ragged comps", {
   invisible(suppressWarnings(suppressMessages(sim_mod(f, simulate = TRUE))))
 })
 
+# The file the Windows worker died in, driven here rather than as a second CI
+# step. A separate step has to re-establish the bounds-checked build, and it
+# cannot: this script restores the unchecked one on exit, and TMB::compile() is
+# incremental, so `load_all(compile = TRUE)` afterwards no-ops and the test runs
+# unchecked. Measured 2026-08-27 -- ceattle.so's mtime did not move. Run it
+# inside the one build instead, where it is checked by construction.
+run_case("test-selectivity-catchability.R (the file that crashed CI)", {
+  res <- testthat::test_file(
+    "tests/testthat/test-selectivity-catchability.R", reporter = "silent")
+  df <- as.data.frame(res)
+  # A skipped file reports as a pass, which is the failure this whole job
+  # exists to defeat.
+  if (sum(df$passed) == 0) {
+    stop("ran no assertions -- skipped, so nothing was bounds-checked")
+  }
+  if (sum(df$failed) + sum(df$error) > 0) {
+    stop(sum(df$failed) + sum(df$error), " assertion(s) failed under bounds checking")
+  }
+})
+
 cat("\n")
-bad <- results[!vapply(results, identical, logical(1), "ok")]
-if (length(bad)) {
-  cat("BOUNDS VIOLATIONS or errors in", length(bad), "case(s):\n")
-  for (nm in names(bad)) cat("  -", nm, "\n     ", bad[[nm]], "\n")
-  quit(status = 1)
+
+# "Could not run" is not "found a violation". Reporting them alike is how five
+# DLL-load failures were printed as five bounds violations -- a reader would
+# conclude the model is riddled with them when in fact nothing was measured.
+# A case that could not build the model was never bounds-checked at all.
+not_run <- vapply(results, function(x) {
+  is.character(x) && grepl("was not found in the list of loaded DLLs|could not find function|there is no package",
+                           x)
+}, logical(1))
+bad <- !not_run & !vapply(results, identical, logical(1), "ok")
+
+if (any(not_run)) {
+  cat(sum(not_run), "of", length(results),
+      "case(s) COULD NOT RUN, so they were not bounds-checked:\n")
+  for (nm in names(results)[not_run]) cat("  -", nm, "\n     ", results[[nm]], "\n")
 }
+if (any(bad)) {
+  cat(sum(bad), "case(s) failed under bounds checking:\n")
+  for (nm in names(results)[bad]) cat("  -", nm, "\n     ", results[[nm]], "\n")
+}
+if (any(not_run) || any(bad)) quit(status = 1)
+
 cat("No bounds violation in", length(results), "configurations.\n")
 cat("NOTE: absence here is not proof -- only the paths driven above were\n",
     "checked, and the CI fault is intermittent. Widen the cases rather than\n",
