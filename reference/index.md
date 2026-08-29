@@ -129,6 +129,8 @@ Fit single- or multi-species CEATTLE models and manage output.
   : Model average of derived quantities
 - [`rename_output()`](https://grantdadams.github.io/Rceattle/reference/rename_output.md)
   : Label the derived quantities reported by a CEATTLE fit
+- [`parameter_dictionary()`](https://grantdadams.github.io/Rceattle/reference/parameter_dictionary.md)
+  : Look up what a CEATTLE parameter is
 
 ## Projections and MSE
 

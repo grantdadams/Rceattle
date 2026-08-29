@@ -239,6 +239,17 @@ changes them in full. Either scale the multiplier by recent attainment,
 `1 - (1 - mult) * attainment`, or report the unscaled result as an upper
 bound on the effect of the reduction.
 
+## Projection catch
+
+Catch recorded past a model's terminal year is blanked to `NA` at setup,
+with a warning naming the years. Those years are the projection, and the
+MSE sets their catch from the control rule; the likelihood never scored
+them either, since it fits only `Year <= endyr`. This is what a workbook
+looks like when `endyr` has fallen behind the catch series – catch
+through 2023 with `endyr` still 2019 – and it is worth resolving before
+running the MSE, because conditioning the assessment on those years is a
+different question from projecting over them.
+
 ## Examples
 
 ``` r

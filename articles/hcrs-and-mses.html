@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -167,6 +167,26 @@ samples data on the schedule you specify, re-fits the EM every
 <code>assessment_period</code> years, and applies the EM’s HCR back to
 the OM. <code>nsim</code> sets the number of stochastic
 trajectories.</p>
+<div class="section level4">
+<h4 id="check-endyr-before-you-start">Check <code>endyr</code> before you start<a class="anchor" aria-label="anchor" href="#check-endyr-before-you-start"></a>
+</h4>
+<p>The OM and the EM must share a terminal year and a projection
+horizon; the MSE fills catch by row position across both models, so
+mismatched years are refused rather than run.</p>
+<p>Then check <code>endyr</code> against the catch series. The MSE takes
+over at <code>endyr + 1</code>, and every year after that is a
+projection year whose catch the control rule sets, so catch recorded
+past <code>endyr</code> is blanked to <code>NA</code> at setup and
+<code><a href="../reference/run_mse.html">run_mse()</a></code> warns and names the years.</p>
+<p>That warning almost always means <code>endyr</code> has fallen
+behind. A workbook can carry catch, index and composition data for years
+the model does not fit — the likelihood scores only
+<code>Year &lt;= endyr</code> — so the data are added and
+<code>endyr</code> is left where it was. Conditioning the assessment on
+those years and projecting over them are different questions, and the
+warning is where you choose. Move <code>endyr</code> up and refit both
+models to condition on them; leave it and the MSE simulates those years
+instead.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mse1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mse.html">run_mse</a></span><span class="op">(</span></span>
 <span>  om <span class="op">=</span> <span class="va">om</span>, em <span class="op">=</span> <span class="va">em</span>,</span>
@@ -176,6 +196,7 @@ trajectories.</p>
 <span>  sampling_period <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">666</span> <span class="co"># default; per-sim seed = seed + sim</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+</div>
 <div class="section level4">
 <h4 id="reproducibility">Reproducibility<a class="anchor" aria-label="anchor" href="#reproducibility"></a>
 </h4>

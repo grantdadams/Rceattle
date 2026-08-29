@@ -13,7 +13,7 @@ plot_profile(
   Rceattle_profile,
   model_names = NULL,
   weighted = TRUE,
-  relative = c("own", "minimum", "none"),
+  relative = c("own", "scaled", "minimum", "none"),
   minfraction = 0.01,
   add_cutoff = FALSE,
   cutoff = 1.92,
@@ -105,9 +105,22 @@ Every series is re-zeroed at its own minimum (`relative = "own"`) and a
 point marks that minimum, so the spread of the points along the x axis
 *is* the disagreement: components whose points sit together support the
 same value, and a component whose point sits far from the total's is
-pulling against the rest. `relative = "minimum"` instead re-zeroes every
-series at the total's minimum, which shows what each component gives up
-by moving away from the fitted value.
+pulling against the rest.
+
+When one component dwarfs the others it sets the y axis and the rest
+flatten onto the bottom, so where *they* prefer the parameter cannot be
+read. `relative = "scaled"` puts every curve on 0 to 1 so the minima can
+be compared. It discards magnitude — a component moving 0.02 draws like
+one moving 40 — so raise `minfraction` with it. That filter runs on the
+raw change, and is what keeps a barely-constrained component from
+drawing a confident-looking curve.
+
+`relative = "minimum"` re-zeroes every series at the total's minimum,
+showing what each component gives up by moving away from the fitted
+value.
+
+Under `joint = "multiply"` or `"add"` a dotted vertical line marks the
+fitted model (a multiplier of 1, an offset of 0).
 
 The total is drawn in black, heavier than the components, and is kept
 out of the colour legend so the palette separates only the components

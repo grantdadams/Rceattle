@@ -23,7 +23,7 @@ yourself."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,7 +88,7 @@ yourself.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">profile_components</span><span class="op">(</span></span>
 <span>  <span class="va">object</span>,</span>
 <span>  weighted <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  relative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"own"</span>, <span class="st">"minimum"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  relative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"own"</span>, <span class="st">"scaled"</span>, <span class="st">"minimum"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  minfraction <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  include_total <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -117,12 +117,31 @@ components are absent, not flat.</p></dd>
 
 
 <dt id="arg-relative">relative<a class="anchor" aria-label="anchor" href="#arg-relative"></a></dt>
-<dd><p>How to re-zero each series. <code>"own"</code> (default) subtracts each
-series' own minimum over the grid, so every curve starts at zero and its
-minimum marks the value that component prefers – the comparison that shows
-conflict. <code>"minimum"</code> subtracts each series' value at the grid point where
-the total is lowest, so the curves show each component's change away from
-the fitted optimum. <code>"none"</code> returns the raw negative log-likelihoods.</p></dd>
+<dd><p>How to place each series on the y axis.</p><dl><dt><code>"own"</code></dt>
+<dd><p>(default) subtract each series' own minimum, so every
+curve starts at zero and its minimum marks the value that component
+prefers. Objective units, so depth still says how strongly.</p></dd>
+
+<dt><code>"scaled"</code></dt>
+<dd><p>as <code>"own"</code>, then divide each series by its own change
+over the grid, so every curve runs 0 to 1. Use it when one component
+dwarfs the rest and flattens the others onto the axis. It <strong>discards
+magnitude</strong>: a component moving 0.02 draws like one moving 40, so
+raise <code>minfraction</code> with it. A series that does not move stays at
+zero.</p></dd>
+
+<dt><code>"minimum"</code></dt>
+<dd><p>subtract each series' value at the grid point where
+the total is lowest, so the curves show each component's change away
+from the fitted optimum.</p></dd>
+
+<dt><code>"none"</code></dt>
+<dd><p>the raw negative log-likelihoods.</p></dd>
+
+
+</dl><p><code>minfraction</code> and the series ordering are always computed on the raw
+change over the grid, before any of this is applied, so <code>"scaled"</code> does
+not quietly disable the filter by making every span 1.</p></dd>
 
 
 <dt id="arg-minfraction">minfraction<a class="anchor" aria-label="anchor" href="#arg-minfraction"></a></dt>

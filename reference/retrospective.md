@@ -65,11 +65,11 @@ retrospective(
 
   whether each peel runs
   [`TMB::sdreport`](https://rdrr.io/pkg/TMB/man/sdreport.html) (standard
-  errors). Mohn's rho uses only point estimates, so `FALSE` is faster
-  with no effect on rho. Default `NULL` inherits the input model's
-  setting (`TRUE` if it was fit with `getsd = TRUE`, i.e. carries an
-  `sdrep`); the returned peel models then carry standard errors only
-  when `getsd` is `TRUE`.
+  errors). Costs an extra model build per peel; see Details. Mohn's rho
+  uses only point estimates, so `FALSE` is faster with no effect on rho.
+  Default `NULL` inherits the input model's setting (`TRUE` if it was
+  fit with `getsd = TRUE`, i.e. carries an `sdrep`); the returned peel
+  models then carry standard errors only when `getsd` is `TRUE`.
 
 - phase:
 
@@ -146,6 +146,15 @@ with no index to inform it is a flat direction in the likelihood. It
 does not affect Mohn's rho, which is computed from SSB, but it does mean
 `npar` and the reported catchability differ between a shallow and a deep
 peel for such a fleet.
+
+## Details
+
+Each peel is fitted twice: a peeled hindcast, then a forecast refit that
+estimates only the peeled years' F. The second holds every hindcast
+parameter fixed, so on its own it reports a standard error of zero for
+the whole hindcast. Under `getsd = TRUE` the peel is therefore rebuilt
+at those same parameters with the hindcast free in the map and reported
+from there. Nothing is re-estimated, so no point estimate moves.
 
 ## Examples
 

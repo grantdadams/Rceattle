@@ -320,6 +320,9 @@ One line each; the evidence and the measured numbers are in
   9–20**, so [`rowSums()`](https://rdrr.io/r/base/colSums.html) pools
   across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the
   registry.
+- **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps**
+  — the non-PD Hessian check only runs when an `sdreport` exists — so
+  Mohn’s rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 21 rows** —
   composition, CAAL, stomach and the two linkage rows. Everything else
   is structurally zero there, not small.
@@ -347,7 +350,11 @@ One line each; the evidence and the measured numbers are in
   `nlminb_control`, and the bias-adjustment flags. `getsd = FALSE`
   leaves `sdrep` NULL, so [`vcov()`](https://rdrr.io/r/stats/vcov.html)
   returns NULL and uncertainty bands are NA. The refit diagnostics
-  forward only `phase` and `getsd`.
+  forward `phase`, `getsd`, the bias-adjust flags and
+  `projection_uncertainty` — the last two are read back off `data_list`,
+  because a freshly built
+  [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
+  would silently reset them to its own defaults.
 - **[`run_mse()`](https://grantdadams.github.io/Rceattle/reference/run_mse.md)
   pins the OM’s stock-recruit and suitability windows to the pristine
   `om$`**, not the advancing `om_use$`, so the hindcast does not drift

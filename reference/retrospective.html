@@ -17,7 +17,7 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -114,6 +114,7 @@ Turns off all hindcast parameters, turns on F for the peeled years, and fits to 
 
 <dt id="arg-getsd">getsd<a class="anchor" aria-label="anchor" href="#arg-getsd"></a></dt>
 <dd><p>whether each peel runs <code><a href="https://rdrr.io/pkg/TMB/man/sdreport.html" class="external-link">TMB::sdreport</a></code> (standard errors).
+Costs an extra model build per peel; see Details.
 Mohn's rho uses only point estimates, so <code>FALSE</code> is faster with no
 effect on rho. Default <code>NULL</code> inherits the input model's setting
 (<code>TRUE</code> if it was fit with <code>getsd = TRUE</code>, i.e. carries an
@@ -181,6 +182,15 @@ That is deliberate: a q with no index to inform it is a flat direction in
 the likelihood. It does not affect Mohn's rho, which is computed from SSB,
 but it does mean <code>npar</code> and the reported catchability differ between a
 shallow and a deep peel for such a fleet.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Each peel is fitted twice: a peeled hindcast, then a forecast refit that
+estimates only the peeled years' F. The second holds every hindcast parameter
+fixed, so on its own it reports a standard error of zero for the whole
+hindcast. Under <code>getsd = TRUE</code> the peel is therefore rebuilt at those same
+parameters with the hindcast free in the map and reported from there. Nothing
+is re-estimated, so no point estimate moves.</p>
     </div>
 
     <div class="section level2">

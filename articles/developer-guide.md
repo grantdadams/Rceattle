@@ -413,7 +413,8 @@ fixtures and guards:
 - `test-parameter-recovery.R` fits simulated data and checks estimates.
 - `helpers-make-msm-data.R` builds small multi-species fixtures.
 
-Run the suite with `devtools::test()` (or
+Run the suite with
+[`devtools::test()`](https://devtools.r-lib.org/reference/test.html) (or
 [`testthat::test_local()`](https://testthat.r-lib.org/reference/test_package.html)).
 After any C++ change, recompile (`src/TMB/compile.R` or
 [`pkgbuild::compile_dll()`](https://pkgbuild.r-lib.org/reference/compile_dll.html))

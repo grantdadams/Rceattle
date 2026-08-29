@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -246,6 +246,17 @@ to the extent the fishery attains it, while reducing catch changes them in
 full. Either scale the multiplier by recent attainment,
 <code>1 - (1 - mult) * attainment</code>, or report the unscaled result as an upper
 bound on the effect of the reduction.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="projection-catch">Projection catch<a class="anchor" aria-label="anchor" href="#projection-catch"></a></h2>
+    <p>Catch recorded past a model's terminal year is blanked to <code>NA</code> at setup, with
+a warning naming the years. Those years are the projection, and the MSE sets
+their catch from the control rule; the likelihood never scored them either,
+since it fits only <code>Year &lt;= endyr</code>. This is what a workbook looks like when
+<code>endyr</code> has fallen behind the catch series – catch through 2023 with <code>endyr</code>
+still 2019 – and it is worth resolving before running the MSE, because
+conditioning the assessment on those years is a different question from
+projecting over them.</p>
     </div>
 
     <div class="section level2">

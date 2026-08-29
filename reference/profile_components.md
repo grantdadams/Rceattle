@@ -18,7 +18,7 @@ use it directly to tabulate, or to draw the figure yourself.
 profile_components(
   object,
   weighted = TRUE,
-  relative = c("own", "minimum", "none"),
+  relative = c("own", "scaled", "minimum", "none"),
   minfraction = 0,
   include_total = TRUE
 )
@@ -47,13 +47,36 @@ profile_components(
 
 - relative:
 
-  How to re-zero each series. `"own"` (default) subtracts each series'
-  own minimum over the grid, so every curve starts at zero and its
-  minimum marks the value that component prefers – the comparison that
-  shows conflict. `"minimum"` subtracts each series' value at the grid
-  point where the total is lowest, so the curves show each component's
-  change away from the fitted optimum. `"none"` returns the raw negative
-  log-likelihoods.
+  How to place each series on the y axis.
+
+  `"own"`
+
+  :   (default) subtract each series' own minimum, so every curve starts
+      at zero and its minimum marks the value that component prefers.
+      Objective units, so depth still says how strongly.
+
+  `"scaled"`
+
+  :   as `"own"`, then divide each series by its own change over the
+      grid, so every curve runs 0 to 1. Use it when one component dwarfs
+      the rest and flattens the others onto the axis. It **discards
+      magnitude**: a component moving 0.02 draws like one moving 40, so
+      raise `minfraction` with it. A series that does not move stays at
+      zero.
+
+  `"minimum"`
+
+  :   subtract each series' value at the grid point where the total is
+      lowest, so the curves show each component's change away from the
+      fitted optimum.
+
+  `"none"`
+
+  :   the raw negative log-likelihoods.
+
+  `minfraction` and the series ordering are always computed on the raw
+  change over the grid, before any of this is applied, so `"scaled"`
+  does not quietly disable the filter by making every span 1.
 
 - minfraction:
 

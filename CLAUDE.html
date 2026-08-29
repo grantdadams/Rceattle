@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -212,6 +212,8 @@
 <li>
 <strong><code>jnll_comp</code> columns count fleets on rows 1–8 and species on rows 9–20</strong>, so <code><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums()</a></code> pools across two different axes. <code>.JNLL_ROW_AXIS</code> (<code>R/9-profile.R</code>) is the registry.</li>
 <li>
+<strong><code>retrospective(getsd = TRUE)</code> can drop peels <code>getsd = FALSE</code> keeps</strong> — the non-PD Hessian check only runs when an <code>sdreport</code> exists — so Mohn’s rho can differ between the two.</li>
+<li>
 <strong><code>unweighted_jnll_comp</code> is written for 5 of its 21 rows</strong> — composition, CAAL, stomach and the two linkage rows. Everything else is structurally zero there, not small.</li>
 <li>
 <strong>A <code>data_list</code> element with no <code><a href="reference/write_data.html">write_data()</a></code>/<code><a href="reference/read_data.html">read_data()</a></code> support round-trips to nothing</strong> — this is how <code>index_cov</code> was lost.</li>
@@ -222,7 +224,7 @@
 <li>
 <strong><code>fit_mod(estimateMode = 4)</code> returns a placeholder objective</strong> (<code>dummy*dummy</code>), because <code><a href="reference/build_map.html">build_map()</a></code> maps out every hindcast parameter. Don’t read anything into a mode-4 objective, gradient, or Hessian. <strong>Mode 3 returns the real objective</strong>, so <code>obj$fn()</code> / <code>obj$gr()</code> are usable for diagnosing a model before fitting it — the analogue of WHAM’s <code>fit_wham(do.fit = FALSE)</code> and SAM’s <code>sam.fit(run = FALSE)</code>.</li>
 <li>
-<strong><code><a href="reference/fit_control.html">fit_control()</a></code> bundles the optimizer and uncertainty knobs</strong> — <code>getsd</code>, <code>bias.correct</code>, <code>loopnum</code>, <code>newtonsteps</code>, <code>getJointPrecision</code>, <code>nlminb_control</code>, and the bias-adjustment flags. <code>getsd = FALSE</code> leaves <code>sdrep</code> NULL, so <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> returns NULL and uncertainty bands are NA. The refit diagnostics forward only <code>phase</code> and <code>getsd</code>.</li>
+<strong><code><a href="reference/fit_control.html">fit_control()</a></code> bundles the optimizer and uncertainty knobs</strong> — <code>getsd</code>, <code>bias.correct</code>, <code>loopnum</code>, <code>newtonsteps</code>, <code>getJointPrecision</code>, <code>nlminb_control</code>, and the bias-adjustment flags. <code>getsd = FALSE</code> leaves <code>sdrep</code> NULL, so <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> returns NULL and uncertainty bands are NA. The refit diagnostics forward <code>phase</code>, <code>getsd</code>, the bias-adjust flags and <code>projection_uncertainty</code> — the last two are read back off <code>data_list</code>, because a freshly built <code><a href="reference/fit_control.html">fit_control()</a></code> would silently reset them to its own defaults.</li>
 <li>
 <strong><code><a href="reference/run_mse.html">run_mse()</a></code> pins the OM’s stock-recruit and suitability windows to the pristine <code>om$</code></strong>, not the advancing <code>om_use$</code>, so the hindcast does not drift through the projection — essential for multispecies, whose predation suitability must stay fixed. <code>tools/verify/verify-mse-hindcast-invariant.R</code> checks it.</li>
 <li>

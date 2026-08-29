@@ -176,7 +176,61 @@ model_5 <- Rceattle::fit_mod(data_list = BS2017MS,
 summary(model_5)
 ```
 
-## 4. Compare models
+## 4. Reading the fitted object
+
+[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+returns an object of class `Rceattle`. Rather than reaching into it by
+hand, most of what you need is reachable through standard S3 methods:
+
+``` r
+
+summary(model_1)        # reference points, likelihood, convergence
+coef(model_1)           # estimated parameters
+head(vcov(model_1))     # covariance matrix (NULL when getsd = FALSE)
+logLik(model_1)         # log-likelihood, carrying its degrees of freedom
+AIC(model_1)            # so stats::AIC() works
+head(residuals(model_1))
+head(as.data.frame(model_1))
+```
+
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html),
+[`simulate()`](https://rdrr.io/r/stats/simulate.html) and
+[`profile()`](https://rdrr.io/r/stats/profile.html) dispatch on the fit
+too, and the diagnostics return their own classes with
+[`print()`](https://rdrr.io/r/base/print.html) methods that summarize
+the result —
+[`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+gives an `Rceattle_retro`,
+[`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
+an `Rceattle_jitter`,
+[`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
+an `Rceattle_selftest`,
+[`profile()`](https://rdrr.io/r/stats/profile.html) an
+`Rceattle_profile`, and
+[`osa_residuals()`](https://grantdadams.github.io/Rceattle/reference/osa_residuals.md)
+an `rceattle_osa`. A data list read by
+[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+is an `Rceattle_data`, which also prints and summarizes.
+
+The numbers themselves live in two places. Derived quantities on their
+natural scale are in `fit$quantities` — biomass, `ssb`, `N_at_age`,
+`M_at_age`, `sel_at_age`, reference points and the likelihood
+components. The parameters the optimizer actually estimated are in
+`fit$estimated_params`, mostly on a log scale, under abbreviated names.
+[`parameter_dictionary()`](https://grantdadams.github.io/Rceattle/reference/parameter_dictionary.md)
+explains those names:
+
+``` r
+
+parameter_dictionary("R_log_sd")             # log_sd of recruitment -> sigma_R
+parameter_dictionary(process = "selectivity")
+```
+
+Anything beginning `log_`, or ending `_log_sd`, needs
+[`exp()`](https://rdrr.io/r/base/Log.html) to reach the quantity named
+in the dictionary’s `natural` column.
+
+## 5. Compare models
 
 Models can be compared by marginal or joint negative log-likelihood,
 AIC, and retrospective analysis. AIC cannot compare a
@@ -186,12 +240,12 @@ likelihood components are stored in the model objects built above:
 ``` r
 
 # Evaluate 1 model
-model_1$opt$AIC # AIC
-model_1$opt$objective # Negative log-likelihood
-model_1$quantities$jnll_comp # Negative log-likelihood components
+AIC(model_1)                    # AIC, via the logLik() method below
+model_1$opt$objective           # Negative log-likelihood
+model_1$quantities$jnll_comp    # Negative log-likelihood components
 
 # Compare AIC across 3-species penalized likelihood models
-sapply(list(model_2, model_3, model_5), function(x) x$opt$AIC)
+sapply(list(model_2, model_3, model_5), AIC)
 ```
 
 The `retrospective` function measures retrospective bias, returning a
@@ -204,7 +258,7 @@ model_1_retro <- retrospective(model_1, peels = 7)
 plot_biomass(model_1_retro$Rceattle_list, model_names = paste("Pollock; mohns =", round(model_1_retro$mohns[1,2], 3)))
 ```
 
-## 5. Model plots and diagnostics
+## 6. Model plots and diagnostics
 
 `Rceattle` includes plots for hindcast and forecast time series of
 biomass, SSB, recruitment, biomass consumed as prey, mortality-at-age,
