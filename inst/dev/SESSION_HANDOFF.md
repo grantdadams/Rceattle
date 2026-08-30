@@ -5,6 +5,11 @@ session. Maintained by `/handoff`.
 
 ## Now
 
+**PR #130 is OPEN into `dev`** — https://github.com/grantdadams/Rceattle/pull/130
+(`reporting-tables` -> `dev`, +2890/-34 across 23 files, mergeable, CI running). Push and PR
+opened 2026-08-30. `osa-cdf-method` is still local-only, so this is first to `dev` and that
+branch renumbers its 5.24.0 section when it follows.
+
 **In flight: branch `reporting-tables` (worktree `/private/tmp/rce-report`, off `dev` at
 93ee38b7), version 5.24.0.** Kalei Shotwell (AFSC) asked for two things: a cheat sheet for
 output names, and one call producing every table she reports, so BSAI ATF next round does not
