@@ -34,6 +34,13 @@ version throughout.
   `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and the objective
   do not move.
 
+  Covered by `test-dynamics-spr-two-sex.R`, which fits the bundled `GOAatf` --
+  the two-sex dataset that converges with a positive-definite Hessian -- and
+  checks the result against the per-total-recruit rule. That fixture's
+  `sex_ratio` is fully populated, so the old code returned no `NaN` there: it
+  returned a value rescaled by a clean factor of 0.708, which is the failure
+  mode with nothing in the output to give it away.
+
   SPR reaches the objective only under `HCR = "ConstantF"` or an SPR-based rule
   (`HCR > 3`), so a fit using another rule cannot move. A **two-sex species under a
   Tier 3 or other SPR-based rule can shift slightly**, because the ratio

@@ -146,3 +146,76 @@ testthat::test_that("nsex must be 1 or 2, and an unusable one is reported not th
   # data_check errors, so ask about this one specifically).
   testthat::expect_false(grepl("'nsex'", msg_of(g), fixed = TRUE))
 })
+
+
+# The tests above build with estimateMode = 3, which never optimizes: they pin
+# the arithmetic but not that a two-sex SPR survives a real fit. GOAatf is the
+# bundled two-sex dataset that converges with a positive-definite Hessian (see
+# inst/dev/TRAPS.md), so it closes that gap.
+#
+# It also catches the SILENT failure mode. GOAatf's sex_ratio is fully
+# populated, so the pre-5.24.1 code did not return NaN here -- it returned a
+# value double-counted by the sex ratio, which looks entirely plausible. The
+# NaN that first exposed this bug only appears where the table stops short.
+atf_fit <- local({
+  cached <- NULL
+  function() {
+    if (!is.null(cached)) return(cached)
+    testthat::skip_on_cran()
+    testthat::skip_if_not_installed("TMB")
+    utils::data("GOAatf", package = "Rceattle", envir = environment())
+    cached <<- suppressMessages(suppressWarnings(fit_mod(
+      data_list = GOAatf, estimateMode = 1, msmMode = 0, phase = FALSE,
+      fit_control = fit_control(getsd = TRUE, verbose = 0))))
+    cached
+  }
+})
+
+
+testthat::test_that("a two-sex SPR survives a real fit and is not double-counted", {
+  fit <- atf_fit()
+  dat <- fit$obj$env$data
+  q <- fit$quantities
+
+  # Premises: this must be a real, converged, two-sex fit, or the test proves
+  # nothing about the path it claims to cover.
+  testthat::expect_equal(as.integer(dat$nsex[1]), 2L)
+  testthat::expect_false(is.null(fit$sdrep))
+  testthat::expect_true(isTRUE(fit$sdrep$pdHess))
+
+  testthat::expect_true(all(is.finite(c(q$SPR0, q$SPRtarget,
+                                        q$SPRlimit, q$SPRFinit))))
+
+  na <- dat$nages[1]
+  ty <- length(fit$data_list$styr:fit$data_list$endyr)
+  Z <- q$M_at_age[1, 1, seq_len(na), ty]                 # female schedule, F = 0
+  wt <- q$weight_hat[2, 1, seq_len(na), ty]              # spawning weight
+  mat <- as.numeric(dat$maturity[1, seq_len(na)])
+  sr <- as.numeric(dat$sex_ratio[1, seq_len(na)])
+
+  n <- numeric(na)
+  n[1] <- 1
+  for (a in 2:(na - 1)) n[a] <- n[a - 1] * exp(-Z[a - 1])
+  n[na] <- n[na - 1] * exp(-Z[na - 1]) / (1 - exp(-Z[na]))
+  disc <- exp(-Z * dat$spawn_month[1] / 12)
+
+  # Per TOTAL recruit: the sex-0 schedule is already female, so only the
+  # recruitment split applies.
+  correct <- sum(n * wt * mat * sr[1] * disc)
+  testthat::expect_equal(as.numeric(q$SPR0), correct, tolerance = 1e-8)
+
+  # What the pre-5.24.1 code computed: the age-varying ratio applied on top of
+  # a schedule that already carries it.
+  double_counted <- sum(n * wt * mat * sr * disc)
+  testthat::expect_false(isTRUE(all.equal(as.numeric(q$SPR0), double_counted)))
+
+  # On this stock the sex ratio is a single constant over the mature ages, so
+  # the old value was the correct one rescaled by that constant over the
+  # recruitment split -- a clean factor of 0.708, with nothing in the output to
+  # give it away. That is why the bug survived until a workbook whose table
+  # stopped short turned it into a NaN.
+  mature <- which(mat > 0)
+  testthat::expect_length(unique(sr[mature]), 1L)
+  testthat::expect_equal(double_counted / as.numeric(q$SPR0),
+                         unique(sr[mature]) / sr[1], tolerance = 1e-6)
+})
