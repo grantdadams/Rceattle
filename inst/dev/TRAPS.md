@@ -22,6 +22,28 @@ phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for phasing, +~14 s 
 (bisected back through `main`), so don't hunt a recent cause. For dev loops
 `phase = FALSE, getsd = FALSE` gives ~14 s.
 
+**`make_test_data()` cannot produce a positive-definite Hessian**, so it cannot exercise
+anything behind `getsd = TRUE`: no `sdrep`, no confidence intervals, no
+`.refit_converged()` PD check. `test-functions-retrospective.R:597` says so in passing ("the
+small fixture loses every peel to it"), and `test-plot-confidence-intervals.R` reaches for
+`BS2017SS` instead.
+
+The bundled datasets that DO converge with a PD Hessian, measured 2026-08-30 with
+`fit_mod(estimateMode = 1, msmMode = 0, phase = FALSE, fit_control(getsd = TRUE))`:
+
+| dataset | nspp | nsex | sdrep | pdHess | convergence |
+|---|---|---|---|---|---|
+| `GOAcod` | 1 | 1 | yes | yes | OK |
+| `GOAatf` | 1 | 2 | yes | yes | OK |
+| `NorthernRockfish2022` | 1 | 1 | yes | yes | WARN |
+| `GOAatf2023` | 1 | 2 | yes | yes | FAIL |
+| `GOApollock` | 1 | 1 | no | -- | FAIL |
+| `Atka2022` | 1 | 1 | -- | -- | data_check rejects its selectivity config |
+
+`GOAcod` and `GOAatf` are the two clean ones, and `GOAatf` is the only bundled **two-sex**
+fit that converges -- which makes it the fixture for anything sex-structured, including the
+SPR-per-recruit paths.
+
 **The parallel-test DLL failure is a toolchain failure, not a test failure.**
 `DESCRIPTION` sets `Config/testthat/parallel: true`, and the workers cannot load a freshly
 rebuilt DLL, so `devtools::test()` aborts before running anything with
