@@ -79,10 +79,12 @@ biomass equal to the fit to machine precision, multispecies refused rather than 
 Everything needed to rebuild or send it is in this repo's gitignored `dev/`:
 `stockplotr-pr.md` (PR body + push commands), the exported `*.patch` (restore with `git am`),
 `stockplotr-fix.py` (reapplies all 13 edits, asserts on every target), `stockplotr-fixture.R`
-and `stockplotr-tests.R`. **Two things block sending:** `gh` is SAML-blocked for `nmfs-ost`
-(Grant must authorize his token), and the test fixture is real 2026 GOA arrowtooth assessment
-data -- committing it publishes those numbers publicly, which needs Grant's call if that cycle
-is pre-decisional.
+and `stockplotr-tests.R`. **One thing blocks sending:** `gh` is SAML-blocked for `nmfs-ost`, so
+Grant must authorize his token before a fork or push is possible.
+
+The fixture is built from the bundled `GOAatf`, so it discloses nothing unpublished. An earlier
+draft used the 2026 GOA arrowtooth assessment file and raised a pre-decisional-data question;
+that is resolved, not outstanding.
 
 **VERSION COLLISION -- needs a decision before either branch merges.** `osa-cdf-method` and
 `reporting-tables` both branched from `dev` at 5.23.0 and both wrote a **5.24.0** NEWS section:
