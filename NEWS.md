@@ -12,6 +12,48 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.24.1
+
+## Bug fixes
+
+* **Spawning biomass per recruit is no longer `NA` for a two-sex species.** SPR is
+  spawning output per **total** recruit, so the female fraction belongs in it for
+  every species -- but it must enter once. A one-sex species' schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age, which is what
+  `mature_females` folds in (section 5.4). A two-sex species' sex-0 schedule is
+  already female, so only the recruitment split `sex_ratio(sp, 0)` applies -- the
+  same split section 6.6 uses to divide recruitment between the sexes.
+
+  Section 6.2 applied the age-varying ratio to both. On a two-sex species that
+  re-applied a sex split already present in its schedule, and returned `NaN`
+  wherever that table stopped short of the species' own `nages`.
+
+  Found on the 2026 GOA three-species assessment, where arrowtooth flounder
+  (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
+  could not be given a Tier 3 SPR reference point. One-sex species are unchanged;
+  `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and the objective
+  do not move.
+
+  SPR reaches the objective only under `HCR = "ConstantF"` or an SPR-based rule
+  (`HCR > 3`), so a fit using another rule cannot move. A **two-sex species under a
+  Tier 3 or other SPR-based rule can shift slightly**, because the ratio
+  `SPRtarget / SPR0` changes wherever the sex ratio varies with age.
+
+* **`data_check()` validates `nsex`.** The model has exactly two sex schedules --
+  index 0 (females, or the single combined sex) and index 1 (males) -- and reads
+  `nsex` straight into loop bounds and array dimensions, so a value outside
+  `{1, 2}` was a silent out-of-range read. An `NA` was worse: it reached the
+  sex-consistency comparisons as `if(NA)` and aborted `data_check()` with R's
+  "missing value where TRUE/FALSE needed", naming no table at all. `nsex` is now
+  checked for length and value, and those comparisons carry `na.rm` so an
+  unusable one is reported alongside every other error rather than thrown.
+
+* **`data_check()` no longer demands a full `sex_ratio` schedule for a two-sex
+  species.** Every remaining use of `sex_ratio` on a two-sex species is
+  `sex_ratio(sp, 0)` — the age-1 recruitment split — so requiring values at every
+  age rejected a workbook the model never reads past the first column. A one-sex
+  species still needs the whole schedule, and age 1 is still required for both.
+
 # Rceattle 5.24.0
 
 ## Reading a fitted model

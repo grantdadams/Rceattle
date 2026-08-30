@@ -1567,7 +1567,8 @@ Type objective_function<Type>::operator() () {
         // year 0, weight included.
         // FIXME: time-vary sel in the forecast
         vector<Type> Z_unfished(na), Z_limit(na), Z_target(na), Z_init(na);
-        vector<Type> wt_term(na), wt_first(na), mature_at_age(na), female_at_age(na);
+        vector<Type> wt_term(na), wt_first(na), mature_at_age(na);
+        Type female_split = (nsex(sp) == 1) ? Type(1.0) : sex_ratio(sp, 0);
 
         for(age = 0; age < na; age++){
           Z_unfished(age) = M_at_age(sp, 0, age, term_yr);
@@ -1577,9 +1578,17 @@ Type objective_function<Type>::operator() () {
 
           wt_term(age)      = weight_hat(wt_idx_ssb, 0, age, term_yr);
           wt_first(age)     = weight_hat(wt_idx_ssb, 0, age, 0);
-          //FIXME: use estimated sex_ratio for two-sex models?
-          mature_at_age(age) = maturity(sp, age);
-          female_at_age(age) = sex_ratio(sp, age);
+          // Spawning output per TOTAL recruit, so the female fraction is
+          // included for every species -- but it enters once, not twice.
+          // `mature_females` (5.4) already folds the age-varying sex ratio into
+          // maturity for a one-sex species, whose schedule is sex-combined. A
+          // two-sex species' sex-0 schedule is female already, so only the
+          // recruitment split `sex_ratio(sp, 0)` applies, exactly as 6.6 splits
+          // recruitment into NByage0 / NByageF. Applying the age-varying ratio
+          // to that schedule instead re-applied a sex split already in it, and
+          // returned NaN wherever the table stopped short of the species' own
+          // nages -- which is how a Tier 3 SPR proxy came back missing.
+          mature_at_age(age) = mature_females(sp, age) * female_split;
         }
 
         vector<Type> n_unfished = per_recruit_survivors(Z_unfished);
@@ -1587,10 +1596,10 @@ Type objective_function<Type>::operator() () {
         vector<Type> n_target   = per_recruit_survivors(Z_target);
         vector<Type> n_init     = per_recruit_survivors(Z_init);
 
-        SPR0(sp)      = spawning_biomass_per_recruit(n_unfished, Z_unfished, wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRlimit(sp)  = spawning_biomass_per_recruit(n_limit,    Z_limit,    wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRtarget(sp) = spawning_biomass_per_recruit(n_target,   Z_target,   wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRFinit(sp)  = spawning_biomass_per_recruit(n_init,     Z_init,     wt_first, mature_at_age, female_at_age, spawn_month(sp));
+        SPR0(sp)      = spawning_biomass_per_recruit(n_unfished, Z_unfished, wt_term,  mature_at_age, spawn_month(sp));
+        SPRlimit(sp)  = spawning_biomass_per_recruit(n_limit,    Z_limit,    wt_term,  mature_at_age, spawn_month(sp));
+        SPRtarget(sp) = spawning_biomass_per_recruit(n_target,   Z_target,   wt_term,  mature_at_age, spawn_month(sp));
+        SPRFinit(sp)  = spawning_biomass_per_recruit(n_init,     Z_init,     wt_first, mature_at_age, spawn_month(sp));
 
         // Reported for inspection; slot order matches the four calls above.
         for(age = 0; age < na; age++){
