@@ -127,6 +127,14 @@ version throughout.
   rejection in 120 of 120 replicates; `"cdf"` with `discrete = TRUE` gives mean
   +0.006, sd 1.002 and 6 of 120, the nominal 5%.
 
+  Both halves of that split are what the SAM authors do, in two packages:
+  `stockassessment::residuals.sam()` names no method, so it takes
+  [TMB::oneStepPredict()]'s Gaussian default with `discrete = FALSE`, on a model
+  that is random effects throughout with Gaussian log observations; their
+  composition package `compResidual::resMulti()` -- the implementation Trijoulet
+  et al. (2023) cite -- hardcodes `method = "cdf", discrete = TRUE`. Rceattle
+  fits both kinds of data, so it chooses per observation type inside one call.
+
 * **Every [TMB::oneStepPredict()] call now conditions on the observations that
   precede its group** (`conditional =`), instead of discarding them. The
   composition and aggregate rows must be split into separate calls under

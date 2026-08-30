@@ -330,6 +330,16 @@ residualizing at the generating parameters (1680 residuals):\tabular{llll}{
 Six of 120 is the nominal 5\% rejection rate. The Gaussian default is not
 merely biased there, it is under-dispersed by a factor of two and a half.
 
+Both halves of that split are what the SAM authors do, in two packages.
+\code{stockassessment::residuals.sam()} names no method at all, so it takes
+\code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}'s \code{"oneStepGaussianOffMode"} default with
+\code{discrete = FALSE} -- on a model that is random effects throughout, whose
+observations (\code{logobs}) are Gaussian on the log scale. Their composition
+package \code{compResidual::resMulti()}, the implementation Trijoulet et al. (2023)
+cite, instead hardcodes \verb{method = "cdf", discrete = TRUE} and drops each
+composition's last bin. Rceattle fits both kinds of data, so it makes the same
+choice per observation type inside one call rather than across two packages.
+
 One caveat that applies to every method, not just this one:
 \code{Estimate_index_sd = "Analytical"} / \code{Estimate_catch_sd = "Analytical"} and
 the analytical \code{Catchability} forms concentrate their parameter out of the

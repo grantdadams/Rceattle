@@ -319,6 +319,16 @@
 #' Six of 120 is the nominal 5% rejection rate. The Gaussian default is not
 #' merely biased there, it is under-dispersed by a factor of two and a half.
 #'
+#' Both halves of that split are what the SAM authors do, in two packages.
+#' `stockassessment::residuals.sam()` names no method at all, so it takes
+#' [TMB::oneStepPredict()]'s `"oneStepGaussianOffMode"` default with
+#' `discrete = FALSE` -- on a model that is random effects throughout, whose
+#' observations (`logobs`) are Gaussian on the log scale. Their composition
+#' package `compResidual::resMulti()`, the implementation Trijoulet et al. (2023)
+#' cite, instead hardcodes `method = "cdf", discrete = TRUE` and drops each
+#' composition's last bin. Rceattle fits both kinds of data, so it makes the same
+#' choice per observation type inside one call rather than across two packages.
+#'
 #' One caveat that applies to every method, not just this one:
 #' `Estimate_index_sd = "Analytical"` / `Estimate_catch_sd = "Analytical"` and
 #' the analytical `Catchability` forms concentrate their parameter out of the
