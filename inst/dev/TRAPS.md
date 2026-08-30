@@ -53,6 +53,41 @@ selectivity *and* q.
 
 ## Silent-wrong-number traps
 
+**A reference point CEATTLE never estimated is a NUMBER, not a gap.** Three cases, all
+verified against the 2026 GOA three-species assessment (2026-08-29):
+
+- `Ftarget` / `Flimit` are estimated only under an HCR that defines them (`build_hcr_map()`
+  turns them on for CMSY / ConstantF / ConstantFSSB / ConstantFSPR / NPFMC / SESSF / PFMC only),
+  and are switched off per species when `Proj_F_proportion` sums to 0 or `estDynamics > 0`.
+  Unestimated they sit at `exp(0) = 1`, so that assessment reports **Ftarget = Flimit = 1.0/yr**
+  for all three species — an enormous F that reads as an estimate. Gate on
+  `build_hcr_map(data_list, fit$map)`. **Do NOT read `fit$map$mapList$log_Ftarget` instead**:
+  `build_map.R:1424` sets both to `NA` in the hindcast map whatever the HCR, so that test says
+  "never estimated" for every model.
+- Under `msmMode > 0` the template overwrites `SB0` / `B0` with the `MSSB0` / `MSB0` inputs
+  (`ceattle.cpp:2118`), which stand at `.RCE_MSSB0_PLACEHOLDER = 999` mt until `fit_mod()`
+  derives them from a no-fishing projection. Measured on that fit: `SB0 = 999` for all three
+  species against true terminal SSB of 1,136,070 / 564,108 / 96,504 mt, so a
+  `B_target = Ptarget * SB0` proxy comes out at **399.6 mt**. `data_list$MSSB0_derived` is the
+  per-species flag — carried precisely because recognising the placeholder by comparing a double
+  to 999 would also null a genuine 999 mt.
+- The per-recruit quantities (`SPR0`, `SPRlimit`, `SPRtarget`, `SPRFinit`, `NbyageSPR`) are
+  inside `if(msmMode == 0)` and are **exactly zero** on a multispecies fit.
+
+`report_tables()` returns all three as `NA` with the reason in `basis`.
+
+**The depletions do NOT simply divide by `SB0`, so do not blank them alongside it.** Section
+12.1 divides by `DynamicSB0` under a dynamic rule, and by biomass in the LAST projection year —
+the equilibrated unfished reference — when `HCR == 0 & msmMode > 0`. Only the remaining case
+reads the `SB0` array. Blanking depletion whenever `SB0` is a placeholder destroys a valid
+series on exactly the multispecies fits the package exists for; measured range on that fit is
+0.169–1.724, which is visibly not `ssb / 999`.
+
+**A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
+`N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
+comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
+`names(fit$quantities)`, not from the source.
+
 **`Index_distribution` has a second hand-synced registry.** A family added to
 `index_distribution_map` (`R/0-switches.R`) must also be classified in
 `.index_rows_natural_scale()` in the same file, which is what `residuals(type = "pearson")`,
