@@ -49,9 +49,30 @@ package exists for.
 
 **Model-level findings NOT fixed here** (they are the model's, not the reporting layer's):
 
-- `SPR0` / `SPRtarget` / `SPRlimit` come back **NA for the two-sex species** (arrowtooth) on a
-  single-species fit, so a Tier 3 SPR reference point cannot be formed for it. Reported as
-  `basis = "not available (model returned NA)"`. Worth chasing separately.
+- ~~`SPR0` NA for the two-sex species~~ **FIXED in 5.24.1.** SPR is spawning output per TOTAL
+  recruit, so the female fraction belongs in it for every species -- once. A one-sex schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age (`mature_females`, 5.4). A
+  two-sex species' sex-0 schedule is already female, so only the recruitment split
+  `sex_ratio(sp, 0)` applies. 6.2 applied the age-varying ratio to both, re-applying on a
+  two-sex species a split already in its schedule, and going NaN where the table stopped short
+  of its own `nages`. Arrowtooth SPR0 NA -> 1.2300187; one-sex species unchanged;
+  `ssb`/`biomass`/`R`/`F_spp`/`N_at_age`/`SB0`/`jnll` do not move.
+  **Getting this wrong once is easy:** the first attempt dropped the ratio entirely for a
+  two-sex species, which reports per FEMALE recruit -- a different quantity from the one the
+  other species report. `test-dynamics-brps.R:229` and `test-dynamics-spr.R:168` pin the
+  per-total-recruit convention on fixtures where sex_ratio is 0.5 at every age, and caught it.
+- `data_check()` relaxed to match (a two-sex species reads `sex_ratio` only at age 1), and
+  **`nsex` is now validated** for length and value -- it was read straight into loop bounds, and
+  an NA aborted `data_check()` with R's "missing value where TRUE/FALSE needed".
+- **Still open, pre-existing:** a NULL or NA `nspp` crashes `data_check()` at
+  `if (data_list$nspp != max(data_list$weight$Species))` with the same uninformative abort,
+  before any accumulated error is raised. Same family as the `nsex` bug; not fixed.
+
+**VERSION COLLISION -- needs a decision before either branch merges.** `osa-cdf-method` and
+`reporting-tables` both branched from `dev` at 5.23.0 and both wrote a **5.24.0** NEWS section:
+the former for `osa_residuals(method = "cdf")`, the latter for the reporting tables (plus
+5.24.1 for the SPR fix). Whichever merges second must renumber its own section; neither is
+tagged, so either order works.
 - `ms_mod` has 15 top-level elements and `ss_mod` 17 -- concrete evidence for why stockplotr's
   positional indexing into the fit object cannot work.
 

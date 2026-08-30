@@ -83,6 +83,29 @@ reads the `SB0` array. Blanking depletion whenever `SB0` is a placeholder destro
 series on exactly the multispecies fits the package exists for; measured range on that fit is
 0.169–1.724, which is visibly not `ssb / 999`.
 
+**`sex_ratio` enters SPR differently for a one-sex and a two-sex species.** SPR is spawning
+output per TOTAL recruit, so the female fraction belongs in it for every species -- once. A
+one-sex species' schedule is sex-combined, so the age-varying ratio applies at every age (that
+is what `mature_females` folds in, section 5.4). A two-sex species' sex-0 schedule is already
+female, so only the recruitment split `sex_ratio(sp, 0)` applies, the same split 6.6 uses for
+`NByage0` / `NByageF`.
+
+Until 5.24.1 section 6.2 applied the age-varying ratio to both. On a two-sex species that
+re-applied a split already in the schedule, and returned NaN wherever the table stopped short of
+the species' own `nages` -- measured: GOA arrowtooth (`nsex = 2`, `nages = 21`, table filled to
+10) returned NA for `SPR0`, `SPRtarget`, `SPRlimit` and `SPRFinit`, so no Tier 3 proxy could be
+formed. Fixed value 1.2300187 kg/recruit.
+
+**Both wrong answers are easy to reach.** Applying the age-varying ratio double-counts;
+dropping it entirely reports per FEMALE recruit, which is not comparable with the one-sex
+species in the same model. `test-dynamics-brps.R:229` and `test-dynamics-spr.R:168` pin the
+per-total-recruit convention on fixtures whose sex_ratio is 0.5 at every age, so the two
+branches must agree there -- they are what catches either mistake.
+
+After the fix a two-sex species reads `sex_ratio` only at age 1, so `data_check()` requires the
+full schedule for a one-sex species only. **SPR reaches the objective only under
+`HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`)**, so most fits cannot move at all.
+
 **A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
 `N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
 comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
