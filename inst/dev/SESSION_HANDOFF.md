@@ -68,6 +68,22 @@ package exists for.
   `if (data_list$nspp != max(data_list$weight$Species))` with the same uninformative abort,
   before any accumulated error is raised. Same family as the `nsex` bug; not fixed.
 
+**stockplotr PR prepared, NOT sent.** `convert_output(model = "rceattle")` on
+`nmfs-ost/stockplotr` errored on every Rceattle fit, in both documented input modes -- 10
+defects, including composition being silently replaced by a duplicate of the catch data and a
+`cross_join(age_hat)` Cartesian product (2,470 observed comps -> 92,778 predicted). Repaired
+and verified against the 2026 GOA arrowtooth assessment: 34 columns matching the SS3 path,
+biomass equal to the fit to machine precision, multispecies refused rather than returned with
+`year = NA`. Their suite passes.
+
+Everything needed to rebuild or send it is in this repo's gitignored `dev/`:
+`stockplotr-pr.md` (PR body + push commands), the exported `*.patch` (restore with `git am`),
+`stockplotr-fix.py` (reapplies all 13 edits, asserts on every target), `stockplotr-fixture.R`
+and `stockplotr-tests.R`. **Two things block sending:** `gh` is SAML-blocked for `nmfs-ost`
+(Grant must authorize his token), and the test fixture is real 2026 GOA arrowtooth assessment
+data -- committing it publishes those numbers publicly, which needs Grant's call if that cycle
+is pre-decisional.
+
 **VERSION COLLISION -- needs a decision before either branch merges.** `osa-cdf-method` and
 `reporting-tables` both branched from `dev` at 5.23.0 and both wrote a **5.24.0** NEWS section:
 the former for `osa_residuals(method = "cdf")`, the latter for the reporting tables (plus
