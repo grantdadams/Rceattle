@@ -231,6 +231,21 @@ Note that inside `priors = `, the bare constructors `normal()`, `lognormal()`,
 8. Document it in `inst/extdata/meta_data_names.xlsx` and/or the `fit_mod()`
    roxygen.
 
+### Add a new reported quantity
+
+1. `REPORT()` it in `ceattle.cpp` (and `ADREPORT()` it if it needs a standard
+   error). A `REPORT` inside a comment block is not reported — enumerate from a
+   real fit, not from a grep, when checking what a model actually returns.
+2. Give it dimension names in `R/6-rename_output.R` if it is an array.
+3. Add it to the quantity dictionary in `R/0-quantity_dictionary.R`, with its
+   units and whether it carries a standard error.
+   `test-schema-quantity-dictionary.R` reads the template and a fit and asserts
+   the two agree, so a quantity added here and not there fails a test.
+4. If a quantity is only defined for some configurations — the per-recruit
+   reference points are computed only under `msmMode = 0` — say so in its
+   `meaning`, and gate it in `report_tables()`. CEATTLE leaves a *number* behind
+   rather than a gap, so an ungated quantity reports a plausible wrong figure.
+
 ### Add or change a data input
 
 There are two cases. Follow the one that matches.
