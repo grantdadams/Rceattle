@@ -30,7 +30,10 @@ the same profile run on two model configurations).}
 \item{model_names}{Legend labels for the models.}
 
 \item{weighted, relative, minfraction}{Passed to \code{\link[=profile_components]{profile_components()}}.
-\code{minfraction} defaults to \code{0.01} here, as in \code{r4ss::SSplotProfile()}.}
+\code{minfraction} drops a component moving less than that fraction of the
+TOTAL's change over the grid -- not an absolute number of objective units.
+It defaults to \code{0.01} here, as in \code{r4ss::SSplotProfile()}, so a total
+moving 60 units cuts at 0.6.}
 
 \item{add_cutoff}{Draw a horizontal line at \code{cutoff}. Off by default: the
 cutoff is a statement about the total, and drawing it across the
