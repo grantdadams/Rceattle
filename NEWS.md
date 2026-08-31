@@ -110,6 +110,23 @@ version throughout.
   not have. Projected biomass under the model's own harvest control rule is in
   `timeseries` with `era = "fore"`.
 
+* **`report_tables()` gains a `parameters` section, and reports both
+  objectives.** Asked for directly: where are sigma_R, the estimates of M, and
+  the likelihood values? `parameters` joins `coef()` and `vcov()` to
+  [parameter_dictionary()], so every estimated parameter carries its
+  natural-scale name, its process and its standard error. Estimates are on the
+  parameter's own scale, so a `log_` name needs `exp()`; sigma_R appears only
+  when `random_rec = TRUE`, and a **fixed** M is not there at all because it was
+  never estimated — read that off `M_at_age`.
+
+  `model` now reports `marginal_objective` and `joint_objective` rather than one
+  ambiguous `objective`, plus `n_random`. The marginal is what the optimizer
+  minimized and what `AIC` uses; the joint is what `jnll_comp` decomposes, so it
+  is what the `likelihood` table sums to. They are equal without random effects
+  and differ by the Laplace correction with them — on `GOAatf` with random
+  recruitment, 744.33 against 816.99. Reporting only one made the two tables
+  look inconsistent.
+
 * **`standard_output()` emits the NOAA standardized assessment format.** Relabels
   `report_tables()` output into the schema that the `stockplotr` and `asar` packages
   consume, so Rceattle results can be plotted and written into a report by the same

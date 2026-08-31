@@ -104,6 +104,11 @@
 #'   \item{`model`}{One row per fit: dimensions, switches, the objective, the
 #'     number of estimated parameters, AIC, the maximum gradient, whether the
 #'     Hessian was positive definite, and the run time.}
+#'   \item{`parameters`}{Every estimated parameter with its standard error, and
+#'     the natural-scale name and process from [parameter_dictionary()]. Where
+#'     `sigma_R` and an estimated M are found. Estimates are on the parameter's
+#'     own scale, so a `log_` name needs `exp()`; a **fixed** M is not here at
+#'     all, because it was never estimated — read it off `M_at_age`.}
 #'   \item{`likelihood`}{The negative log-likelihood by component and fleet or
 #'     species, weighted and unweighted.}
 #'   \item{`timeseries`}{Biomass, female spawning-stock biomass, recruitment,
@@ -152,6 +157,13 @@
 #' harvest control rule in multispecies mode the model divides by biomass in the
 #' last projection year, which is the equilibrated unfished reference, so the
 #' series is meaningful there.
+#'
+#' @section Two objectives:
+#' `model` reports both. `marginal_objective` is what the optimizer minimized —
+#' random effects integrated out by the Laplace approximation — and is what
+#' `AIC` is built from. `joint_objective` is what the template evaluated at the
+#' conditional modes, so it is what `likelihood` sums to. They are equal when
+#' `n_random` is 0 and differ by the Laplace correction otherwise.
 #'
 #' @section Supplying diagnostics for several models:
 #' A diagnostics list is matched to models **by name**, so `list(alt = ..., base
@@ -217,6 +229,7 @@ report_tables <- function(object,
   nm <- names(models)
   out <- list(
     model            = bind(lapply(nm, function(m) .rce_tab_model(models[[m]], m))),
+    parameters       = bind(lapply(nm, function(m) .rce_tab_parameters(models[[m]], m))),
     likelihood       = bind(lapply(nm, function(m) .rce_tab_likelihood(models[[m]], m))),
     timeseries       = bind(lapply(nm, function(m)
                          .rce_tab_timeseries(models[[m]], m, quantities, ci_level))),
@@ -256,6 +269,12 @@ report_tables <- function(object,
   secs <- tryCatch(as.numeric(fit$run_time, units = "secs"),
                    error = function(e) NA_real_)
 
+  # Marginal (what nlminb minimized, and what AIC uses) and joint (what
+  # jnll_comp decomposes). They differ by the Laplace correction whenever there
+  # are random effects; see ?report_tables.
+  n_random <- length(fit$obj$env$random %||% integer(0))
+  joint <- fit$quantities$jnll %||% NA_real_
+
   data.frame(
     model         = model,
     rceattle      = tryCatch(as.character(utils::packageVersion("Rceattle")),
@@ -271,12 +290,50 @@ report_tables <- function(object,
     HCR           = unname(tryCatch(.rce_alias_show(d$HCR, hcr_map),
                                     error = function(e) NA_character_)),
     n_parameters  = npar,
-    objective     = as.numeric(obj),
+    n_random      = as.integer(n_random),
+    marginal_objective = as.numeric(obj),
+    joint_objective    = as.numeric(joint),
     AIC           = as.numeric(aic),
     max_gradient  = as.numeric(mg),
     pdHess        = if (!is.null(fit$sdrep)) isTRUE(fit$sdrep$pdHess) else NA,
     converged     = fit$convergence$status %||% NA_character_,
     run_time_secs = as.numeric(secs),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+# The estimated parameters and their standard errors, named through the
+# parameter dictionary. Where sigma_R and an estimated M are found; a FIXED M
+# was never estimated, so read that off `M_at_age`.
+.rce_tab_parameters <- function(fit, model) {
+  est <- tryCatch(stats::coef(fit), error = function(e) NULL)
+  if (is.null(est) || !length(est)) return(NULL)
+
+  # Fixed effects only, and NA rather than absent when getsd = FALSE.
+  se <- tryCatch({
+    v <- stats::vcov(fit)
+    if (is.null(v)) NULL else sqrt(abs(diag(v)))
+  }, error = function(e) NULL)
+  se <- if (!is.null(se) && length(se) == length(est)) unname(se)
+        else rep(NA_real_, length(est))
+
+  # coef() repeats a name per element of a block, so number within the block.
+  nm <- names(est)
+  idx <- stats::ave(seq_along(nm), nm, FUN = seq_along)
+  n_in_block <- as.integer(table(nm)[nm])
+
+  info <- .par_info(unique(nm))
+  m <- match(nm, info$internal)
+
+  data.frame(
+    model      = model,
+    parameter  = nm,
+    index      = ifelse(n_in_block > 1L, idx, NA_integer_),
+    natural    = info$natural[m],
+    process    = info$process[m],
+    estimate   = unname(est),
+    std_error  = se,
     stringsAsFactors = FALSE
   )
 }

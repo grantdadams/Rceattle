@@ -323,3 +323,68 @@ testthat::test_that("a diagnostics list is matched by name, never silently by or
   testthat::expect_message(report_tables(models, osa = list(osa1, osa1)),
                            "paired with the models in order")
 })
+
+
+testthat::test_that("the two objectives are reported and are not conflated", {
+  # `marginal_objective` is what nlminb minimized (random effects integrated
+  # out); `joint_objective` is what jnll_comp decomposes. Reporting only one
+  # made the model and likelihood tables look inconsistent on a random-effects
+  # fit, where they differ by the Laplace correction.
+  testthat::skip_on_cran()
+  fit <- make_fit()
+  tabs <- report_tables(fit)
+  m <- tabs$model
+
+  testthat::expect_true(all(c("n_random", "marginal_objective",
+                              "joint_objective") %in% names(m)))
+  # The likelihood table sums to the JOINT objective, by construction.
+  total <- tabs$likelihood$weighted[tabs$likelihood$component == "Total"]
+  testthat::expect_equal(m$joint_objective, total)
+  # No random effects here, so the two agree.
+  testthat::expect_equal(m$n_random, 0L)
+})
+
+
+testthat::test_that("a build with no optimization has no parameter table", {
+  # estimateMode = 3 never optimizes, so there are no estimated parameters to
+  # report and the section is absent rather than empty.
+  testthat::skip_on_cran()
+  testthat::expect_false("parameters" %in% names(report_tables(make_fit())))
+})
+
+
+testthat::test_that("the parameter table names sigma_R and its process", {
+  # Kalei's question: where are sigma_R and M? The parameter table answers it by
+  # joining coef()/vcov() to the parameter dictionary.
+  testthat::skip_on_cran()
+  # random_rec = TRUE, because sigma_R is only ESTIMATED when recruitment is a
+  # random effect. Fixed, it never enters coef() and is read off quantities$R_sd.
+  utils::data("GOAatf", package = "Rceattle", envir = environment())
+  fit <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = GOAatf, estimateMode = 1, msmMode = 0, phase = FALSE,
+    random_rec = TRUE, fit_control = fit_control(getsd = TRUE, verbose = 0))))
+
+  p <- report_tables(fit)$parameters
+  testthat::expect_false(is.null(p))
+  testthat::expect_named(p, c("model", "parameter", "index", "natural",
+                              "process", "estimate", "std_error"))
+  testthat::expect_equal(nrow(p), length(stats::coef(fit)))
+
+  sr <- p[p$parameter == "R_log_sd", ]
+  testthat::expect_equal(nrow(sr), 1L)
+  testthat::expect_equal(sr$natural, "sigma_R")
+  testthat::expect_equal(sr$process, "recruitment")
+
+  # Only a repeated block is numbered, so a row identifies which element it is.
+  testthat::expect_true(all(table(p$parameter[!is.na(p$index)]) > 1))
+  testthat::expect_true(all(table(p$parameter[is.na(p$index)]) == 1))
+
+  # With recruitment fixed, sigma_R is not estimated and so is not in the table.
+  fixed <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = GOAatf, estimateMode = 1, msmMode = 0, phase = FALSE,
+    random_rec = FALSE, fit_control = fit_control(getsd = TRUE, verbose = 0))))
+  testthat::expect_equal(
+    nrow(report_tables(fixed)$parameters[
+      report_tables(fixed)$parameters$parameter == "R_log_sd", ]), 0L)
+  testthat::expect_true(all(is.finite(fixed$quantities$R_sd)))
+})
