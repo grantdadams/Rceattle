@@ -12,7 +12,6 @@ whether behaviour changes.
 | `fit_mod()` / `run_config()` | `random_sel` and `random_q` are global flags whose only job is a per-fleet decision `fleet_control` already determines (`.rce_np_unintegrable_fleets()`) | derive per fleet; deprecate the flags | yes, needs a deprecation path |
 | `save_config()` | writes no `fleet_control`, so the YAML is not the whole model | serialise it | additive |
 | `Catchability` / `Time_varying_q` | `Time_varying_q` is a mode, or comma-separated `env_data` column indices under `Catchability = "Environmental"` (`R/3-build_map.R`, `# FIXME: use formula`) | the q linkage, one grammar | yes, needs a shim |
-| `fit_mod(config =)` | `model_config` is replaced wholesale where every neighbouring field is overlaid | per-field overlay (PR 2) | fixed in PR 2 |
 | `fit_mod(initMode =)` | overwrites `data_list$initMode` unconditionally, so a switch stored on the data is never read (`BS2017MS$initMode = 1` never reached the golden fit) | read the data's value when the argument is missing, as `model_config` does | yes; moves `ms` golden |
 | `estDynamics` | under `msmMode = 0` codes 1 and 2 estimate nothing, so two codes describe one model | one code in single-species mode, or estimate the scalar there | yes |
 | `.map_switch()` vs `.conv()` | two switch normalisers; PR 1 gave `.map_switch()` the same factor and numeric-string handling | one should call the other | internal |
@@ -24,3 +23,4 @@ whether behaviour changes.
 | `R/0-osa_data.R:79-85` | five-line comment plus a FIXME for a one-line fact (`comp_offset` has three fill sites) | one line (PR 2) | doc |
 | `CONTRIBUTOR-EXPERIENCE.md` item F | proposes work the code already does (`revert_switches()`) | delete (PR 6) | doc |
 | `R/10-run_mse.R:900` | every deviation array but `log_M1_dev` is carried into the operating-model projection | carry the terminal year, as `index_q_dev` is | yes, `M1_re` operating models only |
+| `materialize_linkage()` | the filter warnings (5.36.0) fire on every build, so a retrospective, jitter or MSE repeats them once per refit | hoist the check into the `build_*()` validators, or message once per fit | internal |

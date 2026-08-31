@@ -194,7 +194,7 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
     ps <- pear[pear$.side == side, , drop = FALSE]
     if (nrow(ps) > 0) {
       panels[[length(panels) + 1L]] <-
-        .osa_bubble_plot(ps, ylab = ylab, title = "Pearson residuals")
+        .osa_bubble_plot(ps, ylab = ylab, title = "Pearson residuals", outlier = "fixed")
     }
   }
   .osa_stack(panels)
@@ -343,15 +343,25 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 #' @param osa A data frame with `source`, `year`, `age_length_bin`, and
 #'   `residual` columns. Bubbles are placed at (year, age/length bin); red =
 #'   positive, blue = negative; size scales with the absolute residual;
-#'   outliers (`|resid| > 3`) are drawn as triangles.
+#'   outliers are drawn as triangles.
 #' @param ylab Y-axis label (e.g. `"Age bin"` or `"Length bin"`).
 #' @param title Panel title.
+#' @param outlier How a residual is flagged as an outlier. `"bonferroni"` (OSA
+#'   residuals) flags `|resid|` above `qnorm(1 - 0.05 / (2 n))`, `n` the finite
+#'   residuals in the panel: under the model OSA residuals are i.i.d. N(0, 1),
+#'   so the expected number of flags per panel is 0.05 whatever its size.
+#'   `"fixed"` (Pearson residuals, which are not N(0, 1)) flags `|resid| > 3`.
 #' @return A `ggplot` object.
 #' @keywords internal
-.osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals") {
+.osa_bubble_plot <- function(osa, ylab = "Bin", title = "OSA residuals",
+                             outlier = c("bonferroni", "fixed")) {
+  outlier <- match.arg(outlier)
+  # Flagged on the untruncated residual, per panel (facet = source).
+  n_panel <- stats::ave(is.finite(osa$residual), osa$source, FUN = sum)
+  cut <- if (outlier == "bonferroni") stats::qnorm(1 - 0.05 / (2 * pmax(n_panel, 1))) else 3
+  osa$shape <- ifelse(abs(osa$residual) > cut, "outlier", "normal")
   osa$residual <- .rce_truncate_resid(osa$residual, title)
   osa$sign  <- ifelse(osa$residual >= 0, "positive", "negative")
-  osa$shape <- ifelse(abs(osa$residual) > 3, "outlier", "normal")
 
   p <- ggplot2::ggplot(osa, ggplot2::aes(x = .data$year,
                                          y = .data$age_length_bin)) +

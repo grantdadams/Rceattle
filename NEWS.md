@@ -12,6 +12,48 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.36.0
+
+## Results change
+
+* **`fit_mod(config =)` overlays only the fields the config set.** It replaced
+  `data_list$model_config` wholesale, so a config built from `model_config()`
+  or read back by `load_config()` silently dropped every linkage attached with
+  `build_data(model_config = )`: 57 random effects became 0 on a GOAatf survey
+  `rw(1 | Year)` fit, with no message. `model_config()` now records which
+  fields the caller set (defaults included), `save_config()` writes those even
+  at their default, and `fit_mod()` overlays exactly those onto the data
+  object's own model_config, warning when the two differ. A config from a fit
+  sets every field, so `load_config(save_config(fit))` still reproduces the fit
+  on any data object; a hand-built `run_config(model_config(msmMode = 1))` on
+  a data object carrying its own model_config now changes `msmMode` only, where
+  before it also reset every other field to its default. Rebuild such a script
+  by naming every field it means to set.
+## Bug fixes
+
+* **A `species =`, `sex =` or `fleet =` filter on a linkage spec now warns
+  when it does nothing**: when `by` does not include the term (the filter had
+  no effect), and when it matches none of the model's levels (the whole spec
+  was dropped, so a male M prior on a one-sex species vanished silently).
+* **OSA outlier symbols no longer scale with the panel's size.** A residual was
+  drawn as an outlier above a fixed 3, so a long length-composition panel
+  always showed more triangles than a short age panel under the same model
+  (expected 13.5 at 5,000 residuals against 0.3 at 100). The OSA panel now
+  flags `|resid| > qnorm(1 - 0.05 / (2 n))`, `n` the finite residuals in the
+  panel: under the model OSA residuals are N(0, 1), so the expected number of
+  flags is 0.05 per panel whatever its size, and an eight-panel figure expects
+  0.4 (Bonferroni; the family is the panel). The Pearson panel keeps the fixed
+  3: composition Pearson residuals are sum-constrained and overdispersed, not
+  N(0, 1), so no threshold has a rate there.
+
+## Documentation
+
+* `fit_mod()` and `run_config()` say what `random_sel` and `random_q` gate: the
+  `Time_varying_*` deviations only, with one estimated sd per
+  `Selectivity_index` group; linkage random effects integrate regardless.
+* `build_srr()`'s starting values name the `exp(9)` mean recruitment start.
+* `build_osa_data()`'s note on `comp_offset` names its three fill sites.
+
 # Rceattle 5.35.0
 
 ## Results change

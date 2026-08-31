@@ -202,12 +202,15 @@ print.Rceattle_run_config <- function(x, ...) {
 .rce_run_config_to_list <- function(rc) {
   mc <- rc$model_config
   mc_def <- model_config()
+  # A field the config set is written even at its default, so a saved run
+  # imposes it on reload; an unset default field is left out.
+  set <- attr(mc, "set") %||% character(0)
   model <- list()
   for (nm in .RCE_MODEL_CONFIG_FIELDS) {
     if (nm %in% names(.RCE_CONFIG_BUILDERS)) {
       b <- .rce_build_to_list(mc[[nm]], unname(.RCE_CONFIG_BUILDERS[nm]))
-      if (length(b) > 0) model[[nm]] <- b
-    } else if (!identical(mc[[nm]], mc_def[[nm]])) {
+      if (length(b) > 0 || nm %in% set) model[[nm]] <- b
+    } else if (nm %in% set || !identical(mc[[nm]], mc_def[[nm]])) {
       model[[nm]] <- mc[[nm]]
     }
   }
@@ -302,8 +305,8 @@ print.Rceattle_run_config <- function(x, ...) {
     # estimation controls
     estimateMode = .from_switch_table("estimateMode"),
     random_rec = d("Estimate recruitment deviations as random effects"),
-    random_q   = d("Estimate time-varying catchability as random effects"),
-    random_sel = d("Estimate time-varying selectivity as random effects"),
+    random_q   = d("Integrate the Time_varying_q deviations as random effects and estimate their sd (linkage random effects are integrated regardless)"),
+    random_sel = d("Integrate the Time_varying_sel deviations as random effects and estimate their sd, one per Selectivity_index group (linkage random effects are integrated regardless)"),
     suit_styr  = d("First year of the diet/suitability averaging window"),
     suit_endyr = d("Last year of the diet/suitability averaging window"),
     # fit_control knobs (the commonly-tuned ones)

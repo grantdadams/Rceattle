@@ -608,7 +608,11 @@ estimation controls and `fit_control()` bundle -- to a documented, git-diffable
 YAML file, so two assessment runs diff cleanly and a configuration can be archived
 alongside the data. `load_config()` reads it back, and passing it as
 `fit_mod(config = ...)` reproduces the fit (filling only the arguments you did not
-pass explicitly):
+pass explicitly). The model structure is overlaid field by field: a field the
+config leaves at its default keeps what the data object carries, so a config
+built from `model_config()` does not drop linkages attached with
+`build_data(model_config = )`, and a field both set differently is taken from
+the config with a warning:
 
 ```{r}
 cfg_file <- tempfile(fileext = ".yaml")

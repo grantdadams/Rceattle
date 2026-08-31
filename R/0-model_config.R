@@ -119,6 +119,13 @@ model_config <- function(msmMode = 0,
     selFun    = selFun,
     compFun   = compFun
   )
+  # Which fields the caller set, defaults included: fit_mod(config =) overlays
+  # only these onto a data object's own model_config, and save_config() writes
+  # them even at their default so a saved run reproduces.
+  attr(cfg, "set") <- .RCE_MODEL_CONFIG_FIELDS[!c(
+    missing(msmMode), missing(initMode), missing(avgnMode), missing(suitMode),
+    missing(niter), missing(HCR), missing(recFun), missing(M1Fun),
+    missing(growthFun), missing(qFun), missing(selFun), missing(compFun))]
   class(cfg) <- c("Rceattle_model_config", "list")
   cfg
 }

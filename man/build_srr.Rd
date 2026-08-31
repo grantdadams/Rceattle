@@ -117,8 +117,9 @@ spawning biomass per recruit and so exists only in single-species models.
 
 \section{Starting values}{
 
-Alpha starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
-\eqn{e^3} otherwise; beta starts at 3. Neither knows the stock's scale. Set them
+Mean recruitment (\code{R0}) starts at \eqn{e^9 = 8103} thousand fish. Alpha
+starts at \code{srr_prior} (default 4) wherever that is an alpha, and at
+\eqn{e^3} otherwise; beta starts at 3. None of them knows the stock's scale. Set them
 with \code{srr_alpha_init} / \code{srr_beta_init} or a linkage \code{init};
 supplying \code{srr_prior} as alpha's starting value is deprecated. \eqn{\beta} sets the density dependence in
 \eqn{R = \alpha S / (1 + \beta S)}, so it must be on the order of

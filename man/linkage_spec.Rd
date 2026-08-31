@@ -66,8 +66,8 @@ May be supplied as integers (\code{1L} = female, \code{2L} = male) or as
 character strings (\code{"Females"}/\code{"Males"}, case-insensitive;
 \code{"female"}, \code{"male"}, \code{"f"}, \code{"m"} are also accepted). \code{NULL}
 (default) means every sex in \code{strata$sex} at materialization
-time. Only meaningful when \code{by} includes \code{sex}; otherwise the
-filter is a no-op. Use this to register separate specs per sex
+time. \code{by} must include \code{sex} for it to apply; otherwise it warns
+and has no effect. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
@@ -81,8 +81,8 @@ fleets. Prefer names: a \code{Fleet_code} that is wrong but in range
 attaches the linkage to a different fleet and still fits, whereas a
 misspelled name cannot. Give ids or names, not a mix -- R coerces
 \code{c(7, "Pollock")} to \code{c("7", "Pollock")}. \code{NULL} (default) means every fleet in
-\code{strata$fleet} at materialization time. Only meaningful when \code{by}
-includes \code{fleet}; otherwise the filter is a no-op. Used by
+\code{strata$fleet} at materialization time. \code{by} must include \code{fleet}
+for it to apply; otherwise it warns and has no effect. Used by
 catchability and selectivity linkages to give different fleets
 different formulas.}
 

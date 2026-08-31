@@ -22,8 +22,8 @@
 #'   (4) = optimize with all parameters mapped out, so the objective is a
 #'   placeholder (\code{dummy^2}), not a likelihood. Defaults to \code{"Estimate"}.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the Laplace approximation. The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_q_sd`. The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the Laplace approximation, and estimates their standard deviation rather than fixing it at `Time_varying_sel_sd`. The default is FALSE.
+#' @param random_q logical. If TRUE, integrates the `Time_varying_q` deviations as random effects and estimates their standard deviation, one per `Catchability_index` group, instead of fixing it at `Time_varying_q_sd`. The default is FALSE. A linkage's random effects are integrated whatever this is.
+#' @param random_sel logical. If TRUE, integrates the `Time_varying_sel` deviations as random effects and estimates their standard deviation, one per `Selectivity_index` group, instead of fixing it at `Time_varying_sel_sd`. The default is FALSE. A linkage's random effects are integrated whatever this is.
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -319,7 +319,34 @@ fit_mod <-
       if (!inherits(config, "Rceattle_run_config"))
         stop("`config` must be an Rceattle_run_config (from load_config() / run_config()).",
              call. = FALSE)
-      if (!is.null(config$model_config)) data_list$model_config <- config$model_config
+      # Only the fields the config set (its "set" attribute, defaults included)
+      # overlay the data object's own model_config; the rest keep the data's,
+      # so a config built from model_config() does not drop the data's linkages.
+      # A config from before the attribute existed sets its non-default fields.
+      if (!is.null(config$model_config)) {
+        mc_new <- config$model_config
+        mc_old <- data_list$model_config
+        if (is.null(mc_old)) {
+          data_list$model_config <- mc_new
+        } else {
+          set <- attr(mc_new, "set")
+          if (is.null(set)) {
+            mc_def <- model_config()
+            set <- .RCE_MODEL_CONFIG_FIELDS[!vapply(.RCE_MODEL_CONFIG_FIELDS, function(nm)
+              identical(mc_new[[nm]], mc_def[[nm]]), logical(1))]
+          }
+          for (nm in set) {
+            if (is.null(mc_new[[nm]])) next
+            if (!is.null(mc_old[[nm]]) && !identical(mc_old[[nm]], mc_new[[nm]])) {
+              warning("`", nm, "` in the data's model_config is different than in `config`, ",
+                      "using `config`'s.", call. = FALSE)
+            }
+            mc_old[[nm]] <- mc_new[[nm]]
+          }
+          attr(mc_old, "set") <- union(attr(mc_old, "set"), set)
+          data_list$model_config <- mc_old
+        }
+      }
       if (missing(estimateMode) && !is.null(config$estimateMode)) estimateMode <- config$estimateMode
       if (missing(random_rec)   && !is.null(config$random_rec))   random_rec   <- config$random_rec
       if (missing(random_q)     && !is.null(config$random_q))     random_q     <- config$random_q
