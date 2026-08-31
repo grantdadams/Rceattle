@@ -13,6 +13,11 @@
  * output per TOTAL recruit; the caller supplies a mature-at-age schedule with
  * the female fraction already folded in.
  *
+ * The reference points are not the only consumer. Under Beverton-Holt or Ricker
+ * recruitment, SPR0 sets steepness and R0 and SPRFinit sets R_init (section
+ * 6.3), and R_init scales the initial age structure (section 6.5) -- so these
+ * values reach the hindcast and the objective under any harvest control rule.
+ *
  * Not defined under predation: total mortality then carries M2, which scales
  * with predator abundance, so spawning output per recruit is not a property of
  * the prey stock alone. data_check() refuses the switch combinations that would

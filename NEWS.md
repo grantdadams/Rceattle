@@ -12,6 +12,32 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.24.2
+
+## Bug fixes
+
+* **`standard_output()` spells the length-bin column `length_bins`, and carries
+  `beg_mid`.** The schema `stockplotr` and `asar` read is the 34 columns of
+  `stockplotr::example_data`; `convert_output()` spells it `len_bins` internally
+  and renames on its last step, so 5.24.0 emitted the internal name. Those
+  packages index by column name, so the wrong spelling is an error in the
+  consumer rather than an empty column. `test-report-tables.R` now checks the
+  emitted names against that package rather than against the constant itself.
+
+* **`report_tables()` reports convergence from the hindcast fit.** `max_gradient`
+  and `pdHess` came from `$opt` and `$sdrep`, which the harvest-control-rule
+  projection re-optimizes and overwrites, with a fallback to a bare `obj$gr()`
+  evaluated at whatever parameter vector was left in place. Both now read the
+  `.conv_hindcast` snapshot [fit_mod()] takes before the projection -- the same
+  source `convergence_diagnostics()` uses -- so a maximum gradient quoted in an
+  executive summary describes the assessment.
+
+* **The reference-point gating reads a harvest control rule held as an integer.**
+  `build_hcr_map()` matches `HCR` by name, so a `data_list` carrying the integer
+  code matched no rule and `report_tables()` reported `NA` for an F40% that was
+  estimated, with a `basis` saying it was not. `HCR` is normalized before the
+  lookup.
+
 # Rceattle 5.24.1
 
 ## Bug fixes
@@ -29,18 +55,34 @@ version throughout.
 
   Found on the 2026 GOA three-species assessment, where arrowtooth flounder
   (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
-  could not be given a Tier 3 SPR reference point. One-sex species are
-  unchanged; `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and
-  the objective do not move.
+  could not be given a Tier 3 SPR reference point. **One-sex species are
+  unchanged in every configuration**: `mature_females` already carries the
+  age-varying ratio for them, so the new formula reduces to the old one.
 
-  **A two-sex species under an SPR-based rule can shift**, because the ratio
-  `SPRtarget / SPR0` changes wherever the sex ratio varies with age. SPR reaches
-  the objective only under `HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`),
-  so a fit using another rule cannot move. The `NaN` is not the only failure
-  mode: on the bundled `GOAatf`, whose `sex_ratio` is fully populated, the old
-  formula returned a value rescaled by a clean factor of 0.708 with nothing in
-  the output to give it away. `test-dynamics-spr-two-sex.R` fits that dataset
-  and checks the result against the per-total-recruit rule.
+  **Which two-sex fits move.** The change rescales all four SPR schedules
+  wherever `sex_ratio` varies with age, and it reaches the objective two ways:
+
+  1. The reference-point penalty (section 13) scores `SPRlimit / SPR0` and
+     `SPRtarget / SPR0`, so it is live only under `HCR = "ConstantF"` or an
+     SPR-based rule (`HCR > 3`).
+  2. The stock-recruit derivation (section 6.3) is live under **any** harvest
+     control rule: with `srr_fun = "BevertonHolt"` or `"Ricker"`, `SPR0` sets
+     `steepness` and `R0` and `SPRFinit` sets `R_init`, which scales the initial
+     age structure (section 6.5). `srr_fun = "mean"` ignores `SPR0`, which is why
+     the four golden references reproduce their pinned objectives.
+
+  Bundled `GOAatf` meets the condition -- `sex_ratio` is 0.5 at age 1 and 0.354
+  over the mature ages -- so the old formula rescaled every SPR by a clean factor
+  of 0.708 with nothing in the output to give it away. Built with
+  `srr_fun = "BevertonHolt"` and no harvest control rule, the old schedules give
+  steepness 0.4655 against 0.5516 and `R_init` 0.9505 against 1.0623 at the
+  starting values: -15.6% and -10.5% on a fit route 1 never touches.
+  `test-dynamics-spr-two-sex.R` checks the result against the per-total-recruit
+  rule.
+
+  `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and the objective
+  are unchanged for a one-sex species, and for a two-sex species on neither
+  route.
 
 * **`data_check()` validates `nsex`.** The model has exactly two sex schedules --
   index 0 (females, or the single combined sex) and index 1 (males) -- and reads
