@@ -89,6 +89,21 @@ testthat::test_that("`se` matches the template's ADREPORT calls", {
 })
 
 
+testthat::test_that("`se` agrees with the as.data.frame() quantity registry", {
+  # .RCEATTLE_QUANTITIES records the same fact for the 23 quantities
+  # as.data.frame.Rceattle() tidies, and fills `se`/`lwr`/`upr` from it. Two
+  # hand-maintained registries of one fact drift.
+  d <- quantity_dictionary()
+  reg <- Rceattle:::.RCEATTLE_QUANTITIES
+  shared <- intersect(names(reg), d$quantity)
+  testthat::expect_gt(length(shared), 0)
+  testthat::expect_equal(
+    d$se[match(shared, d$quantity)],
+    vapply(reg[shared], function(x) isTRUE(x$adreport), logical(1)),
+    ignore_attr = TRUE)
+})
+
+
 testthat::test_that("the dictionary covers exactly what a fit reports", {
   # Needs a built model, so it is the one slow test here.
   testthat::skip_on_cran()

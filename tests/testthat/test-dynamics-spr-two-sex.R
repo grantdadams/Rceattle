@@ -25,6 +25,18 @@ spr_fixture <- function() {
 }
 
 
+# Survivors from one recruit under a fixed mortality schedule, with the plus
+# group closed as a geometric series -- what per_recruit_survivors() does.
+survivors <- function(Z) {
+  na <- length(Z)
+  n <- numeric(na)
+  n[1] <- 1
+  if (na > 2) for (a in 2:(na - 1)) n[a] <- n[a - 1] * exp(-Z[a - 1])
+  n[na] <- n[na - 1] * exp(-Z[na - 1]) / (1 - exp(-Z[na]))
+  n
+}
+
+
 testthat::test_that("SPR is finite for a two-sex species", {
   testthat::skip_on_cran()
   fit <- spr_fixture()
@@ -63,10 +75,7 @@ testthat::test_that("SPR includes the female fraction exactly once", {
     sr <- as.numeric(dat$sex_ratio[sp, seq_len(na)])
     matf <- if (dat$nsex[sp] == 1) mat * sr else mat * sr[1]
 
-    n <- numeric(na)
-    n[1] <- 1
-    if (na > 2) for (a in 2:(na - 1)) n[a] <- n[a - 1] * exp(-Z[a - 1])
-    n[na] <- n[na - 1] * exp(-Z[na - 1]) / (1 - exp(-Z[na]))
+    n <- survivors(Z)
 
     expected <- sum(n * wt * matf * exp(-Z * dat$spawn_month[sp] / 12))
     testthat::expect_equal(as.numeric(q$SPR0[sp]), expected, tolerance = 1e-8,
@@ -193,10 +202,7 @@ testthat::test_that("a two-sex SPR survives a real fit and is not double-counted
   mat <- as.numeric(dat$maturity[1, seq_len(na)])
   sr <- as.numeric(dat$sex_ratio[1, seq_len(na)])
 
-  n <- numeric(na)
-  n[1] <- 1
-  for (a in 2:(na - 1)) n[a] <- n[a - 1] * exp(-Z[a - 1])
-  n[na] <- n[na - 1] * exp(-Z[na - 1]) / (1 - exp(-Z[na]))
+  n <- survivors(Z)
   disc <- exp(-Z * dat$spawn_month[1] / 12)
 
   # Per TOTAL recruit: the sex-0 schedule is already female, so only the
