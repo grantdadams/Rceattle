@@ -181,8 +181,9 @@
 #'   [osa_diagnostics()], or `NULL` (default) to omit that section.
 #' @param ci_level Confidence level for the `timeseries` interval, default
 #'   `0.95`.
-#' @param quantities Time-series quantities to include, named as in
-#'   [quantity_dictionary()].
+#' @param quantities Time-series quantities to include, from the set
+#'   [as.data.frame.Rceattle()] accepts; [quantity_dictionary()] says what each
+#'   one means.
 #'
 #' @return A list of data frames with class `"rceattle_report"`, one element per
 #'   section described above. Each carries a `model` column.
@@ -249,8 +250,8 @@ report_tables <- function(object,
 # -- section builders --------------------------------------------------------
 
 # One row per fit. Everything is guarded: a model built with estimateMode = 3
-# carries no $opt, $sdrep or $convergence at all, and a fit run with
-# fit_control(getsd = FALSE) has no sdreport, so each of these is NA rather
+# carries no $opt, $sdrep, $convergence or $.conv_hindcast at all, and a fit run
+# with fit_control(getsd = FALSE) has no sdreport, so each of these is NA rather
 # than an error.
 .rce_tab_model <- function(fit, model) {
   d <- fit$data_list
@@ -259,10 +260,12 @@ report_tables <- function(object,
   aic  <- if (!is.null(fit$opt$objective) && npar > 0)
     2 * npar + 2 * as.numeric(fit$opt$objective) else NA_real_
 
-  mg <- fit$opt$max_gradient %||% NA_real_
-  if (!is.finite(mg) && !is.null(fit$obj)) {
-    mg <- tryCatch(max(abs(as.numeric(fit$obj$gr()))), error = function(e) NA_real_)
-  }
+  # Convergence is judged on the hindcast fit, so read the `.conv_hindcast`
+  # snapshot first: the projection re-optimizes and overwrites `opt` and `sdrep`.
+  ch <- fit$.conv_hindcast
+  mg <- ch$max_gradient %||% fit$opt$max_gradient %||% NA_real_
+  pd <- if (!is.null(ch$pdHess)) ch$pdHess
+        else if (!is.null(fit$sdrep)) isTRUE(fit$sdrep$pdHess) else NA
 
   secs <- tryCatch(as.numeric(fit$run_time, units = "secs"),
                    error = function(e) NA_real_)
@@ -293,7 +296,7 @@ report_tables <- function(object,
     joint_objective    = as.numeric(joint),
     AIC           = as.numeric(aic),
     max_gradient  = as.numeric(mg),
-    pdHess        = if (!is.null(fit$sdrep)) isTRUE(fit$sdrep$pdHess) else NA,
+    pdHess        = as.logical(pd),
     converged     = fit$convergence$status %||% NA_character_,
     run_time_secs = as.numeric(secs),
     stringsAsFactors = FALSE
@@ -337,10 +340,10 @@ report_tables <- function(object,
 }
 
 
-# The likelihood decomposition. jnll_comp's columns count FLEETS on rows 1-8 and
-# SPECIES on rows 9-20, so the column key comes from .JNLL_ROW_AXIS -- reading
-# every column as a fleet would report a species' recruitment penalty against a
-# survey.
+# The likelihood decomposition. jnll_comp's columns count FLEETS on rows 1-8,
+# SPECIES on rows 9-20 and neither on row 21, so the column key comes from
+# .JNLL_ROW_AXIS -- reading every column as a fleet would report a species'
+# recruitment penalty against a survey.
 .rce_tab_likelihood <- function(fit, model) {
   j <- fit$quantities$jnll_comp
   if (is.null(j)) return(NULL)
@@ -449,6 +452,9 @@ report_tables <- function(object,
   # counts as NOT estimated: a missing reference point is recoverable, a
   # fabricated one is not.
   f_est <- tryCatch({
+    # build_hcr_map() matches HCR by name, so an integer code would match no
+    # rule and blank an F40% that was estimated.
+    d$HCR <- unname(.rce_alias(d$HCR, hcr_map))
     hm <- suppressMessages(build_hcr_map(d, fit$map))
     list(target = !is.na(hm$mapList$log_Ftarget),
          limit  = !is.na(hm$mapList$log_Flimit))
@@ -558,10 +564,9 @@ report_tables <- function(object,
             "unfished reference not derived (MSSB0 placeholder)")
     }
 
-    # A quantity this fit does define can still come back NA from the model
-    # itself -- the SPR schedules return NA for a two-sex species. Saying
-    # "estimated" beside an empty cell would send the reader looking for a
-    # number that was never produced.
+    # A quantity this fit does define can still come back non-finite from the
+    # model. Saying "estimated" beside an empty cell would send the reader
+    # looking for a number that was never produced.
     gone <- !is.finite(vals) & basis == "estimated"
     basis[gone] <- "not available (model returned NA)"
 
@@ -703,13 +708,15 @@ print.rceattle_report <- function(x, ...) {
 # The NOAA standardized assessment output, in column order. `stockplotr` and
 # `asar` read this schema; every column is present even when empty, because
 # their filters index by name and a missing column is an error there rather than
-# an absence.
+# an absence. These are the 34 names `stockplotr::example_data` carries;
+# `test-report-tables.R` checks the emitted names against that package.
 .RCE_STANDARD_COLS <- c(
   "module_name", "label", "time", "era", "year", "month", "season",
   "subseason", "birthseas", "initial", "estimate", "uncertainty",
   "uncertainty_label", "likelihood", "fleet", "platoon", "area", "age", "sex",
-  "growth_pattern", "bio_pattern", "settlement", "morph", "type", "factor",
-  "part", "kind", "nsim", "bin", "age_a", "len_bins", "count", "block"
+  "growth_pattern", "bio_pattern", "settlement", "morph", "beg_mid", "type",
+  "factor", "part", "kind", "nsim", "bin", "age_a", "length_bins", "count",
+  "block"
 )
 
 
@@ -751,8 +758,8 @@ print.rceattle_report <- function(x, ...) {
 #'
 #' @param x An `"rceattle_report"` from [report_tables()], or an Rceattle fit,
 #'   which is passed through [report_tables()] first.
-#' @param species Which stock to emit: a name from `spnames`, or an index into
-#'   them, required when the fit has more than one.
+#' @param species Which stock to emit: a species name, or an index into the
+#'   species this report holds, required when it holds more than one.
 #' @param model Which model to emit when `x` holds several, defaulting to the
 #'   first.
 #'

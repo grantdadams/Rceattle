@@ -166,6 +166,18 @@ testthat::test_that("standard_output() emits the NOAA schema in its own order", 
 })
 
 
+testthat::test_that("the emitted schema is the one stockplotr reads", {
+  # Checking .RCE_STANDARD_COLS against itself proves nothing: a misspelled
+  # column is missing from the consumer's filters, which is an error there
+  # rather than an empty column. `len_bins` for `length_bins` was exactly that.
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("stockplotr")
+  utils::data("example_data", package = "stockplotr", envir = environment())
+  std <- standard_output(make_fit(), species = 1)
+  testthat::expect_equal(setdiff(names(example_data), names(std)), character(0))
+})
+
+
 testthat::test_that("standard_output() translates names through the dictionary", {
   testthat::skip_on_cran()
   std <- standard_output(make_fit(), species = 1)
@@ -222,6 +234,41 @@ testthat::test_that("a reference point the fit never estimated is NA with a basi
   # A quantity that IS defined keeps its value and says so.
   spr0 <- rp[rp$quantity == "SPR0", ]
   testthat::expect_true(all(spr0$basis == "estimated"))
+})
+
+
+testthat::test_that("the gating reads an HCR held as an integer code", {
+  # build_hcr_map() matches the harvest control rule by name. A data_list
+  # carrying the integer code -- an older saved fit, or one that went through
+  # convert_switches() -- matched no rule and blanked an F40% that WAS
+  # estimated, with a basis saying it was not.
+  testthat::skip_on_cran()
+  fit <- make_fit()
+  fit$data_list$HCR <- "NPFMC"
+  named <- Rceattle:::.rce_refpoint_availability(fit)
+
+  fit$data_list$HCR <- unname(hcr_map["NPFMC"])
+  coded <- Rceattle:::.rce_refpoint_availability(fit)
+
+  testthat::expect_true(any(named$ftarget))    # not a vacuously equal pair
+  testthat::expect_equal(coded$ftarget, named$ftarget)
+  testthat::expect_equal(coded$flimit, named$flimit)
+})
+
+
+testthat::test_that("convergence is reported from the hindcast fit", {
+  # The projection re-optimizes and overwrites $opt and $sdrep, so a gradient
+  # read off those describes the projection, not whether the assessment
+  # converged. fit_mod() snapshots the hindcast into .conv_hindcast.
+  testthat::skip_on_cran()
+  fit <- make_fit()
+  fit$.conv_hindcast <- list(max_gradient = 1.5e-6, pdHess = TRUE)
+  fit$opt$max_gradient <- 42        # what a projection refit would leave behind
+  fit$sdrep <- list(pdHess = FALSE)
+
+  m <- report_tables(fit)$model
+  testthat::expect_equal(m$max_gradient, 1.5e-6)
+  testthat::expect_true(m$pdHess)
 })
 
 

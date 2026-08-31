@@ -32,8 +32,9 @@ section.}
 \item{ci_level}{Confidence level for the \code{timeseries} interval, default
 \code{0.95}.}
 
-\item{quantities}{Time-series quantities to include, named as in
-\code{\link[=quantity_dictionary]{quantity_dictionary()}}.}
+\item{quantities}{Time-series quantities to include, from the set
+\code{\link[=as.data.frame.Rceattle]{as.data.frame.Rceattle()}} accepts; \code{\link[=quantity_dictionary]{quantity_dictionary()}} says what each
+one means.}
 }
 \value{
 A list of data frames with class \code{"rceattle_report"}, one element per

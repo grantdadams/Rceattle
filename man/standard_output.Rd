@@ -10,8 +10,8 @@ standard_output(x, species = NULL, model = NULL)
 \item{x}{An \code{"rceattle_report"} from \code{\link[=report_tables]{report_tables()}}, or an Rceattle fit,
 which is passed through \code{\link[=report_tables]{report_tables()}} first.}
 
-\item{species}{Which stock to emit: a name from \code{spnames}, or an index into
-them, required when the fit has more than one.}
+\item{species}{Which stock to emit: a species name, or an index into the
+species this report holds, required when it holds more than one.}
 
 \item{model}{Which model to emit when \code{x} holds several, defaulting to the
 first.}
