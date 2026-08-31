@@ -9,11 +9,9 @@
  * output per recruit; the template searches for them by penalising
  * SPR(F)/SPR(0) against that fraction (section 13, JNLL_REFPT_PENALTY).
  *
- * Both functions work on the female schedule (sex index 0), and report spawning
- * output per TOTAL recruit. The caller supplies the mature-female schedule with
- * the female fraction already in it -- the age-varying ratio for a one-sex
- * species (via `mature_females`, section 5.4), the recruitment split alone for a
- * two-sex species, whose schedule is female already.
+ * Both functions work on the female schedule (sex index 0) and report spawning
+ * output per TOTAL recruit; the caller supplies a mature-at-age schedule with
+ * the female fraction already folded in.
  *
  * Not defined under predation: total mortality then carries M2, which scales
  * with predator abundance, so spawning output per recruit is not a property of
@@ -60,10 +58,8 @@ vector<Type> per_recruit_survivors(const vector<Type>& Z)
  * @param Z            The same mortality schedule that produced `n`, reused for
  *                     the mortality served before spawning within the year.
  * @param weight       Spawning weight at age (kg).
- * @param mature_female Proportion mature AND female at age -- `mature_females`
- *                     from section 5.4, which is maturity times the sex ratio
- *                     for a one-sex species and maturity alone for a two-sex
- *                     one, whose sex-0 schedule is already female.
+ * @param mature_female Proportion of a recruit's cohort mature and female at age
+ *                     (`mature_females`, section 5.4, times any recruitment split).
  * @param spawn_month  Month of spawning, 0-12; 0 spawns at the start of the year.
  * @return             Spawning biomass per recruit (kg per recruit).
  */

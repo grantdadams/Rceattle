@@ -527,11 +527,9 @@ data_check <- function(data_list) {
       # own them, and `if(NA)` here would abort before any of them are raised.
       if(is.na(n) || length(agec) < n) next
 
-      # How many ages the model actually reads. `maturity` is summed over every
-      # age. `sex_ratio` is too, but ONLY for a one-sex species (5.4); on a
-      # two-sex species every remaining use is `sex_ratio(sp, 0)`, the age-1
-      # recruitment split, so demanding a full schedule there would reject a
-      # workbook the model never reads past the first column.
+      # How many ages the model reads. `maturity` is summed over every age;
+      # `sex_ratio` too, but only for a one-sex species (5.4). A two-sex species
+      # uses `sex_ratio(sp, 0)` alone, the age-1 recruitment split.
       nsex_sp <- if(is.null(data_list$nsex)) 1L else data_list$nsex[sp]
       need <- if(nm == "sex_ratio" && isTRUE(nsex_sp == 2)) 1L else n
 
@@ -561,20 +559,16 @@ data_check <- function(data_list) {
     errors <- c(errors, "sex_ratio values must be in [0, 1]")
   }
 
-  # `nsex` is a count, and the model has exactly two sex schedules: index 0
-  # (females, or the single combined sex) and index 1 (males). It is read
-  # straight into loop bounds and array dimensions, so anything else is a
-  # silent out-of-range read rather than an error, and an NA reaches the
-  # comparisons below as `if(NA)` -- which aborts data_check() with R's
-  # "missing value where TRUE/FALSE needed" instead of naming the table.
+  # The model has exactly two sex schedules -- index 0 (females, or the single
+  # combined sex) and index 1 (males) -- and reads `nsex` straight into loop
+  # bounds and array dimensions, so anything outside {1, 2} reads out of range.
   n_expected <- data_list$nspp
   if(is.null(data_list$nsex)){
     errors <- c(errors, "'nsex' is missing. Give 1 (sex-combined) or 2 (females and males) per species.")
   } else {
-    # length()/is.na() guarded together: a NULL `nspp` makes `!is.na()` a
-    # zero-length logical, which `&&` rejects outright -- so the count check is
-    # skipped when there is no usable species count to compare against, and the
-    # missing `nspp` is reported by its own check.
+    # Guarded together: with `nspp` missing, `!is.na(n_expected)` is zero-length
+    # and `&&` rejects it, so the count check is skipped and the missing `nspp`
+    # is reported by its own check.
     if(length(n_expected) == 1L && !is.na(n_expected) &&
        length(data_list$nsex) != n_expected){
       errors <- c(errors, paste0(
@@ -592,16 +586,24 @@ data_check <- function(data_list) {
   }
 
   # Sex consistency: max Sex in M1_base / weight / ration_data must be <= nsex.
-  # na.rm throughout: an unusable `nsex` is reported by its own check just above
-  # and must not abort this one before the accumulated errors are raised.
+  # `nsex` is looked up by the table's own Species code rather than by row
+  # position, so a table listing a subset of species compares against the right
+  # one; na.rm keeps an unusable `nsex`, reported by its own check just above,
+  # from aborting this one before the accumulated errors are raised.
+  nsex_for <- function(sp) {
+    if(is.null(data_list$nsex)) return(NA_integer_)
+    sp <- suppressWarnings(as.integer(sp))
+    sp[is.na(sp) | sp < 1L | sp > length(data_list$nsex)] <- NA_integer_
+    data_list$nsex[sp]
+  }
   m1_sex <- data_list$M1_base |> dplyr::group_by(Species) |>
     dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-  if(any(m1_sex$max_sex > data_list$nsex, na.rm = TRUE)){
+  if(any(m1_sex$max_sex > nsex_for(m1_sex$Species), na.rm = TRUE)){
     errors <- c(errors, "'M1_base' has more sexes than specified in 'nsex'")
   }
   wt_sex <- data_list$weight |> dplyr::group_by(Species) |>
     dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-  if(any(wt_sex$max_sex > data_list$nsex, na.rm = TRUE)){
+  if(any(wt_sex$max_sex > nsex_for(wt_sex$Species), na.rm = TRUE)){
     errors <- c(errors, "'weight' has more sexes than specified in 'nsex'")
   }
 
@@ -634,7 +636,7 @@ data_check <- function(data_list) {
     }
     ration_sex <- data_list$ration_data |> dplyr::group_by(Species) |>
       dplyr::summarise(max_sex = max(Sex)) |> dplyr::arrange(Species)
-    if(any(ration_sex$max_sex > data_list$nsex, na.rm = TRUE)){
+    if(any(ration_sex$max_sex > nsex_for(ration_sex$Species), na.rm = TRUE)){
       errors <- c(errors, "'ration_data' has more sexes than specified in 'nsex'")
     }
   }

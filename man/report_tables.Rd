@@ -26,7 +26,7 @@ omit that section.}
 \item{jitter}{A \code{\link[=jitter]{jitter()}} result per model, or \code{NULL} (default) to omit that
 section.}
 
-\item{osa}{An \code{\link[=osa_residuals]{osa_residuals()}} result per model, summarized with
+\item{osa}{An \code{\link[=osa_residuals]{osa_residuals()}} result per model, summarized here with
 \code{\link[=osa_diagnostics]{osa_diagnostics()}}, or \code{NULL} (default) to omit that section.}
 
 \item{ci_level}{Confidence level for the \code{timeseries} interval, default

@@ -1578,16 +1578,9 @@ Type objective_function<Type>::operator() () {
 
           wt_term(age)      = weight_hat(wt_idx_ssb, 0, age, term_yr);
           wt_first(age)     = weight_hat(wt_idx_ssb, 0, age, 0);
-          // Spawning output per TOTAL recruit, so the female fraction is
-          // included for every species -- but it enters once, not twice.
-          // `mature_females` (5.4) already folds the age-varying sex ratio into
-          // maturity for a one-sex species, whose schedule is sex-combined. A
-          // two-sex species' sex-0 schedule is female already, so only the
-          // recruitment split `sex_ratio(sp, 0)` applies, exactly as 6.6 splits
-          // recruitment into NByage0 / NByageF. Applying the age-varying ratio
-          // to that schedule instead re-applied a sex split already in it, and
-          // returned NaN wherever the table stopped short of the species' own
-          // nages -- which is how a Tier 3 SPR proxy came back missing.
+          // Spawning output per TOTAL recruit, so the female fraction enters once:
+          // mature_females (5.4) carries the age-varying ratio for a one-sex species,
+          // female_split the recruitment split (6.6) for a two-sex one.
           mature_at_age(age) = mature_females(sp, age) * female_split;
         }
 

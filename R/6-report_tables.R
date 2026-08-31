@@ -77,11 +77,9 @@
   }
 
   if (length(x) > 1) {
-    # Unnamed and ambiguous. The realistic mistake is passing ONE model's
-    # diagnostic that happens to be stored as a list of parts -- an
-    # osa_residuals() result split by source, say -- which has nothing to do with
-    # the models and would be silently attributed one part per model. Say what
-    # the pairing is rather than assuming it was meant.
+    # Unnamed and ambiguous: one model's diagnostic stored as a list of parts
+    # (an osa_residuals() result split by source) would otherwise be attributed
+    # one part per model. State the pairing rather than assume it was meant.
     message("`", what, "` is unnamed, so it is paired with the models in order: ",
             paste(sprintf("[%d] -> %s", seq_along(nm), nm), collapse = ", "),
             ". Name the list to be explicit.")
@@ -179,7 +177,7 @@
 #'   omit that section.
 #' @param jitter A [jitter()] result per model, or `NULL` (default) to omit that
 #'   section.
-#' @param osa An [osa_residuals()] result per model, summarized with
+#' @param osa An [osa_residuals()] result per model, summarized here with
 #'   [osa_diagnostics()], or `NULL` (default) to omit that section.
 #' @param ci_level Confidence level for the `timeseries` interval, default
 #'   `0.95`.
@@ -340,9 +338,9 @@ report_tables <- function(object,
 
 
 # The likelihood decomposition. jnll_comp's columns count FLEETS on rows 1-8 and
-# SPECIES on rows 9-21, so the column key is named from .JNLL_ROW_AXIS rather
-# than assumed -- reading every column as a fleet would report a species'
-# recruitment penalty against a survey.
+# SPECIES on rows 9-20, so the column key comes from .JNLL_ROW_AXIS -- reading
+# every column as a fleet would report a species' recruitment penalty against a
+# survey.
 .rce_tab_likelihood <- function(fit, model) {
   j <- fit$quantities$jnll_comp
   if (is.null(j)) return(NULL)
@@ -720,7 +718,10 @@ print.rceattle_report <- function(x, ...) {
 # standard_output() on why species cannot be folded into the standard itself.
 .rce_standard_frame <- function(df) {
   extra <- setdiff(names(df), .RCE_STANDARD_COLS)
-  for (nm in setdiff(.RCE_STANDARD_COLS, names(df))) df[[nm]] <- NA
+  # rep() rather than a bare NA, so a zero-row frame pads to an empty table of
+  # the right shape instead of erroring on the recycling.
+  for (nm in setdiff(.RCE_STANDARD_COLS, names(df)))
+    df[[nm]] <- rep(NA, nrow(df))
   df[, c(.RCE_STANDARD_COLS, extra), drop = FALSE]
 }
 
@@ -750,8 +751,8 @@ print.rceattle_report <- function(x, ...) {
 #'
 #' @param x An `"rceattle_report"` from [report_tables()], or an Rceattle fit,
 #'   which is passed through [report_tables()] first.
-#' @param species Which stock to emit, as a name or an index, required when the
-#'   fit has more than one.
+#' @param species Which stock to emit: a name from `spnames`, or an index into
+#'   them, required when the fit has more than one.
 #' @param model Which model to emit when `x` holds several, defaulting to the
 #'   first.
 #'
@@ -856,12 +857,10 @@ standard_output <- function(x, species = NULL, model = NULL) {
       stringsAsFactors = FALSE))
   }
 
-  # The likelihood is keyed on TWO axes: `unit` names a fleet on rows 1-8 and a
-  # species on rows 9-21. Filtering it as though `unit` were always a species
-  # dropped every fleet row -- 31 of 38 on a 16-fleet assessment -- which is
-  # most of the decomposition a model comparison is built from. Fleet rows are
-  # kept whatever the species and carried in the standard's `fleet` column;
-  # only species rows are filtered.
+  # `unit` names a fleet on rows 1-8 and a species on rows 9-20, so only species
+  # rows are filtered here. Fleet rows are kept whatever the species and carried
+  # in the standard's `fleet` column -- they are most of the decomposition a
+  # model comparison is built from (31 of 38 rows on a 16-fleet assessment).
   lk <- x$likelihood
   if (!is.null(lk) && nrow(lk)) {
     lk <- lk[lk$model == model, , drop = FALSE]

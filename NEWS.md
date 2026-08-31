@@ -16,44 +16,41 @@ version throughout.
 
 ## Bug fixes
 
-* **Spawning biomass per recruit is no longer `NA` for a two-sex species.** SPR is
-  spawning output per **total** recruit, so the female fraction belongs in it for
-  every species -- but it must enter once. A one-sex species' schedule is
-  sex-combined, so the age-varying `sex_ratio` applies at every age, which is what
-  `mature_females` folds in (section 5.4). A two-sex species' sex-0 schedule is
-  already female, so only the recruitment split `sex_ratio(sp, 0)` applies -- the
-  same split section 6.6 uses to divide recruitment between the sexes.
-
-  Section 6.2 applied the age-varying ratio to both. On a two-sex species that
-  re-applied a sex split already present in its schedule, and returned `NaN`
-  wherever that table stopped short of the species' own `nages`.
+* **Spawning biomass per recruit is no longer wrong for a two-sex species.** SPR
+  is spawning output per **total** recruit, so the female fraction belongs in it
+  for every species -- but it must enter once. A one-sex species' schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age, which is
+  what `mature_females` folds in (section 5.4). A two-sex species' sex-0
+  schedule is already female, so only the recruitment split `sex_ratio(sp, 0)`
+  applies -- the same split section 6.6 uses to divide recruitment between the
+  sexes. Section 6.2 applied the age-varying ratio to both, which re-applied a
+  split already in the schedule and returned `NaN` wherever that table stopped
+  short of the species' own `nages`.
 
   Found on the 2026 GOA three-species assessment, where arrowtooth flounder
   (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
-  could not be given a Tier 3 SPR reference point. One-sex species are unchanged;
-  `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and the objective
-  do not move.
+  could not be given a Tier 3 SPR reference point. One-sex species are
+  unchanged; `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and
+  the objective do not move.
 
-  Covered by `test-dynamics-spr-two-sex.R`, which fits the bundled `GOAatf` --
-  the two-sex dataset that converges with a positive-definite Hessian -- and
-  checks the result against the per-total-recruit rule. That fixture's
-  `sex_ratio` is fully populated, so the old code returned no `NaN` there: it
-  returned a value rescaled by a clean factor of 0.708, which is the failure
-  mode with nothing in the output to give it away.
-
-  SPR reaches the objective only under `HCR = "ConstantF"` or an SPR-based rule
-  (`HCR > 3`), so a fit using another rule cannot move. A **two-sex species under a
-  Tier 3 or other SPR-based rule can shift slightly**, because the ratio
-  `SPRtarget / SPR0` changes wherever the sex ratio varies with age.
+  **A two-sex species under an SPR-based rule can shift**, because the ratio
+  `SPRtarget / SPR0` changes wherever the sex ratio varies with age. SPR reaches
+  the objective only under `HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`),
+  so a fit using another rule cannot move. The `NaN` is not the only failure
+  mode: on the bundled `GOAatf`, whose `sex_ratio` is fully populated, the old
+  formula returned a value rescaled by a clean factor of 0.708 with nothing in
+  the output to give it away. `test-dynamics-spr-two-sex.R` fits that dataset
+  and checks the result against the per-total-recruit rule.
 
 * **`data_check()` validates `nsex`.** The model has exactly two sex schedules --
   index 0 (females, or the single combined sex) and index 1 (males) -- and reads
   `nsex` straight into loop bounds and array dimensions, so a value outside
-  `{1, 2}` was a silent out-of-range read. An `NA` was worse: it reached the
-  sex-consistency comparisons as `if(NA)` and aborted `data_check()` with R's
-  "missing value where TRUE/FALSE needed", naming no table at all. `nsex` is now
-  checked for length and value, and those comparisons carry `na.rm` so an
-  unusable one is reported alongside every other error rather than thrown.
+  `{1, 2}` was a silent out-of-range read, and an `NA` aborted `data_check()`
+  with R's "missing value where TRUE/FALSE needed", naming no table. `nsex` is
+  now checked for length and value, and the `M1_base` / `weight` / `ration_data`
+  sex-consistency checks look it up by the table's own `Species` code rather
+  than by row position, so an unusable or short `nsex` is reported alongside
+  every other error instead of thrown or silently recycled.
 
 * **`data_check()` no longer demands a full `sex_ratio` schedule for a two-sex
   species.** Every remaining use of `sex_ratio` on a two-sex species is
@@ -137,7 +134,11 @@ version throughout.
 
   That standard describes **one stock and has no species dimension**, so a
   multispecies fit errors unless `species` selects one, rather than returning a frame
-  in which two stocks' biomass share a year.
+  in which two stocks' biomass share a year. The likelihood decomposition is the
+  exception: `jnll_comp` counts fleets on rows 1-8 and species on rows 9-20, so
+  fleet rows are carried in the standard's `fleet` column whatever the species
+  rather than filtered away with it — on a 16-fleet assessment they are 31 of
+  the 38 rows.
 
   Verified against the 2026 GOA three-species assessment (3 species, 16 fleets,
   one two-sex stock, a live `sdreport`, and its real retrospective, jitter and
@@ -145,10 +146,9 @@ version throughout.
   covers exactly the 99 quantities both its single- and multi-species fits
   report.
 
-* **A reference point a fit never estimated is now `NA` with a stated `basis`,
-  not the number the array happens to hold.** This was found by running the
-  tables against a real assessment. CEATTLE leaves a value behind in three
-  cases where there is no reference point, and each one looked like an estimate:
+* **A reference point a fit never estimated is `NA` with a stated `basis`, not
+  the number the array happens to hold.** CEATTLE leaves a value behind in three
+  cases where there is no reference point, and each one reads as an estimate:
 
   - `Ftarget` / `Flimit` are estimated only under a harvest control rule that
     defines them, and are switched off for a species with no projected fishery.
@@ -167,23 +167,14 @@ version throughout.
   The depletions are deliberately **not** blanked alongside `SB0`: under a
   no-fishing rule in multispecies mode the model divides by biomass in the last
   projection year, the equilibrated unfished reference, so that series is
-  meaningful and an earlier version of this change wrongly discarded it.
+  meaningful.
 
-* **`standard_output()` no longer drops the fleet likelihood rows.** `jnll_comp`
-  is keyed on two axes -- its columns count fleets on rows 1-8 and species on
-  rows 9-21 -- and filtering by species dropped every fleet row, 31 of 38 on a
-  16-fleet assessment. Fleet rows are now kept whatever the species and carried
-  in the standard's `fleet` column.
-
-* **A diagnostics list is matched to models by name.** An unnamed list is paired
-  positionally and says so; names that are not model names are an error. This
-  catches passing one model's `osa_residuals()` result stored as a list of parts
-  (`index` / `catch` / `comp`), which was previously attributed one part per
-  model without a word.
-
-* **A species name containing `", "` round-trips.** `standard_output()` recovered
-  the species list by splitting the model row's comma-joined summary, so a stock
-  named "Pollock, GOA" split in two and could not be selected.
+* **A diagnostics list is matched to models by name.** `retro`, `jitter` and
+  `osa` pair with `object` by name whatever the order; an unnamed list is paired
+  positionally and says so; a name that is not a model name is an error. That
+  last one catches passing a single model's `osa_residuals()` result stored as a
+  list of parts (`index` / `catch` / `comp`), which would otherwise be
+  attributed one part per model.
 
 ## Corrections
 

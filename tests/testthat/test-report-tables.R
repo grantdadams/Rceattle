@@ -63,7 +63,7 @@ testthat::test_that("several models stack with distinct model keys", {
 
 
 testthat::test_that("the likelihood table keys each row on its own axis", {
-  # jnll_comp columns count FLEETS on rows 1-8 and SPECIES on rows 9-21. Reading
+  # jnll_comp columns count FLEETS on rows 1-8 and SPECIES on rows 9-20. Reading
   # every column as a fleet would report a species' recruitment penalty against
   # a survey.
   testthat::skip_on_cran()

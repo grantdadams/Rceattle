@@ -234,7 +234,7 @@ table carries a `model` column, so several fits stack for a like-for-like
 comparison:
 
 ```{r}
-tabs <- report_tables(list(SS = model_1, MS = model_2))
+tabs <- report_tables(list(pollock = model_1, three_species = model_2))
 tabs
 tabs$reference_points
 ```
@@ -258,10 +258,12 @@ report_tables(model_1, retro = model_1_retro, osa = osa_residuals(model_1))
 `standard_output()` relabels the result into the NOAA standardized assessment
 output that the `stockplotr` and `asar` packages read, so Rceattle results can be
 plotted and written into a report by the same tooling used for SS3, BAM, WHAM and
-FIMS. That standard describes one stock, so a multispecies fit needs a `species`:
+FIMS. That standard describes one stock and has no species dimension, so a fit
+with more than one needs `species` to pick the stock to emit:
 
 ```{r}
-head(standard_output(tabs, model = "SS", species = 1))
+head(standard_output(tabs, model = "pollock"))
+head(standard_output(tabs, model = "three_species", species = 1))
 ```
 
 The `retrospective` function measures retrospective bias, returning a list of refit models and a data.frame of Mohn's rho values.
