@@ -22,6 +22,28 @@ phase = TRUE` fit is ~55 s: ~14 s for one optimization, ~3x for phasing, +~14 s 
 (bisected back through `main`), so don't hunt a recent cause. For dev loops
 `phase = FALSE, getsd = FALSE` gives ~14 s.
 
+**`make_test_data()` cannot produce a positive-definite Hessian**, so it cannot exercise
+anything behind `getsd = TRUE`: no `sdrep`, no confidence intervals, no
+`.refit_converged()` PD check. `test-functions-retrospective.R:597` says so in passing ("the
+small fixture loses every peel to it"), and `test-plot-confidence-intervals.R` reaches for
+`BS2017SS` instead.
+
+The bundled datasets that DO converge with a PD Hessian, measured 2026-08-30 with
+`fit_mod(estimateMode = 1, msmMode = 0, phase = FALSE, fit_control(getsd = TRUE))`:
+
+| dataset | nspp | nsex | sdrep | pdHess | convergence |
+|---|---|---|---|---|---|
+| `GOAcod` | 1 | 1 | yes | yes | OK |
+| `GOAatf` | 1 | 2 | yes | yes | OK |
+| `NorthernRockfish2022` | 1 | 1 | yes | yes | WARN |
+| `GOAatf2023` | 1 | 2 | yes | yes | FAIL |
+| `GOApollock` | 1 | 1 | no | -- | FAIL |
+| `Atka2022` | 1 | 1 | -- | -- | data_check rejects its selectivity config |
+
+`GOAcod` and `GOAatf` are the two clean ones, and `GOAatf` is the only bundled **two-sex**
+fit that converges -- which makes it the fixture for anything sex-structured, including the
+SPR-per-recruit paths.
+
 **The parallel-test DLL failure is a toolchain failure, not a test failure.**
 `DESCRIPTION` sets `Config/testthat/parallel: true`, and the workers cannot load a freshly
 rebuilt DLL, so `devtools::test()` aborts before running anything with
@@ -52,6 +74,64 @@ they are counted once per sharing fleet.
 selectivity *and* q.
 
 ## Silent-wrong-number traps
+
+**A reference point CEATTLE never estimated is a NUMBER, not a gap.** Three cases, all
+verified against the 2026 GOA three-species assessment (2026-08-29):
+
+- `Ftarget` / `Flimit` are estimated only under an HCR that defines them (`build_hcr_map()`
+  turns them on for CMSY / ConstantF / ConstantFSSB / ConstantFSPR / NPFMC / SESSF / PFMC only),
+  and are switched off per species when `Proj_F_proportion` sums to 0 or `estDynamics > 0`.
+  Unestimated they sit at `exp(0) = 1`, so that assessment reports **Ftarget = Flimit = 1.0/yr**
+  for all three species — an enormous F that reads as an estimate. Gate on
+  `build_hcr_map(data_list, fit$map)`. **Do NOT read `fit$map$mapList$log_Ftarget` instead**:
+  `build_map.R:1424` sets both to `NA` in the hindcast map whatever the HCR, so that test says
+  "never estimated" for every model.
+- Under `msmMode > 0` the template overwrites `SB0` / `B0` with the `MSSB0` / `MSB0` inputs
+  (`ceattle.cpp:2118`), which stand at `.RCE_MSSB0_PLACEHOLDER = 999` mt until `fit_mod()`
+  derives them from a no-fishing projection. Measured on that fit: `SB0 = 999` for all three
+  species against true terminal SSB of 1,136,070 / 564,108 / 96,504 mt, so a
+  `B_target = Ptarget * SB0` proxy comes out at **399.6 mt**. `data_list$MSSB0_derived` is the
+  per-species flag — carried precisely because recognising the placeholder by comparing a double
+  to 999 would also null a genuine 999 mt.
+- The per-recruit quantities (`SPR0`, `SPRlimit`, `SPRtarget`, `SPRFinit`, `NbyageSPR`) are
+  inside `if(msmMode == 0)` and are **exactly zero** on a multispecies fit.
+
+`report_tables()` returns all three as `NA` with the reason in `basis`.
+
+**The depletions do NOT simply divide by `SB0`, so do not blank them alongside it.** Section
+12.1 divides by `DynamicSB0` under a dynamic rule, and by biomass in the LAST projection year —
+the equilibrated unfished reference — when `HCR == 0 & msmMode > 0`. Only the remaining case
+reads the `SB0` array. Blanking depletion whenever `SB0` is a placeholder destroys a valid
+series on exactly the multispecies fits the package exists for; measured range on that fit is
+0.169–1.724, which is visibly not `ssb / 999`.
+
+**`sex_ratio` enters SPR differently for a one-sex and a two-sex species.** SPR is spawning
+output per TOTAL recruit, so the female fraction belongs in it for every species -- once. A
+one-sex species' schedule is sex-combined, so the age-varying ratio applies at every age (that
+is what `mature_females` folds in, section 5.4). A two-sex species' sex-0 schedule is already
+female, so only the recruitment split `sex_ratio(sp, 0)` applies, the same split 6.6 uses for
+`NByage0` / `NByageF`.
+
+Until 5.24.1 section 6.2 applied the age-varying ratio to both. On a two-sex species that
+re-applied a split already in the schedule, and returned NaN wherever the table stopped short of
+the species' own `nages` -- measured: GOA arrowtooth (`nsex = 2`, `nages = 21`, table filled to
+10) returned NA for `SPR0`, `SPRtarget`, `SPRlimit` and `SPRFinit`, so no Tier 3 proxy could be
+formed. Fixed value 1.2300187 kg/recruit.
+
+**Both wrong answers are easy to reach.** Applying the age-varying ratio double-counts;
+dropping it entirely reports per FEMALE recruit, which is not comparable with the one-sex
+species in the same model. `test-dynamics-brps.R:229` and `test-dynamics-spr.R:168` pin the
+per-total-recruit convention on fixtures whose sex_ratio is 0.5 at every age, so the two
+branches must agree there -- they are what catches either mistake.
+
+After the fix a two-sex species reads `sex_ratio` only at age 1, so `data_check()` requires the
+full schedule for a one-sex species only. **SPR reaches the objective only under
+`HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`)**, so most fits cannot move at all.
+
+**A grep for `REPORT(` over `ceattle.cpp` over-counts.** `mature_females`, `sex_ratio_hat`,
+`N_at_age_dB0` / `N_at_age_dBF` and the whole Kinzey functional-response block sit behind
+comments. A fit reports **99** quantities, identical single- and multi-species; enumerate from
+`names(fit$quantities)`, not from the source.
 
 **`Index_distribution` has a second hand-synced registry.** A family added to
 `index_distribution_map` (`R/0-switches.R`) must also be classified in

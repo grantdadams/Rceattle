@@ -230,6 +230,16 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   (`R/0-switches.R`), or it silently gets the log-scale residual formula.
 - **`jnll_comp` columns count fleets on rows 1–8 and species on rows 9–20**, so `rowSums()`
   pools across two different axes. `.JNLL_ROW_AXIS` (`R/9-profile.R`) is the registry.
+- **A reference point CEATTLE never estimated is a number, not a gap** — `Ftarget`/`Flimit` sit
+  at `exp(0) = 1` unless the HCR estimates them (gate on `build_hcr_map()`, never on `fit$map`),
+  `SB0` under `msmMode > 0` is the 999 mt `MSSB0` placeholder until `MSSB0_derived` is TRUE, and
+  the per-recruit quantities are zero outside `msmMode = 0`.
+- **The depletions do not simply divide by `SB0`** — under `HCR = 0 & msmMode > 0` they divide
+  by biomass in the last projection year, so blanking them alongside a placeholder `SB0`
+  discards a valid series.
+- **A grep for `REPORT(` over `ceattle.cpp` over-counts** — several sit behind comments. A fit
+  reports 99 quantities; enumerate from `names(fit$quantities)`. `quantity_dictionary()` is the
+  registry, and `test-schema-quantity-dictionary.R` holds the two together.
 - **`retrospective(getsd = TRUE)` can drop peels `getsd = FALSE` keeps** — the non-PD Hessian
   check only runs when an `sdreport` exists — so Mohn's rho can differ between the two.
 - **`unweighted_jnll_comp` is written for 5 of its 21 rows** — composition, CAAL, stomach and the

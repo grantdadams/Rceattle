@@ -49,16 +49,41 @@ test_that("the shipped datasets pass, ragged padding and all", {
 })
 
 
-test_that("a sex_ratio gap inside a species' own ages is named", {
+test_that("a sex_ratio gap inside a ONE-SEX species' own ages is named", {
+  # One-sex is the case that reads the whole schedule: section 5.4 folds
+  # sex_ratio into mature_females at every age, which feeds SSB and SPR.
   dl <- goa()
+  sp <- which(dl$nsex == 1)[1]
   ac <- age_cols(dl$sex_ratio)
-  n  <- dl$nages[2]
-  dl$sex_ratio[2, ac[(n - 2):n]] <- NA          # last three of species 2's bins
+  n  <- dl$nages[sp]
+  dl$sex_ratio[sp, ac[(n - 2):n]] <- NA         # last three of its own bins
 
   err <- check_err(dl)
-  expect_match(err, "sex_ratio is missing values for species 2")
+  expect_match(err, paste0("sex_ratio is missing values for species ", sp))
   expect_match(err, paste0("ages ", n - 2, "-", n))
   expect_match(err, "SSB or SPR0 NA")
+})
+
+
+test_that("a sex_ratio gap past age 1 on a TWO-SEX species is not an error", {
+  # A two-sex species reads sex_ratio only at age 1, to split recruitment: its
+  # sex-0 schedule is already female, so mature_females leaves the ratio out and
+  # nothing else sums over the schedule. Demanding a full table here rejected
+  # workbooks the model never reads past the first column -- which is why the
+  # 2026 GOA assessment could not be refitted once this check existed.
+  dl <- goa()
+  sp <- which(dl$nsex == 2)[1]
+  skip_if(is.na(sp), "no two-sex species in the fixture")
+  ac <- age_cols(dl$sex_ratio)
+  dl$sex_ratio[sp, ac[-1]] <- NA                # keep age 1, blank the rest
+
+  expect_false(grepl(paste0("sex_ratio is missing values for species ", sp),
+                     paste(check_err(dl), collapse = " ")))
+
+  # Age 1 is still required, because the recruitment split reads it.
+  dl$sex_ratio[sp, ac[1]] <- NA
+  expect_match(check_err(dl),
+               paste0("sex_ratio is missing values for species ", sp))
 })
 
 

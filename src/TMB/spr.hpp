@@ -9,8 +9,9 @@
  * output per recruit; the template searches for them by penalising
  * SPR(F)/SPR(0) against that fraction (section 13, JNLL_REFPT_PENALTY).
  *
- * Both functions work on the female schedule (sex index 0) and scale by the
- * proportion female at age, so a two-sex model takes its sex ratio as fixed.
+ * Both functions work on the female schedule (sex index 0) and report spawning
+ * output per TOTAL recruit; the caller supplies a mature-at-age schedule with
+ * the female fraction already folded in.
  *
  * Not defined under predation: total mortality then carries M2, which scales
  * with predator abundance, so spawning output per recruit is not a property of
@@ -57,8 +58,8 @@ vector<Type> per_recruit_survivors(const vector<Type>& Z)
  * @param Z            The same mortality schedule that produced `n`, reused for
  *                     the mortality served before spawning within the year.
  * @param weight       Spawning weight at age (kg).
- * @param maturity     Proportion mature at age.
- * @param sex_ratio    Proportion female at age.
+ * @param mature_female Proportion of a recruit's cohort mature and female at age
+ *                     (`mature_females`, section 5.4, times any recruitment split).
  * @param spawn_month  Month of spawning, 0-12; 0 spawns at the start of the year.
  * @return             Spawning biomass per recruit (kg per recruit).
  */
@@ -66,13 +67,12 @@ template <class Type>
 Type spawning_biomass_per_recruit(const vector<Type>& n,
                                   const vector<Type>& Z,
                                   const vector<Type>& weight,
-                                  const vector<Type>& maturity,
-                                  const vector<Type>& sex_ratio,
+                                  const vector<Type>& mature_female,
                                   Type spawn_month)
 {
   Type spr = 0.0;
   for(int age = 0; age < n.size(); age++){
-    spr += n(age) * weight(age) * maturity(age) * sex_ratio(age) *
+    spr += n(age) * weight(age) * mature_female(age) *
       exp(-Z(age) * spawn_month / 12.0);
   }
   return spr;

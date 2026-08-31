@@ -12,6 +12,181 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.24.1
+
+## Bug fixes
+
+* **Spawning biomass per recruit is no longer wrong for a two-sex species.** SPR
+  is spawning output per **total** recruit, so the female fraction belongs in it
+  for every species -- but it must enter once. A one-sex species' schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age, which is
+  what `mature_females` folds in (section 5.4). A two-sex species' sex-0
+  schedule is already female, so only the recruitment split `sex_ratio(sp, 0)`
+  applies -- the same split section 6.6 uses to divide recruitment between the
+  sexes. Section 6.2 applied the age-varying ratio to both, which re-applied a
+  split already in the schedule and returned `NaN` wherever that table stopped
+  short of the species' own `nages`.
+
+  Found on the 2026 GOA three-species assessment, where arrowtooth flounder
+  (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
+  could not be given a Tier 3 SPR reference point. One-sex species are
+  unchanged; `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and
+  the objective do not move.
+
+  **A two-sex species under an SPR-based rule can shift**, because the ratio
+  `SPRtarget / SPR0` changes wherever the sex ratio varies with age. SPR reaches
+  the objective only under `HCR = "ConstantF"` or an SPR-based rule (`HCR > 3`),
+  so a fit using another rule cannot move. The `NaN` is not the only failure
+  mode: on the bundled `GOAatf`, whose `sex_ratio` is fully populated, the old
+  formula returned a value rescaled by a clean factor of 0.708 with nothing in
+  the output to give it away. `test-dynamics-spr-two-sex.R` fits that dataset
+  and checks the result against the per-total-recruit rule.
+
+* **`data_check()` validates `nsex`.** The model has exactly two sex schedules --
+  index 0 (females, or the single combined sex) and index 1 (males) -- and reads
+  `nsex` straight into loop bounds and array dimensions, so a value outside
+  `{1, 2}` was a silent out-of-range read, and an `NA` aborted `data_check()`
+  with R's "missing value where TRUE/FALSE needed", naming no table. `nsex` is
+  now checked for length and value, and the `M1_base` / `weight` / `ration_data`
+  sex-consistency checks look it up by the table's own `Species` code rather
+  than by row position, so an unusable or short `nsex` is reported alongside
+  every other error instead of thrown or silently recycled.
+
+* **`data_check()` no longer demands a full `sex_ratio` schedule for a two-sex
+  species.** Every remaining use of `sex_ratio` on a two-sex species is
+  `sex_ratio(sp, 0)` — the age-1 recruitment split — so requiring values at every
+  age rejected a workbook the model never reads past the first column. A one-sex
+  species still needs the whole schedule, and age 1 is still required for both.
+
+# Rceattle 5.24.0
+
+## Reading a fitted model
+
+* **`quantity_dictionary()` says what every reported quantity is.** `fit$quantities`
+  holds 99 derived quantities under the model's own abbreviated names, and nothing
+  said what they meant, what units they were in, or which carried a standard error.
+  The new table gives each one a plain-language meaning, its units, its dimensions,
+  whether `sdreport()` provides an SE for it, and what the same quantity is called in
+  the NOAA standardized assessment output:
+
+  ```r
+  quantity_dictionary("ssb_depletion")
+  quantity_dictionary(process = "reference_points")
+  quantity_dictionary()[quantity_dictionary()$se, ]   # everything with an SE
+  ```
+
+  It is checked against the template and against a real fit by
+  `test-schema-quantity-dictionary.R`, so a quantity added, renamed or dropped in
+  `ceattle.cpp` fails a test rather than leaving the table quietly wrong.
+
+  Two things it records that were easy to get wrong. Units are **mt** and
+  **thousands of fish** throughout (numbers-at-age are thousands, weight-at-age is
+  kg, so their product is mt) — several C++ comments still said `kg`. And every
+  per-recruit reference point (`SPR0`, `SPRlimit`, `SPRtarget`, `SPRFinit`,
+  `NbyageSPR`) is computed only under `msmMode = 0` and is **exactly zero on a
+  multispecies fit**, which reads as an estimate of zero unless you know.
+
+* **`report_tables()` collects what an assessment reports into one set of tables.**
+  Previously the likelihood decomposition, the time series with uncertainty, the
+  reference points, the fits, Mohn's rho, the jitter and the OSA diagnostics each
+  came out of a different call in a different shape, so comparing two models meant
+  assembling a dozen ad-hoc extractions by hand. Sections follow the AFSC Alaska
+  Groundfish Stock Assessment Guidelines for what a SAFE chapter reports, and every
+  table carries a `model` column so several fits stack for comparison:
+
+  ```r
+  tabs <- report_tables(list(base = fit0, alt = fit1),
+                        retro = list(retro0, retro1), osa = osa0)
+  tabs$reference_points
+  ```
+
+  It **never refits**. A retrospective or a jitter is tens to hundreds of
+  optimizations, so they are passed in already computed; a section whose object is
+  `NULL` is simply absent. The standard harvest scenarios of guideline section
+  4.11.3 are *not* produced — they need a standard projection module Rceattle does
+  not have. Projected biomass under the model's own harvest control rule is in
+  `timeseries` with `era = "fore"`.
+
+* **`report_tables()` gains a `parameters` section, and reports both
+  objectives.** Asked for directly: where are sigma_R, the estimates of M, and
+  the likelihood values? `parameters` joins `coef()` and `vcov()` to
+  [parameter_dictionary()], so every estimated parameter carries its
+  natural-scale name, its process and its standard error. Estimates are on the
+  parameter's own scale, so a `log_` name needs `exp()`; sigma_R appears only
+  when `random_rec = TRUE`, and a **fixed** M is not there at all because it was
+  never estimated — read that off `M_at_age`.
+
+  `model` now reports `marginal_objective` and `joint_objective` rather than one
+  ambiguous `objective`, plus `n_random`. The marginal is what the optimizer
+  minimized and what `AIC` uses; the joint is what `jnll_comp` decomposes, so it
+  is what the `likelihood` table sums to. They are equal without random effects
+  and differ by the Laplace correction with them — on `GOAatf` with random
+  recruitment, 744.33 against 816.99. Reporting only one made the two tables
+  look inconsistent.
+
+* **`standard_output()` emits the NOAA standardized assessment format.** Relabels
+  `report_tables()` output into the schema that the `stockplotr` and `asar` packages
+  consume, so Rceattle results can be plotted and written into a report by the same
+  tooling used for SS3, BAM, WHAM and FIMS. Names are translated through the
+  dictionary's `standard_label`, so `ssb` becomes `spawning_biomass` and `F_spp`
+  becomes `fishing_mortality`; a quantity the standard has no word for keeps its own
+  name rather than being dropped.
+
+  That standard describes **one stock and has no species dimension**, so a
+  multispecies fit errors unless `species` selects one, rather than returning a frame
+  in which two stocks' biomass share a year. The likelihood decomposition is the
+  exception: `jnll_comp` counts fleets on rows 1-8 and species on rows 9-20, so
+  fleet rows are carried in the standard's `fleet` column whatever the species
+  rather than filtered away with it — on a 16-fleet assessment they are 31 of
+  the 38 rows.
+
+  Verified against the 2026 GOA three-species assessment (3 species, 16 fleets,
+  one two-sex stock, a live `sdreport`, and its real retrospective, jitter and
+  OSA objects), not only against the package fixtures. `quantity_dictionary()`
+  covers exactly the 99 quantities both its single- and multi-species fits
+  report.
+
+* **A reference point a fit never estimated is `NA` with a stated `basis`, not
+  the number the array happens to hold.** CEATTLE leaves a value behind in three
+  cases where there is no reference point, and each one reads as an estimate:
+
+  - `Ftarget` / `Flimit` are estimated only under a harvest control rule that
+    defines them, and are switched off for a species with no projected fishery.
+    Unestimated they sit at `exp(0) = 1`, so the GOA assessment reported a
+    target F of **1.0/yr**. The gating is taken from `build_hcr_map()` rather
+    than by reading the HCR switch a second time; the fit's own `map` cannot be
+    used, because `build_map()` sets both to `NA` in the hindcast map whatever
+    the HCR.
+  - Under `msmMode > 0`, `SB0` / `B0` are overwritten by the `MSSB0` / `MSB0`
+    inputs, which stand at a 999 mt placeholder until `fit_mod()` derives them.
+    `B_target = Ptarget * SB0` was therefore reported as **399.6 mt** against a
+    true scale of 1e5-1e6 mt. `MSSB0_derived` is the flag that distinguishes a
+    placeholder from a genuinely derived value.
+  - The per-recruit quantities are computed only under `msmMode = 0`.
+
+  The depletions are deliberately **not** blanked alongside `SB0`: under a
+  no-fishing rule in multispecies mode the model divides by biomass in the last
+  projection year, the equilibrated unfished reference, so that series is
+  meaningful.
+
+* **A diagnostics list is matched to models by name.** `retro`, `jitter` and
+  `osa` pair with `object` by name whatever the order; an unnamed list is paired
+  positionally and says so; a name that is not a model name is an error. That
+  last one catches passing a single model's `osa_residuals()` result stored as a
+  list of parts (`index` / `catch` / `comp`), which would otherwise be
+  attributed one part per model.
+
+## Corrections
+
+* **Five stale or swapped comments in `ceattle.cpp`.** No behaviour change; they were
+  found while documenting the quantities, and each one described the code as doing
+  the opposite of what it does. `Flimit` / `Ftarget` and `Flimit_at_age` /
+  `Ftarget_at_age` had their descriptions the wrong way round (`Flimit` is the FOFL
+  proxy, `Ftarget` the maximum FABC proxy); `NByageF` said `F = Flimit` where the
+  recursion uses `Ftarget_at_age`; and `index_hat` and `catch_obs` were annotated
+  `(kg)` where they are mt or thousands of fish, per the fleet's
+  `Observation_units`.
+
 # Rceattle 5.23.0
 
 ## Reading a fitted model

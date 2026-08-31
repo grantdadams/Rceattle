@@ -594,6 +594,27 @@ plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 ```
 
 
+## Collecting it into report tables
+
+Everything above returns its own shape. `report_tables()` gathers them into one
+set of tidy tables — the fit, the likelihood decomposition, the time series with
+uncertainty, the reference points, the fits to index and catch, and whichever
+diagnostics you pass it:
+
+```{r}
+tabs <- report_tables(model_1,
+                      retro = model_1_retro, jitter = jitters, osa = osa)
+tabs
+tabs$retrospective          # Mohn's rho by species and forecast year
+tabs$osa                    # SDNR and tail statistics per fleet
+```
+
+It never refits, so a diagnostic you have not run is simply an absent section.
+Check the `basis` column of `tabs$reference_points` before quoting a reference
+point: quantities the fit never estimated are returned as `NA` with the reason,
+rather than as the value left in the array. `standard_output()` relabels the
+result for the `stockplotr` and `asar` reporting packages.
+
 ## Model average
 
 To average estimates across model variants, see `?model_average`.
