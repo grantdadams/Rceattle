@@ -761,6 +761,34 @@ fit_mod <-
              "the fixed effects they are).")
       }
 
+      # The same objection, for the two non-parametric configurations the
+      # Laplace approximation cannot be applied to; the messages below say why.
+      .np <- .rce_np_unintegrable_fleets(data_list$fleet_control)
+      .walk <- .np$fleet[.np$reason == "RandomWalk"]
+      if (length(.walk)) {
+        stop("Cannot use `random_sel = TRUE` with non-parametric selectivity ",
+             "under `Time_varying_sel = \"RandomWalk\"` on fleet(s) ",
+             paste(.walk, collapse = ", "), ". That walk is scored on the ",
+             "per-year renormalized selectivity, which never sees the level of ",
+             "each year's coefficients, so those directions are an improper ",
+             "random effect and the deviation sd collapses to zero. Fit with ",
+             "`random_sel = FALSE`, which is the penalized formulation the AMAK ",
+             "model intends.")
+      }
+      .kink <- .np$fleet[.np$reason == "IID"]
+      if (length(.kink)) {
+        stop("Cannot use `random_sel = TRUE` with non-parametric selectivity ",
+             "on fleet(s) ", paste(.kink, collapse = ", "),
+             " while `Sel_curve_pen1` is non-zero. The IID density itself is ",
+             "proper, but that shape penalty is one-sided, so the Laplace ",
+             "objective is only piecewise smooth and the optimizer stops at a ",
+             "kink rather than an optimum -- on Atka2022 with a maximum ",
+             "gradient of 6.8, reporting a deviation sd 27% away from the ",
+             "value the same model reaches without it. Fit with ",
+             "`random_sel = FALSE`, or set `Sel_curve_pen1 = 0` to integrate ",
+             "the deviates against the curvature penalty alone.")
+      }
+
       # Listed whether or not the maps are empty. TMB drops a fully-mapped name
       # itself, but TMBphase() reads `length(random) > 0` to decide whether to
       # pin the RE variance hyperparameters in every phase (see the note above),

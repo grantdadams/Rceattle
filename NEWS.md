@@ -12,6 +12,125 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.25.0
+
+## Breaking changes
+
+No exported argument is removed or renamed. Two configurations that previously
+ran are now refused, and **neither produced a number anyone should use**:
+
+* **`random_sel = TRUE` with non-parametric selectivity**, in two cases, each
+  for its own reason. Fit these with `random_sel = FALSE`, which is the
+  penalized formulation the AMAK model intends and is unaffected.
+
+  Under `Time_varying_sel = "RandomWalk"` the walk is scored on the per-year
+  renormalized selectivity, which never sees the level of each year's
+  coefficients. Those directions are an **improper** random effect, and the
+  deviation sd collapses: 2.7e-8 on `Atka2022`, a time-invariant selectivity
+  reported as a time-varying one, reached through 17 `NA/NaN function
+  evaluation` warnings.
+
+  Under `"IID"` the density itself is proper, but the AMAK shape penalty beside
+  it is one-sided (`max(d, 0)^2`), whose second derivative is a step. The
+  Laplace correction is a log-determinant of that second derivative, so the
+  marginal objective is only piecewise smooth and the optimizer halts at a kink:
+  `Atka2022` stops with a maximum gradient of **6.8** and reports a deviation sd
+  **27%** away from the value the same model reaches with `Sel_curve_pen1 = 0`
+  (maximum gradient 4e-4). Setting that penalty to 0 integrates the deviates
+  against the curvature penalty alone and is allowed.
+
+* **`Ceq` outside 1-4.** The template switches on it with no other branch, so an
+  unrecognized value left the temperature function at zero, and with it
+  consumption and -- under multispecies -- predation mortality.
+
+## Bug fixes
+
+* **Non-parametric selectivity no longer returns `NaN` when a coefficient grows
+  large.** The forms renormalize their log-scale coefficients against
+  `log(mean(exp(coefficients)))` once per year, and the realized curve was
+  stored on the natural scale and re-logged by every penalty. Both halves
+  overflowed: the sum reached infinity once a coefficient passed about 709, and
+  the round trip underflowed to `log(0) = -Inf` from about -745, either way
+  giving `Inf - Inf = NaN` with no gradient to recover from. A new
+  `log_mean_exp()` computes the mean with a max shift -- algebraically identical,
+  and the shift cancels out of the derivative too -- and the centred curve is now
+  carried on the log scale rather than recovered from `exp()`. Measured on
+  `BS2017SS`, the objective and gradient are finite to a coefficient of 1e8 in
+  both the level and the spread direction, where they previously failed at 710
+  and 730. The four reference models reproduce their optima to 1e-11 relative.
+
+* **The non-parametric shape penalty cannot read past the last bin.** Its
+  pairs are `(bin, bin + 1)`, so the left bin cannot be the last one, but
+  `data_check()` bounds `Sel_pen_last_bin` by the number of bins. Set to the
+  final bin, the penalty read one bin beyond the curve -- an entry that exists
+  because the selectivity arrays are sized by the widest species, but that is
+  never written -- and charged a shape penalty against a phantom
+  fully-selected bin. The model clamps the range.
+
+* **A model with no environmental covariate runs.** `Ceq` 1 (Stewart et al.
+  1983), 2 (Kitchell et al. 1977) and 3 (Thornton and Lessem 1979) each read
+  `env_index`, which `ceattle.cpp` evaluates for every species on every fit, but
+  `data_check()` only guarded `Ceq > 1` and described 1 as
+  temperature-independent. With no covariate column that read went outside the
+  matrix -- observed both segfaulting and returning plausible numbers on
+  different runs, the model being built without bounds checking. Consumption now
+  falls back to the constant `fT = 1` of `Ceq = 4` where there is no column to
+  read. `data_check()` errors on it under multispecies, where consumption drives
+  predation mortality and so the fit, and warns under single-species, where the
+  predation section does not run and `fT` reaches only the reported `ration` and
+  `consumption_at_age`. The missing-value defaults become `Ceq = 4` (the only
+  equation that reads no index) and `Cindex = 1` (it is 1-based; the documented
+  default of 0 was outside the matrix).
+
+* **An `env_data` year outside `styr:projyr` no longer shifts the series.**
+  `env_index` is read by row position -- row `r` is model year `styr + r - 1` --
+  so an observation from before `styr` displaced every later row, feeding an
+  earlier year's covariate to consumption and, under multispecies, to predation
+  mortality. **This moves real assessments.** No bundled dataset is affected, but
+  15 workbooks in the sibling assessment repositories carry pre-`styr`
+  environmental rows, among them the Pacific hake operating model
+  (`styr` 1993, `env_data` from 1981 -- a **12-year** lag) that is the MSE and
+  predation reference, and the GOA CEATTLE and AI cod configurations (8-17 years).
+  Any of those needs refitting; their previous results were shifted. A repeated
+  `Year`, which sits inside the range and so survived the filter, is now refused
+  by `data_check()` and de-duplicated before the model sees it.
+
+* **An integer `Time_varying_sel` on a non-parametric fleet is a mode again.**
+  A pre-4.4 workbook carried the two AMAK penalty weights in the time-varying
+  columns, and the upgrade that moves them across was triggered by the *value*
+  in `Time_varying_sel` -- which cannot tell a shape weight of 4 from the
+  `RandomWalk` code 4. `Time_varying_sel = 4` on a modern workbook therefore
+  turned the walk off and overwrote the penalty weights (on `GOAcod`, 20 and
+  12.5 became 4 and the deviation sd), while the string `"RandomWalk"` worked.
+  The upgrade is now triggered by an empty `Sel_curve_pen1`, which is what
+  actually distinguishes the old format.
+
+* **`data_check()` refuses a non-parametric fleet whose `Bin_first_selected` is
+  above its `N_sel_bins`**, which left it with no estimated coefficients at all.
+
+## New features
+
+* **`plot_catchability()`** draws fitted survey catchability by year, faceted by
+  fleet, for every fleet carrying `index_data` -- a fishery with a CPUE series as
+  much as a survey. It reads `quantities$index_q`, the realized `q` the model
+  scaled the survey by, so one figure covers an estimated or fixed mean, annual
+  deviations under `Time_varying_q`, an environmental regression, a `q` linkage
+  such as `rw(1 | Year)`, and the closed-form `"Analytical"` value. Hindcast
+  years only: the model does not project catchability, so there is no
+  `incl_proj`. A time-invariant `q` draws a flat line, which is the honest
+  picture of a constant `q` rather than an empty panel.
+
+* **Non-parametric selectivity accepts `Time_varying_sel = "IID"`.** The model
+  scores `dnorm(sel_coff_dev, 0, Time_varying_sel_sd)` on each estimated
+  coefficient, so the annual curves are independent deviations about an
+  estimated base curve rather than a walk. `NonParametricPM` still takes
+  `"RandomWalk"` only -- its deviates *are* the walk increments, so an
+  independent-deviate reading of them would not describe the curve the model
+  builds, and its error message says so and points at `NonParametric`.
+
+  This is what bundled **`Atka2022`** is configured as, so that dataset -- and
+  the ADMB bridge it comes from -- could not be fitted as shipped. It now fits.
+
 # Rceattle 5.24.2
 
 ## Bug fixes

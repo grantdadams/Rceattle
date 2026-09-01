@@ -716,24 +716,68 @@ data_check <- function(data_list) {
     }
   }
 
-  # Bioenergetics: temperature-dependent consumption requires environmental driver
+  # Bioenergetics: Ceq 1 (exponential, Stewart et al. 1983), 2 (warm-water,
+  # Kitchell et al. 1977) and 3 (cool/cold-water, Thornton and Lessem 1979) each
+  # read env_index(year, Cindex); only Ceq 4 (constant, fT = 1) reads nothing.
+  # Cindex is 1-based and counts the covariate columns of env_data, the Year
+  # column not being one. The messages below say how each case is reported.
   if(!is.null(data_list$Ceq)){
+    # Absent or unrecognized msmMode takes the multispecies (error) branch: the
+    # warning is only safe where consumption provably cannot reach the fit, and
+    # a mode we cannot read is not that.
+    .msm <- is.null(data_list$msmMode) ||
+      !identical(unname(.canon_switch(data_list$msmMode[1], msmMode_map)),
+                 "SingleSpecies")
     # NA reaches here from a workbook whose bioenergetics columns were left
-    # blank. Report it rather than letting `if (NA > 1)` throw R's bare
-    # "missing value where TRUE/FALSE needed", which names nothing.
+    # blank. Report it rather than letting `if (NA %in% 1:3)` fall through
+    # silently to the out-of-range read this check exists to prevent.
     .ceq_na <- which(is.na(data_list$Ceq[1:data_list$nspp]))
     if(length(.ceq_na)){
       errors <- c(errors, paste0("`Ceq` is missing for species ",
                                  paste(.ceq_na, collapse = ", "),
-                                 ". Set the consumption equation (1 = temperature-independent) for every species."))
+                                 ". Set the consumption equation (4 = constant, no temperature effect) for every species."))
     }
-    for(sp in setdiff(1:data_list$nspp, .ceq_na)){
-      if(data_list$Ceq[sp] > 1){
-        if(is.null(data_list$env_data) || ncol(data_list$env_data) < (data_list$Cindex[sp] + 1)){
-          errors <- c(errors, paste0("Species ", sp, " uses temperature-dependent consumption (Ceq = ",
-                                     data_list$Ceq[sp], ") but Cindex (", data_list$Cindex[sp],
-                                     ") exceeds available environmental indices"))
+    # Only 1-4 name an equation. The template switches on Ceq with no other
+    # branch, so an unrecognized value would leave the temperature function at
+    # its initial value and zero consumption for that species -- and under
+    # multispecies, its predation mortality with it.
+    .ceq_bad <- setdiff(which(!data_list$Ceq[1:data_list$nspp] %in% 1:4), .ceq_na)
+    if(length(.ceq_bad)){
+      errors <- c(errors, paste0(
+        "`Ceq` is ", paste(unique(data_list$Ceq[.ceq_bad]), collapse = ", "),
+        " for species ", paste(.ceq_bad, collapse = ", "),
+        ". It must be 1 (exponential, Stewart et al. 1983), 2 (warm-water, ",
+        "Kitchell et al. 1977), 3 (cool/cold-water, Thornton and Lessem 1979) ",
+        "or 4 (constant, no temperature effect)."))
+    }
+    .n_env <- if(is.null(data_list$env_data)) 0L else max(0L, ncol(data_list$env_data) - 1L)
+    .no_env <- integer(0)
+    for(sp in setdiff(1:data_list$nspp, c(.ceq_na, .ceq_bad))){
+      if(data_list$Ceq[sp] %in% 1:3){
+        # Cindex may be absent entirely, which indexes to NULL rather than NA.
+        .ci <- data_list$Cindex[sp]
+        if(length(.ci) != 1L || is.na(.ci) || .ci < 1 || .ci > .n_env){
+          .no_env <- c(.no_env, sp)
         }
+      }
+    }
+    if(length(.no_env)){
+      .msg <- paste0(
+        "Species ", paste(.no_env, collapse = ", "),
+        " use temperature-dependent consumption (Ceq 1-3) but their Cindex is not ",
+        "one of the ", .n_env, " environmental index column(s) in `env_data`. ",
+        "Cindex counts env_data columns from 1, excluding Year.")
+      if(.msm){
+        errors <- c(errors, paste0(
+          .msg, " Under multispecies mode consumption drives predation mortality, ",
+          "so this changes M2 and everything downstream of it. Supply the index, ",
+          "or set Ceq = 4 for consumption with no temperature effect."))
+      } else {
+        warning(paste0(
+          .msg, " Consumption uses a constant temperature effect (fT = 1, as ",
+          "Ceq = 4) for them. Single-species mode fits nothing to consumption, so ",
+          "the fit is unaffected; the reported `ration` and `consumption_at_age` ",
+          "carry no temperature signal."), call. = FALSE)
       }
     }
   }
@@ -816,6 +860,25 @@ data_check <- function(data_list) {
         errors <- c(errors, paste0("Fleet '", flt_name, "': N_sel_bins (", nsb, ") must be in 1:", max_bin))
       }
 
+      # A coefficient-per-bin fleet estimates one coefficient over
+      # Bin_first_selected:N_sel_bins, so N_sel_bins below the first selected bin
+      # leaves it none. Hake starts one bin later -- its first coefficient is not
+      # identifiable and build_map() drops it -- so it needs a strictly wider
+      # range. Only the forms that read N_sel_bins are checked; a logistic fleet
+      # ignores both columns.
+      .sel_form <- if("Selectivity" %in% colnames(fc)) .canon_switch(fc$Selectivity[flt], sel_map) else NA_character_
+      reads_nsb <- isTRUE(.sel_form %in% c("NonParametric", "NonParametricPM",
+                                           "Hake", "2DAR1", "3DAR1"))
+      .lowest_nsb <- if(isTRUE(.sel_form == "Hake")) bfs + 1L else bfs
+      if(reads_nsb && !is.na(bfs) && !is.na(nsb) && .lowest_nsb > nsb){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': Bin_first_selected (", bfs,
+                                   ") leaves no estimated selectivity coefficients below ",
+                                   "N_sel_bins (", nsb, "); it must be at most ",
+                                   nsb - (.lowest_nsb - bfs),
+                                   if(isTRUE(.sel_form == "Hake"))
+                                     " ('Hake' does not estimate its first selected bin)" else ""))
+      }
+
       # Non-parametric shape-penalty range and cap, given on the fleet's own
       # selectivity dimension: an age (from minage) for age-based fleets, a
       # 1-based length-bin ordinal for length-based. Out-of-range values would
@@ -883,13 +946,20 @@ data_check <- function(data_list) {
       }
 
       # Time-varying form is selectivity-type specific:
-      #  - NonParametric (Ianelli, type 2) / NonParametricPM (type 9): the cpp
-      #    penalizes year-to-year log selectivity-at-age, i.e. a RANDOM WALK ->
-      #    allow only "Off"/"RandomWalk".
+      #  - NonParametric (Ianelli, type 2): "RandomWalk" penalizes year-to-year
+      #    log selectivity-at-age; "IID" scores each annual coefficient
+      #    deviation about the base curve -> allow "Off"/"IID"/"RandomWalk".
+      #  - NonParametricPM (type 9): its deviates ARE the walk increments, so an
+      #    independent-deviate reading of them describes a different curve than
+      #    the one selectivity.hpp builds -> allow only "Off"/"RandomWalk".
       #  - Hake (Taylor, type 5): IID coefficient deviates -> allow only "Off"/"IID".
-      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM") &&
+      if(fc$Selectivity[flt] == "NonParametric" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID", "RandomWalk")){
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametric' selectivity, 'Time_varying_sel' must be 'Off', 'IID' or 'RandomWalk'"))
+      }
+      if(fc$Selectivity[flt] == "NonParametricPM" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
-        errors <- c(errors, "For 'NonParametric'/'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+        errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'. Its deviates are random-walk increments, so 'IID' would not describe the curve the model builds; 'NonParametric' supports 'IID'."))
       }
       if(fc$Selectivity[flt] == "Hake" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
@@ -1538,8 +1608,11 @@ data_check <- function(data_list) {
   #                        IID scores dnorm(dev, 0, sd); RandomWalk and
   #                        RandomWalkAscending score the first difference at it.
   #   Hake                 IID only.
-  #   NonParametric(PM)    RandomWalk only -- the walk on realized log-selectivity
-  #                        divides by 2*sd^2. build_map() refuses the other modes.
+  #   NonParametric        IID scores dnorm(sel_coff_dev, 0, sd) on each
+  #                        estimated coefficient; RandomWalk scores the walk on
+  #                        realized log-selectivity at the same sd.
+  #   NonParametricPM      RandomWalk only -- its deviates ARE walk increments.
+  #                        build_map() refuses the other modes on it.
   #   LogisticPM           never: its two walks are weighted by Sel_curve_pen1
   #                        and Sel_curve_pen3, and the model's own conditions
   #                        exclude type 11 from every sel_dev_sd site.
@@ -1548,11 +1621,13 @@ data_check <- function(data_list) {
   #                        sd through sel_curve_pen.
   #
   # `Block` is absent throughout, for the same reason it is on the q side: a
-  # time block carries no penalty. A NonParametric fleet under `Block` also has
-  # its sd deliberately moved into Sel_curve_pen2 and zeroed by
-  # revert_switches(), and is excluded with it. `AR1` is absent because it is
-  # refused above -- leaving it here would pre-empt that refusal with a complaint
-  # about a column the removed mode never reads.
+  # time block carries no penalty, and build_map() refuses `Block` on a
+  # non-parametric fleet outright. `AR1` is absent because it is refused above --
+  # leaving it here would pre-empt that refusal with a complaint about a column
+  # the removed mode never reads.
+  #
+  # A pre-4.4 non-parametric fleet arrives here with its mode already set to
+  # "Off" by switch_check()'s legacy-format upgrade.
   if (has_data(data_list$fleet_control)) {
     .fc   <- data_list$fleet_control
     .col  <- function(nm) if (nm %in% names(.fc)) .fc[[nm]] else rep(NA, nrow(.fc))
@@ -1566,8 +1641,10 @@ data_check <- function(data_list) {
     .reads_sel_sd[.logistic] <-
       .stv[.logistic] %in% c("IID", "RandomWalk", "RandomWalkAscending")
     .reads_sel_sd[.sel == "Hake"] <- .stv[.sel == "Hake"] == "IID"
-    .np <- .sel %in% c("NonParametric", "NonParametricPM")
-    .reads_sel_sd[.np] <- .stv[.np] == "RandomWalk"
+    .reads_sel_sd[.sel == "NonParametric"] <-
+      .stv[.sel == "NonParametric"] %in% c("IID", "RandomWalk")
+    .reads_sel_sd[.sel == "NonParametricPM"] <-
+      .stv[.sel == "NonParametricPM"] == "RandomWalk"
 
     .require_positive(.fc, .col, list(
       list(col = "Time_varying_sel_sd",
@@ -1828,6 +1905,15 @@ data_check <- function(data_list) {
   if(has_data(data_list$env_data)){
     if(!"Year" %in% colnames(data_list$env_data)){
       errors <- c(errors, "env_data is missing required 'Year' column")
+    } else {
+      # env_index is read by row position, one row per model year, so a repeated
+      # Year would feed the previous year's covariate to every year after it.
+      .dup <- unique(data_list$env_data$Year[duplicated(data_list$env_data$Year)])
+      if(length(.dup)){
+        errors <- c(errors, paste0("env_data has more than one row for year(s) ",
+                                   paste(.dup, collapse = ", "),
+                                   "; it takes one row per year."))
+      }
     }
   }
   if(any(data_list$M1_indices > ncol(data_list$env_index))){

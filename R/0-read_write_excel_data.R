@@ -366,7 +366,9 @@ write_template <- function(file = "Rceattle_data_template.xlsx",
   # Bioenergetics scalars (single-species defaults) + a minimal environmental
   # index (its column count sizes the M1 environmental-linkage parameter) +
   # empty ration / diet frames.
-  d$Ceq <- 1L; d$Cindex <- 0L; d$Pvalue <- 1; d$fday <- 365
+  # Ceq 4 is constant consumption (fT = 1), the one equation that reads no
+  # environmental index; Cindex is 1-based and points at the first covariate.
+  d$Ceq <- 4L; d$Cindex <- 1L; d$Pvalue <- 1; d$fday <- 365
   d$CA <- 0; d$CB <- 0; d$Qc <- 0; d$Tco <- 0; d$Tcm <- 0; d$Tcl <- 0
   d$CK1 <- 0; d$CK4 <- 0; d$Diet_distribution <- 0L; d$Diet_comp_weights <- 1
   d$env_data  <- data.frame(Year = years, BottomTemp = 0)

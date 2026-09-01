@@ -553,6 +553,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   sel_at_length(n_flt, max_sex, max_nlengths, nyrs); sel_at_length.setZero();// Estimated selectivity at length
   array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
   array<Type>   non_par_sel(n_flt, max_sex, max_bin, nyrs); non_par_sel.setZero();  // Estimated selectivity for AMAK non-parametric (pre-normalization)
+  array<Type>   log_non_par_sel(n_flt, max_sex, max_bin, nyrs); log_non_par_sel.setZero(); // Same curve on the log scale, the scale the penalties are written on (exp() underflows below about -745, so it is carried rather than recovered)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.5. Fishery components
@@ -1209,6 +1210,7 @@ Type objective_function<Type>::operator() () {
     sel_coff_dev,         // Coefficient deviations
     avg_sel,              // [Modified] Average selectivity
     non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
+    log_non_par_sel,      // [Modified] The same curve on the log scale, for the penalties
     sel_at_length,        // [Modified] Final length-based selectivity
     sel_at_age,           // [Modified] Final age-based selectivity
     growth_matrix,        // Length to age transition matrix
@@ -3938,11 +3940,11 @@ Type objective_function<Type>::operator() () {
       // - Added time-varying component following Atka mackerel
       if(flt_sel_type(flt) == 2) {
 
-        // If time-invariant selectivity
+        // Time-invariant selectivity has one curve, so the shape penalties are
+        // charged once. Both time-varying modes give every year its own curve,
+        // so they are charged every year.
         int nyrs_tmp = 1;
-
-        // If random walk is on
-        if(flt_varying_sel(flt) == 4){
+        if((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4)){
           nyrs_tmp = nyrs_hind;
         }
 
@@ -3952,7 +3954,7 @@ Type objective_function<Type>::operator() () {
           // FIXME: AMAK starts at nbins/2
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
-              Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
+              Type sel_ratio_tmp = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age + 1, yr); // Positive if decreasing
               jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
           }
@@ -3963,7 +3965,7 @@ Type objective_function<Type>::operator() () {
             vector<Type> sel_tmp(nbins); sel_tmp.setZero();
 
             for(age = 0; age < nbins; age++) {
-              sel_tmp(age) = log(non_par_sel(flt, sex, age, yr));
+              sel_tmp(age) = log_non_par_sel(flt, sex, age, yr);
             }
 
             // Second difference computed once (matches the type-9 branch).
@@ -3974,10 +3976,27 @@ Type objective_function<Type>::operator() () {
           }
 
           // 3. Time-varying penalty
-          if(yr > 0){
+          //
+          // RandomWalk (4) scores the year-to-year change in the realized
+          // log-selectivity (Atka mackerel ADMB model), which is renormalized to
+          // mean 1 each year; the level is held by the avgsel penalty at (4).
+          // IID (1) scores each deviation itself, over exactly the coefficient
+          // bins build_map() estimates. Bins outside that range are fixed at 0
+          // and left unscored: each would add log(sel_dev_sd) + 0.5*log(2*pi),
+          // constant in the deviates but rising with the sd, so scoring them
+          // would drag the estimate toward zero.
+          if(flt_varying_sel(flt) == 4){
+            if(yr > 0){
+              for(sex = 0; sex < nsex(sp); sex++){
+                for(age = 0; age < (nbins - 1); age++) {
+                  jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_non_par_sel(flt, sex, age, yr), log_non_par_sel(flt, sex, age, yr - 1), sel_dev_sd(flt), true);
+                }
+              }
+            }
+          } else if(flt_varying_sel(flt) == 1){
             for(sex = 0; sex < nsex(sp); sex++){
-              for(age = 0; age < (nbins - 1); age++) {
-                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+              for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++) {
+                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
               }
             }
           }
@@ -4018,6 +4037,11 @@ Type objective_function<Type>::operator() () {
         if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected bin
         int shape_a1 = flt_sel_pen_last_bin(flt);               // last (left) bin of the shape-penalty pairs
         if(shape_a1 < 0) shape_a1 = nbins - 2;                  // default: whole range (pairs up to (nbins-2, nbins-1))
+        // The pair is (age, age + 1), so the left bin stops one short of the
+        // last. data_check() bounds Sel_pen_last_bin by the number of bins, so
+        // without this a final-bin setting reads bin `nbins` -- allocated to the
+        // widest species, never written, scoring as a phantom selected bin.
+        if(shape_a1 > nbins - 2) shape_a1 = nbins - 2;
         int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
         for(sex = 0; sex < nsex(sp); sex++){
           for(yr = start_yr; yr < nyrs_tmp; yr++){
@@ -4028,7 +4052,7 @@ Type objective_function<Type>::operator() () {
             //       differentiable via (|d|+d)/2 = max(d,0) and (|d|-d)/2 = max(-d,0).
             //     mode 1 (smooth, RTMB "rpm"): two-sided weight * d^2 smoothness.
             for(age = shape_a0; age <= shape_a1; age++) {
-              Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
+              Type d = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age + 1, yr); // > 0 if decreasing
               if(shape_mode == 1)
                 jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
               else if(sel_curve_pen(flt, 0) >= 0)
@@ -4043,7 +4067,7 @@ Type objective_function<Type>::operator() () {
             //     the base curvature term at styr, which is 0 pre-survey).
             if((yr > start_yr) || (start_yr == 0)){
               vector<Type> ls(nbins); ls.setZero();
-              for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
+              for(age = 0; age < nbins; age++) ls(age) = log_non_par_sel(flt, sex, age, yr);
               vector<Type> d2 = first_difference( first_difference( ls ) );
               for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
             }
@@ -4051,7 +4075,7 @@ Type objective_function<Type>::operator() () {
             // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
             if(yr > start_yr){
               for(age = 0; age < nbins; age++) {
-                Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
+                Type dd = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age, yr - 1);
                 jnll_comp(JNLL_SEL_DEV, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
               }
             }
@@ -4073,12 +4097,15 @@ Type objective_function<Type>::operator() () {
           //     mean-centering leaves unconstrained; equivalent to AMAK's
           //     10*square(avgsel_*). The weight flt_sel_avgsel_pen defaults to 0 (off);
           //     a model opts in via Sel_avgsel_pen (e.g. 10 to match AMAK).
+          //     The range holds at least one bin: data_check() requires
+          //     Bin_first_selected <= N_sel_bins.
           if(flt_sel_avgsel_pen(flt) > 0){
-            Type msum = 0; Type nb = 0;
-            for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++){
-              msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
+            int n_base = flt_n_sel_bins(flt) - bin_first_selected(flt);
+            vector<Type> base(n_base);
+            for(int bin = 0; bin < n_base; bin++){
+              base(bin) = sel_coff(flt, sex, bin + bin_first_selected(flt));
             }
-            Type avgsel = log(msum / nb);
+            Type avgsel = log_mean_exp(base);
             jnll_comp(JNLL_SEL_NONPARAM, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
           }
         }
@@ -5051,6 +5078,7 @@ Type objective_function<Type>::operator() () {
   /*
    REPORT( avg_sel );
    REPORT( non_par_sel );
+   REPORT( log_non_par_sel );
    REPORT( emp_sel_obs );
    REPORT( sel_tmp );
    REPORT( sel_dev_sd );

@@ -132,6 +132,35 @@ Type max2(Type x, Type y){
 
 
 /**
+ * @brief log(mean(exp(x))) over a non-empty vector, computed so it cannot overflow.
+ *
+ * The non-parametric selectivity forms rescale their log-scale coefficients
+ * against log(mean(exp(coefficients))) once per year, which is how a curve whose
+ * level is otherwise unidentified is held at mean selectivity 1. Summed directly,
+ * exp() overflows to infinity once a coefficient passes about 709 -- the largest
+ * argument it takes in double precision -- and the objective is NaN from there on.
+ * Subtracting the largest coefficient first holds every exponent at or below 0, so
+ * the sum is at most the number of bins whatever the coefficients are.
+ *
+ * The shift cancels out of both the result and its derivative.
+ *
+ * @param x non-empty vector of log-scale values.
+ * @return log of the mean of exp(x).
+ */
+template <class Type>
+Type log_mean_exp(const vector<Type> &x)
+{
+  Type mx = x(0);
+  for(int i = 1; i < x.size(); i++) mx = max2(mx, x(i));
+
+  Type total = 0;
+  for(int i = 0; i < x.size(); i++) total += exp(x(i) - mx);
+
+  return mx + log(total / Type(x.size()));
+}
+
+
+/**
  * @brief Construct a sparse GMRF precision matrix separable along year, age, and cohort.
  *
  * Builds Q = (I - B^T) * Omega * (I - B), where B carries the partial

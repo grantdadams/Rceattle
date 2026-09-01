@@ -256,6 +256,8 @@ void convert_length_selectivity(
  * @param sel_coff_dev 4D array of yearly coefficient deviations.
  * @param avg_sel [Output] 3D array of average selectivity per fleet/sex/year (modified by reference).
  * @param non_par_sel [Output] 4D array of unnormalized non-parametric selectivity (modified by reference).
+ * @param log_non_par_sel [Output] The same curve on the log scale, which is the scale the
+ *   non-parametric selectivity penalties are written on (modified by reference).
  * @param sel_at_length [Output] 4D array of final length-based selectivity (modified by reference).
  * @param sel_at_age [Output] 4D array of final age-based selectivity (modified by reference).
  * @param growth_matrix 5D array defining the length-at-age probability transition matrix.
@@ -291,6 +293,7 @@ void calculate_selectivity(
     array<Type>& sel_coff_dev,
     array<Type> &avg_sel,
     array<Type> &non_par_sel,
+    array<Type> &log_non_par_sel,
     array<Type> &sel_at_length,
     array<Type> &sel_at_age,
     array<Type>& growth_matrix,
@@ -394,16 +397,17 @@ void calculate_selectivity(
           // excluded bin out of the shared normalization of the selected ages and out
           // of the deviate/curvature penalties.
           for(int bin = 0; bin < bin_first_selected(flt); bin++) np_unc(sex, bin, yr) = 0.0;
-          { Type m = 0; for(int bin = 0; bin < nbins; bin++) m += exp(np_unc(sex, bin, yr));
-            m = log(m / nbins);
+          { vector<Type> u(nbins);
+            for(int bin = 0; bin < nbins; bin++) u(bin) = np_unc(sex, bin, yr);
+            Type m = log_mean_exp(u);
             for(int bin = 0; bin < nbins; bin++) np_unc(sex, bin, yr) -= m; }
           { vector<Type> cl(nbins);
             for(int bin = 0; bin < nbins; bin++) cl(bin) = np_unc(sex, bin, yr);
             int cap = flt_sel_cap_bin(flt);
             if(cap >= 0) for(int bin = cap + 1; bin < nbins; bin++) cl(bin) = cl(cap);
-            Type m2 = 0; for(int bin = 0; bin < nbins; bin++) m2 += exp(cl(bin));
-            m2 = log(m2 / nbins);
+            Type m2 = log_mean_exp(cl);
             for(int bin = 0; bin < nbins; bin++){
+              log_non_par_sel(flt, sex, bin, yr) = cl(bin) - m2;
               non_par_sel(flt, sex, bin, yr) = exp(cl(bin) - m2);
               if (is_length_based) sel_at_length(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
               else                 sel_at_age(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
@@ -415,22 +419,25 @@ void calculate_selectivity(
         case 2: // Non-parametric (Ianelli style)
           for(int bin = 0; bin < n_sel_bins; bin++) {
             non_par_sel(flt, sex, bin, yr) = sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr);
-            avg_sel(flt, sex, yr) += exp(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr));
           }
-          avg_sel(flt, sex, yr) = log(avg_sel(flt, sex, yr) / n_sel_bins);
+          // AMAK avgsel: the level of the estimated coefficients, which the
+          // mean-centering below removes from the curve. The penalty on it is
+          // the only thing holding that level (ceattle.cpp, JNLL_SEL_NONPARAM).
+          { vector<Type> base(n_sel_bins);
+            for(int bin = 0; bin < n_sel_bins; bin++) base(bin) = non_par_sel(flt, sex, bin, yr);
+            avg_sel(flt, sex, yr) = log_mean_exp(base); }
 
           for(int bin = n_sel_bins; bin < nbins; bin++) {
             non_par_sel(flt, sex, bin, yr) = non_par_sel(flt, sex, n_sel_bins - 1, yr);
           }
 
-          avgsel_tmp = 0;
-          for(int bin = 0; bin < nbins; bin++) {
-            avgsel_tmp += exp(non_par_sel(flt, sex, bin, yr));
-          }
-          avgsel_tmp = log(avgsel_tmp / nbins);
+          { vector<Type> ls(nbins);
+            for(int bin = 0; bin < nbins; bin++) ls(bin) = non_par_sel(flt, sex, bin, yr);
+            avgsel_tmp = log_mean_exp(ls); }
 
           for(int bin = 0; bin < nbins; bin++) {
             non_par_sel(flt, sex, bin, yr) -= avgsel_tmp;
+            log_non_par_sel(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
             non_par_sel(flt, sex, bin, yr) = exp(non_par_sel(flt, sex, bin, yr));
 
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);

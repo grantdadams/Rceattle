@@ -496,7 +496,7 @@ M1 can also be estimated rather than fixed. See `?build_M1` for options includin
 
 An optional time series used in environment-recruitment, -M1, -catchability, or -growth relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
 
-Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and validation only complains when a feature actually needs an index (env-q catchability, `Ceq[sp] > 1`, or any env linkage).
+Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and validation only complains when a feature actually needs one (env-q catchability, a consumption equation that reads a temperature -- `Ceq` 1, 2 or 3 -- or any env linkage). With no index to read, consumption uses the constant `fT = 1` of `Ceq = 4`. That is an error under `msmMode > 0`, where consumption drives predation mortality, and a warning under single-species, where it reaches only the reported `ration`.
 
 ```{r}
 simData$env_data <- data.frame(
@@ -507,7 +507,7 @@ simData$env_data <- data.frame(
 
 ## 8. Multi-species bioenergetics parameters (optional in single-species mode)
 
-These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. They are unused in single-species mode and can be omitted entirely — Rceattle fills any missing scalars with safe defaults.
+These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. In single-species mode they reach only the reported `ration` and `consumption_at_age`, never the objective, and can be omitted entirely — Rceattle fills any missing scalars with safe defaults (`Ceq = 4`, the constant form that reads no environmental index).
 
 In multi-species mode (`msmMode > 0`) **all** of `Ceq`, `Cindex`, `Pvalue`, `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4` must be supplied as length-`nspp` vectors; `data_check()` will list any that are missing or wrong-length. Likewise `diet_data` and `ration_data` are required.
 
@@ -521,7 +521,7 @@ See `?build_M1` and the CEATTLE technical documentation for full details on each
 #   4 = bypass bioenergetics; use ration_data directly (set CA = 1, fday = 1, CB = 0)
 simData$Ceq    <- rep(4,  nspp)
 
-simData$Cindex <- rep(1,  nspp)   # temperature index type
+simData$Cindex <- rep(1,  nspp)   # which env_data covariate column drives it, counting from 1
 simData$Pvalue <- rep(1,  nspp)   # proportion of maximum consumption realised
 simData$fday   <- rep(1,  nspp)   # foraging days per year
 

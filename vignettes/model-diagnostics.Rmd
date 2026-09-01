@@ -193,6 +193,13 @@ plot_index(model_1, log = TRUE)
 plot_indexresidual(model_1)
 ```
 
+`plot_catchability()` draws the other half of the same fit: the catchability the model scaled each survey by, faceted by fleet. It reads the realized `q`, so one figure covers an estimated or fixed mean, annual deviations under `Time_varying_q`, an environmental regression, a `q` linkage such as `rw(1 | Year)`, and the closed-form `"Analytical"` value. A fleet with a time-invariant `q` draws a flat line. Hindcast years only — the model does not project catchability.
+
+```{r}
+plot_catchability(model_1)
+plot_catchability(model_1, log = TRUE)
+```
+
 ### Catch
 
 ```{r}

@@ -606,6 +606,43 @@ build_map_predation <- function(map_list, data_list) {
   return(map_list)
 }
 
+#' Non-parametric fleets whose deviates cannot be integrated out
+#'
+#' Two configurations, each for its own reason, and `fit_mod()` refuses
+#' `random_sel = TRUE` on both. The deviates remain usable as the penalized
+#' effects the AMAK formulation intends.
+#'
+#' `RandomWalk` is scored on the realized log-selectivity, which is renormalized
+#' to mean 1 within each year, so the density never touches the level of a year's
+#' coefficients -- those directions are improper, not merely weakly identified,
+#' and the deviation sd collapses (2.7e-8 on Atka2022).
+#'
+#' `IID` is scored on the deviates themselves and is proper, but the AMAK shape
+#' penalty beside it is one-sided (`max(d, 0)^2`), whose second derivative is a
+#' step. The Laplace correction is a log-determinant of that second derivative,
+#' so the marginal objective is only piecewise smooth and the optimizer halts at
+#' a kink: on Atka2022 it stops with a maximum gradient of 6.8 and reports an sd
+#' 27% away from the value the same model reaches with `Sel_curve_pen1 = 0`
+#' (maximum gradient 4e-4). A fleet that turns that penalty off is integrable.
+#'
+#' @param fleet_control The `fleet_control` table, with canonical switch strings.
+#' @return A data frame of the `Fleet_code`s affected and the reason for each.
+#' @noRd
+.rce_np_unintegrable_fleets <- function(fleet_control) {
+  sel  <- fleet_control$Selectivity
+  tv   <- fleet_control$Time_varying_sel
+  pen1 <- suppressWarnings(as.numeric(fleet_control$Sel_curve_pen1))
+  np   <- fleet_control$Fleet_type != "Off" &
+    !is.na(sel) & sel %in% c("NonParametric", "NonParametricPM")
+
+  walk <- np & !is.na(tv) & tv == "RandomWalk"
+  kink <- np & !is.na(tv) & tv == "IID" & !is.na(pen1) & pen1 != 0
+  data.frame(
+    fleet  = c(fleet_control$Fleet_code[walk], fleet_control$Fleet_code[kink]),
+    reason = c(rep("RandomWalk", sum(walk)), rep("IID", sum(kink))),
+    stringsAsFactors = FALSE)
+}
+
 #' Fleets whose selectivity deviates are estimated but carry no density
 #'
 #' `Time_varying_sel = "Block"` estimates one deviate per block and the model
@@ -823,8 +860,18 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       #      Both share identical parameters / mapping; they differ only in the
       #      selectivity penalty form (see ceattle.cpp).
       if (sel_type %in% c("NonParametric", "NonParametricPM")) {
-        if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'Off'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
+        # "IID" is scored for NonParametric only. NonParametricPM builds its
+        # curve as a cumulative walk (each year's coefficients are the previous
+        # year's plus sel_coff_dev, see selectivity.hpp case 9), so a deviate
+        # there IS a random-walk increment and an independent-deviate reading of
+        # it would not describe the curve the model draws.
+        .np_modes <- if (sel_type == "NonParametric") c("Off", "IID", "RandomWalk")
+                     else c("Off", "RandomWalk")
+        if (!is.na(tv_sel) && !tv_sel %in% .np_modes) {
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with '", sel_type,
+                      "' selectivity must be ",
+                      paste(sprintf("'%s'", .np_modes[-length(.np_modes)]), collapse = ", "),
+                      " or '", .np_modes[length(.np_modes)], "'. Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -839,11 +886,14 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
           ind_coff <- ind_coff + max_bin_on
 
-          if (tv_sel == "RandomWalk") { # Time-varying deviates
-            map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
+          if (tv_sel %in% c("IID", "RandomWalk")) { # Time-varying deviates
             dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
+          }
+
+          if (tv_sel == "RandomWalk") {
+            map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
 
             # Fix the deviates BEFORE the start year. The mean parameter
             # (sel_coff) is mapped off for a random walk, so the deviate AT the
@@ -857,6 +907,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
               map_list$sel_coff_dev[flt, sex, bins_on, 1:(start_idx - 1L)] <- NA
             }
           }
+
+          # Under IID the deviates are centred on 0, so sel_coff stays estimated
+          # -- it is the base curve those deviations are deviations FROM, and it
+          # is identified by them being centred. A random walk has no such
+          # anchor, which is why it maps the base off instead.
         }
       }
 

@@ -305,6 +305,11 @@ testthat::test_that("2DAR1/3DAR1 reject saturating Sel_curve_pen rho values", {
   ok_np <- GOA2018SS
   ok_np$fleet_control$Selectivity[rows_use] <- "NonParametric"
   ok_np$fleet_control$Sel_curve_pen1[rows_use] <- 50
+  # GOA2018SS's fishery is RandomWalkAscending, which the non-parametric forms do
+  # not take. Set a mode they do, so this tests the penalty weight and not the
+  # mode: until 5.25.0 the mode was silently read as a legacy AMAK weight, which
+  # also overwrote the Sel_curve_pen1 this test sets.
+  ok_np$fleet_control$Time_varying_sel[rows_use] <- "Off"
   testthat::expect_no_error(
     suppressMessages(Rceattle::fit_mod(data_list = ok_np, inits = NULL, file = NULL,
                                        estimateMode = 3, random_rec = FALSE,

@@ -38,7 +38,7 @@ The bundled datasets that DO converge with a PD Hessian, measured 2026-08-30 wit
 | `NorthernRockfish2022` | 1 | 1 | yes | yes | WARN |
 | `GOAatf2023` | 1 | 2 | yes | yes | FAIL |
 | `GOApollock` | 1 | 1 | no | -- | FAIL |
-| `Atka2022` | 1 | 1 | -- | -- | data_check rejects its selectivity config |
+| `Atka2022` | 1 | 1 | -- | -- | fits from 5.25.0; `data_check` refused its IID non-parametric selectivity before |
 
 `GOAcod` and `GOAatf` are the two clean ones, and `GOAatf` is the only bundled **two-sex**
 fit that converges -- which makes it the fixture for anything sex-structured, including the
@@ -327,6 +327,16 @@ change, so setting the flag alone guarantees nothing and a clean result against 
 unchecked `.so` is meaningless. As of 5.16.0 it reports no violation over five configurations
 (ragged comps both directions, joint sex, predation arrays, the CI crash config, `sim_mod()`
 draws) on macOS. **That is not a clearance** — the fault is intermittent and was seen on Windows.
+
+**Editing only a `.hpp` does not rebuild the model.** `src/TMB/compile.R` calls `TMB::compile()`,
+which builds through `R CMD SHLIB`, and that compares `ceattle.cpp` against `ceattle.o` alone —
+the headers it `#include`s are not in the dependency check. So a change confined to
+`selectivity.hpp`, `bioenergetics.hpp`, `predation.hpp` or any other header is *not* picked up:
+`pkgload::load_all(".")` prints nothing unusual and loads the previous `.so`, so the run that
+follows tests the code you did not change. It fails the way a real defect does — a header guard
+added to `bioenergetics.hpp` in 5.25.0 appeared not to work, and the segfault it was meant to
+close was still there, because the binary predated it. Touch `src/TMB/ceattle.cpp`, or delete
+`src/TMB/ceattle.o` and `src/ceattle.so`, before trusting a header-only result.
 
 **A workflow that lives only on a feature branch does not run.** `deep-checks.yaml` triggers on
 `schedule` and `workflow_dispatch`, and GitHub reads both from the **default branch** only:

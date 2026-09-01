@@ -582,13 +582,20 @@ switch_check <- function(data_list){
 
   # Bioenergetics scalars: TMB declares them as DATA_VECTOR length-nspp, so
   # they must exist even when not used. In single-species mode (msmMode == 0)
-  # they are never read by the consumption code, so silently fill any missing
-  # entries with safe sentinels. When msmMode > 0 we leave them untouched and
-  # let data_check() report which ones are missing or wrong-length.
+  # nothing downstream of consumption enters the likelihood, so silently fill any
+  # missing entries with safe sentinels. When msmMode > 0 we leave them untouched
+  # and let data_check() report which ones are missing or wrong-length.
+  #
+  # The consumption code itself DOES run in single-species mode -- ceattle.cpp
+  # calls calculate_temperature_function() for every species on every fit. Ceq 4
+  # (constant, fT = 1) is the only equation that reads no environmental index, so
+  # it is the sentinel: Ceq 1 would send the template to env_index(year, Cindex)
+  # for a model that supplied no covariate at all. Cindex is 1-based, so 1 is its
+  # lowest valid value even though Ceq 4 never reads it.
   if(data_list$msmMode == 0){
     bioenergetics_defaults <- list(
-      Ceq    = rep(1L,  data_list$nspp),
-      Cindex = rep(0L,  data_list$nspp),
+      Ceq    = rep(4L,  data_list$nspp),
+      Cindex = rep(1L,  data_list$nspp),
       Pvalue = rep(1,   data_list$nspp),
       fday   = rep(365, data_list$nspp),
       CA     = rep(0,   data_list$nspp),
@@ -647,6 +654,11 @@ switch_check <- function(data_list){
   # rejected rather than silently converted. A non-positive/non-finite SD (sd = 0
   # would give an Inf penalty; a negative SD squares to a spurious weight) is also
   # rejected.
+  # Whether the workbook SHIPPED the penalty columns, recorded before the
+  # defaults below create them. This is what tells a pre-4.4 non-parametric
+  # workbook from a modern one (see the format upgrade further down); a blank
+  # cell in a column that exists does not.
+  .had_sel_curve_pen <- "Sel_curve_pen1" %in% names(data_list$fleet_control)
   .fc  <- data_list$fleet_control
   .col <- function(nm) if (is.null(.fc[[nm]])) rep(NA_real_, nrow(.fc)) else suppressWarnings(as.numeric(.fc[[nm]]))
   .np  <- c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
@@ -756,15 +768,26 @@ switch_check <- function(data_list){
   data_list$fleet_control$Comp_accum_old <- .rce_apply_default(data_list$fleet_control$Comp_accum_old, "Comp_accum_old", .sch)  # old-tail composition accumulation bin (NA -> no accumulation)
   data_list$fleet_control$Month <- .rce_apply_default(data_list$fleet_control$Month, "Month", .sch)
 
-  # Format adjustment for NonParametric
+  # Format upgrade for a pre-4.4 non-parametric workbook, which had no
+  # Sel_curve_pen columns and carried the two AMAK penalty WEIGHTS in
+  # Time_varying_sel and Time_varying_sel_sd instead. Move them across.
+  #
+  # A MISSING Sel_curve_pen1 column is the trigger, not the value in
+  # Time_varying_sel: an AMAK shape weight of 4 and the RandomWalk code 4 are the
+  # same number, so the value cannot tell an un-upgraded workbook from a modern
+  # one, while the column's absence can. 0 and 1 are modes, not weights -- a
+  # fleet meaning "time-invariant" is not asking for a shape weight of 0.
   np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
-  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")))){
+  .tv_num <- suppressWarnings(as.numeric(data_list$fleet_control$Time_varying_sel))
+  legacy <- np_idx & !.had_sel_curve_pen &
+    !is.na(.tv_num) & !(.tv_num %in% c(0, 1))
+  if(any(legacy)){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(
-        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd, Sel_curve_pen2),
-        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel),
-        Time_varying_sel_sd = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd)
+        Sel_curve_pen1      = ifelse(legacy, Time_varying_sel, Sel_curve_pen1),
+        Sel_curve_pen2      = ifelse(legacy, Time_varying_sel_sd, Sel_curve_pen2),
+        Time_varying_sel    = ifelse(legacy, 0, Time_varying_sel),
+        Time_varying_sel_sd = ifelse(legacy, 0, Time_varying_sel_sd)
       )
     message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
