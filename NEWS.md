@@ -112,6 +112,26 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 * **`data_check()` refuses a non-parametric fleet whose `Bin_first_selected` is
   above its `N_sel_bins`**, which left it with no estimated coefficients at all.
 
+* **`convergence_diagnostics()` reports a variance parameter estimated to
+  zero.** A deviation standard deviation at the floor means the process it
+  governs is not varying: a model configured as time-varying has fitted
+  something time-invariant. `Atka2022` under `random_sel = TRUE` with a
+  non-parametric random walk reaches `sel_dev_sd = 2.7e-08`; the battery flagged
+  that fit through `max_gradient`, which says the optimizer did not converge
+  rather than naming what went wrong. The new `variance_collapse` check names
+  the parameter and the element within it, and fires whether or not the gradient
+  is clean -- a collapse at a converged optimum is the case with nothing else to
+  catch it. It reads the recruitment, selectivity, catchability, M1 and linkage
+  random-effect standard deviations, all of which are log-scale and O(0.1)-O(1)
+  so one threshold means the same thing for each. Observation sds are excluded (a
+  different diagnosis, and `build_bounds()` already bounds them), as is
+  `growth_log_sd`, a length-at-age sd in centimetres, and the catchability PRIOR
+  sd, where a tight value is a deliberate choice. `WARN` rather than `FAIL`: a
+  variance at the boundary is a well-posed optimum and a verdict about the model
+  rather than the optimizer, and `report_tables()` prints this status as a fit's
+  `converged` field. Only estimated parameters are read, so a deviation sd held
+  at `Time_varying_sel_sd` cannot fire it.
+
 * **Two composition-accumulation columns were never being read.**
   `Accumatation_age_lower` and `Accumatation_age_upper` are the pre-4.4 names of
   `Comp_accum_young` and `Comp_accum_old`, and were missing from the schema's

@@ -166,6 +166,13 @@ The checks cover:
   (a per-parameter verdict) with a continuous severity and direction.
 - **`parameters_on_bounds`** — parameters that hit a configured `build_bounds()`
   limit (often unidentified or mis-scaled).
+- **`variance_collapse`** — a deviation standard deviation estimated to zero
+  (`WARN` below 1e-3), meaning the process it governs is not varying: a model
+  configured as time-varying has fitted something time-invariant. Covers the
+  recruitment, selectivity, catchability, M1 and linkage random-effect standard
+  deviations. `WARN` rather than `FAIL` because a variance at the boundary is a
+  well-posed optimum — a verdict about the model, not the optimizer — and it can
+  occur with a perfectly clean gradient, which is the case nothing else catches.
 - **`phasing`** — phases that ended with a high gradient, localizing which
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.

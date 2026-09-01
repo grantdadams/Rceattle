@@ -446,6 +446,75 @@
     tab))
 }
 
+#' A process variance estimated to zero
+#'
+#' A deviation standard deviation at the floor means the process it governs is
+#' not varying: a model configured as time-varying has fitted something
+#' time-invariant. `Atka2022` under `random_sel = TRUE` with a non-parametric
+#' random walk reaches `sel_dev_sd = 2.7e-08`. The battery flags that particular
+#' fit through `max_gradient`, which reports that the optimizer stopped, not what
+#' went wrong; and a collapse at a CLEAN gradient -- a well-posed maximum at the
+#' boundary -- has nothing else to catch it.
+#'
+#' Scope is deliberately narrow. Only the standard deviations of a modelled
+#' DEVIATION are read, all of which are log-scale and O(0.1)-O(1) in any
+#' assessment, so one absolute threshold means the same thing for all of them.
+#' Observation sds (`catch_log_sd`, `index_log_sd`, `log_obs_sd_linkage`) are
+#' excluded: a concentrated observation sd at zero is a different diagnosis, it
+#' already trips `parameters_on_bounds` because `build_bounds()` bounds those,
+#' and it governs no time-varying process. `growth_log_sd` is excluded because it
+#' is a length-at-age sd in CENTIMETRES, where 1e-3 means nothing. Correlations
+#' and penalty weights (`sel_curve_pen`, `index_q_rho`, `M1_rho`,
+#' `trans_rho_linkage`) are not sds at all, and the catchability PRIOR sd
+#' (`index_q_log_sd`) is a deliberate choice.
+#'
+#' `WARN`, never `FAIL`: a variance at the boundary is a well-posed optimum and a
+#' verdict about the MODEL, not about the optimizer, and `report_tables()` prints
+#' this status as a fit's `converged` field.
+#'
+#' Only estimated parameters appear in the snapshot, so a deviation sd held at
+#' `Time_varying_sel_sd` cannot fire this.
+.CONV_PROCESS_SD <- c("R_log_sd", "sel_dev_log_sd", "index_q_dev_log_sd",
+                      "M1_dev_log_sd", "log_sigma_linkage")
+
+#' @param object A fitted `Rceattle` object.
+#' @return A list holding zero or one check record.
+#' @keywords internal
+#' @noRd
+.check_variance_collapse <- function(object) {
+  ch <- object$.conv_hindcast
+  if (is.null(ch) || is.null(ch$par) || is.null(names(ch$par))) return(list())
+
+  par   <- ch$par
+  is_sd <- names(par) %in% .CONV_PROCESS_SD
+  if (!any(is_sd)) return(list())
+
+  sd_val <- exp(par[is_sd])
+  hit    <- which(sd_val < 1e-3)
+  if (length(hit) == 0) return(list())
+
+  # A block is named once per element, so say WHICH element: "R_log_sd[2]" is
+  # actionable where "R_log_sd" on a three-species model is not.
+  nm  <- names(sd_val)
+  idx <- stats::ave(seq_along(nm), nm, FUN = seq_along)
+  n_in_block <- as.integer(table(nm)[nm])
+  label <- ifelse(n_in_block > 1L, sprintf("%s[%d]", nm, idx), nm)
+
+  tab <- data.frame(param = nm[hit], index = idx[hit],
+                    sd = signif(unname(sd_val[hit]), 3), row.names = NULL)
+
+  list(variance_collapse = .conv_record(
+    "variance_collapse", "fit", "WARN",
+    sprintf(paste0("%d estimated deviation standard deviation(s) at zero: %s. ",
+                   "The deviations they govern are not varying, so this fit is ",
+                   "time-invariant in that process despite being configured ",
+                   "otherwise."),
+            length(hit),
+            paste(sprintf("%s = %.2g", label[hit], sd_val[hit]), collapse = ", ")),
+    tab))
+}
+
+
 # Phasing log: phases that ended with a high gradient localize which parameter
 # block breaks. Reads the per-phase log captured from TMBphase().
 .check_phasing <- function(object) {
@@ -568,7 +637,8 @@
 #' \code{fit_mod()} runs this automatically and attaches the result as
 #' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
 #' re-run it on any fit. Checks cover the optimizer gradient, Hessian
-#' positive-definiteness and conditioning, parameters on bounds, phasing, and
+#' positive-definiteness and conditioning, parameters on bounds, a deviation
+#' variance estimated to zero, phasing, and
 #' parameter estimability.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
@@ -585,6 +655,7 @@ convergence_diagnostics <- function(object, ...) {
     .check_sdreport_failed(object),
     .check_hessian_eigen(object),
     .check_bounds(object),
+    .check_variance_collapse(object),
     .check_estimability_record(object),
     .check_stock_recruit(object)
   )
