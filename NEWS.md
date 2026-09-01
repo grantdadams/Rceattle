@@ -17,7 +17,11 @@ version throughout.
 ## Breaking changes
 
 No exported argument is removed or renamed. Two configurations that previously
-ran are now refused, and **neither produced a number anyone should use**:
+ran are now refused, and **neither produced a number anyone should use**. A
+workbook that carries the same column under two spellings is also refused where
+it previously read, silently keeping one of them -- one file in the sibling
+repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
+`Bin_first_selected` and `Age_first_selected` disagree on every row):
 
 * **`random_sel = TRUE` with non-parametric selectivity**, in two cases, each
   for its own reason. Fit these with `random_sel = FALSE`, which is the
@@ -107,6 +111,53 @@ ran are now refused, and **neither produced a number anyone should use**:
 
 * **`data_check()` refuses a non-parametric fleet whose `Bin_first_selected` is
   above its `N_sel_bins`**, which left it with no estimated coefficients at all.
+
+* **Two composition-accumulation columns were never being read.**
+  `Accumatation_age_lower` and `Accumatation_age_upper` are the pre-4.4 names of
+  `Comp_accum_young` and `Comp_accum_old`, and were missing from the schema's
+  alias list -- so a workbook carrying them got the default of no accumulation
+  and the setting was ignored. **183 of the fleet_control sheets in the sibling
+  assessment repositories carry them, and 79 carry a young-tail value that folds
+  bins**; the GOA pollock configuration is the AFSC one, folding ages 1-2 into
+  age 3 for the Shelikof survey and age 1 into age 2 for the fishery. On the
+  2023 GOA pollock workbook, applying it moves the composition negative
+  log-likelihood from 16333.05 to 16039.59 at identical parameters. Both are
+  1-based ordinals on the fleet's composition dimension, which equals the age
+  only when `minage` is 1 -- it is 1 on every affected workbook. No bundled
+  dataset carries either column, and none of the 183 carries a column under both
+  spellings, so nothing had to be reconciled.
+
+  `Est_weights_mcallister` is deliberately **not** treated the same way. Despite
+  looking like a third case, it is the pre-4.12 name of an OUTPUT --
+  [fit_mod()] computes `Comp_weights_mcallister` from the fitted object and
+  already mirrors the old name for back-compatibility -- so a copy of it in a
+  workbook is a saved result, not a setting, and reading it as an input would
+  imply an effect on the fit that it does not have.
+
+* **A deprecated column name is no longer silently discarded when its canonical
+  name is also present.** `read_data()` canonicalises `fleet_control`, so a
+  script that then assigns a deprecated name creates the old column beside the
+  new one -- and the upgrade deleted it and kept the canonical value, behind a
+  routine deprecation message. The two must now hold the same setting, with an
+  integer switch code and its string counting as the same; anything else is an
+  error naming both values. Nothing is merged and no blank is filled in from the
+  other column: `NA` is a real setting in several of these (`Sel_norm_bin` and
+  `Sel_cap_bin` mean "do not normalize" and "no cap", `Proj_F_proportion` means
+  "no F apportioned"), so filling could not express clearing a value and would
+  move a number without saying so.
+
+  **Check your own scripts before upgrading**, because this has been hiding real
+  settings and the error will now find them. Around fifteen scripts across the
+  sibling assessment repositories stop on it, every one at a setting the script
+  asks for and the model was not using: `Proj_F_proportion = 1` on three GOA
+  circulation-study assessments and on the SSMA example, all of which therefore
+  projected with no F apportioned; `Comp_distribution = "DirichletMultinomial"`
+  on a hake analysis and a GOA pollock bridge that were both fitting a full
+  multinomial; a fishery selectivity deviation sd of 0.35 against the workbook's
+  10.3, which is the difference between penalized and effectively free
+  deviations; and several survey catchability priors that never took effect. The
+  fix in each case is to assign the canonical name instead of the deprecated
+  one; the error names both.
 
 ## New features
 

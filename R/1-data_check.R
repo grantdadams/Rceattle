@@ -13,6 +13,10 @@ data_check <- function(data_list) {
   data_list$fleet_control <-
     .rce_upgrade_fleet_control_aliases(data_list$fleet_control)
   data_list <- .rce_upgrade_data_list_aliases(data_list)
+  # A column name that is neither canonical nor a known older spelling is read by
+  # nothing, so a typo sets nothing and says nothing. Reported here, after the
+  # rename above has taken the recognized older names out of the way.
+  .rce_warn_near_miss_columns(data_list$fleet_control)
 
   # ---- Helpers ----
   has_data <- function(df) !is.null(df) && nrow(df) > 0

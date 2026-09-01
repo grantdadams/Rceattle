@@ -141,8 +141,8 @@
     .rce_col("Comp_weights", "fleet_control", "Composition weight, on a scale set by 'Comp_distribution'. \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Comp_weights), so the column is the LOG of the starting weight -- a value of 1 is a starting weight of e; use 0 for a weight of 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given. \r\nSee 'Comp_weights_mcallister' for the weight a fit implies, and reweight_comps() to tune towards it."),
     .rce_col("CAAL_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "Multinomial", default_msg = "'CAAL_distribution' not specified in 'fleet_control', assuming 'Multinomial'", default_msg_when = "has_caal", aliases = "CAAL_loglike", tmb_target = "caal_ll_type"),
     .rce_col("CAAL_weights", "fleet_control", "Conditional age-at-length composition weight, on a scale set by 'CAAL_distribution', exactly as 'Comp_weights' is. Under a Dirichlet-multinomial the column is the LOG of the starting weight, so the default of 1 is a starting weight of e.", has_default = TRUE, default = 1, default_msg = "'CAAL_weights' not specified in 'fleet_control', assuming 1", default_msg_when = "has_caal"),
-    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_young"),
-    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA, tmb_target = "comp_accum_old"),
+    .rce_col("Comp_accum_young", "fleet_control", "Age/length composition young-tail accumulation bin (AFSC ac_yng): a 1-based ordinal on the fleet's composition dimension; bins below it are folded into it before the likelihood. NA or 1 = no young accumulation.", type = "integer", has_default = TRUE, default = NA, aliases = "Accumatation_age_lower", tmb_target = "comp_accum_young"),
+    .rce_col("Comp_accum_old", "fleet_control", "Age/length composition old-tail accumulation bin (AFSC ac_old): a 1-based ordinal on the fleet's composition dimension; bins above it are folded into it before the likelihood. NA, 0, or a value >= the number of bins = no old accumulation.", type = "integer", has_default = TRUE, default = NA, aliases = "Accumatation_age_upper", tmb_target = "comp_accum_old"),
     .rce_col("Observation_units", "fleet_control", "1 = catch/index is weight (mt) \r\n2 = catch/index is in numbers (thousands of fish) \r\nThe model works in mt and thousands of fish throughout: numbers-at-age are thousands and weight-at-age is kg, so their product is mt.", type = "integer", aliases = c("Weight1_Numbers2", "weight1_Numbers2"), tmb_target = "flt_units"),
     .rce_col("Weight_index", "fleet_control", "Weight index to use for calculation of derived quantities", type = "integer", tmb_target = "flt_wt_index"),
     .rce_col("Age_transition_index", "fleet_control", "Age transition matrix (e.g. growth trajectory) index to used convert age to length", type = "integer", tmb_target = "flt_age_transition_index"),
@@ -231,67 +231,221 @@
   row$default
 }
 
-#' Upgrade deprecated fleet_control column names to canonical, in place.
+#' Upgrade deprecated names to canonical, in place.
 #'
-#' The single migration point for legacy fleet_control column names: every
-#' canonical column carries its historical spellings in the schema `aliases`
-#' field, and this walks them, renaming any present old name to the canonical
-#' one. Both `read_data()` (on the xlsx path) and `switch_check()` (on every
-#' fit path) call it, so a data list built either way is upgraded identically
-#' from the one schema.
+#' The single migration point for legacy names: every canonical column or
+#' element carries its historical spellings in the schema `aliases` field, and
+#' this walks them, renaming any old name present to the canonical one. The two
+#' wrappers below differ only in which half of the schema they read and what
+#' they call the thing in a message -- the walk itself is shared, because when
+#' it was written twice both copies carried the same defect.
 #'
-#' Double-fire-safe: a no-op when the old name is absent (so re-running on an
-#' already-upgraded list is silent), and it never clobbers an existing
-#' canonical column. Emits one deprecation message per rename actually applied.
+#' Double-fire-safe: a no-op when the old name is absent, so re-running on an
+#' already-upgraded object is silent. Emits one deprecation message per rename.
 #'
-#' @param fc A `fleet_control` data frame (or NULL).
-#' @return `fc` with any deprecated column names upgraded to canonical.
+#' Both names can be present at once, and that is the case worth care. It is
+#' what a script produces when it assigns a deprecated name to a `data_list`
+#' that `read_data()` has already canonicalised: the assignment creates the old
+#' name beside the new one. The old name holds what the caller just wrote, so it
+#' is taken wherever the canonical one has nothing, and a position where the two
+#' disagree is an error rather than a silent choice between them.
+#'
+#' @param x A `fleet_control` data frame or a `data_list` (or NULL).
+#' @param fleet_control Read the fleet_control half of the schema, or the rest.
+#' @param what What to call `x`'s parts in a message.
+#' @return `x` with any deprecated names upgraded to canonical.
+#' @keywords internal
+#' @noRd
+.rce_upgrade_aliases <- function(x, fleet_control, what) {
+  if (is.null(x)) return(x)
+  labels <- if (fleet_control) as.character(x[["Fleet_name"]]) else NULL
+  for (row in .rce_column_schema()) {
+    if ((row$sheet == "fleet_control") != fleet_control) next
+    if (length(row$aliases) == 0L) next
+    src <- row$name        # where the canonical value came from, for the message
+    for (old in row$aliases) {
+      if (is.null(x[[old]])) next
+      had <- !is.null(x[[row$name]])
+      x[[row$name]] <- .rce_merge_alias(x[[row$name]], x[[old]],
+                                        row$name, old, what,
+                                        allowed = row$allowed,
+                                        cur_nm = src, labels = labels)
+      if (!had) src <- old
+      x[[old]] <- NULL
+      message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
+    }
+  }
+  x
+}
+
+#' @rdname dot-rce_upgrade_aliases
 #' @keywords internal
 #' @noRd
 .rce_upgrade_fleet_control_aliases <- function(fc) {
-  if (is.null(fc)) return(fc)
-  schema <- .rce_column_schema()
-  for (row in schema) {
-    if (row$sheet != "fleet_control" || length(row$aliases) == 0L) next
-    for (old in row$aliases) {
-      if (!is.null(fc[[old]])) {
-        if (is.null(fc[[row$name]])) fc[[row$name]] <- fc[[old]]
-        fc[[old]] <- NULL
-        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
-      }
-    }
-  }
-  fc
+  .rce_upgrade_aliases(fc, fleet_control = TRUE, what = "fleet_control column")
 }
 
-#' Upgrade deprecated data_list-level (control / bioenergetics) names to canonical.
-#'
-#' The analogue of `.rce_upgrade_fleet_control_aliases()` for the top-level
-#' data_list elements that are NOT fleet_control columns -- the control scalars
-#' and bioenergetics per-species vectors, whose deprecated names live in the
-#' same schema `aliases` field (e.g. `sigma_rec_prior` -> `sigma_rec`,
-#' `Diet_loglike` -> `Diet_distribution`). Double-fire-safe; one message per
-#' rename applied.
-#'
-#' @param data_list An Rceattle data list (or NULL).
-#' @return `data_list` with any deprecated control/bioenergetics element names
-#'   upgraded to canonical.
+#' @rdname dot-rce_upgrade_aliases
 #' @keywords internal
 #' @noRd
 .rce_upgrade_data_list_aliases <- function(data_list) {
-  if (is.null(data_list)) return(data_list)
-  schema <- .rce_column_schema()
-  for (row in schema) {
-    if (row$sheet == "fleet_control" || length(row$aliases) == 0L) next
-    for (old in row$aliases) {
-      if (!is.null(data_list[[old]])) {
-        if (is.null(data_list[[row$name]])) data_list[[row$name]] <- data_list[[old]]
-        data_list[[old]] <- NULL
-        message(sprintf("'%s' is deprecated; use '%s'.", old, row$name))
-      }
+  .rce_upgrade_aliases(data_list, fleet_control = FALSE, what = "data_list element")
+}
+
+#' Reconcile a deprecated name with its canonical one
+#'
+#' Only the deprecated name present: rename it, which is the ordinary upgrade.
+#' The deprecated column present but entirely blank: drop it, since a column
+#' holding no information cannot be what the caller meant.
+#'
+#' Both carrying values: they must say the same thing, and nothing is merged.
+#' Merging looks helpful and is not. `NA` is a real setting in several of these
+#' columns -- `Sel_norm_bin` and `Sel_cap_bin` mean "do not normalize" / "no
+#' cap", `Proj_F_proportion` means "no F apportioned" -- so filling the canonical
+#' column's blanks from the deprecated one cannot express clearing a value, and
+#' would change a number without saying so. Nor is there a "most recent" name to
+#' prefer: in a workbook both columns arrive at once.
+#'
+#' A switch is compared on its canonical MEANING, so `Comp_loglike = 0` and
+#' `Comp_distribution = "Multinomial"` are one setting written twice.
+#'
+#' @param cur The canonical value, or NULL when the canonical name is absent.
+#' @param dep The value held under the deprecated name.
+#' @param canon_nm The canonical name; `cur_nm` is where `cur`'s value came from,
+#'   which differs when an earlier alias already supplied it.
+#' @param dep_nm,cur_nm,what Names and label, for the message.
+#' @param allowed Name of this column's switch map, or NULL for a plain value.
+#' @param labels Row labels (fleet names), used to point at the disagreement.
+#' @return The value to store under the canonical name.
+#' @keywords internal
+#' @noRd
+.rce_merge_alias <- function(cur, dep, canon_nm, dep_nm, what, allowed = NULL,
+                             cur_nm = canon_nm, labels = NULL) {
+  if (is.null(cur)) return(dep)
+  if (all(is.na(dep))) return(cur)
+
+  bad <- .rce_setting_diff(cur, dep, allowed)
+  if (is.null(bad)) return(cur)
+
+  # Name the column the value actually came from: after an earlier alias was
+  # adopted, `cur` is that alias's value, and pointing at the canonical name
+  # would send the reader looking for something they never wrote.
+  where <- if (identical(cur_nm, canon_nm)) sprintf("'%s'", canon_nm)
+           else sprintf("'%s' (taken from '%s')", canon_nm, cur_nm)
+
+  detail <- if (identical(bad, NA_integer_)) {
+    sprintf("they are different lengths (%d and %d)", length(cur), length(dep))
+  } else {
+    at <- if (!is.null(labels) && length(labels) == length(cur)) {
+      paste(sprintf("%s", labels[bad]), collapse = ", ")
+    } else {
+      paste(bad, collapse = ", ")
+    }
+    sprintf("they differ at %s: %s against %s", at,
+            paste(as.character(cur[bad]), collapse = ", "),
+            paste(as.character(dep[bad]), collapse = ", "))
+  }
+
+  stop(sprintf(paste0(
+    "%s %s and its deprecated name '%s' are both present and %s. Set one of ",
+    "them, not both -- there is no way to tell which you meant. If you assigned ",
+    "'%s' yourself, assign %s instead: the canonical column may already exist ",
+    "because the workbook or an earlier step supplied it."),
+    what, where, dep_nm, detail, dep_nm, sprintf("'%s'", canon_nm)),
+    call. = FALSE)
+}
+
+
+#' Where do two spellings of one column disagree?
+#'
+#' `NULL` when they hold the same setting: equal lengths, the same `NA` pattern,
+#' and equal values -- compared on the canonical meaning for a switch, so an
+#' integer code and its string agree. `NA_integer_` for a length mismatch,
+#' otherwise the positions that differ.
+#'
+#' Attributes are stripped before the `NA` patterns are compared: a per-species
+#' vector a script built with `setNames()` carries names that `identical()` would
+#' otherwise read as a difference in the values themselves.
+#'
+#' An unrecognized switch value canonicalizes to the `"<blank>"` sentinel, and
+#' two different unrecognized values would then compare equal, so a sentinel on
+#' either side counts as a disagreement and is left to `validate_switches()` to
+#' name.
+#'
+#' @param cur,dep The two values.
+#' @param allowed Name of the switch map, or NULL.
+#' @return `NULL`, `NA_integer_`, or the differing positions.
+#' @keywords internal
+#' @noRd
+.rce_setting_diff <- function(cur, dep, allowed = NULL) {
+  if (length(cur) != length(dep)) return(NA_integer_)
+  na_cur <- as.vector(is.na(cur)); na_dep <- as.vector(is.na(dep))
+  if (!identical(na_cur, na_dep)) return(which(na_cur != na_dep))
+
+  keep <- !na_cur
+  if (!any(keep)) return(NULL)
+
+  a <- as.vector(cur)[keep]; b <- as.vector(dep)[keep]
+  if (!is.null(allowed)) {
+    if (!exists(allowed, envir = asNamespace("Rceattle"), inherits = FALSE)) {
+      stop("internal: schema names an unknown switch map '", allowed, "'.",
+           call. = FALSE)
+    }
+    map <- get(allowed, envir = asNamespace("Rceattle"), inherits = FALSE)
+    a <- .canon_switch(a, map); b <- .canon_switch(b, map)
+    blank <- (a == "<blank>") | (b == "<blank>")
+  } else {
+    blank <- rep(FALSE, length(a))
+  }
+  differ <- blank | (as.character(a) != as.character(b))
+  if (!any(differ)) return(NULL)
+  which(keep)[differ]
+}
+
+
+#' Warn about a `fleet_control` column that looks like a misspelled one
+#'
+#' `fleet_control` is a data frame, so `fc$Catchabilty_init <- 0.2` creates a
+#' column rather than failing: the setting is never read and nothing says so.
+#' The alias machinery above catches the case where the intended column is a
+#' RECOGNIZED older name; this catches the case where it is a typo or a
+#' half-remembered one, which is the same mistake with the same consequence.
+#'
+#' Only near misses are reported. Assessment workbooks legitimately carry
+#' columns this package does not read -- `Accumatation_age_*` on 147 of the 183
+#' fleet_control sheets in the sibling repositories, plus `Est_weights_mcallister`,
+#' `ALK_index` and `Log_q_prior` -- and warning about those would be noise that
+#' teaches people to ignore the warning. The threshold is an edit distance of at
+#' most a quarter of the name's length, which separates the two groups cleanly:
+#' `Bin_max_selected` -> `Age_max_selected` is 3/16, while `ALK_index` ->
+#' `Q_index` is 3/9 and stays quiet rather than suggesting an unrelated column.
+#'
+#' @param fc A `fleet_control` data frame (or NULL).
+#' @return invisibly `NULL`; warns.
+#' @keywords internal
+#' @noRd
+.rce_warn_near_miss_columns <- function(fc) {
+  if (is.null(fc) || !length(names(fc))) return(invisible())
+  rows  <- Filter(function(r) r$sheet == "fleet_control", .rce_column_schema())
+  known <- c(vapply(rows, function(r) r$name, character(1)),
+             unlist(lapply(rows, function(r) r$aliases)))
+  unknown <- setdiff(names(fc), known)
+  if (!length(unknown)) return(invisible())
+
+  hits <- character(0)
+  for (nm in unknown) {
+    d <- utils::adist(nm, known)[1, ]
+    i <- which.min(d)
+    if (d[i] / nchar(nm) <= 0.25) {
+      hits <- c(hits, sprintf("'%s' (did you mean '%s'?)", nm, known[i]))
     }
   }
-  data_list
+  if (length(hits)) {
+    warning("fleet_control carries ", paste(hits, collapse = ", "),
+            ". A column Rceattle does not recognize is read by nothing, so the ",
+            "setting is ignored.", call. = FALSE)
+  }
+  invisible()
 }
 
 #' Rows for one sheet, in schema (write) order.

@@ -101,6 +101,18 @@ field. Whenever a `data_list` enters the pipeline, an older spelling is
 translated to the current name automatically, so workbooks and scripts written
 against earlier column names keep working (`test-schema-canonical.R` checks this).
 
+Both spellings at once is the case to know about, because it is what a script
+produces when it assigns an older name to a `data_list` that `read_data()` has
+already translated: the assignment creates the old column beside the new one.
+They must then hold the same setting — an integer switch code and its string
+count as the same — and anything else is an error naming both values. Nothing is
+merged and no blank is filled in from the other column, because `NA` is a real
+setting in several of these (`Sel_norm_bin` and `Sel_cap_bin` mean "do not
+normalize" and "no cap"; `Proj_F_proportion` means "no F apportioned"), so
+filling could not express clearing a value and would move a number silently.
+Until 5.25.0 the older spelling was simply discarded here, which is how several
+assessment scripts came to be running settings they did not ask for.
+
 **`data_requirements()`** reports, for a given model setup, which inputs that
 model requires, which are optional, and which are ignored — so you can see what a
 configuration needs before fitting rather than hitting a validation error partway
