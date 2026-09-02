@@ -356,7 +356,28 @@ the residual standard deviation.
 
 Both measurements are reproduced by \code{tools/verify/verify-osa-cdf-accuracy.R},
 which compiles the state space model it scores against.
+}
 
+\section{Known limitation -- compositions at scale under random effects}{
+
+On a random-effects model with a large composition data set, \code{method = "cdf"}
+returns non-finite residuals in bulk and is very slow. Measured on \code{BS2017SS}
+with \code{random_rec = TRUE} (159 random effects, 4538 composition bins):
+\strong{1879 of 4538 residuals non-finite}, against 0 for
+\code{"oneStepGaussianOffMode"} on the same fit, and hours rather than minutes.
+
+The failures are a contiguous tail, and the same 1880 rows residualized on
+their own return 1 failure -- so the observations are not the problem. What
+separates the two runs is the depth of the conditioning (2658 prior
+observations against none): the Laplace inner problem fails on the
+conditioning itself, and redoing the tail on a fresh call does not recover it
+(1879 before, 1879 after).
+
+So for composition residuals on a random-effects model, use a Gaussian
+\code{method} for now. \code{"cdf"} is sound on fixed-effect models -- where it is the
+only method whose composition residuals pass a self-test -- and on
+random-effects models for the aggregate and covariate series, which are few
+enough not to reach the depth where this bites.
 \strong{It does not reverse for compositions.} A composition conditional is a
 discrete, skewed binomial, which is what the Gaussian methods get wrong, and
 that error is far larger than the Laplace one. Simulating from a

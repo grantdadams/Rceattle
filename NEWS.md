@@ -86,6 +86,18 @@ version throughout.
   (which fell back to an approximate spline), and its side effect of moving the
   other fleets' residuals.
 
+* **Known limitation: compositions at scale under random effects.** On a
+  random-effects model with a large composition data set, `method = "cdf"`
+  returns non-finite residuals in bulk and is very slow -- on `BS2017SS` with
+  `random_rec = TRUE` (159 random effects, 4538 composition bins), **1879 of
+  4538 residuals are non-finite** against 0 for `"oneStepGaussianOffMode"` on
+  the same fit. The failures are a contiguous tail and the same rows come back
+  clean when residualized on their own, so it is the depth of the conditioning,
+  not the observations; redoing the tail on a fresh call recovers nothing.
+  **Use a Gaussian `method` for composition residuals on a random-effects
+  model.** `"cdf"` is sound on fixed-effect models, and on random-effects models
+  for the aggregate and covariate series.
+
 * **A Dirichlet-multinomial composition cannot use `"cdf"`** and is residualized
   with `"oneStepGaussianOffMode"` instead, announced in a message and recorded
   as `attr(osa, "method")["DirichletMultinomial"]`. The conditional is a

@@ -5,99 +5,92 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**In flight: branch `osa-cdf-method` off `dev` (5.24.0) — `osa_residuals(method = "cdf")`.**
-Not pushed, no PR yet. It closes `dev/HANDOFF-osa-cdf-method.md`, whose framing it also
-corrects; that file now opens with what measurement actually found.
+**In flight: branch `osa-cdf-method` (5.24.0), `osa_residuals(method = "cdf")`.** Pushed, no PR
+yet. **Golden PASS, suite `FAIL 0 | WARN 228 | SKIP 3 | PASS 8100`.**
 
-- **The headline is not the negative `predicted`.** Residualizing simulated observations at the
-  parameters that generated them makes the answer exactly iid N(0,1), so the methods can be
-  scored (`tools/verify/verify-osa-cdf.R`, BS2017SS, 20 replicates x 4538 composition bins):
+**The headline result is not the one the work was scoped for.** It was scoped to fix negative
+composition `predicted` values (issue #108 point 1). It does — but the larger finding is that
+the composition residuals the DEFAULT method produces do not have the distribution they are
+documented to have. Residualizing simulated observations at the parameters that generated them
+makes the answer exactly iid N(0,1), so the methods can be scored
+(`tools/verify/verify-osa-cdf.R`, BS2017SS, 20 replicates x 4538 bins):
 
-  | method | mean | sd | lag-1 acf within a composition | KS |
-  |---|---|---|---|---|
-  | `oneStepGaussianOffMode` (the default) | +0.103 | 0.918 | +0.060 | rejects 20/20 |
-  | `cdf`, `discrete = FALSE` | +0.610 | 1.262 | +0.434 | rejects 20/20 |
-  | `cdf`, `discrete = TRUE` | −0.007 | 0.995 | +0.001 | rejects 0/20 |
+| method | mean | sd | lag-1 acf within a composition | KS |
+|---|---|---|---|---|
+| `oneStepGaussianOffMode` (the default) | +0.103 | 0.918 | +0.060 | rejects 20/20 |
+| `cdf`, `discrete = FALSE` | +0.610 | 1.262 | +0.434 | rejects 20/20 |
+| `cdf`, `discrete = TRUE` | -0.007 | 0.995 | +0.001 | rejects 0/20 |
 
-  Null se on the acf is 0.015. **`cdf` with `discrete = FALSE` — the obvious reading of the old
-  handoff — is worse than the default**, because a composition bin holds a count and
-  `qnorm(F(x))` inherits the step. Only the randomized quantile passes, so `discrete` now
-  defaults to `TRUE` under `"cdf"` (its default changed `FALSE` → `NULL`, resolving per method;
-  every pre-existing method behaves exactly as before).
-- **Cross-checked against the Trijoulet et al. reference implementation TMB ships**
-  (`include/contrib/OSA_multivariate_dists-main/distr.hpp`), compiled standalone: our `Fx`
-  matches to **1e-14** on 5 compositions from 4 fleets at 12 and 25 bins.
-- **Coverage**: index (all five `Index_distribution` families), catch, comp, CAAL, diet and the
-  ecov observation all have a conditional CDF. The Dirichlet-multinomial is the one exception —
-  no elementary beta-binomial CDF — and those fleets are routed to `oneStepGaussianOffMode`,
-  announced and recorded in the `method` attribute. `JNLL_RATION` is inside a comment block
-  (Kinzey & Punt, `msmMode > 2`), so it is not a live observation likelihood.
-- **Verified**: golden regression PASS (all four references reproduce their pinned objectives);
-  `verify-refit-like.R` bit-identical against a baseline captured in a worktree at the merge
-  base; `osa_mode` 1 vs 2 identical slot by slot.
+`cdf` with `discrete = FALSE` is WORSE than the default -- a composition bin holds a count, so
+`qnorm(F(x))` inherits the step. `discrete` therefore defaults to `TRUE` under this method.
+Cross-checked at **1e-14** against the Trijoulet et al. reference implementation TMB ships, and
+the split matches what the SAM authors do across two packages (`residuals.sam()` takes TMB's
+Gaussian default; `compResidual::resMulti()` hardcodes `method = "cdf", discrete = TRUE`).
 
-**Second review round: completeness and mathematics.** Two more adversarial passes, one
-enumerating every objective term, one deriving each CDF from its density. What they changed:
+### The one blocking defect, unfixed
 
-- **`"cdf"` is NOT exact under random effects, and the recommendation splits by data type.**
-  oneStepPredict integrates the CDF over the latent states by Laplace, and that integrand is a
-  Gaussian times a sigmoid, not a density. Against the exact Kalman innovations of a
-  linear-Gaussian state space model (`scratchpad/ssm.cpp`, reproduced independently of the
-  reviewer): `fullGaussian` and `oneStepGaussian` are exact to 1e-14, `"cdf"` errs 7e-4 → 4e-2 as
-  the latent state gets more informative. **So prefer a Gaussian method for `index`/`catch` on a
-  random-effects model.** It does NOT reverse for compositions: 22-RE fixture, recruitment
-  deviations redrawn, 1680 residuals — Gaussian mean +0.513 / sd 0.404 / KS 120 of 120, `"cdf"` +
-  `discrete` mean +0.006 / sd 1.002 / KS 6 of 120 (the nominal 5%). That case is now in
-  `tools/verify/verify-osa-cdf.R`; the harness previously tested the null distribution on
-  fixed-effect models only.
-- **The lower-tail censoring at 8.04 is a CHOICE, not an arithmetic limit** — the docstring said
-  otherwise and was wrong. `Fx = 1/(1 + exp(.))` saturates just below 1 on the upper side, but
-  carries a small `F` down to ~1e-308 (a residual of −37) on the lower. Kept symmetric anyway,
-  and the reason is now stated: an asymmetric ceiling reads as skewness, which is a real
-  diagnostic signal and should not be manufactured. Cost measured: SDNR 2.32 against an
-  uncensored 4.33 on a 12-year index with one 15-sd year. Warned about.
-- **`test-schema-jnll-rows.R` was counting writes inside block comments**, so it reported
-  `JNLL_RATION` / `JNLL_RATION_PENALTY` as live and never reached its own "a row nothing writes
-  yet" branch. Now strips comments first: 130 raw writes → 125 live, and those two rows correctly
-  drop out. The ration likelihood really is dead code (Kinzey & Punt, `msmMode > 2`, which
-  `data_check()` refuses).
-- **Still open, deliberately: `ceattle.cpp:4333`** (`JNLL_Q_DEV`) reads `env_index` as an
-  observation with no obsvec slot, keep gate or CDF. It is the dead QAR1 path already in the
-  loose-ends list — `est_index_q == 6` is refused by `data_check()`, so it cannot fire, and if it
-  ever did it would add the SAME constant to `nll`, `nlcdf.lower` and `nlcdf.upper`, which cancels
-  in `Fx`. So it would cost that observation its own residual, not corrupt anyone else's.
-  Removing it together with `R/6-process_residuals.R:204` is still Grant's call.
-- Coverage is otherwise complete and was verified mechanically rather than by reading: every
-  `obsvec` slot was probed by setting its cdf gate and measuring the objective change. A slot with
-  no CDF term returns exactly 0 — the silent failure the design warns about — and none did.
+**`method = "cdf"` on a random-effects model with a large composition data set loses residuals
+in bulk.** BS2017SS, `random_rec = TRUE` (159 REs, 4538 comp bins): **1879 of 4538 non-finite**
+against 0 for the Gaussian method on the same fit, and 23 h against its 1.3 h.
 
-**Four things measurement refuted, having been asserted first.** Worth reading before the next
-OSA session: (1) `keep.segment()` DOES carry `cdf_lower`/`cdf_upper` — `tmb_core.hpp:481` says
-so explicitly, and the old handoff's warning cites the struct-level note instead. (2) `pkgload`
-does not rebuild on a header-only edit, so half an hour was spent debugging a fix that was
-already correct and had never been compiled. (3) Squeezing an OSA CDF at one machine epsilon
-lands on a round-half-to-even tie and returns `+Inf`; four epsilons is the fix, at a residual
-ceiling of 8.04. (4) `osa_order()`'s branch is **taped**, so it sorts on the keep values present
-at tape construction — 1 on every bin ever kept or conditioned on — which is why the reorder is
-the identity on every sequence `osa_residuals()` generates and cannot be exercised through
-`oneStepPredict` at all. All four are in `inst/dev/TRAPS.md` or the code.
+What is established:
 
-**5.21.0 is released** — tag `5.21.0` on `f9595235`, published 2026-08-26. It carried
-`profile_components()`, `plot_profile()`, `plot.Rceattle_profile()` and `profile()`'s `$alias`.
+- The failures are a **contiguous tail** (4538 - 1879 = 2659, exactly where the last 100
+  compositions begin).
+- The same 1880 rows residualized **on their own** give **1** failure -- so the observations are
+  not the problem.
+- The difference is the **depth of conditioning** (2658 prior observations vs none), not a
+  poisoned warm start. `.osa_retry_tail()` was built on the warm-start hypothesis and
+  **measurement refuted it**: redoing the tail on a fresh call recovers nothing, 1879 -> 1879.
 
-**In flight: `dev` → `main` for 5.22.0, the profile follow-ups Grant asked for.**
+**Next steps, in order.**
 
-- **`relative = "scaled"`** on `profile_components()` / `plot_profile()`. One component routinely
-  dwarfs the rest — on a BS2017SS M profile the bottom-trawl composition moves 60.5 objective
-  units against the bottom-trawl index's 0.697, a factor of 87 — so the others flatten onto the
-  axis and where they prefer the parameter cannot be read. Each series is divided by its own
-  change, putting every curve on 0 to 1. It **discards magnitude**, so `minfraction` matters more
-  with it; `minfraction` and the legend order are computed on the RAW change, before rescaling.
-- **`profile(joint =)`** — `"multiply"`, `"add"`, `"value"` move every cell in `slots` on ONE
-  grid. Slots otherwise cross, so a ten-age M schedule over 13 values was `13^10` fits. This is
-  what makes an empirical age-based M profilable the way it is normally reported.
-- **`profile(param = "q")`** — base catchability, `slots` takes a fleet name. A shared
-  `Catchability_index` group is moved together.
+1. **Find where depth breaks it.** Residualize bins `1..N` for a ladder of N and see whether the
+   loss is a hard threshold or gradual, and whether it tracks the number of random effects. That
+   decides whether chunking the sequence is a fix or a fudge. Cheap: one fit, several short OSA
+   calls.
+2. **Decide whether to keep `.osa_retry_tail()`.** Tested, honest about failing, free unless
+   something is already non-finite -- but no demonstrated benefit. Deleting it and its four unit
+   tests is defensible.
+3. **If chunking works it changes the residuals** -- each chunk conditions only on itself, so the
+   sequence stops being one-step-ahead across the whole data set. Weigh against the Gaussian
+   default, which is fast and finite but fails the self-test above.
+4. **QAR1 is unverified at depth.** `source = "ecov"` alone on a 198-RE QAR1 fit is clean (39
+   rows, 0 non-finite, sd 0.353); the `ecov + comp` run was killed before finishing. Expect the
+   same wall, since the wall is depth.
+5. **Then open the PR.** `dev/PR-BODY-osa-cdf.md` is drafted and needs the limitation folding in.
+
+### Also open on this branch
+
+- **`unweighted_jnll_comp` reports the WEIGHTED CAAL likelihood.** `ceattle.cpp:4995` is
+  `for(ind = 0; ind < 19)` with `if((ind != 2) & (ind != 18))`; `JNLL_CAAL = 3` is missing from
+  the skip list, so the unweighted value computed at `:3883` is overwritten. Measured with
+  `CAAL_weights = 5`: comp ratio 5.000 (correct), CAAL ratio 1.000 (should be 5.000). Francis /
+  McAllister-Ianelli reweighting and `profile_likelihood(weighted = FALSE)` read that row.
+  **Pre-existing, not from this branch; wants its own PR and its own golden run.**
+- **`ceattle.cpp:4333`** (`JNLL_Q_DEV` reading `env_index`) is a live data-reading term with no
+  OSA machinery -- the dead QAR1 path `data_check()` refuses. Were it reachable it would add the
+  same constant to all three cdf evaluations, cancelling in `Fx`, so it would cost that
+  observation its own residual rather than corrupt another's. Removing it together with
+  `R/6-process_residuals.R:204` is still Grant's call.
+- **`inst/dev/SIBLING-REPOS.md` carries an edit that predates this work** and got swept into
+  commit `a3edc558` by accident. Unrelated to OSA; check it before the PR.
+
+### Process notes worth keeping
+
+- **Four adversarial review rounds, each found something the last did not**, and three found
+  errors in the *fixes* rather than in the original code. Two of my own corrections were
+  themselves wrong: I "fixed" a correct comment at `ceattle.cpp:5288` on a reviewer's say-so
+  without checking (the copy loop is `ind < 19`, so rows 19-20 are never touched), and I
+  recommended Gaussian methods for index/catch under random effects on evidence from a
+  linear-Gaussian oracle that cannot support it -- `fullGaussian` and `oneStepGaussian` are
+  algebraically identical for a Gaussian conditional yet differ by 0.091 on Rceattle index and
+  catch, where `cdf` differs from `oneStepGaussian` by 0.017.
+- **A long forked `mclapply` run does not survive the machine sleeping.** One sat wedged for 7 h
+  with ~1 min of CPU. Launch anything multi-hour under `caffeinate -i`.
+- **Another session committed this tree as `a3edc558` ("cdf stuff") mid-work** and moved HEAD to
+  `main`. Nothing was lost; the message is not this repo's convention and the commit that
+  follows describes what was in it.
 
 ## Release 5.21.0 — two things that did not work
 

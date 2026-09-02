@@ -18,9 +18,10 @@
 .OSA_CDF_CEILING <- stats::qnorm(1 - 2 * .Machine$double.eps)
 
 # How many times to rebuild the model and redo the tail of a one-step-ahead
-# sequence after a failed Laplace solve poisons the warm start. Each retry costs
-# a rebuild plus the rows from the failure onwards, so this bounds the worst case
-# at a few times the original call rather than leaving it unbounded.
+# sequence after a non-finite residual. Each retry costs the rows from the
+# failure onwards, so this bounds the worst case at a few times the original call
+# rather than leaving it unbounded. In practice the progress guard stops after
+# one attempt whenever the retry does not help, which is every case measured.
 .OSA_CDF_MAX_RETRY <- 5L
 
 
@@ -352,6 +353,25 @@
 #' Both measurements are reproduced by `tools/verify/verify-osa-cdf-accuracy.R`,
 #' which compiles the state space model it scores against.
 #'
+#' @section Known limitation -- compositions at scale under random effects:
+#' On a random-effects model with a large composition data set, `method = "cdf"`
+#' returns non-finite residuals in bulk and is very slow. Measured on `BS2017SS`
+#' with `random_rec = TRUE` (159 random effects, 4538 composition bins):
+#' **1879 of 4538 residuals non-finite**, against 0 for
+#' `"oneStepGaussianOffMode"` on the same fit, and hours rather than minutes.
+#'
+#' The failures are a contiguous tail, and the same 1880 rows residualized on
+#' their own return 1 failure -- so the observations are not the problem. What
+#' separates the two runs is the depth of the conditioning (2658 prior
+#' observations against none): the Laplace inner problem fails on the
+#' conditioning itself, and redoing the tail on a fresh call does not recover it
+#' (1879 before, 1879 after).
+#'
+#' So for composition residuals on a random-effects model, use a Gaussian
+#' `method` for now. `"cdf"` is sound on fixed-effect models -- where it is the
+#' only method whose composition residuals pass a self-test -- and on
+#' random-effects models for the aggregate and covariate series, which are few
+#' enough not to reach the depth where this bites.
 #' **It does not reverse for compositions.** A composition conditional is a
 #' discrete, skewed binomial, which is what the Gaussian methods get wrong, and
 #' that error is far larger than the Laplace one. Simulating from a
@@ -882,30 +902,16 @@ osa_residuals <- function(object = NULL,
       attr(res, "approx") <- TRUE
     }
 
-    # A failed Laplace solve is ABSORBING under method = "cdf", so one bad
-    # observation costs every observation after it. TMB's cdf loop captures the
-    # warm start AFTER evaluating the observation --
-    #   nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp
-    # (TMB 1.9.21) -- so if that evaluation returns NaN the warm start restored
-    # for the rest of the sequence is NaN too, and nothing recovers on its own.
-    # Measured on BS2017SS with random recruitment: 1879 of 4538 composition
-    # residuals non-finite in one call, and exactly 1 of the same 1880 rows when
-    # they are residualized on their own.
+    # Retry the tail from the first non-finite residual. This does NOT fix the
+    # large-scale failure it was written for -- see .osa_retry_tail(), where the
+    # measurement is recorded -- because that one is driven by how deep the
+    # conditioning is, not by a poisoned warm start. It is kept for a genuinely
+    # transient failure and costs nothing unless something already went wrong.
     #
-    # The failures are therefore a contiguous tail, which is what makes this
-    # recoverable: rebuild the object -- resetting the warm start to the fitted
-    # values -- and redo the block from the first failure to the end of the
-    # group, conditioning it on everything before that point, which is exactly
-    # what those rows were conditioned on the first time. Bounded, because a
-    # retry can fail again further along.
-    # Only "cdf". The cascade needs oneStepPredict to override the warm start
-    # AND to walk the sequence forwards, and only this method does both:
-    # `oneStepGaussianOffMode` overrides it but runs REVERSED (`reverse =
-    # (method == "oneStepGaussianOffMode")` is its formal default), so its
-    # failures propagate to the head of the sequence and redoing the tail would
-    # recover nothing while claiming to; `oneStepGaussian` and `fullGaussian`
-    # never override it, so `last.par.best` -- which a NaN evaluation cannot
-    # become -- stays the warm start and no cascade is possible.
+    # Only "cdf" regardless: `oneStepGaussianOffMode` walks the sequence REVERSED
+    # (`reverse = (method == "oneStepGaussianOffMode")` is its formal default),
+    # so redoing a tail would be redoing the wrong end, and `oneStepGaussian` and
+    # `fullGaussian` never override the warm start at all.
     if (identical(meth, "cdf") && length(object$obj$env$random) &&
         any(!is.finite(res$residual))) {
       res <- .osa_retry_tail(res, function(from)
@@ -1073,27 +1079,27 @@ osa_residuals <- function(object = NULL,
 #' Redo the tail of a one-step-ahead sequence after a failed Laplace solve
 #'
 #' @description
-#' A failed Laplace solve is **absorbing** under `method = "cdf"`. TMB's loop is
-#' `nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp`
-#' (TMB 1.9.21) -- the warm start is captured *after* the evaluation, so if that
-#' evaluation returns `NaN` the start restored for every later observation is
-#' `NaN` too, and nothing recovers on its own. Measured on BS2017SS with random
-#' recruitment: 1879 of 4538 composition residuals non-finite in one call, and
-#' exactly 1 of the same 1880 rows when they are residualized on their own.
+#' `method = "cdf"` on a random-effects model can return non-finite residuals in
+#' bulk: measured on BS2017SS with random recruitment, 1879 of 4538 composition
+#' bins, against 0 for the Gaussian method. The failures are a contiguous tail,
+#' and the same 1880 rows residualized ON THEIR OWN give 1 failure -- so they are
+#' not intrinsically bad observations.
 #'
-#' The failures are therefore a contiguous tail, which is what makes this
-#' recoverable: `rerun(from)` redoes rows `from:n`, conditioned on everything
-#' before `from`, which is what those rows were conditioned on the first time.
-#' The poisoned state lives in the internal object [TMB::oneStepPredict()] builds
-#' for itself and dies with the call -- `fit$obj` is untouched, verified -- so
-#' simply calling it again is what clears the warm start. It does NOT need the
-#' model rebuilding, and does not do so.
+#' The hypothesis this helper was written for was a warm-start cascade: TMB's cdf
+#' loop is `nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp`
+#' (TMB 1.9.21), capturing the warm start AFTER the evaluation, so a NaN solve
+#' would be restored as the start for everything after it. **Measurement refuted
+#' that.** Redoing the tail on a fresh call -- which is what clears any poisoned
+#' warm start -- recovers nothing: 1879 before, 1879 after. What differs between
+#' the failing call and the successful isolated one is not the warm start but the
+#' DEPTH OF CONDITIONING (2658 prior observations against none), so the Laplace
+#' inner problem is failing on the conditioning itself.
 #'
-#' Note that the whole tail is recomputed, not only the failed rows, so under
-#' `discrete = TRUE` the already-finite rows of that tail get fresh randomizing
-#' uniforms (oneStepPredict re-seeds per call and draws `nrow(subset)` of them).
-#' Those draws are independent of the data, so nothing is invalidated -- but the
-#' residual values in the tail do depend on where the failure happened.
+#' The retry is kept because it is cheap in the common case (it runs only when
+#' something is already non-finite) and it does recover a genuinely transient
+#' failure, but **no such case has been observed** -- see `?osa_residuals` for
+#' the limitation this leaves, and `inst/dev/SESSION_HANDOFF.md` for where to
+#' take it next.
 #'
 #' @param res Result frame from one group, with a `residual` column.
 #' @param rerun Function of a starting row index, returning a frame of the same

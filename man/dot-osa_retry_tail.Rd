@@ -20,26 +20,26 @@ along, so each round must strictly reduce the number of bad rows.}
 recovered something, or if it could not.
 }
 \description{
-A failed Laplace solve is \strong{absorbing} under \code{method = "cdf"}. TMB's loop is
-\verb{nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp}
-(TMB 1.9.21) -- the warm start is captured \emph{after} the evaluation, so if that
-evaluation returns \code{NaN} the start restored for every later observation is
-\code{NaN} too, and nothing recovers on its own. Measured on BS2017SS with random
-recruitment: 1879 of 4538 composition residuals non-finite in one call, and
-exactly 1 of the same 1880 rows when they are residualized on their own.
+\code{method = "cdf"} on a random-effects model can return non-finite residuals in
+bulk: measured on BS2017SS with random recruitment, 1879 of 4538 composition
+bins, against 0 for the Gaussian method. The failures are a contiguous tail,
+and the same 1880 rows residualized ON THEIR OWN give 1 failure -- so they are
+not intrinsically bad observations.
 
-The failures are therefore a contiguous tail, which is what makes this
-recoverable: \code{rerun(from)} redoes rows \code{from:n}, conditioned on everything
-before \code{from}, which is what those rows were conditioned on the first time.
-The poisoned state lives in the internal object \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} builds
-for itself and dies with the call -- \code{fit$obj} is untouched, verified -- so
-simply calling it again is what clears the warm start. It does NOT need the
-model rebuilding, and does not do so.
+The hypothesis this helper was written for was a warm-start cascade: TMB's cdf
+loop is \verb{nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp}
+(TMB 1.9.21), capturing the warm start AFTER the evaluation, so a NaN solve
+would be restored as the start for everything after it. \strong{Measurement refuted
+that.} Redoing the tail on a fresh call -- which is what clears any poisoned
+warm start -- recovers nothing: 1879 before, 1879 after. What differs between
+the failing call and the successful isolated one is not the warm start but the
+DEPTH OF CONDITIONING (2658 prior observations against none), so the Laplace
+inner problem is failing on the conditioning itself.
 
-Note that the whole tail is recomputed, not only the failed rows, so under
-\code{discrete = TRUE} the already-finite rows of that tail get fresh randomizing
-uniforms (oneStepPredict re-seeds per call and draws \code{nrow(subset)} of them).
-Those draws are independent of the data, so nothing is invalidated -- but the
-residual values in the tail do depend on where the failure happened.
+The retry is kept because it is cheap in the common case (it runs only when
+something is already non-finite) and it does recover a genuinely transient
+failure, but \strong{no such case has been observed} -- see \code{?osa_residuals} for
+the limitation this leaves, and \code{inst/dev/SESSION_HANDOFF.md} for where to
+take it next.
 }
 \keyword{internal}

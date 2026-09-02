@@ -493,16 +493,15 @@ testthat::test_that("cdf residualizes a state-space covariate observation", {
 
 
 testthat::test_that("a failed Laplace solve does not cost every observation after it", {
-  # The failure this guards, measured on BS2017SS with random recruitment: 1879
-  # of 4538 composition residuals non-finite in one call, and exactly 1 of those
-  # same 1880 rows when they are residualized on their own. TMB's cdf loop
-  # captures the warm start AFTER evaluating the observation, so one NaN solve is
-  # restored as the start for every observation after it and nothing recovers.
-  # The failures are a contiguous tail, which is what makes them recoverable.
+  # What this pins is the recovery MECHANISM -- splice, progress guard, bounds,
+  # and which message it emits -- not that the mechanism fixes the failure it was
+  # written for. It does not: on BS2017SS with random recruitment, 1879 of 4538
+  # composition residuals are non-finite under cdf, and redoing the tail leaves
+  # 1879. See .osa_retry_tail() for why (depth of conditioning, not a poisoned
+  # warm start) and ?osa_residuals for the limitation.
   #
-  # Unit-tested on the recovery helper rather than on a real model: reproducing
-  # the cascade needs a few thousand observations over a hundred random effects,
-  # which is minutes, not seconds. tools/verify/verify-osa-cdf.R runs that.
+  # Unit-tested on stubs rather than on a model: reproducing the failure needs a
+  # few thousand observations over a hundred random effects, which is hours.
   mk <- function(resid) data.frame(.row = seq_along(resid), observed = 1,
                                    predicted = NA_real_, sd = NA_real_,
                                    residual = resid)
