@@ -73,19 +73,20 @@ testthat::test_that("a Fixed fleet draws no band while the rest of the figure do
 
 
 testthat::test_that("a mirrored fleet borrows its lead's interval", {
-  # The template reports the lead once, so a mirror has no rows of its own. Its
-  # curve IS the lead's, so a bare line beside a banded lead would read as the
-  # more certain of the two. No bundled dataset mirrors selectivity, so the
-  # fallback is exercised directly.
+  # The template reports the lead once, so a mirror has no rows of its own. It
+  # shares the lead's parameter block, so a bare line beside a banded lead would
+  # read as the more certain of the two. No bundled dataset mirrors selectivity,
+  # so the fallback is exercised directly.
+  sel <- c(0.1, 0.4, 0.8, 1, 1)
   se <- data.frame(Fleet = 1L, Sex = 1L, Age = 1:5, Year = 2000L,
-                   log_sel = log(c(0.1, 0.4, 0.8, 1, 1)), sd = 0.2)
+                   log_sel = log(sel), sd = 0.2)
 
   own <- Rceattle:::.rce_sel_ci(se, flt = 1L, sex = 1L, bins = 1:5, year = 2000L)
   testthat::expect_equal(own$lower, exp(se$log_sel - 1.96 * se$sd))
 
   # Fleet 2 mirrors fleet 1 and has no rows: it gets fleet 1's band.
   mirror <- Rceattle:::.rce_sel_ci(se, flt = 2L, sex = 1L, bins = 1:5,
-                                   year = 2000L, lead = 1L)
+                                   year = 2000L, lead = c(1L, 2L), curve = sel)
   testthat::expect_equal(mirror$lower, own$lower)
   testthat::expect_equal(mirror$upper, own$upper)
 
@@ -98,4 +99,47 @@ testthat::test_that("a mirrored fleet borrows its lead's interval", {
   gap <- Rceattle:::.rce_sel_ci(se, flt = 1L, sex = 1L, bins = 1:7, year = 2000L)
   testthat::expect_length(gap$lower, 7L)
   testthat::expect_true(all(is.na(gap$lower[6:7])))
+})
+
+
+testthat::test_that("a mirror whose curve differs from its lead's borrows nothing", {
+  # Sharing a Selectivity_index shares the parameter block, not necessarily the
+  # curve: data_check() only WARNS when a group differs in a shaping column, and
+  # a differing Sel_norm_bin alone rescales the whole curve. Borrowing then puts
+  # the lead's band around a curve it does not belong to.
+  sel <- c(0.1, 0.4, 0.8, 1, 1)
+  se <- data.frame(Fleet = 1L, Sex = 1L, Age = 1:5, Year = 2000L,
+                   log_sel = log(sel), sd = 0.2)
+
+  testthat::expect_null(
+    Rceattle:::.rce_sel_ci(se, flt = 2L, sex = 1L, bins = 1:5, year = 2000L,
+                           lead = c(1L, 2L), curve = sel * 2))
+  # The same mirror, normalized the same way, still gets the band.
+  testthat::expect_false(is.null(
+    Rceattle:::.rce_sel_ci(se, flt = 2L, sex = 1L, bins = 1:5, year = 2000L,
+                           lead = c(1L, 2L), curve = sel)))
+})
+
+
+testthat::test_that("the lead is the group's first estimated fleet, not its index value", {
+  # rearrange_data() builds flt_sel_lead with .group_lead(): the key is
+  # Selectivity_index AND Selectivity together, and an Off fleet never leads. So
+  # the group key need not be any member's Fleet_code, and reading it as one
+  # drops the band on every mirror in such a group.
+  fc <- data.frame(
+    Fleet_code = 1:4,
+    Fleet_type = c("Off", "Fishery", "Survey", "Survey"),
+    Selectivity = c("Logistic", "Logistic", "Logistic", "NonParametric"),
+    Selectivity_index = c(7L, 7L, 7L, 7L),
+    stringsAsFactors = FALSE)
+
+  # Fleet 3 mirrors fleet 2. Fleet 1 shares the key but is Off and never leads;
+  # no fleet has Fleet_code 7 at all.
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 3L), c(2L, 3L))
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 2L), c(2L, 3L))
+  # Fleet 4 shares the index but not the form, so it is its own group.
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 4L), 4L)
+  # No Selectivity_index column at all: a fleet leads itself.
+  testthat::expect_equal(
+    Rceattle:::.rce_sel_lead(fc[, setdiff(names(fc), "Selectivity_index")], 3L), 3L)
 })

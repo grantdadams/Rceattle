@@ -5079,36 +5079,60 @@ Type objective_function<Type>::operator() () {
 
   // -- Log selectivity-at-age, for a delta-method interval on the curve.
   //
-  // LOG, not logit. The non-parametric forms renormalize to MEAN selectivity 1,
-  // not a maximum of 1, so sel_at_age routinely exceeds 1 -- to 3.06 on
-  // Atka2022, where 58% of entries are above it -- and logit is undefined
-  // there. exp(log(sel) +/- z * sd) stays positive and right-skewed, the same
-  // treatment biomass, ssb and R get above.
+  // Log, not logit: the non-parametric forms renormalize to mean selectivity 1
+  // rather than a maximum of 1, so sel_at_age routinely exceeds 1 and a logit is
+  // undefined there. exp(log(sel) +/- z * sd) stays positive and right-skewed,
+  // the same treatment biomass, ssb and R get above.
   //
-  // Off by default: sdreport's delta method forms a Jacobian of every ADREPORTed
-  // value against every parameter, so the cost is the product of the two.
+  // Off by default: the delta method forms a Jacobian of every ADREPORTed value
+  // against every parameter, so the cost is the product of the two.
   //
-  // Rows are the lead fleets only, over each fleet's OWN species' sexes, ages
-  // and hindcast years. The array is padded to max_sex / max_age / nyrs, and a
-  // mirrored fleet repeats its lead, so iterating the full array would report
-  // duplicates and cells that were never written.
+  // A zero anywhere here is fatal, not local: one log(0) = -Inf on the tape
+  // turns EVERY quantity in the sdreport to NaN, biomass and ssb included. The
+  // four cells that can hold an exact zero are all identified from data alone,
+  // so the reported set never depends on a parameter value:
+  //   - padding. The array is sized max_sex / max_age / nyrs, so iterate each
+  //     fleet's own species' sexes and ages and the hindcast years only.
+  //   - a mirrored fleet (flt_sel_lead != 1) repeats its lead, so reporting it
+  //     would duplicate rows rather than add any.
+  //   - Fixed selectivity (type 0) reads emp_sel_obs, which leaves 0 in every
+  //     year with no empirical row -- 228 such cells on BS2017SS's EIT_Pollock.
+  //   - length-based selectivity (flt_sel_dim 1) reaches age through
+  //     sum(growth_matrix * sel_at_length), which is 0 for an age overlapping no
+  //     selected length bin. That fleet is fitted and plotted on sel_at_length,
+  //     which carries no error, so nothing downstream wants its age curve.
+  // Below bin_first_selected the curve is zeroed outright (selectivity.hpp), so
+  // ages start there. Every remaining form is a logistic or an exp() over every
+  // bin, hence strictly positive.
   //
-  // Fixed selectivity (type 0) is skipped. It reads emp_sel_obs, which leaves 0
-  // in every year with no empirical row -- 228 such cells on the EIT_Pollock
-  // survey of BS2017SS -- and one log(0) = -Inf on the tape turns EVERY
-  // quantity in the sdreport to NaN, biomass and ssb included. Nothing is lost:
-  // a fixed curve estimates no parameters, so its standard error is 0 by
-  // construction.
+  // Nothing is lost to the two fleet-level skips: a Fixed curve estimates no
+  // parameters, and a mirror shares its lead's block, so both have the lead's
+  // standard error or none at all.
   //
-  // log_sel_at_age_index gives the fleet, sex, ABSOLUTE age and CALENDAR year
-  // of each row (fleet and sex 1-based), since the length depends on the model.
-  // Age is minage + index, not the index: nages counts bins, so the two differ
-  // wherever minage > 1.
+  // log_sel_at_age_index gives the fleet, sex, absolute age and calendar year of
+  // each row (fleet and sex 1-based), since the length depends on the model. Age
+  // is minage + index: nages counts bins, so the two differ when minage > 1.
   if(adreport_sel == 1){
+    // First age and bin count carrying an estimated, strictly positive
+    // selectivity. rearrange_data() already clamps bin_first_selected to >= 0 and
+    // data_check() bounds it by nages, but clamp both ends here too: the model
+    // builds safebounds = FALSE, so an out-of-range age would read silently.
+    vector<int> sel_first_bin(n_flt); sel_first_bin.setZero();
+    vector<int> sel_rep_bins(n_flt);  sel_rep_bins.setZero();
+    for(int flt = 0; flt < n_flt; flt++){
+      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) ||
+         (flt_sel_type(flt) == 0) || (flt_sel_dim(flt) == 1)) continue;
+      int n_age = nages(flt_spp(flt));
+      int first = bin_first_selected(flt);
+      if(first < 0) first = 0;
+      if(first > n_age) first = n_age;
+      sel_first_bin(flt) = first;
+      sel_rep_bins(flt)  = n_age - first;
+    }
+
     int n_sel = 0;
     for(int flt = 0; flt < n_flt; flt++){
-      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) || (flt_sel_type(flt) == 0)) continue;
-      n_sel += nsex(flt_spp(flt)) * nages(flt_spp(flt)) * nyrs_hind;
+      n_sel += nsex(flt_spp(flt)) * sel_rep_bins(flt) * nyrs_hind;
     }
 
     vector<Type> log_sel_at_age(n_sel); log_sel_at_age.setZero();
@@ -5116,10 +5140,10 @@ Type objective_function<Type>::operator() () {
 
     int i_sel = 0;
     for(int flt = 0; flt < n_flt; flt++){
-      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) || (flt_sel_type(flt) == 0)) continue;
+      if(sel_rep_bins(flt) == 0) continue;
       int sel_sp = flt_spp(flt);
       for(int sel_sex = 0; sel_sex < nsex(sel_sp); sel_sex++){
-        for(int sel_age = 0; sel_age < nages(sel_sp); sel_age++){
+        for(int sel_age = sel_first_bin(flt); sel_age < nages(sel_sp); sel_age++){
           for(int sel_yr = 0; sel_yr < nyrs_hind; sel_yr++){
             log_sel_at_age(i_sel) = log(sel_at_age(flt, sel_sex, sel_age, sel_yr));
             log_sel_at_age_index(i_sel, 0) = Type(flt + 1);

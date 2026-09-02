@@ -43,12 +43,7 @@ hindcast and biological-reference-point parameters turned on). Default
 \code{FALSE} for speed.}
 
 \item{selectivity_se}{logical. If \code{TRUE}, \code{\link[TMB:sdreport]{TMB::sdreport()}} also returns a
-standard error for log selectivity-at-age, so a curve can be drawn with a
-confidence interval. Default \code{FALSE}: the delta method forms a Jacobian of
-every reported value against every parameter, so the cost is the product of
-the two. Reported on the LOG scale because the non-parametric forms
-normalize to mean selectivity 1, not a maximum of 1, so selectivity-at-age
-can exceed 1 and a logit is undefined there.}
+standard error for log selectivity-at-age. Default \code{FALSE}.}
 
 \item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
 observed and predicted age/length composition and conditional-age-at-length
@@ -121,6 +116,15 @@ Pass the result via the \code{fit_control} argument to \code{\link[=fit_mod]{fit
 supplied, the values in the \code{fit_control} object override the
 corresponding individual arguments to \code{fit_mod()}. Individual
 arguments are kept for backward compatibility.
+
+\code{selectivity_se} is off by default because the delta method forms a Jacobian
+of every reported value against every parameter, so its cost is the product
+of the two: on \code{Atka2022} it adds 1,012 values against 584 parameters. The
+error is on the log scale, not the logit, because the non-parametric forms
+normalize to mean selectivity 1 rather than a maximum of 1 -- 58\% of
+\code{Atka2022}'s \code{sel_at_age} exceeds 1, to 3.06 -- so a logit is undefined over
+most of the array. Rows cover estimated, age-based lead fleets only; see
+\code{\link[=plot_selectivity]{plot_selectivity()}}, which draws the interval.
 }
 \examples{
 # Quick-and-dirty fit: skip sdreport, single optimizer pass

@@ -1001,34 +1001,77 @@ NULL
 }
 
 
+#' The fleets whose reported selectivity a given fleet may borrow
+#'
+#' The template reports one row set per selectivity group, on the group's first
+#' estimated fleet (`.group_lead()`), so a mirrored fleet has no rows of its own.
+#' Which fleet leads is resolved here the same way `rearrange_data()` resolves
+#' `flt_sel_lead`: the group key is `Selectivity_index` **and** `Selectivity`
+#' together, and an `Off` fleet never leads. Reading `Selectivity_index` as a
+#' fleet code instead would miss a group keyed on a value that is nobody's
+#' `Fleet_code`, or whose matching fleet is `Off`, and silently drop the band.
+#'
+#' @param fc One model's `fleet_control`.
+#' @param i Row index of the fleet, which is also its `Fleet_code`.
+#' @return Fleet codes in the same selectivity group, the candidate lead first.
+#' @keywords internal
+#' @noRd
+.rce_sel_lead <- function(fc, i) {
+  flt <- fc$Fleet_code[i]
+  if (is.null(fc$Selectivity_index)) return(flt)
+  key <- paste(fc$Selectivity_index, fc$Selectivity)
+  live <- !(as.character(fc$Fleet_type) %in% c("Off", "0"))
+  grp <- which(key == key[i] & live)
+  if (!length(grp)) return(flt)
+  unique(c(fc$Fleet_code[grp], flt))
+}
+
+
 #' One fleet-sex-year's selectivity interval, on the natural scale
 #'
 #' Returned in the order of `bins`, with `NA` for any age the fit did not
 #' report, so the caller can bind it to the curve without checking lengths.
 #' `exp()` of a log-scale interval, so it is positive and right-skewed.
 #'
-#' A fleet that MIRRORS another's selectivity carries no rows of its own -- the
-#' template reports the lead once -- but its curve is the lead's, so it has
-#' exactly the lead's uncertainty. Falling back to `lead` keeps the band on both;
-#' without it a mirror would draw a bare line beside a banded lead and read as
-#' the more certain of the two.
+#' A mirrored fleet carries no rows of its own, so it borrows its lead's -- but
+#' only where the two curves actually agree. `data_check()` merely warns when
+#' fleets sharing a `Selectivity_index` differ in a shaping column, and a
+#' differing `Sel_norm_bin` alone rescales the curve, so sharing the parameter
+#' block is not on its own enough to share the band.
 #'
 #' @param se The `.rce_sel_se()` frame, or NULL.
 #' @param flt,sex Fleet code and sex index.
 #' @param bins Absolute ages, in plotting order.
 #' @param year Calendar year.
-#' @param lead The fleet whose selectivity this one shares (`Selectivity_index`).
-#' @return A list of `lower` and `upper`, or `NULL` if this fleet has no errors.
+#' @param lead Fleet codes whose rows this fleet may borrow (`.rce_sel_lead()`).
+#' @param curve This fleet's own selectivity over `bins`, to check a borrowed
+#'   band against. `NULL` borrows unchecked.
+#' @return A list of `lower` and `upper`, or `NULL` if no band applies.
 #' @keywords internal
 #' @noRd
-.rce_sel_ci <- function(se, flt, sex, bins, year, lead = flt) {
+.rce_sel_ci <- function(se, flt, sex, bins, year, lead = flt, curve = NULL) {
   if (is.null(se)) return(NULL)
-  hit <- se$Fleet == flt & se$Sex == sex & se$Year == year
-  if (!any(hit) && !identical(lead, flt) && !is.na(lead)) {
-    hit <- se$Fleet == lead & se$Sex == sex & se$Year == year
+  band <- function(hit) {
+    m <- match(bins, se$Age[hit])
+    list(lower = exp(se$log_sel[hit][m] - 1.96 * se$sd[hit][m]),
+         upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]),
+         fit   = exp(se$log_sel[hit][m]))
   }
-  if (!any(hit)) return(NULL)
-  m <- match(bins, se$Age[hit])
-  list(lower = exp(se$log_sel[hit][m] - 1.96 * se$sd[hit][m]),
-       upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]))
+  own <- se$Fleet == flt & se$Sex == sex & se$Year == year
+  if (any(own)) return(band(own)[c("lower", "upper")])
+
+  for (ld in setdiff(lead[!is.na(lead)], flt)) {
+    hit <- se$Fleet == ld & se$Sex == sex & se$Year == year
+    if (!any(hit)) next
+    b <- band(hit)
+    # Compared where both are present; an age the lead did not report stays NA
+    # in the band and is not evidence the curves differ.
+    if (!is.null(curve)) {
+      both <- is.finite(b$fit) & is.finite(curve)
+      if (!any(both)) next
+      if (!isTRUE(all.equal(b$fit[both], curve[both], tolerance = 1e-8))) next
+    }
+    return(b[c("lower", "upper")])
+  }
+  NULL
 }

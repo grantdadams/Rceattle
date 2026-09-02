@@ -106,13 +106,18 @@ testthat::test_that("`se` agrees with the as.data.frame() quantity registry", {
 
 testthat::test_that("the dictionary covers exactly what a fit reports", {
   # Needs a built model, so it is the one slow test here.
+  #
+  # Fitted with selectivity_se on so log_sel_at_age and log_sel_at_age_index are
+  # reported: they are the only conditional quantities, and with the option off
+  # this check could not see them in either direction. It costs nothing here,
+  # since getsd = FALSE means no sdreport runs.
   testthat::skip_on_cran()
   set.seed(123)
   sim <- make_msm_test_data(years = 1:30)
   fit <- suppressMessages(fit_mod(
     data_list = sim$data_list, estimateMode = 3, msmMode = 1,
     growthFun = build_growth(fun = "vonBertalanffy"),
-    fit_control = fit_control(getsd = FALSE, verbose = 0)))
+    fit_control = fit_control(getsd = FALSE, selectivity_se = TRUE, verbose = 0)))
 
   reported <- names(fit$quantities)
   documented <- quantity_dictionary()$quantity
@@ -133,7 +138,7 @@ testthat::test_that("documented dimensions match the shapes a fit actually has",
   fit <- suppressMessages(fit_mod(
     data_list = sim$data_list, estimateMode = 3, msmMode = 1,
     growthFun = build_growth(fun = "vonBertalanffy"),
-    fit_control = fit_control(getsd = FALSE, verbose = 0)))
+    fit_control = fit_control(getsd = FALSE, selectivity_se = TRUE, verbose = 0)))
 
   d <- quantity_dictionary()
   # Rank implied by the dims string: count the comma-separated entries. Commas

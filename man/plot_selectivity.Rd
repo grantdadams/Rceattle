@@ -86,41 +86,41 @@ select by name.
 }
 
 \section{Confidence intervals}{
-\code{add_ci = TRUE} needs the fit to have been run with
-\code{fit_control(selectivity_se = TRUE)}, which is off by default because it is
-the expensive half of the calculation. It draws \verb{exp(log(sel) +/- 1.96 * sd)},
-so the band is positive and right-skewed.
+\code{add_ci = TRUE} draws \verb{exp(log(sel) +/- 1.96 * sd)}, so the band is positive
+and right-skewed. It needs a fit run with \code{fit_control(selectivity_se = TRUE)}.
 
-It covers AGE-based fleets only. The standard error is on \code{sel_at_age}; a
-length-based fleet is drawn on \code{sel_at_length}, which is what was fitted and
-carries no error, so the length figure is drawn without a band. A
-\code{Selectivity = "Fixed"} fleet estimates nothing and gets none either.
+Only estimated, age-based fleets carry one. A length-based fleet is drawn on
+\code{sel_at_length}, which is what was fitted and carries no error; a
+\code{Selectivity = "Fixed"} fleet estimates nothing; and no fleet gets a band
+below its \code{Bin_first_selected}, where selectivity is 0 by construction. A
+fleet mirroring another's \code{Selectivity_index} has no errors of its own and
+borrows its lead's, but only where the two curves agree -- \code{data_check()} only
+warns when a shared group differs in a shaping column such as \code{Sel_norm_bin}.
 
-A band per year is dense on a time-varying fleet, since every year drawn gets
-one. Pair it with \code{minyr} / \code{maxyr} on a single year, or use it on a
-time-invariant fleet, where there is one curve and one band.
+Every year drawn gets its own band, so a time-varying fleet is dense. Pair it
+with \code{minyr} / \code{maxyr} on a single year, or use it on a time-invariant fleet.
 }
 
 \section{What the interval is conditional on}{
 \strong{The normalization.} Selectivity is identified only up to a scalar, jointly
-with F for a fishery and with q for a survey, so \code{Sel_norm_bin} fixes the
-level rather than measuring it. The bin it pins gets a standard error of
-exactly 0, and the band widens with distance from it. On \code{Atka2022} the
-survey pins age 4 and its sd runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1-5,
-while the fishery pins nothing, normalizes to a mean of one, and is instead
-flattest mid-range. Same fit, same data: the shape of the band is a property
-of the normalization. Read it as uncertainty in the curve RELATIVE to the
-anchor, and say which anchor when quoting one.
+with F for a fishery and q for a survey, so \code{Sel_norm_bin} fixes the level
+rather than measuring it. The bin it pins gets a standard error of exactly 0,
+and the band widens with distance from it. On \code{Atka2022} the survey pins age 4
+and its sd runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1-5, while the fishery
+pins nothing, normalizes to a mean of one, and is flattest mid-range instead.
+Same fit, same data: the shape of the band is a property of the normalization.
+Read it as uncertainty in the curve \emph{relative to the anchor}, and say which
+anchor when quoting one.
 
 \strong{The smoothing, on a penalized fit.} Under \code{random_sel = FALSE} the annual
 deviations are penalized rather than integrated, so these are
 penalized-likelihood errors conditional on \code{Sel_curve_pen1} / \code{Sel_curve_pen2}
-and on the FIXED \code{Time_varying_sel_sd}. Change the smoothing and both the
-curve and its band move, with nothing in the data to say which is right.
+and on a fixed \code{Time_varying_sel_sd}. Change the smoothing and both the curve
+and its band move, with nothing in the data to say which is right.
 
 The band is marginal, and selectivity error is strongly correlated with F and
 q through the same confounding, so carrying it into a derived quantity needs
-the covariance (\code{fit_control(getReportCovariance = TRUE)}) rather than this
-interval on its own.
+the covariance (\code{fit_control(getReportCovariance = TRUE)}), not this interval
+alone.
 }
 

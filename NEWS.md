@@ -19,74 +19,59 @@ version throughout.
 * **A standard error for the selectivity curve.**
   `fit_control(selectivity_se = TRUE)` makes [TMB::sdreport()] return
   `log_sel_at_age`, so a fitted selectivity can be drawn with a confidence
-  interval instead of as a bare line. `exp(value +/- 1.96 * sd)` gives an
-  interval that stays positive and is right-skewed, the same treatment
-  `log_biomass`, `log_ssb` and `log_R` have had since 5.20.0.
+  interval instead of as a bare line. `exp(value +/- 1.96 * sd)` stays positive
+  and is right-skewed, the same treatment `log_biomass`, `log_ssb` and `log_R`
+  have had since 5.20.0. `log_sel_at_age_index` is reported alongside it and
+  gives each row's fleet, sex, **absolute age and calendar year** -- `minage +
+  index` and `styr + index`, not array positions.
 
   **On the log scale, not the logit.** A logit needs selectivity in (0, 1), and
-  CEATTLE's non-parametric forms renormalize to a MEAN of one rather than a
-  maximum of one -- on `Atka2022`, 58% of `sel_at_age` exceeds 1 and the largest
-  entry is 3.06, so a logit is undefined across most of the array. What the
-  normalization does is set by `Sel_norm_bin`, and only some settings bound the
-  curve at 1.
+  the non-parametric forms renormalize to a *mean* of one rather than a maximum
+  of one: on `Atka2022`, 58% of `sel_at_age` exceeds 1 and the largest entry is
+  3.06, so a logit is undefined across most of the array.
 
-  Off by default. `sdreport()` forms a Jacobian of every reported value against
-  every parameter, so the cost is the product of the two: on `Atka2022` this
-  adds 1,012 reported values against 584 parameters, and a 16-fleet three-species
-  assessment would add around 31,000. The objective is untouched either way --
-  an `ADREPORT` is a report, not a likelihood term, and
-  `test-selectivity-standard-errors.R` pins the two objectives as identical.
+  Off by default. The delta method forms a Jacobian of every reported value
+  against every parameter, so the cost is the product of the two: `Atka2022`
+  adds 1,012 values against 584 parameters, and a 16-fleet three-species
+  assessment around 31,000. The objective is untouched either way -- an
+  `ADREPORT` is a report, not a likelihood term.
 
-  Rows cover the lead fleets only, over each fleet's own species' sexes and ages
-  and the hindcast years, and **`Selectivity = "Fixed"` fleets are skipped**. A
-  fixed curve is read from `emp_sel_obs`, which leaves 0 in every year with no
-  empirical row -- 228 such cells on the `EIT_Pollock` survey of `BS2017SS` --
-  and a single `log(0) = -Inf` on the tape turns EVERY quantity in that
-  `sdreport` into `NaN`, biomass and ssb included, not just selectivity. A fixed
-  curve estimates no parameters, so its standard error is 0 by construction and
-  nothing is lost. `test-selectivity-standard-errors.R` fits `BS2017SS` with the
-  option on and asserts the `sdreport` is clean. The arrays are also padded to
-  `max_sex` / `max_age` / `nyrs`, and a mirrored fleet repeats its lead, so
-  reporting the whole array would emit duplicates and cells never written.
+  **Only cells that are estimated and strictly positive are reported**, because
+  one `log(0) = -Inf` on the tape turns *every* quantity in that `sdreport` into
+  `NaN`, biomass and ssb included, not just selectivity. So the report skips
+  `Selectivity = "Fixed"` fleets (read from `emp_sel_obs`, which leaves 0 wherever
+  a year has no empirical row -- 228 cells on `BS2017SS`'s `EIT_Pollock`),
+  length-based fleets (`sel_at_age` there is `sum(growth_matrix * sel_at_length)`,
+  0 for an age overlapping no selected length bin), mirrored fleets and array
+  padding (neither adds a curve), and every age below `Bin_first_selected`, where
+  `selectivity.hpp` zeroes the curve outright. The skipped set is fixed by the
+  data, never by a parameter value. Nothing is lost: a `Fixed` curve and a mirror
+  both have their lead's standard error or none by construction.
 
-  `log_sel_at_age_index` is reported alongside and gives the fleet, sex,
-  **absolute age and calendar year** of each row -- `minage + index` and
-  `styr + index`, not the array positions. `nages` counts bins, so age and age
-  index differ wherever `minage > 1`; no bundled dataset has that, so the test
-  pins the year column against `styr:endyr` rather than relying on a fixture to
-  catch it.
+  A bin the normalization pins carries an SE of exactly 0, the honest answer for
+  a value that is 1 by construction.
 
-  A bin the model pins carries an SE of exactly 0, which is the honest answer
-  for a value that is 1 by construction.
+* **`plot_selectivity(add_ci = TRUE)`** draws that interval under the curve it
+  belongs to. It needs a fit run with `fit_control(selectivity_se = TRUE)` and
+  declines with a warning naming the option otherwise, rather than drawing a bare
+  line that would read as certainty -- and declines for the whole figure if any
+  model in an overlay lacks the errors, since a band on some panels and not
+  others says "this fleet is certain" rather than "this fit was not asked".
 
-  One case is left open: a length-based fleet builds `sel_at_age` as
-  `sum(growth_matrix * sel_at_length)`, which is zero for an age with no length
-  overlap with any selected bin. No bundled dataset does that, and it cannot be
-  excluded structurally the way a `Fixed` fleet can.
-
-* **`plot_selectivity(add_ci = TRUE)`** draws that interval, as
-  `exp(log(sel) +/- 1.96 * sd)`, under the curve it belongs to. It needs a fit
-  run with `fit_control(selectivity_se = TRUE)` and declines with a warning
-  naming the option otherwise, rather than drawing a bare line that would read
-  as certainty. Declined for the whole figure if any model in an overlay lacks
-  the errors: a band on some panels and not others says "this fleet is certain"
-  rather than "this fit was not asked".
-
-  Age-based fleets only. The error is on `sel_at_age`, and a length-based fleet
-  is drawn on `sel_at_length`, which is what was fitted and carries none. A
-  fleet that MIRRORS another's selectivity has no rows of its own -- the
-  template reports the lead once -- but shares its parameter block, so it
-  borrows the lead's band instead of drawing none.
-
-  One band per year, so a time-varying fleet is dense. Pair it with `minyr` /
-  `maxyr` on a single year, or use it on a time-invariant fleet.
+  A fleet mirroring another's `Selectivity_index` reports no rows of its own, so
+  it borrows its lead's band, but only where the two curves agree: `data_check()`
+  merely warns when a shared group differs in a shaping column, and a differing
+  `Sel_norm_bin` alone rescales the curve. Every year drawn gets its own band, so
+  pair `add_ci` with `minyr` / `maxyr` on a time-varying fleet.
 
 ## Bug fixes
 
 * **`quantity_dictionary()` described `sel_at_age` as "normalized to a maximum
   of one".** It is normalized per `Sel_norm_bin`, which for the non-parametric
-  forms -- the default -- is a mean of one, so values above one are ordinary.
-  The units column said "proportion" for the same reason and now does not.
+  forms -- the default -- is a mean of one, so values above one are ordinary. It
+  is also 0 below `Bin_first_selected`. The units column said "proportion" for
+  the same reason and now says "unitless". `log_sel_at_age` and
+  `log_sel_at_age_index` are documented alongside them.
 
 # Rceattle 5.25.1
 

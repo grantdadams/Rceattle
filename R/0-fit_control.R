@@ -20,6 +20,16 @@
 #' corresponding individual arguments to `fit_mod()`. Individual
 #' arguments are kept for backward compatibility.
 #'
+#' @details
+#' `selectivity_se` is off by default because the delta method forms a Jacobian
+#' of every reported value against every parameter, so its cost is the product
+#' of the two: on `Atka2022` it adds 1,012 values against 584 parameters. The
+#' error is on the log scale, not the logit, because the non-parametric forms
+#' normalize to mean selectivity 1 rather than a maximum of 1 -- 58% of
+#' `Atka2022`'s `sel_at_age` exceeds 1, to 3.06 -- so a logit is undefined over
+#' most of the array. Rows cover estimated, age-based lead fleets only; see
+#' [plot_selectivity()], which draws the interval.
+#'
 #' @param bias.correct logical. If `TRUE`, applies bias correction via
 #'   [TMB::sdreport()]. Default `FALSE`.
 #' @param getsd logical. If `TRUE`, run [TMB::sdreport()] after
@@ -33,12 +43,7 @@
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
 #' @param selectivity_se logical. If `TRUE`, [TMB::sdreport()] also returns a
-#'   standard error for log selectivity-at-age, so a curve can be drawn with a
-#'   confidence interval. Default `FALSE`: the delta method forms a Jacobian of
-#'   every reported value against every parameter, so the cost is the product of
-#'   the two. Reported on the LOG scale because the non-parametric forms
-#'   normalize to mean selectivity 1, not a maximum of 1, so selectivity-at-age
-#'   can exceed 1 and a logit is undefined there.
+#'   standard error for log selectivity-at-age. Default `FALSE`.
 #' @param comp_offset Numeric or `NULL`. Small proportion offset added to the
 #'   observed and predicted age/length composition and conditional-age-at-length
 #'   (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
