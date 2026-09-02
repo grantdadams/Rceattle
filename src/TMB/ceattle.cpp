@@ -3943,6 +3943,11 @@ Type objective_function<Type>::operator() () {
         // Time-invariant selectivity has one curve, so the shape penalties are
         // charged once. Both time-varying modes give every year its own curve,
         // so they are charged every year.
+        //
+        // PROPOSED, to make IID integrable under random_sel = TRUE: drop the
+        // `== 1` here so IID charges terms 1, 2 and 4 once on the base curve
+        // sel_coff. Those three are priors on the SHAPE, and under IID the
+        // shape is the base curve; only term 3 belongs to the deviates.
         int nyrs_tmp = 1;
         if((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4)){
           nyrs_tmp = nyrs_hind;
@@ -3952,6 +3957,14 @@ Type objective_function<Type>::operator() () {
 
           // 1. Decreasing selectivity penalty (over the fleet's own bins)
           // FIXME: AMAK starts at nbins/2
+          //
+          // PROPOSED (IID only): read the base curve, sel_coff(flt, sex, age),
+          // in place of log_non_par_sel. max(d, 0)^2 has a STEP second
+          // derivative, so charging it on the deviates steps the Laplace
+          // log-determinant. Bound the loop at flt_n_sel_bins(flt) - 1: past
+          // that, sel_coff holds 0 rather than the copy of the last estimated
+          // bin the realized curve carries, so d would be a cliff that the
+          // fitted selectivity does not have.
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
               Type sel_ratio_tmp = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age + 1, yr); // Positive if decreasing
@@ -3960,6 +3973,12 @@ Type objective_function<Type>::operator() () {
           }
 
           // 2. Curvature penalty
+          //
+          // PROPOSED (IID only): fill sel_tmp from sel_coff(flt, sex, age).
+          // This term is already smooth, so it adds no kink -- it is here for
+          // the second defect: it does not scale with sel_dev_sd, so charging
+          // it on the deviates integrates an unnormalized prior and biases the
+          // sd. Same for term 4.
           for(sex = 0; sex < nsex(sp); sex++){
             // Extract only the selectivities we want
             vector<Type> sel_tmp(nbins); sel_tmp.setZero();
@@ -3994,6 +4013,10 @@ Type objective_function<Type>::operator() () {
               }
             }
           } else if(flt_varying_sel(flt) == 1){
+            // PROPOSED: this term is already correct and stays as it is -- it
+            // is the only one that belongs to the random effects. If nyrs_tmp
+            // becomes 1 for IID, it needs its own `for(int y = 0; y <
+            // nyrs_hind; y++)` here so every hindcast year is still scored.
             for(sex = 0; sex < nsex(sp); sex++){
               for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++) {
                 jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
@@ -4002,6 +4025,11 @@ Type objective_function<Type>::operator() () {
           }
 
           // 4. Survey selectivity normalization (non-parametric)
+          //
+          // PROPOSED (IID only): compute the level from sel_coff over
+          // [bin_first_selected, flt_n_sel_bins) with log_mean_exp(), as the
+          // type-9 branch already does, rather than reading the per-year
+          // avg_sel that carries the deviates.
           for(sex = 0; sex < nsex(sp); sex++){
             jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
