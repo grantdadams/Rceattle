@@ -18,27 +18,26 @@ version throughout.
 
 * **`parameter_index()` locates every estimated parameter in the model's own
   coordinates.** TMB names each element of `obj$par` after its parameter block,
-  so a convergence diagnostic could report that `sel_coff_dev` was
-  non-identifiable but not which fleet, bin or year. The new function returns one
-  row per estimated parameter with structured `species`, `fleet`, `sex`, `age`,
-  `bin`, `year` and `slot` columns, plus a rendered `label`.
+  so a diagnostic could report that `sel_coff_dev` was non-identifiable but not
+  which of its 392 elements. Returns one row per estimated parameter with
+  `species`, `fleet`, `sex`, `age`, `bin`, `year` and `slot` columns plus a
+  rendered `label`.
 
-  The mapping is recovered by pushing a tagged parameter vector through TMB's
-  `parList()`, so it tracks `build_map()` exactly: parameters mapped off are
-  absent, and fleets sharing a `Selectivity_index` or `Catchability_index` appear
-  once, as the single parameter they are, with `n_cells` recording how many array
-  cells they drive.
+  The mapping is recovered through TMB's own `parList()`, so it tracks
+  `build_map()` exactly: mapped-off parameters are absent, and fleets sharing a
+  `Selectivity_index` or `Catchability_index` appear once, as the single
+  parameter they are, with `n_cells` counting the cells they drive.
 
-  An axis that takes one value across the whole model is left out of the label. A
-  single-species, single-sex fit does not need the species and sex named on every
-  row; a two-species fit does. The structured columns carry the value either way.
+  An axis constant across the model is left out of the label. A one-species,
+  one-sex fit does not need the species and sex on every row; a two-species fit
+  does. The structured columns carry the value either way.
 
 ## Bug fixes
 
 * **The convergence battery names the parameters it flags.** `estimability`,
   `parameters_on_bounds` and `hessian_conditioning` reported the parameter block
   and left the reader to find the element. They now summarise by coordinate,
-  with ordinal axes collapsed to ranges:
+  ordinal axes collapsed to ranges:
 
   ```
   [FAIL] estimability  49 non-identifiable fixed parameter(s)
@@ -46,22 +45,31 @@ version throughout.
   ```
 
   `hessian_conditioning` keeps its block percentages and adds where the loading
-  concentrates within each block. The direction is spread across coefficients
-  rather than confined to a set, so it reports the parameters carrying the top
-  90% of the block's loading and how many that is. `parameters_on_bounds` gains a
-  `where` column on its table.
+  sits inside each block, reporting the parameters carrying the top 90% and how
+  many that is. `parameters_on_bounds` gains a `where` column.
+
+* **`hessian_conditioning` is read on the correlation matrix and reported as a
+  ratio of standard errors.** The covariance condition number is not
+  scale-invariant (`log_F` near -2, `sel_inf` near 10), so rescaling a parameter
+  moved it without changing the model. Covariance against correlation: `BS2017SS`
+  4.6e4 against 2.0e4, a GOA pollock non-parametric fit 1.9e5 against 1.6e4, a
+  2DAR1 fit 2.5e9 against 1.9e8. Scaling inflates all three and the confounded one
+  stays four orders above the others, so the 1e6 and 1e10 thresholds give the same
+  verdict on each and are unchanged. The message leads with the square root, a
+  ratio of standard errors; `fit$convergence` carries `se_ratio` beside
+  `condition_number`.
 
 * **`fit_mod()` no longer prints the `check_estimability` table at
-  `verbose = 1`.** It is one row per parameter, every row named after its block,
-  and the convergence record now reports the flagged ones by coordinate. Still
-  available at `verbose > 1`, and `fit$identified` is unchanged.
+  `verbose = 1`.** It is one row per parameter, each named after its block, and
+  the convergence record now carries the same verdict by coordinate. Still at
+  `verbose > 1`; `fit$identified` is unchanged.
 
 * **`M1_dev_log_sd` is `[nspp, nsex]`.** `parameter_dictionary()` and the
-  `ceattle.cpp` declaration both described it as `[nspp, nsex, 2]`, an age and a
-  year slot it does not have; the template allocates two dimensions and the
-  likelihood reads `M1_dev_log_sd(sp, sex)`. Documentation only, no fit changes.
-  `test-schema-parameter-index.R` now checks every block's declared rank against
-  the built array, which is what found this.
+  `ceattle.cpp` declaration both claimed `[nspp, nsex, 2]`, an age and year slot
+  it does not have; `build_params()` allocates two dimensions and the likelihood
+  reads `M1_dev_log_sd(sp, sex)`. Documentation only, no fit changes.
+  `test-schema-parameter-index.R` checks every block's declared rank against the
+  built array, which is what found this.
 
 # Rceattle 5.25.1
 

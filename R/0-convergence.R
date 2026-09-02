@@ -370,17 +370,35 @@
   out <- list()
   cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
   if (is.null(cov) || !is.matrix(cov) || nrow(cov) < 2L) return(out)
-  ev <- tryCatch(eigen(cov, symmetric = TRUE), error = function(e) NULL)
+  # Read on the CORRELATION matrix, not the covariance. The condition number of
+  # the covariance is not scale-invariant: log_F sits near -2, sel_inf near 10,
+  # a variance near 0, so rescaling a parameter moves it without changing the
+  # model. Dividing by the standard errors removes that, leaving a measure of
+  # how nearly linearly dependent the estimates are. Measured: BS2017SS 4.6e4 on
+  # the covariance against 2.0e4 here, GOA pollock 2DAR1 2.5e9 against 1.9e8 --
+  # the scaling inflates every model, and the confounded one is still four
+  # orders above the well-behaved ones.
+  se <- sqrt(diag(cov))
+  ok <- is.finite(se) & se > 0
+  if (sum(ok) < 2L) return(out)
+  keep_i <- which(ok)
+  corr <- cov[ok, ok, drop = FALSE] / outer(se[ok], se[ok])
+
+  ev <- tryCatch(eigen(corr, symmetric = TRUE), error = function(e) NULL)
   if (is.null(ev)) return(out)
   vals <- ev$values
   pos  <- vals[is.finite(vals) & vals > 0]
   if (length(pos) < 2L) return(out)
 
-  kappa <- max(pos) / min(pos)               # = condition number of the Hessian
-  v  <- ev$vectors[, which.max(vals)]         # flattest Hessian direction (unit norm)
+  kappa <- max(pos) / min(pos)
+  # Eigenvalues are variances along their direction, so the square root is the
+  # ratio of standard errors -- the readable form of the same number.
+  se_ratio <- sqrt(kappa)
+  v  <- ev$vectors[, which.max(vals)]         # least-determined direction (unit norm)
   nm <- rownames(cov)
-  if (is.null(nm) || length(nm) != length(v)) nm <- names(object$sdrep$par.fixed)
-  if (is.null(nm) || length(nm) != length(v)) nm <- paste0("p", seq_along(v))
+  if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- names(object$sdrep$par.fixed)
+  if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- paste0("p", seq_len(nrow(cov)))
+  nm <- nm[keep_i]
 
   # The eigenvector is unit-norm, so v^2 partitions the direction across
   # coefficients. Aggregate by parameter block (a vector parameter shares one
@@ -400,9 +418,11 @@
   top   <- data.frame(param = names(share), share = round(as.numeric(share), 3))
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
-  msg <- sprintf("Hessian condition number = %.2g.%s", kappa,
+  msg <- sprintf(
+    "Condition number = %.2g; the least-determined combination of parameters carries %.0fx the standard error of the best-determined one.%s",
+    kappa, se_ratio,
     if (sev != "OK")
-      sprintf(" Least-identified direction loads on: %s.", combo) else "")
+      sprintf(" It loads on: %s.", combo) else "")
 
   # Where the loading sits INSIDE each named block. The direction is spread over
   # coefficients rather than confined to a set, so the parameters carrying the
@@ -416,7 +436,9 @@
         inb <- which(nm == b)
         o   <- inb[order(v[inb]^2, decreasing = TRUE)]
         keep <- o[seq_len(max(1L, which(cumsum(v[o]^2) / sum(v[o]^2) >= 0.90)[1]))]
-        s <- .rce_par_summary(keep, idx, max_lines = 2L)
+        # `v` and `nm` index the parameters kept above, so map back before
+        # asking parameter_index() where they are.
+        s <- .rce_par_summary(keep_i[keep], idx, max_lines = 2L)
         if (length(s) > 0) {
           lines <- c(lines, sub("\\((\\d+)\\)$",
                                 sprintf("(\\1 of %d, %.0f%% of the direction)",
@@ -428,7 +450,7 @@
   }
   out$hessian_conditioning <- .conv_record(
     "hessian_conditioning", "fit", sev, msg,
-    list(condition_number = kappa, loadings = top))
+    list(condition_number = kappa, se_ratio = se_ratio, loadings = top))
   out
 }
 
