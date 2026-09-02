@@ -101,3 +101,26 @@ one. Pair it with \code{minyr} / \code{maxyr} on a single year, or use it on a
 time-invariant fleet, where there is one curve and one band.
 }
 
+\section{What the interval is conditional on}{
+\strong{The normalization.} Selectivity is identified only up to a scalar, jointly
+with F for a fishery and with q for a survey, so \code{Sel_norm_bin} fixes the
+level rather than measuring it. The bin it pins gets a standard error of
+exactly 0, and the band widens with distance from it. On \code{Atka2022} the
+survey pins age 4 and its sd runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1-5,
+while the fishery pins nothing, normalizes to a mean of one, and is instead
+flattest mid-range. Same fit, same data: the shape of the band is a property
+of the normalization. Read it as uncertainty in the curve RELATIVE to the
+anchor, and say which anchor when quoting one.
+
+\strong{The smoothing, on a penalized fit.} Under \code{random_sel = FALSE} the annual
+deviations are penalized rather than integrated, so these are
+penalized-likelihood errors conditional on \code{Sel_curve_pen1} / \code{Sel_curve_pen2}
+and on the FIXED \code{Time_varying_sel_sd}. Change the smoothing and both the
+curve and its band move, with nothing in the data to say which is right.
+
+The band is marginal, and selectivity error is strongly correlated with F and
+q through the same confounding, so carrying it into a derived quantity needs
+the covariance (\code{fit_control(getReportCovariance = TRUE)}) rather than this
+interval on its own.
+}
+
