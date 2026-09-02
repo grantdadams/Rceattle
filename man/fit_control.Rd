@@ -10,6 +10,7 @@ fit_control(
   getJointPrecision = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  selectivity_se = FALSE,
   comp_offset = NULL,
   bias_adjust_obs = TRUE,
   bias_adjust_proc = TRUE,
@@ -40,6 +41,14 @@ of \code{ADREPORT} variables. Default \code{FALSE}.}
 parameter uncertainty in projections when using an HCR (refits with all
 hindcast and biological-reference-point parameters turned on). Default
 \code{FALSE} for speed.}
+
+\item{selectivity_se}{logical. If \code{TRUE}, \code{\link[TMB:sdreport]{TMB::sdreport()}} also returns a
+standard error for log selectivity-at-age, so a curve can be drawn with a
+confidence interval. Default \code{FALSE}: the delta method forms a Jacobian of
+every reported value against every parameter, so the cost is the product of
+the two. Reported on the LOG scale because the non-parametric forms
+normalize to mean selectivity 1, not a maximum of 1, so selectivity-at-age
+can exceed 1 and a logit is undefined there.}
 
 \item{comp_offset}{Numeric or \code{NULL}. Small proportion offset added to the
 observed and predicted age/length composition and conditional-age-at-length

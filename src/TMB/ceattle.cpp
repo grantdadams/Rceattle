@@ -327,6 +327,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_INTEGER( adreport_sel );             // 0 = no selectivity standard errors (default); 1 = ADREPORT log_sel_at_age; set via fit_control(selectivity_se =)
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
@@ -5075,6 +5076,66 @@ Type objective_function<Type>::operator() () {
   ADREPORT( log_R );
   ADREPORT( R_sd );
   ADREPORT( R );
+
+  // -- Log selectivity-at-age, for a delta-method interval on the curve.
+  //
+  // LOG, not logit. The non-parametric forms renormalize to MEAN selectivity 1,
+  // not a maximum of 1, so sel_at_age routinely exceeds 1 -- to 3.06 on
+  // Atka2022, where 58% of entries are above it -- and logit is undefined
+  // there. exp(log(sel) +/- z * sd) stays positive and right-skewed, the same
+  // treatment biomass, ssb and R get above.
+  //
+  // Off by default: sdreport's delta method forms a Jacobian of every ADREPORTed
+  // value against every parameter, so the cost is the product of the two.
+  //
+  // Rows are the lead fleets only, over each fleet's OWN species' sexes, ages
+  // and hindcast years. The array is padded to max_sex / max_age / nyrs, and a
+  // mirrored fleet repeats its lead, so iterating the full array would report
+  // duplicates and cells that were never written.
+  //
+  // Fixed selectivity (type 0) is skipped. It reads emp_sel_obs, which leaves 0
+  // in every year with no empirical row -- 228 such cells on the EIT_Pollock
+  // survey of BS2017SS -- and one log(0) = -Inf on the tape turns EVERY
+  // quantity in the sdreport to NaN, biomass and ssb included. Nothing is lost:
+  // a fixed curve estimates no parameters, so its standard error is 0 by
+  // construction.
+  //
+  // log_sel_at_age_index gives the fleet, sex, ABSOLUTE age and CALENDAR year
+  // of each row (fleet and sex 1-based), since the length depends on the model.
+  // Age is minage + index, not the index: nages counts bins, so the two differ
+  // wherever minage > 1.
+  if(adreport_sel == 1){
+    int n_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) || (flt_sel_type(flt) == 0)) continue;
+      n_sel += nsex(flt_spp(flt)) * nages(flt_spp(flt)) * nyrs_hind;
+    }
+
+    vector<Type> log_sel_at_age(n_sel); log_sel_at_age.setZero();
+    matrix<Type> log_sel_at_age_index(n_sel, 4); log_sel_at_age_index.setZero();
+
+    int i_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) || (flt_sel_type(flt) == 0)) continue;
+      int sel_sp = flt_spp(flt);
+      for(int sel_sex = 0; sel_sex < nsex(sel_sp); sel_sex++){
+        for(int sel_age = 0; sel_age < nages(sel_sp); sel_age++){
+          for(int sel_yr = 0; sel_yr < nyrs_hind; sel_yr++){
+            log_sel_at_age(i_sel) = log(sel_at_age(flt, sel_sex, sel_age, sel_yr));
+            log_sel_at_age_index(i_sel, 0) = Type(flt + 1);
+            log_sel_at_age_index(i_sel, 1) = Type(sel_sex + 1);
+            log_sel_at_age_index(i_sel, 2) = Type(minage(sel_sp) + sel_age);
+            log_sel_at_age_index(i_sel, 3) = Type(styr + sel_yr);
+            i_sel++;
+          }
+        }
+      }
+    }
+
+    REPORT( log_sel_at_age );
+    REPORT( log_sel_at_age_index );
+    ADREPORT( log_sel_at_age );
+  }
 
 
   // -- 14.2. Biological reference points

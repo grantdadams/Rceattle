@@ -851,6 +851,11 @@ fit_mod <-
     if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
     if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
 
+    # Read by the TMB DATA_INTEGER as the gate on the log selectivity-at-age
+    # ADREPORT. Set here rather than left to the funnel's default so a refit
+    # keeps the setting the fit was given.
+    data_list$adreport_sel <- as.integer(isTRUE(fit_control$selectivity_se))
+
     # Carried like the bias-adjustment flags above, so a refit can recover how
     # the model was fitted rather than take fit_control()'s default.
     data_list$projection_uncertainty <- isTRUE(projection_uncertainty)

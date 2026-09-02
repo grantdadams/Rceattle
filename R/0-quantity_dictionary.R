@@ -218,11 +218,16 @@
 
     # -- selectivity -------------------------------------------------------
     r("sel_at_age", "selectivity",
-      "Selectivity at age by fleet, normalized to a maximum of one.",
-      "proportion", "[n_flt, nsex, nages, nyrs]", FALSE, NA_character_),
+      paste("Selectivity at age by fleet. The normalization is per Sel_norm_bin:",
+            "a maximum of one, one at a nominated bin, or -- for the",
+            "non-parametric forms, which is the default -- a MEAN of one, so",
+            "values above one are ordinary. No standard error unless the fit set",
+            "fit_control(selectivity_se = TRUE), which adds one on the log scale."),
+      "relative, see meaning", "[n_flt, nsex, nages, nyrs]", FALSE, NA_character_),
     r("sel_at_length", "selectivity",
-      "Selectivity at length bin by fleet, normalized to a maximum of one.",
-      "proportion", "[n_flt, nsex, nlengths, nyrs]", FALSE, NA_character_),
+      paste("Selectivity at length bin by fleet, normalized as sel_at_age is;",
+            "see there."),
+      "relative, see meaning", "[n_flt, nsex, nlengths, nyrs]", FALSE, NA_character_),
 
     # -- growth ------------------------------------------------------------
     r("weight_hat", "growth",

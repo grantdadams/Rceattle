@@ -32,6 +32,13 @@
 #'   parameter uncertainty in projections when using an HCR (refits with all
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
+#' @param selectivity_se logical. If `TRUE`, [TMB::sdreport()] also returns a
+#'   standard error for log selectivity-at-age, so a curve can be drawn with a
+#'   confidence interval. Default `FALSE`: the delta method forms a Jacobian of
+#'   every reported value against every parameter, so the cost is the product of
+#'   the two. Reported on the LOG scale because the non-parametric forms
+#'   normalize to mean selectivity 1, not a maximum of 1, so selectivity-at-age
+#'   can exceed 1 and a logit is undefined there.
 #' @param comp_offset Numeric or `NULL`. Small proportion offset added to the
 #'   observed and predicted age/length composition and conditional-age-at-length
 #'   (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -85,6 +92,7 @@ fit_control <- function(
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  selectivity_se      = FALSE,
   comp_offset         = NULL,
   bias_adjust_obs     = TRUE,
   bias_adjust_proc    = TRUE,
@@ -103,6 +111,7 @@ fit_control <- function(
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
     projection_uncertainty = projection_uncertainty,
+    selectivity_se      = selectivity_se,
     comp_offset         = comp_offset,
     bias_adjust_obs     = bias_adjust_obs,
     bias_adjust_proc    = bias_adjust_proc,
