@@ -66,8 +66,18 @@ Reference objectives (verified equal on `dev` and `pr3-schema-order-and-qar1`, 2
 | MSVPA, estimated M | 2137.4433306648 |
 | estimated suitability | 2260.7063099135 |
 
+Re-run on 5.25.0 (2026-09-01): stages 1, 3 and 4 bit-identical to the table, and stage 2 higher
+by 1.8e-06 (8.3e-10 relative, below the optimizer's own tolerance). Stage 2 is the only one that
+runs the reference-point penalty, so it is the only one that touches the SPR sum, whose factors
+5.24.1 reordered -- floating-point addition is not associative, so the last bits move and the F
+solve carries it into the objective. **A delta of that size on stage 2 alone is the expected
+result of an SPR change, not a numeric regression.** Any of the other three moving is.
+
 All four were bit-identical across the two branches (delta 0.000e+00), as was the vulnerability
-matrix: 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). The script's own
+matrix: 0.8172 (arrowtooth to hake) and 0.7686 (sablefish to hake). **Record which quantity that
+is next time it is measured** -- `exp(log_phi)` on the stage-4 fit prints 4.4709 and 3.3213, so
+0.8172/0.7686 is some other transform and the note does not say which. The objective above is
+bit-identical, so the parameters are unchanged either way. The script's own
 inline comments give the first three ~5 higher and the fourth as 2262.318: those are Rceattle
 5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that folder
 records the "clean" values, which are what the current package reproduces.
