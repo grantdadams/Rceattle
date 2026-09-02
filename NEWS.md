@@ -92,12 +92,14 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   earlier year's covariate to consumption and, under multispecies, to predation
   mortality. **This moves real assessments.** No bundled dataset is affected, but
   15 workbooks in the sibling assessment repositories carry pre-`styr`
-  environmental rows, among them the Pacific hake operating model
-  (`styr` 1993, `env_data` from 1981 -- a **12-year** lag) that is the MSE and
-  predation reference, and the GOA CEATTLE and AI cod configurations (8-17 years).
-  Any of those needs refitting; their previous results were shifted. A repeated
-  `Year`, which sits inside the range and so survived the filter, is now refused
-  by `data_check()` and de-duplicated before the model sees it.
+  environmental rows and need refitting: the GOA CEATTLE 2018-2023
+  configurations (13-14 years), AI cod and a single-species Pacific hake input
+  (12 years each), and three GOA circulation-study assessments (2-9 years). The
+  Pacific hake operating model that `04-mse.R` runs is **not** among them --
+  `env_data` starts at its `styr` of 1980 -- so the MSE and predation reference
+  objectives are unchanged. A repeated `Year`, which sits inside the range and so
+  survived the filter, is now refused by `data_check()` and de-duplicated before
+  the model sees it.
 
 * **An integer `Time_varying_sel` on a non-parametric fleet is a mode again.**
   A pre-4.4 workbook carried the two AMAK penalty weights in the time-varying
@@ -122,30 +124,26 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   the parameter and the element within it, and fires whether or not the gradient
   is clean -- a collapse at a converged optimum is the case with nothing else to
   catch it. It reads the recruitment, selectivity, catchability, M1 and linkage
-  random-effect standard deviations, all of which are log-scale and O(0.1)-O(1)
-  so one threshold means the same thing for each. Observation sds are excluded (a
-  different diagnosis, and `build_bounds()` already bounds them), as is
-  `growth_log_sd`, a length-at-age sd in centimetres, and the catchability PRIOR
-  sd, where a tight value is a deliberate choice. `WARN` rather than `FAIL`: a
-  variance at the boundary is a well-posed optimum and a verdict about the model
-  rather than the optimizer, and `report_tables()` prints this status as a fit's
-  `converged` field. Only estimated parameters are read, so a deviation sd held
-  at `Time_varying_sel_sd` cannot fire it.
+  random-effect standard deviations, which are log-scale and O(0.1)-O(1) so one
+  threshold of 1e-3 means the same thing for each; observation sds,
+  `growth_log_sd` and the catchability prior sd are excluded. `WARN` rather than
+  `FAIL`, because a variance at the boundary is a well-posed optimum and a
+  verdict about the model rather than the optimizer.
 
 * **Two composition-accumulation columns were never being read.**
   `Accumatation_age_lower` and `Accumatation_age_upper` are the pre-4.4 names of
   `Comp_accum_young` and `Comp_accum_old`, and were missing from the schema's
   alias list -- so a workbook carrying them got the default of no accumulation
-  and the setting was ignored. **183 of the fleet_control sheets in the sibling
-  assessment repositories carry them, and 79 carry a young-tail value that folds
-  bins**; the GOA pollock configuration is the AFSC one, folding ages 1-2 into
+  and the setting was ignored. **147 of the 183 fleet_control sheets in the
+  sibling assessment repositories carry them, and 79 carry a young-tail value
+  that folds bins**; the GOA pollock configuration is the AFSC one, folding ages 1-2 into
   age 3 for the Shelikof survey and age 1 into age 2 for the fishery. On the
   2023 GOA pollock workbook, applying it moves the composition negative
   log-likelihood from 16333.05 to 16039.59 at identical parameters. Both are
   1-based ordinals on the fleet's composition dimension, which equals the age
   only when `minage` is 1 -- it is 1 on every affected workbook. No bundled
-  dataset carries either column, and none of the 183 carries a column under both
-  spellings, so nothing had to be reconciled.
+  dataset carries either column, and none of the 147 carries it alongside the
+  canonical spelling, so nothing had to be reconciled.
 
   `Est_weights_mcallister` is deliberately **not** treated the same way. Despite
   looking like a third case, it is the pre-4.12 name of an OUTPUT --
@@ -167,17 +165,13 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   move a number without saying so.
 
   **Check your own scripts before upgrading**, because this has been hiding real
-  settings and the error will now find them. Around fifteen scripts across the
-  sibling assessment repositories stop on it, every one at a setting the script
-  asks for and the model was not using: `Proj_F_proportion = 1` on three GOA
-  circulation-study assessments and on the SSMA example, all of which therefore
-  projected with no F apportioned; `Comp_distribution = "DirichletMultinomial"`
-  on a hake analysis and a GOA pollock bridge that were both fitting a full
-  multinomial; a fishery selectivity deviation sd of 0.35 against the workbook's
-  10.3, which is the difference between penalized and effectively free
-  deviations; and several survey catchability priors that never took effect. The
-  fix in each case is to assign the canonical name instead of the deprecated
-  one; the error names both.
+  settings and the error will now find them. One script across the sibling
+  assessment repositories stops on it, at exactly such a setting: the Jack
+  mackerel 2024 bridging script assigns `Sel_sd_prior = 0.35` on four fisheries
+  after `read_data()` has canonicalised the workbook's own value of 40 to
+  `Time_varying_sel_sd`, so the model was fitting effectively free deviations
+  where the script asked for penalized ones. The fix is to assign the canonical
+  name instead of the deprecated one; the error names both.
 
 ## New features
 
@@ -248,6 +242,14 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   could not be given a Tier 3 SPR reference point. **One-sex species are
   unchanged in every configuration**: `mature_females` already carries the
   age-varying ratio for them, so the new formula reduces to the old one.
+
+  **Two live assessments move**, both two-sex arrowtooth under `HCR = "NPFMC"`:
+  the 2026 GOA three-species assessment above, and the GOA arrowtooth ESP
+  (`../GOA-ATF-ESP`), whose `sex_ratio` is 0.5 at age 1 and 0.353955 over ages
+  2-21. That schedule is fully populated, so the ESP showed no `NaN` -- it
+  reported every SPR scaled by 0.708, and its Tier 3 proxies now change by the
+  reciprocal, 1.41. Both need refitting. The Pacific hake operating model is
+  two-sex but its `sex_ratio` is a flat 0.5, so the MSE reference is unchanged.
 
   **Which two-sex fits move.** The change rescales all four SPR schedules
   wherever `sex_ratio` varies with age, and it reaches the objective two ways:
