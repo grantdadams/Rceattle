@@ -292,7 +292,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.1 Fishery Components
   DATA_IMATRIX( catch_ctl );              // Info for fishery biomass; columns = Fishery_name, Fishery_code, Species, Year
   DATA_IMATRIX( catch_n );                // Info for fishery biomass; columns = Month
-  DATA_MATRIX( catch_obs );               // Observed fishery catch biomass (kg) and log_sd; columns = Observation, Error
+  DATA_MATRIX( catch_obs );               // Observed fishery catch (mt or thousands of fish per the fleet's Observation_units) and log_sd; columns = Observation, Error
 
   // -- 2.4.2 Survey components
   DATA_IMATRIX( index_ctl );              // Info for index; columns = Survey_name, Survey_code, Species, Year
@@ -553,14 +553,15 @@ Type objective_function<Type>::operator() () {
   array<Type>   sel_at_length(n_flt, max_sex, max_nlengths, nyrs); sel_at_length.setZero();// Estimated selectivity at length
   array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
   array<Type>   non_par_sel(n_flt, max_sex, max_bin, nyrs); non_par_sel.setZero();  // Estimated selectivity for AMAK non-parametric (pre-normalization)
+  array<Type>   log_non_par_sel(n_flt, max_sex, max_bin, nyrs); log_non_par_sel.setZero(); // Same curve on the log scale, the scale the penalties are written on (exp() underflows below about -745, so it is carried rather than recovered)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.5. Fishery components
   matrix<Type>  F_spp(nspp, nyrs); F_spp.setZero();                                 // Fully selected fishing mortality by species
   matrix<Type>  F_flt(n_flt, nyrs); F_flt.setZero();                                // Fully selected fishing mortality by fleet
   array<Type>   F_flt_age(n_flt, max_sex, max_age, nyrs); F_flt_age.setZero();            // Estimated fishing mortality-at-age/sex for each fishery
-  array<Type>   Flimit_at_age(nspp, max_sex, max_age, nyrs); Flimit_at_age.setZero();   // Estimated target fishing mortality-at-age/sex for each species
-  array<Type>   Ftarget_at_age(nspp, max_sex, max_age, nyrs); Ftarget_at_age.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
+  array<Type>   Flimit_at_age(nspp, max_sex, max_age, nyrs); Flimit_at_age.setZero();   // Estimated limit fishing mortality-at-age/sex for each species (FOFL proxy)
+  array<Type>   Ftarget_at_age(nspp, max_sex, max_age, nyrs); Ftarget_at_age.setZero(); // Estimated target fishing mortality-at-age/sex for each species (max FABC proxy)
   array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (mt, or thousands of fish)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (mt, or thousands of fish)
@@ -576,7 +577,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
-  array<Type>   NByageF(nspp, max_sex, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Flimit
+  array<Type>   NByageF(nspp, max_sex, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Ftarget; the age structure behind SBF
   array<Type>   N_at_age_dB0(nspp, max_sex, max_age, nyrs); N_at_age_dB0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
   array<Type>   N_at_age_dBF(nspp, max_sex, max_age, nyrs); N_at_age_dBF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
   matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S_at_age-R curve)
@@ -593,8 +594,8 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  SB0(nspp, nyrs); SB0.setZero();                                     // Estimated spawning stock biomass at F = 0 (Accounts for S_at_age-R)
   matrix<Type>  SBF(nspp, nyrs); SBF.setZero();                                     // Estimated spawning stock biomass at F = target (Accounts for S_at_age-R)
   matrix<Type>  B0(nspp, nyrs); B0.setZero();                                       // Estimated biomass at F = 0 (Accounts for S_at_age-R)
-  vector<Type>  Flimit = exp(log_Flimit);                                            // Target F parameter on natural scale
-  vector<Type>  Ftarget = exp(log_Ftarget);                                          // Limit F parameter on natural scale
+  vector<Type>  Flimit = exp(log_Flimit);                                            // Limit F (FOFL proxy, e.g. F35%) on natural scale
+  vector<Type>  Ftarget = exp(log_Ftarget);                                          // Target F (max FABC proxy, e.g. F40%) on natural scale
   vector<Type>  Finit = exp(log_Finit);                                              // Initial F for non-equilibrium age-structure
   vector<Type>  index_q_mult(index_q_beta.cols()); index_q_mult.setZero();          // Environmental design matrix for q
   vector<Type>  M1_mult(M1_beta.dim(2)); M1_mult.setZero();                         // Environmental design matrix for M1
@@ -607,7 +608,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.7. Survey components
   vector<Type>  index_q_sd(n_flt); index_q_sd.setZero();                            // Vector of standard deviation of survey catchability prior
   vector<Type>  index_q_dev_sd(n_flt); index_q_dev_sd.setZero();                    // Vector of standard deviation of time-varying survey catchability deviation
-  vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey biomass (kg)
+  vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey index; mt or thousands of fish per the fleet's Observation_units
   // Rejection bookkeeping for the natural-scale survey draws (sim_mod only).
   // Counted per index_obs row, so a non-zero tries count marks the rows a
   // rejection-capable branch drew: the untruncated "Normal" family and
@@ -1209,6 +1210,7 @@ Type objective_function<Type>::operator() () {
     sel_coff_dev,         // Coefficient deviations
     avg_sel,              // [Modified] Average selectivity
     non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
+    log_non_par_sel,      // [Modified] The same curve on the log scale, for the penalties
     sel_at_length,        // [Modified] Final length-based selectivity
     sel_at_age,           // [Modified] Final age-based selectivity
     growth_matrix,        // Length to age transition matrix
@@ -1567,7 +1569,8 @@ Type objective_function<Type>::operator() () {
         // year 0, weight included.
         // FIXME: time-vary sel in the forecast
         vector<Type> Z_unfished(na), Z_limit(na), Z_target(na), Z_init(na);
-        vector<Type> wt_term(na), wt_first(na), mature_at_age(na), female_at_age(na);
+        vector<Type> wt_term(na), wt_first(na), mature_at_age(na);
+        Type female_split = (nsex(sp) == 1) ? Type(1.0) : sex_ratio(sp, 0);
 
         for(age = 0; age < na; age++){
           Z_unfished(age) = M_at_age(sp, 0, age, term_yr);
@@ -1577,9 +1580,10 @@ Type objective_function<Type>::operator() () {
 
           wt_term(age)      = weight_hat(wt_idx_ssb, 0, age, term_yr);
           wt_first(age)     = weight_hat(wt_idx_ssb, 0, age, 0);
-          //FIXME: use estimated sex_ratio for two-sex models?
-          mature_at_age(age) = maturity(sp, age);
-          female_at_age(age) = sex_ratio(sp, age);
+          // Spawning output per TOTAL recruit, so the female fraction enters once:
+          // mature_females (5.4) carries the age-varying ratio for a one-sex species,
+          // female_split the recruitment split (6.6) for a two-sex one.
+          mature_at_age(age) = mature_females(sp, age) * female_split;
         }
 
         vector<Type> n_unfished = per_recruit_survivors(Z_unfished);
@@ -1587,10 +1591,10 @@ Type objective_function<Type>::operator() () {
         vector<Type> n_target   = per_recruit_survivors(Z_target);
         vector<Type> n_init     = per_recruit_survivors(Z_init);
 
-        SPR0(sp)      = spawning_biomass_per_recruit(n_unfished, Z_unfished, wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRlimit(sp)  = spawning_biomass_per_recruit(n_limit,    Z_limit,    wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRtarget(sp) = spawning_biomass_per_recruit(n_target,   Z_target,   wt_term,  mature_at_age, female_at_age, spawn_month(sp));
-        SPRFinit(sp)  = spawning_biomass_per_recruit(n_init,     Z_init,     wt_first, mature_at_age, female_at_age, spawn_month(sp));
+        SPR0(sp)      = spawning_biomass_per_recruit(n_unfished, Z_unfished, wt_term,  mature_at_age, spawn_month(sp));
+        SPRlimit(sp)  = spawning_biomass_per_recruit(n_limit,    Z_limit,    wt_term,  mature_at_age, spawn_month(sp));
+        SPRtarget(sp) = spawning_biomass_per_recruit(n_target,   Z_target,   wt_term,  mature_at_age, spawn_month(sp));
+        SPRFinit(sp)  = spawning_biomass_per_recruit(n_init,     Z_init,     wt_first, mature_at_age, spawn_month(sp));
 
         // Reported for inspection; slot order matches the four calls above.
         for(age = 0; age < na; age++){
@@ -3936,11 +3940,16 @@ Type objective_function<Type>::operator() () {
       // - Added time-varying component following Atka mackerel
       if(flt_sel_type(flt) == 2) {
 
-        // If time-invariant selectivity
+        // Time-invariant selectivity has one curve, so the shape penalties are
+        // charged once. Both time-varying modes give every year its own curve,
+        // so they are charged every year.
+        //
+        // PROPOSED, to make IID integrable under random_sel = TRUE: drop the
+        // `== 1` here so IID charges terms 1, 2 and 4 once on the base curve
+        // sel_coff. Those three are priors on the SHAPE, and under IID the
+        // shape is the base curve; only term 3 belongs to the deviates.
         int nyrs_tmp = 1;
-
-        // If random walk is on
-        if(flt_varying_sel(flt) == 4){
+        if((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 4)){
           nyrs_tmp = nyrs_hind;
         }
 
@@ -3948,20 +3957,34 @@ Type objective_function<Type>::operator() () {
 
           // 1. Decreasing selectivity penalty (over the fleet's own bins)
           // FIXME: AMAK starts at nbins/2
+          //
+          // PROPOSED (IID only): read the base curve, sel_coff(flt, sex, age),
+          // in place of log_non_par_sel. max(d, 0)^2 has a STEP second
+          // derivative, so charging it on the deviates steps the Laplace
+          // log-determinant. Bound the loop at flt_n_sel_bins(flt) - 1: past
+          // that, sel_coff holds 0 rather than the copy of the last estimated
+          // bin the realized curve repeats, so d would be a cliff that the
+          // fitted selectivity does not have.
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
-              Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
+              Type sel_ratio_tmp = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age + 1, yr); // Positive if decreasing
               jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
           }
 
           // 2. Curvature penalty
+          //
+          // PROPOSED (IID only): fill sel_tmp from sel_coff(flt, sex, age).
+          // This term is already smooth, so it adds no kink -- it is here for
+          // the second defect: it does not scale with sel_dev_sd, so charging
+          // it on the deviates integrates an unnormalized prior and biases the
+          // sd. Same for term 4.
           for(sex = 0; sex < nsex(sp); sex++){
             // Extract only the selectivities we want
             vector<Type> sel_tmp(nbins); sel_tmp.setZero();
 
             for(age = 0; age < nbins; age++) {
-              sel_tmp(age) = log(non_par_sel(flt, sex, age, yr));
+              sel_tmp(age) = log_non_par_sel(flt, sex, age, yr);
             }
 
             // Second difference computed once (matches the type-9 branch).
@@ -3972,15 +3995,41 @@ Type objective_function<Type>::operator() () {
           }
 
           // 3. Time-varying penalty
-          if(yr > 0){
+          //
+          // RandomWalk (4) scores the year-to-year change in the realized
+          // log-selectivity (Atka mackerel ADMB model), which is renormalized to
+          // mean 1 each year; the level is held by the avgsel penalty at (4).
+          // IID (1) scores each deviation itself, over exactly the coefficient
+          // bins build_map() estimates. Bins outside that range are fixed at 0
+          // and left unscored: each would add log(sel_dev_sd) + 0.5*log(2*pi),
+          // constant in the deviates but rising with the sd, so scoring them
+          // would drag the estimate toward zero.
+          if(flt_varying_sel(flt) == 4){
+            if(yr > 0){
+              for(sex = 0; sex < nsex(sp); sex++){
+                for(age = 0; age < (nbins - 1); age++) {
+                  jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_non_par_sel(flt, sex, age, yr), log_non_par_sel(flt, sex, age, yr - 1), sel_dev_sd(flt), true);
+                }
+              }
+            }
+          } else if(flt_varying_sel(flt) == 1){
+            // PROPOSED: this term is already correct and stays as it is -- it
+            // is the only one that belongs to the random effects. If nyrs_tmp
+            // becomes 1 for IID, it needs its own `for(int y = 0; y <
+            // nyrs_hind; y++)` here so every hindcast year is still scored.
             for(sex = 0; sex < nsex(sp); sex++){
-              for(age = 0; age < (nbins - 1); age++) {
-                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+              for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++) {
+                jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
               }
             }
           }
 
           // 4. Survey selectivity normalization (non-parametric)
+          //
+          // PROPOSED (IID only): compute the level from sel_coff over
+          // [bin_first_selected, flt_n_sel_bins) with log_mean_exp(), as the
+          // type-9 branch already does, rather than reading the per-year
+          // avg_sel, which includes the deviates.
           for(sex = 0; sex < nsex(sp); sex++){
             jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
@@ -4016,6 +4065,11 @@ Type objective_function<Type>::operator() () {
         if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected bin
         int shape_a1 = flt_sel_pen_last_bin(flt);               // last (left) bin of the shape-penalty pairs
         if(shape_a1 < 0) shape_a1 = nbins - 2;                  // default: whole range (pairs up to (nbins-2, nbins-1))
+        // The pair is (age, age + 1), so the left bin stops one short of the
+        // last. data_check() bounds Sel_pen_last_bin by the number of bins, so
+        // without this a final-bin setting reads bin `nbins` -- allocated to the
+        // widest species, never written, scoring as a phantom selected bin.
+        if(shape_a1 > nbins - 2) shape_a1 = nbins - 2;
         int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
         for(sex = 0; sex < nsex(sp); sex++){
           for(yr = start_yr; yr < nyrs_tmp; yr++){
@@ -4026,7 +4080,7 @@ Type objective_function<Type>::operator() () {
             //       differentiable via (|d|+d)/2 = max(d,0) and (|d|-d)/2 = max(-d,0).
             //     mode 1 (smooth, RTMB "rpm"): two-sided weight * d^2 smoothness.
             for(age = shape_a0; age <= shape_a1; age++) {
-              Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
+              Type d = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age + 1, yr); // > 0 if decreasing
               if(shape_mode == 1)
                 jnll_comp(JNLL_SEL_NONPARAM, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
               else if(sel_curve_pen(flt, 0) >= 0)
@@ -4041,7 +4095,7 @@ Type objective_function<Type>::operator() () {
             //     the base curvature term at styr, which is 0 pre-survey).
             if((yr > start_yr) || (start_yr == 0)){
               vector<Type> ls(nbins); ls.setZero();
-              for(age = 0; age < nbins; age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
+              for(age = 0; age < nbins; age++) ls(age) = log_non_par_sel(flt, sex, age, yr);
               vector<Type> d2 = first_difference( first_difference( ls ) );
               for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(JNLL_SEL_DEV, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
             }
@@ -4049,7 +4103,7 @@ Type objective_function<Type>::operator() () {
             // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
             if(yr > start_yr){
               for(age = 0; age < nbins; age++) {
-                Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
+                Type dd = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age, yr - 1);
                 jnll_comp(JNLL_SEL_DEV, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
               }
             }
@@ -4071,12 +4125,15 @@ Type objective_function<Type>::operator() () {
           //     mean-centering leaves unconstrained; equivalent to AMAK's
           //     10*square(avgsel_*). The weight flt_sel_avgsel_pen defaults to 0 (off);
           //     a model opts in via Sel_avgsel_pen (e.g. 10 to match AMAK).
+          //     The range holds at least one bin: data_check() requires
+          //     Bin_first_selected <= N_sel_bins.
           if(flt_sel_avgsel_pen(flt) > 0){
-            Type msum = 0; Type nb = 0;
-            for(int bin = bin_first_selected(flt); bin < flt_n_sel_bins(flt); bin++){
-              msum += exp(sel_coff(flt, sex, bin)); nb += 1.0;
+            int n_base = flt_n_sel_bins(flt) - bin_first_selected(flt);
+            vector<Type> base(n_base);
+            for(int bin = 0; bin < n_base; bin++){
+              base(bin) = sel_coff(flt, sex, bin + bin_first_selected(flt));
             }
-            Type avgsel = log(msum / nb);
+            Type avgsel = log_mean_exp(base);
             jnll_comp(JNLL_SEL_NONPARAM, flt) += flt_sel_avgsel_pen(flt) * avgsel * avgsel;
           }
         }
@@ -5049,6 +5106,7 @@ Type objective_function<Type>::operator() () {
   /*
    REPORT( avg_sel );
    REPORT( non_par_sel );
+   REPORT( log_non_par_sel );
    REPORT( emp_sel_obs );
    REPORT( sel_tmp );
    REPORT( sel_dev_sd );

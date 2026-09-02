@@ -761,6 +761,38 @@ fit_mod <-
              "the fixed effects they are).")
       }
 
+      # The same objection, for the two non-parametric configurations the
+      # Laplace approximation cannot be applied to; the messages below say why.
+      .np <- .rce_np_unintegrable_fleets(data_list$fleet_control)
+      .flts <- function(codes) paste0("'", data_list$fleet_control$Fleet_name[
+        match(codes, data_list$fleet_control$Fleet_code)], "'", collapse = ", ")
+
+      .walk <- .np$fleet[.np$reason == "RandomWalk"]
+      if (length(.walk)) {
+        stop("Fleet ", .flts(.walk), ": set `random_sel = FALSE` to fit ",
+             "non-parametric selectivity with `Time_varying_sel = \"RandomWalk\"`.",
+             "\n  The deviates cannot be integrated out: the walk is scored on ",
+             "the renormalized curve, which leaves the level of each year's ",
+             "coefficients unidentified, so the estimated deviation standard ",
+             "deviation collapses to zero. `random_sel = FALSE` is the ",
+             "penalized AMAK formulation these fleets are set up for. ",
+             "See vignette(\"model-options-and-functionality\").",
+             call. = FALSE)
+      }
+      .kink <- .np$fleet[.np$reason == "IID"]
+      if (length(.kink)) {
+        stop("Fleet ", .flts(.kink), ": with `random_sel = TRUE` and ",
+             "`Time_varying_sel = \"IID\"`, either set `Sel_curve_pen1 = 0` to ",
+             "keep the deviates integrated, or set `random_sel = FALSE` to keep ",
+             "the shape penalty.",
+             "\n  The two cannot be combined: that penalty is one-sided, so the ",
+             "Laplace objective is only piecewise smooth and the optimizer stops ",
+             "at a kink rather than an optimum, reporting a deviation standard ",
+             "deviation that depends on where it stopped. ",
+             "See vignette(\"model-options-and-functionality\").",
+             call. = FALSE)
+      }
+
       # Listed whether or not the maps are empty. TMB drops a fully-mapped name
       # itself, but TMBphase() reads `length(random) > 0` to decide whether to
       # pin the RE variance hyperparameters in every phase (see the note above),

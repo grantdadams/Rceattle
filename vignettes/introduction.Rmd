@@ -192,6 +192,26 @@ parameter_dictionary(process = "selectivity")
 Anything beginning `log_`, or ending `_log_sd`, needs `exp()` to reach the
 quantity named in the dictionary's `natural` column.
 
+`quantity_dictionary()` does the same job for the reported quantities — what
+each one means, the units it is in, its dimensions, and whether `sdreport()`
+gives it a standard error:
+
+```{r}
+quantity_dictionary("ssb_depletion")
+quantity_dictionary(process = "reference_points")
+
+# Everything that carries a standard error
+dict <- quantity_dictionary()
+dict[dict$se, c("quantity", "units")]
+```
+
+Units follow the model throughout: numbers-at-age are **thousands of fish** and
+weight-at-age is **kg**, so their product is **mt**. Two things worth reading off
+the dictionary before using a quantity. `ssb` is *female* spawning-stock biomass,
+and every per-recruit reference point (`SPR0`, `SPRlimit`, `SPRtarget`) is
+defined only in single-species mode — on a multispecies fit the model leaves them
+at zero, which is not an estimate of zero.
+
 ## 5. Compare models
 
 Models can be compared by marginal or joint negative log-likelihood, AIC, and retrospective analysis. AIC cannot compare a penalized-likelihood fit against a marginal-likelihood fit. The likelihood components are stored in the model objects built above:
@@ -205,6 +225,45 @@ model_1$quantities$jnll_comp    # Negative log-likelihood components
 # Compare AIC across 3-species penalized likelihood models
 sapply(list(model_2, model_3, model_5), AIC)
 
+```
+
+`report_tables()` collects the quantities an assessment reports — the fit and
+its likelihood decomposition, the time series with uncertainty, the reference
+points, and the fits to index and catch — into one set of tidy tables. Every
+table carries a `model` column, so several fits stack for a like-for-like
+comparison:
+
+```{r}
+tabs <- report_tables(list(pollock = model_1, three_species = model_2))
+tabs
+tabs$reference_points
+```
+
+Read the `basis` column of `reference_points` before quoting anything from it. A
+CEATTLE fit leaves a *number* behind for reference points it never estimated, and
+each one looks like an estimate: `Ftarget` and `Flimit` sit at 1.0/yr unless the
+harvest control rule estimates them, and in multispecies mode `SB0` is a
+placeholder until a no-fishing projection derives it, which would make B40% a few
+hundred tonnes. Those cells are returned as `NA` with the reason in `basis`,
+rather than as the number the model happens to hold.
+
+Diagnostics are attached rather than computed: a retrospective or a jitter is
+tens to hundreds of refits, so `report_tables()` never runs one on your behalf.
+Pass them in once you have them, and the matching sections appear:
+
+```{r, eval = FALSE}
+report_tables(model_1, retro = model_1_retro, osa = osa_residuals(model_1))
+```
+
+`standard_output()` relabels the result into the NOAA standardized assessment
+output that the `stockplotr` and `asar` packages read, so Rceattle results can be
+plotted and written into a report by the same tooling used for SS3, BAM, WHAM and
+FIMS. That standard describes one stock and has no species dimension, so a fit
+with more than one needs `species` to pick the stock to emit:
+
+```{r}
+head(standard_output(tabs, model = "pollock"))
+head(standard_output(tabs, model = "three_species", species = 1))
 ```
 
 The `retrospective` function measures retrospective bias, returning a list of refit models and a data.frame of Mohn's rho values.

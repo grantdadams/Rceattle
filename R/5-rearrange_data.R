@@ -670,7 +670,19 @@ rearrange_data <- function(data_list, build_osa = FALSE){
 
   # 13 - Set up environmental indices ----
   # - Fill in missing years with column mean
+  #
+  # env_index is read BY ROW POSITION -- row r is model year styr + r - 1, and
+  # the Year label is dropped below -- so a row outside styr:projyr would shift
+  # every later row and feed the previous year's temperature to consumption.
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
+  data_list$env_index <- data_list$env_index[
+    data_list$env_index$Year %in% data_list$styr:data_list$projyr, , drop = FALSE]
+  data_list$env_index <- data_list$env_index[order(data_list$env_index$Year), , drop = FALSE]
+  # A repeated Year is inside the range, so the filter above does not catch it,
+  # and one extra row shifts every year after it. data_check() reports it by
+  # name; this keeps the row-per-model-year contract even when that is bypassed.
+  data_list$env_index <-
+    data_list$env_index[!duplicated(data_list$env_index$Year), , drop = FALSE]
   data_list$env_index <-  data_list$env_index %>%
     dplyr::select(-Year) %>%
     dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%

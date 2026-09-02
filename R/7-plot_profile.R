@@ -216,7 +216,10 @@
 #'   [profile.Rceattle()], or a list of them to compare models in facets (e.g.
 #'   the same profile run on two model configurations).
 #' @param weighted,relative,minfraction Passed to [profile_components()].
-#'   `minfraction` defaults to `0.01` here, as in `r4ss::SSplotProfile()`.
+#'   `minfraction` drops a component moving less than that fraction of the
+#'   TOTAL's change over the grid -- not an absolute number of objective units.
+#'   It defaults to `0.01` here, as in `r4ss::SSplotProfile()`, so a total
+#'   moving 60 units cuts at 0.6.
 #' @param add_cutoff Draw a horizontal line at `cutoff`. Off by default: the
 #'   cutoff is a statement about the total, and drawing it across the
 #'   components invites reading it as one about them.

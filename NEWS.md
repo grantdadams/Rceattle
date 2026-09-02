@@ -12,6 +12,428 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.25.0
+
+## Breaking changes
+
+No exported argument is removed or renamed. Two configurations that previously
+ran are now refused, and **neither produced a number anyone should use**. A
+workbook with the same column under two spellings is also refused where
+it previously read, silently keeping one of them -- one file in the sibling
+repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
+`Bin_first_selected` and `Age_first_selected` disagree on every row):
+
+* **`random_sel = TRUE` with non-parametric selectivity**, in two cases, each
+  for its own reason. Fit these with `random_sel = FALSE`, which is the
+  penalized formulation the AMAK model intends and is unaffected.
+
+  Under `Time_varying_sel = "RandomWalk"` the walk is scored on the per-year
+  renormalized selectivity, which never sees the level of each year's
+  coefficients. Those directions are an **improper** random effect, and the
+  deviation sd collapses: 2.7e-8 on `Atka2022`, a time-invariant selectivity
+  reported as a time-varying one, reached through 17 `NA/NaN function
+  evaluation` warnings.
+
+  Under `"IID"` the density itself is proper, but the AMAK shape penalty beside
+  it is one-sided (`max(d, 0)^2`), whose second derivative is a step. The
+  Laplace correction is a log-determinant of that second derivative, so the
+  marginal objective is only piecewise smooth and the optimizer halts at a kink:
+  `Atka2022` stops with a maximum gradient of **6.8** and reports a deviation sd
+  **27%** away from the value the same model reaches with `Sel_curve_pen1 = 0`
+  (maximum gradient 4e-4). Setting that penalty to 0 integrates the deviates
+  against the curvature penalty alone and is allowed.
+
+* **`Ceq` outside 1-4.** The template switches on it with no other branch, so an
+  unrecognized value left the temperature function at zero, and with it
+  consumption and -- under multispecies -- predation mortality.
+
+## Bug fixes
+
+* **Non-parametric selectivity no longer returns `NaN` when a coefficient grows
+  large.** The forms renormalize their log-scale coefficients against
+  `log(mean(exp(coefficients)))` once per year, and the realized curve was
+  stored on the natural scale and re-logged by every penalty. Both halves
+  overflowed: the sum reached infinity once a coefficient passed about 709, and
+  the round trip underflowed to `log(0) = -Inf` from about -745, either way
+  giving `Inf - Inf = NaN` with no gradient to recover from. A new
+  `log_mean_exp()` computes the mean with a max shift -- algebraically identical,
+  and the shift cancels out of the derivative too -- and the centred curve is now
+  held on the log scale rather than recovered from `exp()`. Measured on
+  `BS2017SS`, the objective and gradient are finite to a coefficient of 1e8 in
+  both the level and the spread direction, where they previously failed at 710
+  and 730. The four reference models reproduce their optima to 1e-11 relative.
+
+* **The non-parametric shape penalty cannot read past the last bin.** Its
+  pairs are `(bin, bin + 1)`, so the left bin cannot be the last one, but
+  `data_check()` bounds `Sel_pen_last_bin` by the number of bins. Set to the
+  final bin, the penalty read one bin beyond the curve -- an entry that exists
+  because the selectivity arrays are sized by the widest species, but that is
+  never written -- and charged a shape penalty against a phantom
+  fully-selected bin. The model clamps the range.
+
+* **A model with no environmental covariate runs.** `Ceq` 1 (Stewart et al.
+  1983), 2 (Kitchell et al. 1977) and 3 (Thornton and Lessem 1979) each read
+  `env_index`, which `ceattle.cpp` evaluates for every species on every fit, but
+  `data_check()` only guarded `Ceq > 1` and described 1 as
+  temperature-independent. With no covariate column that read went outside the
+  matrix -- observed both segfaulting and returning plausible numbers on
+  different runs, the model being built without bounds checking. Consumption now
+  falls back to the constant `fT = 1` of `Ceq = 4` where there is no column to
+  read. `data_check()` errors on it under multispecies, where consumption drives
+  predation mortality and so the fit, and warns under single-species, where the
+  predation section does not run and `fT` reaches only the reported `ration` and
+  `consumption_at_age`. The missing-value defaults become `Ceq = 4` (the only
+  equation that reads no index) and `Cindex = 1` (it is 1-based; the documented
+  default of 0 was outside the matrix).
+
+* **An `env_data` year outside `styr:projyr` no longer shifts the series.**
+  `env_index` is read by row position -- row `r` is model year `styr + r - 1` --
+  so an observation from before `styr` displaced every later row, feeding an
+  earlier year's covariate to consumption and, under multispecies, to predation
+  mortality. **This moves real assessments.** No bundled dataset is affected, but
+  15 workbooks in the sibling assessment repositories have pre-`styr`
+  environmental rows and need refitting: the GOA CEATTLE 2018-2023
+  configurations (13-14 years), AI cod and a single-species Pacific hake input
+  (12 years each), and three GOA circulation-study assessments (2-9 years). The
+  Pacific hake operating model that `04-mse.R` runs is **not** among them --
+  `env_data` starts at its `styr` of 1980 -- so the MSE and predation reference
+  objectives are unchanged. A repeated `Year`, which sits inside the range and so
+  survived the filter, is now refused by `data_check()` and de-duplicated before
+  the model sees it.
+
+* **An integer `Time_varying_sel` on a non-parametric fleet is a mode again.**
+  A pre-4.4 workbook stored the two AMAK penalty weights in the time-varying
+  columns, and the upgrade that moves them across was triggered by the *value*
+  in `Time_varying_sel` -- which cannot tell a shape weight of 4 from the
+  `RandomWalk` code 4. `Time_varying_sel = 4` on a modern workbook therefore
+  turned the walk off and overwrote the penalty weights (on `GOAcod`, 20 and
+  12.5 became 4 and the deviation sd), while the string `"RandomWalk"` worked.
+  The upgrade is now triggered by an empty `Sel_curve_pen1`, which is what
+  actually distinguishes the old format.
+
+* **`data_check()` refuses a non-parametric fleet whose `Bin_first_selected` is
+  above its `N_sel_bins`**, which left it with no estimated coefficients at all.
+
+* **`convergence_diagnostics()` reports a variance parameter estimated to
+  zero.** A deviation standard deviation at the floor means the process it
+  governs is not varying: a model configured as time-varying has fitted
+  something time-invariant. `Atka2022` under `random_sel = TRUE` with a
+  non-parametric random walk reaches `sel_dev_sd = 2.7e-08`; the battery flagged
+  that fit through `max_gradient`, which says the optimizer did not converge
+  rather than naming what went wrong. The new `variance_collapse` check names
+  the parameter and the element within it, and fires whether or not the gradient
+  is clean -- a collapse at a converged optimum is the case with nothing else to
+  catch it. It reads the recruitment, selectivity, catchability, M1 and linkage
+  random-effect standard deviations, which are log-scale and O(0.1)-O(1) so one
+  threshold of 1e-3 means the same thing for each; observation sds,
+  `growth_log_sd` and the catchability prior sd are excluded. `WARN` rather than
+  `FAIL`, because a variance at the boundary is a well-posed optimum and a
+  verdict about the model rather than the optimizer.
+
+* **Two composition-accumulation columns were never being read.**
+  `Accumatation_age_lower` and `Accumatation_age_upper` are the pre-4.4 names of
+  `Comp_accum_young` and `Comp_accum_old`, and were missing from the schema's
+  alias list -- so a workbook with them got the default of no accumulation
+  and the setting was ignored. **147 of the 183 fleet_control sheets in the
+  sibling assessment repositories have them, and 79 set a young-tail value
+  that folds bins**; the GOA pollock configuration is the AFSC one, folding ages 1-2 into
+  age 3 for the Shelikof survey and age 1 into age 2 for the fishery. On the
+  2023 GOA pollock workbook, applying it moves the composition negative
+  log-likelihood from 16333.05 to 16039.59 at identical parameters. Both are
+  1-based ordinals on the fleet's composition dimension, which equals the age
+  only when `minage` is 1 -- it is 1 on every affected workbook. No bundled
+  dataset has either column, and none of the 147 also has the
+  canonical spelling, so nothing had to be reconciled.
+
+  `Est_weights_mcallister` is deliberately **not** treated the same way. Despite
+  looking like a third case, it is the pre-4.12 name of an OUTPUT --
+  [fit_mod()] computes `Comp_weights_mcallister` from the fitted object and
+  already mirrors the old name for back-compatibility -- so a copy of it in a
+  workbook is a saved result, not a setting, and reading it as an input would
+  imply an effect on the fit that it does not have.
+
+* **A deprecated column name is no longer silently discarded when its canonical
+  name is also present.** `read_data()` canonicalises `fleet_control`, so a
+  script that then assigns a deprecated name creates the old column beside the
+  new one -- and the upgrade deleted it and kept the canonical value, behind a
+  routine deprecation message. The two must now hold the same setting, with an
+  integer switch code and its string counting as the same; anything else is an
+  error naming both values. Nothing is merged and no blank is filled in from the
+  other column: `NA` is a real setting in several of these (`Sel_norm_bin` and
+  `Sel_cap_bin` mean "do not normalize" and "no cap", `Proj_F_proportion` means
+  "no F apportioned"), so filling could not express clearing a value and would
+  move a number without saying so.
+
+  **Check your own scripts before upgrading**, because this has been hiding real
+  settings and the error will now find them. One script across the sibling
+  assessment repositories stops on it, at exactly such a setting: the Jack
+  mackerel 2024 bridging script assigns `Sel_sd_prior = 0.35` on four fisheries
+  after `read_data()` has canonicalised the workbook's own value of 40 to
+  `Time_varying_sel_sd`, so the model was fitting effectively free deviations
+  where the script asked for penalized ones. The fix is to assign the canonical
+  name instead of the deprecated one; the error names both.
+
+## New features
+
+* **`plot_catchability()`** draws fitted survey catchability by year, faceted by
+  fleet, for every fleet with `index_data` -- a fishery with a CPUE series as
+  much as a survey. It reads `quantities$index_q`, the realized `q` the model
+  scaled the survey by, so one figure covers an estimated or fixed mean, annual
+  deviations under `Time_varying_q`, an environmental regression, a `q` linkage
+  such as `rw(1 | Year)`, and the closed-form `"Analytical"` value. Hindcast
+  years only: the model does not project catchability, so there is no
+  `incl_proj`. A time-invariant `q` draws a flat line, which is the honest
+  picture of a constant `q` rather than an empty panel.
+
+* **Non-parametric selectivity accepts `Time_varying_sel = "IID"`.** The model
+  scores `dnorm(sel_coff_dev, 0, Time_varying_sel_sd)` on each estimated
+  coefficient, so the annual curves are independent deviations about an
+  estimated base curve rather than a walk. `NonParametricPM` still takes
+  `"RandomWalk"` only -- its deviates *are* the walk increments, so an
+  independent-deviate reading of them would not describe the curve the model
+  builds, and its error message says so and points at `NonParametric`.
+
+  This is what bundled **`Atka2022`** is configured as, so that dataset -- and
+  the ADMB bridge it comes from -- could not be fitted as shipped. It now fits.
+
+# Rceattle 5.24.2
+
+## Bug fixes
+
+* **`standard_output()` spells the length-bin column `length_bins`, and emits
+  `beg_mid`.** The schema `stockplotr` and `asar` read is the 34 columns of
+  `stockplotr::example_data`; `convert_output()` spells it `len_bins` internally
+  and renames on its last step, so 5.24.0 emitted the internal name. Those
+  packages index by column name, so the wrong spelling is an error in the
+  consumer rather than an empty column. `test-report-tables.R` now checks the
+  emitted names against that package rather than against the constant itself.
+
+* **`report_tables()` reports convergence from the hindcast fit.** `max_gradient`
+  and `pdHess` came from `$opt` and `$sdrep`, which the harvest-control-rule
+  projection re-optimizes and overwrites, with a fallback to a bare `obj$gr()`
+  evaluated at whatever parameter vector was left in place. Both now read the
+  `.conv_hindcast` snapshot [fit_mod()] takes before the projection -- the same
+  source `convergence_diagnostics()` uses -- so a maximum gradient quoted in an
+  executive summary describes the assessment.
+
+* **The reference-point gating reads a harvest control rule held as an integer.**
+  `build_hcr_map()` matches `HCR` by name, so a `data_list` holding the integer
+  code matched no rule and `report_tables()` reported `NA` for an F40% that was
+  estimated, with a `basis` saying it was not. `HCR` is normalized before the
+  lookup.
+
+# Rceattle 5.24.1
+
+## Bug fixes
+
+* **Spawning biomass per recruit is no longer wrong for a two-sex species.** SPR
+  is spawning output per **total** recruit, so the female fraction belongs in it
+  for every species -- but it must enter once. A one-sex species' schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age, which is
+  what `mature_females` folds in (section 5.4). A two-sex species' sex-0
+  schedule is already female, so only the recruitment split `sex_ratio(sp, 0)`
+  applies -- the same split section 6.6 uses to divide recruitment between the
+  sexes. Section 6.2 applied the age-varying ratio to both, which re-applied a
+  split already in the schedule and returned `NaN` wherever that table stopped
+  short of the species' own `nages`.
+
+  Found on the 2026 GOA three-species assessment, where arrowtooth flounder
+  (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
+  could not be given a Tier 3 SPR reference point. **One-sex species are
+  unchanged in every configuration**: `mature_females` already applies the
+  age-varying ratio for them, so the new formula reduces to the old one.
+
+  **Which two-sex fits move.** The change rescales all four SPR schedules
+  wherever `sex_ratio` varies with age, and it reaches the objective two ways:
+
+  1. The reference-point penalty (section 13) scores `SPRlimit / SPR0` and
+     `SPRtarget / SPR0`, so it is live only under `HCR = "ConstantF"` or an
+     SPR-based rule (`HCR > 3`).
+  2. The stock-recruit derivation (section 6.3) is live under **any** harvest
+     control rule: with `srr_fun = "BevertonHolt"` or `"Ricker"`, `SPR0` sets
+     `steepness` and `R0` and `SPRFinit` sets `R_init`, which scales the initial
+     age structure (section 6.5). `srr_fun = "mean"` ignores `SPR0`, which is why
+     the four golden references reproduce their pinned objectives.
+
+  Route 1 also needs the rescale to be **non-uniform**. It scores a ratio of two
+  SPR schedules, so where `sex_ratio` is the same at every age with
+  `maturity > 0` the old and new formulas give the same ratio and `Ftarget` /
+  `Flimit` do not move -- only the reported per-recruit quantities do. Route 1
+  moves a fit only where `sex_ratio` varies across the *mature* ages, or where
+  the schedule stops short of `nages` and the old formula returned `NaN`.
+
+  That is the split across the live assessments, all two-sex arrowtooth under
+  `HCR = "NPFMC"` with `srr_fun` at its `"mean"` default:
+
+  - The **2026 GOA three-species assessment** had `sex_ratio` filled only to age
+    10 of 21, so every per-recruit quantity was `NaN`. It gains reference points
+    it could not previously form. **Refit.**
+  - The **GOA arrowtooth ESP** (`../GOA-ATF-ESP`) has the schedule fully
+    populated at 0.5 for age 1 and 0.353955 for ages 2-21, and `maturity` of 0
+    at age 1 -- a uniform 0.708. Its `Ftarget` and `Flimit` are unchanged; the
+    `SPR0`, `SPRlimit`, `SPRtarget` and `SPRFinit` it reports were 0.708 of the
+    correct value and now rise by 1.412. **No refit; recheck any quoted SPR.**
+  - The **Pacific hake operating model** is two-sex with a flat 0.5, so the MSE
+    and predation reference is unchanged in both respects.
+
+  Bundled `GOAatf` meets the condition -- `sex_ratio` is 0.5 at age 1 and 0.354
+  over the mature ages -- so the old formula rescaled every SPR by a clean factor
+  of 0.708 with nothing in the output to give it away. Built with
+  `srr_fun = "BevertonHolt"` and no harvest control rule, the old schedules give
+  steepness 0.4655 against 0.5516 and `R_init` 0.9505 against 1.0623 at the
+  starting values: -15.6% and -10.5% on a fit route 1 never touches.
+  `test-dynamics-spr-two-sex.R` checks the result against the per-total-recruit
+  rule.
+
+  `ssb`, `biomass`, `R`, `F_spp`, `M_at_age`, `N_at_age`, `SB0` and the objective
+  are unchanged for a one-sex species, and for a two-sex species on neither
+  route.
+
+* **`data_check()` validates `nsex`.** The model has exactly two sex schedules --
+  index 0 (females, or the single combined sex) and index 1 (males) -- and reads
+  `nsex` straight into loop bounds and array dimensions, so a value outside
+  `{1, 2}` was a silent out-of-range read, and an `NA` aborted `data_check()`
+  with R's "missing value where TRUE/FALSE needed", naming no table. `nsex` is
+  now checked for length and value, and the `M1_base` / `weight` / `ration_data`
+  sex-consistency checks look it up by the table's own `Species` code rather
+  than by row position, so an unusable or short `nsex` is reported alongside
+  every other error instead of thrown or silently recycled.
+
+* **`data_check()` no longer demands a full `sex_ratio` schedule for a two-sex
+  species.** Every remaining use of `sex_ratio` on a two-sex species is
+  `sex_ratio(sp, 0)` — the age-1 recruitment split — so requiring values at every
+  age rejected a workbook the model never reads past the first column. A one-sex
+  species still needs the whole schedule, and age 1 is still required for both.
+
+# Rceattle 5.24.0
+
+## Reading a fitted model
+
+* **`quantity_dictionary()` says what every reported quantity is.** `fit$quantities`
+  holds 99 derived quantities under the model's own abbreviated names, and nothing
+  said what they meant, what units they were in, or which had a standard error.
+  The new table gives each one a plain-language meaning, its units, its dimensions,
+  whether `sdreport()` provides an SE for it, and what the same quantity is called in
+  the NOAA standardized assessment output:
+
+  ```r
+  quantity_dictionary("ssb_depletion")
+  quantity_dictionary(process = "reference_points")
+  quantity_dictionary()[quantity_dictionary()$se, ]   # everything with an SE
+  ```
+
+  It is checked against the template and against a real fit by
+  `test-schema-quantity-dictionary.R`, so a quantity added, renamed or dropped in
+  `ceattle.cpp` fails a test rather than leaving the table quietly wrong.
+
+  Two things it records that were easy to get wrong. Units are **mt** and
+  **thousands of fish** throughout (numbers-at-age are thousands, weight-at-age is
+  kg, so their product is mt) — several C++ comments still said `kg`. And every
+  per-recruit reference point (`SPR0`, `SPRlimit`, `SPRtarget`, `SPRFinit`,
+  `NbyageSPR`) is computed only under `msmMode = 0` and is **exactly zero on a
+  multispecies fit**, which reads as an estimate of zero unless you know.
+
+* **`report_tables()` collects what an assessment reports into one set of tables.**
+  Previously the likelihood decomposition, the time series with uncertainty, the
+  reference points, the fits, Mohn's rho, the jitter and the OSA diagnostics each
+  came out of a different call in a different shape, so comparing two models meant
+  assembling a dozen ad-hoc extractions by hand. Sections follow the AFSC Alaska
+  Groundfish Stock Assessment Guidelines for what a SAFE chapter reports, and every
+  table has a `model` column so several fits stack for comparison:
+
+  ```r
+  tabs <- report_tables(list(base = fit0, alt = fit1),
+                        retro = list(retro0, retro1), osa = osa0)
+  tabs$reference_points
+  ```
+
+  It **never refits**. A retrospective or a jitter is tens to hundreds of
+  optimizations, so they are passed in already computed; a section whose object is
+  `NULL` is simply absent. The standard harvest scenarios of guideline section
+  4.11.3 are *not* produced — they need a standard projection module Rceattle does
+  not have. Projected biomass under the model's own harvest control rule is in
+  `timeseries` with `era = "fore"`.
+
+* **`report_tables()` gains a `parameters` section, and reports both
+  objectives.** Asked for directly: where are sigma_R, the estimates of M, and
+  the likelihood values? `parameters` joins `coef()` and `vcov()` to
+  [parameter_dictionary()], so every estimated parameter gets its
+  natural-scale name, its process and its standard error. Estimates are on the
+  parameter's own scale, so a `log_` name needs `exp()`; sigma_R appears only
+  when `random_rec = TRUE`, and a **fixed** M is not there at all because it was
+  never estimated — read that off `M_at_age`.
+
+  `model` now reports `marginal_objective` and `joint_objective` rather than one
+  ambiguous `objective`, plus `n_random`. The marginal is what the optimizer
+  minimized and what `AIC` uses; the joint is what `jnll_comp` decomposes, so it
+  is what the `likelihood` table sums to. They are equal without random effects
+  and differ by the Laplace correction with them — on `GOAatf` with random
+  recruitment, 744.33 against 816.99. Reporting only one made the two tables
+  look inconsistent.
+
+* **`standard_output()` emits the NOAA standardized assessment format.** Relabels
+  `report_tables()` output into the schema that the `stockplotr` and `asar` packages
+  consume, so Rceattle results can be plotted and written into a report by the same
+  tooling used for SS3, BAM, WHAM and FIMS. Names are translated through the
+  dictionary's `standard_label`, so `ssb` becomes `spawning_biomass` and `F_spp`
+  becomes `fishing_mortality`; a quantity the standard has no word for keeps its own
+  name rather than being dropped.
+
+  That standard describes **one stock and has no species dimension**, so a
+  multispecies fit errors unless `species` selects one, rather than returning a frame
+  in which two stocks' biomass share a year. The likelihood decomposition is the
+  exception: `jnll_comp` counts fleets on rows 1-8 and species on rows 9-20, so
+  fleet rows go in the standard's `fleet` column whatever the species
+  rather than filtered away with it — on a 16-fleet assessment they are 31 of
+  the 38 rows.
+
+  Verified against the 2026 GOA three-species assessment (3 species, 16 fleets,
+  one two-sex stock, a live `sdreport`, and its real retrospective, jitter and
+  OSA objects), not only against the package fixtures. `quantity_dictionary()`
+  covers exactly the 99 quantities both its single- and multi-species fits
+  report.
+
+* **A reference point a fit never estimated is `NA` with a stated `basis`, not
+  the number the array happens to hold.** CEATTLE leaves a value behind in three
+  cases where there is no reference point, and each one reads as an estimate:
+
+  - `Ftarget` / `Flimit` are estimated only under a harvest control rule that
+    defines them, and are switched off for a species with no projected fishery.
+    Unestimated they sit at `exp(0) = 1`, so the GOA assessment reported a
+    target F of **1.0/yr**. The gating is taken from `build_hcr_map()` rather
+    than by reading the HCR switch a second time; the fit's own `map` cannot be
+    used, because `build_map()` sets both to `NA` in the hindcast map whatever
+    the HCR.
+  - Under `msmMode > 0`, `SB0` / `B0` are overwritten by the `MSSB0` / `MSB0`
+    inputs, which stand at a 999 mt placeholder until `fit_mod()` derives them.
+    `B_target = Ptarget * SB0` was therefore reported as **399.6 mt** against a
+    true scale of 1e5-1e6 mt. `MSSB0_derived` is the flag that distinguishes a
+    placeholder from a genuinely derived value.
+  - The per-recruit quantities are computed only under `msmMode = 0`.
+
+  The depletions are deliberately **not** blanked alongside `SB0`: under a
+  no-fishing rule in multispecies mode the model divides by biomass in the last
+  projection year, the equilibrated unfished reference, so that series is
+  meaningful.
+
+* **A diagnostics list is matched to models by name.** `retro`, `jitter` and
+  `osa` pair with `object` by name whatever the order; an unnamed list is paired
+  positionally and says so; a name that is not a model name is an error. That
+  last one catches passing a single model's `osa_residuals()` result stored as a
+  list of parts (`index` / `catch` / `comp`), which would otherwise be
+  attributed one part per model.
+
+## Corrections
+
+* **Five stale or swapped comments in `ceattle.cpp`.** No behaviour change; they were
+  found while documenting the quantities, and each one described the code as doing
+  the opposite of what it does. `Flimit` / `Ftarget` and `Flimit_at_age` /
+  `Ftarget_at_age` had their descriptions the wrong way round (`Flimit` is the FOFL
+  proxy, `Ftarget` the maximum FABC proxy); `NByageF` said `F = Flimit` where the
+  recursion uses `Ftarget_at_age`; and `index_hat` and `catch_obs` were annotated
+  `(kg)` where they are mt or thousands of fish, per the fleet's
+  `Observation_units`.
+
 # Rceattle 5.23.0
 
 ## Reading a fitted model

@@ -181,6 +181,9 @@ reference:
   - model_average
   - rename_output
   - parameter_dictionary
+  - quantity_dictionary
+  - report_tables
+  - standard_output
 
 - title: "Projections and MSE"
   desc: >
@@ -259,6 +262,7 @@ reference:
   contents:
   - plot_index
   - plot_indexresidual
+  - plot_catchability
   - plot_comp
   - plot_profile
   - plot.Rceattle_profile
@@ -312,6 +316,7 @@ reference:
   - summary.Rceattle
   - print.summary.Rceattle
   - print.Rceattle_data
+  - print.rceattle_report
   - switch_check
   - get_growth_matrix_r
   - get_weight_at_age_r

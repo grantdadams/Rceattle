@@ -5,6 +5,125 @@ session. Maintained by `/handoff`.
 
 ## Now
 
+**PR #130 is OPEN into `dev`** — https://github.com/grantdadams/Rceattle/pull/130
+(`reporting-tables` -> `dev`, +2890/-34 across 23 files, mergeable, CI running). Push and PR
+opened 2026-08-30. `osa-cdf-method` is still local-only, so this is first to `dev` and that
+branch renumbers its 5.24.0 section when it follows.
+
+**In flight: branch `reporting-tables` (worktree `/private/tmp/rce-report`, off `dev` at
+93ee38b7), version 5.24.0.** Kalei Shotwell (AFSC) asked for two things: a cheat sheet for
+output names, and one call producing every table she reports, so BSAI ATF next round does not
+mean re-deriving it. Both are built and the suite is green
+(`FAIL 0 | SKIP 3 | WARN 229`, `NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`, 2026-08-29) —
+the warning count is unchanged from 5.22.0, so nothing new was introduced.
+
+- **`quantity_dictionary()`** — all 99 `fit$quantities` names with meaning, units, dims,
+  `se`, and `standard_label`. `test-schema-quantity-dictionary.R` asserts it against the
+  template and a real fit, so a quantity added or renamed in `ceattle.cpp` fails a test.
+- **`report_tables()`** — `model`, `likelihood`, `timeseries`, `reference_points`, `fits`,
+  plus `retrospective`/`jitter`/`osa` when passed. Never refits.
+- **`standard_output()`** — the NOAA 33-column standard for `stockplotr` / `asar`.
+
+**Evaluated against the 2026 GOA three-species assessment** (`../GOA-multispecies-assessment`,
+`models/GOA_26_mod_list.RData` + `retrospectives.RData` + `jitter_ms.rds` + `osa_ms.rds`).
+Those cached objects are the cheapest real exercise in the ecosystem: 3 species, 16 fleets, a
+two-sex stock, a live `sdreport`, 1977-2025 hindcast with projection to 2050, and all three
+diagnostic objects already computed. No refit needed. The dictionary covers exactly the 99
+quantities both its fits report.
+
+**Five defects the real data found that the fixtures could not.** All fixed, all with
+regression tests:
+
+1. `Ftarget` / `Flimit` are unestimated under most HCRs and sit at `exp(0) = 1`, so the
+   assessment reported a target F of **1.0/yr**. Gate on `build_hcr_map()` -- NOT on the fit's
+   own `map`, which `build_map()` sets to NA in the hindcast whatever the HCR.
+2. Under `msmMode > 0`, `SB0`/`B0` are the `MSSB0` 999 mt placeholder, so `B_target` came out
+   **399.6 mt** against a true 1e5-1e6 mt. `data_list$MSSB0_derived` is the flag.
+3. `standard_output()` dropped every FLEET likelihood row (31 of 38) by filtering `unit` as a
+   species when it holds fleet names on rows 1-8.
+4. A diagnostics list was paired with models positionally and silently -- and `osa_ms.rds` is
+   stored as a list of parts (`index`/`catch`/`comp`), exactly the shape that mispairs. Now
+   matched by name; unnamed pairs positionally with a message.
+5. A species name containing `", "` could not be selected in `standard_output()`.
+
+**One over-correction caught in review, worth not repeating:** blanking the depletions
+alongside `SB0` is WRONG. Section 12.1 of the template does not divide by `SB0` under
+`HCR = NoFishing & msmMode > 0`; it divides by biomass in the LAST projection year, the
+equilibrated unfished reference. That series is valid on exactly the multispecies fits the
+package exists for.
+
+**Model-level findings NOT fixed here** (they are the model's, not the reporting layer's):
+
+- ~~`SPR0` NA for the two-sex species~~ **FIXED in 5.24.1.** SPR is spawning output per TOTAL
+  recruit, so the female fraction belongs in it for every species -- once. A one-sex schedule is
+  sex-combined, so the age-varying `sex_ratio` applies at every age (`mature_females`, 5.4). A
+  two-sex species' sex-0 schedule is already female, so only the recruitment split
+  `sex_ratio(sp, 0)` applies. 6.2 applied the age-varying ratio to both, re-applying on a
+  two-sex species a split already in its schedule, and going NaN where the table stopped short
+  of its own `nages`. Arrowtooth SPR0 NA -> 1.2300187; one-sex species unchanged;
+  `ssb`/`biomass`/`R`/`F_spp`/`N_at_age`/`SB0`/`jnll` do not move.
+  **Getting this wrong once is easy:** the first attempt dropped the ratio entirely for a
+  two-sex species, which reports per FEMALE recruit -- a different quantity from the one the
+  other species report. `test-dynamics-brps.R:229` and `test-dynamics-spr.R:168` pin the
+  per-total-recruit convention on fixtures where sex_ratio is 0.5 at every age, and caught it.
+- `data_check()` relaxed to match (a two-sex species reads `sex_ratio` only at age 1), and
+  **`nsex` is now validated** for length and value -- it was read straight into loop bounds, and
+  an NA aborted `data_check()` with R's "missing value where TRUE/FALSE needed".
+- **Still open, pre-existing:** a NULL or NA `nspp` crashes `data_check()` at
+  `if (data_list$nspp != max(data_list$weight$Species))` with the same uninformative abort,
+  before any accumulated error is raised. Same family as the `nsex` bug; not fixed.
+
+**stockplotr PR prepared, NOT sent.** `convert_output(model = "rceattle")` on
+`nmfs-ost/stockplotr` errored on every Rceattle fit, in both documented input modes -- 10
+defects, including composition being silently replaced by a duplicate of the catch data and a
+`cross_join(age_hat)` Cartesian product (2,470 observed comps -> 92,778 predicted). Repaired
+and verified against the 2026 GOA arrowtooth assessment: 34 columns matching the SS3 path,
+biomass equal to the fit to machine precision, multispecies refused rather than returned with
+`year = NA`. Their suite passes.
+
+Everything needed to rebuild or send it is in this repo's gitignored `dev/`:
+`stockplotr-pr.md` (PR body + push commands), the exported `*.patch` (restore with `git am`),
+`stockplotr-fix.py` (reapplies all 13 edits, asserts on every target), `stockplotr-fixture.R`
+and `stockplotr-tests.R`. **One thing blocks sending:** `gh` is SAML-blocked for `nmfs-ost`, so
+Grant must authorize his token before a fork or push is possible.
+
+The fixture is built from the bundled `GOAatf`, so it discloses nothing unpublished. An earlier
+draft used the 2026 GOA arrowtooth assessment file and raised a pre-decisional-data question;
+that is resolved, not outstanding.
+
+**VERSION COLLISION -- needs a decision before either branch merges.** `osa-cdf-method` and
+`reporting-tables` both branched from `dev` at 5.23.0 and both wrote a **5.24.0** NEWS section:
+the former for `osa_residuals(method = "cdf")`, the latter for the reporting tables (plus
+5.24.1 for the SPR fix). Whichever merges second must renumber its own section; neither is
+tagged, so either order works.
+- `ms_mod` has 15 top-level elements and `ss_mod` 17 -- concrete evidence for why stockplotr's
+  positional indexing into the fit object cannot work.
+
+**Do not re-derive these** (each cost real time to establish):
+
+- A grep for `REPORT(` over `ceattle.cpp` **over-counts**: `mature_females`,
+  `sex_ratio_hat`, `N_at_age_dB0/dBF` and the Kinzey block are commented out. Enumerate from
+  a fit. The 99 names are identical single- and multi-species.
+- SPR quantities are computed only under `msmMode == 0` and are **exactly zero** on a
+  multispecies fit. Reported as NA.
+- `data_list$Ftarget` is the SPR percentage (0.40); `quantities$Ftarget` is the F value.
+- `residuals()` keys species by integer code; every other section keys by name. That
+  mismatch silently emptied the whole `fits` section from `standard_output()`.
+
+**Open, needs Grant:**
+
+- **stockplotr.** `convert_output()` on `nmfs-ost/stockplotr` main already accepts
+  `model = "rceattle"` and is broken against current Rceattle: reads `index_ln_q` (ours is
+  `index_log_q`) and `catch_h` (ours is `catch_hat`), indexes the fit object positionally,
+  and never mentions `nspp`/`spnames` — so a multispecies fit gets `year = NA` on
+  biomass/ssb/R. Single-species looks fine, which is what makes it dangerous. An issue was
+  offered and NOT sent; nothing has been contacted upstream.
+- **SPM is the one required thing missing.** The AFSC guidelines make §4.11.3 Standard
+  Harvest Scenarios required for Tiers 1-3. `report_tables()` has no `scenarios` section and
+  says so rather than omitting it quietly. Grant already flagged adding SPM for next year.
+- Not run: `/golden-check` (the `ceattle.cpp` change is comment-only, so it cannot move a
+  fit) and `/ecosystem-sweep` (purely additive — three new exports, no signature changes).
+
 **5.21.0 is released** — tag `5.21.0` on `f9595235`, published 2026-08-26. It carried
 `profile_components()`, `plot_profile()`, `plot.Rceattle_profile()` and `profile()`'s `$alias`.
 

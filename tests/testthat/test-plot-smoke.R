@@ -35,6 +35,8 @@ testthat::test_that("single-species plotters run on a fitted model", {
     testthat::expect_no_error(Rceattle::plot_exploitable_biomass(ss))
     testthat::expect_no_error(Rceattle::plot_index(ss))
     testthat::expect_no_error(Rceattle::plot_index(ss, log = TRUE))
+    testthat::expect_no_error(Rceattle::plot_catchability(ss))
+    testthat::expect_no_error(Rceattle::plot_catchability(ss, log = TRUE))
     testthat::expect_no_error(Rceattle::plot_catch(ss))
     testthat::expect_no_error(Rceattle::plot_f(ss))
 

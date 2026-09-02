@@ -151,8 +151,40 @@ Time-varying behavior is set by `Time_varying_sel` (per fleet):
 | `1` | `"IID"` | Independent annual deviations |
 | `2` | `"AR1"` | **Removed in 5.16.0** -- `data_check()` errors on it. It was never an AR1: the model scored it with the same independent normal penalty as `"IID"`, and the selectivity deviations carry no correlation parameter. Set `"IID"` for the fit it actually gave, or see the replacement below. |
 | `3` | `"Block"` | Time block |
-| `4` | `"RandomWalk"` | Random walk (not allowed with `NonParametric` or `Hake`) |
-| `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic (not allowed with `NonParametric` or `Hake`) |
+| `4` | `"RandomWalk"` | Random walk |
+| `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic |
+
+Not every mode applies to every selectivity form, because the model only scores
+a deviation where it defines a density for it:
+
+| Selectivity | Modes accepted |
+|---|---|
+| `Logistic`, `DoubleLogistic`, `DescendingLogistic`, `DoubleNormal` | `Off`, `IID`, `Block`, `RandomWalk`; `RandomWalkAscending` on `DoubleLogistic` and `DoubleNormal` |
+| `NonParametric` | `Off`, `IID`, `RandomWalk` |
+| `NonParametricPM` | `Off`, `RandomWalk` — its deviates *are* the walk increments, so `IID` would describe a different curve than the model builds |
+| `Hake` | `Off`, `IID` |
+| `2DAR1`, `3DAR1` | none — the field carries its own correlations and sd through `Sel_curve_pen` |
+
+The two non-parametric modes differ in what they are a deviation *of*. `"IID"`
+scores each annual coefficient deviation about an estimated base curve;
+`"RandomWalk"` scores the year-to-year change in the *realized* selectivity,
+which is renormalized to mean 1 within each year.
+
+**Neither is integrated out by default, and `fit_mod()` refuses
+`random_sel = TRUE` on both** — fit them with `random_sel = FALSE`, the
+penalized formulation the AMAK model intends. The walk's density says nothing
+about the level of a year's coefficients, so those directions are improper and
+the deviation standard deviation collapses to zero. The IID density is proper,
+but the shape penalty beside it (`Sel_curve_pen1`) is one-sided, so the Laplace
+objective is only piecewise smooth and the optimizer stops at a kink rather than
+an optimum. Setting `Sel_curve_pen1 = 0` removes that penalty and makes the IID
+deviates integrable against the curvature penalty alone.
+
+One caveat if you do integrate them: the AMAK `avgsel` term is charged on the
+integrated deviates as well, so the prior actually integrated is the IID normal
+*times* that penalty. It does not scale with `Time_varying_sel_sd`, so it biases
+the estimated sd low — measured at about 5% of the precision at sd 0.35, more as
+the sd grows.
 
 The switch is **soft-deprecated as a whole**, and `data_check()` says so on use.
 The linkage grammar expresses the same IID, random-walk and AR(1) deviations —
