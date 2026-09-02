@@ -119,6 +119,20 @@ spelling is translated to the current name automatically, so workbooks
 and scripts written against earlier column names keep working
 (`test-schema-canonical.R` checks this).
 
+Both spellings at once is the case to know about, because it is what a
+script produces when it assigns an older name to a `data_list` that
+[`read_data()`](https://grantdadams.github.io/Rceattle/reference/read_data.md)
+has already translated: the assignment creates the old column beside the
+new one. They must then hold the same setting — an integer switch code
+and its string count as the same — and anything else is an error naming
+both values. Nothing is merged and no blank is filled in from the other
+column, because `NA` is a real setting in several of these
+(`Sel_norm_bin` and `Sel_cap_bin` mean “do not normalize” and “no cap”;
+`Proj_F_proportion` means “no F apportioned”), so filling could not
+express clearing a value and would move a number silently. Until 5.25.0
+the older spelling was simply discarded here, which is how several
+assessment scripts came to be running settings they did not ask for.
+
 **[`data_requirements()`](https://grantdadams.github.io/Rceattle/reference/data_requirements.md)**
 reports, for a given model setup, which inputs that model requires,
 which are optional, and which are ignored — so you can see what a
@@ -281,6 +295,25 @@ and the bare form is intentional — do not “fix” it to
 8.  Document it in `inst/extdata/meta_data_names.xlsx` and/or the
     [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
     roxygen.
+
+### Add a new reported quantity
+
+1.  `REPORT()` it in `ceattle.cpp` (and `ADREPORT()` it if it needs a
+    standard error). A `REPORT` inside a comment block is not reported —
+    enumerate from a real fit, not from a grep, when checking what a
+    model actually returns.
+2.  Give it dimension names in `R/6-rename_output.R` if it is an array.
+3.  Add it to the quantity dictionary in `R/0-quantity_dictionary.R`,
+    with its units and whether it carries a standard error.
+    `test-schema-quantity-dictionary.R` reads the template and a fit and
+    asserts the two agree, so a quantity added here and not there fails
+    a test.
+4.  If a quantity is only defined for some configurations — the
+    per-recruit reference points are computed only under `msmMode = 0` —
+    say so in its `meaning`, and gate it in
+    [`report_tables()`](https://grantdadams.github.io/Rceattle/reference/report_tables.md).
+    CEATTLE leaves a *number* behind rather than a gap, so an ungated
+    quantity reports a plausible wrong figure.
 
 ### Add or change a data input
 

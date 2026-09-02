@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.23.0/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
       <div class="d-none name"><code>model-options-and-functionality.Rmd</code></div>
     </div>
 
@@ -534,17 +534,90 @@ the fit it actually gave, or see the replacement below.</td>
 <tr class="odd">
 <td align="center"><code>4</code></td>
 <td><code>"RandomWalk"</code></td>
-<td>Random walk (not allowed with <code>NonParametric</code> or
-<code>Hake</code>)</td>
+<td>Random walk</td>
 </tr>
 <tr class="even">
 <td align="center"><code>5</code></td>
 <td><code>"RandomWalkAscending"</code></td>
-<td>Random walk on ascending portion of double logistic (not allowed
-with <code>NonParametric</code> or <code>Hake</code>)</td>
+<td>Random walk on ascending portion of double logistic</td>
 </tr>
 </tbody>
 </table>
+<p>Not every mode applies to every selectivity form, because the model
+only scores a deviation where it defines a density for it:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Selectivity</th>
+<th>Modes accepted</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>Logistic</code>, <code>DoubleLogistic</code>,
+<code>DescendingLogistic</code>, <code>DoubleNormal</code>
+</td>
+<td>
+<code>Off</code>, <code>IID</code>, <code>Block</code>,
+<code>RandomWalk</code>; <code>RandomWalkAscending</code> on
+<code>DoubleLogistic</code> and <code>DoubleNormal</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>NonParametric</code></td>
+<td>
+<code>Off</code>, <code>IID</code>, <code>RandomWalk</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>NonParametricPM</code></td>
+<td>
+<code>Off</code>, <code>RandomWalk</code> — its deviates
+<em>are</em> the walk increments, so <code>IID</code> would describe a
+different curve than the model builds</td>
+</tr>
+<tr class="even">
+<td><code>Hake</code></td>
+<td>
+<code>Off</code>, <code>IID</code>
+</td>
+</tr>
+<tr class="odd">
+<td>
+<code>2DAR1</code>, <code>3DAR1</code>
+</td>
+<td>none — the field carries its own correlations and sd through
+<code>Sel_curve_pen</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The two non-parametric modes differ in what they are a deviation
+<em>of</em>. <code>"IID"</code> scores each annual coefficient deviation
+about an estimated base curve; <code>"RandomWalk"</code> scores the
+year-to-year change in the <em>realized</em> selectivity, which is
+renormalized to mean 1 within each year.</p>
+<p><strong>Neither is integrated out by default, and
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code> refuses <code>random_sel = TRUE</code> on
+both</strong> — fit them with <code>random_sel = FALSE</code>, the
+penalized formulation the AMAK model intends. The walk’s density says
+nothing about the level of a year’s coefficients, so those directions
+are improper and the deviation standard deviation collapses to zero. The
+IID density is proper, but the shape penalty beside it
+(<code>Sel_curve_pen1</code>) is one-sided, so the Laplace objective is
+only piecewise smooth and the optimizer stops at a kink rather than an
+optimum. Setting <code>Sel_curve_pen1 = 0</code> removes that penalty
+and makes the IID deviates integrable against the curvature penalty
+alone.</p>
+<p>One caveat if you do integrate them: the AMAK <code>avgsel</code>
+term is charged on the integrated deviates as well, so the prior
+actually integrated is the IID normal <em>times</em> that penalty. It
+does not scale with <code>Time_varying_sel_sd</code>, so it biases the
+estimated sd low — measured at about 5% of the precision at sd 0.35,
+more as the sd grows.</p>
 <p>The switch is <strong>soft-deprecated as a whole</strong>, and
 <code><a href="../reference/data_check.html">data_check()</a></code> says so on use. The linkage grammar expresses
 the same IID, random-walk and AR(1) deviations —

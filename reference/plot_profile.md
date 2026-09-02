@@ -45,7 +45,10 @@ plot_profile(
 
   Passed to
   [`profile_components()`](https://grantdadams.github.io/Rceattle/reference/profile_components.md).
-  `minfraction` defaults to `0.01` here, as in `r4ss::SSplotProfile()`.
+  `minfraction` drops a component moving less than that fraction of the
+  TOTAL's change over the grid – not an absolute number of objective
+  units. It defaults to `0.01` here, as in `r4ss::SSplotProfile()`, so a
+  total moving 60 units cuts at 0.6.
 
 - add_cutoff:
 

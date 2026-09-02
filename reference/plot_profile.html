@@ -15,7 +15,7 @@ the total on its own cannot show."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,7 +59,7 @@ the total on its own cannot show."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Plot the likelihood components across a profile</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.23.0/R/7-plot_profile.R" class="external-link"><code>R/7-plot_profile.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/7-plot_profile.R" class="external-link"><code>R/7-plot_profile.R</code></a></small>
       <div class="d-none name"><code>plot_profile.Rd</code></div>
     </div>
 
@@ -108,7 +108,10 @@ the same profile run on two model configurations).</p></dd>
 
 <dt id="arg-weighted-relative-minfraction">weighted, relative, minfraction<a class="anchor" aria-label="anchor" href="#arg-weighted-relative-minfraction"></a></dt>
 <dd><p>Passed to <code><a href="profile_components.html">profile_components()</a></code>.
-<code>minfraction</code> defaults to <code>0.01</code> here, as in <code>r4ss::SSplotProfile()</code>.</p></dd>
+<code>minfraction</code> drops a component moving less than that fraction of the
+TOTAL's change over the grid – not an absolute number of objective units.
+It defaults to <code>0.01</code> here, as in <code>r4ss::SSplotProfile()</code>, so a total
+moving 60 units cuts at 0.6.</p></dd>
 
 
 <dt id="arg-add-cutoff">add_cutoff<a class="anchor" aria-label="anchor" href="#arg-add-cutoff"></a></dt>

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>1. Rceattle: An Introduction</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.23.0/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -271,6 +271,25 @@ names:</p>
 <p>Anything beginning <code>log_</code>, or ending <code>_log_sd</code>,
 needs <code><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp()</a></code> to reach the quantity named in the dictionary’s
 <code>natural</code> column.</p>
+<p><code><a href="../reference/quantity_dictionary.html">quantity_dictionary()</a></code> does the same job for the reported
+quantities — what each one means, the units it is in, its dimensions,
+and whether <code>sdreport()</code> gives it a standard error:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/quantity_dictionary.html">quantity_dictionary</a></span><span class="op">(</span><span class="st">"ssb_depletion"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/quantity_dictionary.html">quantity_dictionary</a></span><span class="op">(</span>process <span class="op">=</span> <span class="st">"reference_points"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Everything that carries a standard error</span></span>
+<span><span class="va">dict</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/quantity_dictionary.html">quantity_dictionary</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">dict</span><span class="op">[</span><span class="va">dict</span><span class="op">$</span><span class="va">se</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"quantity"</span>, <span class="st">"units"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+<p>Units follow the model throughout: numbers-at-age are
+<strong>thousands of fish</strong> and weight-at-age is
+<strong>kg</strong>, so their product is <strong>mt</strong>. Two things
+worth reading off the dictionary before using a quantity.
+<code>ssb</code> is <em>female</em> spawning-stock biomass, and every
+per-recruit reference point (<code>SPR0</code>, <code>SPRlimit</code>,
+<code>SPRtarget</code>) is defined only in single-species mode — on a
+multispecies fit the model leaves them at zero, which is not an estimate
+of zero.</p>
 </div>
 <div class="section level2">
 <h2 id="compare-models">5. Compare models<a class="anchor" aria-label="anchor" href="#compare-models"></a>
@@ -279,7 +298,7 @@ needs <code><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp(
 AIC, and retrospective analysis. AIC cannot compare a
 penalized-likelihood fit against a marginal-likelihood fit. The
 likelihood components are stored in the model objects built above:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Evaluate 1 model</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span>                    <span class="co"># AIC, via the logLik() method below</span></span>
 <span><span class="va">model_1</span><span class="op">$</span><span class="va">opt</span><span class="op">$</span><span class="va">objective</span>           <span class="co"># Negative log-likelihood</span></span>
@@ -287,10 +306,44 @@ likelihood components are stored in the model objects built above:</p>
 <span></span>
 <span><span class="co"># Compare AIC across 3-species penalized likelihood models</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_2</span>, <span class="va">model_3</span>, <span class="va">model_5</span><span class="op">)</span>, <span class="va">AIC</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/report_tables.html">report_tables()</a></code> collects the quantities an assessment
+reports — the fit and its likelihood decomposition, the time series with
+uncertainty, the reference points, and the fits to index and catch —
+into one set of tidy tables. Every table carries a <code>model</code>
+column, so several fits stack for a like-for-like comparison:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tabs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/report_tables.html">report_tables</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>pollock <span class="op">=</span> <span class="va">model_1</span>, three_species <span class="op">=</span> <span class="va">model_2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">tabs</span></span>
+<span><span class="va">tabs</span><span class="op">$</span><span class="va">reference_points</span></span></code></pre></div>
+<p>Read the <code>basis</code> column of <code>reference_points</code>
+before quoting anything from it. A CEATTLE fit leaves a <em>number</em>
+behind for reference points it never estimated, and each one looks like
+an estimate: <code>Ftarget</code> and <code>Flimit</code> sit at 1.0/yr
+unless the harvest control rule estimates them, and in multispecies mode
+<code>SB0</code> is a placeholder until a no-fishing projection derives
+it, which would make B40% a few hundred tonnes. Those cells are returned
+as <code>NA</code> with the reason in <code>basis</code>, rather than as
+the number the model happens to hold.</p>
+<p>Diagnostics are attached rather than computed: a retrospective or a
+jitter is tens to hundreds of refits, so <code><a href="../reference/report_tables.html">report_tables()</a></code>
+never runs one on your behalf. Pass them in once you have them, and the
+matching sections appear:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/report_tables.html">report_tables</a></span><span class="op">(</span><span class="va">model_1</span>, retro <span class="op">=</span> <span class="va">model_1_retro</span>, osa <span class="op">=</span> <span class="fu"><a href="../reference/osa_residuals.html">osa_residuals</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/standard_output.html">standard_output()</a></code> relabels the result into the NOAA
+standardized assessment output that the <code>stockplotr</code> and
+<code>asar</code> packages read, so Rceattle results can be plotted and
+written into a report by the same tooling used for SS3, BAM, WHAM and
+FIMS. That standard describes one stock and has no species dimension, so
+a fit with more than one needs <code>species</code> to pick the stock to
+emit:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/standard_output.html">standard_output</a></span><span class="op">(</span><span class="va">tabs</span>, model <span class="op">=</span> <span class="st">"pollock"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/standard_output.html">standard_output</a></span><span class="op">(</span><span class="va">tabs</span>, model <span class="op">=</span> <span class="st">"three_species"</span>, species <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>The <code>retrospective</code> function measures retrospective bias,
 returning a list of refit models and a data.frame of Mohn’s rho
 values.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_1_retro</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/retrospective.html">retrospective</a></span><span class="op">(</span><span class="va">model_1</span>, peels <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span>, model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Pollock; mohns ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">model_1_retro</span><span class="op">$</span><span class="va">mohns</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -302,13 +355,13 @@ values.</p>
 series of biomass, SSB, recruitment, biomass consumed as prey,
 mortality-at-age, and depletion, with uncertainty. Time-series plots
 accept a list of models (see above).</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_2</span>, <span class="va">model_3</span>, <span class="va">model_4</span>, <span class="va">model_5</span><span class="op">)</span></span>
 <span><span class="va">model_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"single-spp"</span>, <span class="st">"Single-spp M"</span>, <span class="st">"Single-spp M - RE"</span>, <span class="st">"Multi-spp"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Biomass</span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">TRUE</span>, add_ci <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Recruitment</span></span>
 <span><span class="fu"><a href="../reference/plot_recruitment.html">plot_recruitment</a></span><span class="op">(</span><span class="va">model_list</span>, model_names <span class="op">=</span> <span class="va">model_names</span>, incl_proj <span class="op">=</span> <span class="cn">TRUE</span>, add_ci <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
@@ -330,7 +383,7 @@ and catch plots take one or more.</p>
 model, colour is the year, so time-varying selectivity reads as a fan.
 With several, colour separates the models and the fan moves to
 transparency.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Selectivity</span></span>
 <span><span class="fu"><a href="../reference/plot_selectivity.html">plot_selectivity</a></span><span class="op">(</span><span class="va">model_2</span><span class="op">)</span></span>
 <span></span>

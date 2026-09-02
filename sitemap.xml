@@ -145,6 +145,7 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_b_eaten_prop.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_biomass.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_catch.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/plot_catchability.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_comp.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_data.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/plot_depletion.html</loc></url>
@@ -179,6 +180,7 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/print.Rceattle_profile.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/print.Rceattle_retro.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/print.Rceattle_selftest.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/print.rceattle_report.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/print.summary.Rceattle.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/prior_beta.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/prior_gamma.html</loc></url>
@@ -187,6 +189,7 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/process_residuals.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/profile.Rceattle.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/profile_components.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/quantity_dictionary.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/rceattle-plot-args.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/rceattle-refit-args.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/rceattle_switch_maps.html</loc></url>
@@ -194,6 +197,7 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/rearrange_data.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/remove_F.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/rename_output.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/report_tables.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/residuals.Rceattle.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/retrospective.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/reweight_comps.html</loc></url>
@@ -206,6 +210,7 @@
 <url><loc>https://grantdadams.github.io/Rceattle/reference/set_phases.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/sim_mod.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/simulate.Rceattle.html</loc></url>
+<url><loc>https://grantdadams.github.io/Rceattle/reference/standard_output.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/summary.Rceattle.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/switch_check.html</loc></url>
 <url><loc>https://grantdadams.github.io/Rceattle/reference/validate_linkage_table.html</loc></url>

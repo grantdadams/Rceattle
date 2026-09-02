@@ -603,8 +603,12 @@ referenced by column order.
 Skip this if no environmental covariates are used.
 [`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
 will fall back to a Year-only data.frame with no indices, and validation
-only complains when a feature actually needs an index (env-q
-catchability, `Ceq[sp] > 1`, or any env linkage).
+only complains when a feature actually needs one (env-q catchability, a
+consumption equation that reads a temperature – `Ceq` 1, 2 or 3 – or any
+env linkage). With no index to read, consumption uses the constant
+`fT = 1` of `Ceq = 4`. That is an error under `msmMode > 0`, where
+consumption drives predation mortality, and a warning under
+single-species, where it reaches only the reported `ration`.
 
 ``` r
 
@@ -617,9 +621,11 @@ simData$env_data <- data.frame(
 ## 8. Multi-species bioenergetics parameters (optional in single-species mode)
 
 These parameters govern the Wisconsin bioenergetics model used to
-compute predation mortality (M2) in multi-species mode. They are unused
-in single-species mode and can be omitted entirely — Rceattle fills any
-missing scalars with safe defaults.
+compute predation mortality (M2) in multi-species mode. In
+single-species mode they reach only the reported `ration` and
+`consumption_at_age`, never the objective, and can be omitted entirely —
+Rceattle fills any missing scalars with safe defaults (`Ceq = 4`, the
+constant form that reads no environmental index).
 
 In multi-species mode (`msmMode > 0`) **all** of `Ceq`, `Cindex`,
 `Pvalue`, `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4`
@@ -642,7 +648,7 @@ parameter.
 #   4 = bypass bioenergetics; use ration_data directly (set CA = 1, fday = 1, CB = 0)
 simData$Ceq    <- rep(4,  nspp)
 
-simData$Cindex <- rep(1,  nspp)   # temperature index type
+simData$Cindex <- rep(1,  nspp)   # which env_data covariate column drives it, counting from 1
 simData$Pvalue <- rep(1,  nspp)   # proportion of maximum consumption realised
 simData$fday   <- rep(1,  nspp)   # foraging days per year
 

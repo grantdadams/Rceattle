@@ -340,6 +340,12 @@ Fit single- or multi-species CEATTLE models and manage output.
   : Label the derived quantities reported by a CEATTLE fit
 - [`parameter_dictionary()`](https://grantdadams.github.io/Rceattle/reference/parameter_dictionary.md)
   : Look up what a CEATTLE parameter is
+- [`quantity_dictionary()`](https://grantdadams.github.io/Rceattle/reference/quantity_dictionary.md)
+  : Look up what a CEATTLE reported quantity is
+- [`report_tables()`](https://grantdadams.github.io/Rceattle/reference/report_tables.md)
+  : Assessment reporting tables from one or more Rceattle fits
+- [`standard_output()`](https://grantdadams.github.io/Rceattle/reference/standard_output.md)
+  : Rceattle output in the NOAA standardized assessment format
 
 ## Projections and MSE
 
@@ -459,6 +465,8 @@ Visualize survey indices, fits, and residuals.
   : Survey index fits
 - [`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
   : Survey index residuals
+- [`plot_catchability()`](https://grantdadams.github.io/Rceattle/reference/plot_catchability.md)
+  : Survey catchability over time
 - [`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
   : Plot composition fits and residuals
 - [`plot_profile()`](https://grantdadams.github.io/Rceattle/reference/plot_profile.md)
@@ -555,6 +563,8 @@ S3 methods, utility functions, and internal helpers.
 - [`print(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
   [`summary(`*`<Rceattle_data>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.Rceattle_data.md)
   : Print method for an Rceattle data list
+- [`print(`*`<rceattle_report>`*`)`](https://grantdadams.github.io/Rceattle/reference/print.rceattle_report.md)
+  : Print method for a set of assessment reporting tables
 - [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
   : Function to check for missing switches for map and parameter
   functions

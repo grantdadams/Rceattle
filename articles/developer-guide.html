@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>Developer guide</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.23.0/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/articles/developer-guide.Rmd" class="external-link"><code>vignettes/articles/developer-guide.Rmd</code></a></small>
       <div class="d-none name"><code>developer-guide.Rmd</code></div>
     </div>
 
@@ -300,6 +300,20 @@ pipeline, an older spelling is translated to the current name
 automatically, so workbooks and scripts written against earlier column
 names keep working (<code>test-schema-canonical.R</code> checks
 this).</p>
+<p>Both spellings at once is the case to know about, because it is what
+a script produces when it assigns an older name to a
+<code>data_list</code> that <code><a href="../reference/read_data.html">read_data()</a></code> has already
+translated: the assignment creates the old column beside the new one.
+They must then hold the same setting — an integer switch code and its
+string count as the same — and anything else is an error naming both
+values. Nothing is merged and no blank is filled in from the other
+column, because <code>NA</code> is a real setting in several of these
+(<code>Sel_norm_bin</code> and <code>Sel_cap_bin</code> mean “do not
+normalize” and “no cap”; <code>Proj_F_proportion</code> means “no F
+apportioned”), so filling could not express clearing a value and would
+move a number silently. Until 5.25.0 the older spelling was simply
+discarded here, which is how several assessment scripts came to be
+running settings they did not ask for.</p>
 <p><strong><code><a href="../reference/data_requirements.html">data_requirements()</a></code></strong> reports, for a
 given model setup, which inputs that model requires, which are optional,
 and which are ignored — so you can see what a configuration needs before
@@ -510,6 +524,31 @@ though they were simulated.</li>
 <code><a href="../reference/fit_mod.html">fit_mod()</a></code> argument.</li>
 <li>Document it in <code>inst/extdata/meta_data_names.xlsx</code> and/or
 the <code><a href="../reference/fit_mod.html">fit_mod()</a></code> roxygen.</li>
+</ol>
+</div>
+<div class="section level3">
+<h3 id="add-a-new-reported-quantity">Add a new reported quantity<a class="anchor" aria-label="anchor" href="#add-a-new-reported-quantity"></a>
+</h3>
+<ol style="list-style-type: decimal">
+<li>
+<code>REPORT()</code> it in <code>ceattle.cpp</code> (and
+<code>ADREPORT()</code> it if it needs a standard error). A
+<code>REPORT</code> inside a comment block is not reported — enumerate
+from a real fit, not from a grep, when checking what a model actually
+returns.</li>
+<li>Give it dimension names in <code>R/6-rename_output.R</code> if it is
+an array.</li>
+<li>Add it to the quantity dictionary in
+<code>R/0-quantity_dictionary.R</code>, with its units and whether it
+carries a standard error. <code>test-schema-quantity-dictionary.R</code>
+reads the template and a fit and asserts the two agree, so a quantity
+added here and not there fails a test.</li>
+<li>If a quantity is only defined for some configurations — the
+per-recruit reference points are computed only under
+<code>msmMode = 0</code> — say so in its <code>meaning</code>, and gate
+it in <code><a href="../reference/report_tables.html">report_tables()</a></code>. CEATTLE leaves a <em>number</em>
+behind rather than a gap, so an ungated quantity reports a plausible
+wrong figure.</li>
 </ol>
 </div>
 <div class="section level3">

@@ -167,6 +167,14 @@ The checks cover:
 - **`parameters_on_bounds`** — parameters that hit a configured
   [`build_bounds()`](https://grantdadams.github.io/Rceattle/reference/build_bounds.md)
   limit (often unidentified or mis-scaled).
+- **`variance_collapse`** — a deviation standard deviation estimated to
+  zero (`WARN` below 1e-3), meaning the process it governs is not
+  varying: a model configured as time-varying has fitted something
+  time-invariant. Covers the recruitment, selectivity, catchability, M1
+  and linkage random-effect standard deviations. `WARN` rather than
+  `FAIL` because a variance at the boundary is a well-posed optimum — a
+  verdict about the model, not the optimizer — and it can occur with a
+  perfectly clean gradient, which is the case nothing else catches.
 - **`phasing`** — phases that ended with a high gradient, localizing
   which parameter block is hard to fit.
 - **`estimability`** — surfaces
@@ -205,6 +213,21 @@ the model predicted. These return `ggplot` objects.
 plot_index(model_1)
 plot_index(model_1, log = TRUE)
 plot_indexresidual(model_1)
+```
+
+[`plot_catchability()`](https://grantdadams.github.io/Rceattle/reference/plot_catchability.md)
+draws the other half of the same fit: the catchability the model scaled
+each survey by, faceted by fleet. It reads the realized `q`, so one
+figure covers an estimated or fixed mean, annual deviations under
+`Time_varying_q`, an environmental regression, a `q` linkage such as
+`rw(1 | Year)`, and the closed-form `"Analytical"` value. A fleet with a
+time-invariant `q` draws a flat line. Hindcast years only — the model
+does not project catchability.
+
+``` r
+
+plot_catchability(model_1)
+plot_catchability(model_1, log = TRUE)
 ```
 
 ### Catch
@@ -812,6 +835,31 @@ plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 ```
+
+## Collecting it into report tables
+
+Everything above returns its own shape.
+[`report_tables()`](https://grantdadams.github.io/Rceattle/reference/report_tables.md)
+gathers them into one set of tidy tables — the fit, the likelihood
+decomposition, the time series with uncertainty, the reference points,
+the fits to index and catch, and whichever diagnostics you pass it:
+
+``` r
+
+tabs <- report_tables(model_1,
+                      retro = model_1_retro, jitter = jitters, osa = osa)
+tabs
+tabs$retrospective          # Mohn's rho by species and forecast year
+tabs$osa                    # SDNR and tail statistics per fleet
+```
+
+It never refits, so a diagnostic you have not run is simply an absent
+section. Check the `basis` column of `tabs$reference_points` before
+quoting a reference point: quantities the fit never estimated are
+returned as `NA` with the reason, rather than as the value left in the
+array.
+[`standard_output()`](https://grantdadams.github.io/Rceattle/reference/standard_output.md)
+relabels the result for the `stockplotr` and `asar` reporting packages.
 
 ## Model average
 

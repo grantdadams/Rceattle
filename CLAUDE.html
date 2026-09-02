@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>CLAUDE.md — Rceattle</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.23.0/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
     </div>
 
 <div id="claudemd--rceattle" class="section level1">
@@ -211,6 +211,12 @@
 <strong><code>Index_distribution</code> has a second hand-synced registry</strong> — a family added to <code>index_distribution_map</code> must also be classified in <code>.index_rows_natural_scale()</code> (<code>R/0-switches.R</code>), or it silently gets the log-scale residual formula.</li>
 <li>
 <strong><code>jnll_comp</code> columns count fleets on rows 1–8 and species on rows 9–20</strong>, so <code><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums()</a></code> pools across two different axes. <code>.JNLL_ROW_AXIS</code> (<code>R/9-profile.R</code>) is the registry.</li>
+<li>
+<strong>A reference point CEATTLE never estimated is a number, not a gap</strong> — <code>Ftarget</code>/<code>Flimit</code> sit at <code>exp(0) = 1</code> unless the HCR estimates them (gate on <code><a href="reference/build_hcr_map.html">build_hcr_map()</a></code>, never on <code>fit$map</code>), <code>SB0</code> under <code>msmMode &gt; 0</code> is the 999 mt <code>MSSB0</code> placeholder until <code>MSSB0_derived</code> is TRUE, and the per-recruit quantities are zero outside <code>msmMode = 0</code>.</li>
+<li>
+<strong>The depletions do not simply divide by <code>SB0</code></strong> — under <code>HCR = 0 &amp; msmMode &gt; 0</code> they divide by biomass in the last projection year, so blanking them alongside a placeholder <code>SB0</code> discards a valid series.</li>
+<li>
+<strong>A grep for <code>REPORT(</code> over <code>ceattle.cpp</code> over-counts</strong> — several sit behind comments. A fit reports 99 quantities; enumerate from <code>names(fit$quantities)</code>. <code><a href="reference/quantity_dictionary.html">quantity_dictionary()</a></code> is the registry, and <code>test-schema-quantity-dictionary.R</code> holds the two together.</li>
 <li>
 <strong><code>retrospective(getsd = TRUE)</code> can drop peels <code>getsd = FALSE</code> keeps</strong> — the non-PD Hessian check only runs when an <code>sdreport</code> exists — so Mohn’s rho can differ between the two.</li>
 <li>
