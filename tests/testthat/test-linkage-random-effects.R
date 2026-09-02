@@ -390,8 +390,9 @@ testthat::test_that("priors = list(sigma = ...) puts a prior on the deviation SD
 testthat::test_that("a smooth random-effect model is not called discontinuous", {
   testthat::skip_on_cran()
   d <- Rceattle::BS2017SS
+  survey_flt <- 7L  # EIT_Pollock, the only Estimated-q survey (Fixed q is rejected)
   qfun <- Rceattle::build_catchability(linkages = list(
-    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = survey_flt)))
 
   # getsd = TRUE: the check only runs where an sdreport exists.
   msgs <- testthat::capture_messages(
@@ -403,10 +404,36 @@ testthat::test_that("a smooth random-effect model is not called discontinuous", 
   testthat::expect_false(any(grepl("discontinuous", msgs)))
 
   # The joint nll is more than rel_tol away, so the old comparison flagged this
-  # model every time; the marginal one agrees with the optimizer exactly.
+  # model every time. The marginal gap is under it.
   jnll <- fit$obj$report(fit$obj$env$last.par.best)$jnll
   testthat::expect_gt(abs(fit$opt$objective - jnll), 1)
-  testthat::expect_equal(
-    as.numeric(fit$obj$fn(fit$obj$env$last.par.best[-fit$obj$env$random])),
-    fit$opt$objective)
+  testthat::expect_lt(Rceattle:::.rce_marginal_gap(fit$obj, fit$opt), 1)
+})
+
+
+# The gap has to be measured against the object the optimizer ran on.
+# fit_mod() rebuilds obj for the projection, and again under
+# projection_uncertainty, and build_hcr_map() maps every hindcast parameter off,
+# so those rebuilds disagree with `opt` on which parameters are random. Measured
+# on this model: opt$objective 10207.488519 against 10228.940923 from the
+# all-parameters-on rebuild, a 21.45 gap on a fit with nothing wrong with it.
+testthat::test_that("projection_uncertainty does not fake a discontinuity", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  d$fleet_control$Proj_F_proportion[d$fleet_control$Fleet_type == 1] <- 1
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+
+  msgs <- testthat::capture_messages(
+    fit <- Rceattle::fit_mod(data_list = d, estimateMode = 0, msmMode = 0,
+      qFun = qfun,
+      HCR = Rceattle::build_hcr(HCR = "NPFMC", Ptarget = 0.4, Plimit = 0.2),
+      fit_control = Rceattle::fit_control(phase = FALSE, getsd = TRUE,
+                                          projection_uncertainty = TRUE,
+                                          verbose = 0)))
+
+  # The rebuild carries the random effects the projection fit did not.
+  testthat::expect_true(length(fit$obj$env$random) > 0)
+  testthat::expect_gt(Rceattle:::.rce_marginal_gap(fit$obj, fit$opt), 1)
+  testthat::expect_false(any(grepl("discontinuous", msgs)))
 })

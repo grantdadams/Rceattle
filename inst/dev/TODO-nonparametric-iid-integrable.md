@@ -30,6 +30,11 @@ and `log Z(sd, w)` is nowhere in the objective. `Z` shrinks as `sd` grows, so
 (`avg_sel^2`) are already smooth: they contribute no kink and all bias. This is
 the effect `vignette("model-options-and-functionality")` measures for term 4.
 
+Laplace does integrate the penalty, so nothing is mis-computed. The defect is
+what the estimate MEANS: `sel_dev_sd` maximizes a marginal missing an
+sd-dependent term, so the number reported as the deviation sd is the sd of a
+tilted density, not of the deviations.
+
 **Smoothing the hinge is not the fix.** Replacing `CppAD::abs(d)` with
 `sqrt(d*d + eps*eps)` gives a C-infinity penalty and cures (a), but leaves (b)
 untouched -- it buys a converged fit with a wrong variance, which is worse than

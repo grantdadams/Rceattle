@@ -63,7 +63,7 @@ phasing. Default \code{TRUE}.}
 
 \item{rel_tol}{Numeric tolerance used to flag discontinuous
 likelihood warnings, comparing \code{nlminb}'s objective with a fresh
-\code{obj$fn()} at the same parameters. Default \code{1}.}
+evaluation of the object it came from. Default \code{1}.}
 
 \item{loopnum}{Integer. Number of times to re-start optimization
 (\code{loopnum = 3} sometimes achieves a lower final gradient than

@@ -50,7 +50,7 @@
 #'   phasing. Default `TRUE`.
 #' @param rel_tol Numeric tolerance used to flag discontinuous
 #'   likelihood warnings, comparing `nlminb`'s objective with a fresh
-#'   `obj$fn()` at the same parameters. Default `1`.
+#'   evaluation of the object it came from. Default `1`.
 #' @param loopnum Integer. Number of times to re-start optimization
 #'   (`loopnum = 3` sometimes achieves a lower final gradient than
 #'   `loopnum = 1`). Default `5`.

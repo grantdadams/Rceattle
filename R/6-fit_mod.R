@@ -1176,6 +1176,10 @@ fit_mod <-
     step <- step + 1
 
 
+    # Gap behind convergence warning (8), measured beside each optimization
+    # while `opt` and `obj` are still the same model (see .rce_marginal_gap()).
+    disc_gap <- NA_real_
+
     # * Optimize hindcast ----
     if (estimateMode %in% c(0, 1, 4)) {
       opt <- suppressMessages(
@@ -1247,6 +1251,7 @@ fit_mod <-
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,
           random_vars = random_vars, getsd = getsd)
+        disc_gap <- .rce_marginal_gap(obj, opt)
       }
     }
 
@@ -1295,6 +1300,7 @@ fit_mod <-
                        getJointPrecision = FALSE,
                        quiet             = verbose < 2)
             )
+            disc_gap <- .rce_marginal_gap(obj, opt)
           }
         }
 
@@ -1353,6 +1359,7 @@ fit_mod <-
                          getJointPrecision = FALSE,
                          quiet             = verbose < 2)
               )
+              disc_gap <- .rce_marginal_gap(obj, opt)
 
               # Update F from opt
               last_par$log_Ftarget[params_on] <- opt$par[1:length(params_on)]
@@ -1406,34 +1413,16 @@ fit_mod <-
     quantities <- obj$report(obj$env$last.par.best)
 
     # Discontinuous likelihood: the objective nlminb reported must survive a
-    # fresh evaluation at the same parameters. Both sides are the MARGINAL
-    # objective -- `obj$report()$jnll` is the joint nll at the random-effect
-    # mode, a Laplace correction away from it on any model with random effects.
+    # fresh evaluation of the object it came from. `disc_gap` was measured
+    # beside that optimization, because `obj` here may be a later rebuild whose
+    # map changed which parameters are random. NA is not evidence either way.
     if (estimateMode %in% c(0:2)) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
-        if (!is.null(opt) && !is.null(opt$SD)) {
-          # -integer(0) would drop every parameter rather than none.
-          .fixed <- if (length(obj$env$random) > 0) {
-            obj$env$last.par.best[-obj$env$random]
-          } else {
-            obj$env$last.par.best
-          }
-          # obj$fn() writes to the TMB environment, and this object is returned
-          # to the caller, so the evaluation state is restored after the call.
-          .lpb <- obj$env$last.par.best
-          .lp  <- obj$env$last.par
-          .vb  <- obj$env$value.best
-          .refit_obj <- tryCatch(as.numeric(obj$fn(.fixed)),
-                                 error = function(e) NA_real_)
-          obj$env$last.par.best <- .lpb
-          obj$env$last.par      <- .lp
-          obj$env$value.best    <- .vb
-          # A re-evaluation that failed is not evidence either way.
-          if (is.finite(.refit_obj) && abs(opt$objective - .refit_obj) > rel_tol) {
-            message("#################################################")
-            message("Convergence warning (8): discontinuous likelihood")
-            message("#################################################")
-          }
+        if (!is.null(opt) && !is.null(opt$SD) &&
+            is.finite(disc_gap) && disc_gap > rel_tol) {
+          message("#################################################")
+          message("Convergence warning (8): discontinuous likelihood")
+          message("#################################################")
         }
       }
     }
