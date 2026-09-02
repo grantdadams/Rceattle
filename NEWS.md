@@ -21,16 +21,11 @@ version throughout.
   so a diagnostic could report that `sel_coff_dev` was non-identifiable but not
   which of its 392 elements. Returns one row per estimated parameter with
   `species`, `fleet`, `sex`, `age`, `bin`, `year` and `slot` columns plus a
-  rendered `label`.
-
-  The mapping is recovered through TMB's own `parList()`, so it tracks
+  rendered `label`. Recovered through TMB's own `parList()`, so it tracks
   `build_map()` exactly: mapped-off parameters are absent, and fleets sharing a
-  `Selectivity_index` or `Catchability_index` appear once, as the single
-  parameter they are, with `n_cells` counting the cells they drive.
-
-  An axis constant across the model is left out of the label. A one-species,
-  one-sex fit does not need the species and sex on every row; a two-species fit
-  does. The structured columns carry the value either way.
+  `Selectivity_index` or `Catchability_index` appear once, with `n_cells`
+  counting the cells they drive. An axis constant across the model is left out
+  of the label; the structured columns carry it either way.
 
 ## Bug fixes
 
@@ -44,32 +39,46 @@ version throughout.
     sel_coff_dev  GOA_pollock_fishery, bins 1-8, 2013-2018  (41)
   ```
 
-  `hessian_conditioning` keeps its block percentages and adds where the loading
-  sits inside each block, reporting the parameters carrying the top 90% and how
-  many that is. `parameters_on_bounds` gains a `where` column.
+  `parameters_on_bounds` gains a `where` column.
 
-* **`hessian_conditioning` is read on the correlation matrix and reported as a
-  ratio of standard errors.** The covariance condition number is not
-  scale-invariant (`log_F` near -2, `sel_inf` near 10), so rescaling a parameter
-  moved it without changing the model. Covariance against correlation: `BS2017SS`
-  4.6e4 against 2.0e4, a GOA pollock non-parametric fit 1.9e5 against 1.6e4, a
-  2DAR1 fit 2.5e9 against 1.9e8. Scaling inflates all three and the confounded one
-  stays four orders above the others, so the 1e6 and 1e10 thresholds give the same
-  verdict on each and are unchanged. The message leads with the square root, a
-  ratio of standard errors; `fit$convergence` carries `se_ratio` beside
-  `condition_number`.
+* **`hessian_conditioning` is read on the correlation matrix.** The covariance
+  condition number is not scale-invariant (`log_F` near -2, `sel_inf` near 10),
+  so rescaling a parameter moved it without changing the model. The message now
+  leads with the square root, a ratio of standard errors.
+
+  **`data$condition_number` therefore means something different from 5.25.1.**
+  Standardising lowers it by 0.4-1.1 orders on the models measured, so at
+  unchanged `WARN` 1e6 / `FAIL` 1e10 the check fires less readily; a badly
+  scaled but unconfounded fit is no longer flagged. `data$se_ratio` and
+  `data$covariance_condition_number` are new, the latter carrying the old value.
+  Code comparing condition numbers across this boundary needs the new name.
+
+* **Selectivity slot labels follow the fleet's `Selectivity`.** Slot 2 of
+  `sel_inf` is a descending inflection only for the double-logistic family: it
+  is `logit(right_floor)` under `DoubleNormal` and the free age-1
+  log-selectivity under `LogisticPM`.
+
+* **`sel_curve_pen` slots are AR1 correlations.** The block is estimated only
+  under 2DAR1 / 3DAR1, where its slots hold logit-scale correlations across
+  bins, years and cohorts -- not the `fleet_control` shape and curvature penalty
+  weights, which are never estimated.
+
+* **`rec_pars` slot 2 is the SRR alpha**, not steepness; steepness is derived
+  from alpha and `SPR0`. `growth_log_sd` is the standard deviation of
+  length-at-age at the minimum and maximum age (`L1` / `Linf`), and
+  `log_growth_pars` now names its four slots rather than numbering them.
+
+* **Three `parameter_dictionary()` dimensions were wrong.** `log_F` declared
+  `[n_fsh, nyrs]` against an `[n_flt, nyrs_hind]` array; `log_pop_scalar`
+  `[nspp, nyrs]` against an age axis; `M1_dev_log_sd` `[nspp, nsex, 2]` against
+  `[nspp, nsex]` (also corrected in `ceattle.cpp`). Documentation only, no fit
+  changes. `test-schema-parameter-index.R` now checks every block's declared
+  rank *and* extent against the built array.
 
 * **`fit_mod()` no longer prints the `check_estimability` table at
   `verbose = 1`.** It is one row per parameter, each named after its block, and
   the convergence record now carries the same verdict by coordinate. Still at
   `verbose > 1`; `fit$identified` is unchanged.
-
-* **`M1_dev_log_sd` is `[nspp, nsex]`.** `parameter_dictionary()` and the
-  `ceattle.cpp` declaration both claimed `[nspp, nsex, 2]`, an age and year slot
-  it does not have; `build_params()` allocates two dimensions and the likelihood
-  reads `M1_dev_log_sd(sp, sex)`. Documentation only, no fit changes.
-  `test-schema-parameter-index.R` checks every block's declared rank against the
-  built array, which is what found this.
 
 # Rceattle 5.25.1
 

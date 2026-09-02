@@ -162,20 +162,28 @@ The checks cover:
   Hessian could not be inverted.
 - **`hessian_conditioning`** — how much better the data pin down some parameter
   combinations than others. Inverting the Hessian gives the covariance of the
-  estimates; its eigenvalues are variances along directions in parameter space,
-  and the condition number is the largest over the smallest. This is the
-  multi-parameter version of a 0.999 pairwise correlation, and catches
-  confounding spread over many parameters at once. On a fishery it usually means
-  F traded against selectivity: scale F up, shift selectivity down, and
-  predicted catch-at-age barely moves.
+  estimates; standardising it by the standard errors gives their correlation,
+  whose eigenvalues are variances along directions in parameter space. The
+  condition number is the largest over the smallest. This is the multi-parameter
+  version of a 0.999 pairwise correlation, and catches confounding spread over
+  many parameters at once. On a fishery it usually means F traded against
+  selectivity: scale F up, shift selectivity down, and predicted catch-at-age
+  barely moves.
 
-  The message leads with the square root, a ratio of standard errors: 13,000
-  means the least-determined combination carries 13,000 times the standard error
-  of the best-determined one. Read on the **correlation** matrix, because the
-  covariance version is not scale-invariant (`log_F` near -2, `sel_inf` near 10),
-  so rescaling a parameter would move it without changing the model. `WARN` above
-  1e6, `FAIL` above 1e10, where about ten of a double's sixteen digits are lost
-  inverting the matrix. `BS2017SS` sits at 2.0e4.
+  The message leads with the square root, a ratio of standard errors: 13,634
+  means the least-determined combination carries 13,634 times the standard error
+  of the best-determined one. `WARN` above 1e6, `FAIL` above 1e10.
+
+  Read on the **correlation** and not the covariance, because the covariance
+  condition number is not scale-invariant: `log_F` sits near -2 and `sel_inf`
+  near 10, so rescaling a parameter would move it without changing the model.
+  Standardising costs sensitivity — the same three models read 4.6e4, 1.9e5 and
+  2.5e9 on the covariance against 2.0e4, 1.6e4 and 1.9e8 here — so a model that
+  is merely badly scaled no longer trips the check. The covariance number is
+  still reported, as `covariance_condition_number`, for the numerical cost of
+  inverting the Hessian; `pdHess` and `sdreport_failed` are what catch an
+  inversion that actually fails. The thresholds were held at 1e6/1e10 on three
+  models: `BS2017SS` sits at 2.0e4, roughly 1.7 orders below `WARN`.
 
   The parameters carrying the top 90% of each block's loading are then named by
   fleet, bin and year, with a count: a ridge over ten years and one over a single

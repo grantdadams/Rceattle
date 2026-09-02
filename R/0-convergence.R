@@ -366,23 +366,29 @@
 # the least-identified parameter direction. Complements (does not duplicate)
 # TMBhelper::check_estimability: that gives a per-parameter verdict; this gives
 # the severity (kappa) and the offending linear *combination*.
-.check_hessian_eigen <- function(object) {
+.check_hessian_eigen <- function(object, index = .conv_par_index(object)) {
   out <- list()
   cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
   if (is.null(cov) || !is.matrix(cov) || nrow(cov) < 2L) return(out)
-  # Read on the CORRELATION matrix, not the covariance. The condition number of
-  # the covariance is not scale-invariant: log_F sits near -2, sel_inf near 10,
-  # a variance near 0, so rescaling a parameter moves it without changing the
-  # model. Dividing by the standard errors removes that, leaving a measure of
-  # how nearly linearly dependent the estimates are. Measured: BS2017SS 4.6e4 on
-  # the covariance against 2.0e4 here, GOA pollock 2DAR1 2.5e9 against 1.9e8 --
-  # the scaling inflates every model, and the confounded one is still four
-  # orders above the well-behaved ones.
+  # Severity is read on the CORRELATION matrix. The covariance condition number
+  # is not scale-invariant -- log_F sits near -2 and sel_inf near 10, so
+  # rescaling a parameter moves it without changing the model. Standardising
+  # leaves a measure of how nearly linearly dependent the estimates are.
+  # The covariance number is still reported, as the numerical cost of inverting
+  # the Hessian; see inst/dev/TRAPS.md for the measured values.
   se <- sqrt(diag(cov))
   ok <- is.finite(se) & se > 0
   if (sum(ok) < 2L) return(out)
   keep_i <- which(ok)
   corr <- cov[ok, ok, drop = FALSE] / outer(se[ok], se[ok])
+
+  cov_ev <- tryCatch(eigen(cov[ok, ok, drop = FALSE], symmetric = TRUE,
+                           only.values = TRUE), error = function(e) NULL)
+  cov_kappa <- NA_real_
+  if (!is.null(cov_ev)) {
+    cp <- cov_ev$values[is.finite(cov_ev$values) & cov_ev$values > 0]
+    if (length(cp) >= 2L) cov_kappa <- max(cp) / min(cp)
+  }
 
   ev <- tryCatch(eigen(corr, symmetric = TRUE), error = function(e) NULL)
   if (is.null(ev)) return(out)
@@ -429,7 +435,7 @@
   # block's top 90% are summarised by coordinate and the count is printed: a
   # ridge over ten years and one over a single year read very differently.
   if (sev != "OK") {
-    idx <- .conv_par_index(object)
+    idx <- index
     if (!is.null(idx)) {
       lines <- character(0)
       for (b in names(share)[seq_len(ntop)]) {
@@ -450,7 +456,8 @@
   }
   out$hessian_conditioning <- .conv_record(
     "hessian_conditioning", "fit", sev, msg,
-    list(condition_number = kappa, se_ratio = se_ratio, loadings = top))
+    list(condition_number = kappa, se_ratio = se_ratio,
+         covariance_condition_number = cov_kappa, loadings = top))
   out
 }
 
@@ -469,7 +476,7 @@
 # Parameters at a configured bound. Optimization is unbounded in fit_mod(), so a
 # parameter at/beyond its build_bounds() range means the MLE hit the edge of the
 # plausible range -- often unidentified or mis-scaled.
-.check_bounds <- function(object) {
+.check_bounds <- function(object, index = .conv_par_index(object)) {
   ch <- object$.conv_hindcast
   if (is.null(ch) || is.null(ch$par) || is.null(ch$lower) || is.null(ch$upper)) {
     return(list())
@@ -484,7 +491,7 @@
   tab <- data.frame(param = names(par)[hit], mle = signif(par[hit], 4),
                     lower = signif(lo[hit], 4), upper = signif(hi[hit], 4),
                     bound = ifelse(at_lo[hit], "lower", "upper"))
-  idx <- .conv_par_index(object)
+  idx <- index
   tab <- .conv_attach_label(tab, hit, idx)
   list(parameters_on_bounds = .conv_record(
     "parameters_on_bounds", "fit", "WARN",
@@ -586,7 +593,7 @@
 # Surface TMBhelper::check_estimability (run by fit_mod() and stored as
 # object$identified when sdreport fails). Binary per-parameter verdict; pairs
 # with .check_hessian_eigen()'s continuous view.
-.check_estimability_record <- function(object) {
+.check_estimability_record <- function(object, index = .conv_par_index(object)) {
   out <- list()
   id <- object$identified
   if (is.null(id) || is.character(id)) return(out)
@@ -598,7 +605,7 @@
   if (!is.null(bad) && length(bad) > 0) {
     nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
                     error = function(e) NULL)
-    idx <- .conv_par_index(object)
+    idx <- index
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
       .conv_with_coords(
@@ -702,14 +709,18 @@
 #'   records).
 #' @export
 convergence_diagnostics <- function(object, ...) {
+  # Three checks name their parameters by coordinate, and recovering the index
+  # means pushing a tagged vector through TMB's parList(). A promise builds it at
+  # most once, and not at all on a fit where every check passes.
+  delayedAssign("index", .conv_par_index(object))
   checks <- c(
     .check_phasing(object),
     .check_optimizer(object),
     .check_sdreport_failed(object),
-    .check_hessian_eigen(object),
-    .check_bounds(object),
+    .check_hessian_eigen(object, index),
+    .check_bounds(object, index),
     .check_variance_collapse(object),
-    .check_estimability_record(object),
+    .check_estimability_record(object, index),
     .check_stock_recruit(object)
   )
   structure(
