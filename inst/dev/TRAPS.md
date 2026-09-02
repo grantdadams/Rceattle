@@ -308,6 +308,19 @@ ran when someone typed `/golden-check` locally. Its measured cost of `0` in
 `deep-checks` workflow now runs it nightly, and **asserts the run produced assertions**, because
 a skipped file otherwise reports as a pass.
 
+**And golden was only the worst case of it: no `skip_on_cran()` test could fail any job.** That
+is 140 of the 192 test files — every test that runs a real `fit_mod()` optimization. `R-CMD-check`
+sets `NOT_CRAN=false`, so it skips all of them. `test-coverage` does run them, but
+`tools/ci/coverage-shard.R` passes `stop_on_failure = FALSE` (deliberately: a failure must not
+throw away the shard's coverage before it is written) and no later step reads the result — the
+"Upload test results" step is `if: failure()`, which never fires because nothing failed. So a
+broken regression test printed into a shard log and the run went green. Found while reviewing
+5.25.1, whose own PR body claimed a new test "fails if anyone restores the old comparison"; it
+would not have. `deep-checks` now runs the whole suite nightly with `NOT_CRAN=true`, asserting
+the mode **before** the fits rather than after, since `NOT_CRAN` going false presents as a fast
+green run of nothing but the unguarded unit tests. **Writing a regression test is not the same as
+having one run** — check which job executes it, and whether that job can go red.
+
 **`NOT_CRAN=false` was set through `$GITHUB_ENV` and did not hold reliably.** On `7e16fa73` the
 skip fired (testthat recorded `test-selectivity-catchability.R:3:1`); on `7611bd1c`, differing
 only in a Markdown file, the same file executed and the worker died with exit code
