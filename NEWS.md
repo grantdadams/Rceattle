@@ -213,13 +213,14 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   Set per fleet in `fleet_control`; every bundled and sibling-repository workbook
   defaults to `"Rceattle"` and every reference model is bit-identical.
 
-  It does **not** reproduce the decreasing-selectivity penalty of the vendored
-  atka fork (`Rceattle-models/BSAI atka mackerel/src/ceattle_v01_11_amak.cpp`),
-  which divides the square rather than the ratio and so scores twice what ADMB
-  does. `amak.tpl` line 2531 is `0.5 * square(difftmp) / seldec_pen` against a
-  `seldec_pen` squared on input at line 615; Rceattle's existing form gives the
-  same value per adjacent pair when `Sel_curve_pen1` is supplied as `1/(2*sd^2)`.
-  The fork is wrong, not the package.
+  The decreasing-selectivity penalty is unchanged, and did not need changing.
+  `amak.tpl` line 2531 is `0.5 * square(difftmp) / seldec_pen` against a
+  `seldec_pen` squared on input at line 615, which is the value Rceattle already
+  computes per adjacent pair when `Sel_curve_pen1` is supplied as `1/(2*sd^2)` --
+  the conversion `amak.tpl` line 948 applies to its own curvature input. An old
+  vendored copy of `ceattle.cpp` in `Rceattle-models` divided the square rather
+  than the ratio and so scored twice ADMB; it was the copy that was wrong, and it
+  has since been deleted.
 
   Two range differences from ADMB remain, and `"AMAK"` does not close them: the
   walk is summed over `nbins - 1` increments where ADMB's `norm2` runs over all

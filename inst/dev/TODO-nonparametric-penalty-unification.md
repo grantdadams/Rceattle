@@ -84,8 +84,9 @@ constant. Restating them as standard deviations in log-selectivity units would:
   runs to infinity, which is why these can only ever be fixed constants today;
 * match how WHAM and SAM configure the same structure.
 
-The ADMB source agrees: `ceattle_v01_11_amak.cpp` carries `// FIXME convert pen to
-variance` on both the decreasing and the curvature terms.
+The ADMB source agrees, and does the conversion itself rather than asking for a
+weight: `amak.tpl` line 948 reads a curvature sd and stores `1/(2*sd^2)`, and line
+615 squares the decreasing input into a variance.
 
 This is a deprecate-and-rename, not a silent reinterpretation -- a workbook's existing
 `Sel_curve_pen1 = 12.5` must keep meaning what it means now. Likely shape is a new

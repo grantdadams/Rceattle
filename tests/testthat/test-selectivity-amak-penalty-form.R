@@ -1,18 +1,18 @@
 # The ADMB atka mackerel penalty forms on NonParametric (type 2) selectivity.
 #
-# Provenance. `Rceattle-models/BSAI atka mackerel` bridged to ADMB through a
-# vendored fork of an old ceattle.cpp (`src/ceattle_v01_11_amak.cpp`). That fork
-# writes two of the type-2 penalties differently from the package: the random
-# walk is a bare Gaussian sum of squares, `0.5 * square(diff / sd)` with its
-# `dnorm` line commented out, and the level term is `20 * square(avg_sel)`
-# rather than a fixed 2. `Sel_penalty_form = "AMAK"` selects those forms, with
-# the level weight read from `Sel_avgsel_pen`, so the bridge can run on the
-# package instead of on a fork that no longer builds against the current data
-# contract.
+# Provenance. `Rceattle-models/BSAI atka mackerel` bridges to the ADMB model in
+# `Data/mod23/amak.tpl`, which writes two of the type-2 penalties differently
+# from the package: the random walk is a bare sum of squares, `0.5 * norm2(diff)
+# / variance` with no normalizing constant (line 2524), and the level term is
+# `20 * square(avgsel)` rather than a fixed 2 (line 2534).
+# `Sel_penalty_form = "AMAK"` selects those forms, with the level weight read
+# from `Sel_avgsel_pen`, so the bridge runs on the package itself. It previously
+# ran on a vendored copy of an old ceattle.cpp, which no longer built against
+# the current data contract and has been deleted.
 #
-# The two differ by a constant only while `Time_varying_sel_sd` is fixed; once
-# the sd is estimated they are different likelihoods, which is why this is a
-# switch and not a reporting detail.
+# The two forms differ by a constant per scored increment, so with the deviation
+# sd fixed -- the only way this configuration runs -- the objective shifts and
+# the estimates do not. It is a likelihood-comparison switch.
 testthat::skip_on_cran()
 
 testthat::test_that("the default path is unchanged, against a pinned objective", {
