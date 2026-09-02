@@ -34,8 +34,9 @@ mainly needed when reading \code{estimated_params} or an \code{sdreport()} direc
 
 Dimensions use the model's own notation: \code{nspp} species, \code{nsex} sexes,
 \code{nages} age bins, \code{nyrs} years including the projection, \code{nyrs_hind} hindcast
-years only, \code{n_flt} fleets, \code{n_fsh} fishery fleets and \code{n_sel} selectivity
-blocks.
+years only, \code{n_flt} fleets and \code{n_sel} selectivity blocks. \code{n_sel} equals
+\code{n_flt}: fleets sharing a \code{Selectivity_index} share one block through the
+map, not through a narrower array.
 }
 \examples{
 # The whole table

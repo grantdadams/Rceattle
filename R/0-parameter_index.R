@@ -1,15 +1,9 @@
 # Which model coordinate each estimated parameter belongs to.
-#
-# TMB names every element of `obj$par` after its parameter BLOCK, so a
-# diagnostic naming the offender can only say `sel_coff_dev` -- 392 times, for
-# one fleet's selectivity deviations. This turns that into the fleet, sex, bin
-# and year the element actually is.
 
 # Dimension token (parameter_dictionary()$dims) -> the axis it indexes. The
-# dictionary is the source of truth for what an axis MEANS; the extent is read
-# off the built array, because a declared extent can describe the estimated
-# portion rather than the allocation (`init_dev` is [nspp, nages-1] in a
-# [nspp, nages] array).
+# dictionary says what an axis MEANS; the extent is read off the built array,
+# because a declared extent can describe the estimated portion rather than the
+# allocation (`init_dev` is [nspp, nages-1] in a [nspp, nages] array).
 .PAR_AXIS <- c(
   nspp             = "species",
   nsex             = "sex",
@@ -30,21 +24,62 @@
   n_re_obs_group   = "linkage"
 )
 
-# Axes a bare integer dimension stands for, per block. A literal in the
-# dictionary is a fixed-width slot whose meaning is specific to its parameter:
-# the two limbs of a double-logistic, the three AR1 correlations. Without this
-# the slot prints as a number, which is the problem being fixed.
+# A bare integer dimension is a fixed-width slot whose meaning is specific to
+# its parameter. These are the blocks whose slots mean the same thing on every
+# fleet; the selectivity slots depend on the fleet's `Selectivity` and are in
+# .PAR_SEL_SLOTS instead.
 .PAR_SLOT_LABELS <- list(
-  log_sel_slp     = c("ascending", "descending"),
-  sel_inf         = c("ascending", "descending"),
-  log_sel_slp_dev = c("ascending", "descending"),
-  sel_inf_dev     = c("ascending", "descending"),
-  sel_curve_pen   = c("shape", "curvature", "dev magnitude"),
-  M1_rho          = c("age", "year"),
-  growth_log_sd   = c("mean", "plus group"),
-  rec_pars        = c("R0/mean", "steepness", "beta"),
+  # sel_curve_pen is supplied through fleet_control for the non-parametric and
+  # LogisticPM forms and estimated only under 2DAR1 / 3DAR1, where the same
+  # slots hold logit-scale AR1 correlations. An estimated element is therefore
+  # always a correlation, never a penalty weight.
+  sel_curve_pen      = c("bin correlation", "year correlation",
+                         "cohort correlation"),
+  M1_rho             = c("age", "year"),
+  # Standard deviation of length-at-age at the minimum and maximum age.
+  growth_log_sd      = c("L1", "Linf"),
+  log_growth_pars    = c("K", "L1", "Linf", "m"),
+  # rec_pars(sp, 1) is the SRR alpha on the log scale, not steepness: ceattle.cpp
+  # forms alpha = exp(rec_pars(sp, 1) + linkage offset).
+  rec_pars           = c("R0/mean", "alpha", "beta"),
   weight_length_pars = c("a", "b")
 )
+
+# Selectivity slot meanings by `fleet_control$Selectivity`. Slot 2 is a
+# descending limb only for the double-logistic family: DoubleNormal (8) reuses
+# it for the right-tail floor and LogisticPM (11) for the free age-1
+# selectivity, so a fixed label would name the wrong quantity.
+.PAR_SEL_SLOTS <- list(
+  log_sel_slp = list(
+    DoubleNormal = c("log sigma ascending", "log sigma descending"),
+    default      = c("ascending", "descending")
+  ),
+  sel_inf = list(
+    DoubleNormal = c("peak", "logit right-tail floor"),
+    LogisticPM   = c("inflection", "age-1 log-selectivity"),
+    default      = c("ascending", "descending")
+  )
+)
+# The deviation blocks carry the same slots as the parameters they deviate from.
+.PAR_SEL_SLOTS$log_sel_slp_dev <- .PAR_SEL_SLOTS$log_sel_slp
+.PAR_SEL_SLOTS$sel_inf_dev     <- .PAR_SEL_SLOTS$sel_inf
+
+#' Slot labels for one selectivity block on one fleet
+#'
+#' `Selectivity` is a switch column, so it may arrive as the code or the name.
+#' An unrecognised or missing value falls back to the double-logistic reading.
+#' @noRd
+.rce_sel_slot_labels <- function(block, data_list, fleet) {
+  spec <- .PAR_SEL_SLOTS[[block]]
+  if (is.null(spec)) return(NULL)
+  sel <- data_list$fleet_control$Selectivity
+  if (is.null(sel) || is.na(fleet) || fleet > length(sel)) return(spec$default)
+  key <- switch(as.character(sel[fleet]),
+                "8" = "DoubleNormal", "DoubleNormal" = "DoubleNormal",
+                "11" = "LogisticPM",  "LogisticPM"   = "LogisticPM",
+                "default")
+  spec[[key]] %||% spec$default
+}
 
 #' Axis names for one parameter block
 #'
@@ -68,7 +103,8 @@
 #' `n` comes from the built array, so an axis allocated wider than the
 #' dictionary describes still labels every position it has.
 #' @noRd
-.rce_axis_labels <- function(axis, n, data_list, block = NULL, species = NA) {
+.rce_axis_labels <- function(axis, n, data_list, block = NULL, species = NA,
+                             fleet = NA) {
   idx <- seq_len(n)
   pad <- function(x) if (length(x) >= n) as.character(x[idx]) else
     c(as.character(x), rep(NA_character_, n - length(x)))[idx]
@@ -109,8 +145,10 @@
       }
       if (single) rep(NA_character_, n) else c("female", "male")[idx]
     },
+    # A selectivity slot means what the fleet's Selectivity says it means.
     slot = {
-      lab <- .PAR_SLOT_LABELS[[block]]
+      lab <- .rce_sel_slot_labels(block, data_list, fleet)
+      if (is.null(lab)) lab <- .PAR_SLOT_LABELS[[block]]
       if (is.null(lab)) as.character(idx) else pad(lab)
     },
     as.character(idx)
@@ -120,19 +158,29 @@
 #' Locate every estimated parameter in the model's own coordinates
 #'
 #' @description
-#' TMB names each element of `obj$par` after its parameter block, so a
-#' convergence diagnostic can report that `sel_coff_dev` is non-identifiable but
-#' not which fleet, sex, bin or year. This returns one row per estimated
-#' (fixed-effect) parameter, carrying the coordinates it occupies.
+#' One row per estimated (fixed-effect) parameter, giving the fleet, species,
+#' sex, age, bin, year or slot it occupies.
 #'
 #' @details
+#' TMB names each element of `obj$par` after its parameter block, so a
+#' convergence diagnostic can report that `sel_coff_dev` is non-identifiable but
+#' not which of its elements.
+#'
 #' The mapping is recovered by pushing a tagged parameter vector back through
 #' TMB's own `parList()`, so it reflects `build_map()` exactly: parameters
 #' mapped off are absent, and fleets sharing a `Selectivity_index` or
 #' `Catchability_index` appear once, as the single parameter they are, with
 #' `n_cells` recording how many array cells they drive.
 #'
-#' Coordinate columns are `NA` where the axis does not apply to a block.
+#' Coordinate columns are `NA` where the axis does not apply to a block. The
+#' linkage and environmental-covariate blocks (`beta_linkage`, `M1_beta`, ...)
+#' are indexed by a linkage-table row rather than a model coordinate, so they
+#' carry no coordinates and are reported by element number.
+#'
+#' A selectivity `slot` is named from the fleet's `Selectivity`: slot 2 of
+#' `sel_inf` is a descending inflection for the double-logistic family, the
+#' right-tail floor under `DoubleNormal`, and the age-1 selectivity under
+#' `LogisticPM`.
 #'
 #' @param object A fitted Rceattle model from [fit_mod()].
 #'
@@ -187,19 +235,28 @@ parameter_index <- function(object) {
       rep(NA_integer_, length(hit))
     }
 
+    flt_idx <- if (!is.na(flt_col)) coord[, flt_col] else rep(NA_integer_, length(hit))
+
     lab <- matrix(NA_character_, nrow = length(hit), ncol = length(AX),
                   dimnames = list(NULL, AX))
-    # Axes whose labels depend on the species holding the row.
-    per_sp <- c("age", "sex")
     for (k in seq_along(axes)) {
       ax <- axes[k]
       if (is.na(ax) || !ax %in% AX) next
-      if (ax %in% per_sp) {
-        lab[, ax] <- vapply(seq_along(hit), function(r)
-          .rce_axis_labels(ax, d[k], dl, block, sp_idx[r])[coord[r, k]],
-          character(1))
-      } else {
+      # `age` and `sex` read minage / nsex, which are per species; a selectivity
+      # `slot` reads the fleet's Selectivity. Both are resolved once per distinct
+      # governing index rather than once per row.
+      by <- if (ax %in% c("age", "sex")) sp_idx else
+            if (ax == "slot" && !is.null(.PAR_SEL_SLOTS[[block]])) flt_idx else NULL
+      if (is.null(by)) {
         lab[, ax] <- .rce_axis_labels(ax, d[k], dl, block)[coord[, k]]
+      } else {
+        for (g in unique(by)) {
+          r <- which(by %in% g)                 # %in% so NA groups with NA
+          lv <- .rce_axis_labels(ax, d[k], dl, block,
+                                 species = if (ax == "slot") NA else g,
+                                 fleet   = if (ax == "slot") g else NA)
+          lab[r, ax] <- lv[coord[r, k]]
+        }
       }
     }
     # Name the species a fleet-indexed block belongs to, so a multispecies fit
@@ -229,11 +286,9 @@ parameter_index <- function(object) {
   out
 }
 
-# Axes worth printing: one that takes a single value across the whole model
-# distinguishes nothing, and naming it on every line buries the axes that do.
-# A single-species fit does not need "Pollock" on all 525 rows; a two-species
-# fit does. The structured columns keep the value either way -- this governs
-# only what the rendered label and the summary say.
+# Axes worth printing: one taking a single value across the whole model
+# distinguishes nothing. Governs the rendered label only; the structured columns
+# keep the value either way.
 #' @noRd
 .rce_varying_axes <- function(df, AX) {
   keep <- vapply(AX, function(a)
@@ -297,27 +352,34 @@ parameter_index <- function(object) {
   key <- do.call(paste, c(list(df$block), lapply(cat_ax, function(a) df[[a]]),
                           list(sep = "\r")))
 
-  rng <- function(v) {
+  # A run of consecutive values reads as a range; a scattered set is listed, or
+  # counted against its span once it is too long to list. "2013-2018" over three
+  # years would name six.
+  nouns <- list(age = c("age ", "ages "), bin = c("bin ", "bins "))
+  rng <- function(v, axis) {
     v <- stats::na.omit(v)
     if (length(v) == 0) return(NA_character_)
+    nn <- nouns[[axis]] %||% c("", "")
     u <- unique(v)
     n <- suppressWarnings(as.numeric(u))
-    if (anyNA(n) || length(u) == 1L) return(paste(u, collapse = ", "))
-    if (length(u) == 2L) return(paste(sort(u), collapse = ", "))
-    paste0(min(n), "-", max(n))
+    if (anyNA(n)) return(paste0(nn[2], paste(u, collapse = ", ")))
+    n <- sort(n)
+    if (length(n) == 1L) return(paste0(nn[1], n))
+    if (all(diff(n) == 1)) return(paste0(nn[2], n[1], "-", n[length(n)]))
+    if (length(n) <= 6L) return(paste0(nn[2], paste(n, collapse = ", ")))
+    sprintf("%d of %s%s-%s", length(n), nn[2], n[1], n[length(n)])
   }
 
   lines <- vapply(split(seq_len(nrow(df)), key), function(i) {
     r <- df[i, , drop = FALSE]
     parts <- character(0)
     for (a in AX) {
-      v <- if (a %in% .PAR_ORDINAL) rng(r[[a]]) else {
-        u <- unique(stats::na.omit(r[[a]])); if (length(u) == 0) NA_character_ else paste(u, collapse = ", ")
+      v <- if (a %in% .PAR_ORDINAL) rng(r[[a]], a) else {
+        u <- unique(stats::na.omit(r[[a]]))
+        if (length(u) == 0) NA_character_ else paste(u, collapse = ", ")
       }
       if (is.na(v) || !nzchar(v)) next
-      pre <- switch(a, age = if (grepl("-|,", v)) "ages " else "age ",
-                       bin = if (grepl("-|,", v)) "bins " else "bin ", "")
-      parts <- c(parts, paste0(pre, v))
+      parts <- c(parts, v)
     }
     # A block indexed by something with no model coordinate (a linkage group,
     # say) still has to say which elements it means.
