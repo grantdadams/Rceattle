@@ -243,14 +243,6 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   unchanged in every configuration**: `mature_females` already carries the
   age-varying ratio for them, so the new formula reduces to the old one.
 
-  **Two live assessments move**, both two-sex arrowtooth under `HCR = "NPFMC"`:
-  the 2026 GOA three-species assessment above, and the GOA arrowtooth ESP
-  (`../GOA-ATF-ESP`), whose `sex_ratio` is 0.5 at age 1 and 0.353955 over ages
-  2-21. That schedule is fully populated, so the ESP showed no `NaN` -- it
-  reported every SPR scaled by 0.708, and its Tier 3 proxies now change by the
-  reciprocal, 1.41. Both need refitting. The Pacific hake operating model is
-  two-sex but its `sex_ratio` is a flat 0.5, so the MSE reference is unchanged.
-
   **Which two-sex fits move.** The change rescales all four SPR schedules
   wherever `sex_ratio` varies with age, and it reaches the objective two ways:
 
@@ -262,6 +254,27 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
      `steepness` and `R0` and `SPRFinit` sets `R_init`, which scales the initial
      age structure (section 6.5). `srr_fun = "mean"` ignores `SPR0`, which is why
      the four golden references reproduce their pinned objectives.
+
+  Route 1 also needs the rescale to be **non-uniform**. It scores a ratio of two
+  SPR schedules, so where `sex_ratio` is the same at every age with
+  `maturity > 0` the old and new formulas give the same ratio and `Ftarget` /
+  `Flimit` do not move -- only the reported per-recruit quantities do. Route 1
+  moves a fit only where `sex_ratio` varies across the *mature* ages, or where
+  the schedule stops short of `nages` and the old formula returned `NaN`.
+
+  That is the split across the live assessments, all two-sex arrowtooth under
+  `HCR = "NPFMC"` with `srr_fun` at its `"mean"` default:
+
+  - The **2026 GOA three-species assessment** had `sex_ratio` filled only to age
+    10 of 21, so every per-recruit quantity was `NaN`. It gains reference points
+    it could not previously form. **Refit.**
+  - The **GOA arrowtooth ESP** (`../GOA-ATF-ESP`) has the schedule fully
+    populated at 0.5 for age 1 and 0.353955 for ages 2-21, and `maturity` of 0
+    at age 1 -- a uniform 0.708. Its `Ftarget` and `Flimit` are unchanged; the
+    `SPR0`, `SPRlimit`, `SPRtarget` and `SPRFinit` it reports were 0.708 of the
+    correct value and now rise by 1.412. **No refit; recheck any quoted SPR.**
+  - The **Pacific hake operating model** is two-sex with a flat 0.5, so the MSE
+    and predation reference is unchanged in both respects.
 
   Bundled `GOAatf` meets the condition -- `sex_ratio` is 0.5 at age 1 and 0.354
   over the mature ages -- so the old formula rescaled every SPR by a clean factor

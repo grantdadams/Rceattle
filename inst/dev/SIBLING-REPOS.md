@@ -27,6 +27,15 @@ The v4.7.0 ggplot migration is the cautionary case: `plot_*()` began returning g
 so every `plot_x(...); mtext(...)` chain in those scripts failed with "plot.new has not been
 called yet". A grep for the function names would have found them; nobody ran one.
 
+**Sweep the workbooks, not only the scripts.** Three of the four behaviour changes in 5.25.0
+are settings a workbook carries and a script never names, so a grep over `*.R` sees none of
+them. `readxl::read_excel()` over every `.xlsx` in the four repos is the net: 374 workbooks,
+183 with a `fleet_control` sheet, about two minutes. It is what turned "183 sheets carry
+`Accumatation_age_*`" into the true 147, and what showed that the pre-`styr` `env_data` row
+shift misses the hake operating model. Note the `control` sheet is TRANSPOSED -- the first
+column holds the element names and each species is a column -- so `"nsex" %in% names(control)`
+is always FALSE and reads as a missing `nsex` on every workbook in the ecosystem.
+
 ## Running them, when a sweep is not enough
 
 Neither repo caches a fitted object, so verifying against a real assessment means refitting.
@@ -37,7 +46,7 @@ That is cheaper than it sounds: the terminal fit is under a minute for either po
 |---|---|
 | GOA pollock 2025 | `../Rceattle-models/GOA pollock/2025/04-fit-and-diagnostics.R` |
 | EBS pollock 2024 | `../Rceattle-models/EBS pollock/2024/04-fit-and-diagnostics.R` |
-| GOA arrowtooth | `../GOA-ATF-ESP/R/Run_2025_ceattle.R` |
+| GOA arrowtooth | `../GOA-ATF-ESP/R/2026 assessment w HCR projection.R` (2025: `R/Run_2025_ceattle.R`) |
 | Pacific hake MSE | `../Rceattle-models/Pacific hake/04-mse.R` |
 
 **The hake MSE is the one script that runs `run_mse()` end to end**, and the only routine
