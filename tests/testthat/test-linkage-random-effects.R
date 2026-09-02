@@ -381,3 +381,32 @@ testthat::test_that("priors = list(sigma = ...) puts a prior on the deviation SD
   testthat::expect_true(sum(fit$quantities$jnll_comp[pr_row, ]) != 0)   # prior contributes
   testthat::expect_true(is.finite(exp(fit$estimated_params$log_sigma_linkage)))
 })
+
+
+# fit_mod()'s discontinuous-likelihood check compares nlminb's objective against
+# a fresh evaluation. Both must be the MARGINAL objective: obj$report()$jnll is
+# the joint nll at the random-effect mode, a Laplace correction away, which made
+# the warning unconditional on every model carrying a random effect.
+testthat::test_that("a smooth random-effect model is not called discontinuous", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  qfun <- Rceattle::build_catchability(linkages = list(
+    q = Rceattle::linkage_spec(~ (1 | Year), by = ~ fleet, fleet = 7L)))
+
+  # getsd = TRUE: the check only runs where an sdreport exists.
+  msgs <- testthat::capture_messages(
+    fit <- Rceattle::fit_mod(data_list = d, estimateMode = 1, msmMode = 0,
+      qFun = qfun,
+      fit_control = Rceattle::fit_control(phase = FALSE, getsd = TRUE, verbose = 0)))
+
+  testthat::expect_true(length(fit$obj$env$random) > 0)   # the check is reachable
+  testthat::expect_false(any(grepl("discontinuous", msgs)))
+
+  # The joint nll is more than rel_tol away, so the old comparison flagged this
+  # model every time; the marginal one agrees with the optimizer exactly.
+  jnll <- fit$obj$report(fit$obj$env$last.par.best)$jnll
+  testthat::expect_gt(abs(fit$opt$objective - jnll), 1)
+  testthat::expect_equal(
+    as.numeric(fit$obj$fn(fit$obj$env$last.par.best[-fit$obj$env$random])),
+    fit$opt$objective)
+})

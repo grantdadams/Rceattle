@@ -12,6 +12,29 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.25.1
+
+## Bug fixes
+
+* **The discontinuous-likelihood warning compares two marginal objectives.**
+  Convergence warning (8) tested `nlminb`'s objective against
+  `obj$report()$jnll`. The first is the Laplace **marginal** negative
+  log-likelihood whenever the model carries a random effect; the second is the
+  **joint** negative log-likelihood at the random-effect mode. They differ by
+  the Laplace correction, which is far larger than the default `rel_tol` of 1 --
+  150.96 on a GOA pollock fit carrying two catchability linkages -- so the
+  warning fired on every such model regardless of whether its likelihood was
+  smooth. It is now tested against a fresh `obj$fn()` evaluation at the
+  optimizer's own parameters, which agrees to machine precision on all four
+  configurations checked (an `ar1`/`rw` q linkage, no random effect at all,
+  `random_rec = TRUE`, and `2DAR1` selectivity with `random_sel = FALSE`).
+
+  The `random_rec == FALSE` guard is removed with it: it exempted recruitment
+  random effects from a check that could not read them, and the comparison now
+  holds for any random effect, so `random_rec = TRUE` models get the check
+  rather than skipping it. No fit changes -- the objective, the joint negative
+  log-likelihood and the parameter vector are identical either side of this.
+
 # Rceattle 5.25.0
 
 ## Breaking changes

@@ -1405,11 +1405,31 @@ fit_mod <-
 
     quantities <- obj$report(obj$env$last.par.best)
 
-    # Warning for discontinuous likelihood
+    # Discontinuous likelihood: the objective nlminb reported must survive a
+    # fresh evaluation at the same parameters. Both sides are the MARGINAL
+    # objective -- `obj$report()$jnll` is the joint nll at the random-effect
+    # mode, a Laplace correction away from it on any model with random effects.
     if (estimateMode %in% c(0:2)) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
-        if (!is.null(opt) && !is.null(opt$SD) && random_rec == FALSE) {
-          if (abs(opt$objective - quantities$jnll) > rel_tol) {
+        if (!is.null(opt) && !is.null(opt$SD)) {
+          # -integer(0) would drop every parameter rather than none.
+          .fixed <- if (length(obj$env$random) > 0) {
+            obj$env$last.par.best[-obj$env$random]
+          } else {
+            obj$env$last.par.best
+          }
+          # obj$fn() writes to the TMB environment, and this object is returned
+          # to the caller, so the evaluation state is restored after the call.
+          .lpb <- obj$env$last.par.best
+          .lp  <- obj$env$last.par
+          .vb  <- obj$env$value.best
+          .refit_obj <- tryCatch(as.numeric(obj$fn(.fixed)),
+                                 error = function(e) NA_real_)
+          obj$env$last.par.best <- .lpb
+          obj$env$last.par      <- .lp
+          obj$env$value.best    <- .vb
+          # A re-evaluation that failed is not evidence either way.
+          if (is.finite(.refit_obj) && abs(opt$objective - .refit_obj) > rel_tol) {
             message("#################################################")
             message("Convergence warning (8): discontinuous likelihood")
             message("#################################################")
