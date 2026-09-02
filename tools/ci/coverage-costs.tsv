@@ -62,7 +62,10 @@ test-functions-retrospective.R	89
 test-functions-reweight.R	73
 test-functions-sim-mod-bias-adjust.R	3
 test-functions-sim-mod-catch.R	9
-test-functions-sim-mod-comp.R	1906
+test-functions-sim-mod-comp-caal.R	187
+test-functions-sim-mod-comp-fold.R	791
+test-functions-sim-mod-comp-weights.R	926
+test-functions-sim-mod-comp.R	1
 test-functions-sim-mod-diet-dispersion.R	218
 test-functions-sim-mod-diet-roundtrip-dm.R	78
 test-functions-sim-mod-diet-roundtrip-mn.R	692
