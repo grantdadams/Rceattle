@@ -26,6 +26,7 @@ test_that("schema pins the exact fleet_control defaults switch_check applies", {
     Sel_curve_pen1 = 0, Sel_curve_pen2 = 0, Sel_curve_pen3 = 0,
     Sel_start_year = NA, Sel_pen_first_bin = NA, Sel_pen_last_bin = NA,
     Sel_shape_mode = NA, Sel_avgsel_pen = 0, Sel_cap_bin = NA,
+    Sel_penalty_form = "Rceattle",
     Sel_norm_scope = "AcrossSexes",
     Selectivity_dimension = "Age", Comp_distribution = "MultinomialAFSC",
     CAAL_distribution = "Multinomial", Index_distribution = "Lognormal",

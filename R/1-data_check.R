@@ -843,6 +843,21 @@ data_check <- function(data_list) {
       }
     }
 
+    # Which fleet of each selectivity group carries the shared penalties:
+    # ceattle.cpp gates the whole non-parametric penalty block on flt_sel_lead,
+    # so a penalty column on any other fleet of the group is never read. The key
+    # is Selectivity_index AND selectivity type, matching rearrange_data()'s
+    # flt_sel_lead -- grouping on the index alone would call a fleet a mirror
+    # that the model gives its own penalty block to.
+    .sel_lead <- if ("Selectivity_index" %in% colnames(fc)) {
+      .off <- if ("Fleet_type" %in% colnames(fc)) fc$Fleet_type %in% c("Off", 0, "0")
+              else rep(FALSE, nrow(fc))
+      .key <- if ("Selectivity" %in% colnames(fc)) {
+        paste(fc$Selectivity_index, .canon_switch(fc$Selectivity, sel_map))
+      } else as.character(fc$Selectivity_index)
+      .group_lead(.key, .off) == 1L
+    } else rep(TRUE, nrow(fc))
+
     # Per-fleet checks
     for(flt in 1:nrow(fc)){
       sp_idx <- fc_num(fc, "Species", flt)
@@ -994,6 +1009,50 @@ data_check <- function(data_list) {
         }
       }
 
+      # Under Sel_penalty_form = "AMAK" the weight on the coefficient level is
+      # read from Sel_avgsel_pen, whose default is 0. Every quantity downstream
+      # uses the per-year mean-centred curve, so that term is the only thing
+      # pinning the level: at weight 0 adding a constant to all coefficients
+      # changes no likelihood component and the level is unidentified. The ADMB
+      # atka mackerel model uses 20.
+      # Case-folded: validate_switches() and rearrange_data() both accept "amak",
+      # so comparing the canonical spelling alone would let it past these guards
+      # and into the AMAK branch unchecked.
+      .pen_form <- if("Sel_penalty_form" %in% colnames(fc))
+        toupper(.canon_switch(fc$Sel_penalty_form[flt], sel_penalty_form_map)) else NA_character_
+      if(isTRUE(.sel_form == "NonParametric") && isTRUE(.pen_form == "AMAK")){
+        # Only the walk (Time_varying_sel = "RandomWalk") and the time-invariant
+        # curve have an ADMB AMAK form to reproduce. That model has no
+        # independent-deviate mode, and the AMAK walk is written only for
+        # "RandomWalk", so "IID" would silently take the AMAK level weight with
+        # the package's own deviation density -- a third likelihood belonging to
+        # neither model.
+        if(isTRUE(.canon_switch(fc$Time_varying_sel[flt], tv_sel_map) == "IID")){
+          errors <- c(errors, paste0(
+            "Fleet '", flt_name, "': Sel_penalty_form = 'AMAK' is defined for ",
+            "Time_varying_sel 'Off' or 'RandomWalk' only. The ADMB atka mackerel ",
+            "model has no independent-deviate selectivity, so there is no AMAK ",
+            "form of the 'IID' density to reproduce."))
+        }
+        avgp <- suppressWarnings(as.numeric(fc$Sel_avgsel_pen[flt]))
+        .flt_on <- !isTRUE(.canon_switch(fc$Fleet_type[flt], fleet_map) == "Off")
+        if(.flt_on && .sel_lead[flt] && (is.na(avgp) || avgp <= 0)){
+          errors <- c(errors, paste0(
+            "Fleet '", flt_name, "': Sel_penalty_form = 'AMAK' takes the weight on the ",
+            "selectivity coefficient level from 'Sel_avgsel_pen', which is ",
+            ifelse(is.na(avgp), "missing", format(avgp)),
+            ". At 0 the level is unidentified, because every other term reads the ",
+            "mean-centred curve. Set 'Sel_avgsel_pen' > 0 (the ADMB atka mackerel model uses 20)."))
+        }
+      }
+
+      # Sel_penalty_form is read only by NonParametric (2). Setting it elsewhere
+      # is a no-op, and a silent one, so say so.
+      if(!isTRUE(.sel_form == "NonParametric") && isTRUE(.pen_form == "AMAK")){
+        warning(paste0("Fleet '", flt_name, "': 'Sel_penalty_form' is read only for ",
+                       "Selectivity = 'NonParametric'; it is ignored for '", .sel_form, "'."))
+      }
+
       # LogisticPM: Sel_curve_pen1/2/3 are the random-walk weights on the
       # slope / inflection / age-1 deviates (ADMB 50 / 50 / 8). Require numeric
       # when time-varying so a stray mode string is caught early.
@@ -1100,6 +1159,20 @@ data_check <- function(data_list) {
             "will not share one selectivity. To mirror a fleet, copy its ",
             "fleet_control row and change only the identity and catchability ",
             "columns."))
+        }
+        # Penalty columns are read behind the flt_sel_lead gate, so a
+        # disagreement resolves to the lead fleet's answer rather than giving
+        # each fleet its own penalty.
+        .pen_cols <- Filter(function(cl) .differs(cl, na_is_a_value = TRUE),
+                            c("Sel_penalty_form", "Sel_avgsel_pen"))
+        if (length(.pen_cols)) {
+          warning(paste0(
+            "Fleets sharing Selectivity_index ", si, " (",
+            paste(fc$Fleet_name[rows], collapse = ", "), ") differ in ",
+            paste(.pen_cols, collapse = ", "),
+            "; the shared selectivity penalty is accumulated once, on '",
+            fc$Fleet_name[rows[which(.sel_lead[rows])[1]]],
+            "', and the other fleets' settings are ignored."))
         }
         if (.differs("Time_varying_sel", na_is_a_value = FALSE)) {
           warning(paste0(

@@ -275,8 +275,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
   DATA_IVECTOR(flt_q_lead);               // As flt_sel_lead, for catchability: 1 if this fleet carries the q prior / deviate penalties, 0 if it shares an earlier fleet's Q_index so the shared block is counted once.
   DATA_IVECTOR(flt_sel_pen_last_bin);     // Per-fleet last bin (0-based, = left bin of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nbins-2 (whole range).
+  DATA_IVECTOR(flt_sel_pen_form);         // NonParametric (type 2) penalty forms: 0 = Rceattle; 1 = the ADMB atka mackerel forms (bare Gaussian SSQ walk in place of a normalized density, level weight from Sel_avgsel_pen rather than a fixed 2)
   DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
-  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2 (type 9 only). A mild regulariser on the overall level of the base coefficients; equivalent to AMAK's 10*square(avgsel_*). 0 = off (default).
+  DATA_VECTOR(flt_sel_avgsel_pen);        // Per-fleet weight on the AMAK "avgsel" base-level penalty: weight * (log(mean(exp(base coffs over the estimated bins))))^2. Read for type 9, and for type 2 under flt_sel_pen_form = 1, where it must be > 0 because nothing else sees the level. Equivalent to AMAK's 10*square(avgsel_*) (20 in the type-2 atka mackerel model). 0 = off (default).
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(comp_accum_young);         // Per-fleet age/length-composition young-tail accumulation bin (1-based ordinal on the comp dimension); bins below it fold into it. 1 (or <1) = no young accumulation (AFSC ac_yng).
   DATA_IVECTOR(comp_accum_old);           // Per-fleet age/length-composition old-tail accumulation bin (1-based); bins above it fold into it. 0/NA or >= nbins = no old accumulation (AFSC ac_old).
@@ -3956,7 +3957,10 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs_tmp; yr++){
 
           // 1. Decreasing selectivity penalty (over the fleet's own bins)
-          // FIXME: AMAK starts at nbins/2
+          // Per pair this is ADMB AMAK's sel_like(k,3), 0.5*d^2/variance, when
+          // Sel_curve_pen1 is given as 1/(2*sd^2). Sel_penalty_form does not
+          // change it.
+          // FIXME: AMAK starts at nbins/2, and ignores Sel_pen_first_bin here
           //
           // PROPOSED (IID only): read the base curve, sel_coff(flt, sex, age),
           // in place of log_non_par_sel. max(d, 0)^2 has a STEP second
@@ -4004,11 +4008,22 @@ Type objective_function<Type>::operator() () {
           // and left unscored: each would add log(sel_dev_sd) + 0.5*log(2*pi),
           // constant in the deviates but rising with the sd, so scoring them
           // would drag the estimate toward zero.
+          //
+          // Sel_penalty_form picks how the walk is written. "AMAK" is the bare
+          // Gaussian sum of squares the ADMB atka mackerel model uses, with no
+          // normalizing constant; "Rceattle" is the normalized density. They
+          // differ by a constant while sel_dev_sd is fixed, and are different
+          // likelihoods once it is estimated.
           if(flt_varying_sel(flt) == 4){
             if(yr > 0){
               for(sex = 0; sex < nsex(sp); sex++){
                 for(age = 0; age < (nbins - 1); age++) {
-                  jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_non_par_sel(flt, sex, age, yr), log_non_par_sel(flt, sex, age, yr - 1), sel_dev_sd(flt), true);
+                  if(flt_sel_pen_form(flt) == 1){
+                    Type dd = log_non_par_sel(flt, sex, age, yr) - log_non_par_sel(flt, sex, age, yr - 1);
+                    jnll_comp(JNLL_SEL_DEV, flt) += 0.5 * square(dd / sel_dev_sd(flt));
+                  } else {
+                    jnll_comp(JNLL_SEL_DEV, flt) -= dnorm(log_non_par_sel(flt, sex, age, yr), log_non_par_sel(flt, sex, age, yr - 1), sel_dev_sd(flt), true);
+                  }
                 }
               }
             }
@@ -4024,14 +4039,19 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-          // 4. Survey selectivity normalization (non-parametric)
+          // 4. Level of the estimated coefficients, which the per-year
+          //    mean-centering leaves free. Weight 2 by default; the AMAK form
+          //    reads it from Sel_avgsel_pen, which the ADMB model sets to 20.
           //
           // PROPOSED (IID only): compute the level from sel_coff over
           // [bin_first_selected, flt_n_sel_bins) with log_mean_exp(), as the
           // type-9 branch already does, rather than reading the per-year
           // avg_sel, which includes the deviates.
-          for(sex = 0; sex < nsex(sp); sex++){
-            jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
+          {
+            Type lvl_w = (flt_sel_pen_form(flt) == 1) ? flt_sel_avgsel_pen(flt) : Type(2.0);
+            for(sex = 0; sex < nsex(sp); sex++){
+              jnll_comp(JNLL_SEL_NONPARAM, flt) += lvl_w * square(avg_sel(flt, sex, yr));
+            }
           }
         }
       }
@@ -5103,14 +5123,18 @@ Type objective_function<Type>::operator() () {
   // -- 14.3. Selectivity
   REPORT( sel_at_age );
   REPORT( sel_at_length );
+  // The non-parametric penalties are written on the mean-centred curve, not on
+  // the normalized sel_at_age, so these are what an ADMB bridge or a penalty
+  // audit has to read. avg_sel is the per-year centring constant the level
+  // penalty scores.
+  REPORT( avg_sel );
+  REPORT( log_non_par_sel );
+  REPORT( sel_dev_sd );
+  REPORT( sel_curve_pen );
   /*
-   REPORT( avg_sel );
    REPORT( non_par_sel );
-   REPORT( log_non_par_sel );
    REPORT( emp_sel_obs );
    REPORT( sel_tmp );
-   REPORT( sel_dev_sd );
-   REPORT( sel_curve_pen );
    */
 
 

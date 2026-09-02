@@ -150,6 +150,18 @@ sel_shape_dir_map <- c(
   "Increasing" = -1
 )
 
+# How the NonParametric (type 2) deviation and level penalties are written.
+# "Rceattle" scores the random walk as a normalized normal density and pins the
+# level at a fixed weight of 2. "AMAK" reproduces the ADMB atka mackerel model:
+# the walk is a bare Gaussian sum of squares with no normalizing constant, and
+# the level weight is read from Sel_avgsel_pen (the ADMB model uses 20). The two
+# differ by a constant only when the deviation sd is fixed; with it estimated
+# they are different likelihoods.
+sel_penalty_form_map <- c(
+  "Rceattle" = 0,
+  "AMAK"     = 1
+)
+
 # Shape-penalty mode: one-sided directional (ADMB/AMAK) or two-sided smooth.
 sel_shape_mode_map <- c(
   "Directional" = 0,
@@ -727,8 +739,9 @@ switch_check <- function(data_list){
   # top of switch_check(), from the schema `aliases` field.
   data_list$fleet_control$Sel_pen_first_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_first_bin, "Sel_pen_first_bin", .sch)  # first bin (age or length) for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Sel_pen_last_bin <- .rce_apply_default(data_list$fleet_control$Sel_pen_last_bin, "Sel_pen_last_bin", .sch)  # last (left) bin of the shape-penalty pairs (NA -> nbins-2)
+  data_list$fleet_control$Sel_penalty_form <- .rce_apply_default(data_list$fleet_control$Sel_penalty_form, "Sel_penalty_form", .sch)  # NonParametric penalty forms: "Rceattle" (default) or "AMAK"
   data_list$fleet_control$Sel_shape_mode <- .rce_apply_default(data_list$fleet_control$Sel_shape_mode, "Sel_shape_mode", .sch)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
-  data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty (type 9): weight * (log(mean(exp(base coffs))))^2; 0 = off (default), 10 matches AMAK
+  data_list$fleet_control$Sel_avgsel_pen <- .rce_apply_default(data_list$fleet_control$Sel_avgsel_pen, "Sel_avgsel_pen", .sch)  # weight on the AMAK avgsel base-level penalty: weight * (log(mean(exp(base coffs))))^2, for type 9 and for type 2 under Sel_penalty_form = "AMAK"; 0 = off (default)
   data_list$fleet_control$Sel_cap_bin <- .rce_apply_default(data_list$fleet_control$Sel_cap_bin, "Sel_cap_bin", .sch)  # NonParametricRPM bin cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- .rce_apply_default(data_list$fleet_control$Selectivity_dimension, "Selectivity_dimension", .sch, conditions = .dflt_when)
   data_list$fleet_control$Comp_distribution <- .rce_apply_default(data_list$fleet_control$Comp_distribution, "Comp_distribution", .sch)
@@ -963,12 +976,13 @@ revert_switches <- function(data_list) {
   }
 
   # - Fleet switches
-  # Guard: Index_distribution and Sel_norm_scope are newer columns; a hand-built
-  # fleet_control (or a data_list passed straight to rearrange_data(), bypassing
-  # switch_check) may lack them. Fill from the schema so the conversion below
-  # works without them, and so the value cannot drift from switch_check()'s.
+  # Guard: Index_distribution, Sel_norm_scope and Sel_penalty_form are newer
+  # columns; a hand-built fleet_control (or a data_list passed straight to
+  # rearrange_data(), bypassing switch_check) may lack them. Fill from the schema
+  # so the conversion below works without them, and so the value cannot drift
+  # from switch_check()'s.
   .sch_defaults <- .rce_column_schema()
-  for (.col in c("Index_distribution", "Sel_norm_scope")) {
+  for (.col in c("Index_distribution", "Sel_norm_scope", "Sel_penalty_form")) {
     if (is.null(data_list$fleet_control[[.col]]))
       data_list$fleet_control[[.col]] <- .sch_defaults[[.col]]$default
   }
@@ -978,6 +992,7 @@ revert_switches <- function(data_list) {
       Selectivity = .conv(.data$Selectivity, sel_map),
       Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
       Sel_norm_scope = .conv(.data$Sel_norm_scope, sel_norm_scope_map),
+      Sel_penalty_form = .conv(.data$Sel_penalty_form, sel_penalty_form_map),
       Catchability = .conv(.data$Catchability, q_map),
       Comp_distribution = .conv(.data$Comp_distribution, comp_loglike_map),
       CAAL_distribution = .conv(.data$CAAL_distribution, comp_loglike_map),
@@ -1055,6 +1070,7 @@ validate_switches <- function(data_list = NULL){
   index_distribution_map <- .rce_allowed_map("Index_distribution")
   sel_dimension_map      <- .rce_allowed_map("Selectivity_dimension")
   sel_shape_dir_map      <- .rce_allowed_map("Sel_shape_dir")
+  sel_penalty_form_map   <- .rce_allowed_map("Sel_penalty_form")
   sel_shape_mode_map     <- .rce_allowed_map("Sel_shape_mode")
 
   # Validate fleet_control inputs ----
@@ -1116,6 +1132,14 @@ validate_switches <- function(data_list = NULL){
     data_list$fleet_control |>
       dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_shape_dir) &
                       !.data$Sel_shape_dir %in% .dir_ok)
+  } else .fc_none
+
+  .form_ok <- c(names(sel_penalty_form_map), "amak", "rceattle",
+                unname(sel_penalty_form_map))
+  invalid_sel_penalty_form <- if (.fc_has("Sel_penalty_form")) {
+    data_list$fleet_control %>%
+      dplyr::filter(.data$.rce_is_on & !is.na(.data$Sel_penalty_form) &
+                      !.data$Sel_penalty_form %in% .form_ok)
   } else .fc_none
 
   .mode_ok <- c(names(sel_shape_mode_map), "smooth", "directional",
@@ -1195,6 +1219,12 @@ validate_switches <- function(data_list = NULL){
                               paste(names(sel_shape_dir_map), collapse = ", ")))
   }
 
+  if(nrow(invalid_sel_penalty_form) > 0) {
+    errors <- c(errors, paste("Invalid 'Sel_penalty_form' specified for fleets:",
+                              paste(invalid_sel_penalty_form$Fleet_name, collapse = ", "),
+                              ".\nPlease use one of:",
+                              paste(names(sel_penalty_form_map), collapse = ", ")))
+  }
   if(nrow(invalid_sel_shape_mode) > 0) {
     errors <- c(errors, paste("Invalid 'Sel_shape_mode' specified for fleets:",
                               paste(invalid_sel_shape_mode$Fleet_name, collapse = ", "),

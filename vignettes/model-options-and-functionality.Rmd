@@ -119,7 +119,7 @@ below (integers or strings both work):
 |:---:|---|---|
 | `0` | `"Fixed"` | Selectivity supplied via the `emp_sel` data sheet |
 | `1` | `"Logistic"` | Two-parameter ascending logistic |
-| `2` | `"NonParametric"` | Age- or length-bin-indexed; penalties via `Sel_curve_pen1` / `Sel_curve_pen2` |
+| `2` | `"NonParametric"` | Age- or length-bin-indexed; penalties via `Sel_curve_pen1` / `Sel_curve_pen2`, in the form `Sel_penalty_form` selects |
 | `3` | `"DoubleLogistic"` | Dome-shaped (ascending + descending logistic) |
 | `4` | `"DescendingLogistic"` | Descending only |
 | `5` | `"Hake"` | Non-parametric à la Taylor et al. (Pacific hake) |
@@ -142,6 +142,28 @@ by an earlier version — begins from a mirrored point. Refit from `inits = NULL
 or transpose the two, when moving a 2DAR1 model across that boundary. Fits that
 start both correlations at 0 are unaffected: `TMBphase()` holds them there, and
 only the two reported estimates exchange names.
+
+`Sel_penalty_form` chooses how the `NonParametric` (2) deviation and level
+penalties are written. `"Rceattle"` (the default) scores the random walk as a
+normalized normal density and holds the level at a fixed weight of 2; `"AMAK"`
+reproduces the ADMB atka mackerel model, a bare Gaussian sum of squares on the
+walk with no normalizing constant and the level weight taken from
+`Sel_avgsel_pen`, which must then be set above its default of 0 -- it is the
+only term that sees the level of the coefficients, so at weight 0 that level is
+unidentified and `data_check()` refuses it (the ADMB model uses 20). It is not
+available with `Time_varying_sel = "IID"`, which has no ADMB counterpart. The two
+differ by a constant per scored
+increment, and `Time_varying_sel_sd` can only be fixed here — `random_sel = TRUE`
+is refused for a non-parametric walk — so the objective shifts and the estimates
+do not. It is for comparing a fit against an ADMB run component by component, not
+for changing one.
+
+Two range differences from ADMB remain, which this switch does not close: the
+walk is summed over one fewer increment than ADMB's `norm2`, and the decreasing
+penalty covers every adjacent pair where ADMB starts halfway up the ages. Type 9
+builds its curve as a cumulative walk and scores a dev-magnitude term type 2 has
+no equivalent of, so a coefficient set written for form 2 does not transfer to
+it; `inst/dev/TODO-nonparametric-penalty-unification.md` tabulates the rest.
 
 Time-varying behavior is set by `Time_varying_sel` (per fleet):
 
@@ -183,8 +205,8 @@ deviates integrable against the curvature penalty alone.
 One caveat if you do integrate them: the AMAK `avgsel` term is charged on the
 integrated deviates as well, so the prior actually integrated is the IID normal
 *times* that penalty. It does not scale with `Time_varying_sel_sd`, so it biases
-the estimated sd low — measured at about 5% of the precision at sd 0.35, more as
-the sd grows.
+the estimated sd low — measured at about 5% of the precision at sd 0.35 with the
+level weight at its default of 2, more as the sd or that weight grows.
 
 The switch is **soft-deprecated as a whole**, and `data_check()` says so on use.
 The linkage grammar expresses the same IID, random-walk and AR(1) deviations —

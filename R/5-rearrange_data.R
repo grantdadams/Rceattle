@@ -225,6 +225,15 @@ rearrange_data <- function(data_list, build_osa = FALSE){
                   Sel_pen_last_bin = ifelse(is.na(.data$Sel_pen_last_bin), -999, .data$Sel_pen_last_bin)) %>%
     dplyr::pull(.data$Sel_pen_last_bin) %>% as.integer()
 
+  # - 9d2) NonParametric (type 2) penalty forms: "Rceattle" (0; normalized walk
+  #        density, level weight 2) or "AMAK" (1; the ADMB atka mackerel forms).
+  #        Absent -> 0, so a workbook written before the column reads as before.
+  data_list$flt_sel_pen_form <- if (is.null(data_list$fleet_control$Sel_penalty_form)) {
+    rep(0L, nrow(data_list$fleet_control))
+  } else {
+    as.integer(data_list$fleet_control$Sel_penalty_form %in% c(1, "1", "AMAK", "amak"))
+  }
+
   # - 9e) Non-parametric shape-penalty mode: "Directional" (0; sign of Sel_curve_pen1
   #       -> one-sided decreasing/increasing, ADMB/AMAK) or "Smooth" (1; two-sided
   #       d^2 over adjacent ages, RTMB "rpm"). NA/other -> 0.
@@ -234,7 +243,8 @@ rearrange_data <- function(data_list, build_osa = FALSE){
       .default = 0L)) %>%
     dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
 
-  # - 9g) AMAK "avgsel" base-level penalty weight (type 9). ADMB adds
+  # - 9g) AMAK "avgsel" base-level penalty weight: type 9, and type 2 under
+  #       Sel_penalty_form = "AMAK". ADMB adds
   #       10*square(avgsel_*), avgsel = log(mean(exp(base coffs))); 0 = off (default).
   data_list$flt_sel_avgsel_pen <- suppressWarnings(
     as.numeric(data_list$fleet_control$Sel_avgsel_pen))

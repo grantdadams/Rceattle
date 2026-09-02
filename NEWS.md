@@ -193,8 +193,47 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   independent-deviate reading of them would not describe the curve the model
   builds, and its error message says so and points at `NonParametric`.
 
-  This is what bundled **`Atka2022`** is configured as, so that dataset -- and
-  the ADMB bridge it comes from -- could not be fitted as shipped. It now fits.
+  Bundled **`Atka2022`** ships `Time_varying_sel = 1`, so it could not be fitted
+  as shipped. It now fits. That 1 was carried across from the ADMB AMAK model,
+  whose own switch numbered a random walk 1, so a run reproducing the ADMB fit
+  wants `Time_varying_sel = "RandomWalk"` with `Sel_penalty_form = "AMAK"`; read
+  under Rceattle's codes the shipped value is `"IID"`.
+
+* **`Sel_penalty_form` chooses the form of the `NonParametric` (2) selectivity
+  penalties.** `"Rceattle"`, the default, is unchanged: the random walk is scored
+  as a normalized normal density and the mean-coefficient level carries a fixed
+  weight of 2. `"AMAK"` writes the two the way the ADMB atka mackerel model does
+  -- a bare Gaussian sum of squares on the walk, dropping the normalizing
+  constant, and the level weight read from `Sel_avgsel_pen` (20 in that model).
+  The two differ by a constant per scored increment, so with a fixed
+  `Time_varying_sel_sd` -- the only way this configuration runs, since
+  `random_sel = TRUE` is refused for a non-parametric walk -- the objective
+  shifts and the estimates do not. It is a likelihood-comparison switch: use it
+  to check a fit against an ADMB run component by component, not to change one.
+  Set per fleet in `fleet_control`; every bundled and sibling-repository workbook
+  defaults to `"Rceattle"` and every reference model is bit-identical.
+
+  It does **not** reproduce the decreasing-selectivity penalty of the vendored
+  atka fork (`Rceattle-models/BSAI atka mackerel/src/ceattle_v01_11_amak.cpp`),
+  which divides the square rather than the ratio and so scores twice what ADMB
+  does. `amak.tpl` line 2531 is `0.5 * square(difftmp) / seldec_pen` against a
+  `seldec_pen` squared on input at line 615; Rceattle's existing form gives the
+  same value per adjacent pair when `Sel_curve_pen1` is supplied as `1/(2*sd^2)`.
+  The fork is wrong, not the package.
+
+  Two range differences from ADMB remain, and `"AMAK"` does not close them: the
+  walk is summed over `nbins - 1` increments where ADMB's `norm2` runs over all
+  `nbins` and so counts the plus-group increment twice, and the decreasing
+  penalty covers every adjacent pair where ADMB starts at `int(nages/2)`. The
+  second is `Sel_pen_first_bin`, which type 2 validates and then ignores. Both
+  are recorded in `inst/dev/TODO-nonparametric-penalty-unification.md`, with the
+  measured effect on the atka bridge.
+
+  Under `"AMAK"`, `Sel_avgsel_pen` must be set above its default of 0. That term
+  is the only one that reads the level of the coefficients -- everything else
+  reads the per-year mean-centred curve -- so at weight 0 adding a constant to a
+  fleet's coefficients changes no likelihood component, and the fit would report
+  a converged but unidentified parameter. `data_check()` refuses it.
 
 # Rceattle 5.24.2
 

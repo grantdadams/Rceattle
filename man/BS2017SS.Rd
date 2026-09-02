@@ -76,8 +76,9 @@ fleet_control: controls for survey and fisheries data
 \item{Sel_curve_pen3}{Raw deviation-magnitude penalty weight for non-parametric / LogisticPM selectivity (the intuitive alternative is Sel_devmag_sd).}
 \item{Sel_pen_first_bin}{First bin (age or length, on the fleet's Selectivity_dimension) for the non-parametric shape penalty. NA defaults to Bin_first_selected.}
 \item{Sel_pen_last_bin}{Last (left) bin of the shape-penalty pairs. NA defaults to nbins - 2.}
+\item{Sel_penalty_form}{Which form the NonParametric (2) selectivity penalties take: "Rceattle" (default), or "AMAK" for the ADMB atka mackerel forms -- a bare sum of squares on the random walk in place of a normalized density, and the level weight read from \code{Sel_avgsel_pen} (which must then be > 0) rather than fixed at 2. Not available with \code{Time_varying_sel = "IID"}.}
 \item{Sel_shape_mode}{Shape-penalty mode: "Directional" (default) or "Smooth" (two-sided second-difference penalty, RTMB).}
-\item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty (type 9 only): 0 = off (default), 10 matches AMAK.}
+\item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty: type 9, and type 2 under \code{Sel_penalty_form = "AMAK"}, where it must be > 0. 0 = off (default); 10 matches the type-9 AMAK model, 20 the type-2 atka mackerel one.}
 \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
 \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1 --
 an absolute age for an age-based fleet (6 means age 6, not the 6th bin) or a

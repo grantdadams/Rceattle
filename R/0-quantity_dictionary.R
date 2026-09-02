@@ -223,6 +223,18 @@
     r("sel_at_length", "selectivity",
       "Selectivity at length bin by fleet, normalized to a maximum of one.",
       "proportion", "[n_flt, nsex, nlengths, nyrs]", FALSE, NA_character_),
+    r("log_non_par_sel", "selectivity",
+      "Non-parametric selectivity coefficients centred on their own log-mean over all bins, before the sel_at_age normalization. The shape, curvature and walk penalties are written on this curve, so it is what a penalty audit reads. Hindcast years only: projection years hold zero, reading as selectivity one at every bin. Zero outside a non-parametric fleet.",
+      "log proportion", "[n_flt, nsex, nbins, nyrs]", FALSE, NA_character_),
+    r("avg_sel", "selectivity",
+      "Level of the estimated coefficients, log(mean(exp())) over the fleet's n_sel_bins before the plus-group fill; the AMAK level penalty scores its square. Not the constant subtracted to make log_non_par_sel, which is taken over all bins after that fill. Hindcast years, non-parametric fleets.",
+      "log proportion", "[n_flt, nsex, nyrs_hind]", FALSE, NA_character_),
+    r("sel_dev_sd", "selectivity",
+      "Per-fleet standard deviation of the selectivity deviates, on the scale the deviates are drawn on. Fixed at Time_varying_sel_sd unless random_sel = TRUE.",
+      "log scale sd", "[n_flt]", FALSE, NA_character_),
+    r("sel_curve_pen", "selectivity",
+      "Per-fleet non-parametric penalty weights as the model reads them, from Sel_curve_pen1/2/3. These are weights on a sum of squares, not standard deviations.",
+      "weight", "[n_flt, 3]", FALSE, NA_character_),
 
     # -- growth ------------------------------------------------------------
     r("weight_hat", "growth",
