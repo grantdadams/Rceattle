@@ -28,9 +28,9 @@ so every `plot_x(...); mtext(...)` chain in those scripts failed with "plot.new 
 called yet". A grep for the function names would have found them; nobody ran one.
 
 **Sweep the workbooks, not only the scripts.** Three of the four behaviour changes in 5.25.0
-are settings a workbook carries and a script never names, so a grep over `*.R` sees none of
+are settings a workbook holds and a script never names, so a grep over `*.R` sees none of
 them. `readxl::read_excel()` over every `.xlsx` in the four repos is the net: 374 workbooks,
-183 with a `fleet_control` sheet, about two minutes. It is what turned "183 sheets carry
+183 with a `fleet_control` sheet, about two minutes. It is what turned "183 sheets have
 `Accumatation_age_*`" into the true 147, and what showed that the pre-`styr` `env_data` row
 shift misses the hake operating model. Note the `control` sheet is TRANSPOSED -- the first
 column holds the element names and each species is a column -- so `"nsex" %in% names(control)`
@@ -51,7 +51,7 @@ That is cheaper than it sounds: the terminal fit is under a minute for either po
 
 **The hake MSE is the one script that runs `run_mse()` end to end**, and the only routine
 exercise of three-species predation with estimated suitability, of `suitMode` differing per
-predator, and of Dirichlet-multinomial comps carrying a prior on their own weight. Golden
+predator, and of Dirichlet-multinomial comps with a prior on their own weight. Golden
 covers none of that: its four models are single- and multi-species Bering Sea and Gulf of
 Alaska hindcasts, with no MSE and no estimated suitability. Run it after touching predation,
 suitability, the DM likelihood, `sim_mod()`, or `run_mse()`.
@@ -70,7 +70,7 @@ Re-run on 5.25.0 (2026-09-01): stages 1, 3 and 4 bit-identical to the table, and
 by 1.8e-06 (8.3e-10 relative, below the optimizer's own tolerance). Stage 2 is the only one that
 runs the reference-point penalty, so it is the only one that touches the SPR sum, whose factors
 5.24.1 reordered -- floating-point addition is not associative, so the last bits move and the F
-solve carries it into the objective. **A delta of that size on stage 2 alone is the expected
+solve propagates it into the objective. **A delta of that size on stage 2 alone is the expected
 result of an SPR change, not a numeric regression.** Any of the other three moving is.
 
 All four were bit-identical across the two branches (delta 0.000e+00), as was the vulnerability
@@ -79,7 +79,7 @@ is next time it is measured** -- `exp(log_phi)` on the stage-4 fit prints 4.4709
 0.8172/0.7686 is some other transform and the note does not say which. The objective above is
 bit-identical, so the parameters are unchanged either way. The script's own
 inline comments give the first three ~5 higher and the fourth as 2262.318: those are Rceattle
-5.6.1 numbers that still carried the `theta_diet` prior constants. `README.md` in that folder
+5.6.1 numbers that still included the `theta_diet` prior constants. `README.md` in that folder
 records the "clean" values, which are what the current package reproduces.
 
 Traps:

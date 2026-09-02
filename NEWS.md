@@ -18,7 +18,7 @@ version throughout.
 
 No exported argument is removed or renamed. Two configurations that previously
 ran are now refused, and **neither produced a number anyone should use**. A
-workbook that carries the same column under two spellings is also refused where
+workbook with the same column under two spellings is also refused where
 it previously read, silently keeping one of them -- one file in the sibling
 repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 `Bin_first_selected` and `Age_first_selected` disagree on every row):
@@ -58,7 +58,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   giving `Inf - Inf = NaN` with no gradient to recover from. A new
   `log_mean_exp()` computes the mean with a max shift -- algebraically identical,
   and the shift cancels out of the derivative too -- and the centred curve is now
-  carried on the log scale rather than recovered from `exp()`. Measured on
+  held on the log scale rather than recovered from `exp()`. Measured on
   `BS2017SS`, the objective and gradient are finite to a coefficient of 1e8 in
   both the level and the spread direction, where they previously failed at 710
   and 730. The four reference models reproduce their optima to 1e-11 relative.
@@ -91,7 +91,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   so an observation from before `styr` displaced every later row, feeding an
   earlier year's covariate to consumption and, under multispecies, to predation
   mortality. **This moves real assessments.** No bundled dataset is affected, but
-  15 workbooks in the sibling assessment repositories carry pre-`styr`
+  15 workbooks in the sibling assessment repositories have pre-`styr`
   environmental rows and need refitting: the GOA CEATTLE 2018-2023
   configurations (13-14 years), AI cod and a single-species Pacific hake input
   (12 years each), and three GOA circulation-study assessments (2-9 years). The
@@ -102,7 +102,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   the model sees it.
 
 * **An integer `Time_varying_sel` on a non-parametric fleet is a mode again.**
-  A pre-4.4 workbook carried the two AMAK penalty weights in the time-varying
+  A pre-4.4 workbook stored the two AMAK penalty weights in the time-varying
   columns, and the upgrade that moves them across was triggered by the *value*
   in `Time_varying_sel` -- which cannot tell a shape weight of 4 from the
   `RandomWalk` code 4. `Time_varying_sel = 4` on a modern workbook therefore
@@ -133,16 +133,16 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 * **Two composition-accumulation columns were never being read.**
   `Accumatation_age_lower` and `Accumatation_age_upper` are the pre-4.4 names of
   `Comp_accum_young` and `Comp_accum_old`, and were missing from the schema's
-  alias list -- so a workbook carrying them got the default of no accumulation
+  alias list -- so a workbook with them got the default of no accumulation
   and the setting was ignored. **147 of the 183 fleet_control sheets in the
-  sibling assessment repositories carry them, and 79 carry a young-tail value
+  sibling assessment repositories have them, and 79 set a young-tail value
   that folds bins**; the GOA pollock configuration is the AFSC one, folding ages 1-2 into
   age 3 for the Shelikof survey and age 1 into age 2 for the fishery. On the
   2023 GOA pollock workbook, applying it moves the composition negative
   log-likelihood from 16333.05 to 16039.59 at identical parameters. Both are
   1-based ordinals on the fleet's composition dimension, which equals the age
   only when `minage` is 1 -- it is 1 on every affected workbook. No bundled
-  dataset carries either column, and none of the 147 carries it alongside the
+  dataset has either column, and none of the 147 also has the
   canonical spelling, so nothing had to be reconciled.
 
   `Est_weights_mcallister` is deliberately **not** treated the same way. Despite
@@ -176,7 +176,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 ## New features
 
 * **`plot_catchability()`** draws fitted survey catchability by year, faceted by
-  fleet, for every fleet carrying `index_data` -- a fishery with a CPUE series as
+  fleet, for every fleet with `index_data` -- a fishery with a CPUE series as
   much as a survey. It reads `quantities$index_q`, the realized `q` the model
   scaled the survey by, so one figure covers an estimated or fixed mean, annual
   deviations under `Time_varying_q`, an environmental regression, a `q` linkage
@@ -200,7 +200,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 
 ## Bug fixes
 
-* **`standard_output()` spells the length-bin column `length_bins`, and carries
+* **`standard_output()` spells the length-bin column `length_bins`, and emits
   `beg_mid`.** The schema `stockplotr` and `asar` read is the 34 columns of
   `stockplotr::example_data`; `convert_output()` spells it `len_bins` internally
   and renames on its last step, so 5.24.0 emitted the internal name. Those
@@ -217,7 +217,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   executive summary describes the assessment.
 
 * **The reference-point gating reads a harvest control rule held as an integer.**
-  `build_hcr_map()` matches `HCR` by name, so a `data_list` carrying the integer
+  `build_hcr_map()` matches `HCR` by name, so a `data_list` holding the integer
   code matched no rule and `report_tables()` reported `NA` for an F40% that was
   estimated, with a `basis` saying it was not. `HCR` is normalized before the
   lookup.
@@ -240,7 +240,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   Found on the 2026 GOA three-species assessment, where arrowtooth flounder
   (`nsex = 2`, `nages = 21`) returned `NA` for every per-recruit quantity and so
   could not be given a Tier 3 SPR reference point. **One-sex species are
-  unchanged in every configuration**: `mature_females` already carries the
+  unchanged in every configuration**: `mature_females` already applies the
   age-varying ratio for them, so the new formula reduces to the old one.
 
   **Which two-sex fits move.** The change rescales all four SPR schedules
@@ -311,7 +311,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 
 * **`quantity_dictionary()` says what every reported quantity is.** `fit$quantities`
   holds 99 derived quantities under the model's own abbreviated names, and nothing
-  said what they meant, what units they were in, or which carried a standard error.
+  said what they meant, what units they were in, or which had a standard error.
   The new table gives each one a plain-language meaning, its units, its dimensions,
   whether `sdreport()` provides an SE for it, and what the same quantity is called in
   the NOAA standardized assessment output:
@@ -339,7 +339,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   came out of a different call in a different shape, so comparing two models meant
   assembling a dozen ad-hoc extractions by hand. Sections follow the AFSC Alaska
   Groundfish Stock Assessment Guidelines for what a SAFE chapter reports, and every
-  table carries a `model` column so several fits stack for comparison:
+  table has a `model` column so several fits stack for comparison:
 
   ```r
   tabs <- report_tables(list(base = fit0, alt = fit1),
@@ -357,7 +357,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
 * **`report_tables()` gains a `parameters` section, and reports both
   objectives.** Asked for directly: where are sigma_R, the estimates of M, and
   the likelihood values? `parameters` joins `coef()` and `vcov()` to
-  [parameter_dictionary()], so every estimated parameter carries its
+  [parameter_dictionary()], so every estimated parameter gets its
   natural-scale name, its process and its standard error. Estimates are on the
   parameter's own scale, so a `log_` name needs `exp()`; sigma_R appears only
   when `random_rec = TRUE`, and a **fixed** M is not there at all because it was
@@ -383,7 +383,7 @@ repositories does (`GOA cod/Data/2024_cod_pcod_test.xlsx`, whose
   multispecies fit errors unless `species` selects one, rather than returning a frame
   in which two stocks' biomass share a year. The likelihood decomposition is the
   exception: `jnll_comp` counts fleets on rows 1-8 and species on rows 9-20, so
-  fleet rows are carried in the standard's `fleet` column whatever the species
+  fleet rows go in the standard's `fleet` column whatever the species
   rather than filtered away with it — on a 16-fleet assessment they are 31 of
   the 38 rows.
 

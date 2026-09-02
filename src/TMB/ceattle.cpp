@@ -3963,7 +3963,7 @@ Type objective_function<Type>::operator() () {
           // derivative, so charging it on the deviates steps the Laplace
           // log-determinant. Bound the loop at flt_n_sel_bins(flt) - 1: past
           // that, sel_coff holds 0 rather than the copy of the last estimated
-          // bin the realized curve carries, so d would be a cliff that the
+          // bin the realized curve repeats, so d would be a cliff that the
           // fitted selectivity does not have.
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nbins - 1); age++) {
@@ -4029,7 +4029,7 @@ Type objective_function<Type>::operator() () {
           // PROPOSED (IID only): compute the level from sel_coff over
           // [bin_first_selected, flt_n_sel_bins) with log_mean_exp(), as the
           // type-9 branch already does, rather than reading the per-year
-          // avg_sel that carries the deviates.
+          // avg_sel, which includes the deviates.
           for(sex = 0; sex < nsex(sp); sex++){
             jnll_comp(JNLL_SEL_NONPARAM, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
