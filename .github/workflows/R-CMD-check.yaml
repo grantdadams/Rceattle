@@ -16,6 +16,15 @@ name: R-CMD-check
 permissions:
   contents: read
 
+# Five OS/R legs per run, and a push to an open PR's branch starts a second run of
+# all five. Without this, four commits pushed in quick succession left forty legs
+# racing, and two of them restored the same partial pak cache: "Install pak" returned
+# in 1s and the next step died with "there is no package called 'pak'". Superseded
+# runs on the same ref are now cancelled, as test-coverage.yaml already does.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
