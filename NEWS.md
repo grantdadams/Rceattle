@@ -64,6 +64,23 @@ version throughout.
   overlap with any selected bin. No bundled dataset does that, and it cannot be
   excluded structurally the way a `Fixed` fleet can.
 
+* **`plot_selectivity(add_ci = TRUE)`** draws that interval, as
+  `exp(log(sel) +/- 1.96 * sd)`, under the curve it belongs to. It needs a fit
+  run with `fit_control(selectivity_se = TRUE)` and declines with a warning
+  naming the option otherwise, rather than drawing a bare line that would read
+  as certainty. Declined for the whole figure if any model in an overlay lacks
+  the errors: a band on some panels and not others says "this fleet is certain"
+  rather than "this fit was not asked".
+
+  Age-based fleets only. The error is on `sel_at_age`, and a length-based fleet
+  is drawn on `sel_at_length`, which is what was fitted and carries none. A
+  fleet that MIRRORS another's selectivity has no rows of its own -- the
+  template reports the lead once -- but shares its parameter block, so it
+  borrows the lead's band instead of drawing none.
+
+  One band per year, so a time-varying fleet is dense. Pair it with `minyr` /
+  `maxyr` on a single year, or use it on a time-invariant fleet.
+
 ## Bug fixes
 
 * **`quantity_dictionary()` described `sel_at_age` as "normalized to a maximum

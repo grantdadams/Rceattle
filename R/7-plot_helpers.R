@@ -973,3 +973,62 @@
 #' @return A `ggplot` object.
 #' @name rceattle-plot-args
 NULL
+
+
+#' The selectivity standard errors a fit reports, or NULL
+#'
+#' `fit_control(selectivity_se = TRUE)` adds `log_sel_at_age` to the sdreport
+#' and `log_sel_at_age_index` to the reported quantities. Both are needed: the
+#' index says which (fleet, sex, age, year) each sdreport row belongs to, and
+#' its length depends on the model, since Fixed fleets and mirrored fleets are
+#' left out.
+#'
+#' @param model One fitted `Rceattle` object.
+#' @return A data frame of `Fleet`, `Sex`, `Age`, `Year`, `log_sel`, `sd`, or
+#'   `NULL` where the fit has no sdreport or was not asked for the errors.
+#' @keywords internal
+#' @noRd
+.rce_sel_se <- function(model) {
+  sdrep <- model$sdrep
+  idx   <- model$quantities$log_sel_at_age_index
+  if (is.null(sdrep) || is.null(sdrep$value) || is.null(idx)) return(NULL)
+  k <- names(sdrep$value) == "log_sel_at_age"
+  if (!any(k) || sum(k) != nrow(idx)) return(NULL)
+  data.frame(Fleet = as.integer(idx[, 1]), Sex = as.integer(idx[, 2]),
+             Age   = as.integer(idx[, 3]), Year = as.integer(idx[, 4]),
+             log_sel = unname(sdrep$value[k]), sd = unname(sdrep$sd[k]),
+             stringsAsFactors = FALSE)
+}
+
+
+#' One fleet-sex-year's selectivity interval, on the natural scale
+#'
+#' Returned in the order of `bins`, with `NA` for any age the fit did not
+#' report, so the caller can bind it to the curve without checking lengths.
+#' `exp()` of a log-scale interval, so it is positive and right-skewed.
+#'
+#' A fleet that MIRRORS another's selectivity carries no rows of its own -- the
+#' template reports the lead once -- but its curve is the lead's, so it has
+#' exactly the lead's uncertainty. Falling back to `lead` keeps the band on both;
+#' without it a mirror would draw a bare line beside a banded lead and read as
+#' the more certain of the two.
+#'
+#' @param se The `.rce_sel_se()` frame, or NULL.
+#' @param flt,sex Fleet code and sex index.
+#' @param bins Absolute ages, in plotting order.
+#' @param year Calendar year.
+#' @param lead The fleet whose selectivity this one shares (`Selectivity_index`).
+#' @return A list of `lower` and `upper`, or `NULL` if this fleet has no errors.
+#' @keywords internal
+#' @noRd
+.rce_sel_ci <- function(se, flt, sex, bins, year, lead = flt) {
+  if (is.null(se)) return(NULL)
+  hit <- se$Fleet == flt & se$Sex == sex & se$Year == year
+  if (!any(hit) && !identical(lead, flt) && !is.na(lead)) {
+    hit <- se$Fleet == lead & se$Sex == sex & se$Year == year
+  }
+  if (!any(hit)) return(NULL)
+  m <- match(bins, se$Age[hit])
+  list(lower = exp(se$log_sel[hit][m] - 1.96 * se$sd[hit][m]),
+       upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]))
+}

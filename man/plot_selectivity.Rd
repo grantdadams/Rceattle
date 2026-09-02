@@ -18,6 +18,7 @@ plot_selectivity(
   minyr = NULL,
   maxyr = NULL,
   alpha = 0.25,
+  add_ci = FALSE,
   colour_by = c("auto", "year", "model")
 )
 }
@@ -54,6 +55,9 @@ figure separates by line type.}
 \item{alpha}{Transparency of the faintest year when the fan is drawn by
 transparency, i.e. under \code{colour_by = "model"}.}
 
+\item{add_ci}{Add a 95\% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.}
+
 \item{colour_by}{What colour separates: \code{"year"} (a fan), \code{"model"}, or
 \code{"auto"} (the default) for year with a single model and model with several.}
 }
@@ -79,5 +83,21 @@ choice either way, and \code{alpha} sets the faintest end.
 Line type separates the sexes, and \code{lty} supplies its values. Panels are
 fleets, so \code{spnames} does not label anything here -- it only lets \code{species}
 select by name.
+}
+
+\section{Confidence intervals}{
+\code{add_ci = TRUE} needs the fit to have been run with
+\code{fit_control(selectivity_se = TRUE)}, which is off by default because it is
+the expensive half of the calculation. It draws \verb{exp(log(sel) +/- 1.96 * sd)},
+so the band is positive and right-skewed.
+
+It covers AGE-based fleets only. The standard error is on \code{sel_at_age}; a
+length-based fleet is drawn on \code{sel_at_length}, which is what was fitted and
+carries no error, so the length figure is drawn without a band. A
+\code{Selectivity = "Fixed"} fleet estimates nothing and gets none either.
+
+A band per year is dense on a time-varying fleet, since every year drawn gets
+one. Pair it with \code{minyr} / \code{maxyr} on a single year, or use it on a
+time-invariant fleet, where there is one curve and one band.
 }
 
