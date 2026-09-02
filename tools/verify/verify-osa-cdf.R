@@ -53,7 +53,7 @@ at_truth <- function(fit, dat) {
 # Lag-1 autocorrelation of the residual sequence within each composition, pooled
 # over compositions. Under the null the conditional binomials are independent, so
 # this is 0 with standard error 1/sqrt(number of adjacent pairs).
-within_acf1 <- function(osa) {
+within_acf1_parts <- function(osa) {
   g <- split(osa$residual, list(osa$source, osa$fleet, osa$year), drop = TRUE)
   num <- 0; den <- 0; npair <- 0
   for (r in g) {
@@ -63,7 +63,16 @@ within_acf1 <- function(osa) {
     den <- den + sum(r^2)
     npair <- npair + length(r) - 1
   }
-  c(acf1 = if (den > 0) num / den else NA_real_, se = 1 / sqrt(max(npair, 1)))
+  c(num = num, den = den, npair = npair)
+}
+
+# Pool those parts over replicates, so the ratio and its null standard error
+# both describe the whole run rather than one replicate of it.
+pool_acf1 <- function(parts) {
+  if (is.null(parts)) return(c(acf1 = NA_real_, se = NA_real_))
+  num <- sum(parts[, "num"]); den <- sum(parts[, "den"])
+  np  <- sum(parts[, "npair"])
+  c(acf1 = if (den > 0) num / den else NA_real_, se = 1 / sqrt(max(np, 1)))
 }
 
 summarize <- function(label, res, ks_p, acf) {
@@ -112,13 +121,16 @@ for (src in list(c("index", "catch"), "comp")) {
       r <- o$residual[is.finite(o$residual)]
       acc[[i]]$res <- c(acc[[i]]$res, o$residual)
       acc[[i]]$ks  <- c(acc[[i]]$ks, stats::ks.test(r, "pnorm")$p.value)
-      acc[[i]]$osa <- o
+      # Accumulate the autocorrelation across EVERY replicate. Keeping the last
+      # replicate's object and summarising that reported a one-replicate
+      # statistic beside twenty-replicate means and sds, which understates the
+      # null standard error by a factor of sqrt(nrep).
+      acc[[i]]$acf <- rbind(acc[[i]]$acf, within_acf1_parts(o))
     }
   }
   for (i in seq_along(configs)) {
     a <- acc[[i]]
-    summarize(configs[[i]]$label, a$res, a$ks,
-              if (is.null(a$osa)) c(acf1 = NA_real_, se = NA_real_) else within_acf1(a$osa))
+    summarize(configs[[i]]$label, a$res, a$ks, pool_acf1(a$acf))
   }
   cat("\n")
 }
@@ -208,7 +220,9 @@ fit_c <- suppressWarnings(suppressMessages(fit_mod(
   fit_control = fit_control(getsd = FALSE, verbose = 0, phase = FALSE))))
 cat("  random effects:", length(fit_c$obj$env$random), "\n")
 acc_re <- lapply(configs, function(x) list(res = numeric(0), ks = numeric(0)))
-for (rep in seq_len(nrep * 5L)) {   # this fixture yields ~14 residuals a replicate
+nrep_re <- nrep * 5L    # this fixture yields ~14 residuals a replicate
+cat("  replicates:", nrep_re, "\n")
+for (rep in seq_len(nrep_re)) {
   set.seed(5000 + rep)
   ds <- try(suppressWarnings(suppressMessages(
     sim_mod(fit_c, simulate = TRUE, process = "recruitment"))), silent = TRUE)
@@ -229,11 +243,12 @@ for (rep in seq_len(nrep * 5L)) {   # this fixture yields ~14 residuals a replic
     if (length(r) < 3) next
     acc_re[[i]]$res <- c(acc_re[[i]]$res, r)
     acc_re[[i]]$ks  <- c(acc_re[[i]]$ks, stats::ks.test(r, "pnorm")$p.value)
+    acc_re[[i]]$acf <- rbind(acc_re[[i]]$acf, within_acf1_parts(o))
   }
 }
 for (i in seq_along(configs)) {
   a <- acc_re[[i]]
-  summarize(configs[[i]]$label, a$res, a$ks, c(acf1 = NA_real_, se = NA_real_))
+  summarize(configs[[i]]$label, a$res, a$ks, pool_acf1(a$acf))
 }
 
 cat("\ndone.\n")

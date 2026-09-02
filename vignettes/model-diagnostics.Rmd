@@ -311,10 +311,26 @@ Three things to know before switching:
   anyway, because an asymmetric ceiling would show as a long left tail against a
   wall on the right, which is what skewness in the residuals looks like. The
   cost is real — `osa_diagnostics()` computes SDNR and the tail statistics on
-  the censored values, and on a 12-year index series with one year 15 standard
-  deviations out the SDNR reads 2.32 against an uncensored 4.33, so it bites
-  hardest on short series. `osa_residuals()` warns when any residual sits there,
-  and a Gaussian `method` reports the uncensored value.
+  the censored values, so it bites hardest on a short series where one
+  observation carries the statistic. `osa_residuals()` warns when any residual
+  sits there. Which method to reach for then is measured, not obvious
+  (`tools/verify/verify-osa-cdf-accuracy.R`, a 12-year survey with one
+  observation multiplied by 200):
+
+  | method | min | max | non-finite | SDNR |
+  |---|---|---|---|---|
+  | `oneStepGaussianOffMode` | −11.77 | 0.19 | 1 | `NA` |
+  | `oneStepGaussian` | −11.77 | 38.98 | 0 | 12.89 |
+  | `oneStepGeneric` | −3.95 | 3.33 | 0 | 2.21 |
+  | `cdf` | −8.04 | 8.04 | 0 | 4.59 |
+
+  Only `"oneStepGaussian"` reports the uncensored value here: the package
+  default returns `NaN` on that row, so its SDNR is unusable rather than merely
+  large, and `"oneStepGeneric"` compresses the outlier harder than the ceiling
+  does. The default's failure is magnitude-dependent — at a ×20 outlier it is
+  finite and matches `"oneStepGaussian"` — so reach for that method
+  specifically, and on the fleet in question: it costs an `nlminb` per
+  observation.
 
 ### With random effects, the choice reverses for the aggregate series
 
@@ -323,7 +339,8 @@ Three things to know before switching:
 that integrand is a Gaussian times a sigmoid rather than a density — where, for
 a Gaussian observation, the Gaussian methods integrate a density and are exact.
 Measured against the exact Kalman innovations of a linear-Gaussian state space
-model, as the latent state becomes more informative relative to the observation:
+model, as the latent state becomes more informative relative to the observation
+(reproduced by `tools/verify/verify-osa-cdf-accuracy.R`):
 
 | latent/observation sd | `fullGaussian` | `oneStepGaussian` | `cdf` |
 |---|---|---|---|
@@ -331,8 +348,21 @@ model, as the latent state becomes more informative relative to the observation:
 | 1.12 | 1e-15 | 4e-14 | 6e-03 |
 | 2.24 | 1e-15 | 3e-14 | 4e-02 |
 
-**So on a model with random effects, prefer a Gaussian method for `"index"` and
-`"catch"`.** It does not reverse for compositions: their conditional is discrete
+**That is a result about a linear-Gaussian model, and it does not carry over
+wholesale.** The Gaussian methods are exact when the one-step-ahead *predictive*
+is Gaussian, which needs the model to be linear in the random effects — and
+Rceattle's index and catch are `exp()` of cumulated log recruitment deviations
+pushed through the population dynamics. `fullGaussian` and `oneStepGaussian`
+cannot differ for a Gaussian conditional, so their disagreement measures the
+departure: on a 17-deviation fixture they differ by 0.091 on both index and
+catch, while `"cdf"` differs from `oneStepGaussian` by 0.017 on index. **No
+method is exact for index or catch under random effects.**
+
+**`"ecov"` is the exception, and there a Gaussian method is right.** Its
+conditional — a Gaussian measurement of an AR1 latent, every other data term
+unconditional — genuinely is linear-Gaussian: the two Gaussian methods agree to
+4e-14 on the QAR1 fixture, while `"cdf"` sits 0.139 away, about a quarter of the
+residual sd. It does not reverse for compositions: their conditional is discrete
 and skewed, which is what the Gaussian methods get wrong, and by much more.
 Simulating from a 22-random-effect model with the recruitment deviations redrawn
 and residualizing at the generating parameters (1680 residuals),

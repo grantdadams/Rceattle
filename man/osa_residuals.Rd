@@ -260,17 +260,41 @@ symmetrically is preferable to manufacturing an apparent shape.
 
 The cost is real: this is a ceiling, not a large number standing in for a
 larger one, and \code{\link[=osa_diagnostics]{osa_diagnostics()}} computes SDNR and the tail statistics on
-the censored values. On a 12-year index series with one year 15 standard
-deviations out, the SDNR reads 2.32 against an uncensored 4.33. It bites
-hardest on short series, where one observation carries the statistic. The
-function warns when any residual sits at the ceiling; a Gaussian \code{method}
-reports the uncensored number for those rows.
+the censored values. It bites hardest on a short series, where one
+observation carries the statistic. The function warns when any residual sits
+at the ceiling.
+
+\strong{Which method to reach for then is not obvious}, so it is measured
+(\code{tools/verify/verify-osa-cdf-accuracy.R}): a 12-year survey with one
+observation multiplied by 200, fixed effects, so the methods differ only in
+how each handles an observation past what a CDF can report.\tabular{lllll}{
+   method \tab min \tab max \tab non-finite \tab SDNR \cr
+   \code{oneStepGaussianOffMode} \tab -11.77 \tab 0.19 \tab 1 \tab \code{NA} \cr
+   \code{oneStepGaussian} \tab -11.77 \tab 38.98 \tab 0 \tab 12.89 \cr
+   \code{oneStepGeneric} \tab -3.95 \tab 3.33 \tab 0 \tab 2.21 \cr
+   \code{cdf} \tab -8.04 \tab 8.04 \tab 0 \tab 4.59 \cr
+}
+
+
+Only \code{"oneStepGaussian"} reports the uncensored value here. The package
+default returns \code{NaN} on that row, so its SDNR is unusable rather than
+merely large, and \code{"oneStepGeneric"} compresses the outlier harder than this
+ceiling does. The default's failure is magnitude-dependent -- at a x20
+outlier on the same fixture it returns a finite -8.02 and matches
+\code{"oneStepGaussian"} -- so \strong{reach for \code{"oneStepGaussian"} specifically}
+rather than for "a Gaussian method". It costs an \code{nlminb} and an
+\code{optimHess} per observation, so use it on the fleet in question, not on a
+whole composition source.
 \item \strong{Compositions are residualized in their own \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}} call},
 because \code{discrete} differs between them and the aggregate series and TMB
 takes one setting per call. Everything earlier in the sequence is passed as
-\code{conditional}, so on a model whose groups are contiguous -- which this split
-always is -- the result is identical to a single call. Fixed-effect models
-are unaffected in any case.
+\code{conditional}, so the CONDITIONING is what a single call would have used.
+The residual values are not identical to a single call under
+\code{discrete = TRUE}: oneStepPredict re-seeds and draws \code{nrow(subset)}
+randomizing uniforms per call, so a composition residual depends on how many
+rows share its call. Set \code{seed} for reproducibility of a given call, and do
+not compare individual randomized residuals across different \code{source}
+selections. Fixed-effect models are unaffected by the conditioning.
 }
 
 \strong{Which is right for compositions.} Residualizing simulated data at the
@@ -312,9 +336,26 @@ becomes more informative relative to the observation:\tabular{llll}{
 }
 
 
-\strong{So on a random-effects model prefer a Gaussian method for \code{"index"} and
-\code{"catch"}} -- their conditional really is Gaussian, and those methods are
-exact for it.
+\strong{That result is about a LINEAR-Gaussian model, and does not carry over
+wholesale.} Those methods are exact when the one-step-ahead \emph{predictive} is
+Gaussian, which needs the model to be linear in the random effects. Rceattle's
+index and catch are \code{exp()} of cumulated log recruitment deviations pushed
+through the population dynamics, and are not. \code{fullGaussian} and
+\code{oneStepGaussian} cannot differ for a Gaussian conditional, so their
+disagreement measures the departure -- on a 17-deviation fixture they differ
+by 0.091 on both index and catch, while \code{"cdf"} differs from
+\code{oneStepGaussian} by 0.017 on index. \strong{No method is exact for index or catch
+under random effects}, and the choice there is not settled by this package.
+
+\strong{\code{"ecov"} is the exception, and there a Gaussian method is right.} Its
+conditional -- a Gaussian measurement of an AR1 latent, every other data term
+unconditional -- genuinely is linear-Gaussian: \code{fullGaussian} and
+\code{oneStepGaussian} agree to 4e-14 on the QAR1 fixture in
+\code{test-likelihood-osa-cdf.R}, while \code{"cdf"} sits 0.139 away, about a quarter of
+the residual standard deviation.
+
+Both measurements are reproduced by \code{tools/verify/verify-osa-cdf-accuracy.R},
+which compiles the state space model it scores against.
 
 \strong{It does not reverse for compositions.} A composition conditional is a
 discrete, skewed binomial, which is what the Gaussian methods get wrong, and

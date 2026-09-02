@@ -5287,7 +5287,10 @@ Type objective_function<Type>::operator() () {
               // latent state, so its CDF is pnorm of the standardized residual.
               // Only jnll_comp, as at every other CDF site: unweighted_jnll_comp
               // is reported as an unweighted LIKELIHOOD (Francis and
-              // McAllister-Ianelli read it), and a CDF term is not one.
+              // McAllister-Ianelli read it), and a CDF term is not one. This row
+              // is one of the few that keeps its own value -- the wholesale copy
+              // in section 13.4 runs `ind < 19`, so rows 19 and 20 are never
+              // overwritten, and it executes before this block in any case.
               if (osa_mode == 2) {
                 jnll_comp(JNLL_LINKAGE_RE, 0) -= osa_norm_cdf_terms(
                   obsvec(pos), re(t), osd, keep.cdf_lower(pos), keep.cdf_upper(pos));

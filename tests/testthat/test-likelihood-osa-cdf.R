@@ -349,11 +349,13 @@ testthat::test_that("a Dirichlet-multinomial fleet is moved off cdf, loudly", {
   # same thing (nothing) on every row of a "cdf" object.
   testthat::expect_true(all(is.na(o$predicted)))
   testthat::expect_true(all(is.na(o$sd)))
-  # And the flag says which fleets were randomized, rather than one value that
-  # is wrong for these rows.
-  d <- attr(o, "discrete")
-  testthat::expect_true(unname(d[["default"]]))
-  testthat::expect_false(unname(d[["DirichletMultinomial"]]))
+  # Every fleet here is Dirichlet-multinomial, so every composition went to the
+  # Gaussian fallback and NOTHING was randomized -- the flag has to say so. It
+  # reports what was actually done, not what `discrete` resolved to.
+  testthat::expect_false(attr(o, "discrete"))
+  # `all = FALSE` here would assert only that NOT EVERY line matches, which is
+  # true of any multi-line output -- the assertion has to be that no line does.
+  testthat::expect_false(any(grepl("randomized", utils::capture.output(print(o)))))
 })
 
 
@@ -487,6 +489,63 @@ testthat::test_that("cdf residualizes a state-space covariate observation", {
   d <- max(abs(o$residual - g$residual))
   testthat::expect_gt(d, 1e-3)
   testthat::expect_lt(d, 1)
+})
+
+
+testthat::test_that("a failed Laplace solve does not cost every observation after it", {
+  # The failure this guards, measured on BS2017SS with random recruitment: 1879
+  # of 4538 composition residuals non-finite in one call, and exactly 1 of those
+  # same 1880 rows when they are residualized on their own. TMB's cdf loop
+  # captures the warm start AFTER evaluating the observation, so one NaN solve is
+  # restored as the start for every observation after it and nothing recovers.
+  # The failures are a contiguous tail, which is what makes them recoverable.
+  #
+  # Unit-tested on the recovery helper rather than on a real model: reproducing
+  # the cascade needs a few thousand observations over a hundred random effects,
+  # which is minutes, not seconds. tools/verify/verify-osa-cdf.R runs that.
+  mk <- function(resid) data.frame(.row = seq_along(resid), observed = 1,
+                                   predicted = NA_real_, sd = NA_real_,
+                                   residual = resid)
+
+  # A clean tail is recovered in one pass, and the recovered values land in the
+  # right rows.
+  res <- mk(c(1:5, rep(NaN, 5)))
+  testthat::expect_message(
+    got <- Rceattle:::.osa_retry_tail(res, function(from) mk(rep(99, 11 - from))),
+    "recovering 5 of 5")
+  testthat::expect_equal(got$residual, c(1:5, rep(99, 5)))
+
+  # Partial progress is kept and retried: the first pass fixes rows 6-8, the
+  # second the rest.
+  n_call <- 0L
+  res <- mk(c(1:5, rep(NaN, 5)))
+  got <- suppressMessages(Rceattle:::.osa_retry_tail(res, function(from) {
+    n_call <<- n_call + 1L
+    out <- rep(if (n_call == 1L) NaN else 7, 11 - from)
+    if (n_call == 1L) out[1:3] <- 50
+    mk(out)
+  }))
+  testthat::expect_true(all(is.finite(got$residual)))
+  testthat::expect_equal(got$residual, c(1:5, 50, 50, 50, 7, 7))
+
+  # A retry that makes no progress stops instead of looping to the bound, and the
+  # rows it could not fix stay non-finite rather than being silently dropped.
+  n_call <- 0L
+  res <- mk(c(1, NaN, NaN))
+  testthat::expect_message(
+    got <- Rceattle:::.osa_retry_tail(res, function(from) {
+      n_call <<- n_call + 1L
+      mk(rep(NaN, 4 - from))
+    }),
+    "did not help")            # and it must NOT claim to have recovered anything
+  testthat::expect_equal(n_call, 1L)
+  testthat::expect_equal(sum(!is.finite(got$residual)), 2L)
+
+  # Nothing to do is a no-op, and says nothing.
+  clean <- mk(1:4)
+  testthat::expect_no_message(
+    testthat::expect_identical(Rceattle:::.osa_retry_tail(clean, function(from)
+      stop("must not be called")), clean))
 })
 
 

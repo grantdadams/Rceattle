@@ -105,10 +105,19 @@ version throughout.
   and is censored to match anyway, because an asymmetric ceiling would show as a
   long left tail against a wall on the right, which is what skewness in the
   residuals looks like. The cost is real: `osa_diagnostics()` computes SDNR and
-  the tail statistics on the censored values, and on a 12-year index series with
-  one year 15 standard deviations out the SDNR reads 2.32 against an uncensored
-  4.33. It bites hardest on short series. A Gaussian `method` reports the
-  uncensored number. (Four machine epsilons rather than one, so the ceiling does
+  the tail statistics on the censored values, and it bites hardest on a short
+  series where one observation carries the statistic. Which method to reach for
+  then is measured rather than asserted
+  (`tools/verify/verify-osa-cdf-accuracy.R`, a 12-year survey with one
+  observation multiplied by 200): `"oneStepGaussian"` reports it uncensored at
+  38.98 (SDNR 12.89), `"cdf"` censors to 8.04 (SDNR 4.59), `"oneStepGeneric"`
+  compresses it to 3.33 (SDNR 2.21), and the package default
+  `"oneStepGaussianOffMode"` returns `NaN` there, making its SDNR unusable
+  rather than merely large. That last failure is magnitude-dependent -- at a x20
+  outlier the default is finite and matches `"oneStepGaussian"` -- so **reach
+  for `"oneStepGaussian"` specifically**, not for "a Gaussian method", and on
+  the fleet in question rather than a whole composition source, since it costs
+  an `nlminb` per observation. (Four machine epsilons rather than one, so the ceiling does
   not land on that arithmetic's rounding tie, which produced 6 infinite
   residuals on BS2017SS.)
 
@@ -118,8 +127,19 @@ version throughout.
   times a sigmoid rather than a density. Against the exact Kalman innovations of
   a linear-Gaussian state space model, `fullGaussian` and `oneStepGaussian` are
   exact to machine precision while `"cdf"` errs by 7e-4 to 4e-2 as the latent
-  state becomes more informative. **So prefer a Gaussian method for `"index"`
-  and `"catch"` on a random-effects model.** It does not reverse for
+  state becomes more informative. **That is a result about a LINEAR-Gaussian
+  model and does not carry over wholesale**: the Gaussian methods are exact when
+  the one-step-ahead predictive is Gaussian, which needs the model to be linear
+  in the random effects, and Rceattle's index and catch are `exp()` of cumulated
+  log recruitment deviations through the population dynamics. `fullGaussian` and
+  `oneStepGaussian` cannot differ for a Gaussian conditional, and on a
+  17-deviation fixture they differ by 0.091 on both index and catch, where
+  `"cdf"` differs from `oneStepGaussian` by 0.017 on index -- so **no method is
+  exact for index or catch under random effects** and this release does not
+  claim one. **`"ecov"` is the exception**: its conditional genuinely is
+  linear-Gaussian, the two Gaussian methods agree there to 4e-14, and `"cdf"`
+  sits 0.139 away -- about a quarter of the residual sd -- so prefer a Gaussian
+  method for that source. It does not reverse for
   compositions, whose conditional is discrete and skewed -- exactly what the
   Gaussian methods get wrong, and by much more. Simulating from a
   22-random-effect model with the recruitment deviations redrawn (1680

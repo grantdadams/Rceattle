@@ -17,6 +17,12 @@
 # 8.04; the absolute ceiling, from a CDF read straight off, is 8.21.
 .OSA_CDF_CEILING <- stats::qnorm(1 - 2 * .Machine$double.eps)
 
+# How many times to rebuild the model and redo the tail of a one-step-ahead
+# sequence after a failed Laplace solve poisons the warm start. Each retry costs
+# a rebuild plus the rows from the failure onwards, so this bounds the worst case
+# at a few times the original call rather than leaving it unbounded.
+.OSA_CDF_MAX_RETRY <- 5L
+
 
 #' One-step-ahead (OSA) residuals for an Rceattle model
 #'
@@ -252,17 +258,41 @@
 #'
 #'   The cost is real: this is a ceiling, not a large number standing in for a
 #'   larger one, and [osa_diagnostics()] computes SDNR and the tail statistics on
-#'   the censored values. On a 12-year index series with one year 15 standard
-#'   deviations out, the SDNR reads 2.32 against an uncensored 4.33. It bites
-#'   hardest on short series, where one observation carries the statistic. The
-#'   function warns when any residual sits at the ceiling; a Gaussian `method`
-#'   reports the uncensored number for those rows.
+#'   the censored values. It bites hardest on a short series, where one
+#'   observation carries the statistic. The function warns when any residual sits
+#'   at the ceiling.
+#'
+#'   **Which method to reach for then is not obvious**, so it is measured
+#'   (`tools/verify/verify-osa-cdf-accuracy.R`): a 12-year survey with one
+#'   observation multiplied by 200, fixed effects, so the methods differ only in
+#'   how each handles an observation past what a CDF can report.
+#'
+#'   | method | min | max | non-finite | SDNR |
+#'   |---|---|---|---|---|
+#'   | `oneStepGaussianOffMode` | -11.77 | 0.19 | 1 | `NA` |
+#'   | `oneStepGaussian` | -11.77 | 38.98 | 0 | 12.89 |
+#'   | `oneStepGeneric` | -3.95 | 3.33 | 0 | 2.21 |
+#'   | `cdf` | -8.04 | 8.04 | 0 | 4.59 |
+#'
+#'   Only `"oneStepGaussian"` reports the uncensored value here. The package
+#'   default returns `NaN` on that row, so its SDNR is unusable rather than
+#'   merely large, and `"oneStepGeneric"` compresses the outlier harder than this
+#'   ceiling does. The default's failure is magnitude-dependent -- at a x20
+#'   outlier on the same fixture it returns a finite -8.02 and matches
+#'   `"oneStepGaussian"` -- so **reach for `"oneStepGaussian"` specifically**
+#'   rather than for "a Gaussian method". It costs an `nlminb` and an
+#'   `optimHess` per observation, so use it on the fleet in question, not on a
+#'   whole composition source.
 #' * **Compositions are residualized in their own [TMB::oneStepPredict()] call**,
 #'   because `discrete` differs between them and the aggregate series and TMB
 #'   takes one setting per call. Everything earlier in the sequence is passed as
-#'   `conditional`, so on a model whose groups are contiguous -- which this split
-#'   always is -- the result is identical to a single call. Fixed-effect models
-#'   are unaffected in any case.
+#'   `conditional`, so the CONDITIONING is what a single call would have used.
+#'   The residual values are not identical to a single call under
+#'   `discrete = TRUE`: oneStepPredict re-seeds and draws `nrow(subset)`
+#'   randomizing uniforms per call, so a composition residual depends on how many
+#'   rows share its call. Set `seed` for reproducibility of a given call, and do
+#'   not compare individual randomized residuals across different `source`
+#'   selections. Fixed-effect models are unaffected by the conditioning.
 #'
 #' **Which is right for compositions.** Residualizing simulated data at the
 #' parameters that generated it makes the answer exactly standard normal, so the
@@ -301,9 +331,26 @@
 #' | 1.12 | 1e-15 | 4e-14 | 6e-03 |
 #' | 2.24 | 1e-15 | 3e-14 | 4e-02 |
 #'
-#' **So on a random-effects model prefer a Gaussian method for `"index"` and
-#' `"catch"`** -- their conditional really is Gaussian, and those methods are
-#' exact for it.
+#' **That result is about a LINEAR-Gaussian model, and does not carry over
+#' wholesale.** Those methods are exact when the one-step-ahead *predictive* is
+#' Gaussian, which needs the model to be linear in the random effects. Rceattle's
+#' index and catch are `exp()` of cumulated log recruitment deviations pushed
+#' through the population dynamics, and are not. `fullGaussian` and
+#' `oneStepGaussian` cannot differ for a Gaussian conditional, so their
+#' disagreement measures the departure -- on a 17-deviation fixture they differ
+#' by 0.091 on both index and catch, while `"cdf"` differs from
+#' `oneStepGaussian` by 0.017 on index. **No method is exact for index or catch
+#' under random effects**, and the choice there is not settled by this package.
+#'
+#' **`"ecov"` is the exception, and there a Gaussian method is right.** Its
+#' conditional -- a Gaussian measurement of an AR1 latent, every other data term
+#' unconditional -- genuinely is linear-Gaussian: `fullGaussian` and
+#' `oneStepGaussian` agree to 4e-14 on the QAR1 fixture in
+#' `test-likelihood-osa-cdf.R`, while `"cdf"` sits 0.139 away, about a quarter of
+#' the residual standard deviation.
+#'
+#' Both measurements are reproduced by `tools/verify/verify-osa-cdf-accuracy.R`,
+#' which compiles the state space model it scores against.
 #'
 #' **It does not reverse for compositions.** A composition conditional is a
 #' discrete, skewed binomial, which is what the Gaussian methods get wrong, and
@@ -602,6 +649,40 @@ osa_residuals <- function(object = NULL,
   sel_method[sel_trunc] <- "oneStepGeneric"
   sel_group <- paste0(sel_method, "|", sel_discrete, "|", sel_trunc)
 
+  # Each group is residualized in its own oneStepPredict() call and is handed
+  # everything before its FIRST row as `conditional` (see .run_osp()). That
+  # reproduces a single call only if the group is a contiguous block of `sel`,
+  # and nothing so far makes it one: `sel` is ordered by the caller's `source`
+  # sequence first, so source = c("comp", "index", "caal") leaves the index rows
+  # sitting in a hole inside the discrete group, whose first row is then row 1
+  # and whose `conditional` comes back empty -- silently dropping the index data
+  # terms from the compositions' conditioning. Interleaved Dirichlet-multinomial
+  # and multinomial composition fleets do the same thing by year.
+  #
+  # So make it true: sort the groups to the front of each other, keeping each
+  # group's internal order and ordering the groups by where they first appear.
+  # This changes the one-step-ahead SEQUENCE when a group would have been
+  # interleaved -- every ordering is a valid probability-integral-transform
+  # sequence (Trijoulet et al. 2023), and a contiguous one is the only kind whose
+  # split can be made invisible.
+  # `sel_pos` remembers where each row sat before the reorder, so the returned
+  # rows can be put back afterwards. Only the CONDITIONING sequence changes; the
+  # data frame a caller gets is in the same order it always was.
+  sel_pos <- seq_len(nrow(sel))
+  if (length(unique(sel_group)) > 1L) {
+    ord <- order(match(sel_group, unique(sel_group)))   # stable: keeps within-group order
+    if (!identical(ord, seq_along(ord))) {
+      sel          <- sel[ord, , drop = FALSE]
+      sel_group    <- sel_group[ord]
+      sel_method   <- sel_method[ord]
+      sel_discrete <- sel_discrete[ord]
+      sel_trunc    <- sel_trunc[ord]
+      sel_dm       <- sel_dm[ord]
+      sel_pos      <- sel_pos[ord]
+    }
+  }
+  stopifnot(!any(diff(match(sel_group, unique(sel_group))) < 0))
+
   # Say so. `method` is overridden for these rows whatever the caller passed, and
   # a silent override is exactly the kind of thing that makes a Q-Q plot hard to
   # account for later. Also flag the cost: the exact integration is several times
@@ -674,13 +755,19 @@ osa_residuals <- function(object = NULL,
         # oneStepPredict marks every row it is not residualizing as
         # unconditional and zeroes its data term -- so splitting a model into
         # groups would change the conditional distribution of the latent states
-        # and move the residuals. On a 21-random-effect fixture, residualizing
-        # the compositions in their own call without this moved them by up to
-        # 0.99. For a group that is a contiguous block of `sel` -- which the
-        # discrete/continuous split always is -- it reproduces a single call
-        # exactly. Fixed-effect models are unaffected either way: their
-        # observations are independent given the parameters.
-        conditional         = sel$obs_pos[setdiff(seq_len(min(rows) - 1L), rows)] + 1L,
+        # and move the residuals. Measured on a 21-random-effect fixture, with
+        # discrete = FALSE so the randomization below does not confound it:
+        # 1.5e-14 against a single call with this, 5.8e-2 without.
+        #
+        # Groups are sorted contiguous above, which is what makes `min(rows) - 1`
+        # the whole of what precedes the group. It matches a single call on the
+        # CONDITIONING only: under discrete = TRUE oneStepPredict re-seeds and
+        # draws its randomizing uniforms per call, so a group's residuals also
+        # depend on how many rows are in it (see the `seed` documentation).
+        # Fixed-effect models are unaffected by the conditioning either way,
+        # their observations being independent given the parameters.
+        conditional         = if (min(rows) > 1L) sel$obs_pos[seq_len(min(rows) - 1L)] + 1L
+                              else numeric(0),
         discrete            = dsc,
         parallel            = par,
         seed                = seed,
@@ -794,6 +881,37 @@ osa_residuals <- function(object = NULL,
                       trunc = TRUE, spline = TRUE)
       attr(res, "approx") <- TRUE
     }
+
+    # A failed Laplace solve is ABSORBING under method = "cdf", so one bad
+    # observation costs every observation after it. TMB's cdf loop captures the
+    # warm start AFTER evaluating the observation --
+    #   nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp
+    # (TMB 1.9.21) -- so if that evaluation returns NaN the warm start restored
+    # for the rest of the sequence is NaN too, and nothing recovers on its own.
+    # Measured on BS2017SS with random recruitment: 1879 of 4538 composition
+    # residuals non-finite in one call, and exactly 1 of the same 1880 rows when
+    # they are residualized on their own.
+    #
+    # The failures are therefore a contiguous tail, which is what makes this
+    # recoverable: rebuild the object -- resetting the warm start to the fitted
+    # values -- and redo the block from the first failure to the end of the
+    # group, conditioning it on everything before that point, which is exactly
+    # what those rows were conditioned on the first time. Bounded, because a
+    # retry can fail again further along.
+    # Only "cdf". The cascade needs oneStepPredict to override the warm start
+    # AND to walk the sequence forwards, and only this method does both:
+    # `oneStepGaussianOffMode` overrides it but runs REVERSED (`reverse =
+    # (method == "oneStepGaussianOffMode")` is its formal default), so its
+    # failures propagate to the head of the sequence and redoing the tail would
+    # recover nothing while claiming to; `oneStepGaussian` and `fullGaussian`
+    # never override it, so `last.par.best` -- which a NaN evaluation cannot
+    # become -- stays the warm start and no cascade is possible.
+    if (identical(meth, "cdf") && length(object$obj$env$random) &&
+        any(!is.finite(res$residual))) {
+      res <- .osa_retry_tail(res, function(from)
+        .run_osp(rows[from:length(rows)], dsc = sel_discrete[rows[1]],
+                 meth = meth, trunc = FALSE))
+    }
     res
   }))
   osa <- osa[order(osa$.row), , drop = FALSE]   # restore chronological 'sel' order
@@ -820,6 +938,11 @@ osa_residuals <- function(object = NULL,
     residual      = osa$residual,
     stringsAsFactors = FALSE)
 
+  # Undo the grouping reorder, so the rows come back in the source/year/fleet/bin
+  # order they were requested in. The reorder above buys a correct conditioning
+  # sequence; it should not also rearrange the answer.
+  out <- out[order(sel_pos), , drop = FALSE]
+
   rownames(out) <- NULL
   class(out) <- c("rceattle_osa", "data.frame")
   # Record what was actually used, not what was asked for: two likelihood
@@ -837,9 +960,15 @@ osa_residuals <- function(object = NULL,
   # rather than being whatever the caller passed. Named the same way `method` is
   # when a family was treated differently, so a mixed model cannot report a
   # single flag that is wrong for half its fleets.
-  attr(out, "discrete") <- if (discrete && any(sel_dm)) {
+  # Gated on what was actually randomized, not on what was asked for: a cdf call
+  # over `source = "index"` randomizes nothing however `discrete` resolved, and a
+  # model whose every composition fleet is Dirichlet-multinomial randomizes
+  # nothing either, because those rows are sent to a Gaussian method.
+  attr(out, "discrete") <- if (!any(sel_discrete)) {
+    FALSE
+  } else if (any(sel_dm)) {
     c(default = TRUE, DirichletMultinomial = FALSE)
-  } else discrete
+  } else TRUE
   # Per-species bin counts, so plot() can split joint-sex (Sex == 3) composition
   # bins onto a single age/length axis (males are stored as bins nbin+1 .. 2*nbin).
   attr(out, "nages")    <- object$data_list$nages
@@ -882,9 +1011,11 @@ osa_residuals <- function(object = NULL,
   # A `method = "cdf"` residual is qnorm of a CDF read in double precision, so it
   # cannot report past 8.04 however badly the observation fits -- it is censored
   # there, not merely large. Say so, because the summary statistics are computed
-  # on the censored values: on a fixture with one survey year ~18 sd out, the
-  # overall SDNR falls from 5.67 to 2.91. The Gaussian methods have no ceiling
-  # and will give the uncensored number for those rows.
+  # on the censored values: on a 12-year survey with one observation multiplied
+  # by 200, SDNR reads 4.59 here against 12.89 under oneStepGaussian
+  # (tools/verify/verify-osa-cdf-accuracy.R). Name that method rather than "a
+  # Gaussian method" -- the package default returns NaN on such a row and
+  # oneStepGeneric compresses it further than this ceiling does.
   n_sat <- if (identical(method, "cdf")) {
     sum(abs(out$residual) >= .OSA_CDF_CEILING - 1e-6, na.rm = TRUE)
   } else 0L
@@ -895,8 +1026,10 @@ osa_residuals <- function(object = NULL,
             ", where the conditional CDF reaches the last double below 0 or 1. ",
             "Those observations are further from the model than this method can ",
             "report, so treat them as censored -- osa_diagnostics() summarises ",
-            "the censored values. A Gaussian `method` will give the uncensored ",
-            "number. See ?osa_residuals.", call. = FALSE)
+            "the censored values. method = \"oneStepGaussian\" reports them ",
+            "uncensored; the package default returns NaN there and ",
+            "\"oneStepGeneric\" compresses them further. See ?osa_residuals.",
+            call. = FALSE)
   }
 
   n_bad <- sum(!is.finite(out$residual))
@@ -934,6 +1067,70 @@ osa_residuals <- function(object = NULL,
             "positive. See ?osa_residuals.", call. = FALSE)
   }
   out
+}
+
+
+#' Redo the tail of a one-step-ahead sequence after a failed Laplace solve
+#'
+#' @description
+#' A failed Laplace solve is **absorbing** under `method = "cdf"`. TMB's loop is
+#' `nll <- fn(observation(k)); lp <- env$last.par; ...; env$last.par <- lp`
+#' (TMB 1.9.21) -- the warm start is captured *after* the evaluation, so if that
+#' evaluation returns `NaN` the start restored for every later observation is
+#' `NaN` too, and nothing recovers on its own. Measured on BS2017SS with random
+#' recruitment: 1879 of 4538 composition residuals non-finite in one call, and
+#' exactly 1 of the same 1880 rows when they are residualized on their own.
+#'
+#' The failures are therefore a contiguous tail, which is what makes this
+#' recoverable: `rerun(from)` redoes rows `from:n`, conditioned on everything
+#' before `from`, which is what those rows were conditioned on the first time.
+#' The poisoned state lives in the internal object [TMB::oneStepPredict()] builds
+#' for itself and dies with the call -- `fit$obj` is untouched, verified -- so
+#' simply calling it again is what clears the warm start. It does NOT need the
+#' model rebuilding, and does not do so.
+#'
+#' Note that the whole tail is recomputed, not only the failed rows, so under
+#' `discrete = TRUE` the already-finite rows of that tail get fresh randomizing
+#' uniforms (oneStepPredict re-seeds per call and draws `nrow(subset)` of them).
+#' Those draws are independent of the data, so nothing is invalidated -- but the
+#' residual values in the tail do depend on where the failure happened.
+#'
+#' @param res Result frame from one group, with a `residual` column.
+#' @param rerun Function of a starting row index, returning a frame of the same
+#'   shape for rows `from:nrow(res)`.
+#' @param max_try Attempts before giving up. A retry can fail again further
+#'   along, so each round must strictly reduce the number of bad rows.
+#' @return `res`, with the recomputed tail spliced in. Messages only if it
+#'   recovered something, or if it could not.
+#' @keywords internal
+.osa_retry_tail <- function(res, rerun, max_try = .OSA_CDF_MAX_RETRY) {
+  n_bad0 <- sum(!is.finite(res$residual))
+  if (n_bad0 == 0L) return(res)
+  for (attempt in seq_len(max_try)) {
+    bad <- which(!is.finite(res$residual))
+    if (!length(bad)) break
+    from <- min(bad)
+    again <- rerun(from)
+    # Require progress: a retry that fails at the same place or earlier is not
+    # going to converge by being repeated, and would loop to the bound.
+    if (sum(!is.finite(again$residual)) >= length(bad)) break
+    res[from:nrow(res), ] <- again
+  }
+  n_left <- sum(!is.finite(res$residual))
+  if (n_bad0 > n_left) {
+    message("osa_residuals(): a Laplace solve failed partway through the ",
+            "one-step-ahead sequence, which under method = \"cdf\" costs every ",
+            "observation after it. The block from the first failure was ",
+            "recomputed, recovering ", n_bad0 - n_left, " of ", n_bad0,
+            " observation(s)",
+            if (n_left) paste0("; ", n_left, " remain non-finite") else "", ".")
+  } else {
+    message("osa_residuals(): ", n_bad0, " observation(s) are non-finite and ",
+            "recomputing the block from the first one did not help, so the ",
+            "failure is in those observations rather than in the sequence. ",
+            "Check model convergence and the sparsest compositions.")
+  }
+  res
 }
 
 
