@@ -52,7 +52,7 @@
     r("M1_rho", "rho_M1", "mortality",
       "AR1 correlation for the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
     r("M1_dev_log_sd", "sigma_M1", "mortality",
-      "Standard deviation of the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
+      "Innovation standard deviation of the M1 random effects; the marginal sd is larger.", "[nspp, nsex]"),
 
     # -- growth ------------------------------------------------------------
     r("log_growth_pars", "K / L1 / Linf / m", "growth",

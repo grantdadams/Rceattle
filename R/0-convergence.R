@@ -403,6 +403,29 @@
   msg <- sprintf("Hessian condition number = %.2g.%s", kappa,
     if (sev != "OK")
       sprintf(" Least-identified direction loads on: %s.", combo) else "")
+
+  # Where the loading sits INSIDE each named block. The direction is spread over
+  # coefficients rather than confined to a set, so the parameters carrying the
+  # block's top 90% are summarised by coordinate and the count is printed: a
+  # ridge over ten years and one over a single year read very differently.
+  if (sev != "OK") {
+    idx <- .conv_par_index(object)
+    if (!is.null(idx)) {
+      lines <- character(0)
+      for (b in names(share)[seq_len(ntop)]) {
+        inb <- which(nm == b)
+        o   <- inb[order(v[inb]^2, decreasing = TRUE)]
+        keep <- o[seq_len(max(1L, which(cumsum(v[o]^2) / sum(v[o]^2) >= 0.90)[1]))]
+        s <- .rce_par_summary(keep, idx, max_lines = 2L)
+        if (length(s) > 0) {
+          lines <- c(lines, sub("\\((\\d+)\\)$",
+                                sprintf("(\\1 of %d, %.0f%% of the direction)",
+                                        length(inb), 100 * share[[b]]), s))
+        }
+      }
+      if (length(lines) > 0) msg <- paste0(msg, "\n", paste(lines, collapse = "\n"))
+    }
+  }
   out$hessian_conditioning <- .conv_record(
     "hessian_conditioning", "fit", sev, msg,
     list(condition_number = kappa, loadings = top))
@@ -439,10 +462,14 @@
   tab <- data.frame(param = names(par)[hit], mle = signif(par[hit], 4),
                     lower = signif(lo[hit], 4), upper = signif(hi[hit], 4),
                     bound = ifelse(at_lo[hit], "lower", "upper"))
+  idx <- .conv_par_index(object)
+  tab <- .conv_attach_label(tab, hit, idx)
   list(parameters_on_bounds = .conv_record(
     "parameters_on_bounds", "fit", "WARN",
-    sprintf("%d parameter(s) at a configured bound: %s.",
-            length(hit), paste(unique(names(par)[hit]), collapse = ", ")),
+    .conv_with_coords(
+      sprintf("%d parameter(s) at a configured bound: %s.",
+              length(hit), paste(unique(names(par)[hit]), collapse = ", ")),
+      hit, idx),
     tab))
 }
 
@@ -549,12 +576,15 @@
   if (!is.null(bad) && length(bad) > 0) {
     nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
                     error = function(e) NULL)
+    idx <- .conv_par_index(object)
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
-      sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
-              length(bad),
-              if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
-              else ""),
+      .conv_with_coords(
+        sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
+                length(bad),
+                if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
+                else ""),
+        bad, idx),
       id)
   }
   out

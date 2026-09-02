@@ -418,7 +418,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
   PARAMETER_ARRAY( M1_beta );                     // Regression coefficients for environmnetally linked M1; n = [nspp, nsex, n indices]
   PARAMETER_ARRAY( M1_rho );                      // Correlation for AR1 random effects on age and year; n = [nspp, nsex, 2]
-  PARAMETER_ARRAY( M1_dev_log_sd );                // Standard deviation of random effects on age and year; n = [nspp, nsex, 2]
+  PARAMETER_ARRAY( M1_dev_log_sd );                // Innovation sd of the M1 random effects, one per species/sex; n = [nspp, nsex]
 
   // -- 3.3. Growth
   PARAMETER_ARRAY(log_growth_pars);                // Mean growth curve parameters [sp, sex, par]
