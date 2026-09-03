@@ -692,7 +692,9 @@ print.rceattle_report <- function(x, ...) {
   nms <- names(x)
   kw <- max(nchar(nms))
   for (i in seq_along(nms)) {
-    glyph <- if (i == length(nms)) "└─" else "├─"
+    # Box-drawing glyphs as \u escapes: a portable package keeps its R code
+    # ASCII, and the printed characters are identical either way.
+    glyph <- if (i == length(nms)) "\u2514\u2500" else "\u251c\u2500"
     cat(sprintf("  %s %s : %d rows\n", glyph,
                 formatC(nms[i], width = kw, flag = "-"), nrow(x[[nms[i]]])))
   }

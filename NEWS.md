@@ -79,6 +79,14 @@ version throughout.
 
 ## Bug fixes
 
+* **Two long-standing `R CMD check --as-cran` warnings are cleared.**
+  `print.rceattle_report()`'s box-drawing glyphs are written as `\u2514\u2500`
+  / `\u251c\u2500` escapes, so the R code is ASCII and the package is
+  portable -- the printed tree is byte-identical. `tibble` is declared in
+  `Suggests`, which `test-data-check-age-coverage.R` has used (guarded) for
+  several versions. CI runs `error-on: "error"`, so neither had ever failed a
+  build.
+
 * **`quantity_dictionary()` described `sel_at_age` as "normalized to a maximum
   of one".** It is normalized per `Sel_norm_bin`, which for the non-parametric
   forms -- the default -- is a mean of one, so values above one are ordinary. It
