@@ -49,17 +49,31 @@ testthat::test_that("the estimability table is silent at verbose = 0", {
   testthat::expect_false(any(grepl("did not converge", r$stderr)))
 })
 
-testthat::test_that("the estimability table is shown at verbose > 0", {
+testthat::test_that("the estimability table is silent at verbose = 1", {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("TMB")
 
+  # From 5.26.0 the table is one row per parameter, each named after its block,
+  # and `fit$convergence` reports the flagged ones by fleet, bin and year
+  # instead. The rest of the verbose = 1 reporting is unchanged.
   r <- run_and_capture(1)
+
+  testthat::expect_true(is.null(r$fit$opt$SD))
+  testthat::expect_false(any(grepl("Param_check", r$stderr)))
+  testthat::expect_false(any(grepl("Param_check", r$stdout)))
+  testthat::expect_true(any(grepl("did not converge", r$stderr)))
+})
+
+testthat::test_that("the estimability table is shown at verbose > 1", {
+  testthat::skip_on_cran()
+  testthat::skip_if_not_installed("TMB")
+
+  r <- run_and_capture(2)
 
   testthat::expect_true(is.null(r$fit$opt$SD))
   # Re-emitted as a message, so still suppressible and never on stdout.
   testthat::expect_true(any(grepl("Param_check", r$stderr)))
   testthat::expect_false(any(grepl("Param_check", r$stdout)))
-  testthat::expect_true(any(grepl("did not converge", r$stderr)))
 })
 
 testthat::test_that("the estimability verdict is kept whatever verbose says", {

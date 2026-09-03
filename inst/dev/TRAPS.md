@@ -73,6 +73,32 @@ they are counted once per sharing fleet.
 **Worked example: GOA2018SS.** Fleets 1 and 7 share selectivity; fleets 9 and 10 share
 selectivity *and* q.
 
+**A fixed-width parameter slot does not have a fixed meaning.** Several blocks are declared
+`[…, 2]` or `[…, 3]`, and what the slot holds depends on a switch, so a static label names the
+wrong quantity:
+
+- `sel_curve_pen` is mapped out entirely by `build_map_selectivity()` and re-enabled only under
+  `Selectivity` 6 (2DAR1, slots 1–2) and 7 (3DAR1, slots 1–3), where the slots are logit-scale
+  AR1 correlations across **bins, years and cohorts**. The `fleet_control` reading of the same
+  column — the shape/curvature penalty weights for the non-parametric and LogisticPM forms — is
+  never estimated, so an element that reaches `obj$par` is always a correlation.
+- `sel_inf[2]` is a descending inflection only for the double-logistic family. Under
+  `DoubleNormal` (8) it is `logit(right_floor)`; under `LogisticPM` (11) it is the free age-1
+  log-selectivity. `log_sel_slp` under 8 is `log(sigma_asc)` / `log(sigma_desc)`.
+- `rec_pars(sp, 1)` is the SRR **alpha** on the log scale (`alpha = exp(rec_pars(sp,1) + …)`,
+  `ceattle.cpp`), not steepness. Steepness is derived from alpha and `SPR0`.
+
+`.PAR_SEL_SLOTS` (`R/0-parameter_index.R`) is where the switch-dependent ones are resolved.
+
+**`parameter_dictionary()$dims` is prose, and it has been wrong.** A rank-only check passes a
+token that names the wrong axis of the right arity. Three were wrong until 5.26.0: `log_F`
+declared `[n_fsh, nyrs]` against an `[n_flt, nyrs_hind]` array, `log_pop_scalar` `[nspp, nyrs]`
+against an **age** axis (which would have printed ages as calendar years), and `M1_dev_log_sd`
+`[nspp, nsex, 2]` against `[nspp, nsex]`. `n_sel` and `n_fsh` both equal `nrow(fleet_control)`;
+sharing happens through the map, not through a narrower array. `init_dev` is the one block whose
+declared extent is deliberately the estimated portion (`nages-1`) of a wider (`nages`) array.
+`test-schema-parameter-index.R` now checks rank *and* extent.
+
 ## Silent-wrong-number traps
 
 **A reference point CEATTLE never estimated is a NUMBER, not a gap.** Three cases, all
@@ -364,6 +390,30 @@ Two further sharp edges found while building that harness, both worth knowing:
 the repo root skips the compile, prints its messages, and exits 0; and `on.exit()` registered at
 a script's top level has no function frame and never fires, which is how the harness first left
 a slow bounds-checked `.so` in the tree for every later fit to use.
+
+## The conditioning check reads correlation, not covariance
+
+**Severity is read on the correlation of the estimates, and the thresholds were not
+recalibrated.** The covariance condition number is not scale-invariant — `log_F` sits near -2,
+`sel_inf` near 10 — so it mixes confounding with the units a parameter is held in. Measured
+(2026-09-02):
+
+| model | covariance | correlation | se ratio |
+|---|---|---|---|
+| BS2017SS (golden) | 4.6e4 | 2.0e4 | 140 |
+| GOA pollock NonParametric | 1.9e5 | 1.6e4 | 126 |
+| GOA pollock 2DAR1 | 2.5e9 | 1.9e8 | 13634 |
+
+Standardising lowers every model by 0.4–1.1 orders, so at unchanged `WARN` 1e6 / `FAIL` 1e10 the
+check is **less** likely to fire than before 5.26.0. Three models is not a calibration; if a
+model that should have been flagged comes back `OK`, the thresholds are the first thing to
+question. `data$covariance_condition_number` keeps the old number, and `pdHess` /
+`sdreport_failed` are what catch an inversion that actually fails.
+
+`fit$convergence$checks$hessian_conditioning$data$condition_number` therefore means something
+different from 5.25.1 and earlier. `../Rceattle-models/Model comparison/run_rceattle.R` reads it
+(`get_condition_number()`), and saved `condition_number_<scenario>.RDS` files are not comparable
+across the boundary.
 
 ## Coverage gaps in the golden check
 

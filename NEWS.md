@@ -12,6 +12,74 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.26.0
+
+## New features
+
+* **`parameter_index()` locates every estimated parameter in the model's own
+  coordinates.** TMB names each element of `obj$par` after its parameter block,
+  so a diagnostic could report that `sel_coff_dev` was non-identifiable but not
+  which of its 392 elements. Returns one row per estimated parameter with
+  `species`, `fleet`, `sex`, `age`, `bin`, `year` and `slot` columns plus a
+  rendered `label`. Recovered through TMB's own `parList()`, so it tracks
+  `build_map()` exactly: mapped-off parameters are absent, and fleets sharing a
+  `Selectivity_index` or `Catchability_index` appear once, with `n_cells`
+  counting the cells they drive. An axis constant across the model is left out
+  of the label; the structured columns carry it either way.
+
+## Bug fixes
+
+* **The convergence battery names the parameters it flags.** `estimability`,
+  `parameters_on_bounds` and `hessian_conditioning` reported the parameter block
+  and left the reader to find the element. They now summarise by coordinate,
+  ordinal axes collapsed to ranges:
+
+  ```
+  [FAIL] estimability  49 non-identifiable fixed parameter(s)
+    sel_coff_dev  GOA_pollock_fishery, bins 1-8, 2013-2018  (41)
+  ```
+
+  `parameters_on_bounds` gains a `where` column.
+
+* **`hessian_conditioning` is read on the correlation matrix.** The covariance
+  condition number is not scale-invariant (`log_F` near -2, `sel_inf` near 10),
+  so rescaling a parameter moved it without changing the model. The message now
+  leads with the square root, a ratio of standard errors.
+
+  **`data$condition_number` therefore means something different from 5.25.1.**
+  Standardising lowers it by 0.4-1.1 orders on the models measured, so at
+  unchanged `WARN` 1e6 / `FAIL` 1e10 the check fires less readily; a badly
+  scaled but unconfounded fit is no longer flagged. `data$se_ratio` and
+  `data$covariance_condition_number` are new, the latter carrying the old value.
+  Code comparing condition numbers across this boundary needs the new name.
+
+* **Selectivity slot labels follow the fleet's `Selectivity`.** Slot 2 of
+  `sel_inf` is a descending inflection only for the double-logistic family: it
+  is `logit(right_floor)` under `DoubleNormal` and the free age-1
+  log-selectivity under `LogisticPM`.
+
+* **`sel_curve_pen` slots are AR1 correlations.** The block is estimated only
+  under 2DAR1 / 3DAR1, where its slots hold logit-scale correlations across
+  bins, years and cohorts -- not the `fleet_control` shape and curvature penalty
+  weights, which are never estimated.
+
+* **`rec_pars` slot 2 is the SRR alpha**, not steepness; steepness is derived
+  from alpha and `SPR0`. `growth_log_sd` is the standard deviation of
+  length-at-age at the minimum and maximum age (`L1` / `Linf`), and
+  `log_growth_pars` now names its four slots rather than numbering them.
+
+* **Three `parameter_dictionary()` dimensions were wrong.** `log_F` declared
+  `[n_fsh, nyrs]` against an `[n_flt, nyrs_hind]` array; `log_pop_scalar`
+  `[nspp, nyrs]` against an age axis; `M1_dev_log_sd` `[nspp, nsex, 2]` against
+  `[nspp, nsex]` (also corrected in `ceattle.cpp`). Documentation only, no fit
+  changes. `test-schema-parameter-index.R` now checks every block's declared
+  rank *and* extent against the built array.
+
+* **`fit_mod()` no longer prints the `check_estimability` table at
+  `verbose = 1`.** It is one row per parameter, each named after its block, and
+  the convergence record now carries the same verdict by coordinate. Still at
+  `verbose > 1`; `fit$identified` is unchanged.
+
 # Rceattle 5.25.1
 
 ## Bug fixes

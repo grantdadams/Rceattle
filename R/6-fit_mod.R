@@ -1218,12 +1218,15 @@ fit_mod <-
           identified <- tryCatch(
             {
               # check_estimability() print()s its table to stdout, which
-              # suppressMessages() cannot catch. Capture it, re-emit under
-              # verbose only; the verdict is kept on `identified` regardless.
+              # suppressMessages() cannot catch. Capture it and re-emit only at
+              # verbose > 1: the table is one row per parameter, all of them
+              # named after their block, and `fit$convergence` now reports the
+              # flagged ones by fleet, bin and year instead. The verdict is kept
+              # on `identified` either way.
               res <- NULL
               tbl <- utils::capture.output(
                 res <- suppressMessages(.check_estimability(obj)))
-              if (verbose > 0 && length(tbl)) {
+              if (verbose > 1 && length(tbl)) {
                 message(paste(tbl, collapse = "\n"))
               }
               res
