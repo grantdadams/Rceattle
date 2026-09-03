@@ -33,4 +33,5 @@ An object of class `"Rceattle_convergence"`: a list with `status`
 runs this automatically and attaches the result as `fit$convergence`;
 call `convergence_diagnostics()` directly to re-run it on any fit.
 Checks cover the optimizer gradient, Hessian positive-definiteness and
-conditioning, parameters on bounds, phasing, and parameter estimability.
+conditioning, parameters on bounds, a deviation variance estimated to
+zero, phasing, and parameter estimability.

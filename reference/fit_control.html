@@ -17,7 +17,7 @@ to fit_mod() can stay focused on the model spec:'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -157,8 +157,8 @@ phasing. Default <code>TRUE</code>.</p></dd>
 
 <dt id="arg-rel-tol">rel_tol<a class="anchor" aria-label="anchor" href="#arg-rel-tol"></a></dt>
 <dd><p>Numeric tolerance used to flag discontinuous
-likelihood warnings (compares the TMB and <code>nlminb</code> objectives).
-Default <code>1</code>.</p></dd>
+likelihood warnings, comparing <code>nlminb</code>'s objective with a fresh
+evaluation of the object it came from. Default <code>1</code>.</p></dd>
 
 
 <dt id="arg-loopnum">loopnum<a class="anchor" aria-label="anchor" href="#arg-loopnum"></a></dt>

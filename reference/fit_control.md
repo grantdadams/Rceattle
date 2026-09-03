@@ -92,8 +92,9 @@ fit_control(
 
 - rel_tol:
 
-  Numeric tolerance used to flag discontinuous likelihood warnings
-  (compares the TMB and `nlminb` objectives). Default `1`.
+  Numeric tolerance used to flag discontinuous likelihood warnings,
+  comparing `nlminb`'s objective with a fresh evaluation of the object
+  it came from. Default `1`.
 
 - loopnum:
 

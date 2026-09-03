@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,6 +54,17 @@
       <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="5.25.1" id="rceattle-5251">Rceattle 5.25.1<a class="anchor" aria-label="anchor" href="#rceattle-5251"></a></h2>
+<div class="section level3">
+<h3 id="bug-fixes-5-25-1">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-5-25-1"></a></h3>
+<ul><li>
+<p><strong>The discontinuous-likelihood warning compares two marginal objectives.</strong> Convergence warning (8) tested <code>nlminb</code>’s objective against <code>obj$report()$jnll</code>. The first is the Laplace <strong>marginal</strong> negative log-likelihood whenever the model carries a random effect; the second is the <strong>joint</strong> negative log-likelihood at the random-effect mode. They differ by the Laplace correction, which is far larger than the default <code>rel_tol</code> of 1 – 150.96 on a GOA pollock fit carrying two catchability linkages – so the warning fired on every such model regardless of whether its likelihood was smooth. It is now tested against a fresh <code>obj$fn()</code> evaluation, which agrees to machine precision on all four configurations checked (an <code>ar1</code>/<code>rw</code> q linkage, no random effect at all, <code>random_rec = TRUE</code>, and <code>2DAR1</code> selectivity with <code>random_sel = FALSE</code>).</p>
+<p>The comparison is made beside each optimization rather than at the end. <code><a href="../reference/fit_mod.html">fit_mod()</a></code> rebuilds the TMB object for the projection, and again under <code>projection_uncertainty = TRUE</code>, without re-optimizing, and <code><a href="../reference/build_hcr_map.html">build_hcr_map()</a></code> maps every hindcast parameter off, so those rebuilds disagree with <code>opt</code> on which parameters are random. Comparing across a rebuild is the same units mismatch: on a <code>BS2017SS</code> fit with one <code>~ (1 | Year)</code> catchability linkage, <code>opt$objective</code> of 10207.488519 against 10228.940923 from the all-parameters-on rebuild, a gap of 21.45 with nothing wrong with the fit. The same mismatch reached <code>HCR = "ConstantF"</code> under <code>estimateMode = 0</code>, which rebuilds for the projection and never re-optimizes.</p>
+<p>The <code>random_rec == FALSE</code> guard is removed with it: it exempted recruitment random effects from a check that could not read them, and the comparison now holds for any random effect, so <code>random_rec = TRUE</code> models get the check rather than skipping it. No fit changes – the objective, the joint negative log-likelihood and the parameter vector are identical either side of this.</p>
+</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="5.25.0" id="rceattle-5250">Rceattle 5.25.0<a class="anchor" aria-label="anchor" href="#rceattle-5250"></a></h2>
 <div class="section level3">
