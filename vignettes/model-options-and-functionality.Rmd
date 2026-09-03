@@ -686,11 +686,18 @@ convention -- catch and index in mt, weight-at-age in kg -- or the axis labels
 will not describe what is plotted. Pass `ylab` to override the derived label.
 
 **Confidence intervals.** `add_ci = TRUE` draws a 95% interval. Strictly
-positive series take it on the log scale, `exp(log(x) ± 1.92 · sd_log)`, using
+positive series take it on the log scale, `exp(log(x) ± 1.96 · sd_log)`, using
 the model's `log_biomass` / `log_ssb` / `log_R` where they exist and the
 delta-method identity `sd(log x) = sd(x)/x` where they do not. The interval is
 therefore right-skewed and cannot reach zero for a weak year class or a
 depleted stock. See `?plot_timeseries` for the full derivation.
+
+`plot_selectivity()` takes it too, but only on a fit run with
+`fit_control(selectivity_se = TRUE)` and only for estimated, age-based fleets;
+otherwise it warns and draws none. Selectivity is identified only up to a
+scalar, so `Sel_norm_bin` fixes the curve's level rather than measuring it: the
+pinned bin has a standard error of 0 and the band widens away from it. Quote
+that anchor with the interval.
 
 ## References
 

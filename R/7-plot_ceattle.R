@@ -695,6 +695,45 @@ plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 #' fleets, so `spnames` does not label anything here -- it only lets `species`
 #' select by name.
 #'
+#' # Confidence intervals
+#'
+#' `add_ci = TRUE` draws `exp(log(sel) +/- 1.96 * sd)`, so the band is positive
+#' and right-skewed. It needs a fit run with `fit_control(selectivity_se = TRUE)`.
+#'
+#' Only estimated, age-based fleets carry one. A length-based fleet is drawn on
+#' `sel_at_length`, which is what was fitted and carries no error; a
+#' `Selectivity = "Fixed"` fleet estimates nothing; and no fleet gets a band
+#' below its `Bin_first_selected`, where selectivity is 0 by construction. A
+#' fleet mirroring another's `Selectivity_index` has no errors of its own and
+#' borrows its lead's, but only where the two curves agree -- `data_check()` only
+#' warns when a shared group differs in a shaping column such as `Sel_norm_bin`.
+#'
+#' Every year drawn gets its own band, so a time-varying fleet is dense. Pair it
+#' with `minyr` / `maxyr` on a single year, or use it on a time-invariant fleet.
+#'
+#' # What the interval is conditional on
+#'
+#' **The normalization.** Selectivity is identified only up to a scalar, jointly
+#' with F for a fishery and q for a survey, so `Sel_norm_bin` fixes the level
+#' rather than measuring it. The bin it pins gets a standard error of exactly 0,
+#' and the band widens with distance from it. On `Atka2022` the survey pins age 4
+#' and its sd runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1-5, while the fishery
+#' pins nothing, normalizes to a mean of one, and is flattest mid-range instead.
+#' Same fit, same data: the shape of the band is a property of the normalization.
+#' Read it as uncertainty in the curve *relative to the anchor*, and say which
+#' anchor when quoting one.
+#'
+#' **The smoothing, on a penalized fit.** Under `random_sel = FALSE` the annual
+#' deviations are penalized rather than integrated, so these are
+#' penalized-likelihood errors conditional on `Sel_curve_pen1` / `Sel_curve_pen2`
+#' and on a fixed `Time_varying_sel_sd`. Change the smoothing and both the curve
+#' and its band move, with nothing in the data to say which is right.
+#'
+#' The band is marginal, and selectivity error is strongly correlated with F and
+#' q through the same confounding, so carrying it into a derived quantity needs
+#' the covariance (`fit_control(getReportCovariance = TRUE)`), not this interval
+#' alone.
+#'
 #' @inheritParams rceattle-plot-args
 #' @param colour_by What colour separates: `"year"` (a fan), `"model"`, or
 #'   `"auto"` (the default) for year with a single model and model with several.
@@ -718,11 +757,26 @@ plot_selectivity <-
            minyr = NULL,
            maxyr = NULL,
            alpha = 0.25,
+           add_ci = FALSE,
            colour_by = c("auto", "year", "model")) {
 
     colour_by <- match.arg(colour_by)
     .rce_check_alpha(alpha)
     models <- .as_model_list(Rceattle)
+
+    # One model without the standard errors would draw a band on some panels and
+    # not others, which reads as "this fleet is certain" rather than "this fit
+    # was not asked for them", so the request is declined for the whole figure.
+    if (isTRUE(add_ci)) {
+      lacking <- vapply(models, function(m) is.null(.rce_sel_se(m)), logical(1))
+      if (any(lacking)) {
+        add_ci <- .rce_no_ci(
+          add_ci, "selectivity",
+          paste0("model(s) ", paste(which(lacking), collapse = ", "),
+                 " report no selectivity standard error. Refit with ",
+                 "fit_control(selectivity_se = TRUE, getsd = TRUE)"))
+      }
+    }
     model_names_use <- .model_labels(models, model_names)
     sp_sel  <- .resolve_species(models, species, spnames)
     keep_sp <- sp_sel$index
@@ -730,6 +784,9 @@ plot_selectivity <-
     # Every model contributes: reading only the first silently dropped the rest
     # of an overlay. Each is read with its own fleet_control and dimensions,
     # since a comparison run may differ in both.
+    se_list <- if (isTRUE(add_ci)) lapply(models, .rce_sel_se) else
+      vector("list", length(models))
+
     df_list <- list()
     for (k in seq_along(models)) {
       dl     <- models[[k]]$data_list
@@ -772,9 +829,23 @@ plot_selectivity <-
         # offset by the species' minage.
         bins <- if (is_len) seq_len(nbin) else seq_len(nbin) - 1L + minage[sp]
 
+        # A mirrored fleet shares the lead's parameter block and reports no rows
+        # of its own, so it borrows the lead's band.
+        sel_lead <- .rce_sel_lead(fc, i)
+
         for (sex in seq_len(nsex[sp])) {
           sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]
           for (yr in seq_along(hindyears)) {
+            est <- as.numeric(sel[flt, sex, seq_len(nbin), yr])
+            # The standard error is on sel_at_age, so a length-based fleet gets
+            # NA and geom_ribbon drops it. NA rather than the estimate, so an
+            # absent band never reads as a zero-width one.
+            lo <- up <- rep(NA_real_, length(est))
+            if (isTRUE(add_ci) && !is_len) {
+              ci <- .rce_sel_ci(se_list[[k]], flt, sex, bins, hindyears[yr],
+                                lead = sel_lead, curve = est)
+              if (!is.null(ci)) { lo <- ci$lower; up <- ci$upper }
+            }
             df_list[[length(df_list) + 1L]] <- data.frame(
               Model = model_names_use[k],
               Fleet = as.character(fc$Fleet_name[i]),
@@ -782,7 +853,9 @@ plot_selectivity <-
               Sex   = sex_lab,
               Bin   = bins,
               Year  = hindyears[yr],
-              Selectivity = as.numeric(sel[flt, sex, seq_len(nbin), yr]),
+              Selectivity = est,
+              Lower = lo,
+              Upper = up,
               stringsAsFactors = FALSE)
           }
         }
@@ -819,7 +892,7 @@ plot_selectivity <-
       dd <- droplevels(plot_df[plot_df$Dimension == d, , drop = FALSE])
       .plot_selectivity_one(dd, dimension = d, colour_by = colour_by,
                             line_col = line_col, lwd = lwd, lty = lty,
-                            alpha = alpha,
+                            alpha = alpha, add_ci = add_ci,
                             file = if (is.null(file)) NULL else
                               paste0(file, if (length(dims) > 1L)
                                 paste0("_", tolower(d)) else ""),
@@ -834,8 +907,11 @@ plot_selectivity <-
 # Split out because a model mixing age- and length-based fleets needs one of
 # these per dimension and they differ only in the x axis label.
 .plot_selectivity_one <- function(dd, dimension, colour_by, line_col, lwd, lty,
-                                  alpha, file, width, height) {
+                                  alpha, add_ci, file, width, height) {
   xlab <- if (identical(dimension, "Length")) "Length bin" else "Age"
+  # A length figure, or a dimension whose fleets are all Fixed, has no band to
+  # draw even when the request stands for the age figure beside it.
+  draw_ci <- isTRUE(add_ci) && any(is.finite(dd$Lower))
 
   if (identical(colour_by, "model")) {
     # Colour is the model, so the year fan moves to transparency. The scale is
@@ -855,6 +931,15 @@ plot_selectivity <-
                            lty_by = "Sex",
                            lty_n = length(unique(dd$Sex)),
                            lty_in_aes = TRUE)
+    if (draw_ci) {
+      # Under the ribbon, so a band never hides the curve it belongs to. The
+      # fill follows the model and inherits the year alpha, so a band is shaded
+      # like the line above it; show.legend keeps a second key off the figure.
+      p <- p + ggplot2::geom_ribbon(
+        ggplot2::aes(ymin = .data$Lower, ymax = .data$Upper, fill = .data$Model),
+        colour = NA, alpha = 0.15, show.legend = FALSE, na.rm = TRUE)
+      p <- .rceattle_scale(p, aesthetics = "fill", line_col = line_col)
+    }
     p <- .rce_add_line(p, lp)
     p <- .rceattle_scale(p, aesthetics = "colour", line_col = line_col) +
       ggplot2::scale_alpha_continuous(range = c(alpha, 1), guide = "none")
@@ -871,6 +956,14 @@ plot_selectivity <-
                            lty_by = "Sex",
                            lty_n = length(unique(dd$Sex)),
                            lty_in_aes = TRUE)
+    if (draw_ci) {
+      # Colour is a continuous year here, so the band takes a single neutral
+      # grey rather than a second year ramp -- two ramps on one panel read as
+      # two variables.
+      p <- p + ggplot2::geom_ribbon(
+        ggplot2::aes(ymin = .data$Lower, ymax = .data$Upper),
+        fill = "grey40", colour = NA, alpha = 0.15, na.rm = TRUE)
+    }
     p <- .rce_add_line(p, lp)
     # Colour is the year, a magnitude, so `line_col` gives the ramp anchors.
     p <- .rceattle_scale(p, discrete = FALSE, aesthetics = "colour",

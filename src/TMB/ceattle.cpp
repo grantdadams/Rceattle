@@ -327,6 +327,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_INTEGER( adreport_sel );             // 0 = no selectivity standard errors (default); 1 = ADREPORT log_sel_at_age; set via fit_control(selectivity_se =)
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
@@ -5075,6 +5076,90 @@ Type objective_function<Type>::operator() () {
   ADREPORT( log_R );
   ADREPORT( R_sd );
   ADREPORT( R );
+
+  // -- Log selectivity-at-age, for a delta-method interval on the curve.
+  //
+  // Log, not logit: the non-parametric forms renormalize to mean selectivity 1
+  // rather than a maximum of 1, so sel_at_age routinely exceeds 1 and a logit is
+  // undefined there. exp(log(sel) +/- z * sd) stays positive and right-skewed,
+  // the same treatment biomass, ssb and R get above.
+  //
+  // Off by default: the delta method forms a Jacobian of every ADREPORTed value
+  // against every parameter, so the cost is the product of the two.
+  //
+  // A zero anywhere here is fatal, not local: one log(0) = -Inf on the tape
+  // turns EVERY quantity in the sdreport to NaN, biomass and ssb included. The
+  // four cells that can hold an exact zero are all identified from data alone,
+  // so the reported set never depends on a parameter value:
+  //   - padding. The array is sized max_sex / max_age / nyrs, so iterate each
+  //     fleet's own species' sexes and ages and the hindcast years only.
+  //   - a mirrored fleet (flt_sel_lead != 1) repeats its lead, so reporting it
+  //     would duplicate rows rather than add any.
+  //   - Fixed selectivity (type 0) reads emp_sel_obs, which leaves 0 in every
+  //     year with no empirical row -- 228 such cells on BS2017SS's EIT_Pollock.
+  //   - length-based selectivity (flt_sel_dim 1) reaches age through
+  //     sum(growth_matrix * sel_at_length), which is 0 for an age overlapping no
+  //     selected length bin. That fleet is fitted and plotted on sel_at_length,
+  //     which carries no error, so nothing downstream wants its age curve.
+  // Below bin_first_selected the curve is zeroed outright (selectivity.hpp), so
+  // ages start there. Every remaining form is a logistic or an exp() over every
+  // bin, hence strictly positive.
+  //
+  // Nothing is lost to the two fleet-level skips: a Fixed curve estimates no
+  // parameters, and a mirror shares its lead's block, so both have the lead's
+  // standard error or none at all.
+  //
+  // log_sel_at_age_index gives the fleet, sex, absolute age and calendar year of
+  // each row (fleet and sex 1-based), since the length depends on the model. Age
+  // is minage + index: nages counts bins, so the two differ when minage > 1.
+  if(adreport_sel == 1){
+    // First age and bin count carrying an estimated, strictly positive
+    // selectivity. rearrange_data() already clamps bin_first_selected to >= 0 and
+    // data_check() bounds it by nages, but clamp both ends here too: the model
+    // builds safebounds = FALSE, so an out-of-range age would read silently.
+    vector<int> sel_first_bin(n_flt); sel_first_bin.setZero();
+    vector<int> sel_rep_bins(n_flt);  sel_rep_bins.setZero();
+    for(int flt = 0; flt < n_flt; flt++){
+      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) ||
+         (flt_sel_type(flt) == 0) || (flt_sel_dim(flt) == 1)) continue;
+      int n_age = nages(flt_spp(flt));
+      int first = bin_first_selected(flt);
+      if(first < 0) first = 0;
+      if(first > n_age) first = n_age;
+      sel_first_bin(flt) = first;
+      sel_rep_bins(flt)  = n_age - first;
+    }
+
+    int n_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      n_sel += nsex(flt_spp(flt)) * sel_rep_bins(flt) * nyrs_hind;
+    }
+
+    vector<Type> log_sel_at_age(n_sel); log_sel_at_age.setZero();
+    matrix<Type> log_sel_at_age_index(n_sel, 4); log_sel_at_age_index.setZero();
+
+    int i_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      if(sel_rep_bins(flt) == 0) continue;
+      int sel_sp = flt_spp(flt);
+      for(int sel_sex = 0; sel_sex < nsex(sel_sp); sel_sex++){
+        for(int sel_age = sel_first_bin(flt); sel_age < nages(sel_sp); sel_age++){
+          for(int sel_yr = 0; sel_yr < nyrs_hind; sel_yr++){
+            log_sel_at_age(i_sel) = log(sel_at_age(flt, sel_sex, sel_age, sel_yr));
+            log_sel_at_age_index(i_sel, 0) = Type(flt + 1);
+            log_sel_at_age_index(i_sel, 1) = Type(sel_sex + 1);
+            log_sel_at_age_index(i_sel, 2) = Type(minage(sel_sp) + sel_age);
+            log_sel_at_age_index(i_sel, 3) = Type(styr + sel_yr);
+            i_sel++;
+          }
+        }
+      }
+    }
+
+    REPORT( log_sel_at_age );
+    REPORT( log_sel_at_age_index );
+    ADREPORT( log_sel_at_age );
+  }
 
 
   // -- 14.2. Biological reference points

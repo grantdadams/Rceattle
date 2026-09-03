@@ -12,6 +12,67 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.27.0
+
+## New features
+
+* **A standard error for the selectivity curve.**
+  `fit_control(selectivity_se = TRUE)` makes [TMB::sdreport()] return
+  `log_sel_at_age`, so a fitted selectivity can be drawn with a confidence
+  interval instead of as a bare line. `exp(value +/- 1.96 * sd)` stays positive
+  and is right-skewed, the same treatment `log_biomass`, `log_ssb` and `log_R`
+  have had since 5.20.0. `log_sel_at_age_index` is reported alongside it and
+  gives each row's fleet, sex, **absolute age and calendar year** -- `minage +
+  index` and `styr + index`, not array positions.
+
+  **On the log scale, not the logit.** A logit needs selectivity in (0, 1), and
+  the non-parametric forms renormalize to a *mean* of one rather than a maximum
+  of one: on `Atka2022`, 58% of `sel_at_age` exceeds 1 and the largest entry is
+  3.06, so a logit is undefined across most of the array.
+
+  Off by default. The delta method forms a Jacobian of every reported value
+  against every parameter, so the cost is the product of the two: `Atka2022`
+  adds 1,012 values against 584 parameters, and a 16-fleet three-species
+  assessment around 31,000. The objective is untouched either way -- an
+  `ADREPORT` is a report, not a likelihood term.
+
+  **Only cells that are estimated and strictly positive are reported**, because
+  one `log(0) = -Inf` on the tape turns *every* quantity in that `sdreport` into
+  `NaN`, biomass and ssb included, not just selectivity. So the report skips
+  `Selectivity = "Fixed"` fleets (read from `emp_sel_obs`, which leaves 0 wherever
+  a year has no empirical row -- 228 cells on `BS2017SS`'s `EIT_Pollock`),
+  length-based fleets (`sel_at_age` there is `sum(growth_matrix * sel_at_length)`,
+  0 for an age overlapping no selected length bin), mirrored fleets and array
+  padding (neither adds a curve), and every age below `Bin_first_selected`, where
+  `selectivity.hpp` zeroes the curve outright. The skipped set is fixed by the
+  data, never by a parameter value. Nothing is lost: a `Fixed` curve and a mirror
+  both have their lead's standard error or none by construction.
+
+  A bin the normalization pins carries an SE of exactly 0, the honest answer for
+  a value that is 1 by construction.
+
+* **`plot_selectivity(add_ci = TRUE)`** draws that interval under the curve it
+  belongs to. It needs a fit run with `fit_control(selectivity_se = TRUE)` and
+  declines with a warning naming the option otherwise, rather than drawing a bare
+  line that would read as certainty -- and declines for the whole figure if any
+  model in an overlay lacks the errors, since a band on some panels and not
+  others says "this fleet is certain" rather than "this fit was not asked".
+
+  A fleet mirroring another's `Selectivity_index` reports no rows of its own, so
+  it borrows its lead's band, but only where the two curves agree: `data_check()`
+  merely warns when a shared group differs in a shaping column, and a differing
+  `Sel_norm_bin` alone rescales the curve. Every year drawn gets its own band, so
+  pair `add_ci` with `minyr` / `maxyr` on a time-varying fleet.
+
+## Bug fixes
+
+* **`quantity_dictionary()` described `sel_at_age` as "normalized to a maximum
+  of one".** It is normalized per `Sel_norm_bin`, which for the non-parametric
+  forms -- the default -- is a mean of one, so values above one are ordinary. It
+  is also 0 below `Bin_first_selected`. The units column said "proportion" for
+  the same reason and now says "unitless". `log_sel_at_age` and
+  `log_sel_at_age_index` are documented alongside them.
+
 # Rceattle 5.26.0
 
 ## New features

@@ -431,6 +431,10 @@ build_osa_data <- function(data_list, build_osa = FALSE) {
   data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
   data_list$linkage_re_obsvec_idx <- as.integer(linkage_re_obsvec_idx)
   data_list$osa_mode         <- 0L
+  # Read by the TMB DATA_INTEGER. Defaulted here rather than in fit_mod() so a
+  # data list built before this option existed, or rebuilt by .osa_build_obj(),
+  # still carries the field MakeADFun() requires.
+  if (is.null(data_list$adreport_sel)) data_list$adreport_sel <- 0L
   data_list$comp_offset      <- comp_offset       # read by the TMB DATA_SCALAR
   data_list$bias_adjust_obs  <- bias_adjust_obs   # read by the TMB DATA_SCALAR
   data_list$bias_adjust_proc <- bias_adjust_proc  # read by the TMB DATA_SCALAR
