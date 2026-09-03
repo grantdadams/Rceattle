@@ -21,14 +21,32 @@
 #' arguments are kept for backward compatibility.
 #'
 #' @details
-#' `selectivity_se` is off by default because the delta method forms a Jacobian
-#' of every reported value against every parameter, so its cost is the product
-#' of the two: on `Atka2022` it adds 1,012 values against 584 parameters. The
-#' error is on the log scale, not the logit, because the non-parametric forms
-#' normalize to mean selectivity 1 rather than a maximum of 1 -- 58% of
+#' # Selectivity standard errors
+#'
+#' `selectivity_se` needs `getsd = TRUE`, and the error it reports is the one
+#' belonging to whichever `sdreport` the fit ends on. Under
+#' `estimateMode = "Estimate"` with an estimating HCR that is the *projection*
+#' fit, in which [build_hcr_map()] has mapped every selectivity parameter off, so
+#' every error comes back exactly 0. Use `estimateMode = "Hindcast"`, or
+#' `projection_uncertainty = TRUE`, to get one from a fit that estimated the
+#' curve. [fit_mod()] warns when the combination would report zeros.
+#'
+#' Off by default because the delta method forms a Jacobian of every reported
+#' value against every parameter, so its cost is the product of the two: on
+#' `Atka2022` it adds 1,012 values against 584 parameters.
+#'
+#' The error is on the log scale, not the logit, because the non-parametric
+#' forms normalize to mean selectivity 1 rather than a maximum of 1 -- 58% of
 #' `Atka2022`'s `sel_at_age` exceeds 1, to 3.06 -- so a logit is undefined over
-#' most of the array. Rows cover estimated, age-based lead fleets only; see
-#' [plot_selectivity()], which draws the interval.
+#' most of the array.
+#'
+#' Rows cover estimated, age-based lead fleets only, and start at each fleet's
+#' first selected bin. Four kinds of cell hold an exact zero -- a `Fixed` fleet's
+#' empirical curve, a length-based fleet's growth-matrix projection, a bin below
+#' `Bin_first_selected`, and array padding -- and one `log(0) = -Inf` on the tape
+#' turns *every* quantity in the `sdreport` to `NaN`, biomass and SSB included.
+#' All four are identified from the data, so the reported set never depends on a
+#' parameter value. See [plot_selectivity()], which draws the interval.
 #'
 #' @param bias.correct logical. If `TRUE`, applies bias correction via
 #'   [TMB::sdreport()]. Default `FALSE`.

@@ -202,6 +202,30 @@ The checks cover:
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.
 
+### Naming the parameter, not just the block
+
+TMB names every element of `obj$par` after its parameter block, so on their own
+`estimability`, `parameters_on_bounds` and `hessian_conditioning` could say
+`sel_coff_dev` was flagged but not which of its 392 elements. Each now reports
+the fleet, sex, bin and year instead, from [`parameter_index()`]:
+
+```
+[FAIL] estimability  49 non-identifiable fixed parameter(s)
+  sel_coff_dev  GOA_pollock_fishery, bins 1-8, 2013-2018  (41)
+```
+
+The three checks do not all count positions in the same vector.
+`estimability` and `parameters_on_bounds` are captured from the hindcast
+optimization; `hessian_conditioning` reads the `sdreport`, which under an
+estimating HCR belongs to the projection fit and holds only `log_Ftarget` /
+`log_Flimit`. Each check therefore verifies that the index describes the vector
+it is about to label, and prints block names alone when it does not — a
+coordinate naming the wrong parameter is worse than no coordinate.
+
+`parameter_index()` itself describes `fit$obj`, which under any HCR but
+`"NoFishing"` is that projection object. Pass a fit run with
+`estimateMode = "Hindcast"` to browse the hindcast parameters directly.
+
 ## Fit plots
 
 ### Composition data

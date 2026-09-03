@@ -38,6 +38,13 @@ A selectivity \code{slot} is named from the fleet's \code{Selectivity}: slot 2 o
 \code{sel_inf} is a descending inflection for the double-logistic family, the
 right-tail floor under \code{DoubleNormal}, and the age-1 selectivity under
 \code{LogisticPM}.
+
+Under \code{estimateMode = "Estimate"} with any HCR but \code{"NoFishing"}, \code{object$obj}
+is the projection object, whose only free parameters are \code{log_Ftarget} /
+\code{log_Flimit} -- so the index describes those, not the hindcast.
+\code{fit$convergence} reads the hindcast index that \code{\link[=fit_mod]{fit_mod()}} captured before
+the projection remapped the model, and checks it against the vector it is
+labelling either way.
 }
 \seealso{
 \code{\link[=parameter_dictionary]{parameter_dictionary()}} for what each block means.

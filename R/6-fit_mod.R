@@ -856,6 +856,24 @@ fit_mod <-
     # keeps the setting the fit was given.
     data_list$adreport_sel <- as.integer(isTRUE(fit_control$selectivity_se))
 
+    # A delta-method error exists only where an sdreport runs, and an estimating
+    # HCR leaves the projection's, in which the selectivity is fixed at 0 error.
+    if (isTRUE(fit_control$selectivity_se) && estimateMode %in% c(0, 1)) {
+      if (!isTRUE(getsd)) {
+        warning("`selectivity_se = TRUE` needs `getsd = TRUE` to return a ",
+                "standard error; none will be reported.", call. = FALSE)
+      } else if (estimateMode == 0 && !isTRUE(projection_uncertainty) &&
+                 # Every other HCR re-optimizes the projection, overwriting the
+                 # hindcast sdreport. Canonical names: switch_check() has run.
+                 !isTRUE(data_list$HCR %in% c("NoFishing", "ConstantF"))) {
+        warning("`selectivity_se = TRUE` under estimateMode = \"Estimate\" ",
+                "reports a standard error of 0 for every age: the sdreport is ",
+                "the HCR projection's, in which the selectivity parameters are ",
+                "fixed. Use estimateMode = \"Hindcast\", or ",
+                "`projection_uncertainty = TRUE`.", call. = FALSE)
+      }
+    }
+
     # Carried like the bias-adjustment flags above, so a refit can recover how
     # the model was fitted rather than take fit_control()'s default.
     data_list$projection_uncertainty <- isTRUE(projection_uncertainty)
@@ -1258,7 +1276,7 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,
-          random_vars = random_vars, getsd = getsd)
+          random_vars = random_vars, getsd = getsd, data_list = data_list)
         disc_gap <- .rce_marginal_gap(obj, opt)
       }
     }

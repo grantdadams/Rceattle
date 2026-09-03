@@ -262,3 +262,44 @@ testthat::test_that("the bounds table's rows line up with the index", {
   testthat::expect_equal(length(ch$par), nrow(idx))
   testthat::expect_equal(unname(names(ch$par)), idx$block[order(idx$par_index)])
 })
+
+
+# Under estimateMode = "Estimate" with an estimating HCR -- the default, and what
+# every Tier 3 assessment runs -- fit_mod() rebuilds the model for the
+# projection, so fit$obj holds log_Ftarget / log_Flimit alone while the
+# estimability and bounds checks still index the 584-parameter hindcast vector.
+# Labelling one from the other named log_Flimit where rec_pars was flagged.
+testthat::test_that("an HCR projection does not relabel the hindcast parameters", {
+  testthat::skip_on_cran()
+
+  d <- Rceattle::Atka2022
+  fsh <- which(as.character(d$fleet_control$Fleet_type) %in% c("Fishery", "1"))
+  d$fleet_control$Proj_F_proportion[fsh] <- 1 / length(fsh)  # a Tier 3 HCR needs a split
+
+  fit <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
+    data_list = d, msmMode = 0, estimateMode = "Estimate",
+    HCR = Rceattle::build_hcr(HCR = 5, Ftarget = 0.4, Flimit = 0.35,
+                              Plimit = 0.2, Alpha = 0.05),
+    fit_control = Rceattle::fit_control(verbose = 0))))
+
+  hind <- names(fit$.conv_hindcast$par)
+  testthat::expect_true(length(fit$obj$par) < length(hind))   # the two differ
+  testthat::expect_setequal(unique(names(fit$obj$par)),
+                            c("log_Flimit", "log_Ftarget"))
+
+  # The hindcast index was captured before the projection replaced obj, and it
+  # is the one the hindcast-indexed checks resolve to.
+  idx <- Rceattle:::.conv_par_index(fit)
+  testthat::expect_equal(nrow(idx$hindcast), length(hind))
+  testthat::expect_identical(Rceattle:::.conv_index_for(idx, hind), idx$hindcast)
+
+  # The projection index describes a different vector and is refused for it, so
+  # a check falls back to block names rather than printing a wrong coordinate.
+  testthat::expect_null(
+    Rceattle:::.conv_index_for(list(final = idx$final), hind))
+  testthat::expect_false(Rceattle:::.conv_index_ok(idx$final, hind))
+
+  # convergence_diagnostics() runs on such a fit without inventing coordinates.
+  cd <- Rceattle::convergence_diagnostics(fit)
+  testthat::expect_true(cd$status %in% c("OK", "WARN", "FAIL"))
+})

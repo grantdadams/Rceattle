@@ -43,13 +43,22 @@ version throughout.
   a year has no empirical row -- 228 cells on `BS2017SS`'s `EIT_Pollock`),
   length-based fleets (`sel_at_age` there is `sum(growth_matrix * sel_at_length)`,
   0 for an age overlapping no selected length bin), mirrored fleets and array
-  padding (neither adds a curve), and every age below `Bin_first_selected`, where
+  padding (neither adds a curve), and every bin below `Bin_first_selected`, where
   `selectivity.hpp` zeroes the curve outright. The skipped set is fixed by the
   data, never by a parameter value. Nothing is lost: a `Fixed` curve and a mirror
   both have their lead's standard error or none by construction.
 
   A bin the normalization pins carries an SE of exactly 0, the honest answer for
   a value that is 1 by construction.
+
+  **The error belongs to whichever `sdreport` the fit ends on**, which is not
+  always the fit that estimated the curve. Under `estimateMode = "Estimate"` with
+  an estimating HCR, `fit_mod()` re-optimizes the projection with every hindcast
+  parameter mapped off, so the standard error of every selectivity comes back
+  exactly 0. Use `estimateMode = "Hindcast"`, or
+  `fit_control(projection_uncertainty = TRUE)`; `fit_mod()` warns when the
+  combination would report zeros, and warns again if `getsd = FALSE` leaves
+  nothing to report at all.
 
 * **`plot_selectivity(add_ci = TRUE)`** draws that interval under the curve it
   belongs to. It needs a fit run with `fit_control(selectivity_se = TRUE)` and
@@ -64,12 +73,16 @@ version throughout.
   `Sel_norm_bin` alone rescales the curve. Every year drawn gets its own band, so
   pair `add_ci` with `minyr` / `maxyr` on a time-varying fleet.
 
+  A fit reporting an error of 0 at *every* age is declined the same way, since
+  the band would be a hairline reading as certainty. That is what an HCR
+  projection returns; the warning names the `estimateMode` to refit with.
+
 ## Bug fixes
 
 * **`quantity_dictionary()` described `sel_at_age` as "normalized to a maximum
   of one".** It is normalized per `Sel_norm_bin`, which for the non-parametric
   forms -- the default -- is a mean of one, so values above one are ordinary. It
-  is also 0 below `Bin_first_selected`. The units column said "proportion" for
+  is also 0 below the fleet's first selected bin. The units column said "proportion" for
   the same reason and now says "unitless". `log_sel_at_age` and
   `log_sel_at_age_index` are documented alongside them.
 
@@ -88,6 +101,11 @@ version throughout.
   counting the cells they drive. An axis constant across the model is left out
   of the label; the structured columns carry it either way.
 
+  It describes `fit$obj`, which under `estimateMode = "Estimate"` with any HCR
+  but `"NoFishing"` is the *projection* object -- `log_Ftarget` and `log_Flimit`
+  alone, since `build_hcr_map()` maps every hindcast parameter off. Pass a fit
+  run with `estimateMode = "Hindcast"` to browse the hindcast parameters.
+
 ## Bug fixes
 
 * **The convergence battery names the parameters it flags.** `estimability`,
@@ -101,6 +119,15 @@ version throughout.
   ```
 
   `parameters_on_bounds` gains a `where` column.
+
+  The three do not all count positions in the same vector: `estimability` and
+  `parameters_on_bounds` are captured at the hindcast optimization, while
+  `hessian_conditioning` reads the `sdreport`, which under an estimating HCR
+  belongs to the projection fit. `fit_mod()` now stores the hindcast index
+  alongside the hindcast parameter vector, and each check verifies that the index
+  it uses names that vector before labelling anything -- a coordinate naming the
+  wrong parameter is worse than no coordinate, so a mismatch prints block names
+  alone.
 
 * **`hessian_conditioning` is read on the correlation matrix.** The covariance
   condition number is not scale-invariant (`log_F` near -2, `sel_inf` near 10),

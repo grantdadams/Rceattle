@@ -182,6 +182,13 @@
 #' right-tail floor under `DoubleNormal`, and the age-1 selectivity under
 #' `LogisticPM`.
 #'
+#' Under `estimateMode = "Estimate"` with any HCR but `"NoFishing"`, `object$obj`
+#' is the projection object, whose only free parameters are `log_Ftarget` /
+#' `log_Flimit` -- so the index describes those, not the hindcast.
+#' `fit$convergence` reads the hindcast index that [fit_mod()] captured before
+#' the projection remapped the model, and checks it against the vector it is
+#' labelling either way.
+#'
 #' @param object A fitted Rceattle model from [fit_mod()].
 #'
 #' @return A data frame with one row per estimated parameter and columns
@@ -196,6 +203,13 @@ parameter_index <- function(object) {
     stop("`object` does not carry a TMB object; refit with fit_mod().",
          call. = FALSE)
   }
+  .rce_par_index(obj, object$data_list)
+}
+
+# parameter_index()'s body, taking the TMB object directly, so fit_mod() can also
+# build it at the hindcast optimization -- the last point holding that obj.
+#' @noRd
+.rce_par_index <- function(obj, dl) {
   npar <- length(obj$par)
   if (npar == 0) return(.rce_par_index_empty())
 
@@ -203,7 +217,6 @@ parameter_index <- function(object) {
   # in place for a mapped-off or random-effect cell.
   off <- 1e6
   pl  <- obj$env$parList(x = seq_len(npar) + off)
-  dl  <- object$data_list
   dict <- parameter_dictionary()
 
   AX <- c("species", "fleet", "sex", "age", "bin", "year", "slot")
@@ -399,11 +412,34 @@ parameter_index <- function(object) {
   lines
 }
 
-# The convergence battery must never fail because a label could not be built, so
-# an index that cannot be recovered yields no coordinates rather than an error.
+# Two indices, because the checks do not count positions in the same vector: the
+# bounds and estimability tables are the hindcast's, sdrep$cov.fixed the final
+# fit's. An index that cannot be built is NULL, never an error.
 #' @noRd
 .conv_par_index <- function(object) {
-  tryCatch(parameter_index(object), error = function(e) NULL)
+  list(
+    hindcast = object$.conv_hindcast$index,
+    final    = tryCatch(parameter_index(object), error = function(e) NULL)
+  )
+}
+
+# Does `index` describe the vector whose per-position block names are `nms`?
+# A length and block-sequence test: two vectors sharing a block layout would both
+# pass, but within fit_mod() only the hindcast shares the hindcast's.
+#' @noRd
+.conv_index_ok <- function(index, nms) {
+  !is.null(index) && !is.null(nms) && nrow(index) == length(nms) &&
+    identical(unname(as.character(nms)),
+              as.character(index$block[order(index$par_index)]))
+}
+
+# The index that fits the vector being labelled, or NULL. A coordinate naming a
+# parameter the check did not flag is worse than no coordinate at all.
+#' @noRd
+.conv_index_for <- function(index, nms) {
+  if (is.null(index)) return(NULL)
+  for (i in index) if (.conv_index_ok(i, nms)) return(i)
+  NULL
 }
 
 # Append the coordinate summary under a check's own message.

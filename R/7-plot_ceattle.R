@@ -703,7 +703,8 @@ plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 #' Only estimated, age-based fleets carry one. A length-based fleet is drawn on
 #' `sel_at_length`, which is what was fitted and carries no error; a
 #' `Selectivity = "Fixed"` fleet estimates nothing; and no fleet gets a band
-#' below its `Bin_first_selected`, where selectivity is 0 by construction. A
+#' below its first selected bin (`Bin_first_selected`, a 1-based bin ordinal --
+#' not an absolute age), where selectivity is 0 by construction. A
 #' fleet mirroring another's `Selectivity_index` has no errors of its own and
 #' borrows its lead's, but only where the two curves agree -- `data_check()` only
 #' warns when a shared group differs in a shaping column such as `Sel_norm_bin`.
@@ -711,28 +712,14 @@ plot_depletion <- .ts_wrapper("biomass_depletion", zero_y = TRUE)
 #' Every year drawn gets its own band, so a time-varying fleet is dense. Pair it
 #' with `minyr` / `maxyr` on a single year, or use it on a time-invariant fleet.
 #'
-#' # What the interval is conditional on
-#'
-#' **The normalization.** Selectivity is identified only up to a scalar, jointly
-#' with F for a fishery and q for a survey, so `Sel_norm_bin` fixes the level
-#' rather than measuring it. The bin it pins gets a standard error of exactly 0,
-#' and the band widens with distance from it. On `Atka2022` the survey pins age 4
-#' and its sd runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1-5, while the fishery
-#' pins nothing, normalizes to a mean of one, and is flattest mid-range instead.
-#' Same fit, same data: the shape of the band is a property of the normalization.
-#' Read it as uncertainty in the curve *relative to the anchor*, and say which
-#' anchor when quoting one.
-#'
-#' **The smoothing, on a penalized fit.** Under `random_sel = FALSE` the annual
-#' deviations are penalized rather than integrated, so these are
-#' penalized-likelihood errors conditional on `Sel_curve_pen1` / `Sel_curve_pen2`
-#' and on a fixed `Time_varying_sel_sd`. Change the smoothing and both the curve
-#' and its band move, with nothing in the data to say which is right.
-#'
-#' The band is marginal, and selectivity error is strongly correlated with F and
-#' q through the same confounding, so carrying it into a derived quantity needs
-#' the covariance (`fit_control(getReportCovariance = TRUE)`), not this interval
-#' alone.
+#' The interval is **relative to the normalization anchor**, so quote the anchor
+#' with it. Selectivity is identified only up to a scalar, jointly with F for a
+#' fishery and q for a survey, so `Sel_norm_bin` fixes the level rather than
+#' measuring it: the bin it pins has a standard error of exactly 0 and the band
+#' widens away from it. On a penalized fit (`random_sel = FALSE`) the band is also
+#' conditional on the smoothing, and it is marginal rather than joint. See
+#' `vignette("model-options-and-functionality")` for both, and for the
+#' `estimateMode` that determines whether the fit reports an error at all.
 #'
 #' @inheritParams rceattle-plot-args
 #' @param colour_by What colour separates: `"year"` (a fan), `"model"`, or
@@ -757,8 +744,8 @@ plot_selectivity <-
            minyr = NULL,
            maxyr = NULL,
            alpha = 0.25,
-           add_ci = FALSE,
-           colour_by = c("auto", "year", "model")) {
+           colour_by = c("auto", "year", "model"),
+           add_ci = FALSE) {
 
     colour_by <- match.arg(colour_by)
     .rce_check_alpha(alpha)
@@ -768,13 +755,39 @@ plot_selectivity <-
     # not others, which reads as "this fleet is certain" rather than "this fit
     # was not asked for them", so the request is declined for the whole figure.
     if (isTRUE(add_ci)) {
-      lacking <- vapply(models, function(m) is.null(.rce_sel_se(m)), logical(1))
+      se_all  <- lapply(models, .rce_sel_se)
+      lacking <- vapply(se_all, is.null, logical(1))
       if (any(lacking)) {
         add_ci <- .rce_no_ci(
           add_ci, "selectivity",
           paste0("model(s) ", paste(which(lacking), collapse = ", "),
                  " report no selectivity standard error. Refit with ",
                  "fit_control(selectivity_se = TRUE, getsd = TRUE)"))
+      }
+    }
+    # No usable error, for one of two reasons that need different advice. All
+    # zero: the sdreport held no selectivity free, which is what an HCR
+    # projection returns. None finite: the Hessian was not invertible.
+    if (isTRUE(add_ci)) {
+      zero <- vapply(se_all, function(s)
+        any(is.finite(s$sd)) && all(s$sd == 0, na.rm = TRUE), logical(1))
+      nonf <- vapply(se_all, function(s) !any(is.finite(s$sd)), logical(1))
+      if (any(zero)) {
+        add_ci <- .rce_no_ci(
+          add_ci, "selectivity",
+          paste0("model(s) ", paste(which(zero), collapse = ", "),
+                 " report a standard error of 0 for every age, so the sdreport ",
+                 "came from the HCR projection, where the selectivity ",
+                 "parameters are fixed. Refit with estimateMode = \"Hindcast\", ",
+                 "or fit_control(projection_uncertainty = TRUE)"))
+      }
+      if (any(nonf)) {
+        add_ci <- .rce_no_ci(
+          add_ci, "selectivity",
+          paste0("model(s) ", paste(which(nonf), collapse = ", "),
+                 " report no finite selectivity standard error, so the Hessian ",
+                 "was not invertible. See fit$convergence -- the ",
+                 "`sdreport_failed` and `hessian_conditioning` checks"))
       }
     }
     model_names_use <- .model_labels(models, model_names)
@@ -784,8 +797,7 @@ plot_selectivity <-
     # Every model contributes: reading only the first silently dropped the rest
     # of an overlay. Each is read with its own fleet_control and dimensions,
     # since a comparison run may differ in both.
-    se_list <- if (isTRUE(add_ci)) lapply(models, .rce_sel_se) else
-      vector("list", length(models))
+    se_list <- if (isTRUE(add_ci)) se_all else vector("list", length(models))
 
     df_list <- list()
     for (k in seq_along(models)) {
@@ -831,7 +843,7 @@ plot_selectivity <-
 
         # A mirrored fleet shares the lead's parameter block and reports no rows
         # of its own, so it borrows the lead's band.
-        sel_lead <- .rce_sel_lead(fc, i)
+        sel_lead <- .rce_sel_lead(dl, i)
 
         for (sex in seq_len(nsex[sp])) {
           sex_lab <- if (nsex[sp] == 1) "Combined" else c("Female", "Male")[sex]

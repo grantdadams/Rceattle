@@ -36,7 +36,7 @@
 # (mle, lower, upper) table.
 .capture_opt_convergence <- function(opt, obj = NULL, bounds = NULL,
                                      mapFactor = NULL, random_vars = NULL,
-                                     getsd = NA) {
+                                     getsd = NA, data_list = NULL) {
   if (is.null(opt) && is.null(obj)) return(NULL)
 
   # Fixed-effect MLE vector (named), recomputed from the object.
@@ -113,8 +113,15 @@
     }
   }
 
+  # Where each hindcast parameter sits in the model. Built here because an HCR
+  # projection replaces obj with one holding log_Ftarget / log_Flimit alone.
+  index <- if (!is.null(obj) && !is.null(data_list)) {
+    tryCatch(.rce_par_index(obj, data_list), error = function(e) NULL)
+  } else NULL
+
   list(
     par                = if (!is.null(bnd_par)) bnd_par else par_fixed,
+    index              = index,
     gradient           = gg,
     lower              = bnd_lo,
     upper              = bnd_hi,
@@ -404,6 +411,7 @@
   nm <- rownames(cov)
   if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- names(object$sdrep$par.fixed)
   if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- paste0("p", seq_len(nrow(cov)))
+  nm_full <- nm                 # one name per row of cov, before the finite-se subset
   nm <- nm[keep_i]
 
   # The eigenvector is unit-norm, so v^2 partitions the direction across
@@ -425,17 +433,18 @@
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
   msg <- sprintf(
-    "Condition number = %.2g; the least-determined combination of parameters carries %.0fx the standard error of the best-determined one.%s",
+    "Condition number = %.2g: the least-determined parameter combination carries %.0fx the standard error of the best-determined one.%s",
     kappa, se_ratio,
-    if (sev != "OK")
-      sprintf(" It loads on: %s.", combo) else "")
+    if (sev != "OK") sprintf(" It loads on: %s.", combo) else "")
 
   # Where the loading sits INSIDE each named block. The direction is spread over
   # coefficients rather than confined to a set, so the parameters carrying the
   # block's top 90% are summarised by coordinate and the count is printed: a
   # ridge over ten years and one over a single year read very differently.
   if (sev != "OK") {
-    idx <- index
+    # cov.fixed's rows are the sdreport's parameter vector, which is the
+    # projection fit's under an estimating HCR and the hindcast's otherwise.
+    idx <- .conv_index_for(index, nm_full)
     if (!is.null(idx)) {
       lines <- character(0)
       for (b in names(share)[seq_len(ntop)]) {
@@ -491,7 +500,9 @@
   tab <- data.frame(param = names(par)[hit], mle = signif(par[hit], 4),
                     lower = signif(lo[hit], 4), upper = signif(hi[hit], 4),
                     bound = ifelse(at_lo[hit], "lower", "upper"))
-  idx <- index
+  # `hit` counts positions in the hindcast bounds vector, so the index has to be
+  # the one built from it.
+  idx <- .conv_index_for(index, names(par))
   tab <- .conv_attach_label(tab, hit, idx)
   list(parameters_on_bounds = .conv_record(
     "parameters_on_bounds", "fit", "WARN",
@@ -605,7 +616,10 @@
   if (!is.null(bad) && length(bad) > 0) {
     nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
                     error = function(e) NULL)
-    idx <- index
+    # BadParams has one row per hindcast fixed parameter, in obj$par order, so
+    # its Param column is the vector `bad` indexes into.
+    idx <- .conv_index_for(index, tryCatch(as.character(id$BadParams$Param),
+                                           error = function(e) NULL))
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
       .conv_with_coords(
@@ -709,9 +723,10 @@
 #'   records).
 #' @export
 convergence_diagnostics <- function(object, ...) {
-  # Three checks name their parameters by coordinate, and recovering the index
-  # means pushing a tagged vector through TMB's parList(). A promise builds it at
-  # most once, and not at all on a fit where every check passes.
+  # Three checks name their parameters by coordinate. The hindcast index was
+  # stored by fit_mod(); the one for the fit's final parameter vector means
+  # pushing a tagged vector through TMB's parList(), so a promise builds the pair
+  # at most once, and not at all on a fit where every check passes.
   delayedAssign("index", .conv_par_index(object))
   checks <- c(
     .check_phasing(object),

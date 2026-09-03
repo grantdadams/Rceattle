@@ -87,17 +87,24 @@ testthat::test_that("selectivity_se adds a log-scale SE without moving the fit",
 
 testthat::test_that("selectivity_se defaults to off and survives a data list without it", {
   # The TMB template declares adreport_sel as DATA_INTEGER, so MakeADFun() fails
-  # outright if the field is missing. A data list built before the option
-  # existed has no such field, and .osa_build_data() -- the funnel every list
-  # passes through -- has to supply it.
+  # outright if the field is missing. A data list built before the option existed
+  # has no such field, so build_osa_data() -- the funnel every list passes
+  # through on its way to MakeADFun() -- has to supply it. Asserted on that
+  # funnel directly: fit_mod() sets the field itself, so a fit would pass whether
+  # the default existed or not.
   testthat::expect_false(fit_control()$selectivity_se)
 
-  d <- Atka2022
+  d <- suppressMessages(suppressWarnings(
+    rearrange_data(switch_check(Atka2022))))
   d$adreport_sel <- NULL
-  built <- suppressMessages(suppressWarnings(fit_mod(
-    data_list = d, msmMode = 0, estimateMode = "DebugBuild",
-    fit_control = fit_control(verbose = 0))))
-  testthat::expect_identical(built$data_list$adreport_sel, 0L)
+  testthat::expect_identical(
+    build_osa_data(d, build_osa = FALSE)$adreport_sel, 0L)
+
+  # And an explicit TRUE survives the funnel rather than being reset to the
+  # default, which is what carries the setting through a refit.
+  d$adreport_sel <- 1L
+  testthat::expect_identical(
+    build_osa_data(d, build_osa = FALSE)$adreport_sel, 1L)
 })
 
 

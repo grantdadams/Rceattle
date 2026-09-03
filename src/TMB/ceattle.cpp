@@ -5077,46 +5077,23 @@ Type objective_function<Type>::operator() () {
   ADREPORT( R_sd );
   ADREPORT( R );
 
-  // -- Log selectivity-at-age, for a delta-method interval on the curve.
+  // -- Log selectivity-at-age, for a delta-method interval on the curve. Log and
+  // not logit, because the non-parametric forms normalize to a MEAN of one, so
+  // sel_at_age routinely exceeds one. Gated because the delta method costs every
+  // reported value against every parameter; see ?fit_control.
   //
-  // Log, not logit: the non-parametric forms renormalize to mean selectivity 1
-  // rather than a maximum of 1, so sel_at_age routinely exceeds 1 and a logit is
-  // undefined there. exp(log(sel) +/- z * sd) stays positive and right-skewed,
-  // the same treatment biomass, ssb and R get above.
+  // Only estimated, age-based lead fleets, from their first selected bin: those
+  // are the cells that cannot be an exact zero, and one log(0) = -Inf on the tape
+  // turns EVERY quantity in the sdreport to NaN, biomass and SSB included. The
+  // four routes to a zero are enumerated in ?fit_control; all are read from the
+  // data, so the reported set never depends on a parameter value.
   //
-  // Off by default: the delta method forms a Jacobian of every ADREPORTed value
-  // against every parameter, so the cost is the product of the two.
-  //
-  // A zero anywhere here is fatal, not local: one log(0) = -Inf on the tape
-  // turns EVERY quantity in the sdreport to NaN, biomass and ssb included. The
-  // four cells that can hold an exact zero are all identified from data alone,
-  // so the reported set never depends on a parameter value:
-  //   - padding. The array is sized max_sex / max_age / nyrs, so iterate each
-  //     fleet's own species' sexes and ages and the hindcast years only.
-  //   - a mirrored fleet (flt_sel_lead != 1) repeats its lead, so reporting it
-  //     would duplicate rows rather than add any.
-  //   - Fixed selectivity (type 0) reads emp_sel_obs, which leaves 0 in every
-  //     year with no empirical row -- 228 such cells on BS2017SS's EIT_Pollock.
-  //   - length-based selectivity (flt_sel_dim 1) reaches age through
-  //     sum(growth_matrix * sel_at_length), which is 0 for an age overlapping no
-  //     selected length bin. That fleet is fitted and plotted on sel_at_length,
-  //     which carries no error, so nothing downstream wants its age curve.
-  // Below bin_first_selected the curve is zeroed outright (selectivity.hpp), so
-  // ages start there. Every remaining form is a logistic or an exp() over every
-  // bin, hence strictly positive.
-  //
-  // Nothing is lost to the two fleet-level skips: a Fixed curve estimates no
-  // parameters, and a mirror shares its lead's block, so both have the lead's
-  // standard error or none at all.
-  //
-  // log_sel_at_age_index gives the fleet, sex, absolute age and calendar year of
-  // each row (fleet and sex 1-based), since the length depends on the model. Age
-  // is minage + index: nages counts bins, so the two differ when minage > 1.
+  // log_sel_at_age_index carries the fleet, sex, absolute age and calendar year
+  // of each row, since which cells are reported depends on the model.
   if(adreport_sel == 1){
-    // First age and bin count carrying an estimated, strictly positive
-    // selectivity. rearrange_data() already clamps bin_first_selected to >= 0 and
-    // data_check() bounds it by nages, but clamp both ends here too: the model
-    // builds safebounds = FALSE, so an out-of-range age would read silently.
+    // First bin and bin count per fleet. data_check() bounds Bin_first_selected
+    // by nages, but a 0 in the workbook still arrives here as -1, and the model
+    // builds safebounds = FALSE, so both ends are clamped before indexing.
     vector<int> sel_first_bin(n_flt); sel_first_bin.setZero();
     vector<int> sel_rep_bins(n_flt);  sel_rep_bins.setZero();
     for(int flt = 0; flt < n_flt; flt++){

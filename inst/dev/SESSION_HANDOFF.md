@@ -5,141 +5,99 @@ session. Maintained by `/handoff`.
 
 ## Now
 
-**PR #130 is OPEN into `dev`** — https://github.com/grantdadams/Rceattle/pull/130
-(`reporting-tables` -> `dev`, +2890/-34 across 23 files, mergeable, CI running). Push and PR
-opened 2026-08-30. `osa-cdf-method` is still local-only, so this is first to `dev` and that
-branch renumbers its 5.24.0 section when it follows.
+**PR #139 is OPEN into `main`** — https://github.com/grantdadams/Rceattle/pull/139
+(`dev` -> `main`, releasing **5.26.0 + 5.27.0**; `main` is at 5.25.1). Reviewed 2026-09-02
+against CLAUDE.md for accuracy, ease of use, concise language and sibling breakage. Two P0
+defects were found, both measured, both fixed on `dev`; the fixes are described below and are
+NOT yet committed.
 
-**In flight: branch `reporting-tables` (worktree `/private/tmp/rce-report`, off `dev` at
-93ee38b7), version 5.24.0.** Kalei Shotwell (AFSC) asked for two things: a cheat sheet for
-output names, and one call producing every table she reports, so BSAI ATF next round does not
-mean re-deriving it. Both are built and the suite is green
-(`FAIL 0 | SKIP 3 | WARN 229`, `NOT_CRAN=true`, `TESTTHAT_PARALLEL=false`, 2026-08-29) —
-the warning count is unchanged from 5.22.0, so nothing new was introduced.
+**One root cause behind both.** Under the default `estimateMode = "Estimate"` with an
+estimating HCR, `fit$obj` and `fit$sdrep` belong to the **projection**, not the hindcast —
+`build_hcr_map()` maps every hindcast parameter off. Measured on `Atka2022` with `HCR = 5`:
+`fit$obj$par` is length **2** (`log_Flimit`, `log_Ftarget`) against `.conv_hindcast$par`'s
+**584**. Every test the PR added fits at `estimateMode = "Hindcast"` or `3`, so neither new
+feature was exercised on the mode every real assessment uses. Full account in `TRAPS.md`,
+section "`fit$obj` and `fit$sdrep` are the projection's under an estimating HCR".
 
-- **`quantity_dictionary()`** — all 99 `fit$quantities` names with meaning, units, dims,
-  `se`, and `standard_label`. `test-schema-quantity-dictionary.R` asserts it against the
-  template and a real fit, so a quantity added or renamed in `ceattle.cpp` fails a test.
-- **`report_tables()`** — `model`, `likelihood`, `timeseries`, `reference_points`, `fits`,
-  plus `retrospective`/`jitter`/`osa` when passed. Never refits.
-- **`standard_output()`** — the NOAA 33-column standard for `stockplotr` / `asar`.
+1. **`parameter_index()` labelled the wrong parameters.** `fit$identified` and
+   `fit$.conv_hindcast` are captured before the projection, so the convergence battery matched
+   hindcast positions against a projection index: a flagged `rec_pars` printed as
+   `log_Flimit  element 1`. Fixed by storing the hindcast index on `.conv_hindcast$index` (built
+   in `.capture_opt_convergence()`, the last point holding the hindcast `obj`) and by
+   `.conv_index_ok()` / `.conv_index_for()`, which verify an index names the vector being
+   labelled before any coordinate is printed. A mismatch now prints block names alone.
+2. **`plot_selectivity(add_ci = TRUE)` drew a zero-width band.** The projection `sdreport`
+   holds the selectivity parameters fixed, so all 1,012 `log_sel_at_age` errors come back
+   exactly 0 — a hairline reading as certainty, worse than the bare line it replaced, and the
+   existing decline never fired because the errors were *present*. `fit_mod()` now warns at the
+   point the option is set, and the plotter declines an all-zero error naming
+   `estimateMode = "Hindcast"` / `projection_uncertainty = TRUE`.
 
-**Evaluated against the 2026 GOA three-species assessment** (`../GOA-multispecies-assessment`,
-`models/GOA_26_mod_list.RData` + `retrospectives.RData` + `jitter_ms.rds` + `osa_ms.rds`).
-Those cached objects are the cheapest real exercise in the ecosystem: 3 species, 16 fleets, a
-two-sex stock, a live `sdreport`, 1977-2025 hindcast with projection to 2050, and all three
-diagnostic objects already computed. No refit needed. The dictionary covers exactly the 99
-quantities both its fits report.
+**Also fixed in the same pass:**
 
-**Five defects the real data found that the fixtures could not.** All fixed, all with
-regression tests:
+- **`Bin_first_selected` is a 1-based bin ordinal, not an age** (`Sel_norm_bin` beside it *is*
+  an age — opposite conventions, and the `Age_first_selected` alias argues for the wrong one).
+  The PR's prose read it as an age in four places. Schema description rewritten; docs now say
+  "first selected bin". `minage = 1` hides this everywhere it is currently written.
+- `.rce_sel_lead()` re-derived the selectivity grouping instead of reading `data_list`'s own
+  `flt_sel_lead` / `flt_sel_type`. Now reads them; its test builds the vector with the real
+  `.group_lead()` so it proves parity rather than restating it.
+- `test-selectivity-standard-errors.R`'s back-compat test asserted through `fit_mod()`, which
+  sets `adreport_sel` itself, so it passed either way. Now asserts on `build_osa_data()`.
+- Prose: the log-vs-logit argument was written out five times. The 28-line `ceattle.cpp` block
+  is now 12 and points at `?fit_control`; `plot_selectivity()`'s roxygen essay moved to
+  `model-options-and-functionality.Rmd`, which gained a runnable `estimateMode` example.
+- `add_ci` moved after `colour_by` in `plot_selectivity()`'s signature (it had been inserted
+  before it, breaking positional `colour_by` callers — no sibling does this today).
+- `.rce_sel_se()` now attaches a `(Fleet, Sex, Year)` row lookup, so a 16-fleet model does not
+  rescan a 30,000-row frame once per panel and year.
 
-1. `Ftarget` / `Flimit` are unestimated under most HCRs and sit at `exp(0) = 1`, so the
-   assessment reported a target F of **1.0/yr**. Gate on `build_hcr_map()` -- NOT on the fit's
-   own `map`, which `build_map()` sets to NA in the hindcast whatever the HCR.
-2. Under `msmMode > 0`, `SB0`/`B0` are the `MSSB0` 999 mt placeholder, so `B_target` came out
-   **399.6 mt** against a true 1e5-1e6 mt. `data_list$MSSB0_derived` is the flag.
-3. `standard_output()` dropped every FLEET likelihood row (31 of 38) by filtering `unit` as a
-   species when it holds fleet names on rows 1-8.
-4. A diagnostics list was paired with models positionally and silently -- and `osa_ms.rds` is
-   stored as a list of parts (`index`/`catch`/`comp`), exactly the shape that mispairs. Now
-   matched by name; unnamed pairs positionally with a message.
-5. A species name containing `", "` could not be selected in `standard_output()`.
+**An adversarial review of these fixes found a HIGH-severity regression I had introduced,
+and it is fixed.** `.rce_sel_lead()` had been "simplified" to read `data_list$flt_sel_lead` /
+`flt_sel_type` — fields that do NOT exist on a fitted object, because `fit$data_list` is the
+pre-`rearrange_data()` list. The helper early-returned on every real fit, so mirrored fleets
+drew no confidence band beside a banded lead. Measured: `GOApollock`'s
+`Pollock_survey_1_shelikof_acoustic_BS` resolved to lead `7` instead of `1, 7`, and a mirrored
+`Atka2022` went from a finite band at ages 1-3 to `NULL`, leaving 506 of 1012 ribbon rows
+finite. `GOApollock`, `GOA2018SS`, `GOAatf2023` and `GeorgesBank3spp` all have real selectivity
+groups. **The rewritten unit test passed throughout**, because it asserted against a hand-built
+list carrying the very field under test — the "guards are not themselves guarded" shape, now in
+`TRAPS.md` as its own section. Now resolved with `rearrange_data()`'s own `.group_lead()` on
+`fleet_control`, and the test asserts on a fitted object: lead `1 2`, band restored,
+**1012/1012** ribbon rows finite.
 
-**One over-correction caught in review, worth not repeating:** blanking the depletions
-alongside `SB0` is WRONG. Section 12.1 of the template does not divide by `SB0` under
-`HCR = NoFishing & msmMode > 0`; it divides by biomass in the LAST projection year, the
-equilibrated unfished reference. That series is valid on exactly the multispecies fits the
-package exists for.
+Two smaller findings from the same review, also fixed:
 
-**Model-level findings NOT fixed here** (they are the model's, not the reporting layer's):
+- The all-zero-sd decline could not tell "all exactly 0" (HCR projection) from "all NaN"
+  (non-PD Hessian), and pointed an assessor with a genuine identifiability problem at two
+  remedies that cannot help. Split into two messages; the NaN one names
+  `fit$convergence`'s `sdreport_failed` / `hessian_conditioning`.
+- The docs scoped the `fit$obj` caveat to "an estimating HCR". Measured: `ConstantF` also
+  leaves `obj$par` at length 1 against a 584-row `cov.fixed`. The accurate scope is "any HCR
+  but `NoFishing`" for `obj`, and "an estimating HCR" only for `sdrep`. CLAUDE.md rule 10 was
+  also left contradicting the new `Bin_first_selected` trap, and now names both conventions.
 
-- ~~`SPR0` NA for the two-sex species~~ **FIXED in 5.24.1.** SPR is spawning output per TOTAL
-  recruit, so the female fraction belongs in it for every species -- once. A one-sex schedule is
-  sex-combined, so the age-varying `sex_ratio` applies at every age (`mature_females`, 5.4). A
-  two-sex species' sex-0 schedule is already female, so only the recruitment split
-  `sex_ratio(sp, 0)` applies. 6.2 applied the age-varying ratio to both, re-applying on a
-  two-sex species a split already in its schedule, and going NaN where the table stopped short
-  of its own `nages`. Arrowtooth SPR0 NA -> 1.2300187; one-sex species unchanged;
-  `ssb`/`biomass`/`R`/`F_spp`/`N_at_age`/`SB0`/`jnll` do not move.
-  **Getting this wrong once is easy:** the first attempt dropped the ratio entirely for a
-  two-sex species, which reports per FEMALE recruit -- a different quantity from the one the
-  other species report. `test-dynamics-brps.R:229` and `test-dynamics-spr.R:168` pin the
-  per-total-recruit convention on fixtures where sex_ratio is 0.5 at every age, and caught it.
-- `data_check()` relaxed to match (a two-sex species reads `sex_ratio` only at age 1), and
-  **`nsex` is now validated** for length and value -- it was read straight into loop bounds, and
-  an NA aborted `data_check()` with R's "missing value where TRUE/FALSE needed".
-- **Still open, pre-existing:** a NULL or NA `nspp` crashes `data_check()` at
-  `if (data_list$nspp != max(data_list$weight$Species))` with the same uninformative abort,
-  before any accumulated error is raised. Same family as the `nsex` bug; not fixed.
+**A non-finding worth recording:** the memory cost of storing `.conv_hindcast$index` on every
+fit was measured, not argued — 0.07%-1.5% of a fit (31-109 KB against 3.7-156 MB), ~1 MB over
+ten retro peels. No action.
 
-**stockplotr PR prepared, NOT sent.** `convert_output(model = "rceattle")` on
-`nmfs-ost/stockplotr` errored on every Rceattle fit, in both documented input modes -- 10
-defects, including composition being silently replaced by a duplicate of the catch data and a
-`cross_join(age_hat)` Cartesian product (2,470 observed comps -> 92,778 predicted). Repaired
-and verified against the 2026 GOA arrowtooth assessment: 34 columns matching the SS3 path,
-biomass equal to the fit to machine precision, multispecies refused rather than returned with
-`year = NA`. Their suite passes.
+**Verified:** `FAIL 0 | PASS 439` across `plot-selectivity-ci`, `selectivity-standard-errors`,
+`schema-parameter-index`, `convergence`, `schema-canonical`, `vignette-api`; `FAIL 0 |
+PASS 4147` on the wider `plot|selectivity|schema|convergence|vignette-api|fit-verbose` net;
+**golden regression `FAIL 0 | PASS 20`**. `src/TMB/ceattle.cpp` is comment-only (0 non-comment
+lines changed). `devtools::document()` touches only `fit_control.Rd`, `parameter_index.Rd`,
+`plot_selectivity.Rd`. `inst/extdata/meta_data_names.xlsx` regenerated via
+`data-raw/regenerate_meta_xlsx.R` after the schema edit, as its drift guard requires.
 
-Everything needed to rebuild or send it is in this repo's gitignored `dev/`:
-`stockplotr-pr.md` (PR body + push commands), the exported `*.patch` (restore with `git am`),
-`stockplotr-fix.py` (reapplies all 13 edits, asserts on every target), `stockplotr-fixture.R`
-and `stockplotr-tests.R`. **One thing blocks sending:** `gh` is SAML-blocked for `nmfs-ost`, so
-Grant must authorize his token before a fork or push is possible.
+**Still to run before this PR merges:** `/pkgdown-check`, and the release checklist in the PR
+body (`build_vignettes`, `urlchecker`, `spell_check`, tag the merge commit `5.27.0` bare,
+publish a GitHub Release, `deep-checks` on `main`, ecosystem sweep).
 
-The fixture is built from the bundled `GOAatf`, so it discloses nothing unpublished. An earlier
-draft used the 2026 GOA arrowtooth assessment file and raised a pre-decisional-data question;
-that is resolved, not outstanding.
-
-**VERSION COLLISION -- needs a decision before either branch merges.** `osa-cdf-method` and
-`reporting-tables` both branched from `dev` at 5.23.0 and both wrote a **5.24.0** NEWS section:
-the former for `osa_residuals(method = "cdf")`, the latter for the reporting tables (plus
-5.24.1 for the SPR fix). Whichever merges second must renumber its own section; neither is
-tagged, so either order works.
-- `ms_mod` has 15 top-level elements and `ss_mod` 17 -- concrete evidence for why stockplotr's
-  positional indexing into the fit object cannot work.
-
-**Do not re-derive these** (each cost real time to establish):
-
-- A grep for `REPORT(` over `ceattle.cpp` **over-counts**: `mature_females`,
-  `sex_ratio_hat`, `N_at_age_dB0/dBF` and the Kinzey block are commented out. Enumerate from
-  a fit. The 99 names are identical single- and multi-species.
-- SPR quantities are computed only under `msmMode == 0` and are **exactly zero** on a
-  multispecies fit. Reported as NA.
-- `data_list$Ftarget` is the SPR percentage (0.40); `quantities$Ftarget` is the F value.
-- `residuals()` keys species by integer code; every other section keys by name. That
-  mismatch silently emptied the whole `fits` section from `standard_output()`.
-
-**Open, needs Grant:**
-
-- **stockplotr.** `convert_output()` on `nmfs-ost/stockplotr` main already accepts
-  `model = "rceattle"` and is broken against current Rceattle: reads `index_ln_q` (ours is
-  `index_log_q`) and `catch_h` (ours is `catch_hat`), indexes the fit object positionally,
-  and never mentions `nspp`/`spnames` — so a multispecies fit gets `year = NA` on
-  biomass/ssb/R. Single-species looks fine, which is what makes it dangerous. An issue was
-  offered and NOT sent; nothing has been contacted upstream.
-- **SPM is the one required thing missing.** The AFSC guidelines make §4.11.3 Standard
-  Harvest Scenarios required for Tiers 1-3. `report_tables()` has no `scenarios` section and
-  says so rather than omitting it quietly. Grant already flagged adding SPM for next year.
-- Not run: `/golden-check` (the `ceattle.cpp` change is comment-only, so it cannot move a
-  fit) and `/ecosystem-sweep` (purely additive — three new exports, no signature changes).
-
-**5.21.0 is released** — tag `5.21.0` on `f9595235`, published 2026-08-26. It carried
-`profile_components()`, `plot_profile()`, `plot.Rceattle_profile()` and `profile()`'s `$alias`.
-
-**In flight: `dev` → `main` for 5.22.0, the profile follow-ups Grant asked for.**
-
-- **`relative = "scaled"`** on `profile_components()` / `plot_profile()`. One component routinely
-  dwarfs the rest — on a BS2017SS M profile the bottom-trawl composition moves 60.5 objective
-  units against the bottom-trawl index's 0.697, a factor of 87 — so the others flatten onto the
-  axis and where they prefer the parameter cannot be read. Each series is divided by its own
-  change, putting every curve on 0 to 1. It **discards magnitude**, so `minfraction` matters more
-  with it; `minfraction` and the legend order are computed on the RAW change, before rescaling.
-- **`profile(joint =)`** — `"multiply"`, `"add"`, `"value"` move every cell in `slots` on ONE
-  grid. Slots otherwise cross, so a ten-age M schedule over 13 values was `13^10` fits. This is
-  what makes an empirical age-based M profilable the way it is normally reported.
-- **`profile(param = "q")`** — base catchability, `slots` takes a fleet name. A shared
-  `Catchability_index` group is moved together.
+**Sibling repos: no breakage found.** `../Rceattle-models/Model comparison/run_rceattle.R`'s
+`get_condition_number()` already reads `covariance_condition_number` with a pre-5.26.0
+fallback. All 20 `plot_selectivity()` call sites across the siblings are named or
+single-argument. `build_osa_data()` defaults `adreport_sel`, so an old saved `data_list` still
+builds.
 
 ## Release 5.21.0 — two things that did not work
 

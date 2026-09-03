@@ -121,25 +121,100 @@ testthat::test_that("a mirror whose curve differs from its lead's borrows nothin
 })
 
 
-testthat::test_that("the lead is the group's first estimated fleet, not its index value", {
-  # rearrange_data() builds flt_sel_lead with .group_lead(): the key is
-  # Selectivity_index AND Selectivity together, and an Off fleet never leads. So
-  # the group key need not be any member's Fleet_code, and reading it as one
-  # drops the band on every mirror in such a group.
+testthat::test_that("a mirror on a FITTED object still resolves its lead", {
+  testthat::skip_on_cran()
+  # The one that matters: `fit$data_list` is the PRE-rearrange_data() list, so it
+  # carries no flt_sel_lead and no flt_sel_type. A lead resolved from those
+  # fields is NULL on every real fit, and the mirror silently loses its band
+  # beside a banded lead -- which reads as the more certain of the two. Asserted
+  # on a fit rather than a hand-built list, because a hand-built list is exactly
+  # what hid this.
+  d <- Atka2022
+  testthat::skip_if(nrow(d$fleet_control) < 2, "need two fleets to mirror")
+  d$fleet_control[2, ] <- d$fleet_control[1, ]          # fleet 2 mirrors fleet 1
+  d$fleet_control$Fleet_code[2] <- 2
+  d$fleet_control$Fleet_name[2] <- "mirror_of_1"
+  d$fleet_control$Selectivity_index[2] <- d$fleet_control$Selectivity_index[1]
+
+  m <- suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, msmMode = 0, estimateMode = "Hindcast",
+    fit_control = fit_control(selectivity_se = TRUE, verbose = 0))))
+
+  testthat::expect_null(m$data_list$flt_sel_lead)       # the field that is absent
+  fc <- m$data_list$fleet_control
+  grp <- which(fc$Selectivity_index == fc$Selectivity_index[2])
+  testthat::skip_if(length(grp) < 2, "fleets did not end up sharing selectivity")
+
+  # The template reports the lead only, and the mirror resolves to it.
+  se <- Rceattle:::.rce_sel_se(m)
+  lead <- Rceattle:::.rce_sel_lead(m$data_list, 2L)
+  testthat::expect_true(any(setdiff(lead, 2L) %in% se$Fleet))
+
+  # And the band actually comes back, rather than NULL.
+  yr  <- m$data_list$styr
+  sel <- m$quantities$sel_at_age
+  bins <- seq_len(m$data_list$nages[fc$Species[2]]) - 1L +
+    m$data_list$minage[fc$Species[2]]
+  ci <- Rceattle:::.rce_sel_ci(se, flt = 2L, sex = 1L, bins = bins, year = yr,
+                               lead = lead,
+                               curve = as.numeric(sel[2, 1, seq_along(bins), 1]))
+  testthat::expect_false(is.null(ci))
+  testthat::expect_true(any(is.finite(ci$lower)))
+})
+
+
+testthat::test_that("the lead is keyed the way .group_lead() keys it", {
+  # The key is Selectivity_index AND the Selectivity code together, and an Off
+  # fleet never leads -- so the group key need not be any member's Fleet_code,
+  # and reading it as one drops the band on every mirror in such a group.
   fc <- data.frame(
     Fleet_code = 1:4,
     Fleet_type = c("Off", "Fishery", "Survey", "Survey"),
-    Selectivity = c("Logistic", "Logistic", "Logistic", "NonParametric"),
+    Selectivity = c(1L, 1L, 1L, 2L),        # Logistic, Logistic, Logistic, NonParametric
     Selectivity_index = c(7L, 7L, 7L, 7L),
     stringsAsFactors = FALSE)
+  dl <- list(fleet_control = fc)
 
-  # Fleet 3 mirrors fleet 2. Fleet 1 shares the key but is Off and never leads;
-  # no fleet has Fleet_code 7 at all.
-  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 3L), c(2L, 3L))
-  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 2L), c(2L, 3L))
+  # Fleet 2 leads; fleet 1 shares the key but is Off, and no fleet has code 7.
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(dl, 3L), c(2L, 3L))
+  # A lead borrows from nobody: it has rows of its own.
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(dl, 2L), 2L)
   # Fleet 4 shares the index but not the form, so it is its own group.
-  testthat::expect_equal(Rceattle:::.rce_sel_lead(fc, 4L), 4L)
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(dl, 4L), 4L)
   # No Selectivity_index column at all: a fleet leads itself.
-  testthat::expect_equal(
-    Rceattle:::.rce_sel_lead(fc[, setdiff(names(fc), "Selectivity_index")], 3L), 3L)
+  dl2 <- dl; dl2$fleet_control$Selectivity_index <- NULL
+  testthat::expect_equal(Rceattle:::.rce_sel_lead(dl2, 3L), 3L)
+})
+
+
+# The sdreport a fit ends on is not always the one that estimated the curve.
+# Under an estimating HCR it is the projection's, where build_hcr_map() has fixed
+# every selectivity parameter, so the delta method returns 0 at every age. Drawn,
+# that is a hairline band reading as certainty -- worse than the bare line.
+testthat::test_that("an all-zero standard error is declined, not drawn as a hairline", {
+  testthat::skip_on_cran()
+
+  d <- Atka2022
+  fsh <- which(as.character(d$fleet_control$Fleet_type) %in% c("Fishery", "1"))
+  d$fleet_control$Proj_F_proportion[fsh] <- 1 / length(fsh)
+
+  # fit_mod() says so at the point the setting is made, before the fit is spent.
+  testthat::expect_warning(
+    m <- suppressMessages(fit_mod(
+      data_list = d, msmMode = 0, estimateMode = "Estimate",
+      HCR = build_hcr(HCR = 5, Ftarget = 0.4, Flimit = 0.35,
+                      Plimit = 0.2, Alpha = 0.05),
+      fit_control = fit_control(selectivity_se = TRUE, verbose = 0))),
+    "standard error of 0 for every age")
+
+  # The errors are reported, so the plotter cannot decline on their absence.
+  se <- Rceattle:::.rce_sel_se(m)
+  testthat::expect_false(is.null(se))
+  testthat::expect_true(all(se$sd == 0))
+
+  testthat::expect_warning(p <- plot_selectivity(m, add_ci = TRUE),
+                           "standard error of 0 for every age")
+  # Declined, not failed: the curve is still drawn, just without a band.
+  testthat::expect_false("GeomRibbon" %in% layer_geoms(p))
+  testthat::expect_s3_class(ggplot2::ggplot_build(p), "ggplot_built")
 })

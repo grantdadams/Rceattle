@@ -994,36 +994,59 @@ NULL
   if (is.null(sdrep) || is.null(sdrep$value) || is.null(idx)) return(NULL)
   k <- names(sdrep$value) == "log_sel_at_age"
   if (!any(k) || sum(k) != nrow(idx)) return(NULL)
-  data.frame(Fleet = as.integer(idx[, 1]), Sex = as.integer(idx[, 2]),
-             Age   = as.integer(idx[, 3]), Year = as.integer(idx[, 4]),
-             log_sel = unname(sdrep$value[k]), sd = unname(sdrep$sd[k]),
-             stringsAsFactors = FALSE)
+  out <- data.frame(Fleet = as.integer(idx[, 1]), Sex = as.integer(idx[, 2]),
+                    Age   = as.integer(idx[, 3]), Year = as.integer(idx[, 4]),
+                    log_sel = unname(sdrep$value[k]), sd = unname(sdrep$sd[k]),
+                    stringsAsFactors = FALSE)
+  # The plotter asks for one fleet, sex and year at a time, so index once here.
+  attr(out, "by") <- split(seq_len(nrow(out)),
+                           paste(out$Fleet, out$Sex, out$Year))
+  out
 }
 
 
 #' The fleets whose reported selectivity a given fleet may borrow
 #'
-#' The template reports one row set per selectivity group, on the group's first
-#' estimated fleet (`.group_lead()`), so a mirrored fleet has no rows of its own.
-#' Which fleet leads is resolved here the same way `rearrange_data()` resolves
-#' `flt_sel_lead`: the group key is `Selectivity_index` **and** `Selectivity`
-#' together, and an `Off` fleet never leads. Reading `Selectivity_index` as a
-#' fleet code instead would miss a group keyed on a value that is nobody's
-#' `Fleet_code`, or whose matching fleet is `Off`, and silently drop the band.
+#' The template reports one row set per selectivity group, on the group's lead
+#' fleet, so a mirrored fleet has no rows of its own. The lead is resolved with
+#' `rearrange_data()`'s own `.group_lead()`, on the same key it uses --
+#' `Selectivity_index` and `Selectivity` together, with an `Off` fleet never
+#' leading -- so the plotter and the template cannot disagree about who leads.
+#' Recomputed rather than read off `data_list`, which is the pre-`rearrange_data()`
+#' list and carries no `flt_sel_lead`. Reading `Selectivity_index` as a fleet code
+#' instead would miss a group keyed on a value that is nobody's `Fleet_code`, and
+#' silently drop the band.
 #'
-#' @param fc One model's `fleet_control`.
+#' @param dl One model's `data_list`.
 #' @param i Row index of the fleet, which is also its `Fleet_code`.
-#' @return Fleet codes in the same selectivity group, the candidate lead first.
+#' @return Fleet codes in the same selectivity group, the lead first.
 #' @keywords internal
 #' @noRd
-.rce_sel_lead <- function(fc, i) {
+.rce_sel_lead <- function(dl, i) {
+  fc  <- dl$fleet_control
   flt <- fc$Fleet_code[i]
-  if (is.null(fc$Selectivity_index)) return(flt)
-  key <- paste(fc$Selectivity_index, fc$Selectivity)
-  live <- !(as.character(fc$Fleet_type) %in% c("Off", "0"))
-  grp <- which(key == key[i] & live)
-  if (!length(grp)) return(flt)
-  unique(c(fc$Fleet_code[grp], flt))
+  if (is.null(fc$Selectivity_index) || is.null(fc$Selectivity)) return(flt)
+  off  <- as.character(fc$Fleet_type) %in% c("Off", "0")
+  lead <- .group_lead(paste(fc$Selectivity_index, fc$Selectivity), off)
+  key  <- paste(fc$Selectivity_index, fc$Selectivity)
+  unique(c(fc$Fleet_code[key == key[i] & lead == 1L], flt))
+}
+
+
+#' Rows of the `.rce_sel_se()` frame for one fleet, sex and year
+#'
+#' Uses the lookup `.rce_sel_se()` built, so a 16-fleet model does not rescan a
+#' 30,000-row frame once per panel and year.
+#'
+#' @param se The `.rce_sel_se()` frame.
+#' @param flt,sex,year Fleet code, sex index and calendar year.
+#' @return Integer row positions, possibly none.
+#' @keywords internal
+#' @noRd
+.rce_sel_rows <- function(se, flt, sex, year) {
+  by <- attr(se, "by")
+  if (!is.null(by)) return(by[[paste(flt, sex, year)]])
+  which(se$Fleet == flt & se$Sex == sex & se$Year == year)
 }
 
 
@@ -1057,12 +1080,12 @@ NULL
          upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]),
          fit   = exp(se$log_sel[hit][m]))
   }
-  own <- se$Fleet == flt & se$Sex == sex & se$Year == year
-  if (any(own)) return(band(own)[c("lower", "upper")])
+  own <- .rce_sel_rows(se, flt, sex, year)
+  if (length(own)) return(band(own)[c("lower", "upper")])
 
   for (ld in setdiff(lead[!is.na(lead)], flt)) {
-    hit <- se$Fleet == ld & se$Sex == sex & se$Year == year
-    if (!any(hit)) next
+    hit <- .rce_sel_rows(se, ld, sex, year)
+    if (!length(hit)) next
     b <- band(hit)
     # Compared where both are present; an age the lead did not report stays NA
     # in the band and is not evidence the curves differ.
