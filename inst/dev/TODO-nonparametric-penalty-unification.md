@@ -66,33 +66,39 @@ first two and will reject an out-of-range value on a `NonParametric` fleet, afte
 the model discards the setting. Someone giving a type-2 fleet a penalty range has no
 way to learn it did nothing.
 
-## Express the penalties as standard deviations, not weights
+## The standard-deviation columns already exist -- finish the job
 
-`Sel_curve_pen1/2/3` are bare weights multiplying a sum of squares. `Time_varying_sel_sd`
-in the same block is a standard deviation. Two conventions for the same kind of quantity,
-side by side, and only one of them is in units anyone can reason about.
+`Sel_shape_sd`, `Sel_curvature_sd` and `Sel_devmag_sd` (`R/0-column_schema.R`,
+applied in `R/0-switches.R`) already express the three penalties as standard
+deviations and set the corresponding `Sel_curve_pen1/2/3` to `1/(2*sd^2)`. So the
+intuitive form is there; what remains is that it is an alternative rather than the
+convention, and that the sd still cannot be estimated.
 
-A weight `w` on a sum of squares is `1/(2*sigma^2)`, so every one of these penalties is
-already a Gaussian with `sigma = 1/sqrt(2*w)` -- just written without its normalizing
-constant. Restating them as standard deviations in log-selectivity units would:
+Worth recording, because it is what makes the ADMB bridge legible: **an AMAK
+control file's raw inputs ARE these sds, one to one, with no arithmetic.**
+`amak.tpl` reads a curvature input and stores `1/(2*input^2)` (line 948), and
+squares the decreasing input into a variance (line 615) that it then divides
+`0.5*d^2` by -- both exactly Rceattle's `1/(2*sd^2)`. Verified on
+`Data/mod23/input.log`:
 
-* make them interpretable ("adjacent ages differ by about 0.2 on the log scale") and
-  comparable between models, instead of a scale-free weight tuned by hand;
-* put them in the same units as `Time_varying_sel_sd`, so the smoothness of a curve and
-  the smoothness of its year-to-year change are stated the same way;
-* make them estimable or priorable at all. Without the `log(sigma)` term a free sigma
-  runs to infinity, which is why these can only ever be fixed constants today;
-* match how WHAM and SAM configure the same structure.
+| ADMB input | Rceattle column | weight |
+| --- | --- | --- |
+| `curv_pen` 0.5 / 0.946 | `Sel_curvature_sd` | 2 / 0.5587117 |
+| `seldec_pen` 0.16 / 106.09 | `Sel_shape_sd` | 19.53125 / 4.442435e-05 |
 
-The ADMB source agrees, and does the conversion itself rather than asking for a
-weight: `amak.tpl` line 948 reads a curvature sd and stores `1/(2*sd^2)`, and line
-615 squares the decreasing input into a variance.
+What is left:
 
-This is a deprecate-and-rename, not a silent reinterpretation -- a workbook's existing
-`Sel_curve_pen1 = 12.5` must keep meaning what it means now. Likely shape is a new
-`Sel_shape_sd` / `Sel_curve_sd` column pair, with the old names accepted and converted,
-and the normalizing constant added only where the sd is estimated (adding it to a fixed
-sd shifts the objective by a constant and breaks every pinned reference number).
+* **`Sel_curve_pen1/2/3` remain the primary form** -- the schema, the C++
+  (`sel_curve_pen`) and every bundled workbook carry weights, and the sd columns
+  are converted away in `switch_check()`. A fitted object reports the weight, so
+  a user who supplied an sd cannot read one back.
+* **The sd is still not estimable**, which is the substantive half. Without a
+  `log(sigma)` term a free sigma runs to infinity, so these can only ever be
+  fixed constants. Adding the constant changes the objective by a constant and
+  breaks every pinned reference number, so it belongs with the unification below
+  rather than as a standalone change.
+* **`Sel_devmag_sd` sets `Sel_curve_pen3`, which type 2 ignores** -- see the live
+  trap above. Supplying it on a `NonParametric` fleet does nothing.
 
 ## Sequence
 
