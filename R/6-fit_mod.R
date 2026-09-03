@@ -1176,6 +1176,10 @@ fit_mod <-
     step <- step + 1
 
 
+    # Gap behind convergence warning (8), measured beside each optimization
+    # while `opt` and `obj` are still the same model (see .rce_marginal_gap()).
+    disc_gap <- NA_real_
+
     # * Optimize hindcast ----
     if (estimateMode %in% c(0, 1, 4)) {
       opt <- suppressMessages(
@@ -1247,6 +1251,7 @@ fit_mod <-
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,
           random_vars = random_vars, getsd = getsd)
+        disc_gap <- .rce_marginal_gap(obj, opt)
       }
     }
 
@@ -1295,6 +1300,7 @@ fit_mod <-
                        getJointPrecision = FALSE,
                        quiet             = verbose < 2)
             )
+            disc_gap <- .rce_marginal_gap(obj, opt)
           }
         }
 
@@ -1353,6 +1359,7 @@ fit_mod <-
                          getJointPrecision = FALSE,
                          quiet             = verbose < 2)
               )
+              disc_gap <- .rce_marginal_gap(obj, opt)
 
               # Update F from opt
               last_par$log_Ftarget[params_on] <- opt$par[1:length(params_on)]
@@ -1405,15 +1412,17 @@ fit_mod <-
 
     quantities <- obj$report(obj$env$last.par.best)
 
-    # Warning for discontinuous likelihood
+    # Discontinuous likelihood: the objective nlminb reported must survive a
+    # fresh evaluation of the object it came from. `disc_gap` was measured
+    # beside that optimization, because `obj` here may be a later rebuild whose
+    # map changed which parameters are random. NA is not evidence either way.
     if (estimateMode %in% c(0:2)) {
       if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
-        if (!is.null(opt) && !is.null(opt$SD) && random_rec == FALSE) {
-          if (abs(opt$objective - quantities$jnll) > rel_tol) {
-            message("#################################################")
-            message("Convergence warning (8): discontinuous likelihood")
-            message("#################################################")
-          }
+        if (!is.null(opt) && !is.null(opt$SD) &&
+            is.finite(disc_gap) && disc_gap > rel_tol) {
+          message("#################################################")
+          message("Convergence warning (8): discontinuous likelihood")
+          message("#################################################")
         }
       }
     }

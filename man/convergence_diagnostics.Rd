@@ -27,6 +27,7 @@ object. Each check yields a record with a common schema
 \code{fit_mod()} runs this automatically and attaches the result as
 \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
 re-run it on any fit. Checks cover the optimizer gradient, Hessian
-positive-definiteness and conditioning, parameters on bounds, phasing, and
+positive-definiteness and conditioning, parameters on bounds, a deviation
+variance estimated to zero, phasing, and
 parameter estimability.
 }

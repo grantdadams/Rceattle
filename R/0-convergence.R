@@ -474,6 +474,7 @@
 #'
 #' Only estimated parameters appear in the snapshot, so a deviation sd held at
 #' `Time_varying_sel_sd` cannot fire this.
+#' @noRd
 .CONV_PROCESS_SD <- c("R_log_sd", "sel_dev_log_sd", "index_q_dev_log_sd",
                       "M1_dev_log_sd", "log_sigma_linkage")
 

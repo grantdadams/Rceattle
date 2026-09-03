@@ -176,3 +176,50 @@
     WhichBad = bad
   )
 }
+
+
+#' Gap behind convergence warning (8)
+#'
+#' @description
+#' The objective `nlminb` reported must survive a fresh evaluation of the object
+#' it came from. Both sides are the MARGINAL objective. `obj$report()$jnll` is
+#' the JOINT negative log-likelihood at the random-effect mode, a Laplace
+#' correction away, so it cannot check a model carrying random effects.
+#'
+#' Evaluated at `last.par.best`, the best point TMB saw. That is not always the
+#' iterate `nlminb` returned, and stopping on a worse one is itself the
+#' discontinuity this looks for. A fresh call rather than `obj$env$value.best`
+#' because a `retape()` resets that to `Inf`.
+#'
+#' Only meaningful while `opt` came from `obj`. `fit_mod()` rebuilds `obj` for
+#' the projection and again for `projection_uncertainty` without re-optimizing,
+#' and those maps change which parameters are random. Measure beside each
+#' optimization, never at the end.
+#'
+#' @param obj A TMB object from [TMB::MakeADFun()].
+#' @param opt The `.fit_tmb()` result for that same object.
+#' @return The absolute difference in negative log-likelihood units, or
+#'   `NA_real_` when it cannot be formed.
+#' @noRd
+.rce_marginal_gap <- function(obj, opt) {
+  if (is.null(obj) || is.null(opt) || is.null(opt$objective)) return(NA_real_)
+  par <- obj$env$last.par.best
+  if (is.null(par)) return(NA_real_)
+
+  # -integer(0) would drop every parameter rather than none.
+  fixed <- if (length(obj$env$random) > 0) par[-obj$env$random] else par
+
+  # obj$fn() writes to the TMB environment, and that object is returned to the
+  # caller, so the evaluation state is restored after the call.
+  lpb <- obj$env$last.par.best
+  lp  <- obj$env$last.par
+  vb  <- obj$env$value.best
+  val <- tryCatch(as.numeric(obj$fn(fixed)), error = function(e) NA_real_)
+  obj$env$last.par.best <- lpb
+  obj$env$last.par      <- lp
+  obj$env$value.best    <- vb
+
+  # A re-evaluation that failed is not evidence either way.
+  if (!is.finite(val)) return(NA_real_)
+  abs(as.numeric(opt$objective) - val)
+}

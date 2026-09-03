@@ -12,6 +12,40 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.25.1
+
+## Bug fixes
+
+* **The discontinuous-likelihood warning compares two marginal objectives.**
+  Convergence warning (8) tested `nlminb`'s objective against
+  `obj$report()$jnll`. The first is the Laplace **marginal** negative
+  log-likelihood whenever the model carries a random effect; the second is the
+  **joint** negative log-likelihood at the random-effect mode. They differ by
+  the Laplace correction, which is far larger than the default `rel_tol` of 1 --
+  150.96 on a GOA pollock fit carrying two catchability linkages -- so the
+  warning fired on every such model regardless of whether its likelihood was
+  smooth. It is now tested against a fresh `obj$fn()` evaluation, which agrees
+  to machine precision on all four configurations checked (an `ar1`/`rw` q
+  linkage, no random effect at all, `random_rec = TRUE`, and `2DAR1`
+  selectivity with `random_sel = FALSE`).
+
+  The comparison is made beside each optimization rather than at the end.
+  `fit_mod()` rebuilds the TMB object for the projection, and again under
+  `projection_uncertainty = TRUE`, without re-optimizing, and `build_hcr_map()`
+  maps every hindcast parameter off, so those rebuilds disagree with `opt` on
+  which parameters are random. Comparing across a rebuild is the same units
+  mismatch: on a `BS2017SS` fit with one `~ (1 | Year)` catchability linkage,
+  `opt$objective` of 10207.488519 against 10228.940923 from the
+  all-parameters-on rebuild, a gap of 21.45 with nothing wrong with the fit.
+  The same mismatch reached `HCR = "ConstantF"` under `estimateMode = 0`,
+  which rebuilds for the projection and never re-optimizes.
+
+  The `random_rec == FALSE` guard is removed with it: it exempted recruitment
+  random effects from a check that could not read them, and the comparison now
+  holds for any random effect, so `random_rec = TRUE` models get the check
+  rather than skipping it. No fit changes -- the objective, the joint negative
+  log-likelihood and the parameter vector are identical either side of this.
+
 # Rceattle 5.25.0
 
 ## Breaking changes

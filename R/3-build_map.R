@@ -624,6 +624,9 @@ build_map_predation <- function(map_list, data_list) {
 #' a kink: on Atka2022 it stops with a maximum gradient of 6.8 and reports an sd
 #' 27% away from the value the same model reaches with `Sel_curve_pen1 = 0`
 #' (maximum gradient 4e-4). A fleet that turns that penalty off is integrable.
+#' The kink is half the `IID` story. The shape penalty holds no `sel_dev_sd`
+#' either, so the sd absorbs a normalizing constant even where the objective is
+#' smooth. `inst/dev/TODO-nonparametric-iid-integrable.md` has the fix.
 #'
 #' @param fleet_control The `fleet_control` table, with canonical switch strings.
 #' @return A data frame of the `Fleet_code`s affected and the reason for each.
