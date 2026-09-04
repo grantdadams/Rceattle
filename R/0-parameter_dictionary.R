@@ -40,7 +40,7 @@
     r("R_log_sd", "sigma_R", "recruitment",
       "Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.", "[nspp]"),
     r("init_dev", "initial-age deviations", "recruitment",
-      "Deviations defining the initial (first-year) age structure.", "[nspp, nages-1]"),
+      "Deviations defining the initial (first-year) age structure; one per age from minage + 1 upward, since age minage in the first year is recruitment.", "[nspp, nages-1]"),
 
     # -- mortality ---------------------------------------------------------
     r("log_M1", "M1", "mortality",

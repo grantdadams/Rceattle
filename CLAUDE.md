@@ -271,6 +271,9 @@ One line each; the evidence and the measured numbers are in `inst/dev/TRAPS.md`.
   `data_list_reorganized`, which `fit_mod()` does not keep. Recompute from `fleet_control`.
 - **`Bin_first_selected` is a 1-based bin ordinal; `Sel_norm_bin` is an absolute age** — opposite
   conventions in adjacent columns, and `minage = 1` hides it. See rule 11.
+- **`init_dev`'s ages start at `minage + 1`** — age `minage` in the first year is recruitment, so
+  a `nages-1` axis is shifted, not just short. `.PAR_AXIS_OFFSET` (`R/0-parameter_index.R`) is the
+  registry; `minage = 1` hides the shift everywhere bundled.
 - **The conditioning check reads the correlation matrix, not the covariance** — `condition_number`
   changed meaning at 5.26.0; `covariance_condition_number` carries the old value, and the
   1e6/1e10 thresholds now fire less readily.

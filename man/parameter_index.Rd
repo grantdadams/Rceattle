@@ -29,6 +29,9 @@ mapped off are absent, and fleets sharing a \code{Selectivity_index} or
 \code{Catchability_index} appear once, as the single parameter they are, with
 \code{n_cells} recording how many array cells they drive.
 
+Ages are absolute. \code{init_dev} holds one deviation per age from \code{minage + 1}
+upward, since age \code{minage} in the first year is recruitment.
+
 Coordinate columns are \code{NA} where the axis does not apply to a block. The
 linkage and environmental-covariate blocks (\code{beta_linkage}, \code{M1_beta}, ...)
 are indexed by a linkage-table row rather than a model coordinate, so they

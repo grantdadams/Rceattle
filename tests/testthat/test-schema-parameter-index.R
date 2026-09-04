@@ -36,6 +36,22 @@ testthat::test_that("the dictionary's declared rank matches the built array", {
 })
 
 
+testthat::test_that("every shortened age axis states how many ages it omits", {
+  # A token like `nages-1` does not say which end it drops. A new one added to
+  # the dictionary but not to .PAR_AXIS_OFFSET would label its ages one bin
+  # adrift.
+  dict <- Rceattle::parameter_dictionary()
+  strip <- function(s) gsub("]", "", gsub("[", "", s, fixed = TRUE), fixed = TRUE)
+  toks <- unlist(lapply(stats::na.omit(dict$dims),
+                        function(x) trimws(strsplit(strip(x), ",")[[1]])))
+  short <- unique(toks[grepl("-", toks, fixed = TRUE)])
+  testthat::expect_true(all(short %in% names(Rceattle:::.PAR_AXIS_OFFSET)),
+    info = paste("no .PAR_AXIS_OFFSET entry for:",
+                 paste(setdiff(short, names(Rceattle:::.PAR_AXIS_OFFSET)),
+                       collapse = ", ")))
+})
+
+
 testthat::test_that("the dictionary's declared extent matches the built array", {
   testthat::skip_on_cran()
   # Rank alone does not catch a token naming the wrong axis: log_F was declared
@@ -115,6 +131,31 @@ testthat::test_that("coordinates are the model's own labels, not indices", {
   # rec_dev is indexed by species, and BS2017SS names three.
   r <- idx[idx$block == "rec_dev", ]
   testthat::expect_true(all(r$species %in% d$spnames))
+})
+
+
+# ceattle.cpp reads init_dev(sp, age - 1) over age = 1 .. nages-1, so its ages
+# run minage + 1 .. minage + nages - 1. minage is 1 in every bundled dataset, so
+# this test is the only thing holding an age apart from an array position here.
+testthat::test_that("init_dev ages start one above minage", {
+  testthat::skip_on_cran()
+  d <- Rceattle::BS2017SS
+  fit <- Rceattle::fit_mod(data_list = d, estimateMode = 3, msmMode = 0,
+                           fit_control = Rceattle::fit_control(getsd = FALSE,
+                                                               verbose = 0))
+  idx <- Rceattle::parameter_index(fit)
+  i <- idx[idx$block == "init_dev", ]
+  testthat::expect_gt(nrow(i), 0)
+
+  for (sp in seq_along(d$spnames)) {
+    ages <- sort(as.numeric(i$age[i$species == d$spnames[sp]]))
+    testthat::expect_equal(
+      ages, seq(d$minage[sp] + 1L, d$minage[sp] + d$nages[sp] - 1L),
+      info = d$spnames[sp])
+  }
+
+  # The oldest initial age is named; reading the axis from minage dropped it.
+  testthat::expect_true(any(as.numeric(i$age) == max(d$minage + d$nages - 1L)))
 })
 
 

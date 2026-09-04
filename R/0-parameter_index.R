@@ -24,6 +24,12 @@
   n_re_obs_group   = "linkage"
 )
 
+# Ages an axis omits before its first position. init_dev starts at minage + 1:
+# age minage in the first year is recruitment, not an initial-age deviation.
+# Which end a shortened axis drops is not in its token, so it is stated here;
+# test-schema-parameter-index.R requires an entry for every such token.
+.PAR_AXIS_OFFSET <- c(`nages-1` = 1L)
+
 # A bare integer dimension is a fixed-width slot whose meaning is specific to
 # its parameter. These are the blocks whose slots mean the same thing on every
 # fleet; the selectivity slots depend on the fleet's `Selectivity` and are in
@@ -85,7 +91,8 @@
 #'
 #' Reads `parameter_dictionary()$dims` and returns one axis name per dimension,
 #' in array order. A dimension the dictionary gives as a bare integer becomes
-#' `"slot"`; one it does not name becomes `NA`.
+#' `"slot"`; one it does not name becomes `NA`. The `"offset"` attribute gives
+#' each dimension's `.PAR_AXIS_OFFSET`.
 #' @noRd
 .rce_par_axes <- function(block, dict = parameter_dictionary()) {
   dims <- dict$dims[match(block, dict$internal)]
@@ -95,16 +102,20 @@
   toks <- toks[nzchar(toks)]
   out <- unname(.PAR_AXIS[toks])
   out[is.na(out) & grepl("^[0-9]+$", toks)] <- "slot"
+  off <- unname(.PAR_AXIS_OFFSET[toks])
+  off[is.na(off)] <- 0L
+  attr(out, "offset") <- as.integer(off)
   out
 }
 
 #' Labels along one axis
 #'
 #' `n` comes from the built array, so an axis allocated wider than the
-#' dictionary describes still labels every position it has.
+#' dictionary describes still labels every position it has. `offset` is how many
+#' positions the axis omits before its first one (`.PAR_AXIS_OFFSET`).
 #' @noRd
 .rce_axis_labels <- function(axis, n, data_list, block = NULL, species = NA,
-                             fleet = NA) {
+                             fleet = NA, offset = 0L) {
   idx <- seq_len(n)
   pad <- function(x) if (length(x) >= n) as.character(x[idx]) else
     c(as.character(x), rep(NA_character_, n - length(x)))[idx]
@@ -118,13 +129,13 @@
       nm <- data_list$spnames
       if (is.null(nm)) as.character(idx) else pad(nm)
     },
-    # Ages run minage .. minage + nages - 1, so age `a` sits at index
-    # a - minage + 1. minage is per species; without one the index is reported
-    # rather than a guessed age.
+    # Age `a` sits at index a - minage + 1, plus whatever the axis omits.
+    # minage is per species; without one the array position is reported rather
+    # than a guessed age.
     age = {
       ma <- data_list$minage
       if (is.null(ma) || is.na(species) || species > length(ma)) as.character(idx)
-      else as.character(idx - 1L + ma[species])
+      else as.character(idx - 1L + ma[species] + offset)
     },
     # A selectivity bin is an index on the fleet's own Selectivity_dimension,
     # which may be length rather than age, so it is not converted to an age.
@@ -171,6 +182,9 @@
 #' mapped off are absent, and fleets sharing a `Selectivity_index` or
 #' `Catchability_index` appear once, as the single parameter they are, with
 #' `n_cells` recording how many array cells they drive.
+#'
+#' Ages are absolute. `init_dev` holds one deviation per age from `minage + 1`
+#' upward, since age `minage` in the first year is recruitment.
 #'
 #' Coordinate columns are `NA` where the axis does not apply to a block. The
 #' linkage and environmental-covariate blocks (`beta_linkage`, `M1_beta`, ...)
@@ -230,7 +244,9 @@ parameter_index <- function(object) {
 
     d <- dim(arr); if (is.null(d)) d <- length(arr)
     axes <- .rce_par_axes(block, dict)
+    offs <- attr(axes, "offset")
     if (length(axes) != length(d)) axes <- rep(NA_character_, length(d))
+    if (length(offs) != length(axes)) offs <- rep(0L, length(axes))
 
     coord <- arrayInd(hit, .dim = d)          # cell coordinates, one row per hit
     par_i <- v[hit] - off
@@ -261,13 +277,15 @@ parameter_index <- function(object) {
       by <- if (ax %in% c("age", "sex")) sp_idx else
             if (ax == "slot" && !is.null(.PAR_SEL_SLOTS[[block]])) flt_idx else NULL
       if (is.null(by)) {
-        lab[, ax] <- .rce_axis_labels(ax, d[k], dl, block)[coord[, k]]
+        lab[, ax] <- .rce_axis_labels(ax, d[k], dl, block,
+                                      offset = offs[k])[coord[, k]]
       } else {
         for (g in unique(by)) {
           r <- which(by %in% g)                 # %in% so NA groups with NA
           lv <- .rce_axis_labels(ax, d[k], dl, block,
                                  species = if (ax == "slot") NA else g,
-                                 fleet   = if (ax == "slot") g else NA)
+                                 fleet   = if (ax == "slot") g else NA,
+                                 offset  = offs[k])
           lab[r, ax] <- lv[coord[r, k]]
         }
       }

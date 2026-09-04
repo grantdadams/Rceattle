@@ -142,6 +142,12 @@ version throughout.
   counting the cells they drive. An axis constant across the model is left out
   of the label; the structured columns carry it either way.
 
+  Ages are absolute, and an axis that omits the youngest ages says so:
+  `init_dev` reports ages `minage + 1` upward, because `ceattle.cpp` reads
+  `init_dev(sp, age - 1)` over `age = 1 .. nages-1` and age `minage` in the
+  first year is recruitment. Reading that axis from `minage` would have named
+  every initial-age deviation one age too young and never named the oldest.
+
   It describes `fit$obj`, which under `estimateMode = "Estimate"` with any HCR
   but `"NoFishing"` is the *projection* object -- `log_Ftarget` and `log_Flimit`
   alone, since `build_hcr_map()` maps every hindcast parameter off. Pass a fit

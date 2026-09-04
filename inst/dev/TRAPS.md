@@ -99,6 +99,15 @@ sharing happens through the map, not through a narrower array. `init_dev` is the
 declared extent is deliberately the estimated portion (`nages-1`) of a wider (`nages`) array.
 `test-schema-parameter-index.R` now checks rank *and* extent.
 
+**A shortened axis also starts somewhere.** `nages-1` does not say which end it drops, and
+`init_dev` drops the youngest: `ceattle.cpp` reads `init_dev(sp, age - 1)` over
+`age = 1 .. nages-1`, so its ages are `minage + 1 .. minage + nages - 1` — age `minage` in the
+first year is recruitment. `minage = 1` everywhere bundled hides the shift, so reading the axis
+from `minage` named every `init_dev` one age too young (verified on `BS2017SS`: labelled 1–11
+and 1–20, actually 2–12 and 2–21) and never named the oldest. `.PAR_AXIS_OFFSET`
+(`R/0-parameter_index.R`) is the registry, and `test-schema-parameter-index.R` requires an entry
+for every shortened token the dictionary uses.
+
 ## `fit$data_list` is the pre-`rearrange_data()` list
 
 **Nothing `rearrange_data()` derives survives onto a fitted object.** Its output goes to
