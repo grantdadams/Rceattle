@@ -99,9 +99,10 @@
 #' The sections follow the AFSC Alaska Groundfish Stock Assessment Guidelines
 #' for what a chapter reports:
 #' \describe{
-#'   \item{`model`}{One row per fit: dimensions, switches, the objective, the
-#'     number of estimated parameters, AIC, the maximum gradient, whether the
-#'     Hessian was positive definite, and the run time.}
+#'   \item{`model`}{One row per fit: dimensions, switches, the marginal and
+#'     joint negative log-likelihoods, the number of estimated parameters, AIC,
+#'     the maximum gradient, whether the Hessian was positive definite, and the
+#'     run time.}
 #'   \item{`parameters`}{Every estimated parameter with its standard error, and
 #'     the natural-scale name and process from [parameter_dictionary()]. Where
 #'     `sigma_R` and an estimated M are found. Estimates are on the parameter's

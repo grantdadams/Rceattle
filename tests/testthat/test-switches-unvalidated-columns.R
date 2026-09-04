@@ -106,3 +106,91 @@ test_that("validate_switches reads its maps from the schema", {
   testthat::expect_setequal(names(Rceattle:::.rce_allowed_map("Selectivity_dimension")),
                             c("Age", "Length"))
 })
+
+
+# build_map() is reached directly by run_mse() and retrospective(), so it can be
+# handed a fleet_control that data_check() never validated. Selectivity and
+# Time_varying_sel are then NA, and the first `==` against them fails with
+# "missing value where TRUE/FALSE needed", naming neither column nor fleet.
+# switch_check() is not the validator -- build_map() already calls it, and it
+# passes NA through -- so the message names data_check().
+#
+# NA is legal on a fleet that is Off, so the guard keeps that exemption, and the
+# random-effects sigma loop that runs before it is not gated on Fleet_type: it
+# has to tolerate the NA the guard just allowed.
+
+.unvalidated <- function(tv = "Off", sel = "Logistic", ftype = NULL, q = NULL) {
+  d <- make_test_data(nyrs = 6, nprojyrs = 2, nages = 5)
+  # fit_mod() normally supplies growth_model from growthFun(); build_map() is
+  # called directly here, so set the empirical-growth default explicitly.
+  d$growth_model <- rep(0, d$nspp)
+  d$fleet_control$Selectivity      <- sel
+  d$fleet_control$Time_varying_sel <- tv
+  if (!is.null(ftype)) d$fleet_control$Fleet_type  <- ftype
+  if (!is.null(q))     d$fleet_control$Catchability <- q
+  d
+}
+
+.build_map_on <- function(d, random_sel = FALSE) {
+  p <- suppressMessages(suppressWarnings(Rceattle::build_params(d)))
+  suppressMessages(suppressWarnings(
+    Rceattle::build_map(d, p, random_sel = random_sel)))
+}
+
+test_that("build_map() names the column and fleet when a switch reached it as NA", {
+  for (rs in c(FALSE, TRUE)) {
+    testthat::expect_error(.build_map_on(.unvalidated(tv = NA), rs),
+                           "Time_varying_sel is NA for fleet")
+    testthat::expect_error(.build_map_on(.unvalidated(sel = NA), rs),
+                           "Selectivity is NA for fleet")
+    # Names the fleet the way data_check() does, and points at the validator
+    # that can actually explain it.
+    testthat::expect_error(.build_map_on(.unvalidated(tv = NA), rs), "Fishery")
+    testthat::expect_error(.build_map_on(.unvalidated(tv = NA), rs), "data_check")
+    # Not the message a bare comparison would have given.
+    testthat::expect_error(
+      .build_map_on(.unvalidated(tv = NA), rs),
+      "^(?!.*missing value where TRUE/FALSE needed).*$", perl = TRUE)
+  }
+})
+
+test_that("an Off fleet may still carry NA, under random_sel too", {
+  # switch_check() gates its Selectivity / Time_varying_sel checks on
+  # `.rce_is_on`, so a fleet that is off may leave them unset. The sigma loop
+  # runs before the guard and is not gated on Fleet_type, so it is the one that
+  # has to tolerate the exemption -- every mode, since it keys on Time_varying_sel.
+  for (rs in c(FALSE, TRUE)) {
+    testthat::expect_no_error(.build_map_on(.unvalidated(tv = NA, ftype = "Off"), rs))
+    testthat::expect_no_error(.build_map_on(.unvalidated(sel = NA, ftype = "Off"), rs))
+    for (tv in c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) {
+      testthat::expect_no_error(
+        .build_map_on(.unvalidated(tv = tv, sel = NA, ftype = "Off"), rs))
+    }
+  }
+})
+
+test_that("an all-Off fleet_control with NA switches fits end to end", {
+  # The exemption is only real if data_check() also tolerates it: its
+  # selectivity-form checks compare Selectivity to strings with no Fleet_type
+  # gate, so an unset column there failed before build_map() was ever reached.
+  testthat::skip_on_cran()
+  d <- .unvalidated(tv = NA, sel = NA, ftype = "Off")
+  testthat::expect_no_error(suppressMessages(suppressWarnings(
+    Rceattle::fit_mod(data_list = d, msmMode = 0, estimateMode = "DebugBuild",
+                      fit_control = Rceattle::fit_control(verbose = 0)))))
+})
+
+test_that("Catchability tolerates the NA switch_check() explicitly permits", {
+  # Unlike the selectivity columns, NA Catchability is legal on ANY fleet
+  # (R/0-switches.R allows `%in% c(NA, q_map, ...)`), so build_map() must not
+  # error on it -- only avoid comparing it as though it were a string.
+  testthat::expect_no_error(.build_map_on(.unvalidated(q = NA)))
+})
+
+test_that("a validated data list is unaffected", {
+  for (tv in c("Off", "IID")) {
+    for (rs in c(FALSE, TRUE)) {
+      testthat::expect_no_error(.build_map_on(.unvalidated(tv = tv), rs))
+    }
+  }
+})

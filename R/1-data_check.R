@@ -957,21 +957,21 @@ data_check <- function(data_list) {
       #    independent-deviate reading of them describes a different curve than
       #    the one selectivity.hpp builds -> allow only "Off"/"RandomWalk".
       #  - Hake (Taylor, type 5): IID coefficient deviates -> allow only "Off"/"IID".
-      if(fc$Selectivity[flt] == "NonParametric" &&
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametric" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID", "RandomWalk")){
         errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametric' selectivity, 'Time_varying_sel' must be 'Off', 'IID' or 'RandomWalk'"))
       }
-      if(fc$Selectivity[flt] == "NonParametricPM" &&
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "NonParametricPM" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
         errors <- c(errors, paste0("Fleet '", flt_name, "': for 'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'. Its deviates are random-walk increments, so 'IID' would not describe the curve the model builds; 'NonParametric' supports 'IID'."))
       }
-      if(fc$Selectivity[flt] == "Hake" &&
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "Hake" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
         errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
       }
       #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
       #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".
-      if(fc$Selectivity[flt] == "LogisticPM" &&
+      if(!is.na(fc$Selectivity[flt]) && fc$Selectivity[flt] == "LogisticPM" &&
          !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
         errors <- c(errors, "For 'LogisticPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
       }
@@ -997,7 +997,8 @@ data_check <- function(data_list) {
       # LogisticPM: Sel_curve_pen1/2/3 are the random-walk weights on the
       # slope / inflection / age-1 deviates (ADMB 50 / 50 / 8). Require numeric
       # when time-varying so a stray mode string is caught early.
-      if(fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
+      if(!is.na(fc$Selectivity[flt]) && !is.na(fc$Time_varying_sel[flt]) &&
+         fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
         cps <- suppressWarnings(as.numeric(c(fc$Sel_curve_pen1[flt], fc$Sel_curve_pen2[flt], fc$Sel_curve_pen3[flt])))
         if(any(is.na(cps))){
           errors <- c(errors, paste0(

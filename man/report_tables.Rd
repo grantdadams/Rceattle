@@ -50,9 +50,10 @@ a \code{model} column, so passing several fits gives a like-for-like comparison.
 The sections follow the AFSC Alaska Groundfish Stock Assessment Guidelines
 for what a chapter reports:
 \describe{
-\item{\code{model}}{One row per fit: dimensions, switches, the objective, the
-number of estimated parameters, AIC, the maximum gradient, whether the
-Hessian was positive definite, and the run time.}
+\item{\code{model}}{One row per fit: dimensions, switches, the marginal and
+joint negative log-likelihoods, the number of estimated parameters, AIC,
+the maximum gradient, whether the Hessian was positive definite, and the
+run time.}
 \item{\code{parameters}}{Every estimated parameter with its standard error, and
 the natural-scale name and process from \code{\link[=parameter_dictionary]{parameter_dictionary()}}. Where
 \code{sigma_R} and an estimated M are found. Estimates are on the parameter's

@@ -47,6 +47,9 @@ testthat::test_that("the estimability table is silent at verbose = 0", {
   testthat::expect_false(any(grepl("Param_check", r$stdout)))
   testthat::expect_false(any(grepl("Param_check", r$stderr)))
   testthat::expect_false(any(grepl("did not converge", r$stderr)))
+  # A failed sdreport is still reported here: the convergence battery is not
+  # gated on verbose, so verbose = 0 is not silence.
+  testthat::expect_true(any(grepl("sdreport_failed", r$stderr)))
 })
 
 testthat::test_that("the estimability table is silent at verbose = 1", {

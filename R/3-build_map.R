@@ -729,13 +729,29 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
   yrs_hind <- 1:nyrs_hind
   n_flt <- nrow(data_list$fleet_control)
 
+  # Both columns are compared to strings below, and NA is legal only on an Off
+  # fleet. data_check() is the validator; switch_check() passes NA through.
+  .on <- as.character(data_list$fleet_control$Fleet_type) != "Off"
+  .on[is.na(.on)] <- TRUE
+  for (col in c("Selectivity", "Time_varying_sel")) {
+    bad <- which(.on & is.na(data_list$fleet_control[[col]]))
+    if (length(bad)) {
+      stop(col, " is NA for fleet(s) ",
+           paste(data_list$fleet_control$Fleet_name[bad], collapse = ", "),
+           ". Run data_check() on the data list to see why.", call. = FALSE)
+    }
+  }
+
   # Turn on variance of random effects for selectivity deviates (sigma)
   if (random_sel) {
     for (i in 1:n_flt) {
       flt <- data_list$fleet_control$Fleet_code[i]
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
-      if (sel_type != "Fixed" && tv_sel %in% c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) {
+      # An Off fleet is permitted to leave Selectivity unset, and this loop is
+      # not gated on Fleet_type, so the form is tested for presence first.
+      if (!is.na(sel_type) && sel_type != "Fixed" &&
+          tv_sel %in% c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) {
         map_list$sel_dev_log_sd[flt] <- flt
       }
 
@@ -1258,7 +1274,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
 
       # - Turn on power param for:
       # - 4 = Estimate power equation
-      if (data_list$fleet_control$Catchability[i] == "PowerEquation") {
+      if (isTRUE(data_list$fleet_control$Catchability[i] == "PowerEquation")) {
         # map_list$index_q_pow[flt] <- flt
       }
 
@@ -1314,7 +1330,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind, random_q = FA
       # - Turn on regression coefficients for:
       # - 5 = Estimate environmental linkage
       # FIXME: use formula
-      if (data_list$fleet_control$Catchability[i] == "Environmental") {
+      if (isTRUE(data_list$fleet_control$Catchability[i] == "Environmental")) {
         if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
         }else{

@@ -79,6 +79,17 @@ version throughout.
 
 ## Bug fixes
 
+* **`build_map()` names the column and fleet when a switch reaches it as `NA`.**
+  `Selectivity` or `Time_varying_sel` arriving unset on an active fleet failed
+  at the first `==` against it, with "missing value where TRUE/FALSE needed" and
+  no indication of which column or fleet. The message names `data_check()`, which
+  is the validator -- `build_map()` already calls `switch_check()`, and that
+  canonicalizes rather than validates. It keeps the validator's exemption: a
+  fleet that is `Off` may leave both unset, which now also survives
+  `data_check()`'s own selectivity-form checks and the random-effects sigma
+  loop, neither of which was gated on `Fleet_type`. `Catchability`, where `NA` is
+  legal on any fleet, is no longer compared as though it were a string.
+
 * **A 2DAR1 or 3DAR1 fleet no longer warns about `Time_varying_sel = "Off"`.**
   The AR1 forms supply their own annual deviations, so any other
   `Time_varying_sel` mode is overridden and the builder says so -- but `"Off"`
