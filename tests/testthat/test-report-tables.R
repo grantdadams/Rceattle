@@ -372,21 +372,24 @@ testthat::test_that("a diagnostics list is matched by name, never silently by or
 })
 
 
-testthat::test_that("the two objectives are reported and are not conflated", {
-  # `marginal_objective` is what nlminb minimized (random effects integrated
-  # out); `joint_objective` is what jnll_comp decomposes. Reporting only one
-  # made the model and likelihood tables look inconsistent on a random-effects
-  # fit, where they differ by the Laplace correction.
+testthat::test_that("the two negative log-likelihoods are reported and not conflated", {
+  # `marginal_nll` is what nlminb minimized (random effects integrated out);
+  # `joint_nll` is what jnll_comp decomposes. Reporting only one made the model
+  # and likelihood tables look inconsistent on a random-effects fit, where they
+  # differ by the Laplace correction.
   testthat::skip_on_cran()
   fit <- make_fit()
   tabs <- report_tables(fit)
   m <- tabs$model
 
-  testthat::expect_true(all(c("n_random", "marginal_objective",
-                              "joint_objective") %in% names(m)))
-  # The likelihood table sums to the JOINT objective, by construction.
+  testthat::expect_true(all(c("n_random", "marginal_nll",
+                              "joint_nll") %in% names(m)))
+  # Named for what they are: an NLL, not a likelihood. Nothing should suggest
+  # a quantity where larger is better.
+  testthat::expect_false(any(grepl("^(marginal|joint)_likelihood$", names(m))))
+  # The likelihood table sums to the JOINT nll, by construction.
   total <- tabs$likelihood$weighted[tabs$likelihood$component == "Total"]
-  testthat::expect_equal(m$joint_objective, total)
+  testthat::expect_equal(m$joint_nll, total)
   # No random effects here, so the two agree.
   testthat::expect_equal(m$n_random, 0L)
 })

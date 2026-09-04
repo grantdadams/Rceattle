@@ -156,12 +156,14 @@
 #' last projection year, which is the equilibrated unfished reference, so the
 #' series is meaningful there.
 #'
-#' @section Two objectives:
-#' `model` reports both. `marginal_objective` is what the optimizer minimized —
-#' random effects integrated out by the Laplace approximation — and is what
-#' `AIC` is built from. `joint_objective` is what the template evaluated at the
-#' conditional modes, so it is what `likelihood` sums to. They are equal when
-#' `n_random` is 0 and differ by the Laplace correction otherwise.
+#' @section Two negative log-likelihoods:
+#' `model` reports both, and **both are minimized**: a smaller value is the
+#' better fit. `marginal_nll` is the negative log marginal likelihood the
+#' optimizer minimized -- random effects integrated out by the Laplace
+#' approximation -- and is what `AIC` is built from. `joint_nll` is what the
+#' template evaluated at the conditional modes, so it is what `likelihood` sums
+#' to, on the same scale as `jnll_comp`. They are equal when `n_random` is 0 and
+#' differ by the Laplace correction otherwise.
 #'
 #' @section Supplying diagnostics for several models:
 #' A diagnostics list is matched to models **by name**, so `list(alt = ..., base
@@ -292,8 +294,8 @@ report_tables <- function(object,
                                     error = function(e) NA_character_)),
     n_parameters  = npar,
     n_random      = as.integer(n_random),
-    marginal_objective = as.numeric(obj),
-    joint_objective    = as.numeric(joint),
+    marginal_nll  = as.numeric(obj),
+    joint_nll     = as.numeric(joint),
     AIC           = as.numeric(aic),
     max_gradient  = as.numeric(mg),
     pdHess        = as.logical(pd),
@@ -658,9 +660,9 @@ report_tables <- function(object,
     n_started      = as.integer(tried),
     n_converged    = length(nll),
     n_at_best      = if (length(nll)) sum(nll - best <= tol) else 0L,
-    best_objective = best,
-    worst_objective = if (length(nll)) max(nll) else NA_real_,
-    objective_range = if (length(nll)) max(nll) - best else NA_real_,
+    best_nll       = best,
+    worst_nll      = if (length(nll)) max(nll) else NA_real_,
+    nll_range      = if (length(nll)) max(nll) - best else NA_real_,
     tolerance      = tol,
     stringsAsFactors = FALSE
   )

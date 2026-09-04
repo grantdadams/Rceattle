@@ -61,7 +61,10 @@ testthat::test_that("the estimability table is silent at verbose = 1", {
   testthat::expect_true(is.null(r$fit$opt$SD))
   testthat::expect_false(any(grepl("Param_check", r$stderr)))
   testthat::expect_false(any(grepl("Param_check", r$stdout)))
-  testthat::expect_true(any(grepl("did not converge", r$stderr)))
+  # A failed sdreport is reported as `sdreport_failed`, which names the Hessian
+  # rather than calling the optimizer non-convergent.
+  testthat::expect_true(any(grepl("sdreport_failed", r$stderr)))
+  testthat::expect_false(any(grepl("did not converge", r$stderr)))
 })
 
 testthat::test_that("the estimability table is shown at verbose > 1", {

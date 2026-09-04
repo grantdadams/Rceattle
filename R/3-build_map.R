@@ -1105,7 +1105,9 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * 2DAR1 ----
       # ---- sel_type = 6 (age-based), 13 (length-based)
       if (sel_type == "2DAR1") {
-        if (!is.na(tv_sel)) {
+        # A 2DAR1 fleet's deviations come from the AR1 field, so "Off" asks for
+        # what it already has. Only an overridden mode is reported.
+        if (!is.na(tv_sel) && tv_sel != "Off") {
           warning(paste("Time_varying_sel for fleet", flt, "is ignored for 2DAR1 selectivity."))
         }
         if(!random_sel){
@@ -1141,7 +1143,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * 3DAR1 ----
       # ---- sel_type = 7 (age-based), 14 (length-based)
       if (sel_type == "3DAR1") {
-        if (!is.na(tv_sel)) {
+        # As for 2DAR1: "Off" agrees with the AR1 field's own deviations.
+        if (!is.na(tv_sel) && tv_sel != "Off") {
           warning(paste("Time_varying_sel for fleet", flt, "is ignored for 3DAR1 selectivity."))
         }
         if(!random_sel){

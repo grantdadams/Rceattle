@@ -79,6 +79,28 @@ version throughout.
 
 ## Bug fixes
 
+* **A 2DAR1 or 3DAR1 fleet no longer warns about `Time_varying_sel = "Off"`.**
+  The AR1 forms supply their own annual deviations, so any other
+  `Time_varying_sel` mode is overridden and the builder says so -- but `"Off"`
+  asks for no extra deviation layer, which is what an AR1 fleet already has, so
+  it is not a conflict. Same class of guard as the `"Hake"` fix in 5.3.0.
+
+* **`report_tables()` names its objectives for what they are.** `model` gains
+  `marginal_nll` / `joint_nll` in place of `marginal_objective` /
+  `joint_objective`, and `jitter` gains `best_nll` / `worst_nll` / `nll_range`
+  in place of `best_objective` / `worst_objective` / `objective_range`. All six
+  are negative log-likelihoods on the `jnll_comp` scale, so a **smaller** value
+  is the better fit; `_objective` said nothing about which, and `_likelihood`
+  would have argued for the wrong direction. `fit$opt$objective` is `nlminb()`'s
+  own name and is unchanged.
+
+* **`fit_mod()` no longer prints the "Model did not converge" banner.** It fired
+  when an `sdreport` was requested and did not return, which is a Hessian that
+  would not invert -- not an optimizer that failed to converge, and a fit can
+  reach a good optimum with a non-positive-definite Hessian. The convergence
+  battery reports the same condition as `sdreport_failed`, says what it means,
+  and prints at `verbose = 0` as well. `fit$identified` is unchanged.
+
 * **Two long-standing `R CMD check --as-cran` warnings are cleared.**
   `print.rceattle_report()`'s box-drawing glyphs are written as `\u2514\u2500`
   / `\u251c\u2500` escapes, so the R code is ASCII and the package is

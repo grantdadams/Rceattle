@@ -1232,12 +1232,9 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         if (is.null(opt$SD) & getsd) {
 
-          if (verbose > 0) {
-            message("#################################################")
-            message("Model did not converge, check 'identified'")
-            message("#################################################")
-          }
-
+          # A failed sdreport is reported by the convergence battery as
+          # `sdreport_failed`, at every verbosity. `identified` is kept because
+          # the `estimability` check reads it.
           identified <- tryCatch(
             {
               # check_estimability() print()s its table to stdout, which
