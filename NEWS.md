@@ -53,7 +53,7 @@ version throughout.
   `exp(-x^2/2)` below 1e-308, and 11 cells of `Atka2022`'s first year go to
   exactly 0 that way. The log is therefore floored at 1e-300, using a `max2()`
   that is exact above the floor -- on a fitted `Atka2022` all 1,012 reported
-  values are bit-identical to the unfloored `log(sel_at_age)`.
+  values are bit-identical to `log(sel_at_age)` taken without it.
 
   A bin the normalization pins carries an SE of exactly 0, the honest answer for
   a value that is 1 by construction.
@@ -189,8 +189,8 @@ version throughout.
   condition number is not scale-invariant (`log_F` near -2, `sel_inf` near 10),
   so rescaling a parameter moved it without changing the model. The message now
   leads with the square root, a ratio of standard errors -- and, because the
-  matrix is standardised, one measured against each parameter's own standard
-  error rather than in the parameters' own units.
+  matrix is scaled by those errors, one measured against each parameter's own
+  rather than in the parameters' own units.
 
   **`data$condition_number` therefore means something different from 5.25.1.**
   Standardising lowers it by 0.4-1.1 orders on the models measured, so at

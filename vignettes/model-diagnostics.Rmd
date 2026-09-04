@@ -171,8 +171,8 @@ The checks cover:
   barely moves.
 
   The message leads with the square root, a ratio of standard errors. Because
-  the matrix is standardised, it is measured against each parameter's own
-  standard error: 13,634 means the least-determined combination is 13,634 times
+  the matrix is scaled by those errors, the ratio is measured against each
+  parameter's own: 13,634 means the least-determined combination is 13,634 times
   more uncertain than the best-determined one, in those units. `WARN` above 1e6,
   `FAIL` above 1e10.
 
