@@ -170,9 +170,11 @@ The checks cover:
   selectivity: scale F up, shift selectivity down, and predicted catch-at-age
   barely moves.
 
-  The message leads with the square root, a ratio of standard errors: 13,634
-  means the least-determined combination carries 13,634 times the standard error
-  of the best-determined one. `WARN` above 1e6, `FAIL` above 1e10.
+  The message leads with the square root, a ratio of standard errors. Because
+  the matrix is standardised, it is measured against each parameter's own
+  standard error: 13,634 means the least-determined combination is 13,634 times
+  more uncertain than the best-determined one, in those units. `WARN` above 1e6,
+  `FAIL` above 1e10.
 
   Read on the **correlation** and not the covariance, because the covariance
   condition number is not scale-invariant: `log_F` sits near -2 and `sel_inf`

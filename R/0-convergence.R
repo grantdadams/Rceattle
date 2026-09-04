@@ -366,13 +366,12 @@
   out
 }
 
-# Hessian eigen-identifiability. Reads the fixed-effect covariance
-# (sdrep$cov.fixed); its eigenvalues are 1/(Hessian eigenvalues), so the
-# condition number kappa = lambda_max/lambda_min of cov.fixed equals the Hessian
-# condition number, and the eigenvector of the LARGEST covariance eigenvalue is
-# the least-identified parameter direction. Complements (does not duplicate)
-# TMBhelper::check_estimability: that gives a per-parameter verdict; this gives
-# the severity (kappa) and the offending linear *combination*.
+# How nearly linearly dependent the estimates are. Reads the fixed-effect
+# covariance (sdrep$cov.fixed), standardized to a correlation; its eigenvalues
+# are variances along directions in parameter space, so kappa = max/min is the
+# severity and the eigenvector of the largest is the least-determined direction.
+# Complements (does not duplicate) TMBhelper::check_estimability: that gives a
+# per-parameter verdict, this a continuous severity and the linear *combination*.
 .check_hessian_eigen <- function(object, index = .conv_par_index(object)) {
   out <- list()
   cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
@@ -404,8 +403,9 @@
   if (length(pos) < 2L) return(out)
 
   kappa <- max(pos) / min(pos)
-  # Eigenvalues are variances along their direction, so the square root is the
-  # ratio of standard errors -- the readable form of the same number.
+  # Correlation eigenvalues are variances of the STANDARDIZED estimates, so the
+  # square root is a ratio of standard errors each measured against its own
+  # parameter's -- the readable form of the same number.
   se_ratio <- sqrt(kappa)
   v  <- ev$vectors[, which.max(vals)]         # least-determined direction (unit norm)
   nm <- rownames(cov)
@@ -433,7 +433,7 @@
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
   msg <- sprintf(
-    "Condition number = %.2g: the least-determined parameter combination carries %.0fx the standard error of the best-determined one.%s",
+    "Condition number = %.2g: with each parameter measured against its own standard error, the least-determined combination is %.0fx more uncertain than the best-determined one.%s",
     kappa, se_ratio,
     if (sev != "OK") sprintf(" It loads on: %s.", combo) else "")
 

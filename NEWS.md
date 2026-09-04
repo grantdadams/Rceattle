@@ -179,7 +179,9 @@ version throughout.
 * **`hessian_conditioning` is read on the correlation matrix.** The covariance
   condition number is not scale-invariant (`log_F` near -2, `sel_inf` near 10),
   so rescaling a parameter moved it without changing the model. The message now
-  leads with the square root, a ratio of standard errors.
+  leads with the square root, a ratio of standard errors -- and, because the
+  matrix is standardised, one measured against each parameter's own standard
+  error rather than in the parameters' own units.
 
   **`data$condition_number` therefore means something different from 5.25.1.**
   Standardising lowers it by 0.4-1.1 orders on the models measured, so at
