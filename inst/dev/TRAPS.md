@@ -160,7 +160,8 @@ estimated the hindcast.** `build_hcr_map()` (`R/0-build_hcr.R`) replaces every e
   `log_sel_at_age` errors are 0. `fit_mod()` warns, and `plot_selectivity(add_ci = TRUE)`
   declines rather than drawing a zero-width band that reads as certainty.
   `projection_uncertainty = TRUE` re-enables the hindcast parameters and is the fix that keeps
-  the HCR.
+  the HCR — but **not** under `estimateMode = "Projection"`, where `build_map(debug = TRUE)`
+  has already mapped the hindcast off and nothing turns it back on. `fit_mod()` warns there too.
 
 `ConstantF` is the awkward middle: the projection `obj` is built but never re-optimized, so
 `sdrep` stays the hindcast's beside a projection `obj`. That is why the checks verify rather

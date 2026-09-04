@@ -120,11 +120,13 @@ arguments are kept for backward compatibility.
 \section{Selectivity standard errors}{
 \code{selectivity_se} needs \code{getsd = TRUE}, and the error it reports is the one
 belonging to whichever \code{sdreport} the fit ends on. Under
-\code{estimateMode = "Estimate"} with an estimating HCR that is the \emph{projection}
-fit, in which \code{\link[=build_hcr_map]{build_hcr_map()}} has mapped every selectivity parameter off, so
-every error comes back exactly 0. Use \code{estimateMode = "Hindcast"}, or
-\code{projection_uncertainty = TRUE}, to get one from a fit that estimated the
-curve. \code{\link[=fit_mod]{fit_mod()}} warns when the combination would report zeros.
+\code{estimateMode = "Estimate"} with any HCR that re-optimizes, that is the
+\emph{projection} fit, in which every selectivity parameter is mapped off, so
+every error comes back exactly 0. \code{estimateMode = "Projection"} estimates no
+selectivity at all and reports none where it runs no \code{sdreport}. Use
+\code{estimateMode = "Hindcast"}, or \code{"Estimate"} with
+\code{projection_uncertainty = TRUE}, to get an error from a fit that estimated
+the curve. \code{\link[=fit_mod]{fit_mod()}} warns before fitting in each of these cases.
 
 Off by default because the delta method forms a Jacobian of every reported
 value against every parameter, so its cost is the product of the two: on

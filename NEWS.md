@@ -56,9 +56,11 @@ version throughout.
   an estimating HCR, `fit_mod()` re-optimizes the projection with every hindcast
   parameter mapped off, so the standard error of every selectivity comes back
   exactly 0. Use `estimateMode = "Hindcast"`, or
-  `fit_control(projection_uncertainty = TRUE)`; `fit_mod()` warns when the
-  combination would report zeros, and warns again if `getsd = FALSE` leaves
-  nothing to report at all.
+  `fit_control(projection_uncertainty = TRUE)`. `estimateMode = "Projection"`
+  estimates no selectivity at all, and `projection_uncertainty` cannot change
+  that, because `build_map(debug = TRUE)` has already mapped the hindcast off.
+  `fit_mod()` warns on each of these before fitting, and warns again if
+  `getsd = FALSE` leaves nothing to report.
 
 * **`plot_selectivity(add_ci = TRUE)`** draws that interval under the curve it
   belongs to. It needs a fit run with `fit_control(selectivity_se = TRUE)` and

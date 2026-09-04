@@ -856,12 +856,21 @@ fit_mod <-
     # keeps the setting the fit was given.
     data_list$adreport_sel <- as.integer(isTRUE(fit_control$selectivity_se))
 
-    # A delta-method error exists only where an sdreport runs, and an estimating
-    # HCR leaves the projection's, in which the selectivity is fixed at 0 error.
-    if (isTRUE(fit_control$selectivity_se) && estimateMode %in% c(0, 1)) {
+    # A delta-method error exists only where an sdreport runs, and it belongs to
+    # whichever fit the model ends on. Where the selectivity was mapped off in
+    # that fit the error is 0, which reads as a certain curve rather than an
+    # unmeasured one -- so say so before the fit rather than after.
+    if (isTRUE(fit_control$selectivity_se) && estimateMode %in% c(0, 1, 2)) {
       if (!isTRUE(getsd)) {
         warning("`selectivity_se = TRUE` needs `getsd = TRUE` to return a ",
                 "standard error; none will be reported.", call. = FALSE)
+      } else if (estimateMode == 2) {
+        # Nothing here estimates the curve: build_map(debug = TRUE) has already
+        # mapped the hindcast off, which projection_uncertainty cannot undo.
+        warning("`selectivity_se = TRUE` under estimateMode = \"Projection\" ",
+                "reports no usable standard error: no fit here estimates the ",
+                "selectivity, so the error is 0 where an sdreport runs at all. ",
+                "Use estimateMode = \"Hindcast\".", call. = FALSE)
       } else if (estimateMode == 0 && !isTRUE(projection_uncertainty) &&
                  # Every other HCR re-optimizes the projection, overwriting the
                  # hindcast sdreport. Canonical names: switch_check() has run.

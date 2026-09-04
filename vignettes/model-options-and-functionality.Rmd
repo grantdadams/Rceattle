@@ -702,8 +702,10 @@ that anchor with the interval.
 The error comes from whichever `sdreport` the fit ends on, and that is not
 always the one that estimated the curve. Under `estimateMode = "Estimate"` with
 an estimating HCR, `fit_mod()` re-optimizes the projection with every hindcast
-parameter fixed, so the standard error of every selectivity is exactly 0. Fit
-the hindcast alone, or ask for uncertainty in the projection:
+parameter fixed, so the standard error of every selectivity is exactly 0.
+`estimateMode = "Projection"` estimates no selectivity at all, and
+`projection_uncertainty` cannot rescue it. Fit the hindcast alone, or ask for
+uncertainty in the projection:
 
 ```{r sel-ci, eval = FALSE}
 # Errors from the hindcast fit -- the usual choice for a selectivity figure.

@@ -85,6 +85,28 @@ testthat::test_that("selectivity_se adds a log-scale SE without moving the fit",
 })
 
 
+# The error belongs to whichever sdreport the fit ends on. estimateMode
+# "Projection" estimates no selectivity at all, so it has none to report, and
+# reading a 0 as "the curve is certain" is the failure this warning stops.
+testthat::test_that("estimateMode 'Projection' warns that it reports no usable error", {
+  testthat::skip_on_cran()
+
+  # projection_uncertainty turns the hindcast parameters back on under
+  # "Estimate"; here build_map(debug = TRUE) has already mapped them off, so it
+  # cannot help and the warning must fire anyway.
+  testthat::expect_warning(
+    m <- suppressMessages(fit_mod(
+      data_list = Atka2022, msmMode = 0, estimateMode = "Projection",
+      fit_control = fit_control(selectivity_se = TRUE,
+                                projection_uncertainty = TRUE, verbose = 0))),
+    "no usable standard error")
+
+  # The plotter reaches the same verdict from the fit alone, so add_ci declines
+  # rather than drawing a hairline band.
+  testthat::expect_null(.rce_sel_se(m))
+})
+
+
 testthat::test_that("selectivity_se defaults to off and survives a data list without it", {
   # The TMB template declares adreport_sel as DATA_INTEGER, so MakeADFun() fails
   # outright if the field is missing. A data list built before the option existed
