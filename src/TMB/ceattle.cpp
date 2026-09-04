@@ -5083,10 +5083,13 @@ Type objective_function<Type>::operator() () {
   // reported value against every parameter; see ?fit_control.
   //
   // Only estimated, age-based lead fleets, from their first selected bin: those
-  // are the cells that cannot be an exact zero, and one log(0) = -Inf on the tape
-  // turns EVERY quantity in the sdreport to NaN, biomass and SSB included. The
-  // four routes to a zero are enumerated in ?fit_control; all are read from the
-  // data, so the reported set never depends on a parameter value.
+  // are the cells that cannot be a structural zero, and one log(0) = -Inf on the
+  // tape turns EVERY quantity in the sdreport to NaN, biomass and SSB included.
+  // The four routes to a structural zero are enumerated in ?fit_control; all are
+  // read from the data, so the reported SET never depends on a parameter value.
+  // A reported VALUE still can underflow -- a narrow dome puts exp(-x^2/2) below
+  // 1e-308 many bins from its peak -- so the log is floored. max2() is exact
+  // above the floor, so nothing a fleet would report is altered.
   //
   // log_sel_at_age_index carries the fleet, sex, absolute age and calendar year
   // of each row, since which cells are reported depends on the model.
@@ -5122,7 +5125,8 @@ Type objective_function<Type>::operator() () {
       for(int sel_sex = 0; sel_sex < nsex(sel_sp); sel_sex++){
         for(int sel_age = sel_first_bin(flt); sel_age < nages(sel_sp); sel_age++){
           for(int sel_yr = 0; sel_yr < nyrs_hind; sel_yr++){
-            log_sel_at_age(i_sel) = log(sel_at_age(flt, sel_sex, sel_age, sel_yr));
+            log_sel_at_age(i_sel) = log(max2(sel_at_age(flt, sel_sex, sel_age, sel_yr),
+                                             Type(1e-300)));
             log_sel_at_age_index(i_sel, 0) = Type(flt + 1);
             log_sel_at_age_index(i_sel, 1) = Type(sel_sex + 1);
             log_sel_at_age_index(i_sel, 2) = Type(minage(sel_sp) + sel_age);

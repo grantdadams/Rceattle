@@ -193,6 +193,35 @@ testthat::test_that("Bin_first_selected cannot NaN the sdreport", {
 })
 
 
+# The fourth route is not structural: a reported cell can underflow to 0. A
+# double-normal peaking above the oldest age with a narrow ascending limb puts
+# exp(-x^2/2) below 1e-308, and log(0) = -Inf NaNs every quantity in the
+# sdreport. The log is floored at 1e-300, which is exact above the floor.
+testthat::test_that("a selectivity that underflows to zero is floored, not -Inf", {
+  testthat::skip_on_cran()
+
+  d <- Atka2022
+  d$fleet_control$Selectivity <- c("DoubleNormal", d$fleet_control$Selectivity[2])
+  build <- function(inits) suppressMessages(suppressWarnings(fit_mod(
+    data_list = d, msmMode = 0, estimateMode = "DebugBuild", inits = inits,
+    fit_control = fit_control(selectivity_se = TRUE, getsd = FALSE,
+                              verbose = 0))))
+
+  p <- build(NULL)$obj$env$parList()
+  p$sel_inf[1, 1, ]     <- 60          # peak far above the oldest age
+  p$log_sel_slp[1, 1, ] <- log(0.15)   # narrow ascending limb
+  m <- build(p)
+
+  # The premise: the curve really is 0 at reported ages, so this is not vacuous.
+  s <- m$quantities$sel_at_age[1, 1, seq_len(d$nages[1]), 1]
+  testthat::expect_gt(sum(s == 0), 0)
+
+  ls <- m$quantities$log_sel_at_age
+  testthat::expect_true(all(is.finite(ls)))
+  testthat::expect_equal(min(ls), log(1e-300))
+})
+
+
 # The third route: a length-based fleet's sel_at_age is
 # sum(growth_matrix * sel_at_length), which is 0 for an age overlapping no
 # selected length bin. Such a fleet is fitted and plotted on sel_at_length, which

@@ -48,6 +48,13 @@ version throughout.
   data, never by a parameter value. Nothing is lost: a `Fixed` curve and a mirror
   both have their lead's standard error or none by construction.
 
+  A reported *value* can still underflow, which the skip rule cannot anticipate:
+  a double-normal peaking above the oldest age with a narrow ascending limb puts
+  `exp(-x^2/2)` below 1e-308, and 11 cells of `Atka2022`'s first year go to
+  exactly 0 that way. The log is therefore floored at 1e-300, using a `max2()`
+  that is exact above the floor -- on a fitted `Atka2022` all 1,012 reported
+  values are bit-identical to the unfloored `log(sel_at_age)`.
+
   A bin the normalization pins carries an SE of exactly 0, the honest answer for
   a value that is 1 by construction.
 

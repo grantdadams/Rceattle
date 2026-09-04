@@ -138,12 +138,14 @@ forms normalize to mean selectivity 1 rather than a maximum of 1 -- 58\% of
 most of the array.
 
 Rows cover estimated, age-based lead fleets only, and start at each fleet's
-first selected bin. Four kinds of cell hold an exact zero -- a \code{Fixed} fleet's
-empirical curve, a length-based fleet's growth-matrix projection, a bin below
-\code{Bin_first_selected}, and array padding -- and one \code{log(0) = -Inf} on the tape
-turns \emph{every} quantity in the \code{sdreport} to \code{NaN}, biomass and SSB included.
-All four are identified from the data, so the reported set never depends on a
-parameter value. See \code{\link[=plot_selectivity]{plot_selectivity()}}, which draws the interval.
+first selected bin. Four kinds of cell hold a structural zero -- a \code{Fixed}
+fleet's empirical curve, a length-based fleet's growth-matrix projection, a
+bin below \code{Bin_first_selected}, and array padding -- and one \code{log(0) = -Inf}
+on the tape turns \emph{every} quantity in the \code{sdreport} to \code{NaN}, biomass and SSB
+included. All four are identified from the data, so the reported set never
+depends on a parameter value; a value that underflows to zero is floored, so
+it cannot reintroduce the \code{-Inf}. See \code{\link[=plot_selectivity]{plot_selectivity()}}, which draws the
+interval.
 }
 
 \examples{
