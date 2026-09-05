@@ -107,36 +107,38 @@ quantity_dictionary("ssb_depletion")
 # Everything that carries a standard error
 dict <- quantity_dictionary()
 dict[dict$se, c("quantity", "meaning")]
-#>               quantity
-#> 1              biomass
-#> 2          log_biomass
-#> 3                  ssb
-#> 4              log_ssb
-#> 5  exploitable_biomass
-#> 6    biomass_depletion
-#> 7        ssb_depletion
-#> 11                   R
-#> 12               log_R
-#> 17                R_sd
-#> 52       log_index_hat
-#> 85        beta_linkage
-#> 89    beta_linkage_obs
-#> 98          pop_scalar
-#>                                                                                                                               meaning
-#> 1                                                                                    Total stock biomass, summed over sexes and ages.
-#> 2               Total stock biomass on the log scale; its standard error is the CV of biomass, which is the form an ABC buffer wants.
-#> 3                                                                                Female spawning-stock biomass at the spawning month.
-#> 4                                                Female spawning-stock biomass on the log scale; its standard error is the CV of SSB.
-#> 5  Biomass selected by the fisheries, summed over fishery fleets; exactly zero for a survey-only species or when proj_F_prop is zero.
-#> 6                                                                           Total biomass relative to unfished biomass, biomass / B0.
-#> 7          Female spawning biomass relative to unfished, ssb / SB0; the quantity a Tier 3 harvest control rule compares against B40%.
-#> 11                                                                             Recruitment: numbers entering at the youngest age bin.
-#> 12                                                         Recruitment on the log scale; its standard error is the CV of recruitment.
-#> 17                                                   Standard deviation of the recruitment deviations, sigma_R, on the natural scale.
-#> 52                                                                                           Predicted survey index on the log scale.
-#> 85                                       Fitted coefficients of the environmental linkage formulas, one per row of the linkage table.
-#> 89                   QAR1 effect size scaling the latent deviate into the linked parameter; length 0 without a state-space covariate.
-#> 98                                                                   Multiplier on user-supplied numbers-at-age when estDynamics > 0.
+#>                quantity
+#> 1               biomass
+#> 2           log_biomass
+#> 3                   ssb
+#> 4               log_ssb
+#> 5   exploitable_biomass
+#> 6     biomass_depletion
+#> 7         ssb_depletion
+#> 11                    R
+#> 12                log_R
+#> 17                 R_sd
+#> 52        log_index_hat
+#> 57       log_sel_at_age
+#> 87         beta_linkage
+#> 91     beta_linkage_obs
+#> 100          pop_scalar
+#>                                                                                                                                                                                                                                                                                                            meaning
+#> 1                                                                                                                                                                                                                                                                 Total stock biomass, summed over sexes and ages.
+#> 2                                                                                                                                                                                            Total stock biomass on the log scale; its standard error is the CV of biomass, which is the form an ABC buffer wants.
+#> 3                                                                                                                                                                                                                                                             Female spawning-stock biomass at the spawning month.
+#> 4                                                                                                                                                                                                                             Female spawning-stock biomass on the log scale; its standard error is the CV of SSB.
+#> 5                                                                                                                                                                               Biomass selected by the fisheries, summed over fishery fleets; exactly zero for a survey-only species or when proj_F_prop is zero.
+#> 6                                                                                                                                                                                                                                                        Total biomass relative to unfished biomass, biomass / B0.
+#> 7                                                                                                                                                                                       Female spawning biomass relative to unfished, ssb / SB0; the quantity a Tier 3 harvest control rule compares against B40%.
+#> 11                                                                                                                                                                                                                                                          Recruitment: numbers entering at the youngest age bin.
+#> 12                                                                                                                                                                                                                                      Recruitment on the log scale; its standard error is the CV of recruitment.
+#> 17                                                                                                                                                                                                                                Standard deviation of the recruitment deviations, sigma_R, on the natural scale.
+#> 52                                                                                                                                                                                                                                                                        Predicted survey index on the log scale.
+#> 57  Log selectivity at age, reported only under fit_control(selectivity_se = TRUE), for a delta-method interval on the curve. One entry per estimated age-based lead fleet, sex, age at or above the fleet's first selected bin, and hindcast year; log_sel_at_age_index says which. Use exp(value +/- 1.96 * sd).
+#> 87                                                                                                                                                                                                                    Fitted coefficients of the environmental linkage formulas, one per row of the linkage table.
+#> 91                                                                                                                                                                                                QAR1 effect size scaling the latent deviate into the linked parameter; length 0 without a state-space covariate.
+#> 100                                                                                                                                                                                                                                               Multiplier on user-supplied numbers-at-age when estDynamics > 0.
 
 # Every reference point
 quantity_dictionary(process = "reference_points")

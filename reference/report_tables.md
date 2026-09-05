@@ -77,9 +77,9 @@ Guidelines for what a chapter reports:
 
 - `model`:
 
-  One row per fit: dimensions, switches, the objective, the number of
-  estimated parameters, AIC, the maximum gradient, whether the Hessian
-  was positive definite, and the run time.
+  One row per fit: dimensions, switches, the marginal and joint negative
+  log-likelihoods, the number of estimated parameters, AIC, the maximum
+  gradient, whether the Hessian was positive definite, and the run time.
 
 - `parameters`:
 
@@ -155,14 +155,15 @@ harvest control rule in multispecies mode the model divides by biomass
 in the last projection year, which is the equilibrated unfished
 reference, so the series is meaningful there.
 
-## Two objectives
+## Two negative log-likelihoods
 
-`model` reports both. `marginal_objective` is what the optimizer
-minimized — random effects integrated out by the Laplace approximation —
-and is what `AIC` is built from. `joint_objective` is what the template
-evaluated at the conditional modes, so it is what `likelihood` sums to.
-They are equal when `n_random` is 0 and differ by the Laplace correction
-otherwise.
+`model` reports both, and **both are minimized**: a smaller value is the
+better fit. `marginal_nll` is the negative log marginal likelihood the
+optimizer minimized – random effects integrated out by the Laplace
+approximation – and is what `AIC` is built from. `joint_nll` is what the
+template evaluated at the conditional modes, so it is what `likelihood`
+sums to, on the same scale as `jnll_comp`. They are equal when
+`n_random` is 0 and differ by the Laplace correction otherwise.
 
 ## Supplying diagnostics for several models
 

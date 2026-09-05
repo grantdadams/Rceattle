@@ -74,8 +74,13 @@ it — data prep, fitting, projection, MSE, diagnostics, plotting — is R.
     [`nrow()`](https://rdrr.io/r/base/nrow.html) but indexed by
     `Fleet_code`, so read columns by row index `i`, never by `flt`.
     Fleets sharing a `Selectivity_index` / `Catchability_index` share
-    ONE parameter block. Selectivity bin columns are indices on the
-    fleet’s own `Selectivity_dimension`.
+    ONE parameter block. Selectivity bin columns are read on the fleet’s
+    own `Selectivity_dimension`, but not on one convention:
+    `Bin_first_selected` is a 1-based bin ordinal, while `Sel_norm_bin`,
+    `Sel_norm_bin_upper`, `Sel_pen_first_bin`, `Sel_pen_last_bin` and
+    `Sel_cap_bin` are absolute AGES on an age-based fleet. Check
+    [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)’s
+    offset before reading one.
 11. **`nages` is a count of age bins, not the oldest age.** Ages run
     `minage .. minage + nages - 1`; age `a` sits at index
     `a - minage + 1`. `minage = 1` hides every confusion, and that is
@@ -361,6 +366,34 @@ One line each; the evidence and the measured numbers are in
   objective**, so `obj$fn()` / `obj$gr()` are usable for diagnosing a
   model before fitting it — the analogue of WHAM’s
   `fit_wham(do.fit = FALSE)` and SAM’s `sam.fit(run = FALSE)`.
+- **`fit$obj` is the PROJECTION’s under any HCR but `NoFishing`;
+  `fit$sdrep` too unless the HCR is also `ConstantF`** — at the default
+  `estimateMode = "Estimate"`,
+  [`build_hcr_map()`](https://grantdadams.github.io/Rceattle/reference/build_hcr_map.md)
+  maps every hindcast parameter off, so `obj$par` is
+  `log_Ftarget`/`log_Flimit` alone (2 against the hindcast’s 584 on
+  `Atka2022`) and every delta-method SE of a hindcast quantity is
+  exactly 0. Anything indexing `obj$par` by position must verify it
+  against the vector it is labelling; `fit$identified` and
+  `fit$.conv_hindcast` are the hindcast’s.
+- **`fit$data_list` is the
+  PRE-[`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  list** — it carries no `flt_sel_lead`, `flt_sel_type` or any other
+  [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  output. Those live on `data_list_reorganized`, which
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  does not keep. Recompute from `fleet_control`.
+- **`Bin_first_selected` is a 1-based bin ordinal; `Sel_norm_bin` is an
+  absolute age** — opposite conventions in adjacent columns, and
+  `minage = 1` hides it. See rule 11.
+- **`init_dev`’s ages start at `minage + 1`** — age `minage` in the
+  first year is recruitment, so a `nages-1` axis is shifted, not just
+  short. `.PAR_AXIS_OFFSET` (`R/0-parameter_index.R`) is the registry;
+  `minage = 1` hides the shift everywhere bundled.
+- **The conditioning check reads the correlation matrix, not the
+  covariance** — `condition_number` changed meaning at 5.26.0;
+  `covariance_condition_number` carries the old value, and the 1e6/1e10
+  thresholds now fire less readily.
 - **[`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md)
   bundles the optimizer and uncertainty knobs** — `getsd`,
   `bias.correct`, `loopnum`, `newtonsteps`, `getJointPrecision`,

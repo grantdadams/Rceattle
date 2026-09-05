@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,7 +93,7 @@
 <li>
 <strong>Don’t invent a switch code, a default, or a unit. Ask.</strong> A plausible placeholder that survives into a fit is the worst failure mode this repo has.</li>
 <li>
-<strong>Fleet invariants.</strong> <code>fleet_control$Fleet_code</code> must equal the row number — arrays are dimensioned by <code><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow()</a></code> but indexed by <code>Fleet_code</code>, so read columns by row index <code>i</code>, never by <code>flt</code>. Fleets sharing a <code>Selectivity_index</code> / <code>Catchability_index</code> share ONE parameter block. Selectivity bin columns are indices on the fleet’s own <code>Selectivity_dimension</code>.</li>
+<strong>Fleet invariants.</strong> <code>fleet_control$Fleet_code</code> must equal the row number — arrays are dimensioned by <code><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow()</a></code> but indexed by <code>Fleet_code</code>, so read columns by row index <code>i</code>, never by <code>flt</code>. Fleets sharing a <code>Selectivity_index</code> / <code>Catchability_index</code> share ONE parameter block. Selectivity bin columns are read on the fleet’s own <code>Selectivity_dimension</code>, but not on one convention: <code>Bin_first_selected</code> is a 1-based bin ordinal, while <code>Sel_norm_bin</code>, <code>Sel_norm_bin_upper</code>, <code>Sel_pen_first_bin</code>, <code>Sel_pen_last_bin</code> and <code>Sel_cap_bin</code> are absolute AGES on an age-based fleet. Check <code><a href="reference/rearrange_data.html">rearrange_data()</a></code>’s offset before reading one.</li>
 <li>
 <strong><code>nages</code> is a count of age bins, not the oldest age.</strong> Ages run <code>minage .. minage + nages - 1</code>; age <code>a</code> sits at index <code>a - minage + 1</code>. <code>minage = 1</code> hides every confusion, and that is every bundled dataset and all three live assessments — so write <code>seq_len(nages[sp]) - 1 + minage[sp]</code> and mean it. A plotter taking an <code>age</code>/<code>minage</code> argument resolves it with <code>.rce_age_index()</code> / <code>.rce_age_plus_index()</code>, never by indexing the array directly.</li>
 <li>
@@ -229,6 +229,16 @@
 <strong><code>fit_mod(estimateMode=)</code></strong> takes a string or the integer behind it: <code>"Estimate"</code> (0) = hindcast + HCR projection, <code>"Hindcast"</code> (1) = hindcast only, <code>"Projection"</code> (2) = projection-only from <code>inits</code>, <code>"DebugBuild"</code> (3) = build without optimizing, <code>"DebugOptimize"</code> (4). Prefer the strings.</li>
 <li>
 <strong><code>fit_mod(estimateMode = 4)</code> returns a placeholder objective</strong> (<code>dummy*dummy</code>), because <code><a href="reference/build_map.html">build_map()</a></code> maps out every hindcast parameter. Don’t read anything into a mode-4 objective, gradient, or Hessian. <strong>Mode 3 returns the real objective</strong>, so <code>obj$fn()</code> / <code>obj$gr()</code> are usable for diagnosing a model before fitting it — the analogue of WHAM’s <code>fit_wham(do.fit = FALSE)</code> and SAM’s <code>sam.fit(run = FALSE)</code>.</li>
+<li>
+<strong><code>fit$obj</code> is the PROJECTION’s under any HCR but <code>NoFishing</code>; <code>fit$sdrep</code> too unless the HCR is also <code>ConstantF</code></strong> — at the default <code>estimateMode = "Estimate"</code>, <code><a href="reference/build_hcr_map.html">build_hcr_map()</a></code> maps every hindcast parameter off, so <code>obj$par</code> is <code>log_Ftarget</code>/<code>log_Flimit</code> alone (2 against the hindcast’s 584 on <code>Atka2022</code>) and every delta-method SE of a hindcast quantity is exactly 0. Anything indexing <code>obj$par</code> by position must verify it against the vector it is labelling; <code>fit$identified</code> and <code>fit$.conv_hindcast</code> are the hindcast’s.</li>
+<li>
+<strong><code>fit$data_list</code> is the PRE-<code><a href="reference/rearrange_data.html">rearrange_data()</a></code> list</strong> — it carries no <code>flt_sel_lead</code>, <code>flt_sel_type</code> or any other <code><a href="reference/rearrange_data.html">rearrange_data()</a></code> output. Those live on <code>data_list_reorganized</code>, which <code><a href="reference/fit_mod.html">fit_mod()</a></code> does not keep. Recompute from <code>fleet_control</code>.</li>
+<li>
+<strong><code>Bin_first_selected</code> is a 1-based bin ordinal; <code>Sel_norm_bin</code> is an absolute age</strong> — opposite conventions in adjacent columns, and <code>minage = 1</code> hides it. See rule 11.</li>
+<li>
+<strong><code>init_dev</code>’s ages start at <code>minage + 1</code></strong> — age <code>minage</code> in the first year is recruitment, so a <code>nages-1</code> axis is shifted, not just short. <code>.PAR_AXIS_OFFSET</code> (<code>R/0-parameter_index.R</code>) is the registry; <code>minage = 1</code> hides the shift everywhere bundled.</li>
+<li>
+<strong>The conditioning check reads the correlation matrix, not the covariance</strong> — <code>condition_number</code> changed meaning at 5.26.0; <code>covariance_condition_number</code> carries the old value, and the 1e6/1e10 thresholds now fire less readily.</li>
 <li>
 <strong><code><a href="reference/fit_control.html">fit_control()</a></code> bundles the optimizer and uncertainty knobs</strong> — <code>getsd</code>, <code>bias.correct</code>, <code>loopnum</code>, <code>newtonsteps</code>, <code>getJointPrecision</code>, <code>nlminb_control</code>, and the bias-adjustment flags. <code>getsd = FALSE</code> leaves <code>sdrep</code> NULL, so <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> returns NULL and uncertainty bands are NA. The refit diagnostics forward <code>phase</code>, <code>getsd</code>, the bias-adjust flags and <code>projection_uncertainty</code> — the last two are read back off <code>data_list</code>, because a freshly built <code><a href="reference/fit_control.html">fit_control()</a></code> would silently reset them to its own defaults.</li>
 <li>

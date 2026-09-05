@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1691,13 +1691,66 @@ or the axis labels will not describe what is plotted. Pass
 <code>ylab</code> to override the derived label.</p>
 <p><strong>Confidence intervals.</strong> <code>add_ci = TRUE</code>
 draws a 95% interval. Strictly positive series take it on the log scale,
-<code>exp(log(x) ± 1.92 · sd_log)</code>, using the model’s
+<code>exp(log(x) ± 1.96 · sd_log)</code>, using the model’s
 <code>log_biomass</code> / <code>log_ssb</code> / <code>log_R</code>
 where they exist and the delta-method identity
 <code>sd(log x) = sd(x)/x</code> where they do not. The interval is
 therefore right-skewed and cannot reach zero for a weak year class or a
 depleted stock. See <code><a href="../reference/plot_timeseries.html">?plot_timeseries</a></code> for the full
 derivation.</p>
+<p><code><a href="../reference/plot_selectivity.html">plot_selectivity()</a></code> takes it too, but only on a fit run
+with <code>fit_control(selectivity_se = TRUE)</code> and only for
+estimated, age-based fleets; otherwise it warns and draws none.
+Selectivity is identified only up to a scalar, so
+<code>Sel_norm_bin</code> fixes the curve’s level rather than measuring
+it: the pinned bin has a standard error of 0 and the band widens away
+from it. Quote that anchor with the interval.</p>
+<p>The error comes from whichever <code>sdreport</code> the fit ends on,
+and that is not always the one that estimated the curve. Under
+<code>estimateMode = "Estimate"</code> with an estimating HCR,
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code> re-optimizes the projection with every hindcast
+parameter fixed, so the standard error of every selectivity is exactly
+0. <code>estimateMode = "Projection"</code> estimates no selectivity at
+all, and <code>projection_uncertainty</code> cannot rescue it. Fit the
+hindcast alone, or ask for uncertainty in the projection:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Errors from the hindcast fit -- the usual choice for a selectivity figure.</span></span>
+<span><span class="va">mod</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">data</span>, estimateMode <span class="op">=</span> <span class="st">"Hindcast"</span>,</span>
+<span>               fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span>selectivity_se <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_selectivity.html">plot_selectivity</a></span><span class="op">(</span><span class="va">mod</span>, add_ci <span class="op">=</span> <span class="cn">TRUE</span>, minyr <span class="op">=</span> <span class="fl">2015</span>, maxyr <span class="op">=</span> <span class="fl">2015</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Or keep the HCR projection and carry the hindcast parameters into it.</span></span>
+<span><span class="va">mod</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span>data_list <span class="op">=</span> <span class="va">data</span>, HCR <span class="op">=</span> <span class="fu"><a href="../reference/build_hcr.html">build_hcr</a></span><span class="op">(</span>HCR <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
+<span>               fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span>selectivity_se <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                         projection_uncertainty <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/fit_mod.html">fit_mod()</a></code> warns when the combination would report zeros,
+and <code><a href="../reference/plot_selectivity.html">plot_selectivity()</a></code> declines to draw a band that is 0
+wide at every age rather than render it as certainty. Give
+<code>minyr</code> / <code>maxyr</code> a single year on a time-varying
+fleet: every year drawn gets its own band.</p>
+<p>Two further conditions belong with any interval you report:</p>
+<ul>
+<li>
+<strong>The normalization.</strong> On <code>Atka2022</code> the
+survey pins age 4, and its standard deviation runs 0.33, 0.18, 0.12,
+0.00, 0.14 over ages 1–5; the fishery pins nothing, normalizes to a mean
+of one, and is flattest mid-range instead. Same fit, same data — the
+shape of the band is a property of <code>Sel_norm_bin</code>, not of the
+information in the data.</li>
+<li>
+<strong>The smoothing.</strong> Under
+<code>random_sel = FALSE</code> the annual deviations are penalized
+rather than integrated, so these are penalized-likelihood errors
+conditional on <code>Sel_curve_pen1</code> / <code>Sel_curve_pen2</code>
+and on a fixed <code>Time_varying_sel_sd</code>. Change the smoothing
+and both the curve and its band move, with nothing in the data to
+arbitrate.</li>
+</ul>
+<p>The band is marginal. Selectivity error is strongly correlated with F
+and q through the same confounding, so carrying it into a derived
+quantity needs the covariance
+(<code>fit_control(getReportCovariance = TRUE)</code>), not this
+interval alone.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

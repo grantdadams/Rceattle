@@ -1,5 +1,263 @@
 # Changelog
 
+## Rceattle 5.27.0
+
+### New features
+
+- **A standard error for the selectivity curve.**
+  `fit_control(selectivity_se = TRUE)` makes \[TMB::sdreport()\] return
+  `log_sel_at_age`, so a fitted selectivity can be drawn with a
+  confidence interval instead of as a bare line.
+  `exp(value +/- 1.96 * sd)` stays positive and is right-skewed, the
+  same treatment `log_biomass`, `log_ssb` and `log_R` have had since
+  5.20.0. `log_sel_at_age_index` is reported alongside it and gives each
+  row’s fleet, sex, **absolute age and calendar year** –
+  `minage + index` and `styr + index`, not array positions.
+
+  **On the log scale, not the logit.** A logit needs selectivity in (0,
+  1), and the non-parametric forms renormalize to a *mean* of one rather
+  than a maximum of one: on `Atka2022`, 58% of `sel_at_age` exceeds 1
+  and the largest entry is 3.06, so a logit is undefined across most of
+  the array.
+
+  Off by default. The delta method forms a Jacobian of every reported
+  value against every parameter, so the cost is the product of the two:
+  `Atka2022` adds 1,012 values against 584 parameters, and a 16-fleet
+  three-species assessment around 31,000. The objective is untouched
+  either way – an `ADREPORT` is a report, not a likelihood term.
+
+  **Only cells that are estimated and strictly positive are reported**,
+  because one `log(0) = -Inf` on the tape turns *every* quantity in that
+  `sdreport` into `NaN`, biomass and ssb included, not just selectivity.
+  So the report skips `Selectivity = "Fixed"` fleets (read from
+  `emp_sel_obs`, which leaves 0 wherever a year has no empirical row –
+  228 cells on `BS2017SS`’s `EIT_Pollock`), length-based fleets
+  (`sel_at_age` there is `sum(growth_matrix * sel_at_length)`, 0 for an
+  age overlapping no selected length bin), mirrored fleets and array
+  padding (neither adds a curve), and every bin below
+  `Bin_first_selected`, where `selectivity.hpp` zeroes the curve
+  outright. The skipped set is fixed by the data, never by a parameter
+  value. Nothing is lost: a `Fixed` curve and a mirror both have their
+  lead’s standard error or none by construction.
+
+  A reported *value* can still underflow, which the skip rule cannot
+  anticipate: a double-normal peaking above the oldest age with a narrow
+  ascending limb puts `exp(-x^2/2)` below 1e-308, and 11 cells of
+  `Atka2022`’s first year go to exactly 0 that way. The log is therefore
+  floored at 1e-300, using a `max2()` that is exact above the floor – on
+  a fitted `Atka2022` all 1,012 reported values are bit-identical to
+  `log(sel_at_age)` taken without it.
+
+  A bin the normalization pins carries an SE of exactly 0, the honest
+  answer for a value that is 1 by construction.
+
+  **The error belongs to whichever `sdreport` the fit ends on**, which
+  is not always the fit that estimated the curve. Under
+  `estimateMode = "Estimate"` with an estimating HCR,
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  re-optimizes the projection with every hindcast parameter mapped off,
+  so the standard error of every selectivity comes back exactly 0. Use
+  `estimateMode = "Hindcast"`, or
+  `fit_control(projection_uncertainty = TRUE)`.
+  `estimateMode = "Projection"` estimates no selectivity at all, and
+  `projection_uncertainty` cannot change that, because
+  `build_map(debug = TRUE)` has already mapped the hindcast off.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  warns on each of these before fitting, and warns again if
+  `getsd = FALSE` leaves nothing to report.
+
+- **`plot_selectivity(add_ci = TRUE)`** draws that interval under the
+  curve it belongs to. It needs a fit run with
+  `fit_control(selectivity_se = TRUE)` and declines with a warning
+  naming the option otherwise, rather than drawing a bare line that
+  would read as certainty – and declines for the whole figure if any
+  model in an overlay lacks the errors, since a band on some panels and
+  not others says “this fleet is certain” rather than “this fit was not
+  asked”.
+
+  A fleet mirroring another’s `Selectivity_index` reports no rows of its
+  own, so it borrows its lead’s band, but only where the two curves
+  agree:
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+  merely warns when a shared group differs in a shaping column, and a
+  differing `Sel_norm_bin` alone rescales the curve. Every year drawn
+  gets its own band, so pair `add_ci` with `minyr` / `maxyr` on a
+  time-varying fleet.
+
+  A fit reporting an error of 0 at *every* age is declined the same way,
+  since the band would be a hairline reading as certainty. That is what
+  an HCR projection returns; the warning names the `estimateMode` to
+  refit with.
+
+### Bug fixes
+
+- **[`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  names the column and fleet when a switch reaches it as `NA`.**
+  `Selectivity` or `Time_varying_sel` arriving unset on an active fleet
+  failed at the first `==` against it, with “missing value where
+  TRUE/FALSE needed” and no indication of which column or fleet. The
+  message names
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md),
+  which is the validator –
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  already calls
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md),
+  and that canonicalizes rather than validates. It keeps the validator’s
+  exemption: a fleet that is `Off` may leave both unset, which now also
+  survives
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)’s
+  own selectivity-form checks and the random-effects sigma loop, neither
+  of which was gated on `Fleet_type`. `Catchability`, where `NA` is
+  legal on any fleet, is no longer compared as though it were a string.
+
+- **A 2DAR1 or 3DAR1 fleet no longer warns about
+  `Time_varying_sel = "Off"`.** The AR1 forms supply their own annual
+  deviations, so any other `Time_varying_sel` mode is overridden and the
+  builder says so – but `"Off"` asks for no extra deviation layer, which
+  is what an AR1 fleet already has, so it is not a conflict. Same class
+  of guard as the `"Hake"` fix in 5.3.0.
+
+- **[`report_tables()`](https://grantdadams.github.io/Rceattle/reference/report_tables.md)
+  names its objectives for what they are.** `model` gains `marginal_nll`
+  / `joint_nll` in place of `marginal_objective` / `joint_objective`,
+  and `jitter` gains `best_nll` / `worst_nll` / `nll_range` in place of
+  `best_objective` / `worst_objective` / `objective_range`. All six are
+  negative log-likelihoods on the `jnll_comp` scale, so a **smaller**
+  value is the better fit; `_objective` said nothing about which, and
+  `_likelihood` would have argued for the wrong direction.
+  `fit$opt$objective` is
+  [`nlminb()`](https://rdrr.io/r/stats/nlminb.html)’s own name and is
+  unchanged.
+
+- **[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  no longer prints the “Model did not converge” banner.** It fired when
+  an `sdreport` was requested and did not return, which is a Hessian
+  that would not invert – not an optimizer that failed to converge, and
+  a fit can reach a good optimum with a non-positive-definite Hessian.
+  The convergence battery reports the same condition as
+  `sdreport_failed`, says what it means, and prints at `verbose = 0` as
+  well. `fit$identified` is unchanged.
+
+- **Two long-standing `R CMD check --as-cran` warnings are cleared.**
+  [`print.rceattle_report()`](https://grantdadams.github.io/Rceattle/reference/print.rceattle_report.md)’s
+  box-drawing glyphs are written as `\u2514\u2500` / `\u251c\u2500`
+  escapes, so the R code is ASCII and the package is portable – the
+  printed tree is byte-identical. `tibble` is declared in `Suggests`,
+  which `test-data-check-age-coverage.R` has used (guarded) for several
+  versions. CI runs `error-on: "error"`, so neither had ever failed a
+  build.
+
+- **[`quantity_dictionary()`](https://grantdadams.github.io/Rceattle/reference/quantity_dictionary.md)
+  described `sel_at_age` as “normalized to a maximum of one”.** It is
+  normalized per `Sel_norm_bin`, which for the non-parametric forms –
+  the default – is a mean of one, so values above one are ordinary. It
+  is also 0 below the fleet’s first selected bin. The units column said
+  “proportion” for the same reason and now says “unitless”.
+  `log_sel_at_age` and `log_sel_at_age_index` are documented alongside
+  them.
+
+## Rceattle 5.26.0
+
+### New features
+
+- **[`parameter_index()`](https://grantdadams.github.io/Rceattle/reference/parameter_index.md)
+  locates every estimated parameter in the model’s own coordinates.**
+  TMB names each element of `obj$par` after its parameter block, so a
+  diagnostic could report that `sel_coff_dev` was non-identifiable but
+  not which of its 392 elements. Returns one row per estimated parameter
+  with `species`, `fleet`, `sex`, `age`, `bin`, `year` and `slot`
+  columns plus a rendered `label`. Recovered through TMB’s own
+  `parList()`, so it tracks
+  [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md)
+  exactly: mapped-off parameters are absent, and fleets sharing a
+  `Selectivity_index` or `Catchability_index` appear once, with
+  `n_cells` counting the cells they drive. An axis constant across the
+  model is left out of the label; the structured columns carry it either
+  way.
+
+  Ages are absolute, and an axis that omits the youngest ages says so:
+  `init_dev` reports ages `minage + 1` upward, because `ceattle.cpp`
+  reads `init_dev(sp, age - 1)` over `age = 1 .. nages-1` and age
+  `minage` in the first year is recruitment. Reading that axis from
+  `minage` would have named every initial-age deviation one age too
+  young and never named the oldest.
+
+  It describes `fit$obj`, which under `estimateMode = "Estimate"` with
+  any HCR but `"NoFishing"` is the *projection* object – `log_Ftarget`
+  and `log_Flimit` alone, since
+  [`build_hcr_map()`](https://grantdadams.github.io/Rceattle/reference/build_hcr_map.md)
+  maps every hindcast parameter off. Pass a fit run with
+  `estimateMode = "Hindcast"` to browse the hindcast parameters.
+
+### Bug fixes
+
+- **The convergence battery names the parameters it flags.**
+  `estimability`, `parameters_on_bounds` and `hessian_conditioning`
+  reported the parameter block and left the reader to find the element.
+  They now summarise by coordinate, ordinal axes collapsed to ranges:
+
+      [FAIL] estimability  49 non-identifiable fixed parameter(s)
+        sel_coff_dev  GOA_pollock_fishery, bins 1-8, 2013-2018  (41)
+
+  `parameters_on_bounds` gains a `where` column.
+
+  The three do not all count positions in the same vector:
+  `estimability` and `parameters_on_bounds` are captured at the hindcast
+  optimization, while `hessian_conditioning` reads the `sdreport`, which
+  under an estimating HCR belongs to the projection fit.
+  [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now stores the hindcast index alongside the hindcast parameter vector,
+  and each check verifies that the index it uses names that vector
+  before labelling anything – a coordinate naming the wrong parameter is
+  worse than no coordinate, so a mismatch prints block names alone.
+
+- **`hessian_conditioning` is read on the correlation matrix.** The
+  covariance condition number is not scale-invariant (`log_F` near -2,
+  `sel_inf` near 10), so rescaling a parameter moved it without changing
+  the model. The message now leads with the square root, a ratio of
+  standard errors – and, because the matrix is scaled by those errors,
+  one measured against each parameter’s own rather than in the
+  parameters’ own units.
+
+  **`data$condition_number` therefore means something different from
+  5.25.1.** Standardising lowers it by 0.4-1.1 orders on the models
+  measured, so at unchanged `WARN` 1e6 / `FAIL` 1e10 the check fires
+  less readily; a badly scaled but unconfounded fit is no longer
+  flagged. `data$se_ratio` and `data$covariance_condition_number` are
+  new, the latter carrying the old value. Code comparing condition
+  numbers across this boundary needs the new name.
+
+- **Selectivity slot labels follow the fleet’s `Selectivity`.** Slot 2
+  of `sel_inf` is a descending inflection only for the double-logistic
+  family: it is `logit(right_floor)` under `DoubleNormal` and the free
+  age-1 log-selectivity under `LogisticPM`.
+
+- **`sel_curve_pen` slots are AR1 correlations.** The block is estimated
+  only under 2DAR1 / 3DAR1, where its slots hold logit-scale
+  correlations across bins, years and cohorts – not the `fleet_control`
+  shape and curvature penalty weights, which are never estimated.
+
+- **`rec_pars` slot 2 is the SRR alpha**, not steepness; steepness is
+  derived from alpha and `SPR0`. `growth_log_sd` is the standard
+  deviation of length-at-age at the minimum and maximum age (`L1` /
+  `Linf`), and `log_growth_pars` now names its four slots rather than
+  numbering them.
+
+- **Three
+  [`parameter_dictionary()`](https://grantdadams.github.io/Rceattle/reference/parameter_dictionary.md)
+  dimensions were wrong.** `log_F` declared `[n_fsh, nyrs]` against an
+  `[n_flt, nyrs_hind]` array; `log_pop_scalar` `[nspp, nyrs]` against an
+  age axis; `M1_dev_log_sd` `[nspp, nsex, 2]` against `[nspp, nsex]`
+  (also corrected in `ceattle.cpp`). Documentation only, no fit changes.
+  `test-schema-parameter-index.R` now checks every block’s declared rank
+  *and* extent against the built array.
+
+- **[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  no longer prints the `check_estimability` table at `verbose = 1`.** It
+  is one row per parameter, each named after its block, and the
+  convergence record now carries the same verdict by coordinate. Still
+  at `verbose > 1`; `fit$identified` is unchanged.
+
 ## Rceattle 5.25.1
 
 ### Bug fixes

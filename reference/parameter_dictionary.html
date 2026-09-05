@@ -13,7 +13,7 @@ to, what it means, and its dimensions."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,8 +103,9 @@ fitted values are already back-transformed in <code>fitted$quantities</code>, so
 mainly needed when reading <code>estimated_params</code> or an <code>sdreport()</code> directly.</p>
 <p>Dimensions use the model's own notation: <code>nspp</code> species, <code>nsex</code> sexes,
 <code>nages</code> age bins, <code>nyrs</code> years including the projection, <code>nyrs_hind</code> hindcast
-years only, <code>n_flt</code> fleets, <code>n_fsh</code> fishery fleets and <code>n_sel</code> selectivity
-blocks.</p>
+years only, <code>n_flt</code> fleets and <code>n_sel</code> selectivity blocks. <code>n_sel</code> equals
+<code>n_flt</code>: fleets sharing a <code>Selectivity_index</code> share one block through the
+map, not through a narrower array.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -122,16 +123,16 @@ blocks.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4        rec_dev recruitment deviations recruitment</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5       R_log_sd                sigma_R recruitment</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 6       init_dev initial-age deviations recruitment</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                    meaning</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   Placeholder parameter; the only free parameter under estimateMode = 4.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                         Multiplier on user-supplied numbers-at-age when estDynamics &gt; 0.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3          Stock-recruit parameters: mean recruitment (or R0), and the SRR alpha and beta.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                                 Annual log-scale recruitment deviations.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5 Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                              Deviations defining the initial (first-year) age structure.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                                                                              meaning</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                                                             Placeholder parameter; the only free parameter under estimateMode = 4.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                                                                                   Multiplier on user-supplied numbers-at-age when estDynamics &gt; 0.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                                                    Stock-recruit parameters: mean recruitment (or R0), and the SRR alpha and beta.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                                                                                           Annual log-scale recruitment deviations.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                                           Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6 Deviations defining the initial (first-year) age structure; one per age from minage + 1 upward, since age minage in the first year is recruitment.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>              dims</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1             [1]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2    [nspp, nyrs]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2   [nspp, nages]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3       [nspp, 3]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4    [nspp, nyrs]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5          [nspp]</span>

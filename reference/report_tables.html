@@ -13,7 +13,7 @@ a model column, so passing several fits gives a like-for-like comparison."></hea
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,9 +129,10 @@ section described above. Each carries a <code>model</code> column.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The sections follow the AFSC Alaska Groundfish Stock Assessment Guidelines
 for what a chapter reports:</p><dl><dt><code>model</code></dt>
-<dd><p>One row per fit: dimensions, switches, the objective, the
-number of estimated parameters, AIC, the maximum gradient, whether the
-Hessian was positive definite, and the run time.</p></dd>
+<dd><p>One row per fit: dimensions, switches, the marginal and
+joint negative log-likelihoods, the number of estimated parameters, AIC,
+the maximum gradient, whether the Hessian was positive definite, and the
+run time.</p></dd>
 
 <dt><code>parameters</code></dt>
 <dd><p>Every estimated parameter with its standard error, and
@@ -195,14 +196,16 @@ last projection year, which is the equilibrated unfished reference, so the
 series is meaningful there.</p>
     </div>
     <div class="section level2">
-    <h2 id="two-objectives">Two objectives<a class="anchor" aria-label="anchor" href="#two-objectives"></a></h2>
+    <h2 id="two-negative-log-likelihoods">Two negative log-likelihoods<a class="anchor" aria-label="anchor" href="#two-negative-log-likelihoods"></a></h2>
 
 
-<p><code>model</code> reports both. <code>marginal_objective</code> is what the optimizer minimized —
-random effects integrated out by the Laplace approximation — and is what
-<code>AIC</code> is built from. <code>joint_objective</code> is what the template evaluated at the
-conditional modes, so it is what <code>likelihood</code> sums to. They are equal when
-<code>n_random</code> is 0 and differ by the Laplace correction otherwise.</p>
+<p><code>model</code> reports both, and <strong>both are minimized</strong>: a smaller value is the
+better fit. <code>marginal_nll</code> is the negative log marginal likelihood the
+optimizer minimized – random effects integrated out by the Laplace
+approximation – and is what <code>AIC</code> is built from. <code>joint_nll</code> is what the
+template evaluated at the conditional modes, so it is what <code>likelihood</code> sums
+to, on the same scale as <code>jnll_comp</code>. They are equal when <code>n_random</code> is 0 and
+differ by the Laplace correction otherwise.</p>
     </div>
     <div class="section level2">
     <h2 id="supplying-diagnostics-for-several-models">Supplying diagnostics for several models<a class="anchor" aria-label="anchor" href="#supplying-diagnostics-for-several-models"></a></h2>

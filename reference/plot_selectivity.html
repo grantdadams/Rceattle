@@ -13,7 +13,7 @@ the two gets one figure per dimension."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -84,7 +84,8 @@ the two gets one figure per dimension.</p>
 <span>  minyr <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  maxyr <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  alpha <span class="op">=</span> <span class="fl">0.25</span>,</span>
-<span>  colour_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"year"</span>, <span class="st">"model"</span><span class="op">)</span></span>
+<span>  colour_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"year"</span>, <span class="st">"model"</span><span class="op">)</span>,</span>
+<span>  add_ci <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -150,6 +151,11 @@ transparency, i.e. under <code>colour_by = "model"</code>.</p></dd>
 <dd><p>What colour separates: <code>"year"</code> (a fan), <code>"model"</code>, or
 <code>"auto"</code> (the default) for year with a single model and model with several.</p></dd>
 
+
+<dt id="arg-add-ci">add_ci<a class="anchor" aria-label="anchor" href="#arg-add-ci"></a></dt>
+<dd><p>Add a 95% confidence interval. Only available where the
+plotted quantity carries standard errors; warns and draws none otherwise.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -168,6 +174,29 @@ choice either way, and <code>alpha</code> sets the faintest end.</p>
 <p>Line type separates the sexes, and <code>lty</code> supplies its values. Panels are
 fleets, so <code>spnames</code> does not label anything here – it only lets <code>species</code>
 select by name.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="confidence-intervals">Confidence intervals<a class="anchor" aria-label="anchor" href="#confidence-intervals"></a></h2>
+    <p><code>add_ci = TRUE</code> draws <code>exp(log(sel) +/- 1.96 * sd)</code>, so the band is positive
+and right-skewed. It needs a fit run with <code>fit_control(selectivity_se = TRUE)</code>.</p>
+<p>Only estimated, age-based fleets carry one. A length-based fleet is drawn on
+<code>sel_at_length</code>, which is what was fitted and carries no error; a
+<code>Selectivity = "Fixed"</code> fleet estimates nothing; and no fleet gets a band
+below its first selected bin (<code>Bin_first_selected</code>, a 1-based bin ordinal –
+not an absolute age), where selectivity is 0 by construction. A
+fleet mirroring another's <code>Selectivity_index</code> has no errors of its own and
+borrows its lead's, but only where the two curves agree – <code><a href="data_check.html">data_check()</a></code> only
+warns when a shared group differs in a shaping column such as <code>Sel_norm_bin</code>.</p>
+<p>Every year drawn gets its own band, so a time-varying fleet is dense. Pair it
+with <code>minyr</code> / <code>maxyr</code> on a single year, or use it on a time-invariant fleet.</p>
+<p>The interval is <strong>relative to the normalization anchor</strong>, so quote the anchor
+with it. Selectivity is identified only up to a scalar, jointly with F for a
+fishery and q for a survey, so <code>Sel_norm_bin</code> fixes the level rather than
+measuring it: the bin it pins has a standard error of exactly 0 and the band
+widens away from it. On a penalized fit (<code>random_sel = FALSE</code>) the band is also
+conditional on the smoothing, and it is marginal rather than joint. See
+<code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code> for both, and for the
+<code>estimateMode</code> that determines whether the fit reports an error at all.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

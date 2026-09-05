@@ -17,7 +17,7 @@ to fit_mod() can stay focused on the model spec:'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.25.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -82,6 +82,7 @@ to <code><a href="fit_mod.html">fit_mod()</a></code> can stay focused on the mod
 <span>  getJointPrecision <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  getReportCovariance <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  projection_uncertainty <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  selectivity_se <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  comp_offset <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  bias_adjust_obs <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  bias_adjust_proc <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -125,6 +126,11 @@ of <code>ADREPORT</code> variables. Default <code>FALSE</code>.</p></dd>
 parameter uncertainty in projections when using an HCR (refits with all
 hindcast and biological-reference-point parameters turned on). Default
 <code>FALSE</code> for speed.</p></dd>
+
+
+<dt id="arg-selectivity-se">selectivity_se<a class="anchor" aria-label="anchor" href="#arg-selectivity-se"></a></dt>
+<dd><p>logical. If <code>TRUE</code>, <code><a href="https://rdrr.io/pkg/TMB/man/sdreport.html" class="external-link">TMB::sdreport()</a></code> also returns a
+standard error for log selectivity-at-age. Default <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-comp-offset">comp_offset<a class="anchor" aria-label="anchor" href="#arg-comp-offset"></a></dt>
@@ -212,6 +218,34 @@ print updates of model fit and TMB estimation progress. Default
 supplied, the values in the <code>fit_control</code> object override the
 corresponding individual arguments to <code><a href="fit_mod.html">fit_mod()</a></code>. Individual
 arguments are kept for backward compatibility.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="selectivity-standard-errors">Selectivity standard errors<a class="anchor" aria-label="anchor" href="#selectivity-standard-errors"></a></h2>
+    <p><code>selectivity_se</code> needs <code>getsd = TRUE</code>, and the error it reports is the one
+belonging to whichever <code>sdreport</code> the fit ends on. Under
+<code>estimateMode = "Estimate"</code> with any HCR that re-optimizes, that is the
+<em>projection</em> fit, in which every selectivity parameter is mapped off, so
+every error comes back exactly 0. <code>estimateMode = "Projection"</code> estimates no
+selectivity at all and reports none where it runs no <code>sdreport</code>. Use
+<code>estimateMode = "Hindcast"</code>, or <code>"Estimate"</code> with
+<code>projection_uncertainty = TRUE</code>, to get an error from a fit that estimated
+the curve. <code><a href="fit_mod.html">fit_mod()</a></code> warns before fitting in each of these cases.</p>
+<p>Off by default because the delta method forms a Jacobian of every reported
+value against every parameter, so its cost is the product of the two: on
+<code>Atka2022</code> it adds 1,012 values against 584 parameters.</p>
+<p>The error is on the log scale, not the logit, because the non-parametric
+forms normalize to mean selectivity 1 rather than a maximum of 1 – 58% of
+<code>Atka2022</code>'s <code>sel_at_age</code> exceeds 1, to 3.06 – so a logit is undefined over
+most of the array.</p>
+<p>Rows cover estimated, age-based lead fleets only, and start at each fleet's
+first selected bin. Four kinds of cell hold a structural zero – a <code>Fixed</code>
+fleet's empirical curve, a length-based fleet's growth-matrix projection, a
+bin below <code>Bin_first_selected</code>, and array padding – and one <code>log(0) = -Inf</code>
+on the tape turns <em>every</em> quantity in the <code>sdreport</code> to <code>NaN</code>, biomass and SSB
+included. All four are identified from the data, so the reported set never
+depends on a parameter value; a value that underflows to zero is floored, so
+it cannot reintroduce the <code>-Inf</code>. See <code><a href="plot_selectivity.html">plot_selectivity()</a></code>, which draws the
+interval.</p>
     </div>
 
     <div class="section level2">

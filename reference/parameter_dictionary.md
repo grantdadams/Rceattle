@@ -41,8 +41,9 @@ reading `estimated_params` or an `sdreport()` directly.
 
 Dimensions use the model's own notation: `nspp` species, `nsex` sexes,
 `nages` age bins, `nyrs` years including the projection, `nyrs_hind`
-hindcast years only, `n_flt` fleets, `n_fsh` fishery fleets and `n_sel`
-selectivity blocks.
+hindcast years only, `n_flt` fleets and `n_sel` selectivity blocks.
+`n_sel` equals `n_flt`: fleets sharing a `Selectivity_index` share one
+block through the map, not through a narrower array.
 
 ## See also
 
@@ -61,16 +62,16 @@ head(parameter_dictionary())
 #> 4        rec_dev recruitment deviations recruitment
 #> 5       R_log_sd                sigma_R recruitment
 #> 6       init_dev initial-age deviations recruitment
-#>                                                                                    meaning
-#> 1                   Placeholder parameter; the only free parameter under estimateMode = 4.
-#> 2                         Multiplier on user-supplied numbers-at-age when estDynamics > 0.
-#> 3          Stock-recruit parameters: mean recruitment (or R0), and the SRR alpha and beta.
-#> 4                                                 Annual log-scale recruitment deviations.
-#> 5 Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.
-#> 6                              Deviations defining the initial (first-year) age structure.
+#>                                                                                                                                              meaning
+#> 1                                                                             Placeholder parameter; the only free parameter under estimateMode = 4.
+#> 2                                                                                   Multiplier on user-supplied numbers-at-age when estDynamics > 0.
+#> 3                                                                    Stock-recruit parameters: mean recruitment (or R0), and the SRR alpha and beta.
+#> 4                                                                                                           Annual log-scale recruitment deviations.
+#> 5                                                           Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.
+#> 6 Deviations defining the initial (first-year) age structure; one per age from minage + 1 upward, since age minage in the first year is recruitment.
 #>              dims
 #> 1             [1]
-#> 2    [nspp, nyrs]
+#> 2   [nspp, nages]
 #> 3       [nspp, 3]
 #> 4    [nspp, nyrs]
 #> 5          [nspp]

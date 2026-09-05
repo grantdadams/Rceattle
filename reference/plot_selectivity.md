@@ -22,7 +22,8 @@ plot_selectivity(
   minyr = NULL,
   maxyr = NULL,
   alpha = 0.25,
-  colour_by = c("auto", "year", "model")
+  colour_by = c("auto", "year", "model"),
+  add_ci = FALSE
 )
 ```
 
@@ -89,6 +90,11 @@ plot_selectivity(
   What colour separates: `"year"` (a fan), `"model"`, or `"auto"` (the
   default) for year with a single model and model with several.
 
+- add_ci:
+
+  Add a 95% confidence interval. Only available where the plotted
+  quantity carries standard errors; warns and draws none otherwise.
+
 ## Value
 
 A `ggplot`, or for a model mixing age- and length-based fleets a named
@@ -108,3 +114,35 @@ faintest end.
 Line type separates the sexes, and `lty` supplies its values. Panels are
 fleets, so `spnames` does not label anything here – it only lets
 `species` select by name.
+
+## Confidence intervals
+
+`add_ci = TRUE` draws `exp(log(sel) +/- 1.96 * sd)`, so the band is
+positive and right-skewed. It needs a fit run with
+`fit_control(selectivity_se = TRUE)`.
+
+Only estimated, age-based fleets carry one. A length-based fleet is
+drawn on `sel_at_length`, which is what was fitted and carries no error;
+a `Selectivity = "Fixed"` fleet estimates nothing; and no fleet gets a
+band below its first selected bin (`Bin_first_selected`, a 1-based bin
+ordinal – not an absolute age), where selectivity is 0 by construction.
+A fleet mirroring another's `Selectivity_index` has no errors of its own
+and borrows its lead's, but only where the two curves agree –
+[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
+only warns when a shared group differs in a shaping column such as
+`Sel_norm_bin`.
+
+Every year drawn gets its own band, so a time-varying fleet is dense.
+Pair it with `minyr` / `maxyr` on a single year, or use it on a
+time-invariant fleet.
+
+The interval is **relative to the normalization anchor**, so quote the
+anchor with it. Selectivity is identified only up to a scalar, jointly
+with F for a fishery and q for a survey, so `Sel_norm_bin` fixes the
+level rather than measuring it: the bin it pins has a standard error of
+exactly 0 and the band widens away from it. On a penalized fit
+(`random_sel = FALSE`) the band is also conditional on the smoothing,
+and it is marginal rather than joint. See
+[`vignette("model-options-and-functionality")`](https://grantdadams.github.io/Rceattle/articles/model-options-and-functionality.md)
+for both, and for the `estimateMode` that determines whether the fit
+reports an error at all.
