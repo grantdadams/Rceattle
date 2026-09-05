@@ -181,6 +181,7 @@ reference:
   - model_average
   - rename_output
   - parameter_dictionary
+  - parameter_index
   - quantity_dictionary
   - report_tables
   - standard_output

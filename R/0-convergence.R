@@ -36,7 +36,7 @@
 # (mle, lower, upper) table.
 .capture_opt_convergence <- function(opt, obj = NULL, bounds = NULL,
                                      mapFactor = NULL, random_vars = NULL,
-                                     getsd = NA) {
+                                     getsd = NA, data_list = NULL) {
   if (is.null(opt) && is.null(obj)) return(NULL)
 
   # Fixed-effect MLE vector (named), recomputed from the object.
@@ -113,8 +113,15 @@
     }
   }
 
+  # Where each hindcast parameter sits in the model. Built here because an HCR
+  # projection replaces obj with one holding log_Ftarget / log_Flimit alone.
+  index <- if (!is.null(obj) && !is.null(data_list)) {
+    tryCatch(.rce_par_index(obj, data_list), error = function(e) NULL)
+  } else NULL
+
   list(
     par                = if (!is.null(bnd_par)) bnd_par else par_fixed,
+    index              = index,
     gradient           = gg,
     lower              = bnd_lo,
     upper              = bnd_hi,
@@ -359,28 +366,53 @@
   out
 }
 
-# Hessian eigen-identifiability. Reads the fixed-effect covariance
-# (sdrep$cov.fixed); its eigenvalues are 1/(Hessian eigenvalues), so the
-# condition number kappa = lambda_max/lambda_min of cov.fixed equals the Hessian
-# condition number, and the eigenvector of the LARGEST covariance eigenvalue is
-# the least-identified parameter direction. Complements (does not duplicate)
-# TMBhelper::check_estimability: that gives a per-parameter verdict; this gives
-# the severity (kappa) and the offending linear *combination*.
-.check_hessian_eigen <- function(object) {
+# How nearly linearly dependent the estimates are. Reads the fixed-effect
+# covariance (sdrep$cov.fixed), standardized to a correlation; its eigenvalues
+# are variances along directions in parameter space, so kappa = max/min is the
+# severity and the eigenvector of the largest is the least-determined direction.
+# Complements (does not duplicate) TMBhelper::check_estimability: that gives a
+# per-parameter verdict, this a continuous severity and the linear *combination*.
+.check_hessian_eigen <- function(object, index = .conv_par_index(object)) {
   out <- list()
   cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
   if (is.null(cov) || !is.matrix(cov) || nrow(cov) < 2L) return(out)
-  ev <- tryCatch(eigen(cov, symmetric = TRUE), error = function(e) NULL)
+  # Severity is read on the CORRELATION matrix. The covariance condition number
+  # is not scale-invariant -- log_F sits near -2 and sel_inf near 10, so
+  # rescaling a parameter moves it without changing the model. Standardising
+  # leaves a measure of how nearly linearly dependent the estimates are.
+  # The covariance number is still reported, as the numerical cost of inverting
+  # the Hessian; see inst/dev/TRAPS.md for the measured values.
+  se <- sqrt(diag(cov))
+  ok <- is.finite(se) & se > 0
+  if (sum(ok) < 2L) return(out)
+  keep_i <- which(ok)
+  corr <- cov[ok, ok, drop = FALSE] / outer(se[ok], se[ok])
+
+  cov_ev <- tryCatch(eigen(cov[ok, ok, drop = FALSE], symmetric = TRUE,
+                           only.values = TRUE), error = function(e) NULL)
+  cov_kappa <- NA_real_
+  if (!is.null(cov_ev)) {
+    cp <- cov_ev$values[is.finite(cov_ev$values) & cov_ev$values > 0]
+    if (length(cp) >= 2L) cov_kappa <- max(cp) / min(cp)
+  }
+
+  ev <- tryCatch(eigen(corr, symmetric = TRUE), error = function(e) NULL)
   if (is.null(ev)) return(out)
   vals <- ev$values
   pos  <- vals[is.finite(vals) & vals > 0]
   if (length(pos) < 2L) return(out)
 
-  kappa <- max(pos) / min(pos)               # = condition number of the Hessian
-  v  <- ev$vectors[, which.max(vals)]         # flattest Hessian direction (unit norm)
+  kappa <- max(pos) / min(pos)
+  # Correlation eigenvalues are variances of the STANDARDIZED estimates, so the
+  # square root is a ratio of standard errors each measured against its own
+  # parameter's -- the readable form of the same number.
+  se_ratio <- sqrt(kappa)
+  v  <- ev$vectors[, which.max(vals)]         # least-determined direction (unit norm)
   nm <- rownames(cov)
-  if (is.null(nm) || length(nm) != length(v)) nm <- names(object$sdrep$par.fixed)
-  if (is.null(nm) || length(nm) != length(v)) nm <- paste0("p", seq_along(v))
+  if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- names(object$sdrep$par.fixed)
+  if (is.null(nm) || length(nm) != length(cov[, 1])) nm <- paste0("p", seq_len(nrow(cov)))
+  nm_full <- nm                 # one name per row of cov, before the finite-se subset
+  nm <- nm[keep_i]
 
   # The eigenvector is unit-norm, so v^2 partitions the direction across
   # coefficients. Aggregate by parameter block (a vector parameter shares one
@@ -400,12 +432,41 @@
   top   <- data.frame(param = names(share), share = round(as.numeric(share), 3))
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
-  msg <- sprintf("Hessian condition number = %.2g.%s", kappa,
-    if (sev != "OK")
-      sprintf(" Least-identified direction loads on: %s.", combo) else "")
+  msg <- sprintf(
+    "Condition number = %.2g: with each parameter measured against its own standard error, the least-determined combination is %.0fx more uncertain than the best-determined one.%s",
+    kappa, se_ratio,
+    if (sev != "OK") sprintf(" It loads on: %s.", combo) else "")
+
+  # Where the loading sits INSIDE each named block. The direction is spread over
+  # coefficients rather than confined to a set, so the parameters carrying the
+  # block's top 90% are summarised by coordinate and the count is printed: a
+  # ridge over ten years and one over a single year read very differently.
+  if (sev != "OK") {
+    # cov.fixed's rows are the sdreport's parameter vector, which is the
+    # projection fit's under an estimating HCR and the hindcast's otherwise.
+    idx <- .conv_index_for(index, nm_full)
+    if (!is.null(idx)) {
+      lines <- character(0)
+      for (b in names(share)[seq_len(ntop)]) {
+        inb <- which(nm == b)
+        o   <- inb[order(v[inb]^2, decreasing = TRUE)]
+        keep <- o[seq_len(max(1L, which(cumsum(v[o]^2) / sum(v[o]^2) >= 0.90)[1]))]
+        # `v` and `nm` index the parameters kept above, so map back before
+        # asking parameter_index() where they are.
+        s <- .rce_par_summary(keep_i[keep], idx, max_lines = 2L)
+        if (length(s) > 0) {
+          lines <- c(lines, sub("\\((\\d+)\\)$",
+                                sprintf("(\\1 of %d, %.0f%% of the direction)",
+                                        length(inb), 100 * share[[b]]), s))
+        }
+      }
+      if (length(lines) > 0) msg <- paste0(msg, "\n", paste(lines, collapse = "\n"))
+    }
+  }
   out$hessian_conditioning <- .conv_record(
     "hessian_conditioning", "fit", sev, msg,
-    list(condition_number = kappa, loadings = top))
+    list(condition_number = kappa, se_ratio = se_ratio,
+         covariance_condition_number = cov_kappa, loadings = top))
   out
 }
 
@@ -424,7 +485,7 @@
 # Parameters at a configured bound. Optimization is unbounded in fit_mod(), so a
 # parameter at/beyond its build_bounds() range means the MLE hit the edge of the
 # plausible range -- often unidentified or mis-scaled.
-.check_bounds <- function(object) {
+.check_bounds <- function(object, index = .conv_par_index(object)) {
   ch <- object$.conv_hindcast
   if (is.null(ch) || is.null(ch$par) || is.null(ch$lower) || is.null(ch$upper)) {
     return(list())
@@ -439,10 +500,16 @@
   tab <- data.frame(param = names(par)[hit], mle = signif(par[hit], 4),
                     lower = signif(lo[hit], 4), upper = signif(hi[hit], 4),
                     bound = ifelse(at_lo[hit], "lower", "upper"))
+  # `hit` counts positions in the hindcast bounds vector, so the index has to be
+  # the one built from it.
+  idx <- .conv_index_for(index, names(par))
+  tab <- .conv_attach_label(tab, hit, idx)
   list(parameters_on_bounds = .conv_record(
     "parameters_on_bounds", "fit", "WARN",
-    sprintf("%d parameter(s) at a configured bound: %s.",
-            length(hit), paste(unique(names(par)[hit]), collapse = ", ")),
+    .conv_with_coords(
+      sprintf("%d parameter(s) at a configured bound: %s.",
+              length(hit), paste(unique(names(par)[hit]), collapse = ", ")),
+      hit, idx),
     tab))
 }
 
@@ -537,7 +604,7 @@
 # Surface TMBhelper::check_estimability (run by fit_mod() and stored as
 # object$identified when sdreport fails). Binary per-parameter verdict; pairs
 # with .check_hessian_eigen()'s continuous view.
-.check_estimability_record <- function(object) {
+.check_estimability_record <- function(object, index = .conv_par_index(object)) {
   out <- list()
   id <- object$identified
   if (is.null(id) || is.character(id)) return(out)
@@ -549,12 +616,18 @@
   if (!is.null(bad) && length(bad) > 0) {
     nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
                     error = function(e) NULL)
+    # BadParams has one row per hindcast fixed parameter, in obj$par order, so
+    # its Param column is the vector `bad` indexes into.
+    idx <- .conv_index_for(index, tryCatch(as.character(id$BadParams$Param),
+                                           error = function(e) NULL))
     out$estimability <- .conv_record(
       "estimability", "fit", "FAIL",
-      sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
-              length(bad),
-              if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
-              else ""),
+      .conv_with_coords(
+        sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
+                length(bad),
+                if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
+                else ""),
+        bad, idx),
       id)
   }
   out
@@ -650,14 +723,19 @@
 #'   records).
 #' @export
 convergence_diagnostics <- function(object, ...) {
+  # Three checks name their parameters by coordinate. The hindcast index was
+  # stored by fit_mod(); the one for the fit's final parameter vector means
+  # pushing a tagged vector through TMB's parList(), so a promise builds the pair
+  # at most once, and not at all on a fit where every check passes.
+  delayedAssign("index", .conv_par_index(object))
   checks <- c(
     .check_phasing(object),
     .check_optimizer(object),
     .check_sdreport_failed(object),
-    .check_hessian_eigen(object),
-    .check_bounds(object),
+    .check_hessian_eigen(object, index),
+    .check_bounds(object, index),
     .check_variance_collapse(object),
-    .check_estimability_record(object),
+    .check_estimability_record(object, index),
     .check_stock_recruit(object)
   )
   structure(

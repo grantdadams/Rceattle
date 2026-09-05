@@ -973,3 +973,128 @@
 #' @return A `ggplot` object.
 #' @name rceattle-plot-args
 NULL
+
+
+#' The selectivity standard errors a fit reports, or NULL
+#'
+#' `fit_control(selectivity_se = TRUE)` adds `log_sel_at_age` to the sdreport
+#' and `log_sel_at_age_index` to the reported quantities. Both are needed: the
+#' index says which (fleet, sex, age, year) each sdreport row belongs to, and
+#' its length depends on the model, since Fixed fleets and mirrored fleets are
+#' left out.
+#'
+#' @param model One fitted `Rceattle` object.
+#' @return A data frame of `Fleet`, `Sex`, `Age`, `Year`, `log_sel`, `sd`, or
+#'   `NULL` where the fit has no sdreport or was not asked for the errors.
+#' @keywords internal
+#' @noRd
+.rce_sel_se <- function(model) {
+  sdrep <- model$sdrep
+  idx   <- model$quantities$log_sel_at_age_index
+  if (is.null(sdrep) || is.null(sdrep$value) || is.null(idx)) return(NULL)
+  k <- names(sdrep$value) == "log_sel_at_age"
+  if (!any(k) || sum(k) != nrow(idx)) return(NULL)
+  out <- data.frame(Fleet = as.integer(idx[, 1]), Sex = as.integer(idx[, 2]),
+                    Age   = as.integer(idx[, 3]), Year = as.integer(idx[, 4]),
+                    log_sel = unname(sdrep$value[k]), sd = unname(sdrep$sd[k]),
+                    stringsAsFactors = FALSE)
+  # The plotter asks for one fleet, sex and year at a time, so index once here.
+  attr(out, "by") <- split(seq_len(nrow(out)),
+                           paste(out$Fleet, out$Sex, out$Year))
+  out
+}
+
+
+#' The fleets whose reported selectivity a given fleet may borrow
+#'
+#' The template reports one row set per selectivity group, on the group's lead
+#' fleet, so a mirrored fleet has no rows of its own. The lead is resolved with
+#' `rearrange_data()`'s own `.group_lead()`, on the same key it uses --
+#' `Selectivity_index` and `Selectivity` together, with an `Off` fleet never
+#' leading -- so the plotter and the template cannot disagree about who leads.
+#' Recomputed rather than read off `data_list`, which is the pre-`rearrange_data()`
+#' list and carries no `flt_sel_lead`. Reading `Selectivity_index` as a fleet code
+#' instead would miss a group keyed on a value that is nobody's `Fleet_code`, and
+#' silently drop the band.
+#'
+#' @param dl One model's `data_list`.
+#' @param i Row index of the fleet, which is also its `Fleet_code`.
+#' @return Fleet codes in the same selectivity group, the lead first.
+#' @keywords internal
+#' @noRd
+.rce_sel_lead <- function(dl, i) {
+  fc  <- dl$fleet_control
+  flt <- fc$Fleet_code[i]
+  if (is.null(fc$Selectivity_index) || is.null(fc$Selectivity)) return(flt)
+  off  <- as.character(fc$Fleet_type) %in% c("Off", "0")
+  lead <- .group_lead(paste(fc$Selectivity_index, fc$Selectivity), off)
+  key  <- paste(fc$Selectivity_index, fc$Selectivity)
+  unique(c(fc$Fleet_code[key == key[i] & lead == 1L], flt))
+}
+
+
+#' Rows of the `.rce_sel_se()` frame for one fleet, sex and year
+#'
+#' Uses the lookup `.rce_sel_se()` built, so a 16-fleet model does not rescan a
+#' 30,000-row frame once per panel and year.
+#'
+#' @param se The `.rce_sel_se()` frame.
+#' @param flt,sex,year Fleet code, sex index and calendar year.
+#' @return Integer row positions, possibly none.
+#' @keywords internal
+#' @noRd
+.rce_sel_rows <- function(se, flt, sex, year) {
+  by <- attr(se, "by")
+  if (!is.null(by)) return(by[[paste(flt, sex, year)]])
+  which(se$Fleet == flt & se$Sex == sex & se$Year == year)
+}
+
+
+#' One fleet-sex-year's selectivity interval, on the natural scale
+#'
+#' Returned in the order of `bins`, with `NA` for any age the fit did not
+#' report, so the caller can bind it to the curve without checking lengths.
+#' `exp()` of a log-scale interval, so it is positive and right-skewed.
+#'
+#' A mirrored fleet carries no rows of its own, so it borrows its lead's -- but
+#' only where the two curves actually agree. `data_check()` merely warns when
+#' fleets sharing a `Selectivity_index` differ in a shaping column, and a
+#' differing `Sel_norm_bin` alone rescales the curve, so sharing the parameter
+#' block is not on its own enough to share the band.
+#'
+#' @param se The `.rce_sel_se()` frame, or NULL.
+#' @param flt,sex Fleet code and sex index.
+#' @param bins Absolute ages, in plotting order.
+#' @param year Calendar year.
+#' @param lead Fleet codes whose rows this fleet may borrow (`.rce_sel_lead()`).
+#' @param curve This fleet's own selectivity over `bins`, to check a borrowed
+#'   band against. `NULL` borrows unchecked.
+#' @return A list of `lower` and `upper`, or `NULL` if no band applies.
+#' @keywords internal
+#' @noRd
+.rce_sel_ci <- function(se, flt, sex, bins, year, lead = flt, curve = NULL) {
+  if (is.null(se)) return(NULL)
+  band <- function(hit) {
+    m <- match(bins, se$Age[hit])
+    list(lower = exp(se$log_sel[hit][m] - 1.96 * se$sd[hit][m]),
+         upper = exp(se$log_sel[hit][m] + 1.96 * se$sd[hit][m]),
+         fit   = exp(se$log_sel[hit][m]))
+  }
+  own <- .rce_sel_rows(se, flt, sex, year)
+  if (length(own)) return(band(own)[c("lower", "upper")])
+
+  for (ld in setdiff(lead[!is.na(lead)], flt)) {
+    hit <- .rce_sel_rows(se, ld, sex, year)
+    if (!length(hit)) next
+    b <- band(hit)
+    # Compared where both are present; an age the lead did not report stays NA
+    # in the band and is not evidence the curves differ.
+    if (!is.null(curve)) {
+      both <- is.finite(b$fit) & is.finite(curve)
+      if (!any(both)) next
+      if (!isTRUE(all.equal(b$fit[both], curve[both], tolerance = 1e-8))) next
+    }
+    return(b[c("lower", "upper")])
+  }
+  NULL
+}

@@ -160,10 +160,37 @@ The checks cover:
 - **`pdHess`** — whether the Hessian is positive definite (`FAIL` if not).
 - **`sdreport_failed`** — `FAIL` when an `sdreport` was requested but the
   Hessian could not be inverted.
-- **`hessian_conditioning`** — the Hessian condition number and, when poorly
-  conditioned, the parameters loading on the least-identified direction (the
-  unidentified linear combination). Complements `TMBhelper::check_estimability`
-  (a per-parameter verdict) with a continuous severity and direction.
+- **`hessian_conditioning`** — how much better the data pin down some parameter
+  combinations than others. Inverting the Hessian gives the covariance of the
+  estimates; standardising it by the standard errors gives their correlation,
+  whose eigenvalues are variances along directions in parameter space. The
+  condition number is the largest over the smallest. This is the multi-parameter
+  version of a 0.999 pairwise correlation, and catches confounding spread over
+  many parameters at once. On a fishery it usually means F traded against
+  selectivity: scale F up, shift selectivity down, and predicted catch-at-age
+  barely moves.
+
+  The message leads with the square root, a ratio of standard errors. Because
+  the matrix is scaled by those errors, the ratio is measured against each
+  parameter's own: 13,634 means the least-determined combination is 13,634 times
+  more uncertain than the best-determined one, in those units. `WARN` above 1e6,
+  `FAIL` above 1e10.
+
+  Read on the **correlation** and not the covariance, because the covariance
+  condition number is not scale-invariant: `log_F` sits near -2 and `sel_inf`
+  near 10, so rescaling a parameter would move it without changing the model.
+  Standardising costs sensitivity — the same three models read 4.6e4, 1.9e5 and
+  2.5e9 on the covariance against 2.0e4, 1.6e4 and 1.9e8 here — so a model that
+  is merely badly scaled no longer trips the check. The covariance number is
+  still reported, as `covariance_condition_number`, for the numerical cost of
+  inverting the Hessian; `pdHess` and `sdreport_failed` are what catch an
+  inversion that actually fails. The thresholds were held at 1e6/1e10 on three
+  models: `BS2017SS` sits at 2.0e4, roughly 1.7 orders below `WARN`.
+
+  The parameters carrying the top 90% of each block's loading are then named by
+  fleet, bin and year, with a count: a ridge over ten years and one over a single
+  year read differently. Complements `TMBhelper::check_estimability`, which gives
+  a per-parameter verdict, with a continuous severity and a direction.
 - **`parameters_on_bounds`** — parameters that hit a configured `build_bounds()`
   limit (often unidentified or mis-scaled).
 - **`variance_collapse`** — a deviation standard deviation estimated to zero
@@ -176,6 +203,30 @@ The checks cover:
 - **`phasing`** — phases that ended with a high gradient, localizing which
   parameter block is hard to fit.
 - **`estimability`** — surfaces `TMBhelper::check_estimability` when it ran.
+
+### Naming the parameter, not just the block
+
+TMB names every element of `obj$par` after its parameter block, so on their own
+`estimability`, `parameters_on_bounds` and `hessian_conditioning` could say
+`sel_coff_dev` was flagged but not which of its 392 elements. Each now reports
+the fleet, sex, bin and year instead, from [`parameter_index()`]:
+
+```
+[FAIL] estimability  49 non-identifiable fixed parameter(s)
+  sel_coff_dev  GOA_pollock_fishery, bins 1-8, 2013-2018  (41)
+```
+
+The three checks do not all count positions in the same vector.
+`estimability` and `parameters_on_bounds` are captured from the hindcast
+optimization; `hessian_conditioning` reads the `sdreport`, which under an
+estimating HCR belongs to the projection fit and holds only `log_Ftarget` /
+`log_Flimit`. Each check therefore verifies that the index describes the vector
+it is about to label, and prints block names alone when it does not — a
+coordinate naming the wrong parameter is worse than no coordinate.
+
+`parameter_index()` itself describes `fit$obj`, which under any HCR but
+`"NoFishing"` is that projection object. Pass a fit run with
+`estimateMode = "Hindcast"` to browse the hindcast parameters directly.
 
 ## Fit plots
 

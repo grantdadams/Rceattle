@@ -20,6 +20,38 @@
 #' corresponding individual arguments to `fit_mod()`. Individual
 #' arguments are kept for backward compatibility.
 #'
+#' @details
+#' # Selectivity standard errors
+#'
+#' `selectivity_se` needs `getsd = TRUE`, and the error it reports is the one
+#' belonging to whichever `sdreport` the fit ends on. Under
+#' `estimateMode = "Estimate"` with any HCR that re-optimizes, that is the
+#' *projection* fit, in which every selectivity parameter is mapped off, so
+#' every error comes back exactly 0. `estimateMode = "Projection"` estimates no
+#' selectivity at all and reports none where it runs no `sdreport`. Use
+#' `estimateMode = "Hindcast"`, or `"Estimate"` with
+#' `projection_uncertainty = TRUE`, to get an error from a fit that estimated
+#' the curve. [fit_mod()] warns before fitting in each of these cases.
+#'
+#' Off by default because the delta method forms a Jacobian of every reported
+#' value against every parameter, so its cost is the product of the two: on
+#' `Atka2022` it adds 1,012 values against 584 parameters.
+#'
+#' The error is on the log scale, not the logit, because the non-parametric
+#' forms normalize to mean selectivity 1 rather than a maximum of 1 -- 58% of
+#' `Atka2022`'s `sel_at_age` exceeds 1, to 3.06 -- so a logit is undefined over
+#' most of the array.
+#'
+#' Rows cover estimated, age-based lead fleets only, and start at each fleet's
+#' first selected bin. Four kinds of cell hold a structural zero -- a `Fixed`
+#' fleet's empirical curve, a length-based fleet's growth-matrix projection, a
+#' bin below `Bin_first_selected`, and array padding -- and one `log(0) = -Inf`
+#' on the tape turns *every* quantity in the `sdreport` to `NaN`, biomass and SSB
+#' included. All four are identified from the data, so the reported set never
+#' depends on a parameter value; a value that underflows to zero is floored, so
+#' it cannot reintroduce the `-Inf`. See [plot_selectivity()], which draws the
+#' interval.
+#'
 #' @param bias.correct logical. If `TRUE`, applies bias correction via
 #'   [TMB::sdreport()]. Default `FALSE`.
 #' @param getsd logical. If `TRUE`, run [TMB::sdreport()] after
@@ -32,6 +64,8 @@
 #'   parameter uncertainty in projections when using an HCR (refits with all
 #'   hindcast and biological-reference-point parameters turned on). Default
 #'   `FALSE` for speed.
+#' @param selectivity_se logical. If `TRUE`, [TMB::sdreport()] also returns a
+#'   standard error for log selectivity-at-age. Default `FALSE`.
 #' @param comp_offset Numeric or `NULL`. Small proportion offset added to the
 #'   observed and predicted age/length composition and conditional-age-at-length
 #'   (caal) bins before the multinomial / Dirichlet-multinomial likelihood (to
@@ -85,6 +119,7 @@ fit_control <- function(
   getJointPrecision   = TRUE,
   getReportCovariance = FALSE,
   projection_uncertainty = FALSE,
+  selectivity_se      = FALSE,
   comp_offset         = NULL,
   bias_adjust_obs     = TRUE,
   bias_adjust_proc    = TRUE,
@@ -103,6 +138,7 @@ fit_control <- function(
     getJointPrecision   = getJointPrecision,
     getReportCovariance = getReportCovariance,
     projection_uncertainty = projection_uncertainty,
+    selectivity_se      = selectivity_se,
     comp_offset         = comp_offset,
     bias_adjust_obs     = bias_adjust_obs,
     bias_adjust_proc    = bias_adjust_proc,

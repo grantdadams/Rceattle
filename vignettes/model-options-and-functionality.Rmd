@@ -686,11 +686,60 @@ convention -- catch and index in mt, weight-at-age in kg -- or the axis labels
 will not describe what is plotted. Pass `ylab` to override the derived label.
 
 **Confidence intervals.** `add_ci = TRUE` draws a 95% interval. Strictly
-positive series take it on the log scale, `exp(log(x) ± 1.92 · sd_log)`, using
+positive series take it on the log scale, `exp(log(x) ± 1.96 · sd_log)`, using
 the model's `log_biomass` / `log_ssb` / `log_R` where they exist and the
 delta-method identity `sd(log x) = sd(x)/x` where they do not. The interval is
 therefore right-skewed and cannot reach zero for a weak year class or a
 depleted stock. See `?plot_timeseries` for the full derivation.
+
+`plot_selectivity()` takes it too, but only on a fit run with
+`fit_control(selectivity_se = TRUE)` and only for estimated, age-based fleets;
+otherwise it warns and draws none. Selectivity is identified only up to a
+scalar, so `Sel_norm_bin` fixes the curve's level rather than measuring it: the
+pinned bin has a standard error of 0 and the band widens away from it. Quote
+that anchor with the interval.
+
+The error comes from whichever `sdreport` the fit ends on, and that is not
+always the one that estimated the curve. Under `estimateMode = "Estimate"` with
+an estimating HCR, `fit_mod()` re-optimizes the projection with every hindcast
+parameter fixed, so the standard error of every selectivity is exactly 0.
+`estimateMode = "Projection"` estimates no selectivity at all, and
+`projection_uncertainty` cannot rescue it. Fit the hindcast alone, or ask for
+uncertainty in the projection:
+
+```{r sel-ci, eval = FALSE}
+# Errors from the hindcast fit -- the usual choice for a selectivity figure.
+mod <- fit_mod(data_list = data, estimateMode = "Hindcast",
+               fit_control = fit_control(selectivity_se = TRUE))
+plot_selectivity(mod, add_ci = TRUE, minyr = 2015, maxyr = 2015)
+
+# Or keep the HCR projection and carry the hindcast parameters into it.
+mod <- fit_mod(data_list = data, HCR = build_hcr(HCR = 5),
+               fit_control = fit_control(selectivity_se = TRUE,
+                                         projection_uncertainty = TRUE))
+```
+
+`fit_mod()` warns when the combination would report zeros, and
+`plot_selectivity()` declines to draw a band that is 0 wide at every age rather
+than render it as certainty. Give `minyr` / `maxyr` a single year on a
+time-varying fleet: every year drawn gets its own band.
+
+Two further conditions belong with any interval you report:
+
+- **The normalization.** On `Atka2022` the survey pins age 4, and its standard
+  deviation runs 0.33, 0.18, 0.12, 0.00, 0.14 over ages 1--5; the fishery pins
+  nothing, normalizes to a mean of one, and is flattest mid-range instead. Same
+  fit, same data — the shape of the band is a property of `Sel_norm_bin`, not of
+  the information in the data.
+- **The smoothing.** Under `random_sel = FALSE` the annual deviations are
+  penalized rather than integrated, so these are penalized-likelihood errors
+  conditional on `Sel_curve_pen1` / `Sel_curve_pen2` and on a fixed
+  `Time_varying_sel_sd`. Change the smoothing and both the curve and its band
+  move, with nothing in the data to arbitrate.
+
+The band is marginal. Selectivity error is strongly correlated with F and q
+through the same confounding, so carrying it into a derived quantity needs the
+covariance (`fit_control(getReportCovariance = TRUE)`), not this interval alone.
 
 ## References
 

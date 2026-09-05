@@ -50,9 +50,10 @@ a \code{model} column, so passing several fits gives a like-for-like comparison.
 The sections follow the AFSC Alaska Groundfish Stock Assessment Guidelines
 for what a chapter reports:
 \describe{
-\item{\code{model}}{One row per fit: dimensions, switches, the objective, the
-number of estimated parameters, AIC, the maximum gradient, whether the
-Hessian was positive definite, and the run time.}
+\item{\code{model}}{One row per fit: dimensions, switches, the marginal and
+joint negative log-likelihoods, the number of estimated parameters, AIC,
+the maximum gradient, whether the Hessian was positive definite, and the
+run time.}
 \item{\code{parameters}}{Every estimated parameter with its standard error, and
 the natural-scale name and process from \code{\link[=parameter_dictionary]{parameter_dictionary()}}. Where
 \code{sigma_R} and an estimated M are found. Estimates are on the parameter's
@@ -107,13 +108,15 @@ last projection year, which is the equilibrated unfished reference, so the
 series is meaningful there.
 }
 
-\section{Two objectives}{
+\section{Two negative log-likelihoods}{
 
-\code{model} reports both. \code{marginal_objective} is what the optimizer minimized —
-random effects integrated out by the Laplace approximation — and is what
-\code{AIC} is built from. \code{joint_objective} is what the template evaluated at the
-conditional modes, so it is what \code{likelihood} sums to. They are equal when
-\code{n_random} is 0 and differ by the Laplace correction otherwise.
+\code{model} reports both, and \strong{both are minimized}: a smaller value is the
+better fit. \code{marginal_nll} is the negative log marginal likelihood the
+optimizer minimized -- random effects integrated out by the Laplace
+approximation -- and is what \code{AIC} is built from. \code{joint_nll} is what the
+template evaluated at the conditional modes, so it is what \code{likelihood} sums
+to, on the same scale as \code{jnll_comp}. They are equal when \code{n_random} is 0 and
+differ by the Laplace correction otherwise.
 }
 
 \section{Supplying diagnostics for several models}{

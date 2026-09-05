@@ -327,6 +327,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
   DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
+  DATA_INTEGER( adreport_sel );             // 0 = no selectivity standard errors (default); 1 = ADREPORT log_sel_at_age; set via fit_control(selectivity_se =)
   DATA_SCALAR( comp_offset );               // proportion offset added to comp/caal obs & pred before the multinomial; set via rearrange_data()/fit_control()
 
   // -- 2.4.2c. Simulation switches (sim_mod(simulate = TRUE))
@@ -418,7 +419,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( log_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
   PARAMETER_ARRAY( M1_beta );                     // Regression coefficients for environmnetally linked M1; n = [nspp, nsex, n indices]
   PARAMETER_ARRAY( M1_rho );                      // Correlation for AR1 random effects on age and year; n = [nspp, nsex, 2]
-  PARAMETER_ARRAY( M1_dev_log_sd );                // Standard deviation of random effects on age and year; n = [nspp, nsex, 2]
+  PARAMETER_ARRAY( M1_dev_log_sd );                // Innovation sd of the M1 random effects, one per species/sex; n = [nspp, nsex]
 
   // -- 3.3. Growth
   PARAMETER_ARRAY(log_growth_pars);                // Mean growth curve parameters [sp, sex, par]
@@ -5075,6 +5076,71 @@ Type objective_function<Type>::operator() () {
   ADREPORT( log_R );
   ADREPORT( R_sd );
   ADREPORT( R );
+
+  // -- Log selectivity-at-age, for a delta-method interval on the curve. Log and
+  // not logit, because the non-parametric forms normalize to a MEAN of one, so
+  // sel_at_age routinely exceeds one. Gated because the delta method costs every
+  // reported value against every parameter; see ?fit_control.
+  //
+  // Only estimated, age-based lead fleets, from their first selected bin: those
+  // are the cells that cannot be a structural zero, and one log(0) = -Inf on the
+  // tape turns EVERY quantity in the sdreport to NaN, biomass and SSB included.
+  // The four routes to a structural zero are enumerated in ?fit_control; all are
+  // read from the data, so the reported SET never depends on a parameter value.
+  // A reported VALUE still can underflow -- a narrow dome puts exp(-x^2/2) below
+  // 1e-308 many bins from its peak -- so the log is floored. max2() is exact
+  // above the floor, so nothing a fleet would report is altered.
+  //
+  // log_sel_at_age_index carries the fleet, sex, absolute age and calendar year
+  // of each row, since which cells are reported depends on the model.
+  if(adreport_sel == 1){
+    // First bin and bin count per fleet. data_check() bounds Bin_first_selected
+    // by nages, but a 0 in the workbook still arrives here as -1, and the model
+    // builds safebounds = FALSE, so both ends are clamped before indexing.
+    vector<int> sel_first_bin(n_flt); sel_first_bin.setZero();
+    vector<int> sel_rep_bins(n_flt);  sel_rep_bins.setZero();
+    for(int flt = 0; flt < n_flt; flt++){
+      if((flt_type(flt) <= 0) || (flt_sel_lead(flt) != 1) ||
+         (flt_sel_type(flt) == 0) || (flt_sel_dim(flt) == 1)) continue;
+      int n_age = nages(flt_spp(flt));
+      int first = bin_first_selected(flt);
+      if(first < 0) first = 0;
+      if(first > n_age) first = n_age;
+      sel_first_bin(flt) = first;
+      sel_rep_bins(flt)  = n_age - first;
+    }
+
+    int n_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      n_sel += nsex(flt_spp(flt)) * sel_rep_bins(flt) * nyrs_hind;
+    }
+
+    vector<Type> log_sel_at_age(n_sel); log_sel_at_age.setZero();
+    matrix<Type> log_sel_at_age_index(n_sel, 4); log_sel_at_age_index.setZero();
+
+    int i_sel = 0;
+    for(int flt = 0; flt < n_flt; flt++){
+      if(sel_rep_bins(flt) == 0) continue;
+      int sel_sp = flt_spp(flt);
+      for(int sel_sex = 0; sel_sex < nsex(sel_sp); sel_sex++){
+        for(int sel_age = sel_first_bin(flt); sel_age < nages(sel_sp); sel_age++){
+          for(int sel_yr = 0; sel_yr < nyrs_hind; sel_yr++){
+            log_sel_at_age(i_sel) = log(max2(sel_at_age(flt, sel_sex, sel_age, sel_yr),
+                                             Type(1e-300)));
+            log_sel_at_age_index(i_sel, 0) = Type(flt + 1);
+            log_sel_at_age_index(i_sel, 1) = Type(sel_sex + 1);
+            log_sel_at_age_index(i_sel, 2) = Type(minage(sel_sp) + sel_age);
+            log_sel_at_age_index(i_sel, 3) = Type(styr + sel_yr);
+            i_sel++;
+          }
+        }
+      }
+    }
+
+    REPORT( log_sel_at_age );
+    REPORT( log_sel_at_age_index );
+    ADREPORT( log_sel_at_age );
+  }
 
 
   // -- 14.2. Biological reference points

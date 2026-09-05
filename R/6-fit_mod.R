@@ -851,6 +851,38 @@ fit_mod <-
     if(!is.null(fit_control$bias_adjust_obs)) data_list$bias_adjust_obs <- as.numeric(fit_control$bias_adjust_obs)
     if(!is.null(fit_control$bias_adjust_proc)) data_list$bias_adjust_proc <- as.numeric(fit_control$bias_adjust_proc)
 
+    # Read by the TMB DATA_INTEGER as the gate on the log selectivity-at-age
+    # ADREPORT. Set here rather than left to the funnel's default so a refit
+    # keeps the setting the fit was given.
+    data_list$adreport_sel <- as.integer(isTRUE(fit_control$selectivity_se))
+
+    # A delta-method error exists only where an sdreport runs, and it belongs to
+    # whichever fit the model ends on. Where the selectivity was mapped off in
+    # that fit the error is 0, which reads as a certain curve rather than an
+    # unmeasured one -- so say so before the fit rather than after.
+    if (isTRUE(fit_control$selectivity_se) && estimateMode %in% c(0, 1, 2)) {
+      if (!isTRUE(getsd)) {
+        warning("`selectivity_se = TRUE` needs `getsd = TRUE` to return a ",
+                "standard error; none will be reported.", call. = FALSE)
+      } else if (estimateMode == 2) {
+        # Nothing here estimates the curve: build_map(debug = TRUE) has already
+        # mapped the hindcast off, which projection_uncertainty cannot undo.
+        warning("`selectivity_se = TRUE` under estimateMode = \"Projection\" ",
+                "reports no usable standard error: no fit here estimates the ",
+                "selectivity, so the error is 0 where an sdreport runs at all. ",
+                "Use estimateMode = \"Hindcast\".", call. = FALSE)
+      } else if (estimateMode == 0 && !isTRUE(projection_uncertainty) &&
+                 # Every other HCR re-optimizes the projection, overwriting the
+                 # hindcast sdreport. Canonical names: switch_check() has run.
+                 !isTRUE(data_list$HCR %in% c("NoFishing", "ConstantF"))) {
+        warning("`selectivity_se = TRUE` under estimateMode = \"Estimate\" ",
+                "reports a standard error of 0 for every age: the sdreport is ",
+                "the HCR projection's, in which the selectivity parameters are ",
+                "fixed. Use estimateMode = \"Hindcast\", or ",
+                "`projection_uncertainty = TRUE`.", call. = FALSE)
+      }
+    }
+
     # Carried like the bias-adjustment flags above, so a refit can recover how
     # the model was fitted rather than take fit_control()'s default.
     data_list$projection_uncertainty <- isTRUE(projection_uncertainty)
@@ -1209,21 +1241,21 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         if (is.null(opt$SD) & getsd) {
 
-          if (verbose > 0) {
-            message("#################################################")
-            message("Model did not converge, check 'identified'")
-            message("#################################################")
-          }
-
+          # A failed sdreport is reported by the convergence battery as
+          # `sdreport_failed`, at every verbosity. `identified` is kept because
+          # the `estimability` check reads it.
           identified <- tryCatch(
             {
               # check_estimability() print()s its table to stdout, which
-              # suppressMessages() cannot catch. Capture it, re-emit under
-              # verbose only; the verdict is kept on `identified` regardless.
+              # suppressMessages() cannot catch. Capture it and re-emit only at
+              # verbose > 1: the table is one row per parameter, all of them
+              # named after their block, and `fit$convergence` now reports the
+              # flagged ones by fleet, bin and year instead. The verdict is kept
+              # on `identified` either way.
               res <- NULL
               tbl <- utils::capture.output(
                 res <- suppressMessages(.check_estimability(obj)))
-              if (verbose > 0 && length(tbl)) {
+              if (verbose > 1 && length(tbl)) {
                 message(paste(tbl, collapse = "\n"))
               }
               res
@@ -1250,7 +1282,7 @@ fit_mod <-
       if (estimateMode %in% c(0, 1)) {
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,
-          random_vars = random_vars, getsd = getsd)
+          random_vars = random_vars, getsd = getsd, data_list = data_list)
         disc_gap <- .rce_marginal_gap(obj, opt)
       }
     }

@@ -73,6 +73,100 @@ they are counted once per sharing fleet.
 **Worked example: GOA2018SS.** Fleets 1 and 7 share selectivity; fleets 9 and 10 share
 selectivity *and* q.
 
+**A fixed-width parameter slot does not have a fixed meaning.** Several blocks are declared
+`[…, 2]` or `[…, 3]`, and what the slot holds depends on a switch, so a static label names the
+wrong quantity:
+
+- `sel_curve_pen` is mapped out entirely by `build_map_selectivity()` and re-enabled only under
+  `Selectivity` 6 (2DAR1, slots 1–2) and 7 (3DAR1, slots 1–3), where the slots are logit-scale
+  AR1 correlations across **bins, years and cohorts**. The `fleet_control` reading of the same
+  column — the shape/curvature penalty weights for the non-parametric and LogisticPM forms — is
+  never estimated, so an element that reaches `obj$par` is always a correlation.
+- `sel_inf[2]` is a descending inflection only for the double-logistic family. Under
+  `DoubleNormal` (8) it is `logit(right_floor)`; under `LogisticPM` (11) it is the free age-1
+  log-selectivity. `log_sel_slp` under 8 is `log(sigma_asc)` / `log(sigma_desc)`.
+- `rec_pars(sp, 1)` is the SRR **alpha** on the log scale (`alpha = exp(rec_pars(sp,1) + …)`,
+  `ceattle.cpp`), not steepness. Steepness is derived from alpha and `SPR0`.
+
+`.PAR_SEL_SLOTS` (`R/0-parameter_index.R`) is where the switch-dependent ones are resolved.
+
+**`parameter_dictionary()$dims` is prose, and it has been wrong.** A rank-only check passes a
+token that names the wrong axis of the right arity. Three were wrong until 5.26.0: `log_F`
+declared `[n_fsh, nyrs]` against an `[n_flt, nyrs_hind]` array, `log_pop_scalar` `[nspp, nyrs]`
+against an **age** axis (which would have printed ages as calendar years), and `M1_dev_log_sd`
+`[nspp, nsex, 2]` against `[nspp, nsex]`. `n_sel` and `n_fsh` both equal `nrow(fleet_control)`;
+sharing happens through the map, not through a narrower array. `init_dev` is the one block whose
+declared extent is deliberately the estimated portion (`nages-1`) of a wider (`nages`) array.
+`test-schema-parameter-index.R` now checks rank *and* extent.
+
+**A shortened axis also starts somewhere.** `nages-1` does not say which end it drops, and
+`init_dev` drops the youngest: `ceattle.cpp` reads `init_dev(sp, age - 1)` over
+`age = 1 .. nages-1`, so its ages are `minage + 1 .. minage + nages - 1` — age `minage` in the
+first year is recruitment. `minage = 1` everywhere bundled hides the shift, so reading the axis
+from `minage` named every `init_dev` one age too young (verified on `BS2017SS`: labelled 1–11
+and 1–20, actually 2–12 and 2–21) and never named the oldest. `.PAR_AXIS_OFFSET`
+(`R/0-parameter_index.R`) is the registry, and `test-schema-parameter-index.R` requires an entry
+for every shortened token the dictionary uses.
+
+## `fit$data_list` is the pre-`rearrange_data()` list
+
+**Nothing `rearrange_data()` derives survives onto a fitted object.** Its output goes to
+`data_list_reorganized`, and `mod_objects$data_list` (`R/6-fit_mod.R:1460`) is the *input* list
+plus `calc_mcall_ianelli()`'s two numeric `fleet_control` columns. So `fit$data_list` has no
+`flt_sel_lead`, no `flt_sel_type`, no `bin_first_selected` — those exist only on
+`fit$obj$env$data`.
+
+Reading one off `fit$data_list` gets `NULL`, and a helper that early-returns on `NULL` then
+degrades **silently**. `.rce_sel_lead()` was briefly rewritten to resolve a mirrored fleet's
+selectivity lead from `flt_sel_lead`; it returned the fleet itself on every real fit, so
+mirrored fleets drew no confidence band beside a banded lead — the exact "some panels certain,
+some not" reading the whole-figure decline exists to prevent. Measured on `Atka2022` with fleet
+2 mirroring fleet 1: band at ages 1-3 went `0.0015, 0.0383, 0.4467` -> `NULL`, and a real
+`GOApollock` hindcast resolved `Pollock_survey_1_shelikof_acoustic_BS` to lead `7` instead of
+`1, 7`. Bundled datasets with shared selectivity groups: `GOApollock`, `GOA2018SS`,
+`GOAatf2023`, `GeorgesBank3spp`.
+
+**The unit test passed throughout**, because it was written against a hand-built list carrying
+`flt_sel_lead`. A fixture that supplies the field under test cannot detect its absence — assert
+on a fitted object. Either recompute from `fleet_control` (with `.group_lead()`, so the key
+stays the template's) or read `fit$obj$env$data`.
+
+## `fit$obj` is the projection's under any HCR but `NoFishing`
+
+**A fit run at the default `estimateMode = "Estimate"` does not end on the object that
+estimated the hindcast.** `build_hcr_map()` (`R/0-build_hcr.R`) replaces every entry of
+`map$mapList` with `NA` and turns on `log_Ftarget` / `log_Flimit` alone, `fit_mod()` rebuilds
+`obj` against that map, and for every HCR but `NoFishing` and `ConstantF` it re-optimizes — so
+`mod_objects$obj` and `mod_objects$sdrep <- opt$SD` both belong to the projection. Measured on
+`Atka2022` with `HCR = 5` (2026-09-02):
+
+| HCR | `fit$obj$par` | `nrow(sdrep$cov.fixed)` |
+|---|---|---|
+| `NPFMC` (Tier 3) | **2** (`log_Flimit`, `log_Ftarget`) | 2 |
+| `ConstantF` | **1** (`log_Flimit`) | **584** — built but never re-optimized |
+| `NoFishing` | 584 | 584 |
+| `NPFMC`, `projection_uncertainty = TRUE` | 586 | 586 |
+
+`fit$.conv_hindcast$par` is 584 in every row. Two things fall out of it, and both are silent:
+
+- **Anything indexing `obj$par` by position describes the wrong parameters.**
+  `fit$identified` and `fit$.conv_hindcast` are captured *before* the projection, so labelling
+  one from an index built on the other named `log_Flimit` where `rec_pars` was flagged.
+  `.conv_index_ok()` / `.conv_index_for()` (`R/0-parameter_index.R`) now check the index against
+  the block names of the vector being labelled, and `fit_mod()` stores the hindcast index on
+  `.conv_hindcast$index` because that is the last point holding the hindcast `obj`.
+- **Every delta-method standard error of a hindcast quantity is exactly 0**, since the
+  projection `sdreport` holds those parameters fixed. On the same fit all 1,012
+  `log_sel_at_age` errors are 0. `fit_mod()` warns, and `plot_selectivity(add_ci = TRUE)`
+  declines rather than drawing a zero-width band that reads as certainty.
+  `projection_uncertainty = TRUE` re-enables the hindcast parameters and is the fix that keeps
+  the HCR — but **not** under `estimateMode = "Projection"`, where `build_map(debug = TRUE)`
+  has already mapped the hindcast off and nothing turns it back on. `fit_mod()` warns there too.
+
+`ConstantF` is the awkward middle: the projection `obj` is built but never re-optimized, so
+`sdrep` stays the hindcast's beside a projection `obj`. That is why the checks verify rather
+than switch on `estimateMode`.
+
 ## Silent-wrong-number traps
 
 **A reference point CEATTLE never estimated is a NUMBER, not a gap.** Three cases, all
@@ -271,6 +365,14 @@ fitted model to `minage = 2` and requires `age = 2` to draw what `age = 1` drew 
 a `minage != 1` fixture the whole suite passes on a bin index read as an age, because every
 bundled dataset and all three live assessments have `minage = 1`.
 
+**The same class in prose: `Bin_first_selected` is a 1-based BIN ORDINAL, not an age.**
+`rearrange_data()` converts it with a bare `- 1`, while `Sel_norm_bin` beside it gets
+`sel_bin_offset = minage[species]` — the two columns use opposite conventions, and the alias
+`Age_first_selected` argues for the wrong one. On a `minage = 3` stock `Bin_first_selected = 3`
+is age 5. `minage = 1` hides it everywhere it is currently written, so the column description in
+`R/0-column_schema.R` now says which convention it is, and the selectivity documentation says
+"first selected bin" rather than naming an age.
+
 ## The guards are not themselves guarded
 
 Three of this repo's most valuable checks have been guarded off in a way nothing verified. All
@@ -364,6 +466,30 @@ Two further sharp edges found while building that harness, both worth knowing:
 the repo root skips the compile, prints its messages, and exits 0; and `on.exit()` registered at
 a script's top level has no function frame and never fires, which is how the harness first left
 a slow bounds-checked `.so` in the tree for every later fit to use.
+
+## The conditioning check reads correlation, not covariance
+
+**Severity is read on the correlation of the estimates, and the thresholds were not
+recalibrated.** The covariance condition number is not scale-invariant — `log_F` sits near -2,
+`sel_inf` near 10 — so it mixes confounding with the units a parameter is held in. Measured
+(2026-09-02):
+
+| model | covariance | correlation | se ratio |
+|---|---|---|---|
+| BS2017SS (golden) | 4.6e4 | 2.0e4 | 140 |
+| GOA pollock NonParametric | 1.9e5 | 1.6e4 | 126 |
+| GOA pollock 2DAR1 | 2.5e9 | 1.9e8 | 13634 |
+
+Standardising lowers every model by 0.4–1.1 orders, so at unchanged `WARN` 1e6 / `FAIL` 1e10 the
+check is **less** likely to fire than before 5.26.0. Three models is not a calibration; if a
+model that should have been flagged comes back `OK`, the thresholds are the first thing to
+question. `data$covariance_condition_number` keeps the old number, and `pdHess` /
+`sdreport_failed` are what catch an inversion that actually fails.
+
+`fit$convergence$checks$hessian_conditioning$data$condition_number` therefore means something
+different from 5.25.1 and earlier. `../Rceattle-models/Model comparison/run_rceattle.R` reads it
+(`get_condition_number()`), and saved `condition_number_<scenario>.RDS` files are not comparable
+across the boundary.
 
 ## Coverage gaps in the golden check
 

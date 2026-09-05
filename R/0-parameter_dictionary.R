@@ -30,7 +30,7 @@
     r("dummy", "dummy", "internal",
       "Placeholder parameter; the only free parameter under estimateMode = 4.", "[1]"),
     r("log_pop_scalar", "pop_scalar", "internal",
-      "Multiplier on user-supplied numbers-at-age when estDynamics > 0.", "[nspp, nyrs]"),
+      "Multiplier on user-supplied numbers-at-age when estDynamics > 0.", "[nspp, nages]"),
 
     # -- recruitment -------------------------------------------------------
     r("rec_pars", "R0 / alpha / beta", "recruitment",
@@ -40,7 +40,7 @@
     r("R_log_sd", "sigma_R", "recruitment",
       "Standard deviation of the recruitment deviations; estimated only when random_rec = TRUE.", "[nspp]"),
     r("init_dev", "initial-age deviations", "recruitment",
-      "Deviations defining the initial (first-year) age structure.", "[nspp, nages-1]"),
+      "Deviations defining the initial (first-year) age structure; one per age from minage + 1 upward, since age minage in the first year is recruitment.", "[nspp, nages-1]"),
 
     # -- mortality ---------------------------------------------------------
     r("log_M1", "M1", "mortality",
@@ -52,7 +52,7 @@
     r("M1_rho", "rho_M1", "mortality",
       "AR1 correlation for the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
     r("M1_dev_log_sd", "sigma_M1", "mortality",
-      "Standard deviation of the M1 random effects, over age and over year.", "[nspp, nsex, 2]"),
+      "Innovation standard deviation of the M1 random effects; the marginal sd is larger.", "[nspp, nsex]"),
 
     # -- growth ------------------------------------------------------------
     r("log_growth_pars", "K / L1 / Linf / m", "growth",
@@ -80,7 +80,7 @@
 
     # -- fishing mortality -------------------------------------------------
     r("log_F", "F", "fishing",
-      "Annual fleet-specific fishing mortality.", "[n_fsh, nyrs]"),
+      "Annual fleet-specific fishing mortality.", "[n_flt, nyrs_hind]"),
     r("log_Flimit", "Flimit", "fishing",
       "Limit fishing mortality (FOFL proxy) used in projections.", "[nspp]"),
     r("log_Ftarget", "Ftarget", "fishing",
@@ -88,7 +88,7 @@
     r("log_Finit", "Finit", "fishing",
       "Fishing mortality generating a non-equilibrium initial age structure.", "[nspp]"),
     r("proj_F_prop", "proj_F_prop", "fishing",
-      "Fixed proportion of a species' F allocated to each fishery in projections.", "[n_fsh]"),
+      "Fixed proportion of a species' F allocated to each fishery in projections.", "[n_flt]"),
 
     # -- catchability ------------------------------------------------------
     r("index_log_q", "q", "catchability",
@@ -207,8 +207,9 @@
 #'
 #' Dimensions use the model's own notation: `nspp` species, `nsex` sexes,
 #' `nages` age bins, `nyrs` years including the projection, `nyrs_hind` hindcast
-#' years only, `n_flt` fleets, `n_fsh` fishery fleets and `n_sel` selectivity
-#' blocks.
+#' years only, `n_flt` fleets and `n_sel` selectivity blocks. `n_sel` equals
+#' `n_flt`: fleets sharing a `Selectivity_index` share one block through the
+#' map, not through a narrower array.
 #'
 #' @examples
 #' # The whole table
