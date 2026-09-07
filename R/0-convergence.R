@@ -433,9 +433,9 @@
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
   msg <- sprintf(
-    "Condition number = %.2g: with each parameter measured against its own standard error, the least-determined combination is %.0fx more uncertain than the best-determined one.%s",
+    "Condition number = %.2g: standard errors span %.2gx across parameter combinations%s",
     kappa, se_ratio,
-    if (sev != "OK") sprintf(" It loads on: %s.", combo) else "")
+    if (sev != "OK") sprintf("; loads on: %s.", combo) else ".")
 
   # Where the loading sits INSIDE each named block. The direction is spread over
   # coefficients rather than confined to a set, so the parameters carrying the
