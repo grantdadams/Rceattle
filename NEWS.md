@@ -12,6 +12,20 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.27.1
+
+## Bug fixes
+
+* **An environmental covariate year outside the model years is dropped on the
+  linkage path too, rather than refusing the fit.** `env_data` rows are matched
+  to model years by position, so a year outside `styr:projyr` shifts every later
+  row. `rearrange_data()` has dropped such rows from `env_index` since 5.25.0,
+  so an ordinary fit already tolerated them; a fit using any linkage instead
+  failed in `.check_env_data_years()` with "env_data$Year must start at the model
+  start year". The two paths now read a workbook the same way. The count and the
+  window are reported, and a table with **no** row inside the model years is
+  still an error -- that is a mis-specified linkage, not a row to discard.
+
 # Rceattle 5.27.0
 
 ## New features
