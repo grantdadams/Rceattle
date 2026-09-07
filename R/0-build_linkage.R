@@ -1319,6 +1319,43 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 }
 
 
+#' Drop env_data rows before the model start year
+#'
+#' Linkages align env_data by position (row r -> model year styr + r - 1), so a
+#' row before `styr` shifts every later row and feeds the wrong covariate to
+#' consumption and, under multispecies, to predation mortality. Rows after the
+#' model years are left alone: alignment runs from the front, so they are inert,
+#' and dropping them would change a `cut()` / `poly()` / `scale()` design matrix
+#' that is built on the rows `env_data` supplies.
+#'
+#' A row whose `Year` is `NA` is kept for `.check_env_data_years()` to reject --
+#' it is unlabelled, not early.
+#'
+#' @param env_data The `env_data` table.
+#' @param styr The model start year.
+#' @return `env_data` without its pre-`styr` rows.
+#' @keywords internal
+#' @noRd
+.trim_env_data <- function(env_data, styr) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {
+    return(env_data)
+  }
+  early <- !is.na(env_data$Year) & env_data$Year < styr
+  if (!any(early)) return(env_data)
+  if (all(early)) {
+    stop(sprintf(paste0(
+      "env_data ends at %s, before the model start year styr (%s). Linkages ",
+      "align each row to a model year by position."),
+      max(env_data$Year, na.rm = TRUE), styr), call. = FALSE)
+  }
+  warning(sprintf(
+    "env_data: dropped %d row(s) before styr (%s); linkages align each row to a model year by position.",
+    sum(early), styr), call. = FALSE)
+  env_data[!early, , drop = FALSE]
+}
+
+
 #' Extend env_data to start at the model start year (prepend + gap-fill with NA)
 #'
 #' Linkages align env_data POSITIONALLY (row r -> model year styr + r - 1). A
@@ -1338,40 +1375,6 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' @return the (possibly extended) env_data.
 #' @keywords internal
 #' @noRd
-#' Drop env_data rows outside the model years
-#'
-#' Covariate rows are matched to model years by position, so a year outside
-#' `styr:projyr` shifts every later row and feeds the wrong value to consumption
-#' and, under multispecies, to predation mortality. `rearrange_data()` already
-#' drops them from `env_index`; this does the same for the linkage path, so a
-#' workbook reads the same way whether or not it uses a linkage.
-#'
-#' @param env_data The `env_data` table.
-#' @param styr,projyr First and last model year.
-#' @return `env_data` with out-of-window rows removed.
-#' @noRd
-.trim_env_data <- function(env_data, styr, projyr = NULL) {
-  if (is.null(env_data) || !is.data.frame(env_data) ||
-      !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {
-    return(env_data)
-  }
-  hi   <- if (is.null(projyr)) max(env_data$Year, na.rm = TRUE) else projyr
-  keep <- !is.na(env_data$Year) & env_data$Year >= styr & env_data$Year <= hi
-  if (all(keep)) return(env_data)
-  if (!any(keep)) {
-    stop(sprintf(paste0(
-      "env_data has no row inside the model years %s-%s; it covers %s-%s. ",
-      "Linkages align each row to a model year by position."),
-      styr, hi, min(env_data$Year, na.rm = TRUE),
-      max(env_data$Year, na.rm = TRUE)), call. = FALSE)
-  }
-  message(sprintf(
-    "env_data: dropped %d row(s) outside the model years %s-%s.",
-    sum(!keep), styr, hi))
-  env_data[keep, , drop = FALSE]
-}
-
-
 .extend_env_data <- function(env_data, styr) {
   if (is.null(env_data) || !is.data.frame(env_data) ||
       !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {

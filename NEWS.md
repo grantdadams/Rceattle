@@ -12,19 +12,35 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
-# Rceattle 5.27.1
+# Rceattle 5.28.0
 
 ## Bug fixes
 
-* **An environmental covariate year outside the model years is dropped on the
-  linkage path too, rather than refusing the fit.** `env_data` rows are matched
-  to model years by position, so a year outside `styr:projyr` shifts every later
-  row. `rearrange_data()` has dropped such rows from `env_index` since 5.25.0,
-  so an ordinary fit already tolerated them; a fit using any linkage instead
-  failed in `.check_env_data_years()` with "env_data$Year must start at the model
-  start year". The two paths now read a workbook the same way. The count and the
-  window are reported, and a table with **no** row inside the model years is
-  still an error -- that is a mis-specified linkage, not a row to discard.
+* **An `env_data` year before `styr` is dropped on the linkage path, rather than
+  refusing the fit.** Rows are matched to model years by position (row `r` is
+  model year `styr + r - 1`), so a row before `styr` shifts every later row and
+  feeds the wrong covariate to consumption and, under multispecies, to predation
+  mortality. `rearrange_data()` has dropped such rows from `env_index` since
+  5.25.0, so a fit without a linkage already tolerated them; a fit with one
+  stopped in `.check_env_data_years()` with "env_data$Year must start at the
+  model start year". The same workbook therefore read two ways depending on
+  whether it used a linkage.
+
+  The drop is a **warning**, not a message: covariate rows are assessment input,
+  and 15 workbooks in the sibling repositories carry pre-`styr` rows.
+
+  **Rows after the model years are deliberately left alone.** Alignment runs from
+  the front, so they are inert -- a `(1 | Year)` linkage on a table reaching ten
+  years past `projyr` gives the same objective either way. But the fixed part of
+  a linkage formula goes to `model.matrix()`, and `cut()`, `poly()` and `scale()`
+  are computed on whatever rows `env_data` supplies, so trimming the upper end
+  would move the design matrix of a fit that was already right: measured at
+  +434.9 on `~ cut(Year, 3)` and +823.8 on `~ scale(temp)` at identical
+  parameters. `~ cut(Year, ...)` is the time-block idiom, so this is the common
+  case, not a corner.
+
+  A row whose `Year` is `NA` is kept for the year check to reject by name; it is
+  unlabelled, not early. A table lying entirely before `styr` is an error.
 
 # Rceattle 5.27.0
 
