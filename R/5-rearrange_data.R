@@ -182,12 +182,31 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Bin_first_selected) %>% as.integer()
 
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin1 <- data_list$fleet_control %>%
-    dplyr::mutate(
-      Sel_norm_bin = .data$Sel_norm_bin - sel_bin_offset,
-      Sel_norm_bin = ifelse(.data$Sel_norm_bin < 0, -99, .data$Sel_norm_bin),         # Less than zero, normalize by max
-      Sel_norm_bin = ifelse(is.na(.data$Sel_norm_bin), -999, .data$Sel_norm_bin)) %>% # NA, do not normalize (unless type = 2)
-    dplyr::pull(.data$Sel_norm_bin) %>% as.integer()
+  # First bin each fleet may normalize at, on the column's own scale: below it
+  # the curve is zeroed, so a value there means "normalize by the maximum".
+  .norm_bounds <- lapply(seq_len(nrow(data_list$fleet_control)), function(i) {
+    age <- isTRUE(data_list$fleet_control$Selectivity_dimension[i] == "Age")
+    nb  <- if (age) data_list$nages[data_list$fleet_control$Species[i]]
+           else data_list$nlengths[data_list$fleet_control$Species[i]]
+    .rce_sel_norm_bounds(data_list, i, age, nb)
+  })
+  .norm_lo <- vapply(.norm_bounds, function(b) as.numeric(b$lo), numeric(1))
+  .norm_hi <- vapply(.norm_bounds, function(b) as.numeric(b$hi), numeric(1))
+  # A Fixed curve is read from emp_sel_obs and never normalized, so its value is
+  # allowed to be stale -- the same fleets switch_check() leaves alone.
+  .norm_hi[data_list$flt_sel_type == 0] <- NA_real_
+  .is_pm <- data_list$fleet_control$Selectivity %in% c(11, "LogisticPM")
+
+  # Resolve the word first, so only a real bin is shifted to the 0-based index:
+  # -99 normalizes by the maximum and -999 does not normalize. An unreadable
+  # value is refused here too -- switch_check() does not run on every path in.
+  .norm1 <- .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin,
+                               lo = .norm_lo, allow_all = .is_pm)
+  .rce_stop_bad_sel_norm(.norm1, "Sel_norm_bin", data_list$fleet_control, .norm_hi)
+  data_list$sel_norm_bin1 <- as.integer(dplyr::case_when(
+    is.na(.norm1) ~ -999,                        # do not normalize
+    .norm1 <  0   ~ -99,                         # normalize by the maximum
+    TRUE          ~ .norm1 - sel_bin_offset))
 
   # - 8b) Whether normalization pools its reference across sexes (WithinSex = 0,
   #       AcrossSexes = 1); already an integer code by this point.
@@ -195,10 +214,15 @@ rearrange_data <- function(data_list, build_osa = FALSE){
     dplyr::pull(.data$Sel_norm_scope) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin2 <- data_list$fleet_control %>%
-    dplyr::mutate(Sel_norm_bin_upper = .data$Sel_norm_bin_upper - sel_bin_offset,
-                  Sel_norm_bin_upper = ifelse(is.na(.data$Sel_norm_bin_upper), -999, .data$Sel_norm_bin_upper)) %>%
-    dplyr::pull(.data$Sel_norm_bin_upper) %>% as.integer()
+  # As above, but the upper bin keeps its own convention: selectivity.hpp reads
+  # anything below 0 as "no age range", so a negative is passed through.
+  .norm2 <- .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin_upper,
+                               lo = .norm_lo, allow_all = .is_pm)
+  .rce_stop_bad_sel_norm(.norm2, "Sel_norm_bin_upper", data_list$fleet_control, .norm_hi)
+  data_list$sel_norm_bin2 <- as.integer(dplyr::case_when(
+    is.na(.norm2) ~ -999,
+    .norm2 <  0   ~ .norm2,
+    TRUE          ~ .norm2 - sel_bin_offset))
 
   # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
   #       penalties begin the year after this (excludes pre-survey years + the

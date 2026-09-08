@@ -78,15 +78,17 @@
 #' \item{Sel_shape_mode}{Shape-penalty mode: "Directional" (default) or "Smooth" (two-sided second-difference penalty, RTMB).}
 #' \item{Sel_avgsel_pen}{Weight on the AMAK average-selectivity base-level penalty (type 9 only): 0 = off (default), 10 matches AMAK.}
 #' \item{Sel_cap_bin}{NonParametricRPM selectivity bin cap. NA (default) applies no cap.}
-#' \item{Sel_norm_bin}{Age/length bin at which selectivity is normalized to 1 --
-#'   an absolute age for an age-based fleet (6 means age 6, not the 6th bin) or a
-#'   1-based length-bin ordinal for a length-based one. NA (default) does not
-#'   normalize; a value < 0 normalizes by the maximum. In a two-sex model this
-#'   says only where the reference is taken -- whether it is pooled across the
-#'   sexes is \code{Sel_norm_scope}. NA does not normalize either way, leaving
-#'   the relative scale free. See the sex-structure section of
+#' \item{Sel_norm_bin}{Where selectivity is normalized to 1. \code{"Max"}
+#'   normalizes by the largest value, \code{"Off"} (or blank, the default) not at
+#'   all, and \code{"All"} on a LogisticPM fleet covers its whole penalty range.
+#'   A number is an absolute age for an age-based fleet (6 means age 6, not the
+#'   6th bin) or a 1-based length-bin ordinal for a length-based one, and must
+#'   lie in the range the fleet is selected over; below it the curve is zeroed,
+#'   so a value there is read as \code{"Max"}. In a two-sex model this says only
+#'   where the reference is taken -- whether it is pooled across the sexes is
+#'   \code{Sel_norm_scope}. See the sex-structure section of
 #'   \code{vignette("model-options-and-functionality")}.}
-#' \item{Sel_norm_bin_upper}{Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.}
+#' \item{Sel_norm_bin_upper}{Optional upper age/length bin. \code{"Off"} (or blank, the default) normalizes at a single bin; a number normalizes by mean selectivity between Sel_norm_bin and this bin, on the same scale and within the same range.}
 #' \item{Sel_norm_scope}{Whether selectivity normalization pools its reference
 #'   across sexes, orthogonal to \code{Sel_norm_bin} (which says where the
 #'   reference is taken). \code{"WithinSex"} divides each sex by its own

@@ -1086,7 +1086,22 @@ data_check <- function(data_list) {
         if (length(rows) < 2) next
         .differs <- function(col, na_is_a_value) {
           if (!col %in% colnames(fc)) return(FALSE)
-          v <- as.character(fc[[col]][rows])
+          # The normalization columns take a word or a bin, so "Max" and -1 are
+          # the same instruction; compare what they resolve to, not how they
+          # were typed.
+          v <- if (col %in% c("Sel_norm_bin", "Sel_norm_bin_upper")) {
+            # Resolved against each fleet's own first selected bin, as the model
+            # will resolve it; lo = 1 would call equivalent settings different.
+            lo <- vapply(rows, function(i) {
+              age <- isTRUE(fc$Selectivity_dimension[i] == "Age")
+              nb  <- if (age) data_list$nages[fc$Species[i]]
+                     else data_list$nlengths[fc$Species[i]]
+              as.numeric(.rce_sel_norm_bounds(data_list, i, age, nb)$lo)
+            }, numeric(1))
+            as.character(.rce_sel_norm_code(
+              fc[[col]][rows], lo = lo,
+              allow_all = fc$Selectivity[rows] %in% c(11, "LogisticPM")))
+          } else as.character(fc[[col]][rows])
           if (na_is_a_value) v[is.na(v)] <- "<blank>" else v <- v[!is.na(v)]
           length(unique(v)) > 1
         }

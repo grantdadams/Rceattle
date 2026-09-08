@@ -14,6 +14,40 @@ version throughout.
 
 # Rceattle 5.28.0
 
+## Input format
+
+* **`Sel_norm_bin` takes a word.** It says where selectivity is normalized to 1,
+  and encoded three intents in one number with nothing in the value to say
+  which: blank meant "do not normalize", any negative meant "by the maximum",
+  and a positive number was an absolute age. It now also accepts `Max`, `Off`
+  (or `None`), and `All` on a `LogisticPM` fleet, where the column is a penalty
+  age-range rather than a normalization reference. Matching is case-insensitive,
+  and `switch_check()` writes the word back, so a saved workbook says what it
+  does. `Sel_norm_bin_upper` takes `Off` the same way.
+
+  **Every existing value keeps its meaning.** Blank, `0`, `-1`, `-999` and a
+  positive bin reach the model as exactly the code they always did; a test pins
+  all of them.
+
+* **A normalization bin the fleet is not selected over is now an error.**
+  Previously `switch_check()` silently *overwrote* it: anything above `nages`
+  was clamped to `nages`, which is a bin count used as a ceiling for an absolute
+  age, so on a `minage = 3` stock ages 11 and 12 were valid and became 10. The
+  clamp also ran before `data_check()`, so nothing downstream could see the
+  original value. The bounds are now the fleet's own selected range -- below
+  `Bin_first_selected` the curve is zeroed, so a reference taken there divides
+  by nothing -- and a value below it is read as `Max`, which is what a negative
+  has always meant. Note `Bin_first_selected` is a 1-based bin ordinal while
+  `Sel_norm_bin` is an absolute age; the conversion is handled for you.
+
+  On a stock recruiting at age 0, `Sel_norm_bin = 0` is the first age and is
+  kept as a reference bin rather than read as a flag.
+
+* **An unreadable value is refused rather than read as "do not normalize".**
+  `rearrange_data()` is exported and does not always run behind
+  `switch_check()`, so it checks the column itself; a typo such as `Maxx` used
+  to resolve to blank and silently turn normalization off.
+
 ## Bug fixes
 
 * **An `env_data` year outside the model years is dropped on the linkage path,
