@@ -519,7 +519,8 @@ fit_mod <-
       # Drop pre-styr rows, then prepend/gap-fill to start at styr (NA for
       # missing years) so a later-starting `observe` covariate aligns; the check
       # validates the result. NA years are masked in the QAR1 observation.
-      data_list$env_data <- .trim_env_data(data_list$env_data, data_list$styr)
+      data_list$env_data <- .trim_env_data(data_list$env_data, data_list$styr,
+                                           data_list$projyr)
       data_list$env_data <- .extend_env_data(data_list$env_data, data_list$styr)
       .check_env_data_years(data_list$env_data, data_list$styr)
     }

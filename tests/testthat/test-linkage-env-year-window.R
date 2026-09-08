@@ -4,10 +4,12 @@
 # rearrange_data() drops such rows from env_index, so a model without a linkage
 # has always tolerated them; the linkage path refused the whole fit instead.
 #
-# Rows AFTER the model years are deliberately left alone. Alignment runs from the
-# front, so they are inert -- but the fixed part of a linkage formula goes to
-# model.matrix(), and cut() / poly() / scale() are computed on whatever rows
-# env_data supplies, so dropping them moves the design matrix and the objective.
+# Rows AFTER projyr shift nothing -- alignment runs from the front -- but the
+# fixed part of a linkage formula goes to model.matrix(), so cut() / poly() /
+# scale() would otherwise be computed partly over years the model never fits.
+# They are dropped for that reason, which does move such a fit. No workbook in
+# the sibling repositories has one: 171 carry env_data, 15 have rows before styr
+# and 0 after projyr.
 
 .env_tbl <- function(first, last) {
   data.frame(Year = first:last,
@@ -25,10 +27,20 @@ testthat::test_that("pre-styr rows are dropped, later rows keep their own year",
 })
 
 
-testthat::test_that("rows after the model years are NOT dropped", {
-  # Dropping them would rebuild a cut()/poly()/scale() design matrix on a
-  # different row set and move the objective of a fit that was already correct.
-  ed <- .env_tbl(1980, 2050)
+testthat::test_that("rows after projyr are dropped, so the basis is built on model years", {
+  ed  <- .env_tbl(1980, 2000)
+  out <- suppressWarnings(Rceattle:::.trim_env_data(ed, styr = 1980, projyr = 1990))
+  testthat::expect_equal(range(out$Year), c(1980, 1990))
+  # This is the point of the trim: scale()/poly() centre on the rows supplied,
+  # so the basis is now built over the 11 model years rather than all 21.
+  testthat::expect_equal(mean(out$temp), mean(seq_len(11)))
+  testthat::expect_false(isTRUE(all.equal(mean(out$temp), mean(ed$temp))))
+})
+
+
+testthat::test_that("without projyr the upper end is left alone", {
+  # rearrange_data() needs projyr and fails later; the trim does not invent one.
+  ed <- .env_tbl(1980, 2000)
   testthat::expect_silent(out <- Rceattle:::.trim_env_data(ed, styr = 1980))
   testthat::expect_identical(out, ed)
 })
@@ -36,8 +48,8 @@ testthat::test_that("rows after the model years are NOT dropped", {
 
 testthat::test_that("the drop is a warning, naming the count and styr", {
   testthat::expect_warning(
-    Rceattle:::.trim_env_data(.env_tbl(1975, 1990), 1980),
-    "dropped 5 row\\(s\\) before styr \\(1980\\)")
+    Rceattle:::.trim_env_data(.env_tbl(1975, 1990), 1980, 1990),
+    "dropped 5 row\\(s\\) outside the model years 1980-1990")
 })
 
 
@@ -45,22 +57,22 @@ testthat::test_that("an NA year is kept, for the year check to reject", {
   # An NA year is unlabelled, not early. 5.27.0 rejected it by name; silently
   # dropping it here would change which covariates reach the model.
   ed  <- data.frame(Year = c(1980:1990, NA), temp = 1:12)
-  out <- Rceattle:::.trim_env_data(ed, 1980)
+  out <- Rceattle:::.trim_env_data(ed, 1980, 1990)
   testthat::expect_equal(nrow(out), 12L)
   testthat::expect_error(Rceattle:::.check_env_data_years(out, 1980),
                          "sorted ascending with no duplicates or NA")
 })
 
 
-testthat::test_that("a table entirely before styr is an error, not an empty drop", {
+testthat::test_that("a table entirely outside the model years is an error", {
   testthat::expect_error(
-    Rceattle:::.trim_env_data(.env_tbl(1960, 1970), 1980),
-    "env_data ends at 1970, before the model start year styr \\(1980\\)")
+    Rceattle:::.trim_env_data(.env_tbl(1960, 1970), 1980, 1990),
+    "covers 1960-1970, none of it inside the model years 1980-1990")
 })
 
 
 testthat::test_that("the trim leaves the extension and year check satisfiable", {
-  out <- suppressWarnings(Rceattle:::.trim_env_data(.env_tbl(1975, 1985), 1980))
+  out <- suppressWarnings(Rceattle:::.trim_env_data(.env_tbl(1975, 1985), 1980, 1990))
   out <- suppressMessages(Rceattle:::.extend_env_data(out, 1980))
   testthat::expect_equal(out$Year[1], 1980)
   testthat::expect_silent(Rceattle:::.check_env_data_years(out, 1980))
@@ -68,9 +80,9 @@ testthat::test_that("the trim leaves the extension and year check satisfiable", 
 
 
 testthat::test_that("an empty or absent table is a no-op, not an error", {
-  testthat::expect_null(Rceattle:::.trim_env_data(NULL, 1980))
+  testthat::expect_null(Rceattle:::.trim_env_data(NULL, 1980, 1990))
   ed0 <- data.frame(Year = integer(0), temp = numeric(0))
-  testthat::expect_equal(nrow(Rceattle:::.trim_env_data(ed0, 1980)), 0L)
+  testthat::expect_equal(nrow(Rceattle:::.trim_env_data(ed0, 1980, 1990)), 0L)
   testthat::expect_equal(nrow(Rceattle:::.extend_env_data(ed0, 1980)), 0L)
   testthat::expect_silent(Rceattle:::.check_env_data_years(ed0, 1980))
 })

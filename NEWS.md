@@ -16,31 +16,36 @@ version throughout.
 
 ## Bug fixes
 
-* **An `env_data` year before `styr` is dropped on the linkage path, rather than
-  refusing the fit.** Rows are matched to model years by position (row `r` is
-  model year `styr + r - 1`), so a row before `styr` shifts every later row and
-  feeds the wrong covariate to consumption and, under multispecies, to predation
-  mortality. `rearrange_data()` has dropped such rows from `env_index` since
-  5.25.0, so a fit without a linkage already tolerated them; a fit with one
-  stopped in `.check_env_data_years()` with "env_data$Year must start at the
-  model start year". The same workbook therefore read two ways depending on
-  whether it used a linkage.
+* **An `env_data` year outside the model years is dropped on the linkage path,
+  rather than refusing the fit.** Rows are matched to model years by position
+  (row `r` is model year `styr + r - 1`), so a row before `styr` shifts every
+  later row and feeds the wrong covariate to consumption and, under
+  multispecies, to predation mortality. `rearrange_data()` has dropped such rows
+  from `env_index` since 5.25.0, so a fit without a linkage already tolerated
+  them; a fit with one stopped in `.check_env_data_years()` with "env_data$Year
+  must start at the model start year". The same workbook read two ways depending
+  on whether it used a linkage.
 
-  The drop is a **warning**, not a message: covariate rows are assessment input,
-  and 15 workbooks in the sibling repositories carry pre-`styr` rows.
+  Dropping a row is a **warning**: covariate rows are assessment input, and 15
+  workbooks in the sibling repositories carry pre-`styr` rows. A row whose `Year`
+  is `NA` is kept for the year check to reject by name -- it is unlabelled, not
+  out of range -- and a table lying entirely outside the model years is an error.
 
-  **Rows after the model years are deliberately left alone.** Alignment runs from
-  the front, so they are inert -- a `(1 | Year)` linkage on a table reaching ten
-  years past `projyr` gives the same objective either way. But the fixed part of
-  a linkage formula goes to `model.matrix()`, and `cut()`, `poly()` and `scale()`
-  are computed on whatever rows `env_data` supplies, so trimming the upper end
-  would move the design matrix of a fit that was already right: measured at
-  +434.9 on `~ cut(Year, 3)` and +823.8 on `~ scale(temp)` at identical
-  parameters. `~ cut(Year, ...)` is the time-block idiom, so this is the common
-  case, not a corner.
+* **Rows after `projyr` are dropped too, which can move a linkage fit.** They
+  shift nothing, since alignment runs from the front. But the fixed part of a
+  linkage formula goes to `model.matrix()`, so `cut()`, `poly()` and `scale()`
+  were computed partly over years the model never fits, and the basis they build
+  depends on the rows supplied. Dropping them keeps the design matrix on the
+  model years, and moves such a fit: measured at +434.9 on `~ cut(Year, 3)` and
+  +823.8 on `~ scale(temp)` at identical parameters, with `~ (1 | Year)`
+  unchanged because a random effect on an unused year integrates out.
 
-  A row whose `Year` is `NA` is kept for the year check to reject by name; it is
-  unlabelled, not early. A table lying entirely before `styr` is an error.
+  **No assessment is affected.** Of the 171 workbooks carrying `env_data` across
+  `../Rceattle-models`, `../GOA-ATF-ESP`, `../GOA-multispecies-assessment` and
+  `../GOA_circlulation_study`, 15 have rows before `styr` and **none** has a row
+  after `projyr`. No bundled dataset has either. Refit only a model whose
+  `env_data` runs past its `projyr` *and* carries a linkage whose fixed formula
+  transforms a covariate.
 
 # Rceattle 5.27.0
 
