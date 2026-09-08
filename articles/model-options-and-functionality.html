@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 Adams</h4>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.27.0/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-options-and-functionality.Rmd" class="external-link"><code>vignettes/model-options-and-functionality.Rmd</code></a></small>
       <div class="d-none name"><code>model-options-and-functionality.Rmd</code></div>
     </div>
 
@@ -634,16 +634,24 @@ be estimated, given a prior, or held fixed:</p>
 that way.</p>
 <p>Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over <code>N_sel_bins</code>.</p>
-<p>Selectivity can be normalized relative to a specific age by setting
-<code>Sel_norm_bin != NA</code> or to the max (non-differentiable) by
-setting <code>Sel_norm_bin &lt; 0</code>. Selectivity can also be
-normalized relative to the average across an age-range by specifying the
-lower (<code>Sel_norm_bin</code>) and upper
-(<code>Sel_norm_bin_upper</code>) bound.</p>
-<p><code>Sel_norm_bin</code> is a bin index on the fleet’s own
+<p><code>Sel_norm_bin</code> says where selectivity is normalized to 1.
+Set it to <code>"Max"</code> to normalize by the largest value
+(non-differentiable), to <code>"Off"</code> to leave the curve
+unnormalized, or to a bin to normalize there. Give
+<code>Sel_norm_bin_upper</code> as well and the reference is mean
+selectivity over that range instead.</p>
+<p>A numeric <code>Sel_norm_bin</code> is read on the fleet’s own
 <code>Selectivity_dimension</code>: an absolute <strong>age</strong> for
 an age-based fleet (<code>6</code> means age 6, not the sixth bin) or a
-1-based <strong>length-bin ordinal</strong> for a length-based one.</p>
+1-based <strong>length-bin ordinal</strong> for a length-based one. Note
+<code>Bin_first_selected</code> beside it uses the opposite convention
+and is always a bin ordinal. The value must fall in the range the fleet
+is selected over: below <code>Bin_first_selected</code> the curve is
+zeroed, so a reference taken there would divide by nothing, and a value
+below it is read as <code>"Max"</code> – which is what a negative has
+always meant. Legacy numbers still work: blank is <code>"Off"</code>,
+and <code>0</code>, <code>-1</code> or <code>-999</code> are
+<code>"Max"</code>.</p>
 <div class="section level3">
 <h3 id="sharing-a-selectivity-between-fleets">Sharing a selectivity between fleets<a class="anchor" aria-label="anchor" href="#sharing-a-selectivity-between-fleets"></a>
 </h3>
@@ -693,10 +701,11 @@ its estimated members’ values and no fleet keeps its own.
 </tr>
 </tbody>
 </table>
-<p>A blank counts as a value in the first row: a blank
-<code>Sel_norm_bin</code> means “do not normalize”, which is a different
-curve from normalizing at a bin. <code><a href="../reference/data_check.html">data_check()</a></code> warns in all
-three cases, distinguishing divergence from resolution.</p>
+<p>A blank counts as a value in the first row: an unset
+<code>Sel_norm_bin</code> (written back as <code>"Off"</code>) means “do
+not normalize”, which is a different curve from normalizing at a bin.
+<code><a href="../reference/data_check.html">data_check()</a></code> warns in all three cases, distinguishing
+divergence from resolution.</p>
 <p>The reliable way to mirror a fleet is to copy its
 <code>fleet_control</code> row and change only the identity and
 catchability columns:</p>
@@ -722,10 +731,10 @@ makes two independent decisions, carried by two columns:</p>
 <ul>
 <li>
 <strong><code>Sel_norm_bin</code> — where the reference is
-taken.</strong> <code>NA</code> normalizes nothing; <code>&gt;= 0</code>
-takes it at that bin (or, with <code>Sel_norm_bin_upper</code>, the mean
-over that range); <code>&lt; 0</code> takes it at the curve’s maximum
-over bins.</li>
+taken.</strong> <code>"Off"</code> normalizes nothing; a bin takes it
+there (or, with <code>Sel_norm_bin_upper</code>, the mean over that
+range); <code>"Max"</code> takes it at the curve’s maximum over
+bins.</li>
 <li>
 <strong><code>Sel_norm_scope</code> — whose scale it sets.</strong>
 <code>"AcrossSexes"</code> (default) pools one reference over the sexes,
@@ -747,29 +756,29 @@ differs by sex.</li>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>NA</code></td>
+<td><code>"Off"</code></td>
 <td>—</td>
 <td>nothing normalized; the relative scale is free</td>
 </tr>
 <tr class="even">
-<td><code>&lt; 0</code></td>
+<td><code>"Max"</code></td>
 <td><code>"AcrossSexes"</code></td>
 <td>maximum over bins <strong>and sexes</strong> — one sex peaks at 1,
 the other keeps its relative level</td>
 </tr>
 <tr class="odd">
-<td><code>&lt; 0</code></td>
+<td><code>"Max"</code></td>
 <td><code>"WithinSex"</code></td>
 <td>each sex scaled at <strong>its own plateau</strong>, wherever that
 falls</td>
 </tr>
 <tr class="even">
-<td><code>&gt;= 0</code></td>
+<td>a bin</td>
 <td><code>"AcrossSexes"</code></td>
 <td>anchored at that bin, sexes kept comparable</td>
 </tr>
 <tr class="odd">
-<td><code>&gt;= 0</code></td>
+<td>a bin</td>
 <td><code>"WithinSex"</code></td>
 <td>both sexes forced to 1 at that bin; only the shape differs</td>
 </tr>
@@ -779,17 +788,17 @@ falls</td>
 the quantity of interest, so the <code>"AcrossSexes"</code> default is
 the one to keep. If instead the sexes plateau at different ages and you
 want each scaled at its own plateau, use
-<code>Sel_norm_bin &lt; 0</code> with
+<code>Sel_norm_bin = "Max"</code> with
 <code>Sel_norm_scope = "WithinSex"</code> — that is more robust than
 naming a bin, since a named bin stops being the plateau once selectivity
 is time-varying while the maximum tracks it.</p>
 <p>Note that <code>Sel_norm_scope</code> has no effect on a one-sex
-species, or where <code>Sel_norm_bin</code> is <code>NA</code>. Before
-Rceattle 5.8.0 a named bin always implied <code>"WithinSex"</code> and
-max-normalization always implied <code>"AcrossSexes"</code>; a two-sex
-fleet normalizing at a named bin should set
-<code>Sel_norm_scope = "WithinSex"</code> explicitly to keep its old
-behaviour.</p>
+species, or where <code>Sel_norm_bin</code> is <code>"Off"</code>.
+Before Rceattle 5.8.0 a named bin always implied
+<code>"WithinSex"</code> and max-normalization always implied
+<code>"AcrossSexes"</code>; a two-sex fleet normalizing at a named bin
+should set <code>Sel_norm_scope = "WithinSex"</code> explicitly to keep
+its old behaviour.</p>
 <p>Two things constrain what is actually estimable:</p>
 <ul>
 <li>

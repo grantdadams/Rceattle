@@ -207,16 +207,22 @@ runs that way.
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
 indexed over `N_sel_bins`.
 
-Selectivity can be normalized relative to a specific age by setting
-`Sel_norm_bin != NA` or to the max (non-differentiable) by setting
-`Sel_norm_bin < 0`. Selectivity can also be normalized relative to the
-average across an age-range by specifying the lower (`Sel_norm_bin`) and
-upper (`Sel_norm_bin_upper`) bound.
+`Sel_norm_bin` says where selectivity is normalized to 1. Set it to
+`"Max"` to normalize by the largest value (non-differentiable), to
+`"Off"` to leave the curve unnormalized, or to a bin to normalize there.
+Give `Sel_norm_bin_upper` as well and the reference is mean selectivity
+over that range instead.
 
-`Sel_norm_bin` is a bin index on the fleet’s own
+A numeric `Sel_norm_bin` is read on the fleet’s own
 `Selectivity_dimension`: an absolute **age** for an age-based fleet (`6`
 means age 6, not the sixth bin) or a 1-based **length-bin ordinal** for
-a length-based one.
+a length-based one. Note `Bin_first_selected` beside it uses the
+opposite convention and is always a bin ordinal. The value must fall in
+the range the fleet is selected over: below `Bin_first_selected` the
+curve is zeroed, so a reference taken there would divide by nothing, and
+a value below it is read as `"Max"` – which is what a negative has
+always meant. Legacy numbers still work: blank is `"Off"`, and `0`, `-1`
+or `-999` are `"Max"`.
 
 ### Sharing a selectivity between fleets
 
@@ -235,9 +241,9 @@ group or the fleets end up with different selectivities:
 | `Sel_start_year` | Resolved to the group’s earliest year |
 | `Time_varying_sel_sd` | Honoured per fleet while it is **fixed**. Under `random_sel = TRUE` the group estimates one deviation sd, and TMB averages the initial values of parameters mapped together — this one on the log scale, so the group starts at the *geometric* mean of its estimated members’ values and no fleet keeps its own. [`build_map()`](https://grantdadams.github.io/Rceattle/reference/build_map.md) warns |
 
-A blank counts as a value in the first row: a blank `Sel_norm_bin` means
-“do not normalize”, which is a different curve from normalizing at a
-bin.
+A blank counts as a value in the first row: an unset `Sel_norm_bin`
+(written back as `"Off"`) means “do not normalize”, which is a different
+curve from normalizing at a bin.
 [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
 warns in all three cases, distinguishing divergence from resolution.
 
@@ -266,10 +272,9 @@ sexes — whether males and females can be selected at genuinely different
 levels, or only with different shapes. Normalization makes two
 independent decisions, carried by two columns:
 
-- **`Sel_norm_bin` — where the reference is taken.** `NA` normalizes
-  nothing; `>= 0` takes it at that bin (or, with `Sel_norm_bin_upper`,
-  the mean over that range); `< 0` takes it at the curve’s maximum over
-  bins.
+- **`Sel_norm_bin` — where the reference is taken.** `"Off"` normalizes
+  nothing; a bin takes it there (or, with `Sel_norm_bin_upper`, the mean
+  over that range); `"Max"` takes it at the curve’s maximum over bins.
 - **`Sel_norm_scope` — whose scale it sets.** `"AcrossSexes"` (default)
   pools one reference over the sexes, so the less-selected sex stays
   below 1 and **relative sex-specific selectivity is retained**.
@@ -278,24 +283,24 @@ independent decisions, carried by two columns:
 
 | `Sel_norm_bin` | `Sel_norm_scope` | Result |
 |----|----|----|
-| `NA` | — | nothing normalized; the relative scale is free |
-| `< 0` | `"AcrossSexes"` | maximum over bins **and sexes** — one sex peaks at 1, the other keeps its relative level |
-| `< 0` | `"WithinSex"` | each sex scaled at **its own plateau**, wherever that falls |
-| `>= 0` | `"AcrossSexes"` | anchored at that bin, sexes kept comparable |
-| `>= 0` | `"WithinSex"` | both sexes forced to 1 at that bin; only the shape differs |
+| `"Off"` | — | nothing normalized; the relative scale is free |
+| `"Max"` | `"AcrossSexes"` | maximum over bins **and sexes** — one sex peaks at 1, the other keeps its relative level |
+| `"Max"` | `"WithinSex"` | each sex scaled at **its own plateau**, wherever that falls |
+| a bin | `"AcrossSexes"` | anchored at that bin, sexes kept comparable |
+| a bin | `"WithinSex"` | both sexes forced to 1 at that bin; only the shape differs |
 
 For strongly dimorphic stocks the relative sex selectivity is usually
 the quantity of interest, so the `"AcrossSexes"` default is the one to
 keep. If instead the sexes plateau at different ages and you want each
-scaled at its own plateau, use `Sel_norm_bin < 0` with
+scaled at its own plateau, use `Sel_norm_bin = "Max"` with
 `Sel_norm_scope = "WithinSex"` — that is more robust than naming a bin,
 since a named bin stops being the plateau once selectivity is
 time-varying while the maximum tracks it.
 
 Note that `Sel_norm_scope` has no effect on a one-sex species, or where
-`Sel_norm_bin` is `NA`. Before Rceattle 5.8.0 a named bin always implied
-`"WithinSex"` and max-normalization always implied `"AcrossSexes"`; a
-two-sex fleet normalizing at a named bin should set
+`Sel_norm_bin` is `"Off"`. Before Rceattle 5.8.0 a named bin always
+implied `"WithinSex"` and max-normalization always implied
+`"AcrossSexes"`; a two-sex fleet normalizing at a named bin should set
 `Sel_norm_scope = "WithinSex"` explicitly to keep its old behaviour.
 
 Two things constrain what is actually estimable:

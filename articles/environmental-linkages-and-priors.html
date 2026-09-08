@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,7 +79,7 @@
       <h1>Environmental linkages and priors</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.27.0/vignettes/environmental-linkages-and-priors.Rmd" class="external-link"><code>vignettes/environmental-linkages-and-priors.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/environmental-linkages-and-priors.Rmd" class="external-link"><code>vignettes/environmental-linkages-and-priors.Rmd</code></a></small>
       <div class="d-none name"><code>environmental-linkages-and-priors.Rmd</code></div>
     </div>
 
@@ -577,10 +577,11 @@ shows up as a separate design column with its own coefficient:</p>
 <span><span class="co">#   (Intercept), poly(temp, 4)1, poly(temp, 4)2,</span></span>
 <span><span class="co">#   poly(temp, 4)3, poly(temp, 4)4</span></span></code></pre></div>
 <p><code><a href="https://rdrr.io/r/stats/poly.html" class="external-link">poly()</a></code> orthogonalises the basis against the rows of
-<code>env_data</code>, so the columns are zero-mean over the model years
-and the linear slope, quadratic curvature, etc. are estimated
-independently – generally the right choice if you don’t have a specific
-scientific reason to prefer raw monomials.</p>
+<code>env_data</code> – every row supplied, including any beyond the
+projection horizon – so the columns are zero-mean over that span and the
+linear slope, quadratic curvature, etc. are estimated independently –
+generally the right choice if you don’t have a specific scientific
+reason to prefer raw monomials.</p>
 <p><strong>Arbitrary arithmetic.</strong> Use <code><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I()</a></code> to insert
 a literal expression (otherwise <code>temp^2</code> is interpreted as a
 formula crossing operator and reduces to <code>temp</code>):</p>
@@ -1325,9 +1326,16 @@ process.</p>
 position</strong>: row 1 is the model start year, and years beyond the
 last row get a zero offset (so <code>env_data</code> may stop short of
 the projection horizon). When <code>env_data</code> carries a
-<code>Year</code> column it must start at <code>styr</code> and be
-contiguous; a misaligned or gappy <code>Year</code> errors rather than
-applying a covariate/deviate to the wrong year.</p>
+<code>Year</code> column it must be contiguous and start at
+<code>styr</code>; a gappy or unsorted <code>Year</code>, or one
+carrying <code>NA</code>, errors rather than applying a
+covariate/deviate to the wrong year. Rows <em>before</em>
+<code>styr</code> are dropped with a warning, since they would shift
+every later row. Rows <em>after</em> the model years are kept: alignment
+runs from the front, so they change no offset, but <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut()</a></code>,
+<code><a href="https://rdrr.io/r/stats/poly.html" class="external-link">poly()</a></code> and <code><a href="https://rdrr.io/r/base/scale.html" class="external-link">scale()</a></code> are computed over the rows
+<code>env_data</code> supplies, so discarding them would move a design
+matrix that was already right.</p>
 </div>
 </div>
 <div class="section level2">

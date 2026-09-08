@@ -9,7 +9,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Data inputs for single species CEATTLE of the Bering Sea from 1979 to 2017</h1>
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.27.0/R/data.R" class="external-link"><code>R/data.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/R/data.R" class="external-link"><code>R/data.R</code></a></small>
       <div class="d-none name"><code>BS2017SS.Rd</code></div>
     </div>
 
@@ -275,17 +275,19 @@
 <dd><p>NonParametricRPM selectivity bin cap. NA (default) applies no cap.</p></dd>
 
 <dt>Sel_norm_bin</dt>
-<dd><p>Age/length bin at which selectivity is normalized to 1 –
-an absolute age for an age-based fleet (6 means age 6, not the 6th bin) or a
-1-based length-bin ordinal for a length-based one. NA (default) does not
-normalize; a value &lt; 0 normalizes by the maximum. In a two-sex model this
-says only where the reference is taken – whether it is pooled across the
-sexes is <code>Sel_norm_scope</code>. NA does not normalize either way, leaving
-the relative scale free. See the sex-structure section of
+<dd><p>Where selectivity is normalized to 1. <code>"Max"</code>
+normalizes by the largest value, <code>"Off"</code> (or blank, the default) not at
+all, and <code>"All"</code> on a LogisticPM fleet covers its whole penalty range.
+A number is an absolute age for an age-based fleet (6 means age 6, not the
+6th bin) or a 1-based length-bin ordinal for a length-based one, and must
+lie in the range the fleet is selected over; below it the curve is zeroed,
+so a value there is read as <code>"Max"</code>. In a two-sex model this says only
+where the reference is taken – whether it is pooled across the sexes is
+<code>Sel_norm_scope</code>. See the sex-structure section of
 <code><a href="../articles/model-options-and-functionality.html">vignette("model-options-and-functionality")</a></code>.</p></dd>
 
 <dt>Sel_norm_bin_upper</dt>
-<dd><p>Optional upper age/length bin for selectivity normalization (default NA). When set, selectivity is normalized by its mean between Sel_norm_bin and Sel_norm_bin_upper.</p></dd>
+<dd><p>Optional upper age/length bin. <code>"Off"</code> (or blank, the default) normalizes at a single bin; a number normalizes by mean selectivity between Sel_norm_bin and this bin, on the same scale and within the same range.</p></dd>
 
 <dt>Sel_norm_scope</dt>
 <dd><p>Whether selectivity normalization pools its reference

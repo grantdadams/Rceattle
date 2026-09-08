@@ -1,5 +1,92 @@
 # Changelog
 
+## Rceattle 5.28.0
+
+### Input format
+
+- **`Sel_norm_bin` takes a word.** It says where selectivity is
+  normalized to 1, and encoded three intents in one number with nothing
+  in the value to say which: blank meant “do not normalize”, any
+  negative meant “by the maximum”, and a positive number was an absolute
+  age. It now also accepts `Max`, `Off` (or `None`), and `All` on a
+  `LogisticPM` fleet, where the column is a penalty age-range rather
+  than a normalization reference. Matching is case-insensitive, and
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  writes the word back, so a saved workbook says what it does.
+  `Sel_norm_bin_upper` takes `Off` the same way.
+
+  **Every existing value keeps its meaning.** Blank, `0`, `-1`, `-999`
+  and a positive bin reach the model as exactly the code they always
+  did; a test pins all of them.
+
+- **A normalization bin the fleet is not selected over is now an
+  error.** Previously
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
+  silently *overwrote* it: anything above `nages` was clamped to
+  `nages`, which is a bin count used as a ceiling for an absolute age,
+  so on a `minage = 3` stock ages 11 and 12 were valid and became 10.
+  The clamp also ran before
+  [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md),
+  so nothing downstream could see the original value. The bounds are now
+  the fleet’s own selected range – below `Bin_first_selected` the curve
+  is zeroed, so a reference taken there divides by nothing – and a value
+  below it is read as `Max`, which is what a negative has always meant.
+  Note `Bin_first_selected` is a 1-based bin ordinal while
+  `Sel_norm_bin` is an absolute age; the conversion is handled for you.
+
+  On a stock recruiting at age 0, `Sel_norm_bin = 0` is the first age
+  and is kept as a reference bin rather than read as a flag.
+
+- **An unreadable value is refused rather than read as “do not
+  normalize”.**
+  [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  is exported and does not always run behind
+  [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md),
+  so it checks the column itself; a typo such as `Maxx` used to resolve
+  to blank and silently turn normalization off.
+
+### Bug fixes
+
+- **An `env_data` year outside the model years is dropped on the linkage
+  path, rather than refusing the fit.** Rows are matched to model years
+  by position (row `r` is model year `styr + r - 1`), so a row before
+  `styr` shifts every later row and feeds the wrong covariate to
+  consumption and, under multispecies, to predation mortality.
+  [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  has dropped such rows from `env_index` since 5.25.0, so a fit without
+  a linkage already tolerated them; a fit with one stopped in
+  `.check_env_data_years()` with “env_data\$Year must start at the model
+  start year”. The same workbook read two ways depending on whether it
+  used a linkage.
+
+  Dropping a row is a **warning**: covariate rows are assessment input,
+  and 15 workbooks in the sibling repositories carry pre-`styr` rows. A
+  row whose `Year` is `NA` is kept for the year check to reject by name
+  – it is unlabelled, not out of range – and a table lying entirely
+  outside the model years is an error.
+
+- **Rows after `projyr` are dropped too, which can move a linkage fit.**
+  They shift nothing, since alignment runs from the front. But the fixed
+  part of a linkage formula goes to
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html), so
+  [`cut()`](https://rdrr.io/r/base/cut.html),
+  [`poly()`](https://rdrr.io/r/stats/poly.html) and
+  [`scale()`](https://rdrr.io/r/base/scale.html) were computed partly
+  over years the model never fits, and the basis they build depends on
+  the rows supplied. Dropping them keeps the design matrix on the model
+  years, and moves such a fit: measured at +434.9 on `~ cut(Year, 3)`
+  and +823.8 on `~ scale(temp)` at identical parameters, with
+  `~ (1 | Year)` unchanged because a random effect on an unused year
+  integrates out.
+
+  **No assessment is affected.** Of the 171 workbooks carrying
+  `env_data` across `../Rceattle-models`, `../GOA-ATF-ESP`,
+  `../GOA-multispecies-assessment` and `../GOA_circlulation_study`, 15
+  have rows before `styr` and **none** has a row after `projyr`. No
+  bundled dataset has either. Refit only a model whose `env_data` runs
+  past its `projyr` *and* carries a linkage whose fixed formula
+  transforms a covariate.
+
 ## Rceattle 5.27.0
 
 ### New features

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">5.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,9 +51,35 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/5.27.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="5.28.0" id="rceattle-5280">Rceattle 5.28.0<a class="anchor" aria-label="anchor" href="#rceattle-5280"></a></h2>
+<div class="section level3">
+<h3 id="input-format-5-28-0">Input format<a class="anchor" aria-label="anchor" href="#input-format-5-28-0"></a></h3>
+<ul><li>
+<p><strong><code>Sel_norm_bin</code> takes a word.</strong> It says where selectivity is normalized to 1, and encoded three intents in one number with nothing in the value to say which: blank meant “do not normalize”, any negative meant “by the maximum”, and a positive number was an absolute age. It now also accepts <code>Max</code>, <code>Off</code> (or <code>None</code>), and <code>All</code> on a <code>LogisticPM</code> fleet, where the column is a penalty age-range rather than a normalization reference. Matching is case-insensitive, and <code><a href="../reference/switch_check.html">switch_check()</a></code> writes the word back, so a saved workbook says what it does. <code>Sel_norm_bin_upper</code> takes <code>Off</code> the same way.</p>
+<p><strong>Every existing value keeps its meaning.</strong> Blank, <code>0</code>, <code>-1</code>, <code>-999</code> and a positive bin reach the model as exactly the code they always did; a test pins all of them.</p>
+</li>
+<li>
+<p><strong>A normalization bin the fleet is not selected over is now an error.</strong> Previously <code><a href="../reference/switch_check.html">switch_check()</a></code> silently <em>overwrote</em> it: anything above <code>nages</code> was clamped to <code>nages</code>, which is a bin count used as a ceiling for an absolute age, so on a <code>minage = 3</code> stock ages 11 and 12 were valid and became 10. The clamp also ran before <code><a href="../reference/data_check.html">data_check()</a></code>, so nothing downstream could see the original value. The bounds are now the fleet’s own selected range – below <code>Bin_first_selected</code> the curve is zeroed, so a reference taken there divides by nothing – and a value below it is read as <code>Max</code>, which is what a negative has always meant. Note <code>Bin_first_selected</code> is a 1-based bin ordinal while <code>Sel_norm_bin</code> is an absolute age; the conversion is handled for you.</p>
+<p>On a stock recruiting at age 0, <code>Sel_norm_bin = 0</code> is the first age and is kept as a reference bin rather than read as a flag.</p>
+</li>
+<li><p><strong>An unreadable value is refused rather than read as “do not normalize”.</strong> <code><a href="../reference/rearrange_data.html">rearrange_data()</a></code> is exported and does not always run behind <code><a href="../reference/switch_check.html">switch_check()</a></code>, so it checks the column itself; a typo such as <code>Maxx</code> used to resolve to blank and silently turn normalization off.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-5-28-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-5-28-0"></a></h3>
+<ul><li>
+<p><strong>An <code>env_data</code> year outside the model years is dropped on the linkage path, rather than refusing the fit.</strong> Rows are matched to model years by position (row <code>r</code> is model year <code>styr + r - 1</code>), so a row before <code>styr</code> shifts every later row and feeds the wrong covariate to consumption and, under multispecies, to predation mortality. <code><a href="../reference/rearrange_data.html">rearrange_data()</a></code> has dropped such rows from <code>env_index</code> since 5.25.0, so a fit without a linkage already tolerated them; a fit with one stopped in <code>.check_env_data_years()</code> with “env_data$Year must start at the model start year”. The same workbook read two ways depending on whether it used a linkage.</p>
+<p>Dropping a row is a <strong>warning</strong>: covariate rows are assessment input, and 15 workbooks in the sibling repositories carry pre-<code>styr</code> rows. A row whose <code>Year</code> is <code>NA</code> is kept for the year check to reject by name – it is unlabelled, not out of range – and a table lying entirely outside the model years is an error.</p>
+</li>
+<li>
+<p><strong>Rows after <code>projyr</code> are dropped too, which can move a linkage fit.</strong> They shift nothing, since alignment runs from the front. But the fixed part of a linkage formula goes to <code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code>, so <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut()</a></code>, <code><a href="https://rdrr.io/r/stats/poly.html" class="external-link">poly()</a></code> and <code><a href="https://rdrr.io/r/base/scale.html" class="external-link">scale()</a></code> were computed partly over years the model never fits, and the basis they build depends on the rows supplied. Dropping them keeps the design matrix on the model years, and moves such a fit: measured at +434.9 on <code>~ cut(Year, 3)</code> and +823.8 on <code>~ scale(temp)</code> at identical parameters, with <code>~ (1 | Year)</code> unchanged because a random effect on an unused year integrates out.</p>
+<p><strong>No assessment is affected.</strong> Of the 171 workbooks carrying <code>env_data</code> across <code>../Rceattle-models</code>, <code>../GOA-ATF-ESP</code>, <code>../GOA-multispecies-assessment</code> and <code>../GOA_circlulation_study</code>, 15 have rows before <code>styr</code> and <strong>none</strong> has a row after <code>projyr</code>. No bundled dataset has either. Refit only a model whose <code>env_data</code> runs past its <code>projyr</code> <em>and</em> carries a linkage whose fixed formula transforms a covariate.</p>
+</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="5.27.0" id="rceattle-5270">Rceattle 5.27.0<a class="anchor" aria-label="anchor" href="#rceattle-5270"></a></h2>
 <div class="section level3">

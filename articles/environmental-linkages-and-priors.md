@@ -535,10 +535,11 @@ linkage_spec(
 ```
 
 [`poly()`](https://rdrr.io/r/stats/poly.html) orthogonalises the basis
-against the rows of `env_data`, so the columns are zero-mean over the
-model years and the linear slope, quadratic curvature, etc. are
-estimated independently – generally the right choice if you don’t have a
-specific scientific reason to prefer raw monomials.
+against the rows of `env_data` – every row supplied, including any
+beyond the projection horizon – so the columns are zero-mean over that
+span and the linear slope, quadratic curvature, etc. are estimated
+independently – generally the right choice if you don’t have a specific
+scientific reason to prefer raw monomials.
 
 **Arbitrary arithmetic.** Use [`I()`](https://rdrr.io/r/base/AsIs.html)
 to insert a literal expression (otherwise `temp^2` is interpreted as a
@@ -1248,9 +1249,16 @@ rather than mis-specifying the process.
 `env_data` is applied to model years **by row position**: row 1 is the
 model start year, and years beyond the last row get a zero offset (so
 `env_data` may stop short of the projection horizon). When `env_data`
-carries a `Year` column it must start at `styr` and be contiguous; a
-misaligned or gappy `Year` errors rather than applying a
-covariate/deviate to the wrong year.
+carries a `Year` column it must be contiguous and start at `styr`; a
+gappy or unsorted `Year`, or one carrying `NA`, errors rather than
+applying a covariate/deviate to the wrong year. Rows *before* `styr` are
+dropped with a warning, since they would shift every later row. Rows
+*after* the model years are kept: alignment runs from the front, so they
+change no offset, but [`cut()`](https://rdrr.io/r/base/cut.html),
+[`poly()`](https://rdrr.io/r/stats/poly.html) and
+[`scale()`](https://rdrr.io/r/base/scale.html) are computed over the
+rows `env_data` supplies, so discarding them would move a design matrix
+that was already right.
 
 ## Current limitations
 
