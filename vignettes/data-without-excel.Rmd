@@ -225,8 +225,8 @@ simData$fleet_control <- data.frame(
   Time_varying_sel          = 0,
   Time_varying_sel_sd = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
-  Sel_norm_bin             = NA,    # bin to normalize selectivity from (optional)
-  Sel_norm_bin_upper             = NA,
+  Sel_norm_bin             = "Off", # "Max", "Off", or a bin to normalize at
+  Sel_norm_bin_upper       = "Off", # "Off", or the top of a bin range
   # Two-sex models only: whether the normalization reference is pooled over the
   # sexes ("AcrossSexes", default -- keeps relative sex selectivity) or taken per
   # sex ("WithinSex" -- both sexes reach 1, only the shape differs).

@@ -439,6 +439,106 @@ msmMode_map <- c(
 )
 
 
+# The words Sel_norm_bin and Sel_norm_bin_upper accept, matched in any case.
+.RCE_SEL_NORM_WORDS <- list(
+  off = c("off", "none", "no", "na", "nan", ""),   # do not normalize
+  max = c("max", "maximum"),                       # normalize by the largest value
+  all = c("all")                                   # LogisticPM: the whole penalty range
+)
+
+# Refuse a Sel_norm_bin the model cannot use, naming the fleet. Shared so
+# rearrange_data() fails the same way switch_check() does: a value past the last
+# selected bin indexes off the end of the selectivity array, and the model builds
+# safebounds = FALSE.
+#' @noRd
+.rce_stop_bad_sel_norm <- function(code, col, fleet_control, hi = NULL) {
+  bad <- attr(code, "unrecognised")
+  if (length(bad)) {
+    stop(sprintf("Fleet '%s': '%s' is '%s', which is not a bin or one of: Max, Off, All.",
+                 fleet_control$Fleet_name[bad[1]], col,
+                 as.character(fleet_control[[col]][bad[1]])), call. = FALSE)
+  }
+  if (!is.null(hi)) {
+    over <- which(!is.na(code) & !is.na(hi) & code > 0 & code > hi)
+    if (length(over)) {
+      stop(sprintf("Fleet '%s': '%s' is %s, past the last bin it is selected over (%s).",
+                   fleet_control$Fleet_name[over[1]], col, code[over[1]],
+                   hi[over[1]]), call. = FALSE)
+    }
+  }
+  invisible()
+}
+
+
+#' First and last bin a fleet may normalize at, on the column's own scale
+#'
+#' Below `Bin_first_selected` the curve is zeroed, so a reference taken there
+#' divides by nothing. `Bin_first_selected` is a 1-based bin ordinal while
+#' `Sel_norm_bin` is an absolute age, so on an age-based fleet the first
+#' selected age is `minage + Bin_first_selected - 1`; on a length-based fleet
+#' both are bin ordinals and no conversion applies.
+#'
+#' @param data_list An Rceattle data list.
+#' @param flt Row of `fleet_control`.
+#' @param age_selex Whether the fleet is age-based.
+#' @param max_bin The fleet's bin count (`nages` or `nlengths`).
+#' @return A list of `lo` and `hi`; either may be `NA` if the dimension is unset.
+#' @keywords internal
+#' @noRd
+.rce_sel_norm_bounds <- function(data_list, flt, age_selex, max_bin) {
+  first <- suppressWarnings(as.numeric(
+    data_list$fleet_control$Bin_first_selected[flt]))
+  if (length(first) == 0 || is.na(first) || first < 1) first <- 1
+  if (isTRUE(age_selex)) {
+    minage <- suppressWarnings(as.numeric(
+      data_list$minage[data_list$fleet_control$Species[flt]]))
+    if (length(minage) == 0) minage <- NA_real_
+    list(lo = minage + first - 1, hi = minage + max_bin - 1)
+  } else {
+    list(lo = first, hi = max_bin)
+  }
+}
+
+
+#' Where a fleet normalizes its selectivity, as a number
+#'
+#' The one place the column is read, since it holds either a word or a bin.
+#' Blank means do not normalize, and "Max" the largest value. A value below the
+#' fleet's first bin also means the largest value -- that is what a negative has
+#' always meant -- so `lo` must be the fleet's own first bin: the species' minage
+#' on an age-based fleet, 1 on a length-based one. On a stock recruiting at age 0
+#' a `Sel_norm_bin` of 0 is the first age, not a flag.
+#'
+#' @param x The raw column.
+#' @param lo The fleet's first bin; anything below it means the maximum.
+#' @param allow_all Whether "All" is accepted, i.e. a LogisticPM fleet.
+#' @return Numeric: `NA` to not normalize, `-1` for the maximum, else the bin.
+#'   An unrecognised word is `NA`, its position in the "unrecognised" attribute.
+#' @keywords internal
+#' @noRd
+.rce_sel_norm_code <- function(x, lo = 1L, allow_all = FALSE) {
+  if (is.null(x)) return(NULL)
+  chr <- trimws(tolower(as.character(x)))
+  out <- suppressWarnings(as.numeric(chr))
+
+  words <- .RCE_SEL_NORM_WORDS
+  if (!isTRUE(any(allow_all))) words$all <- character(0)
+  is_off <- chr %in% words$off | is.na(chr)
+  is_max <- chr %in% c(words$max, words$all)
+
+  out[is_off] <- NA_real_
+  out[is_max] <- -1
+  lo <- suppressWarnings(as.numeric(lo))
+  lo[is.na(lo)] <- 1                                  # unknown dimension: assume 1
+  below <- !is.na(out) & !is_max & out < lo
+  out[below] <- -1
+
+  bad <- is.na(out) & !is_off
+  attr(out, "unrecognised") <- which(bad)
+  out
+}
+
+
 #' Function to check for missing switches for map and parameter functions
 #'
 #' @param data_list Rceattle data list
@@ -526,7 +626,8 @@ switch_check <- function(data_list){
   .dflt_when <- list(
     growth_estimated = isTRUE(any(data_list$growth_model > 0)),
     has_caal         = isTRUE(nrow(data_list$caal_data) > 0),
-    sel_norm_upper   = isTRUE(any(data_list$fleet_control$Sel_norm_bin >= 0, na.rm = TRUE)),
+    sel_norm_upper   = isTRUE(any(.rce_sel_norm_code(
+      data_list$fleet_control$Sel_norm_bin) > 0, na.rm = TRUE)),
     #   - sel_norm_scope_flip: the one configuration the "AcrossSexes" default
     #     changes -- a two-sex fleet at a named bin, which used to imply a per-sex
     #     reference. Max-normalized and one-sex fleets are unaffected. Restricted
@@ -537,7 +638,7 @@ switch_check <- function(data_list){
     #     message cries wolf on any AMAK-style model that sets a penalty range.
     sel_norm_scope_flip = isTRUE(any(
       data_list$nsex[data_list$fleet_control$Species] == 2 &
-        data_list$fleet_control$Sel_norm_bin >= 0 &
+        .rce_sel_norm_code(data_list$fleet_control$Sel_norm_bin) > 0 &
         !data_list$fleet_control$Fleet_type %in% c(0, "Off") &
         !data_list$fleet_control$Selectivity %in%
           c(5, "Hake", 11, "LogisticPM"), na.rm = TRUE)),
@@ -806,16 +907,61 @@ switch_check <- function(data_list){
                       data_list$nages[sp_idx],
                       data_list$nlengths[sp_idx])
 
-    # - Sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin[flt] <- max_bin
-      message(paste0("'Sel_norm_bin' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
-    }
+    # The bins the fleet is actually selected over. Below Bin_first_selected the
+    # curve is zeroed, so normalizing there divides by ~0, and above the oldest
+    # age there is nothing to divide by. Bin_first_selected is a 1-based bin
+    # ordinal while Sel_norm_bin is an absolute age, so convert before comparing.
+    lo <- .rce_sel_norm_bounds(data_list, flt, age_selex, max_bin)
+    hi <- lo$hi; lo <- lo$lo
+    is_pm <- data_list$fleet_control$Selectivity[flt] %in% c(11, "LogisticPM")
+    unit <- if (isTRUE(age_selex)) "age" else "length bin"
 
-    # - Upper sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin_upper[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin_upper[flt] <- max_bin
-      message(paste0("'Sel_norm_bin_upper' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    # A Fixed curve is read from emp_sel_obs and never normalized, so its value
+    # may be stale. Every other form is normalized whether or not the fleet is
+    # fitted -- selectivity.hpp skips on Selectivity, not Fleet_type -- so an
+    # "Off" fleet's bin still indexes the array and must be in range.
+    .reads_norm <-
+      !data_list$fleet_control$Selectivity[flt] %in% c(0, "Fixed", "Empirical")
+
+    for (col in c("Sel_norm_bin", "Sel_norm_bin_upper")) {
+      if (!.reads_norm) next
+      raw <- data_list$fleet_control[[col]][flt]
+      val <- .rce_sel_norm_code(raw, lo = lo, allow_all = is_pm)
+      if (length(attr(val, "unrecognised"))) {
+        stop(sprintf(
+          "Fleet '%s': '%s' is '%s', which is not a valid %s or one of: %s.",
+          data_list$fleet_control$Fleet_name[flt], col, raw, unit,
+          paste(c("Max", "Off", if (is_pm) "All"), collapse = ", ")),
+          call. = FALSE)
+      }
+      if (!is.na(val) && !is.na(hi) && val > 0 && val > hi) {
+        stop(sprintf(paste0(
+          "Fleet '%s': '%s' is %s, past the last %s it is selected over (%s). ",
+          "Use %s-%s, or %s."),
+          data_list$fleet_control$Fleet_name[flt], col, val, unit, hi, lo, hi,
+          paste(c("'Max'", "'Off'", if (is_pm) "'All'"), collapse = " / ")),
+          call. = FALSE)
+      }
+
+      # Reinterpreting a value the user typed is worth saying out loud: below
+      # the first selected bin the curve is zeroed, so it cannot be a reference.
+      raw_n <- suppressWarnings(as.numeric(raw))
+      if (!is.na(val) && val < 0 && !is.na(raw_n) && raw_n >= 0 && raw_n < lo) {
+        message(sprintf(
+          "Fleet '%s': '%s' is %s, before the first %s it is selected over (%s); reading it as the maximum.",
+          data_list$fleet_control$Fleet_name[flt], col, raw_n, unit, lo))
+      }
+
+      # Write the instruction back as the word it means, so a saved workbook
+      # says what it does rather than leaving the reader to decode a sentinel.
+      # The upper bin has no maximum: a negative there means no range at all.
+      data_list$fleet_control[[col]][flt] <- if (is.na(val)) {
+        "Off"
+      } else if (val < 0) {
+        if (col == "Sel_norm_bin_upper") "Off" else if (is_pm) "All" else "Max"
+      } else {
+        as.character(val)
+      }
     }
 
     # - N bins

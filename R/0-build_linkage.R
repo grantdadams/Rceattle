@@ -1319,6 +1319,50 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 }
 
 
+#' Drop env_data rows outside the model years
+#'
+#' Linkages align env_data by position (row r -> model year styr + r - 1), so a
+#' row before `styr` shifts every later row and feeds the wrong covariate to
+#' consumption and, under multispecies, to predation mortality.
+#'
+#' Rows after `projyr` shift nothing, but the fixed part of a linkage formula
+#' goes to `model.matrix()`, so `cut()`, `poly()` and `scale()` are computed over
+#' whatever rows `env_data` supplies. Keeping them would build the design matrix
+#' partly on years the model never fits. They are dropped for that reason, which
+#' does move such a fit -- see `NEWS.md` for the measured size. Without `projyr`
+#' the upper end is left alone; `rearrange_data()` needs it and fails later.
+#'
+#' A row whose `Year` is `NA` is kept for `.check_env_data_years()` to reject --
+#' it is unlabelled, not out of range.
+#'
+#' @param env_data The `env_data` table.
+#' @param styr,projyr First and last model year; `projyr` may be `NULL`.
+#' @return `env_data` without its out-of-window rows.
+#' @keywords internal
+#' @noRd
+.trim_env_data <- function(env_data, styr, projyr = NULL) {
+  if (is.null(env_data) || !is.data.frame(env_data) ||
+      !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {
+    return(env_data)
+  }
+  yr   <- env_data$Year
+  drop <- !is.na(yr) & (yr < styr | (!is.null(projyr) & yr > (projyr %||% Inf)))
+  if (!any(drop)) return(env_data)
+  if (all(drop)) {
+    stop(sprintf(paste0(
+      "env_data covers %s-%s, none of it inside the model years %s-%s. ",
+      "Linkages align each row to a model year by position."),
+      min(yr, na.rm = TRUE), max(yr, na.rm = TRUE), styr,
+      projyr %||% "(unset)"), call. = FALSE)
+  }
+  warning(sprintf(paste0(
+    "env_data: dropped %d row(s) outside the model years %s-%s; linkages ",
+    "align each row to a model year by position."),
+    sum(drop), styr, projyr %||% "(unset)"), call. = FALSE)
+  env_data[!drop, , drop = FALSE]
+}
+
+
 #' Extend env_data to start at the model start year (prepend + gap-fill with NA)
 #'
 #' Linkages align env_data POSITIONALLY (row r -> model year styr + r - 1). A
@@ -1340,7 +1384,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' @noRd
 .extend_env_data <- function(env_data, styr) {
   if (is.null(env_data) || !is.data.frame(env_data) ||
-      !"Year" %in% names(env_data) || is.null(styr)) {
+      !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {
     return(env_data)
   }
   yrs <- env_data$Year
@@ -1376,7 +1420,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 #' @noRd
 .check_env_data_years <- function(env_data, styr) {
   if (is.null(env_data) || !is.data.frame(env_data) ||
-      !"Year" %in% names(env_data) || is.null(styr)) {
+      !"Year" %in% names(env_data) || is.null(styr) || !nrow(env_data)) {
     return(invisible())
   }
   yrs <- env_data$Year

@@ -134,8 +134,8 @@
     .rce_col("Sel_shape_mode", "fleet_control", "Shape-penalty mode: \"Directional\" (default) or \"Smooth\" (two-sided d^2, RTMB).", type = "character", meta = TRUE, has_default = TRUE, default = NA, tmb_target = "flt_sel_shape_mode", allowed = "sel_shape_mode_map"),
     .rce_col("Sel_avgsel_pen", "fleet_control", "Weight on the AMAK avgsel base-level penalty (type 9); 0 = off (default), 10 matches AMAK.", meta = TRUE, has_default = TRUE, default = 0, tmb_target = "flt_sel_avgsel_pen"),
     .rce_col("Sel_cap_bin", "fleet_control", "NonParametricRPM bin cap (NA -> no cap).", type = "integer", meta = TRUE, has_default = TRUE, default = NA, aliases = "Sel_cap_age", tmb_target = "flt_sel_cap_bin"),
-    .rce_col("Sel_norm_bin", "fleet_control", "Age/length bin at which selectivity = 1. An absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. \r\nIf NA, it will not normalize selectivity. \r\nIf < 0, will normalize selectivity by the max. \r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes is 'Sel_norm_scope'. See vignette('model-options-and-functionality'), 'Sex structure and relative selectivity'.", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'NA'", aliases = c("Age_max_selected", "Sel_norm_bin1"), tmb_target = "sel_norm_bin1"),
-    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization (default = NA). If NA, does not use the age range, If not NA, uses mean selectivity between `Sel_norm_bin` and `Sel_norm_bin_upper`", type = "integer", has_default = TRUE, default = NA, default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'NA'", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2"), tmb_target = "sel_norm_bin2"),
+    .rce_col("Sel_norm_bin", "fleet_control", "Where selectivity is normalized to 1. Takes a word or a bin:\r\n\"Max\" = normalize by the largest value.\r\n\"Off\" (or \"None\", or blank) = do not normalize.\r\n\"All\" = the whole selected range; LogisticPM only, where this column is a penalty range rather than a normalization reference. On that form the model reads any non-bin the same way, so a blank and \"Off\" give the whole range too -- \"All\" is simply the word that says so.\r\nA number = an absolute AGE for an age-based fleet (6 means age 6, not the 6th bin) or a 1-based LENGTH-BIN ordinal for a length-based one, per 'Selectivity_dimension'. Note 'Bin_first_selected' beside it uses the OPPOSITE convention and is always a bin ordinal.\r\nMust fall between the fleet's first selected bin and its last: below 'Bin_first_selected' the curve is zeroed, so a reference taken there divides by nothing. A value below the first selected bin is read as \"Max\", which is what a negative has always meant.\r\nIn a two-sex model this column says only WHERE the reference is taken; whether it is pooled across the sexes is 'Sel_norm_scope'. See vignette('model-options-and-functionality'), 'Sex structure and relative selectivity'.", type = "integer", has_default = TRUE, default = "Off", default_msg = "'Sel_norm_bin' not specified in 'fleet_control', assuming 'Off' (no normalization)", aliases = c("Age_max_selected", "Sel_norm_bin1"), tmb_target = "sel_norm_bin1"),
+    .rce_col("Sel_norm_bin_upper", "fleet_control", "Upper age/length bin for selectivity normalization. \"Off\" (or blank) uses a single bin rather than a range; a number takes mean selectivity between 'Sel_norm_bin' and this bin, on the same scale and with the same bounds as 'Sel_norm_bin'.", type = "integer", has_default = TRUE, default = "Off", default_msg = "'Sel_norm_bin_upper' not specified in 'fleet_control', assuming 'Off' (a single bin, not a range)", default_msg_when = "sel_norm_upper", aliases = c("Age_max_selected_upper", "Sel_norm_bin2"), tmb_target = "sel_norm_bin2"),
     .rce_col("Sel_norm_scope", "fleet_control", "Whether selectivity normalization pools its reference across sexes. Orthogonal to 'Sel_norm_bin', which says WHERE the reference is taken (a named bin, or the max). \r\n\"WithinSex\" = each sex is divided by its own reference, so both reach 1 and only the SHAPE differs by sex (relative sex-specific selectivity removed). \r\n\"AcrossSexes\" (default) = one reference pooled over both sexes, so the less-selected sex stays below 1 (relative sex-specific selectivity retained). \r\nNo effect on a one-sex species, or where 'Sel_norm_bin' is NA (nothing is normalized).", type = "switch", allowed = "sel_norm_scope_map", has_default = TRUE, default = "AcrossSexes", default_msg = "'Sel_norm_scope' not specified in 'fleet_control'; assuming 'AcrossSexes'. NOTE: a two-sex fleet normalizing at a named 'Sel_norm_bin' previously used a per-sex reference -- set 'Sel_norm_scope' to 'WithinSex' to keep that behaviour.", default_msg_when = "sel_norm_scope_flip", tmb_target = "sel_norm_scope"),
     .rce_col("Comp_distribution", "fleet_control", "Composition data distribution:\r\n-1 = AFSC multinomial\r\n0 = full multinomial\r\n1 = dirichlet-multinomial", type = "switch", allowed = "comp_loglike_map", has_default = TRUE, default = "MultinomialAFSC", default_msg = "'Comp_distribution' not specified in 'fleet_control', assuming 'MultinomialAFSC'", aliases = "Comp_loglike", tmb_target = "comp_ll_type"),
     .rce_col("Comp_weights", "fleet_control", "Composition weight, on a scale set by 'Comp_distribution'. \r\nUnder a multinomial it is the natural-scale multiplier on the input sample size. \r\nUnder a Dirichlet-multinomial the model uses exp(Comp_weights), so the column is the LOG of the starting weight -- a value of 1 is a starting weight of e; use 0 for a weight of 1. \r\nRead when a model is built from scratch -- a refit keeps the weight it is given. \r\nSee 'Comp_weights_mcallister' for the weight a fit implies, and reweight_comps() to tune towards it."),
@@ -324,7 +324,7 @@
   if (is.null(cur)) return(dep)
   if (all(is.na(dep))) return(cur)
 
-  bad <- .rce_setting_diff(cur, dep, allowed)
+  bad <- .rce_setting_diff(cur, dep, allowed, canon_nm)
   if (is.null(bad)) return(cur)
 
   # Name the column the value actually came from: after an earlier alias was
@@ -377,8 +377,18 @@
 #' @return `NULL`, `NA_integer_`, or the differing positions.
 #' @keywords internal
 #' @noRd
-.rce_setting_diff <- function(cur, dep, allowed = NULL) {
+.rce_setting_diff <- function(cur, dep, allowed = NULL, canon_nm = NULL) {
   if (length(cur) != length(dep)) return(NA_integer_)
+  # The normalization columns take a word or a bin and have no switch map, so
+  # resolve both spellings before comparing: "Max" and -1 are one setting. A
+  # floor of 0 makes every negative the maximum, as the model does, without
+  # needing the fleet's minage here.
+  if (!is.null(canon_nm) &&
+      canon_nm %in% c("Sel_norm_bin", "Sel_norm_bin_upper")) {
+    cur <- .rce_sel_norm_code(cur, lo = 0, allow_all = TRUE)
+    dep <- .rce_sel_norm_code(dep, lo = 0, allow_all = TRUE)
+    attributes(cur) <- NULL; attributes(dep) <- NULL
+  }
   na_cur <- as.vector(is.na(cur)); na_dep <- as.vector(is.na(dep))
   if (!identical(na_cur, na_dep)) return(which(na_cur != na_dep))
 
