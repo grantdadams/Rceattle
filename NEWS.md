@@ -12,6 +12,48 @@ every (x.y.z) cross-reference pointing at it, and the entries below cite each ot
 version throughout.
 -->
 
+# Rceattle 5.28.1
+
+## Documentation
+
+* **Which selectivity forms can give the two sexes different levels.**
+  `vignette("model-options-and-functionality")` described `Sel_norm_bin` and
+  `Sel_norm_scope` as though they decided whether males and females could be
+  selected at different levels, and its `"Max"` / `"AcrossSexes"` row promised
+  that "one sex peaks at 1, the other keeps its relative level". Normalization
+  only *preserves* a ratio the form already has -- `"AcrossSexes"` divides both
+  sexes by one pooled scalar -- so on a logistic both sexes measure 1.00 and the
+  promise is empty.
+
+  The section now says which forms can carry a level difference and which
+  cannot, with the ratios measured on `GOAatf`: `Logistic` 1.00,
+  `DoubleLogistic` 1.97, `2DAR1` 4.53. Going non-parametric does not help
+  either, which is the counter-intuitive part: those forms re-centre each sex to
+  a mean of one every year, so the ratio is a by-product of shape rather than
+  something the data inform. `inst/dev/two-sex-selectivity-example.R` fits the
+  comparison and is now tracked.
+
+## Bug fixes
+
+* **A per-sex selectivity linkage no longer fixes the other sex too.** When a
+  linkage supplies the base level -- a fixed intercept (`est_phase = 0`), or a
+  slope-only formula -- `build_map()` masks the base parameter it replaces. The
+  selectivity branch masked it across **every** sex of the fleet, so a linkage
+  stratified on one sex (`by = ~ fleet + sex, sex = 2`) also fixed the other
+  sex's inflection or slope at its starting value. That is exactly the sex a
+  Stock Synthesis-style offset parameterization needs left estimated: the
+  reference the offset is measured from. The `M` and growth branches beside it
+  always honoured the row's own sex; selectivity was the outlier and now
+  matches them.
+
+  A linkage with no sex stratum -- `by = ~ fleet`, the default -- still masks
+  both sexes, because the offset then applies to the whole fleet. Only a
+  *selectivity* linkage naming a single sex changes, and nothing in the package
+  or the reference fits does that: the golden models' only linkages are on
+  composition, which this branch never touches.
+  `test-linkage-selectivity-per-sex.R` covers both cases, which nothing did
+  before.
+
 # Rceattle 5.28.0
 
 ## Input format
@@ -48,44 +90,7 @@ version throughout.
   `switch_check()`, so it checks the column itself; a typo such as `Maxx` used
   to resolve to blank and silently turn normalization off.
 
-## Documentation
-
-* **Which selectivity forms can give the two sexes different levels.**
-  `vignette("model-options-and-functionality")` described `Sel_norm_bin` and
-  `Sel_norm_scope` as though they decided whether males and females could be
-  selected at different levels, and its `"Max"` / `"AcrossSexes"` row promised
-  that "one sex peaks at 1, the other keeps its relative level". Normalization
-  only *preserves* a ratio the form already has -- `"AcrossSexes"` divides both
-  sexes by one pooled scalar -- so on a logistic both sexes measure 1.00 and the
-  promise is empty.
-
-  The section now says which forms can carry a level difference and which
-  cannot, with the ratios measured on `GOAatf`: `Logistic` 1.00,
-  `DoubleLogistic` 1.97, `2DAR1` 4.53. Going non-parametric does not help
-  either, which is the counter-intuitive part: those forms re-centre each sex to
-  a mean of one every year, so the ratio is a by-product of shape rather than
-  something the data inform. `inst/dev/two-sex-selectivity-example.R` fits the comparison and is now tracked.
-
 ## Bug fixes
-
-* **A per-sex selectivity linkage no longer fixes the other sex too.** When a
-  linkage supplies the base level -- a fixed intercept (`est_phase = 0`), or a
-  slope-only formula -- `build_map()` masks the base parameter it replaces. The
-  selectivity branch masked it across **every** sex of the fleet, so a linkage
-  stratified on one sex (`by = ~ fleet + sex, sex = 2`) also fixed the other
-  sex's inflection or slope at its starting value. That is exactly the sex a
-  Stock Synthesis-style offset parameterization needs left estimated: the
-  reference the offset is measured from. The `M` and growth branches beside it
-  always honoured the row's own sex; selectivity was the outlier and now
-  matches them.
-
-  A linkage with no sex stratum -- `by = ~ fleet`, the default -- still masks
-  both sexes, because the offset then applies to the whole fleet. Only a
-  *selectivity* linkage naming a single sex changes, and nothing in the package
-  or the reference fits does that: the golden models' only linkages are on
-  composition, which this branch never touches.
-  `test-linkage-selectivity-per-sex.R` covers both cases, which nothing did
-  before.
 
 * **An `env_data` year outside the model years is dropped on the linkage path,
   rather than refusing the fit.** Rows are matched to model years by position
