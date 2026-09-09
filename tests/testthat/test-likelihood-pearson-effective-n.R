@@ -58,8 +58,9 @@ test_that("ignoring the weight rescales a multinomial residual by 1/sqrt(w)", {
   for (w in c(3.5, 0.4)) {
     n_eff <- round(w * N)
     obs   <- stats::rmultinom(1, n_eff, p)[, 1] / n_eff
-    correct <- .rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K), rep(w, K), 0)
-    old     <- (obs - p) / sqrt(p * (1 - p) / N)
+    correct <- as.numeric(
+      .rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K), rep(w, K), 0))
+    old <- (obs - p) / sqrt(p * (1 - p) / N)
     # Compared as a product rather than a ratio: a draw can land exactly on the
     # fitted proportion, and 0/0 is not informative about the scaling.
     expect_equal(old, correct / sqrt(w), tolerance = 1e-8,
@@ -115,7 +116,8 @@ test_that("an unweighted multinomial with no offset reproduces the old residual"
   p   <- c(0.05, 0.15, 0.25, 0.25, 0.15, 0.10, 0.05)
   obs <- stats::rmultinom(1, N, p)[, 1] / N
   expect_identical(
-    .rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K), rep(1, K), 0),
+    as.numeric(.rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K),
+                                 rep(1, K), 0)),
     (obs - p) / sqrt(p * (1 - p) / N))
 })
 
@@ -132,7 +134,8 @@ test_that("the composition offset is carried onto the likelihood's own scale", {
   want  <- ((obs + off) / S - (p + off) / S) /
     sqrt(((p + off) / S) * (1 - (p + off) / S) / (N * S))
   expect_equal(
-    .rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K), rep(1, K), off),
+    as.numeric(.rce_comp_pearson(obs, p, N, rep(1L, K), rep(0L, K),
+                                 rep(1, K), off)),
     want, tolerance = 1e-12)
 
   # And it is not a no-op: the smallest bins move by ~0.1% here.
@@ -149,10 +152,13 @@ test_that("each observation's total is summed over its own bins", {
   p1 <- c(0.2, 0.2, 0.2, 0.2, 0.2); p2 <- c(0.4, 0.3, 0.2, 0.05, 0.05)
   o1 <- c(0.3, 0.1, 0.2, 0.2, 0.2);  o2 <- c(0.5, 0.2, 0.2, 0.05, 0.05)
 
-  both <- .rce_comp_pearson(c(o1, o2), c(p1, p2), rep(c(60, 90), each = K),
-                            rep(1:2, each = K), rep(0L, 2 * K),
-                            rep(c(2, 3), each = K), 1e-5)
-  sep1 <- .rce_comp_pearson(o1, p1, 60, rep(1L, K), rep(0L, K), rep(2, K), 1e-5)
-  sep2 <- .rce_comp_pearson(o2, p2, 90, rep(1L, K), rep(0L, K), rep(3, K), 1e-5)
+  both <- as.numeric(.rce_comp_pearson(c(o1, o2), c(p1, p2),
+                                       rep(c(60, 90), each = K),
+                                       rep(1:2, each = K), rep(0L, 2 * K),
+                                       rep(c(2, 3), each = K), 1e-5))
+  sep1 <- as.numeric(.rce_comp_pearson(o1, p1, 60, rep(1L, K), rep(0L, K),
+                                       rep(2, K), 1e-5))
+  sep2 <- as.numeric(.rce_comp_pearson(o2, p2, 90, rep(1L, K), rep(0L, K),
+                                       rep(3, K), 1e-5))
   expect_equal(both, c(sep1, sep2))
 })

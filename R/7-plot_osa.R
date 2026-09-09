@@ -253,11 +253,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Q-Q plot of OSA residuals with standard-normal null envelope
 #'
-#' Annotated with SDNR (upper left) and, optionally, the tail order statistics
-#' against their exact nulls (lower right), following `afscOSA`'s layout. The
-#' tail statistics are the `r`-th and `(n-r+1)`-th order statistics rather than
-#' interpolated quantiles, so the annotation names the nominal probability they
-#' actually sit at; see `.osa_tail_null()`.
+#' SDNR upper left, tail order statistics against their exact nulls lower right,
+#' following `afscOSA`. The annotation names the nominal probability each order
+#' statistic sits at, since it is not exactly 2.5%.
 #'
 #' @param osa An `rceattle_osa` data frame with a `source` column.
 #' @param add_sdnr_ci Show the chi-square null interval beside SDNR.
@@ -339,12 +337,9 @@ plot.rceattle_osa <- function(x, source = "all", species = NULL,
 
 #' Bubble plot of composition residuals (afscOSA styling)
 #'
-#' The size scale is pinned to `[0, 6]` rather than fitted to the data, so two
-#' figures can be compared by eye -- a free scale makes a well-fitting fleet and
-#' a badly-fitting one look alike. Residuals beyond 6 are truncated to +/-6
-#' first, with a warning naming the original values: `scale_size_continuous()`
-#' sets out-of-bounds values to `NA` and drops them silently, so the truncation
-#' has to happen before the limit, not be left to it.
+#' The size scale is pinned to `[0, 6]` so two figures compare by eye. Residuals
+#' beyond 6 are truncated first, with a warning: `scale_size_continuous()` drops
+#' out-of-bounds values silently, so truncation cannot be left to the limit.
 #'
 #' @param osa A data frame with `source`, `year`, `age_length_bin`, and
 #'   `residual` columns. Bubbles are placed at (year, age/length bin); red =

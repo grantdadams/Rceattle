@@ -811,17 +811,11 @@ print.rceattle_osa_diagnostics <- function(x, ...) {
 
 #' Exact null interval for an order statistic of standard normals
 #'
-#' The `r`-th order statistic of `n` iid uniforms is `Beta(r, n - r + 1)`, so on
-#' the standard-normal scale its exact quantiles are
-#' `qnorm(qbeta(probs, r, n - r + 1))`. `r` is the order statistic closest to
-#' nominal probability `q`, clamped to `[1, n]`: without the upper clamp
-#' `qbeta(p, n + 1, 0)` returns 1 and `qnorm(1)` returns `Inf`, which would make
-#' the tail check pass for every short series (n <= 19 at q = 0.975).
-#'
-#' The statistic compared against this must be the same order statistic,
-#' `sort(resid)[r]`. Pairing it with `quantile()`'s default type-7
-#' interpolation instead mixes two estimators and drops the interval's coverage
-#' to about 0.86 near n = 50, non-monotonically in n.
+#' The `r`-th order statistic of `n` uniforms is `Beta(r, n - r + 1)`. What is
+#' compared against this must be `sort(resid)[r]`: pairing it with `quantile()`'s
+#' type-7 interpolation drops coverage to about 0.86 near n = 50. `r` is clamped
+#' to `[1, n]` -- unclamped, `qbeta(p, n + 1, 0)` is 1 and the upper tail check
+#' passes for every series with n <= 19.
 #'
 #' @param q Nominal tail probability.
 #' @param n Number of residuals.

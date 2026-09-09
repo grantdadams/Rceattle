@@ -268,7 +268,11 @@ plot_catch(model_1)
 
 Pearson residuals on composition data are *not* standard normal even when the
 model is correct: the age/length bins are correlated (more fish in one bin means
-fewer in another), and random effects induce correlation across years. One-step-ahead
+fewer in another), and random effects induce correlation across years. They are
+at least standardized by the variance the fleet's own likelihood assumes -- the
+composition weight enters as an effective sample size under a multinomial, and a
+Dirichlet-multinomial's overdispersion is in the denominator -- so a weighted or
+DM fleet is not inflated on that account alone. One-step-ahead
 (OSA) residuals remove both problems. Each observation is residualized conditional
 on the observations added before it, integrating out the random effects, so under a
 correctly specified model the residuals are iid standard normal (Thygesen et al. 2017;
@@ -328,12 +332,23 @@ Following Stewart and Monnahan (2025), a practical workflow is:
 
 1. **Inspect the aggregate fit** across years (`plot_comp(model_1)`): systematic
    lack of fit here points to structural misspecification (e.g. the wrong
-   selectivity shape).
+   selectivity shape). Counts are pooled across the fitted hindcast years, and
+   the interval holds 95% of the data the model predicts -- not a confidence
+   interval on the mean -- so observations outside it are the ones to explain.
+   The panel is annotated with the input sample size and the effective sample
+   size the McAllister-Ianelli weight implies.
 2. **Compare the SDNR** to its null interval (from `osa_diagnostics()`): a value
    outside the interval flags over- or under-dispersion, often a data-weighting
    or effective-sample-size issue.
 3. **Compare the lower/upper tail statistics** to their null intervals: these
-   localize departures to the tails of the residual distribution.
+   localize departures to the tails of the residual distribution. They are
+   reported as order statistics -- `lower_r` / `upper_r` name which one, and
+   `lower_p` / `upper_p` the nominal probability it sits at, which is near but
+   not exactly 2.5% -- against the exact `Beta(r, n - r + 1)` null. The
+   statistic and its interval must come from the same estimator, so
+   `osa_diagnostics()` no longer simulates and its `nsim` / `seed` arguments are
+   ignored. The residuals themselves remain randomized-quantile residuals: pass
+   a seed to `osa_residuals()` to control those.
 4. **Inspect Pearson bubble plots** (`plot_comp(model_1)`, the default): patterns
    in the sign of residuals across age/year can identify *where* lack of fit
    occurs -- Stewart and Monnahan recommend keeping these alongside OSA

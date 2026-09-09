@@ -732,9 +732,12 @@ testthat::test_that("CAAL residuals label both frames as age bins", {
   testthat::expect_identical(unique(pear$index_label), "age")
 
   # The two frames differ only where the residual definitions differ: OSA has a
-  # conditional sd, Pearson the sample size it standardised by.
+  # conditional `sd`, Pearson the sample size and the `Sd` its own likelihood
+  # assumes. The two sd columns are different quantities, so they keep separate
+  # names rather than one being renamed onto the other.
   testthat::expect_identical(setdiff(names(osa), names(pear)), "sd")
-  testthat::expect_identical(setdiff(names(pear), names(osa)), "sample_size")
+  testthat::expect_setequal(setdiff(names(pear), names(osa)),
+                            c("sample_size", "Sd"))
 
   # One age per length group is fixed by sum-to-N, so OSA is that much shorter.
   n_len <- length(unique(pear$length))

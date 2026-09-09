@@ -488,6 +488,10 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       Observed     = numeric(n),
       Fitted       = numeric(n),
       Residual     = numeric(n),
+      # For type = "pearson" on a composition source, the sd the fleet's own
+      # likelihood assumes for the observed proportion -- the denominator the
+      # residual was divided by. NA elsewhere.
+      Sd           = rep(NA_real_, n),
       stringsAsFactors = FALSE
     )
   }
@@ -630,9 +634,11 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     if (type == "pearson") {
       fw <- .rce_comp_family(object, df$Fleet_code, "Comp_distribution",
                              "Comp_weights", "comp_weights")
-      df$Residual <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
-                                       row_id, fw$family, fw$weight,
-                                       .rce_comp_offset(d))
+      pr <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                              row_id, fw$family, fw$weight,
+                              .rce_comp_offset(d))
+      df$Residual <- as.numeric(pr)
+      df$Sd       <- attr(pr, "sd")
     } else {
       df$Residual <- df$Observed - df$Fitted
     }
@@ -679,9 +685,11 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     if (type == "pearson") {
       fw <- .rce_comp_family(object, df$Fleet_code, "CAAL_distribution",
                              "CAAL_weights", "caal_weights")
-      df$Residual <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
-                                       rep(seq_len(n_obs), times = n_bin),
-                                       fw$family, fw$weight, .rce_comp_offset(d))
+      pr <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                              rep(seq_len(n_obs), times = n_bin),
+                              fw$family, fw$weight, .rce_comp_offset(d))
+      df$Residual <- as.numeric(pr)
+      df$Sd       <- attr(pr, "sd")
     } else {
       df$Residual <- df$Observed - df$Fitted
     }
@@ -739,19 +747,11 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 
 #' Composition Pearson residuals on the likelihood's own scale
 #'
-#' Rebuilds the proportions, count total and concentration the composition
-#' likelihood actually used, then hands them to [.pearson_proportion()]. Three
-#' things differ from the raw data sheet and all three move the residual:
-#'
-#' * `comp_offset` (default 1e-5) is added to both proportions before the
-#'   density, so the fitted proportions no longer sum to one. The per-row total
-#'   is summed over exactly the bins the likelihood fit, which makes this exact
-#'   for folded (tail-accumulated) rows as well as rectangular ones.
-#' * Under a multinomial (`Multinomial`, and the AFSC pseudo-likelihood) the
-#'   weight column multiplies the log-likelihood, so the effective sample size is
-#'   `weight * N`.
-#' * Under a Dirichlet-multinomial the weight column is a LOG concentration, and
-#'   the alphas are built on the offset-inflated total.
+#' Rebuilds the proportions, count total and concentration the likelihood used.
+#' `comp_offset` is added to both proportions before the density; the weight is
+#' an effective sample size under a multinomial and a log concentration under a
+#' Dirichlet-multinomial. Totals are summed over the bins the fleet actually
+#' fit, so tail-folded rows are handled with no special case.
 #'
 #' @param obs,hat Observed and fitted proportions, long, one element per bin.
 #' @param n_input Input sample size, recycled to the length of `obs`.
@@ -785,36 +785,35 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
   n_row <- if (is.null(n_total)) n_input * S else as.numeric(n_total)
   a_scl <- if (is.null(alpha_scale)) S else as.numeric(alpha_scale)
 
-  res <- rep(NA_real_, length(obs))
+  res <- sdv <- rep(NA_real_, length(obs))
   dm  <- !is.na(family) & family == 1L
 
   if (any(!dm)) {
     i <- !dm
-    res[i] <- .pearson_proportion(p_obs[i], p_hat[i], weight[i] * n_row[i])
+    sdv[i] <- sqrt(p_hat[i] * (1 - p_hat[i]) / (weight[i] * n_row[i]))
   }
   if (any(dm)) {
     i <- dm
-    res[i] <- .pearson_proportion(p_obs[i], p_hat[i], n_row[i],
-                                  conc = n_row[i] * a_scl[i] * exp(weight[i]))
+    cc <- n_row[i] * a_scl[i] * exp(weight[i])
+    sdv[i] <- sqrt(p_hat[i] * (1 - p_hat[i]) * (n_row[i] + cc) /
+                     (n_row[i] * (1 + cc)))
   }
+  res <- (p_obs - p_hat) / sdv
+
+  # Travels with the residual so the aggregated-composition band sums the same
+  # variances the residuals were standardized by.
+  attr(res, "sd") <- sdv
   res
 }
 
 
 #' Diet (stomach-content) Pearson residuals on the likelihood's own scale
 #'
-#' Diet differs from the age/length composition in two ways that both move the
-#' residual. Each stomach's vector carries an "other prey" bin -- the balance not
-#' assigned to a modelled prey -- which enters the density but never reaches the
-#' residual frame, so the normalizing total has to be rebuilt from it. And the
-#' proportions are renormalized BEFORE being scaled by the stomach sample size
-#' (`ceattle.cpp:4837`), so the count total is `N_s`, not `N_s` times the
-#' offset-inflated total as it is for comp and CAAL.
-#'
-#' The predicted "other prey" bin goes through `posfun()` in the C++, which
-#' equals `max(x, 1e-5)` except in a narrow smoothing band just below the floor;
-#' this reproduces it with the floor, so a stomach whose modelled prey are
-#' predicted to sum to essentially one is right to within that band.
+#' Each stomach carries an "other prey" balance that enters the density but not
+#' the residual frame, so the normalizing total is rebuilt from it. Proportions
+#' are renormalized before scaling by the stomach sample size
+#' (`ceattle.cpp:4837`), so the count total is `N_s`. The predicted other-prey
+#' bin uses `posfun()`'s 1e-5 floor.
 #'
 #' @param object The fitted model.
 #' @param dd Its `diet_data`.

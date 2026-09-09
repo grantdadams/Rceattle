@@ -20,11 +20,8 @@ outliers (\verb{|resid| > 3}) are drawn as triangles.}
 A \code{ggplot} object.
 }
 \description{
-The size scale is pinned to \verb{[0, 6]} rather than fitted to the data, so two
-figures can be compared by eye -- a free scale makes a well-fitting fleet and
-a badly-fitting one look alike. Residuals beyond 6 are truncated to +/-6
-first, with a warning naming the original values: \code{scale_size_continuous()}
-sets out-of-bounds values to \code{NA} and drops them silently, so the truncation
-has to happen before the limit, not be left to it.
+The size scale is pinned to \verb{[0, 6]} so two figures compare by eye. Residuals
+beyond 6 are truncated first, with a warning: \code{scale_size_continuous()} drops
+out-of-bounds values silently, so truncation cannot be left to the limit.
 }
 \keyword{internal}

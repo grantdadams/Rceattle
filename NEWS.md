@@ -86,6 +86,37 @@ version throughout.
   `afscOSA`. `plot.rceattle_osa()` gains `add_sdnr_ci` and `add_qq_quantiles`
   (both `TRUE`) to suppress either annotation.
 
+* **`plot_comp()`'s aggregated composition pools counts across years** rather
+  than averaging proportions, so a year with 20 otoliths no longer carries the
+  same weight as one with 2000, and gains a 95% interval and the input /
+  effective sample sizes (`add_agg_ci`, `add_agg_n`, both `TRUE`). The interval
+  is the range holding 95% of the data the fitted model predicts, not a
+  confidence interval on the mean, so observations outside it indicate misfit.
+  Its variance is the exact sum of the per-year variances under each fleet's own
+  likelihood -- the same variances the Pearson residuals are divided by -- with
+  a normal approximation for the interval itself, which is poor below about 10
+  expected counts. Rows past `endyr` are excluded, matching the C++ likelihood's
+  own gate, so a projection row no longer inflates the input sample size.
+
+  `afscOSA`'s constructions were deliberately **not** ported here. Its band is a
+  binomial at the pooled sample size, and its aggregate effective sample size a
+  single ratio taken from the pooled composition; measured against the installed
+  package on data simulated with no misspecification, that ESS returns a median
+  of 1.16 x ISS with a range of 0.34-9.16, because pooling first discards the
+  between-year replication. The effective sample size reported here is instead
+  the McAllister-Ianelli weight `fit_mod()` already computes -- a harmonic mean
+  across years, which is the unbiased scale to average an effective sample size
+  on (the estimator is a ratio with the random part in its denominator, so
+  averaging `Neff` directly runs about 50% high).
+
+## Output format
+
+* **`residuals(type = "pearson")` gains an `Sd` column** on composition sources:
+  the standard deviation the fleet's own likelihood assumes for the observed
+  proportion, i.e. the denominator the residual was divided by. `NA` on index
+  and catch. The aggregated composition band reads it, so the band and the
+  residuals cannot disagree about the assumed variance.
+
 # Rceattle 5.28.0
 
 ## Input format

@@ -17,10 +17,8 @@
 A \code{ggplot} object.
 }
 \description{
-Annotated with SDNR (upper left) and, optionally, the tail order statistics
-against their exact nulls (lower right), following \code{afscOSA}'s layout. The
-tail statistics are the \code{r}-th and \code{(n-r+1)}-th order statistics rather than
-interpolated quantiles, so the annotation names the nominal probability they
-actually sit at; see \code{.osa_tail_null()}.
+SDNR upper left, tail order statistics against their exact nulls lower right,
+following \code{afscOSA}. The annotation names the nominal probability each order
+statistic sits at, since it is not exactly 2.5\%.
 }
 \keyword{internal}
