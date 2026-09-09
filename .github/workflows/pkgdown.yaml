@@ -24,6 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # See R-CMD-check.yaml: an unused third-party apt repo serving a bad index
+      # makes every later apt-get install exit 100, setup-r's included.
+      - name: Drop unused third-party apt repositories
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+                     /etc/apt/sources.list.d/microsoft-prod.list
+          sudo apt-get update
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2
