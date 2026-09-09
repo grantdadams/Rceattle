@@ -724,6 +724,15 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
   if (is.null(osa$residual)) {
     stop("'osa' must have a 'residual' column (e.g. output of osa_residuals()).")
   }
+  # The tail null intervals are exact from v5.29.0, so nothing here simulates.
+  # Both arguments are kept so existing calls keep working.
+  if (!missing(nsim) || !missing(seed)) {
+    warning("'nsim' and 'seed' are ignored: the tail null intervals are now ",
+            "exact (the r-th order statistic is Beta(r, n - r + 1)), so ",
+            "osa_diagnostics() no longer simulates. Note the OSA residuals ",
+            "themselves are still randomized-quantile residuals -- pass a seed ",
+            "to osa_residuals() to control those.", call. = FALSE)
+  }
 
   has_groups <- !is.null(osa$source) && !is.null(osa$fleet)
   groups <- if (has_groups) {
@@ -734,7 +743,7 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
 
   rows <- lapply(names(groups), function(g) {
     grp <- groups[[g]]
-    stat <- .osa_sdnr_tails(grp$residual, nsim = nsim, probs = probs, seed = seed)
+    stat <- .osa_sdnr_tails(grp$residual, probs = probs)
     data.frame(
       group  = if (has_groups) paste(grp$source[1], "fleet", grp$fleet[1]) else "all",
       source = if (has_groups) grp$source[1] else NA_character_,
@@ -746,7 +755,7 @@ osa_diagnostics <- function(osa, nsim = 10000, probs = c(0.025, 0.975),
   out <- do.call(rbind, rows)
 
   # Overall row across all residuals.
-  overall <- .osa_sdnr_tails(osa$residual, nsim = nsim, probs = probs, seed = seed)
+  overall <- .osa_sdnr_tails(osa$residual, probs = probs)
   out <- rbind(out, data.frame(group = "all", source = NA_character_,
                                fleet = NA_integer_, overall,
                                stringsAsFactors = FALSE))
@@ -800,21 +809,49 @@ print.rceattle_osa_diagnostics <- function(x, ...) {
 }
 
 
+#' Exact null interval for an order statistic of standard normals
+#'
+#' The `r`-th order statistic of `n` iid uniforms is `Beta(r, n - r + 1)`, so on
+#' the standard-normal scale its exact quantiles are
+#' `qnorm(qbeta(probs, r, n - r + 1))`. `r` is the order statistic closest to
+#' nominal probability `q`, clamped to `[1, n]`: without the upper clamp
+#' `qbeta(p, n + 1, 0)` returns 1 and `qnorm(1)` returns `Inf`, which would make
+#' the tail check pass for every short series (n <= 19 at q = 0.975).
+#'
+#' The statistic compared against this must be the same order statistic,
+#' `sort(resid)[r]`. Pairing it with `quantile()`'s default type-7
+#' interpolation instead mixes two estimators and drops the interval's coverage
+#' to about 0.86 near n = 50, non-monotonically in n.
+#'
+#' @param q Nominal tail probability.
+#' @param n Number of residuals.
+#' @param probs Lower/upper probabilities for the interval itself.
+#' @return A list: the order statistic index `r`, its exact nominal probability
+#'   `r/(n+1)`, and the two-element `null` interval.
+#' @noRd
+.osa_tail_null <- function(q, n, probs = c(0.025, 0.975)) {
+  r <- as.integer(min(n, max(1L, round(q * (n + 1)))))
+  list(r = r, nominal = r / (n + 1),
+       null = stats::qnorm(stats::qbeta(probs, r, n - r + 1)))
+}
+
+
 #' SDNR and tail statistics with standard-normal null intervals
 #'
 #' @param resid Numeric vector of residuals (assumed standard normal under H0).
-#' @param nsim,probs,seed See [osa_diagnostics()].
+#' @param probs See [osa_diagnostics()].
 #' @return A one-row data frame of statistics and their null intervals.
-#' @keywords internal
-.osa_sdnr_tails <- function(resid, nsim = 10000, probs = c(0.025, 0.975),
-                            seed = 123) {
+#' @noRd
+.osa_sdnr_tails <- function(resid, probs = c(0.025, 0.975)) {
   resid <- resid[is.finite(resid)]
   n <- length(resid)
   if (n < 2) {
     return(data.frame(n = n, sdnr = NA_real_, sdnr_lo = NA_real_,
                       sdnr_hi = NA_real_, lower = NA_real_, lower_lo = NA_real_,
                       lower_hi = NA_real_, upper = NA_real_, upper_lo = NA_real_,
-                      upper_hi = NA_real_, sdnr_ok = NA, lower_ok = NA,
+                      upper_hi = NA_real_, lower_r = NA_integer_,
+                      upper_r = NA_integer_, lower_p = NA_real_,
+                      upper_p = NA_real_, sdnr_ok = NA, lower_ok = NA,
                       upper_ok = NA))
   }
 
@@ -824,34 +861,24 @@ print.rceattle_osa_diagnostics <- function(x, ...) {
   sdnr_lo <- sqrt(stats::qchisq(probs[1], df) / df)
   sdnr_hi <- sqrt(stats::qchisq(probs[2], df) / df)
 
-  # Observed lower/upper tail statistics.
-  lower <- stats::quantile(resid, probs[1], names = FALSE)
-  upper <- stats::quantile(resid, probs[2], names = FALSE)
-
-  # Null intervals for the tail statistics by simulation: draw nsim sets of n
-  # standard normals, take each tail quantile, then summarize across draws.
-  withr_seed <- function(s, expr) {
-    if (exists(".Random.seed", envir = .GlobalEnv)) {
-      old <- get(".Random.seed", envir = .GlobalEnv)
-      on.exit(assign(".Random.seed", old, envir = .GlobalEnv))
-    }
-    set.seed(s)
-    expr
-  }
-  sim <- withr_seed(seed, matrix(stats::rnorm(n * nsim), nrow = nsim, ncol = n))
-  sim_lower <- apply(sim, 1L, stats::quantile, probs = probs[1], names = FALSE)
-  sim_upper <- apply(sim, 1L, stats::quantile, probs = probs[2], names = FALSE)
-  lower_int <- stats::quantile(sim_lower, probs, names = FALSE)
-  upper_int <- stats::quantile(sim_upper, probs, names = FALSE)
+  # Tail statistics as order statistics, against their exact nulls, so the
+  # observed value and its interval come from the same estimator.
+  lo <- .osa_tail_null(probs[1], n, probs)
+  hi <- .osa_tail_null(probs[2], n, probs)
+  s     <- sort(resid)
+  lower <- s[lo$r]
+  upper <- s[hi$r]
 
   data.frame(
     n        = n,
-    sdnr     = sdnr,    sdnr_lo  = sdnr_lo,     sdnr_hi  = sdnr_hi,
-    lower    = lower,   lower_lo = lower_int[1], lower_hi = lower_int[2],
-    upper    = upper,   upper_lo = upper_int[1], upper_hi = upper_int[2],
+    sdnr     = sdnr,    sdnr_lo  = sdnr_lo,    sdnr_hi  = sdnr_hi,
+    lower    = lower,   lower_lo = lo$null[1], lower_hi = lo$null[2],
+    upper    = upper,   upper_lo = hi$null[1], upper_hi = hi$null[2],
+    lower_r  = lo$r,    upper_r  = hi$r,
+    lower_p  = lo$nominal, upper_p = hi$nominal,
     sdnr_ok  = sdnr  >= sdnr_lo     & sdnr  <= sdnr_hi,
-    lower_ok = lower >= lower_int[1] & lower <= lower_int[2],
-    upper_ok = upper >= upper_int[1] & upper <= upper_int[2])
+    lower_ok = lower >= lo$null[1] & lower <= lo$null[2],
+    upper_ok = upper >= hi$null[1] & upper <= hi$null[2])
 }
 
 

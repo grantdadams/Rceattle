@@ -80,12 +80,25 @@ plot_comp <- function(Rceattle, file = NULL, model_names = NULL, species = NULL,
   # ---- Pearson residual bubbles (faceted by fleet x type [x sex]) ----
   pear <- long[is.finite(long$pearson), , drop = FALSE]
   if (nrow(pear) > 0) {
+    # Truncated to +/-6 and scaled on a fixed [0, 6], matching the bubbles in
+    # plot.rceattle_osa() -- the same residuals appear in both figures, so a
+    # free scale here would draw them at a different size. Truncation must
+    # precede the limit: ggplot2 sets out-of-bounds sizes to NA and drops them.
+    big <- which(abs(pear$pearson) > 6)
+    if (length(big)) {
+      warning("Composition Pearson residuals: ", length(big),
+              " residual(s) beyond +/-6 truncated for plotting (",
+              paste(sprintf("%.2f", pear$pearson[big]), collapse = ", "), ").",
+              call. = FALSE)
+      pear$pearson[big] <- 6 * sign(pear$pearson[big])
+    }
     pear$sign <- ifelse(pear$pearson >= 0, "positive", "negative")
     g <- ggplot2::ggplot(pear, ggplot2::aes(.data$Year, .data$bin)) +
       ggplot2::geom_point(ggplot2::aes(size = abs(.data$pearson),
                                        colour = .data$sign), alpha = 0.8) +
       ggplot2::scale_colour_manual(values = sign_cols, guide = "none") +
-      ggplot2::scale_size_continuous(range = c(0.5, 6), name = "|Pearson|") +
+      ggplot2::scale_size_continuous(breaks = c(0, 2, 4, 6), limits = c(0, 6),
+                                     range = c(0.1, 3), name = "|Pearson|") +
       ggplot2::facet_wrap(~ source, scales = "free_y") +
       ggplot2::labs(x = "Year", y = "Age / length bin",
                     title = "Composition Pearson residuals") +

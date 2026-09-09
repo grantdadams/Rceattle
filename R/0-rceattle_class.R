@@ -412,7 +412,8 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     }
     obs <- dd$Stomach_proportion_by_weight
     hat <- object$quantities$diet_hat[, 2]
-    res <- if (type == "pearson") .pearson_proportion(obs, hat, dd$Sample_size) else obs - hat
+    res <- if (type == "pearson") .rce_diet_pearson(object, dd, obs, hat) else
+      obs - hat
     return(.sp_filter(data.frame(
       Source = "diet", Species = dd$Pred, Pred_sex = dd$Pred_sex,
       Prey = dd$Prey, Prey_sex = dd$Prey_sex, Pred_age = dd$Pred_age,
@@ -596,6 +597,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     folded <- .fold_comp_props(d, cd, obs_prop, hat_prop, a0l1, n_bin)
 
     if (is.null(folded)) {
+      row_id <- rep(seq_len(n_obs), times = n_bin)
       df <- empty_row(n_obs * n_bin)
       df$Source       <- "comp"
       df$Fleet_code   <- rep(cd$Fleet_code, times = n_bin)
@@ -610,6 +612,7 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       df$Observed     <- as.numeric(obs_prop)
       df$Fitted       <- as.numeric(hat_prop)
     } else {
+      row_id <- folded$row
       df <- empty_row(length(folded$obs))
       df$Source       <- "comp"
       df$Fleet_code   <- cd$Fleet_code[folded$row]
@@ -624,9 +627,15 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
       df$Observed     <- folded$obs
       df$Fitted       <- folded$hat
     }
-    df$Residual     <- if (type == "pearson")
-      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
-    else df$Observed - df$Fitted
+    if (type == "pearson") {
+      fw <- .rce_comp_family(object, df$Fleet_code, "Comp_distribution",
+                             "Comp_weights", "comp_weights")
+      df$Residual <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                                       row_id, fw$family, fw$weight,
+                                       .rce_comp_offset(d))
+    } else {
+      df$Residual <- df$Observed - df$Fitted
+    }
     # Drop zero-padded phantom bins (ragged multispecies comps have
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
@@ -667,9 +676,15 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
     df$Sample_size <- rep(cd$Sample_size, times = n_bin)
     df$Observed    <- as.numeric(obs_prop)
     df$Fitted      <- as.numeric(hat_prop)
-    df$Residual    <- if (type == "pearson")
-      .pearson_proportion(df$Observed, df$Fitted, df$Sample_size)
-    else df$Observed - df$Fitted
+    if (type == "pearson") {
+      fw <- .rce_comp_family(object, df$Fleet_code, "CAAL_distribution",
+                             "CAAL_weights", "caal_weights")
+      df$Residual <- .rce_comp_pearson(df$Observed, df$Fitted, df$Sample_size,
+                                       rep(seq_len(n_obs), times = n_bin),
+                                       fw$family, fw$weight, .rce_comp_offset(d))
+    } else {
+      df$Residual <- df$Observed - df$Fitted
+    }
     # Drop zero-padded phantom bins (ragged multispecies comps have
     # Observed == Fitted == 0), which otherwise give 0/0 = NaN Pearson residuals.
     df <- df[!is.na(df$Observed) & !is.na(df$Fitted) &
@@ -683,16 +698,253 @@ residuals.Rceattle <- function(object, type = "response", source = "all",
 }
 
 
+#' The composition proportion offset the fit used
+#'
+#' Added to both observed and fitted proportions before every composition
+#' density. `switch_check()` fills it at 1e-5 when unset, so a saved `data_list`
+#' from before it existed still resolves.
+#' @param d The model's `data_list`.
+#' @noRd
+.rce_comp_offset <- function(d) {
+  off <- d$comp_offset
+  if (is.null(off) || !is.finite(off[1])) 1e-5 else as.numeric(off)[1]
+}
+
+
 #' Pearson residual for an observed proportion
 #'
-#' \eqn{(p - \hat p)/\sqrt{\hat p (1 - \hat p)/N}} -- the multinomial-bin Pearson
-#' residual shared by the composition, conditional-age-at-length, and diet
-#' branches of [residuals.Rceattle()].
-#' @param observed,fitted Observed and fitted proportions.
-#' @param n Input sample size.
-#' @keywords internal
-.pearson_proportion <- function(observed, fitted, n) {
-  (observed - fitted) / sqrt(fitted * (1 - fitted) / n)
+#' Divides by the variance the fleet's own likelihood assumed. `n` is the
+#' EFFECTIVE count total, not the input sample size: under a multinomial the
+#' weight column multiplies the log-likelihood, so it acts as an effective
+#' sample size (the model's own simulator draws at `N * Comp_weights`). `conc`
+#' is the Dirichlet-multinomial concentration total, i.e. the sum of the alphas.
+#' @param observed,fitted Observed and fitted proportions, on the offset scale
+#'   the likelihood works in (see [.rce_comp_pearson()]).
+#' @param n Effective count total for the observation.
+#' @param conc Dirichlet-multinomial concentration total, or `NULL` for the
+#'   multinomial variance.
+#' @noRd
+.pearson_proportion <- function(observed, fitted, n, conc = NULL) {
+  v <- if (is.null(conc)) {
+    fitted * (1 - fitted) / n
+  } else {
+    # A Dirichlet-multinomial proportion is overdispersed relative to the
+    # multinomial by (n + conc)/(1 + conc). conc -> Inf recovers the multinomial;
+    # conc -> 0 leaves a single effective sample.
+    fitted * (1 - fitted) * (n + conc) / (n * (1 + conc))
+  }
+  (observed - fitted) / sqrt(v)
+}
+
+
+#' Composition Pearson residuals on the likelihood's own scale
+#'
+#' Rebuilds the proportions, count total and concentration the composition
+#' likelihood actually used, then hands them to [.pearson_proportion()]. Three
+#' things differ from the raw data sheet and all three move the residual:
+#'
+#' * `comp_offset` (default 1e-5) is added to both proportions before the
+#'   density, so the fitted proportions no longer sum to one. The per-row total
+#'   is summed over exactly the bins the likelihood fit, which makes this exact
+#'   for folded (tail-accumulated) rows as well as rectangular ones.
+#' * Under a multinomial (`Multinomial`, and the AFSC pseudo-likelihood) the
+#'   weight column multiplies the log-likelihood, so the effective sample size is
+#'   `weight * N`.
+#' * Under a Dirichlet-multinomial the weight column is a LOG concentration, and
+#'   the alphas are built on the offset-inflated total.
+#'
+#' @param obs,hat Observed and fitted proportions, long, one element per bin.
+#' @param n_input Input sample size, recycled to the length of `obs`.
+#' @param row Row grouping, so a per-observation total sums its own bins.
+#' @param family Integer likelihood code per element: 1 = Dirichlet-multinomial,
+#'   0 / -1 = multinomial.
+#' @param weight Per-element weight parameter, on the scale the family reads it
+#'   (natural for a multinomial, log for a Dirichlet-multinomial).
+#' @param offset The model's `comp_offset`.
+#' @param S Optional per-element normalizing total. `NULL` (the default) sums
+#'   each row's own bins, which is right for comp and CAAL. Diet must pass its
+#'   own, because it renormalizes over the prey bins PLUS an "other prey" bin
+#'   that never reaches the residual frame.
+#' @param n_total Optional count total the density sees, per element. `NULL`
+#'   uses `n_input * S`, which is comp and CAAL's construction (they scale the
+#'   offset proportions by N, so the counts sum to `N * S`). Diet normalizes
+#'   BEFORE scaling by N, so its total is `N` and it passes that.
+#' @param alpha_scale Optional factor carrying the second appearance of the
+#'   total in the Dirichlet-multinomial concentration, per element. `NULL` uses
+#'   `S`: comp and CAAL build `alpha = (N*S) * hat_offset * theta` where
+#'   `hat_offset` sums to `S`. Diet's alphas are built on a renormalized vector
+#'   summing to one, so it passes 1.
+#' @noRd
+.rce_comp_pearson <- function(obs, hat, n_input, row, family, weight, offset,
+                              S = NULL, n_total = NULL, alpha_scale = NULL) {
+  # Total over the row's own bins, on the offset scale the density sees.
+  if (is.null(S)) S <- stats::ave(hat + offset, row, FUN = sum)
+  S     <- as.numeric(S)
+  p_obs <- (obs + offset) / S
+  p_hat <- (hat + offset) / S
+  n_row <- if (is.null(n_total)) n_input * S else as.numeric(n_total)
+  a_scl <- if (is.null(alpha_scale)) S else as.numeric(alpha_scale)
+
+  res <- rep(NA_real_, length(obs))
+  dm  <- !is.na(family) & family == 1L
+
+  if (any(!dm)) {
+    i <- !dm
+    res[i] <- .pearson_proportion(p_obs[i], p_hat[i], weight[i] * n_row[i])
+  }
+  if (any(dm)) {
+    i <- dm
+    res[i] <- .pearson_proportion(p_obs[i], p_hat[i], n_row[i],
+                                  conc = n_row[i] * a_scl[i] * exp(weight[i]))
+  }
+  res
+}
+
+
+#' Diet (stomach-content) Pearson residuals on the likelihood's own scale
+#'
+#' Diet differs from the age/length composition in two ways that both move the
+#' residual. Each stomach's vector carries an "other prey" bin -- the balance not
+#' assigned to a modelled prey -- which enters the density but never reaches the
+#' residual frame, so the normalizing total has to be rebuilt from it. And the
+#' proportions are renormalized BEFORE being scaled by the stomach sample size
+#' (`ceattle.cpp:4837`), so the count total is `N_s`, not `N_s` times the
+#' offset-inflated total as it is for comp and CAAL.
+#'
+#' The predicted "other prey" bin goes through `posfun()` in the C++, which
+#' equals `max(x, 1e-5)` except in a narrow smoothing band just below the floor;
+#' this reproduces it with the floor, so a stomach whose modelled prey are
+#' predicted to sum to essentially one is right to within that band.
+#'
+#' @param object The fitted model.
+#' @param dd Its `diet_data`.
+#' @param obs,hat Observed and fitted prey proportions, one element per row.
+#' @noRd
+.rce_diet_pearson <- function(object, dd, obs, hat) {
+  d   <- object$data_list
+  off <- .rce_comp_offset(d)
+
+  # Rows of one stomach are contiguous and share a stomach_id; fall back to the
+  # predator/year/age key when an older data_list carries no id.
+  sid <- d$stomach_id
+  if (is.null(sid) || length(sid) != nrow(dd)) {
+    sid <- paste(dd$Pred, dd$Pred_sex, dd$Pred_age, dd$Year)
+  }
+
+  n_prey <- as.numeric(stats::ave(rep(1, length(obs)), sid, FUN = sum))
+  sum_o  <- as.numeric(stats::ave(obs, sid, FUN = sum))
+  sum_h  <- as.numeric(stats::ave(hat, sid, FUN = sum))
+
+  # The "other prey" balance, exactly as the C++ forms it.
+  other_o <- 1 - pmin(sum_o, 1)
+  other_h <- pmax(1 - sum_h, 1e-5)
+
+  # Each vector is normalized by its own offset-inflated total over n_prey + 1
+  # bins, so observed and fitted carry different totals here.
+  n_bin <- n_prey + 1
+  S_o   <- sum_o + other_o + off * n_bin
+  S_h   <- sum_h + other_h + off * n_bin
+
+  fam <- .rce_family_code(d$bioenergetics_control$Diet_distribution,
+                          "Diet_distribution")[dd$Pred]
+  w   <- .rce_weight_value(object$estimated_params$diet_comp_weights,
+                           d$Diet_comp_weights)[dd$Pred]
+  .rce_warn_missing_theta(fam, w, dd$Pred, "predator species")
+  fam[is.na(fam)] <- 0L
+  w[is.na(w)]     <- 1
+
+  # Observed and fitted each divide by their own total, so this does not go
+  # through .rce_comp_pearson() (which applies one total to both).
+  p_obs <- (obs + off) / S_o
+  p_hat <- (hat + off) / S_h
+  n     <- as.numeric(dd$Sample_size)
+
+  res <- rep(NA_real_, length(obs))
+  dm  <- !is.na(fam) & fam == 1L
+  if (any(!dm)) {
+    res[!dm] <- .pearson_proportion(p_obs[!dm], p_hat[!dm], w[!dm] * n[!dm])
+  }
+  if (any(dm)) {
+    # alpha = normalized fitted proportions * N_s * theta, so the concentration
+    # total is N_s * theta -- no second factor, unlike comp and CAAL.
+    res[dm] <- .pearson_proportion(p_obs[dm], p_hat[dm], n[dm],
+                                   conc = n[dm] * exp(w[dm]))
+  }
+  res
+}
+
+
+#' Per-fleet composition family and fitted weight
+#'
+#' The family column may hold either the switch name or its integer code; the
+#' weight is the FITTED parameter, which a refit moves away from the
+#' `fleet_control` starting value.
+#' @param object The fitted model.
+#' @param fleet_code Fleet codes to look up, one per residual row.
+#' @param dist_col,weight_col Names of the `fleet_control` switch and starting
+#'   weight columns.
+#' @param par Name of the `estimated_params` weight vector.
+#' @return A list of `family` and `weight`, both aligned to `fleet_code`.
+#' @noRd
+.rce_comp_family <- function(object, fleet_code, dist_col, weight_col, par) {
+  fc  <- object$data_list$fleet_control
+  idx <- match(fleet_code, fc$Fleet_code)
+
+  fam <- .rce_family_code(fc[[dist_col]], dist_col)[idx]
+  w   <- .rce_weight_value(object$estimated_params[[par]], fc[[weight_col]])[idx]
+
+  .rce_warn_missing_theta(fam, w, fleet_code, "fleet")
+  fam[is.na(fam)] <- 0L
+  w[is.na(w)]     <- 1
+  list(family = fam, weight = w)
+}
+
+
+#' Normalize a likelihood-family column to its integer switch code
+#'
+#' The column may hold the switch name or the code itself. `NULL` (an older or
+#' hand-built `data_list`) returns `NA`, which the callers resolve to the
+#' multinomial.
+#' @param x The column, or `NULL`.
+#' @param col The schema column name, for its allowed-value map.
+#' @noRd
+.rce_family_code <- function(x, col) {
+  if (is.null(x)) return(NA_integer_)
+  if (is.numeric(x)) return(as.integer(x))
+  as.integer(.rce_allowed_map(col)[as.character(x)])
+}
+
+
+#' The fitted composition weight, falling back to its starting value
+#'
+#' A refit moves the weight away from the `fleet_control` column, so the fitted
+#' parameter is the one the likelihood used. A model built but never optimized
+#' has no `estimated_params`.
+#' @param fitted,start The `estimated_params` vector and the control column.
+#' @noRd
+.rce_weight_value <- function(fitted, start) {
+  if (!is.null(fitted)) return(as.numeric(fitted))
+  if (!is.null(start))  return(as.numeric(start))
+  NA_real_
+}
+
+
+#' Warn when a Dirichlet-multinomial's concentration cannot be recovered
+#'
+#' Falling back to the multinomial variance is the safe choice, but it is the
+#' wrong variance for that fleet, so it must not happen silently.
+#' @param family,weight Resolved family codes and weights.
+#' @param ids,label The units to name in the message.
+#' @noRd
+.rce_warn_missing_theta <- function(family, weight, ids, label) {
+  bad <- !is.na(family) & family == 1L & is.na(weight)
+  if (any(bad)) {
+    warning("No fitted Dirichlet-multinomial weight found for ", label, "(s) ",
+            paste(utils::head(unique(ids[bad]), 10L), collapse = ", "),
+            "; Pearson residuals there use the multinomial variance, which is ",
+            "too small for an overdispersed composition.", call. = FALSE)
+  }
+  invisible(NULL)
 }
 
 

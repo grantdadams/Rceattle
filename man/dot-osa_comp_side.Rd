@@ -4,7 +4,7 @@
 \alias{.osa_comp_side}
 \title{One bin-side (age or length) composition column: Q-Q + OSA + Pearson bubbles}
 \usage{
-.osa_comp_side(comp, pear, side)
+.osa_comp_side(comp, pear, side, add_sdnr_ci = TRUE, add_qq_quantiles = TRUE)
 }
 \arguments{
 \item{comp}{Composition rows with \code{source} and \code{.side} columns.}
@@ -12,6 +12,8 @@
 \item{pear}{Reshaped Pearson rows with \code{source} and \code{.side} columns, or \code{NULL}.}
 
 \item{side}{\code{"age"} or \code{"length"}.}
+
+\item{add_sdnr_ci, add_qq_quantiles}{Passed to \code{\link[=.osa_qqplot]{.osa_qqplot()}}.}
 }
 \value{
 A stacked \code{cowplot}/\code{ggplot} object, or \code{NULL} if no rows on that side.
