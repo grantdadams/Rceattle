@@ -488,7 +488,10 @@ void calculate_selectivity(
               else sel_at_age(flt, sex, bin, yr) = cum_sum;
             }
 
-            // Normalize inside year/sex block
+            // Normalized here rather than in normalize_and_project_selectivity(),
+            // so the reference is always this sex's own maximum: both sexes reach
+            // 1, Sel_norm_scope has no effect, and Hake cannot carry a sex
+            // difference in level. PROPOSED: inst/dev/TODO-hake-sel-norm-scope.md.
             max_sel = -1e10;
             if (sel_norm_bin1(flt) >= 0 && sel_norm_bin2(flt) < 0) {
               max_sel = is_length_based ? sel_at_length(flt, sex, sel_norm_bin1(flt), yr) : sel_at_age(flt, sex, sel_norm_bin1(flt), yr);
